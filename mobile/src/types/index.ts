@@ -1,0 +1,491 @@
+/**
+ * Tomo Type Definitions
+ */
+
+// Readiness levels
+export type ReadinessLevel = 'GREEN' | 'YELLOW' | 'RED';
+
+// Intensity levels
+export type IntensityLevel = 'REST' | 'LIGHT' | 'MODERATE' | 'HARD';
+
+// Sports (only supported sports)
+export type Sport = 'football' | 'basketball' | 'tennis' | 'padel';
+
+// Archetypes
+export type Archetype = 'phoenix' | 'titan' | 'blade' | 'surge';
+
+export interface ArchetypeInfo {
+  emoji: string;
+  name: string;
+  rarity: 'common' | 'uncommon' | 'rare';
+  description: string;
+  fatalFlaw: string;
+  calmMessage: string;
+}
+
+// Gender
+export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
+
+// Season Phase
+export type SeasonPhase = 'pre_season' | 'in_season' | 'off_season';
+
+// Primary Goal
+export type PrimaryGoal =
+  | 'improve_fitness'
+  | 'get_recruited'
+  | 'recover_from_injury'
+  | 'stay_consistent'
+  | 'have_fun';
+
+// User
+export interface User {
+  id: string;
+  uid: string;
+  email: string;
+  name: string;
+  displayName?: string;
+  age: number;
+  sport: Sport;
+  region?: string;
+  teamId?: string | null;
+  archetype?: Archetype | null;
+  archetypeInfo?: ArchetypeInfo | null;
+  totalPoints: number;
+  currentStreak: number;
+  longestStreak: number;
+  streakMultiplier: number;
+  streakFreezeTokens: number;
+  milestonesUnlocked: string[];
+
+  // Onboarding fields
+  onboardingComplete?: boolean;
+  height?: number | null;
+  weight?: number | null;
+  gender?: Gender | null;
+  position?: string | null;
+  playingStyle?: string | null;
+  weeklyTrainingDays?: number;
+  typicalSessionLength?: number | null;
+  seasonPhase?: SeasonPhase;
+  typicalSleepHours?: number | null;
+  baselineEnergy?: number | null;
+  injuries?: string | null;
+  painAreas?: string[];
+  isStudent?: boolean;
+  schoolHours?: number | null;
+  examPeriods?: string | null;
+  primaryGoal?: PrimaryGoal | null;
+  selfSelectedArchetype?: Archetype | null;
+  healthKitConnected?: boolean;
+  fcmToken?: string | null;
+  parentalConsent?: boolean;
+  selectedSports?: string[];
+  photoUrl?: string | null;
+}
+
+// Onboarding Data
+export interface OnboardingData {
+  height?: number;
+  weight?: number;
+  gender: Gender;
+  position?: string;
+  playingStyle?: string;
+  weeklyTrainingDays?: number;
+  typicalSessionLength?: number;
+  seasonPhase?: SeasonPhase;
+  typicalSleepHours?: number;
+  baselineEnergy?: number;
+  injuries?: string;
+  painAreas?: string[];
+  isStudent?: boolean;
+  schoolHours?: number;
+  examPeriods?: string;
+  primaryGoal: PrimaryGoal;
+  selfSelectedArchetype?: Archetype;
+
+  // Sport selection (multi-sport)
+  selectedSports?: string[];
+
+  // Football-specific onboarding
+  footballPosition?: string;
+  footballExperience?: 'beginner' | 'intermediate' | 'advanced' | 'elite';
+  footballCompetition?: 'recreational' | 'club' | 'academy' | 'professional';
+  footballSelfAssessment?: Record<string, number>;
+}
+
+// Sport Positions Response
+export interface SportPositionsResponse {
+  sport: string;
+  positions: string[];
+  styles: string[];
+}
+
+// Check-in (fixed to match backend fields)
+export interface CheckinData {
+  energy: number;
+  soreness: number;
+  sleepHours: number;
+  painFlag: boolean;
+  painLocation?: string;
+  effortYesterday?: number;
+  mood?: number;
+  academicStress?: number;
+}
+
+export interface Checkin extends CheckinData {
+  id: string;
+  odataType?: string;
+  userId: string;
+  date: string;
+  readinessLevel?: ReadinessLevel | null;
+  planId?: string | null;
+  createdAt: string;
+}
+
+// Exercise
+export interface Exercise {
+  name: string;
+  duration?: string;
+  sets?: number;
+  reps?: string;
+  notes?: string;
+}
+
+// Plan
+export interface Plan {
+  id: string;
+  date: string;
+  readinessLevel: ReadinessLevel;
+  recommendedIntensity: IntensityLevel;
+  recommendation: string;
+  decisionExplanation?: string | { summary: string; factors: string[] };
+  exercises?: Exercise[];
+  warmup?: Exercise[];
+  mainWorkout?: Exercise[];
+  cooldown?: Exercise[];
+  focusAreas?: string[];
+  alerts?: Array<{ type: string; message: string }>;
+  recoveryTips?: string[];
+  archetypeMessage?: string;
+  duration?: number;
+}
+
+// Progress
+export interface ProgressData {
+  currentStreak: number;
+  longestStreak: number;
+  totalPoints: number;
+  weeklyPoints: number;
+  streakMultiplier: number;
+  totalCheckIns: number;
+  milestonesUnlocked?: string[];
+  nextMilestone?: {
+    id: string;
+    days: number;
+    reward: string;
+  };
+  progressPercent?: number;
+  daysToNext?: number;
+  streakFreezeTokens?: number;
+}
+
+// Gamification
+export interface GamificationData {
+  streak?: {
+    currentStreak: number;
+    multiplier: number;
+    usedFreeze: boolean;
+    longestStreak: number;
+  };
+  progress: ProgressData;
+  milestones?: {
+    unlockedMilestones: string[];
+    newlyUnlocked: Array<{ id: string; days: number; reward: string }>;
+    nextMilestone: { id: string; days: number; reward: string } | null;
+  };
+  archetype?: {
+    newlyAssigned?: boolean;
+    assigned?: boolean;
+    archetype?: Archetype;
+    archetypeInfo?: ArchetypeInfo;
+    checkinsNeeded?: number;
+    explanation?: string;
+  };
+}
+
+// Leaderboard
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  name: string;
+  displayName?: string;
+  totalPoints: number;
+  currentStreak: number;
+  archetype?: Archetype | null;
+  sport?: Sport;
+}
+
+export interface LeaderboardResponse {
+  leaderboard: LeaderboardEntry[];
+  total: number;
+}
+
+export interface UserRank {
+  rank: number;
+  totalPoints: number;
+  currentStreak: number;
+}
+
+export interface NearbyRanksResponse {
+  userRank: UserRank;
+  nearby: LeaderboardEntry[];
+}
+
+// Feedback
+export interface FeedbackData {
+  didWorkout: boolean;
+  actualIntensity: string;
+  followedPlan: boolean;
+  notes?: string;
+}
+
+// Calendar Event Sport
+export type EventSport = 'football' | 'padel' | 'general';
+
+// Calendar Event
+export interface CalendarEvent {
+  id: string;
+  userId: string;
+  name: string;
+  type: 'training' | 'match' | 'recovery' | 'study_block' | 'exam' | 'other';
+  sport: EventSport;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  intensity: IntensityLevel | null;
+  notes: string;
+  createdAt: string;
+}
+
+export interface CalendarEventInput {
+  name: string;
+  type: 'training' | 'match' | 'recovery' | 'study_block' | 'exam' | 'other';
+  sport?: EventSport;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  intensity?: IntensityLevel;
+  notes?: string;
+}
+
+// Event type alias for reuse
+export type EventType = 'training' | 'match' | 'recovery' | 'study_block' | 'exam' | 'other';
+
+// Ghost Calendar — AI-suggested events based on detected patterns
+export interface GhostSuggestion {
+  name: string;
+  type: EventType;
+  dayOfWeek: number; // 0=Sun, 1=Mon, ... 6=Sat
+  startTime: string | null;
+  endTime: string | null;
+  intensity: IntensityLevel | null;
+  occurrences: number;
+  confidence: number; // 0–1
+  patternDescription: string;
+}
+
+export interface GhostEvent {
+  ghostId: string;
+  patternSource: string;
+  confidence: number;
+  isGhost: true;
+  name: string;
+  type: EventType;
+  sport: EventSport;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  intensity: IntensityLevel | null;
+}
+
+export type DisplayEvent = (CalendarEvent & { isGhost?: false }) | GhostEvent;
+
+export interface GhostSuggestionWithDate {
+  suggestion: GhostSuggestion;
+  date: string;
+}
+
+export interface GhostSuggestionsResponse {
+  suggestions: GhostSuggestionWithDate[];
+}
+
+// Focus View — simplified single-card items
+export interface FocusItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  time: string | null;
+  type: EventType | 'plan';
+  intensity: IntensityLevel | null;
+  source: 'event' | 'plan' | 'ghost';
+}
+
+// Chat Calendar Notification — shown as toast in Plan tab
+export interface ChatCalendarNotification {
+  eventName: string;
+  eventDate: string;
+  eventTime: string | null;
+  createdAt: string;
+}
+
+// BlazePod Sessions
+export interface BlazePodSession {
+  id: string;
+  userId: string;
+  drillId: string;
+  drillName: string;
+  sets: number;
+  totalTouches: number;
+  bestReactionTime: number | null;
+  avgReactionTime: number | null;
+  rpe: number;
+  durationSeconds: number;
+  notes: string;
+  createdAt: string;
+}
+
+export interface BlazePodHistoryResponse {
+  sessions: BlazePodSession[];
+  count: number;
+}
+
+// Sleep
+export type SleepSource = 'healthkit' | 'manual';
+export type SleepQuality = 'poor' | 'fair' | 'good' | 'excellent';
+
+export interface SleepLog {
+  id: string;
+  userId: string;
+  date: string;
+  hours: number;
+  quality: SleepQuality;
+  source: SleepSource;
+  pointsAwarded: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SleepSyncRequest {
+  date: string;
+  totalHours: number;
+  quality?: SleepQuality;
+  source: SleepSource;
+  rawSamples?: unknown[];
+}
+
+export interface SleepSyncResponse {
+  sleepLog: SleepLog;
+  pointsAwarded: {
+    basePoints: number;
+    multiplier: number;
+    finalPoints: number;
+  } | null;
+}
+
+export interface SleepHistoryResponse {
+  sleepLogs: SleepLog[];
+  count: number;
+}
+
+// Notification Preferences
+export interface NotificationPreferences {
+  userId: string;
+  dailyReminder: boolean;
+  dailyReminderTime: string;
+  streakReminders: boolean;
+  milestoneAlerts: boolean;
+  redDayGuidance: boolean;
+  weeklySummary: boolean;
+}
+
+export interface NotificationPreferencesResponse {
+  preferences: NotificationPreferences;
+}
+
+// Chat
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  role: 'user' | 'ai';
+  content: string;
+  timestamp: string;
+  metadata: {
+    intent?: string;
+    mode?: string;
+  } | null;
+}
+
+export interface ChatSendResponse {
+  userMessage: ChatMessage;
+  aiMessage: ChatMessage;
+  intent: string;
+  remaining: number;
+}
+
+export interface ChatMessagesResponse {
+  messages: ChatMessage[];
+  count: number;
+}
+
+export interface SuggestionChip {
+  label: string;
+  message: string;
+}
+
+export interface ChatSuggestionsResponse {
+  suggestions: SuggestionChip[];
+}
+
+// API Responses
+export interface CheckinResponse {
+  checkin: Checkin;
+  plan: Plan;
+  gamification: GamificationData;
+}
+
+export interface TodayResponse {
+  needsCheckin: boolean;
+  checkin: Checkin | null;
+  plan: Plan | null;
+  progress: ProgressData | null;
+  gamification?: GamificationData | null;
+}
+
+export interface UserResponse {
+  user: User;
+}
+
+// Privacy Settings
+export interface PrivacySettings {
+  passportEnabled: boolean;
+  showVideoTests: boolean;
+  showStreakData: boolean;
+  showArchetype: boolean;
+  showPhysicalProfile: boolean;
+  showSleepData: boolean;
+  showPoints: boolean;
+}
+
+export interface PrivacySettingsResponse {
+  privacySettings: PrivacySettings;
+  parentalConsentRequired: boolean;
+}
+
+// Error
+export interface ApiError {
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
+  };
+}

@@ -1,0 +1,483 @@
+/**
+ * Signup Screen
+ * Registration for Tomo with profile setup — dark aesthetic
+ * Only 4 supported sports: football, basketball, tennis, padel
+ */
+
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Button, Input } from '../components';
+import {
+  colors,
+  spacing,
+  typography,
+  borderRadius,
+  fontFamily,
+  layout,
+} from '../theme';
+import { useAuth } from '../hooks/useAuth';
+import type { AuthStackParamList } from '../navigation/types';
+import type { Sport } from '../types';
+
+type SignupScreenProps = {
+  navigation: NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
+};
+
+const SPORTS: { value: Sport; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: 'football', label: 'Football', icon: 'football-outline' },
+  { value: 'basketball', label: 'Basketball', icon: 'basketball-outline' },
+  { value: 'tennis', label: 'Tennis', icon: 'tennisball-outline' },
+  { value: 'padel', label: 'Padel', icon: 'tennisball-outline' },
+];
+
+export function SignupScreen({ navigation }: SignupScreenProps) {
+  const { register, isLoading } = useAuth();
+  const [step, setStep] = useState(1);
+
+  // Step 1: Account
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Step 2: Profile
+  const [name, setName] = useState('');
+  const [age, setAge] = useState('');
+  const [sport, setSport] = useState<Sport | ''>('');
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [signupError, setSignupError] = useState('');
+
+  const validateStep1 = () => {
+    const newErrors: Record<string, string> = {};
+    if (!email) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Enter a valid email';
+    if (!password) newErrors.password = 'Password is required';
+    else if (password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateStep2 = () => {
+    const newErrors: Record<string, string> = {};
+    if (!name) newErrors.name = 'Name is required';
+    if (!age) newErrors.age = 'Age is required';
+    else {
+      const ageNum = parseInt(age, 10);
+      if (isNaN(ageNum) || ageNum < 8 || ageNum > 25) {
+        newErrors.age = 'Age must be between 8 and 25';
+      }
+    }
+    if (!sport) newErrors.sport = 'Please select a sport';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSocialAuth = (provider: string) => {
+    Alert.alert('Coming Soon', `${provider} sign-up will be available in a future update.`);
+  };
+
+  const handleNext = () => {
+    if (validateStep1()) {
+      setStep(2);
+      setErrors({});
+    }
+  };
+
+  const handleSignup = async () => {
+    if (!validateStep2()) return;
+    setSignupError('');
+    try {
+      await register(email, password, {
+        name,
+        age: parseInt(age, 10),
+        sport: sport as Sport,
+      });
+    } catch (error) {
+      setSignupError((error as Error).message);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* ─── Header ──────────────────────────────────────────── */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>
+              {step === 1 ? 'Step 1: Account Details' : 'Step 2: About You'}
+            </Text>
+          </View>
+
+          {/* ─── Progress Indicator ──────────────────────────────── */}
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressDot, step >= 1 && styles.progressDotActive]} />
+            <View style={[styles.progressLine, step >= 2 && styles.progressLineActive]} />
+            <View style={[styles.progressDot, step >= 2 && styles.progressDotActive]} />
+          </View>
+
+          {signupError !== '' && (
+            <View style={styles.errorBanner}>
+              <Ionicons name="alert-circle" size={18} color={colors.error} />
+              <Text style={styles.errorBannerText}>{signupError}</Text>
+            </View>
+          )}
+
+          {step === 1 ? (
+            <View style={styles.form}>
+              {/* Social Auth Buttons */}
+              <View style={styles.socialSection}>
+                <TouchableOpacity
+                  style={styles.socialButton}
+                  onPress={() => handleSocialAuth('Apple')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="logo-apple" size={20} color="#000000" />
+                  <Text style={styles.socialButtonText}>Continue with Apple</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.socialButton}
+                  onPress={() => handleSocialAuth('Google')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="logo-google" size={18} color="#000000" />
+                  <Text style={styles.socialButtonText}>Continue with Google</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Divider */}
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or sign up with email</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <Input
+                label="Email"
+                placeholder="your@email.com"
+                value={email}
+                onChangeText={setEmail}
+                error={errors.email}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <Input
+                label="Password"
+                placeholder="Create a password"
+                value={password}
+                onChangeText={setPassword}
+                error={errors.password}
+                secureTextEntry
+              />
+
+              <Input
+                label="Confirm Password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                error={errors.confirmPassword}
+                secureTextEntry
+              />
+
+              <Button
+                title="Next"
+                onPress={handleNext}
+                variant="primary"
+                size="large"
+                style={styles.button}
+              />
+            </View>
+          ) : (
+            <View style={styles.form}>
+              <Input
+                label="Name"
+                placeholder="Your name"
+                value={name}
+                onChangeText={setName}
+                error={errors.name}
+                autoCapitalize="words"
+              />
+
+              <Input
+                label="Age"
+                placeholder="Your age"
+                value={age}
+                onChangeText={setAge}
+                error={errors.age}
+                keyboardType="number-pad"
+              />
+
+              <Text style={styles.sportLabel}>Sport</Text>
+              {errors.sport && <Text style={styles.error}>{errors.sport}</Text>}
+              <View style={styles.sportGrid}>
+                {SPORTS.map((s) => (
+                  <TouchableOpacity
+                    key={s.value}
+                    onPress={() => setSport(s.value)}
+                    style={[
+                      styles.sportChip,
+                      sport === s.value && styles.sportChipSelected,
+                    ]}
+                  >
+                    <Ionicons
+                      name={s.icon}
+                      size={18}
+                      color={sport === s.value ? '#FFFFFF' : colors.textInactive}
+                      style={styles.sportIcon}
+                    />
+                    <Text
+                      style={[
+                        styles.sportChipText,
+                        sport === s.value && styles.sportChipTextSelected,
+                      ]}
+                    >
+                      {s.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.buttonRow}>
+                <Button
+                  title="Back"
+                  onPress={() => setStep(1)}
+                  variant="outline"
+                  icon="arrow-back"
+                  style={styles.backButton}
+                />
+                <Button
+                  title="Create Account"
+                  onPress={handleSignup}
+                  loading={isLoading}
+                  variant="primary"
+                  style={styles.submitButton}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* ─── Footer ──────────────────────────────────────────── */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Already have an account?</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.link}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: layout.screenMargin,
+    paddingTop: spacing.lg,
+  },
+
+  // ── Header ────────────────────────────────────────────────────────
+  header: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    marginBottom: spacing.md,
+  },
+  title: {
+    fontFamily: fontFamily.bold,
+    fontSize: 28,
+    color: colors.textOnDark,
+  },
+  subtitle: {
+    ...typography.bodyOnDark,
+    color: colors.textInactive,
+    marginTop: spacing.xs,
+  },
+
+  // ── Progress ──────────────────────────────────────────────────────
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  progressDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.borderLight,
+  },
+  progressDotActive: {
+    backgroundColor: colors.accent1,
+  },
+  progressLine: {
+    width: 40,
+    height: 2,
+    backgroundColor: colors.borderLight,
+    marginHorizontal: spacing.xs,
+  },
+  progressLineActive: {
+    backgroundColor: colors.accent1,
+  },
+
+  // ── Error Banner ──────────────────────────────────────────────────
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.readinessRedBg,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+  },
+  errorBannerText: {
+    ...typography.bodySmall,
+    color: colors.error,
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+
+  // ── Social Auth ──────────────────────────────────────────────────
+  socialSection: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundElevated,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  socialButtonText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 16,
+    color: colors.textOnDark,
+  },
+
+  // ── Divider ────────────────────────────────────────────────────────
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.borderLight,
+  },
+  dividerText: {
+    ...typography.metadataSmall,
+    color: colors.textInactive,
+    marginHorizontal: spacing.md,
+  },
+
+  // ── Form ──────────────────────────────────────────────────────────
+  form: {
+    marginBottom: spacing.xl,
+  },
+  button: {
+    marginTop: spacing.md,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    marginTop: spacing.md,
+  },
+  backButton: {
+    flex: 1,
+    marginRight: spacing.sm,
+    marginTop: spacing.md,
+  },
+  submitButton: {
+    flex: 2,
+    marginTop: spacing.md,
+  },
+
+  // ── Sport Selection ───────────────────────────────────────────────
+  sportLabel: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 14,
+    color: colors.textOnDark,
+    marginBottom: spacing.xs,
+  },
+  error: {
+    ...typography.caption,
+    color: colors.error,
+    marginBottom: spacing.xs,
+  },
+  sportGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  sportChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundElevated,
+    borderWidth: 1.5,
+    borderColor: colors.borderLight,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  sportChipSelected: {
+    backgroundColor: colors.accent1,
+    borderColor: colors.accent1,
+  },
+  sportIcon: {
+    marginRight: spacing.xs,
+  },
+  sportChipText: {
+    ...typography.caption,
+    color: colors.textInactive,
+    fontFamily: fontFamily.medium,
+  },
+  sportChipTextSelected: {
+    color: '#FFFFFF',
+  },
+
+  // ── Footer ────────────────────────────────────────────────────────
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: spacing.xl,
+  },
+  footerText: {
+    ...typography.bodyOnDark,
+    color: colors.textInactive,
+  },
+  link: {
+    ...typography.bodyOnDark,
+    color: colors.accent2,
+    fontFamily: fontFamily.semiBold,
+    marginLeft: spacing.xs,
+  },
+});

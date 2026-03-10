@@ -1,0 +1,83 @@
+{
+  "expo": {
+    "name": "tomo",
+    "slug": "tomo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tomo.app",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Tomo reads your sleep, heart rate, workouts, and activity data to track recovery and optimize training.",
+        "NSCameraUsageDescription": "Tomo uses the camera to record your training drills so you can review your form.",
+        "NSPhotoLibraryUsageDescription": "Tomo accesses your photo library to set a profile photo and save drill recordings.",
+        "NSMicrophoneUsageDescription": "Tomo records audio with your training drill videos.",
+        "NSMotionUsageDescription": "Tomo uses motion sensors to measure your jump height, sprint speed, agility, and balance during phone-based tests."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": ["health-records"]
+      }
+    },
+    "android": {
+      "package": "com.tomo.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": ""
+      },
+      "supabaseUrl": "https://ektrccjlszvcjmakolyu.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHJjY2psc3p2Y2ptYWtvbHl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNTYzMTMsImV4cCI6MjA4ODczMjMxM30.kFnMdHFAX9XeDc8FFC_dQEt38uw37rDt8N34Ns6mIx8"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Tomo uses the camera to record your training drills so you can review your form.",
+          "microphonePermission": "Tomo records audio with your training drill videos.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Tomo accesses your photos to set a profile picture.",
+          "cameraPermission": "Tomo uses the camera to take a profile photo."
+        }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Tomo reads your sleep, heart rate, workouts, and activity data to track recovery and optimize training.",
+          "NSHealthUpdateUsageDescription": "Tomo does not write health data."
+        }
+      ],
+      "expo-notifications",
+      "expo-sensors"
+    ]
+  }
+}
