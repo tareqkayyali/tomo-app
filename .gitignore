@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build outputs
+backend/.next/
+backend/out/
+backend/build/
+
+# Supabase
+backend/supabase/.branches
+backend/supabase/.temp
+
+# Keep env templates
+!backend/.env.local.local
+!backend/.env.local.production
