@@ -27,3 +27,4 @@ backend/supabase/.temp
 # Keep env templates
 !backend/.env.local.local
 !backend/.env.local.production
+.vercel
