@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ALLOWED_SPORTS, type Sport } from "@/types";
 
+const _FOOTBALL_POSITIONS = [
+  "Goalkeeper",
+  "Center Back",
+  "Full Back",
+  "Defensive Midfielder",
+  "Central Midfielder",
+  "Attacking Midfielder",
+  "Winger",
+  "Striker",
+];
+
 const SPORT_POSITIONS: Record<Sport, string[]> = {
-  soccer: [
-    "Goalkeeper",
-    "Center Back",
-    "Full Back",
-    "Defensive Midfielder",
-    "Central Midfielder",
-    "Attacking Midfielder",
-    "Winger",
-    "Striker",
-  ],
+  football: _FOOTBALL_POSITIONS,
+  soccer: _FOOTBALL_POSITIONS, // alias
   basketball: [
     "Point Guard",
     "Shooting Guard",
@@ -23,8 +26,11 @@ const SPORT_POSITIONS: Record<Sport, string[]> = {
   padel: ["Right Side (Drive)", "Left Side (Backhand)", "Both Sides"],
 };
 
+const _FOOTBALL_STYLES = ["Attacking", "Defensive", "Balanced", "Technical", "Physical"];
+
 const PLAYING_STYLES: Record<Sport, string[]> = {
-  soccer: ["Attacking", "Defensive", "Balanced", "Technical", "Physical"],
+  football: _FOOTBALL_STYLES,
+  soccer: _FOOTBALL_STYLES, // alias
   basketball: [
     "Scoring",
     "Playmaking",
