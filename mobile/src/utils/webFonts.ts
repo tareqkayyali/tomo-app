@@ -1,14 +1,20 @@
 /**
- * Web Font Loader — Poppins via Google Fonts CDN
+ * Web Font Loader — Poppins + Ionicons for static web exports
  *
  * On web, expo-font's dynamic @font-face injection can fail in static exports.
  * This module injects reliable @font-face rules that map Expo's font family names
- * (e.g., "Poppins_300Light") directly to Google Fonts CDN TTF files.
+ * (e.g., "Poppins_300Light") directly to Google Fonts CDN TTF files, and also
+ * loads Ionicons from the bundled asset so icon fonts render correctly.
  *
  * Call `injectWebFonts()` once at app startup (web only).
  */
 
 import { Platform } from 'react-native';
+
+// Ionicons font — import the TTF so the bundler includes it in the output
+// and gives us a resolved URL we can use in @font-face
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const ioniconsFont = require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf');
 
 /**
  * Google Fonts CDN URLs for Poppins — stable, versioned endpoints.
@@ -75,9 +81,23 @@ export function injectWebFonts(): void {
 }`,
   ).join('\n');
 
-  // Global base font — ensures all text falls back to Poppins/sans-serif
+  // Resolve the Ionicons font URL (bundler gives us a hashed path)
+  const ioniconsUrl = typeof ioniconsFont === 'string' ? ioniconsFont
+    : (ioniconsFont && ioniconsFont.default) ? ioniconsFont.default
+    : ioniconsFont?.uri || '';
+
+  // Global base font + Ionicons icon font
   const globalCss = `
 ${css}
+
+/* Ionicons icon font — required for @expo/vector-icons on web */
+@font-face {
+  font-family: 'ionicons';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('${ioniconsUrl}') format('truetype');
+}
 
 /* Global web font smoothing & fallback */
 html, body, #root, #root > * {
