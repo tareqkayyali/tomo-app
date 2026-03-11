@@ -5,7 +5,7 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import {
   useFonts,
   Poppins_300Light,
@@ -61,8 +61,16 @@ function AppContent() {
 }
 
 export default function App() {
+  // On web static exports, the bundled Ionicons asset path lives under
+  // node_modules/... which Vercel refuses to serve (404). We copied the
+  // exact same TTF to public/fonts/ so it's available at /fonts/Ionicons.ttf.
+  // On native, use the original expo asset so metro resolves it normally.
+  const ioniconsSource = Platform.OS === 'web'
+    ? { ionicons: '/fonts/Ionicons.ttf' as any }
+    : Ionicons.font;
+
   const [fontsLoaded] = useFonts({
-    ...Ionicons.font,
+    ...ioniconsSource,
     Poppins_300Light,
     Poppins_400Regular,
     Poppins_500Medium,

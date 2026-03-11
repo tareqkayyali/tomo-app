@@ -1,20 +1,18 @@
 /**
  * Web Font Loader — Poppins + Ionicons for static web exports
  *
- * On web, expo-font's dynamic @font-face injection can fail in static exports.
- * This module injects reliable @font-face rules that map Expo's font family names
- * (e.g., "Poppins_300Light") directly to Google Fonts CDN TTF files, and also
- * loads Ionicons from the bundled asset so icon fonts render correctly.
+ * On web, expo-font's dynamic @font-face injection can fail in static exports
+ * because the bundled TTF assets end up in deep `node_modules/` paths that
+ * Vercel (and other hosts) refuse to serve.
+ *
+ * This module injects reliable @font-face rules:
+ *   - Poppins weights → Google Fonts CDN
+ *   - Ionicons → /fonts/Ionicons.ttf  (copied to public/ at build time)
  *
  * Call `injectWebFonts()` once at app startup (web only).
  */
 
 import { Platform } from 'react-native';
-
-// Ionicons font — import the TTF so the bundler includes it in the output
-// and gives us a resolved URL we can use in @font-face
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const ioniconsFont = require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf');
 
 /**
  * Google Fonts CDN URLs for Poppins — stable, versioned endpoints.
@@ -48,6 +46,16 @@ const POPPINS_FONTS = [
   },
 ];
 
+/**
+ * Ionicons TTF — served from /fonts/Ionicons.ttf via the public/ directory.
+ *
+ * The exact same TTF from @expo/vector-icons is copied to public/fonts/
+ * so it lives at a simple path that all static hosts serve without issue.
+ * The bundled asset path (node_modules/...) 404s on Vercel because it
+ * strips node_modules paths from static deployments.
+ */
+const IONICONS_URL = '/fonts/Ionicons.ttf';
+
 let injected = false;
 
 /**
@@ -69,8 +77,17 @@ export function injectWebFonts(): void {
   preconnect.crossOrigin = 'anonymous';
   document.head.appendChild(preconnect);
 
-  // Build @font-face rules
-  const css = POPPINS_FONTS.map(
+  // Preload the Ionicons font so the browser fetches it early
+  const preloadIonicons = document.createElement('link');
+  preloadIonicons.rel = 'preload';
+  preloadIonicons.href = IONICONS_URL;
+  preloadIonicons.as = 'font';
+  preloadIonicons.type = 'font/ttf';
+  preloadIonicons.crossOrigin = 'anonymous';
+  document.head.appendChild(preloadIonicons);
+
+  // Build @font-face rules for Poppins
+  const poppinsCss = POPPINS_FONTS.map(
     (f) => `
 @font-face {
   font-family: '${f.family}';
@@ -81,14 +98,9 @@ export function injectWebFonts(): void {
 }`,
   ).join('\n');
 
-  // Resolve the Ionicons font URL (bundler gives us a hashed path)
-  const ioniconsUrl = typeof ioniconsFont === 'string' ? ioniconsFont
-    : (ioniconsFont && ioniconsFont.default) ? ioniconsFont.default
-    : ioniconsFont?.uri || '';
-
-  // Global base font + Ionicons icon font
+  // Full CSS: Poppins + Ionicons + global smoothing
   const globalCss = `
-${css}
+${poppinsCss}
 
 /* Ionicons icon font — required for @expo/vector-icons on web */
 @font-face {
@@ -96,7 +108,7 @@ ${css}
   font-style: normal;
   font-weight: 400;
   font-display: block;
-  src: url('${ioniconsUrl}') format('truetype');
+  src: url('${IONICONS_URL}') format('truetype');
 }
 
 /* Global web font smoothing & fallback */
