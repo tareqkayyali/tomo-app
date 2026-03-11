@@ -28,7 +28,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import PagerView from 'react-native-pager-view';
+// PagerView is native-only; lazy-import to avoid crashing web
+const PagerView = Platform.OS !== 'web'
+  ? require('react-native-pager-view').default
+  : null;
 import {
   SkeletonCard,
   ErrorState,
@@ -408,7 +411,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   );
 
   // ─── Pager for swipe-between-tabs ───
-  const pagerRef = useRef<PagerView>(null);
+  const pagerRef = useRef<any>(null);
   const TAB_ORDER: FlowTab[] = ['flow', 'week', 'month'];
   const tabScrollPosition = useSharedValue(0);
 
@@ -752,6 +755,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
       {/* ─── Swipeable Pager (Flow | Week | Month) ─── */}
       <View style={{ flex: 1 }}>
         <ScrollFadeOverlay />
+        {Platform.OS !== 'web' && PagerView ? (
         <PagerView
         ref={pagerRef}
         style={styles.pager}
@@ -971,6 +975,98 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
           </ScrollView>
         </View>
         </PagerView>
+        ) : (
+          /* Web fallback: show only the active tab (no swipe) */
+          <View style={styles.pager}>
+            {activeTab === 'flow' && (
+              <View key="flow-web" style={styles.pagerPage}>
+                <ScrollView
+                  style={styles.eventsScroll}
+                  contentContainerStyle={styles.flowContent}
+                  showsVerticalScrollIndicator={false}
+                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />}
+                >
+                  <View style={styles.readinessRow}>
+                    <ReadinessRing score={MOCK_READINESS.score} level={MOCK_READINESS.level} size={72} />
+                    <View style={styles.aiWrap}>
+                      <AIHeadsUp readinessLevel={MOCK_READINESS.level} archetype={profile?.archetype} onPress={handleAIPress} />
+                    </View>
+                  </View>
+                  <FlowDaySummary events={todayEvents} completedEventIds={completedEvents} />
+                  <View style={styles.timelineSection}>
+                    <FlowTimeline events={todayEvents} completedEventIds={completedEvents} onComplete={handleCompleteEvent} onSkip={handleSkipEvent} onUndo={handleUndoEvent} />
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+            {activeTab === 'week' && (
+              <View key="week-web" style={styles.pagerPage}>
+                <ScrollView
+                  style={styles.eventsScroll}
+                  contentContainerStyle={styles.flowContent}
+                  showsVerticalScrollIndicator={false}
+                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />}
+                >
+                  <WeekBarChart weekDays={weekDays} events={weekEvents} selectedDate={selectedDay} onDayPress={handleDayPress} />
+                  <WeekDayDetail date={selectedDay} events={weekSelectedDayEvents} weekEvents={weekEvents} checkins={checkins} />
+                  <View style={styles.weekEventsSection}>
+                    <View style={styles.eventsSectionHeader}>
+                      <View style={styles.eventsDayDot} />
+                      <Text style={styles.eventsSectionTitle}>{selectedDayLabel}</Text>
+                      <Text style={styles.eventsCount}>{dayEvents.length > 0 ? `${dayEvents.length} event${dayEvents.length !== 1 ? 's' : ''}` : ''}</Text>
+                    </View>
+                    {dayEvents.length > 0 ? dayEvents.map((event) => (<EventCard key={event.id} event={event} onDelete={handleDeleteEvent} />)) : (
+                      <View style={styles.noEventsContainer}>
+                        <Ionicons name="calendar-outline" size={28} color={colors.textInactive} />
+                        <Text style={styles.noEventsText}>No events</Text>
+                      </View>
+                    )}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+            {activeTab === 'month' && (
+              <View key="month-web" style={styles.pagerPage}>
+                <ScrollView
+                  style={styles.eventsScroll}
+                  contentContainerStyle={styles.monthScrollContent}
+                  showsVerticalScrollIndicator={false}
+                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />}
+                >
+                  <View style={styles.monthRow}>
+                    <Pressable onPress={() => navigateByArrow(-1)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={({ pressed }) => pressed && styles.arrowPressed}>
+                      <Ionicons name="chevron-back" size={22} color={colors.textOnDark} />
+                    </Pressable>
+                    <View style={styles.monthTitleRow}>
+                      <Text style={styles.monthTitle}>{formatMonthYear(displayMonth)}</Text>
+                      {!isOnCurrentMonth && (<Pressable onPress={goToToday} style={styles.todayPill} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Text style={styles.todayPillText}>Today</Text></Pressable>)}
+                    </View>
+                    <Pressable onPress={() => navigateByArrow(1)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={({ pressed }) => pressed && styles.arrowPressed}>
+                      <Ionicons name="chevron-forward" size={22} color={colors.textOnDark} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.calendarContainer}>
+                    <FlatList data={MONTH_INDICES} horizontal pagingEnabled showsHorizontalScrollIndicator={false} ref={flatListRef} initialScrollIndex={CENTER_INDEX} getItemLayout={getItemLayout} renderItem={renderMonth} keyExtractor={keyExtractor} onMomentumScrollEnd={handleMomentumScrollEnd} onScrollToIndexFailed={handleScrollToIndexFailed} windowSize={3} maxToRenderPerBatch={2} initialNumToRender={1} decelerationRate="fast" />
+                  </View>
+                  <View style={styles.eventsScrollContent}>
+                    <View style={styles.eventsSectionHeader}>
+                      <View style={styles.eventsDayDot} />
+                      <Text style={styles.eventsSectionTitle}>{selectedDayLabel}</Text>
+                      <Text style={styles.eventsCount}>{dayEvents.length > 0 ? `${dayEvents.length} event${dayEvents.length !== 1 ? 's' : ''}` : ''}</Text>
+                    </View>
+                    {dayEvents.length > 0 ? dayEvents.map((event) => (<EventCard key={event.id} event={event} onDelete={handleDeleteEvent} />)) : (
+                      <View style={styles.noEventsContainer}>
+                        <Ionicons name="calendar-outline" size={36} color={colors.textInactive} />
+                        <Text style={styles.noEventsText}>No events</Text>
+                        <Text style={styles.noEventsSubtext}>Tap + to add an event for this day</Text>
+                      </View>
+                    )}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        )}
       </View>
 
       {/* ─── FAB ─── */}
