@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Constants from 'expo-constants';
-import { onAuthChange, signIn, signUp, signOut, AuthUser } from '../services/auth';
+import { onAuthChange, signIn, signUp, signOut, signInWithProvider, AuthUser } from '../services/auth';
 import { getUser, registerUser } from '../services/api';
 import { initAnalytics, identify, setAnalyticsEnabled, resetAnalytics, track } from '../services/analytics';
 import type { User, Sport } from '../types';
@@ -17,7 +17,13 @@ interface AuthContextType {
   isAuthenticated: boolean;
   needsRegistration: boolean;
   login: (email: string, password: string) => Promise<void>;
+  socialLogin: (provider: 'google' | 'apple') => Promise<void>;
   register: (email: string, password: string, profileData: {
+    name: string;
+    age: number;
+    sport: Sport;
+  }) => Promise<void>;
+  completeRegistration: (profileData: {
     name: string;
     age: number;
     sport: Sport;
@@ -40,7 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) initAnalytics(token);
   }, []);
 
-  // Load user profile from backend
+  // Load user profile from backend.
+  // Returns true if profile loaded, false if user needs registration (404).
   const loadProfile = async (): Promise<boolean> => {
     try {
       const response = await getUser();
@@ -59,10 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return true;
     } catch (error) {
-      // Profile API failed - but don't block the user
-      // They can still use the app, just without backend features
       setProfile(null);
-      setNeedsRegistration(false); // Don't block - let them in
+      // If the error is "User not found" (404), the user signed in via OAuth
+      // but hasn't created a backend profile yet → send them to registration.
+      const msg = (error as Error).message || '';
+      if (msg.includes('not found') || msg.includes('Not found') || msg.includes('User not found')) {
+        setNeedsRegistration(true);
+      } else {
+        // Other API errors (network, server down) — don't block, let them retry
+        setNeedsRegistration(false);
+      }
       return false;
     }
   };
@@ -114,6 +127,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Social login (Google / Apple) via OAuth
+  const socialLogin = async (provider: 'google' | 'apple') => {
+    setIsLoading(true);
+    try {
+      const authUser = await signInWithProvider(provider);
+      setUser(authUser);
+      // Try to load existing profile; if 404, loadProfile sets needsRegistration
+      await loadProfile();
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Register (create Supabase account + backend profile)
   const register = async (
     email: string,
@@ -143,6 +171,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Complete registration for OAuth users (already authenticated, just need backend profile)
+  const completeRegistration = async (
+    profileData: { name: string; age: number; sport: Sport }
+  ) => {
+    setIsLoading(true);
+    try {
+      const response = await registerUser({
+        name: profileData.name,
+        displayName: profileData.name,
+        age: profileData.age,
+        sport: profileData.sport,
+      });
+      setProfile(response.user);
+      setNeedsRegistration(false);
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Logout
   const logout = async () => {
     resetAnalytics();
@@ -166,7 +215,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         needsRegistration,
         login,
+        socialLogin,
         register,
+        completeRegistration,
         logout,
         refreshProfile,
       }}

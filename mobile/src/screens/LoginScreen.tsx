@@ -4,7 +4,7 @@
  * Social auth buttons (UI only), "Forgot Password?" link
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -40,11 +40,19 @@ type LoginScreenProps = {
 };
 
 export function LoginScreen({ navigation }: LoginScreenProps) {
-  const { login, isLoading } = useAuth();
+  const { login, socialLogin, isLoading, needsRegistration } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loginError, setLoginError] = useState('');
+  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
+
+  // If OAuth user needs registration (no backend profile), redirect to Signup step 2
+  useEffect(() => {
+    if (needsRegistration) {
+      navigation.navigate('Signup');
+    }
+  }, [needsRegistration]);
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -65,8 +73,19 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
     }
   };
 
-  const handleSocialAuth = (provider: string) => {
-    Alert.alert('Coming Soon', `${provider} sign-in will be available in a future update.`);
+  const handleSocialAuth = async (provider: 'apple' | 'google') => {
+    setLoginError('');
+    setSocialLoading(provider);
+    try {
+      await socialLogin(provider);
+    } catch (error) {
+      const msg = (error as Error).message;
+      if (!msg.includes('cancelled')) {
+        setLoginError(msg);
+      }
+    } finally {
+      setSocialLoading(null);
+    }
   };
 
   return (
@@ -94,7 +113,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
           <View style={styles.socialSection}>
             <TouchableOpacity
               style={styles.socialButton}
-              onPress={() => handleSocialAuth('Apple')}
+              onPress={() => handleSocialAuth('apple')}
               activeOpacity={0.8}
             >
               <Ionicons name="logo-apple" size={20} color="#000000" />
@@ -103,7 +122,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
 
             <TouchableOpacity
               style={styles.socialButton}
-              onPress={() => handleSocialAuth('Google')}
+              onPress={() => handleSocialAuth('google')}
               activeOpacity={0.8}
             >
               <Ionicons name="logo-google" size={18} color="#000000" />

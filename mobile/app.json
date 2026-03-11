@@ -2,6 +2,7 @@
   "expo": {
     "name": "tomo",
     "slug": "tomo",
+    "scheme": "tomo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,7 +25,9 @@
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,
-        "com.apple.developer.healthkit.access": ["health-records"]
+        "com.apple.developer.healthkit.access": [
+          "health-records"
+        ]
       }
     },
     "android": {
@@ -77,7 +80,8 @@
         }
       ],
       "expo-notifications",
-      "expo-sensors"
+      "expo-sensors",
+      "expo-web-browser"
     ]
   }
 }

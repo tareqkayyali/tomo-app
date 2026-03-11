@@ -4,7 +4,7 @@
  * Only 4 supported sports: football, basketball, tennis, padel
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import {
   Platform,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -43,7 +42,7 @@ const SPORTS: { value: Sport; label: string; icon: keyof typeof Ionicons.glyphMa
 ];
 
 export function SignupScreen({ navigation }: SignupScreenProps) {
-  const { register, isLoading } = useAuth();
+  const { register, socialLogin, completeRegistration, isLoading, isAuthenticated, needsRegistration } = useAuth();
   const [step, setStep] = useState(1);
 
   // Step 1: Account
@@ -58,6 +57,17 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [signupError, setSignupError] = useState('');
+  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
+  // Track whether user signed up via OAuth (skip email/password step)
+  const [isOAuthSignup, setIsOAuthSignup] = useState(false);
+
+  // Auto-detect OAuth user arriving from LoginScreen (already authenticated, needs profile)
+  useEffect(() => {
+    if (isAuthenticated && needsRegistration) {
+      setIsOAuthSignup(true);
+      setStep(2);
+    }
+  }, [isAuthenticated, needsRegistration]);
 
   const validateStep1 = () => {
     const newErrors: Record<string, string> = {};
@@ -85,8 +95,23 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSocialAuth = (provider: string) => {
-    Alert.alert('Coming Soon', `${provider} sign-up will be available in a future update.`);
+  const handleSocialAuth = async (provider: 'apple' | 'google') => {
+    setSignupError('');
+    setSocialLoading(provider);
+    try {
+      await socialLogin(provider);
+      // If socialLogin succeeds and needsRegistration is true,
+      // the user will be kept on this screen — jump to step 2 for profile info
+      setIsOAuthSignup(true);
+      setStep(2);
+    } catch (error) {
+      const msg = (error as Error).message;
+      if (!msg.includes('cancelled')) {
+        setSignupError(msg);
+      }
+    } finally {
+      setSocialLoading(null);
+    }
   };
 
   const handleNext = () => {
@@ -100,11 +125,18 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
     if (!validateStep2()) return;
     setSignupError('');
     try {
-      await register(email, password, {
+      const profileData = {
         name,
         age: parseInt(age, 10),
         sport: sport as Sport,
-      });
+      };
+      if (isOAuthSignup) {
+        // OAuth user — already authenticated, just create backend profile
+        await completeRegistration(profileData);
+      } else {
+        // Email/password user — create Supabase account + backend profile
+        await register(email, password, profileData);
+      }
     } catch (error) {
       setSignupError((error as Error).message);
     }
@@ -145,7 +177,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
               <View style={styles.socialSection}>
                 <TouchableOpacity
                   style={styles.socialButton}
-                  onPress={() => handleSocialAuth('Apple')}
+                  onPress={() => handleSocialAuth('apple')}
                   activeOpacity={0.8}
                 >
                   <Ionicons name="logo-apple" size={20} color="#000000" />
@@ -154,7 +186,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
 
                 <TouchableOpacity
                   style={styles.socialButton}
-                  onPress={() => handleSocialAuth('Google')}
+                  onPress={() => handleSocialAuth('google')}
                   activeOpacity={0.8}
                 >
                   <Ionicons name="logo-google" size={18} color="#000000" />

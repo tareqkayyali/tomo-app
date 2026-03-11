@@ -1,10 +1,18 @@
 /**
  * Authentication Service for Tomo (Supabase)
- * Replaces Firebase Auth with Supabase Auth.
+ * Supports email/password, Google, and Apple sign-in.
  */
 
+import { Platform } from "react-native";
 import { supabase } from "./supabase";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
+import * as WebBrowser from "expo-web-browser";
+import { makeRedirectUri } from "expo-auth-session";
+
+// Complete the auth session on native so the browser dismisses
+if (Platform.OS !== "web") {
+  WebBrowser.maybeCompleteAuthSession();
+}
 
 export interface AuthUser {
   uid: string;
@@ -47,6 +55,84 @@ export async function signUp(email: string, password: string): Promise<AuthUser>
   return {
     uid: data.user.id,
     email: data.user.email ?? null,
+  };
+}
+
+/**
+ * Sign in with a social provider (Google or Apple).
+ *
+ * Native: Opens the system browser via expo-web-browser, waits for the
+ *         redirect back to the app, then sets the Supabase session.
+ * Web:    Redirects the browser to the Supabase OAuth URL; on return
+ *         the Supabase client auto-detects the tokens in the URL hash.
+ *
+ * Returns the AuthUser on success, or throws on failure/cancellation.
+ */
+export async function signInWithProvider(
+  provider: "google" | "apple"
+): Promise<AuthUser> {
+  if (Platform.OS === "web") {
+    // Web: full redirect (Supabase handles the callback automatically)
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) throw new Error(getAuthErrorMessage(error.message));
+
+    // The page will redirect — this code won't be reached.
+    // After redirect back, Supabase client detects tokens from the URL hash
+    // and onAuthStateChange fires automatically.
+    // Return a placeholder; the caller won't use it because the page reloads.
+    return { uid: "", email: null };
+  }
+
+  // ── Native (iOS / Android) ──────────────────────────────────────────
+  const redirectTo = makeRedirectUri();
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo,
+      skipBrowserRedirect: true, // We handle the browser ourselves
+    },
+  });
+
+  if (error) throw new Error(getAuthErrorMessage(error.message));
+  if (!data.url) throw new Error("Failed to start sign-in. Please try again.");
+
+  // Open the OAuth URL in the system browser
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+  if (result.type !== "success" || !result.url) {
+    throw new Error("Sign-in was cancelled.");
+  }
+
+  // Extract tokens from the redirect URL fragment (#access_token=...&refresh_token=...)
+  const url = new URL(result.url);
+
+  // Tokens can be in the hash fragment or query params depending on provider
+  const params = new URLSearchParams(
+    url.hash ? url.hash.substring(1) : url.search
+  );
+  const access_token = params.get("access_token");
+  const refresh_token = params.get("refresh_token");
+
+  if (!access_token || !refresh_token) {
+    throw new Error("Sign-in failed. Missing authentication tokens.");
+  }
+
+  // Set the session in Supabase
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.setSession({ access_token, refresh_token });
+
+  if (sessionError) throw new Error(getAuthErrorMessage(sessionError.message));
+  if (!sessionData.user) throw new Error("Sign-in failed. Please try again.");
+
+  return {
+    uid: sessionData.user.id,
+    email: sessionData.user.email ?? null,
   };
 }
 
