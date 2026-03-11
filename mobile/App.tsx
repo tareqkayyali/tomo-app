@@ -20,8 +20,14 @@ import { ThemeProvider, useTheme } from './src/hooks/useTheme';
 import { SportProvider, type ActiveSport } from './src/hooks/useSportContext';
 import { RootNavigator } from './src/navigation';
 import { AnimatedSplashScreen } from './src/components';
+import { injectWebFonts } from './src/utils/webFonts';
 
 SplashScreen.preventAutoHideAsync();
+
+// Inject @font-face CSS for web before any component renders.
+// This ensures Poppins loads from Google Fonts CDN as a reliable fallback
+// in case expo-font's dynamic loading doesn't work in the static export.
+injectWebFonts();
 
 /** Reads user profile and wires SportProvider with the user's selected sports. */
 function SportWrapper({ children }: { children: React.ReactNode }) {

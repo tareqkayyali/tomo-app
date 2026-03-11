@@ -159,9 +159,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tagline: {
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    letterSpacing: 4,
+    fontFamily: fontFamily.light,         // Poppins Light — matches brand kit tagline weight
+    fontSize: 12,
+    letterSpacing: 6,                     // Wide tracking per brand kit (+0.15em × 12 ≈ 1.8, bumped for visual match)
     color: '#B0B0B0',                     // Gray — per brand kit
     textTransform: 'uppercase',
   },

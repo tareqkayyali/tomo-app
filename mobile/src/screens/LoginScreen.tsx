@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,6 +30,10 @@ import {
 } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import type { AuthStackParamList } from '../navigation/types';
+
+// Brand logo — transparent background, white text with green signal arcs
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const brandLogo = require('../../assets/tomo-logo.png');
 
 type LoginScreenProps = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -75,10 +80,14 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ─── Wordmark Header ─────────────────────────────────── */}
+          {/* ─── Brand Logo Header ────────────────────────────────── */}
           <View style={styles.header}>
-            <Text style={styles.logo}>TOMO</Text>
-            <Text style={styles.tagline}>Train Smarter</Text>
+            <Image
+              source={brandLogo}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
+            <Text style={styles.tagline}>TRAIN SMARTER</Text>
           </View>
 
           {/* ─── Social Auth Buttons ────────────────────────────── */}
@@ -189,16 +198,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
     marginBottom: spacing.lg,
   },
-  logo: {
-    fontFamily: fontFamily.bold,
-    fontSize: 40,
-    color: colors.accent1,
-    letterSpacing: 3,
+  brandLogo: {
+    width: 160,
+    height: 160,
+    marginBottom: 4,
   },
   tagline: {
-    ...typography.bodyOnDark,
-    color: colors.textInactive,
-    marginTop: spacing.xs,
+    fontFamily: fontFamily.light,
+    fontSize: 12,
+    letterSpacing: 6,
+    color: '#B0B0B0',
+    textTransform: 'uppercase',
   },
 
   // ── Social Auth ────────────────────────────────────────────────────
