@@ -2,25 +2,64 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
+// Allowed web origins for CORS
+const ALLOWED_ORIGINS = [
+  "https://app.my-tomo.com",
+  "http://localhost:8081",
+  "http://localhost:19006",
+];
+
+function getCorsHeaders(origin: string | null) {
+  const allowedOrigin =
+    origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "Content-Type, Authorization, x-user-id, x-user-email, api-version",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+
+function addCorsHeaders(response: NextResponse, origin: string | null) {
+  const headers = getCorsHeaders(origin);
+  for (const [key, value] of Object.entries(headers)) {
+    response.headers.set(key, value);
+  }
+  return response;
+}
+
 /**
  * Auth proxy (Next.js 16 proxy.ts — replaces middleware).
- * 1. Checks Authorization: Bearer <token> header (mobile)
- * 2. Falls back to cookie-based auth (web)
+ * 1. Handles CORS preflight (OPTIONS)
+ * 2. Checks Authorization: Bearer <token> header (mobile)
+ * 3. Falls back to cookie-based auth (web)
  * Sets x-user-id and x-user-email headers for downstream routes.
  */
 export async function proxy(req: NextRequest) {
+  const origin = req.headers.get("origin");
+
   // Skip auth for public routes
   const { pathname } = req.nextUrl;
   if (!pathname.startsWith("/api/v1")) {
     return NextResponse.next({ request: req });
   }
 
-  // Content routes are public (read-only, no auth required)
-  if (pathname.startsWith("/api/v1/content")) {
-    return NextResponse.next({ request: req });
+  // --- 0. CORS preflight ---
+  if (req.method === "OPTIONS") {
+    return new NextResponse(null, {
+      status: 200,
+      headers: getCorsHeaders(origin),
+    });
   }
 
-  // --- 1. Try Bearer token (mobile app) ---
+  // Content routes are public (read-only, no auth required)
+  if (pathname.startsWith("/api/v1/content")) {
+    return addCorsHeaders(NextResponse.next({ request: req }), origin);
+  }
+
+  // --- 1. Try Bearer token (mobile app + web) ---
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
@@ -34,16 +73,19 @@ export async function proxy(req: NextRequest) {
     } = await supabase.auth.getUser(token);
 
     if (error || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized. Invalid or expired token." },
-        { status: 401 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { error: "Unauthorized. Invalid or expired token." },
+          { status: 401 }
+        ),
+        origin
       );
     }
 
     const response = NextResponse.next({ request: req });
     response.headers.set("x-user-id", user.id);
     response.headers.set("x-user-email", user.email || "");
-    return response;
+    return addCorsHeaders(response, origin);
   }
 
   // --- 2. Fall back to cookie-based auth (web) ---
@@ -76,15 +118,18 @@ export async function proxy(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error || !user) {
-    return NextResponse.json(
-      { error: "Unauthorized. Please sign in." },
-      { status: 401 }
+    return addCorsHeaders(
+      NextResponse.json(
+        { error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      ),
+      origin
     );
   }
 
   response.headers.set("x-user-id", user.id);
   response.headers.set("x-user-email", user.email || "");
-  return response;
+  return addCorsHeaders(response, origin);
 }
 
 // Only run proxy on /api/v1/* routes. /api/health is public.
