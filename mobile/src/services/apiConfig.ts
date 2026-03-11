@@ -20,6 +20,11 @@ const PRODUCTION_API_URL =
  * - Dev (physical device via Expo): extract host IP from Expo manifest
  */
 function resolveApiBaseUrl(): string {
+  // Allow forcing production API via env var (useful for testing prod from Expo Go)
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
   if (!__DEV__) {
     return PRODUCTION_API_URL;
   }

@@ -69,7 +69,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen to auth state changes
   useEffect(() => {
+    let didFire = false;
+
+    // Safety timeout: if onAuthStateChange never fires (web edge case),
+    // stop loading after 4 seconds so the user sees the login screen.
+    const timeout = setTimeout(() => {
+      if (!didFire) {
+        console.warn('[useAuth] Auth state timeout – falling back to unauthenticated');
+        setIsLoading(false);
+      }
+    }, 4000);
+
     const unsubscribe = onAuthChange(async (authUser) => {
+      didFire = true;
+      clearTimeout(timeout);
       setUser(authUser);
       if (authUser) {
         // Try to load profile but don't block if it fails
@@ -81,7 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      clearTimeout(timeout);
+      unsubscribe();
+    };
   }, []);
 
   // Login

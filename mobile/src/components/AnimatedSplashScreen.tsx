@@ -11,7 +11,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -76,6 +76,12 @@ export function AnimatedSplashScreen({ children, isReady }: AnimatedSplashScreen
         }
       }),
     );
+
+    // Safety fallback for web: if reanimated callback doesn't fire, hide after 2s
+    if (Platform.OS === 'web') {
+      const fallback = setTimeout(hideSplash, 2000);
+      return () => clearTimeout(fallback);
+    }
   }, [isReady]);
 
   const overlayStyle = useAnimatedStyle(() => ({
