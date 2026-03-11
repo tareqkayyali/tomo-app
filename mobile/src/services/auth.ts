@@ -26,13 +26,23 @@ export async function signIn(email: string, password: string): Promise<AuthUser>
 }
 
 /**
- * Sign up with email and password
+ * Sign up with email and password.
+ * If the Supabase project requires email confirmation, `data.session` will be
+ * null even on success. We detect this and throw a user-friendly message so
+ * the UI can tell the user to check their inbox.
  */
 export async function signUp(email: string, password: string): Promise<AuthUser> {
   const { data, error } = await supabase.auth.signUp({ email, password });
 
   if (error) throw new Error(getAuthErrorMessage(error.message));
   if (!data.user) throw new Error("Sign up failed. Please try again.");
+
+  // If no session was created, email confirmation is required
+  if (!data.session) {
+    throw new Error(
+      "Account created! Please check your email to confirm your address, then sign in."
+    );
+  }
 
   return {
     uid: data.user.id,

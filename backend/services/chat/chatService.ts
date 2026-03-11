@@ -99,7 +99,7 @@ function buildSystemPrompt(
   const archetypeDetail = user.archetype
     ? ArchetypeInfo[user.archetype as Archetype]
     : null;
-  const sport = user.sport || "soccer";
+  const sport = user.sport || "football";
 
   const checkinSummary =
     recentCheckins.length > 0

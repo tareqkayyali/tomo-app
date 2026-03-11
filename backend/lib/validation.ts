@@ -13,13 +13,13 @@ export const checkinSchema = z.object({
 
 export const registerSchema = z.object({
   name: z.string().min(1).max(100),
-  sport: z.enum(["soccer", "basketball", "tennis", "padel"]),
-  age: z.number().int().min(10).max(50).optional(),
+  sport: z.enum(["football", "soccer", "basketball", "tennis", "padel"]),
+  age: z.number().int().min(8).max(50).optional(),
 });
 
 export const onboardingSchema = z.object({
-  sport: z.enum(["soccer", "basketball", "tennis", "padel"]).optional(),
-  age: z.number().int().min(10).max(50).optional(),
+  sport: z.enum(["football", "soccer", "basketball", "tennis", "padel"]).optional(),
+  age: z.number().int().min(8).max(50).optional(),
   schoolHours: z.number().min(0).max(16).nullable().optional(),
   examPeriods: z
     .array(

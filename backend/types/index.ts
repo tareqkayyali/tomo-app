@@ -3,9 +3,10 @@
 export type ReadinessLevel = "Green" | "Yellow" | "Red";
 export type IntensityLevel = "rest" | "light" | "moderate" | "hard";
 export type WorkoutType = "rest" | "recovery" | "skill" | "cardio" | "strength";
-export type Sport = "soccer" | "basketball" | "tennis" | "padel";
+export type Sport = "football" | "soccer" | "basketball" | "tennis" | "padel";
 
 export const ALLOWED_SPORTS: Sport[] = [
+  "football",
   "soccer",
   "basketball",
   "tennis",

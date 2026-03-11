@@ -8,12 +8,13 @@ import padel from "./padel";
 const templates: Record<string, any> = {
   general,
   soccer,
+  football: soccer,   // "football" and "soccer" use the same template
   basketball,
   tennis,
   padel,
 };
 
-export const ALLOWED_SPORTS = ["soccer", "basketball", "tennis", "padel"] as const;
+export const ALLOWED_SPORTS = ["football", "soccer", "basketball", "tennis", "padel"] as const;
 
 export function getTemplate(sport: string) {
   const normalizedSport = (sport || "").toLowerCase();

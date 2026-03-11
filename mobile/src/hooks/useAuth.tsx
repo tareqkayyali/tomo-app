@@ -100,18 +100,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Login
+  // Login — load profile directly to avoid race with onAuthChange
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      await signIn(email, password);
-      // Auth state listener will handle the rest
+      const authUser = await signIn(email, password);
+      setUser(authUser);
+      await loadProfile();
+    } catch (error) {
+      throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Register (create account + profile)
+  // Register (create Supabase account + backend profile)
   const register = async (
     email: string,
     password: string,
@@ -119,37 +122,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ) => {
     setIsLoading(true);
     try {
-      // Create Supabase account
-      await signUp(email, password);
+      // 1. Create Supabase account (also signs in if email confirmation is disabled)
+      const authUser = await signUp(email, password);
+      setUser(authUser);
 
-      // Try to create profile on backend
-      try {
-        const response = await registerUser({
-          name: profileData.name,
-          displayName: profileData.name,
-          age: profileData.age,
-          sport: profileData.sport,
-        });
-        setProfile(response.user);
-      } catch (apiError) {
-        // Create a local profile object so user can proceed
-        setProfile({
-          id: '',
-          uid: '',
-          email: email,
-          name: profileData.name,
-          displayName: profileData.name,
-          age: profileData.age,
-          sport: profileData.sport,
-          totalPoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          streakMultiplier: 1,
-          streakFreezeTokens: 0,
-          milestonesUnlocked: [],
-        });
-      }
+      // 2. Create profile on backend (requires valid Bearer token from step 1)
+      const response = await registerUser({
+        name: profileData.name,
+        displayName: profileData.name,
+        age: profileData.age,
+        sport: profileData.sport,
+      });
+      setProfile(response.user);
       setNeedsRegistration(false);
+    } catch (error) {
+      // Surface the actual error so the UI can show it
+      throw error;
     } finally {
       setIsLoading(false);
     }
