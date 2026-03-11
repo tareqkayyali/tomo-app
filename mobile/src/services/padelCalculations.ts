@@ -62,8 +62,8 @@ export const TIER_COLORS: Record<DNATier, {
     text: '#FFFFFF',
   },
   gold: {
-    gradient: ['#FF6B35', '#00B4D8'],
-    border: '#FF6B35',
+    gradient: ['#2ECC71', '#00B4D8'],
+    border: '#2ECC71',
     text: '#FFFFFF',
   },
   diamond: {
@@ -76,10 +76,10 @@ export const TIER_COLORS: Record<DNATier, {
 // ═══ DNA ATTRIBUTE COLORS ═══
 
 export const DNA_ATTRIBUTE_COLORS: Record<DNAAttribute, string> = {
-  power: '#FF6B35',    // orange
+  power: '#2ECC71',    // orange
   reflexes: '#FFD60A', // yellow
-  control: '#30D158',  // green
-  stamina: '#00D9FF',  // cyan
+  control: '#2ECC71',  // green
+  stamina: '#3498DB',  // cyan
   agility: '#FF9500',  // amber
   tactics: '#5856D6',  // indigo
 };
@@ -184,8 +184,8 @@ export const RATING_TIER_NAMES = ['Beginner', 'Developing', 'Competitive', 'Adva
 export const RATING_TIER_COLORS = ['#FFCDD2', '#FFE0B2', '#FFF9C4', '#C8E6C9', '#A5D6A7'];
 
 export function getShotRatingColor(rating: number): string {
-  if (rating >= 70) return '#30D158';  // green
+  if (rating >= 70) return '#2ECC71';  // green
   if (rating >= 50) return '#FFD60A';  // yellow
   if (rating >= 35) return '#FF9500';  // orange
-  return '#00D9FF';                     // teal — growth-oriented
+  return '#3498DB';                     // teal — growth-oriented
 }

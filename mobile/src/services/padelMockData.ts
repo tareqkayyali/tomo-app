@@ -17,10 +17,10 @@ import type {
 // ═══ SPORT OPTIONS ═══
 
 export const SPORT_OPTIONS: SportOption[] = [
-  { value: 'padel', label: 'Padel', icon: 'tennisball', color: '#FF6B35', available: true },
-  { value: 'football', label: 'Football', icon: 'football', color: '#30D158', available: false },
+  { value: 'padel', label: 'Padel', icon: 'tennisball', color: '#2ECC71', available: true },
+  { value: 'football', label: 'Football', icon: 'football', color: '#2ECC71', available: false },
   { value: 'basketball', label: 'Basketball', icon: 'basketball', color: '#FF9500', available: false },
-  { value: 'tennis', label: 'Tennis', icon: 'tennisball-outline', color: '#00D9FF', available: false },
+  { value: 'tennis', label: 'Tennis', icon: 'tennisball-outline', color: '#3498DB', available: false },
 ];
 
 // ═══ SHOT DEFINITIONS ═══

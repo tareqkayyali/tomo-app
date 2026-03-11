@@ -68,8 +68,8 @@ const SPORT_OPTIONS: Array<{
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
 }> = [
-  { key: 'football', label: 'Football', icon: 'football-outline', color: '#FF6B35' },
-  { key: 'padel', label: 'Padel', icon: 'tennisball-outline', color: '#00D9FF' },
+  { key: 'football', label: 'Football', icon: 'football-outline', color: '#2ECC71' },
+  { key: 'padel', label: 'Padel', icon: 'tennisball-outline', color: '#3498DB' },
   { key: 'general', label: 'General', icon: 'ellipsis-horizontal', color: '#AAAAAA' },
 ];
 
@@ -79,7 +79,7 @@ const INTENSITY_OPTIONS: Array<{
   color: string;
 }> = [
   { key: 'REST', label: 'Rest', color: '#8E8E93' },
-  { key: 'LIGHT', label: 'Light', color: '#30D158' },
+  { key: 'LIGHT', label: 'Light', color: '#2ECC71' },
   { key: 'MODERATE', label: 'Moderate', color: '#FF9500' },
   { key: 'HARD', label: 'Hard', color: '#FF453A' },
 ];

@@ -325,7 +325,7 @@ export function FootballProgressContent({
                     {
                       color:
                         trend.delta > 0
-                          ? '#30D158'
+                          ? '#2ECC71'
                           : trend.delta < 0
                             ? attrColor
                             : colors.textInactive,
@@ -364,13 +364,13 @@ export function FootballProgressContent({
             </View>
             <View style={s.summaryItem}>
               <Text style={s.summaryLabel}>Strongest</Text>
-              <Text style={[s.summaryValue, { color: '#30D158' }]} numberOfLines={1}>
+              <Text style={[s.summaryValue, { color: '#2ECC71' }]} numberOfLines={1}>
                 {strongestSkill.name}
               </Text>
             </View>
             <View style={s.summaryItem}>
               <Text style={s.summaryLabel}>Focus On</Text>
-              <Text style={[s.summaryValue, { color: '#00D9FF' }]} numberOfLines={1}>
+              <Text style={[s.summaryValue, { color: '#3498DB' }]} numberOfLines={1}>
                 {focusSkill.name}
               </Text>
             </View>
@@ -588,7 +588,7 @@ function createStyles(colors: ThemeColors) {
     skillCountText: {
       fontFamily: fontFamily.semiBold,
       fontSize: 11,
-      color: '#30D158',
+      color: '#2ECC71',
     },
     summaryRow: {
       flexDirection: 'row',

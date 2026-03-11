@@ -50,7 +50,7 @@ const TIER_GRADIENT: Record<CardTier, { gradient: [string, string]; text: string
     text: '#FFFFFF',
   },
   gold: {
-    gradient: ['#FF6B35', '#00B4D8'],
+    gradient: ['#2ECC71', '#00B4D8'],
     text: '#FFFFFF',
   },
   diamond: {
@@ -236,12 +236,12 @@ export function DNACard({
                       <Ionicons
                         name={trend > 0 ? 'caret-up' : 'caret-down'}
                         size={10}
-                        color={trend > 0 ? '#30D158' : '#8E8E93'}
+                        color={trend > 0 ? '#2ECC71' : '#8E8E93'}
                       />
                       <Text
                         style={[
                           styles.trendText,
-                          { color: trend > 0 ? '#30D158' : '#8E8E93' },
+                          { color: trend > 0 ? '#2ECC71' : '#8E8E93' },
                         ]}
                       >
                         {Math.abs(trend)}

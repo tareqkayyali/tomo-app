@@ -3,7 +3,7 @@
  * Tomo Design System — rounded rectangle pill badges
  *
  * Variants:
- *   chip     — #ECECF1 bg, #FF6B35 text (suggestion chips)
+ *   chip     — #ECECF1 bg, #2ECC71 text (suggestion chips)
  *   success  — green tint bg, green text
  *   warning  — yellow tint bg, yellow text
  *   error    — red tint bg, red text
@@ -39,7 +39,7 @@ interface BadgeProps {
 const variantConfig: Record<BadgeVariant, { bg: string; text: string; border?: string }> = {
   chip: {
     bg: colors.chipBackground,    // #ECECF1
-    text: colors.chipText,        // #FF6B35
+    text: colors.chipText,        // #2ECC71
   },
   success: {
     bg: colors.readinessGreenBg,

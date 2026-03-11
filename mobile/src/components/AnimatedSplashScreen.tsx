@@ -1,17 +1,17 @@
 /**
- * Animated Splash Screen
+ * Animated Splash Screen — Brand Kit 2026
  * Overlays a branded splash on top of the app content, then fades out.
  *
  * Flow:
- *   1. Native splash (#1A1D2E bg) shows during JS bundle load
+ *   1. Native splash (#0A0A0A bg) shows during JS bundle load
  *   2. Fonts finish loading → native splash hides → this component takes over
- *   3. tomo wordmark fades in with orange glow pulse
+ *   3. tomo logo fades in with green glow pulse
  *   4. Once `isReady` flips true, waits a beat then fades out
  *   5. Children (app content) are revealed underneath
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Image, Platform } from 'react-native';
+import { View, StyleSheet, Image, Platform, Text } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,8 +23,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, fontFamily } from '../theme';
 
+// Brand logo — transparent background, white text with green signal arcs
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const shieldLogo = require('../../assets/tomo-logo.png');
+const brandLogo = require('../../assets/tomo-logo.png');
 
 interface AnimatedSplashScreenProps {
   children: React.ReactNode;
@@ -37,20 +38,22 @@ export function AnimatedSplashScreen({ children, isReady }: AnimatedSplashScreen
 
   // Splash overlay opacity (1 → 0 on exit)
   const overlayOpacity = useSharedValue(1);
-  // Wordmark fade-in
-  const textOpacity = useSharedValue(0);
-  const textScale = useSharedValue(0.92);
+  // Logo fade-in
+  const logoOpacity = useSharedValue(0);
+  const logoScale = useSharedValue(0.92);
   // Glow pulse
   const glowOpacity = useSharedValue(0);
   const glowScale = useSharedValue(0.6);
+  // Tagline fade-in (slightly delayed)
+  const taglineOpacity = useSharedValue(0);
 
   // Phase 1: Entrance animation (runs immediately)
   useEffect(() => {
-    // Fade in wordmark
-    textOpacity.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
-    textScale.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
+    // Fade in logo
+    logoOpacity.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
+    logoScale.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
 
-    // Glow expands and pulses
+    // Glow expands and pulses (Tomo Green)
     glowOpacity.value = withDelay(200, withTiming(0.7, { duration: 800 }));
     glowScale.value = withDelay(200,
       withSequence(
@@ -59,6 +62,9 @@ export function AnimatedSplashScreen({ children, isReady }: AnimatedSplashScreen
         withTiming(1.05, { duration: 600, easing: Easing.inOut(Easing.cubic) }),
       ),
     );
+
+    // Tagline fades in after logo
+    taglineOpacity.value = withDelay(500, withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) }));
   }, []);
 
   // Phase 2: Exit animation (when app is ready)
@@ -88,9 +94,9 @@ export function AnimatedSplashScreen({ children, isReady }: AnimatedSplashScreen
     opacity: overlayOpacity.value,
   }));
 
-  const textStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
-    transform: [{ scale: textScale.value }],
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ scale: logoScale.value }],
   }));
 
   const glowStyle = useAnimatedStyle(() => ({
@@ -98,24 +104,30 @@ export function AnimatedSplashScreen({ children, isReady }: AnimatedSplashScreen
     transform: [{ scale: glowScale.value }],
   }));
 
+  const taglineStyle = useAnimatedStyle(() => ({
+    opacity: taglineOpacity.value,
+  }));
+
   return (
     <View style={styles.root}>
       {children}
       {showSplash && (
         <Animated.View style={[styles.overlay, overlayStyle]} pointerEvents="none">
-          {/* Orange glow behind logo */}
+          {/* Green glow behind logo */}
           <Animated.View style={[styles.glow, glowStyle]} />
 
-          {/* Shield logo + tomo wordmark */}
-          <Animated.View style={[styles.logoGroup, textStyle]}>
+          {/* Brand logo (tomo + signal arcs) */}
+          <Animated.View style={[styles.logoGroup, logoStyle]}>
             <Image
-              source={shieldLogo}
-              style={styles.shieldLogo}
+              source={brandLogo}
+              style={styles.brandLogo}
               resizeMode="contain"
             />
-            <Animated.Text style={styles.wordmark}>
-              TOMO
-            </Animated.Text>
+          </Animated.View>
+
+          {/* Tagline: TRAIN SMARTER */}
+          <Animated.View style={[styles.taglineContainer, taglineStyle]}>
+            <Text style={styles.tagline}>TRAIN SMARTER</Text>
           </Animated.View>
         </Animated.View>
       )}
@@ -131,24 +143,26 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.background,
+    backgroundColor: '#0A0A0A',           // Tomo Black
     justifyContent: 'center',
     alignItems: 'center',
   },
   logoGroup: {
     alignItems: 'center',
   },
-  shieldLogo: {
-    width: 80,
-    height: 80,
-    tintColor: '#FFFFFF',
-    marginBottom: 16,
+  brandLogo: {
+    width: 200,
+    height: 200,
+    marginBottom: 8,
   },
-  wordmark: {
-    fontFamily: fontFamily.bold,
-    fontSize: 36,
-    letterSpacing: 8,
-    color: colors.accent1,
+  taglineContainer: {
+    marginTop: 4,
+  },
+  tagline: {
+    fontFamily: fontFamily.regular,
+    fontSize: 14,
+    letterSpacing: 4,
+    color: '#B0B0B0',                     // Gray — per brand kit
     textTransform: 'uppercase',
   },
   glow: {
@@ -156,8 +170,8 @@ const styles = StyleSheet.create({
     width: GLOW_SIZE,
     height: GLOW_SIZE,
     borderRadius: GLOW_SIZE / 2,
-    backgroundColor: 'rgba(255, 107, 53, 0.15)',
-    shadowColor: colors.accent1,
+    backgroundColor: 'rgba(46, 204, 113, 0.15)',  // Tomo Green glow
+    shadowColor: '#2ECC71',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 60,

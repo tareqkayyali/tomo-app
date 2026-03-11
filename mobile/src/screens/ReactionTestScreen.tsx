@@ -54,7 +54,7 @@ type Props = {
 const SCREEN = Dimensions.get('window');
 const TARGET_SIZE = 70;
 const TOTAL_TARGETS = 15;
-const TARGET_COLORS = ['#FF6B35', '#7B61FF', '#00D9FF', '#30D158'];
+const TARGET_COLORS = ['#2ECC71', '#7B61FF', '#3498DB', '#2ECC71'];
 
 // Safe area for target placement
 const PADDING_H = 40;
@@ -327,7 +327,7 @@ export function ReactionTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <Ionicons name="checkmark-circle" size={80} color="#30D158" />
+            <Ionicons name="checkmark-circle" size={80} color="#2ECC71" />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 32,
-    color: '#30D158',
+    color: '#2ECC71',
     marginTop: spacing.md,
   },
 });

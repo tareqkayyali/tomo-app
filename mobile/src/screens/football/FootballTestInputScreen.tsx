@@ -873,7 +873,7 @@ function createStyles(colors: ThemeColors) {
     pbBadgeText: {
       fontFamily: fontFamily.bold,
       fontSize: 14,
-      color: '#30D158',
+      color: '#2ECC71',
     },
 
     // ── Derived Metrics ──

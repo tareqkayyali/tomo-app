@@ -111,7 +111,7 @@ export function SessionCompleteScreen({ navigation, route }: Props) {
   if (saved) {
     return (
       <View style={styles.successCenter}>
-        <Ionicons name="checkmark-circle" size={80} color="#30D158" />
+        <Ionicons name="checkmark-circle" size={80} color="#2ECC71" />
         <Text style={styles.successTitle}>Session Saved!</Text>
         <Text style={styles.successSub}>{drillName}</Text>
         <Text style={styles.successMeta}>
@@ -292,7 +292,7 @@ function MetricInput({
 }
 
 function getRpeColor(val: number): string {
-  if (val <= 3) return '#30D158';
+  if (val <= 3) return '#2ECC71';
   if (val <= 5) return '#FFD60A';
   if (val <= 7) return '#FF9500';
   return '#FF453A';
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
   successTitle: {
     fontFamily: fontFamily.bold,
     fontSize: 28,
-    color: '#30D158',
+    color: '#2ECC71',
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },

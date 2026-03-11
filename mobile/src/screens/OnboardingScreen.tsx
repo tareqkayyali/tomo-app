@@ -71,8 +71,8 @@ type StepId =
 
 // ── Sport Selection ───────────────────────────────────────────────────────
 const SPORT_OPTIONS: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
-  { key: 'football', label: 'Football', icon: 'football-outline', color: '#FF6B35' },
-  { key: 'padel', label: 'Padel', icon: 'tennisball-outline', color: '#00D9FF' },
+  { key: 'football', label: 'Football', icon: 'football-outline', color: '#2ECC71' },
+  { key: 'padel', label: 'Padel', icon: 'tennisball-outline', color: '#3498DB' },
 ];
 
 // ── Football Position ────────────────────────────────────────────────────

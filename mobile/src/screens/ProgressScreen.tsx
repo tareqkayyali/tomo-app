@@ -353,7 +353,7 @@ function PadelProgressContent({
                     {
                       color:
                         trend.delta > 0
-                          ? '#30D158'
+                          ? '#2ECC71'
                           : trend.delta < 0
                             ? attrColor
                             : colors.textInactive,
@@ -396,7 +396,7 @@ function PadelProgressContent({
             </View>
             <View style={padelStyles.shotSummaryItem}>
               <Text style={padelStyles.shotSummaryLabel}>Strongest</Text>
-              <Text style={[padelStyles.shotSummaryValue, { color: '#30D158' }]} numberOfLines={1}>
+              <Text style={[padelStyles.shotSummaryValue, { color: '#2ECC71' }]} numberOfLines={1}>
                 {SHOT_DEFINITIONS[shotRatings.strongestShot].name}
               </Text>
             </View>

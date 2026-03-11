@@ -240,7 +240,7 @@ export function BalanceTestScreen({ navigation }: Props) {
 
   // Get ring color based on deviation
   const getRingColor = (dev: number): string => {
-    if (dev < 0.3) return '#30D158';
+    if (dev < 0.3) return '#2ECC71';
     if (dev < 0.8) return '#FFD60A';
     if (dev < 1.5) return '#FF9500';
     return '#FF453A';
@@ -354,7 +354,7 @@ export function BalanceTestScreen({ navigation }: Props) {
 
       {phase === 'done' && (
         <View style={styles.doneWrap}>
-          <Ionicons name="checkmark-circle" size={80} color="#30D158" />
+          <Ionicons name="checkmark-circle" size={80} color="#2ECC71" />
           <Text style={styles.doneScore}>{liveScore}/100</Text>
           <Text style={styles.doneText}>Done!</Text>
         </View>
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 32,
-    color: '#30D158',
+    color: '#2ECC71',
     marginTop: spacing.sm,
   },
 });

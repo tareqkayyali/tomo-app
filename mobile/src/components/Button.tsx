@@ -4,7 +4,7 @@
  *
  * Variants:
  *   primary  — orange→teal gradient fill, white text, shadow, 12px radius
- *   secondary — transparent, #FF6B35 border, orange text
+ *   secondary — transparent, #2ECC71 border, orange text
  *   outline  — transparent, subtle white border (dark-bg friendly)
  *   ghost    — no background, orange text only
  *   gradient — orange→teal gradient (same as primary)

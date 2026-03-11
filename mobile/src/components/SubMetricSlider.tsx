@@ -29,10 +29,10 @@ function NumberButton({
 
   // Color gradient: 1-3 teal (growth), 4-5 orange, 6-7 yellow, 8-10 green
   const getColor = (n: number): string => {
-    if (n >= 8) return '#30D158';
+    if (n >= 8) return '#2ECC71';
     if (n >= 6) return '#FFD60A';
     if (n >= 4) return '#FF9500';
-    return '#00D9FF';
+    return '#3498DB';
   };
 
   return (

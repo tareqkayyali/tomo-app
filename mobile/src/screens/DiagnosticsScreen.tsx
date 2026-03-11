@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   resultOk: {
-    color: '#30D158',
+    color: '#2ECC71',
     backgroundColor: 'rgba(48,209,88,0.1)',
   },
   resultFail: {

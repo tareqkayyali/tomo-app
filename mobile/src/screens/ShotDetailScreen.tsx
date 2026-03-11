@@ -30,7 +30,7 @@ function SubMetricBar({
 }) {
   const pct = (value / 10) * 100;
   const barColor =
-    pct >= 70 ? '#30D158' : pct >= 50 ? '#FFD60A' : pct >= 35 ? '#FF9500' : '#00D9FF';
+    pct >= 70 ? '#2ECC71' : pct >= 50 ? '#FFD60A' : pct >= 35 ? '#FF9500' : '#3498DB';
 
   return (
     <View style={styles.subMetricRow}>
@@ -150,11 +150,11 @@ export function ShotDetailScreen({ route }: Props) {
                 <Ionicons
                   name={data.trend > 0 ? 'trending-up' : 'trending-down'}
                   size={14}
-                  color={data.trend > 0 ? '#30D158' : '#8E8E93'}
+                  color={data.trend > 0 ? '#2ECC71' : '#8E8E93'}
                 />
                 <Text
                   style={{
-                    color: data.trend > 0 ? '#30D158' : '#8E8E93',
+                    color: data.trend > 0 ? '#2ECC71' : '#8E8E93',
                     fontFamily: fontFamily.medium,
                     fontSize: 12,
                   }}

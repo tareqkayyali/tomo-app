@@ -255,7 +255,7 @@ export function AgilityTestScreen({ navigation }: Props) {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: 'rgba(48,209,88,0.15)' }]}>
-            <Ionicons name="swap-horizontal-outline" size={40} color="#30D158" />
+            <Ionicons name="swap-horizontal-outline" size={40} color="#2ECC71" />
           </View>
           <Text style={styles.title}>Agility Shuffle</Text>
           <Text style={styles.subtitle}>React to directional cues as fast as possible</Text>
@@ -278,7 +278,7 @@ export function AgilityTestScreen({ navigation }: Props) {
 
           <Pressable onPress={handleStart} style={styles.startWrap}>
             <LinearGradient
-              colors={['#30D158', '#30D158CC']}
+              colors={['#2ECC71', '#2ECC71CC']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
@@ -331,7 +331,7 @@ export function AgilityTestScreen({ navigation }: Props) {
             <Ionicons
               name={currentDirection === 'left' ? 'arrow-back' : 'arrow-forward'}
               size={120}
-              color="#30D158"
+              color="#2ECC71"
             />
             <Text style={styles.directionLabel}>
               {currentDirection.toUpperCase()}!
@@ -352,7 +352,7 @@ export function AgilityTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <Ionicons name="checkmark-circle" size={80} color="#30D158" />
+            <Ionicons name="checkmark-circle" size={80} color="#2ECC71" />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   stepNumText: {
     fontFamily: fontFamily.bold,
     fontSize: 14,
-    color: '#30D158',
+    color: '#2ECC71',
   },
   stepText: {
     fontFamily: fontFamily.regular,
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   countdownNum: {
     fontFamily: fontFamily.bold,
     fontSize: 120,
-    color: '#30D158',
+    color: '#2ECC71',
     lineHeight: 130,
   },
 
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 3,
-    backgroundColor: '#30D158',
+    backgroundColor: '#2ECC71',
   },
   progressText: {
     fontFamily: fontFamily.medium,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   directionLabel: {
     fontFamily: fontFamily.bold,
     fontSize: 36,
-    color: '#30D158',
+    color: '#2ECC71',
     textAlign: 'center',
     marginTop: spacing.sm,
   },
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 32,
-    color: '#30D158',
+    color: '#2ECC71',
     marginTop: spacing.md,
   },
 });

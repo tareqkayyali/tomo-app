@@ -94,9 +94,9 @@ export const FOOTBALL_NORMATIVE_DATA: Record<FootballAttribute, AgeNorm[]> = {
 
 export const FOOTBALL_ATTRIBUTE_COLORS: Record<FootballAttribute, string> = {
   pace: '#3498DB',
-  shooting: '#FF6B35',
-  passing: '#30D158',
-  dribbling: '#00D9FF',
+  shooting: '#2ECC71',
+  passing: '#2ECC71',
+  dribbling: '#3498DB',
   defending: '#7B61FF',
   physicality: '#E74C3C',
 };
