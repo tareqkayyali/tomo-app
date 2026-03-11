@@ -15,6 +15,7 @@
 import { useMemo } from 'react';
 import { useContent } from './useContentProvider';
 import type { ContentBundle } from '../services/contentService';
+import { DERIVED_METRIC_CALCULATORS } from '../services/derivedMetricCalculators';
 
 // ═══ TYPES ═══
 
@@ -37,13 +38,17 @@ export interface PhoneTestDef {
 }
 
 export interface BlazePodDrill {
+  id: string;
   name: string;
-  description: string;
-  pods: number;
-  duration: string;
-  mode: string;
+  shortName: string;
   icon: string;
   color: string;
+  sets: number;
+  setDurationSec: number;
+  restBetweenSetsSec: number;
+  description: string;
+  setup: string[];
+  metrics: string[];
 }
 
 export interface ProMilestone {
@@ -117,13 +122,17 @@ export function extractBlazePodDrills(
 ): BlazePodDrill[] {
   const items = extractContentItems(bundle, 'blazepod_drills');
   return items.map((item: any) => ({
+    id: item.key || item.content?.id || '',
     name: item.content?.name ?? '',
+    shortName: item.content?.shortName ?? '',
+    icon: item.content?.icon ?? 'flash-outline',
+    color: item.content?.color ?? '#FF6B35',
+    sets: item.content?.sets ?? 3,
+    setDurationSec: item.content?.setDurationSec ?? 30,
+    restBetweenSetsSec: item.content?.restBetweenSetsSec ?? 30,
     description: item.content?.description ?? '',
-    pods: item.content?.pods ?? 0,
-    duration: item.content?.duration ?? '',
-    mode: item.content?.mode ?? '',
-    icon: item.content?.icon ?? '',
-    color: item.content?.color ?? '',
+    setup: item.content?.setup ?? [],
+    metrics: item.content?.metrics ?? [],
   }));
 }
 
@@ -244,4 +253,101 @@ export function useSportOptions(): Array<{
         available: s.available ?? false,
       }));
   }, [content]);
+}
+
+// ═══ TEST DEFINITIONS ═══
+
+export interface InputFieldDef {
+  key: string;
+  label: string;
+  unit: string;
+  type: 'number' | 'select';
+  required: boolean;
+  placeholder: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: { label: string; value: string }[];
+}
+
+export interface DerivedMetricDef {
+  key: string;
+  label: string;
+  unit: string;
+  calculate: (inputs: Record<string, number | string>) => number | null;
+  normMetricName?: string;
+}
+
+export interface TestDefinition {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  attribute: string | string[];
+  description: string;
+  researchNote: string;
+  inputs: InputFieldDef[];
+  derivedMetrics: DerivedMetricDef[];
+  primaryMetricName: string;
+  primaryInputKey: string;
+}
+
+/**
+ * Extract test definitions from ContentBundle for a sport.
+ * Attaches calculate functions from the DERIVED_METRIC_CALCULATORS registry.
+ */
+export function extractTestDefinitions(
+  bundle: ContentBundle | null,
+  sportId: string,
+): TestDefinition[] {
+  if (!bundle?.sport_test_definitions?.length) return [];
+
+  return bundle.sport_test_definitions
+    .filter((t: any) => t.sport_id === sportId)
+    .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((t: any) => {
+      const attrKeys = t.attribute_keys ?? [];
+      return {
+        id: t.test_id,
+        name: t.name,
+        icon: t.icon,
+        color: t.color,
+        attribute: attrKeys.length === 1 ? attrKeys[0] : attrKeys,
+        description: t.description ?? '',
+        researchNote: t.research_note ?? '',
+        inputs: (t.inputs ?? []) as InputFieldDef[],
+        derivedMetrics: (t.derived_metrics ?? []).map((dm: any) => ({
+          key: dm.key,
+          label: dm.label,
+          unit: dm.unit,
+          calculate: DERIVED_METRIC_CALCULATORS[dm.key] ?? (() => null),
+          normMetricName: dm.normMetricName,
+        })),
+        primaryMetricName: t.primary_metric_name ?? '',
+        primaryInputKey: t.primary_input_key ?? '',
+      };
+    });
+}
+
+/**
+ * Get test definitions for a sport from ContentBundle.
+ * Falls back to empty array when bundle unavailable.
+ */
+export function useTestDefinitions(sportId: string): TestDefinition[] {
+  const { content } = useContent();
+  return useMemo(
+    () => extractTestDefinitions(content, sportId),
+    [content, sportId],
+  );
+}
+
+/**
+ * Get a single test definition by ID for a sport.
+ */
+export function useTestDefinition(
+  sportId: string,
+  testId: string,
+): TestDefinition | undefined {
+  const defs = useTestDefinitions(sportId);
+  return useMemo(() => defs.find((d) => d.id === testId), [defs, testId]);
 }

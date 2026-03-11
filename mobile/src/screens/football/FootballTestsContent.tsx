@@ -21,10 +21,8 @@ import { useSpringEntrance } from '../../hooks/useAnimations';
 import { useFadeIn } from '../../hooks/useFadeIn';
 import { useIsFocused } from '@react-navigation/native';
 
-import {
-  FOOTBALL_TEST_DEFS,
-} from '../../data/footballTestDefs';
-import type { FootballTestDef } from '../../data/footballTestDefs';
+import { useTestDefinitions, type TestDefinition } from '../../hooks/useContentHelpers';
+import { FOOTBALL_TEST_DEFS } from '../../data/footballTestDefs';
 import { useSportContext } from '../../hooks/useSportContext';
 
 import { fontFamily, spacing, borderRadius, layout } from '../../theme';
@@ -52,6 +50,8 @@ export function FootballTestsContent({ navigation }: FootballTestsContentProps) 
   const { colors } = useTheme();
   const { sportConfig } = useSportContext();
   const isFocused = useIsFocused();
+  const contentTestDefs = useTestDefinitions('football');
+  const testDefs = contentTestDefs.length > 0 ? contentTestDefs : FOOTBALL_TEST_DEFS;
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const fadeIn0 = useFadeIn(0, { trigger: isFocused });
@@ -82,7 +82,7 @@ export function FootballTestsContent({ navigation }: FootballTestsContentProps) 
 
       {/* 8 Test Cards */}
       <Animated.View style={[fadeIn1, { gap: spacing.md }]}>
-        {FOOTBALL_TEST_DEFS.map((testDef) => (
+        {testDefs.map((testDef) => (
           <FootballTestCard
             key={testDef.id}
             testDef={testDef}
@@ -135,7 +135,7 @@ function FootballTestCard({
   onPress,
   attributeLabels,
 }: {
-  testDef: FootballTestDef;
+  testDef: TestDefinition;
   onPress: () => void;
   attributeLabels: Record<string, string>;
 }) {

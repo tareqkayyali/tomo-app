@@ -47,13 +47,20 @@ import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 
 import {
-  getFootballTestDef,
+  useTestDefinition,
+  type TestDefinition,
+  type InputFieldDef,
+} from '../../hooks/useContentHelpers';
+import {
   resolveAgilityMetricName,
   normalCDF,
-  getSelfAssessmentSliders,
   calculateSelfAssessmentRating,
+} from '../../services/derivedMetricCalculators';
+import {
+  getFootballTestDef,
+  getSelfAssessmentSliders,
 } from '../../data/footballTestDefs';
-import type { FootballTestDef, InputFieldDef, SelfAssessmentSlider } from '../../data/footballTestDefs';
+import type { SelfAssessmentSlider } from '../../data/footballTestDefs';
 import { getMetricNorm, getMetricMeanForAge } from '../../data/footballMockData';
 
 import { fontFamily, spacing, borderRadius, layout } from '../../theme';
@@ -106,7 +113,9 @@ function getPBKey(testId: string): string {
 
 export function FootballTestInputScreen({ route, navigation }: Props) {
   const { testId } = route.params;
-  const testDef = getFootballTestDef(testId);
+  // Content-driven test def (from DB), falling back to hardcoded
+  const contentTestDef = useTestDefinition('football', testId);
+  const testDef = contentTestDef ?? getFootballTestDef(testId);
   const { colors } = useTheme();
   const { profile } = useAuth();
   const styles = useMemo(() => createStyles(colors), [colors]);

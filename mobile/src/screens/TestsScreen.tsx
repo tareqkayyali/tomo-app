@@ -33,8 +33,7 @@ import {
 } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
-import { DRILLS } from './BlazePodDrillsScreen';
-import type { DrillDef } from './BlazePodDrillsScreen';
+import { useBlazePodDrills, type BlazePodDrill } from '../hooks/useContentHelpers';
 import { getBlazePodHistory } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useFadeIn } from '../hooks/useFadeIn';
@@ -60,6 +59,7 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
   const { profile } = useAuth();
   const isFocused = useIsFocused();
   const { activeSport, setActiveSport, hasMultipleSports, sportConfig, userSports } = useSportContext();
+  const drills = useBlazePodDrills();
   const [activeTab, setActiveTab] = useState<SegmentTab>('tests');
   const [showSportMenu, setShowSportMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -321,7 +321,7 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
 
                 {/* ═══════ BlazePod Drill List ═══════ */}
                 <Animated.View style={[fadeIn2, { gap: spacing.md }]}>
-                  {DRILLS.map((drill) => (
+                  {drills.map((drill) => (
                     <DrillCard
                       key={drill.id}
                       drill={drill}
@@ -379,7 +379,7 @@ function DrillCard({
   onPress,
   onRecord,
 }: {
-  drill: DrillDef;
+  drill: BlazePodDrill;
   lastResult?: string;
   onPress: () => void;
   onRecord: () => void;
@@ -401,7 +401,7 @@ function DrillCard({
             </Text>
           </View>
           <View style={[styles.drillIcon, { backgroundColor: drill.color + '18' }]}>
-            <Ionicons name={drill.icon} size={24} color={drill.color} />
+            <Ionicons name={drill.icon as any} size={24} color={drill.color} />
           </View>
         </View>
 

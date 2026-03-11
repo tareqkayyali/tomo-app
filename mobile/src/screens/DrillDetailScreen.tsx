@@ -31,8 +31,7 @@ import {
   borderRadius,
   typography,
 } from '../theme';
-import { DRILLS } from './BlazePodDrillsScreen';
-import type { DrillDef } from './BlazePodDrillsScreen';
+import { useBlazePodDrills, type BlazePodDrill } from '../hooks/useContentHelpers';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../navigation/types';
@@ -45,7 +44,8 @@ type Props = {
 type Phase = 'setup' | 'countdown' | 'active' | 'rest' | 'done';
 
 export function DrillDetailScreen({ navigation, route }: Props) {
-  const drill = DRILLS.find((d) => d.id === route.params.drillId) as DrillDef;
+  const drills = useBlazePodDrills();
+  const drill = drills.find((d) => d.id === route.params.drillId) as BlazePodDrill;
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [countdownVal, setCountdownVal] = useState(3);
@@ -187,7 +187,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
         >
           {/* Header */}
           <View style={[styles.iconCircle, { backgroundColor: drill.color + '18' }]}>
-            <Ionicons name={drill.icon} size={40} color={drill.color} />
+            <Ionicons name={drill.icon as any} size={40} color={drill.color} />
           </View>
           <Text style={styles.drillTitle}>{drill.name}</Text>
           <Text style={styles.drillMeta}>
