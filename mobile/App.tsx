@@ -14,6 +14,7 @@ import {
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
+import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { ThemeProvider, useTheme } from './src/hooks/useTheme';
@@ -61,6 +62,7 @@ function AppContent() {
 
 export default function App() {
   const [fontsLoaded] = useFonts({
+    ...Ionicons.font,
     Poppins_300Light,
     Poppins_400Regular,
     Poppins_500Medium,
