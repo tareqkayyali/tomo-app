@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   centerButtonFocusRing: {
-    borderColor: '#2ECC71',
+    borderColor: '#FF6B35',
   },
   centerLogo: {
     width: 32,

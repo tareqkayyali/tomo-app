@@ -250,7 +250,7 @@ const GradientMonthGrid = React.memo(function GradientMonthGrid({
     }
     const colors = new Map<string, string>();
     for (const [date, load] of loads) {
-      colors.set(date, load >= 5 ? '#E74C3C' : load >= 3 ? '#FF9500' : '#2ECC71');
+      colors.set(date, load >= 5 ? '#E74C3C' : load >= 3 ? '#FF9500' : '#30D158');
     }
     return colors;
   }, [events]);
@@ -378,7 +378,7 @@ function createGridStyles(_colors: ThemeColors) {
       color: 'rgba(255,255,255,0.4)',
     },
     dayNumberToday: {
-      color: '#2ECC71',
+      color: '#FF6B35',
       fontFamily: fontFamily.bold,
     },
     eventDot: {

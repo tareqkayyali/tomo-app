@@ -245,7 +245,7 @@ export function ShotSessionScreen({ navigation }: Props) {
     <View style={[styles.screen, styles.successContainer]}>
       <Animated.View style={[entrance, styles.successContent]}>
         <View style={styles.successIcon}>
-          <Ionicons name="checkmark-circle" size={64} color="#2ECC71" />
+          <Ionicons name="checkmark-circle" size={64} color="#30D158" />
         </View>
         <Text style={styles.successTitle}>Session Logged!</Text>
         <Text style={styles.successSubtitle}>

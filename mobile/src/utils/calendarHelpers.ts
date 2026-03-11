@@ -183,8 +183,8 @@ export function getEventTypeColor(type: string | undefined): string {
 // ─── Sport Dot Colors ───────────────────────────────────────────────────────
 
 const SPORT_DOT_COLORS: Record<string, string> = {
-  football: '#2ECC71',
-  padel: '#3498DB',
+  football: '#FF6B35',
+  padel: '#00D9FF',
   general: '#AAAAAA',
 };
 

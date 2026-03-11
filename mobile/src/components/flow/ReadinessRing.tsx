@@ -24,7 +24,7 @@ interface Props {
 }
 
 const LEVEL_COLORS: Record<ReadinessLevel, string> = {
-  GREEN: '#2ECC71',
+  GREEN: '#30D158',
   YELLOW: '#F39C12',
   RED: '#E74C3C',
 };

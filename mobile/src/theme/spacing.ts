@@ -65,8 +65,8 @@ export const borderRadius = {
   sm: 8,
   /** 12px — buttons */
   md: 12,
-  /** 8px — standard cards (Brand Kit 2026: 8px radius) */
-  lg: 8,
+  /** 16px — standard cards (Type 2: Rounded Rectangles) */
+  lg: 16,
   /** 20px — chat bubbles */
   chat: 20,
   /** 24px — large cards, input pills */
@@ -110,30 +110,30 @@ export const shadows: Record<string, ViewStyle> = {
 
   // ─── Selective Glow Effects (Critical to Tomo Aesthetic) ─────────
   /**
-   * Green glow — applied to bottom-right of cards (e.g., Streak card)
-   * box-shadow: 0px 4px 16px rgba(46, 204, 113, 0.2)
+   * Orange glow — applied to bottom-right of cards (e.g., Streak card)
+   * box-shadow: 0px 4px 16px rgba(255, 107, 53, 0.2)
    */
   glowOrange: {
-    shadowColor: '#2ECC71',
+    shadowColor: '#FF6B35',
     shadowOffset: { width: 4, height: 4 },
     shadowOpacity: 0.20,
     shadowRadius: 16,
     elevation: 8,
   },
   /**
-   * Blue glow — applied to top-left of cards (e.g., Sleep card)
-   * box-shadow: -4px -4px 16px rgba(52, 152, 219, 0.25)
+   * Cyan glow — applied to top-left of cards (e.g., Sleep card)
+   * box-shadow: -4px -4px 16px rgba(0, 217, 255, 0.25)
    */
   glowCyan: {
-    shadowColor: '#3498DB',
+    shadowColor: '#00D9FF',
     shadowOffset: { width: -4, height: -4 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 8,
   },
-  /** Green glow for avatar rings and #1 leaderboard position */
+  /** Orange glow for avatar rings and #1 leaderboard position */
   glowOrangeRing: {
-    shadowColor: '#2ECC71',
+    shadowColor: '#FF6B35',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.30,
     shadowRadius: 20,
@@ -141,7 +141,7 @@ export const shadows: Record<string, ViewStyle> = {
   },
   /** Subtle glow for interactive elements on hover/press */
   glowSubtle: {
-    shadowColor: '#2ECC71',
+    shadowColor: '#FF6B35',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.10,
     shadowRadius: 8,

@@ -140,10 +140,10 @@ assertEq(unknown.label, 'Moderate', 'Unknown defaults to Moderate');
 
 // ─── getEventTypeColor ──────────────────────────────────────────────────────
 
-assertEq(getEventTypeColor('training'), '#2ECC71', 'training event color');
+assertEq(getEventTypeColor('training'), '#FF6B35', 'training event color');
 assertEq(getEventTypeColor('match'), '#7B61FF', 'match event color');
-assertEq(getEventTypeColor('recovery'), '#2ECC71', 'recovery event color');
-assertEq(getEventTypeColor('study_block'), '#3498DB', 'study_block event color');
+assertEq(getEventTypeColor('recovery'), '#30D158', 'recovery event color');
+assertEq(getEventTypeColor('study_block'), '#00D9FF', 'study_block event color');
 assertEq(getEventTypeColor('exam'), '#FFD60A', 'exam event color');
 assertEq(getEventTypeColor('other'), '#8E8E93', 'other event color');
 assertEq(getEventTypeColor(undefined), '#8E8E93', 'undefined defaults to other');

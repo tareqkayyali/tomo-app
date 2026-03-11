@@ -46,7 +46,7 @@ const RPE_LABELS: Record<number, string> = {
 };
 
 function getRpeColor(val: number): string {
-  if (val <= 3) return '#2ECC71';
+  if (val <= 3) return '#30D158';
   if (val <= 5) return '#FFD60A';
   if (val <= 7) return '#FF9500';
   return '#FF453A';
@@ -129,7 +129,7 @@ export function PhoneTestCompleteScreen({ navigation, route }: Props) {
   if (saved) {
     return (
       <View style={styles.successCenter}>
-        <Ionicons name="checkmark-circle" size={80} color="#2ECC71" />
+        <Ionicons name="checkmark-circle" size={80} color="#30D158" />
         <Text style={styles.successTitle}>Results Saved!</Text>
         <Text style={styles.successSub}>{testName}</Text>
         <Text style={styles.successScore}>
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   successTitle: {
     fontFamily: fontFamily.bold,
     fontSize: 28,
-    color: '#2ECC71',
+    color: '#30D158',
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },

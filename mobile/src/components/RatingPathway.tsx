@@ -72,8 +72,8 @@ export interface RatingPathwayProps {
 
 /** Sport-specific gradient for the progress bar fill */
 const SPORT_BAR_GRADIENT: Record<string, [string, string]> = {
-  football: ['#2ECC71', '#3498DB'],
-  padel: ['#2ECC71', '#3498DB'],
+  football: ['#30D158', '#3498DB'],
+  padel: ['#FF6B35', '#00D9FF'],
 };
 
 // ═══ COMPONENT ═══

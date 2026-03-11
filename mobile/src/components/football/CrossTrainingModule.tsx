@@ -30,8 +30,8 @@ import type { CalendarEvent } from '../../types';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const PADEL_COLOR = '#3498DB';
-const FOOTBALL_COLOR = '#2ECC71';
+const PADEL_COLOR = '#00D9FF';
+const FOOTBALL_COLOR = '#FF6B35';
 
 /** Maximum cross-training contribution per attribute per week */
 const WEEKLY_CAP = 2.0;
@@ -121,7 +121,7 @@ interface Props {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const BOOST_COLORS = ['#3498DB', '#3498DB', '#2ECC71', '#7B61FF'];
+const BOOST_COLORS = ['#00D9FF', '#3498DB', '#30D158', '#7B61FF'];
 
 function computeCrossTrainingStats(
   events: CalendarEvent[],
@@ -408,7 +408,7 @@ function createStyles(colors: ThemeColors) {
     benefitPlus: {
       fontFamily: fontFamily.bold,
       fontSize: 12,
-      color: '#2ECC71',
+      color: '#30D158',
     },
 
     // ── Divider ──

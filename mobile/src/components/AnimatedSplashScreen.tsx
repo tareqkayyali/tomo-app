@@ -1,11 +1,11 @@
 /**
- * Animated Splash Screen — Brand Kit 2026
+ * Animated Splash Screen
  * Overlays a branded splash on top of the app content, then fades out.
  *
  * Flow:
- *   1. Native splash (#0A0A0A bg) shows during JS bundle load
+ *   1. Native splash (#0D0C0E bg) shows during JS bundle load
  *   2. Fonts finish loading → native splash hides → this component takes over
- *   3. tomo logo fades in with green glow pulse
+ *   3. tomo logo fades in with orange glow pulse
  *   4. Once `isReady` flips true, waits a beat then fades out
  *   5. Children (app content) are revealed underneath
  */
@@ -23,7 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, fontFamily } from '../theme';
 
-// Brand logo — transparent background, white text with green signal arcs
+// Brand logo — transparent background, white text with signal arcs
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const brandLogo = require('../../assets/tomo-logo.png');
 
@@ -53,7 +53,7 @@ export function AnimatedSplashScreen({ children, isReady }: AnimatedSplashScreen
     logoOpacity.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
     logoScale.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
 
-    // Glow expands and pulses (Tomo Green)
+    // Glow expands and pulses (Tomo Orange)
     glowOpacity.value = withDelay(200, withTiming(0.7, { duration: 800 }));
     glowScale.value = withDelay(200,
       withSequence(
@@ -113,7 +113,7 @@ export function AnimatedSplashScreen({ children, isReady }: AnimatedSplashScreen
       {children}
       {showSplash && (
         <Animated.View style={[styles.overlay, overlayStyle]} pointerEvents="none">
-          {/* Green glow behind logo */}
+          {/* Orange glow behind logo */}
           <Animated.View style={[styles.glow, glowStyle]} />
 
           {/* Brand logo (tomo + signal arcs) */}
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0A0A0A',           // Tomo Black
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.light,         // Poppins Light — matches brand kit tagline weight
     fontSize: 12,
     letterSpacing: 6,                     // Wide tracking per brand kit (+0.15em × 12 ≈ 1.8, bumped for visual match)
-    color: '#B0B0B0',                     // Gray — per brand kit
+    color: colors.textInactive,
     textTransform: 'uppercase',
   },
   glow: {
@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
     width: GLOW_SIZE,
     height: GLOW_SIZE,
     borderRadius: GLOW_SIZE / 2,
-    backgroundColor: 'rgba(46, 204, 113, 0.15)',  // Tomo Green glow
-    shadowColor: '#2ECC71',
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',   // Tomo Orange glow
+    shadowColor: colors.accent1,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 60,

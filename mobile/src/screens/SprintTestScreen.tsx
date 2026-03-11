@@ -277,7 +277,7 @@ export function SprintTestScreen({ navigation }: Props) {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: 'rgba(0,217,255,0.15)' }]}>
-            <Ionicons name="speedometer-outline" size={40} color="#3498DB" />
+            <Ionicons name="speedometer-outline" size={40} color="#00D9FF" />
           </View>
           <Text style={styles.title}>Sprint Speed</Text>
           <Text style={styles.subtitle}>Time your sprint with phone accelerometer</Text>
@@ -300,7 +300,7 @@ export function SprintTestScreen({ navigation }: Props) {
 
           <Pressable onPress={handleStart} style={styles.startWrap}>
             <LinearGradient
-              colors={['#3498DB', '#3498DBCC']}
+              colors={['#00D9FF', '#00D9FFCC']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
@@ -367,7 +367,7 @@ export function SprintTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <Ionicons name="checkmark-circle" size={80} color="#2ECC71" />
+            <Ionicons name="checkmark-circle" size={80} color="#30D158" />
             <Text style={styles.doneTime}>{formatTime(elapsedMs)}s</Text>
             <Text style={styles.doneLabel}>Done!</Text>
           </View>
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   stepNumText: {
     fontFamily: fontFamily.bold,
     fontSize: 14,
-    color: '#3498DB',
+    color: '#00D9FF',
   },
   stepText: {
     fontFamily: fontFamily.regular,
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   countdownNum: {
     fontFamily: fontFamily.bold,
     fontSize: 120,
-    color: '#3498DB',
+    color: '#00D9FF',
     lineHeight: 130,
   },
 
@@ -510,13 +510,13 @@ const styles = StyleSheet.create({
   goText: {
     fontFamily: fontFamily.bold,
     fontSize: 80,
-    color: '#3498DB',
+    color: '#00D9FF',
     lineHeight: 90,
   },
   timerText: {
     fontFamily: fontFamily.bold,
     fontSize: 80,
-    color: '#3498DB',
+    color: '#00D9FF',
     lineHeight: 90,
   },
   timerUnit: {
@@ -555,13 +555,13 @@ const styles = StyleSheet.create({
   doneTime: {
     fontFamily: fontFamily.bold,
     fontSize: 48,
-    color: '#3498DB',
+    color: '#00D9FF',
     marginTop: spacing.md,
   },
   doneLabel: {
     fontFamily: fontFamily.bold,
     fontSize: 24,
-    color: '#2ECC71',
+    color: '#30D158',
     marginTop: spacing.sm,
   },
 });

@@ -38,7 +38,7 @@ interface Props {
 // ─── Readiness Color Map ────────────────────────────────────────────────────
 
 const READINESS_COLORS: Record<ReadinessLevel, { color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  GREEN: { color: '#2ECC71', bg: 'rgba(48, 209, 88, 0.12)', icon: 'checkmark-circle' },
+  GREEN: { color: '#30D158', bg: 'rgba(48, 209, 88, 0.12)', icon: 'checkmark-circle' },
   YELLOW: { color: '#F39C12', bg: 'rgba(243, 156, 18, 0.12)', icon: 'alert-circle' },
   RED: { color: '#E74C3C', bg: 'rgba(231, 76, 60, 0.12)', icon: 'bed' },
 };

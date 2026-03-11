@@ -152,10 +152,10 @@ assert(getRatingTier(900) === 4, '900 → tier 4');
 // ═══ SHOT RATING COLOR ═══
 console.log('\n--- Shot Rating Color ---');
 
-assert(getShotRatingColor(80) === '#2ECC71', '80 → green');
+assert(getShotRatingColor(80) === '#30D158', '80 → green');
 assert(getShotRatingColor(55) === '#FFD60A', '55 → yellow');
 assert(getShotRatingColor(40) === '#FF9500', '40 → orange');
-assert(getShotRatingColor(20) === '#3498DB', '20 → teal (growth)');
+assert(getShotRatingColor(20) === '#00D9FF', '20 → teal (growth)');
 
 // ═══ SUMMARY ═══
 console.log(`\n${'═'.repeat(50)}`);

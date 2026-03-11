@@ -51,13 +51,13 @@ const SPORT_META: Record<ActiveSport, {
   football: {
     label: 'Football',
     icon: 'football-outline',
-    color: '#2ECC71',
+    color: '#30D158',
     gradientEnd: '#1A8E3A',
   },
   padel: {
     label: 'Padel',
     icon: 'tennisball-outline',
-    color: '#2ECC71',
+    color: '#FF6B35',
     gradientEnd: '#CC5529',
   },
 };

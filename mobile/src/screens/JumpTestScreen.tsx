@@ -423,7 +423,7 @@ export function JumpTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <Ionicons name="checkmark-circle" size={80} color="#2ECC71" />
+            <Ionicons name="checkmark-circle" size={80} color="#30D158" />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.3 }],
   },
   jumpDotDone: {
-    backgroundColor: '#2ECC71',
+    backgroundColor: '#30D158',
   },
 
   centerContent: {
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 32,
-    color: '#2ECC71',
+    color: '#30D158',
     marginTop: spacing.md,
   },
 });

@@ -37,7 +37,7 @@ function MetricBar({
   const barStyle = {
     width: `${barPct}%` as any,
     backgroundColor:
-      barPct >= 70 ? '#2ECC71' : barPct >= 40 ? '#FFD60A' : '#3498DB',
+      barPct >= 70 ? '#30D158' : barPct >= 40 ? '#FFD60A' : '#00D9FF',
   };
 
   return (
@@ -90,12 +90,12 @@ export function AttributeDetailSheet({
           <Ionicons
             name={data.trend > 0 ? 'trending-up' : 'trending-down'}
             size={16}
-            color={data.trend > 0 ? '#2ECC71' : '#8E8E93'}
+            color={data.trend > 0 ? '#30D158' : '#8E8E93'}
           />
           <Text
             style={[
               s.trendText,
-              { color: data.trend > 0 ? '#2ECC71' : '#8E8E93' },
+              { color: data.trend > 0 ? '#30D158' : '#8E8E93' },
             ]}
           >
             {data.trend > 0 ? '+' : ''}{data.trend} from last week

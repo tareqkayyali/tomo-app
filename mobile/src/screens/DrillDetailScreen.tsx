@@ -289,7 +289,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
   // phase === 'done'
   return (
     <View style={styles.fullCenter}>
-      <Ionicons name="checkmark-circle" size={64} color="#2ECC71" />
+      <Ionicons name="checkmark-circle" size={64} color="#30D158" />
       <Text style={styles.doneText}>Complete!</Text>
     </View>
   );
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 28,
-    color: '#2ECC71',
+    color: '#30D158',
     marginTop: spacing.md,
   },
 });

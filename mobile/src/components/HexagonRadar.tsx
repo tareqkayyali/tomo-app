@@ -53,7 +53,7 @@ export interface HexagonRadarProps {
   animate?: boolean;
   /** Called when the user taps an attribute label */
   onAttributeTap?: (key: string) => void;
-  /** Fill color for the data polygon (default '#2ECC71') */
+  /** Fill color for the data polygon (default '#FF6B35') */
   fillColor?: string;
   /** Fill opacity for the data polygon (default 0.25) */
   fillOpacity?: number;
@@ -84,7 +84,7 @@ export function HexagonRadar({
   size = 220,
   animate = true,
   onAttributeTap,
-  fillColor = '#2ECC71',
+  fillColor = '#FF6B35',
   fillOpacity = 0.25,
 }: HexagonRadarProps) {
   const { colors } = useTheme();

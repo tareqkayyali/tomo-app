@@ -332,7 +332,7 @@ function createStyles(colors: ThemeColors) {
     },
     iconCircleCompleted: {
       backgroundColor: 'rgba(48, 209, 88, 0.15)',
-      borderColor: '#2ECC71',
+      borderColor: '#30D158',
     },
     eventCard: {
       flex: 1,
@@ -353,7 +353,7 @@ function createStyles(colors: ThemeColors) {
       textDecorationLine: 'line-through',
     },
     nowBadge: {
-      backgroundColor: '#2ECC71',
+      backgroundColor: '#FF6B35',
       paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: borderRadius.full,

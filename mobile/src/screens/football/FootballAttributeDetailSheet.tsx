@@ -122,12 +122,12 @@ export function FootballAttributeDetailSheet({
           <Ionicons
             name={data.trend > 0 ? 'trending-up' : 'trending-down'}
             size={16}
-            color={data.trend > 0 ? '#2ECC71' : attrColor}
+            color={data.trend > 0 ? '#30D158' : attrColor}
           />
           <Text
             style={[
               s.trendText,
-              { color: data.trend > 0 ? '#2ECC71' : attrColor },
+              { color: data.trend > 0 ? '#30D158' : attrColor },
             ]}
           >
             {data.trend > 0

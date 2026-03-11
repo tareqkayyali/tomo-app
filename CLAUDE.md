@@ -52,7 +52,12 @@ npx supabase gen types typescript --local > types/database.ts  # Generate DB typ
 See `supabase/migrations/00000000000001_schema.sql` for full schema.
 
 ## Sports
-soccer, basketball, tennis, padel (templates in templates/)
+football, soccer, basketball, tennis, padel (templates in templates/)
+
+## Required Skills for All Tomo Sessions
+Always activate these two skills at the start of every Tomo session:
+1. **athlete-performance-director** — Elite performance director lens for all training, readiness, periodization, and sports science decisions
+2. **genz-ux-designer** — Senior UI/UX designer lens for all product design, screen flows, and user experience decisions targeting Gen Z athletes (13–25)
 
 ## Environment Variables
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
