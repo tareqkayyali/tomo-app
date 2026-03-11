@@ -30,7 +30,7 @@ import {
   borderRadius,
 } from '../theme';
 import { savePhoneTestSession } from '../services/api';
-import { PHONE_TESTS } from '../types/phoneTests';
+import { usePhoneTests } from '../hooks/useContentHelpers';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../navigation/types';
@@ -94,13 +94,14 @@ const METRIC_UNITS: Record<string, string> = {
 
 export function PhoneTestCompleteScreen({ navigation, route }: Props) {
   const { testId, testName, category, primaryScore, unit, metrics, durationSeconds } = route.params;
+  const phoneTests = usePhoneTests();
 
   const [rpe, setRpe] = useState<number>(5);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const testDef = PHONE_TESTS.find((t) => t.id === testId);
+  const testDef = phoneTests.find((t) => t.id === testId);
   const testColor = testDef?.color || colors.accent1;
 
   const handleSave = useCallback(async () => {

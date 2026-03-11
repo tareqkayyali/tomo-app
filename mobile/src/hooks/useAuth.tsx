@@ -115,12 +115,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Login — load profile directly to avoid race with onAuthChange
   const login = async (email: string, password: string) => {
+    console.log('[useAuth] login called');
     setIsLoading(true);
     try {
       const authUser = await signIn(email, password);
+      console.log('[useAuth] signIn succeeded, uid:', authUser.uid);
       setUser(authUser);
-      await loadProfile();
+      // Load profile but don't let it block login forever — 10s timeout
+      try {
+        await Promise.race([
+          loadProfile(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Profile load timed out')), 10000)
+          ),
+        ]);
+        console.log('[useAuth] profile loaded');
+      } catch (profileErr) {
+        console.warn('[useAuth] profile load failed:', (profileErr as Error).message);
+        // Auth succeeded even if profile load fails — user is still authenticated
+      }
     } catch (error) {
+      console.error('[useAuth] login failed:', (error as Error).message);
       throw error;
     } finally {
       setIsLoading(false);

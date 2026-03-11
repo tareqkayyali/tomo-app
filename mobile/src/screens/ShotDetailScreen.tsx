@@ -10,12 +10,13 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
 import { useSpringEntrance, useBarFill } from '../hooks/useAnimations';
 import { getShotRatingColor } from '../services/padelCalculations';
-import { getShotRatings, getShotDefinition } from '../services/padelMockData';
+import { useSportContext } from '../hooks/useSportContext';
+import { useAuth } from '../hooks/useAuth';
 import { GlassCard } from '../components/GlassCard';
 import { colors, fontFamily, borderRadius, spacing } from '../theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
-import type { ShotType } from '../types/padel';
+import type { ShotType, ShotRatingsData } from '../types/padel';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'ShotDetail'>;
 
@@ -97,10 +98,26 @@ function MiniLineChart({
 export function ShotDetailScreen({ route }: Props) {
   const { shotType } = route.params;
   const shot = shotType as ShotType;
-  const definition = getShotDefinition(shot);
-  const shotRatings = getShotRatings();
-  const data = shotRatings.shots[shot];
-  const ratingColor = getShotRatingColor(data.rating);
+  const { sportConfig } = useSportContext();
+  const { profile } = useAuth();
+  const userId = profile?.uid || profile?.id || 'osama-kayyali';
+
+  // Build definition from sportConfig
+  const fullSkill = sportConfig.fullSkills.find(s => s.key === shot);
+  const definition = fullSkill ? {
+    type: shot,
+    name: fullSkill.name,
+    category: fullSkill.category ?? '',
+    description: fullSkill.description ?? '',
+    icon: fullSkill.icon ?? 'help-outline',
+    subMetrics: (fullSkill.subMetrics ?? []).slice(0, 3).map(sm => ({
+      key: sm.key, label: sm.label, description: sm.description ?? '',
+    })),
+  } : null;
+
+  const shotRatings = sportConfig.mockData.getSkills(userId) as ShotRatingsData | null;
+  const data = shotRatings?.shots[shot];
+  const ratingColor = getShotRatingColor(data?.rating ?? 0);
 
   const entrance0 = useSpringEntrance(0);
   const entrance1 = useSpringEntrance(1);
@@ -109,7 +126,7 @@ export function ShotDetailScreen({ route }: Props) {
 
   // Coach tip based on weakest sub-metric
   const coachTip = useMemo(() => {
-    if (!definition) return '';
+    if (!definition || !data) return '';
     const entries = Object.entries(data.subMetrics);
     entries.sort((a, b) => a[1] - b[1]);
     const weakest = entries[0];
@@ -118,7 +135,7 @@ export function ShotDetailScreen({ route }: Props) {
     return `Focus on ${def.label.toLowerCase()} — currently rated ${weakest[1]}/10. ${def.description}`;
   }, [data, definition]);
 
-  if (!definition) return null;
+  if (!definition || !data) return null;
 
   return (
     <ScrollView

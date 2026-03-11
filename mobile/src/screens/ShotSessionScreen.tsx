@@ -5,7 +5,7 @@
  * Step 3: Optional notes → submit → success
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,18 +21,19 @@ import { ShotSelector } from '../components/ShotSelector';
 import { SubMetricSlider } from '../components/SubMetricSlider';
 import { GlassCard } from '../components/GlassCard';
 import { GradientButton } from '../components/GradientButton';
-import { SHOT_DEFINITIONS } from '../services/padelMockData';
 import { calculateShotRating } from '../services/padelCalculations';
+import { useSportContext } from '../hooks/useSportContext';
 import { colors, fontFamily, borderRadius, spacing } from '../theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
-import type { ShotType } from '../types/padel';
+import type { ShotType, ShotDefinition } from '../types/padel';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'ShotSession'>;
 
 type Step = 'select' | 'rate' | 'notes' | 'success';
 
 export function ShotSessionScreen({ navigation }: Props) {
+  const { sportConfig } = useSportContext();
   const [step, setStep] = useState<Step>('select');
   const [selectedShots, setSelectedShots] = useState<ShotType[]>([]);
   const [currentShotIndex, setCurrentShotIndex] = useState(0);
@@ -41,6 +42,26 @@ export function ShotSessionScreen({ navigation }: Props) {
   const [sessionType, setSessionType] = useState<'training' | 'match'>('training');
 
   const entrance = useSpringEntrance(0);
+
+  // Build shot definitions lookup from sportConfig
+  const shotDefs = useMemo(() => {
+    const lookup: Record<string, ShotDefinition> = {};
+    for (const skill of sportConfig.fullSkills) {
+      lookup[skill.key] = {
+        type: skill.key as ShotType,
+        name: skill.name,
+        category: skill.category ?? '',
+        description: skill.description ?? '',
+        icon: skill.icon ?? 'help-outline',
+        subMetrics: (skill.subMetrics ?? []).slice(0, 3).map(sm => ({
+          key: sm.key,
+          label: sm.label,
+          description: sm.description ?? '',
+        })) as [any, any, any],
+      };
+    }
+    return lookup;
+  }, [sportConfig.fullSkills]);
 
   const toggleShot = useCallback((shot: ShotType) => {
     setSelectedShots((prev) =>
@@ -51,7 +72,7 @@ export function ShotSessionScreen({ navigation }: Props) {
   }, []);
 
   const currentShot = selectedShots[currentShotIndex];
-  const currentDef = currentShot ? SHOT_DEFINITIONS[currentShot] : null;
+  const currentDef = currentShot ? shotDefs[currentShot] : null;
   const currentRatings = currentShot ? (ratings[currentShot] || {}) : {};
 
   const setSubMetric = useCallback(
@@ -255,7 +276,7 @@ export function ShotSessionScreen({ navigation }: Props) {
         {/* Summary */}
         <GlassCard style={styles.summaryCard}>
           {selectedShots.map((shot) => {
-            const def = SHOT_DEFINITIONS[shot];
+            const def = shotDefs[shot];
             const r = ratings[shot] || {};
             const vals = def.subMetrics.map((sm) => r[sm.key] || 0);
             const computed = calculateShotRating(vals[0], vals[1], vals[2]);

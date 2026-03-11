@@ -49,12 +49,10 @@ import { CrossTrainingModule } from '../components/football/CrossTrainingModule'
 import { useSpringEntrance } from '../hooks/useAnimations';
 import { buildSparklinePath } from '../utils/sparkline';
 import {
-  SHOT_DEFINITIONS,
   DEMO_PHYSICAL_METRICS,
 } from '../services/padelMockData';
-import { SHOT_ORDER, DNA_ATTRIBUTE_ORDER, DNA_ATTRIBUTE_LABELS, DNA_ATTRIBUTE_FULL_NAMES } from '../types/padel';
 import type { DNAAttribute, DNACardData, ShotRatingsData } from '../types/padel';
-import { DNA_ATTRIBUTE_COLORS, getDNATier, getTierLabel } from '../services/padelCalculations';
+import { getDNATier, getTierLabel } from '../services/padelCalculations';
 import type { CardAttribute, CardTier } from '../components/DNACard';
 import {
   spacing,
@@ -225,18 +223,61 @@ function PadelProgressContent({
 }) {
   const { colors } = useTheme();
   const { profile } = useAuth();
-  const padelConfig = getSportConfig('padel');
+  const { sportConfig: padelConfig } = useSportContext();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const padelStyles = useMemo(() => createPadelStyles(colors), [colors]);
 
-  // ── Data via sport pipeline (always use padel config, not active sport) ──
+  // ── Data via sport pipeline ──
   const userId = profile?.uid || profile?.id || 'osama-kayyali';
   const dnaCard = padelConfig.mockData.getCard(userId) as DNACardData | null;
   const shotRatings = padelConfig.mockData.getSkills(userId) as ShotRatingsData | null;
   const [selectedAttr, setSelectedAttr] = useState<DNAAttribute | null>(null);
 
-  // ── Empty state ──
-  if (!dnaCard || !shotRatings) {
+  const hasData = !!(dnaCard && dnaCard.attributes && shotRatings);
+
+  // Map padel DNACardData to generic CardAttribute[]
+  const padelAttributes: CardAttribute[] = hasData
+    ? padelConfig.attributes.map((attrDesc) => ({
+        key: attrDesc.key,
+        label: attrDesc.label,
+        abbreviation: attrDesc.fullName,
+        value: (dnaCard!.attributes as any)[attrDesc.key]?.score ?? 0,
+        maxValue: 99,
+        color: attrDesc.color,
+        trend: (dnaCard!.attributes as any)[attrDesc.key]?.trend ?? 0,
+      }))
+    : [];
+  const padelTier = hasData ? (getDNATier(dnaCard!.overallRating) as CardTier) : ('bronze' as CardTier);
+
+  // ── Synthetic attribute trends for sparklines ──
+  const attributeTrends = useMemo(() => {
+    if (!dnaCard?.attributes) return [];
+    return padelConfig.attributes.map((attrDesc) => {
+      const data = (dnaCard.attributes as any)[attrDesc.key];
+      const current = data?.score ?? 0;
+      const trend = data?.trend ?? 0;
+      const points = [
+        current - trend * 2,
+        current - trend * 1.5,
+        current - trend,
+        current - Math.round(trend * 0.4),
+        current,
+      ].map((v) => Math.max(0, Math.min(99, Math.round(v))));
+      return { attr: attrDesc.key, color: attrDesc.color, label: attrDesc.label, points, current, delta: trend };
+    });
+  }, [dnaCard, padelConfig.attributes]);
+
+  // ── Animations (hooks must always run, regardless of data) ──
+  const entrance1 = useSpringEntrance(1, 0, isFocused);
+  const entrance2 = useSpringEntrance(2, 0, isFocused);
+  const entrance3 = useSpringEntrance(3, 0, isFocused);
+  const entrance4 = useSpringEntrance(4, 0, isFocused);
+  const entrance5 = useSpringEntrance(5, 0, isFocused);
+  const entrance6 = useSpringEntrance(6, 0, isFocused);
+  const entrance7 = useSpringEntrance(7, 0, isFocused);
+
+  // ── Empty state (after all hooks) ──
+  if (!hasData) {
     return (
       <EmptyProgressState
         sport="padel"
@@ -245,46 +286,6 @@ function PadelProgressContent({
       />
     );
   }
-
-  // Map padel DNACardData to generic CardAttribute[]
-  const padelAttributes: CardAttribute[] = DNA_ATTRIBUTE_ORDER.map((attr) => ({
-    key: attr,
-    label: DNA_ATTRIBUTE_LABELS[attr],
-    abbreviation: DNA_ATTRIBUTE_FULL_NAMES[attr],
-    value: dnaCard.attributes[attr].score,
-    maxValue: 99,
-    color: DNA_ATTRIBUTE_COLORS[attr],
-    trend: dnaCard.attributes[attr].trend,
-  }));
-  const padelTier = getDNATier(dnaCard.overallRating) as CardTier;
-
-  // ── Synthetic attribute trends for sparklines ──
-  // Padel doesn't have per-attribute history, so we generate 5 data points
-  // from current score and trend for a meaningful sparkline visualization.
-  const attributeTrends = useMemo(() => {
-    return DNA_ATTRIBUTE_ORDER.map((attr) => {
-      const data = dnaCard.attributes[attr];
-      const current = data.score;
-      const trend = data.trend;
-      // Generate 5 synthetic points ending at current score
-      const points = [
-        current - trend * 2,
-        current - trend * 1.5,
-        current - trend,
-        current - Math.round(trend * 0.4),
-        current,
-      ].map((v) => Math.max(0, Math.min(99, Math.round(v))));
-      return { attr, points, current, delta: trend };
-    });
-  }, [dnaCard]);
-
-  const entrance1 = useSpringEntrance(1, 0, isFocused);
-  const entrance2 = useSpringEntrance(2, 0, isFocused);
-  const entrance3 = useSpringEntrance(3, 0, isFocused);
-  const entrance4 = useSpringEntrance(4, 0, isFocused);
-  const entrance5 = useSpringEntrance(5, 0, isFocused);
-  const entrance6 = useSpringEntrance(6, 0, isFocused);
-  const entrance7 = useSpringEntrance(7, 0, isFocused);
 
   return (
     <>
@@ -319,13 +320,13 @@ function PadelProgressContent({
           <Text style={padelStyles.trendSubtitle}>Recent progression</Text>
 
           {attributeTrends.map((trend) => {
-            const attrColor = DNA_ATTRIBUTE_COLORS[trend.attr];
+            const attrColor = trend.color;
             const sparkPath = buildSparklinePath(trend.points, 60, 20);
             return (
               <View key={trend.attr} style={padelStyles.trendRow}>
                 <View style={[padelStyles.trendDot, { backgroundColor: attrColor }]} />
                 <Text style={padelStyles.trendLabel}>
-                  {DNA_ATTRIBUTE_LABELS[trend.attr]}
+                  {trend.label}
                 </Text>
                 <Text style={[padelStyles.trendScore, { color: attrColor }]}>
                   {trend.current}
@@ -397,26 +398,39 @@ function PadelProgressContent({
             <View style={padelStyles.shotSummaryItem}>
               <Text style={padelStyles.shotSummaryLabel}>Strongest</Text>
               <Text style={[padelStyles.shotSummaryValue, { color: '#30D158' }]} numberOfLines={1}>
-                {SHOT_DEFINITIONS[shotRatings.strongestShot].name}
+                {padelConfig.fullSkills.find(s => s.key === shotRatings.strongestShot)?.name ?? shotRatings.strongestShot}
               </Text>
             </View>
             <View style={padelStyles.shotSummaryItem}>
               <Text style={padelStyles.shotSummaryLabel}>Focus On</Text>
               <Text style={[padelStyles.shotSummaryValue, { color: colors.accent1 }]} numberOfLines={1}>
-                {SHOT_DEFINITIONS[shotRatings.weakestShot].name}
+                {padelConfig.fullSkills.find(s => s.key === shotRatings.weakestShot)?.name ?? shotRatings.weakestShot}
               </Text>
             </View>
           </View>
 
-          {SHOT_ORDER.map((shot, i) => (
-            <ShotRatingBar
-              key={shot}
-              definition={SHOT_DEFINITIONS[shot]}
-              data={shotRatings.shots[shot]}
-              index={i}
-              trigger={isFocused}
-            />
-          ))}
+          {padelConfig.skills.map((skill, i) => {
+            const def = padelConfig.fullSkills.find(s => s.key === skill.key);
+            const shotDef = {
+              type: skill.key as any,
+              name: def?.name ?? skill.name,
+              category: def?.category ?? '',
+              description: def?.description ?? '',
+              icon: def?.icon ?? 'help-outline',
+              subMetrics: (def?.subMetrics ?? []).slice(0, 3).map(sm => ({
+                key: sm.key, label: sm.label, description: sm.description ?? '',
+              })),
+            } as any;
+            return (
+              <ShotRatingBar
+                key={skill.key}
+                definition={shotDef}
+                data={(shotRatings.shots as any)[skill.key]}
+                index={i}
+                trigger={isFocused}
+              />
+            );
+          })}
 
           <GradientButton
             title="Rate Session"

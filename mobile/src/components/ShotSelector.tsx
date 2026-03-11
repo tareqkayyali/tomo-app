@@ -8,8 +8,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useScaleOnPress } from '../hooks/useAnimations';
-import { SHOT_DEFINITIONS } from '../services/padelMockData';
-import { SHOT_ORDER } from '../types/padel';
+import { useSportContext } from '../hooks/useSportContext';
 import { colors, fontFamily, borderRadius, spacing } from '../theme';
 import type { ShotType } from '../types/padel';
 
@@ -28,7 +27,8 @@ function ShotChip({
   onToggle: (shot: ShotType) => void;
 }) {
   const { animatedStyle, onPressIn, onPressOut } = useScaleOnPress(0.93);
-  const def = SHOT_DEFINITIONS[shot];
+  const { sportConfig } = useSportContext();
+  const def = sportConfig.fullSkills.find(s => s.key === shot);
 
   return (
     <Animated.View style={animatedStyle}>
@@ -42,12 +42,12 @@ function ShotChip({
         ]}
       >
         <Ionicons
-          name={def.icon as any}
+          name={(def?.icon ?? 'help-outline') as any}
           size={16}
           color={isSelected ? '#FFFFFF' : colors.textInactive}
         />
         <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-          {def.name}
+          {def?.name ?? shot}
         </Text>
       </Pressable>
     </Animated.View>
@@ -55,9 +55,10 @@ function ShotChip({
 }
 
 export function ShotSelector({ selected, onToggle }: ShotSelectorProps) {
+  const { sportConfig } = useSportContext();
   return (
     <View style={styles.container}>
-      {SHOT_ORDER.map((shot) => (
+      {sportConfig.skills.map((skill) => skill.key as ShotType).map((shot) => (
         <ShotChip
           key={shot}
           shot={shot}

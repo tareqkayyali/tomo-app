@@ -41,9 +41,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useSportContext } from '../hooks/useSportContext';
 import { getArchetypeProfile } from '../services/archetypeProfile';
 import { useFadeIn } from '../hooks/useFadeIn';
-import { getDNACardForUser } from '../services/padelMockData';
 import { TIER_COLORS, getTierLabel } from '../services/padelCalculations';
-import { getMockPlayerForUser } from '../data/footballMockData';
 import { getFootballRatingLevel } from '../services/footballCalculations';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
@@ -118,7 +116,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
   const { profile, user, logout, isLoading } = useAuth();
-  const { activeSport } = useSportContext();
+  const { activeSport, sportConfig } = useSportContext();
   const archetypeProfile = useMemo(
     () => getArchetypeProfile(profile?.archetype),
     [profile?.archetype],
@@ -313,9 +311,9 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
            ═══════════════════════════════════════════════════════════ */}
         {activeSport === 'padel' && (() => {
           const userId = profile?.uid || profile?.id;
-          const dna = userId ? getDNACardForUser(userId) : undefined;
+          const dna = userId ? sportConfig.mockData.getCard(userId) : undefined;
           if (!dna) return null;
-          const tierColors = TIER_COLORS[dna.tier];
+          const tierColors = TIER_COLORS[dna.tier as keyof typeof TIER_COLORS];
           return (
             <Animated.View style={fadeIn1}>
               <Pressable
@@ -342,7 +340,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         })()}
         {activeSport === 'football' && (() => {
           const userId = profile?.uid || profile?.id;
-          const player = userId ? getMockPlayerForUser(userId) : undefined;
+          const player = userId ? sportConfig.mockData.getCard(userId) : undefined;
           if (!player) return null;
           const level = getFootballRatingLevel(player.card.footballRating);
           return (

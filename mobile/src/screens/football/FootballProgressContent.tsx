@@ -49,19 +49,9 @@ import { useSpringEntrance } from '../../hooks/useAnimations';
 import { useTheme } from '../../hooks/useTheme';
 
 import { useAuth } from '../../hooks/useAuth';
-import { getSportConfig } from '../../hooks/useSportContext';
+import { useSportContext } from '../../hooks/useSportContext';
 import type { MockFootballPlayer, MockHistoryEntry } from '../../data/footballMockData';
-import {
-  FOOTBALL_ATTRIBUTE_ORDER,
-  FOOTBALL_ATTRIBUTE_LABELS,
-  FOOTBALL_ATTRIBUTE_FULL_NAMES,
-  FOOTBALL_SKILL_ORDER,
-  FOOTBALL_SKILL_CONFIG,
-  FOOTBALL_RATING_LEVELS,
-  FOOTBALL_POSITION_LABELS,
-} from '../../types/football';
 import type { FootballAttribute } from '../../types/football';
-import { FOOTBALL_ATTRIBUTE_COLORS } from '../../services/footballCalculations';
 
 import { buildSparklinePath } from '../../utils/sparkline';
 import { fontFamily, spacing, borderRadius, layout } from '../../theme';
@@ -154,20 +144,103 @@ export function FootballProgressContent({
 }: FootballProgressContentProps) {
   const { colors } = useTheme();
   const { profile } = useAuth();
-  const footballConfig = getSportConfig('football');
+  const { sportConfig } = useSportContext();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   // ── Data via sport pipeline ──
   const userId = profile?.uid || profile?.id || 'osama-kayyali';
-  const player = footballConfig.mockData.getCard(userId) as MockFootballPlayer | null;
-  const skills = footballConfig.mockData.getSkills(userId);
-  const history = footballConfig.mockData.getHistory(userId) as MockHistoryEntry[] | null;
+  const player = sportConfig.mockData.getCard(userId) as MockFootballPlayer | null;
+  const skills = sportConfig.mockData.getSkills(userId);
+  const history = sportConfig.mockData.getHistory(userId) as MockHistoryEntry[] | null;
 
   // ── State ──
   const [selectedAttr, setSelectedAttr] = useState<FootballAttribute | null>(null);
 
-  // ── Empty state ──
-  if (!player || !skills || !history) {
+  const card = player?.card ?? null;
+  const hasData = !!(player && card?.attributes && skills && history);
+
+  // ── Map football attributes → CardAttribute[] ──
+  const footballAttributes: CardAttribute[] = hasData
+    ? sportConfig.attributes.map((attr) => ({
+        key: attr.key,
+        label: attr.label,
+        abbreviation: attr.fullName,
+        value: (card!.attributes as any)[attr.key]?.score ?? 0,
+        maxValue: 99,
+        color: attr.color,
+        trend: (card!.attributes as any)[attr.key]?.trend ?? 0,
+      }))
+    : [];
+
+  const cardTier = hasData ? getFootballCardTier(card!.footballRating) : ('bronze' as CardTier);
+
+  // ── Map football skills → SkillItem[], sorted highest-first ──
+  const sortedSkills: SkillItem[] = useMemo(() => {
+    if (!skills) return [];
+    return sportConfig.fullSkills
+      .map((skillDef) => {
+        const skillData = skills[skillDef.key];
+        return {
+          key: skillDef.key,
+          name: skillDef.name,
+          overall: skillData?.rating ?? 0,
+          subMetrics: skillDef.subMetrics.map((sm) => ({
+            name: sm.label,
+            value: skillData?.subMetrics?.[sm.key] ?? 0,
+            unit: sm.unit,
+          })),
+          icon: skillDef.icon,
+          category: skillDef.category,
+          trend: skillData?.trend ?? 0,
+        };
+      })
+      .sort((a, b) => b.overall - a.overall);
+  }, [skills, sportConfig.fullSkills]);
+
+  // ── Skills summary ──
+  const skillsAvg = sortedSkills.length > 0
+    ? Math.round(sortedSkills.reduce((sum, sk) => sum + sk.overall, 0) / sortedSkills.length)
+    : 0;
+  const strongestSkill = sortedSkills[0];
+  const focusSkill = sortedSkills[sortedSkills.length - 1];
+
+  // ── Map rating levels → PathwayLevel[] ──
+  const pathwayLevels: PathwayLevel[] = sportConfig.ratingLevels.map((l) => ({
+    name: l.name,
+    minRating: l.minRating,
+    maxRating: l.maxRating,
+    description: l.description,
+    color: l.color,
+  }));
+  const currentLevel = hasData
+    ? (pathwayLevels.find(
+        (l) => card!.footballRating >= l.minRating && card!.footballRating <= l.maxRating,
+      ) ?? pathwayLevels[0])
+    : pathwayLevels[0];
+
+  // ── Attribute trends from history ──
+  const attributeTrends = useMemo(() => {
+    if (!history || history.length === 0) return [];
+    return sportConfig.attributes.map((attrDesc) => {
+      const points = history.map((entry) => (entry.attributes as any)?.[attrDesc.key] ?? 0);
+      const current = points[points.length - 1] ?? 0;
+      const oldest = points[0] ?? 0;
+      const delta = current - oldest;
+      return { attr: attrDesc.key, color: attrDesc.color, label: attrDesc.label, points, current, delta };
+    });
+  }, [history, sportConfig.attributes]);
+
+  // ── Animations (hooks must always run, regardless of data) ──
+  const entrance1 = useSpringEntrance(1, 0, isFocused);
+  const entrance2 = useSpringEntrance(2, 0, isFocused);
+  const entrance3 = useSpringEntrance(3, 0, isFocused);
+  const entrance4 = useSpringEntrance(4, 0, isFocused);
+  const entrance5 = useSpringEntrance(5, 0, isFocused);
+  const entrance6 = useSpringEntrance(6, 0, isFocused);
+  const entrance7 = useSpringEntrance(7, 0, isFocused);
+
+  // ── Empty state (after all hooks) ──
+  if (!hasData) {
     return (
       <EmptyProgressState
         sport="football"
@@ -177,90 +250,13 @@ export function FootballProgressContent({
     );
   }
 
-  const card = player.card;
-
-  // ── Map football attributes → CardAttribute[] ──
-  const footballAttributes: CardAttribute[] = FOOTBALL_ATTRIBUTE_ORDER.map((attr) => ({
-    key: attr,
-    label: FOOTBALL_ATTRIBUTE_LABELS[attr],
-    abbreviation: FOOTBALL_ATTRIBUTE_FULL_NAMES[attr],
-    value: card.attributes[attr].score,
-    maxValue: 99,
-    color: FOOTBALL_ATTRIBUTE_COLORS[attr],
-    trend: card.attributes[attr].trend,
-  }));
-
-  const cardTier = getFootballCardTier(card.footballRating);
-
-  // ── Map football skills → SkillItem[], sorted highest-first ──
-  const sortedSkills: SkillItem[] = useMemo(() => {
-    return FOOTBALL_SKILL_ORDER
-      .map((skillKey) => {
-        const skillData = skills[skillKey];
-        const config = FOOTBALL_SKILL_CONFIG[skillKey];
-        return {
-          key: skillKey,
-          name: config.name,
-          overall: skillData.rating,
-          subMetrics: config.subMetrics.map((sm) => ({
-            name: sm.label,
-            value: skillData.subMetrics[sm.key] ?? 0,
-            unit: sm.unit,
-          })),
-          icon: config.icon,
-          category: config.category,
-          trend: skillData.trend,
-        };
-      })
-      .sort((a, b) => b.overall - a.overall);
-  }, [skills]);
-
-  // ── Skills summary ──
-  const skillsAvg = Math.round(
-    sortedSkills.reduce((sum, sk) => sum + sk.overall, 0) / sortedSkills.length,
-  );
-  const strongestSkill = sortedSkills[0];
-  const focusSkill = sortedSkills[sortedSkills.length - 1];
-
-  // ── Map rating levels → PathwayLevel[] ──
-  const pathwayLevels: PathwayLevel[] = FOOTBALL_RATING_LEVELS.map((l) => ({
-    name: l.name,
-    minRating: l.minRating,
-    maxRating: l.maxRating,
-    description: l.description,
-    color: l.color,
-  }));
-  const currentLevel = pathwayLevels.find(
-    (l) => card.footballRating >= l.minRating && card.footballRating <= l.maxRating,
-  ) ?? pathwayLevels[0];
-
-  // ── Attribute trends from history ──
-  const attributeTrends = useMemo(() => {
-    return FOOTBALL_ATTRIBUTE_ORDER.map((attr) => {
-      const points = history.map((entry) => entry.attributes[attr]);
-      const current = points[points.length - 1];
-      const oldest = points[0];
-      const delta = current - oldest;
-      return { attr, points, current, delta };
-    });
-  }, [history]);
-
-  // ── Animations ──
-  const entrance1 = useSpringEntrance(1, 0, isFocused);
-  const entrance2 = useSpringEntrance(2, 0, isFocused);
-  const entrance3 = useSpringEntrance(3, 0, isFocused);
-  const entrance4 = useSpringEntrance(4, 0, isFocused);
-  const entrance5 = useSpringEntrance(5, 0, isFocused);
-  const entrance6 = useSpringEntrance(6, 0, isFocused);
-  const entrance7 = useSpringEntrance(7, 0, isFocused);
-
   return (
     <>
       {/* ═══════ 1. DNA Card Hero ═══════ */}
       <DNACard
         attributes={footballAttributes}
         overallRating={card.overallRating}
-        position={FOOTBALL_POSITION_LABELS[card.position]}
+        position={sportConfig.positions.find(p => p.key === card.position)?.label ?? card.position}
         cardTier={cardTier}
         sport="football"
         pathwayRating={card.footballRating}
@@ -289,13 +285,13 @@ export function FootballProgressContent({
           <Text style={s.sectionSubtitle}>30-day progression</Text>
 
           {attributeTrends.map((trend) => {
-            const attrColor = FOOTBALL_ATTRIBUTE_COLORS[trend.attr];
+            const attrColor = trend.color;
             const sparkPath = buildSparklinePath(trend.points, 60, 20);
             return (
               <View key={trend.attr} style={s.trendRow}>
                 <View style={[s.trendDot, { backgroundColor: attrColor }]} />
                 <Text style={s.trendLabel}>
-                  {FOOTBALL_ATTRIBUTE_LABELS[trend.attr]}
+                  {trend.label}
                 </Text>
                 <Text style={[s.trendScore, { color: attrColor }]}>
                   {trend.current}

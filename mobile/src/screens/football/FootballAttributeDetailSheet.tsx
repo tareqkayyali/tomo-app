@@ -14,12 +14,8 @@ import Animated from 'react-native-reanimated';
 import Svg, { Polyline } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useSpringEntrance } from '../../hooks/useAnimations';
-import { FOOTBALL_ATTRIBUTE_COLORS, getAttributePercentile } from '../../services/footballCalculations';
-import {
-  FOOTBALL_ATTRIBUTE_FULL_NAMES,
-  FOOTBALL_ATTRIBUTE_CONFIG,
-  FOOTBALL_POSITION_LABELS,
-} from '../../types/football';
+import { getAttributePercentile } from '../../services/footballCalculations';
+import { useSportContext } from '../../hooks/useSportContext';
 import type { FootballAttribute, FootballAttributeData } from '../../types/football';
 import type { MockFootballPlayer, MockHistoryEntry } from '../../data/footballMockData';
 import { fontFamily, borderRadius, spacing } from '../../theme';
@@ -80,10 +76,13 @@ export function FootballAttributeDetailSheet({
   onClose,
 }: FootballAttributeDetailSheetProps) {
   const { colors } = useTheme();
+  const { sportConfig } = useSportContext();
   const s = React.useMemo(() => createStyles(colors), [colors]);
   const entranceStyle = useSpringEntrance(0);
-  const attrColor = FOOTBALL_ATTRIBUTE_COLORS[attribute];
-  const config = FOOTBALL_ATTRIBUTE_CONFIG[attribute];
+
+  // Look up attribute from sportConfig
+  const fullAttr = sportConfig.fullAttributes.find(a => a.key === attribute);
+  const attrColor = sportConfig.attributeColors[attribute] ?? '#888888';
 
   // Age percentile
   const percentile = getAttributePercentile(
@@ -92,7 +91,7 @@ export function FootballAttributeDetailSheet({
     player.age,
     player.position,
   );
-  const positionLabel = FOOTBALL_POSITION_LABELS[player.position];
+  const positionLabel = sportConfig.positions.find(p => p.key === player.position)?.label ?? player.position;
 
   // Sparkline data from history
   const sparkValues = history.map((h) => h.attributes[attribute]);
@@ -106,7 +105,7 @@ export function FootballAttributeDetailSheet({
       <View style={s.header}>
         <View style={s.headerLeft}>
           <View style={[s.colorDot, { backgroundColor: attrColor }]} />
-          <Text style={s.title}>{FOOTBALL_ATTRIBUTE_FULL_NAMES[attribute]}</Text>
+          <Text style={s.title}>{fullAttr?.fullName ?? attribute}</Text>
           <Text style={[s.score, { color: attrColor }]}>{data.score}</Text>
         </View>
         {onClose && (
@@ -185,7 +184,7 @@ export function FootballAttributeDetailSheet({
       {/* Sub-attributes breakdown */}
       <View style={s.subSection}>
         <Text style={s.subSectionTitle}>Physical Tests</Text>
-        {config.subAttributes.map((sub) => (
+        {(fullAttr?.subAttributes ?? []).map((sub) => (
           <View key={sub.name} style={s.subRow}>
             <View style={s.subInfo}>
               <Text style={s.subName}>{sub.name}</Text>

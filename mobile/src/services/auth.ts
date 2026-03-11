@@ -23,14 +23,21 @@ export interface AuthUser {
  * Sign in with email and password
  */
 export async function signIn(email: string, password: string): Promise<AuthUser> {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  console.log('[Auth] signIn called for:', email);
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    console.log('[Auth] signIn response:', error ? `ERROR: ${error.message}` : 'success');
 
-  if (error) throw new Error(getAuthErrorMessage(error.message));
+    if (error) throw new Error(getAuthErrorMessage(error.message));
 
-  return {
-    uid: data.user.id,
-    email: data.user.email ?? null,
-  };
+    return {
+      uid: data.user.id,
+      email: data.user.email ?? null,
+    };
+  } catch (err) {
+    console.error('[Auth] signIn exception:', (err as Error).message);
+    throw err;
+  }
 }
 
 /**

@@ -32,18 +32,9 @@ import type { PathwayLevel } from '../../components/RatingPathway';
 import { useSpringEntrance } from '../../hooks/useAnimations';
 import { useTheme } from '../../hooks/useTheme';
 
-import { getMockPlayerForUser, getMockPlayerHistoryForUser } from '../../data/footballMockData';
 import { useAuth } from '../../hooks/useAuth';
-import {
-  FOOTBALL_ATTRIBUTE_ORDER,
-  FOOTBALL_ATTRIBUTE_LABELS,
-  FOOTBALL_ATTRIBUTE_FULL_NAMES,
-  FOOTBALL_POSITION_LABELS,
-  FOOTBALL_POSITION_WEIGHTS,
-  FOOTBALL_RATING_LEVELS,
-} from '../../types/football';
+import { useSportContext } from '../../hooks/useSportContext';
 import type { FootballAttribute, FootballPosition } from '../../types/football';
-import { FOOTBALL_ATTRIBUTE_COLORS, calculateOverallRating } from '../../services/footballCalculations';
 
 import { fontFamily, spacing, borderRadius } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
@@ -155,16 +146,19 @@ function ContributionBar({
   weight,
   maxContribution,
   colors,
+  attrColor,
+  attrFullName,
 }: {
-  attribute: FootballAttribute;
+  attribute: string;
   score: number;
   weight: number;
   maxContribution: number;
   colors: ThemeColors;
+  attrColor: string;
+  attrFullName: string;
 }) {
   const contribution = score * weight;
   const pct = maxContribution > 0 ? (contribution / maxContribution) * 100 : 0;
-  const attrColor = FOOTBALL_ATTRIBUTE_COLORS[attribute];
   const isStrong = pct >= 80;
 
   return (
@@ -172,7 +166,7 @@ function ContributionBar({
       <View style={contribStyles.labelWrap}>
         <View style={[contribStyles.dot, { backgroundColor: attrColor }]} />
         <Text style={[contribStyles.label, { color: colors.textOnDark }]}>
-          {FOOTBALL_ATTRIBUTE_FULL_NAMES[attribute]}
+          {attrFullName}
         </Text>
       </View>
       <View style={contribStyles.barTrack}>
@@ -254,12 +248,14 @@ const contribStyles = StyleSheet.create({
 
 function PositionFitRow({
   position,
+  positionLabel,
   overall,
   maxOverall,
   isCurrent,
   colors,
 }: {
-  position: FootballPosition;
+  position: string;
+  positionLabel: string;
   overall: number;
   maxOverall: number;
   isCurrent: boolean;
@@ -273,7 +269,7 @@ function PositionFitRow({
           {position}
         </Text>
         <Text style={[fitStyles.posName, { color: colors.textMuted }]}>
-          {FOOTBALL_POSITION_LABELS[position]}
+          {positionLabel}
         </Text>
       </View>
       <View style={fitStyles.barTrack}>
@@ -354,12 +350,13 @@ const fitStyles = StyleSheet.create({
 export function FootballRatingScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { profile } = useAuth();
+  const { sportConfig } = useSportContext();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   // ── User-aware data loading ──
   const userId = profile?.uid || profile?.id || 'osama-kayyali';
-  const player = getMockPlayerForUser(userId);
-  const history = player ? getMockPlayerHistoryForUser(userId) : undefined;
+  const player = sportConfig.mockData.getCard(userId);
+  const history = player ? sportConfig.mockData.getHistory(userId) : undefined;
 
   if (!player || !history) {
     return (
@@ -371,13 +368,13 @@ export function FootballRatingScreen({ navigation }: Props) {
 
   // ── Derived data ──
   const tier = getTierLabel(card.footballRating);
-  const positionLabel = FOOTBALL_POSITION_LABELS[card.position];
+  const positionLabel = sportConfig.positions.find(p => p.key === card.position)?.label ?? card.position;
   const growthSinceJoining = card.history.length >= 2
     ? card.history[card.history.length - 1].rating - card.history[0].rating
     : 0;
 
   // ── Map rating levels → PathwayLevel[] ──
-  const pathwayLevels: PathwayLevel[] = FOOTBALL_RATING_LEVELS.map((l) => ({
+  const pathwayLevels: PathwayLevel[] = sportConfig.ratingLevels.map((l) => ({
     name: l.name,
     minRating: l.minRating,
     maxRating: l.maxRating,
@@ -389,17 +386,20 @@ export function FootballRatingScreen({ navigation }: Props) {
   ) ?? pathwayLevels[0];
 
   // ── Attribute contributions ──
-  const posWeights = FOOTBALL_POSITION_WEIGHTS[card.position];
-  const attrScores: Record<FootballAttribute, number> = {} as any;
-  FOOTBALL_ATTRIBUTE_ORDER.forEach((attr) => {
-    attrScores[attr] = card.attributes[attr].score;
+  const currentPosition = sportConfig.positions.find(p => p.key === card.position);
+  const posWeights = currentPosition?.attributeWeights ?? {};
+  const attrScores: Record<string, number> = {};
+  sportConfig.attributes.forEach((attr) => {
+    attrScores[attr.key] = card.attributes[attr.key]?.score ?? 0;
   });
 
-  const contributions = FOOTBALL_ATTRIBUTE_ORDER.map((attr) => ({
-    attr,
-    score: attrScores[attr],
-    weight: posWeights[attr],
-    contribution: attrScores[attr] * posWeights[attr],
+  const contributions = sportConfig.attributes.map((attr) => ({
+    attr: attr.key,
+    attrColor: attr.color,
+    attrFullName: attr.fullName,
+    score: attrScores[attr.key],
+    weight: posWeights[attr.key] ?? 0,
+    contribution: attrScores[attr.key] * (posWeights[attr.key] ?? 0),
   }));
   const maxContribution = Math.max(...contributions.map((c) => c.contribution));
 
@@ -409,16 +409,26 @@ export function FootballRatingScreen({ navigation }: Props) {
   );
 
   // ── Position fit analysis ──
-  const allPositions: FootballPosition[] = ['ST', 'WM', 'CM', 'FB', 'CB', 'GK'];
   const positionFits = useMemo(() => {
-    return allPositions
-      .map((pos) => ({
-        position: pos,
-        overall: calculateOverallRating(attrScores, pos),
-        isCurrent: pos === card.position,
-      }))
+    return sportConfig.positions
+      .map((pos) => {
+        // Calculate weighted overall for this position
+        let totalWeighted = 0;
+        let totalWeight = 0;
+        Object.entries(pos.attributeWeights).forEach(([attrKey, weight]) => {
+          totalWeighted += (attrScores[attrKey] ?? 0) * weight;
+          totalWeight += weight;
+        });
+        const overall = totalWeight > 0 ? Math.round(totalWeighted / totalWeight) : 0;
+        return {
+          position: pos.key,
+          positionLabel: pos.label,
+          overall,
+          isCurrent: pos.key === card.position,
+        };
+      })
       .sort((a, b) => b.overall - a.overall);
-  }, [attrScores, card.position]);
+  }, [attrScores, card.position, sportConfig.positions]);
   const maxOverall = Math.max(...positionFits.map((p) => p.overall));
 
   // Best alternative (not current)
@@ -574,6 +584,8 @@ export function FootballRatingScreen({ navigation }: Props) {
               weight={c.weight}
               maxContribution={maxContribution}
               colors={colors}
+              attrColor={c.attrColor}
+              attrFullName={c.attrFullName}
             />
           ))}
 
@@ -582,8 +594,8 @@ export function FootballRatingScreen({ navigation }: Props) {
             <Ionicons name="bulb-outline" size={16} color={colors.accent2} />
             <Text style={s.insightText}>
               {sortedContributions[0].weight >= 0.25
-                ? `As a ${positionLabel}, ${FOOTBALL_ATTRIBUTE_FULL_NAMES[sortedContributions[0].attr]} has the biggest impact on your rating (${(sortedContributions[0].weight * 100).toFixed(0)}% weight).`
-                : `Your top contributor is ${FOOTBALL_ATTRIBUTE_FULL_NAMES[sortedContributions[0].attr]} — focus here for the fastest rating gains.`}
+                ? `As a ${positionLabel}, ${sortedContributions[0].attrFullName} has the biggest impact on your rating (${(sortedContributions[0].weight * 100).toFixed(0)}% weight).`
+                : `Your top contributor is ${sortedContributions[0].attrFullName} — focus here for the fastest rating gains.`}
             </Text>
           </View>
         </GlassCard>
@@ -601,6 +613,7 @@ export function FootballRatingScreen({ navigation }: Props) {
             <PositionFitRow
               key={pf.position}
               position={pf.position}
+              positionLabel={pf.positionLabel}
               overall={pf.overall}
               maxOverall={maxOverall}
               isCurrent={pf.isCurrent}
@@ -615,7 +628,7 @@ export function FootballRatingScreen({ navigation }: Props) {
               <Text style={s.altSuggestionText}>
                 Your attributes also suit{' '}
                 <Text style={s.altSuggestionHighlight}>
-                  {FOOTBALL_POSITION_LABELS[bestAlternative.position]}
+                  {bestAlternative.positionLabel}
                 </Text>
                 {' '}({bestAlternative.overall} overall) — explore it if you enjoy the role!
               </Text>

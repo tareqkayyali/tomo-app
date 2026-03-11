@@ -19,6 +19,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { ThemeProvider, useTheme } from './src/hooks/useTheme';
 import { SportProvider, type ActiveSport } from './src/hooks/useSportContext';
+import { ContentProvider } from './src/hooks/useContentProvider';
 import { RootNavigator } from './src/navigation';
 import { AnimatedSplashScreen } from './src/components';
 import { injectWebFonts } from './src/utils/webFonts';
@@ -51,12 +52,14 @@ function SportWrapper({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { isDark } = useTheme();
   return (
-    <AuthProvider>
-      <SportWrapper>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <RootNavigator />
-      </SportWrapper>
-    </AuthProvider>
+    <ContentProvider>
+      <AuthProvider>
+        <SportWrapper>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <RootNavigator />
+        </SportWrapper>
+      </AuthProvider>
+    </ContentProvider>
   );
 }
 

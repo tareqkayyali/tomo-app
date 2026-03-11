@@ -15,6 +15,10 @@ export const STORAGE_KEY_MORNING_SWIPE_PREFIX = '@tomo_morning_swipe_';
 export const STORAGE_KEY_THEME_MODE = '@tomo_theme_mode';
 export const STORAGE_KEY_ACTIVE_SPORT = '@tomo_active_sport';
 
+// ── Content Cache ──
+export const STORAGE_KEY_CONTENT_MANIFEST = '@tomo_content_manifest';
+export const STORAGE_KEY_CONTENT_BUNDLE = '@tomo_content_bundle';
+
 // ── Football Tests ──
 export const STORAGE_KEY_FOOTBALL_TEST_PREFIX = '@tomo_football_test_';
 export function getFootballTestPBKey(testId: string): string {

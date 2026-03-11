@@ -10,7 +10,7 @@ import { Platform } from "react-native";
  * Production API URL — update after deploying backend to Vercel
  */
 const PRODUCTION_API_URL =
-  Constants.expoConfig?.extra?.apiUrl || "https://backend-eight-lime-32.vercel.app";
+  Constants.expoConfig?.extra?.apiUrl || "https://api.my-tomo.com";
 
 /**
  * Get the API base URL based on environment:
@@ -49,3 +49,7 @@ export const API_BASE_URL = resolveApiBaseUrl();
 export const REQUEST_TIMEOUT = 15000;
 export const MAX_RETRIES = 2;
 export const INITIAL_RETRY_DELAY = 1000;
+
+// Log resolved API URL on startup
+console.log(`[API] Base URL: ${API_BASE_URL}`);
+console.log(`[API] __DEV__: ${__DEV__}, Platform: ${Platform.OS}`);

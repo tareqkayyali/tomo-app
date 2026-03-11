@@ -10,9 +10,10 @@ import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useScaleOnPress, useSpringEntrance } from '../hooks/useAnimations';
-import { SPORT_OPTIONS } from '../services/padelMockData';
+import { useSportOptions } from '../hooks/useContentHelpers';
 import { colors, fontFamily, borderRadius, spacing } from '../theme';
-import type { SportOption } from '../types/padel';
+
+type SportOption = { value: string; label: string; icon: string; color: string; available: boolean };
 
 interface SportSelectorProps {
   selected: string;
@@ -82,9 +83,10 @@ function SportCard({
 }
 
 export function SportSelector({ selected, onSelect }: SportSelectorProps) {
+  const sportOptions = useSportOptions();
   return (
     <View style={styles.grid}>
-      {SPORT_OPTIONS.map((option, index) => (
+      {sportOptions.map((option, index) => (
         <SportCard
           key={option.value}
           option={option}

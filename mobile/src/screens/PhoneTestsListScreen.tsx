@@ -24,8 +24,8 @@ import {
   layout,
   borderRadius,
 } from '../theme';
-import { PHONE_TESTS } from '../types/phoneTests';
 import { getPhoneTestHistory } from '../services/api';
+import { usePhoneTests } from '../hooks/useContentHelpers';
 import { useFadeIn } from '../hooks/useFadeIn';
 import Animated from 'react-native-reanimated';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -44,6 +44,7 @@ const SCREEN_MAP: Record<string, keyof MainStackParamList> = {
 };
 
 export function PhoneTestsListScreen({ navigation }: Props) {
+  const phoneTests = usePhoneTests();
   const [refreshing, setRefreshing] = useState(false);
   const [lastResults, setLastResults] = useState<Record<string, string>>({});
 
@@ -94,7 +95,7 @@ export function PhoneTestsListScreen({ navigation }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
         }
       >
-        {PHONE_TESTS.map((test, index) => (
+        {phoneTests.map((test, index) => (
           <Animated.View key={test.id} style={fadeIns[Math.min(index, 2)]}>
             <GlassCard style={styles.card}>
               <View style={styles.cardHeader}>

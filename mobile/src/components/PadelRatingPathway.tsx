@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { RatingPathway, type PathwayLevel, type PathwayMilestone } from './RatingPathway';
-import { PADEL_RATING_LEVELS } from '../services/padelCalculations';
+import { useSportContext } from '../hooks/useSportContext';
 import type { ProPlayerMilestone } from '../types/padel';
 
 interface PadelRatingPathwayProps {
@@ -20,14 +20,6 @@ interface PadelRatingPathwayProps {
   trigger?: boolean;
 }
 
-/** Map PADEL_RATING_LEVELS → generic PathwayLevel[] */
-const PADEL_PATHWAY_LEVELS: PathwayLevel[] = PADEL_RATING_LEVELS.map((lvl) => ({
-  name: lvl.name,
-  minRating: lvl.range[0],
-  maxRating: lvl.range[1],
-  description: lvl.description,
-}));
-
 export function PadelRatingPathway({
   rating,
   level,
@@ -36,10 +28,21 @@ export function PadelRatingPathway({
   index = 0,
   trigger,
 }: PadelRatingPathwayProps) {
-  // Find the current level from the mapped pathway levels
-  const currentLevel = PADEL_PATHWAY_LEVELS.find(
+  const { sportConfig } = useSportContext();
+
+  // Use rating levels from sportConfig (content-driven)
+  const pathwayLevels: PathwayLevel[] = sportConfig.ratingLevels.map((l) => ({
+    name: l.name,
+    minRating: l.minRating,
+    maxRating: l.maxRating,
+    description: l.description,
+    color: l.color,
+  }));
+
+  // Find the current level
+  const currentLevel = pathwayLevels.find(
     (l) => rating >= l.minRating && rating <= l.maxRating,
-  ) ?? PADEL_PATHWAY_LEVELS[0];
+  ) ?? pathwayLevels[0];
 
   // Map ProPlayerMilestone → generic PathwayMilestone
   const pathwayMilestones: PathwayMilestone[] = milestones.map((m) => ({
@@ -52,7 +55,7 @@ export function PadelRatingPathway({
     <RatingPathway
       currentRating={rating}
       currentLevel={currentLevel}
-      allLevels={PADEL_PATHWAY_LEVELS}
+      allLevels={pathwayLevels}
       sport="padel"
       milestones={pathwayMilestones}
       compact={compact}

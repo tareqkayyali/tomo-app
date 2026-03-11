@@ -8,8 +8,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useSpringEntrance, useBarFill } from '../hooks/useAnimations';
-import { DNA_ATTRIBUTE_COLORS } from '../services/padelCalculations';
-import { DNA_ATTRIBUTE_FULL_NAMES } from '../types/padel';
+import { useSportContext } from '../hooks/useSportContext';
 import { fontFamily, borderRadius, spacing } from '../theme';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
@@ -63,9 +62,11 @@ export function AttributeDetailSheet({
   onClose,
 }: AttributeDetailSheetProps) {
   const { colors } = useTheme();
+  const { sportConfig } = useSportContext();
   const s = React.useMemo(() => createStyles(colors), [colors]);
   const entranceStyle = useSpringEntrance(0);
-  const attrColor = DNA_ATTRIBUTE_COLORS[attribute];
+  const attrColor = sportConfig.attributeColors[attribute] ?? '#888888';
+  const fullAttr = sportConfig.fullAttributes.find(a => a.key === attribute);
   const attrMetrics = metrics.filter((m) => m.dna === attribute);
 
   return (
@@ -74,7 +75,7 @@ export function AttributeDetailSheet({
       <View style={s.header}>
         <View style={s.headerLeft}>
           <View style={[s.colorDot, { backgroundColor: attrColor }]} />
-          <Text style={s.title}>{DNA_ATTRIBUTE_FULL_NAMES[attribute]}</Text>
+          <Text style={s.title}>{fullAttr?.fullName ?? attribute}</Text>
           <Text style={[s.score, { color: attrColor }]}>{data.score}</Text>
         </View>
         {onClose && (

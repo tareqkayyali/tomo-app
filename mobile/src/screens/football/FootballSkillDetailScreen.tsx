@@ -22,17 +22,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSpringEntrance, useBarFill } from '../../hooks/useAnimations';
 import { useTheme } from '../../hooks/useTheme';
 import { GlassCard } from '../../components/GlassCard';
-import {
-  FOOTBALL_SKILL_CONFIG,
-  FOOTBALL_ATTRIBUTE_FULL_NAMES,
-} from '../../types/football';
 import type { FootballSkill } from '../../types/football';
 import {
-  getMockPlayerForUser,
-  getMockPlayerSkillsForUser,
   getMetricMeanForAge,
 } from '../../data/footballMockData';
 import { useAuth } from '../../hooks/useAuth';
+import { useSportContext } from '../../hooks/useSportContext';
 import { fontFamily, borderRadius, spacing } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -293,20 +288,23 @@ export function FootballSkillDetailScreen({ route }: Props) {
   const skillKey = skillParam as FootballSkill;
   const { colors } = useTheme();
   const { profile } = useAuth();
+  const { sportConfig } = useSportContext();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const [researchExpanded, setResearchExpanded] = useState(false);
 
   // ── User-aware data loading ──
   const userId = profile?.uid || profile?.id || 'osama-kayyali';
-  const player = getMockPlayerForUser(userId);
-  const allSkills = player ? getMockPlayerSkillsForUser(userId) : undefined;
+  const player = sportConfig.mockData.getCard(userId);
+  const allSkills = player ? sportConfig.mockData.getSkills(userId) : undefined;
+
+  // Look up skill config from sportConfig (content-driven)
+  const config = sportConfig.fullSkills.find(s => s.key === skillKey);
 
   if (!player || !allSkills) {
     return <View style={{ flex: 1, backgroundColor: colors.background }} />;
   }
   const skillData = allSkills[skillKey];
-  const config = FOOTBALL_SKILL_CONFIG[skillKey];
 
   if (!skillData || !config) return null;
 

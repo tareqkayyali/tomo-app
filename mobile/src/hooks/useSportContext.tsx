@@ -55,7 +55,11 @@ import { Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEY_ACTIVE_SPORT } from '../constants/storageKeys';
 
-// ── Football imports ──
+// ── Content layer ──
+import { useContent } from './useContentProvider';
+import type { ContentBundle } from '../services/contentService';
+
+// ── Football imports (fallback when no ContentBundle) ──
 import {
   FOOTBALL_ATTRIBUTE_ORDER,
   FOOTBALL_ATTRIBUTE_LABELS,
@@ -90,9 +94,12 @@ import {
   getMockPlayerSkillsForUser,
   getMockPlayerHistoryForUser,
   getFootballMetricsForUser,
+  FOOTBALL_NORMATIVE_DATA,
 } from '../data/footballMockData';
+import { FOOTBALL_TEST_DEFS } from '../data/footballTestDefs';
+import { DERIVED_METRIC_CALCULATORS } from '../services/derivedMetricCalculators';
 
-// ── Padel imports ──
+// ── Padel imports (fallback when no ContentBundle) ──
 import {
   DNA_ATTRIBUTE_ORDER,
   DNA_ATTRIBUTE_LABELS,
@@ -164,6 +171,63 @@ export interface RatingLevelDescriptor {
 }
 
 /**
+ * Position descriptor with attribute weight matrix.
+ * Used for position fit analysis (football) or empty array (padel).
+ */
+export interface PositionDescriptor {
+  key: string;
+  label: string;
+  attributeWeights: Record<string, number>;
+}
+
+/**
+ * Full attribute descriptor with sub-attributes.
+ * Extends the basic AttributeDescriptor with detailed configuration
+ * needed by attribute detail sheets and progress screens.
+ */
+export interface FullAttributeDescriptor extends AttributeDescriptor {
+  abbreviation: string;
+  description: string;
+  maxValue: number;
+  subAttributes: Array<{
+    name: string;
+    weight: number;
+    description: string;
+    unit: string;
+  }>;
+}
+
+/**
+ * Full skill descriptor with sub-metrics and description.
+ * Extends SkillDescriptor with the detailed data needed by
+ * skill detail screens and shot session screens.
+ */
+export interface FullSkillDescriptor extends SkillDescriptor {
+  description: string;
+  subMetrics: Array<{
+    key: string;
+    label: string;
+    unit: string;
+    description: string;
+  }>;
+}
+
+/**
+ * Normative data entry for percentile calculations.
+ * Used by test input screens and skill detail screens.
+ */
+export interface NormativeDataEntry {
+  metricName: string;
+  unit: string;
+  attributeKey: string;
+  direction: 'higher' | 'lower';
+  ageMin: number;
+  ageMax: number;
+  means: number[];
+  sds: number[];
+}
+
+/**
  * Sport-specific calculation functions.
  * Each sport wires its own implementation; consumers call these
  * without knowing which sport is active.
@@ -215,6 +279,19 @@ export interface SportConfig {
   calculations: SportCalculations;
   /** Sport-specific mock/demo data */
   mockData: SportMockData;
+
+  // ── Extended content (populated from ContentBundle or hardcoded fallback) ──
+
+  /** Position descriptors with attribute weight matrices */
+  positions: PositionDescriptor[];
+  /** Full attribute config with sub-attributes */
+  fullAttributes: FullAttributeDescriptor[];
+  /** Full skill config with sub-metrics and descriptions */
+  fullSkills: FullSkillDescriptor[];
+  /** Normative data for percentile calculations */
+  normativeData: NormativeDataEntry[];
+  /** Attribute key → hex color map (convenience accessor) */
+  attributeColors: Record<string, string>;
 }
 
 /**
@@ -276,6 +353,69 @@ function buildFootballConfig(): SportConfig {
     color: l.color,
   }));
 
+  // Positions with attribute weights
+  const positions: PositionDescriptor[] = (
+    Object.keys(FOOTBALL_POSITION_WEIGHTS) as Array<keyof typeof FOOTBALL_POSITION_WEIGHTS>
+  ).map(key => ({
+    key,
+    label: FOOTBALL_POSITION_LABELS[key],
+    attributeWeights: FOOTBALL_POSITION_WEIGHTS[key] as Record<string, number>,
+  }));
+
+  // Full attribute configs (with sub-attributes)
+  const fullAttributes: FullAttributeDescriptor[] = FOOTBALL_ATTRIBUTE_ORDER.map(key => {
+    const cfg = FOOTBALL_ATTRIBUTE_CONFIG[key];
+    return {
+      key,
+      label: FOOTBALL_ATTRIBUTE_LABELS[key],
+      fullName: FOOTBALL_ATTRIBUTE_FULL_NAMES[key],
+      color: FOOTBALL_ATTRIBUTE_COLORS[key],
+      abbreviation: cfg.abbreviation ?? FOOTBALL_ATTRIBUTE_LABELS[key],
+      description: cfg.description ?? '',
+      maxValue: cfg.maxValue ?? 99,
+      subAttributes: (cfg.subAttributes ?? []).map((sa: any) => ({
+        name: sa.name,
+        weight: sa.weight,
+        description: sa.description ?? '',
+        unit: sa.unit ?? '',
+      })),
+    };
+  });
+
+  // Full skill configs (with sub-metrics, descriptions)
+  const fullSkills: FullSkillDescriptor[] = FOOTBALL_SKILL_ORDER.map(key => {
+    const cfg = FOOTBALL_SKILL_CONFIG[key];
+    return {
+      key,
+      name: cfg.name,
+      category: cfg.category,
+      icon: cfg.icon,
+      subMetricCount: cfg.subMetrics.length,
+      description: cfg.description ?? '',
+      subMetrics: cfg.subMetrics.map((sm: any) => ({
+        key: sm.key,
+        label: sm.label,
+        unit: sm.unit,
+        description: sm.description ?? '',
+      })),
+    };
+  });
+
+  // Normative data (42 metrics × 11 ages)
+  const normativeData: NormativeDataEntry[] = FOOTBALL_NORMATIVE_DATA.map(n => ({
+    metricName: n.name,
+    unit: n.unit,
+    attributeKey: n.attribute,
+    direction: n.direction,
+    ageMin: 13,
+    ageMax: 23,
+    means: n.means,
+    sds: n.sds,
+  }));
+
+  // Attribute color map
+  const attributeColors: Record<string, string> = { ...FOOTBALL_ATTRIBUTE_COLORS };
+
   return {
     sport: 'football',
     label: 'Football',
@@ -299,6 +439,11 @@ function buildFootballConfig(): SportConfig {
       getHistory: (userId: string) => getMockPlayerHistoryForUser(userId) ?? null,
       getMetrics: (userId: string) => getFootballMetricsForUser(userId),
     },
+    positions,
+    fullAttributes,
+    fullSkills,
+    normativeData,
+    attributeColors,
   };
 }
 
@@ -330,6 +475,37 @@ function buildPadelConfig(): SportConfig {
     minRating: l.range[0],
     maxRating: l.range[1],
     description: l.description,
+  }));
+
+  // Full skill configs (with sub-metrics, descriptions)
+  const padelFullSkills: FullSkillDescriptor[] = SHOT_ORDER.map(key => {
+    const def = SHOT_DEFINITIONS[key];
+    return {
+      key,
+      name: def.name,
+      category: def.category,
+      icon: def.icon,
+      subMetricCount: def.subMetrics.length,
+      description: def.description ?? '',
+      subMetrics: def.subMetrics.map((sm: any) => ({
+        key: sm.key,
+        label: sm.label,
+        unit: sm.unit ?? '',
+        description: sm.description ?? '',
+      })),
+    };
+  });
+
+  // Full attribute configs (padel has simpler attributes, no sub-attributes)
+  const padelFullAttributes: FullAttributeDescriptor[] = DNA_ATTRIBUTE_ORDER.map(key => ({
+    key,
+    label: DNA_ATTRIBUTE_LABELS[key],
+    fullName: DNA_ATTRIBUTE_FULL_NAMES[key],
+    color: DNA_ATTRIBUTE_COLORS[key],
+    abbreviation: DNA_ATTRIBUTE_LABELS[key],
+    description: '',
+    maxValue: 99,
+    subAttributes: [],
   }));
 
   return {
@@ -364,12 +540,146 @@ function buildPadelConfig(): SportConfig {
         return card ? [...DEMO_PHYSICAL_METRICS] : [];
       },
     },
+    positions: [], // padel doesn't have positions
+    fullAttributes: padelFullAttributes,
+    fullSkills: padelFullSkills,
+    normativeData: [], // padel doesn't have normative data yet
+    attributeColors: { ...DNA_ATTRIBUTE_COLORS },
   };
 }
 
-// Pre-build configs so useMemo only swaps references (no re-computation per render)
+// Pre-build hardcoded configs as fallback
 const FOOTBALL_CONFIG = buildFootballConfig();
 const PADEL_CONFIG = buildPadelConfig();
+
+// ═══ CONTENT BUNDLE → SPORT CONFIG BUILDER ═══
+
+/**
+ * Build a SportConfig from ContentBundle data for a given sport.
+ * Falls back to hardcoded config if bundle doesn't have enough data.
+ * Calculations and mockData always use hardcoded implementations
+ * (TypeScript functions can't be stored in DB).
+ */
+function buildConfigFromBundle(
+  sport: ActiveSport,
+  bundle: ContentBundle,
+): SportConfig | null {
+  const sportRow = bundle.sports.find((s: any) => s.id === sport);
+  if (!sportRow) return null;
+
+  const attrs = bundle.sport_attributes
+    .filter((a: any) => a.sport_id === sport)
+    .sort((a: any, b: any) => a.sort_order - b.sort_order);
+
+  const skills = bundle.sport_skills
+    .filter((s: any) => s.sport_id === sport)
+    .sort((a: any, b: any) => a.sort_order - b.sort_order);
+
+  const levels = bundle.sport_rating_levels
+    .filter((l: any) => l.sport_id === sport)
+    .sort((a: any, b: any) => a.sort_order - b.sort_order);
+
+  if (attrs.length === 0) return null;
+
+  const fallback = sport === 'football' ? FOOTBALL_CONFIG : PADEL_CONFIG;
+
+  // ── Positions from bundle ──
+  const bundlePositions = bundle.sport_positions
+    .filter((p: any) => p.sport_id === sport)
+    .sort((a: any, b: any) => a.sort_order - b.sort_order);
+
+  const positions: PositionDescriptor[] = bundlePositions.map((p: any) => ({
+    key: p.key,
+    label: p.label,
+    attributeWeights: p.attribute_weights ?? {},
+  }));
+
+  // ── Full attributes from bundle ──
+  const fullAttributes: FullAttributeDescriptor[] = attrs.map((a: any) => ({
+    key: a.key,
+    label: a.label,
+    fullName: a.full_name,
+    color: a.color,
+    abbreviation: a.abbreviation ?? a.label,
+    description: a.description ?? '',
+    maxValue: a.max_value ?? 99,
+    subAttributes: Array.isArray(a.sub_attributes) ? a.sub_attributes : [],
+  }));
+
+  // ── Full skills from bundle ──
+  const fullSkillsFromBundle: FullSkillDescriptor[] = skills.map((s: any) => ({
+    key: s.key,
+    name: s.name,
+    category: s.category,
+    icon: s.icon,
+    subMetricCount: Array.isArray(s.sub_metrics) ? s.sub_metrics.length : 0,
+    description: s.description ?? '',
+    subMetrics: Array.isArray(s.sub_metrics)
+      ? s.sub_metrics.map((sm: any) => ({
+          key: sm.key,
+          label: sm.label,
+          unit: sm.unit ?? '',
+          description: sm.description ?? '',
+        }))
+      : [],
+  }));
+
+  // ── Normative data from bundle ──
+  const bundleNormative = bundle.sport_normative_data
+    .filter((n: any) => n.sport_id === sport);
+
+  const normativeData: NormativeDataEntry[] = bundleNormative.map((n: any) => ({
+    metricName: n.metric_name,
+    unit: n.unit ?? '',
+    attributeKey: n.attribute_key,
+    direction: n.direction,
+    ageMin: n.age_min ?? 13,
+    ageMax: n.age_max ?? 23,
+    means: Array.isArray(n.means) ? n.means : [],
+    sds: Array.isArray(n.sds) ? n.sds : [],
+  }));
+
+  // ── Attribute colors map ──
+  const attributeColors: Record<string, string> = {};
+  attrs.forEach((a: any) => { attributeColors[a.key] = a.color; });
+
+  return {
+    sport,
+    label: sportRow.label,
+    icon: sportRow.icon,
+    color: fallback.color, // keep the app's color scheme
+    attributes: attrs.map((a: any) => ({
+      key: a.key,
+      label: a.label,
+      fullName: a.full_name,
+      color: a.color,
+    })),
+    skills: skills.map((s: any) => ({
+      key: s.key,
+      name: s.name,
+      category: s.category,
+      icon: s.icon,
+      subMetricCount: Array.isArray(s.sub_metrics) ? s.sub_metrics.length : 0,
+    })),
+    ratingLevels: levels.map((l: any) => ({
+      name: l.name,
+      minRating: l.min_rating,
+      maxRating: l.max_rating,
+      description: l.description,
+      color: l.color,
+    })),
+    // Calculations stay in TypeScript — can't serialize functions to DB
+    calculations: fallback.calculations,
+    // Mock data stays in TypeScript — runtime demo data
+    mockData: fallback.mockData,
+    // Extended content from DB
+    positions,
+    fullAttributes,
+    fullSkills: fullSkillsFromBundle,
+    normativeData,
+    attributeColors,
+  };
+}
 
 // ═══ CONTEXT ═══
 
@@ -405,6 +715,7 @@ export function SportProvider({
   const [activeSport, setActiveSportState] = useState<ActiveSport>(DEFAULT_SPORT);
   const [isLoading, setIsLoading] = useState(true);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const { content: contentBundle } = useContent();
 
   // Restore persisted sport on mount
   useEffect(() => {
@@ -443,15 +754,22 @@ export function SportProvider({
     });
   }, [activeSport, fadeAnim]);
 
+  // Build sport config: prefer content bundle, fall back to hardcoded
+  const sportConfig = useMemo(() => {
+    const hardcoded = activeSport === 'football' ? FOOTBALL_CONFIG : PADEL_CONFIG;
+    if (!contentBundle) return hardcoded;
+    return buildConfigFromBundle(activeSport, contentBundle) ?? hardcoded;
+  }, [activeSport, contentBundle]);
+
   const value = useMemo<SportContextType>(() => ({
     activeSport,
     setActiveSport,
-    sportConfig: activeSport === 'football' ? FOOTBALL_CONFIG : PADEL_CONFIG,
+    sportConfig,
     userSports,
     hasMultipleSports: userSports.length > 1,
     fadeAnim,
     isLoading,
-  }), [activeSport, setActiveSport, userSports, fadeAnim, isLoading]);
+  }), [activeSport, setActiveSport, sportConfig, userSports, fadeAnim, isLoading]);
 
   return (
     <SportContext.Provider value={value}>

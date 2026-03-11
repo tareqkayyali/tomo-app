@@ -54,9 +54,11 @@ import {
   getToday,
   syncPadelProgress,
 } from '../services/api';
-import { getDNACard, getShotRatings } from '../services/padelMockData';
 import { useAuth } from '../hooks/useAuth';
+import { useSportContext } from '../hooks/useSportContext';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
+import { useAllQuotes } from '../hooks/useContentHelpers';
+import type { Quote } from '../hooks/useContentHelpers';
 import { track } from '../services/analytics';
 import {
   getSavedChats,
@@ -73,76 +75,30 @@ import type {
 } from '../types';
 
 // ---------------------------------------------------------------------------
-// Motivational Quotes — categorized by athlete state
+// Motivational Quotes — loaded from ContentBundle via useAllQuotes hook
+// Fallback: hardcoded quotes in fallbackContent.ts
 // ---------------------------------------------------------------------------
 
-interface Quote {
-  text: string;
-  author: string;
-}
-
-const QUOTES_HIGH_ENERGY: Quote[] = [
-  { text: "I've failed over and over and over again in my life. And that is why I succeed.", author: "Michael Jordan" },
-  { text: "I hated every minute of training, but I said, don't quit. Suffer now and live the rest of your life as a champion.", author: "Muhammad Ali" },
-  { text: "The more difficult the victory, the greater the happiness in winning.", author: "Pele" },
-  { text: "Everything negative — pressure, challenges — is all an opportunity for me to rise.", author: "Kobe Bryant" },
-  { text: "There are better starters than me but I'm a strong finisher.", author: "Usain Bolt" },
-  { text: "Talent without working hard is nothing.", author: "Cristiano Ronaldo" },
-  { text: "I am building a fire, and every day I train, I add more fuel. At just the right moment, I light the match.", author: "Mia Hamm, 2x Olympic Gold Medalist" },
-  { text: "You can't put a limit on anything. The more you dream, the farther you get.", author: "Michael Phelps, 23x Olympic Gold Medalist" },
-];
-
-const QUOTES_RECOVERY: Quote[] = [
-  { text: "I really think a champion is defined not by their wins but by how they can recover when they fall.", author: "Serena Williams" },
-  { text: "The glory is not winning here or winning there. The glory is enjoying practicing, enjoy every day, enjoy to work hard.", author: "Rafael Nadal" },
-  { text: "I can accept failure. Everyone fails at something. But I can't accept not trying.", author: "Michael Jordan" },
-  { text: "I'd rather regret the risks that didn't work out than the chances I didn't take at all.", author: "Simone Biles" },
-  { text: "You can't be afraid to fail. It's the only way you succeed.", author: "LeBron James" },
-  { text: "There is no way around the hard work. Embrace it.", author: "Roger Federer" },
-];
-
-const QUOTES_LOW_SLEEP: Quote[] = [
-  { text: "Sleep is the most important thing when it comes to recovery.", author: "LeBron James" },
-  { text: "Sleep is extremely important to me. I need to rest and recover in order for the training I do to be absorbed by my body.", author: "Usain Bolt" },
-  { text: "Fatigue makes cowards of us all.", author: "Vince Lombardi, NFL Legend" },
-  { text: "Without enough rest, you can't perform at your highest level. Take care of your body first.", author: "Roger Federer" },
-  { text: "The fight is won or lost far away from witnesses — behind the lines, in the gym, and out there on the road.", author: "Muhammad Ali" },
-];
-
-const QUOTES_STREAK: Quote[] = [
-  { text: "Rest at the end, not in the middle.", author: "Kobe Bryant" },
-  { text: "Success is no accident. It is hard work, perseverance, learning, studying, and sacrifice.", author: "Pele" },
-  { text: "There will be obstacles. There will be doubters. There will be mistakes. But with hard work, there are no limits.", author: "Michael Phelps, 23x Olympic Gold Medalist" },
-  { text: "You have to believe in the long-term plan.", author: "Novak Djokovic" },
-  { text: "Talent wins games, but teamwork and intelligence win championships.", author: "Michael Jordan" },
-];
-
-const QUOTES_GENERAL: Quote[] = [
-  { text: "You miss 100% of the shots you don't take.", author: "Wayne Gretzky" },
-  { text: "He who is not courageous enough to take risks will accomplish nothing in life.", author: "Muhammad Ali" },
-  { text: "I don't like to lose — at anything — yet I've grown most not from victories, but setbacks.", author: "Serena Williams" },
-  { text: "Everything is practice.", author: "Pele" },
-  { text: "You have to expect things of yourself before you can do them.", author: "Michael Jordan" },
-  { text: "Hard days are the best because that's when champions are made.", author: "Gabby Douglas, Olympic Gold Medalist" },
-  { text: "I like criticism. It makes you strong.", author: "LeBron James" },
-];
-
 /**
- * Builds a flat pool of quotes weighted by athlete state, then picks one
+ * Builds a flat pool of quotes from ContentBundle, then picks one
  * using the provided seed index so each new chat gets a fresh quote.
  */
 function pickQuoteForAthlete(
+  allQuotes: Record<string, Quote[]>,
   data: { readiness?: string; sleepHours?: number; streak?: number; sport?: string },
   seed: number,
 ): Quote {
-  // Combine all quotes into one pool so every new-chat press gives variety
   const ALL_QUOTES = [
-    ...QUOTES_HIGH_ENERGY,
-    ...QUOTES_RECOVERY,
-    ...QUOTES_LOW_SLEEP,
-    ...QUOTES_STREAK,
-    ...QUOTES_GENERAL,
+    ...(allQuotes.high_energy ?? []),
+    ...(allQuotes.recovery ?? []),
+    ...(allQuotes.low_sleep ?? []),
+    ...(allQuotes.streak ?? []),
+    ...(allQuotes.general ?? []),
   ];
+
+  if (ALL_QUOTES.length === 0) {
+    return { text: "Champions are made in practice.", author: "Tomo" };
+  }
 
   return ALL_QUOTES[Math.abs(seed) % ALL_QUOTES.length];
 }
@@ -806,6 +762,8 @@ export function HomeScreen() {
   const { colors, isDark, toggle } = useTheme();
   const styles = useHomeStyles();
   const { profile } = useAuth();
+  const { sportConfig } = useSportContext();
+  const allQuotes = useAllQuotes();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [chips, setChips] = useState<SuggestionChipType[]>([]);
@@ -869,16 +827,18 @@ export function HomeScreen() {
   }, [loadData]);
 
   // ── Sync padel progress to backend (fire-and-forget) ──────────────
+  const userId = profile?.uid || profile?.id || 'osama-kayyali';
   useEffect(() => {
     if (profile?.sport === 'padel') {
-      const dna = getDNACard();
-      const shots = getShotRatings();
+      const dna = sportConfig.mockData.getCard(userId) as any;
+      const shots = sportConfig.mockData.getSkills(userId) as any;
+      if (!dna || !shots) return;
       syncPadelProgress({
         dnaCard: dna.attributes,
         shotRatings: {
           overallShotMastery: shots.overallShotMastery,
           shots: Object.fromEntries(
-            Object.entries(shots.shots).map(([key, val]) => [
+            Object.entries(shots.shots).map(([key, val]: [string, any]) => [
               key,
               {
                 rating: val.rating,
@@ -905,6 +865,7 @@ export function HomeScreen() {
   // ── Pick quote (changes on every new chat) ─────────────────────────
   const currentQuote = useMemo(() => {
     return pickQuoteForAthlete(
+      allQuotes,
       {
         readiness: todayData?.readiness,
         sleepHours: todayData?.latestCheckin?.sleepHours,
@@ -913,7 +874,7 @@ export function HomeScreen() {
       },
       quoteIndex,
     );
-  }, [todayData, profile?.currentStreak, profile?.sport, quoteIndex]);
+  }, [allQuotes, todayData, profile?.currentStreak, profile?.sport, quoteIndex]);
 
   // ── Pull-to-refresh ────────────────────────────────────────────────
   const handleRefresh = useCallback(async () => {

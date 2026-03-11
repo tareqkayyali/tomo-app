@@ -23,11 +23,9 @@ import { useIsFocused } from '@react-navigation/native';
 
 import {
   FOOTBALL_TEST_DEFS,
-  getTestAttributeLabel,
 } from '../../data/footballTestDefs';
 import type { FootballTestDef } from '../../data/footballTestDefs';
-import { FOOTBALL_ATTRIBUTE_LABELS } from '../../types/football';
-import type { FootballAttribute } from '../../types/football';
+import { useSportContext } from '../../hooks/useSportContext';
 
 import { fontFamily, spacing, borderRadius, layout } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
@@ -52,6 +50,7 @@ interface FootballTestsContentProps {
 
 export function FootballTestsContent({ navigation }: FootballTestsContentProps) {
   const { colors } = useTheme();
+  const { sportConfig } = useSportContext();
   const isFocused = useIsFocused();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -88,6 +87,7 @@ export function FootballTestsContent({ navigation }: FootballTestsContentProps) 
             key={testDef.id}
             testDef={testDef}
             onPress={() => handleStartTest(testDef.id)}
+            attributeLabels={Object.fromEntries(sportConfig.attributes.map(a => [a.key, a.label]))}
           />
         ))}
       </Animated.View>
@@ -133,13 +133,19 @@ export function FootballTestsContent({ navigation }: FootballTestsContentProps) 
 function FootballTestCard({
   testDef,
   onPress,
+  attributeLabels,
 }: {
   testDef: FootballTestDef;
   onPress: () => void;
+  attributeLabels: Record<string, string>;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const attrLabel = getTestAttributeLabel(testDef);
+  // Get attribute label from sportConfig-sourced labels map
+  const attrKeys = Array.isArray(testDef.attribute) ? testDef.attribute : [testDef.attribute];
+  const attrLabel = attrKeys.length
+    ? attrKeys.map(k => attributeLabels[k] ?? k).join(' / ')
+    : '';
 
   return (
     <Pressable onPress={onPress}>

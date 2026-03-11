@@ -11,8 +11,11 @@ import { useSpringEntrance } from '../hooks/useAnimations';
 import { useTheme } from '../hooks/useTheme';
 import { PadelRatingPathway } from '../components/PadelRatingPathway';
 import { GlassCard } from '../components/GlassCard';
-import { getDNACard, getProMilestones } from '../services/padelMockData';
+import { useSportContext } from '../hooks/useSportContext';
+import { useAuth } from '../hooks/useAuth';
+import { useProMilestones } from '../hooks/useContentHelpers';
 import { fontFamily, spacing } from '../theme';
+import type { DNACardData } from '../types/padel';
 import type { ThemeColors } from '../theme/colors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
@@ -85,19 +88,25 @@ function RatingHistoryChart({
 
 export function PadelRatingScreen(_props: Props) {
   const { colors } = useTheme();
+  const { sportConfig } = useSportContext();
+  const { profile } = useAuth();
+  const userId = profile?.uid || profile?.id || 'osama-kayyali';
   const s = useMemo(() => createStyles(colors), [colors]);
-  const dna = getDNACard();
-  const milestones = getProMilestones('men');
+  const dna = sportConfig.mockData.getCard(userId) as DNACardData | null;
+  const milestones = useProMilestones('men');
 
   const entrance0 = useSpringEntrance(0);
   const entrance1 = useSpringEntrance(1);
   const entrance2 = useSpringEntrance(2);
 
   // Next milestone
+  const padelRating = dna?.padelRating ?? 0;
   const nextMilestone = useMemo(() => {
     const sorted = [...milestones].sort((a, b) => a.rating - b.rating);
-    return sorted.find((m) => m.rating > dna.padelRating);
-  }, [milestones, dna.padelRating]);
+    return sorted.find((m) => m.rating > padelRating);
+  }, [milestones, padelRating]);
+
+  if (!dna) return null;
 
   return (
     <ScrollView
@@ -157,7 +166,7 @@ export function PadelRatingScreen(_props: Props) {
           <PadelRatingPathway
             rating={dna.padelRating}
             level={dna.padelLevel}
-            milestones={milestones}
+            milestones={milestones as any}
             compact={false}
           />
         </GlassCard>

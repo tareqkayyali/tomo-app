@@ -23,6 +23,10 @@ const SUPABASE_ANON_KEY =
   Constants.expoConfig?.extra?.supabaseAnonKey ||
   "";
 
+// Log resolved config on startup for debugging
+console.log(`[Supabase] URL: ${SUPABASE_URL}`);
+console.log(`[Supabase] Key present: ${SUPABASE_ANON_KEY ? 'yes' : 'NO — auth will fail'}`);
+
 // On web, use default localStorage. On native, use AsyncStorage.
 function getAuthStorage() {
   if (Platform.OS === "web") {

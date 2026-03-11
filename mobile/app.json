@@ -52,8 +52,9 @@
       "eas": {
         "projectId": ""
       },
-      "supabaseUrl": "https://ektrccjlszvcjmakolyu.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHJjY2psc3p2Y2ptYWtvbHl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNTYzMTMsImV4cCI6MjA4ODczMjMxM30.kFnMdHFAX9XeDc8FFC_dQEt38uw37rDt8N34Ns6mIx8"
+      "supabaseUrl": "https://ydtnhxqwvtnypjisaavm.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkdG5oeHF3dnRueXBqaXNhYXZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMzYyMjgsImV4cCI6MjA4ODgxMjIyOH0.zCvxo28-pCQ__B82G8yD6Ly_7HMMmUwP3A2gy9YL4NU",
+      "apiUrl": "https://api.my-tomo.com"
     },
     "plugins": [
       "expo-font",

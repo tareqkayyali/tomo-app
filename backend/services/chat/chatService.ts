@@ -337,8 +337,15 @@ export async function processMessage(
     getSessionMessages(userId, sessionId),
   ]);
 
-  const user = userRes.data;
-  if (!user) throw new Error("User profile not found");
+  // Use sensible defaults if user hasn't completed profile registration yet
+  const user = (userRes.data ?? {
+    name: "Athlete",
+    age: null,
+    sport: "football",
+    archetype: null,
+    current_streak: 0,
+    days_since_rest: 0,
+  }) as unknown as UserRow;
 
   const recentCheckins = (checkinsRes.data || []) as unknown as CheckinRow[];
   const todayPlan = planRes.data as unknown as PlanRow | null;
@@ -437,8 +444,15 @@ export async function processMessageStream(
     getSessionMessages(userId, sessionId),
   ]);
 
-  const user = userRes.data;
-  if (!user) throw new Error("User profile not found");
+  // Use sensible defaults if user hasn't completed profile registration yet
+  const user = (userRes.data ?? {
+    name: "Athlete",
+    age: null,
+    sport: "football",
+    archetype: null,
+    current_streak: 0,
+    days_since_rest: 0,
+  }) as unknown as UserRow;
 
   const recentCheckins = (checkinsRes.data || []) as unknown as CheckinRow[];
   const todayPlan = planRes.data as unknown as PlanRow | null;

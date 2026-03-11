@@ -15,6 +15,11 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next({ request: req });
   }
 
+  // Content routes are public (read-only, no auth required)
+  if (pathname.startsWith("/api/v1/content")) {
+    return NextResponse.next({ request: req });
+  }
+
   // --- 1. Try Bearer token (mobile app) ---
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {

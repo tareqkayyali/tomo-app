@@ -302,6 +302,53 @@ export type Database = {
           },
         ]
       }
+      content_items: {
+        Row: {
+          active: boolean
+          category: string
+          content: Json
+          created_at: string
+          id: string
+          key: string
+          sort_order: number
+          sport_id: string | null
+          subcategory: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          content?: Json
+          created_at?: string
+          id?: string
+          key?: string
+          sort_order?: number
+          sport_id?: string | null
+          subcategory?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          content?: Json
+          created_at?: string
+          id?: string
+          key?: string
+          sort_order?: number
+          sport_id?: string | null
+          subcategory?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_items_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_periods: {
         Row: {
           auto_detected: boolean
@@ -851,6 +898,354 @@ export type Database = {
           },
         ]
       }
+      sport_attributes: {
+        Row: {
+          abbreviation: string
+          color: string
+          created_at: string
+          description: string
+          full_name: string
+          id: string
+          key: string
+          label: string
+          max_value: number
+          sort_order: number
+          sport_id: string
+          sub_attributes: Json
+          updated_at: string
+        }
+        Insert: {
+          abbreviation?: string
+          color?: string
+          created_at?: string
+          description?: string
+          full_name: string
+          id?: string
+          key: string
+          label: string
+          max_value?: number
+          sort_order?: number
+          sport_id: string
+          sub_attributes?: Json
+          updated_at?: string
+        }
+        Update: {
+          abbreviation?: string
+          color?: string
+          created_at?: string
+          description?: string
+          full_name?: string
+          id?: string
+          key?: string
+          label?: string
+          max_value?: number
+          sort_order?: number
+          sport_id?: string
+          sub_attributes?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sport_attributes_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sport_normative_data: {
+        Row: {
+          age_max: number
+          age_min: number
+          attribute_key: string
+          created_at: string
+          direction: string
+          id: string
+          means: Json
+          metric_name: string
+          sds: Json
+          sport_id: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          age_max?: number
+          age_min?: number
+          attribute_key: string
+          created_at?: string
+          direction: string
+          id?: string
+          means?: Json
+          metric_name: string
+          sds?: Json
+          sport_id: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          age_max?: number
+          age_min?: number
+          attribute_key?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          means?: Json
+          metric_name?: string
+          sds?: Json
+          sport_id?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sport_normative_data_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sport_positions: {
+        Row: {
+          attribute_weights: Json
+          created_at: string
+          id: string
+          key: string
+          label: string
+          sort_order: number
+          sport_id: string
+          updated_at: string
+        }
+        Insert: {
+          attribute_weights?: Json
+          created_at?: string
+          id?: string
+          key: string
+          label: string
+          sort_order?: number
+          sport_id: string
+          updated_at?: string
+        }
+        Update: {
+          attribute_weights?: Json
+          created_at?: string
+          id?: string
+          key?: string
+          label?: string
+          sort_order?: number
+          sport_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sport_positions_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sport_rating_levels: {
+        Row: {
+          color: string
+          created_at: string
+          description: string
+          id: string
+          max_rating: number
+          min_rating: number
+          name: string
+          sort_order: number
+          sport_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description?: string
+          id?: string
+          max_rating: number
+          min_rating: number
+          name: string
+          sort_order?: number
+          sport_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string
+          id?: string
+          max_rating?: number
+          min_rating?: number
+          name?: string
+          sort_order?: number
+          sport_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sport_rating_levels_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sport_skills: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          key: string
+          name: string
+          sort_order: number
+          sport_id: string
+          sub_metrics: Json
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          key: string
+          name: string
+          sort_order?: number
+          sport_id: string
+          sub_metrics?: Json
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          key?: string
+          name?: string
+          sort_order?: number
+          sport_id?: string
+          sub_metrics?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sport_skills_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sport_test_definitions: {
+        Row: {
+          attribute_keys: Json
+          color: string
+          created_at: string
+          derived_metrics: Json
+          description: string
+          icon: string
+          id: string
+          inputs: Json
+          name: string
+          primary_input_key: string
+          primary_metric_name: string
+          research_note: string
+          sort_order: number
+          sport_id: string
+          test_id: string
+          updated_at: string
+        }
+        Insert: {
+          attribute_keys?: Json
+          color?: string
+          created_at?: string
+          derived_metrics?: Json
+          description?: string
+          icon?: string
+          id?: string
+          inputs?: Json
+          name: string
+          primary_input_key?: string
+          primary_metric_name?: string
+          research_note?: string
+          sort_order?: number
+          sport_id: string
+          test_id: string
+          updated_at?: string
+        }
+        Update: {
+          attribute_keys?: Json
+          color?: string
+          created_at?: string
+          derived_metrics?: Json
+          description?: string
+          icon?: string
+          id?: string
+          inputs?: Json
+          name?: string
+          primary_input_key?: string
+          primary_metric_name?: string
+          research_note?: string
+          sort_order?: number
+          sport_id?: string
+          test_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sport_test_definitions_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sports: {
+        Row: {
+          available: boolean
+          color: string
+          config: Json
+          created_at: string
+          icon: string
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          available?: boolean
+          color?: string
+          config?: Json
+          created_at?: string
+          icon?: string
+          id: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          available?: boolean
+          color?: string
+          config?: Json
+          created_at?: string
+          icon?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       training_blocks: {
         Row: {
           block_type: string
@@ -905,18 +1300,28 @@ export type Database = {
           created_at: string
           current_streak: number
           days_since_rest: number
+          display_name: string | null
           email: string
           exam_periods: Json | null
+          fcm_token: string | null
           freeze_tokens: number
+          health_kit_connected: boolean | null
           id: string
           last_compliant_date: string | null
           longest_streak: number
           name: string
           onboarding_complete: boolean
+          parental_consent: boolean | null
+          photo_url: string | null
+          region: string | null
           school_hours: number | null
+          season_phase: string | null
           sport: string
+          streak_multiplier: number | null
+          team_id: string | null
           total_points: number
           updated_at: string
+          weekly_training_days: number | null
         }
         Insert: {
           age?: number | null
@@ -924,18 +1329,28 @@ export type Database = {
           created_at?: string
           current_streak?: number
           days_since_rest?: number
+          display_name?: string | null
           email: string
           exam_periods?: Json | null
+          fcm_token?: string | null
           freeze_tokens?: number
+          health_kit_connected?: boolean | null
           id: string
           last_compliant_date?: string | null
           longest_streak?: number
           name?: string
           onboarding_complete?: boolean
+          parental_consent?: boolean | null
+          photo_url?: string | null
+          region?: string | null
           school_hours?: number | null
+          season_phase?: string | null
           sport?: string
+          streak_multiplier?: number | null
+          team_id?: string | null
           total_points?: number
           updated_at?: string
+          weekly_training_days?: number | null
         }
         Update: {
           age?: number | null
@@ -943,18 +1358,28 @@ export type Database = {
           created_at?: string
           current_streak?: number
           days_since_rest?: number
+          display_name?: string | null
           email?: string
           exam_periods?: Json | null
+          fcm_token?: string | null
           freeze_tokens?: number
+          health_kit_connected?: boolean | null
           id?: string
           last_compliant_date?: string | null
           longest_streak?: number
           name?: string
           onboarding_complete?: boolean
+          parental_consent?: boolean | null
+          photo_url?: string | null
+          region?: string | null
           school_hours?: number | null
+          season_phase?: string | null
           sport?: string
+          streak_multiplier?: number | null
+          team_id?: string | null
           total_points?: number
           updated_at?: string
+          weekly_training_days?: number | null
         }
         Relationships: []
       }
@@ -1115,7 +1540,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      content_manifest: { Args: never; Returns: Json }
     }
     Enums: {
       [_ in never]: never
