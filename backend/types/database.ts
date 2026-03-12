@@ -390,6 +390,71 @@ export type Database = {
           },
         ]
       }
+      football_test_results: {
+        Row: {
+          id: string
+          user_id: string
+          date: string
+          test_type: string
+          primary_value: number
+          primary_unit: string
+          primary_label: string
+          derived_metrics: Json
+          percentile: number | null
+          percentile_label: string
+          age_mean: number | null
+          age_mean_unit: string
+          is_new_pb: boolean
+          previous_best: number | null
+          raw_inputs: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          date?: string
+          test_type: string
+          primary_value: number
+          primary_unit?: string
+          primary_label?: string
+          derived_metrics?: Json
+          percentile?: number | null
+          percentile_label?: string
+          age_mean?: number | null
+          age_mean_unit?: string
+          is_new_pb?: boolean
+          previous_best?: number | null
+          raw_inputs?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          date?: string
+          test_type?: string
+          primary_value?: number
+          primary_unit?: string
+          primary_label?: string
+          derived_metrics?: Json
+          percentile?: number | null
+          percentile_label?: string
+          age_mean?: number | null
+          age_mean_unit?: string
+          is_new_pb?: boolean
+          previous_best?: number | null
+          raw_inputs?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "football_test_results_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercises: {
         Row: {
           coaching_cues: string[] | null

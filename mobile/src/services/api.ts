@@ -652,6 +652,39 @@ export async function getPhoneTestHistory(
   return apiRequest<PhoneTestHistoryResponse>(`/api/v1/phone-tests/history${params}`);
 }
 
+// ============================================
+// Football Test APIs
+// ============================================
+
+import type {
+  FootballTestResultInput,
+  FootballTestResult,
+  FootballTestHistoryResponse,
+} from '../types/footballTests';
+
+/**
+ * Save a football test result
+ */
+export async function saveFootballTestResult(
+  input: FootballTestResultInput,
+): Promise<{ result: FootballTestResult }> {
+  return apiRequest<{ result: FootballTestResult }>('/api/v1/football-tests/session', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * Get football test result history
+ */
+export async function getFootballTestHistory(
+  limit: number = 20,
+  testType?: string,
+): Promise<FootballTestHistoryResponse> {
+  const params = testType ? `?limit=${limit}&testType=${testType}` : `?limit=${limit}`;
+  return apiRequest<FootballTestHistoryResponse>(`/api/v1/football-tests/history${params}`);
+}
+
 // Re-export API_BASE_URL for diagnostics
 export { API_BASE_URL } from './apiConfig';
 

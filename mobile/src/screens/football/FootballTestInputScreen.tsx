@@ -45,6 +45,7 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { GlassCard, GradientButton } from '../../components';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
+import { saveFootballTestResult } from '../../services/api';
 
 import {
   useTestDefinition,
@@ -330,6 +331,8 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
       navigation.goBack();
       return;
     }
+
+    // 1. Local PB tracking (AsyncStorage — instant, offline-safe)
     try {
       const pbKey = getPBKey(testId);
       const norm = getMetricNorm(testDef.primaryMetricName);
@@ -344,8 +347,29 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
         await AsyncStorage.setItem(pbKey, String(resultData.primaryValue));
       }
     } catch {}
+
+    // 2. Persist full result to Supabase (fire-and-forget)
+    try {
+      saveFootballTestResult({
+        testType: testId,
+        primaryValue: resultData.primaryValue,
+        primaryUnit: resultData.primaryUnit,
+        primaryLabel: resultData.primaryLabel,
+        derivedMetrics: resultData.derived,
+        percentile: resultData.percentile,
+        percentileLabel: resultData.percentileLabel,
+        ageMean: resultData.ageMean,
+        ageMeanUnit: resultData.ageMeanUnit,
+        isNewPB: resultData.isNewPB,
+        previousBest: resultData.previousBest,
+        rawInputs: inputs,
+      }).catch((err) => {
+        console.warn('[FootballTest] Failed to persist result to server:', err);
+      });
+    } catch {}
+
     navigation.goBack();
-  }, [resultData, testId, testDef, navigation, isSelfAssessment]);
+  }, [resultData, testId, testDef, navigation, isSelfAssessment, inputs]);
 
   // ── Retake ──
 
