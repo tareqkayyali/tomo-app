@@ -16,6 +16,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Platform,
   Pressable,
   Image,
   ActivityIndicator,
@@ -217,14 +218,21 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: () => logout() },
-      ],
-    );
+    if (Platform.OS === 'web') {
+      // Alert.alert doesn't work on web — use window.confirm
+      if (window.confirm('Are you sure you want to sign out?')) {
+        logout();
+      }
+    } else {
+      Alert.alert(
+        'Sign Out',
+        'Are you sure you want to sign out?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign Out', style: 'destructive', onPress: () => logout() },
+        ],
+      );
+    }
   };
 
   const handleComingSoon = (feature: string) => {
