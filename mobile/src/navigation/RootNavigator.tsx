@@ -1,11 +1,14 @@
 /**
  * Root Navigator
- * Switches between Auth → Onboarding → Main based on state
+ * Switches between Auth → Onboarding → Role-based Main based on state
  *
  * Flow:
  *   1. Not authenticated → AuthNavigator (Login/Signup)
  *   2. Authenticated but !onboardingComplete → OnboardingScreen
- *   3. Authenticated + onboardingComplete → MainNavigator
+ *   3. Authenticated + onboardingComplete →
+ *      - role === 'player' → MainNavigator (5-tab player experience)
+ *      - role === 'coach'  → CoachNavigator (3-tab coach portal)
+ *      - role === 'parent' → ParentNavigator (3-tab parent portal)
  *
  * All transitions use fade for smooth state changes.
  */
@@ -16,6 +19,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
+import { CoachNavigator } from './CoachNavigator';
+import { ParentNavigator } from './ParentNavigator';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -33,7 +38,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const { colors } = useTheme();
-  const { isAuthenticated, isLoading, needsRegistration, profile } = useAuth();
+  const { isAuthenticated, isLoading, needsRegistration, profile, role } = useAuth();
 
   // Show loading while checking auth state
   if (isLoading) {
@@ -46,6 +51,18 @@ export function RootNavigator() {
 
   const showAuth = !isAuthenticated || needsRegistration;
   const showOnboarding = isAuthenticated && !needsRegistration && profile && !profile.onboardingComplete;
+
+  // Determine which main navigator to show based on role
+  const getMainScreen = () => {
+    switch (role) {
+      case 'coach':
+        return <Stack.Screen name="CoachMain" component={CoachNavigator} />;
+      case 'parent':
+        return <Stack.Screen name="ParentMain" component={ParentNavigator} />;
+      default:
+        return <Stack.Screen name="Main" component={MainNavigator} />;
+    }
+  };
 
   return (
     <NavigationContainer
@@ -65,7 +82,7 @@ export function RootNavigator() {
         ) : showOnboarding ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
-          <Stack.Screen name="Main" component={MainNavigator} />
+          getMainScreen()
         )}
       </Stack.Navigator>
     </NavigationContainer>

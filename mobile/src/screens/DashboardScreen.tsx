@@ -223,7 +223,7 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
 
               <GradientButton
                 title="Start Drills"
-                onPress={() => (navigation as any).navigate('Tests')}
+                onPress={() => (navigation as any).navigate('Test')}
                 icon="flash-outline"
                 style={styles.focusCta}
               />

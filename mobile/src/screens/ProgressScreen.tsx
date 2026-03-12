@@ -30,30 +30,10 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, {
-  Circle,
-  Polyline,
-  Defs,
-  LinearGradient as SvgGradient,
-  Stop,
-} from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useIsFocused } from '@react-navigation/native';
-import { GlassCard, GradientButton, SkeletonCard, ErrorState } from '../components';
-import { DNACard } from '../components/DNACard';
-import { ShotRatingBar } from '../components/ShotRatingBar';
-import { PadelRatingPathway } from '../components/PadelRatingPathway';
-import { AttributeDetailSheet } from '../components/AttributeDetailSheet';
-import { CrossTrainingModule } from '../components/football/CrossTrainingModule';
-import { useSpringEntrance } from '../hooks/useAnimations';
-import { buildSparklinePath } from '../utils/sparkline';
-import {
-  DEMO_PHYSICAL_METRICS,
-} from '../services/padelMockData';
-import type { DNAAttribute, DNACardData, ShotRatingsData } from '../types/padel';
-import { getDNATier, getTierLabel } from '../services/padelCalculations';
-import type { CardAttribute, CardTier } from '../components/DNACard';
+import { SkeletonCard, ErrorState } from '../components';
 import {
   spacing,
   fontFamily,
@@ -70,6 +50,11 @@ import { useSportContext, getSportConfig } from '../hooks/useSportContext';
 import type { ActiveSport } from '../hooks/useSportContext';
 import { FootballProgressContent } from './football';
 import { EmptyProgressState } from '../components/EmptyProgressState';
+import { usePadelProgress } from '../hooks/usePadelProgress';
+import { ShotRatingBar } from '../components/ShotRatingBar';
+import { SHOT_DEFINITIONS } from '../services/padelDefinitions';
+import { getPadelLevel } from '../services/padelCalculations';
+import type { ShotType } from '../types/padel';
 import type { ProgressData, Checkin } from '../types';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -147,71 +132,11 @@ export function formatPoints(n: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Small Progress Ring (for streak)
-// ---------------------------------------------------------------------------
-
-const TRACK_GRAY = '#E8E8E8';
-
-function StreakProgressRing({
-  progress,
-  size = 96,
-  strokeWidth = 7,
-  colors,
-}: {
-  progress: number;
-  size?: number;
-  strokeWidth?: number;
-  colors: ThemeColors;
-}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - Math.min(1, Math.max(0, progress)));
-
-  return (
-    <Svg width={size} height={size}>
-      <Defs>
-        <SvgGradient id="streakRingGrad" x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor={colors.accent1} />
-          <Stop offset="1" stopColor={colors.accent2} />
-        </SvgGradient>
-      </Defs>
-      <Circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        stroke={TRACK_GRAY}
-        strokeWidth={strokeWidth}
-        fill="none"
-      />
-      <Circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        stroke="url(#streakRingGrad)"
-        strokeWidth={strokeWidth}
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray={`${circumference} ${circumference}`}
-        strokeDashoffset={strokeDashoffset}
-        rotation="-90"
-        origin={`${size / 2}, ${size / 2}`}
-      />
-    </Svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Padel Progress Content
 // ---------------------------------------------------------------------------
 
 function PadelProgressContent({
   navigation,
-  streak,
-  nextMilestone,
-  streakProgress,
-  latestSleep,
-  sleepOptimal,
-  isFocused,
 }: {
   navigation: any;
   streak: number;
@@ -222,456 +147,137 @@ function PadelProgressContent({
   isFocused: boolean;
 }) {
   const { colors } = useTheme();
-  const { profile } = useAuth();
-  const { sportConfig: padelConfig } = useSportContext();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  const padelStyles = useMemo(() => createPadelStyles(colors), [colors]);
+  const { shotRatings, isLoading: padelLoading, hasData } = usePadelProgress();
 
-  // ── Data via sport pipeline ──
-  const userId = profile?.uid || profile?.id || 'osama-kayyali';
-  const dnaCard = padelConfig.mockData.getCard(userId) as DNACardData | null;
-  const shotRatings = padelConfig.mockData.getSkills(userId) as ShotRatingsData | null;
-  const [selectedAttr, setSelectedAttr] = useState<DNAAttribute | null>(null);
+  if (padelLoading) {
+    return (
+      <>
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </>
+    );
+  }
 
-  const hasData = !!(dnaCard && dnaCard.attributes && shotRatings);
-
-  // Map padel DNACardData to generic CardAttribute[]
-  const padelAttributes: CardAttribute[] = hasData
-    ? padelConfig.attributes.map((attrDesc) => ({
-        key: attrDesc.key,
-        label: attrDesc.label,
-        abbreviation: attrDesc.fullName,
-        value: (dnaCard!.attributes as any)[attrDesc.key]?.score ?? 0,
-        maxValue: 99,
-        color: attrDesc.color,
-        trend: (dnaCard!.attributes as any)[attrDesc.key]?.trend ?? 0,
-      }))
-    : [];
-  const padelTier = hasData ? (getDNATier(dnaCard!.overallRating) as CardTier) : ('bronze' as CardTier);
-
-  // ── Synthetic attribute trends for sparklines ──
-  const attributeTrends = useMemo(() => {
-    if (!dnaCard?.attributes) return [];
-    return padelConfig.attributes.map((attrDesc) => {
-      const data = (dnaCard.attributes as any)[attrDesc.key];
-      const current = data?.score ?? 0;
-      const trend = data?.trend ?? 0;
-      const points = [
-        current - trend * 2,
-        current - trend * 1.5,
-        current - trend,
-        current - Math.round(trend * 0.4),
-        current,
-      ].map((v) => Math.max(0, Math.min(99, Math.round(v))));
-      return { attr: attrDesc.key, color: attrDesc.color, label: attrDesc.label, points, current, delta: trend };
-    });
-  }, [dnaCard, padelConfig.attributes]);
-
-  // ── Animations (hooks must always run, regardless of data) ──
-  const entrance1 = useSpringEntrance(1, 0, isFocused);
-  const entrance2 = useSpringEntrance(2, 0, isFocused);
-  const entrance3 = useSpringEntrance(3, 0, isFocused);
-  const entrance4 = useSpringEntrance(4, 0, isFocused);
-  const entrance5 = useSpringEntrance(5, 0, isFocused);
-  const entrance6 = useSpringEntrance(6, 0, isFocused);
-  const entrance7 = useSpringEntrance(7, 0, isFocused);
-
-  // ── Empty state (after all hooks) ──
-  if (!hasData) {
+  if (!hasData || !shotRatings) {
     return (
       <EmptyProgressState
         sport="padel"
         onLogSession={() => navigation.navigate('Plan' as any)}
-        onTakeTest={() => navigation.navigate('Tests' as any)}
+        onTakeTest={() => navigation.navigate('ShotSession' as any)}
       />
     );
   }
 
+  const mastery = shotRatings.overallShotMastery;
+  const level = getPadelLevel(mastery * 10); // scale 0-100 → 0-1000 range
+  const shotTypes = Object.keys(shotRatings.shots) as ShotType[];
+
   return (
     <>
-      {/* ═══════ 1. DNA Card Hero ═══════ */}
-      <DNACard
-        attributes={padelAttributes}
-        overallRating={dnaCard.overallRating}
-        position="All-Round"
-        cardTier={padelTier}
-        sport="padel"
-        pathwayRating={dnaCard.padelRating}
-        pathwayLevel={dnaCard.padelLevel}
-        onAttributeTap={(key) => setSelectedAttr(key === selectedAttr ? null : key as DNAAttribute)}
-        onPress={() => navigation.navigate('PadelRating')}
-        trigger={isFocused}
-      />
+      {/* ── Overall Shot Mastery Card ── */}
+      <View style={{
+        backgroundColor: colors.backgroundElevated,
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 16,
+      }}>
+        <Text style={{
+          fontFamily: fontFamily.medium,
+          fontSize: 13,
+          color: colors.textMuted,
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+          marginBottom: 12,
+        }}>
+          Shot Mastery
+        </Text>
 
-      {/* Attribute Detail (expandable) */}
-      {selectedAttr && (
-        <AttributeDetailSheet
-          attribute={selectedAttr}
-          data={dnaCard.attributes[selectedAttr]}
-          metrics={DEMO_PHYSICAL_METRICS}
-          onClose={() => setSelectedAttr(null)}
-        />
-      )}
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 4 }}>
+          <Text style={{
+            fontFamily: fontFamily.bold,
+            fontSize: 48,
+            color: colors.textHeader,
+          }}>
+            {mastery}
+          </Text>
+          <Text style={{
+            fontFamily: fontFamily.medium,
+            fontSize: 16,
+            color: colors.textMuted,
+            marginLeft: 6,
+          }}>
+            / 100
+          </Text>
+        </View>
 
-      {/* ═══════ 2. Attribute Trends ═══════ */}
-      <Animated.View style={entrance1}>
-        <GlassCard style={padelStyles.sectionCard}>
-          <Text style={padelStyles.sectionTitle}>Attribute Trends</Text>
-          <Text style={padelStyles.trendSubtitle}>Recent progression</Text>
+        <Text style={{
+          fontFamily: fontFamily.regular,
+          fontSize: 14,
+          color: colors.textInactive,
+          marginBottom: 8,
+        }}>
+          {level} · {shotRatings.shotVarietyIndex}% shot variety
+        </Text>
 
-          {attributeTrends.map((trend) => {
-            const attrColor = trend.color;
-            const sparkPath = buildSparklinePath(trend.points, 60, 20);
-            return (
-              <View key={trend.attr} style={padelStyles.trendRow}>
-                <View style={[padelStyles.trendDot, { backgroundColor: attrColor }]} />
-                <Text style={padelStyles.trendLabel}>
-                  {trend.label}
-                </Text>
-                <Text style={[padelStyles.trendScore, { color: attrColor }]}>
-                  {trend.current}
-                </Text>
-
-                {sparkPath.length > 0 && (
-                  <View style={padelStyles.sparkContainer}>
-                    <Svg width={60} height={20}>
-                      <Polyline
-                        points={sparkPath}
-                        fill="none"
-                        stroke={attrColor}
-                        strokeWidth={1.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  </View>
-                )}
-
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    padelStyles.trendDelta,
-                    {
-                      color:
-                        trend.delta > 0
-                          ? '#30D158'
-                          : trend.delta < 0
-                            ? attrColor
-                            : colors.textInactive,
-                    },
-                  ]}
-                >
-                  {trend.delta > 0
-                    ? `+${trend.delta}`
-                    : trend.delta < 0
-                      ? 'Refocusing'
-                      : 'Steady'}
-                </Text>
-              </View>
-            );
-          })}
-        </GlassCard>
-      </Animated.View>
-
-      {/* ═══════ 3. Shot Mastery ═══════ */}
-      <Animated.View style={entrance2}>
-        <GlassCard style={padelStyles.sectionCard}>
-          <View style={padelStyles.shotHeader}>
-            <View>
-              <Text style={padelStyles.sectionTitle}>Shot Mastery</Text>
-              <Text style={padelStyles.shotHint}>Tap any shot to see breakdown</Text>
-            </View>
-            <View style={padelStyles.varietyBadge}>
-              <Text style={padelStyles.varietyText}>
-                Variety {shotRatings.shotVarietyIndex}%
-              </Text>
-            </View>
+        {/* Mini stats row */}
+        <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
+          <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 12, padding: 12 }}>
+            <Text style={{ fontFamily: fontFamily.medium, fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Strongest
+            </Text>
+            <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 15, color: '#30D158', marginTop: 2 }}>
+              {SHOT_DEFINITIONS[shotRatings.strongestShot]?.name ?? shotRatings.strongestShot}
+            </Text>
           </View>
-
-          <View style={padelStyles.shotSummaryRow}>
-            <View style={padelStyles.shotSummaryItem}>
-              <Text style={padelStyles.shotSummaryLabel}>Overall</Text>
-              <Text style={padelStyles.shotSummaryValue}>
-                {shotRatings.overallShotMastery}
-              </Text>
-            </View>
-            <View style={padelStyles.shotSummaryItem}>
-              <Text style={padelStyles.shotSummaryLabel}>Strongest</Text>
-              <Text style={[padelStyles.shotSummaryValue, { color: '#30D158' }]} numberOfLines={1}>
-                {padelConfig.fullSkills.find(s => s.key === shotRatings.strongestShot)?.name ?? shotRatings.strongestShot}
-              </Text>
-            </View>
-            <View style={padelStyles.shotSummaryItem}>
-              <Text style={padelStyles.shotSummaryLabel}>Focus On</Text>
-              <Text style={[padelStyles.shotSummaryValue, { color: colors.accent1 }]} numberOfLines={1}>
-                {padelConfig.fullSkills.find(s => s.key === shotRatings.weakestShot)?.name ?? shotRatings.weakestShot}
-              </Text>
-            </View>
+          <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 12, padding: 12 }}>
+            <Text style={{ fontFamily: fontFamily.medium, fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Focus Area
+            </Text>
+            <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 15, color: '#FF6B35', marginTop: 2 }}>
+              {SHOT_DEFINITIONS[shotRatings.weakestShot]?.name ?? shotRatings.weakestShot}
+            </Text>
           </View>
+        </View>
+      </View>
 
-          {padelConfig.skills.map((skill, i) => {
-            const def = padelConfig.fullSkills.find(s => s.key === skill.key);
-            const shotDef = {
-              type: skill.key as any,
-              name: def?.name ?? skill.name,
-              category: def?.category ?? '',
-              description: def?.description ?? '',
-              icon: def?.icon ?? 'help-outline',
-              subMetrics: (def?.subMetrics ?? []).slice(0, 3).map(sm => ({
-                key: sm.key, label: sm.label, description: sm.description ?? '',
-              })),
-            } as any;
-            return (
-              <ShotRatingBar
-                key={skill.key}
-                definition={shotDef}
-                data={(shotRatings.shots as any)[skill.key]}
-                index={i}
-                trigger={isFocused}
-              />
-            );
-          })}
+      {/* ── Individual Shots ── */}
+      <View style={{
+        backgroundColor: colors.backgroundElevated,
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 16,
+      }}>
+        <Text style={{
+          fontFamily: fontFamily.medium,
+          fontSize: 13,
+          color: colors.textMuted,
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+          marginBottom: 16,
+        }}>
+          All Shots
+        </Text>
 
-          <GradientButton
-            title="Rate Session"
-            onPress={() => navigation.navigate('ShotSession')}
-            icon="add-circle-outline"
-            style={{ marginTop: spacing.md }}
-          />
-        </GlassCard>
-      </Animated.View>
-
-      {/* ═══════ 4. Padel Rating Pathway (tappable) ═══════ */}
-      <Animated.View style={entrance3}>
-        <GlassCard style={padelStyles.sectionCard}>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate('PadelRating');
-            }}
-            style={({ pressed }) => [
-              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
-            ]}
-          >
-            <Text style={padelStyles.sectionTitle}>Padel Rating</Text>
-            <PadelRatingPathway
-              rating={dnaCard.padelRating}
-              level={dnaCard.padelLevel}
-              compact
-              index={3}
-              trigger={isFocused}
+        {shotTypes.map((shotType, i) => {
+          const def = SHOT_DEFINITIONS[shotType];
+          const data = shotRatings.shots[shotType];
+          if (!def || !data) return null;
+          return (
+            <ShotRatingBar
+              key={shotType}
+              definition={def}
+              data={data}
+              index={i}
+              onPress={() =>
+                navigation.navigate('ShotDetail', { shotType })
+              }
             />
-            <View style={padelStyles.tapHint}>
-              <Text style={padelStyles.tapHintText}>Tap to explore levels</Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
-            </View>
-          </Pressable>
-        </GlassCard>
-      </Animated.View>
-
-      {/* ═══════ 5. Cross-Training Impact ═══════ */}
-      <Animated.View style={entrance4}>
-        <CrossTrainingModule isFocused={isFocused} sourceSport="football" />
-      </Animated.View>
-
-      {/* ═══════ 6. Streak ═══════ */}
-      <Animated.View style={entrance5}>
-        <GlassCard style={padelStyles.sectionCard}>
-          <View style={styles.streakRow}>
-            <View style={styles.ringContainer}>
-              <StreakProgressRing progress={streakProgress} size={80} strokeWidth={6} colors={colors} />
-              <View style={styles.ringCenter}>
-                <Ionicons name="flame" size={22} color={colors.accent1} />
-              </View>
-            </View>
-            <View style={styles.streakInfo}>
-              <Text style={styles.streakCount}>{streak}</Text>
-              <Text style={styles.streakLabel}>Day Streak</Text>
-              {nextMilestone && (
-                <Text style={styles.streakMilestone}>
-                  {streak}/{nextMilestone.target} to {nextMilestone.name}
-                </Text>
-              )}
-            </View>
-          </View>
-        </GlassCard>
-      </Animated.View>
-
-      {/* ═══════ 7. Sleep ═══════ */}
-      <Animated.View style={entrance6}>
-        <GlassCard style={padelStyles.sectionCard}>
-          <View style={styles.sleepRow}>
-            <View style={padelStyles.sleepIconWrap}>
-              <Ionicons name="bed-outline" size={22} color={colors.accent2} />
-            </View>
-            <View style={styles.sleepInfo}>
-              <Text style={styles.sleepTitle}>Sleep Recovery</Text>
-              <Text style={styles.sleepHours}>
-                {latestSleep !== null ? `${latestSleep} hrs` : '--'}
-              </Text>
-              <Text
-                style={[
-                  styles.sleepSubtitle,
-                  {
-                    color: latestSleep === null
-                      ? colors.textMuted
-                      : sleepOptimal
-                        ? colors.readinessGreen
-                        : colors.readinessYellow,
-                  },
-                ]}
-              >
-                {latestSleep === null
-                  ? 'No data yet'
-                  : sleepOptimal
-                    ? 'Optimal Recovery'
-                    : latestSleep >= 6
-                      ? 'Moderate Recovery'
-                      : 'Low Recovery'}
-              </Text>
-            </View>
-          </View>
-        </GlassCard>
-      </Animated.View>
-
-      {/* ═══════ 8. View Full Profile ═══════ */}
-      <Animated.View style={entrance7}>
-        <GradientButton
-          title="View Full Padel Profile"
-          onPress={() => navigation.navigate('PadelRating')}
-          icon="trophy-outline"
-        />
-      </Animated.View>
+          );
+        })}
+      </View>
     </>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Padel styles factory
-// ---------------------------------------------------------------------------
-
-function createPadelStyles(colors: ThemeColors) {
-  return StyleSheet.create({
-    sectionCard: {
-      marginBottom: 16,
-    },
-    sectionTitle: {
-      fontFamily: fontFamily.bold,
-      fontSize: 18,
-      color: colors.textOnDark,
-      marginBottom: spacing.sm,
-    },
-    shotHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacing.md,
-    },
-    shotHint: {
-      fontFamily: fontFamily.regular,
-      fontSize: 11,
-      color: colors.textInactive,
-      marginTop: 2,
-    },
-    varietyBadge: {
-      backgroundColor: 'rgba(255, 107, 53, 0.15)',
-      paddingHorizontal: 10,
-      paddingVertical: 3,
-      borderRadius: 10,
-    },
-    varietyText: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 11,
-      color: colors.accent1,
-    },
-    shotSummaryRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: spacing.md,
-      paddingBottom: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.divider,
-    },
-    shotSummaryItem: {
-      alignItems: 'center',
-    },
-    shotSummaryLabel: {
-      fontFamily: fontFamily.regular,
-      fontSize: 11,
-      color: colors.textInactive,
-      marginBottom: 2,
-    },
-    shotSummaryValue: {
-      fontFamily: fontFamily.bold,
-      fontSize: 16,
-      color: colors.textOnDark,
-    },
-    sleepIconWrap: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: 'rgba(0, 217, 255, 0.15)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-
-    // ── Attribute Trends ──
-    trendSubtitle: {
-      fontFamily: fontFamily.regular,
-      fontSize: 12,
-      color: colors.textInactive,
-      marginBottom: spacing.md,
-    },
-    trendRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 6,
-      gap: 8,
-    },
-    trendDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    trendLabel: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 12,
-      color: colors.textOnDark,
-      width: 32,
-    },
-    trendScore: {
-      fontFamily: fontFamily.bold,
-      fontSize: 14,
-      width: 28,
-      textAlign: 'right',
-    },
-    sparkContainer: {
-      marginLeft: 4,
-    },
-    trendDelta: {
-      fontFamily: fontFamily.medium,
-      fontSize: 11,
-      marginLeft: 'auto',
-      maxWidth: 70,
-    },
-
-    // ── Tap Hint ──
-    tapHint: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 4,
-      marginTop: spacing.sm,
-      paddingTop: spacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: colors.divider,
-    },
-    tapHintText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.textMuted,
-    },
-  });
 }
 
 // ---------------------------------------------------------------------------

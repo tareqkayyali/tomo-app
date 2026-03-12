@@ -3,7 +3,7 @@
  *
  * Central hub for multi-sport switching. Manages which sport is active and
  * provides sport-specific configuration (attributes, skills, rating levels,
- * calculations, mock data, colors, icons) to all downstream screens.
+ * calculations, colors, icons) to all downstream screens.
  *
  * Architecture:
  * ┌─────────────┐
@@ -90,12 +90,8 @@ import {
   FOOTBALL_ATTRIBUTE_COLORS,
 } from '../services/footballCalculations';
 import {
-  getMockPlayerForUser,
-  getMockPlayerSkillsForUser,
-  getMockPlayerHistoryForUser,
-  getFootballMetricsForUser,
   FOOTBALL_NORMATIVE_DATA,
-} from '../data/footballMockData';
+} from '../data/footballNormativeData';
 import { FOOTBALL_TEST_DEFS } from '../data/footballTestDefs';
 import { DERIVED_METRIC_CALCULATORS } from '../services/derivedMetricCalculators';
 
@@ -124,10 +120,7 @@ import {
 } from '../services/padelCalculations';
 import {
   SHOT_DEFINITIONS,
-  getDNACardForUser,
-  getShotRatingsForUser,
-  DEMO_PHYSICAL_METRICS,
-} from '../services/padelMockData';
+} from '../services/padelDefinitions';
 
 // ═══ TYPES ═══
 
@@ -239,22 +232,6 @@ export interface SportCalculations {
 }
 
 /**
- * Sport-specific mock data accessors.
- * Provides user-aware demo/fallback data for each sport.
- * Returns null/empty when no data exists for the given userId (→ empty state).
- */
-export interface SportMockData {
-  /** Get card/profile data for a user */
-  getCard: (userId: string) => any | null;
-  /** Get skills/shots data for a user */
-  getSkills: (userId: string) => any | null;
-  /** Get history entries for a user */
-  getHistory: (userId: string) => any[] | null;
-  /** Get physical metrics for a user */
-  getMetrics: (userId: string) => any[];
-}
-
-/**
  * The full sport configuration object.
  * Computed from activeSport — every sport-specific screen reads this.
  */
@@ -277,8 +254,6 @@ export interface SportConfig {
 
   /** Sport-specific calculation functions */
   calculations: SportCalculations;
-  /** Sport-specific mock/demo data */
-  mockData: SportMockData;
 
   // ── Extended content (populated from ContentBundle or hardcoded fallback) ──
 
@@ -433,12 +408,6 @@ function buildFootballConfig(): SportConfig {
       },
       getAttributeColors: () => ({ ...FOOTBALL_ATTRIBUTE_COLORS }),
     },
-    mockData: {
-      getCard: (userId: string) => getMockPlayerForUser(userId) ?? null,
-      getSkills: (userId: string) => getMockPlayerSkillsForUser(userId) ?? null,
-      getHistory: (userId: string) => getMockPlayerHistoryForUser(userId) ?? null,
-      getMetrics: (userId: string) => getFootballMetricsForUser(userId),
-    },
     positions,
     fullAttributes,
     fullSkills,
@@ -527,18 +496,6 @@ function buildPadelConfig(): SportConfig {
         return { name, description: level?.description ?? '' };
       },
       getAttributeColors: () => ({ ...DNA_ATTRIBUTE_COLORS }),
-    },
-    mockData: {
-      getCard: (userId: string) => getDNACardForUser(userId) ?? null,
-      getSkills: (userId: string) => getShotRatingsForUser(userId) ?? null,
-      getHistory: (userId: string) => {
-        const card = getDNACardForUser(userId);
-        return card?.history ?? null;
-      },
-      getMetrics: (userId: string) => {
-        const card = getDNACardForUser(userId);
-        return card ? [...DEMO_PHYSICAL_METRICS] : [];
-      },
     },
     positions: [], // padel doesn't have positions
     fullAttributes: padelFullAttributes,
@@ -670,8 +627,6 @@ function buildConfigFromBundle(
     })),
     // Calculations stay in TypeScript — can't serialize functions to DB
     calculations: fallback.calculations,
-    // Mock data stays in TypeScript — runtime demo data
-    mockData: fallback.mockData,
     // Extended content from DB
     positions,
     fullAttributes,
@@ -787,7 +742,6 @@ export function SportProvider({
  * - sportConfig.attributes — what to render on the radar/hexagon
  * - sportConfig.skills — what to show in skill mastery lists
  * - sportConfig.calculations — how to compute ratings
- * - sportConfig.mockData — fallback demo data
  *
  * Sport-AGNOSTIC screens (Calendar, Check-in, Readiness) typically
  * don't need this hook at all — they work identically for any sport.

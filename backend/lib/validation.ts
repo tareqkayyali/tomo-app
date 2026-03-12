@@ -13,8 +13,30 @@ export const checkinSchema = z.object({
 
 export const registerSchema = z.object({
   name: z.string().min(1).max(100),
-  sport: z.enum(["football", "soccer", "basketball", "tennis", "padel"]),
+  sport: z.enum(["football", "soccer", "basketball", "tennis", "padel"]).optional(),
   age: z.number().int().min(8).max(50).optional(),
+  role: z.enum(["player", "coach", "parent"]).optional().default("player"),
+  displayRole: z.string().max(50).optional(),
+});
+
+export const inviteCodeSchema = z.object({
+  targetRole: z.enum(["coach", "parent"]),
+});
+
+export const acceptInviteSchema = z.object({
+  code: z.string().min(4).max(10),
+});
+
+export const createSuggestionSchema = z.object({
+  playerId: z.string().uuid(),
+  suggestionType: z.enum(["study_block", "exam_date", "test_result", "calendar_event"]),
+  title: z.string().min(1).max(200),
+  payload: z.record(z.string(), z.unknown()),
+});
+
+export const resolveSuggestionSchema = z.object({
+  status: z.enum(["accepted", "edited", "declined"]),
+  playerNotes: z.string().max(500).optional(),
 });
 
 export const onboardingSchema = z.object({

@@ -2,7 +2,7 @@
  * Navigation Types for Tomo v2
  *
  * 5-tab layout:
- * Plan | Progress | Chat (center, raised, tomo logo) | Tests | Social
+ * Plan | Test | Chat (center, raised, tomo logo) | Progress | For You
  *
  * Profile removed from tabs → accessible via header icon on every screen.
  */
@@ -15,10 +15,10 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Plan: undefined;
-  Progress: undefined;
+  Test: undefined;
   Chat: undefined;
-  Tests: undefined;
-  Social: undefined;
+  Progress: undefined;
+  ForYou: undefined;
 };
 
 export type MainStackParamList = {
@@ -64,10 +64,52 @@ export type MainStackParamList = {
   FootballSkillDetail: { skill: string };
   FootballRating: undefined;
   FootballTestInput: { testId: string };
+  // Multi-role screens
+  Notifications: undefined;
+  LinkAccount: undefined;
 };
+
+// ── Coach Navigation ─────────────────────────────────────────────────────
+
+export type CoachTabParamList = {
+  Players: undefined;
+  AddTest: undefined;
+  Settings: undefined;
+};
+
+export type CoachStackParamList = {
+  CoachTabs: undefined;
+  CoachPlayerDetail: { playerId: string; playerName: string };
+  CoachTestInput: { playerId: string; playerName: string };
+  CoachInvite: undefined;
+  Profile: undefined;
+  EditProfile: undefined;
+};
+
+// ── Parent Navigation ────────────────────────────────────────────────────
+
+export type ParentTabParamList = {
+  Calendar: undefined;
+  StudyPlan: undefined;
+  Settings: undefined;
+};
+
+export type ParentStackParamList = {
+  ParentTabs: undefined;
+  ParentDailyView: { childId: string; childName: string; date: string };
+  ParentAddStudy: { childId: string; childName: string };
+  ParentAddExam: { childId: string; childName: string };
+  ParentInvite: undefined;
+  Profile: undefined;
+  EditProfile: undefined;
+};
+
+// ── Root ─────────────────────────────────────────────────────────────────
 
 export type RootStackParamList = {
   Main: undefined;
+  CoachMain: undefined;
+  ParentMain: undefined;
   Auth: undefined;
   Onboarding: undefined;
 };

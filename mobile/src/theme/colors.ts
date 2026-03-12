@@ -43,6 +43,7 @@ export type ThemeColors = {
   textOnLight: string;
   textInactive: string;   // Gray #B0B0B0 / placeholders
   textMuted: string;
+  textSecondary: string;  // Secondary text (same as textInactive for convenience)
   textDisabled: string;   // Gray Dark #6B6B6B
 
   // Readiness
@@ -99,6 +100,7 @@ export type ThemeColors = {
   gradientGlass: [string, string];
 
   // Glass Surfaces
+  surface: string;             // Card/surface background
   surfaceElevated: string;
   glass: string;
   glassBorder: string;
@@ -190,6 +192,7 @@ export const darkColors: ThemeColors = {
   textOnLight: '#FFFFFF',
   textInactive: '#B0B0B0',              // Gray (placeholders)
   textMuted: '#6B6B6B',                 // Gray Dark (disabled text)
+  textSecondary: '#B0B0B0',             // Secondary text (matches textInactive)
   textDisabled: '#6B6B6B',              // Gray Dark
 
   // Readiness
@@ -246,6 +249,7 @@ export const darkColors: ThemeColors = {
   gradientGlass: ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)'],
 
   // Glass Surfaces — Dark mode glass card spec
+  surface: '#1B191E',
   surfaceElevated: '#1B191E',
   glass: 'rgba(27, 25, 30, 0.85)',       // warm dark at 85% opacity
   glassBorder: '#2E2B31',
@@ -337,6 +341,7 @@ export const lightColors: ThemeColors = {
   textOnLight: '#1A1D2E',
   textInactive: '#B0B0B0',              // Gray (placeholders)
   textMuted: '#6B6B6B',                 // Gray Dark
+  textSecondary: '#8E8E93',             // Secondary text (lighter on cream)
   textDisabled: '#6B6B6B',              // Gray Dark
 
   // Readiness (semantic — Tomo brand)
@@ -393,6 +398,7 @@ export const lightColors: ThemeColors = {
   gradientGlass: ['rgba(0,0,0,0.04)', 'rgba(0,0,0,0.01)'],
 
   // Glass Surfaces — light mode glass card spec
+  surface: '#FFFFFF',
   surfaceElevated: '#F0EBE3',
   glass: 'rgba(248, 245, 240, 0.90)',    // Warm cream at 90%
   glassBorder: '#E5DFD5',

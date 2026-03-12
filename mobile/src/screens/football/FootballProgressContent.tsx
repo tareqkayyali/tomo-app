@@ -21,7 +21,7 @@
  * - Percentile context normalized for age (Radziminski et al., 2025)
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -50,8 +50,9 @@ import { useTheme } from '../../hooks/useTheme';
 
 import { useAuth } from '../../hooks/useAuth';
 import { useSportContext } from '../../hooks/useSportContext';
-import type { MockFootballPlayer, MockHistoryEntry } from '../../data/footballMockData';
-import type { FootballAttribute } from '../../types/football';
+import { useFootballProgress } from '../../hooks/useFootballProgress';
+import type { FootballAttribute, FootballPosition, FootballHistoryEntry } from '../../types/football';
+import { SkeletonCard } from '../../components';
 
 import { buildSparklinePath } from '../../utils/sparkline';
 import { fontFamily, spacing, borderRadius, layout } from '../../theme';
@@ -147,17 +148,24 @@ export function FootballProgressContent({
   const { sportConfig } = useSportContext();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  // ── Data via sport pipeline ──
-  const userId = profile?.uid || profile?.id || 'osama-kayyali';
-  const player = sportConfig.mockData.getCard(userId) as MockFootballPlayer | null;
-  const skills = sportConfig.mockData.getSkills(userId);
-  const history = sportConfig.mockData.getHistory(userId) as MockHistoryEntry[] | null;
+  // ── Data from real Supabase test results ──
+  const userId = profile?.uid || profile?.id || '';
+  const age = (profile as any)?.age ?? 16;
+  const position: FootballPosition = (profile as any)?.position || 'CM';
+  const {
+    card,
+    history,
+    isLoading: progressLoading,
+    hasData: hasRealData,
+  } = useFootballProgress(userId, age, position);
+
+  // Skills are not yet derived from test data (future: self-assessment)
+  const skills: Record<string, any> | null = null;
 
   // ── State ──
   const [selectedAttr, setSelectedAttr] = useState<FootballAttribute | null>(null);
 
-  const card = player?.card ?? null;
-  const hasData = !!(player && card?.attributes && skills && history);
+  const hasData = hasRealData && !!card?.attributes;
 
   // ── Map football attributes → CardAttribute[] ──
   const footballAttributes: CardAttribute[] = hasData
@@ -174,35 +182,11 @@ export function FootballProgressContent({
 
   const cardTier = hasData ? getFootballCardTier(card!.footballRating) : ('bronze' as CardTier);
 
-  // ── Map football skills → SkillItem[], sorted highest-first ──
-  const sortedSkills: SkillItem[] = useMemo(() => {
-    if (!skills) return [];
-    return sportConfig.fullSkills
-      .map((skillDef) => {
-        const skillData = skills[skillDef.key];
-        return {
-          key: skillDef.key,
-          name: skillDef.name,
-          overall: skillData?.rating ?? 0,
-          subMetrics: skillDef.subMetrics.map((sm) => ({
-            name: sm.label,
-            value: skillData?.subMetrics?.[sm.key] ?? 0,
-            unit: sm.unit,
-          })),
-          icon: skillDef.icon,
-          category: skillDef.category,
-          trend: skillData?.trend ?? 0,
-        };
-      })
-      .sort((a, b) => b.overall - a.overall);
-  }, [skills, sportConfig.fullSkills]);
-
-  // ── Skills summary ──
-  const skillsAvg = sortedSkills.length > 0
-    ? Math.round(sortedSkills.reduce((sum, sk) => sum + sk.overall, 0) / sortedSkills.length)
-    : 0;
-  const strongestSkill = sortedSkills[0];
-  const focusSkill = sortedSkills[sortedSkills.length - 1];
+  // ── Skills: empty until self-assessment data is wired ──
+  const sortedSkills: SkillItem[] = [];
+  const skillsAvg = 0;
+  const strongestSkill = sortedSkills[0] as SkillItem | undefined;
+  const focusSkill = sortedSkills[sortedSkills.length - 1] as SkillItem | undefined;
 
   // ── Map rating levels → PathwayLevel[] ──
   const pathwayLevels: PathwayLevel[] = sportConfig.ratingLevels.map((l) => ({
@@ -239,13 +223,24 @@ export function FootballProgressContent({
   const entrance6 = useSpringEntrance(6, 0, isFocused);
   const entrance7 = useSpringEntrance(7, 0, isFocused);
 
-  // ── Empty state (after all hooks) ──
+  // ── Loading state (after all hooks) ──
+  if (progressLoading) {
+    return (
+      <>
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </>
+    );
+  }
+
+  // ── Empty state ──
   if (!hasData) {
     return (
       <EmptyProgressState
         sport="football"
         onLogSession={() => navigation.navigate('Plan' as any)}
-        onTakeTest={() => navigation.navigate('Tests' as any)}
+        onTakeTest={() => navigation.navigate('Test' as any)}
       />
     );
   }
@@ -272,8 +267,9 @@ export function FootballProgressContent({
         <FootballAttributeDetailSheet
           attribute={selectedAttr}
           data={card.attributes[selectedAttr]}
-          player={player}
-          history={history}
+          age={age}
+          position={position}
+          history={history ?? []}
           onClose={() => setSelectedAttr(null)}
         />
       )}
@@ -340,49 +336,55 @@ export function FootballProgressContent({
         </GlassCard>
       </Animated.View>
 
-      {/* ═══════ 3. Skill Mastery ═══════ */}
-      <Animated.View style={entrance2}>
-        <GlassCard style={s.sectionCard}>
-          <View style={s.skillHeader}>
-            <Text style={s.sectionTitle}>Skill Mastery</Text>
-            <View style={s.skillCountBadge}>
-              <Text style={s.skillCountText}>
-                {sortedSkills.filter((sk) => sk.overall >= 70).length}/8 Strong
-              </Text>
+      {/* ═══════ 3. Skill Mastery (hidden until self-assessment data is wired) ═══════ */}
+      {sortedSkills.length > 0 && (
+        <Animated.View style={entrance2}>
+          <GlassCard style={s.sectionCard}>
+            <View style={s.skillHeader}>
+              <Text style={s.sectionTitle}>Skill Mastery</Text>
+              <View style={s.skillCountBadge}>
+                <Text style={s.skillCountText}>
+                  {sortedSkills.filter((sk) => sk.overall >= 70).length}/8 Strong
+                </Text>
+              </View>
             </View>
-          </View>
 
-          {/* Summary row */}
-          <View style={s.summaryRow}>
-            <View style={s.summaryItem}>
-              <Text style={s.summaryLabel}>Overall</Text>
-              <Text style={s.summaryValue}>{skillsAvg}</Text>
+            {/* Summary row */}
+            <View style={s.summaryRow}>
+              <View style={s.summaryItem}>
+                <Text style={s.summaryLabel}>Overall</Text>
+                <Text style={s.summaryValue}>{skillsAvg}</Text>
+              </View>
+              {strongestSkill && (
+                <View style={s.summaryItem}>
+                  <Text style={s.summaryLabel}>Strongest</Text>
+                  <Text style={[s.summaryValue, { color: '#30D158' }]} numberOfLines={1}>
+                    {strongestSkill.name}
+                  </Text>
+                </View>
+              )}
+              {focusSkill && (
+                <View style={s.summaryItem}>
+                  <Text style={s.summaryLabel}>Focus On</Text>
+                  <Text style={[s.summaryValue, { color: '#00D9FF' }]} numberOfLines={1}>
+                    {focusSkill.name}
+                  </Text>
+                </View>
+              )}
             </View>
-            <View style={s.summaryItem}>
-              <Text style={s.summaryLabel}>Strongest</Text>
-              <Text style={[s.summaryValue, { color: '#30D158' }]} numberOfLines={1}>
-                {strongestSkill.name}
-              </Text>
-            </View>
-            <View style={s.summaryItem}>
-              <Text style={s.summaryLabel}>Focus On</Text>
-              <Text style={[s.summaryValue, { color: '#00D9FF' }]} numberOfLines={1}>
-                {focusSkill.name}
-              </Text>
-            </View>
-          </View>
 
-          {sortedSkills.map((skill, i) => (
-            <SkillRatingBar
-              key={skill.key}
-              skill={skill}
-              sport="football"
-              index={i}
-              trigger={isFocused}
-            />
-          ))}
-        </GlassCard>
-      </Animated.View>
+            {sortedSkills.map((skill, i) => (
+              <SkillRatingBar
+                key={skill.key}
+                skill={skill}
+                sport="football"
+                index={i}
+                trigger={isFocused}
+              />
+            ))}
+          </GlassCard>
+        </Animated.View>
+      )}
 
       {/* ═══════ 4. Rating Pathway (tappable → FootballRatingScreen) ═══════ */}
       <Animated.View style={entrance3}>

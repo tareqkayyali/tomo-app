@@ -16,8 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSpringEntrance } from '../../hooks/useAnimations';
 import { getAttributePercentile } from '../../services/footballCalculations';
 import { useSportContext } from '../../hooks/useSportContext';
-import type { FootballAttribute, FootballAttributeData } from '../../types/football';
-import type { MockFootballPlayer, MockHistoryEntry } from '../../data/footballMockData';
+import type { FootballAttribute, FootballAttributeData, FootballPosition, FootballHistoryEntry } from '../../types/football';
 import { fontFamily, borderRadius, spacing } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemeColors } from '../../theme/colors';
@@ -38,8 +37,9 @@ const IMPROVEMENT_TIPS: Record<FootballAttribute, string> = {
 interface FootballAttributeDetailSheetProps {
   attribute: FootballAttribute;
   data: FootballAttributeData;
-  player: MockFootballPlayer;
-  history: MockHistoryEntry[];
+  age: number;
+  position: FootballPosition;
+  history: FootballHistoryEntry[];
   onClose?: () => void;
 }
 
@@ -71,7 +71,8 @@ function buildSparklinePath(
 export function FootballAttributeDetailSheet({
   attribute,
   data,
-  player,
+  age,
+  position,
   history,
   onClose,
 }: FootballAttributeDetailSheetProps) {
@@ -88,10 +89,10 @@ export function FootballAttributeDetailSheet({
   const percentile = getAttributePercentile(
     attribute,
     data.score,
-    player.age,
-    player.position,
+    age,
+    position,
   );
-  const positionLabel = sportConfig.positions.find(p => p.key === player.position)?.label ?? player.position;
+  const positionLabel = sportConfig.positions.find(p => p.key === position)?.label ?? position;
 
   // Sparkline data from history
   const sparkValues = history.map((h) => h.attributes[attribute]);
@@ -140,7 +141,7 @@ export function FootballAttributeDetailSheet({
       <View style={s.percentileRow}>
         <Ionicons name="stats-chart" size={14} color={colors.accent2} />
         <Text style={s.percentileText}>
-          Top {Math.max(1, 100 - percentile)}% for {player.age}-year-old {positionLabel}s
+          Top {Math.max(1, 100 - percentile)}% for {age}-year-old {positionLabel}s
         </Text>
       </View>
 

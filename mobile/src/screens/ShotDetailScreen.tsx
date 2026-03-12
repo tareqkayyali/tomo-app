@@ -11,7 +11,7 @@ import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
 import { useSpringEntrance, useBarFill } from '../hooks/useAnimations';
 import { getShotRatingColor } from '../services/padelCalculations';
 import { useSportContext } from '../hooks/useSportContext';
-import { useAuth } from '../hooks/useAuth';
+import { usePadelProgress } from '../hooks/usePadelProgress';
 import { GlassCard } from '../components/GlassCard';
 import { colors, fontFamily, borderRadius, spacing } from '../theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -99,8 +99,7 @@ export function ShotDetailScreen({ route }: Props) {
   const { shotType } = route.params;
   const shot = shotType as ShotType;
   const { sportConfig } = useSportContext();
-  const { profile } = useAuth();
-  const userId = profile?.uid || profile?.id || 'osama-kayyali';
+  const { shotRatings } = usePadelProgress();
 
   // Build definition from sportConfig
   const fullSkill = sportConfig.fullSkills.find(s => s.key === shot);
@@ -115,7 +114,6 @@ export function ShotDetailScreen({ route }: Props) {
     })),
   } : null;
 
-  const shotRatings = sportConfig.mockData.getSkills(userId) as ShotRatingsData | null;
   const data = shotRatings?.shots[shot];
   const ratingColor = getShotRatingColor(data?.rating ?? 0);
 

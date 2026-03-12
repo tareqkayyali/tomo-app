@@ -159,12 +159,16 @@ export interface StreakResult {
 
 // ---- User ----
 
+export type UserRole = "player" | "coach" | "parent";
+
 export interface UserProfile {
   id: string;
   email: string;
   name: string;
   sport: Sport;
   age?: number;
+  role: UserRole;
+  displayRole?: string | null;
   archetype?: Archetype | null;
   totalPoints: number;
   currentStreak: number;
@@ -177,4 +181,118 @@ export interface UserProfile {
   onboardingComplete: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// ---- Relationships ----
+
+export type RelationshipType = "coach" | "parent";
+export type RelationshipStatus = "pending" | "accepted" | "declined" | "revoked";
+
+export interface Relationship {
+  id: string;
+  guardianId: string;
+  playerId: string;
+  relationshipType: RelationshipType;
+  status: RelationshipStatus;
+  inviteCode?: string | null;
+  createdAt: string;
+  acceptedAt?: string | null;
+  // Populated fields (joined)
+  guardianName?: string;
+  guardianEmail?: string;
+  playerName?: string;
+  playerEmail?: string;
+  playerSport?: Sport;
+  playerAge?: number;
+}
+
+export interface PlayerSummary {
+  id: string;
+  name: string;
+  email: string;
+  sport: Sport;
+  age?: number;
+  readiness?: ReadinessLevel | null;
+  currentStreak: number;
+  totalPoints: number;
+  lastCheckinDate?: string | null;
+}
+
+// ---- Suggestions ----
+
+export type SuggestionType = "study_block" | "exam_date" | "test_result" | "calendar_event";
+export type SuggestionStatus = "pending" | "accepted" | "edited" | "declined" | "expired";
+
+export interface Suggestion {
+  id: string;
+  playerId: string;
+  authorId: string;
+  authorRole: UserRole;
+  suggestionType: SuggestionType;
+  title: string;
+  payload: Record<string, unknown>;
+  status: SuggestionStatus;
+  playerNotes?: string | null;
+  resolvedAt?: string | null;
+  expiresAt?: string | null;
+  createdAt: string;
+  // Populated
+  authorName?: string;
+}
+
+export interface StudyBlockPayload {
+  subject: string;
+  startAt: string;   // ISO datetime
+  endAt: string;     // ISO datetime
+  priority?: "high" | "medium" | "low";
+  notes?: string;
+}
+
+export interface ExamDatePayload {
+  subject: string;
+  examType: string;  // "mid-term" | "quiz" | "final" | "essay" | "presentation"
+  examDate: string;  // ISO date
+  notes?: string;
+}
+
+export interface TestResultPayload {
+  testType: string;
+  sport: Sport;
+  values: {
+    primaryValue: number;
+    unit: string;
+    label?: string;
+  };
+  rawInputs?: Record<string, unknown>;
+}
+
+// ---- Notifications ----
+
+export type NotificationType =
+  | "suggestion_received"
+  | "suggestion_resolved"
+  | "relationship_accepted"
+  | "relationship_declined"
+  | "test_result_added";
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body?: string | null;
+  data: Record<string, unknown>;
+  read: boolean;
+  createdAt: string;
+}
+
+// ---- Invite Codes ----
+
+export interface InviteCode {
+  code: string;
+  creatorId: string;
+  targetRole: RelationshipType;
+  usedBy?: string | null;
+  expiresAt: string;
+  createdAt: string;
 }

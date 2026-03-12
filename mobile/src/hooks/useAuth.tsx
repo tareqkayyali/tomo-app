@@ -8,7 +8,36 @@ import Constants from 'expo-constants';
 import { onAuthChange, signIn, signUp, signOut, signInWithProvider, AuthUser } from '../services/auth';
 import { getUser, registerUser } from '../services/api';
 import { initAnalytics, identify, setAnalyticsEnabled, resetAnalytics, track } from '../services/analytics';
-import type { User, Sport } from '../types';
+import type { User, Sport, UserRole } from '../types';
+
+// ── Dev bypass — skip login for rapid testing ──────────────────────
+// Set to true to bypass Supabase auth and use mock user data.
+// Only works in __DEV__ builds. Set to false before deploying.
+const DEV_BYPASS = __DEV__ && true;
+
+const DEV_USER: AuthUser = {
+  uid: '00000000-0000-0000-0000-000000000001', // Placeholder — replace with real Supabase auth UUID
+  email: 'tareq.kayyali@gmail.com',
+};
+
+const DEV_PROFILE: User = {
+  id: DEV_USER.uid,
+  uid: DEV_USER.uid,
+  email: 'tareq.kayyali@gmail.com',
+  name: 'Tareq',
+  displayName: 'Tareq',
+  sport: 'football' as Sport,
+  age: 17,
+  role: 'player' as UserRole,
+  archetype: 'phoenix',
+  totalPoints: 2450,
+  currentStreak: 12,
+  longestStreak: 18,
+  streakMultiplier: 1.5,
+  streakFreezeTokens: 2,
+  milestonesUnlocked: ['first_checkin', '7_day_streak', 'bronze_sprinter'],
+  onboardingComplete: true,
+};
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -16,17 +45,27 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   needsRegistration: boolean;
+  /** Current user role — defaults to 'player' for backward compat */
+  role: UserRole;
+  /** Dev-only: override role for testing role switching */
+  devRoleOverride: UserRole | null;
+  /** Dev-only: set role override (triggers navigation fork change) */
+  setDevRole: (role: UserRole) => void;
   login: (email: string, password: string) => Promise<void>;
   socialLogin: (provider: 'google' | 'apple') => Promise<void>;
   register: (email: string, password: string, profileData: {
     name: string;
-    age: number;
-    sport: Sport;
+    age?: number;
+    sport?: Sport;
+    role?: UserRole;
+    displayRole?: string;
   }) => Promise<void>;
   completeRegistration: (profileData: {
     name: string;
-    age: number;
-    sport: Sport;
+    age?: number;
+    sport?: Sport;
+    role?: UserRole;
+    displayRole?: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -35,10 +74,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [profile, setProfile] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(DEV_BYPASS ? DEV_USER : null);
+  const [profile, setProfile] = useState<User | null>(DEV_BYPASS ? DEV_PROFILE : null);
+  const [isLoading, setIsLoading] = useState(DEV_BYPASS ? false : true);
   const [needsRegistration, setNeedsRegistration] = useState(false);
+  const [devRoleOverride, setDevRoleOverride] = useState<UserRole | null>(null);
 
   // Initialize Mixpanel once
   useEffect(() => {
@@ -54,15 +94,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(response.user);
       setNeedsRegistration(false);
       // COPPA: enable analytics only for eligible users
-      const canTrack = response.user.age >= 13 && (response.user.age >= 18 || !!response.user.parentalConsent);
+      const age = response.user.age || 0;
+      const canTrack = age >= 13 && (age >= 18 || !!response.user.parentalConsent);
       setAnalyticsEnabled(canTrack);
       if (canTrack) {
-        const bracket = response.user.age < 16 ? '13-15' : response.user.age < 18 ? '16-18' : '18+';
+        const bracket = age < 16 ? '13-15' : age < 18 ? '16-18' : '18+';
         identify(response.user.uid, {
           sport: response.user.sport, age_bracket: bracket,
           archetype: response.user.archetype || null, region: response.user.region || null,
+          role: response.user.role || 'player',
         });
-        track('app_open', { platform: 'mobile' });
+        track('app_open', { platform: 'mobile', role: response.user.role || 'player' });
       }
       return true;
     } catch (error) {
@@ -80,8 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Listen to auth state changes
+  // Listen to auth state changes (skipped in DEV_BYPASS mode)
   useEffect(() => {
+    if (DEV_BYPASS) {
+      console.log('[useAuth] DEV_BYPASS active — skipping auth listener');
+      return;
+    }
+
     let didFire = false;
 
     // Safety timeout: if onAuthStateChange never fires (web edge case),
@@ -161,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (
     email: string,
     password: string,
-    profileData: { name: string; age: number; sport: Sport }
+    profileData: { name: string; age?: number; sport?: Sport; role?: UserRole; displayRole?: string }
   ) => {
     setIsLoading(true);
     try {
@@ -175,6 +222,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName: profileData.name,
         age: profileData.age,
         sport: profileData.sport,
+        role: profileData.role,
+        displayRole: profileData.displayRole,
       });
       setProfile(response.user);
       setNeedsRegistration(false);
@@ -188,7 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Complete registration for OAuth users (already authenticated, just need backend profile)
   const completeRegistration = async (
-    profileData: { name: string; age: number; sport: Sport }
+    profileData: { name: string; age?: number; sport?: Sport; role?: UserRole; displayRole?: string }
   ) => {
     setIsLoading(true);
     try {
@@ -197,6 +246,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName: profileData.name,
         age: profileData.age,
         sport: profileData.sport,
+        role: profileData.role,
+        displayRole: profileData.displayRole,
       });
       setProfile(response.user);
       setNeedsRegistration(false);
@@ -221,6 +272,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Derive role from profile, default to 'player'. Dev override takes precedence.
+  const role: UserRole = devRoleOverride || profile?.role || 'player';
+
+  // Dev-only: set role override for testing
+  const setDevRole = (newRole: UserRole) => {
+    setDevRoleOverride(newRole);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -229,6 +288,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         needsRegistration,
+        role,
+        devRoleOverride,
+        setDevRole,
         login,
         socialLogin,
         register,

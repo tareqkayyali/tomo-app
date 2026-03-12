@@ -4,18 +4,17 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
 import { useSpringEntrance } from '../hooks/useAnimations';
 import { useTheme } from '../hooks/useTheme';
 import { PadelRatingPathway } from '../components/PadelRatingPathway';
 import { GlassCard } from '../components/GlassCard';
-import { useSportContext } from '../hooks/useSportContext';
-import { useAuth } from '../hooks/useAuth';
+import { usePadelProgress } from '../hooks/usePadelProgress';
 import { useProMilestones } from '../hooks/useContentHelpers';
+import { getPadelLevel } from '../services/padelCalculations';
 import { fontFamily, spacing } from '../theme';
-import type { DNACardData } from '../types/padel';
 import type { ThemeColors } from '../theme/colors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
@@ -88,25 +87,51 @@ function RatingHistoryChart({
 
 export function PadelRatingScreen(_props: Props) {
   const { colors } = useTheme();
-  const { sportConfig } = useSportContext();
-  const { profile } = useAuth();
-  const userId = profile?.uid || profile?.id || 'osama-kayyali';
   const s = useMemo(() => createStyles(colors), [colors]);
-  const dna = sportConfig.mockData.getCard(userId) as DNACardData | null;
   const milestones = useProMilestones('men');
+  const { shotRatings, isLoading, hasData } = usePadelProgress();
 
   const entrance0 = useSpringEntrance(0);
   const entrance1 = useSpringEntrance(1);
   const entrance2 = useSpringEntrance(2);
 
+  // Compute padel rating from shot mastery (0-100 → 0-1000 scale)
+  const padelRating = hasData ? Math.round(shotRatings!.overallShotMastery * 10) : 0;
+  const padelLevel = getPadelLevel(padelRating);
+
+  // Build rating history by aggregating all shot histories by date
+  const ratingHistory = useMemo(() => {
+    if (!shotRatings) return [];
+    const dateMap = new Map<string, number[]>();
+    for (const shotData of Object.values(shotRatings.shots)) {
+      for (const h of shotData.history) {
+        const existing = dateMap.get(h.date) || [];
+        existing.push(h.rating);
+        dateMap.set(h.date, existing);
+      }
+    }
+    return Array.from(dateMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, ratings]) => ({
+        date,
+        rating: Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10),
+      }));
+  }, [shotRatings]);
+
   // Next milestone
-  const padelRating = dna?.padelRating ?? 0;
   const nextMilestone = useMemo(() => {
     const sorted = [...milestones].sort((a, b) => a.rating - b.rating);
     return sorted.find((m) => m.rating > padelRating);
   }, [milestones, padelRating]);
 
-  if (!dna) return null;
+  // Loading state
+  if (isLoading) {
+    return (
+      <View style={[s.screen, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.accent1} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -119,7 +144,7 @@ export function PadelRatingScreen(_props: Props) {
         <GlassCard>
           <Text style={s.sectionTitle}>Rating Trend</Text>
           <RatingHistoryChart
-            data={dna.history}
+            data={ratingHistory}
             width={320}
             height={140}
             colors={colors}
@@ -144,7 +169,7 @@ export function PadelRatingScreen(_props: Props) {
                     s.milestoneFill,
                     {
                       width: `${Math.min(
-                        (dna.padelRating / nextMilestone.rating) * 100,
+                        (padelRating / nextMilestone.rating) * 100,
                         100,
                       )}%`,
                     },
@@ -152,7 +177,7 @@ export function PadelRatingScreen(_props: Props) {
                 />
               </View>
               <Text style={s.milestoneGap}>
-                {nextMilestone.rating - dna.padelRating} pts away
+                {nextMilestone.rating - padelRating} pts away
               </Text>
             </View>
           </GlassCard>
@@ -164,8 +189,8 @@ export function PadelRatingScreen(_props: Props) {
         <GlassCard>
           <Text style={s.sectionTitle}>Rating Pathway</Text>
           <PadelRatingPathway
-            rating={dna.padelRating}
-            level={dna.padelLevel}
+            rating={padelRating}
+            level={padelLevel}
             milestones={milestones as any}
             compact={false}
           />

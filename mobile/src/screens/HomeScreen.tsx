@@ -52,11 +52,10 @@ import {
   sendChatMessage,
   getChatSuggestions,
   getToday,
-  syncPadelProgress,
 } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { useSportContext } from '../hooks/useSportContext';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
+import { RoleSwitcher } from '../components/RoleSwitcher';
 import { useAllQuotes } from '../hooks/useContentHelpers';
 import type { Quote } from '../hooks/useContentHelpers';
 import { track } from '../services/analytics';
@@ -762,7 +761,7 @@ export function HomeScreen() {
   const { colors, isDark, toggle } = useTheme();
   const styles = useHomeStyles();
   const { profile } = useAuth();
-  const { sportConfig } = useSportContext();
+  // sportConfig removed — no mock data sync needed
   const allQuotes = useAllQuotes();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -826,41 +825,7 @@ export function HomeScreen() {
     loadData();
   }, [loadData]);
 
-  // ── Sync padel progress to backend (fire-and-forget) ──────────────
-  const userId = profile?.uid || profile?.id || 'osama-kayyali';
-  useEffect(() => {
-    if (profile?.sport === 'padel') {
-      const dna = sportConfig.mockData.getCard(userId) as any;
-      const shots = sportConfig.mockData.getSkills(userId) as any;
-      if (!dna || !shots) return;
-      syncPadelProgress({
-        dnaCard: dna.attributes,
-        shotRatings: {
-          overallShotMastery: shots.overallShotMastery,
-          shots: Object.fromEntries(
-            Object.entries(shots.shots).map(([key, val]: [string, any]) => [
-              key,
-              {
-                rating: val.rating,
-                subMetrics: val.subMetrics,
-                trend: val.trend,
-                sessionsLogged: val.sessionsLogged,
-              },
-            ]),
-          ),
-          shotVarietyIndex: shots.shotVarietyIndex,
-          strongestShot: shots.strongestShot,
-          weakestShot: shots.weakestShot,
-        },
-        padelRating: dna.padelRating,
-        padelLevel: dna.padelLevel,
-        overallRating: dna.overallRating,
-        tier: dna.tier,
-      }).catch(() => {
-        // Silently fail — padel sync is non-critical
-      });
-    }
-  }, [profile?.sport]);
+  const userId = profile?.uid || profile?.id || '';
 
   // ── Pick quote (changes on every new chat) ─────────────────────────
   const currentQuote = useMemo(() => {
@@ -1255,6 +1220,9 @@ export function HomeScreen() {
             />
           </View>
         </View>
+
+        {/* ─── Dev Role Switcher (dev builds only) ───────────────── */}
+        <RoleSwitcher />
 
         {/* ─── Saved Chats Overlay ─────────────────────────────────── */}
         {showSavedChats && (

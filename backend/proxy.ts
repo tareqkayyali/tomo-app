@@ -59,6 +59,11 @@ export async function proxy(req: NextRequest) {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
   }
 
+  // Cron endpoints use their own CRON_SECRET auth (bypass Supabase token check)
+  if (pathname === "/api/v1/suggestions/expire") {
+    return addCorsHeaders(NextResponse.next({ request: req }), origin);
+  }
+
   // --- 1. Try Bearer token (mobile app + web) ---
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {

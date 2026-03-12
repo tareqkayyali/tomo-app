@@ -31,6 +31,7 @@ import type {
   PrivacySettings,
   PrivacySettingsResponse,
   GhostSuggestionsResponse,
+  DailyBriefing,
 } from '../types';
 
 /**
@@ -196,8 +197,10 @@ export async function updateUser(updates: Partial<User>): Promise<UserResponse> 
 export async function registerUser(userData: {
   name: string;
   displayName?: string;
-  age: number;
-  sport: string;
+  age?: number;
+  sport?: string;
+  role?: UserRole;
+  displayRole?: string;
   region?: string;
   teamId?: string;
 }): Promise<UserResponse> {
@@ -547,6 +550,15 @@ export async function getChatSuggestions(): Promise<ChatSuggestionsResponse> {
   return apiRequest<ChatSuggestionsResponse>('/api/v1/chat/suggestions');
 }
 
+/**
+ * Get daily briefing for Command & Control Center
+ * Passes local hour for timezone-aware greetings
+ */
+export async function getBriefing(): Promise<DailyBriefing> {
+  const hour = new Date().getHours();
+  return apiRequest<DailyBriefing>(`/api/v1/chat/briefing?hour=${hour}`);
+}
+
 // ============================================
 // Padel Progress APIs
 // ============================================
@@ -685,6 +697,39 @@ export async function getFootballTestHistory(
   return apiRequest<FootballTestHistoryResponse>(`/api/v1/football-tests/history${params}`);
 }
 
+// ============================================
+// Padel Shot APIs
+// ============================================
+
+import type {
+  PadelShotSessionInput,
+  PadelShotResult,
+  PadelShotHistoryResponse,
+} from '../types/padelShots';
+
+/**
+ * Save a padel shot session (multiple shot ratings)
+ */
+export async function savePadelShotSession(
+  input: PadelShotSessionInput,
+): Promise<{ results: PadelShotResult[]; count: number }> {
+  return apiRequest<{ results: PadelShotResult[]; count: number }>('/api/v1/padel-shots/session', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * Get padel shot result history
+ */
+export async function getPadelShotHistory(
+  limit: number = 50,
+  shotType?: string,
+): Promise<PadelShotHistoryResponse> {
+  const params = shotType ? `?limit=${limit}&shotType=${shotType}` : `?limit=${limit}`;
+  return apiRequest<PadelShotHistoryResponse>(`/api/v1/padel-shots/history${params}`);
+}
+
 // Re-export API_BASE_URL for diagnostics
 export { API_BASE_URL } from './apiConfig';
 
@@ -773,4 +818,227 @@ export async function healthCheck(): Promise<{ status: string; timestamp: string
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+// ============================================
+// Multi-Role: Relationships
+// ============================================
+
+import type {
+  Relationship,
+  PlayerSummary,
+  Suggestion,
+  AppNotification,
+  UserRole,
+} from '../types';
+
+/**
+ * Get all relationships for the current user
+ */
+export async function getRelationships(): Promise<{ relationships: Relationship[] }> {
+  return apiRequest<{ relationships: Relationship[] }>('/api/v1/relationships');
+}
+
+/**
+ * Generate an invite code (coach/parent only)
+ */
+export async function generateInviteCode(
+  targetRole: 'coach' | 'parent',
+): Promise<{ code: string; expiresAt: string }> {
+  return apiRequest<{ code: string; expiresAt: string }>('/api/v1/relationships/invite', {
+    method: 'POST',
+    body: JSON.stringify({ targetRole }),
+  });
+}
+
+/**
+ * Accept an invite code (player only)
+ */
+export async function acceptInviteCode(
+  code: string,
+): Promise<{ relationshipId: string; guardianId: string; relationshipType: string }> {
+  return apiRequest<{ relationshipId: string; guardianId: string; relationshipType: string }>(
+    '/api/v1/relationships/accept',
+    { method: 'POST', body: JSON.stringify({ code }) },
+  );
+}
+
+/**
+ * Revoke a relationship
+ */
+export async function revokeRelationship(relationshipId: string): Promise<{ success: boolean }> {
+  return apiRequest<{ success: boolean }>(`/api/v1/relationships/${relationshipId}`, {
+    method: 'DELETE',
+  });
+}
+
+// ============================================
+// Multi-Role: Coach
+// ============================================
+
+/**
+ * Get linked players (coach only)
+ */
+export async function getCoachPlayers(): Promise<{ players: PlayerSummary[] }> {
+  return apiRequest<{ players: PlayerSummary[] }>('/api/v1/coach/players');
+}
+
+/**
+ * Get player readiness history (coach only)
+ */
+export async function getPlayerReadiness(
+  playerId: string,
+): Promise<{ readiness: Array<Record<string, unknown>> }> {
+  return apiRequest<{ readiness: Array<Record<string, unknown>> }>(
+    `/api/v1/coach/players/${playerId}/readiness`,
+  );
+}
+
+/**
+ * Get player test history (coach only)
+ */
+export async function getPlayerTests(
+  playerId: string,
+): Promise<{ tests: Suggestion[] }> {
+  return apiRequest<{ tests: Suggestion[] }>(`/api/v1/coach/players/${playerId}/tests`);
+}
+
+/**
+ * Submit a test result for a player (coach only)
+ */
+export async function submitPlayerTest(
+  playerId: string,
+  data: { testType: string; sport: string; values: Record<string, unknown>; rawInputs?: Record<string, unknown> },
+): Promise<{ suggestion: Suggestion }> {
+  return apiRequest<{ suggestion: Suggestion }>(`/api/v1/coach/players/${playerId}/tests`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// ============================================
+// Multi-Role: Parent
+// ============================================
+
+/**
+ * Get linked children (parent only)
+ */
+export async function getParentChildren(): Promise<{ children: PlayerSummary[] }> {
+  return apiRequest<{ children: PlayerSummary[] }>('/api/v1/parent/children');
+}
+
+/**
+ * Get child's calendar (parent only)
+ */
+export async function getChildCalendar(
+  childId: string,
+): Promise<{ events: Array<Record<string, unknown>> }> {
+  return apiRequest<{ events: Array<Record<string, unknown>> }>(
+    `/api/v1/parent/children/${childId}/calendar`,
+  );
+}
+
+/**
+ * Suggest a study block for a child (parent only)
+ */
+export async function suggestStudyBlock(
+  childId: string,
+  data: { subject: string; startAt: string; endAt: string; priority?: string; notes?: string },
+): Promise<{ suggestion: Suggestion }> {
+  return apiRequest<{ suggestion: Suggestion }>(`/api/v1/parent/children/${childId}/study-block`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Add an exam date for a child (parent only)
+ */
+export async function suggestExam(
+  childId: string,
+  data: { subject: string; examType: string; examDate: string; notes?: string },
+): Promise<{ suggestion: Suggestion }> {
+  return apiRequest<{ suggestion: Suggestion }>(`/api/v1/parent/children/${childId}/exam`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// ============================================
+// Multi-Role: Suggestions
+// ============================================
+
+/**
+ * Get suggestions (players: pending suggestions; coach/parent: authored suggestions)
+ */
+export async function getSuggestions(
+  status?: string,
+): Promise<{ suggestions: Suggestion[] }> {
+  const params = status ? `?status=${status}` : '';
+  return apiRequest<{ suggestions: Suggestion[] }>(`/api/v1/suggestions${params}`);
+}
+
+/**
+ * Create a suggestion (coach/parent)
+ */
+export async function createSuggestion(data: {
+  playerId: string;
+  suggestionType: string;
+  title: string;
+  payload: Record<string, unknown>;
+  expiresAt?: string;
+}): Promise<{ suggestion: Suggestion }> {
+  return apiRequest<{ suggestion: Suggestion }>('/api/v1/suggestions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Resolve a suggestion (player only)
+ */
+export async function resolveSuggestion(
+  suggestionId: string,
+  resolution: { status: 'accepted' | 'edited' | 'declined'; playerNotes?: string },
+): Promise<{ suggestion: Suggestion }> {
+  return apiRequest<{ suggestion: Suggestion }>(`/api/v1/suggestions/${suggestionId}/resolve`, {
+    method: 'POST',
+    body: JSON.stringify(resolution),
+  });
+}
+
+// ============================================
+// Multi-Role: Notifications
+// ============================================
+
+/**
+ * Get notifications
+ */
+export async function getNotifications(
+  limit: number = 50,
+): Promise<{ notifications: AppNotification[]; unreadCount: number }> {
+  return apiRequest<{ notifications: AppNotification[]; unreadCount: number }>(
+    `/api/v1/notifications?limit=${limit}`,
+  );
+}
+
+/**
+ * Mark a notification as read
+ */
+export async function markNotificationRead(
+  notificationId: string,
+): Promise<{ notification: AppNotification }> {
+  return apiRequest<{ notification: AppNotification }>(
+    `/api/v1/notifications/${notificationId}/read`,
+    { method: 'POST' },
+  );
+}
+
+/**
+ * Mark all notifications as read
+ */
+export async function markAllNotificationsRead(): Promise<{ success: boolean }> {
+  return apiRequest<{ success: boolean }>('/api/v1/notifications/read-all', {
+    method: 'POST',
+  });
 }

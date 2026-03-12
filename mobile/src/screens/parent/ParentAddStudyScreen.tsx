@@ -1,0 +1,394 @@
+/**
+ * Parent Add Study Screen
+ * Form to suggest a study block for a child.
+ */
+
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  SafeAreaView,
+  ActivityIndicator,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+import { useTheme } from '../../hooks/useTheme';
+import { suggestStudyBlock } from '../../services/api';
+import { spacing, borderRadius } from '../../theme';
+import type { ParentStackParamList } from '../../navigation/types';
+
+type Props = NativeStackScreenProps<ParentStackParamList, 'ParentAddStudy'>;
+
+// ── Constants ───────────────────────────────────────────────────────
+
+const SUBJECTS = ['Math', 'Physics', 'English', 'Biology', 'History', 'Other'];
+const DURATIONS = [
+  { label: '30 min', minutes: 30 },
+  { label: '45 min', minutes: 45 },
+  { label: '60 min', minutes: 60 },
+  { label: '90 min', minutes: 90 },
+];
+const PRIORITIES = ['Low', 'Medium', 'High'] as const;
+const HOURS = Array.from({ length: 16 }, (_, i) => i + 7); // 7-22
+
+// ── Component ───────────────────────────────────────────────────────
+
+export function ParentAddStudyScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const { childId, childName } = route.params;
+
+  const [subject, setSubject] = useState('');
+  const [customSubject, setCustomSubject] = useState('');
+  const [startHour, setStartHour] = useState(15);
+  const [duration, setDuration] = useState(60);
+  const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const effectiveSubject = subject === 'Other' ? customSubject : subject;
+
+  const handleSubmit = useCallback(async () => {
+    if (!effectiveSubject.trim()) {
+      Alert.alert('Missing subject', 'Please select or enter a subject.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const startAt = new Date();
+      startAt.setHours(startHour, 0, 0, 0);
+
+      const endAt = new Date(startAt.getTime() + duration * 60 * 1000);
+
+      await suggestStudyBlock(childId, {
+        subject: effectiveSubject,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        priority: priority.toLowerCase(),
+        notes: notes.trim() || undefined,
+      });
+
+      setSuccess(true);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to create study block.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [effectiveSubject, startHour, duration, priority, notes, childId]);
+
+  if (success) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.successContainer}>
+          <View style={[styles.successIcon, { backgroundColor: '#2ED57322' }]}>
+            <Ionicons name="checkmark-circle" size={64} color="#2ED573" />
+          </View>
+          <Text style={[styles.successTitle, { color: colors.textOnDark }]}>Study Block Added</Text>
+          <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
+            {effectiveSubject} session suggested for {childName}
+          </Text>
+          <TouchableOpacity
+            style={[styles.doneButton, { backgroundColor: colors.accent1 }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.doneButtonText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Text style={[styles.header, { color: colors.textOnDark }]}>
+          Add Study Block for {childName}
+        </Text>
+
+        {/* Subject picker */}
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Subject</Text>
+        <View style={styles.chipRow}>
+          {SUBJECTS.map((s) => (
+            <TouchableOpacity
+              key={s}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: subject === s ? colors.accent1 : colors.surface,
+                  borderColor: subject === s ? colors.accent1 : colors.border,
+                },
+              ]}
+              onPress={() => setSubject(s)}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: subject === s ? '#FFFFFF' : colors.textOnDark },
+                ]}
+              >
+                {s}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {subject === 'Other' && (
+          <TextInput
+            style={[styles.input, { backgroundColor: colors.surface, color: colors.textOnDark, borderColor: colors.border }]}
+            placeholder="Enter subject..."
+            placeholderTextColor={colors.textSecondary}
+            value={customSubject}
+            onChangeText={setCustomSubject}
+          />
+        )}
+
+        {/* Start time */}
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Start Time</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hourScroll}>
+          {HOURS.map((h) => (
+            <TouchableOpacity
+              key={h}
+              style={[
+                styles.hourChip,
+                {
+                  backgroundColor: startHour === h ? colors.accent1 : colors.surface,
+                  borderColor: startHour === h ? colors.accent1 : colors.border,
+                },
+              ]}
+              onPress={() => setStartHour(h)}
+            >
+              <Text
+                style={[
+                  styles.hourText,
+                  { color: startHour === h ? '#FFFFFF' : colors.textOnDark },
+                ]}
+              >
+                {`${String(h).padStart(2, '0')}:00`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Duration */}
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Duration</Text>
+        <View style={styles.chipRow}>
+          {DURATIONS.map((d) => (
+            <TouchableOpacity
+              key={d.minutes}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: duration === d.minutes ? colors.accent1 : colors.surface,
+                  borderColor: duration === d.minutes ? colors.accent1 : colors.border,
+                },
+              ]}
+              onPress={() => setDuration(d.minutes)}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: duration === d.minutes ? '#FFFFFF' : colors.textOnDark },
+                ]}
+              >
+                {d.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Priority */}
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Priority</Text>
+        <View style={styles.chipRow}>
+          {PRIORITIES.map((p) => {
+            const priorityColors: Record<string, string> = {
+              Low: '#2ED573',
+              Medium: '#FFA502',
+              High: '#FF4757',
+            };
+            const isSelected = priority === p;
+            return (
+              <TouchableOpacity
+                key={p}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: isSelected ? priorityColors[p] + '33' : colors.surface,
+                    borderColor: isSelected ? priorityColors[p] : colors.border,
+                  },
+                ]}
+                onPress={() => setPriority(p)}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: isSelected ? priorityColors[p] : colors.textOnDark },
+                  ]}
+                >
+                  {p}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Notes */}
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Notes (optional)</Text>
+        <TextInput
+          style={[styles.textArea, { backgroundColor: colors.surface, color: colors.textOnDark, borderColor: colors.border }]}
+          placeholder="Any additional details..."
+          placeholderTextColor={colors.textSecondary}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          numberOfLines={3}
+        />
+
+        {/* Submit */}
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            { backgroundColor: effectiveSubject.trim() ? colors.accent1 : colors.surface },
+          ]}
+          onPress={handleSubmit}
+          disabled={submitting || !effectiveSubject.trim()}
+        >
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.submitText}>Suggest Study Block</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ── Styles ──────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scroll: {
+    padding: spacing.lg,
+    paddingBottom: 40,
+  },
+  header: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: spacing.xl,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Chips
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  // Hour scroll
+  hourScroll: {
+    marginBottom: spacing.xs,
+  },
+  hourChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginRight: spacing.sm,
+  },
+  hourText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Input
+  input: {
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: 15,
+    marginTop: spacing.sm,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: 15,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+
+  // Submit
+  submitButton: {
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    marginTop: spacing.xl,
+  },
+  submitText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // Success
+  successContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  successIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
+  },
+  successSubtitle: {
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  doneButton: {
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  doneButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+});

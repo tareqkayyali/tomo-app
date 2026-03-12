@@ -62,7 +62,7 @@ import {
   getSelfAssessmentSliders,
 } from '../../data/footballTestDefs';
 import type { SelfAssessmentSlider } from '../../data/footballTestDefs';
-import { getMetricNorm, getMetricMeanForAge } from '../../data/footballMockData';
+import { getMetricNorm, getMetricMeanForAge } from '../../data/footballNormativeData';
 
 import { fontFamily, spacing, borderRadius, layout } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';

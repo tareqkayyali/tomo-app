@@ -31,7 +31,7 @@ import type { MainTabParamList, MainStackParamList } from '../navigation/types';
 
 type BlazePodDrillsScreenProps = {
   navigation: CompositeNavigationProp<
-    BottomTabNavigationProp<MainTabParamList, 'Tests'>,
+    BottomTabNavigationProp<MainTabParamList, 'Test'>,
     NativeStackNavigationProp<MainStackParamList>
   >;
 };

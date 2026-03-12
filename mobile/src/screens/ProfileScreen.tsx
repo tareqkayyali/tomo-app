@@ -39,10 +39,13 @@ import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useSportContext } from '../hooks/useSportContext';
+import { useFootballProgress } from '../hooks/useFootballProgress';
+import { usePadelProgress } from '../hooks/usePadelProgress';
 import { getArchetypeProfile } from '../services/archetypeProfile';
 import { useFadeIn } from '../hooks/useFadeIn';
-import { TIER_COLORS, getTierLabel } from '../services/padelCalculations';
+import { getPadelLevel } from '../services/padelCalculations';
 import { getFootballRatingLevel } from '../services/footballCalculations';
+import type { FootballPosition } from '../types/football';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
 
@@ -116,7 +119,15 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
   const { profile, user, logout, isLoading } = useAuth();
-  const { activeSport, sportConfig } = useSportContext();
+  const { activeSport } = useSportContext();
+
+  // ── Real data hooks (called unconditionally per rules of hooks) ──
+  const userId = profile?.uid || profile?.id || '';
+  const age = (profile as any)?.age ?? 16;
+  const position: FootballPosition = (profile as any)?.position || 'CM';
+  const { card: footballCard } = useFootballProgress(userId, age, position);
+  const { shotRatings } = usePadelProgress();
+
   const archetypeProfile = useMemo(
     () => getArchetypeProfile(profile?.archetype),
     [profile?.archetype],
@@ -309,11 +320,9 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         {/* ═══════════════════════════════════════════════════════════
             Sport Rating Card — shows active sport's rating
            ═══════════════════════════════════════════════════════════ */}
-        {activeSport === 'padel' && (() => {
-          const userId = profile?.uid || profile?.id;
-          const dna = userId ? sportConfig.mockData.getCard(userId) : undefined;
-          if (!dna) return null;
-          const tierColors = TIER_COLORS[dna.tier as keyof typeof TIER_COLORS];
+        {activeSport === 'padel' && shotRatings && (() => {
+          const mastery = shotRatings.overallShotMastery;
+          const padelLevel = getPadelLevel(mastery);
           return (
             <Animated.View style={fadeIn1}>
               <Pressable
@@ -323,14 +332,14 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <View style={[styles.padelTierDot, { backgroundColor: tierColors.border }]} />
+                <View style={[styles.padelTierDot, { backgroundColor: colors.accent1 }]} />
                 <View style={styles.padelCardInfo}>
-                  <Text style={styles.padelRatingNum}>{dna.padelRating}</Text>
-                  <Text style={styles.padelLevelText}>{dna.padelLevel}</Text>
+                  <Text style={styles.padelRatingNum}>{mastery}</Text>
+                  <Text style={styles.padelLevelText}>{padelLevel}</Text>
                 </View>
                 <View style={styles.padelTierBadge}>
-                  <Text style={[styles.padelTierText, { color: tierColors.border }]}>
-                    {getTierLabel(dna.tier)} {dna.overallRating}
+                  <Text style={[styles.padelTierText, { color: colors.accent1 }]}>
+                    Shot Mastery
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.textInactive} />
@@ -338,11 +347,8 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             </Animated.View>
           );
         })()}
-        {activeSport === 'football' && (() => {
-          const userId = profile?.uid || profile?.id;
-          const player = userId ? sportConfig.mockData.getCard(userId) : undefined;
-          if (!player) return null;
-          const level = getFootballRatingLevel(player.card.footballRating);
+        {activeSport === 'football' && footballCard && (() => {
+          const fbLevel = getFootballRatingLevel(footballCard.footballRating);
           return (
             <Animated.View style={fadeIn1}>
               <Pressable
@@ -352,14 +358,14 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <View style={[styles.padelTierDot, { backgroundColor: level.color }]} />
+                <View style={[styles.padelTierDot, { backgroundColor: fbLevel.color }]} />
                 <View style={styles.padelCardInfo}>
-                  <Text style={styles.padelRatingNum}>{player.card.overallRating}</Text>
-                  <Text style={styles.padelLevelText}>{player.card.footballLevel}</Text>
+                  <Text style={styles.padelRatingNum}>{footballCard.overallRating}</Text>
+                  <Text style={styles.padelLevelText}>{footballCard.footballLevel}</Text>
                 </View>
                 <View style={styles.padelTierBadge}>
-                  <Text style={[styles.padelTierText, { color: level.color }]}>
-                    {level.name} {player.card.footballRating}
+                  <Text style={[styles.padelTierText, { color: fbLevel.color }]}>
+                    {fbLevel.name} {footballCard.footballRating}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.textInactive} />
@@ -400,6 +406,11 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             icon="notifications-outline"
             label="Notifications"
             onPress={() => navigation.navigate('NotificationSettings')}
+          />
+          <MenuItem
+            icon="people-outline"
+            label="Link Coach or Parent"
+            onPress={() => navigation.navigate('LinkAccount')}
           />
           <MenuItem
             icon="lock-closed-outline"

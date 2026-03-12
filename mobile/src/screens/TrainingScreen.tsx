@@ -56,6 +56,8 @@ import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
 import { useAuth } from '../hooks/useAuth';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
+import { SuggestionsBanner } from '../components/SuggestionsBanner';
+import { useSuggestions } from '../hooks/useSuggestions';
 import { useCalendarData } from '../hooks/useCalendarData';
 import {
   getMonthDays,
@@ -64,7 +66,8 @@ import {
   toDateStr,
   formatMonthYear,
 } from '../utils/calendarHelpers';
-import type { CalendarEvent, ReadinessLevel } from '../types';
+import type { CalendarEvent, ReadinessLevel, Checkin } from '../types';
+import { getReadinessScore } from '../services/readinessScore';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -82,105 +85,36 @@ const TOTAL_MONTHS = 2400;
 const CENTER_INDEX = 1200;
 const MONTH_INDICES = Array.from({ length: TOTAL_MONTHS }, (_, i) => i);
 
-// ── Mock data ──
-// TODO: Remove these once real events are flowing
-const MOCK_EVENTS: CalendarEvent[] = [
-  // ── March 1 (Sun) ──
-  { id: 'm-1a', userId: 'demo', name: 'Morning Run',           type: 'training',    sport: 'general',  date: '2026-03-01', startTime: '07:00', endTime: '07:45', intensity: 'LIGHT',    notes: '5 km easy pace',                    createdAt: '' },
-  { id: 'm-1b', userId: 'demo', name: 'Football Training',     type: 'training',    sport: 'football', date: '2026-03-01', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Passing drills & rondos',            createdAt: '' },
-  // ── March 2 (Mon) ──
-  { id: 'm-2a', userId: 'demo', name: 'Gym — Lower Body',      type: 'training',    sport: 'general',  date: '2026-03-02', startTime: '07:00', endTime: '08:00', intensity: 'MODERATE', notes: 'Squats, lunges, deadlifts',         createdAt: '' },
-  { id: 'm-2b', userId: 'demo', name: 'Football Training',     type: 'training',    sport: 'football', date: '2026-03-02', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Small-sided games',                 createdAt: '' },
-  { id: 'm-2c', userId: 'demo', name: 'Study Block',           type: 'study_block', sport: 'general',  date: '2026-03-02', startTime: '19:00', endTime: '21:00', intensity: null,       notes: 'Biology revision',                  createdAt: '' },
-  // ── March 3 (Tue) ──
-  { id: 'm-3a', userId: 'demo', name: 'Padel Training',        type: 'training',    sport: 'padel',    date: '2026-03-03', startTime: '17:00', endTime: '18:30', intensity: 'MODERATE', notes: 'Bandeja & wall shots',               createdAt: '' },
-  { id: 'm-3b', userId: 'demo', name: 'Stretching',            type: 'recovery',    sport: 'general',  date: '2026-03-03', startTime: '21:00', endTime: '21:30', intensity: 'LIGHT',    notes: 'Hip & hamstring focus',              createdAt: '' },
-  // ── March 4 (Wed) ──
-  { id: 'm-4a', userId: 'demo', name: 'Sprint Drills',         type: 'training',    sport: 'football', date: '2026-03-04', startTime: '16:00', endTime: '17:00', intensity: 'HARD',     notes: '30m repeats × 10',                  createdAt: '' },
-  { id: 'm-4b', userId: 'demo', name: 'Padel Match',           type: 'match',       sport: 'padel',    date: '2026-03-04', startTime: '18:30', endTime: '20:00', intensity: 'HARD',     notes: 'League doubles',                    createdAt: '' },
-  // ── March 5 (Thu) ──
-  { id: 'm-5a', userId: 'demo', name: 'Recovery Session',      type: 'recovery',    sport: 'general',  date: '2026-03-05', startTime: '09:00', endTime: '10:00', intensity: 'LIGHT',    notes: 'Foam rolling + stretching',          createdAt: '' },
-  { id: 'm-5b', userId: 'demo', name: 'Study Block',           type: 'study_block', sport: 'general',  date: '2026-03-05', startTime: '14:00', endTime: '16:00', intensity: null,       notes: 'Maths problem sets',                 createdAt: '' },
-  // ── March 6 (Fri) ──
-  { id: 'm-6a', userId: 'demo', name: 'Football Training',     type: 'training',    sport: 'football', date: '2026-03-06', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Crossing & finishing',               createdAt: '' },
-  { id: 'm-6b', userId: 'demo', name: 'Gym — Upper Body',      type: 'training',    sport: 'general',  date: '2026-03-06', startTime: '18:00', endTime: '19:00', intensity: 'MODERATE', notes: 'Bench, rows, shoulders',             createdAt: '' },
-  // ── March 7 (Sat) ──
-  { id: 'm-7a', userId: 'demo', name: 'Football Match',        type: 'match',       sport: 'football', date: '2026-03-07', startTime: '10:00', endTime: '11:30', intensity: 'HARD',     notes: 'League matchday 12',                 createdAt: '' },
-  { id: 'm-7b', userId: 'demo', name: 'Post-Match Recovery',   type: 'recovery',    sport: 'general',  date: '2026-03-07', startTime: '15:00', endTime: '15:45', intensity: 'LIGHT',    notes: 'Ice bath + compression',             createdAt: '' },
-  // ── March 8 (Sun) ──
-  { id: 'm-8a', userId: 'demo', name: 'Active Recovery',       type: 'recovery',    sport: 'general',  date: '2026-03-08', startTime: '09:00', endTime: '10:00', intensity: 'REST',     notes: 'Walk + yoga',                        createdAt: '' },
-  { id: 'm-8b', userId: 'demo', name: 'Padel Social',          type: 'other',       sport: 'padel',    date: '2026-03-08', startTime: '17:00', endTime: '18:30', intensity: 'LIGHT',    notes: 'Casual doubles with friends',        createdAt: '' },
-  // ── March 9 (Mon) ──
-  { id: 'm-9a', userId: 'demo', name: 'Gym — Legs',            type: 'training',    sport: 'general',  date: '2026-03-09', startTime: '07:00', endTime: '08:00', intensity: 'HARD',     notes: 'Heavy squat day',                    createdAt: '' },
-  { id: 'm-9b', userId: 'demo', name: 'Football Training',     type: 'training',    sport: 'football', date: '2026-03-09', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Set pieces & dead balls',            createdAt: '' },
-  // ── March 10 (Tue) ──
-  { id: 'm-10a', userId: 'demo', name: 'Padel Training',       type: 'training',    sport: 'padel',    date: '2026-03-10', startTime: '17:00', endTime: '18:30', intensity: 'MODERATE', notes: 'Vibora & smash technique',            createdAt: '' },
-  { id: 'm-10b', userId: 'demo', name: 'Study Block',          type: 'study_block', sport: 'general',  date: '2026-03-10', startTime: '19:30', endTime: '21:00', intensity: null,       notes: 'Chemistry lab prep',                  createdAt: '' },
-  // ── March 11 (Wed) ──
-  { id: 'm-11a', userId: 'demo', name: 'Study Block',          type: 'study_block', sport: 'general',  date: '2026-03-11', startTime: '08:00', endTime: '10:00', intensity: null,       notes: 'Physics exam prep',                   createdAt: '' },
-  { id: 'm-11b', userId: 'demo', name: 'Football Training',    type: 'training',    sport: 'football', date: '2026-03-11', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Defensive shape',                     createdAt: '' },
-  { id: 'm-11c', userId: 'demo', name: 'Stretching',           type: 'recovery',    sport: 'general',  date: '2026-03-11', startTime: '21:00', endTime: '21:30', intensity: 'LIGHT',    notes: 'Full body mobility',                  createdAt: '' },
-  // ── March 12 (Thu) ──
-  { id: 'm-12a', userId: 'demo', name: 'Physics Exam',         type: 'exam',        sport: 'general',  date: '2026-03-12', startTime: '09:00', endTime: '11:00', intensity: null,       notes: 'Chapters 4-7',                        createdAt: '' },
-  { id: 'm-12b', userId: 'demo', name: 'Light Jog',            type: 'training',    sport: 'general',  date: '2026-03-12', startTime: '16:00', endTime: '16:30', intensity: 'LIGHT',    notes: 'Post-exam de-stress',                 createdAt: '' },
-  // ── March 13 (Fri) ──
-  { id: 'm-13a', userId: 'demo', name: 'Football Training',    type: 'training',    sport: 'football', date: '2026-03-13', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Attacking patterns',                  createdAt: '' },
-  { id: 'm-13b', userId: 'demo', name: 'Padel Training',       type: 'training',    sport: 'padel',    date: '2026-03-13', startTime: '18:00', endTime: '19:00', intensity: 'MODERATE', notes: 'Net play drills',                     createdAt: '' },
-  // ── March 14 (Sat) ──
-  { id: 'm-14a', userId: 'demo', name: 'Football Match',       type: 'match',       sport: 'football', date: '2026-03-14', startTime: '10:00', endTime: '11:30', intensity: 'HARD',     notes: 'League matchday 13',                  createdAt: '' },
-  { id: 'm-14b', userId: 'demo', name: 'Recovery Swim',        type: 'recovery',    sport: 'general',  date: '2026-03-14', startTime: '15:00', endTime: '16:00', intensity: 'LIGHT',    notes: '30 min easy laps',                    createdAt: '' },
-  { id: 'm-14c', userId: 'demo', name: 'Study Block',          type: 'study_block', sport: 'general',  date: '2026-03-14', startTime: '19:00', endTime: '21:00', intensity: null,       notes: 'English essay draft',                 createdAt: '' },
-  // ── March 15 (Sun) ──
-  { id: 'm-15a', userId: 'demo', name: 'Rest Day',             type: 'recovery',    sport: 'general',  date: '2026-03-15', startTime: null,    endTime: null,     intensity: 'REST',     notes: 'Full rest',                           createdAt: '' },
-  { id: 'm-15b', userId: 'demo', name: 'Meal Prep',            type: 'other',       sport: 'general',  date: '2026-03-15', startTime: '17:00', endTime: '18:30', intensity: null,       notes: 'Week meals + snacks',                 createdAt: '' },
-  // ── March 16–31 + April ──
-  { id: 'm-16a', userId: 'demo', name: 'Gym — Push',           type: 'training',    sport: 'general',  date: '2026-03-16', startTime: '07:00', endTime: '08:00', intensity: 'MODERATE', notes: 'Chest, shoulders, triceps',           createdAt: '' },
-  { id: 'm-16b', userId: 'demo', name: 'Football Training',    type: 'training',    sport: 'football', date: '2026-03-16', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Pressing triggers',                   createdAt: '' },
-  { id: 'm-17a', userId: 'demo', name: 'Padel Training',       type: 'training',    sport: 'padel',    date: '2026-03-17', startTime: '17:00', endTime: '18:30', intensity: 'MODERATE', notes: 'Lob defence & bajada',                createdAt: '' },
-  { id: 'm-17b', userId: 'demo', name: 'Study Block',          type: 'study_block', sport: 'general',  date: '2026-03-17', startTime: '19:30', endTime: '21:00', intensity: null,       notes: 'History notes',                       createdAt: '' },
-  { id: 'm-18a', userId: 'demo', name: 'Sprint Session',       type: 'training',    sport: 'football', date: '2026-03-18', startTime: '16:00', endTime: '17:00', intensity: 'HARD',     notes: 'Agility ladder + cones',              createdAt: '' },
-  { id: 'm-18b', userId: 'demo', name: 'Padel Match',          type: 'match',       sport: 'padel',    date: '2026-03-18', startTime: '19:00', endTime: '20:30', intensity: 'HARD',     notes: 'Tournament quarter-final',            createdAt: '' },
-  { id: 'm-19a', userId: 'demo', name: 'Recovery Session',     type: 'recovery',    sport: 'general',  date: '2026-03-19', startTime: '07:30', endTime: '08:15', intensity: 'LIGHT',    notes: 'Foam rolling + cold plunge',          createdAt: '' },
-  { id: 'm-19b', userId: 'demo', name: 'Gym — Pull',           type: 'training',    sport: 'general',  date: '2026-03-19', startTime: '12:00', endTime: '13:00', intensity: 'MODERATE', notes: 'Deadlifts, pull-ups, rows',           createdAt: '' },
-  { id: 'm-20a', userId: 'demo', name: 'Football Training',    type: 'training',    sport: 'football', date: '2026-03-20', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Pre-match tactical',                  createdAt: '' },
-  { id: 'm-20b', userId: 'demo', name: 'Visualisation',        type: 'other',       sport: 'general',  date: '2026-03-20', startTime: '21:00', endTime: '21:30', intensity: null,       notes: 'Match-day mental prep',               createdAt: '' },
-  { id: 'm-21a', userId: 'demo', name: 'Football Match',       type: 'match',       sport: 'football', date: '2026-03-21', startTime: '14:00', endTime: '15:30', intensity: 'HARD',     notes: 'League matchday 14',                  createdAt: '' },
-  { id: 'm-21b', userId: 'demo', name: 'Post-Match Ice Bath',  type: 'recovery',    sport: 'general',  date: '2026-03-21', startTime: '17:00', endTime: '17:30', intensity: 'LIGHT',    notes: '10 min cold immersion',               createdAt: '' },
-  { id: 'm-22a', userId: 'demo', name: 'Active Recovery',      type: 'recovery',    sport: 'general',  date: '2026-03-22', startTime: '09:00', endTime: '10:00', intensity: 'REST',     notes: 'Pool session + sauna',                createdAt: '' },
-  { id: 'm-22b', userId: 'demo', name: 'Study Block',          type: 'study_block', sport: 'general',  date: '2026-03-22', startTime: '14:00', endTime: '16:00', intensity: null,       notes: 'Maths revision',                      createdAt: '' },
-  { id: 'm-23a', userId: 'demo', name: 'Gym — Legs',           type: 'training',    sport: 'general',  date: '2026-03-23', startTime: '07:00', endTime: '08:00', intensity: 'HARD',     notes: 'Squat PR attempt',                    createdAt: '' },
-  { id: 'm-23b', userId: 'demo', name: 'Football Training',    type: 'training',    sport: 'football', date: '2026-03-23', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Ball retention under pressure',       createdAt: '' },
-  { id: 'm-23c', userId: 'demo', name: 'Physio Appointment',   type: 'other',       sport: 'general',  date: '2026-03-23', startTime: '18:30', endTime: '19:15', intensity: null,       notes: 'Knee check-up',                       createdAt: '' },
-  { id: 'm-24a', userId: 'demo', name: 'Padel Training',       type: 'training',    sport: 'padel',    date: '2026-03-24', startTime: '17:00', endTime: '18:30', intensity: 'MODERATE', notes: 'Serve & return patterns',             createdAt: '' },
-  { id: 'm-24b', userId: 'demo', name: 'Stretching',           type: 'recovery',    sport: 'general',  date: '2026-03-24', startTime: '21:00', endTime: '21:30', intensity: 'LIGHT',    notes: 'Hamstrings & calves',                 createdAt: '' },
-  { id: 'm-25a', userId: 'demo', name: 'Football Training',    type: 'training',    sport: 'football', date: '2026-03-25', startTime: '16:00', endTime: '17:30', intensity: 'HARD',     notes: 'Match simulation',                    createdAt: '' },
-  { id: 'm-25b', userId: 'demo', name: 'Study Block',          type: 'study_block', sport: 'general',  date: '2026-03-25', startTime: '19:00', endTime: '20:30', intensity: null,       notes: 'Biology lab report',                  createdAt: '' },
-  { id: 'm-26a', userId: 'demo', name: 'Maths Exam',           type: 'exam',        sport: 'general',  date: '2026-03-26', startTime: '09:00', endTime: '11:00', intensity: null,       notes: 'Calculus & algebra',                  createdAt: '' },
-  { id: 'm-26b', userId: 'demo', name: 'Padel Match',          type: 'match',       sport: 'padel',    date: '2026-03-26', startTime: '18:00', endTime: '19:30', intensity: 'HARD',     notes: 'Tournament semi-final',               createdAt: '' },
-  { id: 'm-27a', userId: 'demo', name: 'Recovery Walk',        type: 'recovery',    sport: 'general',  date: '2026-03-27', startTime: '08:00', endTime: '08:45', intensity: 'LIGHT',    notes: '30 min easy walk',                    createdAt: '' },
-  { id: 'm-27b', userId: 'demo', name: 'Football Training',    type: 'training',    sport: 'football', date: '2026-03-27', startTime: '16:00', endTime: '17:30', intensity: 'LIGHT',    notes: 'Light session pre-match',             createdAt: '' },
-  { id: 'm-28a', userId: 'demo', name: 'Cup Semi-Final',       type: 'match',       sport: 'football', date: '2026-03-28', startTime: '15:00', endTime: '16:30', intensity: 'HARD',     notes: 'Biggest match of the season',         createdAt: '' },
-  { id: 'm-28b', userId: 'demo', name: 'Team Dinner',          type: 'other',       sport: 'general',  date: '2026-03-28', startTime: '19:00', endTime: '21:00', intensity: null,       notes: 'Post-match team meal',                createdAt: '' },
-  { id: 'm-29a', userId: 'demo', name: 'Rest Day',             type: 'recovery',    sport: 'general',  date: '2026-03-29', startTime: null,    endTime: null,     intensity: 'REST',     notes: 'Full rest after semi-final',          createdAt: '' },
-  { id: 'm-29b', userId: 'demo', name: 'Meal Prep',            type: 'other',       sport: 'general',  date: '2026-03-29', startTime: '16:00', endTime: '17:30', intensity: null,       notes: 'Match-week nutrition',                createdAt: '' },
-  { id: 'm-30a', userId: 'demo', name: 'Gym — Core',           type: 'training',    sport: 'general',  date: '2026-03-30', startTime: '07:00', endTime: '07:45', intensity: 'MODERATE', notes: 'Planks, anti-rotation, hanging',      createdAt: '' },
-  { id: 'm-30b', userId: 'demo', name: 'Football Training',    type: 'training',    sport: 'football', date: '2026-03-30', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Cup final preparation',               createdAt: '' },
-  { id: 'm-31a', userId: 'demo', name: 'Padel Training',       type: 'training',    sport: 'padel',    date: '2026-03-31', startTime: '17:00', endTime: '18:00', intensity: 'LIGHT',    notes: 'Touch & feel session',                createdAt: '' },
-  { id: 'm-31b', userId: 'demo', name: 'Study Block',          type: 'study_block', sport: 'general',  date: '2026-03-31', startTime: '19:30', endTime: '21:00', intensity: null,       notes: 'Exam revision schedule',              createdAt: '' },
-  { id: 'm-a1a', userId: 'demo', name: 'Football Training',    type: 'training',    sport: 'football', date: '2026-04-01', startTime: '16:00', endTime: '17:30', intensity: 'MODERATE', notes: 'Final tactical session',              createdAt: '' },
-  { id: 'm-a1b', userId: 'demo', name: 'Sports Massage',       type: 'recovery',    sport: 'general',  date: '2026-04-01', startTime: '18:30', endTime: '19:30', intensity: 'LIGHT',    notes: 'Deep tissue legs',                    createdAt: '' },
-  { id: 'm-a5a', userId: 'demo', name: 'Cup Final',            type: 'match',       sport: 'football', date: '2026-04-05', startTime: '14:00', endTime: '16:00', intensity: 'HARD',     notes: 'Season finale!',                      createdAt: '' },
-  { id: 'm-a5b', userId: 'demo', name: 'Team Celebration',     type: 'other',       sport: 'general',  date: '2026-04-05', startTime: '18:00', endTime: '22:00', intensity: null,       notes: 'End-of-season party',                 createdAt: '' },
-];
-
-// Mock readiness for today (hypothetical check-in)
-const MOCK_READINESS: { score: number; level: ReadinessLevel } = {
-  score: 72,
+// Default readiness when no check-in exists
+const DEFAULT_READINESS: { score: number; level: ReadinessLevel } = {
+  score: 0,
   level: 'GREEN',
 };
 
-// Mark first event of today as completed
-const INITIAL_COMPLETED = new Set(['m-2a']);
+/**
+ * Compute readiness from today's check-in (if available).
+ * Returns default GREEN/0 if no check-in exists yet.
+ */
+function getReadinessFromCheckins(checkins: Checkin[]): { score: number; level: ReadinessLevel } {
+  const todayStr = toDateStr(new Date());
+  const todayCheckin = checkins.find((c) => c.date === todayStr);
+  if (!todayCheckin) return DEFAULT_READINESS;
+
+  // If the backend already computed a readiness level, use it
+  if (todayCheckin.readinessLevel) {
+    const result = getReadinessScore({
+      energy: todayCheckin.energy,
+      soreness: todayCheckin.soreness,
+      sleepHours: todayCheckin.sleepHours,
+      mood: todayCheckin.mood ?? 5,
+      effort: todayCheckin.effortYesterday ?? 5,
+      pain: todayCheckin.painFlag,
+    });
+    return { score: result.score, level: result.level };
+  }
+
+  return DEFAULT_READINESS;
+}
 
 // Grid dimensions (6 rows always — getMonthDays returns 42 cells)
 const CELL_HEIGHT = 44;
@@ -403,11 +337,14 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { profile } = useAuth();
+  const { profile, role } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<FlowTab>('flow');
+
+  // Pending suggestions from coach/parent (player-only feature)
+  const { suggestions, handleResolved, refresh: refreshSuggestions } = useSuggestions();
   const [completedEvents, setCompletedEvents] = useState<Set<string>>(
-    () => new Set(INITIAL_COMPLETED),
+    () => new Set<string>(),
   );
 
   // ─── Pager for swipe-between-tabs ───
@@ -454,10 +391,13 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     handleDeleteEvent,
   } = calendar;
 
-  // Merge real events with mock preview events
-  const events = useMemo(
-    () => [...realEvents, ...MOCK_EVENTS],
-    [realEvents],
+  // Real events from API
+  const events = realEvents;
+
+  // Compute readiness from today's check-in
+  const readiness = useMemo(
+    () => getReadinessFromCheckins(checkins),
+    [checkins],
   );
 
   // Track whether initial load is done
@@ -574,8 +514,9 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     refresh();
+    refreshSuggestions();
     setTimeout(() => setRefreshing(false), 1000);
-  }, [refresh]);
+  }, [refresh, refreshSuggestions]);
 
   // ─── Event completion handlers ───
 
@@ -732,7 +673,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <ReadinessBadge level={MOCK_READINESS.level} size="small" />
+          <ReadinessBadge level={readiness.level} size="small" />
           <HeaderProfileButton
             initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
             photoUrl={profile?.photoUrl}
@@ -782,18 +723,26 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
             {/* Readiness + AI row */}
             <View style={styles.readinessRow}>
               <ReadinessRing
-                score={MOCK_READINESS.score}
-                level={MOCK_READINESS.level}
+                score={readiness.score}
+                level={readiness.level}
                 size={72}
               />
               <View style={styles.aiWrap}>
                 <AIHeadsUp
-                  readinessLevel={MOCK_READINESS.level}
+                  readinessLevel={readiness.level}
                   archetype={profile?.archetype}
                   onPress={handleAIPress}
                 />
               </View>
             </View>
+
+            {/* Pending suggestions from coach/parent */}
+            {suggestions.length > 0 && (
+              <SuggestionsBanner
+                suggestions={suggestions}
+                onResolved={handleResolved}
+              />
+            )}
 
             {/* Day summary */}
             <FlowDaySummary
@@ -987,11 +936,14 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
                   refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />}
                 >
                   <View style={styles.readinessRow}>
-                    <ReadinessRing score={MOCK_READINESS.score} level={MOCK_READINESS.level} size={72} />
+                    <ReadinessRing score={readiness.score} level={readiness.level} size={72} />
                     <View style={styles.aiWrap}>
-                      <AIHeadsUp readinessLevel={MOCK_READINESS.level} archetype={profile?.archetype} onPress={handleAIPress} />
+                      <AIHeadsUp readinessLevel={readiness.level} archetype={profile?.archetype} onPress={handleAIPress} />
                     </View>
                   </View>
+                  {suggestions.length > 0 && (
+                    <SuggestionsBanner suggestions={suggestions} onResolved={handleResolved} />
+                  )}
                   <FlowDaySummary events={todayEvents} completedEventIds={completedEvents} />
                   <View style={styles.timelineSection}>
                     <FlowTimeline events={todayEvents} completedEventIds={completedEvents} onComplete={handleCompleteEvent} onSkip={handleSkipEvent} onUndo={handleUndoEvent} />

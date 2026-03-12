@@ -34,6 +34,7 @@ import { useTheme } from '../../hooks/useTheme';
 
 import { useAuth } from '../../hooks/useAuth';
 import { useSportContext } from '../../hooks/useSportContext';
+import { useFootballProgress } from '../../hooks/useFootballProgress';
 import type { FootballAttribute, FootballPosition } from '../../types/football';
 
 import { fontFamily, spacing, borderRadius } from '../../theme';
@@ -354,17 +355,16 @@ export function FootballRatingScreen({ navigation }: Props) {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   // ── User-aware data loading ──
-  const userId = profile?.uid || profile?.id || 'osama-kayyali';
-  const player = sportConfig.mockData.getCard(userId);
-  const history = player ? sportConfig.mockData.getHistory(userId) : undefined;
+  const userId = profile?.uid || profile?.id || '';
+  const age = (profile as any)?.age ?? 16;
+  const position: FootballPosition = (profile as any)?.position || 'CM';
+  const { card, isLoading: progressLoading, hasData } = useFootballProgress(userId, age, position);
 
-  if (!player || !history) {
+  if (progressLoading || !hasData || !card) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }} />
     );
   }
-
-  const card = player.card;
 
   // ── Derived data ──
   const tier = getTierLabel(card.footballRating);
@@ -390,7 +390,7 @@ export function FootballRatingScreen({ navigation }: Props) {
   const posWeights = currentPosition?.attributeWeights ?? {};
   const attrScores: Record<string, number> = {};
   sportConfig.attributes.forEach((attr) => {
-    attrScores[attr.key] = card.attributes[attr.key]?.score ?? 0;
+    attrScores[attr.key] = card.attributes[attr.key as keyof typeof card.attributes]?.score ?? 0;
   });
 
   const contributions = sportConfig.attributes.map((attr) => ({

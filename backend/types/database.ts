@@ -390,71 +390,6 @@ export type Database = {
           },
         ]
       }
-      football_test_results: {
-        Row: {
-          id: string
-          user_id: string
-          date: string
-          test_type: string
-          primary_value: number
-          primary_unit: string
-          primary_label: string
-          derived_metrics: Json
-          percentile: number | null
-          percentile_label: string
-          age_mean: number | null
-          age_mean_unit: string
-          is_new_pb: boolean
-          previous_best: number | null
-          raw_inputs: Json
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          date?: string
-          test_type: string
-          primary_value: number
-          primary_unit?: string
-          primary_label?: string
-          derived_metrics?: Json
-          percentile?: number | null
-          percentile_label?: string
-          age_mean?: number | null
-          age_mean_unit?: string
-          is_new_pb?: boolean
-          previous_best?: number | null
-          raw_inputs?: Json
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          date?: string
-          test_type?: string
-          primary_value?: number
-          primary_unit?: string
-          primary_label?: string
-          derived_metrics?: Json
-          percentile?: number | null
-          percentile_label?: string
-          age_mean?: number | null
-          age_mean_unit?: string
-          is_new_pb?: boolean
-          previous_best?: number | null
-          raw_inputs?: Json
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "football_test_results_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       exercises: {
         Row: {
           coaching_cues: string[] | null
@@ -500,6 +435,63 @@ export type Database = {
         }
         Relationships: []
       }
+      football_test_results: {
+        Row: {
+          age_mean: number | null
+          age_mean_unit: string | null
+          created_at: string | null
+          date: string
+          derived_metrics: Json | null
+          id: string
+          is_new_pb: boolean | null
+          percentile: number | null
+          percentile_label: string | null
+          previous_best: number | null
+          primary_label: string
+          primary_unit: string
+          primary_value: number
+          raw_inputs: Json | null
+          test_type: string
+          user_id: string
+        }
+        Insert: {
+          age_mean?: number | null
+          age_mean_unit?: string | null
+          created_at?: string | null
+          date?: string
+          derived_metrics?: Json | null
+          id?: string
+          is_new_pb?: boolean | null
+          percentile?: number | null
+          percentile_label?: string | null
+          previous_best?: number | null
+          primary_label?: string
+          primary_unit?: string
+          primary_value: number
+          raw_inputs?: Json | null
+          test_type: string
+          user_id: string
+        }
+        Update: {
+          age_mean?: number | null
+          age_mean_unit?: string | null
+          created_at?: string | null
+          date?: string
+          derived_metrics?: Json | null
+          id?: string
+          is_new_pb?: boolean | null
+          percentile?: number | null
+          percentile_label?: string | null
+          previous_best?: number | null
+          primary_label?: string
+          primary_unit?: string
+          primary_value?: number
+          raw_inputs?: Json | null
+          test_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       health_data: {
         Row: {
           created_at: string
@@ -540,6 +532,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      invite_codes: {
+        Row: {
+          code: string
+          created_at: string
+          creator_id: string
+          expires_at: string
+          target_role: string
+          used_by: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          creator_id: string
+          expires_at: string
+          target_role: string
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          creator_id?: string
+          expires_at?: string
+          target_role?: string
+          used_by?: string | null
+        }
+        Relationships: []
       }
       knowledge_base: {
         Row: {
@@ -602,6 +621,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          data: Json | null
+          id: string
+          read: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: string
+          read?: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: string
+          read?: boolean
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       nutrition_logs: {
         Row: {
@@ -696,6 +748,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      padel_shot_results: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          overall: number
+          session_type: string
+          shot_type: string
+          sub_metrics: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          overall?: number
+          session_type?: string
+          shot_type: string
+          sub_metrics?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          overall?: number
+          session_type?: string
+          shot_type?: string
+          sub_metrics?: Json
+          user_id?: string
+        }
+        Relationships: []
       }
       phone_test_sessions: {
         Row: {
@@ -874,6 +962,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      relationships: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          guardian_id: string
+          id: string
+          invite_code: string | null
+          player_id: string
+          relationship_type: string
+          status: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          guardian_id: string
+          id?: string
+          invite_code?: string | null
+          player_id: string
+          relationship_type: string
+          status?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          guardian_id?: string
+          id?: string
+          invite_code?: string | null
+          player_id?: string
+          relationship_type?: string
+          status?: string
+        }
+        Relationships: []
       }
       return_to_play: {
         Row: {
@@ -1311,6 +1432,51 @@ export type Database = {
         }
         Relationships: []
       }
+      suggestions: {
+        Row: {
+          author_id: string
+          author_role: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          payload: Json
+          player_id: string
+          player_notes: string | null
+          resolved_at: string | null
+          status: string
+          suggestion_type: string
+          title: string
+        }
+        Insert: {
+          author_id: string
+          author_role: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payload?: Json
+          player_id: string
+          player_notes?: string | null
+          resolved_at?: string | null
+          status?: string
+          suggestion_type: string
+          title: string
+        }
+        Update: {
+          author_id?: string
+          author_role?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payload?: Json
+          player_id?: string
+          player_notes?: string | null
+          resolved_at?: string | null
+          status?: string
+          suggestion_type?: string
+          title?: string
+        }
+        Relationships: []
+      }
       training_blocks: {
         Row: {
           block_type: string
@@ -1366,6 +1532,7 @@ export type Database = {
           current_streak: number
           days_since_rest: number
           display_name: string | null
+          display_role: string | null
           email: string
           exam_periods: Json | null
           fcm_token: string | null
@@ -1379,6 +1546,7 @@ export type Database = {
           parental_consent: boolean | null
           photo_url: string | null
           region: string | null
+          role: string
           school_hours: number | null
           season_phase: string | null
           sport: string
@@ -1395,6 +1563,7 @@ export type Database = {
           current_streak?: number
           days_since_rest?: number
           display_name?: string | null
+          display_role?: string | null
           email: string
           exam_periods?: Json | null
           fcm_token?: string | null
@@ -1408,6 +1577,7 @@ export type Database = {
           parental_consent?: boolean | null
           photo_url?: string | null
           region?: string | null
+          role?: string
           school_hours?: number | null
           season_phase?: string | null
           sport?: string
@@ -1424,6 +1594,7 @@ export type Database = {
           current_streak?: number
           days_since_rest?: number
           display_name?: string | null
+          display_role?: string | null
           email?: string
           exam_periods?: Json | null
           fcm_token?: string | null
@@ -1437,6 +1608,7 @@ export type Database = {
           parental_consent?: boolean | null
           photo_url?: string | null
           region?: string | null
+          role?: string
           school_hours?: number | null
           season_phase?: string | null
           sport?: string

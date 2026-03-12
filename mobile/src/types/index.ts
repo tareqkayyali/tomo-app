@@ -37,6 +37,13 @@ export type PrimaryGoal =
   | 'stay_consistent'
   | 'have_fun';
 
+// Roles
+export type UserRole = 'player' | 'coach' | 'parent';
+export type RelationshipType = 'coach' | 'parent';
+export type RelationshipStatus = 'pending' | 'accepted' | 'declined' | 'revoked';
+export type SuggestionType = 'study_block' | 'exam_date' | 'test_result' | 'calendar_event';
+export type SuggestionStatus = 'pending' | 'accepted' | 'edited' | 'declined' | 'expired';
+
 // User
 export interface User {
   id: string;
@@ -46,6 +53,8 @@ export interface User {
   displayName?: string;
   age: number;
   sport: Sport;
+  role: UserRole;
+  displayRole?: string | null;
   region?: string;
   teamId?: string | null;
   archetype?: Archetype | null;
@@ -479,6 +488,111 @@ export interface PrivacySettings {
 export interface PrivacySettingsResponse {
   privacySettings: PrivacySettings;
   parentalConsentRequired: boolean;
+}
+
+// ─── Daily Briefing (Command & Control Center) ─────────────────────────────
+
+export interface BriefingAlert {
+  type: 'rest_needed' | 'acwr_warning' | 'pain_flag' | 'academic_stress' | 'streak_risk';
+  emoji: string;
+  message: string;
+  severity: 'info' | 'warn' | 'critical';
+}
+
+export interface QuickAction {
+  label: string;
+  icon: string;
+  screen: string;
+  params?: Record<string, unknown>;
+}
+
+export interface BriefingPlanSummary {
+  intensity: string;
+  workoutType: string;
+  duration: number;
+}
+
+export interface BriefingEvent {
+  title: string;
+  time: string | null;
+  type: string;
+}
+
+export interface DailyBriefing {
+  greeting: string;
+  readinessStatus: 'green' | 'yellow' | 'red' | 'unknown';
+  readinessLabel: string;
+  hasCheckedIn: boolean;
+  streakCount: number;
+  streakAtRisk: boolean;
+  todayPlan: BriefingPlanSummary | null;
+  upcomingEvents: BriefingEvent[];
+  alerts: BriefingAlert[];
+  quickActions: QuickAction[];
+  archetypeEmoji: string | null;
+}
+
+// ─── Relationships ──────────────────────────────────────────────────────────
+
+export interface Relationship {
+  id: string;
+  relationshipType: RelationshipType;
+  status: RelationshipStatus;
+  createdAt: string;
+  acceptedAt: string | null;
+  guardian: { id: string; name: string; email: string; role: string };
+  player: { id: string; name: string; email: string; role: string };
+}
+
+export interface PlayerSummary {
+  id: string;
+  name: string;
+  email: string;
+  sport: Sport;
+  age?: number;
+  readiness?: ReadinessLevel | null;
+  currentStreak: number;
+  totalPoints: number;
+  lastCheckinDate?: string | null;
+}
+
+// ─── Suggestions ────────────────────────────────────────────────────────────
+
+export interface Suggestion {
+  id: string;
+  player_id: string;
+  author_id: string;
+  author_role: string;
+  suggestion_type: SuggestionType;
+  title: string;
+  payload: Record<string, unknown>;
+  status: SuggestionStatus;
+  player_notes?: string | null;
+  resolved_at?: string | null;
+  expires_at?: string | null;
+  created_at: string;
+  authorName?: string | null;
+  playerName?: string | null;
+}
+
+// ─── Notifications ──────────────────────────────────────────────────────────
+
+export type NotificationType =
+  | 'suggestion_received'
+  | 'suggestion_resolved'
+  | 'relationship_accepted'
+  | 'relationship_declined'
+  | 'test_result_added';
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body?: string | null;
+  data: Record<string, unknown>;
+  read: boolean;
+  created_at: string;
 }
 
 // Error

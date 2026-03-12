@@ -28,11 +28,17 @@ import {
 } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import type { AuthStackParamList } from '../navigation/types';
-import type { Sport } from '../types';
+import type { Sport, UserRole } from '../types';
 
 type SignupScreenProps = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 };
+
+const ROLES: { value: UserRole; label: string; icon: keyof typeof Ionicons.glyphMap; desc: string }[] = [
+  { value: 'player', label: 'Athlete', icon: 'fitness-outline', desc: 'I train & compete' },
+  { value: 'coach', label: 'Coach', icon: 'people-outline', desc: 'I coach athletes' },
+  { value: 'parent', label: 'Parent', icon: 'heart-outline', desc: 'I support my child' },
+];
 
 const SPORTS: { value: Sport; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { value: 'football', label: 'Football', icon: 'football-outline' },
@@ -51,6 +57,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   // Step 2: Profile
+  const [selectedRole, setSelectedRole] = useState<UserRole>('player');
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [sport, setSport] = useState<Sport | ''>('');
@@ -83,14 +90,17 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
   const validateStep2 = () => {
     const newErrors: Record<string, string> = {};
     if (!name) newErrors.name = 'Name is required';
-    if (!age) newErrors.age = 'Age is required';
-    else {
-      const ageNum = parseInt(age, 10);
-      if (isNaN(ageNum) || ageNum < 8 || ageNum > 25) {
-        newErrors.age = 'Age must be between 8 and 25';
+    // Age and sport only required for players
+    if (selectedRole === 'player') {
+      if (!age) newErrors.age = 'Age is required';
+      else {
+        const ageNum = parseInt(age, 10);
+        if (isNaN(ageNum) || ageNum < 8 || ageNum > 25) {
+          newErrors.age = 'Age must be between 8 and 25';
+        }
       }
+      if (!sport) newErrors.sport = 'Please select a sport';
     }
-    if (!sport) newErrors.sport = 'Please select a sport';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -125,17 +135,19 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
     if (!validateStep2()) return;
     setSignupError('');
     try {
-      const profileData = {
+      const profileData: Record<string, unknown> = {
         name,
-        age: parseInt(age, 10),
-        sport: sport as Sport,
+        role: selectedRole,
       };
+      // Only include age/sport for players
+      if (selectedRole === 'player') {
+        profileData.age = parseInt(age, 10);
+        profileData.sport = sport as Sport;
+      }
       if (isOAuthSignup) {
-        // OAuth user — already authenticated, just create backend profile
-        await completeRegistration(profileData);
+        await completeRegistration(profileData as any);
       } else {
-        // Email/password user — create Supabase account + backend profile
-        await register(email, password, profileData);
+        await register(email, password, profileData as any);
       }
     } catch (error) {
       setSignupError((error as Error).message);
@@ -240,6 +252,43 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
             </View>
           ) : (
             <View style={styles.form}>
+              {/* ─── Role Selector ─────────────────────────────────── */}
+              <Text style={styles.sportLabel}>I am a…</Text>
+              <View style={styles.roleGrid}>
+                {ROLES.map((r) => (
+                  <TouchableOpacity
+                    key={r.value}
+                    onPress={() => setSelectedRole(r.value)}
+                    style={[
+                      styles.roleChip,
+                      selectedRole === r.value && styles.roleChipSelected,
+                    ]}
+                  >
+                    <Ionicons
+                      name={r.icon}
+                      size={22}
+                      color={selectedRole === r.value ? '#FFFFFF' : colors.textInactive}
+                    />
+                    <Text
+                      style={[
+                        styles.roleChipLabel,
+                        selectedRole === r.value && styles.roleChipLabelSelected,
+                      ]}
+                    >
+                      {r.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.roleChipDesc,
+                        selectedRole === r.value && styles.roleChipDescSelected,
+                      ]}
+                    >
+                      {r.desc}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               <Input
                 label="Name"
                 placeholder="Your name"
@@ -249,44 +298,49 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                 autoCapitalize="words"
               />
 
-              <Input
-                label="Age"
-                placeholder="Your age"
-                value={age}
-                onChangeText={setAge}
-                error={errors.age}
-                keyboardType="number-pad"
-              />
+              {/* Age & Sport only for players */}
+              {selectedRole === 'player' && (
+                <>
+                  <Input
+                    label="Age"
+                    placeholder="Your age"
+                    value={age}
+                    onChangeText={setAge}
+                    error={errors.age}
+                    keyboardType="number-pad"
+                  />
 
-              <Text style={styles.sportLabel}>Sport</Text>
-              {errors.sport && <Text style={styles.error}>{errors.sport}</Text>}
-              <View style={styles.sportGrid}>
-                {SPORTS.map((s) => (
-                  <TouchableOpacity
-                    key={s.value}
-                    onPress={() => setSport(s.value)}
-                    style={[
-                      styles.sportChip,
-                      sport === s.value && styles.sportChipSelected,
-                    ]}
-                  >
-                    <Ionicons
-                      name={s.icon}
-                      size={18}
-                      color={sport === s.value ? '#FFFFFF' : colors.textInactive}
-                      style={styles.sportIcon}
-                    />
-                    <Text
-                      style={[
-                        styles.sportChipText,
-                        sport === s.value && styles.sportChipTextSelected,
-                      ]}
-                    >
-                      {s.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  <Text style={styles.sportLabel}>Sport</Text>
+                  {errors.sport && <Text style={styles.error}>{errors.sport}</Text>}
+                  <View style={styles.sportGrid}>
+                    {SPORTS.map((s) => (
+                      <TouchableOpacity
+                        key={s.value}
+                        onPress={() => setSport(s.value)}
+                        style={[
+                          styles.sportChip,
+                          sport === s.value && styles.sportChipSelected,
+                        ]}
+                      >
+                        <Ionicons
+                          name={s.icon}
+                          size={18}
+                          color={sport === s.value ? '#FFFFFF' : colors.textInactive}
+                          style={styles.sportIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.sportChipText,
+                            sport === s.value && styles.sportChipTextSelected,
+                          ]}
+                        >
+                          {s.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
 
               <View style={styles.buttonRow}>
                 <Button
@@ -449,6 +503,45 @@ const styles = StyleSheet.create({
   submitButton: {
     flex: 2,
     marginTop: spacing.md,
+  },
+
+  // ── Role Selection ──────────────────────────────────────────────
+  roleGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  roleChip: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: colors.backgroundElevated,
+    borderWidth: 1.5,
+    borderColor: colors.borderLight,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+  },
+  roleChipSelected: {
+    backgroundColor: colors.accent1,
+    borderColor: colors.accent1,
+  },
+  roleChipLabel: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 14,
+    color: colors.textInactive,
+    marginTop: spacing.xs,
+  },
+  roleChipLabelSelected: {
+    color: '#FFFFFF',
+  },
+  roleChipDesc: {
+    ...typography.metadataSmall,
+    color: colors.textInactive,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  roleChipDescSelected: {
+    color: 'rgba(255,255,255,0.8)',
   },
 
   // ── Sport Selection ───────────────────────────────────────────────

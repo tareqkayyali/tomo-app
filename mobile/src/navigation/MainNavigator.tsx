@@ -2,7 +2,7 @@
  * Main Navigator — 5-tab bottom navigation (v2 Premium)
  *
  * Tabs:
- *   Plan | Progress | Chat (CENTER RAISED, tomo logo) | Tests | Social
+ *   Plan | Test | Chat (CENTER RAISED, tomo logo) | Progress | For You
  *
  * Profile removed from tabs → accessible via HeaderProfileButton (top-right)
  *
@@ -11,10 +11,13 @@
  *   - Rounded-square with orange→cyan gradient
  *   - tomo logo icon
  *   - Subtle glow shadow
+ *
+ * Loop Indicator: 4-step daily progress (Plan → Test → Progress → For You)
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, StyleSheet, View, Pressable, Image, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,7 +34,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { ProgressScreen } from '../screens/ProgressScreen';
 import { TestsScreen } from '../screens/TestsScreen';
 import { TrainingScreen } from '../screens/TrainingScreen';
-import { SocialScreen } from '../screens/SocialScreen';
+import { ForYouScreen } from '../screens/ForYouScreen';
 
 // Screens — Stack
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -58,8 +61,12 @@ import { ShotDetailScreen } from '../screens/ShotDetailScreen';
 import { ShotSessionScreen } from '../screens/ShotSessionScreen';
 import { PadelRatingScreen } from '../screens/PadelRatingScreen';
 import { FootballSkillDetailScreen, FootballRatingScreen, FootballTestInputScreen } from '../screens/football';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { LinkAccountScreen } from '../screens/LinkAccountScreen';
 
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
+import { NotificationBell } from '../components/NotificationBell';
+import { LoopIndicator, LoopCompleteBanner } from '../components/LoopIndicator';
 import { useAuth } from '../hooks/useAuth';
 
 import type { MainTabParamList, MainStackParamList } from './types';
@@ -75,18 +82,18 @@ type TabName = keyof MainTabParamList;
 
 const TAB_ICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
   Plan: 'calendar-outline',
-  Progress: 'bar-chart-outline',
+  Test: 'flash-outline',
   Chat: 'chatbubble-outline',
-  Tests: 'flash-outline',
-  Social: 'people-outline',
+  Progress: 'bar-chart-outline',
+  ForYou: 'star-outline',
 };
 
 const TAB_LABELS: Record<TabName, string> = {
   Plan: 'Plan',
-  Progress: 'Progress',
+  Test: 'Test',
   Chat: 'TOMO',
-  Tests: 'Tests',
-  Social: 'Social',
+  Progress: 'Progress',
+  ForYou: 'For You',
 };
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -161,9 +168,31 @@ function CenterChatButton({
 
 // ── Tab Navigator ───────────────────────────────────────────────────
 
+// Tab-to-loop-step mapping (Chat is not a loop step)
+const TAB_TO_LOOP: Record<string, number> = { Plan: 0, Test: 1, Progress: 2, ForYou: 3 };
+
 function TabNavigator() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<string>('Chat');
+  const [loopSteps, setLoopSteps] = useState([false, false, false, false]);
+
+  // Mark loop step complete 1s after visiting the tab
+  useEffect(() => {
+    const stepIdx = TAB_TO_LOOP[activeTab];
+    if (stepIdx !== undefined && !loopSteps[stepIdx]) {
+      const timer = setTimeout(() => {
+        setLoopSteps(prev => {
+          const next = [...prev];
+          next[stepIdx] = true;
+          return next;
+        });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab]);
+
+  const loopComplete = loopSteps.every(Boolean);
 
   const handleTabPress = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -171,58 +200,74 @@ function TabNavigator() {
     }
   }, []);
 
+  // Navigate to tab when user taps a loop step
+  const handleLoopStepPress = useCallback((index: number) => {
+    const tabNames = ['Plan', 'Test', 'Progress', 'ForYou'] as const;
+    // We need a ref to navigate — for now, just set the active tab
+    // (actual navigation is handled via the tab bar state listener)
+    setActiveTab(tabNames[index]);
+  }, []);
+
   return (
-    <Tab.Navigator
-      initialRouteName="Chat"
-      screenListeners={{
-        state: (e) => {
-          const state = (e as any).data?.state;
-          if (state) {
-            const currentRoute = state.routes[state.index];
-            setActiveTab(currentRoute.name);
-          }
-        },
-        tabPress: handleTabPress,
-      }}
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarIcon: ({ focused, color }) => {
-          if (route.name === 'Chat') {
-            return null; // Custom center button handles this
-          }
-          return (
-            <AnimatedTabIcon
-              focused={focused}
-              color={color}
-              iconName={TAB_ICONS[route.name]}
-            />
-          );
-        },
-        tabBarButton: route.name === 'Chat'
-          ? (props) => (
-              <CenterChatButton
-                onPress={() => props.onPress?.({} as any)}
-                focused={activeTab === 'Chat'}
+    <View style={{ flex: 1 }}>
+      {/* Loop Indicator above tab content — paddingTop for safe area */}
+      <View style={{ backgroundColor: colors.background, paddingTop: insets.top }}>
+        <LoopIndicator steps={loopSteps} onStepPress={handleLoopStepPress} />
+        <LoopCompleteBanner visible={loopComplete} />
+      </View>
+
+      <Tab.Navigator
+        initialRouteName="Chat"
+        screenListeners={{
+          state: (e) => {
+            const state = (e as any).data?.state;
+            if (state) {
+              const currentRoute = state.routes[state.index];
+              setActiveTab(currentRoute.name);
+            }
+          },
+          tabPress: handleTabPress,
+        }}
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarIcon: ({ focused, color }) => {
+            if (route.name === 'Chat') {
+              return null; // Custom center button handles this
+            }
+            return (
+              <AnimatedTabIcon
+                focused={focused}
+                color={color}
+                iconName={TAB_ICONS[route.name]}
               />
-            )
-          : undefined,
-        tabBarLabel: TAB_LABELS[route.name],
-        tabBarActiveTintColor: colors.accent1,
-        tabBarInactiveTintColor: colors.textInactive,
-        tabBarShowLabel: true,
-        tabBarLabelStyle: styles.tabLabel,
-        tabBarStyle: [styles.tabBar, {
-          backgroundColor: colors.navBackground,
-          borderTopColor: colors.border,
-        }],
-      })}
-    >
-      <Tab.Screen name="Plan" component={TrainingScreen} />
-      <Tab.Screen name="Progress" component={ProgressScreen} />
-      <Tab.Screen name="Chat" component={HomeScreen} />
-      <Tab.Screen name="Tests" component={TestsScreen} />
-      <Tab.Screen name="Social" component={SocialScreen} />
-    </Tab.Navigator>
+            );
+          },
+          tabBarButton: route.name === 'Chat'
+            ? (props) => (
+                <CenterChatButton
+                  onPress={() => props.onPress?.({} as any)}
+                  focused={activeTab === 'Chat'}
+                />
+              )
+            : undefined,
+          tabBarLabel: TAB_LABELS[route.name],
+          tabBarActiveTintColor: colors.accent1,
+          tabBarInactiveTintColor: colors.textInactive,
+          tabBarShowLabel: true,
+          tabBarLabelStyle: styles.tabLabel,
+          tabBarStyle: [styles.tabBar, {
+            backgroundColor: colors.navBackground,
+            borderTopColor: colors.border,
+          }],
+        })}
+      >
+        <Tab.Screen name="Plan" component={TrainingScreen} />
+        <Tab.Screen name="Test" component={TestsScreen} />
+        <Tab.Screen name="Chat" component={HomeScreen} />
+        <Tab.Screen name="Progress" component={ProgressScreen} />
+        <Tab.Screen name="ForYou" component={ForYouScreen} />
+      </Tab.Navigator>
+    </View>
   );
 }
 
@@ -232,10 +277,13 @@ function ScreenHeader() {
   const { profile } = useAuth();
   const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
   return (
-    <HeaderProfileButton
-      initial={initial}
-      photoUrl={profile?.photoUrl}
-    />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <NotificationBell />
+      <HeaderProfileButton
+        initial={initial}
+        photoUrl={profile?.photoUrl}
+      />
+    </View>
   );
 }
 
@@ -408,6 +456,17 @@ export function MainNavigator() {
         name="FootballTestInput"
         component={FootballTestInputScreen}
         options={{ headerShown: true, title: 'Football Test', ...stackHeaderOptions }}
+      />
+      {/* Multi-role screens */}
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ headerShown: true, title: 'Notifications', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
+        name="LinkAccount"
+        component={LinkAccountScreen}
+        options={{ headerShown: true, title: 'Link Account', ...stackHeaderOptions }}
       />
     </Stack.Navigator>
   );

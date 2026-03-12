@@ -23,9 +23,6 @@ import { useSpringEntrance, useBarFill } from '../../hooks/useAnimations';
 import { useTheme } from '../../hooks/useTheme';
 import { GlassCard } from '../../components/GlassCard';
 import type { FootballSkill } from '../../types/football';
-import {
-  getMetricMeanForAge,
-} from '../../data/footballMockData';
 import { useAuth } from '../../hooks/useAuth';
 import { useSportContext } from '../../hooks/useSportContext';
 import { fontFamily, borderRadius, spacing } from '../../theme';
@@ -293,24 +290,34 @@ export function FootballSkillDetailScreen({ route }: Props) {
 
   const [researchExpanded, setResearchExpanded] = useState(false);
 
-  // ── User-aware data loading ──
-  const userId = profile?.uid || profile?.id || 'osama-kayyali';
-  const player = sportConfig.mockData.getCard(userId);
-  const allSkills = player ? sportConfig.mockData.getSkills(userId) : undefined;
+  // ── Data ──
+  const age = (profile as any)?.age ?? 16;
 
   // Look up skill config from sportConfig (content-driven)
   const config = sportConfig.fullSkills.find(s => s.key === skillKey);
 
-  if (!player || !allSkills) {
-    return <View style={{ flex: 1, backgroundColor: colors.background }} />;
-  }
-  const skillData = allSkills[skillKey];
+  // No real skills data yet — show empty state
+  // Skills require a dedicated self-assessment or coach-input flow (not yet built)
+  // TODO: Wire to real data when skill rating persistence is built
+  const skillData = null as { rating: number; subMetrics: Record<string, number>; trend: number; sessionsLogged: number; history: { date: string; rating: number }[] } | null;
 
-  if (!skillData || !config) return null;
+  if (!skillData || !config) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
+        <Ionicons name="analytics-outline" size={48} color={colors.textMuted} />
+        <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 16, color: colors.textOnDark, textAlign: 'center', marginTop: 16 }}>
+          Skill Detail Coming Soon
+        </Text>
+        <Text style={{ fontFamily: fontFamily.regular, fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+          Complete more training sessions and fitness tests to unlock detailed skill analysis.
+        </Text>
+      </View>
+    );
+  }
 
   // ── Derived ──
   const tier = getSkillTier(skillData.rating);
-  const research = getResearchContext(player.age, skillKey);
+  const research = getResearchContext(age, skillKey);
 
   // Find weakest sub-metric for training recommendations
   const subMetricEntries = config.subMetrics.map((sm) => ({
@@ -514,7 +521,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
           {researchExpanded && (
             <View style={s.researchContent}>
               <Text style={s.researchAge}>
-                For {player.age}-year-old footballers:
+                For {age}-year-old footballers:
               </Text>
               <Text style={s.researchText}>{research.specific}</Text>
               <View style={s.researchDivider} />

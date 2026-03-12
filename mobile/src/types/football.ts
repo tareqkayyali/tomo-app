@@ -367,6 +367,13 @@ export interface FootballCardData {
   history: Array<{ date: string; overall: number; rating: number }>;
 }
 
+export interface FootballHistoryEntry {
+  date: string;
+  attributes: Record<FootballAttribute, number>;
+  overall: number;
+  pathwayRating: number;
+}
+
 export interface FootballSkillData {
   rating: number;             // 0-100
   subMetrics: Record<string, number>;

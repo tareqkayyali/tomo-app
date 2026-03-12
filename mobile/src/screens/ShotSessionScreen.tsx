@@ -22,6 +22,7 @@ import { SubMetricSlider } from '../components/SubMetricSlider';
 import { GlassCard } from '../components/GlassCard';
 import { GradientButton } from '../components/GradientButton';
 import { calculateShotRating } from '../services/padelCalculations';
+import { savePadelShotSession } from '../services/api';
 import { useSportContext } from '../hooks/useSportContext';
 import { colors, fontFamily, borderRadius, spacing } from '../theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -99,7 +100,20 @@ export function ShotSessionScreen({ navigation }: Props) {
   };
 
   const handleSubmit = () => {
-    // In a real app, this would POST to API
+    // Fire-and-forget persist to Supabase
+    const shots = selectedShots.map((shot) => {
+      const r = ratings[shot] || {};
+      const def = shotDefs[shot];
+      const vals = def.subMetrics.map((sm: any) => r[sm.key] || 0);
+      return {
+        shotType: shot,
+        subMetrics: r,
+        overall: calculateShotRating(vals[0], vals[1], vals[2]),
+      };
+    });
+    savePadelShotSession({ shots, sessionType, notes }).catch((err) =>
+      console.warn('[savePadelShotSession] fire-and-forget failed:', err),
+    );
     setStep('success');
   };
 

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { name, sport, age } = parsed.data;
+  const { name, sport, age, role, displayRole } = parsed.data;
   const db = supabaseAdmin();
 
   // Check if user profile already exists
@@ -33,14 +33,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Coach/parent don't need sport; player requires it
+  const userRole = role || "player";
+  if (userRole === "player" && !sport) {
+    return NextResponse.json(
+      { error: "Sport is required for player accounts" },
+      { status: 400 }
+    );
+  }
+
   const { data: user, error } = await db
     .from("users")
     .insert({
       id: auth.user.id,
       email: auth.user.email,
       name,
-      sport,
+      sport: sport || "football",
       age,
+      role: userRole,
+      display_role: displayRole || null,
     })
     .select()
     .single();
