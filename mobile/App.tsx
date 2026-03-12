@@ -64,22 +64,25 @@ function AppContent() {
 }
 
 export default function App() {
-  // On web static exports, the bundled Ionicons asset path lives under
-  // node_modules/... which Vercel refuses to serve (404). We copied the
-  // exact same TTF to public/fonts/ so it's available at /fonts/Ionicons.ttf.
-  // On native, use the original expo asset so metro resolves it normally.
-  const ioniconsSource = Platform.OS === 'web'
-    ? { ionicons: '/fonts/Ionicons.ttf' as any }
-    : Ionicons.font;
+  // On web, fonts are loaded via CSS @font-face injection (injectWebFonts above).
+  // useFonts() hangs on web static exports because expo-font's dynamic loading
+  // can't resolve bundled node_modules paths. So we skip it entirely on web.
+  const isWeb = Platform.OS === 'web';
 
-  const [fontsLoaded] = useFonts({
-    ...ioniconsSource,
-    Poppins_300Light,
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
-  });
+  const [nativeFontsLoaded] = useFonts(
+    isWeb
+      ? {} // No-op on web — CSS handles all fonts
+      : {
+          ...Ionicons.font,
+          Poppins_300Light,
+          Poppins_400Regular,
+          Poppins_500Medium,
+          Poppins_600SemiBold,
+          Poppins_700Bold,
+        },
+  );
+
+  const fontsLoaded = isWeb || nativeFontsLoaded;
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded) {
