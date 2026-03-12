@@ -1,7 +1,12 @@
 /**
- * Login Screen
- * Email/password login for Tomo — dark aesthetic
- * Social auth buttons (UI only), "Forgot Password?" link
+ * Login / Welcome Screen — Gen Z UX
+ *
+ * Design principles:
+ *  - Hero brand moment: full-screen dark bg with signature gradient accents
+ *  - Social-first: Apple + Google CTAs above email form
+ *  - Zero friction: email form collapsed by default, expand on tap
+ *  - Bold typography, tight spacing, instant-value messaging
+ *  - Sign Up = "Get Started" pill, Sign In = secondary
  */
 
 import React, { useState, useEffect } from 'react';
@@ -14,16 +19,16 @@ import {
   Platform,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Image,
+  Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, Input } from '../components';
 import {
   colors,
   spacing,
-  typography,
   borderRadius,
   fontFamily,
   layout,
@@ -31,9 +36,11 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import type { AuthStackParamList } from '../navigation/types';
 
-// Brand logo — transparent background, white text with green signal arcs
+// Brand logo
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const brandLogo = require('../../assets/tomo-logo.png');
+
+const { width: SCREEN_W } = Dimensions.get('window');
 
 type LoginScreenProps = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -41,6 +48,7 @@ type LoginScreenProps = {
 
 export function LoginScreen({ navigation }: LoginScreenProps) {
   const { login, socialLogin, isLoading, needsRegistration } = useAuth();
+  const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -99,98 +107,151 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ─── Brand Logo Header ────────────────────────────────── */}
-          <View style={styles.header}>
+          {/* ─── Hero Brand Section ─────────────────────────────── */}
+          <View style={styles.heroSection}>
+            {/* Gradient glow behind logo */}
+            <View style={styles.glowContainer}>
+              <LinearGradient
+                colors={['rgba(255, 107, 53, 0.20)', 'rgba(0, 217, 255, 0.15)', 'transparent']}
+                start={{ x: 0.2, y: 0 }}
+                end={{ x: 0.8, y: 1 }}
+                style={styles.glowGradient}
+              />
+            </View>
+
             <Image
               source={brandLogo}
               style={styles.brandLogo}
               resizeMode="contain"
             />
-            <Text style={styles.tagline}>TRAIN SMARTER</Text>
+            <Text style={styles.tagline}>YOUR AI COACH</Text>
+
+            {/* Value props */}
+            <View style={styles.valueProps}>
+              <View style={styles.valuePill}>
+                <Ionicons name="flash" size={14} color={colors.accent1} />
+                <Text style={styles.valuePillText}>Smart Training</Text>
+              </View>
+              <View style={styles.valuePill}>
+                <Ionicons name="trending-up" size={14} color={colors.accent2} />
+                <Text style={styles.valuePillText}>Track Progress</Text>
+              </View>
+              <View style={styles.valuePill}>
+                <Ionicons name="body" size={14} color={colors.readinessGreen} />
+                <Text style={styles.valuePillText}>Recovery</Text>
+              </View>
+            </View>
           </View>
 
-          {/* ─── Social Auth Buttons ────────────────────────────── */}
-          <View style={styles.socialSection}>
+          {/* ─── Auth Section ───────────────────────────────────── */}
+          <View style={styles.authSection}>
+            {/* Primary CTA: Get Started (→ Signup) */}
             <TouchableOpacity
-              style={styles.socialButton}
-              onPress={() => handleSocialAuth('apple')}
-              activeOpacity={0.8}
+              style={styles.getStartedBtn}
+              onPress={() => navigation.navigate('Signup')}
+              activeOpacity={0.85}
             >
-              <Ionicons name="logo-apple" size={20} color="#000000" />
-              <Text style={styles.socialButtonText}>Continue with Apple</Text>
+              <LinearGradient
+                colors={colors.gradientOrangeCyan}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.getStartedGradient}
+              >
+                <Text style={styles.getStartedText}>Get Started</Text>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={() => handleSocialAuth('google')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="logo-google" size={18} color="#000000" />
-              <Text style={styles.socialButtonText}>Continue with Google</Text>
-            </TouchableOpacity>
-          </View>
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>already have an account?</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-          {/* ─── Divider ────────────────────────────────────────── */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or sign in with email</Text>
-            <View style={styles.dividerLine} />
-          </View>
+            {/* Social Sign In */}
+            <View style={styles.socialRow}>
+              <TouchableOpacity
+                style={styles.socialBtn}
+                onPress={() => handleSocialAuth('apple')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                <Text style={styles.socialBtnText}>Apple</Text>
+              </TouchableOpacity>
 
-          {/* ─── Form ────────────────────────────────────────────── */}
-          <View style={styles.form}>
-            {loginError !== '' && (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={18} color={colors.error} />
-                <Text style={styles.errorBannerText}>{loginError}</Text>
+              <TouchableOpacity
+                style={styles.socialBtn}
+                onPress={() => handleSocialAuth('google')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="logo-google" size={18} color="#FFFFFF" />
+                <Text style={styles.socialBtnText}>Google</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Email Sign In — collapsed by default */}
+            {!showEmailForm ? (
+              <TouchableOpacity
+                style={styles.emailToggle}
+                onPress={() => setShowEmailForm(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="mail-outline" size={16} color={colors.textInactive} />
+                <Text style={styles.emailToggleText}>Sign in with email</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.emailForm}>
+                {loginError !== '' && (
+                  <View style={styles.errorBanner}>
+                    <Ionicons name="alert-circle" size={16} color={colors.error} />
+                    <Text style={styles.errorBannerText}>{loginError}</Text>
+                  </View>
+                )}
+
+                <Input
+                  label="Email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  error={errors.email}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                <Input
+                  label="Password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={setPassword}
+                  error={errors.password}
+                  secureTextEntry
+                />
+
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('ForgotPassword')}
+                  style={styles.forgotRow}
+                >
+                  <Text style={styles.forgotText}>Forgot password?</Text>
+                </TouchableOpacity>
+
+                <Button
+                  title="Sign In"
+                  onPress={handleLogin}
+                  loading={isLoading}
+                  variant="primary"
+                  size="large"
+                  style={styles.signInBtn}
+                />
               </View>
             )}
-
-            <Input
-              label="Email"
-              placeholder="your@email.com"
-              value={email}
-              onChangeText={setEmail}
-              error={errors.email}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <Input
-              label="Password"
-              placeholder="Enter your password"
-              value={password}
-              onChangeText={setPassword}
-              error={errors.password}
-              secureTextEntry
-            />
-
-            {/* Forgot Password link */}
-            <TouchableOpacity
-              onPress={() => navigation.navigate('ForgotPassword')}
-              style={styles.forgotRow}
-            >
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
-
-            <Button
-              title="Sign In"
-              onPress={handleLogin}
-              loading={isLoading}
-              variant="primary"
-              size="large"
-              style={styles.button}
-            />
           </View>
 
-          {/* ─── Footer ──────────────────────────────────────────── */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-              <Text style={styles.link}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
+          {/* ─── Footer ─────────────────────────────────────────── */}
+          <Text style={styles.footerText}>
+            By continuing, you agree to our Terms & Privacy Policy
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -207,50 +268,87 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: layout.screenMargin,
+    justifyContent: 'center',
   },
 
-  // ── Header ────────────────────────────────────────────────────────
-  header: {
+  // ── Hero Brand ──────────────────────────────────────────────────
+  heroSection: {
     alignItems: 'center',
-    paddingVertical: spacing.xxl,
-    marginBottom: spacing.lg,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.lg,
+  },
+  glowContainer: {
+    position: 'absolute',
+    top: 0,
+    left: -SCREEN_W * 0.2,
+    right: -SCREEN_W * 0.2,
+    height: 280,
+    overflow: 'hidden',
+  },
+  glowGradient: {
+    flex: 1,
+    borderRadius: 200,
   },
   brandLogo: {
-    width: 160,
-    height: 160,
+    width: 140,
+    height: 140,
     marginBottom: 4,
   },
   tagline: {
     fontFamily: fontFamily.light,
-    fontSize: 12,
-    letterSpacing: 6,
-    color: '#B0B0B0',
+    fontSize: 11,
+    letterSpacing: 5,
+    color: colors.textInactive,
     textTransform: 'uppercase',
-  },
-
-  // ── Social Auth ────────────────────────────────────────────────────
-  socialSection: {
-    gap: spacing.sm,
     marginBottom: spacing.lg,
   },
-  socialButton: {
+
+  // ── Value Props ──────────────────────────────────────────────────
+  valueProps: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  valuePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.backgroundElevated,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+  },
+  valuePillText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
+    color: colors.textInactive,
+  },
+
+  // ── Auth Section ────────────────────────────────────────────────
+  authSection: {
+    paddingVertical: spacing.lg,
+  },
+
+  // Get Started button
+  getStartedBtn: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    marginBottom: spacing.lg,
+  },
+  getStartedGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.backgroundElevated,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: 16,
     gap: spacing.sm,
   },
-  socialButtonText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 16,
-    color: colors.textOnDark,
+  getStartedText: {
+    fontFamily: fontFamily.bold,
+    fontSize: 17,
+    color: '#FFFFFF',
   },
 
-  // ── Divider ────────────────────────────────────────────────────────
+  // Divider
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -262,27 +360,67 @@ const styles = StyleSheet.create({
     backgroundColor: colors.borderLight,
   },
   dividerText: {
-    ...typography.metadataSmall,
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
     color: colors.textInactive,
     marginHorizontal: spacing.md,
   },
 
-  // ── Form ──────────────────────────────────────────────────────────
-  form: {
-    marginBottom: spacing.xl,
+  // Social buttons — side by side
+  socialRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  socialBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundElevated,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: borderRadius.lg,
+    paddingVertical: 14,
+    gap: spacing.sm,
+  },
+  socialBtnText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 15,
+    color: colors.textOnDark,
+  },
+
+  // Email toggle link
+  emailToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: spacing.sm,
+  },
+  emailToggleText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
+    color: colors.textInactive,
+  },
+
+  // Email form (expanded)
+  emailForm: {
+    marginTop: spacing.sm,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.readinessRedBg,
-    padding: spacing.md,
+    padding: spacing.sm,
     borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
   },
   errorBannerText: {
-    ...typography.bodySmall,
+    fontFamily: fontFamily.regular,
+    fontSize: 13,
     color: colors.error,
-    marginLeft: spacing.sm,
     flex: 1,
   },
   forgotRow: {
@@ -291,29 +429,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   forgotText: {
-    ...typography.bodySmall,
-    color: colors.accent2,
     fontFamily: fontFamily.medium,
+    fontSize: 13,
+    color: colors.accent2,
   },
-  button: {
+  signInBtn: {
     marginTop: spacing.sm,
   },
 
-  // ── Footer ────────────────────────────────────────────────────────
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: spacing.xl,
-  },
+  // ── Footer ──────────────────────────────────────────────────────
   footerText: {
-    ...typography.bodyOnDark,
-    color: colors.textInactive,
-  },
-  link: {
-    ...typography.bodyOnDark,
-    color: colors.accent2,
-    fontFamily: fontFamily.semiBold,
-    marginLeft: spacing.xs,
+    fontFamily: fontFamily.regular,
+    fontSize: 11,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingBottom: spacing.xl,
+    paddingTop: spacing.md,
   },
 });

@@ -13,6 +13,8 @@ import type {
   Checkin,
   ApiError,
   User,
+  Sport,
+  UserRole,
   ProgressData,
   LeaderboardResponse,
   FeedbackData,
@@ -175,20 +177,77 @@ export async function getStats(): Promise<{
 // ============================================
 
 /**
+ * Map snake_case API user response to camelCase frontend User type.
+ * Supabase returns snake_case columns; our frontend types use camelCase.
+ */
+function mapUserFromApi(raw: Record<string, unknown>): User {
+  return {
+    id: (raw.id as string) || '',
+    uid: (raw.id as string) || '',
+    email: (raw.email as string) || '',
+    name: (raw.name as string) || '',
+    displayName: (raw.display_name as string) || (raw.name as string) || '',
+    age: (raw.age as number) || 0,
+    sport: (raw.sport as Sport) || 'football',
+    role: (raw.role as UserRole) || 'player',
+    displayRole: (raw.display_role as string | null) || null,
+    region: (raw.region as string) || undefined,
+    teamId: (raw.team_id as string | null) || null,
+    archetype: (raw.archetype as string | null) || null,
+    totalPoints: (raw.total_points as number) || 0,
+    currentStreak: (raw.current_streak as number) || 0,
+    longestStreak: (raw.longest_streak as number) || 0,
+    streakMultiplier: (raw.streak_multiplier as number) || 1,
+    streakFreezeTokens: (raw.freeze_tokens as number) || 0,
+    milestonesUnlocked: (raw.milestones_unlocked as string[]) || [],
+    onboardingComplete: !!(raw.onboarding_complete),
+    height: (raw.height as number | null) ?? null,
+    weight: (raw.weight as number | null) ?? null,
+    gender: (raw.gender as string | null) ?? null,
+    position: (raw.position as string | null) ?? null,
+    playingStyle: (raw.playing_style as string | null) ?? null,
+    weeklyTrainingDays: (raw.weekly_training_days as number) ?? undefined,
+    typicalSessionLength: (raw.typical_session_length as number | null) ?? null,
+    seasonPhase: (raw.season_phase as string) ?? undefined,
+    typicalSleepHours: (raw.typical_sleep_hours as number | null) ?? null,
+    baselineEnergy: (raw.baseline_energy as number | null) ?? null,
+    injuries: (raw.injuries as string | null) ?? null,
+    painAreas: (raw.pain_areas as string[]) || [],
+    isStudent: !!(raw.is_student),
+    schoolHours: (raw.school_hours as number | null) ?? null,
+    examPeriods: (raw.exam_periods as string | null) ?? null,
+    primaryGoal: (raw.primary_goal as string | null) ?? null,
+    selfSelectedArchetype: (raw.self_selected_archetype as string | null) ?? null,
+    healthKitConnected: !!(raw.health_kit_connected),
+    fcmToken: (raw.fcm_token as string | null) ?? null,
+    parentalConsent: !!(raw.parental_consent),
+    selectedSports: (raw.selected_sports as string[]) || [],
+    photoUrl: (raw.photo_url as string | null) ?? null,
+  } as User;
+}
+
+/** Wrap any API response that has a `.user` field to map it */
+function mapUserResponse(raw: { user: Record<string, unknown> }): UserResponse {
+  return { user: mapUserFromApi(raw.user) };
+}
+
+/**
  * Get current user profile
  */
 export async function getUser(): Promise<UserResponse> {
-  return apiRequest<UserResponse>('/api/v1/user');
+  const raw = await apiRequest<{ user: Record<string, unknown> }>('/api/v1/user');
+  return mapUserResponse(raw);
 }
 
 /**
  * Update user profile
  */
 export async function updateUser(updates: Partial<User>): Promise<UserResponse> {
-  return apiRequest<UserResponse>('/api/v1/user', {
+  const raw = await apiRequest<{ user: Record<string, unknown> }>('/api/v1/user', {
     method: 'PUT',
     body: JSON.stringify(updates),
   });
+  return mapUserResponse(raw);
 }
 
 /**
@@ -204,10 +263,11 @@ export async function registerUser(userData: {
   region?: string;
   teamId?: string;
 }): Promise<UserResponse> {
-  return apiRequest<UserResponse>('/api/v1/user/register', {
+  const raw = await apiRequest<{ user: Record<string, unknown> }>('/api/v1/user/register', {
     method: 'POST',
     body: JSON.stringify(userData),
   });
+  return mapUserResponse(raw);
 }
 
 // ============================================
@@ -273,10 +333,11 @@ export async function getArchetypes(): Promise<unknown> {
 export async function submitOnboarding(
   data: OnboardingData,
 ): Promise<UserResponse> {
-  return apiRequest<UserResponse>('/api/v1/user/onboarding', {
+  const raw = await apiRequest<{ user: Record<string, unknown> }>('/api/v1/user/onboarding', {
     method: 'PUT',
     body: JSON.stringify(data),
   });
+  return mapUserResponse(raw);
 }
 
 /**
@@ -829,7 +890,6 @@ import type {
   PlayerSummary,
   Suggestion,
   AppNotification,
-  UserRole,
 } from '../types';
 
 /**
