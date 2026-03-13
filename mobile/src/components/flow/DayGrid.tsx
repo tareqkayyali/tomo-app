@@ -4,12 +4,13 @@
  * Shows 36 half-hour slots with events positioned by time.
  * Supports: empty slot tap, long-press drag-and-drop, lock state.
  *
- * Drag architecture:
- * 1. Pressable.onLongPress on an event sets isDraggingRef + dragState
- * 2. Grid-level PanResponder captures the gesture from the Pressable via
- *    onMoveShouldSetPanResponderCapture — avoiding the stale-closure and
- *    gesture-ownership problems of per-event or overlay PanResponders.
- * 3. A visual-only drag overlay renders the dragged block.
+ * Drag architecture (web-first, Expo web deployed to Vercel):
+ * 1. Pressable.onLongPress fires → sets isDragging flag + drag state
+ * 2. document-level pointermove/pointerup listeners are attached
+ *    These ALWAYS fire regardless of which DOM element has the pointer,
+ *    bypassing PanResponder's unreliable gesture-capture on web.
+ * 3. A visual-only overlay renders the dragged block.
+ * 4. On pointerup, drop is finalized and listeners removed.
  */
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
@@ -18,10 +19,10 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  PanResponder,
   Platform,
   Dimensions,
 } from 'react-native';
+import type { GestureResponderEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -106,19 +107,16 @@ function computeOverlapGroups(events: CalendarEvent[]): Map<string, { col: numbe
   const timed = events.filter((e) => e.startTime && e.endTime);
   const result = new Map<string, { col: number; totalCols: number }>();
 
-  // Sort by start time
   const sorted = [...timed].sort((a, b) =>
     timeToMinutes(a.startTime!) - timeToMinutes(b.startTime!),
   );
 
-  // Simple greedy column assignment
   const columns: { endMin: number; eventId: string }[][] = [];
 
   for (const evt of sorted) {
     const startMin = timeToMinutes(evt.startTime!);
     const endMin = timeToMinutes(evt.endTime!);
 
-    // Find first column where this event fits (no overlap)
     let placed = false;
     for (let c = 0; c < columns.length; c++) {
       const lastInCol = columns[c][columns[c].length - 1];
@@ -136,7 +134,6 @@ function computeOverlapGroups(events: CalendarEvent[]): Map<string, { col: numbe
     }
   }
 
-  // Set totalCols for all events
   const totalCols = columns.length;
   for (const [id, info] of result) {
     result.set(id, { ...info, totalCols });
@@ -238,106 +235,128 @@ export function DayGrid({
     return null;
   }, [isToday, timedEvents, completedEventIds, nowMinutes]);
 
-  // ── Drag state ──
+  // ── Drag state (React state for rendering) ──
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
 
-  // Refs for PanResponder (avoids stale closures — PanResponder created once)
+  // ── Refs for document-level drag listeners (avoid stale closures) ──
   const isDraggingRef = useRef(false);
   const dragStateRef = useRef<DragState | null>(null);
   const dragOffsetRef = useRef(0);
-
-  const handleDragStart = useCallback((ds: DragState) => {
-    isDraggingRef.current = true;
-    dragStateRef.current = ds;
-    dragOffsetRef.current = 0;
-    setDragState(ds);
-    setDragOffsetY(0);
-    if (scrollEnabled?.current) {
-      scrollEnabled.current(false);
-    }
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    }
-  }, [scrollEnabled]);
-
-  // Callback refs for PanResponder
   const onEventDropRef = useRef(onEventDrop);
   onEventDropRef.current = onEventDrop;
   const scrollEnabledRef = useRef(scrollEnabled);
   scrollEnabledRef.current = scrollEnabled;
 
-  // ── Grid-level PanResponder ──
-  // Does NOT claim touches on start (children handle taps normally).
-  // Captures on move ONLY after isDraggingRef is true (set by Pressable.onLongPress).
-  const gridPanResponder = useMemo(
-    () =>
-      PanResponder.create({
-        // Don't interfere with touch start — let Pressable children handle taps
-        onStartShouldSetPanResponder: () => false,
-        onStartShouldSetPanResponderCapture: () => false,
+  // Cleanup ref to store remove-listener function
+  const cleanupRef = useRef<(() => void) | null>(null);
 
-        // Steal the gesture on move if we're in drag mode
-        onMoveShouldSetPanResponder: () => isDraggingRef.current,
-        onMoveShouldSetPanResponderCapture: () => isDraggingRef.current,
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (cleanupRef.current) cleanupRef.current();
+    };
+  }, []);
 
-        // Never yield once we're dragging
-        onPanResponderTerminationRequest: () => !isDraggingRef.current,
+  // ── handleDragStart — called from StaticEventBlock.onLongPress ──
+  const handleDragStart = useCallback((ds: DragState, pageY: number) => {
+    isDraggingRef.current = true;
+    dragStateRef.current = ds;
+    dragOffsetRef.current = 0;
+    setDragState(ds);
+    setDragOffsetY(0);
 
-        onPanResponderGrant: () => {
-          // Gesture captured from Pressable — drag is now active on the grid
-        },
+    // Disable parent scroll
+    if (scrollEnabledRef.current?.current) {
+      scrollEnabledRef.current.current(false);
+    }
 
-        onPanResponderMove: (_evt, gs) => {
-          if (!isDraggingRef.current) return;
-          // Snap to 30-min increments
-          const snapped = Math.round(gs.dy / SLOT_HEIGHT) * SLOT_HEIGHT;
-          dragOffsetRef.current = snapped;
-          setDragOffsetY(snapped);
-        },
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    }
 
-        onPanResponderRelease: () => {
-          if (!isDraggingRef.current || !dragStateRef.current) return;
+    // ── Web: attach document-level listeners ──
+    // These ALWAYS fire regardless of which DOM element has pointer capture,
+    // which is why PanResponder failed — Pressable held the gesture.
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const startY = pageY;
 
-          const ds = dragStateRef.current;
+      const onPointerMove = (e: Event) => {
+        if (!isDraggingRef.current) return;
+        e.preventDefault(); // prevent scroll during drag
+
+        let clientY: number;
+        if ((e as TouchEvent).touches) {
+          clientY = (e as TouchEvent).touches[0]?.clientY ?? 0;
+        } else {
+          clientY = (e as PointerEvent).clientY;
+        }
+
+        const dy = clientY - startY;
+        const snapped = Math.round(dy / SLOT_HEIGHT) * SLOT_HEIGHT;
+        dragOffsetRef.current = snapped;
+        setDragOffsetY(snapped);
+      };
+
+      const onPointerUp = () => {
+        // Finalize drop
+        const currentDs = dragStateRef.current;
+        if (currentDs) {
           const deltaMinutes = Math.round(dragOffsetRef.current / SLOT_HEIGHT) * 30;
-          const newStartMin = ds.originalStartMin + deltaMinutes;
-          const newEndMin = newStartMin + ds.durationMin;
+          const newStartMin = currentDs.originalStartMin + deltaMinutes;
+          const newEndMin = newStartMin + currentDs.durationMin;
 
-          // Apply drop if moved and within bounds
           if (deltaMinutes !== 0 && newStartMin >= START_HOUR * 60 && newEndMin <= END_HOUR * 60) {
-            onEventDropRef.current(ds.eventId, minutesToTime(newStartMin), minutesToTime(newEndMin));
-          } else if (deltaMinutes !== 0) {
-            if (Platform.OS !== 'web') {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            }
+            onEventDropRef.current(
+              currentDs.eventId,
+              minutesToTime(newStartMin),
+              minutesToTime(newEndMin),
+            );
           }
+        }
 
-          // Reset
-          isDraggingRef.current = false;
-          dragStateRef.current = null;
-          dragOffsetRef.current = 0;
-          setDragState(null);
-          setDragOffsetY(0);
-          if (scrollEnabledRef.current?.current) {
-            scrollEnabledRef.current.current(true);
-          }
-        },
+        // Cleanup listeners
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        document.removeEventListener('pointercancel', onPointerUp);
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('touchend', onPointerUp);
+        document.removeEventListener('touchcancel', onPointerUp);
+        cleanupRef.current = null;
 
-        onPanResponderTerminate: () => {
-          // Gesture stolen — cancel drag
-          isDraggingRef.current = false;
-          dragStateRef.current = null;
-          dragOffsetRef.current = 0;
-          setDragState(null);
-          setDragOffsetY(0);
-          if (scrollEnabledRef.current?.current) {
-            scrollEnabledRef.current.current(true);
-          }
-        },
-      }),
-    [], // Created once — refs keep callbacks fresh
-  );
+        // Reset state
+        isDraggingRef.current = false;
+        dragStateRef.current = null;
+        dragOffsetRef.current = 0;
+        setDragState(null);
+        setDragOffsetY(0);
+
+        // Re-enable scroll
+        if (scrollEnabledRef.current?.current) {
+          scrollEnabledRef.current.current(true);
+        }
+      };
+
+      // Attach to document — captures ALL pointer events globally
+      document.addEventListener('pointermove', onPointerMove, { passive: false });
+      document.addEventListener('pointerup', onPointerUp);
+      document.addEventListener('pointercancel', onPointerUp);
+      // Touch events as fallback for older mobile browsers
+      document.addEventListener('touchmove', onPointerMove, { passive: false });
+      document.addEventListener('touchend', onPointerUp);
+      document.addEventListener('touchcancel', onPointerUp);
+
+      // Store cleanup for unmount safety
+      cleanupRef.current = () => {
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        document.removeEventListener('pointercancel', onPointerUp);
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('touchend', onPointerUp);
+        document.removeEventListener('touchcancel', onPointerUp);
+      };
+    }
+  }, []);
 
   // ── Occupied slot checker ──
   const occupiedSlots = useMemo(() => {
@@ -411,11 +430,8 @@ export function DayGrid({
         </View>
       )}
 
-      {/* ── Main grid — PanResponder attached here ── */}
-      <View
-        style={[styles.grid, { height: GRID_HEIGHT }]}
-        {...gridPanResponder.panHandlers}
-      >
+      {/* ── Main grid (no PanResponder — drag uses document listeners) ── */}
+      <View style={[styles.grid, { height: GRID_HEIGHT }]}>
         {/* Time labels */}
         {timeLabels.map(({ hour, label, y }) => (
           <Text
@@ -448,7 +464,6 @@ export function DayGrid({
                 },
               ]}
             >
-              {/* Empty slot "+" indicator */}
               {!isOccupied && !readOnly && !locked && (
                 <View style={styles.emptySlotHint}>
                   <Ionicons name="add" size={14} color={colors.textInactive + '60'} />
@@ -499,7 +514,7 @@ export function DayGrid({
           );
         })}
 
-        {/* ── Drag overlay — purely visual, no PanResponder ── */}
+        {/* ── Drag overlay — purely visual, no gesture handler ── */}
         {dragState && (
           <DragOverlayVisual
             dragState={dragState}
@@ -525,7 +540,7 @@ export function DayGrid({
   );
 }
 
-// ─── Drag Overlay (visual only — no PanResponder) ────────────────────────────
+// ─── Drag Overlay (visual only — no gesture handler) ─────────────────────────
 
 interface DragOverlayVisualProps {
   dragState: DragState;
@@ -536,7 +551,6 @@ interface DragOverlayVisualProps {
 function DragOverlayVisual({ dragState, dragOffsetY, colors }: DragOverlayVisualProps) {
   const overlayTop = dragState.originalY + dragOffsetY;
 
-  // Compute new time label for visual feedback
   const newStartMin = dragState.originalStartMin + Math.round(dragOffsetY / SLOT_HEIGHT) * 30;
   const newEndMin = newStartMin + dragState.durationMin;
   const newTimeLabel =
@@ -565,11 +579,16 @@ function DragOverlayVisual({ dragState, dragOffsetY, colors }: DragOverlayVisual
           backgroundColor: dragState.typeColor + '30',
           paddingHorizontal: 8,
           paddingVertical: 4,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.35,
-          shadowRadius: 12,
-          elevation: 15,
+          // Web box-shadow (shadows on native)
+          ...(Platform.OS === 'web'
+            ? ({ boxShadow: '0 6px 24px rgba(0,0,0,0.35)' } as any)
+            : {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.35,
+                shadowRadius: 12,
+                elevation: 15,
+              }),
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -595,7 +614,7 @@ function DragOverlayVisual({ dragState, dragOffsetY, colors }: DragOverlayVisual
   );
 }
 
-// ─── Static Event Block (uses Pressable.onLongPress to trigger drag) ─────────
+// ─── Static Event Block ─────────────────────────────────────────────────────
 
 interface StaticEventBlockProps {
   event: CalendarEvent;
@@ -612,7 +631,7 @@ interface StaticEventBlockProps {
   onComplete: (id: string) => void;
   onSkip: (id: string) => void;
   onUndo: (id: string) => void;
-  onDragStart: (ds: DragState) => void;
+  onDragStart: (ds: DragState, pageY: number) => void;
   colors: ThemeColors;
 }
 
@@ -643,22 +662,32 @@ function StaticEventBlock({
   const intensity = event.intensity ? getIntensityConfig(event.intensity) : null;
   const showActions = isCurrent && !readOnly && !locked && !isCompleted;
 
-  const handleLongPress = useCallback(() => {
-    if (readOnly || locked || !event.startTime) return;
-    const startMin = timeToMinutes(event.startTime);
-    const endMin = event.endTime ? timeToMinutes(event.endTime) : startMin + 60;
-    onDragStart({
-      eventId: event.id,
-      event,
-      originalStartMin: startMin,
-      durationMin: endMin - startMin,
-      originalY: top,
-      typeColor,
-      left,
-      width,
-      height: Math.max(height, 44),
-    });
-  }, [event, top, left, width, height, typeColor, readOnly, locked, onDragStart]);
+  const handleLongPress = useCallback(
+    (e: GestureResponderEvent) => {
+      if (readOnly || locked || !event.startTime) return;
+      const startMin = timeToMinutes(event.startTime);
+      const endMin = event.endTime ? timeToMinutes(event.endTime) : startMin + 60;
+
+      // Extract pageY from the long-press event for document-level tracking
+      const pageY = e.nativeEvent.pageY;
+
+      onDragStart(
+        {
+          eventId: event.id,
+          event,
+          originalStartMin: startMin,
+          durationMin: endMin - startMin,
+          originalY: top,
+          typeColor,
+          left,
+          width,
+          height: Math.max(height, 44),
+        },
+        pageY,
+      );
+    },
+    [event, top, left, width, height, typeColor, readOnly, locked, onDragStart],
+  );
 
   // Ghost placeholder while dragging
   if (isDragging) {
@@ -692,14 +721,18 @@ function StaticEventBlock({
 
   return (
     <View
-      style={{
-        position: 'absolute',
-        top,
-        left,
-        width,
-        height: Math.max(height, 44),
-        zIndex: isCurrent ? 10 : 1,
-      }}
+      style={[
+        {
+          position: 'absolute',
+          top,
+          left,
+          width,
+          height: Math.max(height, 44),
+          zIndex: isCurrent ? 10 : 1,
+        },
+        // Prevent text selection on web during long-press
+        Platform.OS === 'web' ? ({ userSelect: 'none' } as any) : undefined,
+      ]}
     >
       <Pressable
         onLongPress={handleLongPress}
@@ -739,12 +772,14 @@ function StaticEventBlock({
             {event.name}
           </Text>
           {isCurrent && !isCompleted && (
-            <View style={{
-              backgroundColor: '#FF6B35',
-              borderRadius: 4,
-              paddingHorizontal: 4,
-              paddingVertical: 1,
-            }}>
+            <View
+              style={{
+                backgroundColor: '#FF6B35',
+                borderRadius: 4,
+                paddingHorizontal: 4,
+                paddingVertical: 1,
+              }}
+            >
               <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '800' }}>NOW</Text>
             </View>
           )}
@@ -758,12 +793,14 @@ function StaticEventBlock({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <Text style={{ fontSize: 10, color: colors.textSecondary }}>{timeStr}</Text>
             {intensity && (
-              <View style={{
-                backgroundColor: intensity.color + '22',
-                borderRadius: 3,
-                paddingHorizontal: 4,
-                paddingVertical: 1,
-              }}>
+              <View
+                style={{
+                  backgroundColor: intensity.color + '22',
+                  borderRadius: 3,
+                  paddingHorizontal: 4,
+                  paddingVertical: 1,
+                }}
+              >
                 <Text style={{ fontSize: 8, color: intensity.color, fontWeight: '700' }}>
                   {intensity.label}
                 </Text>
@@ -778,7 +815,8 @@ function StaticEventBlock({
             <Pressable
               onPress={() => {
                 onComplete(event.id);
-                if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                if (Platform.OS !== 'web')
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }}
               style={{
                 backgroundColor: '#2ED573',
@@ -796,7 +834,8 @@ function StaticEventBlock({
             <Pressable
               onPress={() => {
                 onSkip(event.id);
-                if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (Platform.OS !== 'web')
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
               style={{
                 backgroundColor: colors.textInactive + '30',
@@ -808,7 +847,9 @@ function StaticEventBlock({
                 gap: 3,
               }}
             >
-              <Text style={{ color: colors.textSecondary, fontSize: 9, fontWeight: '700' }}>SKIP</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 9, fontWeight: '700' }}>
+                SKIP
+              </Text>
             </Pressable>
           </View>
         )}
