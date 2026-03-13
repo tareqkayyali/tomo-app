@@ -248,7 +248,8 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { activeSport } = useSportContext();
-  const initialType = (route.params as { initialType?: string } | undefined)?.initialType;
+  const params = route.params as { initialType?: string; date?: string; startTime?: string } | undefined;
+  const initialType = params?.initialType;
   const validInitialType = initialType && ['training', 'match', 'recovery', 'study_block', 'exam', 'other'].includes(initialType)
     ? (initialType as EventType)
     : 'training';
@@ -256,8 +257,8 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
   const [name, setName] = useState('');
   const [eventType, setEventType] = useState<EventType>(validInitialType);
   const [sport, setSport] = useState<EventSport>(activeSport === 'football' ? 'football' : 'padel');
-  const [date, setDate] = useState(getTodayStr());
-  const [startTime, setStartTime] = useState('');
+  const [date, setDate] = useState(params?.date || getTodayStr());
+  const [startTime, setStartTime] = useState(params?.startTime || '');
   const [duration, setDuration] = useState<number | null>(null);
   const [intensity, setIntensity] = useState<IntensityLevel | null>(null);
   const [notes, setNotes] = useState('');

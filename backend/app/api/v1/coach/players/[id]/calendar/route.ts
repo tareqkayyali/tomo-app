@@ -54,8 +54,23 @@ export async function GET(
         mapDbRowToCalendarEvent(r as Record<string, unknown>)
       );
 
+      // Optionally include day lock status
+      const includeLocks = searchParams.get("includeLockStatus") === "true";
+      let dayLocks: Record<string, boolean> = {};
+      if (includeLocks) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: locks } = await (db as any)
+          .from("day_locks")
+          .select("date")
+          .eq("user_id", playerId)
+          .eq("date", date);
+        if (locks) {
+          for (const l of locks) dayLocks[String((l as Record<string, unknown>).date)] = true;
+        }
+      }
+
       return NextResponse.json(
-        { events },
+        { events, ...(includeLocks ? { dayLocks } : {}) },
         { headers: { "api-version": "v1" } }
       );
     }
@@ -80,8 +95,24 @@ export async function GET(
         mapDbRowToCalendarEvent(r as Record<string, unknown>)
       );
 
+      // Optionally include day lock status for the range
+      const includeLocksRange = searchParams.get("includeLockStatus") === "true";
+      let dayLocksRange: Record<string, boolean> = {};
+      if (includeLocksRange) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: locks } = await (db as any)
+          .from("day_locks")
+          .select("date")
+          .eq("user_id", playerId)
+          .gte("date", startDate)
+          .lte("date", endDate);
+        if (locks) {
+          for (const l of locks) dayLocksRange[String((l as Record<string, unknown>).date)] = true;
+        }
+      }
+
       return NextResponse.json(
-        { events },
+        { events, ...(includeLocksRange ? { dayLocks: dayLocksRange } : {}) },
         { headers: { "api-version": "v1" } }
       );
     }

@@ -403,6 +403,49 @@ export async function deleteCalendarEvent(eventId: string): Promise<{ success: b
   });
 }
 
+/**
+ * Update a calendar event (partial — e.g. time change from drag-drop)
+ */
+export async function updateCalendarEvent(
+  eventId: string,
+  patch: { date?: string; startTime?: string; endTime?: string | null },
+): Promise<{ event: CalendarEvent }> {
+  return apiRequest<{ event: CalendarEvent }>(`/api/v1/calendar/events/${eventId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+// ============================================
+// Day Lock APIs
+// ============================================
+
+/**
+ * Get lock status for a day
+ */
+export async function getDayLockStatus(date: string): Promise<{ locked: boolean; lockedAt: string | null }> {
+  return apiRequest<{ locked: boolean; lockedAt: string | null }>(`/api/v1/calendar/day-lock?date=${date}`);
+}
+
+/**
+ * Lock a day
+ */
+export async function lockDay(date: string): Promise<{ locked: boolean; lockedAt: string | null }> {
+  return apiRequest<{ locked: boolean; lockedAt: string | null }>('/api/v1/calendar/day-lock', {
+    method: 'POST',
+    body: JSON.stringify({ date }),
+  });
+}
+
+/**
+ * Unlock a day
+ */
+export async function unlockDay(date: string): Promise<{ locked: boolean }> {
+  return apiRequest<{ locked: boolean }>(`/api/v1/calendar/day-lock?date=${date}`, {
+    method: 'DELETE',
+  });
+}
+
 // ============================================
 // Ghost Suggestion APIs
 // ============================================
@@ -1069,9 +1112,11 @@ export async function getChildCalendar(
   childId: string,
   startDate: string,
   endDate: string,
-): Promise<{ events: CalendarEvent[] }> {
-  return apiRequest<{ events: CalendarEvent[] }>(
-    `/api/v1/parent/children/${childId}/calendar?startDate=${startDate}&endDate=${endDate}`,
+  includeLockStatus = false,
+): Promise<{ events: CalendarEvent[]; dayLocks?: Record<string, boolean> }> {
+  const lockParam = includeLockStatus ? '&includeLockStatus=true' : '';
+  return apiRequest<{ events: CalendarEvent[]; dayLocks?: Record<string, boolean> }>(
+    `/api/v1/parent/children/${childId}/calendar?startDate=${startDate}&endDate=${endDate}${lockParam}`,
   );
 }
 
@@ -1082,9 +1127,11 @@ export async function getCoachPlayerCalendar(
   playerId: string,
   startDate: string,
   endDate: string,
-): Promise<{ events: CalendarEvent[] }> {
-  return apiRequest<{ events: CalendarEvent[] }>(
-    `/api/v1/coach/players/${playerId}/calendar?startDate=${startDate}&endDate=${endDate}`,
+  includeLockStatus = false,
+): Promise<{ events: CalendarEvent[]; dayLocks?: Record<string, boolean> }> {
+  const lockParam = includeLockStatus ? '&includeLockStatus=true' : '';
+  return apiRequest<{ events: CalendarEvent[]; dayLocks?: Record<string, boolean> }>(
+    `/api/v1/coach/players/${playerId}/calendar?startDate=${startDate}&endDate=${endDate}${lockParam}`,
   );
 }
 

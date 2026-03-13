@@ -93,12 +93,17 @@ export function ParentCalendarScreen({ navigation }: Props) {
     })();
   }, []);
 
-  // Fetch calendar when child changes
+  // Fetch calendar when child or viewed month changes
   useEffect(() => {
     if (!selectedChild) return;
     (async () => {
       try {
-        const res = await getChildCalendar(selectedChild.id);
+        // Fetch the full month range (with some padding for grid display)
+        const firstDay = new Date(viewYear, viewMonth, 1);
+        const lastDay = new Date(viewYear, viewMonth + 1, 0);
+        const startDate = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-01`;
+        const endDate = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+        const res = await getChildCalendar(selectedChild.id, startDate, endDate);
         const mapped: Record<string, string[]> = {};
         for (const evt of res.events) {
           const date = evt.date as string;
@@ -111,7 +116,7 @@ export function ParentCalendarScreen({ navigation }: Props) {
         setEvents({});
       }
     })();
-  }, [selectedChild]);
+  }, [selectedChild, viewYear, viewMonth]);
 
   // Month navigation
   const goToPreviousMonth = useCallback(() => {

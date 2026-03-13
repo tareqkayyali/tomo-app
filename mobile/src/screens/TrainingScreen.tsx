@@ -25,6 +25,7 @@ import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { SuggestionsBanner } from '../components/SuggestionsBanner';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { useCalendarData } from '../hooks/useCalendarData';
+import { useDayLock } from '../hooks/useDayLock';
 import { toDateStr } from '../utils/calendarHelpers';
 import type { ReadinessLevel, Checkin } from '../types';
 import { getReadinessScore } from '../services/readinessScore';
@@ -117,6 +118,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     setSelectedDate,
     refresh,
     handleDeleteEvent,
+    handleUpdateEvent,
   } = calendar;
 
   // Real events from API
@@ -202,11 +204,15 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     });
   }, []);
 
-  // ─── Events for the selected day ───
+  // ─── Day lock ───
 
   const todayStr = toDateStr(new Date());
   const selectedDayStr = toDateStr(selectedDay);
   const isToday = selectedDayStr === todayStr;
+
+  const { isLocked, isLoading: isLockLoading, toggleLock } = useDayLock(selectedDayStr, true);
+
+  // ─── Events for the selected day ───
 
   const dayEvents = useMemo(
     () =>
@@ -354,6 +360,19 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
           onPrevDay={goToPrevDay}
           onNextDay={goToNextDay}
           onToday={goToToday}
+          isLocked={isLocked}
+          isLockLoading={isLockLoading}
+          onToggleLock={toggleLock}
+          onEmptySlotPress={(time) => {
+            if (!isLocked) {
+              navigation.navigate('AddEvent', { date: selectedDayStr, startTime: time });
+            }
+          }}
+          onEventDrop={async (eventId, newStart, newEnd) => {
+            if (!isLocked) {
+              await handleUpdateEvent(eventId, { startTime: newStart, endTime: newEnd });
+            }
+          }}
           readiness={readiness}
           trainingHours={trainingHours}
           academicHours={academicHours}
@@ -367,7 +386,10 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
           onSkip={handleSkipEvent}
           onUndo={handleUndoEvent}
           onCheckinPress={() => navigation.navigate('Checkin')}
-          onFabPress={() => navigation.navigate('AddEvent')}
+          onFabPress={() => {
+            if (isLocked) return;
+            navigation.navigate('AddEvent', { date: selectedDayStr });
+          }}
           fabIcon="add"
         />
       ) : (

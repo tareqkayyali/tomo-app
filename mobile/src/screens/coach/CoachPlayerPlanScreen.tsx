@@ -39,7 +39,7 @@ export function CoachPlayerPlanScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
 
   const calendar = usePlayerCalendarData(playerId, 'coach');
-  const { events, isLoading, backendError, setSelectedDate, refresh } = calendar;
+  const { events, isLoading, backendError, setSelectedDate, refresh, dayLocks } = calendar;
 
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -138,6 +138,7 @@ export function CoachPlayerPlanScreen({ route, navigation }: Props) {
         dayLabel={dayLabel}
         isToday={isToday}
         isLoading={isLoading}
+        isLocked={!!dayLocks[selectedDayStr]}
         refreshing={refreshing}
         onRefresh={onRefresh}
         onPrevDay={goToPrevDay}

@@ -29,7 +29,7 @@ export type MainStackParamList = {
   NotificationSettings: undefined;
   History: undefined;
   WorkoutFeedback: undefined;
-  AddEvent: { initialType?: string } | undefined;
+  AddEvent: { initialType?: string; date?: string; startTime?: string } | undefined;
   PrivacySettings: undefined;
   Diagnostics: undefined;
   DrillDetail: { drillId: string };

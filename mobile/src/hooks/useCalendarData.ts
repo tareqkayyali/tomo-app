@@ -11,6 +11,7 @@ import {
   getCheckins,
   getCalendarEventsByRange,
   deleteCalendarEvent,
+  updateCalendarEvent,
 } from '../services/api';
 import {
   toDateStr,
@@ -18,7 +19,7 @@ import {
   addDays,
   getWeekStart,
 } from '../utils/calendarHelpers';
-import type { Plan, Checkin, CalendarEvent } from '../types';
+import type { Plan, Checkin, CalendarEvent, CalendarEventPatch } from '../types';
 
 export type ViewMode = 'focus' | 'day' | 'week' | 'month';
 
@@ -40,6 +41,7 @@ interface CalendarActions {
   goToday: () => void;
   refresh: () => void;
   handleDeleteEvent: (eventId: string) => Promise<boolean>;
+  handleUpdateEvent: (eventId: string, patch: CalendarEventPatch) => Promise<boolean>;
 }
 
 export type CalendarData = CalendarState & CalendarActions;
@@ -199,6 +201,24 @@ export function useCalendarData(): CalendarData {
     [],
   );
 
+  const handleUpdateEvent = useCallback(
+    async (eventId: string, patch: CalendarEventPatch): Promise<boolean> => {
+      try {
+        const { event: updated } = await updateCalendarEvent(eventId, patch);
+        // Optimistically update in state
+        setEvents((prev) =>
+          prev.map((e) => (e.id === eventId ? updated : e)),
+        );
+        // Clear cache so next fetch is fresh
+        cacheRef.current = {};
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
+
   return {
     selectedDate,
     viewMode,
@@ -214,5 +234,6 @@ export function useCalendarData(): CalendarData {
     goToday,
     refresh,
     handleDeleteEvent,
+    handleUpdateEvent,
   };
 }

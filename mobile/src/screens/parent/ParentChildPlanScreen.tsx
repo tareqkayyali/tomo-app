@@ -79,7 +79,7 @@ export function ParentChildPlanScreen({ navigation }: Props) {
   // ─── Calendar data for selected child ─────────────────────────────
 
   const calendar = usePlayerCalendarData(selectedChild?.id ?? '', 'parent');
-  const { events, isLoading, backendError, setSelectedDate, refresh } = calendar;
+  const { events, isLoading, backendError, setSelectedDate, refresh, dayLocks } = calendar;
 
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -249,6 +249,7 @@ export function ParentChildPlanScreen({ navigation }: Props) {
           dayLabel={dayLabel}
           isToday={isToday}
           isLoading={isLoading}
+          isLocked={!!dayLocks[selectedDayStr]}
           refreshing={refreshing}
           onRefresh={onRefresh}
           onPrevDay={goToPrevDay}

@@ -70,6 +70,22 @@ export async function POST(req: NextRequest) {
 
     const db = supabaseAdmin();
 
+    // Check if day is locked
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: lockRow } = await (db as any)
+      .from("day_locks")
+      .select("id")
+      .eq("user_id", auth.user.id)
+      .eq("date", date)
+      .maybeSingle();
+
+    if (lockRow) {
+      return NextResponse.json(
+        { error: "Day is locked" },
+        { status: 423 }
+      );
+    }
+
     // Base insert object (matches generated Supabase types)
     const insertBase = {
       user_id: auth.user.id,

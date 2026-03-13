@@ -303,6 +303,19 @@ export interface CalendarEventInput {
 // Event type alias for reuse
 export type EventType = 'training' | 'match' | 'recovery' | 'study_block' | 'exam' | 'other';
 
+// Day Lock
+export interface DayLockStatus {
+  locked: boolean;
+  lockedAt: string | null;
+}
+
+// Calendar Event Patch (for drag-drop time updates)
+export interface CalendarEventPatch {
+  date?: string;
+  startTime?: string;
+  endTime?: string | null;
+}
+
 // Ghost Calendar — AI-suggested events based on detected patterns
 export interface GhostSuggestion {
   name: string;

@@ -2,7 +2,7 @@
  * usePlayerCalendarData — Fetch another user's calendar (for coach/parent).
  *
  * Lightweight variant of useCalendarData that only fetches events
- * (no plan, no checkins, no delete).
+ * (no plan, no checkins, no delete). Also fetches day lock status.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -16,6 +16,7 @@ interface PlayerCalendarState {
   selectedDate: Date;
   isLoading: boolean;
   backendError: boolean;
+  dayLocks: Record<string, boolean>;
 }
 
 interface PlayerCalendarActions {
@@ -33,9 +34,10 @@ export function usePlayerCalendarData(
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [backendError, setBackendError] = useState(false);
+  const [dayLocks, setDayLocks] = useState<Record<string, boolean>>({});
 
   const isFocused = useIsFocused();
-  const cacheRef = useRef<Record<string, CalendarEvent[]>>({});
+  const cacheRef = useRef<Record<string, { events: CalendarEvent[]; dayLocks: Record<string, boolean> }>>({});
   const wasFocusedRef = useRef(true);
 
   // ─── Fetch events for the selected day ───────────────────────────
@@ -51,7 +53,9 @@ export function usePlayerCalendarData(
         const cacheKey = ds;
 
         if (cacheRef.current[cacheKey]) {
-          setEvents(cacheRef.current[cacheKey]);
+          const cached = cacheRef.current[cacheKey];
+          setEvents(cached.events);
+          setDayLocks((prev) => ({ ...prev, ...cached.dayLocks }));
           setIsLoading(false);
           return;
         }
@@ -59,10 +63,12 @@ export function usePlayerCalendarData(
         const fetcher =
           callerRole === 'coach' ? getCoachPlayerCalendar : getChildCalendar;
 
-        const result = await fetcher(targetUserId, ds, ds);
+        const result = await fetcher(targetUserId, ds, ds, true);
         const fetched = result.events || [];
-        cacheRef.current[cacheKey] = fetched;
+        const locks = result.dayLocks || {};
+        cacheRef.current[cacheKey] = { events: fetched, dayLocks: locks };
         setEvents(fetched);
+        setDayLocks((prev) => ({ ...prev, ...locks }));
       } catch {
         setBackendError(true);
       } finally {
@@ -100,6 +106,7 @@ export function usePlayerCalendarData(
     selectedDate,
     isLoading,
     backendError,
+    dayLocks,
     setSelectedDate,
     refresh,
   };
