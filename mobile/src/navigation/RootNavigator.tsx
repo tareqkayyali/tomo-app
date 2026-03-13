@@ -22,6 +22,8 @@ import { MainNavigator } from './MainNavigator';
 import { CoachNavigator } from './CoachNavigator';
 import { ParentNavigator } from './ParentNavigator';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { ParentOnboardingScreen } from '../screens/parent/ParentOnboardingScreen';
+import { CoachOnboardingScreen } from '../screens/coach/CoachOnboardingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { trackScreen } from '../services/analytics';
@@ -80,7 +82,13 @@ export function RootNavigator() {
         {showAuth ? (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         ) : showOnboarding ? (
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          role === 'parent' ? (
+            <Stack.Screen name="ParentOnboarding" component={ParentOnboardingScreen} />
+          ) : role === 'coach' ? (
+            <Stack.Screen name="CoachOnboarding" component={CoachOnboardingScreen} />
+          ) : (
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          )
         ) : (
           getMainScreen()
         )}

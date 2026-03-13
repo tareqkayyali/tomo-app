@@ -5,6 +5,7 @@
  */
 
 import { supabaseAdmin } from "../lib/supabase/admin";
+import { createNotification } from "./notificationService";
 import type { RelationshipType } from "../types";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -247,3 +248,224 @@ export async function revokeRelationship(
     throw new Error(`Failed to revoke relationship: ${updateError.message}`);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+//  Link by Email (Parent or Coach → Player)
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Create a pending relationship by looking up a player's email.
+ * Works for both parent and coach roles.
+ * Sends a notification to the player for confirmation.
+ */
+export async function createRelationshipByEmail(
+  guardianId: string,
+  playerEmail: string,
+  callerRole: "parent" | "coach" = "parent"
+): Promise<{ relationshipId: string; playerId: string; playerName: string }> {
+  const db = supabaseAdmin();
+
+  // 1. Look up guardian name for the notification
+  const { data: guardian } = await db
+    .from("users")
+    .select("name")
+    .eq("id", guardianId)
+    .single();
+
+  const guardianName = guardian?.name || (callerRole === "coach" ? "A coach" : "A parent");
+
+  // 2. Look up player by email
+  const { data: player, error: playerError } = await db
+    .from("users")
+    .select("id, name, role")
+    .eq("email", playerEmail.toLowerCase().trim())
+    .single();
+
+  if (playerError || !player) {
+    throw new Error("No player account found with that email");
+  }
+
+  if (player.role !== "player") {
+    throw new Error("That account is not a player account");
+  }
+
+  // 3. Prevent self-linking
+  if (player.id === guardianId) {
+    throw new Error("Cannot link to yourself");
+  }
+
+  // 4. Check for existing active or pending relationship
+  const { data: existing } = await db
+    .from("relationships")
+    .select("id, status")
+    .eq("guardian_id", guardianId)
+    .eq("player_id", player.id)
+    .in("status", ["accepted", "pending"])
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    const status = existing[0].status;
+    if (status === "accepted") {
+      throw new Error("You are already linked with this player");
+    }
+    throw new Error("A link request is already pending with this player");
+  }
+
+  // 5. Create pending relationship
+  const { data: rel, error: relError } = await db
+    .from("relationships")
+    .insert({
+      guardian_id: guardianId,
+      player_id: player.id,
+      relationship_type: callerRole,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (relError || !rel) {
+    throw new Error(`Failed to create relationship: ${relError?.message}`);
+  }
+
+  // 6. Send notification to the player
+  const notifType = callerRole === "coach" ? "coach_link_request" : "parent_link_request";
+  const roleLabel = callerRole === "coach" ? "Coach" : "Parent";
+
+  await createNotification({
+    userId: player.id,
+    type: notifType,
+    title: `${roleLabel} link request`,
+    body: `${guardianName} wants to link as your ${callerRole}`,
+    data: {
+      relationshipId: rel.id,
+      guardianId,
+      guardianName,
+    },
+  });
+
+  return {
+    relationshipId: rel.id,
+    playerId: player.id,
+    playerName: player.name || "",
+  };
+}
+
+/**
+ * Player accepts a pending link request (parent or coach).
+ */
+export async function acceptLinkRequest(
+  playerId: string,
+  relationshipId: string
+): Promise<void> {
+  const db = supabaseAdmin();
+
+  // Verify the relationship
+  const { data: rel, error } = await db
+    .from("relationships")
+    .select("id, guardian_id, player_id, status, relationship_type")
+    .eq("id", relationshipId)
+    .single();
+
+  if (error || !rel) {
+    throw new Error("Relationship not found");
+  }
+
+  if (rel.player_id !== playerId) {
+    throw new Error("Not authorized to respond to this request");
+  }
+
+  if (rel.status !== "pending") {
+    throw new Error("This request has already been resolved");
+  }
+
+  // Update to accepted
+  const { error: updateError } = await db
+    .from("relationships")
+    .update({ status: "accepted", accepted_at: new Date().toISOString() })
+    .eq("id", relationshipId);
+
+  if (updateError) {
+    throw new Error(`Failed to accept link: ${updateError.message}`);
+  }
+
+  // Get player name for notification
+  const { data: player } = await db
+    .from("users")
+    .select("name")
+    .eq("id", playerId)
+    .single();
+
+  const roleLabel = rel.relationship_type === "coach" ? "coach" : "parent";
+
+  // Notify the guardian
+  await createNotification({
+    userId: rel.guardian_id,
+    type: "relationship_accepted",
+    title: "Link confirmed",
+    body: `${player?.name || "The player"} confirmed your ${roleLabel} link`,
+    data: { relationshipId },
+  });
+}
+
+// Backward-compatible alias
+export const acceptParentLink = acceptLinkRequest;
+
+/**
+ * Player declines a pending link request (parent or coach).
+ */
+export async function declineLinkRequest(
+  playerId: string,
+  relationshipId: string
+): Promise<void> {
+  const db = supabaseAdmin();
+
+  // Verify the relationship
+  const { data: rel, error } = await db
+    .from("relationships")
+    .select("id, guardian_id, player_id, status, relationship_type")
+    .eq("id", relationshipId)
+    .single();
+
+  if (error || !rel) {
+    throw new Error("Relationship not found");
+  }
+
+  if (rel.player_id !== playerId) {
+    throw new Error("Not authorized to respond to this request");
+  }
+
+  if (rel.status !== "pending") {
+    throw new Error("This request has already been resolved");
+  }
+
+  // Update to revoked
+  const { error: updateError } = await db
+    .from("relationships")
+    .update({ status: "revoked" })
+    .eq("id", relationshipId);
+
+  if (updateError) {
+    throw new Error(`Failed to decline link: ${updateError.message}`);
+  }
+
+  // Get player name for notification
+  const { data: player } = await db
+    .from("users")
+    .select("name")
+    .eq("id", playerId)
+    .single();
+
+  const roleLabel = rel.relationship_type === "coach" ? "coach" : "parent";
+
+  // Notify the guardian
+  await createNotification({
+    userId: rel.guardian_id,
+    type: "relationship_declined",
+    title: "Link declined",
+    body: `${player?.name || "The player"} declined your ${roleLabel} link`,
+    data: { relationshipId },
+  });
+}
+
+// Backward-compatible alias
+export const declineParentLink = declineLinkRequest;

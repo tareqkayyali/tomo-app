@@ -13,10 +13,10 @@ import type { User, Sport, UserRole } from '../types';
 // ── Dev bypass — skip login for rapid testing ──────────────────────
 // Set to true to bypass Supabase auth and use mock user data.
 // Only works in __DEV__ builds. Set to false before deploying.
-const DEV_BYPASS = __DEV__ && true;
+const DEV_BYPASS = false;
 
 const DEV_USER: AuthUser = {
-  uid: '00000000-0000-0000-0000-000000000001', // Placeholder — replace with real Supabase auth UUID
+  uid: '8c15ffce-6416-4735-beb5-a144cd0ea2b2', // tareq.kayyali@gmail.com in Supabase auth
   email: 'tareq.kayyali@gmail.com',
 };
 

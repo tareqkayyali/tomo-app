@@ -1,15 +1,15 @@
 /**
  * Input Component
- * Tomo Design System — pill-shaped input on dark background
+ * Tomo Design System — dark-themed input for dark backgrounds
  *
  * - Pill shape: border-radius 24px
- * - White #FFFFFF background
- * - Left icon slot + right icon slot (optional)
- * - Orange focus ring
- * - Sits on #1A1D2E dark background
+ * - Dark translucent background
+ * - Light text on dark
+ * - Subtle focus ring
+ * - Overrides browser autofill styling on web
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -18,9 +18,37 @@ import {
   ViewStyle,
   TextInputProps,
   Pressable,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../theme';
+
+/* ── Inject global CSS to override browser autofill on web ────────── */
+let autofillCSSInjected = false;
+function injectAutofillCSS() {
+  if (Platform.OS !== 'web' || autofillCSSInjected) return;
+  autofillCSSInjected = true;
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Override browser autofill background */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px rgba(20,20,20,1) inset !important;
+      box-shadow: 0 0 0 1000px rgba(20,20,20,1) inset !important;
+      -webkit-text-fill-color: #FFFFFF !important;
+      caret-color: #FFFFFF !important;
+      transition: background-color 5000s ease-in-out 0s !important;
+    }
+    /* Remove all input focus outlines globally */
+    input:focus, textarea:focus {
+      outline: none !important;
+      outline-style: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -41,9 +69,15 @@ export function Input({
   iconLeft,
   iconRight,
   onPressRight,
+  style,
   ...props
-}: InputProps) {
+}: InputProps & { style?: ViewStyle }) {
   const [isFocused, setIsFocused] = useState(false);
+
+  // Inject autofill CSS override once on web
+  useEffect(() => {
+    injectAutofillCSS();
+  }, []);
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -59,13 +93,18 @@ export function Input({
           <Ionicons
             name={iconLeft}
             size={20}
-            color={colors.textInactive}
+            color="rgba(255,255,255,0.4)"
             style={styles.iconLeft}
           />
         )}
         <TextInput
-          style={[styles.input, !iconLeft && styles.inputNoLeftIcon]}
-          placeholderTextColor={colors.textInactive}
+          style={[
+            styles.input,
+            !iconLeft && styles.inputNoLeftIcon,
+            // Remove browser default outline on web
+            Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {},
+          ]}
+          placeholderTextColor="rgba(255,255,255,0.3)"
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           {...props}
@@ -75,7 +114,7 @@ export function Input({
             <Ionicons
               name={iconRight}
               size={20}
-              color={colors.textInactive}
+              color="rgba(255,255,255,0.4)"
               style={styles.iconRight}
             />
           </Pressable>
@@ -92,21 +131,21 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.label,
-    color: colors.textOnDark,
+    color: 'rgba(255,255,255,0.7)',
     marginBottom: spacing.xs,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.inputBackground, // #FFFFFF
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: borderRadius.xl,            // 24px pill
     borderWidth: 1.5,
-    borderColor: 'transparent',
+    borderColor: 'rgba(255,255,255,0.10)',
     paddingHorizontal: spacing.md,
     minHeight: 48,
   },
   inputFocused: {
-    borderColor: colors.accent1,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   inputError: {
     borderColor: colors.error,
@@ -120,8 +159,9 @@ const styles = StyleSheet.create({
   input: {
     ...typography.body,
     flex: 1,
-    color: colors.textOnLight,
+    color: '#FFFFFF',
     paddingVertical: spacing.compact,
+    backgroundColor: 'transparent',
   },
   inputNoLeftIcon: {
     paddingLeft: spacing.xs,

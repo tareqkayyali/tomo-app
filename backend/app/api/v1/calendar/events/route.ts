@@ -2,14 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
+import {
+  mapDbRowToCalendarEvent,
+  toDbEventType,
+} from "@/lib/calendarHelpers";
+
+// ─── Validation ────────────────────────────────────────────────────────────
 
 const calendarEventSchema = z.object({
   name: z.string().min(1).max(200),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
+  // Accept both frontend ("type") and legacy ("eventType") field names
+  type: z
+    .enum(["training", "match", "recovery", "study_block", "study", "exam", "other"])
+    .optional(),
   eventType: z
-    .enum(["training", "match", "recovery", "study", "exam", "other"])
-    .optional()
-    .default("training"),
+    .enum(["training", "match", "recovery", "study_block", "study", "exam", "other"])
+    .optional(),
+  sport: z
+    .enum(["football", "padel", "general", "basketball", "tennis"])
+    .optional(),
   startTime: z
     .string()
     .regex(/^\d{2}:\d{2}$/)
@@ -27,6 +39,8 @@ const calendarEventSchema = z.object({
   notes: z.string().max(500).nullable().optional(),
 });
 
+// ─── POST /api/v1/calendar/events ──────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
@@ -41,29 +55,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, date, eventType, startTime, endTime, notes } = parsed.data;
+    const { name, date, startTime, endTime, intensity, notes, sport } = parsed.data;
+
+    // Resolve event type: prefer "type" (new), fall back to "eventType" (legacy)
+    const rawType = parsed.data.type || parsed.data.eventType || "training";
+    const dbEventType = toDbEventType(rawType);
 
     // Build start_at from date + optional startTime
     const startAt = startTime
       ? `${date}T${startTime}:00`
       : `${date}T00:00:00`;
 
-    const endAt =
-      endTime
-        ? `${date}T${endTime}:00`
-        : null;
+    const endAt = endTime ? `${date}T${endTime}:00` : null;
 
     const db = supabaseAdmin();
+
+    // Base insert object (matches generated Supabase types)
+    const insertBase = {
+      user_id: auth.user.id,
+      title: name,
+      event_type: dbEventType,
+      start_at: startAt,
+      end_at: endAt,
+      notes: notes || null,
+    };
+
+    // Extended fields (intensity, sport) — columns added via migration 0008
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const insertData = {
+      ...insertBase,
+      intensity: intensity || null,
+      sport: sport || null,
+    } as typeof insertBase;
+
     const { data: event, error } = await db
       .from("calendar_events")
-      .insert({
-        user_id: auth.user.id,
-        title: name,
-        event_type: eventType || "training",
-        start_at: startAt,
-        end_at: endAt,
-        notes: notes || null,
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -71,8 +98,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Return transformed event matching frontend CalendarEvent shape
     return NextResponse.json(
-      { event },
+      { event: mapDbRowToCalendarEvent(event as Record<string, unknown>) },
       { status: 201, headers: { "api-version": "v1" } }
     );
   } catch {
@@ -82,6 +110,8 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// ─── GET /api/v1/calendar/events ───────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
@@ -95,11 +125,10 @@ export async function GET(req: NextRequest) {
   const db = supabaseAdmin();
 
   if (date) {
-    // Single day — query events whose start_at falls on that date
     const dayStart = `${date}T00:00:00`;
     const dayEnd = `${date}T23:59:59`;
 
-    const { data: events, error } = await db
+    const { data: rows, error } = await db
       .from("calendar_events")
       .select("*")
       .eq("user_id", auth.user.id)
@@ -111,8 +140,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const events = (rows || []).map((r) =>
+      mapDbRowToCalendarEvent(r as Record<string, unknown>)
+    );
+
     return NextResponse.json(
-      { events: events || [] },
+      { events },
       { headers: { "api-version": "v1" } }
     );
   }
@@ -121,7 +154,7 @@ export async function GET(req: NextRequest) {
     const rangeStart = `${startDate}T00:00:00`;
     const rangeEnd = `${endDate}T23:59:59`;
 
-    const { data: events, error } = await db
+    const { data: rows, error } = await db
       .from("calendar_events")
       .select("*")
       .eq("user_id", auth.user.id)
@@ -133,8 +166,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const events = (rows || []).map((r) =>
+      mapDbRowToCalendarEvent(r as Record<string, unknown>)
+    );
+
     return NextResponse.json(
-      { events: events || [] },
+      { events },
       { headers: { "api-version": "v1" } }
     );
   }

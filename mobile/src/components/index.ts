@@ -34,3 +34,15 @@ export { SkillRatingBar } from './SkillRatingBar';
 export type { SkillItem, SkillSubMetric } from './SkillRatingBar';
 export { RatingPathway } from './RatingPathway';
 export type { PathwayLevel, PathwayMilestone } from './RatingPathway';
+
+// ─── Sprint 5: Prototype UX Components ──────────────────────────
+export { BalanceBar } from './BalanceBar';
+export { LockInCard } from './LockInCard';
+export { TestSubTabs } from './TestSubTabs';
+export type { TestSubTab } from './TestSubTabs';
+export { WeekSummaryStrip } from './WeekSummaryStrip';
+export { RecentTestsScroll } from './RecentTestsScroll';
+export type { TestResult } from './RecentTestsScroll';
+export { QuickAddStrip } from './QuickAddStrip';
+export { ExamStudyPlanner } from './ExamStudyPlanner';
+export type { UpcomingExam, StudySuggestion } from './ExamStudyPlanner';

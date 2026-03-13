@@ -53,6 +53,21 @@ export const onboardingSchema = z.object({
     )
     .nullable()
     .optional(),
+  // New education fields
+  educationType: z.enum(["school", "university"]).optional(),
+  educationYear: z.number().int().min(1).max(12).optional(),
+  // Profile fields
+  height: z.number().min(50).max(250).optional(),
+  weight: z.number().min(20).max(200).optional(),
+  gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(),
+  primaryGoal: z.enum(["improve_fitness", "get_recruited", "recover_from_injury", "stay_consistent", "have_fun"]).optional(),
+  position: z.string().max(50).optional(),
+  playingStyle: z.string().max(50).optional(),
+  selectedSports: z.array(z.string()).optional(),
+  footballPosition: z.string().max(10).optional(),
+  footballExperience: z.enum(["beginner", "intermediate", "advanced", "elite"]).optional(),
+  footballCompetition: z.enum(["recreational", "club", "academy", "professional"]).optional(),
+  footballSelfAssessment: z.record(z.string(), z.number()).optional(),
 });
 
 export const feedbackSchema = z.object({
@@ -62,7 +77,17 @@ export const feedbackSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
+export const linkByEmailSchema = z.object({
+  email: z.string().email(),
+});
+
+export const respondLinkSchema = z.object({
+  action: z.enum(["accept", "decline"]),
+});
+
 export type CheckinInput = z.infer<typeof checkinSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type OnboardingInput = z.infer<typeof onboardingSchema>;
 export type FeedbackInput = z.infer<typeof feedbackSchema>;
+export type LinkByEmailInput = z.infer<typeof linkByEmailSchema>;
+export type RespondLinkInput = z.infer<typeof respondLinkSchema>;

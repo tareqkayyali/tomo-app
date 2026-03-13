@@ -90,7 +90,15 @@ export interface User {
   parentalConsent?: boolean;
   selectedSports?: string[];
   photoUrl?: string | null;
+
+  // Study plan fields
+  studySubjects?: string[];
+  examSchedule?: ExamEntry[];
+  trainingPreferences?: TrainingPreferences;
+  studyPlanConfig?: StudyPlanConfig;
 }
+// Education type
+export type EducationType = 'school' | 'university';
 
 // Onboarding Data
 export interface OnboardingData {
@@ -99,6 +107,22 @@ export interface OnboardingData {
   gender: Gender;
   position?: string;
   playingStyle?: string;
+  primaryGoal: PrimaryGoal;
+
+  // Education
+  educationType?: EducationType;
+  educationYear?: number;
+
+  // Sport selection (multi-sport)
+  selectedSports?: string[];
+
+  // Football-specific onboarding
+  footballPosition?: string;
+  footballExperience?: 'beginner' | 'intermediate' | 'advanced' | 'elite';
+  footballCompetition?: 'recreational' | 'club' | 'academy' | 'professional';
+  footballSelfAssessment?: Record<string, number>;
+
+  // Legacy fields (kept for backward compat)
   weeklyTrainingDays?: number;
   typicalSessionLength?: number;
   seasonPhase?: SeasonPhase;
@@ -109,24 +133,13 @@ export interface OnboardingData {
   isStudent?: boolean;
   schoolHours?: number;
   examPeriods?: string;
-  primaryGoal: PrimaryGoal;
   selfSelectedArchetype?: Archetype;
-
-  // Sport selection (multi-sport)
-  selectedSports?: string[];
-
-  // Football-specific onboarding
-  footballPosition?: string;
-  footballExperience?: 'beginner' | 'intermediate' | 'advanced' | 'elite';
-  footballCompetition?: 'recreational' | 'club' | 'academy' | 'professional';
-  footballSelfAssessment?: Record<string, number>;
 }
-
 // Sport Positions Response
 export interface SportPositionsResponse {
   sport: string;
   positions: string[];
-  styles: string[];
+  playingStyles: string[];
 }
 
 // Check-in (fixed to match backend fields)
@@ -582,7 +595,10 @@ export type NotificationType =
   | 'suggestion_resolved'
   | 'relationship_accepted'
   | 'relationship_declined'
-  | 'test_result_added';
+  | 'test_result_added'
+  | 'parent_link_request'
+  | 'coach_link_request'
+  | 'study_info_request';
 
 export interface AppNotification {
   id: string;
@@ -593,6 +609,55 @@ export interface AppNotification {
   data: Record<string, unknown>;
   read: boolean;
   created_at: string;
+}
+
+// ─── Study Plan Types ──────────────────────────────────────────────────────
+
+export type ExamType = 'Quiz' | 'Mid-term' | 'Final' | 'Essay' | 'Presentation';
+
+export interface ExamEntry {
+  id: string;
+  subject: string;
+  examType: ExamType;
+  examDate: string; // YYYY-MM-DD
+  notes?: string;
+}
+
+export interface TrainingPreferences {
+  gymSessionsPerWeek: number;
+  gymFixedDays: number[];     // 0=Sun..6=Sat
+  clubSessionsPerWeek: number;
+  clubFixedDays: number[];
+}
+
+export interface StudyProfile {
+  studySubjects: string[];
+  examSchedule: ExamEntry[];
+  trainingPreferences: TrainingPreferences;
+  studyPlanConfig?: StudyPlanConfig;
+  schoolHours?: number | null;
+  name?: string;
+}
+
+export type StudyStrategy = 'last_exam_first' | 'first_exam_first';
+
+export interface StudyPlanConfig {
+  daysPerSubject: Record<string, number>; // subject -> sessions per week
+  timeSlotStart: string; // HH:mm
+  timeSlotEnd: string;   // HH:mm
+  sessionDuration: 30 | 45 | 60 | 90;
+  strategy: StudyStrategy;
+  excludedDays: number[]; // 0=Sun..6=Sat
+}
+
+export interface StudyBlock {
+  id: string;
+  subject: string;
+  date: string;      // YYYY-MM-DD
+  startTime: string;  // HH:mm
+  endTime: string;    // HH:mm
+  examDate: string;
+  examType: ExamType;
 }
 
 // Error

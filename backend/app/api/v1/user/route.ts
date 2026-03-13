@@ -33,6 +33,10 @@ const ALLOWED_UPDATE_FIELDS: Record<string, string> = {
   healthKitConnected: "health_kit_connected",
   fcmToken: "fcm_token",
   photoUrl: "photo_url",
+  studySubjects: "study_subjects",
+  examSchedule: "exam_schedule",
+  trainingPreferences: "training_preferences",
+  studyPlanConfig: "study_plan_config",
 };
 
 export async function PUT(req: NextRequest) {

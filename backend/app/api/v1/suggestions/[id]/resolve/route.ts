@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRole } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { resolveSuggestion } from "@/services/suggestionService";
 import { createNotification } from "@/services/notificationService";
+import {
+  toDbEventType,
+  addMinutesToTimeStr,
+} from "@/lib/calendarHelpers";
 
 /**
  * POST /api/v1/suggestions/[id]/resolve
@@ -45,6 +50,67 @@ export async function POST(
       playerNotes,
     });
 
+    // Auto-create calendar_event when a calendar_event or study_block suggestion is accepted
+    let eventCreated = false;
+    if (
+      status === "accepted" &&
+      (resolved.suggestion_type === "calendar_event" || resolved.suggestion_type === "study_block") &&
+      resolved.payload
+    ) {
+      try {
+        const p = resolved.payload as Record<string, unknown>;
+        const eventType = toDbEventType(String(p.type || (resolved.suggestion_type === "study_block" ? "study_block" : "training")));
+
+        // Parse date and times — support both HH:mm fields and ISO timestamp fields
+        let date = p.date ? String(p.date) : "";
+        let startTime = p.startTime ? String(p.startTime) : null;
+        let endTime = p.endTime ? String(p.endTime) : null;
+        const duration = p.duration ? Number(p.duration) : null;
+
+        // Try ISO timestamps (startAt/endAt from study plan generator)
+        const startAtStr = p.startAt ? String(p.startAt) : null;
+        const endAtStr = p.endAt ? String(p.endAt) : null;
+
+        if (startAtStr && !startTime) {
+          date = startAtStr.slice(0, 10);       // "2026-03-15"
+          startTime = startAtStr.slice(11, 16); // "15:00"
+        }
+        if (endAtStr && !endTime) {
+          endTime = endAtStr.slice(11, 16);     // "16:00"
+        }
+
+        // Compute endTime from startTime + duration as fallback
+        if (!endTime && startTime && duration) {
+          endTime = addMinutesToTimeStr(startTime, duration);
+        }
+
+        const startAt = startTime
+          ? `${date}T${startTime}:00`
+          : `${date}T00:00:00`;
+        const endAt = endTime ? `${date}T${endTime}:00` : null;
+
+        const db = supabaseAdmin();
+        const insertBase = {
+          user_id: resolved.player_id,
+          title: resolved.title,
+          event_type: eventType,
+          start_at: startAt,
+          end_at: endAt,
+          notes: p.notes ? String(p.notes) : null,
+        };
+        const insertData = {
+          ...insertBase,
+          intensity: p.intensity ? String(p.intensity) : null,
+          sport: p.sport ? String(p.sport) : null,
+        } as typeof insertBase;
+
+        await db.from("calendar_events").insert(insertData);
+        eventCreated = true;
+      } catch {
+        // Best-effort: don't fail the resolve if event creation fails
+      }
+    }
+
     // Notify the author about the resolution
     if (resolved.author_id) {
       createNotification({
@@ -61,7 +127,7 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { suggestion: resolved },
+      { suggestion: resolved, eventCreated },
       { headers: { "api-version": "v1" } }
     );
   } catch (err: any) {

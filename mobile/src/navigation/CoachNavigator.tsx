@@ -17,10 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   CoachPlayersScreen,
   CoachPlayerDetailScreen,
+  CoachPlayerPlanScreen,
   CoachTestInputScreen,
   CoachInviteScreen,
   CoachSettingsScreen,
 } from '../screens/coach';
+import { RecommendEventScreen } from '../screens/RecommendEventScreen';
 
 // Screens — Stack (shared)
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -108,6 +110,16 @@ export function CoachNavigator() {
         name="CoachPlayerDetail"
         component={CoachPlayerDetailScreen}
         options={{ headerShown: true, title: 'Player Detail', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
+        name="CoachPlayerPlan"
+        component={CoachPlayerPlanScreen}
+        options={{ headerShown: true, title: 'Player Plan', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
+        name="RecommendEvent"
+        component={RecommendEventScreen}
+        options={{ headerShown: true, title: 'Recommend', ...stackHeaderOptions }}
       />
       <Stack.Screen
         name="CoachTestInput"

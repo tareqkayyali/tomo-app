@@ -1,5 +1,7 @@
 /**
- * FlowTimeline — Vertical event timeline with status indicators
+ * FlowTimeline — Vertical event timeline matching prototype design
+ *
+ * Layout per event row: [time column] [colored dot + line] [card with tinted bg + left border]
  */
 
 import React, { useMemo } from 'react';
@@ -10,12 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
 import { useSpringEntrance, usePulse } from '../../hooks/useAnimations';
-import {
-  getEventTypeColor,
-  getIntensityConfig,
-  getSportDotColor,
-  getSportLabel,
-} from '../../utils/calendarHelpers';
+import { getIntensityConfig } from '../../utils/calendarHelpers';
 import type { CalendarEvent } from '../../types';
 import type { ThemeColors } from '../../theme/colors';
 
@@ -25,24 +22,44 @@ interface Props {
   onComplete: (eventId: string) => void;
   onSkip: (eventId: string) => void;
   onUndo: (eventId: string) => void;
+  /** When true, hides action buttons (DONE/SKIP/UNDO). Used for coach/parent read-only view. */
+  readOnly?: boolean;
 }
 
-type EventIconName = 'barbell' | 'trophy' | 'leaf' | 'book' | 'school' | 'ellipsis-horizontal';
+// ─── Color + emoji mapping by event type (matches prototype) ────────────────
 
-const EVENT_ICONS: Record<string, EventIconName> = {
-  training: 'barbell',
-  match: 'trophy',
-  recovery: 'leaf',
-  study_block: 'book',
-  exam: 'school',
-  other: 'ellipsis-horizontal',
+const TYPE_COLORS: Record<string, string> = {
+  training: '#FF6B35',
+  match: '#FF6B35',
+  study_block: '#6366F1',
+  exam: '#E74C3C',
+  recovery: '#00D9FF',
+  other: '#666666',
 };
+
+const TYPE_EMOJIS: Record<string, string> = {
+  training: '⚡',
+  match: '⚽',
+  study_block: '📚',
+  exam: '📝',
+  recovery: '🧘',
+  other: '📋',
+};
+
+function getTypeColor(type: string): string {
+  return TYPE_COLORS[type] ?? '#666666';
+}
+
+function getTypeEmoji(type: string): string {
+  return TYPE_EMOJIS[type] ?? '📋';
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 function getCurrentEventIndex(events: CalendarEvent[], completedIds: Set<string>): number {
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  // Check for currently active event
   for (let i = 0; i < events.length; i++) {
     if (completedIds.has(events[i].id)) continue;
     const evt = events[i];
@@ -55,7 +72,6 @@ function getCurrentEventIndex(events: CalendarEvent[], completedIds: Set<string>
     }
   }
 
-  // Find next upcoming event
   for (let i = 0; i < events.length; i++) {
     if (completedIds.has(events[i].id)) continue;
     const evt = events[i];
@@ -68,17 +84,7 @@ function getCurrentEventIndex(events: CalendarEvent[], completedIds: Set<string>
   return -1;
 }
 
-function hasHighLoadWarning(events: CalendarEvent[], index: number): boolean {
-  if (index >= events.length - 1) return false;
-  const curr = events[index];
-  const next = events[index + 1];
-  if (curr.intensity !== 'HARD' || next.intensity !== 'HARD') return false;
-  if (!curr.endTime || !next.startTime) return false;
-  const [ceh, cem] = curr.endTime.split(':').map(Number);
-  const [nsh, nsm] = next.startTime.split(':').map(Number);
-  const gap = (nsh * 60 + nsm) - (ceh * 60 + cem);
-  return gap < 240; // within 4 hours
-}
+// ─── TimelineEvent ──────────────────────────────────────────────────────────
 
 function TimelineEvent({
   event,
@@ -86,10 +92,10 @@ function TimelineEvent({
   isCompleted,
   isCurrent,
   isLast,
-  showLoadWarning,
   onComplete,
   onSkip,
   onUndo,
+  readOnly,
   colors,
 }: {
   event: CalendarEvent;
@@ -97,15 +103,15 @@ function TimelineEvent({
   isCompleted: boolean;
   isCurrent: boolean;
   isLast: boolean;
-  showLoadWarning: boolean;
   onComplete: (id: string) => void;
   onSkip: (id: string) => void;
   onUndo: (id: string) => void;
+  readOnly?: boolean;
   colors: ThemeColors;
 }) {
   const styles = createStyles(colors);
-  const typeColor = getEventTypeColor(event.type);
-  const icon = EVENT_ICONS[event.type] ?? 'ellipsis-horizontal';
+  const typeColor = getTypeColor(event.type);
+  const emoji = getTypeEmoji(event.type);
   const entranceStyle = useSpringEntrance(index, 100);
   const pulseStyle = usePulse(1, 1.08);
   const intensityConfig = event.intensity ? getIntensityConfig(event.intensity) : null;
@@ -132,38 +138,44 @@ function TimelineEvent({
   };
 
   return (
-    <Animated.View style={entranceStyle}>
+    <Animated.View style={[entranceStyle, isCompleted && { opacity: 0.45 }]}>
       <View style={styles.eventRow}>
-        {/* Left: timeline line + icon */}
-        <View style={styles.timelineCol}>
-          {/* Connecting line above */}
+        {/* Left: time column */}
+        <View style={styles.timeCol}>
+          {event.startTime && (
+            <Text style={styles.timeText}>{event.startTime}</Text>
+          )}
+        </View>
+
+        {/* Center: dot + line */}
+        <View style={styles.dotCol}>
           {index > 0 && (
             <View style={[styles.lineSegment, styles.lineAbove, { backgroundColor: colors.glassBorder }]} />
           )}
-          {/* Icon circle */}
           <View
             style={[
-              styles.iconCircle,
-              { backgroundColor: typeColor + '20', borderColor: typeColor },
-              isCompleted && styles.iconCircleCompleted,
+              styles.dot,
+              { backgroundColor: isCompleted ? colors.success : typeColor },
             ]}
-          >
-            {isCompleted ? (
-              <Ionicons name="checkmark" size={14} color={colors.success} />
-            ) : (
-              <Ionicons name={icon} size={14} color={typeColor} />
-            )}
-          </View>
-          {/* Connecting line below */}
+          />
           {!isLast && (
             <View style={[styles.lineSegment, styles.lineBelow, { backgroundColor: colors.glassBorder }]} />
           )}
         </View>
 
-        {/* Right: event card */}
-        <View style={styles.eventCard}>
+        {/* Right: event card with colored left border + tinted bg */}
+        <View
+          style={[
+            styles.eventCard,
+            {
+              borderLeftWidth: 3,
+              borderLeftColor: typeColor,
+              backgroundColor: typeColor + '10',
+            },
+          ]}
+        >
           <View style={styles.eventHeader}>
-            <View style={[{ flex: 1 }, isCompleted && { opacity: 0.5 }]}>
+            <View style={[{ flex: 1 }]}>
               <Text
                 style={[
                   styles.eventName,
@@ -172,39 +184,27 @@ function TimelineEvent({
                 ]}
                 numberOfLines={1}
               >
-                {event.name}
+                {emoji} {event.name}
               </Text>
             </View>
-            {isCurrent && (
+            {isCurrent && !isCompleted && (
               <Animated.View style={[styles.nowBadge, pulseStyle]}>
                 <Text style={styles.nowText}>NOW</Text>
               </Animated.View>
             )}
-            {isCompleted && (
-              <Pressable
-                onPress={handleUndo}
-                style={styles.undoBtn}
-              >
+            {isCompleted && !readOnly && (
+              <Pressable onPress={handleUndo} style={styles.undoBtn}>
                 <Ionicons name="arrow-undo" size={14} color="#FFFFFF" />
                 <Text style={styles.undoText}>UNDO</Text>
               </Pressable>
             )}
           </View>
 
-          <View style={[styles.eventMeta, isCompleted && { opacity: 0.5 }]}>
-            {event.startTime && (
+          <View style={styles.eventMeta}>
+            {event.startTime && event.endTime && (
               <Text style={[styles.eventTime, { color: colors.textInactive }]}>
-                {event.startTime}
-                {event.endTime ? ` – ${event.endTime}` : ''}
+                {event.startTime} – {event.endTime}
               </Text>
-            )}
-            {event.sport && event.sport !== 'general' && (
-              <View style={[styles.sportBadge, { backgroundColor: getSportDotColor(event.sport) + '20' }]}>
-                <View style={[styles.sportDot, { backgroundColor: getSportDotColor(event.sport) }]} />
-                <Text style={[styles.sportText, { color: getSportDotColor(event.sport) }]}>
-                  {getSportLabel(event.sport)}
-                </Text>
-              </View>
             )}
             {intensityConfig && (
               <View style={[styles.intensityBadge, { backgroundColor: intensityConfig.bgColor }]}>
@@ -215,8 +215,15 @@ function TimelineEvent({
             )}
           </View>
 
-          {/* Action buttons for current event */}
-          {isCurrent && !isCompleted && (
+          {/* Auto-scheduled note for study blocks */}
+          {event.type === 'study_block' && event.notes && event.notes.toLowerCase().includes('auto') && (
+            <Text style={[styles.autoNote, { color: '#6366F1' }]}>
+              📝 Exam prep — Tomo auto-scheduled
+            </Text>
+          )}
+
+          {/* Action buttons for current event (hidden in readOnly mode) */}
+          {isCurrent && !isCompleted && !readOnly && (
             <View style={styles.actionRow}>
               <Pressable
                 onPress={handleComplete}
@@ -234,24 +241,15 @@ function TimelineEvent({
               </Pressable>
             </View>
           )}
-
         </View>
       </View>
-
-      {/* High load warning */}
-      {showLoadWarning && (
-        <View style={[styles.loadWarning, { backgroundColor: colors.warning + '15' }]}>
-          <Ionicons name="warning" size={12} color={colors.warning} />
-          <Text style={[styles.loadWarningText, { color: colors.warning }]}>
-            High load — 2 intense sessions close together
-          </Text>
-        </View>
-      )}
     </Animated.View>
   );
 }
 
-export function FlowTimeline({ events, completedEventIds, onComplete, onSkip, onUndo }: Props) {
+// ─── FlowTimeline (main export) ─────────────────────────────────────────────
+
+export function FlowTimeline({ events, completedEventIds, onComplete, onSkip, onUndo, readOnly }: Props) {
   const { colors } = useTheme();
   const styles = createStyles(colors);
 
@@ -273,7 +271,6 @@ export function FlowTimeline({ events, completedEventIds, onComplete, onSkip, on
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>TIMELINE</Text>
       {events.map((event, i) => (
         <TimelineEvent
           key={event.id}
@@ -282,10 +279,10 @@ export function FlowTimeline({ events, completedEventIds, onComplete, onSkip, on
           isCompleted={completedEventIds.has(event.id)}
           isCurrent={i === currentIndex}
           isLast={i === events.length - 1}
-          showLoadWarning={hasHighLoadWarning(events, i)}
           onComplete={onComplete}
           onSkip={onSkip}
           onUndo={onUndo}
+          readOnly={readOnly}
           colors={colors}
         />
       ))}
@@ -293,23 +290,35 @@ export function FlowTimeline({ events, completedEventIds, onComplete, onSkip, on
   );
 }
 
+// ─── Styles ─────────────────────────────────────────────────────────────────
+
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
       gap: 0,
     },
-    sectionTitle: {
-      fontFamily: fontFamily.medium,
-      fontSize: 10,
-      letterSpacing: 1.5,
-      marginBottom: spacing.sm,
-    },
     eventRow: {
       flexDirection: 'row',
       minHeight: 60,
     },
-    timelineCol: {
-      width: 36,
+
+    // Time column (left)
+    timeCol: {
+      width: 44,
+      alignItems: 'flex-end',
+      paddingRight: 8,
+      paddingTop: 8,
+    },
+    timeText: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      color: colors.textInactive,
+      fontVariant: ['tabular-nums'],
+    },
+
+    // Dot + line column (center)
+    dotCol: {
+      width: 20,
       alignItems: 'center',
     },
     lineSegment: {
@@ -322,22 +331,19 @@ function createStyles(colors: ThemeColors) {
     lineBelow: {
       marginTop: 0,
     },
-    iconCircle: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1.5,
+    dot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
     },
-    iconCircleCompleted: {
-      backgroundColor: 'rgba(48, 209, 88, 0.15)',
-      borderColor: '#30D158',
-    },
+
+    // Event card (right)
     eventCard: {
       flex: 1,
-      marginLeft: spacing.sm,
-      marginBottom: spacing.md,
+      marginLeft: 8,
+      marginBottom: spacing.sm,
+      padding: 10,
+      borderRadius: borderRadius.md,
     },
     eventHeader: {
       flexDirection: 'row',
@@ -375,23 +381,6 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.regular,
       fontSize: 12,
     },
-    sportBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 3,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 6,
-    },
-    sportDot: {
-      width: 5,
-      height: 5,
-      borderRadius: 2.5,
-    },
-    sportText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 10,
-    },
     intensityBadge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
@@ -400,6 +389,11 @@ function createStyles(colors: ThemeColors) {
     intensityText: {
       fontFamily: fontFamily.semiBold,
       fontSize: 10,
+    },
+    autoNote: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      marginTop: 4,
     },
     actionRow: {
       flexDirection: 'row',
@@ -433,20 +427,6 @@ function createStyles(colors: ThemeColors) {
       fontSize: 12,
       color: '#FFFFFF',
       letterSpacing: 0.5,
-    },
-    loadWarning: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: borderRadius.sm,
-      marginLeft: 44,
-      marginBottom: spacing.sm,
-    },
-    loadWarningText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 11,
     },
     emptyContainer: {
       alignItems: 'center',

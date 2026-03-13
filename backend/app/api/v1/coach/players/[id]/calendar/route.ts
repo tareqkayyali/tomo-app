@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRole, requireRelationship } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { mapDbRowToCalendarEvent } from "@/lib/calendarHelpers";
 
+/**
+ * GET /api/v1/coach/players/[id]/calendar
+ *
+ * Returns the linked player's actual calendar_events (same shape as
+ * the player's own /api/v1/calendar/events endpoint).
+ *
+ * Query params: ?date=YYYY-MM-DD or ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,65 +26,73 @@ export async function GET(
   const relResult = await requireRelationship(auth.user.id, playerId);
   if ("error" in relResult) return relResult.error;
 
+  const { searchParams } = req.nextUrl;
+  const date = searchParams.get("date");
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
+
+  const db = supabaseAdmin();
+
   try {
-    const db = supabaseAdmin();
+    if (date) {
+      const dayStart = `${date}T00:00:00`;
+      const dayEnd = `${date}T23:59:59`;
 
-    // Fetch accepted suggestions of calendar-related types
-    const { data: suggestions, error: sugErr } = await db
-      .from("suggestions")
-      .select("*")
-      .eq("player_id", playerId)
-      .eq("status", "accepted")
-      .in("suggestion_type", ["study_block", "exam_date", "calendar_event"])
-      .order("created_at", { ascending: false });
+      const { data: rows, error } = await db
+        .from("calendar_events")
+        .select("*")
+        .eq("user_id", playerId)
+        .gte("start_at", dayStart)
+        .lte("start_at", dayEnd)
+        .order("start_at", { ascending: true });
 
-    if (sugErr) {
-      return NextResponse.json({ error: sugErr.message }, { status: 500 });
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      const events = (rows || []).map((r) =>
+        mapDbRowToCalendarEvent(r as Record<string, unknown>)
+      );
+
+      return NextResponse.json(
+        { events },
+        { headers: { "api-version": "v1" } }
+      );
     }
 
-    // Fetch plans for next 7 days
-    const today = new Date().toISOString().split("T")[0];
-    const sevenDaysOut = new Date();
-    sevenDaysOut.setDate(sevenDaysOut.getDate() + 7);
-    const endDate = sevenDaysOut.toISOString().split("T")[0];
+    if (startDate && endDate) {
+      const rangeStart = `${startDate}T00:00:00`;
+      const rangeEnd = `${endDate}T23:59:59`;
 
-    const { data: plans, error: planErr } = await db
-      .from("plans")
-      .select("*")
-      .eq("user_id", playerId)
-      .gte("date", today)
-      .lte("date", endDate)
-      .order("date", { ascending: true });
+      const { data: rows, error } = await db
+        .from("calendar_events")
+        .select("*")
+        .eq("user_id", playerId)
+        .gte("start_at", rangeStart)
+        .lte("start_at", rangeEnd)
+        .order("start_at", { ascending: true });
 
-    if (planErr) {
-      return NextResponse.json({ error: planErr.message }, { status: 500 });
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      const events = (rows || []).map((r) =>
+        mapDbRowToCalendarEvent(r as Record<string, unknown>)
+      );
+
+      return NextResponse.json(
+        { events },
+        { headers: { "api-version": "v1" } }
+      );
     }
-
-    const events = [
-      ...(suggestions || []).map((s) => ({
-        id: s.id,
-        source: "suggestion" as const,
-        type: s.suggestion_type,
-        title: s.title,
-        payload: s.payload,
-        createdAt: s.created_at,
-      })),
-      ...(plans || []).map((p) => ({
-        id: p.id,
-        source: "plan" as const,
-        type: "plan",
-        title: `${p.workout_type || "workout"} – ${p.date}`,
-        payload: p,
-        createdAt: p.created_at,
-      })),
-    ];
 
     return NextResponse.json(
-      { events },
-      { headers: { "api-version": "v1" } }
+      { error: "Provide 'date' or 'startDate' + 'endDate' query params" },
+      { status: 400 }
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
+    const message =
+      err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

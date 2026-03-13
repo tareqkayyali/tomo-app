@@ -273,7 +273,10 @@ export type NotificationType =
   | "suggestion_resolved"
   | "relationship_accepted"
   | "relationship_declined"
-  | "test_result_added";
+  | "test_result_added"
+  | "parent_link_request"
+  | "coach_link_request"
+  | "study_info_request";
 
 export interface Notification {
   id: string;

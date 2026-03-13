@@ -1,6 +1,6 @@
 /**
  * Onboarding Screen — Digital Twin Profiling
- * 10-step wizard that runs after signup, before main app.
+ * 6-9 step wizard that runs after signup, before main app.
  * Tomo Flow doc Section 3.
  *
  * Dark aesthetic matching CheckinScreen style.
@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -26,7 +27,7 @@ import Animated, {
   SlideInLeft,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, Input, Slider } from '../components';
+import { Button, Input } from '../components';
 import {
   colors,
   spacing,
@@ -39,11 +40,10 @@ import {
 import { submitOnboarding, getSportPositions } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import type {
-  Archetype,
   Gender,
-  SeasonPhase,
   PrimaryGoal,
   OnboardingData,
+  EducationType,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -56,17 +56,10 @@ type StepId =
   | 'sportSelection'
   | 'multiSportMessage'
   | 'footballPosition'
-  | 'footballExperience'
-  | 'footballCompetition'
-  | 'footballSelfAssessment'
-  | 'physical'
+  | 'footballExperienceCompetition'
+  | 'profileSkillsGoals'
   | 'sportDetails'
-  | 'trainingBaseline'
-  | 'recoveryBaseline'
-  | 'injuryHistory'
   | 'academic'
-  | 'goals'
-  | 'archetype'
   | 'summary';
 
 // ── Sport Selection ───────────────────────────────────────────────────────
@@ -121,14 +114,6 @@ const GENDERS: { value: Gender; label: string }[] = [
   { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ];
 
-const SEASON_PHASES: { value: SeasonPhase; label: string; icon: string }[] = [
-  { value: 'pre_season', label: 'Pre-Season', icon: 'fitness-outline' },
-  { value: 'in_season', label: 'In-Season', icon: 'trophy-outline' },
-  { value: 'off_season', label: 'Off-Season', icon: 'bed-outline' },
-];
-
-const SESSION_LENGTHS = [30, 45, 60, 75, 90, 120];
-
 const GOALS: { value: PrimaryGoal; label: string; icon: string }[] = [
   { value: 'improve_fitness', label: 'Improve fitness', icon: 'trending-up-outline' },
   { value: 'get_recruited', label: 'Get recruited', icon: 'star-outline' },
@@ -137,57 +122,9 @@ const GOALS: { value: PrimaryGoal; label: string; icon: string }[] = [
   { value: 'have_fun', label: 'Have fun', icon: 'happy-outline' },
 ];
 
-const PAIN_AREAS = [
-  'Head / Neck',
-  'Shoulder',
-  'Upper Back',
-  'Lower Back',
-  'Elbow / Forearm',
-  'Wrist / Hand',
-  'Hip / Groin',
-  'Thigh / Hamstring',
-  'Knee',
-  'Shin / Calf',
-  'Ankle',
-  'Foot',
-];
-
-const ARCHETYPE_CARDS: {
-  value: Archetype;
-  emoji: string;
-  name: string;
-  color: string;
-  desc: string;
-}[] = [
-  {
-    value: 'phoenix',
-    emoji: '🔥',
-    name: 'Phoenix',
-    color: '#FF6B6B',
-    desc: 'Fast recovery, fast fatigue. Thrives on high intensity blocks.',
-  },
-  {
-    value: 'titan',
-    emoji: '⚡',
-    name: 'Titan',
-    color: '#4C6EF5',
-    desc: 'Slow recovery, high volume tolerance. Steady accumulation.',
-  },
-  {
-    value: 'blade',
-    emoji: '🗡️',
-    name: 'Blade',
-    color: '#12B886',
-    desc: 'Very slow recovery, extremely high quality when fresh.',
-  },
-  {
-    value: 'surge',
-    emoji: '🌊',
-    name: 'Surge',
-    color: '#FFD43B',
-    desc: 'Variable recovery, thrives on variety and pressure.',
-  },
-];
+// ── Education ─────────────────────────────────────────────────────────────
+const SCHOOL_GRADES = Array.from({ length: 12 }, (_, i) => i + 1);
+const UNI_YEARS = Array.from({ length: 6 }, (_, i) => i + 1);
 
 // ---------------------------------------------------------------------------
 // Component
@@ -218,23 +155,7 @@ export function OnboardingScreen() {
   const [position, setPosition] = useState('');
   const [playingStyle, setPlayingStyle] = useState('');
 
-  const [trainingDays, setTrainingDays] = useState(4);
-  const [sessionLength, setSessionLength] = useState(60);
-  const [seasonPhase, setSeasonPhase] = useState<SeasonPhase>('in_season');
-
-  const [sleepHours, setSleepHours] = useState(8);
-  const [baselineEnergy, setBaselineEnergy] = useState(6);
-
-  const [injuries, setInjuries] = useState('');
-  const [painAreas, setPainAreas] = useState<string[]>([]);
-
-  const [isStudent, setIsStudent] = useState(false);
-  const [schoolHours, setSchoolHours] = useState('');
-  const [examPeriods, setExamPeriods] = useState('');
-
   const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal | ''>('');
-
-  const [selfArchetype, setSelfArchetype] = useState<Archetype | ''>('');
 
   // ── Multi-sport + Football state ──────────────────────────────────
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
@@ -243,44 +164,46 @@ export function OnboardingScreen() {
   const [footballCompetition, setFootballCompetition] = useState('');
   const [footballSelfAssessment, setFootballSelfAssessment] = useState<Record<string, number>>({});
 
+  // ── Education state ────────────────────────────────────────────────
+  const [educationType, setEducationType] = useState<EducationType | ''>('');
+  const [educationYear, setEducationYear] = useState(0);
+
   const toggleSport = useCallback((key: string) => {
     setSelectedSports((prev) =>
       prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key],
     );
   }, []);
 
+  // ── Dynamic step sequence ─────────────────────────────────────────
+  const hasFootball = selectedSports.includes('football');
+  const hasPadel = selectedSports.includes('padel');
+  const isMultiSport = hasFootball && hasPadel;
+
   // ── Load sport positions (padel) ──────────────────────────────────
+  const padelSport = hasPadel ? 'padel' : profile?.sport;
   useEffect(() => {
-    if (profile?.sport) {
-      getSportPositions(profile.sport)
+    if (padelSport) {
+      getSportPositions(padelSport)
         .then((res) => {
-          setPositions(res.positions);
-          setStyles(res.styles);
+          setPositions(res.positions ?? []);
+          setStyles(res.playingStyles ?? []);
         })
         .catch(() => {
           setPositions([]);
           setStyles([]);
         });
     }
-  }, [profile?.sport]);
-
-  // ── Dynamic step sequence ─────────────────────────────────────────
-  const hasFootball = selectedSports.includes('football');
-  const hasPadel = selectedSports.includes('padel');
-  const isMultiSport = hasFootball && hasPadel;
+  }, [padelSport]);
 
   const stepSequence = useMemo<StepId[]>(() => {
     const seq: StepId[] = ['intro', 'sportSelection'];
     if (isMultiSport) seq.push('multiSportMessage');
     if (hasFootball) {
-      seq.push('footballPosition', 'footballExperience', 'footballCompetition', 'footballSelfAssessment');
+      seq.push('footballPosition', 'footballExperienceCompetition');
     }
-    seq.push('physical');
+    seq.push('profileSkillsGoals');
     if (hasPadel) seq.push('sportDetails');
-    seq.push(
-      'trainingBaseline', 'recoveryBaseline', 'injuryHistory',
-      'academic', 'goals', 'archetype', 'summary',
-    );
+    seq.push('academic', 'summary');
     return seq;
   }, [hasFootball, hasPadel, isMultiSport]);
 
@@ -302,21 +225,14 @@ export function OnboardingScreen() {
       case 'sportSelection': return selectedSports.length > 0;
       case 'multiSportMessage': return true;
       case 'footballPosition': return footballPosition !== '';
-      case 'footballExperience': return footballExperience !== '';
-      case 'footballCompetition': return footballCompetition !== '';
-      case 'footballSelfAssessment': return true; // optional
-      case 'physical': return gender !== '';
+      case 'footballExperienceCompetition': return footballExperience !== '' && footballCompetition !== '';
+      case 'profileSkillsGoals': return gender !== '' && primaryGoal !== '';
       case 'sportDetails': return true;
-      case 'trainingBaseline': return true;
-      case 'recoveryBaseline': return true;
-      case 'injuryHistory': return true;
-      case 'academic': return true;
-      case 'goals': return primaryGoal !== '';
-      case 'archetype': return selfArchetype !== '';
+      case 'academic': return educationType !== '';
       case 'summary': return true;
       default: return false;
     }
-  }, [currentStepId, selectedSports, footballPosition, footballExperience, footballCompetition, gender, primaryGoal, selfArchetype]);
+  }, [currentStepId, selectedSports, footballPosition, footballExperience, footballCompetition, gender, primaryGoal, educationType]);
 
   const handleNext = useCallback(() => {
     if (step < totalSteps && canProceed()) {
@@ -334,12 +250,6 @@ export function OnboardingScreen() {
     }
   }, [step]);
 
-  const togglePainArea = useCallback((area: string) => {
-    setPainAreas((prev) =>
-      prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area],
-    );
-  }, []);
-
   // ── Submit ──────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
@@ -350,18 +260,7 @@ export function OnboardingScreen() {
         gender: gender as Gender,
         position: position || footballPosition || undefined,
         playingStyle: playingStyle || undefined,
-        weeklyTrainingDays: trainingDays,
-        typicalSessionLength: sessionLength,
-        seasonPhase,
-        typicalSleepHours: sleepHours,
-        baselineEnergy,
-        injuries: injuries || undefined,
-        painAreas: painAreas.length > 0 ? painAreas : undefined,
-        isStudent,
-        schoolHours: schoolHours ? Number(schoolHours) : undefined,
-        examPeriods: examPeriods || undefined,
         primaryGoal: primaryGoal as PrimaryGoal,
-        selfSelectedArchetype: selfArchetype as Archetype,
         selectedSports: selectedSports.length > 0 ? selectedSports : undefined,
         footballPosition: footballPosition || undefined,
         footballExperience: (footballExperience || undefined) as OnboardingData['footballExperience'],
@@ -372,27 +271,32 @@ export function OnboardingScreen() {
                 Object.entries(footballSelfAssessment).map(([k, v]) => [k, SELF_ASSESS_MAP[v] ?? v]),
               )
             : undefined,
+        educationType: educationType as OnboardingData['educationType'],
+        educationYear: educationYear > 0 ? educationYear : undefined,
       };
 
       await submitOnboarding(data);
       await refreshProfile();
-    } catch {
-      Alert.alert(
-        'Error',
-        'Could not save your profile. Please try again.',
-        [{ text: 'OK' }],
-      );
+    } catch (err) {
+      console.error('[Onboarding] submit failed:', err);
+      if (Platform.OS === 'web') {
+        window.alert('Could not save your profile. Please try again.');
+      } else {
+        Alert.alert(
+          'Error',
+          'Could not save your profile. Please try again.',
+          [{ text: 'OK' }],
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
   }, [
     height, weight, gender, position, playingStyle,
-    trainingDays, sessionLength, seasonPhase,
-    sleepHours, baselineEnergy, injuries, painAreas,
-    isStudent, schoolHours, examPeriods,
-    primaryGoal, selfArchetype, refreshProfile,
+    primaryGoal, refreshProfile,
     selectedSports, footballPosition, footballExperience,
     footballCompetition, footballSelfAssessment,
+    educationType, educationYear,
   ]);
 
   // ── Render Steps ────────────────────────────────────────────────────
@@ -499,14 +403,17 @@ export function OnboardingScreen() {
           </>
         );
 
-      // ── Football Experience ──────────────────────────────────────
-      case 'footballExperience':
+      // ── Football Experience + Competition (merged) ─────────────
+      case 'footballExperienceCompetition':
         return (
           <>
-            <Text style={styles_s.stepTitle}>Experience Level</Text>
+            <Text style={styles_s.stepTitle}>Experience & Competition</Text>
             <Text style={styles_s.stepSubtitle}>
-              How long have you been playing football?
+              Tell us about your football background.
             </Text>
+
+            {/* Experience Level */}
+            <Text style={styles_s.fieldLabel}>Experience Level</Text>
             {EXPERIENCE_LEVELS.map((e) => (
               <TouchableOpacity
                 key={e.value}
@@ -539,17 +446,9 @@ export function OnboardingScreen() {
                 )}
               </TouchableOpacity>
             ))}
-          </>
-        );
 
-      // ── Football Competition ─────────────────────────────────────
-      case 'footballCompetition':
-        return (
-          <>
-            <Text style={styles_s.stepTitle}>Competition Level</Text>
-            <Text style={styles_s.stepSubtitle}>
-              What level do you compete at?
-            </Text>
+            {/* Competition Level */}
+            <Text style={[styles_s.fieldLabel, { marginTop: spacing.lg }]}>Competition Level</Text>
             {COMPETITION_LEVELS.map((c) => (
               <TouchableOpacity
                 key={c.value}
@@ -580,78 +479,16 @@ export function OnboardingScreen() {
           </>
         );
 
-      // ── Football Self-Assessment (optional) ──────────────────────
-      case 'footballSelfAssessment':
+      // ── Profile, Skills & Goals (merged) ──────────────────────────
+      case 'profileSkillsGoals':
         return (
           <>
-            <Text style={styles_s.stepTitle}>Rate Yourself</Text>
+            <Text style={styles_s.stepTitle}>About You</Text>
             <Text style={styles_s.stepSubtitle}>
-              How would you rate your abilities? This is optional — you can skip.
-            </Text>
-            {FB_SELF_ASSESS_ATTRS.map((attr) => (
-              <View key={attr.key} style={styles_s.assessRow}>
-                <View style={styles_s.assessLabel}>
-                  <Ionicons name={attr.icon} size={16} color={colors.accent1} />
-                  <Text style={styles_s.assessLabelText}>{attr.label}</Text>
-                </View>
-                <View style={styles_s.assessButtons}>
-                  {[1, 2, 3, 4, 5].map((v) => (
-                    <TouchableOpacity
-                      key={v}
-                      style={[
-                        styles_s.assessBtn,
-                        footballSelfAssessment[attr.key] === v && styles_s.assessBtnActive,
-                      ]}
-                      onPress={() =>
-                        setFootballSelfAssessment((prev) => ({ ...prev, [attr.key]: v }))
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles_s.assessBtnText,
-                          footballSelfAssessment[attr.key] === v && styles_s.assessBtnTextActive,
-                        ]}
-                      >
-                        {v}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            ))}
-          </>
-        );
-
-      // ── Physical Info ────────────────────────────────────────────
-      case 'physical':
-        return (
-          <>
-            <Text style={styles_s.stepTitle}>Physical Info</Text>
-            <Text style={styles_s.stepSubtitle}>
-              Help us understand your body to give better recommendations.
+              Help us personalize your experience
             </Text>
 
-            <View style={styles_s.row}>
-              <View style={styles_s.halfInput}>
-                <Input
-                  label="Height (cm)"
-                  placeholder="175"
-                  value={height}
-                  onChangeText={setHeight}
-                  keyboardType="number-pad"
-                />
-              </View>
-              <View style={styles_s.halfInput}>
-                <Input
-                  label="Weight (kg)"
-                  placeholder="70"
-                  value={weight}
-                  onChangeText={setWeight}
-                  keyboardType="number-pad"
-                />
-              </View>
-            </View>
-
+            {/* Section 1: Gender */}
             <Text style={styles_s.fieldLabel}>Gender</Text>
             <View style={styles_s.chipGrid}>
               {GENDERS.map((g) => (
@@ -674,291 +511,69 @@ export function OnboardingScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-          </>
-        );
 
-      // ── Sport Details (padel position/style) ─────────────────────
-      case 'sportDetails':
-        return (
-          <>
-            <Text style={styles_s.stepTitle}>Padel Details</Text>
-            <Text style={styles_s.stepSubtitle}>
-              Optional position and playing style for padel.
-            </Text>
-
-            {positions.length > 0 && (
-              <>
-                <Text style={styles_s.fieldLabel}>Position</Text>
-                <View style={styles_s.chipGrid}>
-                  {positions.map((p) => (
-                    <TouchableOpacity
-                      key={p}
-                      style={[
-                        styles_s.selectChip,
-                        position === p && styles_s.selectChipActive,
-                      ]}
-                      onPress={() => setPosition(p)}
-                    >
-                      <Text
-                        style={[
-                          styles_s.selectChipText,
-                          position === p && styles_s.selectChipTextActive,
-                        ]}
-                      >
-                        {p}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
-
-            {styles.length > 0 && (
-              <>
-                <Text style={styles_s.fieldLabel}>Playing Style</Text>
-                <View style={styles_s.chipGrid}>
-                  {styles.map((s) => (
-                    <TouchableOpacity
-                      key={s}
-                      style={[
-                        styles_s.selectChip,
-                        playingStyle === s && styles_s.selectChipActive,
-                      ]}
-                      onPress={() => setPlayingStyle(s)}
-                    >
-                      <Text
-                        style={[
-                          styles_s.selectChipText,
-                          playingStyle === s && styles_s.selectChipTextActive,
-                        ]}
-                      >
-                        {s}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
-          </>
-        );
-
-      // ── Training Baseline ────────────────────────────────────────
-      case 'trainingBaseline':
-        return (
-          <>
-            <Text style={styles_s.stepTitle}>Training Baseline</Text>
-
-            <Text style={styles_s.fieldLabel}>
-              Days per week you train: {trainingDays}
-            </Text>
-            <Slider
-              label=""
-              value={trainingDays}
-              onChange={setTrainingDays}
-              min={1}
-              max={7}
-            />
-
-            <Text style={styles_s.fieldLabel}>Typical session length</Text>
-            <View style={styles_s.chipGrid}>
-              {SESSION_LENGTHS.map((len) => (
-                <TouchableOpacity
-                  key={len}
-                  style={[
-                    styles_s.selectChip,
-                    sessionLength === len && styles_s.selectChipActive,
-                  ]}
-                  onPress={() => setSessionLength(len)}
-                >
-                  <Text
-                    style={[
-                      styles_s.selectChipText,
-                      sessionLength === len && styles_s.selectChipTextActive,
-                    ]}
-                  >
-                    {len} min
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles_s.fieldLabel}>Season Phase</Text>
-            <View style={styles_s.chipGrid}>
-              {SEASON_PHASES.map((sp) => (
-                <TouchableOpacity
-                  key={sp.value}
-                  style={[
-                    styles_s.selectChip,
-                    seasonPhase === sp.value && styles_s.selectChipActive,
-                  ]}
-                  onPress={() => setSeasonPhase(sp.value)}
-                >
-                  <Ionicons
-                    name={sp.icon as keyof typeof Ionicons.glyphMap}
-                    size={16}
-                    color={seasonPhase === sp.value ? '#FFFFFF' : colors.textInactive}
-                    style={styles_s.chipIcon}
-                  />
-                  <Text
-                    style={[
-                      styles_s.selectChipText,
-                      seasonPhase === sp.value && styles_s.selectChipTextActive,
-                    ]}
-                  >
-                    {sp.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        );
-
-      // ── Recovery Baseline ────────────────────────────────────────
-      case 'recoveryBaseline':
-        return (
-          <>
-            <Text style={styles_s.stepTitle}>Recovery Baseline</Text>
-
-            <Text style={styles_s.fieldLabel}>
-              Typical sleep: {sleepHours} hours
-            </Text>
-            <Slider
-              label=""
-              value={sleepHours}
-              onChange={setSleepHours}
-              min={4}
-              max={12}
-            />
-
-            <Text style={styles_s.fieldLabel}>
-              Typical energy level: {baselineEnergy}/10
-            </Text>
-            <Slider
-              label=""
-              value={baselineEnergy}
-              onChange={setBaselineEnergy}
-              min={1}
-              max={10}
-            />
-          </>
-        );
-
-      // ── Injury History ───────────────────────────────────────────
-      case 'injuryHistory':
-        return (
-          <>
-            <Text style={styles_s.stepTitle}>Injury History</Text>
-            <Text style={styles_s.stepSubtitle}>
-              Optional — helps us keep you safe.
-            </Text>
-
-            <Input
-              label="Current injuries or chronic conditions"
-              placeholder="e.g. Recovering from knee sprain"
-              value={injuries}
-              onChangeText={setInjuries}
-              multiline
-            />
-
-            <Text style={styles_s.fieldLabel}>Pain areas (select any)</Text>
-            <View style={styles_s.chipGrid}>
-              {PAIN_AREAS.map((area) => (
-                <TouchableOpacity
-                  key={area}
-                  style={[
-                    styles_s.selectChip,
-                    painAreas.includes(area) && styles_s.selectChipPain,
-                  ]}
-                  onPress={() => togglePainArea(area)}
-                >
-                  <Text
-                    style={[
-                      styles_s.selectChipText,
-                      painAreas.includes(area) && styles_s.selectChipTextPain,
-                    ]}
-                  >
-                    {area}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        );
-
-      // ── Academic ─────────────────────────────────────────────────
-      case 'academic':
-        return (
-          <>
-            <Text style={styles_s.stepTitle}>Academic Life</Text>
-            <Text style={styles_s.stepSubtitle}>
-              Helps us balance training with school demands.
-            </Text>
-
-            <Text style={styles_s.fieldLabel}>Are you a student?</Text>
-            <View style={styles_s.chipGrid}>
-              <TouchableOpacity
-                style={[
-                  styles_s.selectChip,
-                  isStudent && styles_s.selectChipActive,
-                ]}
-                onPress={() => setIsStudent(true)}
-              >
-                <Text
-                  style={[
-                    styles_s.selectChipText,
-                    isStudent && styles_s.selectChipTextActive,
-                  ]}
-                >
-                  Yes
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles_s.selectChip,
-                  !isStudent && styles_s.selectChipActive,
-                ]}
-                onPress={() => setIsStudent(false)}
-              >
-                <Text
-                  style={[
-                    styles_s.selectChipText,
-                    !isStudent && styles_s.selectChipTextActive,
-                  ]}
-                >
-                  No
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {isStudent && (
-              <>
+            {/* Section 2: Height + Weight */}
+            <View style={styles_s.row}>
+              <View style={styles_s.halfInput}>
                 <Input
-                  label="School hours per day"
-                  placeholder="6"
-                  value={schoolHours}
-                  onChangeText={setSchoolHours}
+                  label="Height (cm)"
+                  placeholder="175"
+                  value={height}
+                  onChangeText={setHeight}
                   keyboardType="number-pad"
                 />
+              </View>
+              <View style={styles_s.halfInput}>
                 <Input
-                  label="Heavy exam periods (optional)"
-                  placeholder="e.g. June, December"
-                  value={examPeriods}
-                  onChangeText={setExamPeriods}
+                  label="Weight (kg)"
+                  placeholder="70"
+                  value={weight}
+                  onChangeText={setWeight}
+                  keyboardType="number-pad"
                 />
+              </View>
+            </View>
+
+            {/* Section 3: Football Self-Assessment (optional) */}
+            {hasFootball && (
+              <>
+                <Text style={[styles_s.fieldLabel, { marginTop: spacing.lg }]}>Rate Yourself (optional)</Text>
+                {FB_SELF_ASSESS_ATTRS.map((attr) => (
+                  <View key={attr.key} style={styles_s.assessRow}>
+                    <View style={styles_s.assessLabel}>
+                      <Ionicons name={attr.icon} size={16} color={colors.accent1} />
+                      <Text style={styles_s.assessLabelText}>{attr.label}</Text>
+                    </View>
+                    <View style={styles_s.assessButtons}>
+                      {[1, 2, 3, 4, 5].map((v) => (
+                        <TouchableOpacity
+                          key={v}
+                          style={[
+                            styles_s.assessBtn,
+                            footballSelfAssessment[attr.key] === v && styles_s.assessBtnActive,
+                          ]}
+                          onPress={() =>
+                            setFootballSelfAssessment((prev) => ({ ...prev, [attr.key]: v }))
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles_s.assessBtnText,
+                              footballSelfAssessment[attr.key] === v && styles_s.assessBtnTextActive,
+                            ]}
+                          >
+                            {v}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                ))}
               </>
             )}
-          </>
-        );
 
-      // ── Goals ────────────────────────────────────────────────────
-      case 'goals':
-        return (
-          <>
-            <Text style={styles_s.stepTitle}>Your Main Goal</Text>
-            <Text style={styles_s.stepSubtitle}>
-              What's the #1 thing you want Tomo to help with?
-            </Text>
-
+            {/* Section 4: Primary Goal */}
+            <Text style={[styles_s.fieldLabel, { marginTop: spacing.lg }]}>Your Main Goal</Text>
             {GOALS.map((g) => (
               <TouchableOpacity
                 key={g.value}
@@ -989,45 +604,171 @@ export function OnboardingScreen() {
           </>
         );
 
-      // ── Archetype Self-ID ────────────────────────────────────────
-      case 'archetype':
+      // ── Sport Details (padel position/style) ─────────────────────
+      case 'sportDetails':
         return (
           <>
-            <Text style={styles_s.stepTitle}>Which sounds like you?</Text>
+            <Text style={styles_s.stepTitle}>Padel Details</Text>
             <Text style={styles_s.stepSubtitle}>
-              Pick the one that feels closest. Tomo will learn your
-              true type over 14 days of check-ins.
+              Optional position and playing style for padel.
             </Text>
 
-            {ARCHETYPE_CARDS.map((a) => (
-              <TouchableOpacity
-                key={a.value}
-                style={[
-                  styles_s.archetypeCard,
-                  selfArchetype === a.value && {
-                    borderColor: a.color,
-                    backgroundColor: `${a.color}18`,
-                  },
-                ]}
-                onPress={() => setSelfArchetype(a.value)}
-              >
-                <View style={styles_s.archetypeHeader}>
-                  <Text style={styles_s.archetypeEmoji}>{a.emoji}</Text>
-                  <Text
-                    style={[
-                      styles_s.archetypeName,
-                      selfArchetype === a.value && { color: a.color },
-                    ]}
-                  >
-                    {a.name}
-                  </Text>
-                  {selfArchetype === a.value && (
-                    <Ionicons name="checkmark-circle" size={20} color={a.color} />
-                  )}
+            {positions?.length > 0 && (
+              <>
+                <Text style={styles_s.fieldLabel}>Position</Text>
+                <View style={styles_s.chipGrid}>
+                  {positions.map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      style={[
+                        styles_s.selectChip,
+                        position === p && styles_s.selectChipActive,
+                      ]}
+                      onPress={() => setPosition(p)}
+                    >
+                      <Text
+                        style={[
+                          styles_s.selectChipText,
+                          position === p && styles_s.selectChipTextActive,
+                        ]}
+                      >
+                        {p}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-                <Text style={styles_s.archetypeDesc}>{a.desc}</Text>
-              </TouchableOpacity>
-            ))}
+              </>
+            )}
+
+            {styles?.length > 0 && (
+              <>
+                <Text style={styles_s.fieldLabel}>Playing Style</Text>
+                <View style={styles_s.chipGrid}>
+                  {styles.map((s) => (
+                    <TouchableOpacity
+                      key={s}
+                      style={[
+                        styles_s.selectChip,
+                        playingStyle === s && styles_s.selectChipActive,
+                      ]}
+                      onPress={() => setPlayingStyle(s)}
+                    >
+                      <Text
+                        style={[
+                          styles_s.selectChipText,
+                          playingStyle === s && styles_s.selectChipTextActive,
+                        ]}
+                      >
+                        {s}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+          </>
+        );
+
+      // ── Academic (redesigned) ──────────────────────────────────────
+      case 'academic':
+        return (
+          <>
+            <Text style={styles_s.stepTitle}>Education</Text>
+            <Text style={styles_s.stepSubtitle}>
+              Are you currently in school or university?
+            </Text>
+
+            {/* Education type — big cards like sport selection */}
+            <TouchableOpacity
+              style={[
+                styles_s.sportCard,
+                educationType === 'school' && { borderColor: colors.accent1, backgroundColor: `${colors.accent1}18` },
+              ]}
+              onPress={() => { setEducationType('school'); setEducationYear(0); }}
+            >
+              <View style={[styles_s.sportIconBox, { backgroundColor: `${colors.accent1}20` }]}>
+                <Ionicons name="school-outline" size={28} color={colors.accent1} />
+              </View>
+              <Text style={[styles_s.sportCardLabel, educationType === 'school' && { color: colors.accent1 }]}>
+                School
+              </Text>
+              {educationType === 'school' && (
+                <Ionicons name="checkmark-circle" size={22} color={colors.accent1} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles_s.sportCard,
+                educationType === 'university' && { borderColor: colors.accent2, backgroundColor: `${colors.accent2}18` },
+              ]}
+              onPress={() => { setEducationType('university'); setEducationYear(0); }}
+            >
+              <View style={[styles_s.sportIconBox, { backgroundColor: `${colors.accent2}20` }]}>
+                <Ionicons name="library-outline" size={28} color={colors.accent2} />
+              </View>
+              <Text style={[styles_s.sportCardLabel, educationType === 'university' && { color: colors.accent2 }]}>
+                University
+              </Text>
+              {educationType === 'university' && (
+                <Ionicons name="checkmark-circle" size={22} color={colors.accent2} />
+              )}
+            </TouchableOpacity>
+
+            {/* Grade / Year chips */}
+            {educationType === 'school' && (
+              <>
+                <Text style={[styles_s.fieldLabel, { marginTop: spacing.lg }]}>Grade</Text>
+                <View style={styles_s.chipGrid}>
+                  {SCHOOL_GRADES.map((g) => (
+                    <TouchableOpacity
+                      key={g}
+                      style={[
+                        styles_s.selectChip,
+                        educationYear === g && styles_s.selectChipActive,
+                      ]}
+                      onPress={() => setEducationYear(g)}
+                    >
+                      <Text
+                        style={[
+                          styles_s.selectChipText,
+                          educationYear === g && styles_s.selectChipTextActive,
+                        ]}
+                      >
+                        {g}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {educationType === 'university' && (
+              <>
+                <Text style={[styles_s.fieldLabel, { marginTop: spacing.lg }]}>Year</Text>
+                <View style={styles_s.chipGrid}>
+                  {UNI_YEARS.map((y) => (
+                    <TouchableOpacity
+                      key={y}
+                      style={[
+                        styles_s.selectChip,
+                        educationYear === y && styles_s.selectChipActive,
+                      ]}
+                      onPress={() => setEducationYear(y)}
+                    >
+                      <Text
+                        style={[
+                          styles_s.selectChipText,
+                          educationYear === y && styles_s.selectChipTextActive,
+                        ]}
+                      >
+                        {y}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
           </>
         );
 
@@ -1036,6 +777,11 @@ export function OnboardingScreen() {
         const sportNames = selectedSports
           .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
           .join(' + ');
+
+        const educationLabel = educationType
+          ? `${educationType === 'school' ? 'School' : 'University'}${educationYear > 0 ? ` - ${educationType === 'school' ? 'Grade' : 'Year'} ${educationYear}` : ''}`
+          : undefined;
+
         return (
           <View style={styles_s.centeredContent}>
             <View style={styles_s.completeIcon}>
@@ -1044,9 +790,6 @@ export function OnboardingScreen() {
             <Text style={styles_s.introTitle}>Your profile is ready!</Text>
             <Text style={styles_s.introSubtitle}>
               Tomo now has everything it needs to personalize your experience.
-              {selfArchetype
-                ? ` You identified as a ${ARCHETYPE_CARDS.find((a) => a.value === selfArchetype)?.name} — we'll confirm your true type after 14 check-ins.`
-                : ''}
             </Text>
 
             <View style={styles_s.summaryCard}>
@@ -1064,15 +807,8 @@ export function OnboardingScreen() {
                 />
               )}
               {hasPadel && position && <SummaryRow label="Padel Position" value={position} />}
-              <SummaryRow label="Training" value={`${trainingDays}x/week, ${sessionLength}min`} />
-              <SummaryRow label="Sleep" value={`${sleepHours}h typical`} />
               <SummaryRow label="Goal" value={GOALS.find((g) => g.value === primaryGoal)?.label || '—'} />
-              {selfArchetype && (
-                <SummaryRow
-                  label="Archetype"
-                  value={`${ARCHETYPE_CARDS.find((a) => a.value === selfArchetype)?.emoji} ${ARCHETYPE_CARDS.find((a) => a.value === selfArchetype)?.name}`}
-                />
-              )}
+              {educationLabel && <SummaryRow label="Education" value={educationLabel} />}
             </View>
           </View>
         );
@@ -1139,7 +875,7 @@ export function OnboardingScreen() {
           />
         ) : (
           <Button
-            title="Let's Go!"
+            title="Let's Tomo!"
             onPress={handleSubmit}
             variant="primary"
             icon="rocket"
@@ -1201,6 +937,9 @@ const styles_s = StyleSheet.create({
     paddingHorizontal: layout.screenMargin,
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
+    maxWidth: layout.authMaxWidth,
+    width: '100%',
+    alignSelf: 'center',
   },
 
   // ── Step Headers ──────────────────────────────────────────────────
@@ -1292,13 +1031,6 @@ const styles_s = StyleSheet.create({
   selectChipTextActive: {
     color: '#FFFFFF',
   },
-  selectChipPain: {
-    backgroundColor: colors.readinessRedBg,
-    borderColor: colors.readinessRed,
-  },
-  selectChipTextPain: {
-    color: colors.readinessRed,
-  },
   chipIcon: {
     marginRight: spacing.xs,
   },
@@ -1327,36 +1059,6 @@ const styles_s = StyleSheet.create({
   },
   goalTextActive: {
     color: '#FFFFFF',
-  },
-
-  // ── Archetype Cards ───────────────────────────────────────────────
-  archetypeCard: {
-    backgroundColor: colors.backgroundElevated,
-    borderWidth: 2,
-    borderColor: colors.borderLight,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  archetypeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  archetypeEmoji: {
-    fontSize: 24,
-  },
-  archetypeName: {
-    fontFamily: fontFamily.bold,
-    fontSize: 18,
-    color: colors.textOnDark,
-    flex: 1,
-  },
-  archetypeDesc: {
-    ...typography.bodyOnDark,
-    color: colors.textInactive,
-    marginLeft: 34, // Align with name (emoji + gap)
   },
 
   // ── Summary Card ──────────────────────────────────────────────────
@@ -1479,6 +1181,9 @@ const styles_s = StyleSheet.create({
     paddingBottom: spacing.lg,
     paddingTop: spacing.sm,
     gap: spacing.sm,
+    maxWidth: layout.authMaxWidth,
+    width: '100%',
+    alignSelf: 'center',
   },
   backBtn: {
     flex: 1,

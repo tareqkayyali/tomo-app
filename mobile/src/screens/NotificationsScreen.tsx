@@ -16,12 +16,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MainStackParamList } from '../navigation/types';
 
 import { useTheme } from '../hooks/useTheme';
 import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  respondToParentLink,
 } from '../services/api';
 import { spacing, borderRadius, layout } from '../theme';
 import type { AppNotification, NotificationType } from '../types';
@@ -32,6 +36,9 @@ const ICON_MAP: Record<NotificationType, { icon: keyof typeof Ionicons.glyphMap;
   relationship_accepted: { icon: 'people-outline', color: '#4A9EFF' },
   relationship_declined: { icon: 'person-remove-outline', color: '#E74C3C' },
   test_result_added: { icon: 'flash-outline', color: '#FF6B35' },
+  parent_link_request: { icon: 'people-outline', color: '#4A9EFF' },
+  coach_link_request: { icon: 'fitness-outline', color: '#FF6B35' },
+  study_info_request: { icon: 'school-outline', color: '#4A9EFF' },
 };
 
 function timeAgo(dateStr: string): string {
@@ -50,9 +57,13 @@ function timeAgo(dateStr: string): string {
 
 export function NotificationsScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Track resolved parent link requests: notifId → 'accepted' | 'declined'
+  const [resolvedLinks, setResolvedLinks] = useState<Record<string, string>>({});
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -76,16 +87,23 @@ export function NotificationsScreen() {
   }, [fetchData]);
 
   const handleTap = useCallback(async (notif: AppNotification) => {
-    if (notif.read) return;
-    try {
-      await markNotificationRead(notif.id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
-      );
-    } catch {
-      // silent
+    // Mark as read
+    if (!notif.read) {
+      try {
+        await markNotificationRead(notif.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
+        );
+      } catch {
+        // silent
+      }
     }
-  }, []);
+
+    // Deep-link: study_info_request → EditProfile
+    if (notif.type === 'study_info_request') {
+      navigation.navigate('EditProfile');
+    }
+  }, [navigation]);
 
   const handleMarkAllRead = useCallback(async () => {
     try {
@@ -96,10 +114,36 @@ export function NotificationsScreen() {
     }
   }, []);
 
+  const handleRespondToLink = useCallback(async (notif: AppNotification, action: 'accept' | 'decline') => {
+    const relationshipId = notif.data?.relationshipId as string;
+    if (!relationshipId) return;
+
+    setRespondingId(notif.id);
+    try {
+      await respondToParentLink(relationshipId, action);
+      setResolvedLinks((prev) => ({ ...prev, [notif.id]: action === 'accept' ? 'accepted' : 'declined' }));
+      // Mark as read
+      if (!notif.read) {
+        await markNotificationRead(notif.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
+        );
+      }
+    } catch {
+      // silent — could show error toast
+    } finally {
+      setRespondingId(null);
+    }
+  }, []);
+
   const hasUnread = notifications.some((n) => !n.read);
 
   const renderItem = ({ item }: { item: AppNotification }) => {
     const meta = ICON_MAP[item.type] || ICON_MAP.suggestion_received;
+    const isParentLink = item.type === 'parent_link_request' || item.type === 'coach_link_request';
+    const resolved = resolvedLinks[item.id];
+    const isResponding = respondingId === item.id;
+
     return (
       <Pressable
         onPress={() => handleTap(item)}
@@ -129,6 +173,48 @@ export function NotificationsScreen() {
               {item.body}
             </Text>
           ) : null}
+
+          {/* Parent link request: inline Accept / Decline buttons */}
+          {isParentLink && !resolved && (
+            <View style={styles.linkActions}>
+              {isResponding ? (
+                <ActivityIndicator size="small" color={colors.accent1} />
+              ) : (
+                <>
+                  <Pressable
+                    onPress={() => handleRespondToLink(item, 'accept')}
+                    style={[styles.linkBtn, styles.linkBtnAccept]}
+                  >
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                    <Text style={styles.linkBtnText}>Accept</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => handleRespondToLink(item, 'decline')}
+                    style={[styles.linkBtn, styles.linkBtnDecline]}
+                  >
+                    <Ionicons name="close" size={14} color="#FFFFFF" />
+                    <Text style={styles.linkBtnText}>Decline</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )}
+
+          {/* Resolved badge */}
+          {isParentLink && resolved && (
+            <View style={[
+              styles.resolvedBadge,
+              { backgroundColor: resolved === 'accepted' ? '#2ED57322' : '#E74C3C22' },
+            ]}>
+              <Text style={[
+                styles.resolvedText,
+                { color: resolved === 'accepted' ? '#2ED573' : '#E74C3C' },
+              ]}>
+                {resolved === 'accepted' ? 'Accepted' : 'Declined'}
+              </Text>
+            </View>
+          )}
+
           <Text style={[styles.cardTime, { color: colors.textInactive }]}>
             {timeAgo(item.created_at)}
           </Text>
@@ -255,5 +341,42 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     fontWeight: '500',
+  },
+
+  // Parent link request actions
+  linkActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  linkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.compact,
+    paddingVertical: 6,
+    borderRadius: borderRadius.sm,
+  },
+  linkBtnAccept: {
+    backgroundColor: '#2ED573',
+  },
+  linkBtnDecline: {
+    backgroundColor: '#E74C3C',
+  },
+  linkBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  resolvedBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.sm,
+    marginTop: spacing.xs,
+  },
+  resolvedText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

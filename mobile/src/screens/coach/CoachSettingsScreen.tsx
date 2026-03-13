@@ -38,10 +38,7 @@ export function CoachSettingsScreen() {
   }, []);
 
   const handleLogout = useCallback(() => {
-    Alert.alert('Logout', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: () => logout() },
-    ]);
+    logout();
   }, [logout]);
 
   const MenuItem = ({

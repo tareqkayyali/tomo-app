@@ -1,6 +1,7 @@
 /**
  * FlowTabSwitcher — Pill-style tab bar with sliding orange indicator
  *
+ * 2-tab layout: "Today's Flow" | "Week View"
  * The indicator tracks the PagerView scroll position 1:1 via a shared value,
  * so it moves in perfect sync with the user's swipe gesture.
  */
@@ -12,28 +13,25 @@ import Animated, {
   useAnimatedStyle,
   type SharedValue,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
-const AnimatedGradient = Animated.createAnimatedComponent(LinearGradient);
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
 import { useSpringEntrance } from '../../hooks/useAnimations';
 import type { ThemeColors } from '../../theme/colors';
 
-export type FlowTab = 'flow' | 'week' | 'month';
+export type FlowTab = 'day' | 'week';
 
 interface Props {
   activeTab: FlowTab;
   onTabChange: (tab: FlowTab) => void;
-  /** Continuous scroll position (0–2) driven by PagerView onPageScroll */
+  /** Continuous scroll position (0–1) driven by PagerView onPageScroll */
   scrollPosition: SharedValue<number>;
 }
 
 const TABS: { key: FlowTab; label: string }[] = [
-  { key: 'flow', label: 'Flow' },
-  { key: 'week', label: 'Week' },
-  { key: 'month', label: 'Month' },
+  { key: 'day', label: "Today's Flow" },
+  { key: 'week', label: 'Week View' },
 ];
 
 const TAB_COUNT = TABS.length;
@@ -72,29 +70,23 @@ export function FlowTabSwitcher({ activeTab, onTabChange, scrollPosition }: Prop
   return (
     <Animated.View style={[styles.container, entranceStyle]}>
       <View style={styles.pillBar} onLayout={handleBarLayout}>
-        {/* Sliding gradient indicator (orange → teal) */}
-        <AnimatedGradient
-          colors={colors.textOnDark === '#FFFFFF' ? ['#CC5522', '#0099BB'] : ['#FF9B6B', '#66E8FF']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.indicator, indicatorStyle]}
+        {/* Sliding solid orange indicator */}
+        <Animated.View
+          style={[styles.indicator, { backgroundColor: colors.accent1 }, indicatorStyle]}
         />
 
         {/* Tab labels */}
-        {TABS.map((tab) => {
-          const isActive = tab.key === activeTab;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => handlePress(tab.key)}
-              style={styles.tab}
-            >
-              <Text style={styles.tabText}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {TABS.map((tab) => (
+          <Pressable
+            key={tab.key}
+            onPress={() => handlePress(tab.key)}
+            style={styles.tab}
+          >
+            <Text style={styles.tabText}>
+              {tab.label}
+            </Text>
+          </Pressable>
+        ))}
       </View>
     </Animated.View>
   );

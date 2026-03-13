@@ -63,6 +63,7 @@ import { PadelRatingScreen } from '../screens/PadelRatingScreen';
 import { FootballSkillDetailScreen, FootballRatingScreen, FootballTestInputScreen } from '../screens/football';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { LinkAccountScreen } from '../screens/LinkAccountScreen';
+import { StudyPlanPreviewScreen } from '../screens/StudyPlanPreviewScreen';
 
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
@@ -456,6 +457,12 @@ export function MainNavigator() {
         name="FootballTestInput"
         component={FootballTestInputScreen}
         options={{ headerShown: true, title: 'Football Test', ...stackHeaderOptions }}
+      />
+      {/* Study plan screens */}
+      <Stack.Screen
+        name="StudyPlanPreview"
+        component={StudyPlanPreviewScreen}
+        options={{ headerShown: true, title: 'Study Plan Preview', ...stackHeaderOptions }}
       />
       {/* Multi-role screens */}
       <Stack.Screen

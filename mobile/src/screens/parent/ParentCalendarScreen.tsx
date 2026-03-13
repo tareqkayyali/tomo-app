@@ -156,11 +156,64 @@ export function ParentCalendarScreen({ navigation }: Props) {
   );
 
   const todayStr = formatDate(today.getFullYear(), today.getMonth(), today.getDate());
+  const hasConfirmedChildren = children.length > 0;
 
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />
+      </SafeAreaView>
+    );
+  }
+
+  // ── Pending state: no confirmed children yet ──────────────────────
+  if (!hasConfirmedChildren) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          {/* Greyed-out month header */}
+          <View style={styles.monthHeader}>
+            <View style={{ width: 24 }} />
+            <Text style={[styles.monthTitle, { color: colors.textInactive }]}>
+              {MONTHS[viewMonth]} {viewYear}
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          {/* Greyed-out weekday labels */}
+          <View style={styles.weekdayRow}>
+            {WEEKDAYS.map((wd) => (
+              <View key={wd} style={styles.weekdayCell}>
+                <Text style={[styles.weekdayLabel, { color: colors.textInactive, opacity: 0.4 }]}>{wd}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Greyed-out calendar grid */}
+          <View style={[styles.calendarGrid, { opacity: 0.25 }]}>
+            {calendarDays.map((day, idx) => {
+              if (day === null) {
+                return <View key={`empty-${idx}`} style={styles.dayCell} />;
+              }
+              return (
+                <View key={`day-${day}`} style={styles.dayCell}>
+                  <Text style={[styles.dayNumber, { color: colors.textInactive }]}>{day}</Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Pending overlay card */}
+          <View style={[styles.pendingCard, { backgroundColor: colors.surface }]}>
+            <Ionicons name="lock-closed-outline" size={40} color={colors.textInactive} />
+            <Text style={[styles.pendingTitle, { color: colors.textOnDark }]}>
+              Waiting for confirmation
+            </Text>
+            <Text style={[styles.pendingSubtitle, { color: colors.textSecondary }]}>
+              Your child hasn't confirmed the link yet. Once they accept, their schedule will appear here.
+            </Text>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -455,5 +508,24 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
+  },
+
+  // Pending state
+  pendingCard: {
+    alignItems: 'center',
+    padding: spacing.xl,
+    borderRadius: borderRadius.lg,
+    marginTop: spacing.xxl,
+    gap: spacing.md,
+  },
+  pendingTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  pendingSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
   },
 });

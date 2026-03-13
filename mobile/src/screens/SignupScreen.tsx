@@ -386,6 +386,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: layout.screenMargin,
     paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl,
+    maxWidth: layout.authMaxWidth,
+    width: '100%',
+    alignSelf: 'center',
   },
 
   // ── Header ────────────────────────────────────────────────────────

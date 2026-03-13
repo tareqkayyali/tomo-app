@@ -29,7 +29,7 @@ export type MainStackParamList = {
   NotificationSettings: undefined;
   History: undefined;
   WorkoutFeedback: undefined;
-  AddEvent: undefined;
+  AddEvent: { initialType?: string } | undefined;
   PrivacySettings: undefined;
   Diagnostics: undefined;
   DrillDetail: { drillId: string };
@@ -64,6 +64,8 @@ export type MainStackParamList = {
   FootballSkillDetail: { skill: string };
   FootballRating: undefined;
   FootballTestInput: { testId: string };
+  // Study plan screens
+  StudyPlanPreview: { blocks: string }; // JSON-stringified StudyBlock[]
   // Multi-role screens
   Notifications: undefined;
   LinkAccount: undefined;
@@ -80,8 +82,10 @@ export type CoachTabParamList = {
 export type CoachStackParamList = {
   CoachTabs: undefined;
   CoachPlayerDetail: { playerId: string; playerName: string };
+  CoachPlayerPlan: { playerId: string; playerName: string };
   CoachTestInput: { playerId: string; playerName: string };
   CoachInvite: undefined;
+  RecommendEvent: { playerId: string; playerName: string; allowedTypes: string[] };
   Profile: undefined;
   EditProfile: undefined;
 };
@@ -100,6 +104,7 @@ export type ParentStackParamList = {
   ParentAddStudy: { childId: string; childName: string };
   ParentAddExam: { childId: string; childName: string };
   ParentInvite: undefined;
+  RecommendEvent: { playerId: string; playerName: string; allowedTypes: string[] };
   Profile: undefined;
   EditProfile: undefined;
 };
@@ -112,4 +117,6 @@ export type RootStackParamList = {
   ParentMain: undefined;
   Auth: undefined;
   Onboarding: undefined;
+  ParentOnboarding: undefined;
+  CoachOnboarding: undefined;
 };

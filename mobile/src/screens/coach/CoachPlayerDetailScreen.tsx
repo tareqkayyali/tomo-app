@@ -156,6 +156,20 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
         )}
       </View>
 
+      {/* View Plan Button */}
+      <Pressable
+        onPress={() =>
+          navigation.navigate('CoachPlayerPlan', { playerId, playerName })
+        }
+        style={({ pressed }) => [
+          styles.submitButton,
+          { backgroundColor: colors.accent1, opacity: pressed ? 0.85 : 1 },
+        ]}
+      >
+        <Ionicons name="calendar-outline" size={20} color="#FFFFFF" />
+        <Text style={styles.submitButtonText}>View Plan</Text>
+      </Pressable>
+
       {/* Submit Test Button */}
       <Pressable
         onPress={() =>
@@ -163,7 +177,7 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
         }
         style={({ pressed }) => [
           styles.submitButton,
-          { backgroundColor: colors.accent1, opacity: pressed ? 0.85 : 1 },
+          { backgroundColor: colors.accent1, opacity: pressed ? 0.85 : 1, marginTop: spacing.sm },
         ]}
       >
         <Ionicons name="flash-outline" size={20} color="#FFFFFF" />

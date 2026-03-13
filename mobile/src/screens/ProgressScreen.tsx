@@ -33,7 +33,8 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useIsFocused } from '@react-navigation/native';
-import { SkeletonCard, ErrorState } from '../components';
+import { SkeletonCard, ErrorState, WeekSummaryStrip, RecentTestsScroll } from '../components';
+import type { TestResult } from '../components';
 import {
   spacing,
   fontFamily,
@@ -651,6 +652,18 @@ export function ProgressScreen({ navigation }: ProgressScreenProps) {
             />
           )}
           <Animated.View style={contentFade}>
+            {/* ── This Week Summary ─── */}
+            <WeekSummaryStrip
+              checkIns={checkins.length}
+              totalDays={7}
+              avgReadiness={checkins.length > 0 ? checkins.reduce((sum, c) => sum + (c.energy || 5), 0) / checkins.length : 0}
+              testsDone={0}
+              pointsEarned={stats?.recentPoints?.reduce((sum, p) => sum + p.finalPoints, 0) ?? 0}
+            />
+
+            {/* ── Recent Tests ─── */}
+            <RecentTestsScroll results={[]} />
+
             {activeSport === 'football' ? (
               <FootballProgressContent
                 navigation={navigation}

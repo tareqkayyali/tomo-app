@@ -22,7 +22,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated from 'react-native-reanimated';
 import { useIsFocused } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { GlassCard, GradientButton, HeaderProfileButton } from '../components';
+import { GlassCard, GradientButton, HeaderProfileButton, TestSubTabs } from '../components';
+import type { TestSubTab } from '../components';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import {
   spacing,
@@ -53,6 +54,7 @@ type TestsScreenProps = {
 };
 
 type SegmentTab = 'tests' | 'history' | 'schedule';
+type TestViewTab = TestSubTab;
 
 export function TestsScreen({ navigation }: TestsScreenProps) {
   const { colors } = useTheme();
@@ -61,6 +63,7 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
   const { activeSport, setActiveSport, hasMultipleSports, sportConfig, userSports } = useSportContext();
   const drills = useBlazePodDrills();
   const [activeTab, setActiveTab] = useState<SegmentTab>('tests');
+  const [testViewTab, setTestViewTab] = useState<TestViewTab>('standard');
   const [showSportMenu, setShowSportMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastResults, setLastResults] = useState<Record<string, string>>({});
@@ -212,6 +215,12 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
         >
         {activeTab === 'tests' && (
           <>
+            {/* Sub-tab selector: Standard | My Tests | Coach */}
+            <TestSubTabs
+              activeTab={testViewTab}
+              onTabChange={setTestViewTab}
+            />
+
             {activeSport === 'football' ? (
               <FootballTestsContent navigation={navigation} />
             ) : (

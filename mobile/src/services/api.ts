@@ -223,6 +223,12 @@ function mapUserFromApi(raw: Record<string, unknown>): User {
     parentalConsent: !!(raw.parental_consent),
     selectedSports: (raw.selected_sports as string[]) || [],
     photoUrl: (raw.photo_url as string | null) ?? null,
+
+    // Study plan fields
+    studySubjects: (raw.study_subjects as string[]) || [],
+    examSchedule: (raw.exam_schedule as unknown[]) as User['examSchedule'] || [],
+    trainingPreferences: (raw.training_preferences as User['trainingPreferences']) || undefined,
+    studyPlanConfig: (raw.study_plan_config as User['studyPlanConfig']) || undefined,
   } as User;
 }
 
@@ -981,6 +987,75 @@ export async function submitPlayerTest(
 // ============================================
 
 /**
+ * Link a child by email (parent only — used during parent onboarding)
+ * Custom error handling to surface specific API error messages.
+ */
+export async function linkChildByEmail(
+  email: string,
+): Promise<{ relationshipId: string; playerId: string; playerName: string }> {
+  const token = await getIdToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const url = `${API_BASE_URL}/api/v1/relationships/link-by-email`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    // API returns { error: "message string" }
+    const msg = typeof data.error === 'string' ? data.error : data.error?.message || 'Request failed';
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/**
+ * Link a player by email (coach only) — same endpoint, role determined server-side
+ */
+export async function linkPlayerByEmail(
+  email: string,
+): Promise<{ relationshipId: string; playerId: string; playerName: string }> {
+  const token = await getIdToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const url = `${API_BASE_URL}/api/v1/relationships/link-by-email`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const msg = typeof data.error === 'string' ? data.error : data.error?.message || 'Request failed';
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/**
+ * Respond to a parent/coach link request (player only)
+ */
+export async function respondToParentLink(
+  relationshipId: string,
+  action: 'accept' | 'decline',
+): Promise<{ success: boolean }> {
+  return apiRequest<{ success: boolean }>(
+    `/api/v1/relationships/${relationshipId}/respond`,
+    { method: 'POST', body: JSON.stringify({ action }) },
+  );
+}
+
+/**
  * Get linked children (parent only)
  */
 export async function getParentChildren(): Promise<{ children: PlayerSummary[] }> {
@@ -988,13 +1063,51 @@ export async function getParentChildren(): Promise<{ children: PlayerSummary[] }
 }
 
 /**
- * Get child's calendar (parent only)
+ * Get child's calendar events (parent only)
  */
 export async function getChildCalendar(
   childId: string,
-): Promise<{ events: Array<Record<string, unknown>> }> {
-  return apiRequest<{ events: Array<Record<string, unknown>> }>(
-    `/api/v1/parent/children/${childId}/calendar`,
+  startDate: string,
+  endDate: string,
+): Promise<{ events: CalendarEvent[] }> {
+  return apiRequest<{ events: CalendarEvent[] }>(
+    `/api/v1/parent/children/${childId}/calendar?startDate=${startDate}&endDate=${endDate}`,
+  );
+}
+
+/**
+ * Get linked player's calendar events (coach only)
+ */
+export async function getCoachPlayerCalendar(
+  playerId: string,
+  startDate: string,
+  endDate: string,
+): Promise<{ events: CalendarEvent[] }> {
+  return apiRequest<{ events: CalendarEvent[] }>(
+    `/api/v1/coach/players/${playerId}/calendar?startDate=${startDate}&endDate=${endDate}`,
+  );
+}
+
+/**
+ * Get child's study profile (parent only)
+ */
+export async function getChildStudyProfile(
+  childId: string,
+): Promise<{ studyProfile: import('../types').StudyProfile }> {
+  return apiRequest<{ studyProfile: import('../types').StudyProfile }>(
+    `/api/v1/parent/children/${childId}/study-profile`,
+  );
+}
+
+/**
+ * Notify child to fill in study info (parent only)
+ */
+export async function notifyChildStudyInfo(
+  childId: string,
+): Promise<{ success: boolean }> {
+  return apiRequest<{ success: boolean }>(
+    `/api/v1/parent/children/${childId}/notify-study-info`,
+    { method: 'POST' },
   );
 }
 

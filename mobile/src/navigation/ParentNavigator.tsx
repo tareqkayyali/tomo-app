@@ -15,12 +15,14 @@ import { Ionicons } from '@expo/vector-icons';
 
 import {
   ParentCalendarScreen,
+  ParentChildPlanScreen,
   ParentStudyPlanScreen,
   ParentAddStudyScreen,
   ParentAddExamScreen,
   ParentInviteScreen,
   ParentSettingsScreen,
 } from '../screens/parent';
+import { RecommendEventScreen } from '../screens/RecommendEventScreen';
 
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
@@ -72,7 +74,7 @@ function ParentTabNavigator() {
         }],
       })}
     >
-      <Tab.Screen name="Calendar" component={ParentCalendarScreen} />
+      <Tab.Screen name="Calendar" component={ParentChildPlanScreen} />
       <Tab.Screen name="StudyPlan" component={ParentStudyPlanScreen} />
       <Tab.Screen name="Settings" component={ParentSettingsScreen} />
     </Tab.Navigator>
@@ -114,6 +116,11 @@ export function ParentNavigator() {
         name="ParentAddExam"
         component={ParentAddExamScreen}
         options={{ headerShown: true, title: 'Add Exam', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
+        name="RecommendEvent"
+        component={RecommendEventScreen}
+        options={{ headerShown: true, title: 'Recommend', ...stackHeaderOptions }}
       />
       <Stack.Screen
         name="ParentInvite"

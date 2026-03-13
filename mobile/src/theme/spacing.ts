@@ -57,6 +57,8 @@ export const layout = {
   avatarLarge: 120,
   /** 60px from top for centered wordmark */
   headerOffset: 60,
+  /** 480px max content width for auth/onboarding screens on web */
+  authMaxWidth: 480,
 };
 
 // ─── Border Radius ─────────────────────────────────────────────────

@@ -34,6 +34,7 @@ import { createCalendarEvent } from '../services/api';
 import { useSportContext } from '../hooks/useSportContext';
 import type { ActiveSport } from '../hooks/useSportContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../navigation/types';
 import type { IntensityLevel, EventSport } from '../types';
 
@@ -43,9 +44,10 @@ import type { IntensityLevel, EventSport } from '../types';
 
 type AddEventScreenProps = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'AddEvent'>;
+  route: RouteProp<MainStackParamList, 'AddEvent'>;
 };
 
-type EventType = 'training' | 'match' | 'recovery' | 'other';
+type EventType = 'training' | 'match' | 'recovery' | 'study_block' | 'exam' | 'other';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -58,6 +60,8 @@ const EVENT_TYPES: Array<{
 }> = [
   { key: 'training', label: 'Training', icon: 'barbell-outline' },
   { key: 'match', label: 'Match', icon: 'trophy-outline' },
+  { key: 'study_block', label: 'Study', icon: 'book-outline' },
+  { key: 'exam', label: 'Exam', icon: 'document-text-outline' },
   { key: 'recovery', label: 'Recovery', icon: 'leaf-outline' },
   { key: 'other', label: 'Other', icon: 'ellipsis-horizontal' },
 ];
@@ -86,6 +90,25 @@ const INTENSITY_OPTIONS: Array<{
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+
+const DURATION_OPTIONS: Array<{ value: number; label: string }> = [
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 45, label: '45 min' },
+  { value: 60, label: '1 hour' },
+  { value: 90, label: '1.5 hours' },
+  { value: 120, label: '2 hours' },
+  { value: 150, label: '2.5 hours' },
+  { value: 180, label: '3 hours' },
+];
+
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number);
+  const totalMin = h * 60 + m + minutes;
+  const newH = Math.floor(totalMin / 60) % 24;
+  const newM = totalMin % 60;
+  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+}
 
 function getTodayStr(): string {
   return new Date().toISOString().split('T')[0];
@@ -220,23 +243,28 @@ function TimePickerModal({
 // Component
 // ---------------------------------------------------------------------------
 
-export function AddEventScreen({ navigation }: AddEventScreenProps) {
+export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { activeSport } = useSportContext();
+  const initialType = (route.params as { initialType?: string } | undefined)?.initialType;
+  const validInitialType = initialType && ['training', 'match', 'recovery', 'study_block', 'exam', 'other'].includes(initialType)
+    ? (initialType as EventType)
+    : 'training';
+
   const [name, setName] = useState('');
-  const [eventType, setEventType] = useState<EventType>('training');
+  const [eventType, setEventType] = useState<EventType>(validInitialType);
   const [sport, setSport] = useState<EventSport>(activeSport === 'football' ? 'football' : 'padel');
   const [date, setDate] = useState(getTodayStr());
   const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [duration, setDuration] = useState<number | null>(null);
   const [intensity, setIntensity] = useState<IntensityLevel | null>(null);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showDurationPicker, setShowDurationPicker] = useState(false);
 
   const dateOptions = useMemo(() => getDateOptions(), []);
   const ms = useMemo(() => createModalStyles(colors), [colors]);
@@ -249,13 +277,18 @@ export function AddEventScreen({ navigation }: AddEventScreenProps) {
 
     setSubmitting(true);
     try {
+      // Compute endTime from startTime + duration
+      const computedEndTime = (startTime && duration)
+        ? addMinutesToTime(startTime, duration)
+        : undefined;
+
       await createCalendarEvent({
         name: name.trim(),
         type: eventType,
-        sport: (eventType === 'training' || eventType === 'match') ? sport : 'general',
+        sport: (eventType === 'training' || eventType === 'match' || eventType === 'recovery') ? sport : 'general',
         date,
         startTime: startTime || undefined,
-        endTime: endTime || undefined,
+        endTime: computedEndTime,
         intensity: intensity || undefined,
         notes: notes.trim() || undefined,
       });
@@ -266,9 +299,9 @@ export function AddEventScreen({ navigation }: AddEventScreenProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [name, eventType, sport, date, startTime, endTime, intensity, notes, navigation]);
+  }, [name, eventType, sport, date, startTime, duration, intensity, notes, navigation]);
 
-  const showSport = eventType === 'training' || eventType === 'match';
+  const showSport = eventType === 'training' || eventType === 'match' || eventType === 'recovery';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
@@ -327,7 +360,7 @@ export function AddEventScreen({ navigation }: AddEventScreenProps) {
                     key={t.key}
                     onPress={() => {
                       setEventType(t.key);
-                      if (t.key === 'recovery' || t.key === 'other') setSport('general');
+                      if (t.key === 'recovery' || t.key === 'other' || t.key === 'study_block' || t.key === 'exam') setSport('general');
                       if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     }}
                     style={[styles.chip, active && styles.chipActive]}
@@ -412,15 +445,15 @@ export function AddEventScreen({ navigation }: AddEventScreenProps) {
 
             <View style={styles.groupDivider} />
 
-            {/* End time row */}
+            {/* Duration row */}
             <Pressable
               style={styles.settingRow}
-              onPress={() => setShowEndTimePicker(true)}
+              onPress={() => setShowDurationPicker(true)}
             >
-              <Text style={styles.settingLabel}>Ends</Text>
+              <Text style={styles.settingLabel}>Duration</Text>
               <View style={styles.settingValueWrap}>
-                <Text style={[styles.settingValue, !endTime && styles.settingPlaceholder]}>
-                  {endTime ? formatTime12h(endTime) : 'None'}
+                <Text style={[styles.settingValue, !duration && styles.settingPlaceholder]}>
+                  {duration ? DURATION_OPTIONS.find(d => d.value === duration)?.label || `${duration} min` : 'None'}
                 </Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.textInactive} />
               </View>
@@ -478,13 +511,37 @@ export function AddEventScreen({ navigation }: AddEventScreenProps) {
           onClose={() => setShowStartTimePicker(false)}
           colors={colors}
         />
-        <TimePickerModal
-          visible={showEndTimePicker}
-          title="End Time"
-          onSelect={setEndTime}
-          onClose={() => setShowEndTimePicker(false)}
-          colors={colors}
-        />
+        {/* Duration picker modal */}
+        <Modal visible={showDurationPicker} transparent animationType="slide">
+          <Pressable style={ms.overlay} onPress={() => setShowDurationPicker(false)}>
+            <Pressable style={ms.sheet} onPress={(e) => e.stopPropagation()}>
+              <Text style={ms.title}>Duration</Text>
+              <FlatList
+                data={DURATION_OPTIONS}
+                keyExtractor={(item) => String(item.value)}
+                style={{ maxHeight: 300 }}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <Pressable
+                    onPress={() => {
+                      setDuration(item.value);
+                      setShowDurationPicker(false);
+                      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    style={[ms.dateOption, item.value === duration && ms.dateOptionActive]}
+                  >
+                    <Text style={[ms.dateOptionLabel, item.value === duration && ms.dateOptionLabelActive]}>
+                      {item.label}
+                    </Text>
+                    {item.value === duration && (
+                      <Ionicons name="checkmark" size={18} color={colors.accent1} />
+                    )}
+                  </Pressable>
+                )}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* Date picker modal */}
         <Modal visible={showDatePicker} transparent animationType="slide">

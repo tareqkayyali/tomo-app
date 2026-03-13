@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRole, requireRelationship } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { mapDbRowToCalendarEvent } from "@/lib/calendarHelpers";
 
+/**
+ * GET /api/v1/parent/children/[id]/calendar
+ *
+ * Returns the linked child's actual calendar_events (same shape as
+ * the player's own /api/v1/calendar/events endpoint).
+ *
+ * Query params: ?date=YYYY-MM-DD or ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,60 +26,73 @@ export async function GET(
   const relResult = await requireRelationship(auth.user.id, childId);
   if ("error" in relResult) return relResult.error;
 
+  const { searchParams } = req.nextUrl;
+  const date = searchParams.get("date");
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
+
   const db = supabaseAdmin();
-  const now = new Date();
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const sevenDaysAhead = new Date(now);
-  sevenDaysAhead.setDate(sevenDaysAhead.getDate() + 7);
 
-  const rangeStart = sevenDaysAgo.toISOString().slice(0, 10);
-  const rangeEnd = sevenDaysAhead.toISOString().slice(0, 10);
+  try {
+    if (date) {
+      const dayStart = `${date}T00:00:00`;
+      const dayEnd = `${date}T23:59:59`;
 
-  // Fetch accepted suggestions for this child (study_block, exam_date, calendar_event)
-  const { data: suggestions } = await db
-    .from("suggestions")
-    .select("*")
-    .eq("player_id", childId)
-    .eq("status", "accepted")
-    .in("suggestion_type", ["study_block", "exam_date", "calendar_event"]);
+      const { data: rows, error } = await db
+        .from("calendar_events")
+        .select("*")
+        .eq("user_id", childId)
+        .gte("start_at", dayStart)
+        .lte("start_at", dayEnd)
+        .order("start_at", { ascending: true });
 
-  // Fetch plans for the child within the date range
-  const { data: plans } = await db
-    .from("plans")
-    .select("*")
-    .eq("user_id", childId)
-    .gte("date", rangeStart)
-    .lte("date", rangeEnd);
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
 
-  const events = [
-    ...(suggestions || []).map((s) => ({
-      id: s.id,
-      source: "suggestion" as const,
-      type: s.suggestion_type,
-      title: s.title,
-      payload: s.payload,
-      createdAt: s.created_at,
-    })),
-    ...(plans || []).map((p) => ({
-      id: p.id,
-      source: "plan" as const,
-      type: "training",
-      title: `${p.workout_type} - ${p.intensity}`,
-      payload: {
-        date: p.date,
-        readiness: p.readiness,
-        intensity: p.intensity,
-        workoutType: p.workout_type,
-        duration: p.duration,
-        sport: p.sport,
-      },
-      createdAt: p.created_at,
-    })),
-  ];
+      const events = (rows || []).map((r) =>
+        mapDbRowToCalendarEvent(r as Record<string, unknown>)
+      );
 
-  return NextResponse.json(
-    { events },
-    { headers: { "api-version": "v1" } }
-  );
+      return NextResponse.json(
+        { events },
+        { headers: { "api-version": "v1" } }
+      );
+    }
+
+    if (startDate && endDate) {
+      const rangeStart = `${startDate}T00:00:00`;
+      const rangeEnd = `${endDate}T23:59:59`;
+
+      const { data: rows, error } = await db
+        .from("calendar_events")
+        .select("*")
+        .eq("user_id", childId)
+        .gte("start_at", rangeStart)
+        .lte("start_at", rangeEnd)
+        .order("start_at", { ascending: true });
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      const events = (rows || []).map((r) =>
+        mapDbRowToCalendarEvent(r as Record<string, unknown>)
+      );
+
+      return NextResponse.json(
+        { events },
+        { headers: { "api-version": "v1" } }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Provide 'date' or 'startDate' + 'endDate' query params" },
+      { status: 400 }
+    );
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
