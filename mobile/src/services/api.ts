@@ -229,6 +229,8 @@ function mapUserFromApi(raw: Record<string, unknown>): User {
     examSchedule: (raw.exam_schedule as unknown[]) as User['examSchedule'] || [],
     trainingPreferences: (raw.training_preferences as User['trainingPreferences']) || undefined,
     studyPlanConfig: (raw.study_plan_config as User['studyPlanConfig']) || undefined,
+    schoolSchedule: (raw.school_schedule as User['schoolSchedule']) || undefined,
+    customTrainingTypes: (raw.custom_training_types as User['customTrainingTypes']) || undefined,
   } as User;
 }
 

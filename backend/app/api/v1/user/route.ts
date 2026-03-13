@@ -37,6 +37,8 @@ const ALLOWED_UPDATE_FIELDS: Record<string, string> = {
   examSchedule: "exam_schedule",
   trainingPreferences: "training_preferences",
   studyPlanConfig: "study_plan_config",
+  schoolSchedule: "school_schedule",
+  customTrainingTypes: "custom_training_types",
 };
 
 export async function PUT(req: NextRequest) {

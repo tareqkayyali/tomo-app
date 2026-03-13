@@ -96,6 +96,10 @@ export interface User {
   examSchedule?: ExamEntry[];
   trainingPreferences?: TrainingPreferences;
   studyPlanConfig?: StudyPlanConfig;
+
+  // Enhanced profile fields
+  schoolSchedule?: SchoolSchedule;
+  customTrainingTypes?: CustomTrainingType[];
 }
 // Education type
 export type EducationType = 'school' | 'university';
@@ -641,6 +645,23 @@ export interface TrainingPreferences {
   gymFixedDays: number[];     // 0=Sun..6=Sat
   clubSessionsPerWeek: number;
   clubFixedDays: number[];
+}
+
+// School/University daily schedule
+export interface SchoolSchedule {
+  type: EducationType;      // 'school' | 'university'
+  days: number[];           // 0=Sun..6=Sat
+  startTime: string;        // HH:mm e.g. "08:00"
+  endTime: string;          // HH:mm e.g. "15:00"
+}
+
+// Custom user-defined training type
+export interface CustomTrainingType {
+  id: string;
+  name: string;             // "Gym", "Club", "Private Coach"
+  icon: string;             // Ionicons name
+  sessionsPerWeek: number;
+  fixedDays: number[];      // 0=Sun..6=Sat
 }
 
 export interface StudyProfile {

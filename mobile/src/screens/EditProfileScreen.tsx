@@ -1,6 +1,7 @@
 /**
  * Edit Profile Screen
- * Edit user name, sport, region, team, study info, and training schedule
+ * Edit user name, region, team, school/university schedule, subjects, exams,
+ * and custom training types.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -11,20 +12,21 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Switch,
-  Platform,
   Alert,
-  ActivityIndicator,
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Input, Card, ErrorState } from '../components';
-import { SportSelector } from '../components/SportSelector';
 import { colors, spacing, typography, borderRadius, fontFamily } from '../theme';
 import { updateUser } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { useHealthKit } from '../hooks/useHealthKit';
-import type { Sport, ExamEntry, ExamType, TrainingPreferences } from '../types';
+import type {
+  ExamEntry,
+  ExamType,
+  EducationType,
+  SchoolSchedule,
+  CustomTrainingType,
+} from '../types';
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -35,6 +37,23 @@ const PRESET_SUBJECTS = [
 const EXAM_TYPES: ExamType[] = ['Quiz', 'Mid-term', 'Final', 'Essay', 'Presentation'];
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const TIME_OPTIONS: string[] = [];
+for (let h = 6; h <= 20; h++) {
+  TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:00`);
+  TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`);
+}
+
+const TRAINING_ICONS: { name: string; icon: string }[] = [
+  { name: 'Barbell', icon: 'barbell-outline' },
+  { name: 'Football', icon: 'football-outline' },
+  { name: 'Basketball', icon: 'basketball-outline' },
+  { name: 'Tennis', icon: 'tennisball-outline' },
+  { name: 'Body', icon: 'body-outline' },
+  { name: 'Bicycle', icon: 'bicycle-outline' },
+  { name: 'Walk', icon: 'walk-outline' },
+  { name: 'Fitness', icon: 'fitness-outline' },
+];
 
 function generateNextDays(count: number): { label: string; value: string }[] {
   const days: { label: string; value: string }[] = [];
@@ -61,12 +80,18 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
 
   // Basic profile fields
   const [name, setName] = useState(profile?.name || '');
-  const [sport, setSport] = useState<Sport>(profile?.sport || 'football');
   const [region, setRegion] = useState(profile?.region || '');
   const [teamId, setTeamId] = useState(profile?.teamId || '');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  // School schedule
+  const initSched = profile?.schoolSchedule;
+  const [eduType, setEduType] = useState<EducationType>(initSched?.type || 'school');
+  const [schoolDays, setSchoolDays] = useState<number[]>(initSched?.days || [1, 2, 3, 4, 5]);
+  const [schoolStart, setSchoolStart] = useState(initSched?.startTime || '08:00');
+  const [schoolEnd, setSchoolEnd] = useState(initSched?.endTime || '15:00');
 
   // Study fields
   const [subjects, setSubjects] = useState<string[]>(profile?.studySubjects || []);
@@ -78,21 +103,15 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
   const [newExamType, setNewExamType] = useState<ExamType>('Final');
   const [newExamDate, setNewExamDate] = useState('');
 
-  // Training fields
-  const initTP = profile?.trainingPreferences;
-  const [gymSessions, setGymSessions] = useState(initTP?.gymSessionsPerWeek ?? 0);
-  const [gymFixedDays, setGymFixedDays] = useState<number[]>(initTP?.gymFixedDays || []);
-  const [clubSessions, setClubSessions] = useState(initTP?.clubSessionsPerWeek ?? 0);
-  const [clubFixedDays, setClubFixedDays] = useState<number[]>(initTP?.clubFixedDays || []);
-
-  const {
-    isModuleAvailable: hkModuleAvailable,
-    isConnected: hkConnected,
-    isLoading: hkLoading,
-    error: hkError,
-    connect: hkConnect,
-    disconnect: hkDisconnect,
-  } = useHealthKit();
+  // Custom training types
+  const [trainingTypes, setTrainingTypes] = useState<CustomTrainingType[]>(
+    profile?.customTrainingTypes || [],
+  );
+  const [showAddTraining, setShowAddTraining] = useState(false);
+  const [newTrainingName, setNewTrainingName] = useState('');
+  const [newTrainingIcon, setNewTrainingIcon] = useState('barbell-outline');
+  const [newTrainingSessions, setNewTrainingSessions] = useState(3);
+  const [newTrainingDays, setNewTrainingDays] = useState<number[]>([]);
 
   // ── Subject helpers ─────────────────────────────────────────────────
 
@@ -118,7 +137,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
       Alert.alert('Missing Info', 'Please select a subject and date for the exam.');
       return;
     }
-    // Check for duplicate (same subject + same date)
     const duplicate = exams.some((e) => e.subject === newExamSubject && e.examDate === newExamDate);
     if (duplicate) {
       Alert.alert('Duplicate', 'You already have an exam for this subject on this date.');
@@ -135,13 +153,13 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
     setNewExamType('Final');
     setNewExamDate('');
     setShowAddExam(false);
-  }, [newExamSubject, newExamType, newExamDate]);
+  }, [newExamSubject, newExamType, newExamDate, exams]);
 
   const removeExam = useCallback((id: string) => {
     setExams((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
-  // ── Training day toggle ─────────────────────────────────────────────
+  // ── Day toggle helper ─────────────────────────────────────────────
 
   const toggleDay = useCallback(
     (arr: number[], setArr: React.Dispatch<React.SetStateAction<number[]>>, day: number) => {
@@ -149,6 +167,34 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
     },
     [],
   );
+
+  // ── Training type helpers ─────────────────────────────────────────
+
+  const addTrainingType = useCallback(() => {
+    const trimmedName = newTrainingName.trim();
+    if (!trimmedName) {
+      Alert.alert('Missing Name', 'Please enter a name for this training type.');
+      return;
+    }
+    const newType: CustomTrainingType = {
+      id: Date.now().toString(),
+      name: trimmedName,
+      icon: newTrainingIcon,
+      sessionsPerWeek: newTrainingSessions,
+      fixedDays: newTrainingDays,
+    };
+    setTrainingTypes((prev) => [...prev, newType]);
+    // Reset form
+    setNewTrainingName('');
+    setNewTrainingIcon('barbell-outline');
+    setNewTrainingSessions(3);
+    setNewTrainingDays([]);
+    setShowAddTraining(false);
+  }, [newTrainingName, newTrainingIcon, newTrainingSessions, newTrainingDays]);
+
+  const removeTrainingType = useCallback((id: string) => {
+    setTrainingTypes((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   // ── Stepper helpers ─────────────────────────────────────────────────
 
@@ -166,22 +212,22 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
     setIsSaving(true);
     setError('');
     try {
-      const trainingPreferences: TrainingPreferences = {
-        gymSessionsPerWeek: gymSessions,
-        gymFixedDays,
-        clubSessionsPerWeek: clubSessions,
-        clubFixedDays,
+      const schoolSchedule: SchoolSchedule = {
+        type: eduType,
+        days: schoolDays,
+        startTime: schoolStart,
+        endTime: schoolEnd,
       };
 
       await updateUser({
         name: name.trim(),
         displayName: name.trim(),
-        sport,
         region: region.trim() || undefined,
         teamId: teamId.trim() || undefined,
         studySubjects: subjects,
         examSchedule: exams,
-        trainingPreferences,
+        schoolSchedule,
+        customTrainingTypes: trainingTypes,
       } as Parameters<typeof updateUser>[0]);
       await refreshProfile();
       setSuccess(true);
@@ -215,21 +261,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
             onChangeText={setName}
             autoCapitalize="words"
           />
-
-          <Text style={styles.sportLabel}>Sport</Text>
-          <SportSelector
-            selected={sport}
-            onSelect={(s) => setSport(s as Sport)}
-          />
-          {sport === 'padel' && (
-            <View style={styles.padelEnabledRow}>
-              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-              <Text style={styles.padelEnabledText}>
-                Padel features enabled — DNA Card, Shot Mastery, Rating Pathway
-              </Text>
-            </View>
-          )}
-          <View style={{ height: spacing.md }} />
+          <View style={{ height: spacing.sm }} />
 
           <Input
             label="Region (optional)"
@@ -245,84 +277,134 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
             onChangeText={setTeamId}
           />
 
-          {/* ── Health Integration ─────────────────── */}
-          <View style={styles.healthSection}>
-            <View style={styles.sectionDivider} />
-            <Text style={styles.sectionLabel}>Health Integration</Text>
-
-            {Platform.OS === 'ios' ? (
-              <View style={styles.healthRow}>
-                <View style={styles.healthInfo}>
-                  <Ionicons name="heart-outline" size={20} color={colors.accent2} />
-                  <View style={styles.healthTextCol}>
-                    <Text style={styles.healthTitle}>Apple Health</Text>
-                    <Text style={styles.healthSubtitle}>
-                      {!hkModuleAvailable
-                        ? 'Requires custom dev build'
-                        : hkConnected
-                          ? 'Connected — syncing sleep'
-                          : 'Sync sleep data automatically'}
-                    </Text>
-                  </View>
-                </View>
-                {hkLoading ? (
-                  <ActivityIndicator size="small" color={colors.accent2} />
-                ) : (
-                  <Switch
-                    value={hkConnected}
-                    onValueChange={async (value) => {
-                      if (value) {
-                        if (!hkModuleAvailable) {
-                          Alert.alert(
-                            'Not Available',
-                            'HealthKit requires a custom development build. Sleep data can still be entered manually during check-in.',
-                          );
-                          return;
-                        }
-                        await hkConnect();
-                      } else {
-                        Alert.alert(
-                          'Disconnect Health',
-                          'Stop syncing sleep data from Apple Health?',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Disconnect', style: 'destructive', onPress: hkDisconnect },
-                          ],
-                        );
-                      }
-                    }}
-                    disabled={!hkModuleAvailable || hkLoading}
-                    trackColor={{ false: colors.border, true: colors.accent2 }}
-                    thumbColor={colors.cardLight}
-                  />
-                )}
-              </View>
-            ) : (
-              <View style={styles.healthRow}>
-                <View style={styles.healthInfo}>
-                  <Ionicons name="heart-outline" size={20} color={colors.textInactive} />
-                  <View style={styles.healthTextCol}>
-                    <Text style={styles.healthTitle}>Health Connect</Text>
-                    <Text style={styles.healthSubtitle}>
-                      Android health integration coming soon. Use manual sleep entry during check-in.
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {hkError && (
-              <Text style={styles.healthError}>{hkError}</Text>
-            )}
-          </View>
-
           {/* ── Study Section ─────────────────────── */}
           <View style={styles.studySection}>
             <View style={styles.sectionDivider} />
             <Text style={styles.sectionLabel}>Study</Text>
 
+            {/* Education type toggle */}
+            <Text style={styles.fieldLabel}>Education Type</Text>
+            <View style={styles.eduToggleRow}>
+              <TouchableOpacity
+                style={[
+                  styles.eduToggle,
+                  {
+                    backgroundColor: eduType === 'school' ? colors.accent1 : 'transparent',
+                    borderColor: eduType === 'school' ? colors.accent1 : colors.border,
+                  },
+                ]}
+                onPress={() => setEduType('school')}
+              >
+                <Ionicons
+                  name="school-outline"
+                  size={16}
+                  color={eduType === 'school' ? '#FFF' : colors.textOnLight}
+                />
+                <Text style={{ color: eduType === 'school' ? '#FFF' : colors.textOnLight, fontSize: 13, fontWeight: '600' }}>
+                  School
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.eduToggle,
+                  {
+                    backgroundColor: eduType === 'university' ? colors.accent1 : 'transparent',
+                    borderColor: eduType === 'university' ? colors.accent1 : colors.border,
+                  },
+                ]}
+                onPress={() => setEduType('university')}
+              >
+                <Ionicons
+                  name="library-outline"
+                  size={16}
+                  color={eduType === 'university' ? '#FFF' : colors.textOnLight}
+                />
+                <Text style={{ color: eduType === 'university' ? '#FFF' : colors.textOnLight, fontSize: 13, fontWeight: '600' }}>
+                  University
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* School days */}
+            <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>
+              {eduType === 'school' ? 'School' : 'University'} Days
+            </Text>
+            <View style={styles.dayChipRow}>
+              {DAY_LABELS.map((label, idx) => {
+                const selected = schoolDays.includes(idx);
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[
+                      styles.dayChip,
+                      {
+                        backgroundColor: selected ? colors.accent1 : 'transparent',
+                        borderColor: selected ? colors.accent1 : colors.border,
+                      },
+                    ]}
+                    onPress={() => toggleDay(schoolDays, setSchoolDays, idx)}
+                  >
+                    <Text style={{ color: selected ? '#FFF' : colors.textOnLight, fontSize: 12, fontWeight: '600' }}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Daily hours: From - To */}
+            <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>Daily Hours</Text>
+            <View style={styles.timeRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.miniLabel}>From</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.miniChipScroll}>
+                  {TIME_OPTIONS.map((t) => (
+                    <TouchableOpacity
+                      key={`start-${t}`}
+                      style={[
+                        styles.miniChip,
+                        {
+                          backgroundColor: schoolStart === t ? colors.accent1 : 'transparent',
+                          borderColor: schoolStart === t ? colors.accent1 : colors.border,
+                        },
+                      ]}
+                      onPress={() => setSchoolStart(t)}
+                    >
+                      <Text style={{ color: schoolStart === t ? '#FFF' : colors.textOnLight, fontSize: 13 }}>
+                        {t}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+            <View style={styles.timeRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.miniLabel}>To</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.miniChipScroll}>
+                  {TIME_OPTIONS.map((t) => (
+                    <TouchableOpacity
+                      key={`end-${t}`}
+                      style={[
+                        styles.miniChip,
+                        {
+                          backgroundColor: schoolEnd === t ? colors.accent1 : 'transparent',
+                          borderColor: schoolEnd === t ? colors.accent1 : colors.border,
+                        },
+                      ]}
+                      onPress={() => setSchoolEnd(t)}
+                    >
+                      <Text style={{ color: schoolEnd === t ? '#FFF' : colors.textOnLight, fontSize: 13 }}>
+                        {t}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
             {/* Subjects */}
-            <Text style={styles.fieldLabel}>Subjects</Text>
+            <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>Subjects</Text>
             <View style={styles.chipRow}>
               {PRESET_SUBJECTS.map((subj) => {
                 const selected = subjects.includes(subj);
@@ -482,106 +564,141 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
             )}
           </View>
 
-          {/* ── Training Schedule Section ──────────── */}
+          {/* ── My Training Section ──────────────── */}
           <View style={styles.trainingSection}>
             <View style={styles.sectionDivider} />
-            <Text style={styles.sectionLabel}>Training Schedule</Text>
+            <Text style={styles.sectionLabel}>My Training</Text>
 
-            {/* Gym */}
-            <View style={styles.trainingBlock}>
-              <View style={styles.trainingHeader}>
-                <Ionicons name="barbell-outline" size={20} color={colors.accent1} />
-                <Text style={[styles.trainingTitle, { color: colors.textOnLight }]}>Gym Sessions</Text>
-              </View>
-              <View style={styles.stepperRow}>
-                <Text style={[styles.stepperLabel, { color: colors.textInactive }]}>Per week</Text>
-                <View style={styles.stepper}>
-                  <TouchableOpacity
-                    onPress={() => { setGymSessions(decrement(gymSessions)); if (gymSessions <= 1) setGymFixedDays([]); }}
-                    style={[styles.stepperBtn, { borderColor: colors.border }]}
-                  >
-                    <Ionicons name="remove" size={18} color={colors.textOnLight} />
+            {/* Existing training type cards */}
+            {trainingTypes.map((tt) => (
+              <View key={tt.id} style={[styles.trainingCard, { backgroundColor: colors.surface }]}>
+                <View style={styles.trainingCardHeader}>
+                  <View style={styles.trainingCardTitle}>
+                    <Ionicons name={tt.icon as any} size={20} color={colors.accent1} />
+                    <Text style={[styles.trainingCardName, { color: colors.textOnLight }]}>{tt.name}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => removeTrainingType(tt.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="close-circle" size={22} color={colors.error} />
                   </TouchableOpacity>
-                  <Text style={[styles.stepperValue, { color: colors.textOnLight }]}>{gymSessions}</Text>
-                  <TouchableOpacity
-                    onPress={() => setGymSessions(increment(gymSessions, 7))}
-                    style={[styles.stepperBtn, { borderColor: colors.border }]}
-                  >
-                    <Ionicons name="add" size={18} color={colors.textOnLight} />
+                </View>
+                <View style={styles.trainingCardMeta}>
+                  <Text style={[styles.trainingCardMetaText, { color: colors.textInactive }]}>
+                    {tt.sessionsPerWeek}x/week
+                  </Text>
+                  {tt.fixedDays.length > 0 && (
+                    <Text style={[styles.trainingCardMetaText, { color: colors.textInactive }]}>
+                      {' · '}
+                      {tt.fixedDays.map((d) => DAY_LABELS[d]).join(', ')}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ))}
+
+            {/* Add Training button / form */}
+            {!showAddTraining ? (
+              <TouchableOpacity
+                style={[styles.addTrainingBtn, { borderColor: colors.accent1 }]}
+                onPress={() => setShowAddTraining(true)}
+              >
+                <Ionicons name="add-circle-outline" size={18} color={colors.accent1} />
+                <Text style={[styles.addExamBtnText, { color: colors.accent1 }]}>Add Training</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.addTrainingForm, { backgroundColor: colors.surface }]}>
+                {/* Name */}
+                <Text style={styles.miniLabel}>Name</Text>
+                <TextInput
+                  style={[styles.trainingNameInput, { borderColor: colors.border, color: colors.textOnLight }]}
+                  placeholder="e.g. Gym, Club, Private Coach"
+                  placeholderTextColor={colors.textInactive}
+                  value={newTrainingName}
+                  onChangeText={setNewTrainingName}
+                />
+
+                {/* Icon */}
+                <Text style={[styles.miniLabel, { marginTop: spacing.sm }]}>Icon</Text>
+                <View style={styles.iconChipRow}>
+                  {TRAINING_ICONS.map((item) => {
+                    const selected = newTrainingIcon === item.icon;
+                    return (
+                      <TouchableOpacity
+                        key={item.icon}
+                        style={[
+                          styles.iconChip,
+                          {
+                            backgroundColor: selected ? colors.accent1 : 'transparent',
+                            borderColor: selected ? colors.accent1 : colors.border,
+                          },
+                        ]}
+                        onPress={() => setNewTrainingIcon(item.icon)}
+                      >
+                        <Ionicons
+                          name={item.icon as any}
+                          size={18}
+                          color={selected ? '#FFF' : colors.textOnLight}
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Sessions per week */}
+                <View style={[styles.stepperRow, { marginTop: spacing.sm }]}>
+                  <Text style={[styles.stepperLabel, { color: colors.textInactive }]}>Sessions / week</Text>
+                  <View style={styles.stepper}>
+                    <TouchableOpacity
+                      onPress={() => setNewTrainingSessions(decrement(newTrainingSessions))}
+                      style={[styles.stepperBtn, { borderColor: colors.border }]}
+                    >
+                      <Ionicons name="remove" size={18} color={colors.textOnLight} />
+                    </TouchableOpacity>
+                    <Text style={[styles.stepperValue, { color: colors.textOnLight }]}>{newTrainingSessions}</Text>
+                    <TouchableOpacity
+                      onPress={() => setNewTrainingSessions(increment(newTrainingSessions, 7))}
+                      style={[styles.stepperBtn, { borderColor: colors.border }]}
+                    >
+                      <Ionicons name="add" size={18} color={colors.textOnLight} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Fixed days */}
+                <Text style={[styles.dayPickerLabel, { color: colors.textInactive }]}>Fixed days (optional)</Text>
+                <View style={styles.dayChipRow}>
+                  {DAY_LABELS.map((label, idx) => {
+                    const selected = newTrainingDays.includes(idx);
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        style={[
+                          styles.dayChip,
+                          {
+                            backgroundColor: selected ? colors.accent1 : 'transparent',
+                            borderColor: selected ? colors.accent1 : colors.border,
+                          },
+                        ]}
+                        onPress={() => toggleDay(newTrainingDays, setNewTrainingDays, idx)}
+                      >
+                        <Text style={{ color: selected ? '#FFF' : colors.textOnLight, fontSize: 12, fontWeight: '600' }}>
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <View style={styles.addExamActions}>
+                  <TouchableOpacity onPress={() => setShowAddTraining(false)} style={styles.cancelBtn}>
+                    <Text style={{ color: colors.textInactive, fontSize: 14 }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={addTrainingType} style={[styles.confirmBtn, { backgroundColor: colors.accent1 }]}>
+                    <Ionicons name="checkmark" size={18} color="#FFF" />
+                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '600' }}>Add</Text>
                   </TouchableOpacity>
                 </View>
               </View>
-              {gymSessions > 0 && (
-                <>
-                  <Text style={[styles.dayPickerLabel, { color: colors.textInactive }]}>Fixed days (optional)</Text>
-                  <View style={styles.dayChipRow}>
-                    {DAY_LABELS.map((label, idx) => {
-                      const selected = gymFixedDays.includes(idx);
-                      return (
-                        <TouchableOpacity
-                          key={idx}
-                          style={[
-                            styles.dayChip,
-                            { backgroundColor: selected ? colors.accent1 : 'transparent', borderColor: selected ? colors.accent1 : colors.border },
-                          ]}
-                          onPress={() => toggleDay(gymFixedDays, setGymFixedDays, idx)}
-                        >
-                          <Text style={{ color: selected ? '#FFF' : colors.textOnLight, fontSize: 12, fontWeight: '600' }}>{label}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-            </View>
-
-            {/* Club */}
-            <View style={styles.trainingBlock}>
-              <View style={styles.trainingHeader}>
-                <Ionicons name="football-outline" size={20} color={colors.accent1} />
-                <Text style={[styles.trainingTitle, { color: colors.textOnLight }]}>Club Sessions</Text>
-              </View>
-              <View style={styles.stepperRow}>
-                <Text style={[styles.stepperLabel, { color: colors.textInactive }]}>Per week</Text>
-                <View style={styles.stepper}>
-                  <TouchableOpacity
-                    onPress={() => { setClubSessions(decrement(clubSessions)); if (clubSessions <= 1) setClubFixedDays([]); }}
-                    style={[styles.stepperBtn, { borderColor: colors.border }]}
-                  >
-                    <Ionicons name="remove" size={18} color={colors.textOnLight} />
-                  </TouchableOpacity>
-                  <Text style={[styles.stepperValue, { color: colors.textOnLight }]}>{clubSessions}</Text>
-                  <TouchableOpacity
-                    onPress={() => setClubSessions(increment(clubSessions, 7))}
-                    style={[styles.stepperBtn, { borderColor: colors.border }]}
-                  >
-                    <Ionicons name="add" size={18} color={colors.textOnLight} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              {clubSessions > 0 && (
-                <>
-                  <Text style={[styles.dayPickerLabel, { color: colors.textInactive }]}>Fixed days (optional)</Text>
-                  <View style={styles.dayChipRow}>
-                    {DAY_LABELS.map((label, idx) => {
-                      const selected = clubFixedDays.includes(idx);
-                      return (
-                        <TouchableOpacity
-                          key={idx}
-                          style={[
-                            styles.dayChip,
-                            { backgroundColor: selected ? colors.accent1 : 'transparent', borderColor: selected ? colors.accent1 : colors.border },
-                          ]}
-                          onPress={() => toggleDay(clubFixedDays, setClubFixedDays, idx)}
-                        >
-                          <Text style={{ color: selected ? '#FFF' : colors.textOnLight, fontSize: 12, fontWeight: '600' }}>{label}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-            </View>
+            )}
           </View>
         </Card>
 
@@ -626,27 +743,6 @@ const styles = StyleSheet.create({
     color: colors.readinessGreen,
     marginLeft: spacing.sm,
   },
-  sportLabel: {
-    ...typography.label,
-    color: colors.textInactive,
-    marginBottom: spacing.sm,
-  },
-  padelEnabledRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: spacing.sm,
-    backgroundColor: 'rgba(52, 199, 89, 0.1)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-  },
-  padelEnabledText: {
-    fontFamily: fontFamily.medium,
-    fontSize: 12,
-    color: colors.success,
-    flex: 1,
-  },
 
   // ── Shared section styles ─────────────────────────
   sectionDivider: {
@@ -660,38 +756,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
 
-  // ── Health Integration ─────────────────────────
-  healthSection: {
-    marginTop: spacing.lg,
+  // ── Education type toggle ─────────────────────────
+  eduToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: spacing.xs,
   },
-  healthRow: {
+  eduToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
   },
-  healthInfo: {
+
+  // ── Time row ─────────────────────────
+  timeRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: spacing.sm,
-  },
-  healthTextCol: {
-    flex: 1,
-  },
-  healthTitle: {
-    ...typography.body,
-    color: colors.textOnLight,
-    fontFamily: fontFamily.medium,
-  },
-  healthSubtitle: {
-    ...typography.metadataSmall,
-    color: colors.textInactive,
-    marginTop: 2,
-  },
-  healthError: {
-    ...typography.metadataSmall,
-    color: colors.error,
-    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
   },
 
   // ── Study section ─────────────────────────────
@@ -822,19 +906,72 @@ const styles = StyleSheet.create({
   trainingSection: {
     marginTop: spacing.lg,
   },
-  trainingBlock: {
-    marginBottom: spacing.md,
+  trainingCard: {
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
-  trainingHeader: {
+  trainingCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  trainingCardTitle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
   },
-  trainingTitle: {
+  trainingCardName: {
     fontSize: 15,
     fontWeight: '600',
   },
+  trainingCardMeta: {
+    flexDirection: 'row',
+    marginTop: 4,
+    marginLeft: 28,
+  },
+  trainingCardMetaText: {
+    fontSize: 12,
+  },
+  addTrainingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+  },
+  addTrainingForm: {
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.xs,
+    gap: spacing.sm,
+  },
+  trainingNameInput: {
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  iconChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  iconChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Stepper + day picker (reused from training) ───
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',

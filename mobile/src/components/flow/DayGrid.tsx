@@ -3,12 +3,13 @@
  *
  * Shows 36 half-hour slots with events positioned by time.
  * Supports: empty slot tap, long-press drag-and-drop, lock state.
- * Reuses FlowTimeline type colors/emojis for visual consistency.
  *
- * Drag architecture: When user long-presses an event, a DragOverlay mounts
- * on top of the grid with its own PanResponder. Because the overlay is freshly
- * mounted, its PanResponder is created with the correct drag state — avoiding
- * the stale-closure problem of per-event PanResponders.
+ * Drag architecture:
+ * 1. Pressable.onLongPress on an event sets isDraggingRef + dragState
+ * 2. Grid-level PanResponder captures the gesture from the Pressable via
+ *    onMoveShouldSetPanResponderCapture — avoiding the stale-closure and
+ *    gesture-ownership problems of per-event or overlay PanResponders.
+ * 3. A visual-only drag overlay renders the dragged block.
  */
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
@@ -123,7 +124,7 @@ function computeOverlapGroups(events: CalendarEvent[]): Map<string, { col: numbe
       const lastInCol = columns[c][columns[c].length - 1];
       if (lastInCol.endMin <= startMin) {
         columns[c].push({ endMin, eventId: evt.id });
-        result.set(evt.id, { col: c, totalCols: 0 }); // totalCols set later
+        result.set(evt.id, { col: c, totalCols: 0 });
         placed = true;
         break;
       }
@@ -135,7 +136,7 @@ function computeOverlapGroups(events: CalendarEvent[]): Map<string, { col: numbe
     }
   }
 
-  // Set totalCols for all events (max columns needed)
+  // Set totalCols for all events
   const totalCols = columns.length;
   for (const [id, info] of result) {
     result.set(id, { ...info, totalCols });
@@ -237,11 +238,19 @@ export function DayGrid({
     return null;
   }, [isToday, timedEvents, completedEventIds, nowMinutes]);
 
-  // ── Drag state — lifted to grid level ──
+  // ── Drag state ──
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
 
+  // Refs for PanResponder (avoids stale closures — PanResponder created once)
+  const isDraggingRef = useRef(false);
+  const dragStateRef = useRef<DragState | null>(null);
+  const dragOffsetRef = useRef(0);
+
   const handleDragStart = useCallback((ds: DragState) => {
+    isDraggingRef.current = true;
+    dragStateRef.current = ds;
+    dragOffsetRef.current = 0;
     setDragState(ds);
     setDragOffsetY(0);
     if (scrollEnabled?.current) {
@@ -252,36 +261,83 @@ export function DayGrid({
     }
   }, [scrollEnabled]);
 
-  const handleDragMove = useCallback((dy: number) => {
-    // Snap to 30-min increments
-    const snapped = Math.round(dy / SLOT_HEIGHT) * SLOT_HEIGHT;
-    setDragOffsetY(snapped);
-  }, []);
+  // Callback refs for PanResponder
+  const onEventDropRef = useRef(onEventDrop);
+  onEventDropRef.current = onEventDrop;
+  const scrollEnabledRef = useRef(scrollEnabled);
+  scrollEnabledRef.current = scrollEnabled;
 
-  const handleDragEnd = useCallback(() => {
-    if (!dragState) return;
+  // ── Grid-level PanResponder ──
+  // Does NOT claim touches on start (children handle taps normally).
+  // Captures on move ONLY after isDraggingRef is true (set by Pressable.onLongPress).
+  const gridPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        // Don't interfere with touch start — let Pressable children handle taps
+        onStartShouldSetPanResponder: () => false,
+        onStartShouldSetPanResponderCapture: () => false,
 
-    const deltaMinutes = Math.round(dragOffsetY / SLOT_HEIGHT) * 30;
-    const newStartMin = dragState.originalStartMin + deltaMinutes;
-    const newEndMin = newStartMin + dragState.durationMin;
+        // Steal the gesture on move if we're in drag mode
+        onMoveShouldSetPanResponder: () => isDraggingRef.current,
+        onMoveShouldSetPanResponderCapture: () => isDraggingRef.current,
 
-    // Bounds check
-    if (deltaMinutes !== 0 && newStartMin >= START_HOUR * 60 && newEndMin <= END_HOUR * 60) {
-      const newStart = minutesToTime(newStartMin);
-      const newEnd = minutesToTime(newEndMin);
-      onEventDrop(dragState.eventId, newStart, newEnd);
-    } else if (deltaMinutes !== 0) {
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-    }
+        // Never yield once we're dragging
+        onPanResponderTerminationRequest: () => !isDraggingRef.current,
 
-    setDragState(null);
-    setDragOffsetY(0);
-    if (scrollEnabled?.current) {
-      scrollEnabled.current(true);
-    }
-  }, [dragState, dragOffsetY, onEventDrop, scrollEnabled]);
+        onPanResponderGrant: () => {
+          // Gesture captured from Pressable — drag is now active on the grid
+        },
+
+        onPanResponderMove: (_evt, gs) => {
+          if (!isDraggingRef.current) return;
+          // Snap to 30-min increments
+          const snapped = Math.round(gs.dy / SLOT_HEIGHT) * SLOT_HEIGHT;
+          dragOffsetRef.current = snapped;
+          setDragOffsetY(snapped);
+        },
+
+        onPanResponderRelease: () => {
+          if (!isDraggingRef.current || !dragStateRef.current) return;
+
+          const ds = dragStateRef.current;
+          const deltaMinutes = Math.round(dragOffsetRef.current / SLOT_HEIGHT) * 30;
+          const newStartMin = ds.originalStartMin + deltaMinutes;
+          const newEndMin = newStartMin + ds.durationMin;
+
+          // Apply drop if moved and within bounds
+          if (deltaMinutes !== 0 && newStartMin >= START_HOUR * 60 && newEndMin <= END_HOUR * 60) {
+            onEventDropRef.current(ds.eventId, minutesToTime(newStartMin), minutesToTime(newEndMin));
+          } else if (deltaMinutes !== 0) {
+            if (Platform.OS !== 'web') {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }
+          }
+
+          // Reset
+          isDraggingRef.current = false;
+          dragStateRef.current = null;
+          dragOffsetRef.current = 0;
+          setDragState(null);
+          setDragOffsetY(0);
+          if (scrollEnabledRef.current?.current) {
+            scrollEnabledRef.current.current(true);
+          }
+        },
+
+        onPanResponderTerminate: () => {
+          // Gesture stolen — cancel drag
+          isDraggingRef.current = false;
+          dragStateRef.current = null;
+          dragOffsetRef.current = 0;
+          setDragState(null);
+          setDragOffsetY(0);
+          if (scrollEnabledRef.current?.current) {
+            scrollEnabledRef.current.current(true);
+          }
+        },
+      }),
+    [], // Created once — refs keep callbacks fresh
+  );
 
   // ── Occupied slot checker ──
   const occupiedSlots = useMemo(() => {
@@ -355,8 +411,11 @@ export function DayGrid({
         </View>
       )}
 
-      {/* ── Main grid ── */}
-      <View style={[styles.grid, { height: GRID_HEIGHT }]}>
+      {/* ── Main grid — PanResponder attached here ── */}
+      <View
+        style={[styles.grid, { height: GRID_HEIGHT }]}
+        {...gridPanResponder.panHandlers}
+      >
         {/* Time labels */}
         {timeLabels.map(({ hour, label, y }) => (
           <Text
@@ -440,13 +499,11 @@ export function DayGrid({
           );
         })}
 
-        {/* ── Drag overlay — mounts only while dragging ── */}
+        {/* ── Drag overlay — purely visual, no PanResponder ── */}
         {dragState && (
-          <DragOverlay
+          <DragOverlayVisual
             dragState={dragState}
             dragOffsetY={dragOffsetY}
-            onMove={handleDragMove}
-            onEnd={handleDragEnd}
             colors={colors}
           />
         )}
@@ -468,44 +525,15 @@ export function DayGrid({
   );
 }
 
-// ─── Drag Overlay ────────────────────────────────────────────────────────────
-// Mounts fresh when dragging starts, so its PanResponder is created with
-// correct state — no stale closures.
+// ─── Drag Overlay (visual only — no PanResponder) ────────────────────────────
 
-interface DragOverlayProps {
+interface DragOverlayVisualProps {
   dragState: DragState;
   dragOffsetY: number;
-  onMove: (dy: number) => void;
-  onEnd: () => void;
   colors: ThemeColors;
 }
 
-function DragOverlay({ dragState, dragOffsetY, onMove, onEnd, colors }: DragOverlayProps) {
-  // Use refs to avoid stale closures in PanResponder callbacks
-  const onMoveRef = useRef(onMove);
-  const onEndRef = useRef(onEnd);
-  onMoveRef.current = onMove;
-  onEndRef.current = onEnd;
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponderCapture: () => true,
-        onPanResponderMove: (_, gs) => {
-          onMoveRef.current(gs.dy);
-        },
-        onPanResponderRelease: () => {
-          onEndRef.current();
-        },
-        onPanResponderTerminate: () => {
-          onEndRef.current();
-        },
-      }),
-    [], // Created once on mount — refs keep callbacks fresh
-  );
-
+function DragOverlayVisual({ dragState, dragOffsetY, colors }: DragOverlayVisualProps) {
   const overlayTop = dragState.originalY + dragOffsetY;
 
   // Compute new time label for visual feedback
@@ -518,6 +546,7 @@ function DragOverlay({ dragState, dragOffsetY, onMove, onEnd, colors }: DragOver
 
   return (
     <View
+      pointerEvents="none"
       style={{
         position: 'absolute',
         top: overlayTop,
@@ -526,7 +555,6 @@ function DragOverlay({ dragState, dragOffsetY, onMove, onEnd, colors }: DragOver
         height: dragState.height,
         zIndex: 200,
       }}
-      {...panResponder.panHandlers}
     >
       <View
         style={{
@@ -567,7 +595,7 @@ function DragOverlay({ dragState, dragOffsetY, onMove, onEnd, colors }: DragOver
   );
 }
 
-// ─── Static Event Block (no PanResponder, uses Pressable.onLongPress) ───────
+// ─── Static Event Block (uses Pressable.onLongPress to trigger drag) ─────────
 
 interface StaticEventBlockProps {
   event: CalendarEvent;
@@ -632,7 +660,7 @@ function StaticEventBlock({
     });
   }, [event, top, left, width, height, typeColor, readOnly, locked, onDragStart]);
 
-  // Hide the static block while the drag overlay is showing
+  // Ghost placeholder while dragging
   if (isDragging) {
     return (
       <View
