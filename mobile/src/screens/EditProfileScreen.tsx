@@ -1,7 +1,7 @@
 /**
- * Edit Profile Screen
- * Edit user name, region, team, school/university schedule, subjects, exams,
- * and custom training types.
+ * Edit Profile Screen (Settings)
+ * Study schedule, subjects, exams, and custom training types.
+ * On save, auto-populates calendar with school + training blocks for the next month.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -14,11 +14,12 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, Input, Card, ErrorState } from '../components';
+import { Button, Card, ErrorState } from '../components';
 import { colors, spacing, typography, borderRadius, fontFamily } from '../theme';
-import { updateUser } from '../services/api';
+import { updateUser, createCalendarEvent } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import type {
   ExamEntry,
@@ -26,6 +27,7 @@ import type {
   EducationType,
   SchoolSchedule,
   CustomTrainingType,
+  CalendarEventInput,
 } from '../types';
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -73,15 +75,88 @@ function generateNextDays(count: number): { label: string; value: string }[] {
 
 const NEXT_60_DAYS = generateNextDays(60);
 
+// ── Helpers ────────────────────────────────────────────────────────
+
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number);
+  const totalMin = h * 60 + m + minutes;
+  const newH = Math.floor(totalMin / 60) % 24;
+  const newM = totalMin % 60;
+  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+}
+
+/**
+ * Generate calendar events for the next 30 days from school schedule + training types.
+ * Returns an array of CalendarEventInput ready to POST.
+ */
+function generateScheduleEvents(
+  schoolSchedule: SchoolSchedule,
+  trainingTypes: CustomTrainingType[],
+  exams: ExamEntry[],
+): CalendarEventInput[] {
+  const events: CalendarEventInput[] = [];
+  const now = new Date();
+
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    const dayOfWeek = d.getDay(); // 0=Sun ... 6=Sat
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    // School block
+    if (schoolSchedule.days.includes(dayOfWeek)) {
+      events.push({
+        name: schoolSchedule.type === 'university' ? 'University' : 'School',
+        type: 'study_block',
+        sport: 'general',
+        date: dateStr,
+        startTime: schoolSchedule.startTime,
+        endTime: schoolSchedule.endTime,
+      });
+    }
+
+    // Training blocks
+    for (const tt of trainingTypes) {
+      if (tt.fixedDays.includes(dayOfWeek)) {
+        events.push({
+          name: tt.name,
+          type: 'training',
+          sport: 'general',
+          date: dateStr,
+          startTime: undefined, // user sets time later
+          endTime: undefined,
+        });
+      }
+    }
+  }
+
+  // Exam events
+  for (const exam of exams) {
+    const examDate = exam.examDate;
+    // Only add if in the next 60 days
+    const examD = new Date(examDate + 'T00:00:00');
+    const diffDays = Math.ceil((examD.getTime() - now.getTime()) / 86400000);
+    if (diffDays >= 0 && diffDays <= 60) {
+      events.push({
+        name: `${exam.examType}: ${exam.subject}`,
+        type: 'exam',
+        sport: 'general',
+        date: examDate,
+      });
+    }
+  }
+
+  return events;
+}
+
 // ── Component ────────────────────────────────────────────────────────
 
 export function EditProfileScreen({ navigation }: { navigation: { goBack: () => void } }) {
   const { profile, refreshProfile } = useAuth();
 
-  // Basic profile fields
-  const [name, setName] = useState(profile?.name || '');
-  const [region, setRegion] = useState(profile?.region || '');
-  const [teamId, setTeamId] = useState(profile?.teamId || '');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -184,7 +259,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
       fixedDays: newTrainingDays,
     };
     setTrainingTypes((prev) => [...prev, newType]);
-    // Reset form
     setNewTrainingName('');
     setNewTrainingIcon('barbell-outline');
     setNewTrainingSessions(3);
@@ -201,14 +275,9 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
   const increment = (val: number, max: number) => Math.min(val + 1, max);
   const decrement = (val: number) => Math.max(val - 1, 0);
 
-  // ── Save ─────────────────────────────────────────────────────────────
+  // ── Save + auto-populate calendar ────────────────────────────────────
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      setError('Name is required');
-      return;
-    }
-
     setIsSaving(true);
     setError('');
     try {
@@ -219,16 +288,27 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
         endTime: schoolEnd,
       };
 
+      // 1. Save profile
       await updateUser({
-        name: name.trim(),
-        displayName: name.trim(),
-        region: region.trim() || undefined,
-        teamId: teamId.trim() || undefined,
         studySubjects: subjects,
         examSchedule: exams,
         schoolSchedule,
         customTrainingTypes: trainingTypes,
       } as Parameters<typeof updateUser>[0]);
+
+      // 2. Auto-populate calendar events for next 30 days
+      const scheduleEvents = generateScheduleEvents(schoolSchedule, trainingTypes, exams);
+
+      // Fire-and-forget: create all events in parallel (don't block UI)
+      const createPromises = scheduleEvents.map((evt) =>
+        createCalendarEvent(evt).catch(() => null), // silently skip failures (e.g. locked days)
+      );
+
+      // Batch in groups of 5 to avoid hammering the API
+      for (let i = 0; i < createPromises.length; i += 5) {
+        await Promise.all(createPromises.slice(i, i + 5));
+      }
+
       await refreshProfile();
       setSuccess(true);
       setTimeout(() => navigation.goBack(), 1000);
@@ -249,37 +329,13 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
         {success && (
           <View style={styles.successBanner}>
             <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-            <Text style={styles.successText}>Profile updated!</Text>
+            <Text style={styles.successText}>Saved! Calendar updated for the next month.</Text>
           </View>
         )}
 
         <Card style={styles.card}>
-          <Input
-            label="Name"
-            placeholder="Your name"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-          />
-          <View style={{ height: spacing.sm }} />
-
-          <Input
-            label="Region (optional)"
-            placeholder="e.g. US-East, Europe"
-            value={region}
-            onChangeText={setRegion}
-          />
-
-          <Input
-            label="Team ID (optional)"
-            placeholder="Your team identifier"
-            value={teamId}
-            onChangeText={setTeamId}
-          />
-
           {/* ── Study Section ─────────────────────── */}
-          <View style={styles.studySection}>
-            <View style={styles.sectionDivider} />
+          <View>
             <Text style={styles.sectionLabel}>Study</Text>
 
             {/* Education type toggle */}
@@ -423,7 +479,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                   </TouchableOpacity>
                 );
               })}
-              {/* Custom subjects already added */}
               {subjects
                 .filter((s) => !PRESET_SUBJECTS.includes(s))
                 .map((subj) => (
@@ -436,7 +491,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                     <Ionicons name="close" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
                   </TouchableOpacity>
                 ))}
-              {/* Add custom button */}
               <TouchableOpacity
                 style={[styles.chip, { backgroundColor: 'transparent', borderColor: colors.accent1, borderStyle: 'dashed' }]}
                 onPress={() => setShowCustomInput(!showCustomInput)}
@@ -500,7 +554,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
               </TouchableOpacity>
             ) : (
               <View style={[styles.addExamForm, { backgroundColor: colors.surface }]}>
-                {/* Subject picker */}
                 <Text style={styles.miniLabel}>Subject</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.miniChipScroll}>
                   {subjects.map((subj) => (
@@ -517,7 +570,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                   ))}
                 </ScrollView>
 
-                {/* Exam type chips */}
                 <Text style={styles.miniLabel}>Type</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.miniChipScroll}>
                   {EXAM_TYPES.map((type) => (
@@ -534,7 +586,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                   ))}
                 </ScrollView>
 
-                {/* Date scroller */}
                 <Text style={styles.miniLabel}>Date</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.miniChipScroll}>
                   {NEXT_60_DAYS.map((d) => (
@@ -569,7 +620,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
             <View style={styles.sectionDivider} />
             <Text style={styles.sectionLabel}>My Training</Text>
 
-            {/* Existing training type cards */}
             {trainingTypes.map((tt) => (
               <View key={tt.id} style={[styles.trainingCard, { backgroundColor: colors.surface }]}>
                 <View style={styles.trainingCardHeader}>
@@ -595,7 +645,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
               </View>
             ))}
 
-            {/* Add Training button / form */}
             {!showAddTraining ? (
               <TouchableOpacity
                 style={[styles.addTrainingBtn, { borderColor: colors.accent1 }]}
@@ -606,7 +655,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
               </TouchableOpacity>
             ) : (
               <View style={[styles.addTrainingForm, { backgroundColor: colors.surface }]}>
-                {/* Name */}
                 <Text style={styles.miniLabel}>Name</Text>
                 <TextInput
                   style={[styles.trainingNameInput, { borderColor: colors.border, color: colors.textOnLight }]}
@@ -616,7 +664,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                   onChangeText={setNewTrainingName}
                 />
 
-                {/* Icon */}
                 <Text style={[styles.miniLabel, { marginTop: spacing.sm }]}>Icon</Text>
                 <View style={styles.iconChipRow}>
                   {TRAINING_ICONS.map((item) => {
@@ -643,7 +690,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                   })}
                 </View>
 
-                {/* Sessions per week */}
                 <View style={[styles.stepperRow, { marginTop: spacing.sm }]}>
                   <Text style={[styles.stepperLabel, { color: colors.textInactive }]}>Sessions / week</Text>
                   <View style={styles.stepper}>
@@ -663,7 +709,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                   </View>
                 </View>
 
-                {/* Fixed days */}
                 <Text style={[styles.dayPickerLabel, { color: colors.textInactive }]}>Fixed days (optional)</Text>
                 <View style={styles.dayChipRow}>
                   {DAY_LABELS.map((label, idx) => {
@@ -703,7 +748,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
         </Card>
 
         <Button
-          title="Save Changes"
+          title={isSaving ? 'Saving & Populating Calendar...' : 'Save & Populate Calendar'}
           onPress={handleSave}
           loading={isSaving}
           variant="gradient"
@@ -744,7 +789,6 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
 
-  // ── Shared section styles ─────────────────────────
   sectionDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
@@ -756,7 +800,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
 
-  // ── Education type toggle ─────────────────────────
   eduToggleRow: {
     flexDirection: 'row',
     gap: 8,
@@ -772,16 +815,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 
-  // ── Time row ─────────────────────────
   timeRow: {
     flexDirection: 'row',
     marginBottom: spacing.xs,
   },
 
-  // ── Study section ─────────────────────────────
-  studySection: {
-    marginTop: spacing.lg,
-  },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '600',
@@ -825,7 +863,6 @@ const styles = StyleSheet.create({
     padding: 8,
   },
 
-  // Exam list
   examList: {
     gap: 8,
     marginBottom: spacing.sm,
@@ -902,7 +939,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
 
-  // ── Training section ──────────────────────────
   trainingSection: {
     marginTop: spacing.lg,
   },
@@ -971,7 +1007,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // ── Stepper + day picker (reused from training) ───
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',

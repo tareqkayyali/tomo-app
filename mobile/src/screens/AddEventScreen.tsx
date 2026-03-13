@@ -1,8 +1,9 @@
 /**
- * Add Event Screen — Apple Calendar-inspired grouped form
+ * Add Event Screen — Simplified block creation
  *
- * Fields: name, type, sport, date, startTime, endTime, intensity, notes
- * Fully themed for dark/light mode.
+ * Fields: type (required), date, time, duration, notes (optional)
+ * Title auto-generated from type. No sport or intensity selectors.
+ * When opened from grid slot tap: time + 1hr duration auto-filled, just pick type.
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -31,12 +32,9 @@ import {
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
 import { createCalendarEvent } from '../services/api';
-import { useSportContext } from '../hooks/useSportContext';
-import type { ActiveSport } from '../hooks/useSportContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../navigation/types';
-import type { IntensityLevel, EventSport } from '../types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,27 +64,15 @@ const EVENT_TYPES: Array<{
   { key: 'other', label: 'Other', icon: 'ellipsis-horizontal' },
 ];
 
-const SPORT_OPTIONS: Array<{
-  key: EventSport;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-}> = [
-  { key: 'football', label: 'Football', icon: 'football-outline', color: '#FF6B35' },
-  { key: 'padel', label: 'Padel', icon: 'tennisball-outline', color: '#00D9FF' },
-  { key: 'general', label: 'General', icon: 'ellipsis-horizontal', color: '#AAAAAA' },
-];
-
-const INTENSITY_OPTIONS: Array<{
-  key: IntensityLevel;
-  label: string;
-  color: string;
-}> = [
-  { key: 'REST', label: 'Rest', color: '#8E8E93' },
-  { key: 'LIGHT', label: 'Light', color: '#30D158' },
-  { key: 'MODERATE', label: 'Moderate', color: '#FF9500' },
-  { key: 'HARD', label: 'Hard', color: '#FF453A' },
-];
+/** Auto-generated name from event type */
+const TYPE_NAMES: Record<EventType, string> = {
+  training: 'Training',
+  match: 'Match',
+  study_block: 'Study Block',
+  exam: 'Exam',
+  recovery: 'Recovery',
+  other: 'Other',
+};
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
@@ -149,7 +135,7 @@ function getDateOptions(): Array<{ value: string; label: string }> {
 }
 
 // ---------------------------------------------------------------------------
-// Time Picker Modal (themed)
+// Time Picker Modal
 // ---------------------------------------------------------------------------
 
 function TimePickerModal({
@@ -247,20 +233,18 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { activeSport } = useSportContext();
   const params = route.params as { initialType?: string; date?: string; startTime?: string } | undefined;
-  const initialType = params?.initialType;
-  const validInitialType = initialType && ['training', 'match', 'recovery', 'study_block', 'exam', 'other'].includes(initialType)
-    ? (initialType as EventType)
+  const hasStartTime = !!(params?.startTime);
+
+  const validInitialType = params?.initialType && ['training', 'match', 'recovery', 'study_block', 'exam', 'other'].includes(params.initialType)
+    ? (params.initialType as EventType)
     : 'training';
 
-  const [name, setName] = useState('');
   const [eventType, setEventType] = useState<EventType>(validInitialType);
-  const [sport, setSport] = useState<EventSport>(activeSport === 'football' ? 'football' : 'padel');
   const [date, setDate] = useState(params?.date || getTodayStr());
   const [startTime, setStartTime] = useState(params?.startTime || '');
-  const [duration, setDuration] = useState<number | null>(null);
-  const [intensity, setIntensity] = useState<IntensityLevel | null>(null);
+  // Auto-set 1hr duration when opened from a grid slot
+  const [duration, setDuration] = useState<number | null>(hasStartTime ? 60 : null);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -271,26 +255,19 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
   const ms = useMemo(() => createModalStyles(colors), [colors]);
 
   const handleSubmit = useCallback(async () => {
-    if (!name.trim()) {
-      Alert.alert('Missing Name', 'Please enter an event name.');
-      return;
-    }
-
     setSubmitting(true);
     try {
-      // Compute endTime from startTime + duration
       const computedEndTime = (startTime && duration)
         ? addMinutesToTime(startTime, duration)
         : undefined;
 
       await createCalendarEvent({
-        name: name.trim(),
+        name: TYPE_NAMES[eventType],
         type: eventType,
-        sport: (eventType === 'training' || eventType === 'match' || eventType === 'recovery') ? sport : 'general',
+        sport: 'general',
         date,
         startTime: startTime || undefined,
         endTime: computedEndTime,
-        intensity: intensity || undefined,
         notes: notes.trim() || undefined,
       });
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -300,9 +277,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [name, eventType, sport, date, startTime, duration, intensity, notes, navigation]);
-
-  const showSport = eventType === 'training' || eventType === 'match' || eventType === 'recovery';
+  }, [eventType, date, startTime, duration, notes, navigation]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
@@ -315,16 +290,16 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
             <Text style={styles.headerCancel}>Cancel</Text>
           </Pressable>
-          <Text style={styles.headerTitle}>New Event</Text>
+          <Text style={styles.headerTitle}>New Block</Text>
           <Pressable
             onPress={handleSubmit}
-            disabled={submitting || !name.trim()}
+            disabled={submitting}
             hitSlop={12}
           >
             <Text
               style={[
                 styles.headerAdd,
-                (!name.trim() || submitting) && styles.headerAddDisabled,
+                submitting && styles.headerAddDisabled,
               ]}
             >
               Add
@@ -338,19 +313,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ═══ Group 1: Title ═══ */}
-          <View style={styles.group}>
-            <TextInput
-              style={styles.titleInput}
-              value={name}
-              onChangeText={setName}
-              placeholder="Title"
-              placeholderTextColor={colors.textInactive}
-              autoFocus
-            />
-          </View>
-
-          {/* ═══ Group 2: Type + Sport ═══ */}
+          {/* ═══ Group 1: Type (required) ═══ */}
           <View style={styles.group}>
             <Text style={styles.groupLabel}>Type</Text>
             <View style={styles.chipRow}>
@@ -361,7 +324,6 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                     key={t.key}
                     onPress={() => {
                       setEventType(t.key);
-                      if (t.key === 'recovery' || t.key === 'other' || t.key === 'study_block' || t.key === 'exam') setSport('general');
                       if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     }}
                     style={[styles.chip, active && styles.chipActive]}
@@ -378,43 +340,9 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                 );
               })}
             </View>
-
-            {showSport && (
-              <>
-                <View style={styles.groupDivider} />
-                <Text style={styles.groupLabel}>Sport</Text>
-                <View style={styles.chipRow}>
-                  {SPORT_OPTIONS.map((opt) => {
-                    const active = sport === opt.key;
-                    return (
-                      <Pressable
-                        key={opt.key}
-                        onPress={() => {
-                          setSport(opt.key);
-                          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        }}
-                        style={[
-                          styles.chip,
-                          active && { backgroundColor: opt.color, borderColor: opt.color },
-                        ]}
-                      >
-                        <Ionicons
-                          name={opt.icon}
-                          size={14}
-                          color={active ? '#FFFFFF' : colors.textMuted}
-                        />
-                        <Text style={[styles.chipText, active && { color: '#FFFFFF' }]}>
-                          {opt.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </>
-            )}
           </View>
 
-          {/* ═══ Group 3: Date & Time ═══ */}
+          {/* ═══ Group 2: Date & Time & Duration ═══ */}
           <View style={styles.group}>
             {/* Date row */}
             <Pressable
@@ -461,41 +389,13 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
             </Pressable>
           </View>
 
-          {/* ═══ Group 4: Intensity ═══ */}
-          <View style={styles.group}>
-            <Text style={styles.groupLabel}>Intensity</Text>
-            <View style={styles.chipRow}>
-              {INTENSITY_OPTIONS.map((opt) => {
-                const active = intensity === opt.key;
-                return (
-                  <Pressable
-                    key={opt.key}
-                    onPress={() => {
-                      setIntensity(active ? null : opt.key);
-                      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                    style={[
-                      styles.chip,
-                      active && { backgroundColor: opt.color, borderColor: opt.color },
-                    ]}
-                  >
-                    <View style={[styles.intensityDot, { backgroundColor: active ? '#FFFFFF' : opt.color }]} />
-                    <Text style={[styles.chipText, active && { color: '#FFFFFF' }]}>
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* ═══ Group 5: Notes ═══ */}
+          {/* ═══ Group 3: Notes (optional) ═══ */}
           <View style={styles.group}>
             <TextInput
               style={styles.notesInput}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Notes"
+              placeholder="Notes (optional)"
               placeholderTextColor={colors.textInactive}
               multiline
               numberOfLines={3}
@@ -512,6 +412,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
           onClose={() => setShowStartTimePicker(false)}
           colors={colors}
         />
+
         {/* Duration picker modal */}
         <Modal visible={showDurationPicker} transparent animationType="slide">
           <Pressable style={ms.overlay} onPress={() => setShowDurationPicker(false)}>
@@ -582,7 +483,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Styles Factory (themed)
+// Styles Factory
 // ---------------------------------------------------------------------------
 
 function createStyles(colors: ThemeColors) {
@@ -593,7 +494,6 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.background,
     },
 
-    // ── Header ───────────────────────────────────────────────────────
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -622,7 +522,6 @@ function createStyles(colors: ThemeColors) {
       opacity: 0.35,
     },
 
-    // ── Scroll ───────────────────────────────────────────────────────
     scroll: { flex: 1 },
     scrollContent: {
       paddingHorizontal: layout.screenMargin,
@@ -630,7 +529,6 @@ function createStyles(colors: ThemeColors) {
       paddingBottom: spacing.huge,
     },
 
-    // ── Groups (Apple-style grouped cells) ───────────────────────────
     group: {
       backgroundColor: colors.backgroundElevated,
       borderRadius: 12,
@@ -654,16 +552,6 @@ function createStyles(colors: ThemeColors) {
       marginLeft: 0,
     },
 
-    // ── Title input ──────────────────────────────────────────────────
-    titleInput: {
-      fontFamily: fontFamily.regular,
-      fontSize: 17,
-      color: colors.textOnDark,
-      paddingVertical: 4,
-      minHeight: 36,
-    },
-
-    // ── Setting rows (Date/Time) ─────────────────────────────────────
     settingRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -690,7 +578,6 @@ function createStyles(colors: ThemeColors) {
       color: colors.textInactive,
     },
 
-    // ── Chips ────────────────────────────────────────────────────────
     chipRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -719,13 +606,7 @@ function createStyles(colors: ThemeColors) {
     chipTextActive: {
       color: '#FFFFFF',
     },
-    intensityDot: {
-      width: 7,
-      height: 7,
-      borderRadius: 3.5,
-    },
 
-    // ── Notes ────────────────────────────────────────────────────────
     notesInput: {
       fontFamily: fontFamily.regular,
       fontSize: 16,
@@ -737,7 +618,7 @@ function createStyles(colors: ThemeColors) {
 }
 
 // ---------------------------------------------------------------------------
-// Modal Styles Factory (themed)
+// Modal Styles Factory
 // ---------------------------------------------------------------------------
 
 function createModalStyles(colors: ThemeColors) {

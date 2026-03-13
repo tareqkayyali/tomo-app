@@ -7,12 +7,12 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { SkeletonCard, ErrorState } from '../components';
 import type { UpcomingExam } from '../components';
-import { ReadinessBadge } from '../components/ReadinessBadge';
 import { UnifiedDayView } from '../components/plan/UnifiedDayView';
 import { PlanTabSwitcher } from '../components/plan/PlanTabSwitcher';
 import type { PlanTab } from '../components/plan/PlanTabSwitcher';
@@ -325,7 +325,13 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <ReadinessBadge level={readiness.level} size="small" />
+          <Pressable
+            style={styles.settingsCapsule}
+            onPress={() => navigation.navigate('EditProfile')}
+          >
+            <Ionicons name="settings-outline" size={15} color={colors.textOnDark} />
+            <Text style={styles.settingsCapsuleText}>Settings</Text>
+          </Pressable>
           <HeaderProfileButton
             initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
             photoUrl={profile?.photoUrl}
@@ -449,6 +455,22 @@ function createStyles(colors: ThemeColors) {
     loadingContainer: {
       paddingHorizontal: layout.screenMargin,
       paddingTop: spacing.md,
+    },
+    settingsCapsule: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: colors.glass,
+      borderWidth: 1,
+      borderColor: colors.glassBorder,
+      borderRadius: borderRadius.full,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    settingsCapsuleText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 12,
+      color: colors.textOnDark,
     },
   });
 }
