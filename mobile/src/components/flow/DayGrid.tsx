@@ -4,6 +4,11 @@
  * Shows 36 half-hour slots with events positioned by time.
  * Supports: empty slot tap, long-press drag-and-drop, lock state.
  * Reuses FlowTimeline type colors/emojis for visual consistency.
+ *
+ * Drag architecture: When user long-presses an event, a DragOverlay mounts
+ * on top of the grid with its own PanResponder. Because the overlay is freshly
+ * mounted, its PanResponder is created with the correct drag state — avoiding
+ * the stale-closure problem of per-event PanResponders.
  */
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
@@ -16,13 +21,6 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  runOnJS,
-  type SharedValue,
-} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -39,6 +37,7 @@ const SLOT_COUNT = (END_HOUR - START_HOUR) * 2; // 36 half-hour slots
 const SLOT_HEIGHT = 60; // px per slot
 const TIME_COL_WIDTH = 50;
 const GRID_HEIGHT = SLOT_COUNT * SLOT_HEIGHT;
+const LONG_PRESS_MS = 400;
 
 // ─── Type colors / emojis (match FlowTimeline) ─────────────────────────────
 
@@ -145,6 +144,20 @@ function computeOverlapGroups(events: CalendarEvent[]): Map<string, { col: numbe
   return result;
 }
 
+// ─── Drag state type ─────────────────────────────────────────────────────────
+
+interface DragState {
+  eventId: string;
+  event: CalendarEvent;
+  originalStartMin: number;
+  durationMin: number;
+  originalY: number;
+  typeColor: string;
+  left: number;
+  width: number;
+  height: number;
+}
+
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 interface DayGridProps {
@@ -224,59 +237,51 @@ export function DayGrid({
     return null;
   }, [isToday, timedEvents, completedEventIds, nowMinutes]);
 
-  // ── Drag state ──
-  const [dragEventId, setDragEventId] = useState<string | null>(null);
-  const dragTranslateY = useSharedValue(0);
-  const dragOriginalY = useRef(0);
-  const dragEventOriginalStart = useRef(0);
-  const dragEventDuration = useRef(0);
+  // ── Drag state — lifted to grid level ──
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [dragOffsetY, setDragOffsetY] = useState(0);
 
-  const handleDragStart = useCallback((eventId: string, event: CalendarEvent) => {
-    if (readOnly || locked) return;
-    setDragEventId(eventId);
-    const startMin = timeToMinutes(event.startTime!);
-    const endMin = event.endTime ? timeToMinutes(event.endTime) : startMin + 60;
-    dragEventOriginalStart.current = startMin;
-    dragEventDuration.current = endMin - startMin;
-    dragOriginalY.current = minutesToY(startMin);
-    dragTranslateY.value = 0;
-
+  const handleDragStart = useCallback((ds: DragState) => {
+    setDragState(ds);
+    setDragOffsetY(0);
     if (scrollEnabled?.current) {
       scrollEnabled.current(false);
     }
-
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     }
-  }, [readOnly, locked, dragTranslateY, scrollEnabled]);
+  }, [scrollEnabled]);
+
+  const handleDragMove = useCallback((dy: number) => {
+    // Snap to 30-min increments
+    const snapped = Math.round(dy / SLOT_HEIGHT) * SLOT_HEIGHT;
+    setDragOffsetY(snapped);
+  }, []);
 
   const handleDragEnd = useCallback(() => {
-    if (!dragEventId) return;
+    if (!dragState) return;
 
-    const deltaMinutes = Math.round(dragTranslateY.value / SLOT_HEIGHT) * 30;
-    const newStartMin = dragEventOriginalStart.current + deltaMinutes;
-    const newEndMin = newStartMin + dragEventDuration.current;
+    const deltaMinutes = Math.round(dragOffsetY / SLOT_HEIGHT) * 30;
+    const newStartMin = dragState.originalStartMin + deltaMinutes;
+    const newEndMin = newStartMin + dragState.durationMin;
 
     // Bounds check
-    if (newStartMin >= START_HOUR * 60 && newEndMin <= END_HOUR * 60) {
+    if (deltaMinutes !== 0 && newStartMin >= START_HOUR * 60 && newEndMin <= END_HOUR * 60) {
       const newStart = minutesToTime(newStartMin);
       const newEnd = minutesToTime(newEndMin);
-      onEventDrop(dragEventId, newStart, newEnd);
-    } else {
-      // Spring back
-      dragTranslateY.value = withSpring(0);
+      onEventDrop(dragState.eventId, newStart, newEnd);
+    } else if (deltaMinutes !== 0) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     }
 
-    setDragEventId(null);
-    dragTranslateY.value = 0;
-
+    setDragState(null);
+    setDragOffsetY(0);
     if (scrollEnabled?.current) {
       scrollEnabled.current(true);
     }
-  }, [dragEventId, dragTranslateY, onEventDrop, scrollEnabled]);
+  }, [dragState, dragOffsetY, onEventDrop, scrollEnabled]);
 
   // ── Occupied slot checker ──
   const occupiedSlots = useMemo(() => {
@@ -404,7 +409,7 @@ export function DayGrid({
           const typeColor = getTypeColor(evt.type);
           const isCompleted = completedEventIds.has(evt.id);
           const isCurrent = evt.id === currentEventId;
-          const isDragging = evt.id === dragEventId;
+          const isDragging = dragState?.eventId === evt.id;
           const overlap = overlapMap.get(evt.id);
           const totalCols = overlap?.totalCols || 1;
           const col = overlap?.col || 0;
@@ -413,7 +418,7 @@ export function DayGrid({
           const eventLeft = TIME_COL_WIDTH + 4 + col * eventWidth;
 
           return (
-            <DayGridEvent
+            <StaticEventBlock
               key={evt.id}
               event={evt}
               top={top}
@@ -430,12 +435,21 @@ export function DayGrid({
               onSkip={onSkip}
               onUndo={onUndo}
               onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              dragTranslateY={dragTranslateY}
               colors={colors}
             />
           );
         })}
+
+        {/* ── Drag overlay — mounts only while dragging ── */}
+        {dragState && (
+          <DragOverlay
+            dragState={dragState}
+            dragOffsetY={dragOffsetY}
+            onMove={handleDragMove}
+            onEnd={handleDragEnd}
+            colors={colors}
+          />
+        )}
 
         {/* Now indicator */}
         {isToday && nowMinutes >= START_HOUR * 60 && nowMinutes < END_HOUR * 60 && (
@@ -454,9 +468,108 @@ export function DayGrid({
   );
 }
 
-// ─── Event Block Sub-component ──────────────────────────────────────────────
+// ─── Drag Overlay ────────────────────────────────────────────────────────────
+// Mounts fresh when dragging starts, so its PanResponder is created with
+// correct state — no stale closures.
 
-interface DayGridEventProps {
+interface DragOverlayProps {
+  dragState: DragState;
+  dragOffsetY: number;
+  onMove: (dy: number) => void;
+  onEnd: () => void;
+  colors: ThemeColors;
+}
+
+function DragOverlay({ dragState, dragOffsetY, onMove, onEnd, colors }: DragOverlayProps) {
+  // Use refs to avoid stale closures in PanResponder callbacks
+  const onMoveRef = useRef(onMove);
+  const onEndRef = useRef(onEnd);
+  onMoveRef.current = onMove;
+  onEndRef.current = onEnd;
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderMove: (_, gs) => {
+          onMoveRef.current(gs.dy);
+        },
+        onPanResponderRelease: () => {
+          onEndRef.current();
+        },
+        onPanResponderTerminate: () => {
+          onEndRef.current();
+        },
+      }),
+    [], // Created once on mount — refs keep callbacks fresh
+  );
+
+  const overlayTop = dragState.originalY + dragOffsetY;
+
+  // Compute new time label for visual feedback
+  const newStartMin = dragState.originalStartMin + Math.round(dragOffsetY / SLOT_HEIGHT) * 30;
+  const newEndMin = newStartMin + dragState.durationMin;
+  const newTimeLabel =
+    newStartMin >= START_HOUR * 60 && newEndMin <= END_HOUR * 60
+      ? `${format12h(minutesToTime(newStartMin))} – ${format12h(minutesToTime(newEndMin))}`
+      : 'Out of range';
+
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        top: overlayTop,
+        left: dragState.left,
+        width: dragState.width,
+        height: dragState.height,
+        zIndex: 200,
+      }}
+      {...panResponder.panHandlers}
+    >
+      <View
+        style={{
+          flex: 1,
+          borderRadius: borderRadius.sm,
+          borderLeftWidth: 4,
+          borderLeftColor: dragState.typeColor,
+          backgroundColor: dragState.typeColor + '30',
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.35,
+          shadowRadius: 12,
+          elevation: 15,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text style={{ fontSize: 12 }}>{getTypeEmoji(dragState.event.type)}</Text>
+          <Text
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              fontSize: 12,
+              fontFamily: fontFamily.semiBold,
+              color: colors.textOnDark,
+            }}
+          >
+            {dragState.event.name}
+          </Text>
+          <Ionicons name="move-outline" size={14} color={colors.textSecondary} />
+        </View>
+        <Text style={{ fontSize: 10, color: colors.accent1, fontWeight: '600', marginTop: 2 }}>
+          {newTimeLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Static Event Block (no PanResponder, uses Pressable.onLongPress) ───────
+
+interface StaticEventBlockProps {
   event: CalendarEvent;
   top: number;
   height: number;
@@ -471,13 +584,11 @@ interface DayGridEventProps {
   onComplete: (id: string) => void;
   onSkip: (id: string) => void;
   onUndo: (id: string) => void;
-  onDragStart: (id: string, event: CalendarEvent) => void;
-  onDragEnd: () => void;
-  dragTranslateY: SharedValue<number>;
+  onDragStart: (ds: DragState) => void;
   colors: ThemeColors;
 }
 
-function DayGridEvent({
+function StaticEventBlock({
   event,
   top,
   height,
@@ -493,88 +604,8 @@ function DayGridEvent({
   onSkip,
   onUndo,
   onDragStart,
-  onDragEnd,
-  dragTranslateY,
   colors,
-}: DayGridEventProps) {
-  // Track drag state with a ref so PanResponder can read it synchronously
-  const isDraggingRef = useRef(false);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Keep ref in sync with prop
-  useEffect(() => {
-    isDraggingRef.current = isDragging;
-  }, [isDragging]);
-
-  const panResponder = useMemo(() => {
-    if (readOnly || locked) return null;
-
-    return PanResponder.create({
-      // Always become responder on press so we can detect long-press
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gs) => {
-        // Claim moves once we're in drag mode
-        return isDraggingRef.current && Math.abs(gs.dy) > 2;
-      },
-      onMoveShouldSetPanResponderCapture: (_, gs) => {
-        // Capture moves once dragging to prevent ScrollView from stealing
-        return isDraggingRef.current && Math.abs(gs.dy) > 2;
-      },
-      onPanResponderGrant: () => {
-        // Start a long-press timer
-        longPressTimer.current = setTimeout(() => {
-          isDraggingRef.current = true;
-          onDragStart(event.id, event);
-        }, 400);
-      },
-      onPanResponderMove: (_, gs) => {
-        // If user moves before long-press fires, cancel the timer
-        if (!isDraggingRef.current && (Math.abs(gs.dx) > 10 || Math.abs(gs.dy) > 10)) {
-          if (longPressTimer.current) {
-            clearTimeout(longPressTimer.current);
-            longPressTimer.current = null;
-          }
-          return;
-        }
-        if (isDraggingRef.current) {
-          // Snap to 30-min increments
-          const snapped = Math.round(gs.dy / SLOT_HEIGHT) * SLOT_HEIGHT;
-          dragTranslateY.value = snapped;
-        }
-      },
-      onPanResponderRelease: () => {
-        if (longPressTimer.current) {
-          clearTimeout(longPressTimer.current);
-          longPressTimer.current = null;
-        }
-        if (isDraggingRef.current) {
-          onDragEnd();
-          isDraggingRef.current = false;
-        }
-      },
-      onPanResponderTerminate: () => {
-        if (longPressTimer.current) {
-          clearTimeout(longPressTimer.current);
-          longPressTimer.current = null;
-        }
-        if (isDraggingRef.current) {
-          onDragEnd();
-          isDraggingRef.current = false;
-        }
-      },
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readOnly, locked, event.id, dragTranslateY, onDragStart, onDragEnd]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    if (!isDragging) return {};
-    return {
-      transform: [{ translateY: dragTranslateY.value }],
-      zIndex: 100,
-      elevation: 10,
-    };
-  });
-
+}: StaticEventBlockProps) {
   const timeStr = event.startTime
     ? event.endTime
       ? `${format12h(event.startTime)} – ${format12h(event.endTime)}`
@@ -584,23 +615,68 @@ function DayGridEvent({
   const intensity = event.intensity ? getIntensityConfig(event.intensity) : null;
   const showActions = isCurrent && !readOnly && !locked && !isCompleted;
 
-  return (
-    <Animated.View
-      style={[
-        {
+  const handleLongPress = useCallback(() => {
+    if (readOnly || locked || !event.startTime) return;
+    const startMin = timeToMinutes(event.startTime);
+    const endMin = event.endTime ? timeToMinutes(event.endTime) : startMin + 60;
+    onDragStart({
+      eventId: event.id,
+      event,
+      originalStartMin: startMin,
+      durationMin: endMin - startMin,
+      originalY: top,
+      typeColor,
+      left,
+      width,
+      height: Math.max(height, 44),
+    });
+  }, [event, top, left, width, height, typeColor, readOnly, locked, onDragStart]);
+
+  // Hide the static block while the drag overlay is showing
+  if (isDragging) {
+    return (
+      <View
+        style={{
           position: 'absolute',
           top,
           left,
           width,
           height: Math.max(height, 44),
-          zIndex: isDragging ? 100 : isCurrent ? 10 : 1,
-        },
-        animatedStyle,
-      ]}
-      {...(panResponder?.panHandlers || {})}
+          opacity: 0.2,
+          zIndex: 0,
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            borderRadius: borderRadius.sm,
+            borderLeftWidth: 3,
+            borderLeftColor: typeColor,
+            backgroundColor: typeColor + '10',
+            borderStyle: 'dashed',
+            borderWidth: 1,
+            borderColor: typeColor + '40',
+          }}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        top,
+        left,
+        width,
+        height: Math.max(height, 44),
+        zIndex: isCurrent ? 10 : 1,
+      }}
     >
-      <View
-        style={[
+      <Pressable
+        onLongPress={handleLongPress}
+        delayLongPress={LONG_PRESS_MS}
+        style={({ pressed }) => [
           {
             flex: 1,
             borderRadius: borderRadius.sm,
@@ -609,15 +685,8 @@ function DayGridEvent({
             backgroundColor: typeColor + '18',
             paddingHorizontal: 8,
             paddingVertical: 4,
-            opacity: isCompleted ? 0.45 : 1,
+            opacity: isCompleted ? 0.45 : pressed ? 0.85 : 1,
             overflow: 'hidden',
-          },
-          isDragging && {
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 10,
           },
           isCurrent && !isCompleted && {
             borderLeftWidth: 4,
@@ -651,8 +720,8 @@ function DayGridEvent({
               <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '800' }}>NOW</Text>
             </View>
           )}
-          {locked && !readOnly && (
-            <Ionicons name="lock-closed" size={10} color={colors.textInactive} />
+          {!readOnly && !locked && event.startTime && (
+            <Ionicons name="reorder-three-outline" size={14} color={colors.textInactive + '80'} />
           )}
         </View>
 
@@ -726,8 +795,8 @@ function DayGridEvent({
             <Text style={{ fontSize: 9, color: typeColor, fontWeight: '600' }}>UNDO</Text>
           </Pressable>
         )}
-      </View>
-    </Animated.View>
+      </Pressable>
+    </View>
   );
 }
 
