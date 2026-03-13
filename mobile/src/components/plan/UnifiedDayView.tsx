@@ -5,7 +5,7 @@
  * Coach/Parent: read-only view (day grid + lock badge, recommend FAB)
  */
 
-import React, { useMemo, useRef, useCallback } from 'react';
+import React, { useMemo, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -136,6 +136,29 @@ export function UnifiedDayView({
   const scrollEnabledRef = useRef((enabled: boolean) => {
     scrollViewRef.current?.setNativeProps?.({ scrollEnabled: enabled });
   });
+
+  // Auto-scroll to current time on today's view
+  const hasScrolledRef = useRef(false);
+  useEffect(() => {
+    if (isToday && !hasScrolledRef.current && scrollViewRef.current) {
+      hasScrolledRef.current = true;
+      // Calculate Y offset: each 30-min slot = 60px, grid starts at 6 AM
+      // Scroll to ~1 hour before current time for context
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const gridStartMinutes = 6 * 60; // 6 AM
+      const minutesIntoGrid = Math.max(0, currentMinutes - gridStartMinutes - 60); // 1h before
+      const scrollY = (minutesIntoGrid / 30) * 60; // px
+      // Small delay to ensure layout is ready
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: Math.max(0, scrollY), animated: false });
+      }, 100);
+    }
+    // Reset when navigating away from today
+    if (!isToday) {
+      hasScrolledRef.current = false;
+    }
+  }, [isToday]);
 
   // Flow header label
   const flowLabel = useMemo(() => {

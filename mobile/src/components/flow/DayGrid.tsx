@@ -497,27 +497,74 @@ function DayGridEvent({
   dragTranslateY,
   colors,
 }: DayGridEventProps) {
+  // Track drag state with a ref so PanResponder can read it synchronously
+  const isDraggingRef = useRef(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep ref in sync with prop
+  useEffect(() => {
+    isDraggingRef.current = isDragging;
+  }, [isDragging]);
+
   const panResponder = useMemo(() => {
     if (readOnly || locked) return null;
 
     return PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return isDragging && (Math.abs(gestureState.dy) > 5);
+      // Always become responder on press so we can detect long-press
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gs) => {
+        // Claim moves once we're in drag mode
+        return isDraggingRef.current && Math.abs(gs.dy) > 2;
       },
-      onPanResponderMove: (_, gestureState) => {
-        if (isDragging) {
+      onMoveShouldSetPanResponderCapture: (_, gs) => {
+        // Capture moves once dragging to prevent ScrollView from stealing
+        return isDraggingRef.current && Math.abs(gs.dy) > 2;
+      },
+      onPanResponderGrant: () => {
+        // Start a long-press timer
+        longPressTimer.current = setTimeout(() => {
+          isDraggingRef.current = true;
+          onDragStart(event.id, event);
+        }, 400);
+      },
+      onPanResponderMove: (_, gs) => {
+        // If user moves before long-press fires, cancel the timer
+        if (!isDraggingRef.current && (Math.abs(gs.dx) > 10 || Math.abs(gs.dy) > 10)) {
+          if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+          }
+          return;
+        }
+        if (isDraggingRef.current) {
           // Snap to 30-min increments
-          const snapped = Math.round(gestureState.dy / SLOT_HEIGHT) * SLOT_HEIGHT;
+          const snapped = Math.round(gs.dy / SLOT_HEIGHT) * SLOT_HEIGHT;
           dragTranslateY.value = snapped;
         }
       },
       onPanResponderRelease: () => {
-        if (isDragging) {
-          runOnJS(onDragEnd)();
+        if (longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+          longPressTimer.current = null;
+        }
+        if (isDraggingRef.current) {
+          onDragEnd();
+          isDraggingRef.current = false;
+        }
+      },
+      onPanResponderTerminate: () => {
+        if (longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+          longPressTimer.current = null;
+        }
+        if (isDraggingRef.current) {
+          onDragEnd();
+          isDraggingRef.current = false;
         }
       },
     });
-  }, [readOnly, locked, isDragging, dragTranslateY, onDragEnd]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, locked, event.id, dragTranslateY, onDragStart, onDragEnd]);
 
   const animatedStyle = useAnimatedStyle(() => {
     if (!isDragging) return {};
@@ -552,12 +599,8 @@ function DayGridEvent({
       ]}
       {...(panResponder?.panHandlers || {})}
     >
-      <Pressable
-        onLongPress={() => {
-          if (!readOnly && !locked) onDragStart(event.id, event);
-        }}
-        delayLongPress={400}
-        style={({ pressed }) => [
+      <View
+        style={[
           {
             flex: 1,
             borderRadius: borderRadius.sm,
@@ -566,7 +609,7 @@ function DayGridEvent({
             backgroundColor: typeColor + '18',
             paddingHorizontal: 8,
             paddingVertical: 4,
-            opacity: isCompleted ? 0.45 : pressed ? 0.85 : 1,
+            opacity: isCompleted ? 0.45 : 1,
             overflow: 'hidden',
           },
           isDragging && {
@@ -683,7 +726,7 @@ function DayGridEvent({
             <Text style={{ fontSize: 9, color: typeColor, fontWeight: '600' }}>UNDO</Text>
           </Pressable>
         )}
-      </Pressable>
+      </View>
     </Animated.View>
   );
 }
