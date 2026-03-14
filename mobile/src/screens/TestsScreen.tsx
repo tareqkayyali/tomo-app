@@ -3,8 +3,9 @@
  *
  * Tab 1: Vitals — wearable data from health_data (HR, HRV, steps, etc.)
  *         + "Connect Wearable" CTA linking to Settings
- * Tab 2: My Tests — user test results + smart search catalog to add tests
- *         Coach-submitted results also shown here.
+ * Tab 2: My Tests — inline smart search to find & add tests from catalog
+ *         User taps a search result → test added to list with inline value input
+ *         User can edit own values inline; coach-submitted tests are read-only.
  *
  * Top row matches the Plan screen pattern (consistent across all pages).
  */
@@ -18,18 +19,14 @@ import {
   Pressable,
   RefreshControl,
   TextInput,
-  Modal,
-  FlatList,
   Platform,
   Alert,
-  KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
-import { LoopIndicator } from '../components/LoopIndicator';
 import {
   spacing,
   fontFamily,
@@ -97,15 +94,19 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
   const [myResults, setMyResults] = useState<MyTestResult[]>([]);
   const [testsLoading, setTestsLoading] = useState(true);
 
-  // Search + Add Test
-  const [showAddTest, setShowAddTest] = useState(false);
+  // Inline search
   const [searchQuery, setSearchQuery] = useState('');
   const [catalogResults, setCatalogResults] = useState<TestCatalogItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
-  const [selectedTest, setSelectedTest] = useState<TestCatalogItem | null>(null);
-  const [testValue, setTestValue] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Inline add/edit
+  const [pendingTest, setPendingTest] = useState<TestCatalogItem | null>(null);
+  const [pendingValue, setPendingValue] = useState('');
+  const [editingResultId, setEditingResultId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const weekdayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
@@ -124,7 +125,7 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
 
   const fetchTests = useCallback(async () => {
     try {
-      const data = await getMyTestResults(100);
+      const data = await getMyTestResults(200);
       setMyResults(data.results);
     } catch {
       // graceful
@@ -148,8 +149,6 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
-    setSelectedTest(null);
-    setTestValue('');
 
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
 
@@ -168,25 +167,25 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
       } finally {
         setCatalogLoading(false);
       }
-    }, 300);
+    }, 250);
   }, []);
 
-  // Load full catalog on open
-  useEffect(() => {
-    if (showAddTest && catalogResults.length === 0 && !searchQuery) {
-      setCatalogLoading(true);
-      searchTestCatalog().then((data) => {
-        setCatalogResults(data.tests);
-        setCatalogLoading(false);
-      }).catch(() => setCatalogLoading(false));
-    }
-  }, [showAddTest]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ── Select test from search results ─────────────────────────────
 
-  // ── Submit test result ──────────────────────────────────────────
+  const handleSelectTest = useCallback((item: TestCatalogItem) => {
+    setPendingTest(item);
+    setPendingValue('');
+    setSearchQuery('');
+    setCatalogResults([]);
+    setSearchFocused(false);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
 
-  const handleSubmitTest = useCallback(async () => {
-    if (!selectedTest || !testValue.trim()) return;
-    const numVal = parseFloat(testValue);
+  // ── Save new test result (inline) ──────────────────────────────
+
+  const handleSavePending = useCallback(async () => {
+    if (!pendingTest || !pendingValue.trim()) return;
+    const numVal = parseFloat(pendingValue);
     if (isNaN(numVal)) {
       Alert.alert('Invalid', 'Please enter a valid number.');
       return;
@@ -195,25 +194,50 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
     setSubmitting(true);
     try {
       await logTestResult({
-        testType: selectedTest.id,
+        testType: pendingTest.id,
         score: numVal,
-        unit: selectedTest.unit,
+        unit: pendingTest.unit,
         date: new Date().toISOString().slice(0, 10),
       });
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Refresh results and close
-      setShowAddTest(false);
-      setSelectedTest(null);
-      setTestValue('');
-      setSearchQuery('');
+      setPendingTest(null);
+      setPendingValue('');
       fetchTests();
     } catch {
       Alert.alert('Error', 'Could not save test result.');
     } finally {
       setSubmitting(false);
     }
-  }, [selectedTest, testValue, fetchTests]);
+  }, [pendingTest, pendingValue, fetchTests]);
+
+  // ── Save edited value ──────────────────────────────────────────
+
+  const handleSaveEdit = useCallback(async (result: MyTestResult) => {
+    const numVal = parseFloat(editValue);
+    if (isNaN(numVal)) {
+      Alert.alert('Invalid', 'Please enter a valid number.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const unit = (result.rawData as Record<string, unknown>)?.unit as string || '';
+      await logTestResult({
+        testType: result.testType,
+        score: numVal,
+        unit,
+        date: result.date,
+      });
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setEditingResultId(null);
+      setEditValue('');
+      fetchTests();
+    } catch {
+      Alert.alert('Error', 'Could not update test result.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [editValue, fetchTests]);
 
   // ── Group test results by testType for display ──────────────────
 
@@ -225,6 +249,9 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
     }
     return map;
   }, [myResults]);
+
+  // Whether search dropdown should show
+  const showDropdown = searchFocused && searchQuery.length > 0 && (catalogResults.length > 0 || catalogLoading);
 
   // ── Render ─────────────────────────────────────────────────────
 
@@ -287,6 +314,7 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
         }
@@ -300,150 +328,285 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
             onConnectWearable={() => navigation.navigate('EditProfile')}
           />
         ) : (
-          <TestsTab
-            groupedResults={groupedResults}
-            loading={testsLoading}
-            colors={colors}
-            styles={styles}
-            onAddTest={() => setShowAddTest(true)}
-          />
-        )}
-      </ScrollView>
-
-      {/* ── Add Test Modal ── */}
-      <Modal visible={showAddTest} transparent animationType="slide">
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <Pressable style={styles.modalOverlay} onPress={() => setShowAddTest(false)}>
-            <Pressable style={[styles.modalSheet, { backgroundColor: colors.backgroundElevated }]} onPress={(e) => e.stopPropagation()}>
-              {/* Header */}
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.textOnDark }]}>
-                  {selectedTest ? 'Log Result' : 'Find a Test'}
-                </Text>
-                <Pressable onPress={() => { setShowAddTest(false); setSelectedTest(null); setSearchQuery(''); }}>
-                  <Ionicons name="close" size={24} color={colors.textMuted} />
-                </Pressable>
+          <View style={{ gap: spacing.md }}>
+            {/* ── Inline Smart Search ── */}
+            <View style={{ zIndex: 100 }}>
+              <View style={[styles.searchBar, searchFocused && { borderColor: colors.accent1 }]}>
+                <Ionicons name="search" size={18} color={searchFocused ? colors.accent1 : colors.textInactive} />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.textOnDark }]}
+                  placeholder="Search tests... (sprint, jump, strength)"
+                  placeholderTextColor={colors.textInactive}
+                  value={searchQuery}
+                  onChangeText={handleSearch}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => {
+                    // Delay blur so onPress on results can fire
+                    setTimeout(() => setSearchFocused(false), 200);
+                  }}
+                />
+                {searchQuery !== '' && (
+                  <Pressable onPress={() => { handleSearch(''); setSearchFocused(false); }}>
+                    <Ionicons name="close-circle" size={18} color={colors.textInactive} />
+                  </Pressable>
+                )}
               </View>
 
-              {selectedTest ? (
-                /* ── Log value for selected test ── */
-                <View style={styles.logSection}>
-                  <View style={styles.selectedTestCard}>
-                    <Text style={{ fontSize: 24 }}>{selectedTest.emoji}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.testName, { color: colors.textOnDark }]}>{selectedTest.name}</Text>
-                      <Text style={[styles.testMeta, { color: colors.textInactive }]}>
-                        {selectedTest.category} · {selectedTest.unit}
-                      </Text>
-                    </View>
-                    <Pressable onPress={() => setSelectedTest(null)}>
-                      <Ionicons name="arrow-back" size={20} color={colors.accent1} />
-                    </Pressable>
-                  </View>
+              {/* ── Search dropdown ── */}
+              {showDropdown && (
+                <View style={[styles.dropdown, { backgroundColor: colors.backgroundElevated, borderColor: colors.glassBorder }]}>
+                  {catalogLoading ? (
+                    <ActivityIndicator color={colors.accent1} style={{ paddingVertical: 20 }} />
+                  ) : (
+                    catalogResults.slice(0, 8).map((item) => (
+                      <Pressable
+                        key={item.id}
+                        style={({ pressed }) => [
+                          styles.dropdownItem,
+                          { borderBottomColor: colors.glassBorder },
+                          pressed && { backgroundColor: colors.accent1 + '10' },
+                        ]}
+                        onPress={() => handleSelectTest(item)}
+                      >
+                        <Text style={{ fontSize: 18 }}>{item.emoji}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.dropdownName, { color: colors.textOnDark }]}>
+                            {item.name}
+                          </Text>
+                          <Text style={[styles.dropdownMeta, { color: colors.textInactive }]}>
+                            {item.category} · {item.unit}
+                          </Text>
+                        </View>
+                        <Ionicons name="add-circle" size={22} color={colors.accent1} />
+                      </Pressable>
+                    ))
+                  )}
+                  {!catalogLoading && searchQuery && catalogResults.length === 0 && (
+                    <Text style={[styles.dropdownEmpty, { color: colors.textInactive }]}>
+                      No tests found
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
 
-                  <View style={[styles.valueInputWrap, { borderColor: colors.accent1 + '60' }]}>
+            {/* ── Pending test (just added from search) ── */}
+            {pendingTest && (
+              <View style={[styles.pendingCard, { borderColor: colors.accent1 }]}>
+                <View style={styles.pendingHeader}>
+                  <Text style={{ fontSize: 20 }}>{pendingTest.emoji}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.pendingName, { color: colors.textOnDark }]}>
+                      {pendingTest.name}
+                    </Text>
+                    <Text style={[styles.pendingMeta, { color: colors.textInactive }]}>
+                      {pendingTest.category} · {pendingTest.direction === 'higher' ? '↑ Higher is better' : '↓ Lower is better'}
+                    </Text>
+                  </View>
+                  <Pressable onPress={() => setPendingTest(null)} hitSlop={8}>
+                    <Ionicons name="close" size={20} color={colors.textMuted} />
+                  </Pressable>
+                </View>
+                <View style={styles.pendingInputRow}>
+                  <View style={[styles.valueInputWrap, { borderColor: colors.accent1 + '60', flex: 1 }]}>
                     <TextInput
                       style={[styles.valueInput, { color: colors.textOnDark }]}
-                      placeholder={`Enter value (${selectedTest.unit})`}
+                      placeholder={`Value (${pendingTest.unit})`}
                       placeholderTextColor={colors.textInactive}
-                      value={testValue}
-                      onChangeText={setTestValue}
+                      value={pendingValue}
+                      onChangeText={setPendingValue}
                       keyboardType="decimal-pad"
                       autoFocus
                     />
                     <Text style={[styles.unitLabel, { color: colors.textMuted }]}>
-                      {selectedTest.unit}
+                      {pendingTest.unit}
                     </Text>
                   </View>
-
-                  <Text style={[styles.directionHint, { color: colors.textInactive }]}>
-                    {selectedTest.direction === 'higher' ? '↑ Higher is better' : '↓ Lower is better'}
-                  </Text>
-
                   <Pressable
-                    style={[styles.saveBtn, { backgroundColor: colors.accent1, opacity: (submitting || !testValue.trim()) ? 0.5 : 1 }]}
-                    onPress={handleSubmitTest}
-                    disabled={submitting || !testValue.trim()}
+                    style={[
+                      styles.inlineSaveBtn,
+                      { backgroundColor: colors.accent1, opacity: (submitting || !pendingValue.trim()) ? 0.5 : 1 },
+                    ]}
+                    onPress={handleSavePending}
+                    disabled={submitting || !pendingValue.trim()}
                   >
                     {submitting ? (
                       <ActivityIndicator color="#FFF" size="small" />
                     ) : (
-                      <>
-                        <Ionicons name="checkmark" size={18} color="#FFF" />
-                        <Text style={styles.saveBtnText}>Save Result</Text>
-                      </>
+                      <Ionicons name="checkmark" size={20} color="#FFF" />
                     )}
                   </Pressable>
                 </View>
-              ) : (
-                /* ── Search catalog ── */
-                <>
-                  <View style={[styles.searchBar, { borderColor: colors.glassBorder }]}>
-                    <Ionicons name="search" size={18} color={colors.textInactive} />
-                    <TextInput
-                      style={[styles.searchInput, { color: colors.textOnDark }]}
-                      placeholder="Search tests... (e.g. sprint, jump, strength)"
-                      placeholderTextColor={colors.textInactive}
-                      value={searchQuery}
-                      onChangeText={handleSearch}
-                      autoFocus
-                    />
-                    {searchQuery !== '' && (
-                      <Pressable onPress={() => handleSearch('')}>
-                        <Ionicons name="close-circle" size={18} color={colors.textInactive} />
-                      </Pressable>
-                    )}
-                  </View>
+              </View>
+            )}
 
-                  {catalogLoading ? (
-                    <ActivityIndicator color={colors.accent1} style={{ marginTop: 32 }} />
-                  ) : (
-                    <FlatList
-                      data={catalogResults}
-                      keyExtractor={(item) => item.id}
-                      style={{ maxHeight: 400 }}
-                      showsVerticalScrollIndicator={false}
-                      keyboardShouldPersistTaps="handled"
-                      ListEmptyComponent={
-                        searchQuery ? (
-                          <Text style={[styles.emptyText, { color: colors.textInactive }]}>
-                            No tests found for "{searchQuery}"
+            {/* ── My Tests list ── */}
+            {testsLoading ? (
+              <View style={styles.centered}>
+                <ActivityIndicator color={colors.accent1} size="large" />
+              </View>
+            ) : groupedResults.size > 0 ? (
+              Array.from(groupedResults.keys()).map((testType) => {
+                const results = groupedResults.get(testType) || [];
+                const latest = results[0];
+                const prev = results.length > 1 ? results[1] : null;
+                const unit = (latest.rawData as Record<string, unknown>)?.unit as string || '';
+                const isCoach = (latest.rawData as Record<string, unknown>)?.source === 'coach';
+                const isEditing = editingResultId === latest.id;
+                const catalogMatch = getCatalogInfo(testType);
+
+                return (
+                  <View
+                    key={testType}
+                    style={[styles.testCard, { borderColor: isCoach ? '#6366F1' + '40' : colors.glassBorder }]}
+                  >
+                    <View style={styles.testCardHeader}>
+                      <Text style={{ fontSize: 22 }}>{catalogMatch.emoji}</Text>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={[styles.testCardName, { color: colors.textOnDark }]}>
+                            {catalogMatch.name}
                           </Text>
-                        ) : null
-                      }
-                      renderItem={({ item }) => (
+                          {isCoach && (
+                            <View style={[styles.coachBadge, { backgroundColor: '#6366F1' + '20' }]}>
+                              <Ionicons name="shield-checkmark" size={10} color="#6366F1" />
+                              <Text style={{ fontSize: 9, color: '#6366F1', fontWeight: '700' }}>COACH</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[styles.testCardCategory, { color: colors.textInactive }]}>
+                          {catalogMatch.category} · {results.length} result{results.length !== 1 ? 's' : ''}
+                          {unit ? ` · ${unit}` : ''}
+                        </Text>
+                      </View>
+                      {!isCoach && !isEditing && (
                         <Pressable
-                          style={[styles.catalogItem, { borderColor: colors.glassBorder }]}
                           onPress={() => {
-                            setSelectedTest(item);
-                            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setEditingResultId(latest.id);
+                            setEditValue(String(latest.score ?? ''));
                           }}
+                          hitSlop={8}
+                          style={[styles.editBtn, { backgroundColor: colors.accent1 + '12' }]}
                         >
-                          <Text style={{ fontSize: 20 }}>{item.emoji}</Text>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.catalogName, { color: colors.textOnDark }]}>
-                              {item.name}
-                            </Text>
-                            <Text style={[styles.catalogDesc, { color: colors.textInactive }]}>
-                              {item.category} · {item.unit} · {item.description}
-                            </Text>
-                          </View>
-                          <View style={[styles.logBadge, { backgroundColor: colors.accent1 + '20' }]}>
-                            <Text style={[styles.logBadgeText, { color: colors.accent1 }]}>Log</Text>
-                          </View>
+                          <Ionicons name="pencil" size={14} color={colors.accent1} />
                         </Pressable>
                       )}
-                    />
-                  )}
-                </>
-              )}
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
+                    </View>
+
+                    {isEditing ? (
+                      /* ── Inline edit mode ── */
+                      <View style={styles.pendingInputRow}>
+                        <View style={[styles.valueInputWrap, { borderColor: colors.accent1 + '60', flex: 1 }]}>
+                          <TextInput
+                            style={[styles.valueInput, { color: colors.textOnDark }]}
+                            placeholder={`Value (${unit})`}
+                            placeholderTextColor={colors.textInactive}
+                            value={editValue}
+                            onChangeText={setEditValue}
+                            keyboardType="decimal-pad"
+                            autoFocus
+                          />
+                          {unit ? (
+                            <Text style={[styles.unitLabel, { color: colors.textMuted }]}>{unit}</Text>
+                          ) : null}
+                        </View>
+                        <Pressable
+                          style={[
+                            styles.inlineSaveBtn,
+                            { backgroundColor: colors.accent1, opacity: (submitting || !editValue.trim()) ? 0.5 : 1 },
+                          ]}
+                          onPress={() => handleSaveEdit(latest)}
+                          disabled={submitting || !editValue.trim()}
+                        >
+                          {submitting ? (
+                            <ActivityIndicator color="#FFF" size="small" />
+                          ) : (
+                            <Ionicons name="checkmark" size={20} color="#FFF" />
+                          )}
+                        </Pressable>
+                        <Pressable
+                          style={[styles.cancelBtn, { backgroundColor: colors.textInactive + '20' }]}
+                          onPress={() => { setEditingResultId(null); setEditValue(''); }}
+                        >
+                          <Ionicons name="close" size={20} color={colors.textMuted} />
+                        </Pressable>
+                      </View>
+                    ) : (
+                      /* ── Value display ── */
+                      <View style={styles.testCardBody}>
+                        <View>
+                          <Text style={[styles.testCardValue, { color: colors.textOnDark }]}>
+                            {latest.score ?? '-'}
+                          </Text>
+                          <Text style={[styles.testCardUnit, { color: colors.textInactive }]}>
+                            {unit} · {latest.date}
+                          </Text>
+                        </View>
+                        {prev && latest.score !== null && prev.score !== null && latest.score !== prev.score && (
+                          <View style={[
+                            styles.trendPill,
+                            { backgroundColor: (latest.score > prev.score ? '#30D158' : '#FF3B30') + '18' },
+                          ]}>
+                            <Ionicons
+                              name={latest.score > prev.score ? 'trending-up' : 'trending-down'}
+                              size={14}
+                              color={latest.score > prev.score ? '#30D158' : '#FF3B30'}
+                            />
+                            <Text style={{
+                              fontSize: 11,
+                              fontWeight: '700',
+                              color: latest.score > prev.score ? '#30D158' : '#FF3B30',
+                            }}>
+                              {Math.abs(latest.score - prev.score).toFixed(1)}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    {/* Mini sparkline (last 5 values) */}
+                    {!isEditing && results.length >= 2 && (
+                      <View style={styles.sparkRow}>
+                        {results.slice(0, 5).reverse().map((r, i, arr) => {
+                          const maxVal = Math.max(...arr.map((rr) => rr.score ?? 0));
+                          const minVal = Math.min(...arr.map((rr) => rr.score ?? 0));
+                          const range = maxVal - minVal || 1;
+                          const height = 4 + ((r.score ?? 0) - minVal) / range * 20;
+                          return (
+                            <View
+                              key={r.id || i}
+                              style={[
+                                styles.sparkBar,
+                                {
+                                  height,
+                                  backgroundColor: i === arr.length - 1
+                                    ? colors.accent1
+                                    : colors.accent1 + '40',
+                                },
+                              ]}
+                            />
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            ) : (
+              /* ── Empty state ── */
+              <View style={styles.emptyState}>
+                <View style={[styles.emptyIcon, { backgroundColor: colors.accent1 + '12' }]}>
+                  <Ionicons name="clipboard-outline" size={48} color={colors.accent1} />
+                </View>
+                <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Tests Yet</Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textInactive }]}>
+                  Use the search above to find a test from our catalog of 90+ standard athletic tests and log your first result.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -498,7 +661,6 @@ function VitalsTab({
       </Pressable>
 
       {hasData ? (
-        /* ── Vitals grid ── */
         <View style={styles.vitalsGrid}>
           {vitalKeys.map((key) => {
             const config = VITAL_CONFIG[key] || {
@@ -546,157 +708,13 @@ function VitalsTab({
           })}
         </View>
       ) : (
-        /* ── Empty state ── */
         <View style={styles.emptyState}>
           <View style={[styles.emptyIcon, { backgroundColor: colors.accent1 + '12' }]}>
             <Ionicons name="pulse-outline" size={48} color={colors.accent1} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Vitals Yet</Text>
           <Text style={[styles.emptySubtitle, { color: colors.textInactive }]}>
-            Connect a wearable or manually log your vitals to start tracking your health data.
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-// ── My Tests Tab ──────────────────────────────────────────────────────────
-
-function TestsTab({
-  groupedResults,
-  loading,
-  colors,
-  styles,
-  onAddTest,
-}: {
-  groupedResults: Map<string, MyTestResult[]>;
-  loading: boolean;
-  colors: ThemeColors;
-  styles: ReturnType<typeof createStyles>;
-  onAddTest: () => void;
-}) {
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.accent1} size="large" />
-      </View>
-    );
-  }
-
-  const testTypes = Array.from(groupedResults.keys());
-
-  return (
-    <View style={{ gap: spacing.md }}>
-      {/* Add Test CTA */}
-      <Pressable
-        style={[styles.addTestBtn, { borderColor: colors.accent1 }]}
-        onPress={onAddTest}
-      >
-        <Ionicons name="add-circle-outline" size={22} color={colors.accent1} />
-        <Text style={[styles.addTestText, { color: colors.accent1 }]}>Add Test Result</Text>
-      </Pressable>
-
-      {testTypes.length > 0 ? (
-        testTypes.map((testType) => {
-          const results = groupedResults.get(testType) || [];
-          const latest = results[0];
-          const prev = results.length > 1 ? results[1] : null;
-          const unit = (latest.rawData as Record<string, unknown>)?.unit as string || '';
-
-          // Try to find matching catalog item for display info
-          const catalogMatch = getCatalogInfo(testType);
-
-          return (
-            <Pressable
-              key={testType}
-              style={[styles.testCard, { borderColor: colors.glassBorder }]}
-              onPress={onAddTest}
-            >
-              <View style={styles.testCardHeader}>
-                <Text style={{ fontSize: 22 }}>{catalogMatch.emoji}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.testCardName, { color: colors.textOnDark }]}>
-                    {catalogMatch.name}
-                  </Text>
-                  <Text style={[styles.testCardCategory, { color: colors.textInactive }]}>
-                    {catalogMatch.category} · {results.length} result{results.length !== 1 ? 's' : ''}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Latest value */}
-              <View style={styles.testCardBody}>
-                <View>
-                  <Text style={[styles.testCardValue, { color: colors.textOnDark }]}>
-                    {latest.score ?? '-'}
-                  </Text>
-                  <Text style={[styles.testCardUnit, { color: colors.textInactive }]}>
-                    {unit} · {latest.date}
-                  </Text>
-                </View>
-
-                {prev && latest.score !== null && prev.score !== null && (
-                  <View style={styles.testCardTrend}>
-                    {latest.score !== prev.score && (
-                      <View style={[
-                        styles.trendPill,
-                        { backgroundColor: (latest.score > prev.score ? '#30D158' : '#FF3B30') + '18' },
-                      ]}>
-                        <Ionicons
-                          name={latest.score > prev.score ? 'trending-up' : 'trending-down'}
-                          size={14}
-                          color={latest.score > prev.score ? '#30D158' : '#FF3B30'}
-                        />
-                        <Text style={{
-                          fontSize: 11,
-                          fontWeight: '700',
-                          color: latest.score > prev.score ? '#30D158' : '#FF3B30',
-                        }}>
-                          {Math.abs(latest.score - prev.score).toFixed(1)}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-
-              {/* Mini sparkline (last 5 values) */}
-              {results.length >= 2 && (
-                <View style={styles.sparkRow}>
-                  {results.slice(0, 5).reverse().map((r, i) => {
-                    const maxVal = Math.max(...results.slice(0, 5).map((rr) => rr.score ?? 0));
-                    const minVal = Math.min(...results.slice(0, 5).map((rr) => rr.score ?? 0));
-                    const range = maxVal - minVal || 1;
-                    const height = 4 + ((r.score ?? 0) - minVal) / range * 20;
-                    return (
-                      <View
-                        key={r.id || i}
-                        style={[
-                          styles.sparkBar,
-                          {
-                            height,
-                            backgroundColor: i === results.slice(0, 5).length - 1 - 0
-                              ? colors.accent1
-                              : colors.accent1 + '40',
-                          },
-                        ]}
-                      />
-                    );
-                  })}
-                </View>
-              )}
-            </Pressable>
-          );
-        })
-      ) : (
-        <View style={styles.emptyState}>
-          <View style={[styles.emptyIcon, { backgroundColor: colors.accent1 + '12' }]}>
-            <Ionicons name="clipboard-outline" size={48} color={colors.accent1} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Tests Yet</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textInactive }]}>
-            Tap "Add Test Result" to log your first test from our catalog of 50+ standard athletic tests.
+            Connect a wearable to start tracking your health data automatically.
           </Text>
         </View>
       )}
@@ -706,7 +724,6 @@ function TestsTab({
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-/** Quick catalog lookup for display info (static, no API) */
 const CATALOG_LOOKUP: Record<string, { name: string; emoji: string; category: string }> = {
   '10m-sprint': { name: '10m Sprint', emoji: '🏃', category: 'Speed' },
   '20m-sprint': { name: '20m Sprint', emoji: '🏃', category: 'Speed' },
@@ -726,7 +743,6 @@ const CATALOG_LOOKUP: Record<string, { name: string; emoji: string; category: st
   'free-kicks-10': { name: 'Free Kicks (10)', emoji: '⚽', category: 'Sport Skill' },
   'ball-juggling': { name: 'Ball Juggling', emoji: '⚽', category: 'Sport Skill' },
   'body-weight': { name: 'Body Weight', emoji: '⚖️', category: 'Body Comp' },
-  // Phone test types
   'reaction-tap': { name: 'Reaction Tap', emoji: '⚡', category: 'Phone Test' },
   'jump-height': { name: 'Jump Height', emoji: '🦘', category: 'Phone Test' },
   'sprint-speed': { name: 'Sprint Speed', emoji: '🏃', category: 'Phone Test' },
@@ -748,7 +764,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.background },
 
-    // Header (matches Plan screen)
+    // Header
     headerArea: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -900,21 +916,129 @@ function createStyles(colors: ThemeColors) {
       gap: 2,
     },
 
-    // Tests
-    addTestBtn: {
+    // Inline search
+    searchBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
       gap: 8,
-      borderWidth: 1.5,
-      borderStyle: 'dashed',
+      borderWidth: 1,
+      borderColor: colors.glassBorder,
       borderRadius: borderRadius.lg,
-      paddingVertical: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: colors.backgroundElevated,
     },
-    addTestText: {
+    searchInput: {
+      flex: 1,
+      fontFamily: fontFamily.regular,
+      fontSize: 15,
+      ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}),
+    },
+
+    // Dropdown
+    dropdown: {
+      position: 'absolute',
+      top: 50,
+      left: 0,
+      right: 0,
+      borderWidth: 1,
+      borderRadius: borderRadius.lg,
+      overflow: 'hidden',
+      ...(Platform.OS === 'web'
+        ? { boxShadow: '0 8px 32px rgba(0,0,0,0.4)' } as any
+        : {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.4,
+            shadowRadius: 16,
+            elevation: 20,
+          }),
+    },
+    dropdownItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    dropdownName: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 14,
+    },
+    dropdownMeta: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      marginTop: 1,
+    },
+    dropdownEmpty: {
+      fontFamily: fontFamily.regular,
+      fontSize: 14,
+      textAlign: 'center',
+      paddingVertical: 24,
+    },
+
+    // Pending test (add new)
+    pendingCard: {
+      borderWidth: 1.5,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.backgroundElevated,
+      gap: spacing.sm,
+    },
+    pendingHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    pendingName: {
       fontFamily: fontFamily.semiBold,
       fontSize: 15,
     },
+    pendingMeta: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      marginTop: 1,
+    },
+    pendingInputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    valueInputWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    valueInput: {
+      flex: 1,
+      fontFamily: fontFamily.bold,
+      fontSize: 20,
+      ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}),
+    },
+    unitLabel: {
+      fontFamily: fontFamily.medium,
+      fontSize: 13,
+    },
+    inlineSaveBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    // Tests list
     testCard: {
       borderWidth: 1,
       borderRadius: borderRadius.lg,
@@ -950,8 +1074,20 @@ function createStyles(colors: ThemeColors) {
       fontSize: 12,
       marginTop: 2,
     },
-    testCardTrend: {
-      alignItems: 'flex-end',
+    coachBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    editBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     trendPill: {
       flexDirection: 'row',
@@ -1001,135 +1137,6 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 60,
-    },
-
-    // Modal
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'flex-end',
-    },
-    modalSheet: {
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.huge,
-      paddingHorizontal: layout.screenMargin,
-      maxHeight: '80%',
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: spacing.md,
-    },
-    modalTitle: {
-      fontFamily: fontFamily.bold,
-      fontSize: 20,
-    },
-
-    // Search
-    searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      borderWidth: 1,
-      borderRadius: borderRadius.lg,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      marginBottom: spacing.md,
-    },
-    searchInput: {
-      flex: 1,
-      fontFamily: fontFamily.regular,
-      fontSize: 15,
-    },
-    catalogItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingVertical: 12,
-      paddingHorizontal: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    catalogName: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 14,
-    },
-    catalogDesc: {
-      fontFamily: fontFamily.regular,
-      fontSize: 11,
-      marginTop: 2,
-    },
-    logBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 5,
-      borderRadius: 8,
-    },
-    logBadgeText: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 12,
-    },
-    emptyText: {
-      fontFamily: fontFamily.regular,
-      fontSize: 14,
-      textAlign: 'center',
-      paddingVertical: 32,
-    },
-
-    // Log section
-    logSection: {
-      gap: spacing.md,
-    },
-    selectedTestCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingVertical: spacing.sm,
-    },
-    testName: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 16,
-    },
-    testMeta: {
-      fontFamily: fontFamily.regular,
-      fontSize: 12,
-      marginTop: 2,
-    },
-    valueInputWrap: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 2,
-      borderRadius: borderRadius.lg,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-    },
-    valueInput: {
-      flex: 1,
-      fontFamily: fontFamily.bold,
-      fontSize: 24,
-    },
-    unitLabel: {
-      fontFamily: fontFamily.medium,
-      fontSize: 14,
-    },
-    directionHint: {
-      fontFamily: fontFamily.regular,
-      fontSize: 12,
-      textAlign: 'center',
-    },
-    saveBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      borderRadius: borderRadius.lg,
-      paddingVertical: 14,
-    },
-    saveBtnText: {
-      fontFamily: fontFamily.bold,
-      fontSize: 16,
-      color: '#FFFFFF',
     },
   });
 }
