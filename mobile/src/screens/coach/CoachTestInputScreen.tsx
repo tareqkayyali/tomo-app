@@ -48,19 +48,29 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
   const [primaryValue, setPrimaryValue] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!selectedTest) {
-      Alert.alert('Select a Test', 'Please choose a test type before submitting.');
+      if (Platform.OS === 'web') {
+        window.alert('Please choose a test type before submitting.');
+      } else {
+        Alert.alert('Select a Test', 'Please choose a test type before submitting.');
+      }
       return;
     }
     const numVal = parseFloat(primaryValue);
     if (isNaN(numVal)) {
-      Alert.alert('Invalid Value', 'Please enter a valid number.');
+      if (Platform.OS === 'web') {
+        window.alert('Please enter a valid number.');
+      } else {
+        Alert.alert('Invalid Value', 'Please enter a valid number.');
+      }
       return;
     }
 
     setSubmitting(true);
+    setSuccessMsg(null);
     try {
       await submitPlayerTest(playerId, {
         testType: selectedTest.id,
@@ -68,14 +78,11 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
         values: { primaryValue: numVal, unit: selectedTest.unit },
         ...(notes.trim() ? { rawInputs: { notes: notes.trim() } } : {}),
       });
-      if (Platform.OS === 'web') {
-        window.alert(`Test submitted for ${playerName}.`);
-        navigation.goBack();
-      } else {
-        Alert.alert('Success', `Test submitted for ${playerName}.`, [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
-      }
+      // Show inline success, reset form
+      setSuccessMsg(`${selectedTest.label} — ${numVal} ${selectedTest.unit} submitted for ${playerName}`);
+      setSelectedTest(null);
+      setPrimaryValue('');
+      setNotes('');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong';
       if (Platform.OS === 'web') {
@@ -97,6 +104,17 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
       <Text style={[styles.heading, { color: colors.textOnDark }]}>
         Submit Test for {playerName}
       </Text>
+
+      {/* ── Inline Success Banner ── */}
+      {successMsg && (
+        <View style={styles.successBanner}>
+          <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+          <Text style={styles.successText}>{successMsg}</Text>
+          <Pressable onPress={() => setSuccessMsg(null)} hitSlop={8}>
+            <Ionicons name="close" size={18} color="#FFF" />
+          </Pressable>
+        </View>
+      )}
 
       {/* Test Type Selector */}
       <Text style={[styles.label, { color: colors.textMuted }]}>Test Type</Text>
@@ -185,6 +203,22 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
           </>
         )}
       </Pressable>
+
+      {/* Back button after success */}
+      {successMsg && (
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [
+            styles.backButton,
+            { borderColor: colors.textMuted, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Ionicons name="arrow-back" size={18} color={colors.textOnDark} />
+          <Text style={[styles.backButtonText, { color: colors.textOnDark }]}>
+            Back to Player
+          </Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
@@ -201,6 +235,22 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     marginBottom: spacing.xl,
+  },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#30D158',
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    marginBottom: spacing.md,
+  },
+  successText: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   label: {
     fontSize: 14,
@@ -247,5 +297,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.compact,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.sm,
+  },
+  backButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

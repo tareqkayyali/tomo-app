@@ -29,6 +29,27 @@ interface ReadinessEntry {
   [key: string]: unknown;
 }
 
+// ── Human-readable test names ────────────────────────────────────────
+const TEST_LABELS: Record<string, string> = {
+  '30m_sprint': '30m Sprint',
+  'vertical_jump': 'Vertical Jump',
+  'beep_test': 'Beep Test',
+  '5_10_5_agility': '5-10-5 Agility',
+  'yo_yo_test': 'Yo-Yo Test',
+  'broad_jump': 'Broad Jump',
+};
+
+function formatTestTitle(raw: string): string {
+  // raw is like "30m_sprint – 4.52seconds"
+  const parts = raw.split(' – ');
+  const testId = parts[0]?.trim() || raw;
+  const valuePart = parts[1]?.trim() || '';
+  const label = TEST_LABELS[testId] || testId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  // Add space before unit in value: "4.52seconds" → "4.52 seconds"
+  const formattedValue = valuePart.replace(/(\d)([\a-zA-Z])/, '$1 $2');
+  return formattedValue ? `${label} — ${formattedValue}` : label;
+}
+
 function dotColorForLevel(level?: string): string {
   switch (level?.toUpperCase()) {
     case 'GREEN':
@@ -139,18 +160,12 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
             >
               <View style={styles.testCardHeader}>
                 <Text style={[styles.testTitle, { color: colors.textOnDark }]}>
-                  {test.title}
+                  {formatTestTitle(test.title)}
                 </Text>
                 <Text style={[styles.testDate, { color: colors.textInactive }]}>
                   {new Date(test.created_at).toLocaleDateString()}
                 </Text>
               </View>
-              {test.payload?.primaryValue != null && (
-                <Text style={[styles.testValue, { color: colors.accent1 }]}>
-                  {String(test.payload.primaryValue)}
-                  {test.payload.unit ? ` ${test.payload.unit}` : ''}
-                </Text>
-              )}
             </View>
           ))
         )}
