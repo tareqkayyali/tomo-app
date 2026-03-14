@@ -28,7 +28,6 @@ import type {
   SchoolSchedule,
   CustomTrainingType,
   CalendarEventInput,
-  ConnectedWearables,
 } from '../types';
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -189,11 +188,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
   const [newTrainingSessions, setNewTrainingSessions] = useState(3);
   const [newTrainingDays, setNewTrainingDays] = useState<number[]>([]);
 
-  // Wearable connections
-  const [wearables, setWearables] = useState<ConnectedWearables>(
-    profile?.connectedWearables || {},
-  );
-
   // ── Subject helpers ─────────────────────────────────────────────────
 
   const toggleSubject = useCallback((subj: string) => {
@@ -276,19 +270,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
     setTrainingTypes((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // ── Wearable toggle ──────────────────────────────────────────────
-  const toggleWearable = useCallback((key: 'whoop' | 'appleWatch') => {
-    setWearables((prev) => {
-      const current = prev[key];
-      if (current?.connected) {
-        // Disconnect
-        return { ...prev, [key]: { connected: false } };
-      }
-      // Connect
-      return { ...prev, [key]: { connected: true, connectedAt: new Date().toISOString() } };
-    });
-  }, []);
-
   // ── Stepper helpers ─────────────────────────────────────────────────
 
   const increment = (val: number, max: number) => Math.min(val + 1, max);
@@ -313,7 +294,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
         examSchedule: exams,
         schoolSchedule,
         customTrainingTypes: trainingTypes,
-        connectedWearables: wearables,
       } as Parameters<typeof updateUser>[0]);
 
       // 2. Auto-populate calendar events for next 30 days
@@ -352,104 +332,6 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
             <Text style={styles.successText}>Saved! Calendar updated for the next month.</Text>
           </View>
         )}
-
-        {/* ── Wearables Section ─────────────────── */}
-        <Card style={styles.card}>
-          <Text style={styles.sectionLabel}>Wearables</Text>
-          <Text style={[styles.wearableHint, { color: colors.textInactive }]}>
-            Connect your wearable to sync vitals automatically
-          </Text>
-
-          {/* Whoop */}
-          <TouchableOpacity
-            style={[
-              styles.wearableCard,
-              {
-                backgroundColor: wearables.whoop?.connected ? '#1A1A2E' : colors.surface,
-                borderColor: wearables.whoop?.connected ? '#30D158' + '60' : colors.border,
-              },
-            ]}
-            onPress={() => toggleWearable('whoop')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.wearableIconWrap, { backgroundColor: '#1A1A2E' }]}>
-              <Text style={{ fontSize: 22 }}>🟡</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.wearableName, { color: colors.textOnLight }]}>WHOOP</Text>
-              <Text style={[styles.wearableDesc, { color: colors.textInactive }]}>
-                {wearables.whoop?.connected
-                  ? 'Connected · Syncing HR, HRV, Sleep, Recovery'
-                  : 'Heart rate, HRV, sleep, recovery score'}
-              </Text>
-            </View>
-            <View style={[
-              styles.wearableStatus,
-              {
-                backgroundColor: wearables.whoop?.connected ? '#30D158' + '20' : colors.accent1 + '15',
-              },
-            ]}>
-              {wearables.whoop?.connected ? (
-                <>
-                  <Ionicons name="checkmark-circle" size={16} color="#30D158" />
-                  <Text style={{ color: '#30D158', fontSize: 12, fontWeight: '700' }}>Connected</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="link-outline" size={16} color={colors.accent1} />
-                  <Text style={{ color: colors.accent1, fontSize: 12, fontWeight: '700' }}>Connect</Text>
-                </>
-              )}
-            </View>
-          </TouchableOpacity>
-
-          {/* Apple Watch */}
-          <TouchableOpacity
-            style={[
-              styles.wearableCard,
-              {
-                backgroundColor: wearables.appleWatch?.connected ? '#1A1A2E' : colors.surface,
-                borderColor: wearables.appleWatch?.connected ? '#30D158' + '60' : colors.border,
-              },
-            ]}
-            onPress={() => toggleWearable('appleWatch')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.wearableIconWrap, { backgroundColor: '#333' }]}>
-              <Ionicons name="watch-outline" size={22} color="#FFF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.wearableName, { color: colors.textOnLight }]}>Apple Watch</Text>
-              <Text style={[styles.wearableDesc, { color: colors.textInactive }]}>
-                {wearables.appleWatch?.connected
-                  ? 'Connected · Syncing HealthKit data'
-                  : 'Steps, heart rate, workouts, sleep via HealthKit'}
-              </Text>
-            </View>
-            <View style={[
-              styles.wearableStatus,
-              {
-                backgroundColor: wearables.appleWatch?.connected ? '#30D158' + '20' : colors.accent1 + '15',
-              },
-            ]}>
-              {wearables.appleWatch?.connected ? (
-                <>
-                  <Ionicons name="checkmark-circle" size={16} color="#30D158" />
-                  <Text style={{ color: '#30D158', fontSize: 12, fontWeight: '700' }}>Connected</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="link-outline" size={16} color={colors.accent1} />
-                  <Text style={{ color: colors.accent1, fontSize: 12, fontWeight: '700' }}>Connect</Text>
-                </>
-              )}
-            </View>
-          </TouchableOpacity>
-
-          <Text style={[styles.wearableFootnote, { color: colors.textInactive }]}>
-            More wearables coming soon (Garmin, Oura, Fitbit)
-          </Text>
-        </Card>
 
         <Card style={styles.card}>
           {/* ── Study Section ─────────────────────── */}
@@ -905,51 +787,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.readinessGreen,
     marginLeft: spacing.sm,
-  },
-
-  // Wearables
-  wearableHint: {
-    fontSize: 12,
-    marginBottom: spacing.sm,
-  },
-  wearableCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  wearableIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wearableName: {
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  wearableDesc: {
-    fontSize: 11,
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  wearableStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-  },
-  wearableFootnote: {
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: spacing.xs,
   },
 
   sectionDivider: {

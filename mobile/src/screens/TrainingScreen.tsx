@@ -327,7 +327,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
         <View style={styles.headerRight}>
           <Pressable
             style={styles.settingsCapsule}
-            onPress={() => navigation.navigate('EditProfile')}
+            onPress={() => navigation.navigate('Settings')}
           >
             <Ionicons name="settings-outline" size={15} color={colors.textOnDark} />
             <Text style={styles.settingsCapsuleText}>Settings</Text>

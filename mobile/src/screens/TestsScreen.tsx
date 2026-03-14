@@ -268,7 +268,7 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
         <View style={styles.headerRight}>
           <Pressable
             style={styles.settingsCapsule}
-            onPress={() => navigation.navigate('EditProfile')}
+            onPress={() => navigation.navigate('Settings')}
           >
             <Ionicons name="settings-outline" size={15} color={colors.textOnDark} />
             <Text style={styles.settingsCapsuleText}>Settings</Text>
@@ -325,7 +325,7 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
             loading={vitalsLoading}
             colors={colors}
             styles={styles}
-            onConnectWearable={() => navigation.navigate('EditProfile')}
+            onConnectWearable={() => navigation.navigate('Settings')}
           />
         ) : (
           <View style={{ gap: spacing.md }}>

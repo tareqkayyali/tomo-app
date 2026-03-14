@@ -26,6 +26,7 @@ export type MainStackParamList = {
   Profile: undefined;
   Checkin: undefined;
   EditProfile: undefined;
+  Settings: undefined;
   NotificationSettings: undefined;
   History: undefined;
   WorkoutFeedback: undefined;

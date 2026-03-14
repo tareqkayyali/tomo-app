@@ -40,6 +40,7 @@ import { ForYouScreen } from '../screens/ForYouScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { CheckinScreen } from '../screens/CheckinScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 import { PrivacySettingsScreen } from '../screens/PrivacySettingsScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
@@ -328,6 +329,11 @@ export function MainNavigator() {
         name="EditProfile"
         component={EditProfileScreen}
         options={{ headerShown: true, title: 'Edit Profile', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="NotificationSettings"
