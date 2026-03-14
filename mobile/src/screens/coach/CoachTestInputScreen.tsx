@@ -13,6 +13,7 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -67,12 +68,21 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
         values: { primaryValue: numVal, unit: selectedTest.unit },
         ...(notes.trim() ? { rawInputs: { notes: notes.trim() } } : {}),
       });
-      Alert.alert('Success', `Test submitted for ${playerName}.`, [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      if (Platform.OS === 'web') {
+        window.alert(`Test submitted for ${playerName}.`);
+        navigation.goBack();
+      } else {
+        Alert.alert('Success', `Test submitted for ${playerName}.`, [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong';
-      Alert.alert('Error', message);
+      if (Platform.OS === 'web') {
+        window.alert(`Error: ${message}`);
+      } else {
+        Alert.alert('Error', message);
+      }
     } finally {
       setSubmitting(false);
     }
