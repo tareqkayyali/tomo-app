@@ -100,6 +100,14 @@ export interface User {
   // Enhanced profile fields
   schoolSchedule?: SchoolSchedule;
   customTrainingTypes?: CustomTrainingType[];
+
+  // Wearable connections
+  connectedWearables?: ConnectedWearables;
+}
+
+export interface ConnectedWearables {
+  whoop?: { connected: boolean; connectedAt?: string };
+  appleWatch?: { connected: boolean; connectedAt?: string };
 }
 // Education type
 export type EducationType = 'school' | 'university';

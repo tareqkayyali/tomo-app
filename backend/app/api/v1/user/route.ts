@@ -39,6 +39,7 @@ const ALLOWED_UPDATE_FIELDS: Record<string, string> = {
   studyPlanConfig: "study_plan_config",
   schoolSchedule: "school_schedule",
   customTrainingTypes: "custom_training_types",
+  connectedWearables: "connected_wearables",
 };
 
 export async function PUT(req: NextRequest) {

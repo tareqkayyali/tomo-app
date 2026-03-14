@@ -231,6 +231,7 @@ function mapUserFromApi(raw: Record<string, unknown>): User {
     studyPlanConfig: (raw.study_plan_config as User['studyPlanConfig']) || undefined,
     schoolSchedule: (raw.school_schedule as User['schoolSchedule']) || undefined,
     customTrainingTypes: (raw.custom_training_types as User['customTrainingTypes']) || undefined,
+    connectedWearables: (raw.connected_wearables as User['connectedWearables']) || undefined,
   } as User;
 }
 
