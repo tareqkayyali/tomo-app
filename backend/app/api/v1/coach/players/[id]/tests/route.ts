@@ -3,6 +3,7 @@ import { requireAuth, requireRole, requireRelationship } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createSuggestion } from "@/services/suggestionService";
 import { createNotification } from "@/services/notificationService";
+import type { Json } from "@/types/database";
 
 export async function GET(
   req: NextRequest,
@@ -81,6 +82,25 @@ export async function POST(
         values,
         ...(rawInputs ? { rawInputs } : {}),
       },
+    });
+
+    // Also insert into phone_test_sessions so the player sees it in My Tests
+    const db = supabaseAdmin();
+    // Normalize test type: underscores → dashes to match catalog IDs
+    const normalizedTestType = testType.replace(/_/g, "-");
+
+    await db.from("phone_test_sessions").insert({
+      user_id: playerId,
+      date: new Date().toISOString().slice(0, 10),
+      test_type: normalizedTestType,
+      score: values.primaryValue,
+      raw_data: {
+        unit: values.unit,
+        source: "coach",
+        coachId: auth.user.id,
+        suggestionId: suggestion.id,
+        ...(rawInputs?.notes ? { notes: rawInputs.notes } : {}),
+      } as unknown as Json,
     });
 
     await createNotification({
