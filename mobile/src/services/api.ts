@@ -842,6 +842,87 @@ export async function getPadelShotHistory(
   return apiRequest<PadelShotHistoryResponse>(`/api/v1/padel-shots/history${params}`);
 }
 
+// ============================================
+// Health Data / Vitals APIs
+// ============================================
+
+export interface VitalsResponse {
+  vitals: Record<string, Array<{ date: string; value: number; unit: string | null; source: string | null }>>;
+  count: number;
+}
+
+export async function getVitals(days: number = 7, metric?: string): Promise<VitalsResponse> {
+  const params = metric
+    ? `?days=${days}&metric=${metric}`
+    : `?days=${days}`;
+  return apiRequest<VitalsResponse>(`/api/v1/health-data${params}`);
+}
+
+export async function logVital(data: {
+  metricType: string;
+  value: number;
+  unit?: string;
+  date?: string;
+  source?: string;
+}): Promise<{ data: unknown }> {
+  return apiRequest<{ data: unknown }>('/api/v1/health-data', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// ============================================
+// Test Catalog + My Results APIs
+// ============================================
+
+export interface TestCatalogItem {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  emoji: string;
+  description: string;
+  direction: 'higher' | 'lower';
+  tags: string[];
+}
+
+export async function searchTestCatalog(q?: string, category?: string): Promise<{ tests: TestCatalogItem[]; count: number }> {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (category) params.set('category', category);
+  const qs = params.toString();
+  return apiRequest<{ tests: TestCatalogItem[]; count: number }>(`/api/v1/tests/catalog${qs ? '?' + qs : ''}`);
+}
+
+export interface MyTestResult {
+  id: string;
+  testType: string;
+  score: number | null;
+  rawData: Record<string, unknown> | null;
+  date: string;
+  createdAt: string;
+}
+
+export async function getMyTestResults(limit: number = 50, testType?: string): Promise<{ results: MyTestResult[]; count: number }> {
+  const params = testType
+    ? `?limit=${limit}&testType=${testType}`
+    : `?limit=${limit}`;
+  return apiRequest<{ results: MyTestResult[]; count: number }>(`/api/v1/tests/my-results${params}`);
+}
+
+export async function logTestResult(data: {
+  testType: string;
+  score: number;
+  unit?: string;
+  date?: string;
+  notes?: string;
+}): Promise<{ result: { id: string; testType: string; score: number; date: string } }> {
+  return apiRequest<{ result: { id: string; testType: string; score: number; date: string } }>('/api/v1/tests/my-results', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 // Re-export API_BASE_URL for diagnostics
 export { API_BASE_URL } from './apiConfig';
 

@@ -1,11 +1,15 @@
 /**
- * Tests Screen — Center Tab Destination
- * Hero "Start New Test" tile + drill list with dark glass cards.
+ * Tests Screen — Two tabs: Vitals + My Tests
  *
- * Matches TARGET UI: gradient hero, segmented tabs, drill cards.
+ * Tab 1: Vitals — wearable data from health_data (HR, HRV, steps, etc.)
+ *         + "Connect Wearable" CTA linking to Settings
+ * Tab 2: My Tests — user test results + smart search catalog to add tests
+ *         Coach-submitted results also shown here.
+ *
+ * Top row matches the Plan screen pattern (consistent across all pages).
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,38 +17,43 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
+  TextInput,
   Modal,
+  FlatList,
   Platform,
+  Alert,
+  KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated from 'react-native-reanimated';
-import { useIsFocused } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { GlassCard, GradientButton, HeaderProfileButton, TestSubTabs } from '../components';
-import type { TestSubTab } from '../components';
-import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
+import { HeaderProfileButton } from '../components/HeaderProfileButton';
+import { LoopIndicator } from '../components/LoopIndicator';
 import {
   spacing,
   fontFamily,
   layout,
   borderRadius,
-  shadows,
 } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
-import { useBlazePodDrills, type BlazePodDrill } from '../hooks/useContentHelpers';
-import { getBlazePodHistory } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { useFadeIn } from '../hooks/useFadeIn';
-import { useSportContext, getSportConfig } from '../hooks/useSportContext';
-import type { ActiveSport } from '../hooks/useSportContext';
-import { FootballTestsContent } from './football';
+import {
+  getVitals,
+  getMyTestResults,
+  searchTestCatalog,
+  logTestResult,
+  type VitalsResponse,
+  type TestCatalogItem,
+  type MyTestResult,
+} from '../services/api';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainTabParamList, MainStackParamList } from '../navigation/types';
+
+// ── Types ────────────────────────────────────────────────────────────────
 
 type TestsScreenProps = {
   navigation: CompositeNavigationProp<
@@ -53,651 +62,1074 @@ type TestsScreenProps = {
   >;
 };
 
-type SegmentTab = 'tests' | 'history' | 'schedule';
-type TestViewTab = TestSubTab;
+type Tab = 'vitals' | 'tests';
+
+// ── Vitals display config ────────────────────────────────────────────────
+
+const VITAL_CONFIG: Record<string, { label: string; emoji: string; unit: string; color: string }> = {
+  heart_rate: { label: 'Heart Rate', emoji: '❤️', unit: 'bpm', color: '#FF3B30' },
+  hrv: { label: 'HRV', emoji: '💓', unit: 'ms', color: '#AF52DE' },
+  resting_hr: { label: 'Resting HR', emoji: '💗', unit: 'bpm', color: '#FF6B6B' },
+  steps: { label: 'Steps', emoji: '👣', unit: 'steps', color: '#30D158' },
+  calories: { label: 'Active Cal', emoji: '🔥', unit: 'kcal', color: '#FF9500' },
+  blood_oxygen: { label: 'SpO₂', emoji: '🫁', unit: '%', color: '#00D9FF' },
+  sleep_hours: { label: 'Sleep', emoji: '😴', unit: 'hrs', color: '#6366F1' },
+  body_temp: { label: 'Body Temp', emoji: '🌡️', unit: '°C', color: '#FF6B35' },
+  respiratory_rate: { label: 'Resp Rate', emoji: '🌬️', unit: '/min', color: '#34C759' },
+  vo2max: { label: 'VO₂ Max', emoji: '🏃', unit: 'ml/kg/min', color: '#007AFF' },
+};
+
+// ── Component ────────────────────────────────────────────────────────────
 
 export function TestsScreen({ navigation }: TestsScreenProps) {
   const { colors } = useTheme();
   const { profile } = useAuth();
-  const isFocused = useIsFocused();
-  const { activeSport, setActiveSport, hasMultipleSports, sportConfig, userSports } = useSportContext();
-  const drills = useBlazePodDrills();
-  const [activeTab, setActiveTab] = useState<SegmentTab>('tests');
-  const [testViewTab, setTestViewTab] = useState<TestViewTab>('standard');
-  const [showSportMenu, setShowSportMenu] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastResults, setLastResults] = useState<Record<string, string>>({});
-
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const fadeIn0 = useFadeIn(0, { trigger: isFocused });
-  const fadeIn1 = useFadeIn(1, { trigger: isFocused });
-  const fadeIn2 = useFadeIn(2, { trigger: isFocused });
+  const [activeTab, setActiveTab] = useState<Tab>('vitals');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
+  // Vitals state
+  const [vitals, setVitals] = useState<VitalsResponse['vitals']>({});
+  const [vitalsLoading, setVitalsLoading] = useState(true);
 
-  const loadHistory = useCallback(async () => {
+  // Tests state
+  const [myResults, setMyResults] = useState<MyTestResult[]>([]);
+  const [testsLoading, setTestsLoading] = useState(true);
+
+  // Search + Add Test
+  const [showAddTest, setShowAddTest] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [catalogResults, setCatalogResults] = useState<TestCatalogItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [selectedTest, setSelectedTest] = useState<TestCatalogItem | null>(null);
+  const [testValue, setTestValue] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const weekdayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+
+  // ── Data fetching ───────────────────────────────────────────────
+
+  const fetchVitals = useCallback(async () => {
     try {
-      const data = await getBlazePodHistory(10);
-      const results: Record<string, string> = {};
-      for (const session of data.sessions || []) {
-        if (!results[session.drillId]) {
-          results[session.drillId] = `${session.totalTouches} Touches`;
-        }
-      }
-      setLastResults(results);
+      const data = await getVitals(7);
+      setVitals(data.vitals);
     } catch {
-      // Graceful
+      // graceful
     } finally {
-      setRefreshing(false);
+      setVitalsLoading(false);
     }
   }, []);
 
-  const onRefresh = useCallback(() => {
+  const fetchTests = useCallback(async () => {
+    try {
+      const data = await getMyTestResults(100);
+      setMyResults(data.results);
+    } catch {
+      // graceful
+    } finally {
+      setTestsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchVitals();
+    fetchTests();
+  }, [fetchVitals, fetchTests]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    loadHistory();
-  }, [loadHistory]);
+    await Promise.all([fetchVitals(), fetchTests()]);
+    setRefreshing(false);
+  }, [fetchVitals, fetchTests]);
 
-  React.useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+  // ── Search catalog ──────────────────────────────────────────────
 
-  const handleStartDrill = useCallback(
-    (drillId: string) => {
-      navigation.navigate('DrillDetail', { drillId });
-    },
-    [navigation],
-  );
+  const handleSearch = useCallback((q: string) => {
+    setSearchQuery(q);
+    setSelectedTest(null);
+    setTestValue('');
 
-  const segmentTabs: { key: SegmentTab; label: string }[] = [
-    { key: 'history', label: 'History' },
-    { key: 'tests', label: 'Tests' },
-    { key: 'schedule', label: 'Schedule' },
-  ];
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    if (!q.trim()) {
+      setCatalogResults([]);
+      return;
+    }
+
+    searchTimerRef.current = setTimeout(async () => {
+      setCatalogLoading(true);
+      try {
+        const data = await searchTestCatalog(q);
+        setCatalogResults(data.tests);
+      } catch {
+        setCatalogResults([]);
+      } finally {
+        setCatalogLoading(false);
+      }
+    }, 300);
+  }, []);
+
+  // Load full catalog on open
+  useEffect(() => {
+    if (showAddTest && catalogResults.length === 0 && !searchQuery) {
+      setCatalogLoading(true);
+      searchTestCatalog().then((data) => {
+        setCatalogResults(data.tests);
+        setCatalogLoading(false);
+      }).catch(() => setCatalogLoading(false));
+    }
+  }, [showAddTest]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Submit test result ──────────────────────────────────────────
+
+  const handleSubmitTest = useCallback(async () => {
+    if (!selectedTest || !testValue.trim()) return;
+    const numVal = parseFloat(testValue);
+    if (isNaN(numVal)) {
+      Alert.alert('Invalid', 'Please enter a valid number.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await logTestResult({
+        testType: selectedTest.id,
+        score: numVal,
+        unit: selectedTest.unit,
+        date: new Date().toISOString().slice(0, 10),
+      });
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Refresh results and close
+      setShowAddTest(false);
+      setSelectedTest(null);
+      setTestValue('');
+      setSearchQuery('');
+      fetchTests();
+    } catch {
+      Alert.alert('Error', 'Could not save test result.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [selectedTest, testValue, fetchTests]);
+
+  // ── Group test results by testType for display ──────────────────
+
+  const groupedResults = useMemo(() => {
+    const map = new Map<string, MyTestResult[]>();
+    for (const r of myResults) {
+      if (!map.has(r.testType)) map.set(r.testType, []);
+      map.get(r.testType)!.push(r);
+    }
+    return map;
+  }, [myResults]);
+
+  // ── Render ─────────────────────────────────────────────────────
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header — sport name + dropdown trigger + profile */}
-      <View style={styles.header}>
+      {/* ── Top Row (same as Plan screen) ── */}
+      <View style={styles.headerArea}>
+        <View style={styles.headerLeft}>
+          <View>
+            <Text style={styles.headerSubtitle}>TOMO · {weekdayName.toUpperCase()}</Text>
+            <Text style={styles.screenTitle}>Your Tests</Text>
+          </View>
+        </View>
+        <View style={styles.headerRight}>
+          <Pressable
+            style={styles.settingsCapsule}
+            onPress={() => navigation.navigate('EditProfile')}
+          >
+            <Ionicons name="settings-outline" size={15} color={colors.textOnDark} />
+            <Text style={styles.settingsCapsuleText}>Settings</Text>
+          </Pressable>
+          <HeaderProfileButton
+            initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
+            photoUrl={profile?.photoUrl}
+          />
+        </View>
+      </View>
+
+      {/* ── Tab Switcher ── */}
+      <View style={styles.tabRow}>
         <Pressable
-          style={({ pressed }) => [styles.sportToggle, pressed && hasMultipleSports && { opacity: 0.7 }]}
-          onPress={() => {
-            if (hasMultipleSports) {
-              if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowSportMenu(true);
-            }
-          }}
+          style={[styles.tab, activeTab === 'vitals' && styles.tabActive]}
+          onPress={() => setActiveTab('vitals')}
         >
           <Ionicons
-            name={sportConfig.icon as keyof typeof Ionicons.glyphMap}
-            size={20}
-            color={sportConfig.color}
+            name="heart-outline"
+            size={15}
+            color={activeTab === 'vitals' ? '#FFF' : colors.textInactive}
           />
-          <Text style={styles.screenHeaderTitle}>{sportConfig.label}</Text>
-          {hasMultipleSports && (
-            <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
-          )}
+          <Text style={[styles.tabText, activeTab === 'vitals' && styles.tabTextActive]}>
+            Vitals
+          </Text>
         </Pressable>
-        <HeaderProfileButton initial={initial} photoUrl={profile?.photoUrl} />
+        <Pressable
+          style={[styles.tab, activeTab === 'tests' && styles.tabActive]}
+          onPress={() => setActiveTab('tests')}
+        >
+          <Ionicons
+            name="fitness-outline"
+            size={15}
+            color={activeTab === 'tests' ? '#FFF' : colors.textInactive}
+          />
+          <Text style={[styles.tabText, activeTab === 'tests' && styles.tabTextActive]}>
+            My Tests
+          </Text>
+        </Pressable>
       </View>
 
-      {/* Sport picker dropdown */}
-      {hasMultipleSports && (
-        <Modal
-          visible={showSportMenu}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowSportMenu(false)}
+      {/* ── Content ── */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
+        }
+      >
+        {activeTab === 'vitals' ? (
+          <VitalsTab
+            vitals={vitals}
+            loading={vitalsLoading}
+            colors={colors}
+            styles={styles}
+            onConnectWearable={() => navigation.navigate('EditProfile')}
+          />
+        ) : (
+          <TestsTab
+            groupedResults={groupedResults}
+            loading={testsLoading}
+            colors={colors}
+            styles={styles}
+            onAddTest={() => setShowAddTest(true)}
+          />
+        )}
+      </ScrollView>
+
+      {/* ── Add Test Modal ── */}
+      <Modal visible={showAddTest} transparent animationType="slide">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <Pressable style={styles.dropdownOverlay} onPress={() => setShowSportMenu(false)}>
-            <View style={styles.dropdownContainer}>
-              {userSports.map((sport: ActiveSport) => {
-                const cfg = getSportConfig(sport);
-                const isActive = sport === activeSport;
-                return (
-                  <Pressable
-                    key={sport}
-                    style={[
-                      styles.dropdownItem,
-                      isActive && { backgroundColor: cfg.color + '20' },
-                    ]}
-                    onPress={() => {
-                      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setActiveSport(sport);
-                      setShowSportMenu(false);
-                    }}
-                  >
-                    <Ionicons
-                      name={cfg.icon as keyof typeof Ionicons.glyphMap}
-                      size={20}
-                      color={isActive ? cfg.color : colors.textMuted}
+          <Pressable style={styles.modalOverlay} onPress={() => setShowAddTest(false)}>
+            <Pressable style={[styles.modalSheet, { backgroundColor: colors.backgroundElevated }]} onPress={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.textOnDark }]}>
+                  {selectedTest ? 'Log Result' : 'Find a Test'}
+                </Text>
+                <Pressable onPress={() => { setShowAddTest(false); setSelectedTest(null); setSearchQuery(''); }}>
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
+                </Pressable>
+              </View>
+
+              {selectedTest ? (
+                /* ── Log value for selected test ── */
+                <View style={styles.logSection}>
+                  <View style={styles.selectedTestCard}>
+                    <Text style={{ fontSize: 24 }}>{selectedTest.emoji}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.testName, { color: colors.textOnDark }]}>{selectedTest.name}</Text>
+                      <Text style={[styles.testMeta, { color: colors.textInactive }]}>
+                        {selectedTest.category} · {selectedTest.unit}
+                      </Text>
+                    </View>
+                    <Pressable onPress={() => setSelectedTest(null)}>
+                      <Ionicons name="arrow-back" size={20} color={colors.accent1} />
+                    </Pressable>
+                  </View>
+
+                  <View style={[styles.valueInputWrap, { borderColor: colors.accent1 + '60' }]}>
+                    <TextInput
+                      style={[styles.valueInput, { color: colors.textOnDark }]}
+                      placeholder={`Enter value (${selectedTest.unit})`}
+                      placeholderTextColor={colors.textInactive}
+                      value={testValue}
+                      onChangeText={setTestValue}
+                      keyboardType="decimal-pad"
+                      autoFocus
                     />
-                    <Text style={[
-                      styles.dropdownLabel,
-                      isActive && { color: cfg.color, fontFamily: fontFamily.semiBold },
-                    ]}>
-                      {cfg.label}
+                    <Text style={[styles.unitLabel, { color: colors.textMuted }]}>
+                      {selectedTest.unit}
                     </Text>
-                    {isActive && (
-                      <Ionicons name="checkmark" size={20} color={cfg.color} style={{ marginLeft: 'auto' }} />
+                  </View>
+
+                  <Text style={[styles.directionHint, { color: colors.textInactive }]}>
+                    {selectedTest.direction === 'higher' ? '↑ Higher is better' : '↓ Lower is better'}
+                  </Text>
+
+                  <Pressable
+                    style={[styles.saveBtn, { backgroundColor: colors.accent1, opacity: (submitting || !testValue.trim()) ? 0.5 : 1 }]}
+                    onPress={handleSubmitTest}
+                    disabled={submitting || !testValue.trim()}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#FFF" size="small" />
+                    ) : (
+                      <>
+                        <Ionicons name="checkmark" size={18} color="#FFF" />
+                        <Text style={styles.saveBtnText}>Save Result</Text>
+                      </>
                     )}
                   </Pressable>
-                );
-              })}
-            </View>
-          </Pressable>
-        </Modal>
-      )}
-
-      {/* Segment Tabs */}
-      <Animated.View style={[styles.segmentRow, fadeIn0]}>
-        {segmentTabs.map((tab) => (
-          <Pressable
-            key={tab.key}
-            onPress={() => setActiveTab(tab.key)}
-            style={[styles.segment, activeTab === tab.key && styles.segmentActive]}
-          >
-            <Text style={[styles.segmentText, activeTab === tab.key && styles.segmentTextActive]}>
-              {tab.label}
-            </Text>
-          </Pressable>
-        ))}
-      </Animated.View>
-
-      <View style={{ flex: 1 }}>
-        <ScrollFadeOverlay />
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
-          }
-        >
-        {activeTab === 'tests' && (
-          <>
-            {/* Sub-tab selector: Standard | My Tests | Coach */}
-            <TestSubTabs
-              activeTab={testViewTab}
-              onTabChange={setTestViewTab}
-            />
-
-            {activeSport === 'football' ? (
-              <FootballTestsContent navigation={navigation} />
-            ) : (
-              <>
-                {/* ═══════ Padel DNA Context Labels ═══════ */}
-                {profile?.sport === 'padel' && (
-                  <Animated.View style={fadeIn1}>
-                    <GlassCard style={styles.padelContextCard}>
-                      <View style={styles.padelContextHeader}>
-                        <Ionicons name="tennisball" size={18} color={colors.accent1} />
-                        <Text style={styles.padelContextTitle}>Padel Performance Tests</Text>
-                      </View>
-                      <Text style={styles.padelContextDesc}>
-                        Phone tests feed your DNA attributes. BlazePod drills train reflexes and agility.
-                      </Text>
-                    </GlassCard>
-                  </Animated.View>
-                )}
-
-                {/* ═══════ Phone Only Mode Card ═══════ */}
-                <Animated.View style={fadeIn1}>
-                  <Pressable
-                    onPress={() => navigation.navigate('PhoneTestsList')}
-                    style={({ pressed }) => [pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-                  >
-                    <LinearGradient
-                      colors={['rgba(255,107,53,0.20)', 'rgba(0,217,255,0.15)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.modeCard}
-                    >
-                      <View style={styles.modeIconWrap}>
-                        <LinearGradient
-                          colors={colors.gradientOrangeCyan}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={styles.modeIconBox}
-                        >
-                          <Ionicons name="phone-portrait-outline" size={32} color="#FFFFFF" />
-                        </LinearGradient>
-                      </View>
-                      <View style={styles.modeInfo}>
-                        <Text style={styles.modeTitle}>Phone Only</Text>
-                        <Text style={styles.modeDesc}>
-                          Reaction, jump, sprint, agility & balance tests using your phone sensors
-                        </Text>
-                        {profile?.sport === 'padel' && (
-                          <View style={styles.feedsRow}>
-                            <Text style={styles.feedsLabel}>Feeds: Reflexes, Power, Agility, Stamina</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Ionicons name="chevron-forward" size={20} color={colors.textInactive} />
-                    </LinearGradient>
-                  </Pressable>
-                </Animated.View>
-
-                {/* ═══════ BlazePod Mode Card ═══════ */}
-                <Animated.View style={fadeIn1}>
-                  <GlassCard style={styles.modeCardGlass}>
-                    <View style={styles.modeIconWrap}>
-                      <View style={[styles.modeIconBox, { backgroundColor: 'rgba(123,97,255,0.15)' }]}>
-                        <Ionicons name="flash" size={32} color="#7B61FF" />
-                      </View>
-                    </View>
-                    <View style={styles.modeInfo}>
-                      <Text style={styles.modeTitle}>With BlazePods</Text>
-                      <Text style={styles.modeDesc}>
-                        Advanced reaction drills with BlazePod light pods
-                      </Text>
-                      {profile?.sport === 'padel' && (
-                        <View style={styles.feedsRow}>
-                          <Text style={styles.feedsLabel}>Feeds: Reflexes, Agility</Text>
-                        </View>
-                      )}
-                    </View>
-                  </GlassCard>
-                </Animated.View>
-
-                {/* ═══════ Padel-Specific Tests (Coming Soon) ═══════ */}
-                {profile?.sport === 'padel' && (
-                  <Animated.View style={fadeIn2}>
-                    <Text style={styles.padelSectionTitle}>Padel-Specific Tests</Text>
-                    {[
-                      { name: 'Smash Velocity', icon: 'arrow-down-circle' as const, feeds: 'Power', desc: 'Measure overhead speed with phone accelerometer' },
-                      { name: 'Volley Reaction', icon: 'flash-outline' as const, feeds: 'Reflexes', desc: 'Net volley response time drill' },
-                      { name: 'Court Coverage', icon: 'walk-outline' as const, feeds: 'Agility, Stamina', desc: 'Movement efficiency across the court' },
-                    ].map((test) => (
-                      <GlassCard key={test.name} style={styles.comingSoonCard}>
-                        <View style={styles.comingSoonRow}>
-                          <View style={styles.comingSoonIcon}>
-                            <Ionicons name={test.icon} size={22} color={colors.textInactive} />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.comingSoonName}>{test.name}</Text>
-                            <Text style={styles.comingSoonDesc}>{test.desc}</Text>
-                            <Text style={styles.feedsLabel}>Feeds: {test.feeds}</Text>
-                          </View>
-                          <View style={styles.comingSoonBadge}>
-                            <Text style={styles.comingSoonBadgeText}>Coming Soon</Text>
-                          </View>
-                        </View>
-                      </GlassCard>
-                    ))}
-                  </Animated.View>
-                )}
-
-                {/* ═══════ BlazePod Drill List ═══════ */}
-                <Animated.View style={[fadeIn2, { gap: spacing.md }]}>
-                  {drills.map((drill) => (
-                    <DrillCard
-                      key={drill.id}
-                      drill={drill}
-                      lastResult={lastResults[drill.id]}
-                      onPress={() => handleStartDrill(drill.id)}
-                      onRecord={() =>
-                        navigation.navigate('DrillCamera', {
-                          drillId: drill.id,
-                          drillName: drill.name,
-                        })
-                      }
+                </View>
+              ) : (
+                /* ── Search catalog ── */
+                <>
+                  <View style={[styles.searchBar, { borderColor: colors.glassBorder }]}>
+                    <Ionicons name="search" size={18} color={colors.textInactive} />
+                    <TextInput
+                      style={[styles.searchInput, { color: colors.textOnDark }]}
+                      placeholder="Search tests... (e.g. sprint, jump, strength)"
+                      placeholderTextColor={colors.textInactive}
+                      value={searchQuery}
+                      onChangeText={handleSearch}
+                      autoFocus
                     />
-                  ))}
-                </Animated.View>
-              </>
-            )}
-          </>
-        )}
+                    {searchQuery !== '' && (
+                      <Pressable onPress={() => handleSearch('')}>
+                        <Ionicons name="close-circle" size={18} color={colors.textInactive} />
+                      </Pressable>
+                    )}
+                  </View>
 
-        {activeTab === 'history' && (
-          <View style={styles.emptySection}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="trending-up-outline" size={48} color={colors.accent2} />
-            </View>
-            <Text style={styles.emptyTitle}>Your Test Timeline</Text>
-            <Text style={styles.emptySubtitle}>
-              After completing tests, your results will appear here with trends over time.
-              Track your sprints, jumps, and agility as you improve.
-            </Text>
-          </View>
-        )}
-
-        {activeTab === 'schedule' && (
-          <View style={styles.emptySection}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="calendar-outline" size={48} color={colors.accent2} />
-            </View>
-            <Text style={styles.emptyTitle}>Test Schedule</Text>
-            <Text style={styles.emptySubtitle}>
-              Your recommended test schedule will appear here based on your training activity.
-            </Text>
-          </View>
-        )}
-        </ScrollView>
-      </View>
+                  {catalogLoading ? (
+                    <ActivityIndicator color={colors.accent1} style={{ marginTop: 32 }} />
+                  ) : (
+                    <FlatList
+                      data={catalogResults}
+                      keyExtractor={(item) => item.id}
+                      style={{ maxHeight: 400 }}
+                      showsVerticalScrollIndicator={false}
+                      keyboardShouldPersistTaps="handled"
+                      ListEmptyComponent={
+                        searchQuery ? (
+                          <Text style={[styles.emptyText, { color: colors.textInactive }]}>
+                            No tests found for "{searchQuery}"
+                          </Text>
+                        ) : null
+                      }
+                      renderItem={({ item }) => (
+                        <Pressable
+                          style={[styles.catalogItem, { borderColor: colors.glassBorder }]}
+                          onPress={() => {
+                            setSelectedTest(item);
+                            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          }}
+                        >
+                          <Text style={{ fontSize: 20 }}>{item.emoji}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.catalogName, { color: colors.textOnDark }]}>
+                              {item.name}
+                            </Text>
+                            <Text style={[styles.catalogDesc, { color: colors.textInactive }]}>
+                              {item.category} · {item.unit} · {item.description}
+                            </Text>
+                          </View>
+                          <View style={[styles.logBadge, { backgroundColor: colors.accent1 + '20' }]}>
+                            <Text style={[styles.logBadgeText, { color: colors.accent1 }]}>Log</Text>
+                          </View>
+                        </Pressable>
+                      )}
+                    />
+                  )}
+                </>
+              )}
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-// ── Drill Card ──────────────────────────────────────────────────────
+// ── Vitals Tab ────────────────────────────────────────────────────────────
 
-function DrillCard({
-  drill,
-  lastResult,
-  onPress,
-  onRecord,
+function VitalsTab({
+  vitals,
+  loading,
+  colors,
+  styles,
+  onConnectWearable,
 }: {
-  drill: BlazePodDrill;
-  lastResult?: string;
-  onPress: () => void;
-  onRecord: () => void;
+  vitals: VitalsResponse['vitals'];
+  loading: boolean;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
+  onConnectWearable: () => void;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const vitalKeys = Object.keys(vitals);
+  const hasData = vitalKeys.length > 0;
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.accent1} size="large" />
+      </View>
+    );
+  }
 
   return (
-    <Pressable onPress={onPress}>
-      <GlassCard style={styles.drillCard}>
-        <View style={styles.drillTop}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.drillName}>{drill.name}</Text>
-            <Text style={styles.drillMeta}>
-              {drill.sets} sets x {drill.setDurationSec}s | {drill.restBetweenSetsSec}s rest
-            </Text>
-            <Text style={styles.drillDesc} numberOfLines={2} ellipsizeMode="tail">
-              {drill.description}
-            </Text>
-          </View>
-          <View style={[styles.drillIcon, { backgroundColor: drill.color + '18' }]}>
-            <Ionicons name={drill.icon as any} size={24} color={drill.color} />
-          </View>
+    <View style={{ gap: spacing.md }}>
+      {/* Connect wearable CTA */}
+      <Pressable
+        style={[styles.connectCard, { borderColor: colors.accent1 + '40' }]}
+        onPress={onConnectWearable}
+      >
+        <View style={[styles.connectIconWrap, { backgroundColor: colors.accent1 + '15' }]}>
+          <Ionicons name="watch-outline" size={28} color={colors.accent1} />
         </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.connectTitle, { color: colors.textOnDark }]}>
+            {hasData ? 'Wearable Connected' : 'Connect Wearable'}
+          </Text>
+          <Text style={[styles.connectDesc, { color: colors.textInactive }]}>
+            {hasData
+              ? 'Syncing vitals from your device'
+              : 'Link Apple Watch, Garmin, or Whoop to track vitals automatically'}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={colors.textInactive} />
+      </Pressable>
 
-        <View style={styles.drillBottom}>
-          {lastResult ? (
-            <Text style={styles.drillResult}>Last: {lastResult}</Text>
-          ) : (
-            <Text style={styles.drillResult}>No results yet</Text>
-          )}
-          <GradientButton title="Test Now" onPress={onPress} small />
+      {hasData ? (
+        /* ── Vitals grid ── */
+        <View style={styles.vitalsGrid}>
+          {vitalKeys.map((key) => {
+            const config = VITAL_CONFIG[key] || {
+              label: key.replace(/_/g, ' '),
+              emoji: '📊',
+              unit: '',
+              color: colors.accent1,
+            };
+            const readings = vitals[key];
+            const latest = readings[0];
+            const prev = readings.length > 1 ? readings[1] : null;
+            const trend = prev ? latest.value - prev.value : 0;
+
+            return (
+              <View
+                key={key}
+                style={[styles.vitalCard, { borderColor: config.color + '30' }]}
+              >
+                <View style={styles.vitalCardHeader}>
+                  <Text style={{ fontSize: 18 }}>{config.emoji}</Text>
+                  <Text style={[styles.vitalLabel, { color: colors.textMuted }]}>{config.label}</Text>
+                </View>
+                <Text style={[styles.vitalValue, { color: colors.textOnDark }]}>
+                  {latest.value % 1 === 0 ? latest.value : latest.value.toFixed(1)}
+                </Text>
+                <View style={styles.vitalFooter}>
+                  <Text style={[styles.vitalUnit, { color: colors.textInactive }]}>
+                    {config.unit}
+                  </Text>
+                  {trend !== 0 && (
+                    <View style={styles.trendBadge}>
+                      <Ionicons
+                        name={trend > 0 ? 'arrow-up' : 'arrow-down'}
+                        size={10}
+                        color={trend > 0 ? '#30D158' : '#FF3B30'}
+                      />
+                      <Text style={{ fontSize: 10, color: trend > 0 ? '#30D158' : '#FF3B30', fontWeight: '600' }}>
+                        {Math.abs(trend).toFixed(1)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
         </View>
-      </GlassCard>
-    </Pressable>
+      ) : (
+        /* ── Empty state ── */
+        <View style={styles.emptyState}>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.accent1 + '12' }]}>
+            <Ionicons name="pulse-outline" size={48} color={colors.accent1} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Vitals Yet</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textInactive }]}>
+            Connect a wearable or manually log your vitals to start tracking your health data.
+          </Text>
+        </View>
+      )}
+    </View>
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────────────
+// ── My Tests Tab ──────────────────────────────────────────────────────────
+
+function TestsTab({
+  groupedResults,
+  loading,
+  colors,
+  styles,
+  onAddTest,
+}: {
+  groupedResults: Map<string, MyTestResult[]>;
+  loading: boolean;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
+  onAddTest: () => void;
+}) {
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.accent1} size="large" />
+      </View>
+    );
+  }
+
+  const testTypes = Array.from(groupedResults.keys());
+
+  return (
+    <View style={{ gap: spacing.md }}>
+      {/* Add Test CTA */}
+      <Pressable
+        style={[styles.addTestBtn, { borderColor: colors.accent1 }]}
+        onPress={onAddTest}
+      >
+        <Ionicons name="add-circle-outline" size={22} color={colors.accent1} />
+        <Text style={[styles.addTestText, { color: colors.accent1 }]}>Add Test Result</Text>
+      </Pressable>
+
+      {testTypes.length > 0 ? (
+        testTypes.map((testType) => {
+          const results = groupedResults.get(testType) || [];
+          const latest = results[0];
+          const prev = results.length > 1 ? results[1] : null;
+          const unit = (latest.rawData as Record<string, unknown>)?.unit as string || '';
+
+          // Try to find matching catalog item for display info
+          const catalogMatch = getCatalogInfo(testType);
+
+          return (
+            <Pressable
+              key={testType}
+              style={[styles.testCard, { borderColor: colors.glassBorder }]}
+              onPress={onAddTest}
+            >
+              <View style={styles.testCardHeader}>
+                <Text style={{ fontSize: 22 }}>{catalogMatch.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.testCardName, { color: colors.textOnDark }]}>
+                    {catalogMatch.name}
+                  </Text>
+                  <Text style={[styles.testCardCategory, { color: colors.textInactive }]}>
+                    {catalogMatch.category} · {results.length} result{results.length !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Latest value */}
+              <View style={styles.testCardBody}>
+                <View>
+                  <Text style={[styles.testCardValue, { color: colors.textOnDark }]}>
+                    {latest.score ?? '-'}
+                  </Text>
+                  <Text style={[styles.testCardUnit, { color: colors.textInactive }]}>
+                    {unit} · {latest.date}
+                  </Text>
+                </View>
+
+                {prev && latest.score !== null && prev.score !== null && (
+                  <View style={styles.testCardTrend}>
+                    {latest.score !== prev.score && (
+                      <View style={[
+                        styles.trendPill,
+                        { backgroundColor: (latest.score > prev.score ? '#30D158' : '#FF3B30') + '18' },
+                      ]}>
+                        <Ionicons
+                          name={latest.score > prev.score ? 'trending-up' : 'trending-down'}
+                          size={14}
+                          color={latest.score > prev.score ? '#30D158' : '#FF3B30'}
+                        />
+                        <Text style={{
+                          fontSize: 11,
+                          fontWeight: '700',
+                          color: latest.score > prev.score ? '#30D158' : '#FF3B30',
+                        }}>
+                          {Math.abs(latest.score - prev.score).toFixed(1)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* Mini sparkline (last 5 values) */}
+              {results.length >= 2 && (
+                <View style={styles.sparkRow}>
+                  {results.slice(0, 5).reverse().map((r, i) => {
+                    const maxVal = Math.max(...results.slice(0, 5).map((rr) => rr.score ?? 0));
+                    const minVal = Math.min(...results.slice(0, 5).map((rr) => rr.score ?? 0));
+                    const range = maxVal - minVal || 1;
+                    const height = 4 + ((r.score ?? 0) - minVal) / range * 20;
+                    return (
+                      <View
+                        key={r.id || i}
+                        style={[
+                          styles.sparkBar,
+                          {
+                            height,
+                            backgroundColor: i === results.slice(0, 5).length - 1 - 0
+                              ? colors.accent1
+                              : colors.accent1 + '40',
+                          },
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
+              )}
+            </Pressable>
+          );
+        })
+      ) : (
+        <View style={styles.emptyState}>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.accent1 + '12' }]}>
+            <Ionicons name="clipboard-outline" size={48} color={colors.accent1} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Tests Yet</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textInactive }]}>
+            Tap "Add Test Result" to log your first test from our catalog of 50+ standard athletic tests.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+/** Quick catalog lookup for display info (static, no API) */
+const CATALOG_LOOKUP: Record<string, { name: string; emoji: string; category: string }> = {
+  '10m-sprint': { name: '10m Sprint', emoji: '🏃', category: 'Speed' },
+  '20m-sprint': { name: '20m Sprint', emoji: '🏃', category: 'Speed' },
+  '30m-sprint': { name: '30m Sprint', emoji: '🏃', category: 'Speed' },
+  'cmj': { name: 'Counter Movement Jump', emoji: '🦘', category: 'Power' },
+  'vertical-jump': { name: 'Vertical Jump', emoji: '🦘', category: 'Power' },
+  'broad-jump': { name: 'Standing Broad Jump', emoji: '🦘', category: 'Power' },
+  't-test': { name: 'Agility T-Test', emoji: '🔀', category: 'Agility' },
+  'yo-yo-ir1': { name: 'Yo-Yo IR1', emoji: '🫁', category: 'Endurance' },
+  'beep-test': { name: 'Beep Test', emoji: '🫁', category: 'Endurance' },
+  'vo2max': { name: 'VO₂ Max', emoji: '🫁', category: 'Endurance' },
+  'bench-press-1rm': { name: 'Bench Press 1RM', emoji: '🏋️', category: 'Strength' },
+  'squat-1rm': { name: 'Back Squat 1RM', emoji: '🏋️', category: 'Strength' },
+  'pull-ups': { name: 'Pull-Ups', emoji: '💪', category: 'Strength' },
+  'reaction-time': { name: 'Reaction Time', emoji: '⚡', category: 'Reaction' },
+  'sit-reach': { name: 'Sit & Reach', emoji: '🧘', category: 'Flexibility' },
+  'free-kicks-10': { name: 'Free Kicks (10)', emoji: '⚽', category: 'Sport Skill' },
+  'ball-juggling': { name: 'Ball Juggling', emoji: '⚽', category: 'Sport Skill' },
+  'body-weight': { name: 'Body Weight', emoji: '⚖️', category: 'Body Comp' },
+  // Phone test types
+  'reaction-tap': { name: 'Reaction Tap', emoji: '⚡', category: 'Phone Test' },
+  'jump-height': { name: 'Jump Height', emoji: '🦘', category: 'Phone Test' },
+  'sprint-speed': { name: 'Sprint Speed', emoji: '🏃', category: 'Phone Test' },
+  'agility-shuffle': { name: 'Agility Shuffle', emoji: '🔀', category: 'Phone Test' },
+  'balance-stability': { name: 'Balance', emoji: '🧘', category: 'Phone Test' },
+};
+
+function getCatalogInfo(testType: string): { name: string; emoji: string; category: string } {
+  return CATALOG_LOOKUP[testType] || {
+    name: testType.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    emoji: '📊',
+    category: 'Custom',
+  };
+}
+
+// ── Styles ──────────────────────────────────────────────────────────────
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.background },
-    header: {
+
+    // Header (matches Plan screen)
+    headerArea: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingHorizontal: layout.screenMargin,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.sm,
+      paddingVertical: spacing.sm,
     },
-    sportToggle: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      gap: 8,
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
     },
-    screenHeaderTitle: {
+    headerRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    headerSubtitle: {
+      fontFamily: fontFamily.medium,
+      fontSize: 11,
+      color: colors.textMuted,
+      letterSpacing: 1.5,
+      textTransform: 'uppercase' as const,
+    },
+    screenTitle: {
       fontFamily: fontFamily.bold,
       fontSize: 24,
       color: colors.textOnDark,
     },
-
-    // ── Sport Dropdown ──
-    dropdownOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.4)',
-      justifyContent: 'flex-start' as const,
-      paddingTop: Platform.OS === 'ios' ? 100 : 60,
-      paddingHorizontal: layout.screenMargin,
-    },
-    dropdownContainer: {
-      backgroundColor: colors.backgroundElevated,
-      borderRadius: 14,
-      overflow: 'hidden' as const,
+    settingsCapsule: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: colors.glass,
       borderWidth: 1,
       borderColor: colors.glassBorder,
-      ...Platform.select({
-        ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12 },
-        android: { elevation: 8 },
-      }),
+      borderRadius: borderRadius.full,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
     },
-    dropdownItem: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      gap: 12,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-    },
-    dropdownLabel: {
+    settingsCapsuleText: {
       fontFamily: fontFamily.medium,
-      fontSize: 17,
+      fontSize: 12,
       color: colors.textOnDark,
     },
 
-    // ── Segment Tabs ──────────────────────────────────────────────────
-    segmentRow: {
+    // Tabs
+    tabRow: {
       flexDirection: 'row',
       paddingHorizontal: layout.screenMargin,
       marginBottom: spacing.md,
       gap: spacing.sm,
     },
-    segment: {
+    tab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.md,
       borderRadius: borderRadius.full,
       backgroundColor: 'transparent',
     },
-    segmentActive: {
+    tabActive: {
       backgroundColor: colors.accent1,
     },
-    segmentText: {
+    tabText: {
       fontFamily: fontFamily.medium,
       fontSize: 14,
       color: colors.textInactive,
     },
-    segmentTextActive: {
+    tabTextActive: {
       color: '#FFFFFF',
     },
 
     scrollContent: {
       paddingHorizontal: layout.screenMargin,
       paddingBottom: layout.navHeight + spacing.xl,
-      gap: spacing.md,
     },
 
-    // ── Mode Cards ──────────────────────────────────────────────────
-    modeCard: {
-      borderRadius: borderRadius.lg,
+    // Connect wearable
+    connectCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
       borderWidth: 1,
-      borderColor: colors.glassBorder,
-      padding: spacing.lg,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      overflow: 'hidden',
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.backgroundElevated,
     },
-    modeCardGlass: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    modeIconWrap: {},
-    modeIconBox: {
-      width: 56,
-      height: 56,
-      borderRadius: 16,
+    connectIconWrap: {
+      width: 52,
+      height: 52,
+      borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    modeInfo: {
-      flex: 1,
-    },
-    modeTitle: {
+    connectTitle: {
       fontFamily: fontFamily.semiBold,
-      fontSize: 17,
-      color: colors.textOnDark,
-      marginBottom: 2,
+      fontSize: 15,
     },
-    modeDesc: {
+    connectDesc: {
       fontFamily: fontFamily.regular,
-      fontSize: 13,
-      color: colors.textInactive,
-      lineHeight: 18,
-    },
-
-    // ── Drill Cards ───────────────────────────────────────────────────
-    drillCard: {
-      gap: spacing.md,
-    },
-    drillTop: {
-      flexDirection: 'row',
-      gap: spacing.md,
-    },
-    drillName: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 16,
-      color: colors.textOnDark,
-    },
-    drillMeta: {
-      fontFamily: fontFamily.regular,
-      fontSize: 13,
-      color: colors.textInactive,
+      fontSize: 12,
+      lineHeight: 17,
       marginTop: 2,
     },
-    drillDesc: {
-      fontFamily: fontFamily.regular,
-      fontSize: 13,
-      color: colors.textMuted,
-      marginTop: 4,
+
+    // Vitals grid
+    vitalsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
     },
-    drillIcon: {
-      width: 48,
-      height: 48,
-      borderRadius: 12,
+    vitalCard: {
+      width: '48%' as unknown as number,
+      borderWidth: 1,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.backgroundElevated,
+    },
+    vitalCardHeader: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      gap: 6,
+      marginBottom: spacing.sm,
     },
-    drillBottom: {
+    vitalLabel: {
+      fontFamily: fontFamily.medium,
+      fontSize: 11,
+      letterSpacing: 0.3,
+    },
+    vitalValue: {
+      fontFamily: fontFamily.bold,
+      fontSize: 28,
+    },
+    vitalFooter: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      marginTop: 4,
     },
-    drillResult: {
+    vitalUnit: {
       fontFamily: fontFamily.regular,
-      fontSize: 13,
-      color: colors.textInactive,
+      fontSize: 11,
+    },
+    trendBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
     },
 
-    // ── Empty States ──────────────────────────────────────────────────
-    emptySection: {
+    // Tests
+    addTestBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderWidth: 1.5,
+      borderStyle: 'dashed',
+      borderRadius: borderRadius.lg,
+      paddingVertical: 14,
+    },
+    addTestText: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 15,
+    },
+    testCard: {
+      borderWidth: 1,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.backgroundElevated,
+    },
+    testCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.sm,
+    },
+    testCardName: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 15,
+    },
+    testCardCategory: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      marginTop: 1,
+    },
+    testCardBody: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+    },
+    testCardValue: {
+      fontFamily: fontFamily.bold,
+      fontSize: 32,
+    },
+    testCardUnit: {
+      fontFamily: fontFamily.regular,
+      fontSize: 12,
+      marginTop: 2,
+    },
+    testCardTrend: {
+      alignItems: 'flex-end',
+    },
+    trendPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 8,
+    },
+    sparkRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 3,
+      marginTop: spacing.sm,
+      height: 24,
+    },
+    sparkBar: {
+      flex: 1,
+      borderRadius: 2,
+      minHeight: 4,
+    },
+
+    // Empty state
+    emptyState: {
       alignItems: 'center',
       paddingVertical: spacing.huge,
       gap: spacing.md,
     },
-    emptyIconWrap: {
+    emptyIcon: {
       width: 80,
       height: 80,
       borderRadius: 40,
-      backgroundColor: `${colors.accent2}15`,
       alignItems: 'center',
       justifyContent: 'center',
     },
     emptyTitle: {
       fontFamily: fontFamily.semiBold,
       fontSize: 18,
-      color: colors.textOnDark,
     },
     emptySubtitle: {
       fontFamily: fontFamily.regular,
       fontSize: 14,
-      color: colors.textInactive,
       textAlign: 'center',
+      paddingHorizontal: spacing.lg,
     },
-
-    // ── Padel Context ─────────────────────────────────────────────────
-    padelContextCard: {
-      borderColor: 'rgba(255, 107, 53, 0.15)',
-    },
-    padelContextHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: spacing.xs,
-    },
-    padelContextTitle: {
-      fontFamily: fontFamily.bold,
-      fontSize: 15,
-      color: colors.textOnDark,
-    },
-    padelContextDesc: {
-      fontFamily: fontFamily.regular,
-      fontSize: 13,
-      color: colors.textInactive,
-      lineHeight: 18,
-    },
-    feedsRow: {
-      marginTop: 4,
-    },
-    feedsLabel: {
-      fontFamily: fontFamily.medium,
-      fontSize: 11,
-      color: colors.accent1,
-      letterSpacing: 0.3,
-    },
-    padelSectionTitle: {
-      fontFamily: fontFamily.bold,
-      fontSize: 16,
-      color: colors.textOnDark,
-      marginTop: spacing.md,
-      marginBottom: spacing.sm,
-    },
-    comingSoonCard: {
-      marginBottom: spacing.sm,
-      opacity: 0.6,
-    },
-    comingSoonRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    comingSoonIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 12,
-      backgroundColor: colors.glass,
+    centered: {
       alignItems: 'center',
       justifyContent: 'center',
+      paddingVertical: 60,
     },
-    comingSoonName: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 15,
-      color: colors.textOnDark,
+
+    // Modal
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
     },
-    comingSoonDesc: {
+    modalSheet: {
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.huge,
+      paddingHorizontal: layout.screenMargin,
+      maxHeight: '80%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: spacing.md,
+    },
+    modalTitle: {
+      fontFamily: fontFamily.bold,
+      fontSize: 20,
+    },
+
+    // Search
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderRadius: borderRadius.lg,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginBottom: spacing.md,
+    },
+    searchInput: {
+      flex: 1,
       fontFamily: fontFamily.regular,
-      fontSize: 12,
-      color: colors.textInactive,
+      fontSize: 15,
+    },
+    catalogItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    catalogName: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 14,
+    },
+    catalogDesc: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
       marginTop: 2,
     },
-    comingSoonBadge: {
-      backgroundColor: 'rgba(255,255,255,0.08)',
-      paddingHorizontal: 8,
-      paddingVertical: 3,
+    logBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 5,
       borderRadius: 8,
     },
-    comingSoonBadgeText: {
+    logBadgeText: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 12,
+    },
+    emptyText: {
+      fontFamily: fontFamily.regular,
+      fontSize: 14,
+      textAlign: 'center',
+      paddingVertical: 32,
+    },
+
+    // Log section
+    logSection: {
+      gap: spacing.md,
+    },
+    selectedTestCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: spacing.sm,
+    },
+    testName: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 16,
+    },
+    testMeta: {
+      fontFamily: fontFamily.regular,
+      fontSize: 12,
+      marginTop: 2,
+    },
+    valueInputWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderRadius: borderRadius.lg,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    valueInput: {
+      flex: 1,
+      fontFamily: fontFamily.bold,
+      fontSize: 24,
+    },
+    unitLabel: {
       fontFamily: fontFamily.medium,
-      fontSize: 10,
-      color: colors.textInactive,
+      fontSize: 14,
+    },
+    directionHint: {
+      fontFamily: fontFamily.regular,
+      fontSize: 12,
+      textAlign: 'center',
+    },
+    saveBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      borderRadius: borderRadius.lg,
+      paddingVertical: 14,
+    },
+    saveBtnText: {
+      fontFamily: fontFamily.bold,
+      fontSize: 16,
+      color: '#FFFFFF',
     },
   });
 }
