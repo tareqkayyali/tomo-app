@@ -406,9 +406,9 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             onPress={() => navigation.navigate('Settings')}
           />
           <MenuItem
-            icon="settings-outline"
-            label="Settings"
-            onPress={() => navigation.navigate('Settings')}
+            icon="school-outline"
+            label="Study Settings"
+            onPress={() => navigation.navigate('EditProfile')}
           />
           <MenuItem
             icon="notifications-outline"
