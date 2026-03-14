@@ -673,6 +673,110 @@ export async function getBriefing(): Promise<DailyBriefing> {
 }
 
 // ============================================
+// For You — AI Recommendations
+// ============================================
+
+export interface ForYouQuickAction {
+  label: string;
+  icon: string;
+  screen: string;
+  params?: Record<string, unknown>;
+}
+
+export interface ForYouContent {
+  greeting: string;
+  readiness: {
+    score: number;
+    status: 'green' | 'yellow' | 'red' | 'unknown';
+    label: string;
+  };
+  focusArea: {
+    attribute: string;
+    attributeKey: string;
+    score: number;
+    headline: string;
+    description: string;
+    drills: string[];
+    color: string;
+    ctaScreen: string;
+    ctaLabel: string;
+  } | null;
+  tomorrowPreview: {
+    intensity: string;
+    workoutType: string;
+    duration: number;
+    description: string;
+  } | null;
+  recoveryTips: Array<{
+    emoji: string;
+    title: string;
+    detail: string;
+    color: string;
+  }>;
+  nextMilestone: {
+    name: string;
+    current: number;
+    target: number;
+    progress: number;
+  } | null;
+  peerInsight: string | null;
+  challenge: {
+    title: string;
+    description: string;
+    metric: string;
+    ctaScreen: string;
+  } | null;
+  alerts: Array<{
+    type: string;
+    emoji: string;
+    message: string;
+    severity: 'info' | 'warn' | 'critical';
+  }>;
+  quickActions: ForYouQuickAction[];
+  generatedAt: string;
+}
+
+/**
+ * Get AI-generated For You recommendations.
+ * Uses a longer timeout (45s) since Claude AI may take 10-20s.
+ * Passes local hour for timezone-aware greetings.
+ */
+export async function getForYouRecommendations(): Promise<ForYouContent> {
+  const token = await getIdToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const hour = new Date().getHours();
+  const url = `${API_BASE_URL}/api/v1/for-you?hour=${hour}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error((body as any).error || `HTTP ${response.status}`);
+    }
+
+    const json = await response.json();
+    return (json as any).data as ForYouContent;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') throw new Error('Request timed out');
+    throw err;
+  }
+}
+
+// ============================================
 // Padel Progress APIs
 // ============================================
 
@@ -917,8 +1021,14 @@ export async function logTestResult(data: {
   unit?: string;
   date?: string;
   notes?: string;
-}): Promise<{ result: { id: string; testType: string; score: number; date: string } }> {
-  return apiRequest<{ result: { id: string; testType: string; score: number; date: string } }>('/api/v1/tests/my-results', {
+}): Promise<{
+  result: { id: string; testType: string; score: number; date: string };
+  benchmark?: BenchmarkResult | null;
+}> {
+  return apiRequest<{
+    result: { id: string; testType: string; score: number; date: string };
+    benchmark?: BenchmarkResult | null;
+  }>('/api/v1/tests/my-results', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -1345,4 +1455,68 @@ export async function markAllNotificationsRead(): Promise<{ success: boolean }> 
   return apiRequest<{ success: boolean }>('/api/v1/notifications/read-all', {
     method: 'POST',
   });
+}
+
+// ── BENCHMARK API ──────────────────────────────────────────────────
+
+import type {
+  BenchmarkProfile,
+  BenchmarkResult,
+  MetricTrajectory,
+  NormRow,
+} from '../types/benchmarks';
+
+export async function getBenchmarkProfile(): Promise<BenchmarkProfile | null> {
+  try {
+    return await apiRequest<BenchmarkProfile>('/api/v1/benchmarks/profile/');
+  } catch {
+    return null;
+  }
+}
+
+export async function logBenchmarkResult(
+  metricKey: string,
+  value: number,
+  source?: string
+): Promise<BenchmarkResult | null> {
+  try {
+    return await apiRequest<BenchmarkResult>(
+      `/api/v1/benchmarks/metric/${metricKey}/`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ value, source: source ?? 'manual' }),
+      }
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function getMetricTrajectory(
+  metricKey: string,
+  months: number = 12
+): Promise<MetricTrajectory[]> {
+  try {
+    const res = await apiRequest<{ trajectory: MetricTrajectory[] }>(
+      `/api/v1/benchmarks/metric/${metricKey}/?months=${months}`
+    );
+    return res.trajectory ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getPositionNorms(
+  position: string,
+  ageBand: string,
+  gender: string = 'male'
+): Promise<NormRow[]> {
+  try {
+    const res = await apiRequest<{ norms: NormRow[] }>(
+      `/api/v1/benchmarks/norms/?position=${position}&ageBand=${ageBand}&gender=${gender}`
+    );
+    return res.norms ?? [];
+  } catch {
+    return [];
+  }
 }

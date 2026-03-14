@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import type { Json } from "@/types/database";
+import { processPhoneTestBenchmark } from "@/services/benchmarkService";
 
 const phoneTestSessionSchema = z.object({
   testType: z.string().min(1).max(200),
@@ -44,8 +45,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Calculate benchmark percentile if applicable
+    const benchmark = await processPhoneTestBenchmark(
+      auth.user.id,
+      testType,
+      score ?? null,
+      new Date().toISOString().slice(0, 10)
+    );
+
     return NextResponse.json(
-      { session },
+      { session, benchmark: benchmark ?? null },
       { status: 201, headers: { "api-version": "v1" } }
     );
   } catch {

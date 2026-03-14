@@ -45,6 +45,8 @@ import {
   type TestCatalogItem,
   type MyTestResult,
 } from '../services/api';
+import type { BenchmarkResult } from '../types/benchmarks';
+import { PercentileBar } from '../components/benchmarks/PercentileBar';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -107,6 +109,7 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
   const [editingResultId, setEditingResultId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [lastBenchmark, setLastBenchmark] = useState<BenchmarkResult | null>(null);
 
   const weekdayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
@@ -193,12 +196,13 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
 
     setSubmitting(true);
     try {
-      await logTestResult({
+      const response = await logTestResult({
         testType: pendingTest.id,
         score: numVal,
         unit: pendingTest.unit,
         date: new Date().toISOString().slice(0, 10),
       });
+      if (response.benchmark) setLastBenchmark(response.benchmark);
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPendingTest(null);
       setPendingValue('');
@@ -222,12 +226,13 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
     setSubmitting(true);
     try {
       const unit = (result.rawData as Record<string, unknown>)?.unit as string || '';
-      await logTestResult({
+      const response = await logTestResult({
         testType: result.testType,
         score: numVal,
         unit,
         date: result.date,
       });
+      if (response.benchmark) setLastBenchmark(response.benchmark);
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setEditingResultId(null);
       setEditValue('');
@@ -262,7 +267,7 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
         <View style={styles.headerLeft}>
           <View>
             <Text style={styles.headerSubtitle}>TOMO · {weekdayName.toUpperCase()}</Text>
-            <Text style={styles.screenTitle}>Your Tests</Text>
+            <Text style={styles.screenTitle}>Your Output</Text>
           </View>
         </View>
         <View style={styles.headerRight}>
@@ -446,7 +451,19 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
                 <ActivityIndicator color={colors.accent1} size="large" />
               </View>
             ) : groupedResults.size > 0 ? (
-              Array.from(groupedResults.keys()).map((testType) => {
+              <>
+              {lastBenchmark && (
+                <Pressable
+                  onPress={() => setLastBenchmark(null)}
+                  style={[styles.testCard, { borderColor: '#27AE60' + '60', marginBottom: 12 }]}
+                >
+                  <PercentileBar benchmark={lastBenchmark} />
+                  <Text style={{ fontSize: 9, color: colors.textInactive, textAlign: 'center', marginTop: 8 }}>
+                    Tap to dismiss
+                  </Text>
+                </Pressable>
+              )}
+              {Array.from(groupedResults.keys()).map((testType) => {
                 const results = groupedResults.get(testType) || [];
                 const latest = results[0];
                 const prev = results.length > 1 ? results[1] : null;
@@ -591,7 +608,8 @@ export function TestsScreen({ navigation }: TestsScreenProps) {
                     )}
                   </View>
                 );
-              })
+              })}
+              </>
             ) : (
               /* ── Empty state ── */
               <View style={styles.emptyState}>

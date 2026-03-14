@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:benchmarks": "npx tsx scripts/seeds/football_benchmark_seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

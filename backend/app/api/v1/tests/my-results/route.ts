@@ -10,6 +10,7 @@ import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import type { Json } from "@/types/database";
+import { calculatePercentile } from "@/services/benchmarkService";
 
 // ── GET /api/v1/tests/my-results?limit=50&testType=cmj ────────────────
 
@@ -99,6 +100,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Map catalog test types to benchmark metric keys
+    const CATALOG_TO_METRIC: Record<string, string> = {
+      "10m_sprint": "sprint_10m",
+      "30m_sprint": "sprint_30m",
+      countermovement_jump: "cmj",
+      broad_jump: "broad_jump",
+      yoyo_ir1: "yoyo_ir1",
+      "505_agility": "agility_505",
+      vo2max: "vo2max",
+      reaction_time: "reaction_time",
+      body_fat: "body_fat_pct",
+      squat_relative: "squat_rel",
+      max_speed: "max_speed",
+    };
+
+    const metricKey = CATALOG_TO_METRIC[testType];
+    let benchmark = null;
+    if (metricKey) {
+      benchmark = await calculatePercentile(auth.user.id, metricKey, score, {
+        source: "manual",
+        testedAt: date,
+      });
+    }
+
     return NextResponse.json(
       {
         result: {
@@ -107,6 +132,7 @@ export async function POST(req: NextRequest) {
           score: (row as Record<string, unknown>).score,
           date: (row as Record<string, unknown>).date,
         },
+        benchmark,
       },
       { status: 201, headers: { "api-version": "v1" } },
     );
