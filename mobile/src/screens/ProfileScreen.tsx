@@ -401,9 +401,9 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             />
           )}
           <MenuItem
-            icon="fitness-outline"
-            label="Fitness Tests"
-            onPress={() => navigation.goBack()}
+            icon="watch-outline"
+            label="My Vitals"
+            onPress={() => navigation.navigate('Settings')}
           />
           <MenuItem
             icon="settings-outline"

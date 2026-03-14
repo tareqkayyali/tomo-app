@@ -72,7 +72,7 @@ const WEARABLES: {
 
 export function SettingsScreen({ navigation }: SettingsScreenProps) {
   const { colors } = useTheme();
-  const { profile, refreshProfile, logout } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [wearables, setWearables] = useState<ConnectedWearables>(
@@ -108,19 +108,6 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
     }
   }, [wearables, refreshProfile]);
 
-  // ── Logout ────────────────────────────────────────────────────────
-
-  const handleLogout = useCallback(() => {
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: () => logout(),
-      },
-    ]);
-  }, [logout]);
-
   // ── Render ────────────────────────────────────────────────────────
 
   return (
@@ -130,7 +117,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
         <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
         </Pressable>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>My Vitals</Text>
         <View style={{ width: 32 }} />
       </View>
 
@@ -207,115 +194,8 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           </Text>
         </View>
 
-        {/* ── General Section ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>General</Text>
-
-          <SettingsRow
-            icon="create-outline"
-            label="Edit Profile"
-            hint="Study schedule, training, subjects, exams"
-            colors={colors}
-            onPress={() => navigation.navigate('EditProfile')}
-          />
-          <SettingsRow
-            icon="notifications-outline"
-            label="Notifications"
-            colors={colors}
-            onPress={() => navigation.navigate('NotificationSettings')}
-          />
-          <SettingsRow
-            icon="shield-checkmark-outline"
-            label="Privacy"
-            colors={colors}
-            onPress={() => navigation.navigate('PrivacySettings')}
-          />
-          <SettingsRow
-            icon="bug-outline"
-            label="Diagnostics"
-            colors={colors}
-            onPress={() => navigation.navigate('Diagnostics')}
-          />
-        </View>
-
-        {/* ── Danger Zone ── */}
-        <View style={styles.section}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.logoutBtn,
-              { borderColor: '#FF3B30' + '40' },
-              pressed && { opacity: 0.7 },
-            ]}
-            onPress={handleLogout}
-          >
-            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-            <Text style={styles.logoutText}>Log Out</Text>
-          </Pressable>
-        </View>
-
-        <Text style={[styles.versionText, { color: colors.textInactive }]}>
-          Tomo v1.0 · Made for athletes
-        </Text>
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-// ── Settings Row component ─────────────────────────────────────────
-
-function SettingsRow({
-  icon,
-  label,
-  hint,
-  colors,
-  onPress,
-}: {
-  icon: string;
-  label: string;
-  hint?: string;
-  colors: ThemeColors;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-          paddingVertical: 14,
-          paddingHorizontal: 4,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.glassBorder,
-          opacity: pressed ? 0.7 : 1,
-        },
-      ]}
-      onPress={onPress}
-    >
-      <View
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          backgroundColor: colors.glass,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Ionicons name={icon as any} size={18} color={colors.textSecondary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fontFamily.medium, fontSize: 15, color: colors.textOnDark }}>
-          {label}
-        </Text>
-        {hint && (
-          <Text style={{ fontFamily: fontFamily.regular, fontSize: 11, color: colors.textInactive, marginTop: 1 }}>
-            {hint}
-          </Text>
-        )}
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textInactive} />
-    </Pressable>
   );
 }
 
@@ -412,27 +292,5 @@ function createStyles(colors: ThemeColors) {
       marginTop: spacing.xs,
     },
 
-    // Logout
-    logoutBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      borderWidth: 1,
-      borderRadius: borderRadius.lg,
-      paddingVertical: 14,
-    },
-    logoutText: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 15,
-      color: '#FF3B30',
-    },
-    versionText: {
-      fontFamily: fontFamily.regular,
-      fontSize: 11,
-      textAlign: 'center',
-      marginTop: spacing.md,
-      marginBottom: spacing.xl,
-    },
   });
 }
