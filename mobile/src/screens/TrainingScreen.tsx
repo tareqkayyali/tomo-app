@@ -327,10 +327,10 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
         <View style={styles.headerRight}>
           <Pressable
             style={styles.settingsCapsule}
-            onPress={() => navigation.navigate('Settings')}
+            onPress={() => navigation.navigate('EditProfile')}
           >
-            <Ionicons name="settings-outline" size={15} color={colors.textOnDark} />
-            <Text style={styles.settingsCapsuleText}>Settings</Text>
+            <Ionicons name="school-outline" size={15} color={colors.textOnDark} />
+            <Text style={styles.settingsCapsuleText}>Study Settings</Text>
           </Pressable>
           <HeaderProfileButton
             initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
