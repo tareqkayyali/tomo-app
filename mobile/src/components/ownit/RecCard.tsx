@@ -45,6 +45,12 @@ type RecType =
   | 'TRIANGLE_ALERT'
   | 'MOTIVATION';
 
+export interface RecAction {
+  type: string;
+  params?: Record<string, unknown>;
+  label: string;
+}
+
 export interface ForYouRecommendation {
   recType: RecType;
   priority: 1 | 2 | 3 | 4;
@@ -54,6 +60,7 @@ export interface ForYouRecommendation {
   confidence: number;
   evidenceBasis?: Record<string, unknown>;
   context?: Record<string, unknown>;
+  action?: RecAction;
   recId?: string;
   createdAt?: string;
   expiresAt?: string | null;
@@ -64,6 +71,8 @@ interface RecCardProps {
   rec: ForYouRecommendation;
   /** Index for staggered entrance animation delay */
   index: number;
+  /** Callback when the action CTA is pressed — navigates to the relevant screen */
+  onAction?: (route: string, params?: Record<string, unknown>) => void;
 }
 
 // ── RecType Visual Config ────────────────────────────────────────────
@@ -296,7 +305,7 @@ function getDualLoadData(
 
 // ═════════════════════════════════════════════════════════════════════
 
-export function RecCard({ rec, index }: RecCardProps) {
+export function RecCard({ rec, index, onAction }: RecCardProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const config = REC_TYPE_CONFIG[rec.recType];
@@ -307,16 +316,49 @@ export function RecCard({ rec, index }: RecCardProps) {
   const factors = getContributingFactors(rec.evidenceBasis);
   const dualLoad = getDualLoadData(rec.recType, rec.evidenceBasis);
 
-  if (rec.priority === 1) return <P1Card rec={rec} config={config} index={index} s={s} colors={colors} expanded={expanded} setExpanded={setExpanded} hasRag={hasRag} expiry={expiry} factors={factors} dualLoad={dualLoad} />;
-  if (rec.priority === 2) return <P2Card rec={rec} config={config} index={index} s={s} colors={colors} expanded={expanded} setExpanded={setExpanded} hasRag={hasRag} expiry={expiry} factors={factors} dualLoad={dualLoad} />;
-  if (rec.priority === 3) return <P3Card rec={rec} config={config} index={index} s={s} colors={colors} hasRag={hasRag} expiry={expiry} factors={factors} dualLoad={dualLoad} />;
+  if (rec.priority === 1) return <P1Card rec={rec} config={config} index={index} s={s} colors={colors} expanded={expanded} setExpanded={setExpanded} hasRag={hasRag} expiry={expiry} factors={factors} dualLoad={dualLoad} onAction={onAction} />;
+  if (rec.priority === 2) return <P2Card rec={rec} config={config} index={index} s={s} colors={colors} expanded={expanded} setExpanded={setExpanded} hasRag={hasRag} expiry={expiry} factors={factors} dualLoad={dualLoad} onAction={onAction} />;
+  if (rec.priority === 3) return <P3Card rec={rec} config={config} index={index} s={s} colors={colors} hasRag={hasRag} expiry={expiry} factors={factors} dualLoad={dualLoad} onAction={onAction} />;
   return <P4Chip rec={rec} config={config} index={index} s={s} colors={colors} expanded={expanded} setExpanded={setExpanded} />;
+}
+
+// ── Action CTA Button ───────────────────────────────────────────────
+
+function ActionCTA({
+  action, onAction, colors,
+}: {
+  action?: RecAction;
+  onAction?: (route: string, params?: Record<string, unknown>) => void;
+  colors: ThemeColors;
+}) {
+  if (!action || !onAction) return null;
+  return (
+    <Pressable
+      onPress={() => onAction(action.type, action.params)}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: colors.accent1 + '1F', // ~12% opacity
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: borderRadius.full,
+        alignSelf: 'flex-start',
+        marginTop: spacing.sm,
+      }}
+    >
+      <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 12, color: colors.accent1 }}>
+        {action.label}
+      </Text>
+      <Ionicons name="arrow-forward" size={14} color={colors.accent1} />
+    </Pressable>
+  );
 }
 
 // ── P1: Hero Card with Breathing Glow ────────────────────────────────
 
 function P1Card({
-  rec, config, index, s, colors, expanded, setExpanded, hasRag, expiry, factors, dualLoad,
+  rec, config, index, s, colors, expanded, setExpanded, hasRag, expiry, factors, dualLoad, onAction,
 }: {
   rec: ForYouRecommendation;
   config: RecTypeConfig;
@@ -329,6 +371,7 @@ function P1Card({
   expiry: string | null;
   factors: string[];
   dualLoad: { athletic: number; academic: number } | null;
+  onAction?: (route: string, params?: Record<string, unknown>) => void;
 }) {
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).duration(350).springify()}>
@@ -397,6 +440,9 @@ function P1Card({
             </>
           ) : null}
 
+          {/* Action CTA */}
+          <ActionCTA action={rec.action} onAction={onAction} colors={colors} />
+
           {/* Confidence bar */}
           <View style={s.confidenceTrack}>
             <LinearGradient
@@ -415,7 +461,7 @@ function P1Card({
 // ── P2: Accent-Border Card ───────────────────────────────────────────
 
 function P2Card({
-  rec, config, index, s, colors, expanded, setExpanded, hasRag, expiry, factors, dualLoad,
+  rec, config, index, s, colors, expanded, setExpanded, hasRag, expiry, factors, dualLoad, onAction,
 }: {
   rec: ForYouRecommendation;
   config: RecTypeConfig;
@@ -428,6 +474,7 @@ function P2Card({
   expiry: string | null;
   factors: string[];
   dualLoad: { athletic: number; academic: number } | null;
+  onAction?: (route: string, params?: Record<string, unknown>) => void;
 }) {
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).duration(350).springify()}>
@@ -480,6 +527,9 @@ function P2Card({
           </View>
         )}
 
+        {/* Action CTA */}
+        <ActionCTA action={rec.action} onAction={onAction} colors={colors} />
+
         {/* Expandable */}
         {rec.bodyLong ? (
           <>
@@ -499,7 +549,7 @@ function P2Card({
 // ── P3: Standard Card ────────────────────────────────────────────────
 
 function P3Card({
-  rec, config, index, s, colors, hasRag, expiry, factors, dualLoad,
+  rec, config, index, s, colors, hasRag, expiry, factors, dualLoad, onAction,
 }: {
   rec: ForYouRecommendation;
   config: RecTypeConfig;
@@ -510,6 +560,7 @@ function P3Card({
   expiry: string | null;
   factors: string[];
   dualLoad: { athletic: number; academic: number } | null;
+  onAction?: (route: string, params?: Record<string, unknown>) => void;
 }) {
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).duration(350).springify()}>
@@ -557,6 +608,9 @@ function P3Card({
             ))}
           </View>
         )}
+
+        {/* Action CTA */}
+        <ActionCTA action={rec.action} onAction={onAction} colors={colors} />
       </GlassCard>
     </Animated.View>
   );

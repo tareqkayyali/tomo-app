@@ -19,6 +19,8 @@ interface RecSectionProps {
   emptyMessage?: string;
   /** Base index offset for stagger animation */
   indexOffset?: number;
+  /** Callback when a rec's action CTA is pressed */
+  onAction?: (route: string, params?: Record<string, unknown>) => void;
 }
 
 export function RecSection({
@@ -28,6 +30,7 @@ export function RecSection({
   recs,
   emptyMessage,
   indexOffset = 0,
+  onAction,
 }: RecSectionProps) {
   const { colors } = useTheme();
 
@@ -75,7 +78,7 @@ export function RecSection({
       {recs.length > 0 ? (
         <View style={{ gap: spacing.compact, marginHorizontal: spacing.lg }}>
           {recs.map((rec, i) => (
-            <RecCard key={rec.recId || `${rec.recType}-${i}`} rec={rec} index={indexOffset + i} />
+            <RecCard key={rec.recId || `${rec.recType}-${i}`} rec={rec} index={indexOffset + i} onAction={onAction} />
           ))}
         </View>
       ) : emptyMessage ? (

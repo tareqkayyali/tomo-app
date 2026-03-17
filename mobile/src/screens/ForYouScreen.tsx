@@ -1,5 +1,5 @@
 /**
- * Own It Screen — RIE-powered personalized recommendations.
+ * Own It Screen — AI-powered personalized recommendations.
  *
  * Single scrollable page:
  *   ReadinessHero — snapshot-driven readiness state
@@ -8,14 +8,16 @@
  *   Updates       — CV_OPPORTUNITY, TRIANGLE_ALERT
  *
  * Data: GET /api/v1/snapshot + GET /api/v1/recommendations (parallel, ~100ms)
+ * Deep Refresh: POST /api/v1/recommendations/refresh (Claude analysis, 10-30s)
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,6 +48,9 @@ function getWeekday() {
 
 // ── Map RIE rec → RecCard shape ──────────────────────────────────────
 function toCardRec(r: RIERecommendation): ForYouRecommendation {
+  // Extract action from context (stored by deepRecRefresh)
+  const action = (r.context as Record<string, unknown>)?.action as ForYouRecommendation['action'] | undefined;
+
   return {
     recType: r.recType as any,
     priority: r.priority,
@@ -55,6 +60,7 @@ function toCardRec(r: RIERecommendation): ForYouRecommendation {
     confidence: r.confidenceScore,
     evidenceBasis: r.evidenceBasis,
     context: r.context,
+    action,
     recId: r.recId,
     createdAt: r.createdAt,
     expiresAt: r.expiresAt,
@@ -74,7 +80,9 @@ export function ForYouScreen() {
     isLoading,
     error,
     refreshing,
+    isDeepRefreshing,
     onRefresh,
+    forceRefresh,
   } = useOwnItData();
 
   const sportsCards = sportsRecs.map(toCardRec);
@@ -82,6 +90,12 @@ export function ForYouScreen() {
   const updateCards = updateRecs.map(toCardRec);
 
   const hasAnyContent = snapshot || sportsRecs.length > 0 || studyRecs.length > 0 || updateRecs.length > 0;
+  const hasAnyRecs = sportsRecs.length > 0 || studyRecs.length > 0 || updateRecs.length > 0;
+
+  // ── Action handler — deep-links rec CTA to in-app screens ──
+  const handleRecAction = useCallback((route: string, params?: Record<string, unknown>) => {
+    navigation.navigate(route as any, params);
+  }, [navigation]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
@@ -96,30 +110,30 @@ export function ForYouScreen() {
           paddingBottom: spacing.sm,
         }}
       >
-        {/* Left — Title */}
-        <View>
-          <Text
-            style={{
-              fontFamily: fontFamily.medium,
-              fontSize: 11,
-              color: colors.textMuted,
-              letterSpacing: 1.5,
-              textTransform: 'uppercase',
-            }}
-          >
-            TOMO · {getWeekday()}
-          </Text>
-          <Text
-            style={{
-              fontFamily: fontFamily.bold,
-              fontSize: 24,
-              color: colors.textOnDark,
-              marginTop: 2,
-            }}
-          >
-            Own It
-          </Text>
-        </View>
+        {/* Left — QuickAccessBar */}
+        <QuickAccessBar
+          actions={[
+            {
+              key: 'refresh',
+              icon: 'refresh-outline',
+              label: 'Refresh',
+              onPress: forceRefresh,
+              accentColor: colors.accent2,
+            },
+            {
+              key: 'tests',
+              icon: 'fitness-outline',
+              label: 'Tests',
+              onPress: () => navigation.navigate('PhoneTestsList'),
+            },
+            {
+              key: 'schedule',
+              icon: 'calendar-outline',
+              label: 'Schedule',
+              onPress: () => navigation.navigate('AddEvent'),
+            },
+          ]}
+        />
 
         {/* Right — Actions */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -127,6 +141,31 @@ export function ForYouScreen() {
           <NotificationBell />
           <HeaderProfileButton />
         </View>
+      </View>
+
+      {/* ── Title row ── */}
+      <View style={{ paddingHorizontal: layout.screenMargin, paddingBottom: spacing.sm }}>
+        <Text
+          style={{
+            fontFamily: fontFamily.medium,
+            fontSize: 11,
+            color: colors.textMuted,
+            letterSpacing: 1.5,
+            textTransform: 'uppercase',
+          }}
+        >
+          TOMO · {getWeekday()}
+        </Text>
+        <Text
+          style={{
+            fontFamily: fontFamily.bold,
+            fontSize: 24,
+            color: colors.textOnDark,
+            marginTop: 2,
+          }}
+        >
+          Own It
+        </Text>
       </View>
 
       {/* ── Content ── */}
@@ -158,6 +197,64 @@ export function ForYouScreen() {
           <ErrorState message={error} onRetry={onRefresh} />
         )}
 
+        {/* Deep Refresh Loading — analyzing data */}
+        {isDeepRefreshing && !hasAnyRecs && !isLoading && (
+          <View
+            style={{
+              alignItems: 'center',
+              paddingVertical: spacing.xxl,
+              gap: spacing.md,
+            }}
+          >
+            <ActivityIndicator size="large" color={colors.accent1} />
+            <Text
+              style={{
+                fontFamily: fontFamily.medium,
+                fontSize: 14,
+                color: colors.textMuted,
+                textAlign: 'center',
+              }}
+            >
+              Analyzing your data...
+            </Text>
+            <Text
+              style={{
+                fontFamily: fontFamily.regular,
+                fontSize: 12,
+                color: colors.textMuted,
+                textAlign: 'center',
+                paddingHorizontal: spacing.xxl,
+              }}
+            >
+              Building personalized recommendations from your training, health, and academic data.
+            </Text>
+          </View>
+        )}
+
+        {/* Subtle updating indicator when recs exist but refresh is running */}
+        {isDeepRefreshing && hasAnyRecs && (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: spacing.sm,
+              paddingVertical: spacing.sm,
+            }}
+          >
+            <ActivityIndicator size="small" color={colors.accent2} />
+            <Text
+              style={{
+                fontFamily: fontFamily.medium,
+                fontSize: 11,
+                color: colors.textMuted,
+              }}
+            >
+              Updating...
+            </Text>
+          </View>
+        )}
+
         {/* Main Content */}
         {hasAnyContent && (
           <>
@@ -172,6 +269,7 @@ export function ForYouScreen() {
               recs={sportsCards}
               emptyMessage={snapshot ? 'No active sports recommendations' : undefined}
               indexOffset={0}
+              onAction={handleRecAction}
             />
 
             {/* Study Recommendations */}
@@ -182,6 +280,7 @@ export function ForYouScreen() {
               recs={studyCards}
               emptyMessage={snapshot ? 'No active study recommendations' : undefined}
               indexOffset={sportsCards.length}
+              onAction={handleRecAction}
             />
 
             {/* Updates (CV, Triangle) — only if present */}
@@ -191,12 +290,13 @@ export function ForYouScreen() {
               color="#7B61FF"
               recs={updateCards}
               indexOffset={sportsCards.length + studyCards.length}
+              onAction={handleRecAction}
             />
           </>
         )}
 
         {/* Empty State — new user */}
-        {!isLoading && !hasAnyContent && !error && (
+        {!isLoading && !hasAnyContent && !error && !isDeepRefreshing && (
           <View
             style={{
               alignItems: 'center',
@@ -226,7 +326,7 @@ export function ForYouScreen() {
                 lineHeight: 20,
               }}
             >
-              Check in and log sessions to get personalized sports and study recommendations powered by science.
+              Tap the refresh button to generate personalized sports and study recommendations powered by AI.
             </Text>
           </View>
         )}

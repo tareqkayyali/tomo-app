@@ -7,6 +7,8 @@
  *   2. Fetch current recs from DB (fast ~100ms)
  *   3. Call POST /recommendations/refresh (Claude analysis, 10-30s)
  *   4. If new recs generated, re-fetch and update UI
+ *
+ * forceRefresh() — manual trigger for the refresh button (bypasses staleness check)
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -89,18 +91,34 @@ export function useOwnItData() {
    * then re-fetches if new recs were created.
    * Deduped via ref to prevent concurrent calls.
    */
-  const triggerDeepRefresh = useCallback(async () => {
+  const triggerDeepRefresh = useCallback(async (force = false) => {
     if (deepRefreshInFlight.current) return;
     deepRefreshInFlight.current = true;
     setIsDeepRefreshing(true);
 
     try {
-      const result = await refreshRecommendations();
+      const result = await refreshRecommendations(force ? { force: true } : undefined);
+
       if (result.refreshed && (result.count ?? 0) > 0) {
         // New recs were generated — re-fetch to show them
         const freshRecs = await getRecommendations(15);
         setRecs(freshRecs);
         AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(freshRecs)).catch(() => {});
+      } else if (!result.refreshed && result.reason === 'not_stale' && recs.length === 0) {
+        // Recs were generated recently but we have none locally — try re-fetch
+        const freshRecs = await getRecommendations(15);
+        if (freshRecs.length > 0) {
+          setRecs(freshRecs);
+          AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(freshRecs)).catch(() => {});
+        } else {
+          // Truly empty — force a new refresh
+          const forced = await refreshRecommendations({ force: true });
+          if (forced.refreshed && (forced.count ?? 0) > 0) {
+            const newest = await getRecommendations(15);
+            setRecs(newest);
+            AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(newest)).catch(() => {});
+          }
+        }
       }
     } catch {
       // Non-fatal — existing recs remain
@@ -108,7 +126,15 @@ export function useOwnItData() {
       setIsDeepRefreshing(false);
       deepRefreshInFlight.current = false;
     }
-  }, []);
+  }, [recs.length]);
+
+  /**
+   * Force refresh — triggered by the manual refresh button.
+   * Bypasses staleness check and always calls Claude.
+   */
+  const forceRefresh = useCallback(async () => {
+    await triggerDeepRefresh(true);
+  }, [triggerDeepRefresh]);
 
   // Load cache on mount, then fetch, then deep refresh
   useEffect(() => {
@@ -140,7 +166,7 @@ export function useOwnItData() {
   const onRefresh = useCallback(async () => {
     await fetchData(true);
     // Force deep refresh on pull-to-refresh
-    triggerDeepRefresh();
+    triggerDeepRefresh(true);
   }, [fetchData, triggerDeepRefresh]);
 
   const grouped = useMemo(() => groupRecs(recs), [recs]);
@@ -155,5 +181,6 @@ export function useOwnItData() {
     refreshing,
     isDeepRefreshing,
     onRefresh,
+    forceRefresh,
   };
 }

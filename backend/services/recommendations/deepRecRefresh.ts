@@ -2,17 +2,16 @@
  * Deep Rec Refresh — Claude-Powered Holistic Recommendations
  *
  * Uses the full PlayerContext (same 10 parallel fetches as AI Chat) to
- * generate rich, personalized recommendations via Claude. This bridges
- * the gap between the snapshot-only RIE computers and the richer context
- * available in the chat pipeline.
+ * generate rich, personalized, ACTIONABLE recommendations via Claude.
  *
  * Trigger points:
- *   1. After daily check-in (fire-and-forget, non-blocking)
- *   2. On Own It page visit when data is stale (>6h since last refresh)
+ *   1. On Own It page visit when data is stale (>6h since last refresh)
+ *   2. Manual refresh button (force=true bypasses staleness check)
  *
  * Architecture:
  *   - Keeps existing event-triggered RIE for real-time signals (P1 urgent)
- *   - Adds daily Claude analysis for P2–P4 recs with cross-referenced evidence
+ *   - Adds Claude analysis for diversified recs covering ALL app aspects
+ *   - Each rec includes an ACTION deep-link to the relevant app screen
  *   - Supersedes only DEEP_REFRESH recs, never event-triggered ones
  */
 
@@ -27,6 +26,12 @@ import type { RecType, RecPriority, RecommendationInsert } from './types';
 // Types
 // ---------------------------------------------------------------------------
 
+interface RecAction {
+  type: string;
+  params?: Record<string, unknown>;
+  label: string;
+}
+
 interface DeepRecOutput {
   rec_type: RecType;
   priority: 1 | 2 | 3 | 4;
@@ -35,6 +40,7 @@ interface DeepRecOutput {
   body_long: string;
   confidence_score: number;
   evidence_basis: Record<string, unknown>;
+  action?: RecAction;
   visible_to_coach: boolean;
   visible_to_parent: boolean;
 }
@@ -86,31 +92,73 @@ export async function isDeepRefreshStale(athleteId: string): Promise<boolean> {
 
 const DEEP_REC_SYSTEM_PROMPT = `You are the Performance Intelligence Engine for Tomo, an AI coaching platform for young athletes (13–25).
 
-You have access to the athlete's FULL context — far richer than any single metric. Your job is to analyze ALL the data holistically and generate 3–6 targeted recommendations that an elite performance director would give this specific athlete TODAY.
+You have access to the athlete's FULL context — far richer than any single metric. Your job is to analyze ALL the data holistically and generate 4–6 DIVERSE, ACTIONABLE recommendations that an elite performance director would give this specific athlete TODAY.
 
-Your analysis framework:
-1. READINESS STATE — What is this athlete's current physical/mental state? What drove it?
-2. LOAD MANAGEMENT — Is their training load appropriate? Any spike or detraining risks?
-3. RECOVERY NEEDS — What recovery interventions would help most right now?
-4. DEVELOPMENT — Where are the biggest skill/performance gaps to address this week?
-5. ACADEMIC BALANCE — Is dual-load (school + sport) managed well? Any pressure building?
-6. CV / TALENT PATHWAY — What should this athlete work on for long-term development and talent visibility?
-7. MOTIVATION — What psychological boost or acknowledgment would help this athlete today?
+Your analysis framework — cover as many different aspects as possible:
+1. TRAINING PLAN — Should they schedule a training session today/this week? What type and intensity?
+2. STUDY PLAN — Any exams approaching? Should they schedule study blocks?
+3. TEST / ASSESSMENT — When did they last test? What test should they run next to fill benchmark gaps?
+4. VITALS & HEALTH — Are wearable metrics (HRV, sleep, HR) trending well or poorly?
+5. METRICS & BENCHMARKS — How do they compare to peers? What's their strongest area? Where to improve?
+6. PROGRAM — Do they have an active training program? Do they need a new one?
+7. RECOVERY — Is a specific recovery protocol needed today based on load and readiness?
+8. READINESS STATE — What is their current physical/mental state? What drove it?
+9. LOAD MANAGEMENT — Is training load appropriate? Any spike or detraining risks?
+10. ACADEMIC BALANCE — Is dual-load (school + sport) managed well?
+11. CV / TALENT PATHWAY — What's missing from their athletic profile for talent visibility?
+12. MOTIVATION — What psychological boost or acknowledgment would help today?
+
+DIVERSIFICATION RULE: You MUST cover at least 4 DIFFERENT aspects from the list above. Do NOT generate 4 recs all about readiness. Spread across training, study, testing, metrics, recovery, etc.
+
+SPARSE DATA HANDLING:
+When many metrics show N/A, this means the athlete hasn't built enough history yet. In this case:
+- STILL generate 4–6 useful recommendations using whatever data IS available
+- Check-in data (energy, soreness, sleep, mood) is always useful if present
+- Profile data (sport, position, age band) is always available — use it for sport-specific guidance
+- When data is sparse, recommend ACTIONS to build the profile: "Run a sprint test", "Log your first session", "Check your vitals"
+- NEVER say "insufficient data" or "not enough info" — always provide actionable guidance
+- Lower confidence to 0.5–0.7 when working from sparse data
+
+ACTION FIELD (REQUIRED for every rec):
+Every recommendation MUST include an "action" object that deep-links to a specific app screen. Use EXACTLY one of these action maps:
+
+| Intent | action.type | action.params | Example action.label |
+|--------|------------|---------------|---------------------|
+| Run a phone test (sprint, jump, agility, etc.) | "PhoneTestsList" | (none) | "Run a Test" |
+| Schedule a training session | "AddEvent" | { "initialType": "training" } | "Schedule Training" |
+| Schedule a study block | "AddEvent" | { "initialType": "study_block" } | "Schedule Study" |
+| Schedule recovery | "AddEvent" | { "initialType": "recovery" } | "Plan Recovery" |
+| View vitals/health trends | "Test" | { "initialTab": "vitals" } | "Check Vitals" |
+| View metrics/benchmarks | "Test" | { "initialTab": "metrics" } | "View Benchmarks" |
+| Browse training programs | "Test" | { "initialTab": "programs" } | "Browse Programs" |
+| Do a check-in | "Checkin" | (none) | "Check In" |
+| Review schedule rules | "MyRules" | (none) | "Review Rules" |
 
 Rules:
-- Generate between 3 and 6 recommendations. Quality over quantity.
-- Each rec must reference SPECIFIC numbers from the athlete's data. Never be generic.
+- Generate between 4 and 6 recommendations. Quality AND diversity.
+- Each rec must reference SPECIFIC numbers from the athlete's data when available. Be concrete, not generic.
 - Priority 1 = urgent (act now), 2 = important (today), 3 = this week, 4 = informational
 - Only generate P1 if there's genuine urgency (RED readiness, dangerous load spike, injury risk)
 - For young athletes (U15 and below): warm, encouraging tone. U17+: direct, peer-level.
-- evidence_basis must contain the actual data points that drove this recommendation — this is displayed as pills in the UI
-- body_short must be ≤140 characters, action-oriented
+- body_short must be ≤140 characters, action-oriented, specific
 - body_long must be 2–4 sentences with specific numbers and clear reasoning
-- Cross-reference data: e.g., poor sleep + high ACWR + exam in 2 days = compound risk worth calling out
+- Cross-reference data: e.g., poor sleep + high ACWR + exam in 2 days = compound risk
 - Never repeat what the existing event-triggered recs already cover (they're listed below)
 - Acknowledge growth phases (PHV) explicitly when relevant
 
-Respond with a JSON array of recommendation objects. No markdown, no explanation. Just the array.`;
+EVIDENCE_BASIS REQUIRED KEYS (the UI renders these as pills — use EXACT keys):
+- READINESS: { readiness_rag: "GREEN"|"AMBER"|"RED", acwr: number, sleep_quality: number, contributing_factors: string[] }
+- LOAD_WARNING: { acwr: number, atl_7day: number, ctl_28day: number, contributing_factors: string[] }
+- RECOVERY: { soreness: number, sleep_quality: number, contributing_factors: string[] }
+- DEVELOPMENT: { current_zone: string, benchmark_gaps: string[], overall_percentile: number }
+- ACADEMIC: { dual_load_index: number, days_until_exam: number, academic_load_7day: number, nearest_exam_subject: string, upcoming_exam_count: number }
+- MOTIVATION: { streak_days: number, sessions_total: number }
+- CV_OPPORTUNITY: { cv_completeness: number, benchmark_gaps: string[], overall_percentile: number }
+- TRIANGLE_ALERT: { severity: "HIGH"|"MEDIUM"|"LOW" }
+
+If a value is unknown, OMIT the key (don't set it to null). Always include contributing_factors (1–3 brief reasons) for READINESS, LOAD_WARNING, RECOVERY, and ACADEMIC recs.
+
+Respond with ONLY a JSON array of recommendation objects. No markdown, no explanation, no wrapping. Just the raw JSON array.`;
 
 // ---------------------------------------------------------------------------
 // Main Refresh Function
@@ -146,7 +194,7 @@ export async function deepRecRefresh(
     // 3. Call Claude
     const response = await getClient().messages.create({
       model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
+      max_tokens: 3000,
       temperature: 0.5,
       system: DEEP_REC_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
@@ -192,7 +240,7 @@ export async function deepRecRefresh(
       const expiryHours = REC_EXPIRY_HOURS[rec.rec_type] ?? 24;
       const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000).toISOString();
 
-      // Build context snapshot at creation time
+      // Build context snapshot at creation time — include action for frontend deep-links
       const contextSnapshot: Record<string, unknown> = {
         source: 'DEEP_REFRESH',
         readiness_score: ctx.snapshotEnrichment?.readinessScore ?? null,
@@ -207,6 +255,11 @@ export async function deepRecRefresh(
         cv_completeness: ctx.snapshotEnrichment?.cvCompleteness ?? null,
         phv_stage: ctx.snapshotEnrichment?.phvStage ?? null,
       };
+
+      // Store action in context for frontend deep-linking
+      if (rec.action) {
+        contextSnapshot.action = rec.action;
+      }
 
       const insert: RecommendationInsert = {
         athlete_id: athleteId,
@@ -360,6 +413,39 @@ Active scenario: ${ctx.activeScenario}`);
 ${ctx.upcomingExams.map(e => `${e.title} — ${new Date(e.start_at).toLocaleDateString()}`).join('\n')}`);
   }
 
+  // Data completeness assessment
+  const available: string[] = [];
+  const missing: string[] = [];
+
+  if (ctx.readinessComponents) available.push('check-in (energy, soreness, sleep, mood)');
+  else missing.push('check-in data');
+
+  if (se?.acwr != null) available.push('load metrics (ACWR, ATL, CTL)');
+  else missing.push('load metrics (ACWR, ATL, CTL)');
+
+  if (se?.hrvTodayMs != null) available.push('HRV data');
+  else missing.push('HRV data');
+
+  if (ctx.benchmarkProfile) available.push(`benchmark profile (P${ctx.benchmarkProfile.overallPercentile})`);
+  else missing.push('benchmark profile — recommend running tests');
+
+  if (ctx.recentTestScores.length > 0) available.push(`${ctx.recentTestScores.length} recent test scores`);
+  else missing.push('test scores — recommend running first test');
+
+  if (ctx.upcomingExams.length > 0) available.push(`${ctx.upcomingExams.length} upcoming exams`);
+  if (ctx.todayEvents.length > 0) available.push(`${ctx.todayEvents.length} events today`);
+
+  if (se?.cvCompleteness != null) available.push(`CV ${se.cvCompleteness}% complete`);
+  else missing.push('CV data');
+
+  if (ctx.recentVitals.length > 0) available.push(`${ctx.recentVitals.length} recent vitals`);
+  else missing.push('wearable vitals — recommend checking vitals tab');
+
+  sections.push(`--- DATA COMPLETENESS ---
+Available: ${available.join(', ') || 'Minimal data — profile only'}
+Missing: ${missing.join(', ') || 'None — full data available'}
+NOTE: Generate recommendations using available data. For missing data, recommend the ACTION that would fill the gap (e.g., "Run a sprint test" if no test scores exist).`);
+
   // Existing event-triggered recs (so Claude doesn't duplicate)
   if (ctx.activeRecommendations.length > 0) {
     sections.push(`--- EXISTING EVENT-TRIGGERED RECOMMENDATIONS (DO NOT DUPLICATE) ---
@@ -368,20 +454,18 @@ ${ctx.activeRecommendations.map(r => `[P${r.priority} ${r.recType}] ${r.title}: 
 
   // Task
   sections.push(`--- TASK ---
-Analyze this athlete's full context holistically. Generate 3–6 recommendations that:
-1. Cross-reference multiple data sources (don't just look at one metric)
-2. Are specific to THIS athlete's situation TODAY
-3. Include rich evidence_basis with the exact data points that support each rec
-4. Don't duplicate the existing event-triggered recommendations listed above
-5. Cover different aspects: physical readiness, load management, skill development, academic balance, motivation
-
-For evidence_basis, include relevant fields as a JSON object. Examples:
-- { "readiness_rag": "AMBER", "acwr": 1.35, "sleep_hours": 5.5, "contributing_factors": ["High load + poor sleep"] }
-- { "cv_completeness": 45, "benchmark_gaps": ["sprint_10m", "agility_5_0_5"], "overall_percentile": 62 }
-- { "wellness_trend": "DECLINING", "academic_load_score": 8, "exam_in_days": 3 }
+Analyze this athlete's full context holistically. Generate 4–6 DIVERSE recommendations that:
+1. Cover at least 4 DIFFERENT aspects (training, study, testing, metrics, recovery, vitals, motivation, etc.)
+2. Are specific to THIS athlete's situation TODAY — reference actual numbers
+3. Include rich evidence_basis with the EXACT KEYS listed in the system prompt for each rec_type
+4. Include an ACTION object for every rec (see action map in system prompt)
+5. Don't duplicate the existing event-triggered recommendations listed above
+6. For missing data: recommend the action that fills the gap
 
 Respond with ONLY a JSON array. Each object must have these exact fields:
-rec_type, priority, title, body_short, body_long, confidence_score, evidence_basis, visible_to_coach, visible_to_parent`);
+rec_type, priority, title, body_short, body_long, confidence_score, evidence_basis, action, visible_to_coach, visible_to_parent
+
+Where action = { type: string, params?: object, label: string } using EXACTLY the route names from the action map.`);
 
   return sections.join('\n\n');
 }
