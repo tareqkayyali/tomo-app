@@ -19,7 +19,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getRecommendations } from '@/services/recommendations/getRecommendations';
-import { isDeepRefreshStale, triggerDeepRefreshAsync } from '@/services/recommendations/deepRecRefresh';
 import type { RecType } from '@/services/recommendations/types';
 
 export async function GET(request: NextRequest) {
@@ -62,18 +61,8 @@ export async function GET(request: NextRequest) {
     role = rel.relationship_type === 'coach' ? 'COACH' : 'PARENT';
   }
 
-  // ── Auto-trigger deep refresh if stale (fire-and-forget) ──
-  // When the Own It page fetches recs and they're >6h old, kick off a
-  // background refresh so the NEXT fetch will have fresh Claude-powered recs.
-  // Only for athlete's own recs (not coach/parent viewing someone else).
-  if (role === 'ATHLETE' && targetPlayerId === userId) {
-    isDeepRefreshStale(targetPlayerId).then((stale) => {
-      if (stale) {
-        const tz = request.headers.get('x-timezone') || undefined;
-        triggerDeepRefreshAsync(targetPlayerId, tz);
-      }
-    }).catch(() => { /* non-fatal */ });
-  }
+  // Deep refresh is triggered by the mobile client via POST /recommendations/refresh
+  // (Vercel serverless kills fire-and-forget tasks after response is sent)
 
   const recommendations = await getRecommendations(targetPlayerId, {
     role,

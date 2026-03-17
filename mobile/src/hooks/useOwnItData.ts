@@ -1,14 +1,21 @@
 /**
  * useOwnItData — Fetches snapshot + RIE recommendations for the Own It screen.
  * Parallel fetch with cache-then-fetch (stale-while-revalidate).
+ *
+ * Deep Rec Refresh flow:
+ *   1. Show cached recs immediately (instant load)
+ *   2. Fetch current recs from DB (fast ~100ms)
+ *   3. Call POST /recommendations/refresh (Claude analysis, 10-30s)
+ *   4. If new recs generated, re-fetch and update UI
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getAthleteSnapshot,
   getRecommendations,
+  refreshRecommendations,
   type AthleteSnapshot,
   type RIERecommendation,
 } from '../services/api';
@@ -48,6 +55,8 @@ export function useOwnItData() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+  const [isDeepRefreshing, setIsDeepRefreshing] = useState(false);
+  const deepRefreshInFlight = useRef(false);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -75,7 +84,33 @@ export function useOwnItData() {
     }
   }, [hasFetchedOnce]);
 
-  // Load cache on mount
+  /**
+   * Trigger deep refresh: calls Claude to generate fresh recs,
+   * then re-fetches if new recs were created.
+   * Deduped via ref to prevent concurrent calls.
+   */
+  const triggerDeepRefresh = useCallback(async () => {
+    if (deepRefreshInFlight.current) return;
+    deepRefreshInFlight.current = true;
+    setIsDeepRefreshing(true);
+
+    try {
+      const result = await refreshRecommendations();
+      if (result.refreshed && (result.count ?? 0) > 0) {
+        // New recs were generated — re-fetch to show them
+        const freshRecs = await getRecommendations(15);
+        setRecs(freshRecs);
+        AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(freshRecs)).catch(() => {});
+      }
+    } catch {
+      // Non-fatal — existing recs remain
+    } finally {
+      setIsDeepRefreshing(false);
+      deepRefreshInFlight.current = false;
+    }
+  }, []);
+
+  // Load cache on mount, then fetch, then deep refresh
   useEffect(() => {
     (async () => {
       try {
@@ -86,8 +121,10 @@ export function useOwnItData() {
         if (cachedSnap) setSnapshot(JSON.parse(cachedSnap));
         if (cachedRecs) setRecs(JSON.parse(cachedRecs));
       } catch {}
-      // Then fetch fresh
-      fetchData();
+      // Fetch current data from DB
+      await fetchData();
+      // Then trigger deep refresh (Claude analysis) — updates UI when done
+      triggerDeepRefresh();
     })();
   }, []);
 
@@ -95,10 +132,16 @@ export function useOwnItData() {
   useEffect(() => {
     if (isFocused && hasFetchedOnce) {
       fetchData();
+      // Also trigger deep refresh on re-focus (staleness check is server-side)
+      triggerDeepRefresh();
     }
   }, [isFocused]);
 
-  const onRefresh = useCallback(() => fetchData(true), [fetchData]);
+  const onRefresh = useCallback(async () => {
+    await fetchData(true);
+    // Force deep refresh on pull-to-refresh
+    triggerDeepRefresh();
+  }, [fetchData, triggerDeepRefresh]);
 
   const grouped = useMemo(() => groupRecs(recs), [recs]);
 
@@ -110,6 +153,7 @@ export function useOwnItData() {
     isLoading,
     error,
     refreshing,
+    isDeepRefreshing,
     onRefresh,
   };
 }
