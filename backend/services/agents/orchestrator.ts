@@ -655,7 +655,7 @@ function buildConfirmationRequest(
 ): string {
   const previews: Record<string, () => string> = {
     create_event: () =>
-      `Add "${toolInput.title}" (${toolInput.event_type}) on ${toolInput.date}${toolInput.startTime ? " at " + toolInput.startTime : ""}?`,
+      `Add "${toolInput.title}" (${toolInput.event_type}) on ${toolInput.date} at ${toolInput.startTime}–${toolInput.endTime}?`,
     update_event: () => `Update this event with the new details?`,
     delete_event: () =>
       `Delete "${toolInput.eventTitle}" from your calendar?`,
@@ -675,7 +675,7 @@ function buildConfirmationPreview(
   // Preview for the ConfirmationCard — no "Reply yes" suffix since we have buttons
   const previews: Record<string, () => string> = {
     create_event: () =>
-      `Add "${toolInput.title}" (${toolInput.event_type}) on ${toolInput.date}${toolInput.startTime ? " at " + toolInput.startTime : ""}`,
+      `Add "${toolInput.title}" (${toolInput.event_type}) on ${toolInput.date} at ${toolInput.startTime}–${toolInput.endTime}`,
     update_event: () => `Update event with new details`,
     delete_event: () =>
       `Delete "${toolInput.eventTitle}" from calendar`,
@@ -702,7 +702,7 @@ function formatConfirmationResult(
 ): string {
   const formats: Record<string, () => string> = {
     create_event: () =>
-      `Done — added "${toolInput.title}" to your calendar for ${toolInput.date} ✓`,
+      `Done — added "${toolInput.title}" to your calendar for ${toolInput.date} at ${toolInput.startTime}–${toolInput.endTime} ✓`,
     update_event: () => `Updated ✓`,
     delete_event: () =>
       `Removed "${toolInput.eventTitle}" from your calendar ✓`,

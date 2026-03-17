@@ -60,10 +60,10 @@ export const timelineTools = [
   {
     name: "create_event",
     description:
-      "Add a new event to the player calendar. The system will automatically show a confirmation card to the player before executing — just call this tool directly with the correct parameters. Do NOT describe the event in text and ask the player to confirm verbally. Use for adding training sessions, exams, study blocks, matches, or recovery blocks. When adding MULTIPLE events, call this tool multiple times in the same response (one per event).",
+      "Add a new event to the player calendar. The system will automatically show a confirmation card to the player before executing — just call this tool directly with the correct parameters. Do NOT describe the event in text and ask the player to confirm verbally. Use for adding training sessions, exams, study blocks, matches, or recovery blocks. When adding MULTIPLE events, call this tool multiple times in the same response (one per event). IMPORTANT: You MUST always include startTime and endTime. If the player didn't specify a time, ASK them before calling this tool. Never create an event without a time slot.",
     input_schema: {
       type: "object" as const,
-      required: ["title", "event_type", "date"],
+      required: ["title", "event_type", "date", "startTime", "endTime"],
       properties: {
         title: { type: "string", description: "Event title" },
         event_type: {
@@ -72,8 +72,8 @@ export const timelineTools = [
           description: "Event type",
         },
         date: { type: "string", description: "YYYY-MM-DD" },
-        startTime: { type: "string", description: "HH:MM format (24h)" },
-        endTime: { type: "string", description: "HH:MM format (24h)" },
+        startTime: { type: "string", description: "HH:MM format (24h). REQUIRED — ask the player if not specified." },
+        endTime: { type: "string", description: "HH:MM format (24h). REQUIRED — ask the player if not specified." },
         intensity: {
           type: "string",
           enum: ["REST", "LIGHT", "MODERATE", "HARD"],
@@ -186,16 +186,18 @@ export async function executeTimelineTool(
       }
 
       case "create_event": {
-        const startAt = toolInput.startTime
-          ? toTimezoneISO(toolInput.date, `${toolInput.startTime}:00`, context.timezone)
-          : toTimezoneISO(toolInput.date, "00:00:00", context.timezone);
-        const endAt = toolInput.endTime
-          ? toTimezoneISO(toolInput.date, `${toolInput.endTime}:00`, context.timezone)
-          : null;
+        // ── Validate required time fields ──
+        if (!toolInput.startTime || !toolInput.endTime) {
+          return {
+            result: null,
+            error: "Missing time — I need both a start time and end time to add this event. What time should it be?",
+          };
+        }
 
-        const durationMin = endAt && startAt
-          ? (new Date(endAt).getTime() - new Date(startAt).getTime()) / 60000
-          : 60;
+        const startAt = toTimezoneISO(toolInput.date, `${toolInput.startTime}:00`, context.timezone);
+        const endAt = toTimezoneISO(toolInput.date, `${toolInput.endTime}:00`, context.timezone);
+
+        const durationMin = (new Date(endAt).getTime() - new Date(startAt).getTime()) / 60000;
         const estimatedLoad = estimateTotalLoad({
           event_type: toolInput.event_type,
           intensity: toolInput.intensity ?? null,
@@ -244,8 +246,12 @@ export async function executeTimelineTool(
         if (toolInput.title) updates.title = toolInput.title;
         if (toolInput.date && toolInput.startTime) {
           updates.start_at = toTimezoneISO(toolInput.date, `${toolInput.startTime}:00`, context.timezone);
-        } else if (toolInput.date) {
-          updates.start_at = toTimezoneISO(toolInput.date, "00:00:00", context.timezone);
+        } else if (toolInput.date && !toolInput.startTime) {
+          // Date changed without time — need to preserve existing time or ask user
+          return {
+            result: null,
+            error: "I need a start time to reschedule this event. What time should it be?",
+          };
         }
         if (toolInput.date && toolInput.endTime) {
           updates.end_at = toTimezoneISO(toolInput.date, `${toolInput.endTime}:00`, context.timezone);
