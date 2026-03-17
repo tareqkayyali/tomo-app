@@ -226,6 +226,20 @@ function getEvidencePills(
       if (sessions != null) pills.push({ label: 'Sessions', value: `${sessions}`, color: '#00D9FF', icon: 'fitness-outline' });
       break;
     }
+    case 'CV_OPPORTUNITY': {
+      const cvScore = evidence.cv_completeness as number | null;
+      if (cvScore != null) pills.push({ label: 'CV', value: `${Math.round(cvScore)}%`, color: cvScore < 30 ? '#E74C3C' : cvScore < 60 ? '#F39C12' : '#30D158', icon: 'document-text-outline' });
+      const gaps = evidence.benchmark_gaps as string[] | null;
+      if (gaps?.length) pills.push({ label: 'Gaps', value: `${gaps.length} tests`, color: '#F39C12', icon: 'analytics-outline' });
+      const percentile = evidence.overall_percentile as number | null;
+      if (percentile != null) pills.push({ label: 'Rank', value: `P${percentile}`, color: percentile > 50 ? '#30D158' : '#F39C12', icon: 'podium-outline' });
+      break;
+    }
+    case 'TRIANGLE_ALERT': {
+      const severity = evidence.severity as string | null;
+      if (severity) pills.push({ label: 'Severity', value: severity, color: severity === 'HIGH' ? '#E74C3C' : '#F39C12', icon: 'alert-circle-outline' });
+      break;
+    }
     default:
       break;
   }
@@ -295,7 +309,7 @@ export function RecCard({ rec, index }: RecCardProps) {
 
   if (rec.priority === 1) return <P1Card rec={rec} config={config} index={index} s={s} colors={colors} expanded={expanded} setExpanded={setExpanded} hasRag={hasRag} expiry={expiry} factors={factors} dualLoad={dualLoad} />;
   if (rec.priority === 2) return <P2Card rec={rec} config={config} index={index} s={s} colors={colors} expanded={expanded} setExpanded={setExpanded} hasRag={hasRag} expiry={expiry} factors={factors} dualLoad={dualLoad} />;
-  if (rec.priority === 3) return <P3Card rec={rec} config={config} index={index} s={s} colors={colors} hasRag={hasRag} />;
+  if (rec.priority === 3) return <P3Card rec={rec} config={config} index={index} s={s} colors={colors} hasRag={hasRag} expiry={expiry} factors={factors} dualLoad={dualLoad} />;
   return <P4Chip rec={rec} config={config} index={index} s={s} colors={colors} expanded={expanded} setExpanded={setExpanded} />;
 }
 
@@ -485,7 +499,7 @@ function P2Card({
 // ── P3: Standard Card ────────────────────────────────────────────────
 
 function P3Card({
-  rec, config, index, s, colors, hasRag,
+  rec, config, index, s, colors, hasRag, expiry, factors, dualLoad,
 }: {
   rec: ForYouRecommendation;
   config: RecTypeConfig;
@@ -493,16 +507,56 @@ function P3Card({
   s: ReturnType<typeof createStyles>;
   colors: ThemeColors;
   hasRag: boolean;
+  expiry: string | null;
+  factors: string[];
+  dualLoad: { athletic: number; academic: number } | null;
 }) {
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).duration(350).springify()}>
       <GlassCard style={{ marginBottom: spacing.sm }}>
-        <View style={s.typeRow}>
-          <Ionicons name={config.icon} size={16} color={config.color} />
-          <Text style={s.p3Title}>{rec.title}</Text>
-          {hasRag && <Ionicons name="library-outline" size={12} color={colors.textMuted} style={{ marginLeft: 4 }} />}
+        {/* Top row: icon + title + badges */}
+        <View style={[s.topRow, { marginBottom: spacing.xs }]}>
+          <View style={[s.typeRow, { flex: 1 }]}>
+            <Ionicons name={config.icon} size={16} color={config.color} />
+            <Text style={s.p3Title} numberOfLines={1}>{rec.title}</Text>
+            {hasRag && <Ionicons name="library-outline" size={12} color={colors.textMuted} style={{ marginLeft: 4 }} />}
+          </View>
+          {expiry && (
+            <Text style={[s.expiryText, { color: expiryColor(rec.expiresAt) }]}>
+              {expiry}
+            </Text>
+          )}
         </View>
+
         <Text style={s.p3Body}>{rec.bodyShort}</Text>
+
+        {/* Evidence Pills */}
+        {(() => {
+          const pills = getEvidencePills(rec.recType as RecType, rec.evidenceBasis);
+          if (pills.length === 0) return null;
+          return (
+            <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm, flexWrap: 'wrap' }}>
+              {pills.map((p, i) => (
+                <MetricPill key={i} label={p.label} value={p.value} color={p.color} icon={p.icon} />
+              ))}
+            </View>
+          );
+        })()}
+
+        {/* Dual Load Bar */}
+        {dualLoad && <DualLoadBar athleticLoad={dualLoad.athletic} academicLoad={dualLoad.academic} />}
+
+        {/* Contributing Factors (max 2 for P3 to save space) */}
+        {factors.length > 0 && (
+          <View style={s.factorsContainer}>
+            {factors.slice(0, 2).map((f, i) => (
+              <View key={i} style={s.factorRow}>
+                <View style={[s.factorBullet, { backgroundColor: config.color }]} />
+                <Text style={s.factorText}>{f}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </GlassCard>
     </Animated.View>
   );

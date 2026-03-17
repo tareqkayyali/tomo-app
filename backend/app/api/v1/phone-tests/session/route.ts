@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import type { Json } from "@/types/database";
 import { processPhoneTestBenchmark } from "@/services/benchmarkService";
+import { emitEventSafe } from "@/services/events/eventEmitter";
 
 const phoneTestSessionSchema = z.object({
   testType: z.string().min(1).max(200),
@@ -52,6 +53,24 @@ export async function POST(req: NextRequest) {
       score ?? null,
       new Date().toISOString().slice(0, 10)
     );
+
+    // ── Emit ASSESSMENT_RESULT event to Athlete Data Fabric (dual-write) ──
+    // Phone test results feed DEVELOPMENT, CV_OPPORTUNITY, and MOTIVATION computers
+    await emitEventSafe({
+      athleteId: auth.user.id,
+      eventType: 'ASSESSMENT_RESULT',
+      occurredAt: new Date().toISOString(),
+      source: 'MANUAL',
+      payload: {
+        test_type: testType,
+        primary_value: score ?? null,
+        primary_unit: null,
+        raw_inputs: rawData || {},
+        percentile: benchmark?.percentile ?? null,
+        zone: benchmark?.zone ?? null,
+      },
+      createdBy: auth.user.id,
+    });
 
     return NextResponse.json(
       { session, benchmark: benchmark ?? null },

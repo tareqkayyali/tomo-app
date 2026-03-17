@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import type { Json } from "@/types/database";
+import { emitEventSafe } from "@/services/events/eventEmitter";
 
 const shotRatingSchema = z.object({
   shotType: z.string().min(1).max(50),
@@ -53,6 +54,29 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // ── Emit ASSESSMENT_RESULT event to Athlete Data Fabric (dual-write) ──
+    // Padel shot session results feed DEVELOPMENT, CV_OPPORTUNITY, and MOTIVATION computers
+    const avgOverall = d.shots.reduce((sum: number, s: { overall: number }) => sum + s.overall, 0) / d.shots.length;
+    await emitEventSafe({
+      athleteId: auth.user.id,
+      eventType: 'ASSESSMENT_RESULT',
+      occurredAt: new Date().toISOString(),
+      source: 'MANUAL',
+      payload: {
+        test_type: 'padel_shot_session',
+        primary_value: Math.round(avgOverall),
+        primary_unit: 'rating',
+        derived_metrics: Object.fromEntries(
+          d.shots.map((s: { shotType: string; overall: number }) => [`padel_${s.shotType}`, s.overall])
+        ),
+        raw_inputs: {
+          session_type: d.sessionType,
+          shot_count: d.shots.length,
+        },
+      },
+      createdBy: auth.user.id,
+    });
 
     return NextResponse.json(
       { results, count: results?.length || 0 },

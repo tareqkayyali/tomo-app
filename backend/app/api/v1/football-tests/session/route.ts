@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import type { Json } from "@/types/database";
+import { emitEventSafe } from "@/services/events/eventEmitter";
 
 const footballTestSchema = z.object({
   testType: z.string().min(1).max(100),
@@ -70,6 +71,27 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // ── Emit ASSESSMENT_RESULT event to Athlete Data Fabric (dual-write) ──
+    // Football test results feed DEVELOPMENT, CV_OPPORTUNITY, and MOTIVATION computers
+    await emitEventSafe({
+      athleteId: auth.user.id,
+      eventType: 'ASSESSMENT_RESULT',
+      occurredAt: new Date().toISOString(),
+      source: 'MANUAL',
+      payload: {
+        test_type: d.testType,
+        primary_value: d.primaryValue,
+        primary_unit: d.primaryUnit || null,
+        derived_metrics: Object.fromEntries(
+          (d.derivedMetrics || []).map((m: { label: string; value: number }) => [m.label, m.value])
+        ),
+        raw_inputs: d.rawInputs || {},
+        percentile: d.percentile ?? null,
+        is_new_pb: d.isNewPB ?? false,
+      },
+      createdBy: auth.user.id,
+    });
 
     return NextResponse.json(
       { result },

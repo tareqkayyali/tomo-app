@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { onboardingSchema } from "@/lib/validation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { emitEventSafe } from "@/services/events/eventEmitter";
 
 export async function PUT(req: NextRequest) {
   const auth = requireAuth(req);
@@ -50,6 +51,22 @@ export async function PUT(req: NextRequest) {
       { error: "Failed to update onboarding" },
       { status: 500 }
     );
+  }
+
+  // ── Emit PHV_MEASUREMENT event to Athlete Data Fabric (dual-write) ──
+  // Height + weight feed PHV stage calculation for growth-phase-aware load thresholds
+  if (parsed.data.height && parsed.data.weight) {
+    await emitEventSafe({
+      athleteId: auth.user.id,
+      eventType: 'PHV_MEASUREMENT',
+      occurredAt: new Date().toISOString(),
+      source: 'MANUAL',
+      payload: {
+        height_cm: parsed.data.height,
+        weight_kg: parsed.data.weight,
+      },
+      createdBy: auth.user.id,
+    });
   }
 
   return NextResponse.json({ user }, { headers: { "api-version": "v1" } });
