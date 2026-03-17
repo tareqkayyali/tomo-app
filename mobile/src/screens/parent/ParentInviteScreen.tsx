@@ -20,7 +20,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
 import { generateInviteCode } from '../../services/api';
-import { spacing, borderRadius } from '../../theme';
+import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<ParentStackParamList, 'ParentInvite'>;
@@ -95,11 +95,11 @@ export function ParentInviteScreen({ navigation }: Props) {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.textOnDark} />
             ) : (
               <>
-                <Ionicons name="key-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.generateText}>Generate Code</Text>
+                <Ionicons name="key-outline" size={20} color={colors.textOnDark} />
+                <Text style={[styles.generateText, { color: colors.textOnDark }]}>Generate Code</Text>
               </>
             )}
           </TouchableOpacity>
@@ -125,9 +125,9 @@ export function ParentInviteScreen({ navigation }: Props) {
                 <Ionicons
                   name={copied ? 'checkmark-circle' : 'copy-outline'}
                   size={20}
-                  color={copied ? '#2ED573' : colors.textOnDark}
+                  color={copied ? colors.success : colors.textOnDark}
                 />
-                <Text style={[styles.actionText, { color: copied ? '#2ED573' : colors.textOnDark }]}>
+                <Text style={[styles.actionText, { color: copied ? colors.success : colors.textOnDark }]}>
                   {copied ? 'Copied!' : 'Copy'}
                 </Text>
               </TouchableOpacity>
@@ -136,8 +136,8 @@ export function ParentInviteScreen({ navigation }: Props) {
                 style={[styles.actionButton, { backgroundColor: colors.accent1 }]}
                 onPress={handleShare}
               >
-                <Ionicons name="share-outline" size={20} color="#FFFFFF" />
-                <Text style={[styles.actionText, { color: '#FFFFFF' }]}>Share</Text>
+                <Ionicons name="share-outline" size={20} color={colors.textOnDark} />
+                <Text style={[styles.actionText, { color: colors.textOnDark }]}>Share</Text>
               </TouchableOpacity>
             </View>
 
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     marginBottom: spacing.sm,
   },
   subtitle: {
@@ -196,9 +196,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   generateText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
 
   // Code card
@@ -211,7 +210,7 @@ const styles = StyleSheet.create({
   },
   codeText: {
     fontSize: 32,
-    fontWeight: '800',
+    fontFamily: fontFamily.bold,
     letterSpacing: 4,
     textAlign: 'center',
   },
@@ -238,7 +237,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
 
   // Regenerate

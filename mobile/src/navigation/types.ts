@@ -15,7 +15,7 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Plan: undefined;
-  Test: undefined;
+  Test: { initialTab?: 'vitals' | 'metrics' | 'programs' } | undefined;
   Chat: undefined;
   Progress: undefined;
   ForYou: undefined;
@@ -25,7 +25,6 @@ export type MainStackParamList = {
   MainTabs: undefined;
   Profile: undefined;
   Checkin: undefined;
-  EditProfile: undefined;
   Settings: undefined;
   NotificationSettings: undefined;
   History: undefined;
@@ -65,8 +64,10 @@ export type MainStackParamList = {
   FootballSkillDetail: { skill: string };
   FootballRating: undefined;
   FootballTestInput: { testId: string };
+  // Rules screen
+  MyRules: undefined;
   // Study plan screens
-  StudyPlanPreview: { blocks: string }; // JSON-stringified StudyBlock[]
+  StudyPlanPreview: { blocks: string; warnings?: string; planType?: 'study' | 'training'; exams?: string; config?: string; savedPlanId?: string; viewOnly?: string }; // JSON-stringified
   // Multi-role screens
   Notifications: undefined;
   LinkAccount: undefined;
@@ -76,7 +77,7 @@ export type MainStackParamList = {
 
 export type CoachTabParamList = {
   Players: undefined;
-  AddTest: undefined;
+  Programmes: undefined;
   Settings: undefined;
 };
 
@@ -88,14 +89,14 @@ export type CoachStackParamList = {
   CoachInvite: undefined;
   RecommendEvent: { playerId: string; playerName: string; allowedTypes: string[] };
   Profile: undefined;
-  EditProfile: undefined;
 };
 
 // ── Parent Navigation ────────────────────────────────────────────────────
 
 export type ParentTabParamList = {
-  Calendar: undefined;
-  StudyPlan: undefined;
+  Timeline: undefined;
+  Exams: undefined;
+  Mastery: undefined;
   Settings: undefined;
 };
 
@@ -107,7 +108,6 @@ export type ParentStackParamList = {
   ParentInvite: undefined;
   RecommendEvent: { playerId: string; playerName: string; allowedTypes: string[] };
   Profile: undefined;
-  EditProfile: undefined;
 };
 
 // ── Root ─────────────────────────────────────────────────────────────────

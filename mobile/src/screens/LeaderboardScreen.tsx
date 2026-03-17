@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated from 'react-native-reanimated';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { GlowWrapper, SkeletonCard, ErrorState, EmptyState } from '../components';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
@@ -41,6 +41,9 @@ import {
 } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
+import { NotificationBell } from '../components/NotificationBell';
+import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
+import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { useSportContext } from '../hooks/useSportContext';
 import { SportSwitcher } from '../components/common/SportSwitcher';
 import { useFadeIn } from '../hooks/useFadeIn';
@@ -450,6 +453,8 @@ export function LeaderboardScreen() {
   const { profile } = useAuth();
   const { activeSport, setActiveSport } = useSportContext();
   const isFocused = useIsFocused();
+  const navigation = useNavigation<any>();
+  const { needsCheckin } = useCheckinStatus();
 
   const [activeTab, setActiveTab] = useState<SocialTab>('team');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -495,10 +500,14 @@ export function LeaderboardScreen() {
       {/* --- Header ---------------------------------------------------- */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Social</Text>
-        <HeaderProfileButton
-          initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
-          photoUrl={profile?.photoUrl}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+          <NotificationBell />
+          <HeaderProfileButton
+            initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
+            photoUrl={profile?.photoUrl}
+          />
+        </View>
       </View>
 
       {/* Sport Switcher — auto-hides if user has only one sport */}

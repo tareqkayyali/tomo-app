@@ -16,7 +16,6 @@ export { SignupScreen } from './SignupScreen';
 export { ForgotPasswordScreen } from './ForgotPasswordScreen';
 export { CheckinScreen } from './CheckinScreen';
 export { TodayScreen } from './TodayScreen';
-export { EditProfileScreen } from './EditProfileScreen';
 export { NotificationSettingsScreen } from './NotificationSettingsScreen';
 export { LeaderboardScreen } from './LeaderboardScreen';
 export { HistoryScreen } from './HistoryScreen';

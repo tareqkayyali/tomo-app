@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { BenchmarkResult } from '../../types/benchmarks';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -13,9 +14,13 @@ const ZONE_COLORS = {
 
 interface Props {
   benchmark: BenchmarkResult;
+  /** Show history timeline for this metric */
+  onShowHistory?: (metricKey: string) => void;
+  /** Log a new value for this metric */
+  onLogNew?: (metricKey: string, metricLabel: string, unit: string) => void;
 }
 
-export function PercentileBar({ benchmark }: Props) {
+export function PercentileBar({ benchmark, onShowHistory, onLogNew }: Props) {
   const { colors } = useTheme();
   const color = ZONE_COLORS[benchmark.zone];
   const fillPct = benchmark.percentile;
@@ -26,16 +31,28 @@ export function PercentileBar({ benchmark }: Props) {
         <Text style={[styles.label, { color: colors.textOnDark }]}>
           {benchmark.metricLabel}
         </Text>
-        <View
-          style={[
-            styles.badge,
-            { backgroundColor: color + '22', borderColor: color },
-          ]}
-        >
-          <Text style={[styles.badgeText, { color }]}>
-            P{benchmark.percentile} &middot;{' '}
-            {benchmark.zone.charAt(0).toUpperCase() + benchmark.zone.slice(1)}
-          </Text>
+        <View style={styles.headerRight}>
+          {onShowHistory && (
+            <Pressable onPress={() => onShowHistory(benchmark.metricKey)} hitSlop={8} style={styles.actionIcon}>
+              <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+            </Pressable>
+          )}
+          {onLogNew && (
+            <Pressable onPress={() => onLogNew(benchmark.metricKey, benchmark.metricLabel, benchmark.unit)} hitSlop={8} style={styles.actionIcon}>
+              <Ionicons name="add-circle-outline" size={16} color={colors.accent1} />
+            </Pressable>
+          )}
+          <View
+            style={[
+              styles.badge,
+              { backgroundColor: color + '22', borderColor: color },
+            ]}
+          >
+            <Text style={[styles.badgeText, { color }]}>
+              P{benchmark.percentile} &middot;{' '}
+              {benchmark.zone.charAt(0).toUpperCase() + benchmark.zone.slice(1)}
+            </Text>
+          </View>
         </View>
       </View>
       <View
@@ -87,7 +104,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  label: { fontSize: 13, fontWeight: '600' },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionIcon: {
+    padding: 2,
+  },
+  label: { fontSize: 13, fontWeight: '600', flex: 1 },
   badge: {
     borderRadius: 4,
     borderWidth: 0.5,

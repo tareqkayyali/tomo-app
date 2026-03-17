@@ -22,7 +22,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import type { TextStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -248,7 +247,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   // Loading skeleton
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerSection}>
             <SkeletonCircle size={120} />
@@ -261,12 +260,12 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           </View>
           <SkeletonCard />
         </ScrollView>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -406,11 +405,6 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             onPress={() => navigation.navigate('Settings')}
           />
           <MenuItem
-            icon="school-outline"
-            label="Study Settings"
-            onPress={() => navigation.navigate('EditProfile')}
-          />
-          <MenuItem
             icon="notifications-outline"
             label="Notifications"
             onPress={() => navigation.navigate('NotificationSettings')}
@@ -448,7 +442,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           <Text style={styles.version}>TOMO v1.0.0</Text>
         </Pressable>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

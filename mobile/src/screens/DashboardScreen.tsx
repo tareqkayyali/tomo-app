@@ -26,6 +26,10 @@ import Animated, {
   useAnimatedProps,
 } from 'react-native-reanimated';
 import { GlassCard, GradientButton, HeaderProfileButton, SkeletonCard } from '../components';
+import { NotificationBell } from '../components/NotificationBell';
+import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
+import { useCheckinStatus } from '../hooks/useCheckinStatus';
+import { QuickAccessBar } from '../components/QuickAccessBar';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import {
   colors,
@@ -88,6 +92,7 @@ function getPercentileFromScore(score: number): number {
 
 export function DashboardScreen({ navigation }: DashboardScreenProps) {
   const { profile } = useAuth();
+  const { needsCheckin } = useCheckinStatus();
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [todayData, setTodayData] = useState<any>(null);
@@ -165,8 +170,16 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>TOMO</Text>
-        <HeaderProfileButton initial={initial} photoUrl={profile?.photoUrl} />
+        <QuickAccessBar actions={[
+          { key: 'settings', icon: 'settings-outline', label: 'Settings', onPress: () => navigation.navigate('Settings' as any) },
+          { key: 'history', icon: 'time-outline', label: 'History', onPress: () => navigation.navigate('History' as any) },
+          { key: 'more', icon: 'ellipsis-horizontal', label: 'More', onPress: () => {} },
+        ]} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+          <NotificationBell />
+          <HeaderProfileButton initial={initial} photoUrl={profile?.photoUrl} />
+        </View>
       </View>
 
       <View style={{ flex: 1 }}>

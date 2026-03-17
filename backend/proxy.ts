@@ -59,8 +59,26 @@ export async function proxy(req: NextRequest) {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
   }
 
+  // Training drill catalog is public (except /recommend which needs auth)
+  if (
+    pathname.startsWith("/api/v1/training/drills") &&
+    !pathname.includes("/recommend")
+  ) {
+    return addCorsHeaders(NextResponse.next({ request: req }), origin);
+  }
+
   // Cron endpoints use their own CRON_SECRET auth (bypass Supabase token check)
   if (pathname === "/api/v1/suggestions/expire") {
+    return addCorsHeaders(NextResponse.next({ request: req }), origin);
+  }
+
+  // Event processor webhook uses its own secret auth (Supabase Database Webhook)
+  if (pathname === "/api/v1/events/process") {
+    return addCorsHeaders(NextResponse.next({ request: req }), origin);
+  }
+
+  // Calendar bridge cron uses CRON_SECRET auth (bypass Supabase token check)
+  if (pathname === "/api/v1/events/bridge-calendar") {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
   }
 

@@ -20,7 +20,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
 import { submitPlayerTest } from '../../services/api';
-import { spacing, borderRadius, layout } from '../../theme';
+import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { CoachStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<CoachStackParamList, 'CoachTestInput'>;
@@ -29,16 +29,26 @@ interface TestType {
   id: string;
   label: string;
   unit: string;
+  inputMode: 'numeric' | 'rating';
 }
 
-const TEST_TYPES: TestType[] = [
-  { id: '30m_sprint', label: '30m Sprint', unit: 'seconds' },
-  { id: 'vertical_jump', label: 'Vertical Jump', unit: 'cm' },
-  { id: 'beep_test', label: 'Beep Test', unit: 'level' },
-  { id: '5_10_5_agility', label: '5-10-5 Agility', unit: 'seconds' },
-  { id: 'yo_yo_test', label: 'Yo-Yo Test', unit: 'level' },
-  { id: 'broad_jump', label: 'Broad Jump', unit: 'cm' },
+const PHYSICAL_TESTS: TestType[] = [
+  { id: '30m_sprint', label: '30m Sprint', unit: 'seconds', inputMode: 'numeric' },
+  { id: 'vertical_jump', label: 'Vertical Jump', unit: 'cm', inputMode: 'numeric' },
+  { id: 'beep_test', label: 'Beep Test', unit: 'level', inputMode: 'numeric' },
+  { id: '5_10_5_agility', label: '5-10-5 Agility', unit: 'seconds', inputMode: 'numeric' },
+  { id: 'yo_yo_test', label: 'Yo-Yo Test', unit: 'level', inputMode: 'numeric' },
+  { id: 'broad_jump', label: 'Broad Jump', unit: 'cm', inputMode: 'numeric' },
 ];
+
+const SKILL_ASSESSMENTS: TestType[] = [
+  { id: 'shooting', label: 'Shooting', unit: '/5', inputMode: 'rating' },
+  { id: 'dribbling', label: 'Dribbling', unit: '/5', inputMode: 'rating' },
+  { id: 'passing', label: 'Passing', unit: '/5', inputMode: 'rating' },
+  { id: 'defending', label: 'Defending', unit: '/5', inputMode: 'rating' },
+];
+
+const ALL_TEST_TYPES: TestType[] = [...PHYSICAL_TESTS, ...SKILL_ASSESSMENTS];
 
 export function CoachTestInputScreen({ route, navigation }: Props) {
   const { playerId, playerName } = route.params;
@@ -107,24 +117,24 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
 
       {/* ── Inline Success Banner ── */}
       {successMsg && (
-        <View style={styles.successBanner}>
-          <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-          <Text style={styles.successText}>{successMsg}</Text>
+        <View style={[styles.successBanner, { backgroundColor: colors.success }]}>
+          <Ionicons name="checkmark-circle" size={20} color={colors.textOnDark} />
+          <Text style={[styles.successText, { color: colors.textOnDark }]}>{successMsg}</Text>
           <Pressable onPress={() => setSuccessMsg(null)} hitSlop={8}>
-            <Ionicons name="close" size={18} color="#FFF" />
+            <Ionicons name="close" size={18} color={colors.textOnDark} />
           </Pressable>
         </View>
       )}
 
-      {/* Test Type Selector */}
-      <Text style={[styles.label, { color: colors.textMuted }]}>Test Type</Text>
+      {/* Physical Tests */}
+      <Text style={[styles.label, { color: colors.textMuted }]}>Physical Test</Text>
       <View style={styles.testGrid}>
-        {TEST_TYPES.map((t) => {
+        {PHYSICAL_TESTS.map((t) => {
           const isSelected = selectedTest?.id === t.id;
           return (
             <Pressable
               key={t.id}
-              onPress={() => setSelectedTest(t)}
+              onPress={() => { setSelectedTest(t); setPrimaryValue(''); }}
               style={[
                 styles.testChip,
                 {
@@ -146,25 +156,90 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
         })}
       </View>
 
-      {/* Primary Value */}
-      <Text style={[styles.label, { color: colors.textMuted }]}>
-        Value{selectedTest ? ` (${selectedTest.unit})` : ''}
-      </Text>
-      <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: colors.surfaceElevated,
-            color: colors.textOnDark,
-            borderColor: colors.border,
-          },
-        ]}
-        placeholder="e.g. 4.52"
-        placeholderTextColor={colors.textInactive}
-        keyboardType="decimal-pad"
-        value={primaryValue}
-        onChangeText={setPrimaryValue}
-      />
+      {/* Skill Assessments */}
+      <Text style={[styles.label, { color: colors.textMuted, marginTop: spacing.lg }]}>Skill Assessment</Text>
+      <View style={styles.testGrid}>
+        {SKILL_ASSESSMENTS.map((t) => {
+          const isSelected = selectedTest?.id === t.id;
+          return (
+            <Pressable
+              key={t.id}
+              onPress={() => { setSelectedTest(t); setPrimaryValue(''); }}
+              style={[
+                styles.testChip,
+                {
+                  backgroundColor: isSelected ? colors.accent1 + '22' : colors.surfaceElevated,
+                  borderColor: isSelected ? colors.accent1 : 'transparent',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.testChipText,
+                  { color: isSelected ? colors.accent1 : colors.textOnDark },
+                ]}
+              >
+                {t.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Primary Value — numeric or star rating */}
+      {selectedTest?.inputMode === 'rating' ? (
+        <>
+          <Text style={[styles.label, { color: colors.textMuted }]}>Rating (1-5)</Text>
+          <View style={styles.ratingRow}>
+            {[1, 2, 3, 4, 5].map((star) => {
+              const filled = primaryValue && parseInt(primaryValue, 10) >= star;
+              return (
+                <Pressable
+                  key={star}
+                  onPress={() => setPrimaryValue(String(star))}
+                  style={[
+                    styles.ratingButton,
+                    {
+                      backgroundColor: filled ? colors.accent1 + '22' : colors.surfaceElevated,
+                      borderColor: filled ? colors.accent1 : colors.border,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={filled ? 'star' : 'star-outline'}
+                    size={28}
+                    color={filled ? colors.accent1 : colors.textInactive}
+                  />
+                  <Text style={{ fontSize: 12, fontFamily: fontFamily.bold, color: filled ? colors.accent1 : colors.textInactive, marginTop: 2 }}>
+                    {star}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={[styles.label, { color: colors.textMuted }]}>
+            Value{selectedTest ? ` (${selectedTest.unit})` : ''}
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.surfaceElevated,
+                color: colors.textOnDark,
+                borderColor: colors.border,
+              },
+            ]}
+            placeholder="e.g. 4.52"
+            placeholderTextColor={colors.textInactive}
+            keyboardType="decimal-pad"
+            value={primaryValue}
+            onChangeText={setPrimaryValue}
+          />
+        </>
+      )}
 
       {/* Notes */}
       <Text style={[styles.label, { color: colors.textMuted }]}>Notes (optional)</Text>
@@ -195,11 +270,11 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
         ]}
       >
         {submitting ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color={colors.textOnDark} />
         ) : (
           <>
-            <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.submitButtonText}>Submit Test</Text>
+            <Ionicons name="checkmark-circle-outline" size={20} color={colors.textOnDark} />
+            <Text style={[styles.submitButtonText, { color: colors.textOnDark }]}>Submit Test</Text>
           </>
         )}
       </Pressable>
@@ -233,14 +308,13 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     marginBottom: spacing.xl,
   },
   successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#30D158',
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
@@ -248,13 +322,12 @@ const styles = StyleSheet.create({
   },
   successText: {
     flex: 1,
-    color: '#FFF',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
     marginBottom: spacing.sm,
     marginTop: spacing.md,
   },
@@ -271,7 +344,7 @@ const styles = StyleSheet.create({
   },
   testChipText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
   },
   input: {
     borderRadius: borderRadius.md,
@@ -294,9 +367,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   submitButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
   backButton: {
     flexDirection: 'row',
@@ -310,6 +382,19 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  ratingButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.compact,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
   },
 });

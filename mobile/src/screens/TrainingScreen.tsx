@@ -17,16 +17,22 @@ import { UnifiedDayView } from '../components/plan/UnifiedDayView';
 import { PlanTabSwitcher } from '../components/plan/PlanTabSwitcher';
 import type { PlanTab } from '../components/plan/PlanTabSwitcher';
 import { StudyPlanView } from './StudyPlanView';
+import { TrainingPlanView } from './TrainingPlanView';
 import { spacing, layout, shadows, fontFamily, borderRadius } from '../theme';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
 import { useAuth } from '../hooks/useAuth';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
+import { NotificationBell } from '../components/NotificationBell';
+import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
+import { useCheckinStatus } from '../hooks/useCheckinStatus';
+import { QuickAccessBar } from '../components/QuickAccessBar';
 import { SuggestionsBanner } from '../components/SuggestionsBanner';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { useCalendarData } from '../hooks/useCalendarData';
 import { useDayLock } from '../hooks/useDayLock';
 import { toDateStr } from '../utils/calendarHelpers';
+import { createCalendarEvent, autoFillWeek } from '../services/api';
 import type { ReadinessLevel, Checkin } from '../types';
 import { getReadinessScore } from '../services/readinessScore';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -99,6 +105,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { profile, role } = useAuth();
+  const { needsCheckin } = useCheckinStatus();
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<PlanTab>('dayflow');
 
@@ -107,6 +114,17 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   const [completedEvents, setCompletedEvents] = useState<Set<string>>(
     () => new Set<string>(),
   );
+
+  // Gap setting — cycles through 15 / 30 / 45 / 60
+  const GAP_OPTIONS = [15, 30, 45, 60] as const;
+  const [gapMinutes, setGapMinutes] = useState(30);
+  const cycleGap = useCallback(() => {
+    setGapMinutes((prev) => {
+      const idx = GAP_OPTIONS.indexOf(prev as any);
+      return GAP_OPTIONS[(idx + 1) % GAP_OPTIONS.length];
+    });
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
 
   // ─── Calendar data hook (must come before callbacks that reference it) ───
   const calendar = useCalendarData();
@@ -298,11 +316,15 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.headerArea}>
-          <Text style={styles.screenTitle}>Your Flow</Text>
-          <HeaderProfileButton
-            initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
-            photoUrl={profile?.photoUrl}
-          />
+          <View style={{ flex: 1 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+            <NotificationBell />
+            <HeaderProfileButton
+              initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
+              photoUrl={profile?.photoUrl}
+            />
+          </View>
         </View>
         <View style={styles.loadingContainer}>
           <SkeletonCard />
@@ -318,20 +340,14 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* ─── Header ─── */}
       <View style={styles.headerArea}>
-        <View style={styles.headerLeft}>
-          <View>
-            <Text style={styles.headerSubtitle}>TOMO · {weekdayName}</Text>
-            <Text style={styles.screenTitle}>Your Flow</Text>
-          </View>
-        </View>
+        <QuickAccessBar actions={[
+          { key: 'rules', icon: 'options-outline', label: 'My Rules', onPress: () => navigation.navigate('MyRules'), accentColor: colors.accent2 },
+          { key: 'add', icon: 'add-circle-outline', label: 'Add Event', onPress: () => navigation.navigate('AddEvent', { date: selectedDayStr }) },
+          { key: 'more', icon: 'ellipsis-horizontal', label: 'More', onPress: () => {} },
+        ]} />
         <View style={styles.headerRight}>
-          <Pressable
-            style={styles.settingsCapsule}
-            onPress={() => navigation.navigate('EditProfile')}
-          >
-            <Ionicons name="school-outline" size={15} color={colors.textOnDark} />
-            <Text style={styles.settingsCapsuleText}>Study Settings</Text>
-          </Pressable>
+          <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+          <NotificationBell />
           <HeaderProfileButton
             initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
             photoUrl={profile?.photoUrl}
@@ -379,10 +395,6 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
               await handleUpdateEvent(eventId, { startTime: newStart, endTime: newEnd });
             }
           }}
-          readiness={readiness}
-          trainingHours={trainingHours}
-          academicHours={academicHours}
-          aiInsightText={aiInsightText}
           hasCheckedInToday={hasCheckedInToday}
           suggestions={suggestions}
           onSuggestionResolved={handleResolved}
@@ -391,20 +403,36 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
           onComplete={handleCompleteEvent}
           onSkip={handleSkipEvent}
           onUndo={handleUndoEvent}
+          onDelete={(eventId) => handleDeleteEvent(eventId)}
+          onUpdate={(eventId, patch) => handleUpdateEvent(eventId, patch)}
           onCheckinPress={() => navigation.navigate('Checkin')}
-          onFabPress={() => {
-            if (isLocked) return;
-            navigation.navigate('AddEvent', { date: selectedDayStr });
-          }}
-          fabIcon="add"
         />
-      ) : (
+      ) : activeTab === 'studyplan' ? (
         /* ─── Study Plan View ─── */
         <StudyPlanView
-          onNavigateToPreview={(blocks) =>
-            navigation.navigate('StudyPlanPreview', { blocks: JSON.stringify(blocks) })
+          onNavigateToPreview={(blocks, warnings, config, savedPlanId, viewOnly) =>
+            navigation.navigate('StudyPlanPreview', {
+              blocks: JSON.stringify(blocks),
+              warnings: warnings?.length ? JSON.stringify(warnings) : undefined,
+              planType: 'study',
+              config: config ? JSON.stringify(config) : undefined,
+              savedPlanId,
+              viewOnly: viewOnly ? 'true' : undefined,
+            })
           }
-          onNavigateToEditProfile={() => navigation.navigate('EditProfile')}
+          onNavigateToRules={() => navigation.navigate('MyRules')}
+        />
+      ) : (
+        /* ─── Training Plan View ─── */
+        <TrainingPlanView
+          onNavigateToPreview={(blocks, warnings) =>
+            navigation.navigate('StudyPlanPreview', {
+              blocks: JSON.stringify(blocks),
+              warnings: warnings?.length ? JSON.stringify(warnings) : undefined,
+              planType: 'training',
+            })
+          }
+          onNavigateToRules={() => navigation.navigate('MyRules')}
         />
       )}
     </SafeAreaView>
@@ -430,47 +458,14 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: layout.screenMargin,
       paddingVertical: spacing.sm,
     },
-    headerLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
     headerRight: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
     },
-    headerSubtitle: {
-      fontFamily: fontFamily.medium,
-      fontSize: 11,
-      color: colors.textMuted,
-      letterSpacing: 1.5,
-      textTransform: 'uppercase',
-    },
-    screenTitle: {
-      fontFamily: fontFamily.bold,
-      fontSize: 24,
-      color: colors.textOnDark,
-    },
     loadingContainer: {
       paddingHorizontal: layout.screenMargin,
       paddingTop: spacing.md,
-    },
-    settingsCapsule: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-      backgroundColor: colors.glass,
-      borderWidth: 1,
-      borderColor: colors.glassBorder,
-      borderRadius: borderRadius.full,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-    },
-    settingsCapsuleText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.textOnDark,
     },
   });
 }

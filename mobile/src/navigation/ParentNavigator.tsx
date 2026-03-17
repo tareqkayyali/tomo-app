@@ -1,8 +1,8 @@
 /**
- * Parent Navigator — 3-tab bottom navigation
+ * Parent Navigator — 4-tab bottom navigation
  *
  * Tabs:
- *   Calendar | Study Plan | Settings
+ *   Timeline | Exams | Mastery | Settings
  *
  * Stack wraps tabs + detail screens for drill-in navigation.
  */
@@ -16,7 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   ParentCalendarScreen,
   ParentChildPlanScreen,
-  ParentStudyPlanScreen,
+  ParentExamScreen,
+  ParentMasteryScreen,
   ParentAddStudyScreen,
   ParentAddExamScreen,
   ParentInviteScreen,
@@ -25,7 +26,6 @@ import {
 import { RecommendEventScreen } from '../screens/RecommendEventScreen';
 
 import { ProfileScreen } from '../screens/ProfileScreen';
-import { EditProfileScreen } from '../screens/EditProfileScreen';
 
 import type { ParentTabParamList, ParentStackParamList } from './types';
 import { layout, spacing } from '../theme';
@@ -39,14 +39,16 @@ const Stack = createNativeStackNavigator<ParentStackParamList>();
 type TabName = keyof ParentTabParamList;
 
 const TAB_ICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
-  Calendar: 'calendar-outline',
-  StudyPlan: 'book-outline',
+  Timeline: 'calendar-outline',
+  Exams: 'school-outline',
+  Mastery: 'trending-up-outline',
   Settings: 'settings-outline',
 };
 
 const TAB_LABELS: Record<TabName, string> = {
-  Calendar: 'Calendar',
-  StudyPlan: 'Study Plan',
+  Timeline: 'Timeline',
+  Exams: 'Exams',
+  Mastery: 'Mastery',
   Settings: 'Settings',
 };
 
@@ -57,7 +59,7 @@ function ParentTabNavigator() {
 
   return (
     <Tab.Navigator
-      initialRouteName="Calendar"
+      initialRouteName="Timeline"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ color, size }) => (
@@ -74,8 +76,9 @@ function ParentTabNavigator() {
         }],
       })}
     >
-      <Tab.Screen name="Calendar" component={ParentChildPlanScreen} />
-      <Tab.Screen name="StudyPlan" component={ParentStudyPlanScreen} />
+      <Tab.Screen name="Timeline" component={ParentChildPlanScreen} />
+      <Tab.Screen name="Exams" component={ParentExamScreen} />
+      <Tab.Screen name="Mastery" component={ParentMasteryScreen} />
       <Tab.Screen name="Settings" component={ParentSettingsScreen} />
     </Tab.Navigator>
   );
@@ -131,11 +134,6 @@ export function ParentNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{ headerShown: true, title: 'Profile', ...stackHeaderOptions }}
-      />
-      <Stack.Screen
-        name="EditProfile"
-        component={EditProfileScreen}
-        options={{ headerShown: true, title: 'Edit Profile', ...stackHeaderOptions }}
       />
     </Stack.Navigator>
   );

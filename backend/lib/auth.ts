@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { readMultipleSnapshots } from "@/services/events/snapshot/snapshotReader";
+import type { TriangleRole } from "@/services/events/types";
 import type { UserRole, RelationshipType, PlayerSummary } from "@/types";
 
 export interface RequestUser {
@@ -108,9 +110,12 @@ export async function requireRelationship(
 
 /**
  * Get all players linked to a guardian (coach or parent) with summary data.
+ * Enriches profile data with pre-computed snapshot fields (Layer 2),
+ * filtered by the requesting role's visibility matrix.
  */
 export async function getLinkedPlayers(
-  guardianId: string
+  guardianId: string,
+  role: TriangleRole = "COACH",
 ): Promise<PlayerSummary[]> {
   const db = supabaseAdmin();
 
@@ -125,40 +130,43 @@ export async function getLinkedPlayers(
 
   const playerIds = rels.map((r) => r.player_id);
 
-  // Fetch player profiles
-  const { data: players } = await db
-    .from("users")
-    .select(
-      "id, name, email, sport, age, current_streak, total_points"
-    )
-    .in("id", playerIds);
+  // Fetch player profiles + snapshots in parallel
+  const [profilesRes, snapshots] = await Promise.all([
+    db
+      .from("users")
+      .select("id, name, email, sport, age, current_streak, total_points")
+      .in("id", playerIds),
+    readMultipleSnapshots(playerIds, role),
+  ]);
 
+  const players = profilesRes.data;
   if (!players) return [];
 
-  // Fetch latest checkins for readiness
-  const today = new Date().toISOString().split("T")[0];
-  const { data: checkins } = await db
-    .from("checkins")
-    .select("user_id, readiness, date")
-    .in("user_id", playerIds)
-    .eq("date", today);
-
-  const checkinMap = new Map(
-    (checkins || []).map((c) => [c.user_id, c])
+  // Build snapshot lookup by athlete_id
+  const snapshotMap = new Map(
+    snapshots.map((s) => [s.athlete_id, s])
   );
 
   return players.map((p) => {
-    const checkin = checkinMap.get(p.id);
+    const snap = snapshotMap.get(p.id);
     return {
       id: p.id,
       name: p.name || "",
       email: p.email || "",
-      sport: (p.sport || "football") as any,
+      sport: (p.sport || "football") as PlayerSummary["sport"],
       age: p.age ?? undefined,
-      readiness: checkin?.readiness as any ?? null,
       currentStreak: p.current_streak || 0,
       totalPoints: p.total_points || 0,
-      lastCheckinDate: checkin?.date ?? null,
+      // Snapshot-powered fields (role-filtered)
+      readinessRag: (snap?.readiness_rag as string) ?? null,
+      acwr: (snap?.acwr as number) ?? null,
+      dualLoadIndex: (snap?.dual_load_index as number) ?? null,
+      wellnessTrend: (snap?.wellness_trend as string) ?? null,
+      lastSessionAt: (snap?.last_session_at as string) ?? null,
+      sessionsTotal: (snap?.sessions_total as number) ?? null,
+      // Legacy compat
+      readiness: (snap?.readiness_rag as any) ?? null,
+      lastCheckinDate: (snap?.last_checkin_at as string) ?? null,
     };
   });
 }

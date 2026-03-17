@@ -25,7 +25,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 import { Input } from '../../components/Input';
 import { linkPlayerByEmail, submitOnboarding } from '../../services/api';
-import { spacing, borderRadius, layout } from '../../theme';
+import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 
 type Step = 'welcome' | 'email';
 
@@ -174,7 +174,7 @@ export function CoachOnboardingScreen() {
                   { backgroundColor: colors.accent1, opacity: pressed ? 0.85 : 1 },
                 ]}
               >
-                <Text style={styles.primaryButtonText}>Let's Go</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.textOnDark }]}>Let's Go</Text>
               </Pressable>
             </Animated.View>
           )}
@@ -222,9 +222,9 @@ export function CoachOnboardingScreen() {
                 ]}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={colors.textOnDark} />
                 ) : (
-                  <Text style={styles.primaryButtonText}>Send Link Request</Text>
+                  <Text style={[styles.primaryButtonText, { color: colors.textOnDark }]}>Send Link Request</Text>
                 )}
               </Pressable>
 
@@ -239,8 +239,8 @@ export function CoachOnboardingScreen() {
           {/* ── Success State ──────────────────────── */}
           {step === 'email' && success && (
             <Animated.View entering={SlideInRight.duration(300)} style={styles.stepContainer}>
-              <View style={[styles.iconCircle, { backgroundColor: '#2ED57322' }]}>
-                <Ionicons name="checkmark-circle" size={48} color="#2ED573" />
+              <View style={[styles.iconCircle, { backgroundColor: colors.success + '22' }]}>
+                <Ionicons name="checkmark-circle" size={48} color={colors.success} />
               </View>
 
               <Text style={[styles.title, { color: colors.textOnDark }]}>
@@ -268,7 +268,7 @@ export function CoachOnboardingScreen() {
                   },
                 ]}
               >
-                <Text style={styles.primaryButtonText}>Add Another Player</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.textOnDark }]}>Add Another Player</Text>
               </Pressable>
 
               {/* Continue / Finish */}
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     textAlign: 'center',
     marginBottom: spacing.md,
   },
@@ -368,9 +368,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryButtonText: {
-    color: '#FFFFFF',
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
   secondaryButton: {
     width: '100%',
@@ -383,7 +382,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
   skipButton: {
     marginTop: spacing.lg,
@@ -391,11 +390,11 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
   },
   linkedBadge: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
     marginBottom: spacing.lg,
   },
 });

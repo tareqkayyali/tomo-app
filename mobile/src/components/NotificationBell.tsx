@@ -3,24 +3,18 @@
  * Shows in the header of player screens.
  */
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 import { useTheme } from '../hooks/useTheme';
-import { getNotifications } from '../services/api';
+import { useNotifications } from '../hooks/useNotifications';
 
 export function NotificationBell() {
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    getNotifications(1)
-      .then((res) => setUnreadCount(res.unreadCount || 0))
-      .catch(() => {});
-  }, []);
+  const { unreadCount } = useNotifications();
 
   return (
     <Pressable

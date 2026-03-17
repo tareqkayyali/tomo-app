@@ -28,6 +28,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -50,11 +51,22 @@ import { useTheme } from '../hooks/useTheme';
 import { MarkdownMessage } from '../components/MarkdownMessage';
 import {
   sendChatMessage,
+  sendAgentChatMessage,
   getChatSuggestions,
   getToday,
+  listChatSessions,
+  createChatSession,
+  loadChatSession,
+  endChatSession,
 } from '../services/api';
+import type { AgentChatResponse } from '../services/api';
+import { ResponseRenderer } from '../components/chat/ResponseRenderer';
+import type { TomoResponse, ChatSession as ServerChatSession } from '../types/chat';
 import { useAuth } from '../hooks/useAuth';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
+import { NotificationBell } from '../components/NotificationBell';
+import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
+import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { RoleSwitcher } from '../components/RoleSwitcher';
 import { useAllQuotes } from '../hooks/useContentHelpers';
 import type { Quote } from '../hooks/useContentHelpers';
@@ -110,7 +122,10 @@ interface DisplayMessage {
   id: string;
   role: 'user' | 'ai' | 'typing' | 'streaming';
   text: string;
+  structured?: TomoResponse | null;
   error?: boolean;
+  /** Attached confirmation data for confirm_card buttons */
+  confirmAction?: AgentChatResponse['pendingConfirmation'];
 }
 
 // ---------------------------------------------------------------------------
@@ -330,8 +345,8 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'flex-end',
       backgroundColor: colors.inputBackground,
       borderRadius: 24,
-      paddingLeft: 16,
-      paddingRight: 6,
+      paddingLeft: spacing.md,
+      paddingRight: spacing.sm,
       paddingVertical: 8,
       minHeight: 48,
       maxHeight: 160,
@@ -470,6 +485,74 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.accent1,
       marginLeft: spacing.sm,
     },
+
+    // ── Confirmation Card ──────────────────────────────────────────
+    confirmCard: {
+      marginHorizontal: spacing.md,
+      marginBottom: spacing.sm,
+      backgroundColor: colors.cardLight,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.glassBorder,
+      padding: spacing.md,
+    },
+    confirmHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 8,
+    },
+    confirmTitle: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 14,
+      color: colors.accent1,
+    },
+    confirmPreview: {
+      fontFamily: fontFamily.regular,
+      fontSize: 15,
+      lineHeight: 22,
+      color: colors.textOnDark,
+      marginBottom: 12,
+    },
+    confirmButtons: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    confirmBtn: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: borderRadius.full,
+      alignItems: 'center',
+    },
+    confirmBtnCancel: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: colors.glassBorder,
+    },
+    confirmBtnCancelText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 14,
+      color: colors.textInactive,
+    },
+    confirmBtnConfirm: {
+      backgroundColor: colors.accent1,
+    },
+    confirmBtnConfirmText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 14,
+      color: '#FFFFFF',
+    },
+    batchActionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      marginBottom: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 8,
+      backgroundColor: `${colors.glassBorder}44`,
+      borderRadius: borderRadius.sm,
+    },
   });
 }
 
@@ -527,7 +610,17 @@ function StreamingCursor() {
   );
 }
 
-function ChatBubble({ message }: { message: DisplayMessage }) {
+function ChatBubble({
+  message,
+  onChipPress,
+  onConfirm,
+  onCancel,
+}: {
+  message: DisplayMessage;
+  onChipPress?: (action: string) => void;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+}) {
   const styles = useHomeStyles();
   const isUser = message.role === 'user';
   const isTyping = message.role === 'typing';
@@ -560,11 +653,18 @@ function ChatBubble({ message }: { message: DisplayMessage }) {
     );
   }
 
-  // AI message — full-width, no bubble, markdown rendered
+  // AI message — structured card or markdown fallback
   return (
     <View style={[styles.messageRow, styles.messageRowAi]}>
       <View style={styles.aiMessageContainer}>
-        {message.text ? (
+        {message.structured && !isStreaming ? (
+          <ResponseRenderer
+            response={message.structured}
+            onChipPress={onChipPress}
+            onConfirm={onConfirm}
+            onCancel={onCancel}
+          />
+        ) : message.text ? (
           <MarkdownMessage content={message.text} />
         ) : null}
         {isStreaming && <StreamingCursor />}
@@ -635,6 +735,96 @@ function QuoteCard({ quote }: { quote: Quote }) {
       </Text>
       <Text style={styles.quoteAuthor} numberOfLines={1}>{'— ' + quote.author}</Text>
     </Animated.View>
+  );
+}
+
+/** Confirmation Card — shown when agent wants to execute a write action.
+ *  Supports batch actions: when actions[] has multiple items, shows each
+ *  with individual confirm buttons plus a "Confirm All" option.
+ */
+function ConfirmationCard({
+  confirmation,
+  onConfirm,
+  onCancel,
+  onConfirmSingle,
+}: {
+  confirmation: NonNullable<AgentChatResponse['pendingConfirmation']>;
+  onConfirm: () => void;
+  onCancel: () => void;
+  /** Confirm a single action from a batch by index */
+  onConfirmSingle?: (index: number) => void;
+}) {
+  const styles = useHomeStyles();
+  const { colors } = useTheme();
+  const actions = confirmation.actions;
+  const isBatch = actions && actions.length > 1;
+
+  return (
+    <View style={styles.confirmCard}>
+      <View style={styles.confirmHeader}>
+        <Ionicons name="shield-checkmark-outline" size={18} color={colors.accent1} />
+        <Text style={styles.confirmTitle}>
+          {isBatch ? `Confirm ${actions.length} Actions` : 'Confirm Action'}
+        </Text>
+      </View>
+
+      {isBatch ? (
+        <>
+          {actions.map((action, idx) => (
+            <View key={idx} style={styles.batchActionRow}>
+              <Text style={styles.confirmPreview} numberOfLines={2}>
+                {action.preview.replace(/ Reply "yes".*/, '')}
+              </Text>
+              {onConfirmSingle && (
+                <Pressable
+                  onPress={() => onConfirmSingle(idx)}
+                  style={({ pressed }) => [
+                    styles.confirmBtn,
+                    styles.confirmBtnConfirm,
+                    { paddingHorizontal: 12, paddingVertical: 6 },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text style={[styles.confirmBtnConfirmText, { fontSize: 12 }]}>✓</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+          <View style={styles.confirmButtons}>
+            <Pressable
+              onPress={onCancel}
+              style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnCancel, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.confirmBtnCancelText}>Cancel All</Text>
+            </Pressable>
+            <Pressable
+              onPress={onConfirm}
+              style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnConfirm, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.confirmBtnConfirmText}>Confirm All ({actions.length})</Text>
+            </Pressable>
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={styles.confirmPreview}>{confirmation.preview}</Text>
+          <View style={styles.confirmButtons}>
+            <Pressable
+              onPress={onCancel}
+              style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnCancel, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.confirmBtnCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={onConfirm}
+              style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnConfirm, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.confirmBtnConfirmText}>Confirm</Text>
+            </Pressable>
+          </View>
+        </>
+      )}
+    </View>
   );
 }
 
@@ -761,6 +951,8 @@ export function HomeScreen() {
   const { colors, isDark, toggle } = useTheme();
   const styles = useHomeStyles();
   const { profile } = useAuth();
+  const navigation = useNavigation<any>();
+  const { needsCheckin } = useCheckinStatus();
   // sportConfig removed — no mock data sync needed
   const allQuotes = useAllQuotes();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -772,27 +964,45 @@ export function HomeScreen() {
   const [todayData, setTodayData] = useState<any>(null);
   const flatListRef = useRef<FlatList<DisplayMessage>>(null);
 
-  // ── Saved chats state ──────────────────────────────────────────────
+  // ── Session state (server-side) ─────────────────────────────────────
+  const [sessionId, setSessionIdRaw] = useState<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const setSessionId = useCallback((id: string | null) => {
+    sessionIdRef.current = id;
+    setSessionIdRaw(id);
+  }, []);
+  const [serverSessions, setServerSessions] = useState<ServerChatSession[]>([]);
+
+  // ── Saved chats state (local) ───────────────────────────────────────
   const [currentChat, setCurrentChat] = useState<SavedChat>(createNewChat());
   const [savedChatsList, setSavedChatsList] = useState<SavedChat[]>([]);
   const [showSavedChats, setShowSavedChats] = useState(false);
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * 100));
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<
+    AgentChatResponse['pendingConfirmation']
+  >(null);
 
   // ── Load history + chips + today data + saved chats on mount ───────
   const loadData = useCallback(async () => {
     try {
-      const [chipsRes, todayRes, saved, activeId] = await Promise.allSettled([
+      const [chipsRes, todayRes, saved, activeId, sessionsRes] = await Promise.allSettled([
         getChatSuggestions(),
         getToday(),
         getSavedChats(),
         getActiveChatId(),
+        listChatSessions(),
       ]);
       if (chipsRes.status === 'fulfilled') {
         setChips(chipsRes.value.suggestions);
       }
       if (todayRes.status === 'fulfilled') {
         setTodayData(todayRes.value);
+      }
+
+      // Load server sessions
+      if (sessionsRes.status === 'fulfilled') {
+        setServerSessions(sessionsRes.value);
       }
 
       // Restore saved chats
@@ -810,6 +1020,8 @@ export function HomeScreen() {
               id: m.id,
               role: m.role,
               text: m.text,
+              structured: m.structured ?? undefined,
+              confirmAction: m.confirmAction ?? undefined,
             })),
           );
         }
@@ -886,6 +1098,8 @@ export function HomeScreen() {
           role: m.role as 'user' | 'ai',
           text: m.text,
           timestamp: new Date().toISOString(),
+          structured: m.structured ?? null,
+          confirmAction: m.confirmAction ?? null,
         }));
 
       const updated: SavedChat = {
@@ -943,17 +1157,20 @@ export function HomeScreen() {
   }, []);
 
   const handleSend = useCallback(
-    async (text?: string) => {
+    async (text?: string, confirmedAction?: AgentChatResponse['pendingConfirmation']) => {
       const content = (text ?? inputText).trim();
       if (!content || isSending) return;
 
+      // Clear pending confirmation when sending a new message
+      if (!confirmedAction) setPendingConfirmation(null);
+
       setInputText('');
 
-      // Optimistic user bubble
+      // Optimistic user bubble (skip if this is a confirmation action)
       const tempUserMsg: DisplayMessage = {
         id: `temp-user-${Date.now()}`,
         role: 'user',
-        text: content,
+        text: confirmedAction ? `Confirmed: ${confirmedAction.preview}` : content,
       };
 
       setMessages((prev) => [...prev, tempUserMsg]);
@@ -969,7 +1186,29 @@ export function HomeScreen() {
       abortRef.current = abortController;
 
       try {
-        const response = await sendChatMessage(content, abortController.signal);
+        // Route through the agent endpoint with session
+        const agentResponse = await sendAgentChatMessage(
+          {
+            message: content,
+            sessionId: sessionIdRef.current ?? undefined,
+            activeTab: 'Chat',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            confirmedAction: confirmedAction
+              ? {
+                  toolName: confirmedAction.toolName,
+                  toolInput: confirmedAction.toolInput,
+                  agentType: confirmedAction.agentType,
+                  actions: confirmedAction.actions,
+                }
+              : undefined,
+          },
+          abortController.signal,
+        );
+
+        // Capture session ID from response
+        if (agentResponse.sessionId && agentResponse.sessionId !== sessionIdRef.current) {
+          setSessionId(agentResponse.sessionId);
+        }
 
         // If cancelled while awaiting, bail out
         if (abortController.signal.aborted) return;
@@ -977,76 +1216,87 @@ export function HomeScreen() {
         // Remove typing indicator
         setMessages((prev) => prev.filter((m) => m.id !== TYPING_MSG.id));
 
-        // Replace temp user msg with real one
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === tempUserMsg.id ? toDisplayMessage(response.userMessage) : m,
-          ),
-        );
+        // Handle pending confirmation from agent
+        if (agentResponse.pendingConfirmation) {
+          setPendingConfirmation(agentResponse.pendingConfirmation);
+        }
 
-        // Character-by-character typewriter (ChatGPT-style)
-        const fullText = response.aiMessage.content;
-        const totalChars = fullText.length;
-        const TICK_MS = 16; // 60fps aligned
-        const TARGET_MS = 5000; // aim for ~5s total display
-        const charsPerTick = Math.max(1, Math.ceil(totalChars / (TARGET_MS / TICK_MS)));
-        let charIndex = 0;
-        let tickCount = 0;
+        // Build AI response message with structured data + confirmation action
+        const aiMsg: DisplayMessage = {
+          id: `ai-${Date.now()}`,
+          role: 'ai' as const,
+          text: agentResponse.message,
+          structured: agentResponse.structured ?? null,
+          confirmAction: agentResponse.pendingConfirmation ?? undefined,
+        };
 
-        // Add streaming message (empty initially)
-        setMessages((prev) => [
-          ...prev,
-          { id: TYPEWRITER_AI_ID, role: 'streaming' as const, text: '' },
-        ]);
-        scrollToBottom();
+        // If structured data is present, skip typewriter and show cards immediately
+        if (agentResponse.structured) {
+          setMessages((prev) => [...prev, aiMsg]);
+          scrollToBottom();
+        } else {
+          // Character-by-character typewriter (ChatGPT-style) for plain text
+          const fullText = agentResponse.message;
+          const totalChars = fullText.length;
+          const TICK_MS = 16; // 60fps aligned
+          const TARGET_MS = 5000; // aim for ~5s total display
+          const charsPerTick = Math.max(1, Math.ceil(totalChars / (TARGET_MS / TICK_MS)));
+          let charIndex = 0;
+          let tickCount = 0;
 
-        await new Promise<void>((resolve) => {
-          typewriterRef.current = setInterval(() => {
-            // If cancelled during typewriter, finalize partial text
-            if (abortController.signal.aborted) {
-              if (typewriterRef.current) clearInterval(typewriterRef.current);
-              typewriterRef.current = null;
+          // Add streaming message (empty initially)
+          setMessages((prev) => [
+            ...prev,
+            { id: TYPEWRITER_AI_ID, role: 'streaming' as const, text: '' },
+          ]);
+          scrollToBottom();
+
+          await new Promise<void>((resolve) => {
+            typewriterRef.current = setInterval(() => {
+              // If cancelled during typewriter, finalize partial text
+              if (abortController.signal.aborted) {
+                if (typewriterRef.current) clearInterval(typewriterRef.current);
+                typewriterRef.current = null;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === TYPEWRITER_AI_ID
+                      ? { ...m, role: 'ai' as const }
+                      : m,
+                  ),
+                );
+                resolve();
+                return;
+              }
+
+              charIndex = Math.min(charIndex + charsPerTick, totalChars);
+              tickCount++;
+
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === TYPEWRITER_AI_ID
-                    ? { ...m, role: 'ai' as const }
+                    ? { ...m, text: fullText.slice(0, charIndex) }
                     : m,
                 ),
               );
-              resolve();
-              return;
-            }
 
-            charIndex = Math.min(charIndex + charsPerTick, totalChars);
-            tickCount++;
+              // Throttle scroll to every ~10 ticks
+              if (tickCount % 10 === 0) scrollToBottom();
 
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === TYPEWRITER_AI_ID
-                  ? { ...m, text: fullText.slice(0, charIndex) }
-                  : m,
-              ),
-            );
+              if (charIndex >= totalChars) {
+                if (typewriterRef.current) clearInterval(typewriterRef.current);
+                typewriterRef.current = null;
 
-            // Throttle scroll to every ~10 ticks
-            if (tickCount % 10 === 0) scrollToBottom();
-
-            if (charIndex >= totalChars) {
-              if (typewriterRef.current) clearInterval(typewriterRef.current);
-              typewriterRef.current = null;
-
-              // Finalize with real AI message
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === TYPEWRITER_AI_ID
-                    ? toDisplayMessage(response.aiMessage)
-                    : m,
-                ),
-              );
-              resolve();
-            }
-          }, TICK_MS);
-        });
+                // Finalize as AI message
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === TYPEWRITER_AI_ID ? { ...aiMsg } : m,
+                  ),
+                );
+                resolve();
+              }
+            }, TICK_MS);
+          });
+        }
 
         track('chat_message_sent', { sport: undefined });
         scrollToBottom();
@@ -1108,9 +1358,64 @@ export function HomeScreen() {
     const newChat = createNewChat();
     setCurrentChat(newChat);
     setMessages([]);
+    setPendingConfirmation(null);
+    setSessionId(null); // Will be created on first message
     setQuoteIndex((prev) => prev + 1);
     await setActiveChatId(newChat.id);
     setShowSavedChats(false);
+  }, []);
+
+  // ── Confirmation gate handlers ──────────────────────────────────
+  const handleConfirmAction = useCallback(() => {
+    if (!pendingConfirmation) return;
+    const confirmation = pendingConfirmation;
+    setPendingConfirmation(null);
+    handleSend(confirmation.preview, confirmation);
+  }, [pendingConfirmation, handleSend]);
+
+  /** Confirm a single action from a batch (by index) */
+  const handleConfirmSingle = useCallback(
+    (index: number) => {
+      if (!pendingConfirmation?.actions) return;
+      const action = pendingConfirmation.actions[index];
+      if (!action) return;
+
+      // Build a single-action confirmation to send
+      const singleConfirm: NonNullable<AgentChatResponse['pendingConfirmation']> = {
+        toolName: action.toolName,
+        toolInput: action.toolInput,
+        agentType: action.agentType,
+        preview: action.preview,
+      };
+
+      // Remove this action from the pending list
+      const remaining = pendingConfirmation.actions.filter((_, i) => i !== index);
+      if (remaining.length > 0) {
+        // Keep the card with remaining actions
+        setPendingConfirmation({
+          ...remaining[0],
+          actions: remaining.length > 1 ? remaining : undefined,
+        });
+      } else {
+        setPendingConfirmation(null);
+      }
+
+      handleSend(action.preview, singleConfirm);
+    },
+    [pendingConfirmation, handleSend],
+  );
+
+  const handleCancelAction = useCallback(() => {
+    setPendingConfirmation(null);
+    // Add a system-like AI message confirming cancellation
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `ai-cancel-${Date.now()}`,
+        role: 'ai' as const,
+        text: 'Got it, cancelled.',
+      },
+    ]);
   }, []);
 
   // ── Select a saved chat ────────────────────────────────────────────
@@ -1122,6 +1427,8 @@ export function HomeScreen() {
           id: m.id,
           role: m.role,
           text: m.text,
+          structured: m.structured ?? undefined,
+          confirmAction: m.confirmAction ?? undefined,
         })),
       );
       await setActiveChatId(chat.id);
@@ -1214,6 +1521,8 @@ export function HomeScreen() {
             >
               <Ionicons name="create-outline" size={22} color={colors.textOnDark} />
             </Pressable>
+            <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+            <NotificationBell />
             <HeaderProfileButton
               initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
               photoUrl={profile?.photoUrl}
@@ -1262,14 +1571,44 @@ export function HomeScreen() {
               ref={flatListRef}
               data={messages}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => item.error && handleRetry(item)}
-                  disabled={!item.error}
-                >
-                  <ChatBubble message={item} />
-                </Pressable>
-              )}
+              renderItem={({ item }) => {
+                const confirmHandler = item.confirmAction
+                  ? () => {
+                      const action = item.confirmAction!;
+                      setPendingConfirmation(null);
+                      handleSend(action.preview, action);
+                    }
+                  : undefined;
+                const cancelHandler = item.confirmAction
+                  ? () => {
+                      setPendingConfirmation(null);
+                      setMessages((prev) => [
+                        ...prev,
+                        { id: `ai-cancel-${Date.now()}`, role: 'ai' as const, text: 'Got it, cancelled.' },
+                      ]);
+                    }
+                  : undefined;
+
+                const bubble = (
+                  <ChatBubble
+                    message={item}
+                    onChipPress={handleChipPress}
+                    onConfirm={confirmHandler}
+                    onCancel={cancelHandler}
+                  />
+                );
+
+                // Only wrap in Pressable for error retry — otherwise render directly
+                // (Pressable with disabled=true blocks child touch events on web)
+                if (item.error) {
+                  return (
+                    <Pressable onPress={() => handleRetry(item)}>
+                      {bubble}
+                    </Pressable>
+                  );
+                }
+                return bubble;
+              }}
               contentContainerStyle={styles.chatContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
@@ -1302,6 +1641,16 @@ export function HomeScreen() {
             )}
           </>
         ) : null}
+
+        {/* ─── Confirmation Card (agent write action gate) ────────── */}
+        {!showSavedChats && pendingConfirmation && (
+          <ConfirmationCard
+            confirmation={pendingConfirmation}
+            onConfirm={handleConfirmAction}
+            onCancel={handleCancelAction}
+            onConfirmSingle={handleConfirmSingle}
+          />
+        )}
 
         {/* ─── Input Bar ───────────────────────────────────────────── */}
         {!showSavedChats && (

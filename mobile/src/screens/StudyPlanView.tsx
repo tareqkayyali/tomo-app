@@ -1,12 +1,17 @@
 /**
- * StudyPlanView — Player's Study Plan tab content
+ * StudyPlanView — Study plan generation tab
  *
- * Shows study info summary (subjects, exams) with "Edit in Profile" link,
- * generator controls, and "Generate Plan" button.
- * Generated blocks go to StudyPlanPreviewScreen.
+ * Reads ALL scheduling config from Rules (useScheduleRules).
+ * Only shows generation-specific settings that don't exist in Rules:
+ *   - Exam countdown pills (read-only)
+ *   - Strategy (closest first / furthest first)
+ *   - Per-subject sessions/week fine-tuning
+ *   - Generate Plan CTA
+ *
+ * UI is unified with TrainingPlanView — same banner, sections, empty state pattern.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,87 +19,171 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
-import { updateUser } from '../services/api';
+import { useScheduleRules } from '../hooks/useScheduleRules';
+import { updateUser, getCalendarEventsByRange, deleteCalendarEvent } from '../services/api';
 import { generateStudyPlan } from '../services/studyPlanGenerator';
-import { spacing, borderRadius, fontFamily, layout } from '../theme';
+import { spacing, borderRadius, fontFamily } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import type {
   StudyPlanConfig,
   StudyBlock,
   StudyStrategy,
+  SavedStudyPlan,
 } from '../types';
+import { getSavedStudyPlans, deleteStudyPlan } from '../services/savedStudyPlans';
+import { exportStudyPlanPdf } from '../services/studyPlanPdfExport';
 
-// ── Constants ────────────────────────────────────────────────────────
-
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DURATIONS: (30 | 45 | 60 | 90)[] = [30, 45, 60, 90];
-const HOURS = Array.from({ length: 15 }, (_, i) => {
-  const h = 7 + i; // 07:00 to 21:00
-  return `${String(h).padStart(2, '0')}:00`;
-});
+// ── Helpers ──────────────────────────────────────────────────────────
 
 function timeToMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;
 }
 
-function cycleTime(current: string, direction: 1 | -1): string {
-  const idx = HOURS.indexOf(current);
-  if (idx === -1) return current;
-  const next = idx + direction;
-  if (next < 0 || next >= HOURS.length) return current;
-  return HOURS[next];
+function daysUntil(examDate: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const exam = new Date(examDate);
+  exam.setHours(0, 0, 0, 0);
+  return Math.ceil((exam.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function urgencyColor(days: number, colors: ThemeColors): string {
+  if (days <= 0) return colors.textInactive;
+  if (days <= 7) return '#E74C3C';
+  if (days <= 14) return '#F39C12';
+  return colors.accent1;
 }
 
 // ── Component ────────────────────────────────────────────────────────
 
 type StudyPlanViewProps = {
-  onNavigateToPreview: (blocks: StudyBlock[]) => void;
-  onNavigateToEditProfile: () => void;
+  onNavigateToPreview: (blocks: StudyBlock[], warnings?: string[], config?: StudyPlanConfig, savedPlanId?: string, viewOnly?: boolean) => void;
+  onNavigateToRules: () => void;
 };
 
-export function StudyPlanView({ onNavigateToPreview, onNavigateToEditProfile }: StudyPlanViewProps) {
+export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyPlanViewProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { profile, refreshProfile } = useAuth();
+  const { profile } = useAuth();
+  const { rules, loading, refresh } = useScheduleRules();
+  const navigation = useNavigation();
 
-  const subjects = profile?.studySubjects || [];
-  const exams = profile?.examSchedule || [];
-  const trainingPrefs = profile?.trainingPreferences || {
-    gymSessionsPerWeek: 0,
-    gymFixedDays: [],
-    clubSessionsPerWeek: 0,
-    clubFixedDays: [],
-  };
+  // Saved study plans
+  const [savedPlans, setSavedPlans] = useState<SavedStudyPlan[]>([]);
 
-  // Initialize config from saved profile or defaults
+  // Load saved plans on mount
+  useEffect(() => {
+    getSavedStudyPlans().then(setSavedPlans).catch(() => {});
+  }, []);
+
+  // Refresh data when tab is focused (so edits in Rules are picked up)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      refresh();
+      setIsGenerating(false); // safety reset — prevents stuck disabled state
+      getSavedStudyPlans().then(setSavedPlans).catch(() => {});
+    });
+    return unsubscribe;
+  }, [navigation, refresh]);
+
+  // ── Read everything from schedule rules ────────────────────────────
+
+  const prefs = rules?.preferences;
+  // Fallback: if rules.study_subjects is empty, use profile (migration bridge)
+  const subjects = (prefs?.study_subjects?.length ? prefs.study_subjects : profile?.studySubjects) ?? [];
+  const sessionDuration = (prefs?.study_duration_min ?? 45) as 30 | 45 | 60 | 90;
+
+  // Study days — all 7 days (study plan uses every day, not linked to school days)
+  const studyDays = [0, 1, 2, 3, 4, 5, 6];
+  const excludedDays: number[] = []; // no excluded days — study happens every day
+
+  // Study time window from rules
+  const timeSlotStart = prefs?.study_start ?? '15:00';
+  const timeSlotEnd = prefs?.day_bounds_end ?? '22:00';
+
+  // Exams from rules
+  const exams = useMemo(() => {
+    if (prefs?.exam_schedule?.length) {
+      return prefs.exam_schedule.map((e) => ({
+        id: e.id,
+        subject: e.subject,
+        examType: e.examType as any,
+        examDate: e.examDate,
+      }));
+    }
+    // Fallback to profile if rules have no exams yet
+    return profile?.examSchedule || [];
+  }, [prefs?.exam_schedule, profile?.examSchedule]);
+
+  const futureExams = useMemo(
+    () => exams.filter((e) => daysUntil(e.examDate) > 0),
+    [exams],
+  );
+
+  // Training prefs from rules (for conflict detection)
+  const trainingPrefs = useMemo(() => {
+    if (prefs?.training_categories?.length) {
+      const club = prefs.training_categories.find((c) => c.id === 'club');
+      const gym = prefs.training_categories.find((c) => c.id === 'gym');
+      return {
+        gymSessionsPerWeek: gym?.daysPerWeek ?? 0,
+        gymFixedDays: gym?.fixedDays ?? [],
+        clubSessionsPerWeek: club?.daysPerWeek ?? 0,
+        clubFixedDays: club?.fixedDays ?? [],
+      };
+    }
+    return profile?.trainingPreferences || {
+      gymSessionsPerWeek: 0, gymFixedDays: [],
+      clubSessionsPerWeek: 0, clubFixedDays: [],
+    };
+  }, [prefs?.training_categories, profile?.trainingPreferences]);
+
+  const schoolSchedule = useMemo(() => {
+    if (!prefs) return undefined;
+    return {
+      type: 'school' as const,
+      days: prefs.school_days as number[],
+      startTime: prefs.school_start,
+      endTime: prefs.school_end,
+    };
+  }, [prefs]);
+
+  // ── Generation-specific state (NOT in Rules) ───────────────────────
+
   const savedConfig = profile?.studyPlanConfig;
 
-  const [daysPerSubject, setDaysPerSubject] = useState<Record<string, number>>(() => {
-    if (savedConfig?.daysPerSubject) return savedConfig.daysPerSubject;
+  // Subjects that have future exams — these drive sessions/week
+  const examSubjects = useMemo(
+    () => [...new Set(futureExams.map((e) => e.subject))],
+    [futureExams],
+  );
+
+  // Auto-calculate daysPerSubject from exam proximity
+  const autoDaysPerSubject = useMemo(() => {
     const defaults: Record<string, number> = {};
-    for (const subj of subjects) defaults[subj] = 2;
-    return defaults;
-  });
-  const [timeSlotStart, setTimeSlotStart] = useState(savedConfig?.timeSlotStart || '15:00');
-  const [timeSlotEnd, setTimeSlotEnd] = useState(savedConfig?.timeSlotEnd || '18:00');
-  const [sessionDuration, setSessionDuration] = useState<30 | 45 | 60 | 90>(savedConfig?.sessionDuration || 45);
-  const [strategy, setStrategy] = useState<StudyStrategy>(savedConfig?.strategy || 'last_exam_first');
-  const [excludedDays, setExcludedDays] = useState<number[]>(savedConfig?.excludedDays || []);
-
-  // ── Save config on change ──────────────────────────────────────────
-
-  const saveConfig = useCallback(async (config: StudyPlanConfig) => {
-    try {
-      await updateUser({ studyPlanConfig: config } as any);
-    } catch {
-      // silent — non-critical
+    for (const exam of futureExams) {
+      const days = daysUntil(exam.examDate);
+      if (days <= 7) defaults[exam.subject] = 4;
+      else if (days <= 14) defaults[exam.subject] = 3;
+      else defaults[exam.subject] = 2;
     }
-  }, []);
+    return defaults;
+  }, [futureExams]);
+
+  const [strategy, setStrategy] = useState<StudyStrategy>(savedConfig?.strategy || 'last_exam_first');
+  const [daysPerSubject, setDaysPerSubject] = useState<Record<string, number>>(
+    savedConfig?.daysPerSubject || autoDaysPerSubject,
+  );
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // ── Derived ────────────────────────────────────────────────────────
 
   const currentConfig = useMemo((): StudyPlanConfig => ({
     daysPerSubject,
@@ -105,7 +194,29 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToEditProfile }: 
     excludedDays,
   }), [daysPerSubject, timeSlotStart, timeSlotEnd, sessionDuration, strategy, excludedDays]);
 
-  // ── Stepper helpers ────────────────────────────────────────────────
+  const blockEstimate = useMemo(() => {
+    if (futureExams.length === 0) return 0;
+    let total = 0;
+    for (const exam of futureExams) {
+      const sessionsPerWeek = daysPerSubject[exam.subject] || 2;
+      const weeksForSubj = Math.ceil(daysUntil(exam.examDate) / 7);
+      total += sessionsPerWeek * weeksForSubj;
+    }
+    return total;
+  }, [futureExams, daysPerSubject]);
+
+  // Config summary text for banner
+  const configSummary = useMemo(() => {
+    return `${sessionDuration}m sessions · 7 days/wk · ${subjects.length} subject${subjects.length === 1 ? '' : 's'}`;
+  }, [sessionDuration, subjects.length]);
+
+  // ── Handlers ───────────────────────────────────────────────────────
+
+  const saveConfig = useCallback(async (config: StudyPlanConfig) => {
+    try {
+      await updateUser({ studyPlanConfig: config } as any);
+    } catch { /* silent */ }
+  }, []);
 
   const setSubjectDays = (subj: string, val: number) => {
     const clamped = Math.max(1, Math.min(7, val));
@@ -116,273 +227,394 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToEditProfile }: 
     });
   };
 
-  const toggleExcludedDay = (day: number) => {
-    setExcludedDays((prev) => {
-      const next = prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day];
-      saveConfig({ ...currentConfig, excludedDays: next });
-      return next;
-    });
-  };
+  // ── Generate ───────────────────────────────────────────────────────
 
-  // ── Generate handler ───────────────────────────────────────────────
-
-  const handleGenerate = useCallback(() => {
+  const handleGenerate = useCallback(async () => {
     if (subjects.length === 0 || exams.length === 0) {
-      Alert.alert('Missing Info', 'Please add your subjects and exam schedule in Edit Profile first.');
+      Alert.alert('Missing Info', 'Add your subjects and exam schedule in My Rules first.', [
+        { text: 'Go to Rules', onPress: onNavigateToRules },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
       return;
     }
 
-    // Pre-validate
-    if (excludedDays.length >= 7) {
-      Alert.alert('No Days Available', 'You excluded all days. Uncheck some days to generate a plan.');
-      return;
-    }
     if (timeToMinutes(timeSlotEnd) - timeToMinutes(timeSlotStart) < sessionDuration) {
-      Alert.alert('Time Window Too Small', `The study window must be at least ${sessionDuration} minutes.`);
+      Alert.alert('Time Window Too Small', `The study window must be at least ${sessionDuration} minutes. Adjust in My Rules.`);
       return;
     }
 
-    // Warn about past exams
-    const pastExams = exams.filter((e) => new Date(e.examDate) <= new Date());
-    if (pastExams.length > 0 && pastExams.length < exams.length) {
-      Alert.alert('Past Exams', `${pastExams.length} exam(s) already passed and will be skipped.`);
-    }
-
-    // Save config before generating
     saveConfig(currentConfig);
+    setIsGenerating(true);
 
-    const blocks = generateStudyPlan(currentConfig, exams, trainingPrefs);
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const latestExamDate = exams.reduce((latest, e) => {
+        const d = new Date(e.examDate);
+        return d > latest ? d : latest;
+      }, new Date(exams[0].examDate));
 
-    if (blocks.length === 0) {
-      Alert.alert('No Blocks', 'Could not generate any study blocks with these settings. Try adjusting the time slot or days per subject.');
-      return;
+      const startDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+      const endDate = `${latestExamDate.getFullYear()}-${String(latestExamDate.getMonth() + 1).padStart(2, '0')}-${String(latestExamDate.getDate()).padStart(2, '0')}`;
+
+      let existingEvents: any[] = [];
+      try {
+        const res = await getCalendarEventsByRange(startDate, endDate);
+        existingEvents = res.events || [];
+      } catch {
+        console.warn('[StudyPlan] Could not fetch calendar events');
+      }
+
+      const existingStudyBlocks = existingEvents.filter((e: any) => e.type === 'study_block');
+
+      const proceedWithGeneration = async (eventsForGenerator: any[]) => {
+        console.log('[StudyPlan] Running generator with', exams.length, 'exams,', subjects.length, 'subjects');
+        console.log('[StudyPlan] Config:', JSON.stringify(currentConfig));
+        const result = generateStudyPlan(currentConfig, exams, trainingPrefs, eventsForGenerator, schoolSchedule, rules?.effectiveRules);
+        console.log('[StudyPlan] Generated', result.blocks.length, 'blocks,', result.warnings.length, 'warnings');
+        if (result.warnings.length > 0) console.log('[StudyPlan] Warnings:', result.warnings);
+
+        if (result.blocks.length === 0) {
+          const msg = result.warnings.length > 0
+            ? result.warnings.join('\n')
+            : 'Could not generate any study blocks. Try adjusting your settings.';
+          Alert.alert('No Blocks Generated', msg);
+          setIsGenerating(false);
+          return;
+        }
+
+        setIsGenerating(false);
+
+        // Always go straight to preview — warnings are shown inline there
+        onNavigateToPreview(result.blocks, result.warnings.length > 0 ? result.warnings : undefined, currentConfig);
+      };
+
+      if (existingStudyBlocks.length > 0) {
+        setIsGenerating(false);
+        Alert.alert(
+          'Existing Study Plan',
+          `You have ${existingStudyBlocks.length} study block${existingStudyBlocks.length > 1 ? 's' : ''} in your calendar. Generating will replace them.`,
+          [
+            {
+              text: 'Replace & Generate',
+              style: 'destructive',
+              onPress: async () => {
+                setIsGenerating(true);
+                for (const block of existingStudyBlocks) {
+                  try { await deleteCalendarEvent(block.id); } catch { /* skip */ }
+                }
+                await proceedWithGeneration(existingEvents.filter((e: any) => e.type !== 'study_block'));
+              },
+            },
+            { text: 'Cancel', style: 'cancel' },
+          ],
+        );
+        return;
+      }
+
+      await proceedWithGeneration(existingEvents);
+    } catch (err) {
+      console.error('[StudyPlan] Generation error:', err);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setIsGenerating(false);
     }
+  }, [subjects, exams, trainingPrefs, currentConfig, timeSlotStart, timeSlotEnd, sessionDuration, saveConfig, onNavigateToPreview, onNavigateToRules, schoolSchedule, rules?.effectiveRules]);
 
-    onNavigateToPreview(blocks);
-  }, [subjects, exams, trainingPrefs, currentConfig, excludedDays, timeSlotStart, timeSlotEnd, sessionDuration, saveConfig, onNavigateToPreview]);
+  // ── Loading state (prevents flash — matches Training tab) ──────────
 
-  // ── No study info state ────────────────────────────────────────────
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color={colors.accent1} />
+      </View>
+    );
+  }
+
+  // ── Empty state ────────────────────────────────────────────────────
 
   if (subjects.length === 0 && exams.length === 0) {
     return (
       <ScrollView contentContainerStyle={styles.emptyContainer}>
-        <Ionicons name="school-outline" size={48} color={colors.textInactive} />
-        <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No study info yet</Text>
-        <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-          Add your subjects and exam schedule to generate a study plan.
+        <View style={styles.emptyIcon}>
+          <Ionicons name="school-outline" size={32} color={colors.accent1} />
+        </View>
+        <Text style={styles.emptyTitle}>No study info yet</Text>
+        <Text style={styles.emptySubtitle}>
+          Add your subjects and exam schedule in My Rules to generate a study plan.
         </Text>
-        <TouchableOpacity
-          style={[styles.editProfileBtn, { backgroundColor: colors.accent1 }]}
-          onPress={onNavigateToEditProfile}
-        >
-          <Ionicons name="create-outline" size={18} color="#FFF" />
-          <Text style={styles.editProfileBtnText}>Edit Profile</Text>
+        <TouchableOpacity style={styles.rulesBtn} onPress={onNavigateToRules}>
+          <Ionicons name="options-outline" size={18} color="#FFF" />
+          <Text style={styles.rulesBtnText}>Go to Rules</Text>
         </TouchableOpacity>
       </ScrollView>
     );
   }
 
-  // ── Main render ────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll}>
-      {/* Study Info Summary */}
-      <View style={[styles.summaryCard, { backgroundColor: colors.surfaceElevated }]}>
-        <View style={styles.summaryHeader}>
-          <Text style={[styles.summaryTitle, { color: colors.textOnDark }]}>Your Study Info</Text>
-          <TouchableOpacity onPress={onNavigateToEditProfile} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={[styles.editLink, { color: colors.accent1 }]}>Edit in Profile</Text>
-          </TouchableOpacity>
-        </View>
+    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Subjects */}
-        <View style={styles.summaryRow}>
-          <Ionicons name="book-outline" size={16} color={colors.accent1} />
-          <View style={styles.summaryChips}>
-            {subjects.map((s) => (
-              <View key={s} style={[styles.readOnlyChip, { backgroundColor: colors.surface }]}>
-                <Text style={[styles.chipText, { color: colors.textOnDark }]}>{s}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+      {/* ─── Saved Plans ─── */}
+      {savedPlans.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Saved Plans</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedPlanRow}>
+            {savedPlans.map((plan) => {
+              const createdDate = new Date(plan.createdAt);
+              const daysAgo = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+              const relTime = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d ago`;
 
-        {/* Exams */}
-        {exams.length > 0 && (
-          <View style={styles.summaryRow}>
-            <Ionicons name="document-text-outline" size={16} color="#E74C3C" />
-            <View style={{ flex: 1, gap: 4 }}>
-              {exams.map((e) => (
-                <Text key={e.id} style={[styles.examLine, { color: colors.textSecondary }]}>
-                  {e.subject} ({e.examType}) — {e.examDate}
-                </Text>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {exams.length === 0 && (
-          <View style={styles.summaryRow}>
-            <Ionicons name="alert-circle-outline" size={16} color="#E74C3C" />
-            <Text style={[styles.examLine, { color: '#E74C3C' }]}>
-              No exams scheduled yet. Add exams in Edit Profile.
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Generator Controls */}
-      {exams.length > 0 && (
-        <>
-          <View style={[styles.configSection, { backgroundColor: colors.surfaceElevated }]}>
-            <Text style={[styles.configTitle, { color: colors.textOnDark }]}>Generator Settings</Text>
-
-            {/* Per-subject steppers */}
-            <Text style={[styles.configLabel, { color: colors.textInactive }]}>Days per week per subject</Text>
-            {subjects.map((subj) => (
-              <View key={subj} style={styles.subjectStepperRow}>
-                <Text style={[styles.subjectName, { color: colors.textOnDark }]}>{subj}</Text>
-                <View style={styles.miniStepper}>
-                  <TouchableOpacity
-                    onPress={() => setSubjectDays(subj, (daysPerSubject[subj] || 2) - 1)}
-                    style={[styles.miniStepperBtn, { borderColor: colors.border }]}
-                  >
-                    <Ionicons name="remove" size={16} color={colors.textOnDark} />
-                  </TouchableOpacity>
-                  <Text style={[styles.miniStepperVal, { color: colors.textOnDark }]}>
-                    {daysPerSubject[subj] || 2}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setSubjectDays(subj, (daysPerSubject[subj] || 2) + 1)}
-                    style={[styles.miniStepperBtn, { borderColor: colors.border }]}
-                  >
-                    <Ionicons name="add" size={16} color={colors.textOnDark} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-
-            {/* Time slot */}
-            <Text style={[styles.configLabel, { color: colors.textInactive, marginTop: spacing.md }]}>Study time window</Text>
-            <View style={styles.timeSlotRow}>
-              <View style={styles.timePickerCol}>
-                <Text style={[styles.timePickerLabel, { color: colors.textInactive }]}>From</Text>
-                <View style={styles.timePicker}>
-                  <TouchableOpacity onPress={() => { const v = cycleTime(timeSlotStart, -1); setTimeSlotStart(v); saveConfig({ ...currentConfig, timeSlotStart: v }); }}>
-                    <Ionicons name="chevron-down" size={20} color={colors.textOnDark} />
-                  </TouchableOpacity>
-                  <Text style={[styles.timeValue, { color: colors.textOnDark }]}>{timeSlotStart}</Text>
-                  <TouchableOpacity onPress={() => { const v = cycleTime(timeSlotStart, 1); setTimeSlotStart(v); saveConfig({ ...currentConfig, timeSlotStart: v }); }}>
-                    <Ionicons name="chevron-up" size={20} color={colors.textOnDark} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <Ionicons name="arrow-forward" size={18} color={colors.textInactive} />
-              <View style={styles.timePickerCol}>
-                <Text style={[styles.timePickerLabel, { color: colors.textInactive }]}>To</Text>
-                <View style={styles.timePicker}>
-                  <TouchableOpacity onPress={() => { const v = cycleTime(timeSlotEnd, -1); setTimeSlotEnd(v); saveConfig({ ...currentConfig, timeSlotEnd: v }); }}>
-                    <Ionicons name="chevron-down" size={20} color={colors.textOnDark} />
-                  </TouchableOpacity>
-                  <Text style={[styles.timeValue, { color: colors.textOnDark }]}>{timeSlotEnd}</Text>
-                  <TouchableOpacity onPress={() => { const v = cycleTime(timeSlotEnd, 1); setTimeSlotEnd(v); saveConfig({ ...currentConfig, timeSlotEnd: v }); }}>
-                    <Ionicons name="chevron-up" size={20} color={colors.textOnDark} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            {/* Duration */}
-            <Text style={[styles.configLabel, { color: colors.textInactive, marginTop: spacing.md }]}>Session duration</Text>
-            <View style={styles.durationRow}>
-              {DURATIONS.map((d) => (
+              return (
                 <TouchableOpacity
-                  key={d}
-                  style={[
-                    styles.durationChip,
-                    {
-                      backgroundColor: sessionDuration === d ? colors.accent1 : 'transparent',
-                      borderColor: sessionDuration === d ? colors.accent1 : colors.border,
-                    },
-                  ]}
-                  onPress={() => { setSessionDuration(d); saveConfig({ ...currentConfig, sessionDuration: d }); }}
-                >
-                  <Text style={{ color: sessionDuration === d ? '#FFF' : colors.textOnDark, fontSize: 14, fontWeight: '600' }}>
-                    {d} min
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Strategy */}
-            <Text style={[styles.configLabel, { color: colors.textInactive, marginTop: spacing.md }]}>Priority strategy</Text>
-            <View style={styles.strategyRow}>
-              <TouchableOpacity
-                style={[
-                  styles.strategyChip,
-                  {
-                    backgroundColor: strategy === 'last_exam_first' ? colors.accent1 : 'transparent',
-                    borderColor: strategy === 'last_exam_first' ? colors.accent1 : colors.border,
-                  },
-                ]}
-                onPress={() => { setStrategy('last_exam_first'); saveConfig({ ...currentConfig, strategy: 'last_exam_first' }); }}
-              >
-                <Text style={{ color: strategy === 'last_exam_first' ? '#FFF' : colors.textOnDark, fontSize: 13, fontWeight: '600' }}>
-                  Closest exam first
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.strategyChip,
-                  {
-                    backgroundColor: strategy === 'first_exam_first' ? colors.accent1 : 'transparent',
-                    borderColor: strategy === 'first_exam_first' ? colors.accent1 : colors.border,
-                  },
-                ]}
-                onPress={() => { setStrategy('first_exam_first'); saveConfig({ ...currentConfig, strategy: 'first_exam_first' }); }}
-              >
-                <Text style={{ color: strategy === 'first_exam_first' ? '#FFF' : colors.textOnDark, fontSize: 13, fontWeight: '600' }}>
-                  Furthest exam first
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Excluded days */}
-            <Text style={[styles.configLabel, { color: colors.textInactive, marginTop: spacing.md }]}>Exclude days</Text>
-            <View style={styles.dayRow}>
-              {DAY_LABELS.map((label, idx) => {
-                const excluded = excludedDays.includes(idx);
-                return (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[
-                      styles.excludeDayChip,
+                  key={plan.id}
+                  style={styles.savedPlanCard}
+                  activeOpacity={0.7}
+                  onPress={() => onNavigateToPreview(plan.blocks, undefined, plan.config, plan.id, true)}
+                  onLongPress={() => {
+                    Alert.alert('Delete Plan?', `Remove "${plan.name}"?`, [
+                      { text: 'Cancel', style: 'cancel' },
                       {
-                        backgroundColor: excluded ? '#E74C3C' : 'transparent',
-                        borderColor: excluded ? '#E74C3C' : colors.border,
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: async () => {
+                          await deleteStudyPlan(plan.id);
+                          setSavedPlans((prev) => prev.filter((p) => p.id !== plan.id));
+                        },
                       },
-                    ]}
-                    onPress={() => toggleExcludedDay(idx)}
+                    ]);
+                  }}
+                >
+                  <View style={styles.savedPlanHeader}>
+                    <Ionicons name="document-text" size={16} color="#6366F1" />
+                    <TouchableOpacity
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={async () => {
+                        try {
+                          await exportStudyPlanPdf(plan);
+                        } catch {
+                          Alert.alert('Export Failed', 'Could not generate PDF.');
+                        }
+                      }}
+                    >
+                      <Ionicons name="download-outline" size={16} color={colors.textInactive} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.savedPlanName} numberOfLines={1}>{plan.name}</Text>
+                  <Text style={styles.savedPlanMeta}>
+                    {plan.blockCount} blocks · {plan.examCount} exams
+                  </Text>
+                  <Text style={styles.savedPlanDate}>{relTime}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* ─── Config summary banner (matches Training tab) ─── */}
+      <TouchableOpacity style={styles.configBanner} onPress={onNavigateToRules} activeOpacity={0.7}>
+        <View style={styles.configBannerLeft}>
+          <Ionicons name="options-outline" size={14} color={colors.accent1} />
+          <Text style={[styles.configBannerText, { color: colors.textSecondary }]}>
+            {configSummary}
+          </Text>
+        </View>
+        <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Edit Rules</Text>
+      </TouchableOpacity>
+
+      {/* ─── Exam Countdown Pills ─── */}
+      {futureExams.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Upcoming Exams</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.examPillRow}>
+            {futureExams
+              .sort((a, b) => daysUntil(a.examDate) - daysUntil(b.examDate))
+              .map((exam) => {
+                const days = daysUntil(exam.examDate);
+                const color = urgencyColor(days, colors);
+                return (
+                  <View
+                    key={exam.id}
+                    style={[styles.examPill, { borderColor: `${color}40`, backgroundColor: `${color}12` }]}
                   >
-                    <Text style={{ color: excluded ? '#FFF' : colors.textOnDark, fontSize: 12, fontWeight: '600' }}>
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
+                    <Text style={[styles.examPillSubject, { color }]}>{exam.subject}</Text>
+                    <Text style={[styles.examPillDays, { color }]}>{days}d</Text>
+                  </View>
                 );
               })}
-            </View>
+          </ScrollView>
+        </View>
+      ) : exams.length > 0 ? (
+        <View style={styles.section}>
+          <View style={[styles.infoBanner, { backgroundColor: `${colors.textInactive}10` }]}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.readinessGreen} />
+            <Text style={[styles.infoBannerText, { color: colors.textSecondary }]}>
+              All exams completed!
+            </Text>
           </View>
-
-          {/* Generate button */}
+        </View>
+      ) : (
+        <View style={styles.section}>
           <TouchableOpacity
-            style={[styles.generateBtn, { backgroundColor: colors.accent1 }]}
-            onPress={handleGenerate}
+            style={[styles.infoBanner, { backgroundColor: '#E74C3C12' }]}
+            onPress={onNavigateToRules}
           >
-            <Ionicons name="sparkles" size={20} color="#FFF" />
-            <Text style={styles.generateBtnText}>Generate Plan</Text>
+            <Ionicons name="alert-circle" size={16} color="#E74C3C" />
+            <Text style={[styles.infoBannerText, { color: '#E74C3C' }]}>
+              No exams scheduled
+            </Text>
+            <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Add in Rules</Text>
           </TouchableOpacity>
-        </>
+        </View>
       )}
+
+      {/* ─── Strategy (generation-specific, not in Rules) ─── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Priority Strategy</Text>
+        <View style={styles.chipRow}>
+          <TouchableOpacity
+            style={[
+              styles.chip,
+              strategy === 'last_exam_first'
+                ? { backgroundColor: colors.accent1, borderColor: colors.accent1 }
+                : { backgroundColor: 'transparent', borderColor: colors.border },
+            ]}
+            onPress={() => { setStrategy('last_exam_first'); saveConfig({ ...currentConfig, strategy: 'last_exam_first' }); }}
+          >
+            <Text style={[styles.chipText, { color: strategy === 'last_exam_first' ? '#FFF' : colors.textOnDark }]}>
+              Closest first
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.chip,
+              strategy === 'first_exam_first'
+                ? { backgroundColor: colors.accent1, borderColor: colors.accent1 }
+                : { backgroundColor: 'transparent', borderColor: colors.border },
+            ]}
+            onPress={() => { setStrategy('first_exam_first'); saveConfig({ ...currentConfig, strategy: 'first_exam_first' }); }}
+          >
+            <Text style={[styles.chipText, { color: strategy === 'first_exam_first' ? '#FFF' : colors.textOnDark }]}>
+              Furthest first
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ─── Per-subject sessions/week (only subjects with future exams) ─── */}
+      {examSubjects.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Sessions per week</Text>
+          {examSubjects.map((subj) => {
+            const exam = futureExams.find((e) => e.subject === subj);
+            const daysLeft = exam ? daysUntil(exam.examDate) : 0;
+            return (
+            <View key={subj} style={styles.subjectRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.subjectName}>{subj}</Text>
+                {exam && (
+                  <Text style={[styles.blockMeta, { color: urgencyColor(daysLeft, colors) }]}>
+                    Exam in {daysLeft}d
+                  </Text>
+                )}
+              </View>
+              <View style={styles.miniStepper}>
+                <TouchableOpacity
+                  onPress={() => setSubjectDays(subj, (daysPerSubject[subj] || 2) - 1)}
+                  style={[styles.stepperBtn, { borderColor: colors.border }]}
+                >
+                  <Ionicons name="remove" size={14} color={colors.textOnDark} />
+                </TouchableOpacity>
+                <Text style={styles.miniStepperVal}>{daysPerSubject[subj] || 2}</Text>
+                <TouchableOpacity
+                  onPress={() => setSubjectDays(subj, (daysPerSubject[subj] || 2) + 1)}
+                  style={[styles.stepperBtn, { borderColor: colors.border }]}
+                >
+                  <Ionicons name="add" size={14} color={colors.textOnDark} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* ─── Block Estimate ─── */}
+      {blockEstimate > 0 && (
+        <View style={styles.estimateRow}>
+          <Ionicons name="layers-outline" size={16} color={colors.accent1} />
+          <Text style={styles.estimateText}>~{blockEstimate} study blocks</Text>
+        </View>
+      )}
+
+      {/* ─── Generate / Edit CTA ─── */}
+      {(() => {
+        const canGenerate = futureExams.length > 0 && subjects.length > 0;
+        const hasExistingPlan = savedPlans.length > 0;
+        const reason = subjects.length === 0
+          ? 'Add subjects in Rules first'
+          : exams.length === 0
+          ? 'Add exam schedule in Rules first'
+          : futureExams.length === 0
+          ? 'No upcoming exams — all dates are in the past'
+          : null;
+
+        return (
+          <>
+            {reason && (
+              <TouchableOpacity
+                style={[styles.infoBanner, { backgroundColor: '#F39C1212', marginBottom: spacing.sm }]}
+                onPress={onNavigateToRules}
+              >
+                <Ionicons name="warning-outline" size={16} color="#F39C12" />
+                <Text style={[styles.infoBannerText, { color: '#F39C12' }]}>{reason}</Text>
+                {(subjects.length === 0 || exams.length === 0) && (
+                  <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Fix in Rules</Text>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* Edit existing plan */}
+            {hasExistingPlan && (
+              <TouchableOpacity
+                style={[styles.generateBtn, { backgroundColor: '#6366F1', marginBottom: spacing.sm }]}
+                onPress={() => {
+                  const latest = savedPlans[0];
+                  onNavigateToPreview(latest.blocks, undefined, latest.config, latest.id);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="pencil" size={18} color="#FFF" />
+                <Text style={styles.generateBtnText}>Edit Study Plan</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Generate new plan */}
+            <TouchableOpacity
+              style={[styles.generateBtn, {
+                opacity: !canGenerate || isGenerating ? 0.4 : 1,
+                backgroundColor: hasExistingPlan ? 'transparent' : colors.accent1,
+                borderWidth: hasExistingPlan ? 1 : 0,
+                borderColor: colors.accent1,
+              }]}
+              onPress={handleGenerate}
+              disabled={!canGenerate || isGenerating}
+              activeOpacity={0.8}
+            >
+              {isGenerating ? (
+                <ActivityIndicator size="small" color={hasExistingPlan ? colors.accent1 : '#FFF'} />
+              ) : (
+                <Ionicons name="sparkles" size={18} color={hasExistingPlan ? colors.accent1 : '#FFF'} />
+              )}
+              <Text style={[styles.generateBtnText, { color: hasExistingPlan ? colors.accent1 : '#FFF' }]}>
+                {isGenerating ? 'Generating plan...' : hasExistingPlan ? 'Regenerate New Plan' : 'Generate Study Plan'}
+              </Text>
+            </TouchableOpacity>
+          </>
+        );
+      })()}
     </ScrollView>
   );
 }
@@ -395,24 +627,45 @@ function createStyles(colors: ThemeColors) {
       padding: spacing.lg,
       paddingBottom: 40,
     },
+
+    // Loading (matches Training tab)
+    loadingContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: 60,
+    },
+
+    // Empty state (matches Training tab)
     emptyContainer: {
       alignItems: 'center',
       paddingTop: 60,
       gap: spacing.md,
       padding: spacing.lg,
     },
+    emptyIcon: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: `${colors.accent1}15`,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     emptyTitle: {
       fontSize: 18,
-      fontWeight: '700',
+      fontFamily: fontFamily.bold,
+      color: colors.textOnDark,
       textAlign: 'center',
     },
     emptySubtitle: {
       fontSize: 14,
+      fontFamily: fontFamily.regular,
       lineHeight: 20,
+      color: colors.textSecondary,
       textAlign: 'center',
       paddingHorizontal: spacing.xl,
     },
-    editProfileBtn: {
+    rulesBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
@@ -420,78 +673,149 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: 24,
       borderRadius: borderRadius.md,
       marginTop: spacing.sm,
+      backgroundColor: colors.accent1,
     },
-    editProfileBtnText: {
+    rulesBtnText: {
       color: '#FFF',
       fontSize: 16,
-      fontWeight: '600',
+      fontFamily: fontFamily.semiBold,
     },
 
-    // Summary card
-    summaryCard: {
-      borderRadius: borderRadius.lg,
-      padding: spacing.md,
-      marginBottom: spacing.md,
-      gap: spacing.sm,
+    // Config banner (matches Training tab exactly)
+    configBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: `${colors.accent1}08`,
+      borderWidth: 1,
+      borderColor: `${colors.accent1}20`,
+      marginBottom: spacing.lg,
     },
-    summaryHeader: {
+    configBannerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    configBannerText: {
+      fontSize: 13,
+      fontFamily: fontFamily.medium,
+    },
+    configBannerEdit: {
+      fontSize: 13,
+      fontFamily: fontFamily.semiBold,
+    },
+
+    // Section (matches Training tab)
+    section: {
+      marginBottom: spacing.lg,
+    },
+    sectionLabel: {
+      fontSize: 12,
+      fontFamily: fontFamily.semiBold,
+      color: colors.textInactive,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: spacing.sm,
+    },
+
+    // Saved plans
+    savedPlanRow: {
+      flexDirection: 'row',
+      gap: 10,
+      paddingRight: spacing.md,
+    },
+    savedPlanCard: {
+      width: 155,
+      padding: 12,
+      borderRadius: 14,
+      backgroundColor: colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: `#6366F120`,
+    },
+    savedPlanHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 4,
-    },
-    summaryTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    editLink: {
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    summaryRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.sm,
-    },
-    summaryChips: {
-      flex: 1,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 6,
-    },
-    readOnlyChip: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: borderRadius.full,
-    },
-    chipText: {
-      fontSize: 12,
-      fontWeight: '500',
-    },
-    examLine: {
-      fontSize: 13,
-      lineHeight: 18,
-    },
-
-    // Config section
-    configSection: {
-      borderRadius: borderRadius.lg,
-      padding: spacing.md,
-      marginBottom: spacing.md,
-    },
-    configTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      marginBottom: spacing.sm,
-    },
-    configLabel: {
-      fontSize: 12,
-      fontWeight: '600',
       marginBottom: 6,
     },
+    savedPlanName: {
+      fontSize: 14,
+      fontFamily: fontFamily.semiBold,
+      color: colors.textOnDark,
+      marginBottom: 2,
+    },
+    savedPlanMeta: {
+      fontSize: 11,
+      fontFamily: fontFamily.regular,
+      color: colors.textSecondary,
+    },
+    savedPlanDate: {
+      fontSize: 10,
+      fontFamily: fontFamily.regular,
+      color: colors.textInactive,
+      marginTop: 4,
+    },
 
-    // Subject steppers
-    subjectStepperRow: {
+    // Info banner
+    infoBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      padding: 12,
+      borderRadius: 12,
+    },
+    infoBannerText: {
+      flex: 1,
+      fontSize: 13,
+      fontFamily: fontFamily.medium,
+    },
+
+    // Exam pills
+    examPillRow: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingRight: spacing.md,
+    },
+    examPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+    },
+    examPillSubject: {
+      fontSize: 14,
+      fontFamily: fontFamily.semiBold,
+    },
+    examPillDays: {
+      fontSize: 13,
+      fontFamily: fontFamily.bold,
+    },
+
+    // Chips
+    chipRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    chip: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    chipText: {
+      fontSize: 14,
+      fontFamily: fontFamily.semiBold,
+    },
+
+    // Subject rows
+    subjectRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -499,107 +823,67 @@ function createStyles(colors: ThemeColors) {
     },
     subjectName: {
       fontSize: 14,
-      fontWeight: '500',
+      fontFamily: fontFamily.medium,
+      color: colors.textOnDark,
+    },
+    blockMeta: {
+      fontSize: 11,
+      fontFamily: fontFamily.regular,
+      marginTop: 1,
     },
     miniStepper: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
     },
-    miniStepperBtn: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+    stepperBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
       borderWidth: 1,
       alignItems: 'center',
       justifyContent: 'center',
     },
     miniStepperVal: {
       fontSize: 16,
-      fontWeight: '700',
+      fontFamily: fontFamily.bold,
+      color: colors.textOnDark,
       minWidth: 20,
       textAlign: 'center',
     },
 
-    // Time slot
-    timeSlotRow: {
+    // Estimate (matches Training tab)
+    estimateRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacing.md,
-    },
-    timePickerCol: {
-      alignItems: 'center',
-    },
-    timePickerLabel: {
-      fontSize: 11,
-      marginBottom: 4,
-    },
-    timePicker: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    timeValue: {
-      fontSize: 18,
-      fontWeight: '700',
-      minWidth: 60,
-      textAlign: 'center',
-    },
-
-    // Duration
-    durationRow: {
-      flexDirection: 'row',
-      gap: 8,
-    },
-    durationChip: {
-      flex: 1,
-      alignItems: 'center',
-      paddingVertical: 10,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-    },
-
-    // Strategy
-    strategyRow: {
-      flexDirection: 'row',
-      gap: 8,
-    },
-    strategyChip: {
-      flex: 1,
-      alignItems: 'center',
-      paddingVertical: 10,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-    },
-
-    // Excluded days
-    dayRow: {
-      flexDirection: 'row',
       gap: 6,
+      marginBottom: spacing.md,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      backgroundColor: `${colors.accent1}10`,
+      alignSelf: 'center',
     },
-    excludeDayChip: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      borderWidth: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+    estimateText: {
+      fontSize: 14,
+      fontFamily: fontFamily.semiBold,
+      color: colors.accent1,
     },
 
-    // Generate button
+    // Generate button (matches Training tab)
     generateBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
       paddingVertical: 14,
-      borderRadius: borderRadius.md,
+      borderRadius: 14,
+      backgroundColor: colors.accent1,
     },
     generateBtnText: {
       color: '#FFF',
       fontSize: 16,
-      fontWeight: '700',
+      fontFamily: fontFamily.bold,
     },
   });
 }

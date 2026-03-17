@@ -144,14 +144,6 @@ export function CoachPlayerPlanScreen({ route, navigation }: Props) {
         onPrevDay={goToPrevDay}
         onNextDay={goToNextDay}
         onToday={goToToday}
-        onFabPress={() =>
-          navigation.navigate('RecommendEvent', {
-            playerId,
-            playerName,
-            allowedTypes: ['training', 'match'],
-          })
-        }
-        fabIcon="paper-plane-outline"
       />
     </SafeAreaView>
   );

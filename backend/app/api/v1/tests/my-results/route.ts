@@ -11,6 +11,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import type { Json } from "@/types/database";
 import { calculatePercentile } from "@/services/benchmarkService";
+import { emitEventSafe } from "@/services/events/eventEmitter";
 
 // ── GET /api/v1/tests/my-results?limit=50&testType=cmj ────────────────
 
@@ -100,20 +101,70 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Map catalog test types to benchmark metric keys
+    // Map catalog test IDs to benchmark metric keys
+    // NOTE: Catalog IDs use hyphens (e.g. "10m-sprint"), not underscores
     const CATALOG_TO_METRIC: Record<string, string> = {
+      // Speed / Pace
+      "10m-sprint": "sprint_10m",
+      "20m-sprint": "sprint_20m",
+      "30m-sprint": "sprint_30m",
+      "flying-10m": "est_max_speed",
+      "max-speed": "est_max_speed",
+      // Power / Physical
+      cmj: "cmj",
+      "broad-jump": "broad_jump",
+      "squat-jump": "cmj",
+      "vertical-jump": "cmj",
+      "drop-jump": "cmj",
+      // Agility / Dribbling
+      "5-0-5": "agility_505",
+      "t-test": "agility_505",
+      "illinois-agility": "agility_505",
+      "pro-agility": "agility_505",
+      "arrowhead-agility": "agility_505",
+      // Endurance
+      "yoyo-ir1": "vo2max",
+      "beep-test": "vo2max",
+      vo2max: "vo2max",
+      "cooper-12min": "vo2max",
+      // Reaction / Defending
+      "reaction-time": "reaction_time",
+      "choice-reaction": "reaction_time",
+      // Strength
+      "1rm-squat": "squat_rel",
+      "squat-relative": "squat_rel",
+      "grip-strength": "grip_strength",
+      // Body Comp
+      "body-fat": "body_fat_pct",
+      // Recovery
+      hrv: "hrv_rmssd",
+      // Legacy underscore IDs (backward compat)
       "10m_sprint": "sprint_10m",
       "30m_sprint": "sprint_30m",
       countermovement_jump: "cmj",
       broad_jump: "broad_jump",
-      yoyo_ir1: "yoyo_ir1",
+      yoyo_ir1: "vo2max",
       "505_agility": "agility_505",
-      vo2max: "vo2max",
       reaction_time: "reaction_time",
       body_fat: "body_fat_pct",
       squat_relative: "squat_rel",
-      max_speed: "max_speed",
+      max_speed: "est_max_speed",
     };
+
+    // ── Emit ASSESSMENT_RESULT event to Athlete Data Fabric (dual-write) ──
+    await emitEventSafe({
+      athleteId: auth.user.id,
+      eventType: 'ASSESSMENT_RESULT',
+      occurredAt: new Date().toISOString(),
+      source: 'MANUAL',
+      payload: {
+        test_type: testType,
+        primary_value: score,
+        primary_unit: unit || null,
+        raw_inputs: { notes },
+      },
+      createdBy: auth.user.id,
+    });
 
     const metricKey = CATALOG_TO_METRIC[testType];
     let benchmark = null;
@@ -136,7 +187,9 @@ export async function POST(req: NextRequest) {
       },
       { status: 201, headers: { "api-version": "v1" } },
     );
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  } catch (err) {
+    console.error("[POST /tests/my-results] Error:", err);
+    const message = err instanceof Error ? err.message : "Invalid request body";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

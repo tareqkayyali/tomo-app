@@ -20,21 +20,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
 import { getCoachPlayers } from '../../services/api';
-import { spacing, borderRadius, layout } from '../../theme';
+import { ragToColor } from '../../hooks/useAthleteSnapshot';
+import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { CoachStackParamList } from '../../navigation/types';
 import type { PlayerSummary } from '../../types';
 
 type Nav = NativeStackNavigationProp<CoachStackParamList>;
-
-function readinessColor(lastCheckinDate: string | null | undefined): string {
-  if (!lastCheckinDate) return '#6B6B6B'; // gray — no data
-  const daysSince = Math.floor(
-    (Date.now() - new Date(lastCheckinDate).getTime()) / (1000 * 60 * 60 * 24),
-  );
-  if (daysSince <= 1) return '#30D158'; // green
-  if (daysSince <= 3) return '#F39C12'; // yellow
-  return '#E74C3C'; // red
-}
 
 export function CoachPlayersScreen() {
   const { colors } = useTheme();
@@ -66,7 +57,7 @@ export function CoachPlayersScreen() {
 
   const renderPlayer = useCallback(
     ({ item }: { item: PlayerSummary }) => {
-      const dotColor = readinessColor(item.lastCheckinDate);
+      const dotColor = ragToColor(item.readinessRag);
       return (
         <Pressable
           onPress={() =>
@@ -93,6 +84,14 @@ export function CoachPlayersScreen() {
                 {item.sport.charAt(0).toUpperCase() + item.sport.slice(1)}
               </Text>
             </View>
+
+            {item.acwr != null && (
+              <View style={[styles.acwrBadge, { backgroundColor: colors.accent2 + '22' }]}>
+                <Text style={[styles.acwrText, { color: colors.accent2 }]}>
+                  ACWR {item.acwr.toFixed(1)}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.streakRow}>
               <Ionicons name="flame-outline" size={14} color={colors.accent1} />
@@ -129,7 +128,7 @@ export function CoachPlayersScreen() {
             onPress={() => navigation.navigate('CoachInvite')}
             style={[styles.emptyButton, { backgroundColor: colors.accent1 }]}
           >
-            <Text style={[styles.emptyButtonText, { color: '#FFFFFF' }]}>Generate Invite Code</Text>
+            <Text style={[styles.emptyButtonText, { color: colors.textOnDark }]}>Generate Invite Code</Text>
           </Pressable>
         </View>
       ) : (
@@ -159,7 +158,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     marginHorizontal: layout.screenMargin,
     marginTop: spacing.md,
     marginBottom: spacing.md,
@@ -185,7 +184,7 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
     flex: 1,
     marginRight: spacing.sm,
   },
@@ -206,7 +205,16 @@ const styles = StyleSheet.create({
   },
   sportBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
+  },
+  acwrBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  acwrText: {
+    fontSize: 11,
+    fontFamily: fontFamily.semiBold,
   },
   streakRow: {
     flexDirection: 'row',
@@ -215,7 +223,7 @@ const styles = StyleSheet.create({
   },
   streakText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
   },
   emptyState: {
     flex: 1,
@@ -236,6 +244,6 @@ const styles = StyleSheet.create({
   },
   emptyButtonText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
 });

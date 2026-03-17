@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
-import { mapDbRowToCalendarEvent } from "@/lib/calendarHelpers";
+import { mapDbRowToCalendarEvent, localToUtc } from "@/lib/calendarHelpers";
+import {
+  validateEvent,
+  autoPosition,
+  timeToMinutes,
+  minutesToTime,
+  DEFAULT_CONFIG,
+} from "@/services/schedulingEngine";
+import type { ScheduleEvent } from "@/services/schedulingEngine";
+import { bridgeCalendarToEventStream } from "@/services/events/calendarBridge";
+import { estimateTotalLoad } from "@/services/events/computations/loadEstimator";
 
 // ─── Validation ────────────────────────────────────────────────────────────
 
@@ -98,27 +108,28 @@ export async function PATCH(
     }
 
     // Build update object
+    const tz = (body as Record<string, unknown>).timezone as string || "UTC";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const update: Record<string, any> = {};
 
     if (startTime !== undefined) {
       update.start_at = startTime
-        ? `${targetDate}T${startTime}:00`
-        : `${targetDate}T00:00:00`;
+        ? localToUtc(targetDate, `${startTime}:00`, tz)
+        : localToUtc(targetDate, "00:00:00", tz);
     } else if (newDate) {
-      // Date changed but startTime not provided — keep existing time
-      const existingTime = String(existing.start_at).slice(11, 16) || "00:00";
-      update.start_at = `${targetDate}T${existingTime}:00`;
+      // Date changed but startTime not provided — convert existing UTC time to local, then back
+      const existingUtc = new Date(String(existing.start_at));
+      const localTime = existingUtc.toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false });
+      update.start_at = localToUtc(targetDate, `${localTime}:00`, tz);
     }
 
     if (endTime !== undefined) {
-      update.end_at = endTime ? `${targetDate}T${endTime}:00` : null;
-    } else if (newDate) {
-      // Date changed but endTime not provided — keep existing end time
-      const existingEnd = existing.end_at
-        ? String(existing.end_at).slice(11, 16)
-        : null;
-      update.end_at = existingEnd ? `${targetDate}T${existingEnd}:00` : null;
+      update.end_at = endTime ? localToUtc(targetDate, `${endTime}:00`, tz) : null;
+    } else if (newDate && existing.end_at) {
+      // Date changed but endTime not provided — convert existing UTC end time to local, then back
+      const existingEndUtc = new Date(String(existing.end_at));
+      const localEndTime = existingEndUtc.toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false });
+      update.end_at = localToUtc(targetDate, `${localEndTime}:00`, tz);
     }
 
     if (Object.keys(update).length === 0) {
@@ -126,6 +137,75 @@ export async function PATCH(
         { error: "No fields to update" },
         { status: 400 }
       );
+    }
+
+    // ── Smart Calendar: conflict validation for moves ───────────
+    let autoRepositioned = false;
+    let originalTime: { startTime: string | null; endTime: string | null } | null = null;
+
+    const resolvedStartTime = startTime ?? (existing.start_at
+      ? new Date(String(existing.start_at)).toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false })
+      : null);
+    const resolvedEndTime = endTime ?? (existing.end_at
+      ? new Date(String(existing.end_at)).toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false })
+      : null);
+
+    if (resolvedStartTime && resolvedEndTime) {
+      // Fetch existing events for the target date (excluding this event)
+      const dayStartUtc = localToUtc(targetDate, "00:00:00", tz);
+      const dayEndUtc = localToUtc(targetDate, "23:59:59", tz);
+      const { data: dayRows } = await db
+        .from("calendar_events")
+        .select("*")
+        .eq("user_id", auth.user.id)
+        .gte("start_at", dayStartUtc)
+        .lte("start_at", dayEndUtc)
+        .neq("id", id);
+
+      const existingEvents: ScheduleEvent[] = (dayRows || []).map((r: Record<string, unknown>) => {
+        const mapped = mapDbRowToCalendarEvent(r, tz);
+        return {
+          id: String(mapped.id),
+          name: String(mapped.name),
+          startTime: mapped.startTime as string | null,
+          endTime: mapped.endTime as string | null,
+          type: String(mapped.type),
+          intensity: mapped.intensity as string | null,
+        };
+      });
+
+      const config = { ...DEFAULT_CONFIG };
+      const gapPref = (body as Record<string, unknown>).gapMinutes;
+      if (typeof gapPref === "number" && gapPref >= 0 && gapPref <= 120) {
+        config.gapMinutes = gapPref;
+      }
+
+      const newStartMin = timeToMinutes(resolvedStartTime);
+      const newEndMin = timeToMinutes(resolvedEndTime);
+      const conflict = validateEvent(newStartMin, newEndMin, existingEvents, config);
+
+      if (conflict.hasConflict) {
+        const duration = newEndMin - newStartMin;
+        const repositioned = autoPosition(duration, newStartMin, existingEvents, config);
+
+        if (!repositioned) {
+          return NextResponse.json(
+            {
+              error: "No available time slot for this move",
+              conflicts: conflict.conflictingEvents,
+              gapViolations: conflict.gapViolations,
+            },
+            { status: 409, headers: { "api-version": "v1" } }
+          );
+        }
+
+        autoRepositioned = true;
+        originalTime = { startTime: resolvedStartTime, endTime: resolvedEndTime };
+        const newStart = minutesToTime(repositioned.startMin);
+        const newEnd = minutesToTime(repositioned.endMin);
+        update.start_at = localToUtc(targetDate, `${newStart}:00`, tz);
+        update.end_at = localToUtc(targetDate, `${newEnd}:00`, tz);
+      }
     }
 
     const { data: updated, error } = await db
@@ -139,8 +219,40 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Bridge update to Layer 1 event stream for RIE (fire-and-forget)
+    const updatedRow = updated as any;
+    const durationMin = updatedRow.end_at && updatedRow.start_at
+      ? (new Date(updatedRow.end_at).getTime() - new Date(updatedRow.start_at).getTime()) / 60000
+      : 60;
+    bridgeCalendarToEventStream({
+      athleteId: auth.user.id,
+      calendarEvent: {
+        id: updatedRow.id,
+        title: updatedRow.title,
+        event_type: updatedRow.event_type,
+        start_at: updatedRow.start_at,
+        end_at: updatedRow.end_at,
+        intensity: updatedRow.intensity ?? null,
+        estimated_load_au: updatedRow.estimated_load_au ?? estimateTotalLoad({
+          event_type: updatedRow.event_type,
+          intensity: updatedRow.intensity ?? null,
+          duration_min: durationMin,
+        }),
+      },
+      action: 'UPDATED',
+      createdBy: auth.user.id,
+    }).catch((err) => console.error('[CalendarBridge] live bridge error:', err));
+
+    const mappedEvent = mapDbRowToCalendarEvent(updated as Record<string, unknown>, tz);
     return NextResponse.json(
-      { event: mapDbRowToCalendarEvent(updated as Record<string, unknown>) },
+      {
+        event: mappedEvent,
+        ...(autoRepositioned && {
+          autoRepositioned: true,
+          originalTime,
+          suggestedTime: { startTime: mappedEvent.startTime, endTime: mappedEvent.endTime },
+        }),
+      },
       { headers: { "api-version": "v1" } }
     );
   } catch {
@@ -164,10 +276,10 @@ export async function DELETE(
 
   const db = supabaseAdmin();
 
-  // Verify ownership before delete
+  // Verify ownership before delete (select extra fields for bridge)
   const { data: event } = await db
     .from("calendar_events")
-    .select("id, user_id, start_at")
+    .select("id, user_id, start_at, end_at, event_type, intensity, estimated_load_au, title")
     .eq("id", id)
     .single();
 
@@ -187,6 +299,23 @@ export async function DELETE(
       { status: 423 }
     );
   }
+
+  // Bridge deletion to Layer 1 event stream before deleting (fire-and-forget)
+  const evtData = event as any;
+  bridgeCalendarToEventStream({
+    athleteId: auth.user.id,
+    calendarEvent: {
+      id: evtData.id,
+      title: evtData.title ?? '',
+      event_type: evtData.event_type,
+      start_at: evtData.start_at,
+      end_at: evtData.end_at,
+      intensity: evtData.intensity ?? null,
+      estimated_load_au: evtData.estimated_load_au ?? null,
+    },
+    action: 'DELETED',
+    createdBy: auth.user.id,
+  }).catch((err) => console.error('[CalendarBridge] live bridge error:', err));
 
   const { error } = await db.from("calendar_events").delete().eq("id", id);
 

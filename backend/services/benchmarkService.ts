@@ -65,6 +65,7 @@ export interface NormRow {
   p50: number;
   p75: number;
   p90: number;
+  stdDev: number;
   sourceRef: string;
 }
 
@@ -167,7 +168,9 @@ async function buildResult(
   level: string,
   options?: { source?: string; testedAt?: string }
 ): Promise<BenchmarkResult> {
-  const direction = norm.direction as "lower_better" | "higher_better";
+  const rawDir = norm.direction as string;
+  const direction: "lower_better" | "higher_better" =
+    rawDir === "lower" || rawDir === "lower_better" ? "lower_better" : "higher_better";
   const p50 = Number(norm.p50);
   const sd = Number(norm.std_dev);
   const percentile = interpolatePercentile(value, p50, sd, direction);
@@ -255,7 +258,9 @@ export async function getPlayerBenchmarkProfile(
 
     if (!norm) continue;
 
-    const direction = (norm as Record<string, unknown>).direction as "lower_better" | "higher_better";
+    const rawDir2 = (norm as Record<string, unknown>).direction as string;
+    const direction: "lower_better" | "higher_better" =
+      rawDir2 === "lower" || rawDir2 === "lower_better" ? "lower_better" : "higher_better";
     const value = Number(snapshot.value);
     const percentile = Number(snapshot.percentile);
     const zone = snapshot.zone as PercentileZone;
@@ -347,7 +352,7 @@ export async function getPositionNorms(
 ): Promise<NormRow[]> {
   const { data } = await db()
     .from("sport_normative_data")
-    .select("metric_key, metric_label, unit, direction, p10, p25, p50, p75, p90, source_ref")
+    .select("metric_key, metric_label, unit, direction, p10, p25, p50, p75, p90, std_dev, source_ref")
     .eq("sport_id", sportId || "football")
     .eq("position_group", position)
     .eq("age_band", ageBand)
@@ -367,6 +372,7 @@ export async function getPositionNorms(
     p50: Number(row.p50),
     p75: Number(row.p75),
     p90: Number(row.p90),
+    stdDev: Number(row.std_dev) || 0,
     sourceRef: row.source_ref as string,
   }));
 }

@@ -6,7 +6,7 @@
  * When opened from grid slot tap: time + 1hr duration auto-filled, just pick type.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -31,10 +31,18 @@ import {
 } from '../theme';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
-import { createCalendarEvent } from '../services/api';
+import { createCalendarEvent, getCalendarEventsByDate } from '../services/api';
+import {
+  suggestBestTimes,
+  minutesToTime,
+  DEFAULT_CONFIG,
+} from '../services/schedulingEngine';
+import type { ScheduleEvent } from '../services/schedulingEngine';
+import { SlotPill } from '../components/flow/SlotPill';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../navigation/types';
+import type { CalendarEvent } from '../types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -254,6 +262,49 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
   const dateOptions = useMemo(() => getDateOptions(), []);
   const ms = useMemo(() => createModalStyles(colors), [colors]);
 
+  // ─── Best Time Suggestions ───
+  const [dayEvents, setDayEvents] = useState<CalendarEvent[]>([]);
+  const [selectedSlotIdx, setSelectedSlotIdx] = useState<number | null>(null);
+
+  // Fetch day events when date changes
+  useEffect(() => {
+    let cancelled = false;
+    getCalendarEventsByDate(date)
+      .then((res) => { if (!cancelled) setDayEvents(res.events); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [date]);
+
+  // Map to ScheduleEvent shape for the engine
+  const scheduleEvents = useMemo((): ScheduleEvent[] =>
+    dayEvents
+      .filter((e) => e.startTime && e.endTime)
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        type: e.type,
+        intensity: e.intensity,
+      })),
+    [dayEvents]
+  );
+
+  // Compute top 3 suggestions when type + duration are both set
+  const bestTimeSuggestions = useMemo(() => {
+    if (!duration) return [];
+    const dow = new Date(date + 'T00:00:00').getDay();
+    return suggestBestTimes(eventType, duration, scheduleEvents, null, DEFAULT_CONFIG, dow, 3);
+  }, [eventType, duration, scheduleEvents, date]);
+
+  const handleSlotPress = useCallback((idx: number) => {
+    const slot = bestTimeSuggestions[idx];
+    if (!slot) return;
+    setStartTime(minutesToTime(slot.startMin));
+    setSelectedSlotIdx(idx);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, [bestTimeSuggestions]);
+
   const handleSubmit = useCallback(async () => {
     setSubmitting(true);
     try {
@@ -324,6 +375,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                     key={t.key}
                     onPress={() => {
                       setEventType(t.key);
+                      setSelectedSlotIdx(null);
                       if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     }}
                     style={[styles.chip, active && styles.chipActive]}
@@ -341,6 +393,32 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
               })}
             </View>
           </View>
+
+          {/* ═══ Best Time Suggestions ═══ */}
+          {bestTimeSuggestions.length > 0 && (
+            <View style={styles.bestTimeSection}>
+              <Text style={styles.bestTimeLabel}>Best Times</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.bestTimeRow}
+              >
+                {bestTimeSuggestions.map((slot, idx) => (
+                  <SlotPill
+                    key={`${slot.startMin}-${slot.endMin}`}
+                    startMin={slot.startMin}
+                    endMin={slot.endMin}
+                    score={slot.score}
+                    reason={slot.reason}
+                    isBest={idx === 0}
+                    selected={selectedSlotIdx === idx}
+                    onPress={() => handleSlotPress(idx)}
+                    colors={colors}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           {/* ═══ Group 2: Date & Time & Duration ═══ */}
           <View style={styles.group}>
@@ -427,6 +505,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                   <Pressable
                     onPress={() => {
                       setDuration(item.value);
+                      setSelectedSlotIdx(null);
                       setShowDurationPicker(false);
                       if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     }}
@@ -613,6 +692,22 @@ function createStyles(colors: ThemeColors) {
       color: colors.textOnDark,
       minHeight: 80,
       paddingVertical: 4,
+    },
+
+    bestTimeSection: {
+      marginBottom: spacing.md,
+    },
+    bestTimeLabel: {
+      fontFamily: fontFamily.medium,
+      fontSize: 13,
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
+      marginBottom: 8,
+    },
+    bestTimeRow: {
+      flexDirection: 'row',
+      gap: 8,
     },
   });
 }

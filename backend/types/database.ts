@@ -34,6 +34,231 @@ export type Database = {
   }
   public: {
     Tables: {
+      athlete_daily_load: {
+        Row: {
+          academic_load_au: number
+          athlete_id: string
+          load_date: string
+          session_count: number
+          training_load_au: number
+        }
+        Insert: {
+          academic_load_au?: number
+          athlete_id: string
+          load_date: string
+          session_count?: number
+          training_load_au?: number
+        }
+        Update: {
+          academic_load_au?: number
+          athlete_id?: string
+          load_date?: string
+          session_count?: number
+          training_load_au?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_daily_load_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      athlete_events: {
+        Row: {
+          athlete_id: string
+          correction_of: string | null
+          created_at: string
+          created_by: string
+          event_id: string
+          event_type: string
+          occurred_at: string
+          payload: Json
+          source: string
+        }
+        Insert: {
+          athlete_id: string
+          correction_of?: string | null
+          created_at?: string
+          created_by: string
+          event_id?: string
+          event_type: string
+          occurred_at: string
+          payload?: Json
+          source: string
+        }
+        Update: {
+          athlete_id?: string
+          correction_of?: string | null
+          created_at?: string
+          created_by?: string
+          event_id?: string
+          event_type?: string
+          occurred_at?: string
+          payload?: Json
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_events_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "athlete_events_correction_of_fkey"
+            columns: ["correction_of"]
+            isOneToOne: false
+            referencedRelation: "athlete_events"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "athlete_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      athlete_snapshots: {
+        Row: {
+          academic_load_7day: number | null
+          academic_year: number | null
+          acwr: number | null
+          athlete_id: string
+          athletic_load_7day: number | null
+          atl_7day: number | null
+          coachability_index: number | null
+          ctl_28day: number | null
+          cv_completeness: number | null
+          dob: string | null
+          dual_load_index: number | null
+          height_cm: number | null
+          hrv_baseline_ms: number | null
+          hrv_today_ms: number | null
+          injury_risk_flag: string | null
+          last_checkin_at: string | null
+          last_event_id: string | null
+          last_session_at: string | null
+          mastery_scores: Json
+          phv_offset_years: number | null
+          phv_stage: string | null
+          position: string | null
+          readiness_rag: string | null
+          readiness_score: number | null
+          resting_hr_bpm: number | null
+          sessions_total: number
+          sleep_quality: number | null
+          snapshot_at: string
+          speed_profile: Json
+          sport: string | null
+          streak_days: number
+          strength_benchmarks: Json
+          training_age_weeks: number
+          triangle_rag: string | null
+          weight_kg: number | null
+          wellness_7day_avg: number | null
+          wellness_trend: string | null
+        }
+        Insert: {
+          academic_load_7day?: number | null
+          academic_year?: number | null
+          acwr?: number | null
+          athlete_id: string
+          athletic_load_7day?: number | null
+          atl_7day?: number | null
+          coachability_index?: number | null
+          ctl_28day?: number | null
+          cv_completeness?: number | null
+          dob?: string | null
+          dual_load_index?: number | null
+          height_cm?: number | null
+          hrv_baseline_ms?: number | null
+          hrv_today_ms?: number | null
+          injury_risk_flag?: string | null
+          last_checkin_at?: string | null
+          last_event_id?: string | null
+          last_session_at?: string | null
+          mastery_scores?: Json
+          phv_offset_years?: number | null
+          phv_stage?: string | null
+          position?: string | null
+          readiness_rag?: string | null
+          readiness_score?: number | null
+          resting_hr_bpm?: number | null
+          sessions_total?: number
+          sleep_quality?: number | null
+          snapshot_at?: string
+          speed_profile?: Json
+          sport?: string | null
+          streak_days?: number
+          strength_benchmarks?: Json
+          training_age_weeks?: number
+          triangle_rag?: string | null
+          weight_kg?: number | null
+          wellness_7day_avg?: number | null
+          wellness_trend?: string | null
+        }
+        Update: {
+          academic_load_7day?: number | null
+          academic_year?: number | null
+          acwr?: number | null
+          athlete_id?: string
+          athletic_load_7day?: number | null
+          atl_7day?: number | null
+          coachability_index?: number | null
+          ctl_28day?: number | null
+          cv_completeness?: number | null
+          dob?: string | null
+          dual_load_index?: number | null
+          height_cm?: number | null
+          hrv_baseline_ms?: number | null
+          hrv_today_ms?: number | null
+          injury_risk_flag?: string | null
+          last_checkin_at?: string | null
+          last_event_id?: string | null
+          last_session_at?: string | null
+          mastery_scores?: Json
+          phv_offset_years?: number | null
+          phv_stage?: string | null
+          position?: string | null
+          readiness_rag?: string | null
+          readiness_score?: number | null
+          resting_hr_bpm?: number | null
+          sessions_total?: number
+          sleep_quality?: number | null
+          snapshot_at?: string
+          speed_profile?: Json
+          sport?: string | null
+          streak_days?: number
+          strength_benchmarks?: Json
+          training_age_weeks?: number
+          triangle_rag?: string | null
+          weight_kg?: number | null
+          wellness_7day_avg?: number | null
+          wellness_trend?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_snapshots_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "athlete_snapshots_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "athlete_events"
+            referencedColumns: ["event_id"]
+          },
+        ]
+      }
       blazepod_sessions: {
         Row: {
           avg_reaction_ms: number | null
@@ -85,9 +310,12 @@ export type Database = {
         Row: {
           created_at: string
           end_at: string | null
+          estimated_load_au: number | null
           event_type: string
           id: string
+          intensity: string | null
           notes: string | null
+          sport: string | null
           start_at: string
           title: string
           user_id: string
@@ -95,9 +323,12 @@ export type Database = {
         Insert: {
           created_at?: string
           end_at?: string | null
+          estimated_load_au?: number | null
           event_type: string
           id?: string
+          intensity?: string | null
           notes?: string | null
+          sport?: string | null
           start_at: string
           title: string
           user_id: string
@@ -105,9 +336,12 @@ export type Database = {
         Update: {
           created_at?: string
           end_at?: string | null
+          estimated_load_au?: number | null
           event_type?: string
           id?: string
+          intensity?: string | null
           notes?: string | null
+          sport?: string | null
           start_at?: string
           title?: string
           user_id?: string
@@ -345,6 +579,102 @@ export type Database = {
             columns: ["sport_id"]
             isOneToOne: false
             referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drill_equipment: {
+        Row: {
+          drill_id: string
+          id: string
+          name: string
+          optional: boolean
+          quantity: number
+        }
+        Insert: {
+          drill_id: string
+          id?: string
+          name: string
+          optional?: boolean
+          quantity?: number
+        }
+        Update: {
+          drill_id?: string
+          id?: string
+          name?: string
+          optional?: boolean
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drill_equipment_drill_id_fkey"
+            columns: ["drill_id"]
+            isOneToOne: false
+            referencedRelation: "training_drills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drill_progressions: {
+        Row: {
+          description: string
+          drill_id: string
+          duration_minutes: number | null
+          id: string
+          label: string
+          level: number
+          sort_order: number
+        }
+        Insert: {
+          description?: string
+          drill_id: string
+          duration_minutes?: number | null
+          id?: string
+          label: string
+          level?: number
+          sort_order?: number
+        }
+        Update: {
+          description?: string
+          drill_id?: string
+          duration_minutes?: number | null
+          id?: string
+          label?: string
+          level?: number
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drill_progressions_drill_id_fkey"
+            columns: ["drill_id"]
+            isOneToOne: false
+            referencedRelation: "training_drills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drill_tags: {
+        Row: {
+          drill_id: string
+          id: string
+          tag: string
+        }
+        Insert: {
+          drill_id: string
+          id?: string
+          tag: string
+        }
+        Update: {
+          drill_id?: string
+          id?: string
+          tag?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drill_tags_drill_id_fkey"
+            columns: ["drill_id"]
+            isOneToOne: false
+            referencedRelation: "training_drills"
             referencedColumns: ["id"]
           },
         ]
@@ -918,6 +1248,156 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      player_benchmark_snapshots: {
+        Row: {
+          age_band_used: string | null
+          competition_lvl: string | null
+          created_at: string
+          id: string
+          metric_key: string
+          metric_label: string
+          percentile: number
+          position_used: string | null
+          source: string
+          tested_at: string
+          user_id: string
+          value: number
+          zone: string
+        }
+        Insert: {
+          age_band_used?: string | null
+          competition_lvl?: string | null
+          created_at?: string
+          id?: string
+          metric_key: string
+          metric_label: string
+          percentile: number
+          position_used?: string | null
+          source?: string
+          tested_at?: string
+          user_id: string
+          value: number
+          zone: string
+        }
+        Update: {
+          age_band_used?: string | null
+          competition_lvl?: string | null
+          created_at?: string
+          id?: string
+          metric_key?: string
+          metric_label?: string
+          percentile?: number
+          position_used?: string | null
+          source?: string
+          tested_at?: string
+          user_id?: string
+          value?: number
+          zone?: string
+        }
+        Relationships: []
+      }
+      player_schedule_preferences: {
+        Row: {
+          buffer_default_min: number | null
+          buffer_post_high_intensity_min: number | null
+          buffer_post_match_min: number | null
+          club_days: number[] | null
+          club_start: string | null
+          day_bounds_end: string | null
+          day_bounds_start: string | null
+          days_per_subject: number | null
+          exam_period_active: boolean | null
+          exam_schedule: Json | null
+          exam_start_date: string | null
+          exam_subjects: string[] | null
+          gym_days: number[] | null
+          gym_duration_min: number | null
+          gym_start: string | null
+          league_is_active: boolean | null
+          personal_dev_days: number[] | null
+          personal_dev_start: string | null
+          pre_exam_study_weeks: number | null
+          school_days: number[] | null
+          school_end: string | null
+          school_start: string | null
+          sleep_end: string | null
+          sleep_start: string | null
+          study_days: number[] | null
+          study_duration_min: number | null
+          study_start: string | null
+          study_subjects: string[] | null
+          training_categories: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          buffer_default_min?: number | null
+          buffer_post_high_intensity_min?: number | null
+          buffer_post_match_min?: number | null
+          club_days?: number[] | null
+          club_start?: string | null
+          day_bounds_end?: string | null
+          day_bounds_start?: string | null
+          days_per_subject?: number | null
+          exam_period_active?: boolean | null
+          exam_schedule?: Json | null
+          exam_start_date?: string | null
+          exam_subjects?: string[] | null
+          gym_days?: number[] | null
+          gym_duration_min?: number | null
+          gym_start?: string | null
+          league_is_active?: boolean | null
+          personal_dev_days?: number[] | null
+          personal_dev_start?: string | null
+          pre_exam_study_weeks?: number | null
+          school_days?: number[] | null
+          school_end?: string | null
+          school_start?: string | null
+          sleep_end?: string | null
+          sleep_start?: string | null
+          study_days?: number[] | null
+          study_duration_min?: number | null
+          study_start?: string | null
+          study_subjects?: string[] | null
+          training_categories?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          buffer_default_min?: number | null
+          buffer_post_high_intensity_min?: number | null
+          buffer_post_match_min?: number | null
+          club_days?: number[] | null
+          club_start?: string | null
+          day_bounds_end?: string | null
+          day_bounds_start?: string | null
+          days_per_subject?: number | null
+          exam_period_active?: boolean | null
+          exam_schedule?: Json | null
+          exam_start_date?: string | null
+          exam_subjects?: string[] | null
+          gym_days?: number[] | null
+          gym_duration_min?: number | null
+          gym_start?: string | null
+          league_is_active?: boolean | null
+          personal_dev_days?: number[] | null
+          personal_dev_start?: string | null
+          pre_exam_study_weeks?: number | null
+          school_days?: number[] | null
+          school_end?: string | null
+          school_start?: string | null
+          sleep_end?: string | null
+          sleep_start?: string | null
+          study_days?: number[] | null
+          study_duration_min?: number | null
+          study_start?: string | null
+          study_subjects?: string[] | null
+          training_categories?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       points_ledger: {
         Row: {
@@ -1520,6 +2000,107 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_drills: {
+        Row: {
+          active: boolean
+          age_bands: Json
+          attribute_keys: Json
+          category: string
+          created_at: string
+          description: string
+          duration_minutes: number
+          id: string
+          image_url: string | null
+          instructions: Json
+          intensity: string
+          name: string
+          players_max: number
+          players_min: number
+          position_keys: Json
+          slug: string
+          sort_order: number
+          sport_id: string
+          video_url: string | null
+        }
+        Insert: {
+          active?: boolean
+          age_bands?: Json
+          attribute_keys?: Json
+          category: string
+          created_at?: string
+          description?: string
+          duration_minutes?: number
+          id?: string
+          image_url?: string | null
+          instructions?: Json
+          intensity: string
+          name: string
+          players_max?: number
+          players_min?: number
+          position_keys?: Json
+          slug: string
+          sort_order?: number
+          sport_id: string
+          video_url?: string | null
+        }
+        Update: {
+          active?: boolean
+          age_bands?: Json
+          attribute_keys?: Json
+          category?: string
+          created_at?: string
+          description?: string
+          duration_minutes?: number
+          id?: string
+          image_url?: string | null
+          instructions?: Json
+          intensity?: string
+          name?: string
+          players_max?: number
+          players_min?: number
+          position_keys?: Json
+          slug?: string
+          sort_order?: number
+          sport_id?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
+      user_drill_history: {
+        Row: {
+          completed_at: string
+          drill_id: string
+          id: string
+          notes: string | null
+          rating: number | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          drill_id: string
+          id?: string
+          notes?: string | null
+          rating?: number | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          drill_id?: string
+          id?: string
+          notes?: string | null
+          rating?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_drill_history_drill_id_fkey"
+            columns: ["drill_id"]
+            isOneToOne: false
+            referencedRelation: "training_drills"
             referencedColumns: ["id"]
           },
         ]

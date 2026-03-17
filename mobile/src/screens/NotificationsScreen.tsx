@@ -29,6 +29,7 @@ import {
 } from '../services/api';
 import { spacing, borderRadius, layout } from '../theme';
 import type { AppNotification, NotificationType } from '../types';
+import { DrillNotificationCard } from '../components/player/DrillNotificationCard';
 
 const ICON_MAP: Record<NotificationType, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   suggestion_received: { icon: 'bulb-outline', color: '#FF6B35' },
@@ -39,6 +40,8 @@ const ICON_MAP: Record<NotificationType, { icon: keyof typeof Ionicons.glyphMap;
   parent_link_request: { icon: 'people-outline', color: '#4A9EFF' },
   coach_link_request: { icon: 'fitness-outline', color: '#FF6B35' },
   study_info_request: { icon: 'school-outline', color: '#4A9EFF' },
+  coach_drill_assigned: { icon: 'barbell-outline', color: '#FF6B35' },
+  coach_programme_published: { icon: 'megaphone-outline', color: '#4A9EFF' },
 };
 
 function timeAgo(dateStr: string): string {
@@ -139,6 +142,17 @@ export function NotificationsScreen() {
   const hasUnread = notifications.some((n) => !n.read);
 
   const renderItem = ({ item }: { item: AppNotification }) => {
+    // Coach drill notifications use the rich DrillNotificationCard
+    if (item.type === 'coach_drill_assigned' || item.type === 'coach_programme_published') {
+      return (
+        <DrillNotificationCard
+          notification={item as any}
+          onActed={fetchData}
+          colors={colors}
+        />
+      );
+    }
+
     const meta = ICON_MAP[item.type] || ICON_MAP.suggestion_received;
     const isParentLink = item.type === 'parent_link_request' || item.type === 'coach_link_request';
     const resolved = resolvedLinks[item.id];

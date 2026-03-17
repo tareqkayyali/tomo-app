@@ -38,10 +38,10 @@ import type {
   CalendarEvent,
 } from '../../types';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<ParentTabParamList, 'StudyPlan'>,
-  NativeStackScreenProps<ParentStackParamList>
->;
+// Legacy screen — no longer mounted as a tab but kept for reference
+type Props = {
+  navigation: any;
+};
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -228,7 +228,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
                 ]}
                 onPress={() => setSelectedChild(child)}
               >
-                <Text style={{ color: selectedChild?.id === child.id ? '#FFF' : colors.textOnDark, fontSize: 14, fontWeight: '600' }}>
+                <Text style={{ color: selectedChild?.id === child.id ? colors.textOnDark : colors.textOnDark, fontSize: 14, fontFamily: fontFamily.semiBold }}>
                   {child.name}
                 </Text>
               </TouchableOpacity>
@@ -254,11 +254,11 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
               disabled={notifying}
             >
               {notifying ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <ActivityIndicator size="small" color={colors.textOnDark} />
               ) : (
                 <>
-                  <Ionicons name="notifications-outline" size={18} color="#FFF" />
-                  <Text style={styles.notifyBtnText}>Notify {selectedChild.name.split(' ')[0]}</Text>
+                  <Ionicons name="notifications-outline" size={18} color={colors.textOnDark} />
+                  <Text style={[styles.notifyBtnText, { color: colors.textOnDark }]}>Notify {selectedChild.name.split(' ')[0]}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -288,7 +288,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
 
               {/* Exams */}
               <View style={styles.summaryRow}>
-                <Ionicons name="document-text-outline" size={16} color="#E74C3C" />
+                <Ionicons name="document-text-outline" size={16} color={colors.error} />
                 <View style={{ flex: 1, gap: 4 }}>
                   {studyProfile.examSchedule.map((e) => (
                     <Text key={e.id} style={[styles.examLine, { color: colors.textSecondary }]}>
@@ -340,7 +340,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
               )}
               {!eventsLoading && studyEvents.map((event) => (
                 <View key={event.id} style={[styles.eventCard, { backgroundColor: colors.surface }]}>
-                  <View style={[styles.eventDot, { backgroundColor: event.type === 'exam' ? '#E74C3C' : '#6366F1' }]} />
+                  <View style={[styles.eventDot, { backgroundColor: event.type === 'exam' ? colors.eventExam : colors.eventStudyBlock }]} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.eventName, { color: colors.textOnDark }]}>{event.name}</Text>
                     <Text style={[styles.eventTime, { color: colors.textSecondary }]}>
@@ -358,8 +358,8 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
                 style={[styles.actionBtn, { backgroundColor: colors.accent1 }]}
                 onPress={() => setShowSuggestForm(true)}
               >
-                <Ionicons name="bulb-outline" size={18} color="#FFF" />
-                <Text style={styles.actionBtnText}>Suggest Changes</Text>
+                <Ionicons name="bulb-outline" size={18} color={colors.textOnDark} />
+                <Text style={[styles.actionBtnText, { color: colors.textOnDark }]}>Suggest Changes</Text>
               </TouchableOpacity>
             </View>
 
@@ -393,11 +393,11 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
                     disabled={sendingSuggestion}
                   >
                     {sendingSuggestion ? (
-                      <ActivityIndicator size="small" color="#FFF" />
+                      <ActivityIndicator size="small" color={colors.textOnDark} />
                     ) : (
                       <>
-                        <Ionicons name="paper-plane" size={16} color="#FFF" />
-                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '600' }}>Send</Text>
+                        <Ionicons name="paper-plane" size={16} color={colors.textOnDark} />
+                        <Text style={{ color: colors.textOnDark, fontSize: 14, fontFamily: fontFamily.semiBold }}>Send</Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     textAlign: 'center',
   },
   emptySubtitle: {
@@ -466,9 +466,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   notifyBtnText: {
-    color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
 
   // Summary card
@@ -480,7 +479,7 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     marginBottom: 4,
   },
   summaryRow: {
@@ -501,7 +500,7 @@ const styles = StyleSheet.create({
   },
   readOnlyChipText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
   },
   examLine: {
     fontSize: 13,
@@ -517,7 +516,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     marginBottom: 4,
   },
   emptyEventsText: {
@@ -539,7 +538,7 @@ const styles = StyleSheet.create({
   },
   eventName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
   eventTime: {
     fontSize: 12,
@@ -562,9 +561,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   actionBtnText: {
-    color: '#FFF',
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
 
   // Suggest form

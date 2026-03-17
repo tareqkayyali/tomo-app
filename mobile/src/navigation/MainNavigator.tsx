@@ -15,11 +15,11 @@
  * Loop Indicator: 4-step daily progress (Plan → Test → Progress → For You)
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { Platform, StyleSheet, View, Pressable, Image, Text } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform, StyleSheet, View, Pressable, Image, Text, PanResponder } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -39,7 +39,6 @@ import { ForYouScreen } from '../screens/ForYouScreen';
 // Screens — Stack
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { CheckinScreen } from '../screens/CheckinScreen';
-import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 import { PrivacySettingsScreen } from '../screens/PrivacySettingsScreen';
@@ -65,11 +64,14 @@ import { FootballSkillDetailScreen, FootballRatingScreen, FootballTestInputScree
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { LinkAccountScreen } from '../screens/LinkAccountScreen';
 import { StudyPlanPreviewScreen } from '../screens/StudyPlanPreviewScreen';
+import { MyRulesScreen } from '../screens/MyRulesScreen';
 
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
-import { LoopIndicator, LoopCompleteBanner } from '../components/LoopIndicator';
+import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { useAuth } from '../hooks/useAuth';
+import { useCheckinStatus } from '../hooks/useCheckinStatus';
+import { NotificationsProvider, useNotifications } from '../hooks/useNotifications';
 
 import type { MainTabParamList, MainStackParamList } from './types';
 import { layout, spacing, borderRadius } from '../theme';
@@ -91,11 +93,11 @@ const TAB_ICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
 };
 
 const TAB_LABELS: Record<TabName, string> = {
-  Plan: 'Plan',
-  Test: 'Test',
+  Plan: 'Timeline',
+  Test: 'Output',
   Chat: 'TOMO',
-  Progress: 'Progress',
-  ForYou: 'For You',
+  Progress: 'Mastery',
+  ForYou: 'Own It',
 };
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -170,31 +172,44 @@ function CenterChatButton({
 
 // ── Tab Navigator ───────────────────────────────────────────────────
 
-// Tab-to-loop-step mapping (Chat is not a loop step)
-const TAB_TO_LOOP: Record<string, number> = { Plan: 0, Test: 1, Progress: 2, ForYou: 3 };
+const TAB_ORDER = ['Plan', 'Test', 'Chat', 'Progress', 'ForYou'] as const;
 
 function TabNavigator() {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
+  const { pendingDrillNotifs } = useNotifications();
   const [activeTab, setActiveTab] = useState<string>('Chat');
-  const [loopSteps, setLoopSteps] = useState([false, false, false, false]);
+  const navigationRef = useRef<any>(null);
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
 
-  // Mark loop step complete 1s after visiting the tab
-  useEffect(() => {
-    const stepIdx = TAB_TO_LOOP[activeTab];
-    if (stepIdx !== undefined && !loopSteps[stepIdx]) {
-      const timer = setTimeout(() => {
-        setLoopSteps(prev => {
-          const next = [...prev];
-          next[stepIdx] = true;
-          return next;
-        });
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab]);
+  // ── Swipe between tabs (Instagram-style) ──────────────────
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt, gestureState) => {
+        // Only respond to horizontal swipes (not vertical scroll)
+        return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < Math.abs(gestureState.dx) * 0.5;
+      },
+      onPanResponderRelease: (_evt, gestureState) => {
+        const SWIPE_THRESHOLD = 60;
+        if (Math.abs(gestureState.dx) < SWIPE_THRESHOLD) return;
 
-  const loopComplete = loopSteps.every(Boolean);
+        const currentIdx = TAB_ORDER.indexOf(activeTabRef.current as typeof TAB_ORDER[number]);
+        if (currentIdx === -1) return;
+
+        const nextIdx = gestureState.dx < 0
+          ? Math.min(currentIdx + 1, TAB_ORDER.length - 1) // swipe left → next
+          : Math.max(currentIdx - 1, 0); // swipe right → prev
+
+        if (nextIdx !== currentIdx && navigationRef.current) {
+          const nextTab = TAB_ORDER[nextIdx];
+          navigationRef.current.navigate(nextTab);
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+        }
+      },
+    })
+  ).current;
 
   const handleTabPress = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -202,34 +217,24 @@ function TabNavigator() {
     }
   }, []);
 
-  // Navigate to tab when user taps a loop step
-  const handleLoopStepPress = useCallback((index: number) => {
-    const tabNames = ['Plan', 'Test', 'Progress', 'ForYou'] as const;
-    // We need a ref to navigate — for now, just set the active tab
-    // (actual navigation is handled via the tab bar state listener)
-    setActiveTab(tabNames[index]);
-  }, []);
-
   return (
-    <View style={{ flex: 1 }}>
-      {/* Loop Indicator above tab content — paddingTop for safe area */}
-      <View style={{ backgroundColor: colors.background, paddingTop: insets.top }}>
-        <LoopIndicator steps={loopSteps} onStepPress={handleLoopStepPress} />
-        <LoopCompleteBanner visible={loopComplete} />
-      </View>
-
+    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
       <Tab.Navigator
         initialRouteName="Chat"
-        screenListeners={{
+        screenListeners={({ navigation }) => ({
+          focus: () => {
+            navigationRef.current = navigation;
+          },
           state: (e) => {
+            navigationRef.current = navigation;
             const state = (e as any).data?.state;
             if (state) {
               const currentRoute = state.routes[state.index];
               setActiveTab(currentRoute.name);
             }
           },
-          tabPress: handleTabPress,
-        }}
+          tabPress: () => handleTabPress(),
+        })}
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarIcon: ({ focused, color }) => {
@@ -267,7 +272,14 @@ function TabNavigator() {
         <Tab.Screen name="Test" component={TestsScreen} />
         <Tab.Screen name="Chat" component={HomeScreen} />
         <Tab.Screen name="Progress" component={ProgressScreen} />
-        <Tab.Screen name="ForYou" component={ForYouScreen} />
+        <Tab.Screen
+          name="ForYou"
+          component={ForYouScreen}
+          options={pendingDrillNotifs.length > 0 ? {
+            tabBarBadge: pendingDrillNotifs.length,
+            tabBarBadgeStyle: { backgroundColor: '#FF6B35', fontSize: 10, fontWeight: '700' },
+          } : undefined}
+        />
       </Tab.Navigator>
     </View>
   );
@@ -278,8 +290,15 @@ function TabNavigator() {
 function ScreenHeader() {
   const { profile } = useAuth();
   const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
+  const navigation = useNavigation<any>();
+  const { needsCheckin } = useCheckinStatus();
+
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <CheckinHeaderButton
+        needsCheckin={needsCheckin}
+        onPress={() => navigation.navigate('Checkin')}
+      />
       <NotificationBell />
       <HeaderProfileButton
         initial={initial}
@@ -307,6 +326,7 @@ export function MainNavigator() {
   const { colors } = useTheme();
   const stackHeaderOptions = useStackHeaderOptions();
   return (
+    <NotificationsProvider>
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
@@ -318,17 +338,12 @@ export function MainNavigator() {
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ headerShown: true, title: 'Profile', ...stackHeaderOptions, headerRight: undefined }}
+        options={{ headerShown: true, title: 'Profile', ...stackHeaderOptions, headerRight: undefined, headerBackVisible: true }}
       />
       <Stack.Screen
         name="Checkin"
         component={CheckinScreen}
         options={{ headerShown: true, title: 'Check-in', ...stackHeaderOptions }}
-      />
-      <Stack.Screen
-        name="EditProfile"
-        component={EditProfileScreen}
-        options={{ headerShown: true, title: 'Edit Profile', ...stackHeaderOptions }}
       />
       <Stack.Screen
         name="Settings"
@@ -464,6 +479,12 @@ export function MainNavigator() {
         component={FootballTestInputScreen}
         options={{ headerShown: true, title: 'Football Test', ...stackHeaderOptions }}
       />
+      {/* Rules screen */}
+      <Stack.Screen
+        name="MyRules"
+        component={MyRulesScreen}
+        options={{ headerShown: false }}
+      />
       {/* Study plan screens */}
       <Stack.Screen
         name="StudyPlanPreview"
@@ -482,6 +503,7 @@ export function MainNavigator() {
         options={{ headerShown: true, title: 'Link Account', ...stackHeaderOptions }}
       />
     </Stack.Navigator>
+    </NotificationsProvider>
   );
 }
 

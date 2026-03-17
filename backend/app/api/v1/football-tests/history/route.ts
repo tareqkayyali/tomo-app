@@ -2,6 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+/** Map snake_case DB row to camelCase for the mobile client. */
+function mapResult(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    date: row.date,
+    createdAt: row.created_at,
+    testType: row.test_type,
+    primaryValue: row.primary_value,
+    primaryUnit: row.primary_unit ?? "",
+    primaryLabel: row.primary_label ?? "",
+    derivedMetrics: row.derived_metrics ?? [],
+    percentile: row.percentile ?? null,
+    percentileLabel: row.percentile_label ?? "",
+    ageMean: row.age_mean ?? null,
+    ageMeanUnit: row.age_mean_unit ?? "",
+    isNewPB: row.is_new_pb ?? false,
+    previousBest: row.previous_best ?? null,
+    rawInputs: row.raw_inputs ?? {},
+  };
+}
+
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
@@ -28,8 +50,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const mapped = (results || []).map((r) => mapResult(r as Record<string, unknown>));
+
   return NextResponse.json(
-    { results: results || [], count: results?.length || 0 },
+    { results: mapped, count: mapped.length },
     { headers: { "api-version": "v1" } }
   );
 }

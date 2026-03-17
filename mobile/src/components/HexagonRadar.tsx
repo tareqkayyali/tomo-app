@@ -47,6 +47,8 @@ export interface RadarAttribute {
 export interface HexagonRadarProps {
   /** Array of exactly 6 attributes, one per hexagon vertex, in display order */
   attributes: RadarAttribute[];
+  /** Optional benchmark attributes for a second reference polygon (e.g. P50 norms) */
+  benchmarkAttributes?: RadarAttribute[];
   /** SVG canvas size in px (default 220) */
   size?: number;
   /** Whether to animate the polygon grow on mount (default true) */
@@ -57,6 +59,10 @@ export interface HexagonRadarProps {
   fillColor?: string;
   /** Fill opacity for the data polygon (default 0.25) */
   fillOpacity?: number;
+  /** Fill color for the benchmark polygon (default '#FFFFFF') */
+  benchmarkColor?: string;
+  /** Fill opacity for the benchmark polygon (default 0.08) */
+  benchmarkOpacity?: number;
 }
 
 // ═══ GEOMETRY HELPERS ═══
@@ -81,11 +87,14 @@ function pointsString(cx: number, cy: number, radius: number): string {
 
 export function HexagonRadar({
   attributes,
+  benchmarkAttributes,
   size = 220,
   animate = true,
   onAttributeTap,
   fillColor = '#FF6B35',
   fillOpacity = 0.25,
+  benchmarkColor = '#FFFFFF',
+  benchmarkOpacity = 0.08,
 }: HexagonRadarProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -105,6 +114,29 @@ export function HexagonRadar({
       return { attr, ratio, index: i };
     });
   }, [attributes]);
+
+  // Build benchmark vertex points (static reference polygon)
+  const benchmarkVertices = useMemo(() => {
+    if (!benchmarkAttributes) return null;
+    return benchmarkAttributes.map((attr, i) => {
+      const ratio = attr.maxValue > 0 ? attr.value / attr.maxValue : 0;
+      return { attr, ratio, index: i };
+    });
+  }, [benchmarkAttributes]);
+
+  // Static benchmark polygon points string
+  const benchmarkPointsStr = useMemo(() => {
+    if (!benchmarkVertices) return '';
+    return benchmarkVertices
+      .map(({ ratio, index }) => {
+        const r = maxR * ratio;
+        const angle = (Math.PI / 3) * index - Math.PI / 2;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        return `${x},${y}`;
+      })
+      .join(' ');
+  }, [benchmarkVertices, maxR, cx, cy]);
 
   // Animated points string for the data polygon
   const animatedProps = useAnimatedProps(() => {
@@ -149,6 +181,21 @@ export function HexagonRadar({
             />
           );
         })}
+
+        {/* Benchmark polygon (static reference shape) */}
+        {benchmarkPointsStr ? (
+          <>
+            <Polygon
+              points={benchmarkPointsStr}
+              fill={benchmarkColor}
+              fillOpacity={benchmarkOpacity}
+              stroke={benchmarkColor}
+              strokeWidth={1}
+              strokeOpacity={0.25}
+              strokeDasharray="4,3"
+            />
+          </>
+        ) : null}
 
         {/* Data polygon (animated) */}
         <AnimatedPolygon

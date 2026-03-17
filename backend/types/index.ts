@@ -212,9 +212,17 @@ export interface PlayerSummary {
   email: string;
   sport: Sport;
   age?: number;
-  readiness?: ReadinessLevel | null;
   currentStreak: number;
   totalPoints: number;
+  // Snapshot-powered fields (role-filtered via Data Fabric Layer 2)
+  readinessRag: string | null;        // GREEN | AMBER | RED
+  acwr: number | null;
+  dualLoadIndex: number | null;
+  wellnessTrend: string | null;       // IMPROVING | STABLE | DECLINING
+  lastSessionAt: string | null;
+  sessionsTotal: number | null;
+  // Legacy fields (backward compat)
+  readiness?: ReadinessLevel | null;
   lastCheckinDate?: string | null;
 }
 

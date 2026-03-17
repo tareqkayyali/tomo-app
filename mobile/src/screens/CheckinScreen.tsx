@@ -372,7 +372,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
   // ---- Completion view ----
   if (isComplete) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.completionContainer}>
           <Animated.View style={[styles.checkCircle, { borderColor: accentColor }, checkStyle]}>
             <Ionicons name="checkmark" size={48} color={accentColor} />
@@ -437,7 +437,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
 
   // ---- Wizard ----
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Progress bar */}
       <View style={styles.progressArea}>
         <ProgressBar progress={progress} color={accentColor} height={6} />

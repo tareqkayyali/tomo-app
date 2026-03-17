@@ -3,7 +3,7 @@
  * Toggle each notification type on/off, set daily reminder time.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,9 +14,10 @@ import {
   ActivityIndicator,
   Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, fontFamily } from '../theme';
+import { spacing, borderRadius, fontFamily } from '../theme';
+import type { ThemeColors } from '../theme/colors';
+import { useTheme } from '../hooks/useTheme';
 import {
   getNotificationSettings,
   updateNotificationSettings,
@@ -55,6 +56,9 @@ interface ToggleRowProps {
 // ---------------------------------------------------------------------------
 
 function ToggleRow({ icon, label, subtitle, value, onValueChange }: ToggleRowProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.toggleRow}>
       <View style={styles.toggleInfo}>
@@ -81,6 +85,9 @@ function ToggleRow({ icon, label, subtitle, value, onValueChange }: ToggleRowPro
 // ---------------------------------------------------------------------------
 
 export function NotificationSettingsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -167,18 +174,18 @@ export function NotificationSettingsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={[]}>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent1} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!prefs) return null;
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.card}>
           {/* 1. Daily Check-in Reminder */}
@@ -250,7 +257,7 @@ export function NotificationSettingsScreen() {
           Push notifications require a custom build. Local reminders work in Expo Go.
         </Text>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -258,105 +265,110 @@ export function NotificationSettingsScreen() {
 // Styles
 // ---------------------------------------------------------------------------
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollContent: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xxl,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
 
-  // ── Card ────────────────────────────────────────────────────────────
-  card: {
-    backgroundColor: colors.backgroundElevated,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
+    // ── Card ────────────────────────────────────────────────────────────
+    card: {
+      backgroundColor: colors.backgroundElevated,
+      borderRadius: borderRadius.lg,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+    },
 
-  // ── Toggle Row ──────────────────────────────────────────────────────
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-  },
-  toggleInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  toggleIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  toggleTextCol: {
-    flex: 1,
-  },
-  toggleLabel: {
-    ...typography.body,
-    color: colors.textOnDark,
-    fontFamily: fontFamily.medium,
-  },
-  toggleSubtitle: {
-    ...typography.metadataSmall,
-    color: colors.textInactive,
-    marginTop: 2,
-  },
+    // ── Toggle Row ──────────────────────────────────────────────────────
+    toggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: spacing.md,
+    },
+    toggleInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      marginRight: spacing.md,
+    },
+    toggleIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(255,255,255,0.06)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: spacing.md,
+    },
+    toggleTextCol: {
+      flex: 1,
+    },
+    toggleLabel: {
+      fontFamily: fontFamily.medium,
+      fontSize: 15,
+      color: colors.textOnDark,
+    },
+    toggleSubtitle: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      color: colors.textInactive,
+      marginTop: 2,
+    },
 
-  // ── Time selector ───────────────────────────────────────────────────
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    paddingLeft: 52, // Align with text (icon wrap 36 + margin 16)
-    marginBottom: spacing.xs,
-  },
-  timeLabel: {
-    ...typography.caption,
-    color: colors.textInactive,
-  },
-  timeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    gap: spacing.xs,
-  },
-  timeValue: {
-    ...typography.body,
-    color: colors.accent1,
-    fontFamily: fontFamily.medium,
-  },
+    // ── Time selector ───────────────────────────────────────────────────
+    timeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: spacing.sm,
+      paddingLeft: 52,
+      marginBottom: spacing.xs,
+    },
+    timeLabel: {
+      fontFamily: fontFamily.regular,
+      fontSize: 12,
+      color: colors.textInactive,
+    },
+    timeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,255,255,0.06)',
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      gap: spacing.xs,
+    },
+    timeValue: {
+      fontFamily: fontFamily.medium,
+      fontSize: 15,
+      color: colors.accent1,
+    },
 
-  // ── Divider ─────────────────────────────────────────────────────────
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-  },
+    // ── Divider ─────────────────────────────────────────────────────────
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+    },
 
-  // ── Footnote ────────────────────────────────────────────────────────
-  footnote: {
-    ...typography.metadataSmall,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: spacing.lg,
-  },
-});
+    // ── Footnote ────────────────────────────────────────────────────────
+    footnote: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginTop: spacing.lg,
+    },
+  });
+}

@@ -21,7 +21,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 import { getParentChildren } from '../../services/api';
-import { spacing, borderRadius } from '../../theme';
+import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ParentTabParamList, ParentStackParamList } from '../../navigation/types';
 
 type Props = CompositeScreenProps<
@@ -61,7 +61,7 @@ export function ParentSettingsScreen({ navigation }: Props) {
           onPress={() => navigation.navigate('Profile')}
         >
           <View style={[styles.avatar, { backgroundColor: colors.accent1 }]}>
-            <Text style={styles.avatarText}>
+            <Text style={[styles.avatarText, { color: colors.textOnDark }]}>
               {profile?.name?.charAt(0)?.toUpperCase() || '?'}
             </Text>
           </View>
@@ -102,8 +102,8 @@ export function ParentSettingsScreen({ navigation }: Props) {
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           <View style={styles.settingsRow}>
-            <View style={[styles.settingsIconWrap, { backgroundColor: '#2ED57322' }]}>
-              <Ionicons name="people-outline" size={20} color="#2ED573" />
+            <View style={[styles.settingsIconWrap, { backgroundColor: colors.success + '22' }]}>
+              <Ionicons name="people-outline" size={20} color={colors.success} />
             </View>
             <View style={styles.settingsRowContent}>
               <Text style={[styles.settingsRowTitle, { color: colors.textOnDark }]}>
@@ -121,8 +121,8 @@ export function ParentSettingsScreen({ navigation }: Props) {
             style={styles.settingsRow}
             onPress={() => navigation.navigate('EditProfile')}
           >
-            <View style={[styles.settingsIconWrap, { backgroundColor: '#4A9EFF22' }]}>
-              <Ionicons name="create-outline" size={20} color="#4A9EFF" />
+            <View style={[styles.settingsIconWrap, { backgroundColor: colors.accent2 + '22' }]}>
+              <Ionicons name="create-outline" size={20} color={colors.accent2} />
             </View>
             <View style={styles.settingsRowContent}>
               <Text style={[styles.settingsRowTitle, { color: colors.textOnDark }]}>
@@ -138,11 +138,11 @@ export function ParentSettingsScreen({ navigation }: Props) {
 
         {/* Logout */}
         <TouchableOpacity
-          style={[styles.logoutButton, { backgroundColor: '#FF475722' }]}
+          style={[styles.logoutButton, { backgroundColor: colors.error + '22' }]}
           onPress={handleLogout}
         >
-          <Ionicons name="log-out-outline" size={20} color="#FF4757" />
-          <Text style={styles.logoutText}>Log Out</Text>
+          <Ionicons name="log-out-outline" size={20} color={colors.error} />
+          <Text style={[styles.logoutText, { color: colors.error }]}>Log Out</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   screenTitle: {
     fontSize: 28,
-    fontWeight: '800',
+    fontFamily: fontFamily.bold,
     marginBottom: spacing.xl,
   },
 
@@ -181,9 +181,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    color: '#FFFFFF',
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
   profileInfo: {
     flex: 1,
@@ -191,7 +190,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
   profileEmail: {
     fontSize: 13,
@@ -199,7 +198,7 @@ const styles = StyleSheet.create({
   },
   profileRole: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
     marginTop: 2,
   },
 
@@ -227,7 +226,7 @@ const styles = StyleSheet.create({
   },
   settingsRowTitle: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
   settingsRowSub: {
     fontSize: 12,
@@ -249,8 +248,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   logoutText: {
-    color: '#FF4757',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
 });

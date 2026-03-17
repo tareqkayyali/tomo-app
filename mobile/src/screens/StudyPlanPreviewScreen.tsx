@@ -1,11 +1,13 @@
 /**
- * StudyPlanPreviewScreen — Preview generated study blocks
+ * StudyPlanPreviewScreen — Unified preview for study + training blocks
  *
- * Shows blocks grouped by date, allows individual removal.
- * "Add to Calendar" creates real calendar events (NOT suggestions).
+ * Shows blocks grouped by date with exam markers inline.
+ * Each block can be edited (date/time) or deleted.
+ * "Book All" creates real calendar events.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import * as Haptics from 'expo-haptics';
 import {
   View,
   Text,
@@ -15,95 +17,357 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
-import { createCalendarEvent } from '../services/api';
+import { useScheduleRules } from '../hooks/useScheduleRules';
+import { createCalendarEvent, getCalendarEventsByRange, deleteCalendarEvent } from '../services/api';
 import { spacing, borderRadius, fontFamily } from '../theme';
 import type { ThemeColors } from '../theme/colors';
-import type { StudyBlock, CalendarEventInput } from '../types';
+import type { StudyBlock, TrainingBlock, CalendarEventInput, StudyPlanConfig } from '../types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
+import { saveStudyPlan, createStudyPlanFromBooking } from '../services/savedStudyPlans';
+import { exportStudyPlanPdf } from '../services/studyPlanPdfExport';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'StudyPlanPreview'>;
+
+// Unified block shape for rendering
+interface PreviewBlock {
+  id: string;
+  title: string;
+  subtitle: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  color: string;
+  icon: string;
+  eventType: 'study_block' | 'training';
+  notes: string;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function formatDateLabel(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+const TIME_OPTIONS = (() => {
+  const opts: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (const m of ['00', '15', '30', '45']) {
+      opts.push(`${String(h).padStart(2, '0')}:${m}`);
+    }
+  }
+  return opts;
+})();
+
+function shiftDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export function StudyPlanPreviewScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { rules } = useScheduleRules();
 
-  // Parse blocks from route params (passed as JSON string)
-  const initialBlocks: StudyBlock[] = useMemo(() => {
+  const planType = route.params.planType || 'study';
+  const savedPlanId = route.params.savedPlanId;
+  const isViewOnly = route.params.viewOnly === 'true';
+  const isEdit = !!savedPlanId && !isViewOnly; // editing an existing saved plan
+
+  // Parse config from route params (for saving)
+  const config = useMemo<StudyPlanConfig | null>(() => {
     try {
-      return JSON.parse(route.params.blocks);
+      return route.params.config ? JSON.parse(route.params.config) : null;
+    } catch {
+      return null;
+    }
+  }, [route.params.config]);
+
+  // Store raw StudyBlock[] for saving
+  const rawStudyBlocksRef = useRef<StudyBlock[]>([]);
+
+  // Get exam dates for markers (study plans only)
+  const examDates = useMemo(() => {
+    if (planType !== 'study') return new Map<string, string[]>();
+    const exams = rules?.preferences?.exam_schedule ?? [];
+    const map = new Map<string, string[]>();
+    for (const e of exams) {
+      if (!e.examDate) continue;
+      const existing = map.get(e.examDate) || [];
+      existing.push(e.subject);
+      map.set(e.examDate, existing);
+    }
+    return map;
+  }, [rules?.preferences?.exam_schedule, planType]);
+
+  // Parse blocks from route params
+  const initialBlocks: PreviewBlock[] = useMemo(() => {
+    try {
+      const raw = JSON.parse(route.params.blocks);
+      if (planType === 'training') {
+        return (raw as TrainingBlock[]).map((b) => ({
+          id: b.id,
+          title: b.categoryLabel,
+          subtitle: `${b.startTime} – ${b.endTime}`,
+          date: b.date,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          color: b.categoryColor || colors.accent1,
+          icon: 'barbell-outline',
+          eventType: 'training' as const,
+          notes: b.categoryLabel,
+        }));
+      }
+      const studyBlocks = raw as StudyBlock[];
+      rawStudyBlocksRef.current = studyBlocks;
+      return studyBlocks.map((b) => ({
+        id: b.id,
+        title: b.subject,
+        subtitle: `${b.startTime} – ${b.endTime}`,
+        date: b.date,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        color: '#6366F1',
+        icon: 'book-outline',
+        eventType: 'study_block' as const,
+        notes: `For ${b.examType} on ${b.examDate}`,
+      }));
     } catch {
       return [];
     }
-  }, [route.params.blocks]);
+  }, [route.params.blocks, planType, colors.accent1]);
 
-  const [blocks, setBlocks] = useState<StudyBlock[]>(initialBlocks);
+  // Get available subjects for editing (study plans only)
+  const availableSubjects = useMemo(() => {
+    if (planType !== 'study') return [];
+    const subjects = rules?.preferences?.study_subjects ?? [];
+    if (subjects.length > 0) return subjects;
+    // Fallback: extract unique subjects from the blocks themselves
+    const fromBlocks = [...new Set(initialBlocks.map((b) => b.title))];
+    return fromBlocks;
+  }, [rules?.preferences?.study_subjects, planType, initialBlocks]);
+
+  const warnings: string[] = useMemo(() => {
+    try {
+      return route.params.warnings ? JSON.parse(route.params.warnings) : [];
+    } catch {
+      return [];
+    }
+  }, [route.params.warnings]);
+
+  const [blocks, setBlocks] = useState<PreviewBlock[]>(initialBlocks);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // ── Remove block ───────────────────────────────────────────────────
+  // ── Block mutations ──
 
   const removeBlock = useCallback((id: string) => {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
-  // ── Group blocks by date ───────────────────────────────────────────
+  const updateBlock = useCallback((id: string, patch: Partial<PreviewBlock>, keepOpen = false) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id !== id) return b;
+        const updated = { ...b, ...patch };
+        updated.subtitle = `${updated.startTime} – ${updated.endTime}`;
+        return updated;
+      }),
+    );
+    if (!keepOpen) setEditingId(null);
+  }, []);
 
-  const groupedBlocks = useMemo(() => {
-    const map = new Map<string, StudyBlock[]>();
-    for (const b of blocks) {
-      if (!map.has(b.date)) map.set(b.date, []);
-      map.get(b.date)!.push(b);
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [blocks]);
+  // Group by date (including exam marker dates)
+  const groupedEntries = useMemo(() => {
+    // Collect all dates (blocks + exams)
+    const allDates = new Set<string>();
+    for (const b of blocks) allDates.add(b.date);
+    for (const d of examDates.keys()) allDates.add(d);
 
-  // ── Add to Calendar ────────────────────────────────────────────────
+    const sorted = [...allDates].sort();
+    return sorted.map((date) => ({
+      date,
+      label: formatDateLabel(date),
+      blocks: blocks.filter((b) => b.date === date),
+      exams: examDates.get(date) || [],
+    })).filter((g) => g.blocks.length > 0 || g.exams.length > 0);
+  }, [blocks, examDates]);
 
-  const handleAddToCalendar = useCallback(async () => {
+  // Book all
+  const handleBookAll = useCallback(async () => {
     if (blocks.length === 0) return;
 
     setSaving(true);
     let successCount = 0;
-    const failed: StudyBlock[] = [];
+    const failed: PreviewBlock[] = [];
 
-    for (const block of blocks) {
+    // 0) If editing an existing plan, delete old study_block + exam events first
+    if (isEdit && planType === 'study') {
       try {
-        const eventData: CalendarEventInput = {
-          name: `${block.subject} Study`,
-          type: 'study_block',
-          date: block.date,
-          startTime: block.startTime,
-          endTime: block.endTime,
-          notes: `For ${block.examType} on ${block.examDate}`,
-        };
-        await createCalendarEvent(eventData);
-        successCount++;
+        const dates = blocks.map((b) => b.date);
+        const examDateKeys = [...examDates.keys()];
+        const allDates = [...new Set([...dates, ...examDateKeys])].sort();
+        const rangeStart = allDates[0];
+        const rangeEnd = allDates[allDates.length - 1];
+        if (rangeStart && rangeEnd) {
+          const res = await getCalendarEventsByRange(rangeStart, rangeEnd);
+          const oldEvents = (res.events || []).filter(
+            (e: any) => e.type === 'study_block' || e.type === 'exam',
+          );
+          await Promise.allSettled(
+            oldEvents.map((e: any) => deleteCalendarEvent(e.id)),
+          );
+        }
       } catch {
-        failed.push(block);
+        // Non-critical — proceed with creating new events
       }
     }
+
+    // 1) Create study/training block events
+    const blockPromises = blocks.map(async (block) => {
+      const eventData: CalendarEventInput = {
+        name: planType === 'training' ? block.title : `${block.title} Study`,
+        type: block.eventType,
+        date: block.date,
+        startTime: block.startTime,
+        endTime: block.endTime,
+        notes: block.notes,
+      };
+      return createCalendarEvent(eventData);
+    });
+
+    // 2) Create exam events covering full school hours
+    const examPromises: Promise<any>[] = [];
+    if (planType === 'study' && examDates.size > 0) {
+      const schoolStart = rules?.preferences?.school_start ?? '08:00';
+      const schoolEnd = rules?.preferences?.school_end ?? '15:00';
+
+      for (const [date, subjects] of examDates.entries()) {
+        for (const subject of subjects) {
+          examPromises.push(
+            createCalendarEvent({
+              name: `${subject} Exam`,
+              type: 'exam',
+              date,
+              startTime: schoolStart,
+              endTime: schoolEnd,
+              notes: `${subject} exam`,
+            }),
+          );
+        }
+      }
+    }
+
+    const allPromises = [...blockPromises, ...examPromises];
+    const results = await Promise.allSettled(allPromises);
+
+    // Count block results (first N are blocks)
+    results.slice(0, blocks.length).forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        successCount++;
+      } else {
+        failed.push(blocks[i]);
+      }
+    });
+
+    const examSuccessCount = results
+      .slice(blocks.length)
+      .filter((r) => r.status === 'fulfilled').length;
 
     setSaving(false);
 
     if (failed.length > 0) {
-      setBlocks(failed); // Keep only failed blocks for retry
+      setBlocks(failed);
       Alert.alert(
         'Partial Success',
-        `${successCount} blocks added to calendar, ${failed.length} failed. Retry remaining?`,
+        `${successCount} blocks added, ${failed.length} failed. Retry remaining?`,
       );
     } else {
-      Alert.alert(
-        'Added to Calendar! 📚',
-        `${successCount} study blocks added to your calendar. They'll appear in your Day Flow.`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
-      );
-    }
-  }, [blocks, navigation]);
+      // Save the study plan for later viewing
+      if (planType === 'study') {
+        try {
+          // Rebuild StudyBlock[] from current (possibly edited) blocks
+          const currentStudyBlocks: StudyBlock[] = blocks.map((b, i) => {
+            const orig = rawStudyBlocksRef.current[i];
+            return {
+              id: b.id,
+              subject: b.title,
+              date: b.date,
+              startTime: b.startTime,
+              endTime: b.endTime,
+              examDate: orig?.examDate ?? '',
+              examType: orig?.examType ?? ('Quiz' as any),
+            };
+          });
+          const examEntries = (rules?.preferences?.exam_schedule ?? [])
+            .filter((e: any) => e.examDate && e.subject)
+            .map((e: any) => ({ subject: e.subject, examDate: e.examDate, examType: e.examType || 'Quiz' }));
+          const fallbackConfig: StudyPlanConfig = config ?? {
+            daysPerSubject: {},
+            timeSlotStart: '15:00',
+            timeSlotEnd: '21:00',
+            sessionDuration: 60,
+            strategy: 'last_exam_first',
+            excludedDays: [],
+          };
+          const plan = createStudyPlanFromBooking(currentStudyBlocks, examEntries, fallbackConfig);
+          await saveStudyPlan(plan);
+        } catch {
+          // Non-critical — don't block success flow
+        }
+      }
 
-  // ── Render ─────────────────────────────────────────────────────────
+      // Auto-navigate to Timeline after short success feedback
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      navigation.navigate('MainTabs' as any);
+    }
+  }, [blocks, navigation, planType, examDates, rules?.preferences, config, isEdit]);
+
+  // Export PDF handler (view-only mode)
+  const handleExportPdf = useCallback(async () => {
+    setSaving(true);
+    try {
+      const currentStudyBlocks: StudyBlock[] = blocks.map((b, i) => {
+        const orig = rawStudyBlocksRef.current[i];
+        return {
+          id: b.id,
+          subject: b.title,
+          date: b.date,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          examDate: orig?.examDate ?? '',
+          examType: orig?.examType ?? ('Quiz' as any),
+        };
+      });
+      const examEntries = (rules?.preferences?.exam_schedule ?? [])
+        .filter((e: any) => e.examDate && e.subject)
+        .map((e: any) => ({ subject: e.subject, examDate: e.examDate, examType: e.examType || 'Quiz' }));
+      const fallbackConfig: StudyPlanConfig = config ?? {
+        daysPerSubject: {},
+        timeSlotStart: '15:00',
+        timeSlotEnd: '21:00',
+        sessionDuration: 60,
+        strategy: 'last_exam_first',
+        excludedDays: [],
+      };
+      const plan = createStudyPlanFromBooking(currentStudyBlocks, examEntries, fallbackConfig);
+      await exportStudyPlanPdf(plan);
+    } catch (err) {
+      Alert.alert('Export Failed', 'Could not generate PDF. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }, [blocks, rules?.preferences, config]);
+
+  const accentColor = planType === 'training' ? colors.accent1 : '#6366F1';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -112,44 +376,189 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.textOnDark} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textOnDark }]}>
-          Preview
+        <Text style={styles.headerTitle}>
+          {planType === 'training' ? 'Training Plan' : 'Study Plan'}
         </Text>
-        <View style={[styles.countBadge, { backgroundColor: colors.accent1 }]}>
+        <View style={[styles.countBadge, { backgroundColor: accentColor }]}>
           <Text style={styles.countBadgeText}>{blocks.length}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {groupedBlocks.map(([date, dayBlocks]) => {
-          const d = new Date(date + 'T12:00:00');
-          const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-          return (
-            <View key={date} style={styles.dateGroup}>
-              <Text style={[styles.dateHeader, { color: colors.textSecondary }]}>{label}</Text>
-              {dayBlocks.map((block) => (
-                <View key={block.id} style={[styles.blockCard, { backgroundColor: colors.surfaceElevated }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.blockSubject, { color: colors.textOnDark }]}>{block.subject}</Text>
-                    <Text style={[styles.blockTime, { color: '#6366F1' }]}>
-                      📚 {block.startTime} – {block.endTime}
-                    </Text>
-                    <Text style={[styles.blockMeta, { color: colors.textInactive }]}>
-                      for {block.examType} on {block.examDate}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={() => removeBlock(block.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Ionicons name="close-circle" size={24} color="#E74C3C" />
-                  </TouchableOpacity>
-                </View>
-              ))}
+        {/* Warnings */}
+        {warnings.length > 0 && (
+          <View style={styles.warningBanner}>
+            <View style={styles.warningHeader}>
+              <Ionicons name="warning-outline" size={18} color="#F59E0B" />
+              <Text style={styles.warningTitle}>Some sessions could not be placed</Text>
             </View>
-          );
-        })}
+            {warnings.map((w, i) => (
+              <Text key={i} style={styles.warningText}>{'\u2022'} {w}</Text>
+            ))}
+          </View>
+        )}
+
+        {/* Grouped blocks with exam markers */}
+        {groupedEntries.map(({ date, label, blocks: dayBlocks, exams: dayExams }) => (
+          <View key={date} style={styles.dateGroup}>
+            <Text style={styles.dateHeader}>{label}</Text>
+
+            {/* Exam marker */}
+            {dayExams.length > 0 && (
+              <View style={styles.examMarker}>
+                <View style={styles.examMarkerDot} />
+                <Ionicons name="school" size={14} color="#E74C3C" />
+                <Text style={styles.examMarkerText}>
+                  {dayExams.join(', ')} exam{dayExams.length > 1 ? 's' : ''}
+                </Text>
+              </View>
+            )}
+
+            {/* Study/training blocks */}
+            {dayBlocks.map((block) => (
+              <View key={block.id}>
+                <View style={styles.blockCard}>
+                  <View style={[styles.blockColorBar, { backgroundColor: block.color }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.blockTitle}>{block.title}</Text>
+                    <Text style={[styles.blockTime, { color: block.color }]}>
+                      {block.startTime} – {block.endTime}
+                    </Text>
+                    {planType === 'study' && (
+                      <Text style={styles.blockMeta}>{block.notes}</Text>
+                    )}
+                  </View>
+                  <View style={styles.blockActions}>
+                    <TouchableOpacity
+                      onPress={() => setEditingId(editingId === block.id ? null : block.id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="pencil" size={18} color={colors.textInactive} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => removeBlock(block.id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#E74C3C" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Inline edit panel */}
+                {editingId === block.id && (
+                  <View style={styles.editPanel}>
+                    {/* Subject picker (study only) */}
+                    {planType === 'study' && availableSubjects.length > 1 && (
+                      <View style={styles.editRow}>
+                        <Text style={styles.editLabel}>Subj</Text>
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.editChips}
+                        >
+                          {availableSubjects.map((subj) => {
+                            const isActive = block.title === subj;
+                            return (
+                              <TouchableOpacity
+                                key={subj}
+                                style={[
+                                  styles.editChip,
+                                  isActive && { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+                                ]}
+                                onPress={() => {
+                                  if (!isActive) {
+                                    updateBlock(block.id, { title: subj, notes: `Study: ${subj}` }, true);
+                                  }
+                                }}
+                              >
+                                <Text
+                                  style={[
+                                    styles.editChipText,
+                                    isActive && { color: '#FFF' },
+                                  ]}
+                                >
+                                  {subj}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      </View>
+                    )}
+
+                    {/* Date shift */}
+                    <View style={styles.editRow}>
+                      <Text style={styles.editLabel}>Date</Text>
+                      <View style={styles.editChips}>
+                        <TouchableOpacity
+                          style={styles.editChip}
+                          onPress={() => updateBlock(block.id, { date: shiftDate(block.date, -1) })}
+                        >
+                          <Ionicons name="chevron-back" size={14} color={colors.textOnDark} />
+                          <Text style={styles.editChipText}>-1d</Text>
+                        </TouchableOpacity>
+                        <Text style={[styles.editValue, { color: colors.textOnDark }]}>
+                          {formatDateLabel(block.date)}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.editChip}
+                          onPress={() => updateBlock(block.id, { date: shiftDate(block.date, 1) })}
+                        >
+                          <Text style={styles.editChipText}>+1d</Text>
+                          <Ionicons name="chevron-forward" size={14} color={colors.textOnDark} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Time picker */}
+                    <View style={styles.editRow}>
+                      <Text style={styles.editLabel}>Time</Text>
+                      <View style={styles.editChips}>
+                        <TouchableOpacity
+                          style={styles.editChip}
+                          onPress={() => {
+                            const idx = TIME_OPTIONS.indexOf(block.startTime);
+                            if (idx > 0) {
+                              const diff = timeToMin(block.endTime) - timeToMin(block.startTime);
+                              const newStart = TIME_OPTIONS[idx - 1];
+                              const newEnd = minToTime(timeToMin(newStart) + diff);
+                              updateBlock(block.id, { startTime: newStart, endTime: newEnd });
+                            }
+                          }}
+                        >
+                          <Ionicons name="chevron-back" size={14} color={colors.textOnDark} />
+                          <Text style={styles.editChipText}>Earlier</Text>
+                        </TouchableOpacity>
+                        <Text style={[styles.editValue, { color: colors.textOnDark }]}>
+                          {block.startTime} – {block.endTime}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.editChip}
+                          onPress={() => {
+                            const idx = TIME_OPTIONS.indexOf(block.startTime);
+                            if (idx < TIME_OPTIONS.length - 1) {
+                              const diff = timeToMin(block.endTime) - timeToMin(block.startTime);
+                              const newStart = TIME_OPTIONS[idx + 1];
+                              const newEnd = minToTime(timeToMin(newStart) + diff);
+                              updateBlock(block.id, { startTime: newStart, endTime: newEnd });
+                            }
+                          }}
+                        >
+                          <Text style={styles.editChipText}>Later</Text>
+                          <Ionicons name="chevron-forward" size={14} color={colors.textOnDark} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        ))}
 
         {blocks.length === 0 && (
           <View style={styles.emptyCenter}>
-            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            <Text style={styles.emptySubtitle}>
               All blocks removed. Go back to regenerate.
             </Text>
           </View>
@@ -158,25 +567,57 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
 
       {/* Bottom bar */}
       {blocks.length > 0 && (
-        <View style={[styles.bottomBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.addCalBtn, { backgroundColor: '#6366F1', opacity: saving ? 0.6 : 1 }]}
-            onPress={handleAddToCalendar}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : (
-              <>
-                <Ionicons name="calendar" size={18} color="#FFF" />
-                <Text style={styles.addCalBtnText}>Add to Calendar ({blocks.length})</Text>
-              </>
-            )}
-          </TouchableOpacity>
+        <View style={[styles.bottomBar, { borderTopColor: colors.border }]}>
+          {isViewOnly ? (
+            <TouchableOpacity
+              style={[styles.bookBtn, { backgroundColor: accentColor, opacity: saving ? 0.6 : 1 }]}
+              onPress={handleExportPdf}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="document-text" size={18} color="#FFF" />
+                  <Text style={styles.bookBtnText}>Export PDF</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.bookBtn, { backgroundColor: accentColor, opacity: saving ? 0.6 : 1 }]}
+              onPress={handleBookAll}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name={isEdit ? 'refresh' : 'calendar'} size={18} color="#FFF" />
+                  <Text style={styles.bookBtnText}>
+                    {isEdit ? `Update Calendar (${blocks.length})` : `Book All (${blocks.length})`}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </SafeAreaView>
   );
+}
+
+// ── Time helpers ──────────────────────────────────────────────────────
+
+function timeToMin(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minToTime(min: number): string {
+  const h = Math.floor(min / 60) % 24;
+  const m = min % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 // ── Styles ───────────────────────────────────────────────────────────
@@ -198,7 +639,8 @@ function createStyles(colors: ThemeColors) {
     },
     headerTitle: {
       fontSize: 20,
-      fontWeight: '700',
+      fontFamily: fontFamily.bold,
+      color: colors.textOnDark,
       flex: 1,
     },
     countBadge: {
@@ -209,40 +651,170 @@ function createStyles(colors: ThemeColors) {
     countBadgeText: {
       color: '#FFF',
       fontSize: 14,
-      fontWeight: '700',
+      fontFamily: fontFamily.bold,
     },
     scroll: {
       padding: spacing.lg,
       paddingBottom: 100,
     },
+
+    // Warnings
+    warningBanner: {
+      backgroundColor: '#F59E0B18',
+      borderLeftWidth: 3,
+      borderLeftColor: '#F59E0B',
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+    },
+    warningHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 6,
+    },
+    warningTitle: {
+      fontSize: 13,
+      fontFamily: fontFamily.bold,
+      color: '#F59E0B',
+    },
+    warningText: {
+      fontSize: 12,
+      fontFamily: fontFamily.regular,
+      color: colors.textSecondary,
+      lineHeight: 18,
+      marginLeft: 24,
+    },
+
+    // Date groups
     dateGroup: {
       marginBottom: spacing.md,
     },
     dateHeader: {
       fontSize: 13,
-      fontWeight: '600',
+      fontFamily: fontFamily.semiBold,
+      color: colors.textSecondary,
       marginBottom: 8,
     },
+
+    // Exam markers
+    examMarker: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      marginBottom: 8,
+      borderRadius: 10,
+      backgroundColor: '#E74C3C12',
+      borderWidth: 1,
+      borderColor: '#E74C3C30',
+    },
+    examMarkerDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: '#E74C3C',
+    },
+    examMarkerText: {
+      fontSize: 13,
+      fontFamily: fontFamily.semiBold,
+      color: '#E74C3C',
+    },
+
+    // Block cards
     blockCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderRadius: borderRadius.md,
+      borderRadius: 14,
       padding: spacing.md,
       marginBottom: 8,
+      backgroundColor: colors.surfaceElevated,
+      overflow: 'hidden',
     },
-    blockSubject: {
+    blockColorBar: {
+      width: 4,
+      borderRadius: 2,
+      alignSelf: 'stretch',
+      marginRight: 12,
+    },
+    blockTitle: {
       fontSize: 15,
-      fontWeight: '600',
+      fontFamily: fontFamily.semiBold,
+      color: colors.textOnDark,
     },
     blockTime: {
       fontSize: 13,
-      fontWeight: '600',
+      fontFamily: fontFamily.semiBold,
       marginTop: 2,
     },
     blockMeta: {
       fontSize: 12,
+      fontFamily: fontFamily.regular,
+      color: colors.textInactive,
       marginTop: 2,
     },
+    blockActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginLeft: 8,
+    },
+
+    // Edit panel
+    editPanel: {
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 8,
+      marginTop: -4,
+      borderWidth: 1,
+      borderColor: `${colors.accent1}30`,
+    },
+    editRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    editLabel: {
+      fontSize: 12,
+      fontFamily: fontFamily.semiBold,
+      color: colors.textInactive,
+      textTransform: 'uppercase',
+      width: 40,
+    },
+    editChips: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flex: 1,
+      justifyContent: 'center',
+    },
+    editChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      backgroundColor: `${colors.accent1}15`,
+      borderWidth: 1,
+      borderColor: `${colors.accent1}30`,
+    },
+    editChipText: {
+      fontSize: 12,
+      fontFamily: fontFamily.medium,
+      color: colors.accent1,
+    },
+    editValue: {
+      fontSize: 13,
+      fontFamily: fontFamily.semiBold,
+      minWidth: 80,
+      textAlign: 'center',
+    },
+
+    // Empty
     emptyCenter: {
       alignItems: 'center',
       paddingTop: 60,
@@ -250,9 +822,13 @@ function createStyles(colors: ThemeColors) {
     },
     emptySubtitle: {
       fontSize: 14,
+      fontFamily: fontFamily.regular,
       lineHeight: 20,
+      color: colors.textSecondary,
       textAlign: 'center',
     },
+
+    // Bottom bar
     bottomBar: {
       position: 'absolute',
       bottom: 0,
@@ -261,19 +837,20 @@ function createStyles(colors: ThemeColors) {
       borderTopWidth: 1,
       padding: spacing.md,
       paddingBottom: 34,
+      backgroundColor: colors.background,
     },
-    addCalBtn: {
+    bookBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
       paddingVertical: 14,
-      borderRadius: borderRadius.md,
+      borderRadius: 14,
     },
-    addCalBtnText: {
+    bookBtnText: {
       color: '#FFF',
       fontSize: 16,
-      fontWeight: '700',
+      fontFamily: fontFamily.bold,
     },
   });
 }

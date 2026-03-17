@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const roleCheck = await requireRole(auth.user.id, ["parent"]);
   if ("error" in roleCheck) return roleCheck.error;
 
-  const children = await getLinkedPlayers(auth.user.id);
+  const children = await getLinkedPlayers(auth.user.id, "PARENT");
 
   return NextResponse.json(
     { children },

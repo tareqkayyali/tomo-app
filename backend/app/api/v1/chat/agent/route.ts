@@ -1,0 +1,240 @@
+/**
+ * POST /api/v1/chat/agent
+ *
+ * Agent-based chat endpoint with session management.
+ *
+ * 6-Layer Context Pipeline:
+ *   1. Player Memory Snapshot (PlayerContext with temporal context)
+ *   2. Temporal Context Builder (time-of-day, match day, exam proximity)
+ *   3. Session History (token-budgeted conversation history)
+ *   4. Conversation State Extractor (dates, events, topic, intent)
+ *   5. Intent Router + Agent Lock (routing with stability)
+ *   6. System Prompt Assembly (agent prompt + guardrails + Gen Z rules)
+ *
+ * Flow:
+ *   1. Gets or creates a chat session
+ *   2. Loads conversation history + session state (agent lock, conversation state)
+ *   3. Detects affirmations → checks server-side pending actions
+ *   4. Builds full player context with temporal awareness (once)
+ *   5. Routes to specialized agents with agent lock stability
+ *   6. Extracts conversation state for next turn
+ *   7. Saves messages + pending actions + session state to DB
+ *   8. Returns structured response + refreshTargets
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
+import { buildPlayerContext } from "@/services/agents/contextBuilder";
+import { orchestrate } from "@/services/agents/orchestrator";
+import {
+  preFlightCheck,
+  categorizeMessage,
+} from "@/services/agents/chatGuardrails";
+import {
+  getOrCreateSession,
+  loadSessionHistory,
+  saveMessage,
+  savePendingAction,
+  getPendingAction,
+  clearPendingAction,
+  getSessionState,
+  updateSessionState,
+  isAffirmation,
+  type ConversationState,
+} from "@/services/agents/sessionService";
+import { extractConversationState } from "@/services/agents/conversationStateExtractor";
+
+export async function POST(req: NextRequest) {
+  const auth = requireAuth(req);
+  if ("error" in auth) return auth.error;
+
+  let body: {
+    message: string;
+    sessionId?: string;
+    activeTab?: string;
+    timezone?: string; // IANA timezone e.g. "Asia/Riyadh"
+    confirmedAction?: {
+      toolName: string;
+      toolInput: Record<string, any>;
+      agentType: string;
+      actions?: Array<{
+        toolName: string;
+        toolInput: Record<string, any>;
+        agentType: string;
+        preview: string;
+      }>;
+    };
+  };
+
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!body.message?.trim()) {
+    return NextResponse.json(
+      { error: "message is required" },
+      { status: 400 }
+    );
+  }
+
+  if (body.message.length > 2000) {
+    return NextResponse.json(
+      { error: "Message too long (max 2000 characters)" },
+      { status: 400 }
+    );
+  }
+
+  // ── GUARDRAIL PRE-FLIGHT CHECK ─────────────────────────────
+  const guardrailResult = preFlightCheck(body.message);
+
+  if (guardrailResult.blocked) {
+    console.log(
+      `[chat-guardrail] blocked category=${guardrailResult.category} userId=${auth.user.id.slice(0, 8)}...`
+    );
+    return NextResponse.json({
+      message: guardrailResult.message,
+      refreshTargets: [],
+      pendingConfirmation: null,
+      blocked: true,
+      category: guardrailResult.category,
+    });
+  }
+
+  // Tag topic for analytics (non-blocking)
+  const _topicCategory = categorizeMessage(body.message);
+
+  try {
+    // ── SESSION MANAGEMENT (graceful — works without DB tables) ──
+    let sessionId: string | null = null;
+    let conversationHistory: { role: "user" | "assistant"; content: string }[] = [];
+    let lastAgentType: string | undefined;
+    let activeAgent: string | null = null;
+    let conversationState: ConversationState | null = null;
+
+    try {
+      const session = await getOrCreateSession(auth.user.id, body.sessionId);
+      sessionId = session.id;
+
+      // Save user message to DB
+      await saveMessage(session.id, auth.user.id, "user", body.message);
+
+      // Load session state (agent lock + conversation state)
+      const sessionState = await getSessionState(session.id);
+      activeAgent = sessionState.activeAgent;
+      conversationState = sessionState.conversationState;
+
+      // Server-side pending action detection
+      if (!body.confirmedAction && isAffirmation(body.message)) {
+        const pendingResult = await getPendingAction(session.id);
+        if (pendingResult.action) {
+          body.confirmedAction = {
+            toolName: pendingResult.action.toolName,
+            toolInput: pendingResult.action.toolInput,
+            agentType: pendingResult.action.agentType,
+            actions: pendingResult.action.actions,
+          };
+          await clearPendingAction(session.id);
+        } else if (pendingResult.expired) {
+          // Pending action expired — let the user know
+          console.log(`[chat] Pending action expired for session ${session.id}`);
+        }
+      }
+
+      // Load conversation history + last agent type
+      const historyResult = await loadSessionHistory(session.id);
+      // Remove the last message (current user message we just saved)
+      conversationHistory = historyResult.messages.slice(0, -1);
+      lastAgentType = historyResult.lastAgentType;
+
+      // Clear pending action from DB when frontend passes confirmedAction directly
+      // (button-click path doesn't go through server-side affirmation detection)
+      if (body.confirmedAction) {
+        await clearPendingAction(session.id);
+      }
+    } catch (sessionErr) {
+      // Session tables may not exist yet — continue without session features
+      console.warn("[chat] Session management unavailable:", sessionErr instanceof Error ? sessionErr.message : sessionErr);
+    }
+
+    // Build player context snapshot with temporal awareness (called ONCE per request)
+    const context = await buildPlayerContext(
+      auth.user.id,
+      body.activeTab ?? "Chat",
+      body.message,
+      body.timezone
+    );
+
+    // Orchestrate — route to agents with agent lock, execute tools, handle confirmation gates
+    const result = await orchestrate(
+      body.message,
+      context,
+      body.confirmedAction,
+      conversationHistory,
+      lastAgentType,
+      activeAgent,
+      conversationState
+    );
+
+    // Save assistant response + update session state (best-effort)
+    if (sessionId) {
+      try {
+        await saveMessage(sessionId, auth.user.id, "assistant", result.message, {
+          structured: result.structured ?? null,
+          agent: result.agentType ?? null,
+        });
+
+        if (result.pendingConfirmation) {
+          await savePendingAction(sessionId, {
+            toolName: result.pendingConfirmation.toolName,
+            toolInput: result.pendingConfirmation.toolInput,
+            agentType: result.pendingConfirmation.agentType,
+            preview: result.pendingConfirmation.preview,
+            actions: result.pendingConfirmation.actions ?? undefined,
+          });
+        }
+
+        // Extract conversation state from this exchange (Layer 4)
+        // Pass structured response so drill IDs from session plans are captured
+        const newConversationState = extractConversationState(
+          body.message,
+          result.message,
+          conversationState,
+          context.todayDate,
+          context.timezone,
+          result.structured
+        );
+
+        // Persist agent lock + conversation state
+        await updateSessionState(sessionId, {
+          activeAgent: result.agentType ?? activeAgent,
+          conversationState: newConversationState,
+        });
+      } catch (saveErr) {
+        console.warn("[chat] Failed to save response:", saveErr instanceof Error ? saveErr.message : saveErr);
+      }
+    }
+
+    return NextResponse.json(
+      {
+        message: result.message,
+        structured: result.structured ?? null,
+        sessionId: sessionId,
+        refreshTargets: result.refreshTargets,
+        pendingConfirmation: result.pendingConfirmation ?? null,
+        context: {
+          ageBand: context.ageBand,
+          readinessScore: context.readinessScore,
+          activeTab: context.activeTab,
+        },
+      },
+      { headers: { "api-version": "v1" } }
+    );
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error ? err.message : "Agent chat error";
+    console.error("Agent chat route error:", err);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
+}

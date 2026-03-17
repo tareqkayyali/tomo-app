@@ -3,7 +3,7 @@
  * Toggle passport visibility and granular data sharing for scouts.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,10 @@ import {
   Pressable,
   Share,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, fontFamily } from '../theme';
+import { spacing, borderRadius, fontFamily } from '../theme';
+import type { ThemeColors } from '../theme/colors';
+import { useTheme } from '../hooks/useTheme';
 import { getPrivacySettings, updatePrivacySettings } from '../services/api';
 import type { PrivacySettings } from '../types';
 
@@ -35,6 +36,9 @@ interface ToggleRowProps {
 }
 
 function ToggleRow({ icon, label, subtitle, value, onValueChange, disabled }: ToggleRowProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={[styles.toggleRow, disabled && styles.toggleRowDisabled]}>
       <View style={styles.toggleInfo}>
@@ -84,6 +88,9 @@ const TOGGLES: Array<{
 // ---------------------------------------------------------------------------
 
 export function PrivacySettingsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [settings, setSettings] = useState<PrivacySettings | null>(null);
   const [parentalConsentRequired, setParentalConsentRequired] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -141,7 +148,6 @@ export function PrivacySettingsScreen() {
     try {
       await Share.share({
         message: 'Check out my Tomo Athletic Passport!',
-        // In production, this would be the actual public URL
       });
     } catch {
       // User cancelled
@@ -150,18 +156,18 @@ export function PrivacySettingsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={[]}>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent1} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!settings) return null;
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Parental consent warning */}
         {parentalConsentRequired && (
@@ -226,7 +232,7 @@ export function PrivacySettingsScreen() {
           All privacy settings default to off. Only data you explicitly enable will be visible on your public passport. This is not medical advice.
         </Text>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -234,132 +240,139 @@ export function PrivacySettingsScreen() {
 // Styles
 // ---------------------------------------------------------------------------
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollContent: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xxl,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
 
-  // ── Cards ───────────────────────────────────────────────────────────
-  card: {
-    backgroundColor: colors.backgroundElevated,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
+    // ── Cards ───────────────────────────────────────────────────────────
+    card: {
+      backgroundColor: colors.backgroundElevated,
+      borderRadius: borderRadius.lg,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+    },
 
-  warningCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: 'rgba(255,212,59,0.1)',
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  warningText: {
-    ...typography.caption,
-    color: '#FFD43B',
-    flex: 1,
-  },
+    warningCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: 'rgba(255,212,59,0.1)',
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
+    },
+    warningText: {
+      fontFamily: fontFamily.regular,
+      fontSize: 12,
+      color: '#FFD43B',
+      flex: 1,
+    },
 
-  shareCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.backgroundElevated,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginTop: spacing.md,
-  },
-  shareText: {
-    ...typography.body,
-    color: colors.accent1,
-    fontFamily: fontFamily.medium,
-  },
+    shareCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.backgroundElevated,
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      marginTop: spacing.md,
+    },
+    shareText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 15,
+      color: colors.accent1,
+    },
 
-  // ── Section header ──────────────────────────────────────────────────
-  sectionTitle: {
-    ...typography.body,
-    color: colors.textOnDark,
-    fontFamily: fontFamily.semiBold,
-    paddingTop: spacing.md,
-  },
-  sectionSubtitle: {
-    ...typography.metadataSmall,
-    color: colors.textInactive,
-    marginTop: 2,
-    marginBottom: spacing.sm,
-  },
+    // ── Section header ──────────────────────────────────────────────────
+    sectionTitle: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 15,
+      color: colors.textOnDark,
+      paddingTop: spacing.md,
+    },
+    sectionSubtitle: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      color: colors.textInactive,
+      marginTop: 2,
+      marginBottom: spacing.sm,
+    },
 
-  // ── Toggle Row ──────────────────────────────────────────────────────
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-  },
-  toggleRowDisabled: {
-    opacity: 0.4,
-  },
-  toggleInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  toggleIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  toggleTextCol: {
-    flex: 1,
-  },
-  toggleLabel: {
-    ...typography.body,
-    color: colors.textOnDark,
-    fontFamily: fontFamily.medium,
-  },
-  toggleSubtitle: {
-    ...typography.metadataSmall,
-    color: colors.textInactive,
-    marginTop: 2,
-  },
-  textDisabled: {
-    color: colors.textMuted,
-  },
+    // ── Toggle Row ──────────────────────────────────────────────────────
+    toggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: spacing.md,
+    },
+    toggleRowDisabled: {
+      opacity: 0.4,
+    },
+    toggleInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      marginRight: spacing.md,
+    },
+    toggleIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(255,255,255,0.06)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: spacing.md,
+    },
+    toggleTextCol: {
+      flex: 1,
+    },
+    toggleLabel: {
+      fontFamily: fontFamily.medium,
+      fontSize: 15,
+      color: colors.textOnDark,
+    },
+    toggleSubtitle: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      color: colors.textInactive,
+      marginTop: 2,
+    },
+    textDisabled: {
+      color: colors.textMuted,
+    },
 
-  // ── Misc ────────────────────────────────────────────────────────────
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-  },
-  savingText: {
-    ...typography.caption,
-    color: colors.accent1,
-    textAlign: 'center',
-    marginTop: spacing.md,
-  },
-  footnote: {
-    ...typography.metadataSmall,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: spacing.lg,
-  },
-});
+    // ── Misc ────────────────────────────────────────────────────────────
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+    },
+    savingText: {
+      fontFamily: fontFamily.regular,
+      fontSize: 12,
+      color: colors.accent1,
+      textAlign: 'center',
+      marginTop: spacing.md,
+    },
+    footnote: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginTop: spacing.lg,
+    },
+  });
+}

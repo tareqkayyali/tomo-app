@@ -188,13 +188,15 @@ export function useCalendarData(): CalendarData {
   const handleDeleteEvent = useCallback(
     async (eventId: string): Promise<boolean> => {
       try {
-        await deleteCalendarEvent(eventId);
+        const result = await deleteCalendarEvent(eventId);
+        console.log('[useCalendarData] delete success:', eventId, result);
         // Optimistically remove from state
         setEvents((prev) => prev.filter((e) => e.id !== eventId));
         // Clear cache so next fetch is fresh
         cacheRef.current = {};
         return true;
-      } catch {
+      } catch (err) {
+        console.error('[useCalendarData] delete FAILED:', eventId, err);
         return false;
       }
     },

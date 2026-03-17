@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '../../hooks/useTheme';
 import { generateInviteCode } from '../../services/api';
-import { spacing, borderRadius, layout } from '../../theme';
+import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 
 export function CoachInviteScreen() {
   const { colors } = useTheme();
@@ -76,11 +76,11 @@ export function CoachInviteScreen() {
             ]}
           >
             {generating ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.textOnDark} />
             ) : (
               <>
-                <Ionicons name="key-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.generateButtonText}>Generate Code</Text>
+                <Ionicons name="key-outline" size={20} color={colors.textOnDark} />
+                <Text style={[styles.generateButtonText, { color: colors.textOnDark }]}>Generate Code</Text>
               </>
             )}
           </Pressable>
@@ -114,8 +114,8 @@ export function CoachInviteScreen() {
                   { backgroundColor: colors.accent1, opacity: pressed ? 0.8 : 1 },
                 ]}
               >
-                <Ionicons name="share-outline" size={20} color="#FFFFFF" />
-                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Share</Text>
+                <Ionicons name="share-outline" size={20} color={colors.textOnDark} />
+                <Text style={[styles.actionButtonText, { color: colors.textOnDark }]}>Share</Text>
               </Pressable>
             </View>
 
@@ -145,12 +145,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
   subtitle: {
     fontSize: 15,
+    fontFamily: fontFamily.regular,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: spacing.xxl,
@@ -166,9 +167,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxl,
   },
   generateButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
   codeSection: {
     alignItems: 'center',
@@ -182,12 +182,13 @@ const styles = StyleSheet.create({
   },
   codeText: {
     fontSize: 36,
-    fontWeight: '800',
+    fontFamily: fontFamily.bold,
     letterSpacing: 4,
     marginBottom: spacing.sm,
   },
   expiryText: {
     fontSize: 13,
+    fontFamily: fontFamily.regular,
   },
   actions: {
     flexDirection: 'row',
@@ -204,13 +205,13 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
   regenerateLink: {
     padding: spacing.sm,
   },
   regenerateText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
   },
 });

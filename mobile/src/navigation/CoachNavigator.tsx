@@ -1,14 +1,15 @@
 /**
  * Coach Navigator — 3-tab bottom navigation
  *
- * Tabs: Players | Add Test | Settings
+ * Tabs: Players | Programmes | Settings
  *
- * Wraps tabs in a Stack for detail screens:
+ * Player detail screen has inline Timeline + Mastery tabs.
+ * Stack wraps tabs + detail screens:
  *   CoachTabs, CoachPlayerDetail, CoachTestInput, CoachInvite, Profile, EditProfile
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,14 +22,17 @@ import {
   CoachTestInputScreen,
   CoachInviteScreen,
   CoachSettingsScreen,
+  DrillBuilderScreen,
 } from '../screens/coach';
 import { RecommendEventScreen } from '../screens/RecommendEventScreen';
 
-// Screens — Stack (shared)
+// Screens — Shared
 import { ProfileScreen } from '../screens/ProfileScreen';
-import { EditProfileScreen } from '../screens/EditProfileScreen';
 
 import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../hooks/useAuth';
+import { HeaderProfileButton } from '../components/HeaderProfileButton';
+import { NotificationBell } from '../components/NotificationBell';
 import { layout, spacing } from '../theme';
 import type { CoachTabParamList, CoachStackParamList } from './types';
 
@@ -41,13 +45,13 @@ type CoachTabName = keyof CoachTabParamList;
 
 const TAB_ICONS: Record<CoachTabName, keyof typeof Ionicons.glyphMap> = {
   Players: 'people-outline',
-  AddTest: 'flash-outline',
+  Programmes: 'barbell-outline',
   Settings: 'settings-outline',
 };
 
 const TAB_LABELS: Record<CoachTabName, string> = {
   Players: 'Players',
-  AddTest: 'Add Test',
+  Programmes: 'Drills',
   Settings: 'Settings',
 };
 
@@ -79,13 +83,24 @@ function CoachTabNavigator() {
       })}
     >
       <Tab.Screen name="Players" component={CoachPlayersScreen} />
-      <Tab.Screen name="AddTest" component={CoachPlayersScreen} />
+      <Tab.Screen name="Programmes" component={DrillBuilderScreen} />
       <Tab.Screen name="Settings" component={CoachSettingsScreen} />
     </Tab.Navigator>
   );
 }
 
 // ── Stack wrapping tabs + detail screens ────────────────────────────
+
+function CoachHeaderRight() {
+  const { profile } = useAuth();
+  const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <NotificationBell />
+      <HeaderProfileButton initial={initial} photoUrl={profile?.photoUrl} />
+    </View>
+  );
+}
 
 export function CoachNavigator() {
   const { colors } = useTheme();
@@ -95,6 +110,8 @@ export function CoachNavigator() {
     headerTintColor: colors.textOnDark,
     headerTitleStyle: { color: colors.textOnDark },
     headerShadowVisible: false,
+    headerRight: () => <CoachHeaderRight />,
+    headerRightContainerStyle: { paddingRight: spacing.md } as any,
   };
 
   return (
@@ -135,11 +152,6 @@ export function CoachNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{ headerShown: true, title: 'Profile', ...stackHeaderOptions }}
-      />
-      <Stack.Screen
-        name="EditProfile"
-        component={EditProfileScreen}
-        options={{ headerShown: true, title: 'Edit Profile', ...stackHeaderOptions }}
       />
     </Stack.Navigator>
   );

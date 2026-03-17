@@ -20,7 +20,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 import { getCoachPlayers } from '../../services/api';
-import { spacing, borderRadius, layout } from '../../theme';
+import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { CoachStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<CoachStackParamList>;
@@ -86,7 +86,6 @@ export function CoachSettingsScreen() {
             icon="person-outline"
             label="Name"
             value={profile?.name || '—'}
-            onPress={() => navigation.navigate('EditProfile')}
           />
           <MenuItem
             icon="mail-outline"
@@ -120,12 +119,7 @@ export function CoachSettingsScreen() {
           <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>ACCOUNT</Text>
           <MenuItem
             icon="person-circle-outline"
-            label="Edit Profile"
-            onPress={() => navigation.navigate('EditProfile')}
-          />
-          <MenuItem
-            icon="information-circle-outline"
-            label="Full Profile"
+            label="Profile"
             onPress={() => navigation.navigate('Profile')}
           />
         </View>
@@ -138,8 +132,8 @@ export function CoachSettingsScreen() {
             { opacity: pressed ? 0.7 : 1 },
           ]}
         >
-          <Ionicons name="log-out-outline" size={20} color="#E74C3C" />
-          <Text style={styles.logoutText}>Logout</Text>
+          <Ionicons name="log-out-outline" size={20} color={colors.error} />
+          <Text style={[styles.logoutText, { color: colors.error }]}>Logout</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -156,7 +150,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     marginBottom: spacing.xl,
   },
   section: {
@@ -164,7 +158,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     letterSpacing: 1,
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
@@ -185,7 +179,7 @@ const styles = StyleSheet.create({
   },
   menuItemLabel: {
     fontSize: 15,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
   },
   menuItemRight: {
     flexDirection: 'row',
@@ -194,6 +188,7 @@ const styles = StyleSheet.create({
   },
   menuItemValue: {
     fontSize: 14,
+    fontFamily: fontFamily.regular,
   },
   logoutButton: {
     flexDirection: 'row',
@@ -204,8 +199,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   logoutText: {
-    color: '#E74C3C',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
 });

@@ -18,7 +18,7 @@ import { useTheme } from '../../hooks/useTheme';
 import type { ThemeColors } from '../../theme/colors';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 
-export type PlanTab = 'dayflow' | 'studyplan';
+export type PlanTab = 'dayflow' | 'studyplan' | 'trainingplan';
 
 type PlanTabSwitcherProps = {
   activeTab: PlanTab;
@@ -26,15 +26,16 @@ type PlanTabSwitcherProps = {
 };
 
 const TABS: { key: PlanTab; label: string }[] = [
-  { key: 'dayflow', label: 'Day Flow' },
-  { key: 'studyplan', label: 'Study Plan' },
+  { key: 'dayflow', label: 'Timeline' },
+  { key: 'studyplan', label: 'Study' },
+  { key: 'trainingplan', label: 'Training' },
 ];
 
 export function PlanTabSwitcher({ activeTab, onTabChange }: PlanTabSwitcherProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const tabWidths = useRef<number[]>([0, 0]);
-  const tabOffsets = useRef<number[]>([0, 0]);
+  const tabWidths = useRef<number[]>([0, 0, 0]);
+  const tabOffsets = useRef<number[]>([0, 0, 0]);
   const indicatorX = useRef(new Animated.Value(0)).current;
   const indicatorW = useRef(new Animated.Value(0)).current;
 

@@ -386,24 +386,77 @@ export async function seedFootballBenchmarks() {
     }
   }
 
-  console.log(`Prepared ${rows.length} benchmark rows. Inserting...`);
+  console.log(`Prepared ${rows.length} benchmark rows. Inserting via raw SQL...`);
 
-  // Upsert in batches of 500
-  const BATCH = 500;
+  // Use raw SQL to bypass PostgREST schema cache issues
+  const BATCH = 100;
   let inserted = 0;
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
-    const { error } = await supabase
-      .from("sport_normative_data")
-      .upsert(batch, {
-        onConflict: "sport_id,metric_key,position_group,age_band,gender,competition_lvl",
-        ignoreDuplicates: false,
-      });
+    const values = batch.map((r) => {
+      const esc = (v: string | number | null) =>
+        typeof v === "string" ? `'${v.replace(/'/g, "''")}'` : String(v);
+      return `(gen_random_uuid(), ${esc(r.sport_id)}, ${esc(r.metric_name)}, ${esc(r.unit)}, ${esc(r.attribute_key)}, ${esc(r.direction)}, 13, 23, '[]'::jsonb, '[]'::jsonb, now(), now(), ${esc(r.position_group)}, ${esc(r.age_band)}, ${esc(r.gender)}, ${esc(r.metric_key)}, ${esc(r.metric_label)}, ${r.p10}, ${r.p25}, ${r.p50}, ${r.p75}, ${r.p90}, ${r.mean_val}, ${r.std_dev}, ${r.sample_size}, ${esc(r.source_ref)}, ${esc(r.competition_lvl)})`;
+    }).join(",\n");
 
-    if (error) {
+    const sql = `
+      INSERT INTO sport_normative_data
+        (id, sport_id, metric_name, unit, attribute_key, direction, age_min, age_max, means, sds, created_at, updated_at, position_group, age_band, gender, metric_key, metric_label, p10, p25, p50, p75, p90, mean_val, std_dev, sample_size, source_ref, competition_lvl)
+      VALUES ${values}
+      ON CONFLICT (sport_id, metric_key, position_group, age_band, gender, competition_lvl)
+      DO UPDATE SET
+        p10 = EXCLUDED.p10, p25 = EXCLUDED.p25, p50 = EXCLUDED.p50,
+        p75 = EXCLUDED.p75, p90 = EXCLUDED.p90, mean_val = EXCLUDED.mean_val,
+        std_dev = EXCLUDED.std_dev, sample_size = EXCLUDED.sample_size,
+        metric_label = EXCLUDED.metric_label, source_ref = EXCLUDED.source_ref,
+        updated_at = now();
+    `;
+
+    const { error } = await supabase.rpc("exec_sql", { query: sql }).single();
+
+    // If the RPC doesn't exist, fall back to direct REST call
+    if (error && error.message.includes("exec_sql")) {
+      // Use fetch directly against the Supabase REST SQL endpoint
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+        },
+        body: JSON.stringify({ query: sql }),
+      });
+      if (!res.ok) {
+        // Last resort: use the SQL HTTP API
+        const sqlRes = await fetch(`${SUPABASE_URL}/pg`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+          },
+          body: JSON.stringify({ query: sql }),
+        });
+        if (!sqlRes.ok) {
+          console.error(`Batch ${Math.floor(i / BATCH) + 1} failed. Trying direct pg...`);
+          // Final attempt: use supabase-js .from() which might work now
+          const { error: upsertErr } = await supabase
+            .from("sport_normative_data")
+            .upsert(batch, {
+              onConflict: "sport_id,metric_key,position_group,age_band,gender,competition_lvl",
+              ignoreDuplicates: false,
+            });
+          if (upsertErr) {
+            console.error(`Batch ${Math.floor(i / BATCH) + 1} error:`, upsertErr.message);
+            process.exit(1);
+          }
+        }
+      }
+    } else if (error) {
       console.error(`Batch ${Math.floor(i / BATCH) + 1} error:`, error.message);
       process.exit(1);
     }
+
     inserted += batch.length;
     console.log(`  Inserted ${inserted} / ${rows.length}`);
   }

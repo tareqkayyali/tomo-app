@@ -35,7 +35,7 @@ const TIME_GUTTER = 52;
 interface Props {
   events: CalendarEvent[];
   selectedDate: Date;
-  onDeleteEvent?: (eventId: string) => void;
+  onDeleteEvent?: (eventId: string) => Promise<boolean> | void;
 }
 
 // ─── Current Time Indicator ─────────────────────────────────────────────────
@@ -110,7 +110,7 @@ function TimelineEventBlock({
   onDelete,
 }: {
   event: CalendarEvent;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => Promise<boolean> | void;
 }) {
   const typeColor = getEventTypeColor(event.type);
 
@@ -128,7 +128,7 @@ function TimelineEventBlock({
   return (
     <View style={[styles.eventBlock, { top, height, borderLeftColor: typeColor }]}>
       <View style={styles.eventBlockHeader}>
-        <Text style={styles.eventBlockName} numberOfLines={1}>
+        <Text style={styles.eventBlockName} numberOfLines={2}>
           {event.name}
         </Text>
         {sportColor && (
@@ -154,7 +154,7 @@ function UntimedEvents({
   onDelete,
 }: {
   events: CalendarEvent[];
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => Promise<boolean> | void;
 }) {
   if (events.length === 0) return null;
 
@@ -174,7 +174,11 @@ export function DayTimeline({ events, selectedDate, onDeleteEvent }: Props) {
   const { timedEvents, untimedEvents } = useMemo(() => {
     const timed: CalendarEvent[] = [];
     const untimed: CalendarEvent[] = [];
-    const dayStr = selectedDate.toISOString().split('T')[0];
+    // Use local date (not UTC) to match event.date which is in the user's timezone
+    const y = selectedDate.getFullYear();
+    const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(selectedDate.getDate()).padStart(2, '0');
+    const dayStr = `${y}-${m}-${dd}`;
 
     for (const evt of events) {
       if (evt.date !== dayStr) continue;
@@ -281,12 +285,13 @@ const styles = StyleSheet.create({
   // ── Event blocks ────────────────────────────────────────────────
   eventBlock: {
     position: 'absolute',
-    left: 4,
-    right: 4,
+    left: 0,
+    right: 0,
     backgroundColor: colors.cardLight,
     borderLeftWidth: 3,
     borderRadius: 8,
-    padding: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     zIndex: 5,
     overflow: 'hidden',
   },

@@ -21,24 +21,28 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
+import { ragToColor } from '../../hooks/useAthleteSnapshot';
 import { getParentChildren, getChildCalendar } from '../../services/api';
-import { layout, spacing, borderRadius } from '../../theme';
+import { layout, spacing, borderRadius, fontFamily } from '../../theme';
 import type { ParentTabParamList, ParentStackParamList } from '../../navigation/types';
 import type { PlayerSummary } from '../../types';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<ParentTabParamList, 'Calendar'>,
-  NativeStackScreenProps<ParentStackParamList>
->;
-
-// ── Event type colors ───────────────────────────────────────────────
-
-const EVENT_COLORS: Record<string, string> = {
-  training: '#FF6B35',
-  study: '#4A9EFF',
-  exam: '#FF4757',
-  match: '#2ED573',
+// Legacy screen — now accessed as ParentDailyView stack screen
+type Props = {
+  navigation: any;
+  route: any;
 };
+
+// ── Event type colors (runtime, uses theme tokens) ──────────────────
+
+function getEventColors(colors: any): Record<string, string> {
+  return {
+    training: colors.eventTraining,
+    study: colors.eventStudyBlock,
+    exam: colors.eventExam,
+    match: colors.eventMatch,
+  };
+}
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = [
@@ -66,6 +70,7 @@ function formatDate(year: number, month: number, day: number): string {
 export function ParentCalendarScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { profile } = useAuth();
+  const eventColors = useMemo(() => getEventColors(colors), [colors]);
 
   const [children, setChildren] = useState<PlayerSummary[]>([]);
   const [selectedChild, setSelectedChild] = useState<PlayerSummary | null>(null);
@@ -242,17 +247,20 @@ export function ParentCalendarScreen({ navigation }: Props) {
                 ]}
                 onPress={() => setSelectedChild(child)}
               >
-                <Text
-                  style={[
-                    styles.childChipText,
-                    {
-                      color:
-                        selectedChild?.id === child.id ? '#FFFFFF' : colors.textOnDark,
-                    },
-                  ]}
-                >
-                  {child.name}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ragToColor(child.readinessRag) }} />
+                  <Text
+                    style={[
+                      styles.childChipText,
+                      {
+                        color:
+                          selectedChild?.id === child.id ? colors.textOnDark : colors.textOnDark,
+                      },
+                    ]}
+                  >
+                    {child.name}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -269,34 +277,20 @@ export function ParentCalendarScreen({ navigation }: Props) {
                 {selectedChild.sport} {selectedChild.age ? `- ${selectedChild.age}y` : ''}
               </Text>
             </View>
-            {selectedChild.readiness && (
+            {selectedChild.readinessRag && (
               <View
                 style={[
                   styles.readinessBadge,
-                  {
-                    backgroundColor:
-                      selectedChild.readiness === 'GREEN'
-                        ? '#2ED57333'
-                        : selectedChild.readiness === 'YELLOW'
-                        ? '#FFA50233'
-                        : '#FF475733',
-                  },
+                  { backgroundColor: ragToColor(selectedChild.readinessRag) + '33' },
                 ]}
               >
                 <Text
                   style={[
                     styles.readinessText,
-                    {
-                      color:
-                        selectedChild.readiness === 'GREEN'
-                          ? '#2ED573'
-                          : selectedChild.readiness === 'YELLOW'
-                          ? '#FFA502'
-                          : '#FF4757',
-                    },
+                    { color: ragToColor(selectedChild.readinessRag) },
                   ]}
                 >
-                  {selectedChild.readiness}
+                  {selectedChild.readinessRag}
                 </Text>
               </View>
             )}
@@ -348,7 +342,7 @@ export function ParentCalendarScreen({ navigation }: Props) {
                   style={[
                     styles.dayNumber,
                     { color: isToday ? colors.accent1 : colors.textOnDark },
-                    isToday && { fontWeight: '700' },
+                    isToday && { fontFamily: fontFamily.bold },
                   ]}
                 >
                   {day}
@@ -357,7 +351,7 @@ export function ParentCalendarScreen({ navigation }: Props) {
                   {dayEvents.slice(0, 3).map((type) => (
                     <View
                       key={type}
-                      style={[styles.eventDot, { backgroundColor: EVENT_COLORS[type] || colors.accent1 }]}
+                      style={[styles.eventDot, { backgroundColor: eventColors[type] || colors.accent1 }]}
                     />
                   ))}
                 </View>
@@ -368,7 +362,7 @@ export function ParentCalendarScreen({ navigation }: Props) {
 
         {/* Legend */}
         <View style={[styles.legendCard, { backgroundColor: colors.surface }]}>
-          {Object.entries(EVENT_COLORS).map(([type, color]) => (
+          {Object.entries(eventColors).map(([type, color]) => (
             <View key={type} style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: color }]} />
               <Text style={[styles.legendText, { color: colors.textSecondary }]}>
@@ -406,7 +400,7 @@ const styles = StyleSheet.create({
   },
   childChipText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
 
   // Child header
@@ -423,7 +417,7 @@ const styles = StyleSheet.create({
   },
   childName: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
   childSport: {
     fontSize: 13,
@@ -436,7 +430,7 @@ const styles = StyleSheet.create({
   },
   readinessText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
 
   // Month header
@@ -448,7 +442,7 @@ const styles = StyleSheet.create({
   },
   monthTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
 
   // Weekday row
@@ -462,7 +456,7 @@ const styles = StyleSheet.create({
   },
   weekdayLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
 
   // Calendar grid
@@ -479,7 +473,7 @@ const styles = StyleSheet.create({
   },
   dayNumber: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
   },
   dotRow: {
     flexDirection: 'row',
@@ -525,7 +519,7 @@ const styles = StyleSheet.create({
   },
   pendingTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     textAlign: 'center',
   },
   pendingSubtitle: {

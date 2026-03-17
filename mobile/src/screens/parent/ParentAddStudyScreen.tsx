@@ -20,7 +20,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
 import { suggestStudyBlock } from '../../services/api';
-import { spacing, borderRadius } from '../../theme';
+import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<ParentStackParamList, 'ParentAddStudy'>;
@@ -87,8 +87,8 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.successContainer}>
-          <View style={[styles.successIcon, { backgroundColor: '#2ED57322' }]}>
-            <Ionicons name="checkmark-circle" size={64} color="#2ED573" />
+          <View style={[styles.successIcon, { backgroundColor: colors.success + '22' }]}>
+            <Ionicons name="checkmark-circle" size={64} color={colors.success} />
           </View>
           <Text style={[styles.successTitle, { color: colors.textOnDark }]}>Study Block Added</Text>
           <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
@@ -98,7 +98,7 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
             style={[styles.doneButton, { backgroundColor: colors.accent1 }]}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.doneButtonText}>Done</Text>
+            <Text style={[styles.doneButtonText, { color: colors.textOnDark }]}>Done</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -130,7 +130,7 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
               <Text
                 style={[
                   styles.chipText,
-                  { color: subject === s ? '#FFFFFF' : colors.textOnDark },
+                  { color: subject === s ? colors.textOnDark : colors.textOnDark },
                 ]}
               >
                 {s}
@@ -166,7 +166,7 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
               <Text
                 style={[
                   styles.hourText,
-                  { color: startHour === h ? '#FFFFFF' : colors.textOnDark },
+                  { color: startHour === h ? colors.textOnDark : colors.textOnDark },
                 ]}
               >
                 {`${String(h).padStart(2, '0')}:00`}
@@ -193,7 +193,7 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
               <Text
                 style={[
                   styles.chipText,
-                  { color: duration === d.minutes ? '#FFFFFF' : colors.textOnDark },
+                  { color: duration === d.minutes ? colors.textOnDark : colors.textOnDark },
                 ]}
               >
                 {d.label}
@@ -207,9 +207,9 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
         <View style={styles.chipRow}>
           {PRIORITIES.map((p) => {
             const priorityColors: Record<string, string> = {
-              Low: '#2ED573',
-              Medium: '#FFA502',
-              High: '#FF4757',
+              Low: colors.success,
+              Medium: colors.warning,
+              High: colors.error,
             };
             const isSelected = priority === p;
             return (
@@ -259,9 +259,9 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
           disabled={submitting || !effectiveSubject.trim()}
         >
           {submitting ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={colors.textOnDark} />
           ) : (
-            <Text style={styles.submitText}>Suggest Study Block</Text>
+            <Text style={[styles.submitText, { color: colors.textOnDark }]}>Suggest Study Block</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -281,12 +281,12 @@ const styles = StyleSheet.create({
   },
   header: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     marginBottom: spacing.xl,
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
     marginBottom: spacing.sm,
     marginTop: spacing.md,
     textTransform: 'uppercase',
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
   },
 
   // Hour scroll
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   },
   hourText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
 
   // Input
@@ -351,9 +351,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   submitText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
 
   // Success
@@ -373,7 +372,7 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     marginBottom: spacing.sm,
   },
   successSubtitle: {
@@ -387,8 +386,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   doneButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
 });

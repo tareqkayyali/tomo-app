@@ -21,6 +21,7 @@ import {
   Pressable,
   Platform,
   Dimensions,
+  Alert,
 } from 'react-native';
 import type { GestureResponderEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,6 +31,15 @@ import { useTheme } from '../../hooks/useTheme';
 import { getIntensityConfig } from '../../utils/calendarHelpers';
 import type { CalendarEvent } from '../../types';
 import type { ThemeColors } from '../../theme/colors';
+import {
+  findAvailableSlots,
+  validateEvent,
+  autoPosition,
+  computeGaps,
+  DEFAULT_CONFIG,
+  type SchedulingConfig,
+  type ScheduleEvent,
+} from '../../services/schedulingEngine';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -166,11 +176,17 @@ interface DayGridProps {
   onComplete: (eventId: string) => void;
   onSkip: (eventId: string) => void;
   onUndo: (eventId: string) => void;
+  onDelete?: (eventId: string) => Promise<boolean> | void;
+  onUpdate?: (eventId: string, patch: { date?: string; startTime?: string; endTime?: string }) => Promise<boolean>;
   onEmptySlotPress: (time: string) => void;
   onEventDrop: (eventId: string, newStartTime: string, newEndTime: string) => void;
   readOnly: boolean;
   locked: boolean;
   scrollEnabled?: React.MutableRefObject<(enabled: boolean) => void>;
+  /** Smart Calendar scheduling config (gap minutes, etc.) */
+  schedulingConfig?: SchedulingConfig;
+  /** Callback when an event is auto-repositioned due to conflict */
+  onAutoReposition?: (eventId: string, newStart: string, newEnd: string, reason: string) => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -183,14 +199,24 @@ export function DayGrid({
   onComplete,
   onSkip,
   onUndo,
+  onDelete,
+  onUpdate,
   onEmptySlotPress,
   onEventDrop,
   readOnly,
   locked,
   scrollEnabled,
+  schedulingConfig,
+  onAutoReposition,
 }: DayGridProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // ── Inline edit state ──
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const handleEditToggle = useCallback((id: string) => {
+    setEditingEventId((prev) => (prev === id ? null : id));
+  }, []);
 
   // ── Events with and without times ──
   const timedEvents = useMemo(
@@ -205,6 +231,56 @@ export function DayGrid({
 
   // ── Overlap layout ──
   const overlapMap = useMemo(() => computeOverlapGroups(timedEvents), [timedEvents]);
+
+  // ── Smart Calendar: available slot scores ──
+  const config = schedulingConfig ?? DEFAULT_CONFIG;
+  const scheduleEvents: ScheduleEvent[] = useMemo(
+    () =>
+      timedEvents.map((e) => ({
+        id: e.id,
+        name: e.name,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        type: e.type,
+        intensity: e.intensity,
+      })),
+    [timedEvents],
+  );
+
+  const availableSlotScores = useMemo(() => {
+    if (readOnly || locked) return new Map<number, number>();
+    const suggestions = findAvailableSlots(
+      scheduleEvents,
+      60,
+      config,
+      selectedDay.getDay(),
+    );
+    const scoreMap = new Map<number, number>();
+    for (const s of suggestions) {
+      // Map suggestion to slot indices
+      for (let min = s.startMin; min < s.endMin; min += 30) {
+        const idx = minutesToSlotIndex(min);
+        if (!scoreMap.has(idx) || scoreMap.get(idx)! < s.score) {
+          scoreMap.set(idx, s.score);
+        }
+      }
+    }
+    return scoreMap;
+  }, [scheduleEvents, config, selectedDay, readOnly, locked]);
+
+  // ── Smart Calendar: gap markers between events ──
+  const gapMarkers = useMemo(
+    () => computeGaps(scheduleEvents, config),
+    [scheduleEvents, config],
+  );
+
+  // Keep refs for scheduling engine conflict handling in drag
+  const configRef = useRef(config);
+  configRef.current = config;
+  const scheduleEventsRef = useRef(scheduleEvents);
+  scheduleEventsRef.current = scheduleEvents;
+  const onAutoRepositionRef = useRef(onAutoReposition);
+  onAutoRepositionRef.current = onAutoReposition;
 
   // ── Current time for "now" indicator ──
   const [nowMinutes, setNowMinutes] = useState(() => {
@@ -299,14 +375,66 @@ export function DayGrid({
       };
 
       const onPointerUp = () => {
-        // Finalize drop
+        // Finalize drop with Smart Calendar conflict handling
         const currentDs = dragStateRef.current;
         if (currentDs) {
           const deltaMinutes = Math.round(dragOffsetRef.current / SLOT_HEIGHT) * 30;
-          const newStartMin = currentDs.originalStartMin + deltaMinutes;
-          const newEndMin = newStartMin + currentDs.durationMin;
+          let newStartMin = currentDs.originalStartMin + deltaMinutes;
+          let newEndMin = newStartMin + currentDs.durationMin;
 
           if (deltaMinutes !== 0 && newStartMin >= START_HOUR * 60 && newEndMin <= END_HOUR * 60) {
+            // Smart Calendar: validate drop position
+            const cfg = configRef.current;
+            const evts = scheduleEventsRef.current;
+            const conflict = validateEvent(newStartMin, newEndMin, evts, cfg, currentDs.eventId);
+
+            if (conflict.hasConflict) {
+              // Auto-reposition to nearest free slot
+              const repositioned = autoPosition(
+                currentDs.durationMin,
+                newStartMin,
+                evts,
+                cfg,
+                currentDs.eventId,
+              );
+
+              if (repositioned) {
+                newStartMin = repositioned.startMin;
+                newEndMin = repositioned.endMin;
+                // Notify parent about auto-reposition
+                if (onAutoRepositionRef.current) {
+                  const reason = conflict.conflictingEvents.length > 0
+                    ? `Conflict with ${conflict.conflictingEvents[0].name}`
+                    : `Gap too small (need ${cfg.gapMinutes}min)`;
+                  onAutoRepositionRef.current(
+                    currentDs.eventId,
+                    minutesToTime(newStartMin),
+                    minutesToTime(newEndMin),
+                    reason,
+                  );
+                }
+              } else {
+                // No slot available — bounce back (don't drop)
+                // Reset without calling onEventDrop
+                document.removeEventListener('pointermove', onPointerMove);
+                document.removeEventListener('pointerup', onPointerUp);
+                document.removeEventListener('pointercancel', onPointerUp);
+                document.removeEventListener('touchmove', onPointerMove);
+                document.removeEventListener('touchend', onPointerUp);
+                document.removeEventListener('touchcancel', onPointerUp);
+                cleanupRef.current = null;
+                isDraggingRef.current = false;
+                dragStateRef.current = null;
+                dragOffsetRef.current = 0;
+                setDragState(null);
+                setDragOffsetY(0);
+                if (scrollEnabledRef.current?.current) {
+                  scrollEnabledRef.current.current(true);
+                }
+                return;
+              }
+            }
+
             onEventDropRef.current(
               currentDs.eventId,
               minutesToTime(newStartMin),
@@ -445,10 +573,13 @@ export function DayGrid({
           </Text>
         ))}
 
-        {/* Slot rows */}
+        {/* Slot rows with Smart Calendar glow */}
         {Array.from({ length: SLOT_COUNT }, (_, i) => {
           const isOccupied = occupiedSlots.has(i);
           const isHourBoundary = i % 2 === 0;
+          const slotScore = !isOccupied ? availableSlotScores.get(i) : undefined;
+          const hasGlow = slotScore !== undefined && slotScore > 0;
+
           return (
             <Pressable
               key={i}
@@ -464,12 +595,66 @@ export function DayGrid({
                 },
               ]}
             >
-              {!isOccupied && !readOnly && !locked && (
-                <View style={styles.emptySlotHint}>
-                  <Ionicons name="add" size={14} color={colors.textInactive + '60'} />
-                </View>
+              {/* Smart Calendar: available slot glow */}
+              {hasGlow && !readOnly && !locked && (
+                <View
+                  pointerEvents="none"
+                  style={{
+                    ...StyleSheet.absoluteFillObject,
+                    left: TIME_COL_WIDTH - 4,
+                    backgroundColor:
+                      slotScore >= 70
+                        ? colors.accent1 + '0A'    // warm glow for great slots
+                        : slotScore >= 40
+                        ? colors.accent2 + '06'    // subtle cool glow
+                        : 'transparent',
+                  }}
+                />
               )}
             </Pressable>
+          );
+        })}
+
+        {/* Smart Calendar: gap markers between events */}
+        {gapMarkers.map((gap, i) => {
+          const midY = (gap.yStart + gap.yEnd) / 2;
+          const markerColor = gap.adequate ? '#2ECC71' : '#F7B731';
+          return (
+            <View
+              key={`gap-${i}`}
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: midY - 8,
+                left: TIME_COL_WIDTH + 4,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 3,
+                backgroundColor: markerColor + '14',
+                borderRadius: 6,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                zIndex: 5,
+              }}
+            >
+              <View
+                style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: markerColor,
+                }}
+              />
+              <Text
+                style={{
+                  fontSize: 9,
+                  fontFamily: fontFamily.semiBold,
+                  color: markerColor,
+                }}
+              >
+                {gap.gapMinutes}m
+              </Text>
+            </View>
           );
         })}
 
@@ -505,9 +690,13 @@ export function DayGrid({
               isDragging={isDragging}
               readOnly={readOnly}
               locked={locked}
+              isEditing={editingEventId === evt.id}
+              onEditToggle={handleEditToggle}
               onComplete={onComplete}
               onSkip={onSkip}
               onUndo={onUndo}
+              onDelete={onDelete}
+              onUpdate={onUpdate}
               onDragStart={handleDragStart}
               colors={colors}
             />
@@ -628,14 +817,18 @@ interface StaticEventBlockProps {
   isDragging: boolean;
   readOnly: boolean;
   locked: boolean;
+  isEditing: boolean;
+  onEditToggle: (id: string) => void;
   onComplete: (id: string) => void;
   onSkip: (id: string) => void;
   onUndo: (id: string) => void;
+  onDelete?: (id: string) => Promise<boolean> | void;
+  onUpdate?: (id: string, patch: { date?: string; startTime?: string; endTime?: string }) => Promise<boolean>;
   onDragStart: (ds: DragState, pageY: number) => void;
   colors: ThemeColors;
 }
 
-function StaticEventBlock({
+const StaticEventBlock = React.memo(function StaticEventBlock({
   event,
   top,
   height,
@@ -647,9 +840,13 @@ function StaticEventBlock({
   isDragging,
   readOnly,
   locked,
+  isEditing,
+  onEditToggle,
   onComplete,
   onSkip,
   onUndo,
+  onDelete,
+  onUpdate,
   onDragStart,
   colors,
 }: StaticEventBlockProps) {
@@ -662,9 +859,112 @@ function StaticEventBlock({
   const intensity = event.intensity ? getIntensityConfig(event.intensity) : null;
   const showActions = isCurrent && !readOnly && !locked && !isCompleted;
 
+  // ── Inline edit state ──
+  const [editStart, setEditStart] = useState(event.startTime || '08:00');
+  const [editEnd, setEditEnd] = useState(event.endTime || '09:00');
+  const [editDate, setEditDate] = useState(event.date || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Reset edit values when editing starts
+  useEffect(() => {
+    if (isEditing) {
+      setEditStart(event.startTime || '08:00');
+      setEditEnd(event.endTime || '09:00');
+      setEditDate(event.date || '');
+    }
+  }, [isEditing, event.startTime, event.endTime, event.date]);
+
+  /** Shift date by ±N days */
+  const shiftDate = useCallback((dateStr: string, days: number): string => {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + days);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  }, []);
+
+  /** Format date for display: "Mon Mar 16" */
+  const formatDateLabel = useCallback((dateStr: string): string => {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }, []);
+
+  /** Shift both start+end by deltaMin preserving duration, clamped to grid */
+  const shiftTimeBlock = useCallback((deltaMin: number) => {
+    const startMin = timeToMinutes(editStart);
+    const endMin = timeToMinutes(editEnd);
+    const duration = endMin - startMin;
+    let newStart = startMin + deltaMin;
+    let newEnd = newStart + duration;
+    // Clamp
+    if (newStart < START_HOUR * 60) {
+      newStart = START_HOUR * 60;
+      newEnd = newStart + duration;
+    }
+    if (newEnd > END_HOUR * 60) {
+      newEnd = END_HOUR * 60;
+      newStart = newEnd - duration;
+    }
+    if (newStart < START_HOUR * 60) return; // duration too long for grid
+    setEditStart(minutesToTime(newStart));
+    setEditEnd(minutesToTime(newEnd));
+  }, [editStart, editEnd]);
+
+  const handleSave = useCallback(async () => {
+    if (!onUpdate || isSaving) return;
+    // Validate end > start
+    if (timeToMinutes(editEnd) <= timeToMinutes(editStart)) {
+      Alert.alert('Invalid Time', 'End time must be after start time.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const patch: { date?: string; startTime?: string; endTime?: string } = {
+        startTime: editStart,
+        endTime: editEnd,
+      };
+      if (editDate && editDate !== event.date) {
+        patch.date = editDate;
+      }
+      const ok = await onUpdate(event.id, patch);
+      if (ok) {
+        onEditToggle(event.id); // close edit mode
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } else {
+        Alert.alert('Update Failed', 'Could not update event. Please try again.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }, [onUpdate, event.id, editStart, editEnd, editDate, event.date, isSaving, onEditToggle]);
+
+  const handleDelete = useCallback(() => {
+    if (!onDelete) return;
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    Alert.alert('Delete Event', `Remove "${event.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const result = await onDelete(event.id);
+          if (result === false) {
+            Alert.alert('Delete Failed', 'Could not delete event. Please try again.');
+          }
+          onEditToggle(event.id); // close edit mode
+        },
+      },
+    ]);
+  }, [onDelete, event.id, event.name, onEditToggle]);
+
   const handleLongPress = useCallback(
     (e: GestureResponderEvent) => {
-      if (readOnly || locked || !event.startTime) return;
+      if (readOnly || locked || !event.startTime || isEditing) return;
       const startMin = timeToMinutes(event.startTime);
       const endMin = event.endTime ? timeToMinutes(event.endTime) : startMin + 60;
 
@@ -686,7 +986,7 @@ function StaticEventBlock({
         pageY,
       );
     },
-    [event, top, left, width, height, typeColor, readOnly, locked, onDragStart],
+    [event, top, left, width, height, typeColor, readOnly, locked, isEditing, onDragStart],
   );
 
   // Ghost placeholder while dragging
@@ -719,6 +1019,10 @@ function StaticEventBlock({
     );
   }
 
+  // ── Edit mode block height ──
+  const editExtraHeight = isEditing ? 100 : 0;
+  const blockHeight = Math.max(height, 44) + editExtraHeight;
+
   return (
     <View
       style={[
@@ -727,8 +1031,8 @@ function StaticEventBlock({
           top,
           left,
           width,
-          height: Math.max(height, 44),
-          zIndex: isCurrent ? 10 : 1,
+          height: blockHeight,
+          zIndex: isEditing ? 100 : isCurrent ? 10 : 1,
         },
         // Prevent text selection on web during long-press
         Platform.OS === 'web' ? ({ userSelect: 'none' } as any) : undefined,
@@ -743,15 +1047,20 @@ function StaticEventBlock({
             borderRadius: borderRadius.sm,
             borderLeftWidth: 3,
             borderLeftColor: typeColor,
-            backgroundColor: typeColor + '18',
+            backgroundColor: isEditing ? typeColor + '25' : typeColor + '18',
             paddingHorizontal: 8,
             paddingVertical: 4,
             opacity: isCompleted ? 0.45 : pressed ? 0.85 : 1,
-            overflow: 'hidden',
+            overflow: isEditing ? 'visible' : 'hidden',
           },
-          isCurrent && !isCompleted && {
+          isCurrent && !isCompleted && !isEditing && {
             borderLeftWidth: 4,
             borderColor: typeColor + '40',
+            borderWidth: 1,
+          },
+          isEditing && {
+            borderLeftWidth: 4,
+            borderColor: typeColor + '60',
             borderWidth: 1,
           },
         ]}
@@ -771,7 +1080,7 @@ function StaticEventBlock({
           >
             {event.name}
           </Text>
-          {isCurrent && !isCompleted && (
+          {isCurrent && !isCompleted && !isEditing && (
             <View
               style={{
                 backgroundColor: '#FF6B35',
@@ -783,13 +1092,142 @@ function StaticEventBlock({
               <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '800' }}>NOW</Text>
             </View>
           )}
-          {!readOnly && !locked && event.startTime && (
+          {!readOnly && !locked && (
+            <Pressable
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                onEditToggle(event.id);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ padding: 2 }}
+            >
+              <Ionicons
+                name={isEditing ? 'close-outline' : 'pencil-outline'}
+                size={12}
+                color={isEditing ? colors.textSecondary : typeColor}
+              />
+            </Pressable>
+          )}
+          {!readOnly && !locked && event.startTime && !isEditing && (
             <Ionicons name="reorder-three-outline" size={14} color={colors.textInactive + '80'} />
           )}
         </View>
 
-        {/* Time + intensity */}
-        {height > 44 && (
+        {/* ── Inline edit panel (3 rows: date, time, actions) ── */}
+        {isEditing && (
+          <View style={{ gap: 4, marginTop: 4 }}>
+            {/* Row 1 — Date shift */}
+            {editDate ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Pressable
+                  onPress={() => setEditDate((prev) => shiftDate(prev, -1))}
+                  style={{
+                    backgroundColor: typeColor + '30',
+                    borderRadius: 4,
+                    paddingHorizontal: 5,
+                    paddingVertical: 2,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 2,
+                  }}
+                >
+                  <Ionicons name="chevron-back" size={10} color={colors.textOnDark} />
+                  <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.textOnDark }}>-1d</Text>
+                </Pressable>
+                <Text style={{ flex: 1, fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.textOnDark, textAlign: 'center' }}>
+                  {formatDateLabel(editDate)}
+                </Text>
+                <Pressable
+                  onPress={() => setEditDate((prev) => shiftDate(prev, 1))}
+                  style={{
+                    backgroundColor: typeColor + '30',
+                    borderRadius: 4,
+                    paddingHorizontal: 5,
+                    paddingVertical: 2,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 2,
+                  }}
+                >
+                  <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.textOnDark }}>+1d</Text>
+                  <Ionicons name="chevron-forward" size={10} color={colors.textOnDark} />
+                </Pressable>
+              </View>
+            ) : null}
+            {/* Row 2 — Time shift (preserves duration) */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Pressable
+                onPress={() => shiftTimeBlock(-30)}
+                style={{
+                  backgroundColor: typeColor + '30',
+                  borderRadius: 4,
+                  paddingHorizontal: 5,
+                  paddingVertical: 2,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 2,
+                }}
+              >
+                <Ionicons name="chevron-back" size={10} color={colors.textOnDark} />
+                <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.textOnDark }}>Earlier</Text>
+              </Pressable>
+              <Text style={{ flex: 1, fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.textOnDark, textAlign: 'center' }}>
+                {format12h(editStart)} – {format12h(editEnd)}
+              </Text>
+              <Pressable
+                onPress={() => shiftTimeBlock(30)}
+                style={{
+                  backgroundColor: typeColor + '30',
+                  borderRadius: 4,
+                  paddingHorizontal: 5,
+                  paddingVertical: 2,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 2,
+                }}
+              >
+                <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.textOnDark }}>Later</Text>
+                <Ionicons name="chevron-forward" size={10} color={colors.textOnDark} />
+              </Pressable>
+            </View>
+            {/* Row 3 — Save + Delete */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <View style={{ flex: 1 }} />
+              {onUpdate && (
+                <Pressable
+                  onPress={handleSave}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  style={{
+                    backgroundColor: '#2ED573',
+                    borderRadius: 4,
+                    padding: 4,
+                    opacity: isSaving ? 0.5 : 1,
+                  }}
+                >
+                  <Ionicons name="checkmark" size={12} color="#FFF" />
+                </Pressable>
+              )}
+              {onDelete && (
+                <Pressable
+                  onPress={handleDelete}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  style={{
+                    backgroundColor: '#E74C3C20',
+                    borderRadius: 4,
+                    padding: 4,
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={12} color="#E74C3C" />
+                </Pressable>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Time + intensity (hidden when editing) */}
+        {!isEditing && height > 44 && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <Text style={{ fontSize: 10, color: colors.textSecondary }}>{timeStr}</Text>
             {intensity && (
@@ -810,7 +1248,7 @@ function StaticEventBlock({
         )}
 
         {/* Action buttons */}
-        {showActions && height > 70 && (
+        {showActions && !isEditing && height > 70 && (
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
             <Pressable
               onPress={() => {
@@ -855,7 +1293,7 @@ function StaticEventBlock({
         )}
 
         {/* Undo for completed */}
-        {isCompleted && !readOnly && !locked && height > 44 && (
+        {isCompleted && !readOnly && !locked && !isEditing && height > 44 && (
           <Pressable
             onPress={() => onUndo(event.id)}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}
@@ -867,7 +1305,7 @@ function StaticEventBlock({
       </Pressable>
     </View>
   );
-}
+});
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 

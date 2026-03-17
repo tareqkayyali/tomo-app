@@ -101,6 +101,8 @@ export interface CardAttribute {
 export interface DNACardProps {
   /** 6 attributes in display order */
   attributes: CardAttribute[];
+  /** Optional benchmark attributes for a second radar polygon (P50 norm target) */
+  benchmarkAttributes?: CardAttribute[];
   /** Overall rating (0-99), displayed prominently top-left */
   overallRating: number;
   /** Player's position (e.g., 'ST', 'GK', 'All-Round') — top-right badge */
@@ -108,7 +110,7 @@ export interface DNACardProps {
   /** Visual tier controlling card gradient */
   cardTier: CardTier;
   /** Which sport this card represents — used for the sport accent */
-  sport: 'football' | 'padel';
+  sport: 'football' | 'padel' | 'basketball' | 'tennis' | 'soccer';
   /** Pathway rating (0-1000), displayed under the tier badge */
   pathwayRating?: number;
   /** Pathway level name (e.g., 'Academy Elite', 'Semi-Pro') */
@@ -127,6 +129,7 @@ export interface DNACardProps {
 
 export function DNACard({
   attributes,
+  benchmarkAttributes,
   overallRating,
   position,
   cardTier,
@@ -144,6 +147,15 @@ export function DNACard({
 
   // Map CardAttribute[] to RadarAttribute[] for HexagonRadar
   const radarAttributes: RadarAttribute[] = attributes.map((attr) => ({
+    key: attr.key ?? attr.abbreviation,
+    label: attr.label,
+    value: attr.value,
+    maxValue: attr.maxValue,
+    color: attr.color,
+  }));
+
+  // Map benchmark CardAttribute[] to RadarAttribute[] if provided
+  const benchmarkRadarAttributes: RadarAttribute[] | undefined = benchmarkAttributes?.map((attr) => ({
     key: attr.key ?? attr.abbreviation,
     label: attr.label,
     value: attr.value,
@@ -207,6 +219,7 @@ export function DNACard({
             <View style={styles.radarContainer}>
               <HexagonRadar
                 attributes={radarAttributes}
+                benchmarkAttributes={benchmarkRadarAttributes}
                 size={200}
                 onAttributeTap={onAttributeTap}
                 fillColor={tierVisual.gradient[0]}

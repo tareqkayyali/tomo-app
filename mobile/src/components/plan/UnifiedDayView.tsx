@@ -5,7 +5,7 @@
  * Coach/Parent: read-only view (day grid + lock badge, recommend FAB)
  */
 
-import React, { useMemo, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useRef, useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,17 +13,12 @@ import {
   ScrollView,
   RefreshControl,
   Pressable,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
 import {
-  BalanceBar,
   ExamStudyPlanner,
 } from '../../components';
 import type { UpcomingExam } from '../../components';
-import { ReadinessRing } from '../../components/flow/ReadinessRing';
 import { DayGrid } from '../../components/flow/DayGrid';
 import { DayLockButton } from '../../components/flow/DayLockButton';
 import { ScrollFadeOverlay } from '../../components/ScrollFadeOverlay';
@@ -31,7 +26,7 @@ import { SuggestionsBanner } from '../../components/SuggestionsBanner';
 import { spacing, layout, shadows, fontFamily, borderRadius } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemeColors } from '../../theme/colors';
-import type { CalendarEvent, ReadinessLevel, Suggestion } from '../../types';
+import type { CalendarEvent, Suggestion } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,10 +62,6 @@ export interface UnifiedDayViewProps {
   onEventDrop?: (eventId: string, newStartTime: string, newEndTime: string) => void;
 
   // Player-only props (undefined for coach/parent)
-  readiness?: { score: number; level: ReadinessLevel };
-  trainingHours?: number;
-  academicHours?: number;
-  aiInsightText?: string;
   hasCheckedInToday?: boolean;
   suggestions?: Suggestion[];
   onSuggestionResolved?: (id: string, status: string) => void;
@@ -79,11 +70,10 @@ export interface UnifiedDayViewProps {
   onComplete?: (id: string) => void;
   onSkip?: (id: string) => void;
   onUndo?: (id: string) => void;
+  onDelete?: (id: string) => Promise<boolean> | void;
+  onUpdate?: (id: string, patch: { startTime?: string; endTime?: string }) => Promise<boolean>;
   onCheckinPress?: () => void;
 
-  // FAB
-  onFabPress: () => void;
-  fabIcon?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,10 +99,6 @@ export function UnifiedDayView({
   onToggleLock,
   onEmptySlotPress,
   onEventDrop,
-  readiness,
-  trainingHours,
-  academicHours,
-  aiInsightText,
   hasCheckedInToday,
   suggestions,
   onSuggestionResolved,
@@ -121,9 +107,9 @@ export function UnifiedDayView({
   onComplete,
   onSkip,
   onUndo,
+  onDelete,
+  onUpdate,
   onCheckinPress,
-  onFabPress,
-  fabIcon = 'add',
 }: UnifiedDayViewProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -163,22 +149,11 @@ export function UnifiedDayView({
   // Flow header label
   const flowLabel = useMemo(() => {
     if (isOwner) {
-      return isToday ? "TODAY'S FLOW" : `${dayLabel.toUpperCase()}'S FLOW`;
+      return isToday ? "TODAY'S TIMELINE" : `${dayLabel.toUpperCase()}'S TIMELINE`;
     }
     const firstName = targetUserName?.split(' ')[0] || 'Player';
-    return `${firstName.toUpperCase()}'S FLOW`;
+    return `${firstName.toUpperCase()}'S TIMELINE`;
   }, [isOwner, isToday, dayLabel, targetUserName]);
-
-  const handleFabPress = useCallback(() => {
-    if (isLocked && isOwner) {
-      // Could show a toast here
-      return;
-    }
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-    onFabPress();
-  }, [isLocked, isOwner, onFabPress]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -220,38 +195,6 @@ export function UnifiedDayView({
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
         }
       >
-        {/* ─── Player-only: Readiness + Balance ─── */}
-        {isOwner && readiness && (
-          <View style={styles.readinessBalanceRow}>
-            <ReadinessRing score={readiness.score} level={readiness.level} size={72} />
-            <View style={styles.balanceWrap}>
-              <BalanceBar
-                trainingHours={trainingHours ?? 0}
-                academicHours={academicHours ?? 0}
-                compact
-              />
-            </View>
-          </View>
-        )}
-
-        {/* ─── Player-only: AI Balance Card ─── */}
-        {isOwner && aiInsightText && (
-          <View style={styles.aiCard}>
-            <LinearGradient
-              colors={['#A855F718', `${colors.accent1}18`]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.aiCardGradient}
-            >
-              <View style={styles.aiHeader}>
-                <Text style={styles.aiEmoji}>{'\uD83E\uDDE0'}</Text>
-                <Text style={styles.aiLabel}>TOMO BALANCE</Text>
-              </View>
-              <Text style={styles.aiText}>{aiInsightText}</Text>
-            </LinearGradient>
-          </View>
-        )}
-
         {/* ─── Player-only: Suggestions Banner ─── */}
         {isOwner && suggestions && suggestions.length > 0 && onSuggestionResolved && (
           <SuggestionsBanner
@@ -318,6 +261,8 @@ export function UnifiedDayView({
             onComplete={onComplete ?? noop}
             onSkip={onSkip ?? noop}
             onUndo={onUndo ?? noop}
+            onDelete={onDelete}
+            onUpdate={onUpdate}
             onEmptySlotPress={onEmptySlotPress ?? noop}
             onEventDrop={onEventDrop ?? noop}
             readOnly={!isOwner}
@@ -332,21 +277,6 @@ export function UnifiedDayView({
         )}
       </ScrollView>
 
-      {/* ─── FAB ─── */}
-      {!(isLocked && isOwner) && (
-        <View style={styles.fabWrap}>
-          <Pressable onPress={handleFabPress}>
-            <LinearGradient
-              colors={colors.gradientOrangeCyan}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.fab}
-            >
-              <Ionicons name={fabIcon as any} size={28} color="#FFFFFF" />
-            </LinearGradient>
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }

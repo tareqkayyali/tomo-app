@@ -88,8 +88,12 @@ async function apiRequest<T>(
       const data = await response.json();
 
       if (!response.ok) {
-        const error = data as ApiError;
-        throw new Error(error.error?.message || 'Request failed');
+        // Backend may return { error: "string" } or { error: { message: "string" } }
+        const errMsg =
+          typeof data?.error === 'string'
+            ? data.error
+            : data?.error?.message || `Request failed (${response.status})`;
+        throw new Error(errMsg);
       }
 
       return data as T;
@@ -229,7 +233,6 @@ function mapUserFromApi(raw: Record<string, unknown>): User {
     examSchedule: (raw.exam_schedule as unknown[]) as User['examSchedule'] || [],
     trainingPreferences: (raw.training_preferences as User['trainingPreferences']) || undefined,
     studyPlanConfig: (raw.study_plan_config as User['studyPlanConfig']) || undefined,
-    schoolSchedule: (raw.school_schedule as User['schoolSchedule']) || undefined,
     customTrainingTypes: (raw.custom_training_types as User['customTrainingTypes']) || undefined,
     connectedWearables: (raw.connected_wearables as User['connectedWearables']) || undefined,
   } as User;
@@ -362,6 +365,15 @@ export async function getSportPositions(
 // Calendar Event APIs
 // ============================================
 
+/** Get user's IANA timezone */
+function getUserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'UTC';
+  }
+}
+
 /**
  * Create a calendar event
  */
@@ -370,7 +382,7 @@ export async function createCalendarEvent(
 ): Promise<{ event: CalendarEvent }> {
   return apiRequest<{ event: CalendarEvent }>('/api/v1/calendar/events', {
     method: 'POST',
-    body: JSON.stringify(eventData),
+    body: JSON.stringify({ ...eventData, timezone: getUserTimezone() }),
   });
 }
 
@@ -380,8 +392,9 @@ export async function createCalendarEvent(
 export async function getCalendarEventsByDate(
   date: string,
 ): Promise<{ events: CalendarEvent[] }> {
+  const tz = encodeURIComponent(getUserTimezone());
   return apiRequest<{ events: CalendarEvent[] }>(
-    `/api/v1/calendar/events?date=${date}`,
+    `/api/v1/calendar/events?date=${date}&tz=${tz}`,
   );
 }
 
@@ -392,8 +405,9 @@ export async function getCalendarEventsByRange(
   startDate: string,
   endDate: string,
 ): Promise<{ events: CalendarEvent[] }> {
+  const tz = encodeURIComponent(getUserTimezone());
   return apiRequest<{ events: CalendarEvent[] }>(
-    `/api/v1/calendar/events?startDate=${startDate}&endDate=${endDate}`,
+    `/api/v1/calendar/events?startDate=${startDate}&endDate=${endDate}&tz=${tz}`,
   );
 }
 
@@ -415,7 +429,7 @@ export async function updateCalendarEvent(
 ): Promise<{ event: CalendarEvent }> {
   return apiRequest<{ event: CalendarEvent }>(`/api/v1/calendar/events/${eventId}`, {
     method: 'PATCH',
-    body: JSON.stringify(patch),
+    body: JSON.stringify({ ...patch, timezone: getUserTimezone() }),
   });
 }
 
@@ -673,6 +687,135 @@ export async function getBriefing(): Promise<DailyBriefing> {
 }
 
 // ============================================
+// Agent Chat — Command Center (complements existing chat)
+// ============================================
+
+export interface AgentChatRequest {
+  message: string;
+  sessionId?: string;
+  activeTab?: string;
+  timezone?: string; // IANA timezone e.g. "Asia/Riyadh"
+  confirmedAction?: {
+    toolName: string;
+    toolInput: Record<string, any>;
+    agentType: string;
+    actions?: Array<{
+      toolName: string;
+      toolInput: Record<string, any>;
+      agentType: string;
+      preview: string;
+    }>;
+  };
+}
+
+export interface AgentChatResponse {
+  message: string;
+  structured?: import('../types/chat').TomoResponse | null;
+  sessionId?: string;
+  refreshTargets: string[];
+  pendingConfirmation: {
+    toolName: string;
+    toolInput: Record<string, any>;
+    agentType: string;
+    preview: string;
+    /** Batch actions — when multiple writes need confirmation */
+    actions?: Array<{
+      toolName: string;
+      toolInput: Record<string, any>;
+      agentType: string;
+      preview: string;
+    }>;
+  } | null;
+  context: {
+    ageBand: string | null;
+    readinessScore: string | null;
+    activeTab: string;
+  };
+}
+
+/**
+ * Send a message to the agent-based chat endpoint.
+ * Routes to specialized agents (Timeline, Output, Mastery)
+ * and can execute calendar operations, log check-ins, etc.
+ */
+export async function sendAgentChatMessage(
+  payload: AgentChatRequest,
+  signal?: AbortSignal,
+): Promise<AgentChatResponse> {
+  const token = await getIdToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const url = `${API_BASE_URL}/api/v1/chat/agent`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timeoutId);
+      throw new Error('Request cancelled');
+    }
+    signal.addEventListener('abort', () => controller.abort());
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    clearTimeout(timeoutId);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Agent chat request failed');
+    }
+
+    return data as AgentChatResponse;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+// ============================================
+// Chat Sessions — Server-side session management
+// ============================================
+
+export async function listChatSessions(): Promise<import('../types/chat').ChatSession[]> {
+  const data = await apiRequest<{ sessions: import('../types/chat').ChatSession[] }>(
+    '/api/v1/chat/sessions',
+  );
+  return data.sessions;
+}
+
+export async function createChatSession(): Promise<import('../types/chat').ChatSession> {
+  const data = await apiRequest<{ session: import('../types/chat').ChatSession }>(
+    '/api/v1/chat/sessions',
+    { method: 'POST' },
+  );
+  return data.session;
+}
+
+export async function loadChatSession(
+  sessionId: string,
+): Promise<import('../types/chat').ChatMessageRecord[]> {
+  const data = await apiRequest<{ messages: import('../types/chat').ChatMessageRecord[] }>(
+    `/api/v1/chat/sessions/${sessionId}`,
+  );
+  return data.messages;
+}
+
+export async function endChatSession(sessionId: string): Promise<void> {
+  await apiRequest(`/api/v1/chat/sessions/${sessionId}`, { method: 'DELETE' });
+}
+
+// ============================================
 // For You — AI Recommendations
 // ============================================
 
@@ -733,6 +876,14 @@ export interface ForYouContent {
     severity: 'info' | 'warn' | 'critical';
   }>;
   quickActions: ForYouQuickAction[];
+  recommendations: Array<{
+    recType: 'READINESS' | 'LOAD_WARNING' | 'RECOVERY' | 'DEVELOPMENT' | 'ACADEMIC' | 'CV_OPPORTUNITY' | 'TRIANGLE_ALERT' | 'MOTIVATION';
+    priority: 1 | 2 | 3 | 4;
+    title: string;
+    bodyShort: string;
+    bodyLong: string;
+    confidence: number;
+  }>;
   generatedAt: string;
 }
 
@@ -1468,7 +1619,7 @@ import type {
 
 export async function getBenchmarkProfile(): Promise<BenchmarkProfile | null> {
   try {
-    return await apiRequest<BenchmarkProfile>('/api/v1/benchmarks/profile/');
+    return await apiRequest<BenchmarkProfile>('/api/v1/benchmarks/profile');
   } catch {
     return null;
   }
@@ -1519,4 +1670,745 @@ export async function getPositionNorms(
   } catch {
     return [];
   }
+}
+
+// ── Training Drills ──────────────────────────────────────────────
+
+/** Public helper — fetch without auth token */
+async function publicRequest<T>(endpoint: string): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error(`Public request failed: ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
+export interface DrillListItem {
+  id: string;
+  name: string;
+  sport_id: string;
+  category: string;
+  intensity: string;
+  duration_minutes: number;
+  attribute_keys: string[];
+  age_bands: string[];
+  position_keys: string[];
+  description: string;
+}
+
+export interface DrillDetail extends DrillListItem {
+  instructions: string[];
+  equipment: { name: string; quantity: number; optional: boolean }[];
+  progressions: { level: string; description: string; duration_minutes: number }[];
+  tags: string[];
+}
+
+export interface RecommendedDrill {
+  drill: DrillDetail;
+  score: number;
+  reason: string;
+}
+
+/** List / filter drills (public, no auth) */
+export async function getDrills(filters?: {
+  sport?: string;
+  category?: string;
+  intensity?: string;
+  ageBand?: string;
+}): Promise<DrillListItem[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.sport) params.set('sport', filters.sport);
+    if (filters?.category) params.set('category', filters.category);
+    if (filters?.intensity) params.set('intensity', filters.intensity);
+    if (filters?.ageBand) params.set('ageBand', filters.ageBand);
+    const qs = params.toString();
+    const res = await publicRequest<{ drills: DrillListItem[]; total: number }>(
+      `/api/v1/training/drills${qs ? `?${qs}` : ''}`
+    );
+    return res.drills ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Text search drills (public, no auth) */
+export async function searchDrills(
+  query: string,
+  sport: string,
+  filters?: { category?: string; intensity?: string; attribute?: string }
+): Promise<DrillListItem[]> {
+  try {
+    const params = new URLSearchParams({ q: query, sport });
+    if (filters?.category) params.set('category', filters.category);
+    if (filters?.intensity) params.set('intensity', filters.intensity);
+    if (filters?.attribute) params.set('attribute', filters.attribute);
+    const res = await publicRequest<{ drills: DrillListItem[]; total: number }>(
+      `/api/v1/training/drills/search?${params.toString()}`
+    );
+    return res.drills ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** AI-recommended drills (requires auth) */
+export async function getRecommendedDrills(options?: {
+  category?: string;
+  limit?: number;
+  focus?: string;
+  timezone?: string;
+}): Promise<{ recommendations: RecommendedDrill[]; readiness: string }> {
+  try {
+    const params = new URLSearchParams();
+    if (options?.category) params.set('category', options.category);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.focus) params.set('focus', options.focus);
+    if (options?.timezone) params.set('timezone', options.timezone);
+    const qs = params.toString();
+    return await apiRequest<{ recommendations: RecommendedDrill[]; readiness: string }>(
+      `/api/v1/training/drills/recommend${qs ? `?${qs}` : ''}`
+    );
+  } catch {
+    return { recommendations: [], readiness: 'Unknown' };
+  }
+}
+
+// ── Fill My Week ────────────────────────────────────────────────
+
+export async function autoFillWeek(gapMinutes = 30): Promise<{
+  success: boolean;
+  eventsCreated: number;
+  events: CalendarEvent[];
+  message: string;
+}> {
+  return apiRequest('/api/v1/calendar/auto-fill-week', {
+    method: 'POST',
+    body: JSON.stringify({ timezone: getUserTimezone(), gapMinutes }),
+  });
+}
+
+// ── Player Drill Scheduling ──────────────────────────────────────
+
+export async function scheduleDrills(body: {
+  drillIds: string[];
+  startDate: string;
+  daysPerWeek: number;
+  selectedDays: number[];
+}): Promise<{ success: boolean; eventsCreated: number; events: any[]; message: string }> {
+  return apiRequest('/api/v1/player/drills/schedule', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+// ── Coach Programme API ──────────────────────────────────────────
+
+import type { CoachProgramme, ProgrammeDrill, PlayerNotification } from '../types/programme';
+
+export async function listProgrammes(): Promise<CoachProgramme[]> {
+  try {
+    const res = await apiRequest<{ programmes: CoachProgramme[] }>('/api/v1/coach/programmes');
+    return res.programmes ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createProgramme(data: {
+  name: string;
+  description?: string;
+  seasonCycle?: string;
+  startDate: string;
+  weeks: number;
+  targetType?: string;
+  targetPositions?: string[];
+  targetPlayerIds?: string[];
+}): Promise<CoachProgramme | null> {
+  try {
+    const res = await apiRequest<{ programme: CoachProgramme }>('/api/v1/coach/programmes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return res.programme;
+  } catch {
+    return null;
+  }
+}
+
+export async function getProgramme(id: string): Promise<CoachProgramme | null> {
+  try {
+    const res = await apiRequest<{ programme: CoachProgramme }>(`/api/v1/coach/programmes/${id}/`);
+    return res.programme;
+  } catch {
+    return null;
+  }
+}
+
+export async function addDrillToProgramme(
+  programmeId: string,
+  drill: Record<string, any>
+): Promise<ProgrammeDrill[]> {
+  try {
+    const res = await apiRequest<{ drills: ProgrammeDrill[] }>(
+      `/api/v1/coach/programmes/${programmeId}/`,
+      { method: 'POST', body: JSON.stringify(drill) }
+    );
+    return res.drills ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteProgrammeDrill(
+  programmeId: string,
+  drillRecordId: string
+): Promise<void> {
+  await apiRequest(`/api/v1/coach/programmes/${programmeId}/?drillRecordId=${drillRecordId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function publishProgramme(programmeId: string): Promise<{
+  eventsCreated: number;
+  playersTargeted: number;
+  notificationsSent: number;
+  message: string;
+} | null> {
+  try {
+    return await apiRequest(`/api/v1/coach/programmes/${programmeId}/publish/`, {
+      method: 'POST',
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function getCoachDrills(
+  category?: string,
+  q?: string,
+  sport?: string
+): Promise<any[]> {
+  try {
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    if (q) params.set('q', q);
+    if (sport) params.set('sport', sport);
+    const qs = params.toString();
+    const res = await apiRequest<{ drills: any[] }>(`/api/v1/coach/drills/${qs ? `?${qs}` : ''}`);
+    return res.drills ?? [];
+  } catch {
+    return [];
+  }
+}
+
+// ── Player Notification API ──────────────────────────────────────
+
+export async function getPlayerNotifications(
+  unreadOnly = false
+): Promise<{ notifications: PlayerNotification[]; unreadCount: number }> {
+  try {
+    return await apiRequest<{ notifications: PlayerNotification[]; unreadCount: number }>(
+      `/api/v1/player/notifications?unread=${unreadOnly}`
+    );
+  } catch {
+    return { notifications: [], unreadCount: 0 };
+  }
+}
+
+export async function markAllPlayerNotificationsRead(): Promise<void> {
+  await apiRequest('/api/v1/player/notifications', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'mark_all_read' }),
+  });
+}
+
+export async function actOnNotification(
+  notifId: string,
+  action: string
+): Promise<any> {
+  return await apiRequest(`/api/v1/player/notifications/${notifId}/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action }),
+  });
+}
+
+export async function registerPushToken(token: string, platform: string): Promise<void> {
+  await apiRequest('/api/v1/player/notifications', {
+    method: 'POST',
+    body: JSON.stringify({ expoPushToken: token, platform }),
+  });
+}
+
+// ── Schedule Rules ──────────────────────────────────────────────
+
+export interface ScheduleRulesResponse {
+  preferences: Record<string, unknown>;
+  scenario: string;
+  effectiveRules: {
+    buffers: { default: number; afterHighIntensity: number; afterMatch: number; beforeMatch: number };
+    intensityCaps: { maxHardPerWeek: number; maxSessionsPerDay: number; noHardBeforeMatch: boolean; noHardOnExamDay: boolean; recoveryDayAfterMatch: boolean };
+    dayBounds: { startHour: number; endHour: number };
+    ruleCount: number;
+  };
+}
+
+export async function getScheduleRules(): Promise<ScheduleRulesResponse> {
+  return apiRequest<ScheduleRulesResponse>('/api/v1/schedule/rules');
+}
+
+export async function updateScheduleRules(
+  preferences: Record<string, unknown>
+): Promise<{ updated: boolean; scenario: string }> {
+  return apiRequest<{ updated: boolean; scenario: string }>('/api/v1/schedule/rules', {
+    method: 'PATCH',
+    body: JSON.stringify(preferences),
+  });
+}
+
+// ── Auto-Block (sync school hours to calendar) ─────────────────
+
+export async function syncAutoBlocks(params: {
+  schoolDays: number[];
+  schoolStart: string;
+  schoolEnd: string;
+  sleepStart?: string;
+  sleepEnd?: string;
+}): Promise<{ created: number; deleted: number }> {
+  return apiRequest<{ created: number; deleted: number }>('/api/v1/calendar/auto-block', {
+    method: 'POST',
+    body: JSON.stringify({ ...params, timezone: getUserTimezone() }),
+  });
+}
+
+// ── Schedule Validation ─────────────────────────────────────────
+
+export interface ProposedEvent {
+  title: string;
+  event_type: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  intensity?: string;
+  notes?: string;
+}
+
+export interface ScheduleValidationResponse {
+  events: Array<ProposedEvent & {
+    violations: Array<{ type: string; message: string; severity: 'error' | 'warning' }>;
+    alternatives: Array<{ startTime: string; endTime: string }>;
+    accepted: boolean;
+  }>;
+  summary: { total: number; withViolations: number; blocked: number };
+  scenario: string;
+}
+
+export async function validateScheduleEvents(
+  events: ProposedEvent[],
+  timezone: string = 'Asia/Riyadh',
+): Promise<ScheduleValidationResponse> {
+  return apiRequest<ScheduleValidationResponse>('/api/v1/schedule/validate', {
+    method: 'POST',
+    body: JSON.stringify({ events, timezone }),
+  });
+}
+
+// ── Output Snapshot ════════════════════════════════════════════════════
+
+// ── Shared metric types ──────────────────────────────────────────────
+export interface VitalMetric {
+  metric: string;
+  label: string;
+  emoji: string;
+  unit: string;
+  avg: number;
+  min: number;
+  max: number;
+  count: number;
+  trend: 'up' | 'down' | 'stable';
+  trendPercent: number;
+  summary: string;
+  color: string;
+}
+
+export interface VitalGroup {
+  groupId: string;
+  displayName: string;
+  emoji: string;
+  colorTheme: string;
+  priority: number;
+  athleteDescription: string;
+  metrics: VitalMetric[];
+  ragStatus: 'green' | 'amber' | 'red' | 'none';
+}
+
+export interface BenchmarkMetric {
+  metricKey: string;
+  metricLabel: string;
+  unit: string;
+  direction: 'lower_better' | 'higher_better';
+  value: number;
+  percentile: number;
+  zone: 'elite' | 'good' | 'average' | 'developing' | 'below';
+  ageBand: string;
+  position: string;
+  competitionLvl: string;
+  norm: { p10: number; p25: number; p50: number; p75: number; p90: number };
+  message: string;
+}
+
+export interface TestGroupCategory {
+  category: string;
+  groupId: string;
+  emoji: string;
+  colorTheme: string;
+  priority: number;
+  athleteDescription: string;
+  metrics: BenchmarkMetric[];
+  categoryAvgPercentile: number;
+  categorySummary: string;
+}
+
+export interface RadarAxis {
+  key: string;
+  label: string;
+  value: number;
+  maxValue: number;
+  color: string;
+}
+
+export interface RawTestGroupTest {
+  testType: string;
+  score: number;
+  unit: string;
+  date: string;
+  displayName: string;
+}
+
+export interface RawTestGroup {
+  groupId: string;
+  displayName: string;
+  emoji: string;
+  colorTheme: string;
+  priority: number;
+  athleteDescription: string;
+  tests: RawTestGroupTest[];
+}
+
+export interface OutputSnapshot {
+  vitals: {
+    weekSummary: {
+      metrics: VitalMetric[];
+      periodStart: string;
+      periodEnd: string;
+      overallSummary: string;
+    };
+    vitalGroups: VitalGroup[];
+    phv: {
+      maturityOffset: number;
+      phvStage: string;
+      ltad: {
+        stageName: string;
+        stageKey: string;
+        emoji: string;
+        description: string;
+        trainingFocus: string[];
+        ageRange: string;
+        progressPercent: number;
+      };
+      summary: string;
+    } | null;
+    readiness: {
+      score: string | null;
+      energy: number | null;
+      soreness: number | null;
+      sleepHours: number | null;
+      mood: number | null;
+      date: string | null;
+      summary: string;
+    };
+  };
+  metrics: {
+    categories: TestGroupCategory[];
+    radarProfile: RadarAxis[];
+    rawTestGroups?: RawTestGroup[];
+    overallPercentile: number | null;
+    strengths: string[];
+    gaps: string[];
+    recentTests?: Array<{
+      testType: string;
+      score: number;
+      unit: string;
+      date: string;
+    }>;
+  };
+  programs: {
+    recommendations: Array<{
+      programId: string;
+      name: string;
+      category: string;
+      type: 'physical' | 'technical';
+      priority: 'mandatory' | 'high' | 'medium';
+      durationMin: number;
+      description: string;
+      impact: string;
+      frequency: string;
+      difficulty: string;
+      tags: string[];
+      positionNote: string;
+      reason: string;
+      prescription: {
+        sets: number;
+        reps: string;
+        intensity: string;
+        rpe: string;
+        rest: string;
+        frequency: string;
+        coachingCues: string[];
+      };
+      phvWarnings: string[];
+    }>;
+    weeklyPlanSuggestion: string | null;
+    weeklyStructure?: Record<string, number>;
+    playerProfile: {
+      ageBand: string;
+      phvStage: string;
+      position: string;
+    };
+  };
+}
+
+export async function getOutputSnapshot(): Promise<OutputSnapshot> {
+  return apiRequest<OutputSnapshot>('/api/v1/output/snapshot');
+}
+
+// ── Athlete Snapshot (Layer 2 — Data Fabric) ────────────────────────
+export interface AthleteSnapshotResponse {
+  snapshot: AthleteSnapshot;
+}
+
+export interface AthleteSnapshot {
+  athlete_id: string;
+  snapshot_at: string;
+  // Profile
+  dob: string | null;
+  sport: string | null;
+  position: string | null;
+  academic_year: number | null;
+  // PHV
+  phv_stage: string | null;
+  phv_offset_years: number | null;
+  height_cm: number | null;
+  weight_kg: number | null;
+  // Readiness
+  readiness_score: number | null;
+  hrv_baseline_ms: number | null;
+  hrv_today_ms: number | null;
+  resting_hr_bpm: number | null;
+  sleep_quality: number | null;
+  injury_risk_flag: string | null;
+  readiness_rag: string | null;
+  // Load
+  acwr: number | null;
+  atl_7day: number | null;
+  ctl_28day: number | null;
+  dual_load_index: number | null;
+  academic_load_7day: number | null;
+  athletic_load_7day: number | null;
+  // CV
+  sessions_total: number;
+  training_age_weeks: number;
+  streak_days: number;
+  cv_completeness: number | null;
+  mastery_scores: Record<string, number>;
+  strength_benchmarks: Record<string, number>;
+  speed_profile: Record<string, number>;
+  coachability_index: number | null;
+  // Wellness
+  wellness_7day_avg: number | null;
+  wellness_trend: string | null;
+  triangle_rag: string | null;
+  // Meta
+  last_event_id: string | null;
+  last_session_at: string | null;
+  last_checkin_at: string | null;
+}
+
+/**
+ * Fetch the authenticated athlete's pre-computed snapshot.
+ * For coach/parent: pass athleteId to read a linked athlete.
+ */
+export async function getAthleteSnapshot(
+  athleteId?: string
+): Promise<AthleteSnapshot | null> {
+  try {
+    const params = athleteId ? `?athleteId=${athleteId}` : '';
+    const res = await apiRequest<AthleteSnapshotResponse>(
+      `/api/v1/snapshot${params}`
+    );
+    return res.snapshot;
+  } catch {
+    // 404 = no snapshot yet (first-time user) — not an error
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// RIE Recommendations
+// ---------------------------------------------------------------------------
+
+export interface RIERecommendation {
+  recId: string;
+  athleteId: string;
+  recType: string;
+  priority: 1 | 2 | 3 | 4;
+  status: string;
+  title: string;
+  bodyShort: string;
+  bodyLong: string | null;
+  confidenceScore: number;
+  evidenceBasis: Record<string, unknown>;
+  context: Record<string, unknown>;
+  retrievedChunkIds: string[];
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+interface RecommendationsResponse {
+  recommendations: Array<{
+    rec_id: string;
+    athlete_id: string;
+    rec_type: string;
+    priority: 1 | 2 | 3 | 4;
+    status: string;
+    title: string;
+    body_short: string;
+    body_long: string | null;
+    confidence_score: number;
+    evidence_basis: Record<string, unknown>;
+    context: Record<string, unknown>;
+    retrieved_chunk_ids: string[];
+    created_at: string;
+    expires_at: string | null;
+  }>;
+}
+
+export async function getRecommendations(limit = 15): Promise<RIERecommendation[]> {
+  try {
+    const res = await apiRequest<RecommendationsResponse>(
+      `/api/v1/recommendations?limit=${limit}`
+    );
+    return (res.recommendations || []).map((r) => ({
+      recId: r.rec_id,
+      athleteId: r.athlete_id,
+      recType: r.rec_type,
+      priority: r.priority,
+      status: r.status,
+      title: r.title,
+      bodyShort: r.body_short,
+      bodyLong: r.body_long,
+      confidenceScore: r.confidence_score,
+      evidenceBasis: r.evidence_basis || {},
+      context: r.context || {},
+      retrievedChunkIds: r.retrieved_chunk_ids || [],
+      createdAt: r.created_at,
+      expiresAt: r.expires_at,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Offline-Safe Event Submission
+// ---------------------------------------------------------------------------
+
+/**
+ * Submit an event to the backend with offline fallback.
+ * If the API call fails (network error), queues the event locally.
+ * The queue auto-flushes when connectivity is restored (via useEventQueue hook).
+ */
+export async function submitEventSafe(event: {
+  athleteId: string;
+  eventType: string;
+  payload: Record<string, unknown>;
+  occurredAt?: string;
+}): Promise<void> {
+  const { eventQueue } = await import('./eventQueue');
+  const body = {
+    athlete_id: event.athleteId,
+    event_type: event.eventType,
+    payload: event.payload,
+    occurred_at: event.occurredAt || new Date().toISOString(),
+  };
+
+  try {
+    await apiRequest('/api/v1/events/ingest', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // Network failure — queue for later delivery
+    await eventQueue.enqueue({
+      athleteId: event.athleteId,
+      eventType: event.eventType,
+      payload: event.payload,
+      occurredAt: body.occurred_at,
+    });
+  }
+}
+
+// ── Mastery Snapshot ─────────────────────────────────────────────────
+
+export interface MasteryMetric {
+  metricKey: string;
+  metricLabel: string;
+  unit: string;
+  direction: 'lower_better' | 'higher_better';
+  playerValue: number | null;
+  normP50: number;
+  delta: number | null;
+  percentile: number | null;
+  zone: string | null;
+  norm: { p10: number; p25: number; p50: number; p75: number; p90: number };
+}
+
+export interface MasteryPillar {
+  groupId: string;
+  displayName: string;
+  emoji: string;
+  colorTheme: string;
+  priority: number;
+  athleteDescription: string;
+  metrics: MasteryMetric[];
+  avgPercentile: number | null;
+}
+
+export type CardTier = 'bronze' | 'silver' | 'gold' | 'diamond';
+
+export interface MasterySnapshot {
+  player: {
+    name: string;
+    age: number;
+    position: string;
+    ageBand: string;
+    sport: string;
+  };
+  overallRating: number;
+  cardTier: CardTier;
+  radarProfile: RadarAxis[];
+  /** P50 benchmark norms as radar values (the "target" shape) */
+  benchmarkRadarProfile: RadarAxis[];
+  pillars: MasteryPillar[];
+  strengths: string[];
+  gaps: string[];
+  hasTestData: boolean;
+}
+
+export async function getMasterySnapshot(
+  targetPlayerId?: string,
+): Promise<MasterySnapshot> {
+  const params = targetPlayerId ? `?targetPlayerId=${targetPlayerId}` : '';
+  return apiRequest<MasterySnapshot>(`/api/v1/mastery/snapshot${params}`);
 }

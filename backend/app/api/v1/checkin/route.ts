@@ -6,6 +6,7 @@ import { generatePlan } from "@/services/planGenerator";
 import { processCheckinCompliance } from "@/services/complianceService";
 import type { Archetype } from "@/types";
 import type { Json } from "@/types/database";
+import { emitEventSafe } from "@/services/events/eventEmitter";
 
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
@@ -136,6 +137,25 @@ export async function POST(req: NextRequest) {
     user.days_since_rest || 0,
     today
   );
+
+  // ── Emit WELLNESS_CHECKIN event to Athlete Data Fabric (dual-write) ──
+  await emitEventSafe({
+    athleteId: auth.user.id,
+    eventType: 'WELLNESS_CHECKIN',
+    occurredAt: new Date().toISOString(),
+    source: 'MANUAL',
+    payload: {
+      energy: parsed.data.energy,
+      soreness: parsed.data.soreness,
+      sleep_hours: parsed.data.sleepHours,
+      pain_flag: parsed.data.painFlag,
+      pain_location: parsed.data.painLocation || null,
+      mood: parsed.data.mood,
+      effort_yesterday: parsed.data.effortYesterday,
+      academic_stress: parsed.data.academicStress || null,
+    },
+    createdBy: auth.user.id,
+  });
 
   // Update days_since_rest
   const newDaysSinceRest = plan.intensity === "rest" ? 0 : (user.days_since_rest || 0) + 1;

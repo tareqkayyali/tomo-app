@@ -1,64 +1,43 @@
 /**
- * FootballProgressContent — Football-specific progress dashboard.
- *
- * Rendered inside the parent ProgressScreen's ScrollView when the
- * user's active sport is football.
+ * FootballProgressContent — Football progress dashboard (4 sections).
  *
  * Sections:
  * 1. DNA Card Hero (FIFA-style player card)
- * 2. Attribute Trends (30-day sparklines for 6 attributes)
- * 3. Skill Mastery (8 skills sorted by highest rating)
- * 4. Rating Pathway (compact progress bar)
- * 5. Cross-Training Impact (padel → football benefit, shown when padel events exist)
- * 6. Streak Tracker (sport-agnostic)
- * 7. Sleep Recovery (sport-agnostic)
- * 8. View Full Football Profile button
+ * 2. This Week Summary (tests, streak, points, rank)
+ * 3. Attributes Breakdown (6 rows, tappable -> inline detail with chart + benchmarks)
+ * 4. Recent Tests (horizontal scroll)
  *
- * Psychology:
- * - Growth language: "+3 this month" (green), "Refocusing" (attribute color, never red)
- * - Competence reinforcement: highest-rated skills shown first
- * - "Next Level" skills shown in teal at bottom (never "Weak")
- * - Percentile context normalized for age (Radziminski et al., 2025)
+ * All data from DB -- no dummy/mock.
  */
 
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, LayoutAnimation, Platform } from 'react-native';
 import Animated from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
-import Svg, {
-  Polyline,
-  Circle as SvgCircle,
-  Defs,
-  LinearGradient as SvgGradient,
-  Stop,
-} from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
-import { GlassCard, GradientButton } from '../../components';
 import { DNACard } from '../../components/DNACard';
 import type { CardAttribute, CardTier } from '../../components/DNACard';
-import { SkillRatingBar } from '../../components/SkillRatingBar';
-import type { SkillItem } from '../../components/SkillRatingBar';
-import { RatingPathway } from '../../components/RatingPathway';
-import type { PathwayLevel } from '../../components/RatingPathway';
+import { RecentTestsScroll } from '../../components';
+import type { TestResult } from '../../components';
 import { FootballAttributeDetailSheet } from './FootballAttributeDetailSheet';
-import { CrossTrainingModule } from '../../components/football/CrossTrainingModule';
 import { EmptyProgressState } from '../../components/EmptyProgressState';
+import { SkeletonCard } from '../../components';
 
 import { useSpringEntrance } from '../../hooks/useAnimations';
 import { useTheme } from '../../hooks/useTheme';
-
 import { useAuth } from '../../hooks/useAuth';
 import { useSportContext } from '../../hooks/useSportContext';
 import { useFootballProgress } from '../../hooks/useFootballProgress';
-import type { FootballAttribute, FootballPosition, FootballHistoryEntry } from '../../types/football';
-import { SkeletonCard } from '../../components';
+import { getStats, getMyTestResults } from '../../services/api';
+import type { MyTestResult } from '../../services/api';
+import type { FootballAttribute, FootballPosition } from '../../types/football';
+import { FOOTBALL_ATTRIBUTE_ORDER, FOOTBALL_ATTRIBUTE_FULL_NAMES } from '../../types/football';
+import { FOOTBALL_ATTRIBUTE_COLORS } from '../../services/footballCalculations';
 
-import { buildSparklinePath } from '../../utils/sparkline';
-import { fontFamily, spacing, borderRadius, layout } from '../../theme';
+import { fontFamily, spacing, borderRadius } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 
-// ═══ HELPERS ═══
+// ---- Helpers ----
 
 function getFootballCardTier(pathwayRating: number): CardTier {
   if (pathwayRating >= 850) return 'diamond';
@@ -67,60 +46,27 @@ function getFootballCardTier(pathwayRating: number): CardTier {
   return 'bronze';
 }
 
-// ═══ STREAK PROGRESS RING ═══
-// Duplicated from ProgressScreen (sport-agnostic, self-contained)
-
-const TRACK_GRAY = '#E8E8E8';
-
-function StreakProgressRing({
-  progress,
-  size = 80,
-  strokeWidth = 6,
-  colors,
-}: {
-  progress: number;
-  size?: number;
-  strokeWidth?: number;
-  colors: ThemeColors;
-}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - Math.min(1, Math.max(0, progress)));
-
-  return (
-    <Svg width={size} height={size}>
-      <Defs>
-        <SvgGradient id="streakGrad" x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor={colors.accent1} />
-          <Stop offset="1" stopColor={colors.accent2} />
-        </SvgGradient>
-      </Defs>
-      <SvgCircle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        stroke={TRACK_GRAY}
-        strokeWidth={strokeWidth}
-        fill="none"
-      />
-      <SvgCircle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        stroke="url(#streakGrad)"
-        strokeWidth={strokeWidth}
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray={`${circumference} ${circumference}`}
-        strokeDashoffset={strokeDashoffset}
-        rotation="-90"
-        origin={`${size / 2}, ${size / 2}`}
-      />
-    </Svg>
-  );
+/** Format test type ID to human-readable name */
+function formatTestName(testType: string): string {
+  return testType
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// ═══ PROPS ═══
+/** Map MyTestResult to RecentTestsScroll's TestResult format */
+function mapToTestResult(r: MyTestResult): TestResult {
+  const raw = r.rawData as Record<string, unknown> | null;
+  const unit = (raw?.unit as string) || '';
+  return {
+    id: r.id,
+    testName: formatTestName(r.testType),
+    value: r.score != null ? String(r.score) : '--',
+    unit,
+    date: new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+  };
+}
+
+// ---- Props ----
 
 interface FootballProgressContentProps {
   navigation: any;
@@ -132,15 +78,11 @@ interface FootballProgressContentProps {
   isFocused: boolean;
 }
 
-// ═══ COMPONENT ═══
+// ---- Component ----
 
 export function FootballProgressContent({
   navigation,
   streak,
-  nextMilestone,
-  streakProgress,
-  latestSleep,
-  sleepOptimal,
   isFocused,
 }: FootballProgressContentProps) {
   const { colors } = useTheme();
@@ -148,10 +90,12 @@ export function FootballProgressContent({
   const { sportConfig } = useSportContext();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  // ── Data from real Supabase test results ──
+  // User profile data
   const userId = profile?.uid || profile?.id || '';
   const age = (profile as any)?.age ?? 16;
   const position: FootballPosition = (profile as any)?.position || 'CM';
+
+  // Football progress data from DB
   const {
     card,
     history,
@@ -159,15 +103,47 @@ export function FootballProgressContent({
     hasData: hasRealData,
   } = useFootballProgress(userId, age, position);
 
-  // Skills are not yet derived from test data (future: self-assessment)
-  const skills: Record<string, any> | null = null;
+  // Stats + recent tests from DB
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [weekTests, setWeekTests] = useState(0);
+  const [recentTests, setRecentTests] = useState<TestResult[]>([]);
 
-  // ── State ──
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [statsRes, testsRes] = await Promise.allSettled([
+          getStats(),
+          getMyTestResults(10),
+        ]);
+        if (!mounted) return;
+        if (statsRes.status === 'fulfilled') {
+          setTotalPoints(statsRes.value.progress.totalPoints);
+        }
+        if (testsRes.status === 'fulfilled') {
+          const mapped = testsRes.value.results.map(mapToTestResult);
+          setRecentTests(mapped);
+          // Count tests done this week
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          const thisWeek = testsRes.value.results.filter(
+            (r) => new Date(r.date) >= weekAgo,
+          ).length;
+          setWeekTests(thisWeek);
+        }
+      } catch {
+        // silent
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Selected attribute for inline detail
   const [selectedAttr, setSelectedAttr] = useState<FootballAttribute | null>(null);
 
   const hasData = hasRealData && !!card?.attributes;
 
-  // ── Map football attributes → CardAttribute[] ──
+  // Map football attributes to DNACard format
   const footballAttributes: CardAttribute[] = hasData
     ? sportConfig.attributes.map((attr) => ({
         key: attr.key,
@@ -182,48 +158,12 @@ export function FootballProgressContent({
 
   const cardTier = hasData ? getFootballCardTier(card!.footballRating) : ('bronze' as CardTier);
 
-  // ── Skills: empty until self-assessment data is wired ──
-  const sortedSkills: SkillItem[] = [];
-  const skillsAvg = 0;
-  const strongestSkill = sortedSkills[0] as SkillItem | undefined;
-  const focusSkill = sortedSkills[sortedSkills.length - 1] as SkillItem | undefined;
-
-  // ── Map rating levels → PathwayLevel[] ──
-  const pathwayLevels: PathwayLevel[] = sportConfig.ratingLevels.map((l) => ({
-    name: l.name,
-    minRating: l.minRating,
-    maxRating: l.maxRating,
-    description: l.description,
-    color: l.color,
-  }));
-  const currentLevel = hasData
-    ? (pathwayLevels.find(
-        (l) => card!.footballRating >= l.minRating && card!.footballRating <= l.maxRating,
-      ) ?? pathwayLevels[0])
-    : pathwayLevels[0];
-
-  // ── Attribute trends from history ──
-  const attributeTrends = useMemo(() => {
-    if (!history || history.length === 0) return [];
-    return sportConfig.attributes.map((attrDesc) => {
-      const points = history.map((entry) => (entry.attributes as any)?.[attrDesc.key] ?? 0);
-      const current = points[points.length - 1] ?? 0;
-      const oldest = points[0] ?? 0;
-      const delta = current - oldest;
-      return { attr: attrDesc.key, color: attrDesc.color, label: attrDesc.label, points, current, delta };
-    });
-  }, [history, sportConfig.attributes]);
-
-  // ── Animations (hooks must always run, regardless of data) ──
+  // Entrance animations
   const entrance1 = useSpringEntrance(1, 0, isFocused);
   const entrance2 = useSpringEntrance(2, 0, isFocused);
   const entrance3 = useSpringEntrance(3, 0, isFocused);
-  const entrance4 = useSpringEntrance(4, 0, isFocused);
-  const entrance5 = useSpringEntrance(5, 0, isFocused);
-  const entrance6 = useSpringEntrance(6, 0, isFocused);
-  const entrance7 = useSpringEntrance(7, 0, isFocused);
 
-  // ── Loading state (after all hooks) ──
+  // Loading
   if (progressLoading) {
     return (
       <>
@@ -234,456 +174,233 @@ export function FootballProgressContent({
     );
   }
 
-  // ── Empty state ──
+  // Empty
   if (!hasData) {
     return (
       <EmptyProgressState
         sport="football"
-        onLogSession={() => navigation.navigate('Plan' as any)}
+        onLogSession={() => navigation.navigate('Test' as any)}
         onTakeTest={() => navigation.navigate('Test' as any)}
       />
     );
   }
 
+  const handleAttrTap = (attr: FootballAttribute) => {
+    if (Platform.OS !== 'web') {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    setSelectedAttr(attr === selectedAttr ? null : attr);
+  };
+
   return (
     <>
-      {/* ═══════ 1. DNA Card Hero ═══════ */}
+      {/* ========== 1. DNA Card Hero ========== */}
       <DNACard
         attributes={footballAttributes}
         overallRating={card.overallRating}
-        position={sportConfig.positions.find(p => p.key === card.position)?.label ?? card.position}
+        position={sportConfig.positions.find((p) => p.key === card.position)?.label ?? card.position}
         cardTier={cardTier}
         sport="football"
         pathwayRating={card.footballRating}
         pathwayLevel={card.footballLevel}
-        onAttributeTap={(key) =>
-          setSelectedAttr(key === selectedAttr ? null : (key as FootballAttribute))
-        }
+        onAttributeTap={(key) => handleAttrTap(key as FootballAttribute)}
         trigger={isFocused}
       />
 
-      {/* Attribute Detail (expandable) */}
-      {selectedAttr && (
-        <FootballAttributeDetailSheet
-          attribute={selectedAttr}
-          data={card.attributes[selectedAttr]}
-          age={age}
-          position={position}
-          history={history ?? []}
-          onClose={() => setSelectedAttr(null)}
-        />
-      )}
-
-      {/* ═══════ 2. Attribute Trends ═══════ */}
+      {/* ========== 2. This Week Summary ========== */}
       <Animated.View style={entrance1}>
-        <GlassCard style={s.sectionCard}>
-          <Text style={s.sectionTitle}>Attribute Trends</Text>
-          <Text style={s.sectionSubtitle}>30-day progression</Text>
+        <View style={s.weekRow}>
+          <View style={s.weekCard}>
+            <Text style={s.weekEmoji}>{'\u26A1'}</Text>
+            <Text style={s.weekValue}>{weekTests}</Text>
+            <Text style={s.weekLabel}>Tests</Text>
+          </View>
+          <View style={s.weekCard}>
+            <Text style={s.weekEmoji}>{'\uD83D\uDD25'}</Text>
+            <Text style={s.weekValue}>{streak}</Text>
+            <Text style={s.weekLabel}>Streak</Text>
+          </View>
+          <View style={s.weekCard}>
+            <Text style={s.weekEmoji}>{'\u2B50'}</Text>
+            <Text style={s.weekValue}>{totalPoints >= 1000 ? `${(totalPoints / 1000).toFixed(1)}k` : totalPoints}</Text>
+            <Text style={s.weekLabel}>Points</Text>
+          </View>
+          <View style={s.weekCard}>
+            <Text style={s.weekEmoji}>{'\uD83C\uDFC6'}</Text>
+            <Text style={s.weekValue}>{card.footballLevel.split(' ')[0]}</Text>
+            <Text style={s.weekLabel}>Rank</Text>
+          </View>
+        </View>
+      </Animated.View>
 
-          {attributeTrends.map((trend) => {
-            const attrColor = trend.color;
-            const sparkPath = buildSparklinePath(trend.points, 60, 20);
+      {/* ========== 3. Attributes Breakdown ========== */}
+      <Animated.View style={entrance2}>
+        <View style={s.sectionContainer}>
+          <Text style={s.sectionTitle}>Attributes</Text>
+          {FOOTBALL_ATTRIBUTE_ORDER.map((attr) => {
+            const attrData = card.attributes[attr];
+            const score = attrData?.score ?? 0;
+            const trend = attrData?.trend ?? 0;
+            const attrColor = FOOTBALL_ATTRIBUTE_COLORS[attr];
+            const barColor = score >= 70 ? '#30D158' : score >= 50 ? '#F39C12' : '#E74C3C';
+            const isSelected = selectedAttr === attr;
+
             return (
-              <View key={trend.attr} style={s.trendRow}>
-                <View style={[s.trendDot, { backgroundColor: attrColor }]} />
-                <Text style={s.trendLabel}>
-                  {trend.label}
-                </Text>
-                <Text style={[s.trendScore, { color: attrColor }]}>
-                  {trend.current}
-                </Text>
-
-                {/* Mini sparkline */}
-                {sparkPath.length > 0 && (
-                  <View style={s.sparkContainer}>
-                    <Svg width={60} height={20}>
-                      <Polyline
-                        points={sparkPath}
-                        fill="none"
-                        stroke={attrColor}
-                        strokeWidth={1.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  </View>
-                )}
-
-                {/* Growth text */}
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    s.trendDelta,
-                    {
-                      color:
-                        trend.delta > 0
-                          ? '#30D158'
-                          : trend.delta < 0
-                            ? attrColor
-                            : colors.textInactive,
-                    },
+              <React.Fragment key={attr}>
+                <Pressable
+                  onPress={() => handleAttrTap(attr)}
+                  style={({ pressed }) => [
+                    s.attrRow,
+                    pressed && { opacity: 0.7 },
+                    isSelected && { backgroundColor: attrColor + '12' },
                   ]}
                 >
-                  {trend.delta > 0
-                    ? `+${trend.delta}`
-                    : trend.delta < 0
-                      ? 'Refocusing'
-                      : 'Steady'}
-                </Text>
-              </View>
+                  <View style={[s.attrDot, { backgroundColor: attrColor }]} />
+                  <Text style={s.attrName}>{FOOTBALL_ATTRIBUTE_FULL_NAMES[attr]}</Text>
+
+                  {/* Colored bar */}
+                  <View style={s.attrBarTrack}>
+                    <View
+                      style={[
+                        s.attrBarFill,
+                        { width: `${Math.min(100, score)}%` as any, backgroundColor: barColor },
+                      ]}
+                    />
+                  </View>
+
+                  <Text style={[s.attrScore, { color: attrColor }]}>{score}</Text>
+
+                  {/* Trend arrow */}
+                  {trend !== 0 && (
+                    <Ionicons
+                      name={trend > 0 ? 'caret-up' : 'caret-down'}
+                      size={12}
+                      color={trend > 0 ? '#30D158' : '#F39C12'}
+                      style={{ marginLeft: 2 }}
+                    />
+                  )}
+
+                  <Ionicons
+                    name={isSelected ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color={colors.textInactive}
+                    style={{ marginLeft: 4 }}
+                  />
+                </Pressable>
+
+                {/* Inline detail expansion */}
+                {isSelected && (
+                  <FootballAttributeDetailSheet
+                    attribute={attr}
+                    data={attrData}
+                    age={age}
+                    position={position}
+                    history={history ?? []}
+                    onClose={() => {
+                      if (Platform.OS !== 'web') {
+                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      }
+                      setSelectedAttr(null);
+                    }}
+                  />
+                )}
+              </React.Fragment>
             );
           })}
-        </GlassCard>
+        </View>
       </Animated.View>
 
-      {/* ═══════ 3. Skill Mastery (hidden until self-assessment data is wired) ═══════ */}
-      {sortedSkills.length > 0 && (
-        <Animated.View style={entrance2}>
-          <GlassCard style={s.sectionCard}>
-            <View style={s.skillHeader}>
-              <Text style={s.sectionTitle}>Skill Mastery</Text>
-              <View style={s.skillCountBadge}>
-                <Text style={s.skillCountText}>
-                  {sortedSkills.filter((sk) => sk.overall >= 70).length}/8 Strong
-                </Text>
-              </View>
-            </View>
-
-            {/* Summary row */}
-            <View style={s.summaryRow}>
-              <View style={s.summaryItem}>
-                <Text style={s.summaryLabel}>Overall</Text>
-                <Text style={s.summaryValue}>{skillsAvg}</Text>
-              </View>
-              {strongestSkill && (
-                <View style={s.summaryItem}>
-                  <Text style={s.summaryLabel}>Strongest</Text>
-                  <Text style={[s.summaryValue, { color: '#30D158' }]} numberOfLines={1}>
-                    {strongestSkill.name}
-                  </Text>
-                </View>
-              )}
-              {focusSkill && (
-                <View style={s.summaryItem}>
-                  <Text style={s.summaryLabel}>Focus On</Text>
-                  <Text style={[s.summaryValue, { color: '#00D9FF' }]} numberOfLines={1}>
-                    {focusSkill.name}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {sortedSkills.map((skill, i) => (
-              <SkillRatingBar
-                key={skill.key}
-                skill={skill}
-                sport="football"
-                index={i}
-                trigger={isFocused}
-              />
-            ))}
-          </GlassCard>
-        </Animated.View>
-      )}
-
-      {/* ═══════ 4. Rating Pathway (tappable → FootballRatingScreen) ═══════ */}
+      {/* ========== 4. Recent Tests ========== */}
       <Animated.View style={entrance3}>
-        <GlassCard style={s.sectionCard}>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate('FootballRating');
-            }}
-            style={({ pressed }) => [
-              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
-            ]}
-          >
-            <Text style={s.sectionTitle}>Football Rating</Text>
-            <RatingPathway
-              currentRating={card.footballRating}
-              currentLevel={currentLevel}
-              allLevels={pathwayLevels}
-              sport="football"
-              compact
-              index={3}
-              trigger={isFocused}
-            />
-            <View style={s.tapHint}>
-              <Text style={s.tapHintText}>Tap to explore levels</Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
-            </View>
-          </Pressable>
-        </GlassCard>
-      </Animated.View>
-
-      {/* ═══════ 5. Cross-Training Impact ═══════ */}
-      <Animated.View style={entrance4}>
-        <CrossTrainingModule isFocused={isFocused} />
-      </Animated.View>
-
-      {/* ═══════ 6. Streak Tracker ═══════ */}
-      <Animated.View style={entrance5}>
-        <GlassCard style={s.sectionCard}>
-          <View style={s.streakRow}>
-            <View style={s.ringContainer}>
-              <StreakProgressRing
-                progress={streakProgress}
-                size={80}
-                strokeWidth={6}
-                colors={colors}
-              />
-              <View style={s.ringCenter}>
-                <Ionicons name="flame" size={22} color={colors.accent1} />
-              </View>
-            </View>
-            <View style={s.streakInfo}>
-              <Text style={s.streakCount}>{streak}</Text>
-              <Text style={s.streakLabel}>Day Streak</Text>
-              {nextMilestone && (
-                <Text style={s.streakMilestone}>
-                  {streak}/{nextMilestone.target} to {nextMilestone.name}
-                </Text>
-              )}
-            </View>
-          </View>
-        </GlassCard>
-      </Animated.View>
-
-      {/* ═══════ 7. Sleep Recovery ═══════ */}
-      <Animated.View style={entrance6}>
-        <GlassCard style={s.sectionCard}>
-          <View style={s.sleepRow}>
-            <View style={s.sleepIconWrap}>
-              <Ionicons name="bed-outline" size={22} color={colors.accent2} />
-            </View>
-            <View style={s.sleepInfo}>
-              <Text style={s.sleepTitle}>Sleep Recovery</Text>
-              <Text style={s.sleepHours}>
-                {latestSleep !== null ? `${latestSleep} hrs` : '--'}
-              </Text>
-              <Text
-                style={[
-                  s.sleepSubtitle,
-                  {
-                    color:
-                      latestSleep === null
-                        ? colors.textMuted
-                        : sleepOptimal
-                          ? colors.readinessGreen
-                          : colors.readinessYellow,
-                  },
-                ]}
-              >
-                {latestSleep === null
-                  ? 'No data yet'
-                  : sleepOptimal
-                    ? 'Optimal Recovery'
-                    : latestSleep >= 6
-                      ? 'Moderate Recovery'
-                      : 'Low Recovery'}
-              </Text>
-            </View>
-          </View>
-        </GlassCard>
-      </Animated.View>
-
-      {/* ═══════ 8. View Full Football Profile ═══════ */}
-      <Animated.View style={entrance7}>
-        <GradientButton
-          title="View Full Football Profile"
-          onPress={() => navigation.navigate('FootballRating')}
-          icon="trophy-outline"
-        />
+        <RecentTestsScroll results={recentTests} />
       </Animated.View>
     </>
   );
 }
 
-// ═══ STYLES ═══
+// ---- Styles ----
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    sectionCard: {
+    // Week summary
+    weekRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 16,
+    },
+    weekCard: {
+      flex: 1,
+      backgroundColor: colors.backgroundElevated,
+      borderRadius: borderRadius.md,
+      paddingVertical: 12,
+      alignItems: 'center',
+      gap: 2,
+    },
+    weekEmoji: {
+      fontSize: 18,
+      marginBottom: 2,
+    },
+    weekValue: {
+      fontFamily: fontFamily.bold,
+      fontSize: 18,
+      color: colors.textOnDark,
+    },
+    weekLabel: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      color: colors.textInactive,
+    },
+
+    // Attributes section
+    sectionContainer: {
+      backgroundColor: colors.backgroundElevated,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
       marginBottom: 16,
     },
     sectionTitle: {
       fontFamily: fontFamily.bold,
       fontSize: 18,
       color: colors.textOnDark,
-      marginBottom: spacing.xs,
-    },
-    sectionSubtitle: {
-      fontFamily: fontFamily.regular,
-      fontSize: 12,
-      color: colors.textInactive,
-      marginBottom: spacing.md,
+      marginBottom: spacing.sm,
     },
 
-    // ── Tap Hint ──
-    tapHint: {
+    attrRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: 4,
-      marginTop: spacing.sm,
-      paddingTop: spacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: colors.divider,
+      paddingVertical: 10,
+      paddingHorizontal: 4,
+      borderRadius: borderRadius.sm,
     },
-    tapHintText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.textMuted,
-    },
-
-    // ── Attribute Trends ──
-    trendRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 6,
-      gap: 8,
-    },
-    trendDot: {
+    attrDot: {
       width: 8,
       height: 8,
       borderRadius: 4,
+      marginRight: 8,
     },
-    trendLabel: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 12,
-      color: colors.textOnDark,
-      width: 32,
-    },
-    trendScore: {
-      fontFamily: fontFamily.bold,
+    attrName: {
+      fontFamily: fontFamily.medium,
       fontSize: 14,
+      color: colors.textOnDark,
+      width: 88,
+    },
+    attrBarTrack: {
+      flex: 1,
+      height: 6,
+      backgroundColor: colors.glass,
+      borderRadius: 3,
+      marginHorizontal: 8,
+      overflow: 'hidden',
+    },
+    attrBarFill: {
+      height: 6,
+      borderRadius: 3,
+    },
+    attrScore: {
+      fontFamily: fontFamily.bold,
+      fontSize: 15,
       width: 28,
       textAlign: 'right',
-    },
-    sparkContainer: {
-      marginLeft: 4,
-    },
-    trendDelta: {
-      fontFamily: fontFamily.medium,
-      fontSize: 11,
-      marginLeft: 'auto',
-      maxWidth: 70,
-    },
-
-    // ── Skill Mastery ──
-    skillHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacing.md,
-    },
-    skillCountBadge: {
-      backgroundColor: 'rgba(48, 209, 88, 0.15)',
-      paddingHorizontal: 10,
-      paddingVertical: 3,
-      borderRadius: 10,
-    },
-    skillCountText: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 11,
-      color: '#30D158',
-    },
-    summaryRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: spacing.md,
-      paddingBottom: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.divider,
-    },
-    summaryItem: {
-      alignItems: 'center',
-    },
-    summaryLabel: {
-      fontFamily: fontFamily.regular,
-      fontSize: 11,
-      color: colors.textInactive,
-      marginBottom: 2,
-    },
-    summaryValue: {
-      fontFamily: fontFamily.bold,
-      fontSize: 16,
-      color: colors.textOnDark,
-    },
-
-    // ── Streak ──
-    streakRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 20,
-    },
-    ringContainer: {
-      position: 'relative',
-      width: 80,
-      height: 80,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    ringCenter: {
-      position: 'absolute',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    streakInfo: {
-      flex: 1,
-    },
-    streakCount: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 28,
-      lineHeight: 34,
-      color: colors.textOnDark,
-    },
-    streakLabel: {
-      fontFamily: fontFamily.regular,
-      fontSize: 16,
-      color: colors.textMuted,
-      marginTop: 2,
-    },
-    streakMilestone: {
-      fontFamily: fontFamily.medium,
-      fontSize: 13,
-      color: colors.accent1,
-      marginTop: 4,
-    },
-
-    // ── Sleep ──
-    sleepRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 16,
-    },
-    sleepIconWrap: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: 'rgba(0, 217, 255, 0.15)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    sleepInfo: {
-      flex: 1,
-    },
-    sleepTitle: {
-      fontFamily: fontFamily.regular,
-      fontSize: 14,
-      color: colors.textMuted,
-    },
-    sleepHours: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 28,
-      lineHeight: 34,
-      color: colors.textOnDark,
-      marginTop: 2,
-    },
-    sleepSubtitle: {
-      fontFamily: fontFamily.regular,
-      fontSize: 14,
-      marginTop: 4,
     },
   });
 }

@@ -28,12 +28,14 @@ import { usePlayerCalendarData } from '../../hooks/usePlayerCalendarData';
 import { useTheme } from '../../hooks/useTheme';
 import { getParentChildren } from '../../services/api';
 import { toDateStr } from '../../utils/calendarHelpers';
+import { useTriangleSnapshot } from '../../hooks/useTriangleSnapshot';
+import { ragToColor } from '../../hooks/useAthleteSnapshot';
 import { spacing, layout, fontFamily, borderRadius } from '../../theme';
 import type { ParentTabParamList, ParentStackParamList } from '../../navigation/types';
 import type { PlayerSummary } from '../../types';
 
 type Props = CompositeScreenProps<
-  BottomTabScreenProps<ParentTabParamList, 'Calendar'>,
+  BottomTabScreenProps<ParentTabParamList, 'Timeline'>,
   NativeStackScreenProps<ParentStackParamList>
 >;
 
@@ -78,6 +80,7 @@ export function ParentChildPlanScreen({ navigation }: Props) {
 
   // ─── Calendar data for selected child ─────────────────────────────
 
+  const { snapshot } = useTriangleSnapshot(selectedChild?.id ?? '');
   const calendar = usePlayerCalendarData(selectedChild?.id ?? '', 'parent');
   const { events, isLoading, backendError, setSelectedDate, refresh, dayLocks } = calendar;
 
@@ -220,7 +223,7 @@ export function ParentChildPlanScreen({ navigation }: Props) {
                   styles.childChipText,
                   {
                     color:
-                      selectedChild?.id === child.id ? '#FFFFFF' : colors.textOnDark,
+                      selectedChild?.id === child.id ? colors.textOnDark : colors.textOnDark,
                   },
                 ]}
               >
@@ -229,6 +232,15 @@ export function ParentChildPlanScreen({ navigation }: Props) {
             </TouchableOpacity>
           ))}
         </ScrollView>
+      )}
+
+      {snapshot?.readiness_rag && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm, paddingHorizontal: layout.screenMargin }}>
+          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: ragToColor(snapshot.readiness_rag) }} />
+          <Text style={{ fontSize: 13, fontFamily: fontFamily.semiBold, color: ragToColor(snapshot.readiness_rag) }}>
+            {snapshot.readiness_rag === 'GREEN' ? 'Good to go' : snapshot.readiness_rag === 'AMBER' ? 'Take it easy' : 'Rest day recommended'}
+          </Text>
+        </View>
       )}
 
       {backendError && (
@@ -255,14 +267,6 @@ export function ParentChildPlanScreen({ navigation }: Props) {
           onPrevDay={goToPrevDay}
           onNextDay={goToNextDay}
           onToday={goToToday}
-          onFabPress={() =>
-            navigation.navigate('RecommendEvent', {
-              playerId: selectedChild.id,
-              playerName: selectedChild.name,
-              allowedTypes: ['training', 'study_block', 'exam'],
-            })
-          }
-          fabIcon="paper-plane-outline"
         />
       )}
     </SafeAreaView>
@@ -303,7 +307,7 @@ const styles = StyleSheet.create({
   },
   childChipText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
   },
 
   // Empty state
@@ -316,7 +320,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     textAlign: 'center',
   },
   emptySubtitle: {

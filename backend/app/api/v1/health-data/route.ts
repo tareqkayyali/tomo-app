@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
+import { emitEventSafe } from "@/services/events/eventEmitter";
 
 // ── GET /api/v1/health-data?days=7&metric=heart_rate ──────────────────
 
@@ -107,6 +108,21 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // ── Emit VITAL_READING event to Athlete Data Fabric (dual-write) ──
+    await emitEventSafe({
+      athleteId: auth.user.id,
+      eventType: 'VITAL_READING',
+      occurredAt: new Date().toISOString(),
+      source: (source === 'manual' || !source) ? 'MANUAL' : 'WEARABLE',
+      payload: {
+        metric_type: metricType,
+        value,
+        unit: unit || null,
+        wearable_device: source || 'manual',
+      },
+      createdBy: auth.user.id,
+    });
 
     return NextResponse.json({ data: row }, { status: 201, headers: { "api-version": "v1" } });
   } catch {

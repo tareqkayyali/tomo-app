@@ -19,17 +19,41 @@ import type { CalendarEvent } from '../../types';
 
 interface Props {
   event: CalendarEvent;
-  onDelete?: (eventId: string) => void;
+  onDelete?: (eventId: string) => Promise<boolean> | void;
   compact?: boolean;
 }
 
 export function EventCard({ event, onDelete, compact = false }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const typeColor = getEventTypeColor(event.type);
   const opacity = useSharedValue(1);
   const translateX = useSharedValue(0);
 
+  const executeDelete = useCallback(async () => {
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      const result = await onDelete(event.id);
+      if (result === false) {
+        // API failed — reverse the animation
+        console.warn('[EventCard] delete failed, reverting animation');
+        opacity.value = withTiming(1, { duration: 200 });
+        translateX.value = withTiming(0, { duration: 200 });
+        Alert.alert('Delete Failed', 'Could not delete event. Please try again.');
+      }
+    } catch {
+      // Also reverse on error
+      opacity.value = withTiming(1, { duration: 200 });
+      translateX.value = withTiming(0, { duration: 200 });
+      Alert.alert('Delete Failed', 'Could not delete event. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  }, [event.id, onDelete, opacity, translateX]);
+
   const handleDelete = useCallback(() => {
+    if (deleting) return;
     Alert.alert('Delete Event', `Remove "${event.name}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -38,12 +62,12 @@ export function EventCard({ event, onDelete, compact = false }: Props) {
         onPress: () => {
           opacity.value = withTiming(0, { duration: 250 });
           translateX.value = withTiming(-300, { duration: 250 }, () => {
-            if (onDelete) runOnJS(onDelete)(event.id);
+            runOnJS(executeDelete)();
           });
         },
       },
     ]);
-  }, [event, onDelete, opacity, translateX]);
+  }, [event, deleting, executeDelete, opacity, translateX]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

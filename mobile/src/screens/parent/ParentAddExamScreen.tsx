@@ -21,7 +21,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
 import { suggestExam } from '../../services/api';
-import { spacing, borderRadius } from '../../theme';
+import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<ParentStackParamList, 'ParentAddExam'>;
@@ -99,8 +99,8 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.successContainer}>
-          <View style={[styles.successIcon, { backgroundColor: '#FF475722' }]}>
-            <Ionicons name="document-text" size={64} color="#FF4757" />
+          <View style={[styles.successIcon, { backgroundColor: colors.error + '22' }]}>
+            <Ionicons name="document-text" size={64} color={colors.error} />
           </View>
           <Text style={[styles.successTitle, { color: colors.textOnDark }]}>Exam Added</Text>
           <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
@@ -110,7 +110,7 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
             style={[styles.doneButton, { backgroundColor: colors.accent1 }]}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.doneButtonText}>Done</Text>
+            <Text style={[styles.doneButtonText, { color: colors.textOnDark }]}>Done</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -142,7 +142,7 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
               <Text
                 style={[
                   styles.chipText,
-                  { color: subject === s ? '#FFFFFF' : colors.textOnDark },
+                  { color: subject === s ? colors.textOnDark : colors.textOnDark },
                 ]}
               >
                 {s}
@@ -169,8 +169,8 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
               style={[
                 styles.chip,
                 {
-                  backgroundColor: examType === t ? '#FF4757' : colors.surface,
-                  borderColor: examType === t ? '#FF4757' : colors.border,
+                  backgroundColor: examType === t ? colors.error : colors.surface,
+                  borderColor: examType === t ? colors.error : colors.border,
                 },
               ]}
               onPress={() => setExamType(t)}
@@ -178,7 +178,7 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
               <Text
                 style={[
                   styles.chipText,
-                  { color: examType === t ? '#FFFFFF' : colors.textOnDark },
+                  { color: examType === t ? colors.textOnDark : colors.textOnDark },
                 ]}
               >
                 {t}
@@ -205,7 +205,7 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
               <Text
                 style={[
                   styles.dateChipText,
-                  { color: examDate === opt.value ? '#FFFFFF' : colors.textOnDark },
+                  { color: examDate === opt.value ? colors.textOnDark : colors.textOnDark },
                 ]}
               >
                 {opt.label}
@@ -241,9 +241,9 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
           disabled={submitting || !effectiveSubject.trim() || !examType || !examDate}
         >
           {submitting ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={colors.textOnDark} />
           ) : (
-            <Text style={styles.submitText}>Add Exam</Text>
+            <Text style={[styles.submitText, { color: colors.textOnDark }]}>Add Exam</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -263,12 +263,12 @@ const styles = StyleSheet.create({
   },
   header: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     marginBottom: spacing.xl,
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: fontFamily.semiBold,
     marginBottom: spacing.sm,
     marginTop: spacing.md,
     textTransform: 'uppercase',
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
   },
 
   // Date scroll
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   dateChipText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
   },
 
   // Input
@@ -333,9 +333,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   submitText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
 
   // Success
@@ -355,7 +354,7 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     marginBottom: spacing.sm,
   },
   successSubtitle: {
@@ -369,8 +368,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   doneButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
 });

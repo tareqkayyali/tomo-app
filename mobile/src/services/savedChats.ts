@@ -23,6 +23,10 @@ export interface SavedMessage {
   role: 'user' | 'ai';
   text: string;
   timestamp: string;
+  /** Structured visual response data (cards, chips) — preserved for re-rendering */
+  structured?: any | null;
+  /** Pending confirmation action data — preserved for confirm buttons */
+  confirmAction?: any | null;
 }
 
 function generateId(): string {

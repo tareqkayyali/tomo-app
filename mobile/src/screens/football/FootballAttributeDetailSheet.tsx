@@ -1,6 +1,9 @@
 /**
- * FootballAttributeDetailSheet — Expandable panel showing sub-attribute
- * breakdown, age percentile, 30-day sparkline, and improvement tips.
+ * FootballAttributeDetailSheet -- Expandable panel showing:
+ * 1. Line chart with benchmark reference lines (p25/p50/p75)
+ * 2. Sub-attribute breakdown
+ * 3. Age percentile context
+ * 4. Improvement tips
  *
  * Psychology (Research Section 15.3):
  * - Declines framed as "Refocusing this area", NEVER red text
@@ -9,30 +12,52 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import Animated from 'react-native-reanimated';
-import Svg, { Polyline } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useSpringEntrance } from '../../hooks/useAnimations';
-import { getAttributePercentile } from '../../services/footballCalculations';
+import {
+  getAttributePercentile,
+  FOOTBALL_NORMATIVE_DATA,
+} from '../../services/footballCalculations';
 import { useSportContext } from '../../hooks/useSportContext';
+import { AttributeLineChart } from '../../components/charts/AttributeLineChart';
 import type { FootballAttribute, FootballAttributeData, FootballPosition, FootballHistoryEntry } from '../../types/football';
 import { fontFamily, borderRadius, spacing } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemeColors } from '../../theme/colors';
 
-// ═══ IMPROVEMENT TIPS ═══
+// ---- Improvement tips ----
 
 const IMPROVEMENT_TIPS: Record<FootballAttribute, string> = {
-  pace: 'Focus on 10-30m sprint intervals 2-3x per week. Plyometric box jumps also improve acceleration (Research Section 6.1).',
+  pace: 'Focus on 10-30m sprint intervals 2-3x per week. Plyometric box jumps also improve acceleration.',
   shooting: 'Practice shooting from varied distances and angles. Strengthen your kicking leg with single-leg squats and hip flexor work.',
   passing: 'Short pass drills with a wall, progressing to long-range passing. Focus on both feet daily for 10 minutes.',
-  dribbling: 'Cone drills and slalom work improve close control. Practice with both feet — even 5 minutes daily builds neural pathways.',
+  dribbling: 'Cone drills and slalom work improve close control. Practice with both feet -- even 5 minutes daily builds neural pathways.',
   defending: 'Lateral shuffle drills and backward sprints build defensive agility. Add grip and push strength work for duels.',
-  physicality: 'Yo-Yo IR1 intervals build match endurance. Prioritize 8+ hours of sleep — recovery is where gains happen.',
+  physicality: 'Yo-Yo IR1 intervals build match endurance. Prioritize 8+ hours of sleep -- recovery is where gains happen.',
 };
 
-// ═══ PROPS ═══
+// ---- Benchmark helpers ----
+
+function computeBenchmarks(attribute: FootballAttribute, age: number) {
+  const norms = FOOTBALL_NORMATIVE_DATA[attribute];
+  const clamped = Math.min(Math.max(age, 13), 99);
+  let norm = norms[norms.length - 1];
+  for (const n of norms) {
+    if (clamped >= n.ageMin && clamped <= n.ageMax) {
+      norm = n;
+      break;
+    }
+  }
+  return {
+    p25: Math.round(norm.mean - 0.675 * norm.sd),
+    p50: Math.round(norm.mean),
+    p75: Math.round(norm.mean + 0.675 * norm.sd),
+  };
+}
+
+// ---- Props ----
 
 interface FootballAttributeDetailSheetProps {
   attribute: FootballAttribute;
@@ -43,30 +68,7 @@ interface FootballAttributeDetailSheetProps {
   onClose?: () => void;
 }
 
-// ═══ SPARKLINE HELPER ═══
-
-function buildSparklinePath(
-  values: number[],
-  width: number,
-  height: number,
-): string {
-  if (values.length < 2) return '';
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const padding = 2;
-  const usableH = height - padding * 2;
-
-  return values
-    .map((v, i) => {
-      const x = (i / (values.length - 1)) * width;
-      const y = padding + usableH - ((v - min) / range) * usableH;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(' ');
-}
-
-// ═══ COMPONENT ═══
+// ---- Component ----
 
 export function FootballAttributeDetailSheet({
   attribute,
@@ -81,24 +83,26 @@ export function FootballAttributeDetailSheet({
   const s = React.useMemo(() => createStyles(colors), [colors]);
   const entranceStyle = useSpringEntrance(0);
 
-  // Look up attribute from sportConfig
-  const fullAttr = sportConfig.fullAttributes.find(a => a.key === attribute);
+  // Attribute config
+  const fullAttr = sportConfig.fullAttributes.find((a) => a.key === attribute);
   const attrColor = sportConfig.attributeColors[attribute] ?? '#888888';
 
   // Age percentile
-  const percentile = getAttributePercentile(
-    attribute,
-    data.score,
-    age,
-    position,
-  );
-  const positionLabel = sportConfig.positions.find(p => p.key === position)?.label ?? position;
+  const percentile = getAttributePercentile(attribute, data.score, age, position);
+  const positionLabel = sportConfig.positions.find((p) => p.key === position)?.label ?? position;
 
-  // Sparkline data from history
-  const sparkValues = history.map((h) => h.attributes[attribute]);
-  const sparkWidth = 260;
-  const sparkHeight = 40;
-  const sparkPath = buildSparklinePath(sparkValues, sparkWidth, sparkHeight);
+  // Chart data from history
+  const chartData = history.map((h) => ({
+    date: h.date,
+    value: h.attributes[attribute],
+  }));
+
+  // Benchmarks
+  const benchmarks = computeBenchmarks(attribute, age);
+
+  // Chart width (responsive)
+  const screenWidth = Dimensions.get('window').width;
+  const chartWidth = Math.min(screenWidth - 80, 320);
 
   return (
     <Animated.View style={[entranceStyle, s.container]}>
@@ -116,7 +120,7 @@ export function FootballAttributeDetailSheet({
         )}
       </View>
 
-      {/* Trend — growth-oriented language */}
+      {/* Trend -- growth-oriented language */}
       {data.trend !== 0 && (
         <View style={s.trendRow}>
           <Ionicons
@@ -145,20 +149,17 @@ export function FootballAttributeDetailSheet({
         </Text>
       </View>
 
-      {/* 30-day sparkline */}
-      {sparkValues.length >= 2 && (
-        <View style={s.sparklineContainer}>
-          <Text style={s.sparklineLabel}>30-Day Trend</Text>
-          <Svg width={sparkWidth} height={sparkHeight}>
-            <Polyline
-              points={sparkPath}
-              fill="none"
-              stroke={attrColor}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
+      {/* -------- Line Chart with Benchmarks -------- */}
+      {chartData.length >= 1 && (
+        <View style={s.chartContainer}>
+          <Text style={s.chartLabel}>Score History vs Age Benchmarks</Text>
+          <AttributeLineChart
+            data={chartData}
+            benchmarks={benchmarks}
+            color={attrColor}
+            width={chartWidth}
+            height={160}
+          />
         </View>
       )}
 
@@ -221,7 +222,7 @@ export function FootballAttributeDetailSheet({
   );
 }
 
-// ═══ STYLES ═══
+// ---- Styles ----
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -231,6 +232,7 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.glassBorder,
       padding: spacing.lg,
+      marginBottom: spacing.sm,
     },
     header: {
       flexDirection: 'row',
@@ -283,15 +285,15 @@ function createStyles(colors: ThemeColors) {
       fontSize: 12,
       color: colors.accent2,
     },
-    sparklineContainer: {
+    chartContainer: {
       marginBottom: spacing.md,
       paddingBottom: spacing.sm,
       borderBottomWidth: 1,
       borderBottomColor: colors.divider,
     },
-    sparklineLabel: {
+    chartLabel: {
       fontFamily: fontFamily.regular,
-      fontSize: 10,
+      fontSize: 11,
       color: colors.textInactive,
       marginBottom: 4,
     },

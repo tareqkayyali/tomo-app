@@ -19,6 +19,9 @@ export const STORAGE_KEY_ACTIVE_SPORT = '@tomo_active_sport';
 export const STORAGE_KEY_CONTENT_MANIFEST = '@tomo_content_manifest';
 export const STORAGE_KEY_CONTENT_BUNDLE = '@tomo_content_bundle';
 
+// ── Saved Study Plans ──
+export const STORAGE_KEY_SAVED_STUDY_PLANS = '@tomo_saved_study_plans';
+
 // ── Football Tests ──
 export const STORAGE_KEY_FOOTBALL_TEST_PREFIX = '@tomo_football_test_';
 export function getFootballTestPBKey(testId: string): string {

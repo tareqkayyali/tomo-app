@@ -96,9 +96,9 @@ export interface User {
   examSchedule?: ExamEntry[];
   trainingPreferences?: TrainingPreferences;
   studyPlanConfig?: StudyPlanConfig;
+  trainingPlanConfig?: TrainingPlanConfig;
 
   // Enhanced profile fields
-  schoolSchedule?: SchoolSchedule;
   customTrainingTypes?: CustomTrainingType[];
 
   // Wearable connections
@@ -588,9 +588,17 @@ export interface PlayerSummary {
   email: string;
   sport: Sport;
   age?: number;
-  readiness?: ReadinessLevel | null;
   currentStreak: number;
   totalPoints: number;
+  // Snapshot-powered fields (role-filtered via Data Fabric Layer 2)
+  readinessRag?: string | null;        // GREEN | AMBER | RED
+  acwr?: number | null;
+  dualLoadIndex?: number | null;
+  wellnessTrend?: string | null;       // IMPROVING | STABLE | DECLINING
+  lastSessionAt?: string | null;
+  sessionsTotal?: number | null;
+  // Legacy (backward compat)
+  readiness?: ReadinessLevel | null;
   lastCheckinDate?: string | null;
 }
 
@@ -623,7 +631,9 @@ export type NotificationType =
   | 'test_result_added'
   | 'parent_link_request'
   | 'coach_link_request'
-  | 'study_info_request';
+  | 'study_info_request'
+  | 'coach_drill_assigned'
+  | 'coach_programme_published';
 
 export interface AppNotification {
   id: string;
@@ -700,6 +710,63 @@ export interface StudyBlock {
   endTime: string;    // HH:mm
   examDate: string;
   examType: ExamType;
+}
+
+// Study plan generator result
+export interface GeneratorResult {
+  blocks: StudyBlock[];
+  warnings: string[];  // e.g. "Could not place 2 Math sessions — not enough free days before Apr 15"
+}
+
+// ── Saved Study Plans ───────────────────────────────────────────────
+
+export interface SavedStudyPlan {
+  id: string;
+  name: string;                  // "Mar 16 – Apr 20"
+  createdAt: string;
+  blocks: StudyBlock[];
+  exams: { subject: string; examDate: string; examType: string }[];
+  config: StudyPlanConfig;
+  dateRange: { start: string; end: string };
+  examCount: number;
+  blockCount: number;
+}
+
+// ── Training Plan Types ─────────────────────────────────────────────
+
+export type TrainingCategory = 'club' | 'gym' | 'personal' | string;
+
+export interface TrainingCategoryConfig {
+  id: string;
+  label: string;
+  icon: string;
+  color: string;
+  enabled: boolean;
+  mode: 'fixed_days' | 'days_per_week';
+  fixedDays: number[];
+  daysPerWeek: number;
+  sessionDuration: number;
+  preferredTime: 'morning' | 'afternoon' | 'evening';
+}
+
+export interface TrainingPlanConfig {
+  categories: TrainingCategoryConfig[];
+  planWeeks: number;
+}
+
+export interface TrainingBlock {
+  id: string;
+  categoryId: string;
+  categoryLabel: string;
+  categoryColor: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface TrainingGeneratorResult {
+  blocks: TrainingBlock[];
+  warnings: string[];
 }
 
 // Error

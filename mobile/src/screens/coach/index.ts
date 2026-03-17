@@ -5,3 +5,4 @@ export { CoachTestInputScreen } from './CoachTestInputScreen';
 export { CoachInviteScreen } from './CoachInviteScreen';
 export { CoachSettingsScreen } from './CoachSettingsScreen';
 export { CoachOnboardingScreen } from './CoachOnboardingScreen';
+export { DrillBuilderScreen } from './DrillBuilderScreen';

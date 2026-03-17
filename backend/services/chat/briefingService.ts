@@ -8,6 +8,8 @@
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ArchetypeInfo, type Archetype } from "@/types";
+import { getRecommendations } from "@/services/recommendations/getRecommendations";
+import type { Recommendation } from "@/services/recommendations/types";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -54,6 +56,13 @@ export interface DailyBriefing {
   alerts: BriefingAlert[];
   quickActions: QuickAction[];
   archetypeEmoji: string | null;
+  /** Layer 4 RIE — top P1/P2 recommendation for daily AI insight card */
+  topRecommendation: {
+    recType: string;
+    priority: number;
+    title: string;
+    bodyShort: string;
+  } | null;
 }
 
 // ─── Greeting Generator ─────────────────────────────────────────────────────
@@ -221,8 +230,8 @@ export async function generateBriefing(
   const today = new Date().toISOString().slice(0, 10);
   const localHour = clientHour ?? new Date().getHours();
 
-  // 6 parallel queries
-  const [userRes, checkinRes, planRes, eventsRes, recentRes, sleepRes] =
+  // 7 parallel queries (6 existing + Layer 4 recs)
+  const [userRes, checkinRes, planRes, eventsRes, recentRes, sleepRes, rieRecsRes] =
     await Promise.all([
       db
         .from("users")
@@ -263,6 +272,8 @@ export async function generateBriefing(
         .eq("user_id", userId)
         .order("date", { ascending: false })
         .limit(1),
+      // Layer 4 — top P1/P2 rec for daily AI insight
+      getRecommendations(userId, { role: "ATHLETE", limit: 3 }).catch(() => [] as Recommendation[]),
     ]);
 
   const user = userRes.data ?? {
@@ -277,6 +288,7 @@ export async function generateBriefing(
   const todayPlan = planRes.data;
   const events = eventsRes.data || [];
   const recentCheckins = recentRes.data || [];
+  const rieRecs: Recommendation[] = (rieRecsRes as Recommendation[]) ?? [];
   const hasCheckedIn = !!todayCheckin;
 
   // Readiness status
@@ -338,5 +350,14 @@ export async function generateBriefing(
     alerts,
     quickActions,
     archetypeEmoji,
+    // Layer 4 — top P1/P2 rec for the "AI Insight" card on Timeline
+    topRecommendation: rieRecs.length > 0
+      ? {
+          recType: rieRecs[0].rec_type,
+          priority: rieRecs[0].priority,
+          title: rieRecs[0].title,
+          bodyShort: rieRecs[0].body_short,
+        }
+      : null,
   };
 }

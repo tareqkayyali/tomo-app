@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   if ("error" in roleCheck) return roleCheck.error;
 
   try {
-    const players = await getLinkedPlayers(auth.user.id);
+    const players = await getLinkedPlayers(auth.user.id, "COACH");
 
     return NextResponse.json(
       { players },

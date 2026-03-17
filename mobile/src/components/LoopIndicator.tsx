@@ -20,7 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, spacing, fontFamily } from '../theme';
 
-const STEPS = ['Plan', 'Test', 'Progress', 'For You'] as const;
+const STEPS = ['Timeline', 'Output', 'Mastery', 'Own It'] as const;
 
 type LoopIndicatorProps = {
   /** Which steps are complete (array of 4 booleans) */

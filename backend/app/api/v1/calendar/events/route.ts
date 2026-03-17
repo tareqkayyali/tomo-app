@@ -5,7 +5,18 @@ import { z } from "zod";
 import {
   mapDbRowToCalendarEvent,
   toDbEventType,
+  localToUtc,
 } from "@/lib/calendarHelpers";
+import {
+  validateEvent,
+  autoPosition,
+  timeToMinutes,
+  minutesToTime,
+  DEFAULT_CONFIG,
+} from "@/services/schedulingEngine";
+import type { ScheduleEvent } from "@/services/schedulingEngine";
+import { estimateTotalLoad } from "@/services/events/computations/loadEstimator";
+import { bridgeCalendarToEventStream } from "@/services/events/calendarBridge";
 
 // ─── Validation ────────────────────────────────────────────────────────────
 
@@ -56,17 +67,18 @@ export async function POST(req: NextRequest) {
     }
 
     const { name, date, startTime, endTime, intensity, notes, sport } = parsed.data;
+    const tz = (body as Record<string, unknown>).timezone as string || "UTC";
 
     // Resolve event type: prefer "type" (new), fall back to "eventType" (legacy)
     const rawType = parsed.data.type || parsed.data.eventType || "training";
     const dbEventType = toDbEventType(rawType);
 
-    // Build start_at from date + optional startTime
+    // Build start_at/end_at as UTC, converting from the user's local timezone
     const startAt = startTime
-      ? `${date}T${startTime}:00`
-      : `${date}T00:00:00`;
+      ? localToUtc(date, `${startTime}:00`, tz)
+      : localToUtc(date, "00:00:00", tz);
 
-    const endAt = endTime ? `${date}T${endTime}:00` : null;
+    const endAt = endTime ? localToUtc(date, `${endTime}:00`, tz) : null;
 
     const db = supabaseAdmin();
 
@@ -86,22 +98,98 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── Smart Calendar: conflict validation ─────────────────────
+    let finalStartAt = startAt;
+    let finalEndAt = endAt;
+    let autoRepositioned = false;
+    let originalTime: { startTime: string | null; endTime: string | null } | null = null;
+
+    if (startTime && endTime) {
+      // Fetch existing events for the day
+      const dayStart = localToUtc(date, "00:00:00", tz);
+      const dayEnd = localToUtc(date, "23:59:59", tz);
+      const { data: dayRows } = await db
+        .from("calendar_events")
+        .select("*")
+        .eq("user_id", auth.user.id)
+        .gte("start_at", dayStart)
+        .lte("start_at", dayEnd);
+
+      const existingEvents: ScheduleEvent[] = (dayRows || []).map((r: Record<string, unknown>) => {
+        const mapped = mapDbRowToCalendarEvent(r, tz);
+        return {
+          id: String(mapped.id),
+          name: String(mapped.name),
+          startTime: mapped.startTime as string | null,
+          endTime: mapped.endTime as string | null,
+          type: String(mapped.type),
+          intensity: mapped.intensity as string | null,
+        };
+      });
+
+      // Get user gap preference (default 30)
+      const config = { ...DEFAULT_CONFIG };
+      const gapPref = (body as Record<string, unknown>).gapMinutes;
+      if (typeof gapPref === "number" && gapPref >= 0 && gapPref <= 120) {
+        config.gapMinutes = gapPref;
+      }
+
+      const newStartMin = timeToMinutes(startTime);
+      const newEndMin = timeToMinutes(endTime);
+      const conflict = validateEvent(newStartMin, newEndMin, existingEvents, config);
+
+      if (conflict.hasConflict) {
+        const duration = newEndMin - newStartMin;
+        const repositioned = autoPosition(duration, newStartMin, existingEvents, config);
+
+        if (!repositioned) {
+          return NextResponse.json(
+            {
+              error: "No available time slot for this event",
+              conflicts: conflict.conflictingEvents,
+              gapViolations: conflict.gapViolations,
+            },
+            { status: 409, headers: { "api-version": "v1" } }
+          );
+        }
+
+        // Auto-reposition to the next available slot
+        autoRepositioned = true;
+        originalTime = { startTime, endTime };
+        const newStart = minutesToTime(repositioned.startMin);
+        const newEnd = minutesToTime(repositioned.endMin);
+        finalStartAt = localToUtc(date, `${newStart}:00`, tz);
+        finalEndAt = localToUtc(date, `${newEnd}:00`, tz);
+      }
+    }
+
+    // Compute estimated load from event metadata
+    const durationMin = finalEndAt
+      ? (new Date(finalEndAt).getTime() - new Date(finalStartAt).getTime()) / 60000
+      : 60;
+    const estimatedLoad = estimateTotalLoad({
+      event_type: dbEventType,
+      intensity: intensity ?? null,
+      duration_min: durationMin,
+    });
+
     // Base insert object (matches generated Supabase types)
     const insertBase = {
       user_id: auth.user.id,
       title: name,
       event_type: dbEventType,
-      start_at: startAt,
-      end_at: endAt,
+      start_at: finalStartAt,
+      end_at: finalEndAt,
       notes: notes || null,
     };
 
-    // Extended fields (intensity, sport) — columns added via migration 0008
+    // Extended fields (intensity, sport, estimated_load_au) — columns added via migrations
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const insertData = {
       ...insertBase,
       intensity: intensity || null,
       sport: sport || null,
+      estimated_load_au: estimatedLoad,
     } as typeof insertBase;
 
     const { data: event, error } = await db
@@ -114,9 +202,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Bridge to Layer 1 event stream for RIE (fire-and-forget)
+    bridgeCalendarToEventStream({
+      athleteId: auth.user.id,
+      calendarEvent: {
+        id: (event as any).id,
+        title: name,
+        event_type: dbEventType,
+        start_at: finalStartAt,
+        end_at: finalEndAt,
+        intensity: intensity ?? null,
+        estimated_load_au: estimatedLoad,
+      },
+      action: 'CREATED',
+      createdBy: auth.user.id,
+    }).catch((err) => console.error('[CalendarBridge] live bridge error:', err));
+
     // Return transformed event matching frontend CalendarEvent shape
+    const mappedEvent = mapDbRowToCalendarEvent(event as Record<string, unknown>, tz);
     return NextResponse.json(
-      { event: mapDbRowToCalendarEvent(event as Record<string, unknown>) },
+      {
+        event: mappedEvent,
+        ...(autoRepositioned && {
+          autoRepositioned: true,
+          originalTime,
+          suggestedTime: { startTime: mappedEvent.startTime, endTime: mappedEvent.endTime },
+        }),
+      },
       { status: 201, headers: { "api-version": "v1" } }
     );
   } catch {
@@ -137,12 +249,14 @@ export async function GET(req: NextRequest) {
   const date = searchParams.get("date");
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
+  const tz = searchParams.get("tz") || "UTC";
 
   const db = supabaseAdmin();
 
   if (date) {
-    const dayStart = `${date}T00:00:00`;
-    const dayEnd = `${date}T23:59:59`;
+    // Convert local day boundaries to UTC for querying
+    const dayStart = localToUtc(date, "00:00:00", tz);
+    const dayEnd = localToUtc(date, "23:59:59", tz);
 
     const { data: rows, error } = await db
       .from("calendar_events")
@@ -157,7 +271,7 @@ export async function GET(req: NextRequest) {
     }
 
     const events = (rows || []).map((r) =>
-      mapDbRowToCalendarEvent(r as Record<string, unknown>)
+      mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
     );
 
     return NextResponse.json(
@@ -167,8 +281,8 @@ export async function GET(req: NextRequest) {
   }
 
   if (startDate && endDate) {
-    const rangeStart = `${startDate}T00:00:00`;
-    const rangeEnd = `${endDate}T23:59:59`;
+    const rangeStart = localToUtc(startDate, "00:00:00", tz);
+    const rangeEnd = localToUtc(endDate, "23:59:59", tz);
 
     const { data: rows, error } = await db
       .from("calendar_events")
@@ -183,7 +297,7 @@ export async function GET(req: NextRequest) {
     }
 
     const events = (rows || []).map((r) =>
-      mapDbRowToCalendarEvent(r as Record<string, unknown>)
+      mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
     );
 
     return NextResponse.json(
