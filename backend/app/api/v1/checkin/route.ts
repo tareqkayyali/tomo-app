@@ -7,6 +7,7 @@ import { processCheckinCompliance } from "@/services/complianceService";
 import type { Archetype } from "@/types";
 import type { Json } from "@/types/database";
 import { emitEventSafe } from "@/services/events/eventEmitter";
+import { triggerDeepRefreshAsync } from "@/services/recommendations/deepRecRefresh";
 
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
@@ -156,6 +157,12 @@ export async function POST(req: NextRequest) {
     },
     createdBy: auth.user.id,
   });
+
+  // ── Trigger Deep Rec Refresh (fire-and-forget, non-blocking) ──
+  // Uses full PlayerContext + Claude for rich, personalized recommendations
+  // that cross-reference all data sources (wellness, load, academic, performance)
+  const clientTimezone = req.headers.get('x-timezone') || undefined;
+  triggerDeepRefreshAsync(auth.user.id, clientTimezone);
 
   // Update days_since_rest
   const newDaysSinceRest = plan.intensity === "rest" ? 0 : (user.days_since_rest || 0) + 1;
