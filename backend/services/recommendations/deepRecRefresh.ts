@@ -138,7 +138,12 @@ Every recommendation MUST include an "action" object that deep-links to a specif
 Rules:
 - Generate between 4 and 6 recommendations. Quality AND diversity.
 - Each rec must reference SPECIFIC numbers from the athlete's data when available. Be concrete, not generic.
-- Priority 1 = urgent (act now), 2 = important (today), 3 = this week, 4 = informational
+- Priority maps to time horizons in the UI:
+  - Priority 1 = URGENT (act now) → shown in "Today" section
+  - Priority 2 = IMPORTANT (do today) → shown in "Today" section
+  - Priority 3 = PLAN AHEAD (tomorrow/next few days) → shown in "Tomorrow" section
+  - Priority 4 = WEEKLY OUTLOOK (this week) → shown in "This Week" section
+- Spread across time horizons: aim for 2-3 Today, 1-2 Tomorrow, 1-2 This Week
 - Only generate P1 if there's genuine urgency (RED readiness, dangerous load spike, injury risk)
 - For young athletes (U15 and below): warm, encouraging tone. U17+: direct, peer-level.
 - body_short must be ≤140 characters, action-oriented, specific

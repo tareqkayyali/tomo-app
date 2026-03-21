@@ -4,3 +4,4 @@ export { ReadinessHero } from './ReadinessHero';
 export { MetricPill } from './MetricPill';
 export { DualLoadBar } from './DualLoadBar';
 export { RecSection } from './RecSection';
+export { TimeSection } from './TimeSection';

@@ -29,7 +29,7 @@ import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { QuickAccessBar } from '../components/QuickAccessBar';
 import { useQuickActions } from '../hooks/useQuickActions';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
-import { RecSection } from '../components/ownit';
+import { TimeSection } from '../components/ownit';
 import type { ForYouRecommendation } from '../components/ownit';
 import type { RIERecommendation } from '../services/api';
 import { useOwnItData } from '../hooks/useOwnItData';
@@ -86,12 +86,15 @@ export function ForYouScreen() {
     navigation,
   );
 
-  const sportsCards = sportsRecs.map(toCardRec);
-  const studyCards = studyRecs.map(toCardRec);
-  const updateCards = updateRecs.map(toCardRec);
+  const allCards = [...sportsRecs, ...studyRecs, ...updateRecs].map(toCardRec);
 
-  const hasAnyContent = snapshot || sportsRecs.length > 0 || studyRecs.length > 0 || updateRecs.length > 0;
-  const hasAnyRecs = sportsRecs.length > 0 || studyRecs.length > 0 || updateRecs.length > 0;
+  // Group by time horizon: Today (P1-P2), Tomorrow (P3), This Week (P4)
+  const todayCards = allCards.filter((r) => r.priority <= 2);
+  const tomorrowCards = allCards.filter((r) => r.priority === 3);
+  const weekCards = allCards.filter((r) => r.priority === 4);
+
+  const hasAnyContent = snapshot || allCards.length > 0;
+  const hasAnyRecs = allCards.length > 0;
 
   // ── Action handler — deep-links rec CTA to in-app screens ──
   const handleRecAction = useCallback((route: string, params?: Record<string, unknown>) => {
@@ -236,35 +239,36 @@ export function ForYouScreen() {
         {/* Main Content */}
         {hasAnyContent && (
           <>
-            {/* Sports Recommendations */}
-            <RecSection
-              title={pageConfig?.metadata?.tabLabels?.['sports'] || "Sports"}
-              icon="fitness-outline"
+            {/* Today — Urgent + Important (P1-P2) */}
+            <TimeSection
+              title="Today"
+              icon="flash-outline"
               color={colors.accent1}
-              recs={sportsCards}
-              emptyMessage={snapshot ? (pageConfig?.metadata?.emptyStates?.['sports'] || 'No active sports recommendations') : undefined}
+              recs={todayCards}
+              defaultExpanded={true}
               indexOffset={0}
               onAction={handleRecAction}
             />
 
-            {/* Study Recommendations */}
-            <RecSection
-              title={pageConfig?.metadata?.tabLabels?.['study'] || "Study"}
-              icon="school-outline"
+            {/* Tomorrow — This Week Planning (P3) */}
+            <TimeSection
+              title="Tomorrow"
+              icon="calendar-outline"
               color={colors.accent2}
-              recs={studyCards}
-              emptyMessage={snapshot ? (pageConfig?.metadata?.emptyStates?.['study'] || 'No active study recommendations') : undefined}
-              indexOffset={sportsCards.length}
+              recs={tomorrowCards}
+              defaultExpanded={tomorrowCards.length <= 3}
+              indexOffset={todayCards.length}
               onAction={handleRecAction}
             />
 
-            {/* Updates (CV, Triangle) — only if present */}
-            <RecSection
-              title={pageConfig?.metadata?.tabLabels?.['updates'] || "Updates"}
-              icon="bulb-outline"
+            {/* This Week — Informational (P4) */}
+            <TimeSection
+              title="This Week"
+              icon="layers-outline"
               color={colors.info}
-              recs={updateCards}
-              indexOffset={sportsCards.length + studyCards.length}
+              recs={weekCards}
+              defaultExpanded={false}
+              indexOffset={todayCards.length + tomorrowCards.length}
               onAction={handleRecAction}
             />
           </>
