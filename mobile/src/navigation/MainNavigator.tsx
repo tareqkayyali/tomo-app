@@ -186,16 +186,9 @@ function TabNavigator() {
   useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
   useEffect(() => { subTabsRef.current = subTabs; }, [subTabs]);
 
-  // Persist active tab so it survives page reloads (web) and app restarts
+  // Always open on Chat (Tomo AI) when user logs in
   useEffect(() => {
-    AsyncStorage.getItem('tomo_active_tab').then((saved) => {
-      if (saved && TAB_ORDER.includes(saved as any)) {
-        setActiveTab(saved);
-        setInitialTab(saved);
-      } else {
-        setInitialTab('Chat');
-      }
-    });
+    setInitialTab('Chat');
   }, []);
 
   useEffect(() => {
