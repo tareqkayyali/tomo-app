@@ -100,10 +100,10 @@ const TAB_LABELS: Record<TabName, string> = {
   ForYou: 'Own It',
 };
 
-import { TomoIcon } from '../components/TomoIcon';
-
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const tomoLogo = require('../../assets/tomo-logo.png');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const tomoOWaves = require('../../assets/tomo-o-waves.png');
 
 // ── Animated tab icon ───────────────────────────────────────────────
 
@@ -163,14 +163,14 @@ function CenterChatButton({
           style={styles.centerButtonGradientRing}
         >
           <View style={[styles.centerButton, { backgroundColor: '#000000' }]}>
-            <Image source={tomoLogo} style={styles.centerLogo} resizeMode="contain" />
+            <Image source={tomoOWaves} style={styles.centerLogo} resizeMode="contain" />
           </View>
         </LinearGradient>
       ) : (
         // Unfocused: thin brand-color border
         <View style={[styles.centerButtonOuter, { borderWidth: 1, borderColor: 'rgba(255, 107, 53, 0.35)' }]}>
           <View style={[styles.centerButton, { backgroundColor: '#000000' }]}>
-            <Image source={tomoLogo} style={styles.centerLogo} resizeMode="contain" />
+            <Image source={tomoOWaves} style={styles.centerLogo} resizeMode="contain" />
           </View>
         </View>
       )}
