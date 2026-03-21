@@ -336,6 +336,68 @@ export async function deepRecRefresh(
       }
     }
 
+    // Ensure at least one P3 and one P4 rec exist — inject deterministic fallbacks
+    const hasP3 = recs.some(r => r.priority === 3);
+    const hasP4 = recs.some(r => r.priority === 4);
+
+    if (!hasP3 || !hasP4) {
+      const fallbacks: RecommendationInsert[] = [];
+      const fallbackContext: Record<string, unknown> = {
+        source: 'DEEP_REFRESH',
+        generated_at: new Date().toISOString(),
+        calendar_date: ctx.todayDate,
+        calendar_event_titles: ctx.todayEvents.map(e => e.title),
+      };
+
+      if (!hasP3) {
+        const examsText = ctx.upcomingExams.length > 0
+          ? `You have ${ctx.upcomingExams.length} exam${ctx.upcomingExams.length > 1 ? 's' : ''} coming up. Plan study blocks around your training schedule.`
+          : 'Plan your training and study schedule for the next few days.';
+        fallbacks.push({
+          athlete_id: athleteId,
+          rec_type: 'DEVELOPMENT',
+          priority: 3,
+          title: 'Plan Tomorrow\'s Schedule',
+          body_short: 'Review your calendar and set up tomorrow\'s training and study blocks.',
+          body_long: examsText,
+          confidence_score: 0.7,
+          evidence_basis: {},
+          trigger_event_id: null,
+          context: { ...fallbackContext, action: { type: 'AddEvent', params: { initialType: 'training' }, label: 'Plan Schedule' } },
+          visible_to_athlete: true,
+          visible_to_coach: true,
+          visible_to_parent: true,
+          expires_at: new Date(Date.now() + 24 * 3600000).toISOString(),
+        });
+      }
+
+      if (!hasP4) {
+        const streak = ctx.currentStreak ?? 0;
+        const weeklyGoal = streak > 0 ? `Extend your ${streak}-day streak with 3+ sessions this week.` : 'Build momentum with at least 3 training sessions this week.';
+        fallbacks.push({
+          athlete_id: athleteId,
+          rec_type: 'MOTIVATION',
+          priority: 4,
+          title: 'Weekly Training Target',
+          body_short: weeklyGoal,
+          body_long: `Set a weekly target for training sessions, study blocks, and tests. Consistency builds your athletic identity and keeps your data fresh for better recommendations.`,
+          confidence_score: 0.7,
+          evidence_basis: { streak_days: streak },
+          trigger_event_id: null,
+          context: { ...fallbackContext, action: { type: 'MyRules', label: 'Review Rules' } },
+          visible_to_athlete: true,
+          visible_to_coach: true,
+          visible_to_parent: true,
+          expires_at: new Date(Date.now() + 48 * 3600000).toISOString(),
+        });
+      }
+
+      for (const fb of fallbacks) {
+        const { error } = await (db as any).from('athlete_recommendations').insert(fb);
+        if (!error) inserted++;
+      }
+    }
+
     const elapsed = Date.now() - startTime;
     return { count: inserted };
   } catch (err) {
