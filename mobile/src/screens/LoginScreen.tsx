@@ -22,10 +22,9 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Button, Input } from '../components';
+import { Input } from '../components';
 import {
   colors,
   spacing,
@@ -203,14 +202,17 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
                   <Text style={styles.forgotText}>Forgot password?</Text>
                 </TouchableOpacity>
 
-                <Button
-                  title="Sign In"
+                <TouchableOpacity
+                  style={[styles.signInBtn, { backgroundColor: `${colors.accent1}1F`, borderWidth: 1, borderColor: `${colors.accent1}4D` }]}
                   onPress={handleLogin}
-                  loading={isLoading}
-                  variant="primary"
-                  size="large"
-                  style={styles.signInBtn}
-                />
+                  activeOpacity={0.7}
+                  disabled={isLoading}
+                >
+                  <Ionicons name="log-in-outline" size={16} color={colors.accent1} />
+                  <Text style={[styles.signInBtnText, { color: colors.accent1 }]}>
+                    {isLoading ? 'Signing in...' : 'Sign In'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -225,17 +227,11 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
             <TouchableOpacity
               style={styles.getStartedBtn}
               onPress={() => navigation.navigate('Signup')}
-              activeOpacity={0.85}
+              activeOpacity={0.7}
             >
-              <LinearGradient
-                colors={colors.gradientOrangeCyan}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.getStartedGradient}
-              >
-                <Text style={styles.getStartedText}>Create Account</Text>
-                <Ionicons name="arrow-forward" size={18} color={colors.textPrimary} />
-              </LinearGradient>
+              <Ionicons name="person-add-outline" size={16} color={colors.accent2} />
+              <Text style={styles.getStartedText}>Create Account</Text>
+              <Ionicons name="arrow-forward" size={16} color={colors.accent2} />
             </TouchableOpacity>
           </View>
 
@@ -387,7 +383,18 @@ const styles = StyleSheet.create({
     color: colors.accent2,
   },
   signInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     marginTop: spacing.sm,
+  },
+  signInBtnText: {
+    fontSize: 13,
+    fontFamily: fontFamily.medium,
   },
 
   // Divider
@@ -410,20 +417,21 @@ const styles = StyleSheet.create({
 
   // Get Started / Create Account button
   getStartedBtn: {
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-  },
-  getStartedGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    gap: spacing.sm,
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 217, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 217, 255, 0.30)',
   },
   getStartedText: {
-    fontFamily: fontFamily.bold,
-    fontSize: 16,
-    color: colors.textPrimary,
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
+    color: colors.accent2,
   },
 
   // ── Footer ──────────────────────────────────────────────────────

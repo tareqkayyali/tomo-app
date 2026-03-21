@@ -429,14 +429,13 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
               .sort((a, b) => daysUntil(a.examDate) - daysUntil(b.examDate))
               .map((exam) => {
                 const days = daysUntil(exam.examDate);
-                const color = urgencyColor(days, colors);
                 return (
                   <View
                     key={exam.id}
-                    style={[styles.examPill, { borderColor: `${color}40`, backgroundColor: `${color}12` }]}
+                    style={[styles.examPill, { borderColor: 'rgba(123, 97, 255, 0.25)', backgroundColor: 'rgba(123, 97, 255, 0.10)' }]}
                   >
-                    <Text style={[styles.examPillSubject, { color }]}>{exam.subject}</Text>
-                    <Text style={[styles.examPillDays, { color }]}>{days}d</Text>
+                    <Text style={[styles.examPillSubject, { color: '#7B61FF' }]}>{exam.subject}</Text>
+                    <Text style={[styles.examPillDays, { color: days <= 7 ? colors.error : '#7B61FF' }]}>{days}d</Text>
                   </View>
                 );
               })}
@@ -474,12 +473,12 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             style={[
               styles.chip,
               strategy === 'last_exam_first'
-                ? { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D` }
+                ? { backgroundColor: 'rgba(123, 97, 255, 0.12)', borderColor: 'rgba(123, 97, 255, 0.30)' }
                 : { backgroundColor: 'transparent', borderColor: colors.border },
             ]}
             onPress={() => { setStrategy('last_exam_first'); saveConfig({ ...currentConfig, strategy: 'last_exam_first' }); }}
           >
-            <Text style={[styles.chipText, { color: strategy === 'last_exam_first' ? colors.accent1 : colors.textInactive }]}>
+            <Text style={[styles.chipText, { color: strategy === 'last_exam_first' ? '#7B61FF' : colors.textInactive }]}>
               Closest first
             </Text>
           </TouchableOpacity>
@@ -487,12 +486,12 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             style={[
               styles.chip,
               strategy === 'first_exam_first'
-                ? { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D` }
+                ? { backgroundColor: 'rgba(123, 97, 255, 0.12)', borderColor: 'rgba(123, 97, 255, 0.30)' }
                 : { backgroundColor: 'transparent', borderColor: colors.border },
             ]}
             onPress={() => { setStrategy('first_exam_first'); saveConfig({ ...currentConfig, strategy: 'first_exam_first' }); }}
           >
-            <Text style={[styles.chipText, { color: strategy === 'first_exam_first' ? colors.accent1 : colors.textInactive }]}>
+            <Text style={[styles.chipText, { color: strategy === 'first_exam_first' ? '#7B61FF' : colors.textInactive }]}>
               Furthest first
             </Text>
           </TouchableOpacity>
@@ -511,7 +510,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
               <View style={{ flex: 1 }}>
                 <Text style={styles.subjectName}>{subj}</Text>
                 {exam && (
-                  <Text style={[styles.blockMeta, { color: urgencyColor(daysLeft, colors) }]}>
+                  <Text style={[styles.blockMeta, { color: daysLeft <= 7 ? colors.error : '#7B61FF' }]}>
                     Exam in {daysLeft}d
                   </Text>
                 )}

@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Button, Input } from '../components';
+import { Input } from '../components';
 import {
   colors,
   spacing,
@@ -261,13 +261,14 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                 secureTextEntry
               />
 
-              <Button
-                title="Next"
+              <TouchableOpacity
+                style={styles.subtleBtn}
                 onPress={handleNext}
-                variant="primary"
-                size="large"
-                style={styles.button}
-              />
+                activeOpacity={0.7}
+              >
+                <Text style={styles.subtleBtnText}>Next</Text>
+                <Ionicons name="arrow-forward" size={16} color={colors.accent1} />
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.form}>
@@ -286,7 +287,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                     <Ionicons
                       name={r.icon}
                       size={22}
-                      color={selectedRole === r.value ? colors.textPrimary : colors.textInactive}
+                      color={selectedRole === r.value ? colors.accent1 : colors.textInactive}
                     />
                     <Text
                       style={[
@@ -344,7 +345,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                         <Ionicons
                           name={s.icon}
                           size={18}
-                          color={sport === s.value ? colors.textPrimary : colors.textInactive}
+                          color={sport === s.value ? colors.accent1 : colors.textInactive}
                           style={styles.sportIcon}
                         />
                         <Text
@@ -362,20 +363,25 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
               )}
 
               <View style={styles.buttonRow}>
-                <Button
-                  title="Back"
+                <TouchableOpacity
+                  style={[styles.subtleBtn, styles.backButton, { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }]}
                   onPress={() => setStep(1)}
-                  variant="outline"
-                  icon="arrow-back"
-                  style={styles.backButton}
-                />
-                <Button
-                  title="Create Account"
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="arrow-back" size={16} color={colors.textInactive} />
+                  <Text style={[styles.subtleBtnText, { color: colors.textInactive }]}>Back</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.subtleBtn, styles.submitButton, { backgroundColor: `${colors.accent2}1F`, borderColor: `${colors.accent2}4D` }]}
                   onPress={handleSignup}
-                  loading={isLoading}
-                  variant="primary"
-                  style={styles.submitButton}
-                />
+                  activeOpacity={0.7}
+                  disabled={isLoading}
+                >
+                  <Ionicons name="person-add-outline" size={16} color={colors.accent2} />
+                  <Text style={[styles.subtleBtnText, { color: colors.accent2 }]}>
+                    {isLoading ? 'Creating...' : 'Create Account'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -479,14 +485,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.backgroundElevated,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 12,
+    paddingVertical: 10,
     gap: spacing.sm,
   },
   socialButtonText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 16,
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
     color: colors.textOnDark,
   },
 
@@ -513,6 +521,24 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: spacing.md,
+  },
+  subtleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: spacing.md,
+    backgroundColor: `${colors.accent1}1F`,
+    borderWidth: 1,
+    borderColor: `${colors.accent1}4D`,
+  },
+  subtleBtnText: {
+    fontSize: 13,
+    fontFamily: fontFamily.medium,
+    color: colors.accent1,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -545,8 +571,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   roleChipSelected: {
-    backgroundColor: colors.accent1,
-    borderColor: colors.accent1,
+    backgroundColor: `${colors.accent1}1F`,
+    borderColor: `${colors.accent1}4D`,
   },
   roleChipLabel: {
     fontFamily: fontFamily.semiBold,
@@ -555,7 +581,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   roleChipLabelSelected: {
-    color: colors.textPrimary,
+    color: colors.accent1,
   },
   roleChipDesc: {
     ...typography.metadataSmall,
@@ -564,7 +590,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   roleChipDescSelected: {
-    color: 'rgba(255,255,255,0.8)',
+    color: `${colors.accent1}B3`,
   },
 
   // ── Sport Selection ───────────────────────────────────────────────
@@ -596,8 +622,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   sportChipSelected: {
-    backgroundColor: colors.accent1,
-    borderColor: colors.accent1,
+    backgroundColor: `${colors.accent1}1F`,
+    borderColor: `${colors.accent1}4D`,
   },
   sportIcon: {
     marginRight: spacing.xs,
@@ -608,7 +634,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
   },
   sportChipTextSelected: {
-    color: colors.textPrimary,
+    color: colors.accent1,
   },
 
   // ── Footer ────────────────────────────────────────────────────────
