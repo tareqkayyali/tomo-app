@@ -71,5 +71,38 @@ export async function getRecommendations(
     return [];
   }
 
-  return (data ?? []) as unknown as Recommendation[];
+  const recs = (data ?? []) as unknown as Recommendation[];
+
+  // Filter out READINESS-based recs that were generated from stale checkin data.
+  // Check if the rec's context has a last_checkin_at that's >24h old, or if
+  // the rec itself is older than 24h and is a readiness-dependent type.
+  const READINESS_DEPENDENT_TYPES = ['READINESS', 'LOAD_WARNING', 'RECOVERY'];
+  const STALE_HOURS = 24;
+
+  // Fetch latest checkin timestamp from snapshot to compare
+  const { data: snap } = await (db as any)
+    .from('athlete_snapshots')
+    .select('last_checkin_at')
+    .eq('athlete_id', athleteId)
+    .maybeSingle();
+
+  const lastCheckinAt = snap?.last_checkin_at as string | null;
+  const checkinAgeHours = lastCheckinAt
+    ? (Date.now() - new Date(lastCheckinAt).getTime()) / 3600000
+    : null;
+  const hasStaleCheckin = checkinAgeHours == null || checkinAgeHours > STALE_HOURS;
+
+  if (hasStaleCheckin) {
+    // Remove readiness-dependent recs that don't have a "Check In" action
+    return recs.filter((r) => {
+      if (!READINESS_DEPENDENT_TYPES.includes(r.rec_type)) return true;
+      // Keep if it's explicitly a "do your checkin" rec
+      const action = (r.context as any)?.action;
+      if (action?.type === 'Checkin') return true;
+      // Filter out stale readiness recs
+      return false;
+    });
+  }
+
+  return recs;
 }
