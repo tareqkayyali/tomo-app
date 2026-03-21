@@ -70,7 +70,7 @@ function getClient(): Anthropic {
 // Staleness Check
 // ---------------------------------------------------------------------------
 
-const DEEP_PROGRAM_STALE_HOURS = 24;
+const DEEP_PROGRAM_STALE_HOURS = 6;
 
 export async function isDeepProgramStale(athleteId: string): Promise<boolean> {
   const db = supabaseAdmin();

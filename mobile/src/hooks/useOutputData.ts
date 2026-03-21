@@ -172,7 +172,11 @@ export function useOutputData(targetPlayerId?: string) {
   const refresh = useCallback(async () => {
     setLoading(true);
     await fetchData();
-  }, [fetchData]);
+    // Also trigger program re-generation on pull-to-refresh
+    if (!isViewingOther) {
+      triggerDeepRefresh(true);
+    }
+  }, [fetchData, isViewingOther, triggerDeepRefresh]);
 
   // ── Force refresh programs (manual button) ─────────────────────────
   const forceRefreshPrograms = useCallback(async () => {
