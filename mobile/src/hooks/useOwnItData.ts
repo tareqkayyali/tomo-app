@@ -168,8 +168,8 @@ export function useOwnItData() {
       // Fetch current data from DB
       await fetchData();
       if (!isMounted) return;
-      // Then trigger deep refresh (Claude analysis) — updates UI when done
-      triggerDeepRefresh();
+      // Then trigger deep refresh (Claude analysis) — force on initial mount
+      triggerDeepRefresh(true);
     })();
     return () => { isMounted = false; };
   }, []);
@@ -182,7 +182,7 @@ export function useOwnItData() {
       const DEEP_REFRESH_COOLDOWN = 300_000; // 5 minutes
       if (now - lastDeepRefreshRef.current >= DEEP_REFRESH_COOLDOWN) {
         lastDeepRefreshRef.current = now;
-        triggerDeepRefresh();
+        triggerDeepRefresh(true);
       }
     }
   }, [isFocused, hasFetchedOnce, fetchData, triggerDeepRefresh]);
