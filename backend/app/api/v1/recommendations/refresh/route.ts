@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Rate limit: 5 requests/minute per user for this expensive endpoint
-  const { allowed } = checkRateLimit(userId, 5, 60000);
+  // Rate limit: 10 requests/5 minutes per user
+  const { allowed } = checkRateLimit(userId, 10, 300000);
   if (!allowed) {
     return NextResponse.json(
       { error: 'Too many requests. Please try again shortly.' },

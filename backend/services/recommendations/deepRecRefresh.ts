@@ -225,7 +225,7 @@ export async function deepRecRefresh(
     const response = await withRetry(
       () => getClient().messages.create({
         model: process.env.ANTHROPIC_REC_MODEL || 'claude-haiku-4-5-20251001',
-        max_tokens: 3000,
+        max_tokens: 4500,
         temperature: 0.5,
         system: DEEP_REC_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userPrompt }],
@@ -246,6 +246,14 @@ export async function deepRecRefresh(
       console.warn(`[DeepRecRefresh] Claude returned empty/invalid array for ${athleteId}`);
       return { count: 0, error: 'Empty response from Claude' };
     }
+
+    // Log priority distribution for debugging
+    const priorityCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    for (const r of recs) {
+      const p = Math.max(1, Math.min(4, r.priority)) as 1 | 2 | 3 | 4;
+      priorityCounts[p]++;
+    }
+    console.log(`[DeepRecRefresh] ${athleteId}: ${recs.length} recs — P1:${priorityCounts[1]} P2:${priorityCounts[2]} P3:${priorityCounts[3]} P4:${priorityCounts[4]}`);
 
     // 5. Supersede ALL existing DEEP_REFRESH recs before inserting new batch
     const db = supabaseAdmin();
