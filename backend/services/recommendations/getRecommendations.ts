@@ -92,17 +92,32 @@ export async function getRecommendations(
     : null;
   const hasStaleCheckin = checkinAgeHours == null || checkinAgeHours > STALE_HOURS;
 
-  if (hasStaleCheckin) {
-    // Remove readiness-dependent recs that don't have a "Check In" action
-    return recs.filter((r) => {
-      if (!READINESS_DEPENDENT_TYPES.includes(r.rec_type)) return true;
-      // Keep if it's explicitly a "do your checkin" rec
-      const action = (r.context as any)?.action;
-      if (action?.type === 'Checkin') return true;
-      // Filter out stale readiness recs
-      return false;
-    });
-  }
+  // Filter out recs generated for a different calendar day
+  const today = new Date().toISOString().slice(0, 10);
 
-  return recs;
+  const filtered = recs.filter((r) => {
+    const ctx = r.context as Record<string, unknown> | null;
+
+    // Filter stale readiness-dependent recs
+    if (hasStaleCheckin && READINESS_DEPENDENT_TYPES.includes(r.rec_type)) {
+      const action = ctx?.action as any;
+      if (action?.type === 'Checkin') return true; // Keep "Check In" recs
+      return false;
+    }
+
+    // Filter recs generated for a past calendar day (events may have changed)
+    const calendarDate = ctx?.calendar_date as string | null;
+    if (calendarDate && calendarDate !== today) {
+      // Rec was generated for a different day — mark as stale
+      // Only filter if it references specific calendar events
+      const calTitles = ctx?.calendar_event_titles as string[] | null;
+      if (calTitles && calTitles.length > 0) {
+        return false; // Calendar-dependent rec from a different day
+      }
+    }
+
+    return true;
+  });
+
+  return filtered;
 }

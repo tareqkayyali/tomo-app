@@ -147,6 +147,13 @@ Rules:
 - Never repeat what the existing event-triggered recs already cover (they're listed below)
 - Acknowledge growth phases (PHV) explicitly when relevant
 
+CALENDAR DATA RULE:
+Calendar events can be deleted or changed by the athlete at any time. When referencing today's events:
+- Do NOT make the recommendation's core value depend on a specific calendar event existing
+- Frame calendar-aware recs as "if you have a session planned" or "your scheduled training" rather than asserting it exists
+- Focus on what the athlete SHOULD do today, not what they already have scheduled
+- If no events are scheduled today, recommend SCHEDULING rather than referencing non-existent events
+
 EVIDENCE_BASIS REQUIRED KEYS (the UI renders these as pills — use EXACT keys):
 - READINESS: { readiness_rag: "GREEN"|"AMBER"|"RED", acwr: number, sleep_quality: number, contributing_factors: string[] }
 - LOAD_WARNING: { acwr: number, atl_7day: number, ctl_28day: number, contributing_factors: string[] }
@@ -251,6 +258,7 @@ export async function deepRecRefresh(
       // Build context snapshot at creation time — include action for frontend deep-links
       const contextSnapshot: Record<string, unknown> = {
         source: 'DEEP_REFRESH',
+        generated_at: new Date().toISOString(),
         readiness_score: ctx.snapshotEnrichment?.readinessScore ?? null,
         readiness_rag: ctx.snapshotEnrichment?.readinessRag ?? ctx.readinessScore ?? null,
         acwr: ctx.snapshotEnrichment?.acwr ?? null,
@@ -262,6 +270,9 @@ export async function deepRecRefresh(
         streak_days: ctx.currentStreak,
         cv_completeness: ctx.snapshotEnrichment?.cvCompleteness ?? null,
         phv_stage: ctx.snapshotEnrichment?.phvStage ?? null,
+        // Calendar snapshot for staleness validation
+        calendar_event_titles: ctx.todayEvents.map(e => e.title),
+        calendar_date: ctx.todayDate,
       };
 
       // Store action in context for frontend deep-linking
