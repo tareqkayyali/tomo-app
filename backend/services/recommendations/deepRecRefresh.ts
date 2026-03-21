@@ -140,7 +140,7 @@ Every recommendation MUST include an "action" object that deep-links to a specif
 | Review schedule rules | "MyRules" | (none) | "Review Rules" |
 
 Rules:
-- Generate between 4 and 6 recommendations. Quality AND diversity.
+- Generate between 5 and 8 recommendations. Quality AND diversity. Cover ALL time horizons.
 - Each rec must reference SPECIFIC numbers from the athlete's data when available. Be concrete, not generic.
 - Priority maps to TIME HORIZONS in the UI — the content MUST match:
   - Priority 1 = URGENT (act RIGHT NOW) → "Today" section. Content must be about actions for TODAY only.
@@ -148,7 +148,15 @@ Rules:
   - Priority 3 = PLAN AHEAD → "Tomorrow" section. Content must be about TOMORROW or the next 2-3 days. Do NOT reference today's events or "tonight". Use phrases like "tomorrow", "over the next few days", "this weekend".
   - Priority 4 = WEEKLY OUTLOOK → "This Week" section. Content must be about the FULL WEEK ahead. Use phrases like "this week", "by end of week", "over the next 7 days".
 - CRITICAL: The recommendation text MUST match its time horizon. A P3 rec must NOT say "tonight" or "today" — it goes in the "Tomorrow" section.
-- Spread across time horizons: aim for 2-3 Today (P1-P2), 1-2 Tomorrow (P3), 1-2 This Week (P4)
+- You MUST generate recs across ALL three time horizons:
+  - 2-3 recs as P1 or P2 (Today)
+  - 1-2 recs as P3 (Tomorrow)
+  - 1-2 recs as P4 (This Week)
+- MANDATORY P4 recs: Always generate at least ONE P4 rec about the athlete's WEEKLY training structure or study plan. Examples:
+  - "Plan 3 training sessions this week focusing on [weakest area]"
+  - "Schedule study blocks for [exam subject] — exam in [X] days"
+  - "Target [X] sessions this week to maintain your streak"
+  - "Weekly load target: aim for [X] AU across [N] sessions"
 - Only generate P1 if there's genuine urgency (RED readiness, dangerous load spike, injury risk)
 - For young athletes (U15 and below): warm, encouraging tone. U17+: direct, peer-level.
 - body_short must be ≤140 characters, action-oriented, specific
