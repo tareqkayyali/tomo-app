@@ -107,12 +107,17 @@ export async function getRecommendations(
 
     // Filter recs generated for a past calendar day (events may have changed)
     const calendarDate = ctx?.calendar_date as string | null;
-    if (calendarDate && calendarDate !== today) {
-      // Rec was generated for a different day — mark as stale
-      // Only filter if it references specific calendar events
-      const calTitles = ctx?.calendar_event_titles as string[] | null;
-      if (calTitles && calTitles.length > 0) {
-        return false; // Calendar-dependent rec from a different day
+    const source = ctx?.source as string | null;
+    const recCreatedDate = r.created_at ? r.created_at.slice(0, 10) : null;
+
+    if (source === 'DEEP_REFRESH') {
+      // If rec has calendar_date and it's not today → stale
+      if (calendarDate && calendarDate !== today) {
+        return false;
+      }
+      // Pre-fix recs without calendar_date: check created_at date
+      if (!calendarDate && recCreatedDate && recCreatedDate !== today) {
+        return false;
       }
     }
 
