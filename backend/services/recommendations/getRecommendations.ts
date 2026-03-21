@@ -98,8 +98,9 @@ export async function getRecommendations(
   const filtered = recs.filter((r) => {
     const ctx = r.context as Record<string, unknown> | null;
 
-    // Filter stale readiness-dependent recs
-    if (hasStaleCheckin && READINESS_DEPENDENT_TYPES.includes(r.rec_type)) {
+    // Filter stale readiness-dependent recs — only for TODAY recs (P1-P2)
+    // P3/P4 planning recs should survive even with stale checkin data
+    if (hasStaleCheckin && READINESS_DEPENDENT_TYPES.includes(r.rec_type) && r.priority <= 2) {
       const action = ctx?.action as any;
       if (action?.type === 'Checkin') return true; // Keep "Check In" recs
       return false;
