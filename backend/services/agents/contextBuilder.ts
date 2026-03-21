@@ -150,6 +150,7 @@ export interface SnapshotEnrichment {
   triangleRag: string | null;
   readinessRag: string | null;
   readinessScore: number | null;          // 0-100 (more granular than Green/Yellow/Red)
+  lastCheckinAt: string | null;           // ISO timestamp of last checkin
 }
 
 export interface CalendarEvent {
@@ -349,6 +350,7 @@ export async function buildPlayerContext(
         triangleRag: (snapshot.triangle_rag as string) ?? null,
         readinessRag: (snapshot.readiness_rag as string) ?? null,
         readinessScore: (snapshot.readiness_score as number) ?? null,
+        lastCheckinAt: (snapshot.last_checkin_at as string) ?? null,
         projectedLoad7day: projectedLoadSum > 0 ? projectedLoadSum : null,
         projectedACWR: (() => {
           const currentCTL = (snapshot.ctl_28day as number) ?? 0;

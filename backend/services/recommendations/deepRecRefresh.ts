@@ -342,14 +342,36 @@ Weight: ${ctx.weightKg ? `${ctx.weightKg}kg` : 'N/A'}
 PHV stage: ${se?.phvStage || 'Unknown'}
 PHV offset: ${se?.phvOffsetYears != null ? `${se.phvOffsetYears.toFixed(1)} years` : 'N/A'}`);
 
-  // Readiness
-  sections.push(`--- READINESS STATE ---
+  // Readiness — with freshness check
+  const lastCheckinAt = se?.lastCheckinAt as string | null | undefined;
+  const checkinAgeHours = lastCheckinAt
+    ? (Date.now() - new Date(lastCheckinAt).getTime()) / 3600000
+    : null;
+  const hasStaleCheckin = checkinAgeHours == null || checkinAgeHours > 24;
+  const hasTodayCheckin = checkinAgeHours != null && checkinAgeHours < 24;
+
+  if (hasStaleCheckin) {
+    sections.push(`--- READINESS STATE ---
+⚠️ NO FRESH CHECK-IN — Last check-in was ${checkinAgeHours != null ? `${Math.round(checkinAgeHours)}h ago` : 'NEVER'}.
+The readiness values below are STALE and should NOT be used for training intensity or readiness recommendations.
+DO NOT recommend specific training intensities or readiness-based actions from this data.
+Instead: Your FIRST recommendation MUST be a READINESS rec telling the athlete to do their daily check-in (action: "Checkin", label: "Check In").
+After the check-in rec, generate remaining recs from non-readiness data (schedule, tests, study, CV, etc.).
+Stale readiness score: ${se?.readinessScore ?? 'N/A'} (DO NOT trust)
+Stale readiness RAG: ${se?.readinessRag ?? 'N/A'} (DO NOT trust)
+Stale components: ${ctx.readinessComponents
+    ? `Energy ${ctx.readinessComponents.energy}/5, Soreness ${ctx.readinessComponents.soreness}/5, Sleep ${ctx.readinessComponents.sleepHours}h, Mood ${ctx.readinessComponents.mood}/5`
+    : 'No components'}`);
+  } else {
+    sections.push(`--- READINESS STATE ---
+✅ Fresh check-in (${Math.round(checkinAgeHours!)}h ago)
 Readiness: ${ctx.readinessScore || 'No check-in today'}
 Readiness score (0-100): ${se?.readinessScore ?? 'N/A'}
 Readiness RAG: ${se?.readinessRag ?? 'N/A'}
 Last components: ${ctx.readinessComponents
     ? `Energy ${ctx.readinessComponents.energy}/5, Soreness ${ctx.readinessComponents.soreness}/5, Sleep ${ctx.readinessComponents.sleepHours}h, Mood ${ctx.readinessComponents.mood}/5, Academic stress ${ctx.readinessComponents.academicStress ?? 'N/A'}/5, Pain: ${ctx.readinessComponents.painFlag ? 'YES' : 'No'}`
     : 'No recent check-in'}`);
+  }
 
   // Load
   sections.push(`--- LOAD MANAGEMENT ---
@@ -423,8 +445,9 @@ ${ctx.upcomingExams.map(e => `${e.title} — ${new Date(e.start_at).toLocaleDate
   const available: string[] = [];
   const missing: string[] = [];
 
-  if (ctx.readinessComponents) available.push('check-in (energy, soreness, sleep, mood)');
-  else missing.push('check-in data');
+  if (hasTodayCheckin && ctx.readinessComponents) available.push('check-in (energy, soreness, sleep, mood) — fresh');
+  else if (hasStaleCheckin && ctx.readinessComponents) missing.push('FRESH check-in data — last check-in is STALE (>24h). First rec must tell athlete to check in.');
+  else missing.push('check-in data — never checked in');
 
   if (se?.acwr != null) available.push('load metrics (ACWR, ATL, CTL)');
   else missing.push('load metrics (ACWR, ATL, CTL)');
