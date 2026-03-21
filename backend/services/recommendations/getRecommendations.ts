@@ -106,21 +106,9 @@ export async function getRecommendations(
       return false;
     }
 
-    // Filter recs generated for a past calendar day (events may have changed)
-    const calendarDate = ctx?.calendar_date as string | null;
-    const source = ctx?.source as string | null;
-    const recCreatedDate = r.created_at ? r.created_at.slice(0, 10) : null;
-
-    if (source === 'DEEP_REFRESH') {
-      // If rec has calendar_date and it's not today → stale
-      if (calendarDate && calendarDate !== today) {
-        return false;
-      }
-      // Pre-fix recs without calendar_date: check created_at date
-      if (!calendarDate && recCreatedDate && recCreatedDate !== today) {
-        return false;
-      }
-    }
+    // Note: calendar staleness is handled by batch supersede in deepRecRefresh.
+    // Each refresh supersedes ALL old recs before inserting new ones, so
+    // only the latest batch survives. No need for date-based filtering here.
 
     return true;
   });
