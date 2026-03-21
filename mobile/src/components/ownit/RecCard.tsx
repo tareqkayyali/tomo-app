@@ -20,6 +20,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useNavigation } from '@react-navigation/native';
 import { GlassCard } from '../GlassCard';
 import { GlowWrapper, type GlowPreset } from '../GlowWrapper';
 import { Badge } from '../Badge';
@@ -273,36 +274,90 @@ export function RecCard({ rec, index, onAction }: RecCardProps) {
   return <P4Chip rec={rec} config={config} index={index} s={s} colors={colors} expanded={expanded} setExpanded={setExpanded} />;
 }
 
+// ── Build contextual prompt from recommendation ────────────────────
+
+function buildTomoPrompt(rec: ForYouRecommendation): string {
+  const typePrompts: Record<string, string> = {
+    READINESS: `My readiness recommendation says: "${rec.title}". ${rec.bodyShort} Help me understand what I should do today based on this.`,
+    LOAD_WARNING: `I got a load warning: "${rec.title}". ${rec.bodyShort} What should I adjust in my training?`,
+    RECOVERY: `Recovery recommendation: "${rec.title}". ${rec.bodyShort} Give me a recovery plan for today.`,
+    DEVELOPMENT: `Development tip: "${rec.title}". ${rec.bodyShort} How can I work on this?`,
+    ACADEMIC: `Study recommendation: "${rec.title}". ${rec.bodyShort} Help me balance my study and training.`,
+    CV_OPPORTUNITY: `CV opportunity: "${rec.title}". ${rec.bodyShort} What should I do to improve my profile?`,
+    TRIANGLE_ALERT: `Alert: "${rec.title}". ${rec.bodyShort} What action should I take?`,
+    MOTIVATION: `Motivation tip: "${rec.title}". ${rec.bodyShort} Help me stay on track.`,
+  };
+  return typePrompts[rec.recType] || `Recommendation: "${rec.title}". ${rec.bodyShort} What should I do?`;
+}
+
 // ── Action CTA Button ───────────────────────────────────────────────
 
 function ActionCTA({
-  action, onAction, colors,
+  action, onAction, colors, rec,
 }: {
   action?: RecAction;
   onAction?: (route: string, params?: Record<string, unknown>) => void;
   colors: ThemeColors;
+  rec: ForYouRecommendation;
 }) {
-  if (!action || !onAction) return null;
+  const navigation = useNavigation<any>();
+
   return (
-    <Pressable
-      onPress={() => onAction(action.type, action.params)}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: colors.accent1 + '1F', // ~12% opacity
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: borderRadius.full,
-        alignSelf: 'flex-start',
-        marginTop: spacing.sm,
-      }}
-    >
-      <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 12, color: colors.accent1 }}>
-        {action.label}
-      </Text>
-      <Ionicons name="arrow-forward" size={14} color={colors.accent1} />
-    </Pressable>
+    <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
+      {/* Original action CTA */}
+      {action && onAction && (
+        <Pressable
+          onPress={() => onAction(action.type, action.params)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            backgroundColor: colors.accent1 + '1F',
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+            borderRadius: borderRadius.full,
+            alignSelf: 'flex-start',
+          }}
+        >
+          <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 12, color: colors.accent1 }}>
+            {action.label}
+          </Text>
+          <Ionicons name="arrow-forward" size={14} color={colors.accent1} />
+        </Pressable>
+      )}
+
+      {/* Ask Tomo button */}
+      <Pressable
+        onPress={() => {
+          const prompt = buildTomoPrompt(rec);
+          navigation.navigate('Main', {
+            screen: 'MainTabs',
+            params: {
+              screen: 'Chat',
+              params: { prefillMessage: prompt, newSession: true },
+            },
+          });
+        }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          backgroundColor: 'rgba(0, 217, 255, 0.12)',
+          borderColor: 'rgba(0, 217, 255, 0.30)',
+          borderWidth: 1,
+          paddingVertical: 10,
+          paddingHorizontal: 16,
+          borderRadius: 12,
+          marginTop: spacing.xs,
+        }}
+      >
+        <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.info} />
+        <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: colors.info }}>
+          Ask Tomo about this
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -397,7 +452,7 @@ function P1Card({
               {rec.bodyLong && <Text style={s.bodyLong}>{rec.bodyLong}</Text>}
 
               {/* Action CTA */}
-              <ActionCTA action={rec.action} onAction={onAction} colors={colors} />
+              <ActionCTA action={rec.action} onAction={onAction} colors={colors} rec={rec} />
 
               {/* Confidence bar */}
               <View style={s.confidenceTrack}>
@@ -501,7 +556,7 @@ function P2Card({
             {rec.bodyLong && <Text style={s.bodyLong}>{rec.bodyLong}</Text>}
 
             {/* Action CTA */}
-            <ActionCTA action={rec.action} onAction={onAction} colors={colors} />
+            <ActionCTA action={rec.action} onAction={onAction} colors={colors} rec={rec} />
           </>
         )}
       </GlassCard>
@@ -573,7 +628,7 @@ function P3Card({
         )}
 
         {/* Action CTA */}
-        <ActionCTA action={rec.action} onAction={onAction} colors={colors} />
+        <ActionCTA action={rec.action} onAction={onAction} colors={colors} rec={rec} />
       </GlassCard>
     </Animated.View>
   );
@@ -604,6 +659,7 @@ function P4Chip({
       {expanded && (
         <View style={s.p4Expanded}>
           <Text style={s.p4Body}>{rec.bodyShort}</Text>
+          <ActionCTA colors={colors} rec={rec} />
         </View>
       )}
     </View>
