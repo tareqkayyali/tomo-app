@@ -63,10 +63,10 @@ function getClient(): Anthropic {
 // Staleness Check
 // ---------------------------------------------------------------------------
 
-const DEEP_REFRESH_STALE_HOURS = 12;
+const DEEP_REFRESH_STALE_HOURS = 24;
 
 /**
- * Check whether the athlete's deep recommendations are stale (>12h old).
+ * Check whether the athlete's deep recommendations are stale (>24h old).
  * Returns true if a refresh is needed.
  */
 export async function isDeepRefreshStale(athleteId: string): Promise<boolean> {
@@ -138,12 +138,13 @@ Every recommendation MUST include an "action" object that deep-links to a specif
 Rules:
 - Generate between 4 and 6 recommendations. Quality AND diversity.
 - Each rec must reference SPECIFIC numbers from the athlete's data when available. Be concrete, not generic.
-- Priority maps to time horizons in the UI:
-  - Priority 1 = URGENT (act now) → shown in "Today" section
-  - Priority 2 = IMPORTANT (do today) → shown in "Today" section
-  - Priority 3 = PLAN AHEAD (tomorrow/next few days) → shown in "Tomorrow" section
-  - Priority 4 = WEEKLY OUTLOOK (this week) → shown in "This Week" section
-- Spread across time horizons: aim for 2-3 Today, 1-2 Tomorrow, 1-2 This Week
+- Priority maps to TIME HORIZONS in the UI — the content MUST match:
+  - Priority 1 = URGENT (act RIGHT NOW) → "Today" section. Content must be about actions for TODAY only.
+  - Priority 2 = IMPORTANT (do today) → "Today" section. Content must be about TODAY's actions.
+  - Priority 3 = PLAN AHEAD → "Tomorrow" section. Content must be about TOMORROW or the next 2-3 days. Do NOT reference today's events or "tonight". Use phrases like "tomorrow", "over the next few days", "this weekend".
+  - Priority 4 = WEEKLY OUTLOOK → "This Week" section. Content must be about the FULL WEEK ahead. Use phrases like "this week", "by end of week", "over the next 7 days".
+- CRITICAL: The recommendation text MUST match its time horizon. A P3 rec must NOT say "tonight" or "today" — it goes in the "Tomorrow" section.
+- Spread across time horizons: aim for 2-3 Today (P1-P2), 1-2 Tomorrow (P3), 1-2 This Week (P4)
 - Only generate P1 if there's genuine urgency (RED readiness, dangerous load spike, injury risk)
 - For young athletes (U15 and below): warm, encouraging tone. U17+: direct, peer-level.
 - body_short must be ≤140 characters, action-oriented, specific
