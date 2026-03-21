@@ -434,7 +434,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                     key={exam.id}
                     style={[styles.examPill, { borderColor: 'rgba(123, 97, 255, 0.25)', backgroundColor: 'rgba(123, 97, 255, 0.10)' }]}
                   >
-                    <Text style={[styles.examPillSubject, { color: '#7B61FF' }]}>{exam.subject}</Text>
+                    <Text style={[styles.examPillSubject, { color: '#FFFFFF' }]}>{exam.subject}</Text>
                     <Text style={[styles.examPillDays, { color: days <= 7 ? colors.error : '#7B61FF' }]}>{days}d</Text>
                   </View>
                 );
@@ -478,7 +478,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             ]}
             onPress={() => { setStrategy('last_exam_first'); saveConfig({ ...currentConfig, strategy: 'last_exam_first' }); }}
           >
-            <Text style={[styles.chipText, { color: strategy === 'last_exam_first' ? '#7B61FF' : colors.textInactive }]}>
+            <Text style={[styles.chipText, { color: strategy === 'last_exam_first' ? '#FFFFFF' : colors.textInactive }]}>
               Closest first
             </Text>
           </TouchableOpacity>
@@ -491,7 +491,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             ]}
             onPress={() => { setStrategy('first_exam_first'); saveConfig({ ...currentConfig, strategy: 'first_exam_first' }); }}
           >
-            <Text style={[styles.chipText, { color: strategy === 'first_exam_first' ? '#7B61FF' : colors.textInactive }]}>
+            <Text style={[styles.chipText, { color: strategy === 'first_exam_first' ? '#FFFFFF' : colors.textInactive }]}>
               Furthest first
             </Text>
           </TouchableOpacity>
