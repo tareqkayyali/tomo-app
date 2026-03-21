@@ -31,7 +31,7 @@ export function useCheckinStatus(): {
   const refresh = useCallback(async () => {
     try {
       const data = await getToday();
-      const needs = data.needsCheckin ?? !data.hasCheckedIn ?? true;
+      const needs = data.needsCheckin ?? true;
       const age = (data as any).checkinAgeHours as number | null;
 
       setNeedsCheckin(needs);
