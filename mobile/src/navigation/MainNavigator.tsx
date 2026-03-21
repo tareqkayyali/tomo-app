@@ -152,20 +152,34 @@ function CenterChatButton({
         pressed && { transform: [{ scale: 0.95 }] },
       ]}
     >
-      <View style={[styles.centerButtonOuter, focused && styles.centerButtonFocusRing]}>
+      {focused ? (
+        // Focused: gradient outline ring around black button
         <LinearGradient
           colors={colors.gradientOrangeCyan}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.centerButton, { shadowColor: colors.accent1 }]}
+          style={styles.centerButtonGradientRing}
         >
-          <Image
-            source={tomoLogo}
-            style={styles.centerLogo}
-            resizeMode="contain"
-          />
+          <View style={[styles.centerButton, { backgroundColor: '#000000' }]}>
+            <Image
+              source={tomoLogo}
+              style={styles.centerLogo}
+              resizeMode="contain"
+            />
+          </View>
         </LinearGradient>
-      </View>
+      ) : (
+        // Unfocused: plain black button, no ring
+        <View style={styles.centerButtonOuter}>
+          <View style={[styles.centerButton, { backgroundColor: '#000000' }]}>
+            <Image
+              source={tomoLogo}
+              style={styles.centerLogo}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -579,12 +593,11 @@ const styles = StyleSheet.create({
   },
   centerButtonOuter: {
     borderRadius: 20,
-    borderWidth: 3,
-    borderColor: 'transparent',
     padding: 3,
   },
-  centerButtonFocusRing: {
-    borderColor: colors.accent,
+  centerButtonGradientRing: {
+    borderRadius: 20,
+    padding: 3,
   },
   centerLogo: {
     width: 32,
