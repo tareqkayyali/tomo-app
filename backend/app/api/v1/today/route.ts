@@ -41,10 +41,19 @@ export async function GET(req: NextRequest) {
     const plan = planRes.data;
     const points = pointsRes.data;
 
+    // Calculate checkin freshness
+    const hasCheckedInToday = !!checkin;
+    let checkinAgeHours: number | null = null;
+    if (checkin?.created_at) {
+      checkinAgeHours = (Date.now() - new Date(checkin.created_at).getTime()) / 3600000;
+    }
+
     return NextResponse.json(
       {
-        hasCheckedIn: !!checkin,
+        needsCheckin: !hasCheckedInToday,
+        hasCheckedIn: hasCheckedInToday, // kept for backwards compat
         checkin: checkin || null,
+        checkinAgeHours: checkinAgeHours != null ? Math.round(checkinAgeHours * 10) / 10 : null,
         plan: plan || null,
         gamification: {
           pointsToday: points?.points || 0,

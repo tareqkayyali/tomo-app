@@ -59,10 +59,16 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
     return null;
   }
 
-  const hasReadiness = snapshot.readiness_score != null;
-  const score = snapshot.readiness_score;
-  const rag = snapshot.readiness_rag;
-  const color = hasReadiness ? ragColor(rag, colors) : colors.info;
+  // Check if readiness data is stale (last checkin > 24h ago)
+  const lastCheckin = (snapshot as any).last_checkin_at as string | null;
+  const isStale = lastCheckin
+    ? (Date.now() - new Date(lastCheckin).getTime()) > 24 * 3600000
+    : false;
+
+  const hasReadiness = snapshot.readiness_score != null && !isStale;
+  const score = isStale ? null : snapshot.readiness_score;
+  const rag = isStale ? null : snapshot.readiness_rag;
+  const color = hasReadiness ? ragColor(rag, colors) : colors.textDisabled;
   const glowPreset = rag === 'RED' || rag === 'red' ? 'orange' : 'cyan';
 
   return (
@@ -71,7 +77,45 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
         <GlassCard>
           {/* Score Ring + Label */}
           <View style={{ alignItems: 'center' }}>
-            {hasReadiness && (
+            {isStale ? (
+              <>
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    borderWidth: 4,
+                    borderColor: colors.textDisabled,
+                    borderStyle: 'dashed',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: colors.textDisabled + '10',
+                  }}
+                >
+                  <Ionicons name="time-outline" size={28} color={colors.textDisabled} />
+                </View>
+                <Text
+                  style={{
+                    fontFamily: fontFamily.semiBold,
+                    fontSize: 14,
+                    color: colors.warning,
+                    marginTop: spacing.sm,
+                  }}
+                >
+                  Check In
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fontFamily.regular,
+                    fontSize: 11,
+                    color: colors.textMuted,
+                    marginTop: 2,
+                  }}
+                >
+                  Last check-in was over 24h ago
+                </Text>
+              </>
+            ) : hasReadiness ? (
               <>
                 <View
                   style={{
@@ -106,7 +150,7 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
                   {ragLabel(rag)}
                 </Text>
               </>
-            )}
+            ) : null}
 
             {/* Wellness Trend */}
             {snapshot.wellness_trend && (

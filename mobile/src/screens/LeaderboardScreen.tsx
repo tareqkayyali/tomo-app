@@ -455,7 +455,7 @@ export function LeaderboardScreen() {
   const { activeSport, setActiveSport } = useSportContext();
   const isFocused = useIsFocused();
   const navigation = useNavigation<any>();
-  const { needsCheckin } = useCheckinStatus();
+  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
 
   const [activeTab, setActiveTab] = useState<SocialTab>('team');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -502,7 +502,7 @@ export function LeaderboardScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Social</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+          <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
           <NotificationBell />
           <HeaderProfileButton
             initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}

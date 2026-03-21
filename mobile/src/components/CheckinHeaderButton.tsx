@@ -1,25 +1,57 @@
 /**
- * CheckinHeaderButton — Prominent glowing header CTA for daily check-in.
+ * CheckinHeaderButton — Prominent header CTA for daily check-in.
  *
- * Sits in the header row next to NotificationBell + HeaderProfileButton.
- * When check-in is pending: orange glow + breathing animation + red dot badge.
- * When done: green-tinted icon, no glow, no badge.
+ * Three visual states:
+ *   1. Needs checkin (no checkin today): orange glow + breathing + red dot badge
+ *   2. Stale checkin (>18h old): amber icon + yellow dot badge (gentle nudge)
+ *   3. Fresh checkin: green checkmark, no glow, no badge
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GlowWrapper } from './GlowWrapper';
 import { useTheme } from '../hooks/useTheme';
-import { colors } from '../theme/colors';
+import { fontFamily } from '../theme';
 
 interface CheckinHeaderButtonProps {
   needsCheckin: boolean;
+  isStale?: boolean;
+  checkinAgeHours?: number | null;
   onPress: () => void;
 }
 
-export function CheckinHeaderButton({ needsCheckin, onPress }: CheckinHeaderButtonProps) {
+export function CheckinHeaderButton({ needsCheckin, isStale = false, checkinAgeHours, onPress }: CheckinHeaderButtonProps) {
   const { colors } = useTheme();
+
+  // Determine visual state
+  const showNeedsCheckin = needsCheckin;
+  const showStale = !needsCheckin && isStale;
+  const showFresh = !needsCheckin && !isStale;
+
+  const iconName = showFresh
+    ? 'checkmark-circle'
+    : showStale
+    ? 'time-outline'
+    : 'pulse';
+
+  const iconColor = showFresh
+    ? colors.accent
+    : showStale
+    ? colors.warning
+    : colors.accent1;
+
+  const bgColor = showFresh
+    ? colors.glass
+    : showStale
+    ? colors.warning + '1A' // 10% opacity
+    : colors.accent1 + '26'; // 15% opacity
+
+  const badgeColor = showNeedsCheckin
+    ? colors.error
+    : showStale
+    ? colors.warning
+    : null;
 
   const button = (
     <Pressable
@@ -27,25 +59,17 @@ export function CheckinHeaderButton({ needsCheckin, onPress }: CheckinHeaderButt
       hitSlop={4}
       style={({ pressed }) => [
         styles.button,
-        {
-          backgroundColor: needsCheckin
-            ? colors.accent1 + '26' // 15% opacity orange
-            : colors.glass,
-        },
+        { backgroundColor: bgColor },
         pressed && styles.pressed,
       ]}
     >
-      <Ionicons
-        name={needsCheckin ? 'pulse' : 'checkmark-circle'}
-        size={22}
-        color={needsCheckin ? colors.accent1 : colors.accent}
-      />
-      {/* Red dot badge when check-in needed */}
-      {needsCheckin && <View style={[styles.badge, { backgroundColor: colors.error }]} />}
+      <Ionicons name={iconName} size={22} color={iconColor} />
+      {/* Badge dot */}
+      {badgeColor && <View style={[styles.badge, { backgroundColor: badgeColor }]} />}
     </Pressable>
   );
 
-  if (needsCheckin) {
+  if (showNeedsCheckin) {
     return (
       <GlowWrapper glow="subtle" breathing>
         {button}
@@ -75,6 +99,5 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.error,
   },
 });

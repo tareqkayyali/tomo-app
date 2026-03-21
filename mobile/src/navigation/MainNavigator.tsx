@@ -353,7 +353,7 @@ function ScreenHeader() {
   const { profile } = useAuth();
   const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
   const navigation = useNavigation<any>();
-  const { needsCheckin } = useCheckinStatus();
+  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

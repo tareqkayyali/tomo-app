@@ -971,7 +971,7 @@ export function HomeScreen() {
   const { profile } = useAuth();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { needsCheckin } = useCheckinStatus();
+  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const { selectedOptions: favoriteOptions } = useFavorites();
   // sportConfig removed — no mock data sync needed
   const allQuotes = useAllQuotes();
@@ -1563,7 +1563,7 @@ export function HomeScreen() {
             { key: 'more', icon: 'ellipsis-horizontal', label: 'More', onPress: () => navigation.navigate('Favorites') },
           ]} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+            <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
             <NotificationBell />
             <HeaderProfileButton
               initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}

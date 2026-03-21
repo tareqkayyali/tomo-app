@@ -166,7 +166,7 @@ function OutputTabSwitcher({
 export function TestsScreen({ navigation, route }: TestsScreenProps) {
   const { colors } = useTheme();
   const { profile } = useAuth();
-  const { needsCheckin } = useCheckinStatus();
+  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const pageConfig = usePageConfig('output');
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { data, setData, loading, error, refresh, isDeepRefreshing, forceRefreshPrograms } = useOutputData();
@@ -285,7 +285,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       <View style={styles.headerArea}>
         <QuickAccessBar actions={quickActions} />
         <View style={styles.headerRight}>
-          <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+          <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
           <NotificationBell />
           <HeaderProfileButton
             initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}

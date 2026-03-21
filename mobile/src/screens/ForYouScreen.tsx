@@ -67,7 +67,7 @@ export function ForYouScreen() {
   const { colors } = useTheme();
   const pageConfig = usePageConfig('own_it');
   const navigation = useNavigation<any>();
-  const { needsCheckin } = useCheckinStatus();
+  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const {
     snapshot,
     sportsRecs,
@@ -116,7 +116,7 @@ export function ForYouScreen() {
 
         {/* Right — Actions */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+          <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
           <NotificationBell />
           <HeaderProfileButton />
         </View>

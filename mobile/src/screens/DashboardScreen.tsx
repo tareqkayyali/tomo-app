@@ -92,7 +92,7 @@ function getPercentileFromScore(score: number): number {
 
 export function DashboardScreen({ navigation }: DashboardScreenProps) {
   const { profile } = useAuth();
-  const { needsCheckin } = useCheckinStatus();
+  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [todayData, setTodayData] = useState<any>(null);
@@ -176,7 +176,7 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
           { key: 'more', icon: 'ellipsis-horizontal', label: 'More', onPress: () => {} },
         ]} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+          <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
           <NotificationBell />
           <HeaderProfileButton initial={initial} photoUrl={profile?.photoUrl} />
         </View>

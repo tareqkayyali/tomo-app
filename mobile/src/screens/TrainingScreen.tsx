@@ -109,7 +109,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   const pageConfig = usePageConfig('timeline');
 
   const { profile, role } = useAuth();
-  const { needsCheckin } = useCheckinStatus();
+  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const quickActions = useQuickActions(
     { key: 'rules', icon: 'options-outline', label: 'My Rules', onPress: () => navigation.navigate('MyRules'), accentColor: colors.accent2 },
     navigation,
@@ -338,7 +338,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
         <View style={styles.headerArea}>
           <View style={{ flex: 1 }} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+            <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
             <NotificationBell />
             <HeaderProfileButton
               initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
@@ -362,7 +362,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
       <View style={styles.headerArea}>
         <QuickAccessBar actions={quickActions} />
         <View style={styles.headerRight}>
-          <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+          <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
           <NotificationBell />
           <HeaderProfileButton
             initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}

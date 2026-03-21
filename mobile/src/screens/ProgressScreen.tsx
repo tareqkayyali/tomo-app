@@ -107,7 +107,7 @@ export function ProgressScreen({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const pageConfig = usePageConfig('mastery');
   const { profile } = useAuth();
-  const { needsCheckin } = useCheckinStatus();
+  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const isFocused = useIsFocused();
 
   const {
@@ -166,7 +166,7 @@ export function ProgressScreen({
         </Text>
       )}
       <View style={styles.headerRight}>
-        <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
+        <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
         <NotificationBell />
         <HeaderProfileButton
           initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
