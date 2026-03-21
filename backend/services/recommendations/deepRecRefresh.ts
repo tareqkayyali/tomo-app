@@ -20,6 +20,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { buildPlayerContext, type PlayerContext } from '@/services/agents/contextBuilder';
 import { supersedeExisting } from './supersedeExisting';
 import { REC_EXPIRY_HOURS } from './constants';
+import { getRecommendationConfig } from './recommendationConfig';
 import type { RecType, RecPriority, RecommendationInsert } from './types';
 import { withRetry } from '@/lib/aiRetry';
 
@@ -63,13 +64,16 @@ function getClient(): Anthropic {
 // Staleness Check
 // ---------------------------------------------------------------------------
 
-const DEEP_REFRESH_STALE_HOURS = 24;
+// Default — overridden by CMS config at runtime
+const DEEP_REFRESH_STALE_HOURS_DEFAULT = 24;
 
 /**
- * Check whether the athlete's deep recommendations are stale (>24h old).
+ * Check whether the athlete's deep recommendations are stale (>staleness hours).
  * Returns true if a refresh is needed.
  */
 export async function isDeepRefreshStale(athleteId: string): Promise<boolean> {
+  const cfg = await getRecommendationConfig();
+  const staleHours = cfg.ownItRec.stalenessHours;
   const db = supabaseAdmin();
 
   const { data } = await (db as any)
@@ -84,7 +88,7 @@ export async function isDeepRefreshStale(athleteId: string): Promise<boolean> {
   if (!data) return true; // No recs at all — definitely stale
 
   const hoursSince = (Date.now() - new Date(data.created_at).getTime()) / (1000 * 60 * 60);
-  return hoursSince > DEEP_REFRESH_STALE_HOURS;
+  return hoursSince > staleHours;
 }
 
 // ---------------------------------------------------------------------------
@@ -235,12 +239,17 @@ export async function deepRecRefresh(
       return { count: 0, error: 'Empty response from Claude' };
     }
 
-    // 5. Validate and insert recommendations
+    // 5. Supersede ALL existing DEEP_REFRESH recs before inserting new batch
     const db = supabaseAdmin();
     const validRecTypes: RecType[] = [
       'READINESS', 'LOAD_WARNING', 'RECOVERY', 'DEVELOPMENT',
       'ACADEMIC', 'CV_OPPORTUNITY', 'TRIANGLE_ALERT', 'MOTIVATION',
     ];
+
+    // Supersede all existing deep refresh recs at once (not per-type)
+    for (const recType of validRecTypes) {
+      await supersedeExisting(athleteId, recType);
+    }
 
     let inserted = 0;
 
@@ -253,9 +262,6 @@ export async function deepRecRefresh(
 
       // Clamp priority
       const priority = Math.max(1, Math.min(4, rec.priority)) as RecPriority;
-
-      // Supersede existing recs of this type
-      await supersedeExisting(athleteId, rec.rec_type);
 
       // Calculate expiry
       const expiryHours = REC_EXPIRY_HOURS[rec.rec_type] ?? 24;
