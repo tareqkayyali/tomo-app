@@ -600,8 +600,8 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   centerLogo: {
-    width: 32,
-    height: 32,
+    width: 42,
+    height: 42,
     tintColor: colors.textPrimary,
   },
 });
