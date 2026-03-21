@@ -15,15 +15,19 @@ export function useSuggestions() {
     try {
       const res = await getSuggestions('pending');
       setSuggestions(res.suggestions || []);
-    } catch {
-      // Silently fail — suggestions are secondary content
+    } catch (e) {
+      console.warn('[useSuggestions] fetch error:', e);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchSuggestions();
+    let isMounted = true;
+    (async () => {
+      await fetchSuggestions();
+    })();
+    return () => { isMounted = false; };
   }, [fetchSuggestions]);
 
   const handleResolved = useCallback((id: string, _status: string) => {

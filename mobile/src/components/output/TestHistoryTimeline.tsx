@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import type { MyTestResult } from '../../services/api';
+import { colors } from '../../theme/colors';
 
 interface TestHistoryTimelineProps {
   history: MyTestResult[];
@@ -137,16 +138,16 @@ function getTrend(
   const threshold = Math.abs(previous) * 0.01; // 1% tolerance for "stable"
 
   if (Math.abs(diff) < threshold) {
-    return { arrow: '→', label: 'Stable', color: '#B0B0B0' };
+    return { arrow: '→', label: 'Stable', color: colors.textSecondary };
   }
 
   const improved =
     direction === 'higher' ? diff > 0 : diff < 0;
 
   if (improved) {
-    return { arrow: direction === 'higher' ? '↑' : '↓', label: `+${Math.abs(diff).toFixed(1)}`, color: '#30D158' };
+    return { arrow: direction === 'higher' ? '↑' : '↓', label: `+${Math.abs(diff).toFixed(1)}`, color: colors.accent };
   }
-  return { arrow: direction === 'higher' ? '↓' : '↑', label: `-${Math.abs(diff).toFixed(1)}`, color: '#E74C3C' };
+  return { arrow: direction === 'higher' ? '↓' : '↑', label: `-${Math.abs(diff).toFixed(1)}`, color: colors.error };
 }
 
 function formatRelativeDate(dateStr: string): string {

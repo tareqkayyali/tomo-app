@@ -27,6 +27,7 @@ import {
   layout,
 } from '../theme';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../services/supabase';
 import type { AuthStackParamList } from '../navigation/types';
 import type { Sport, UserRole } from '../types';
 
@@ -69,10 +70,28 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
   const [isOAuthSignup, setIsOAuthSignup] = useState(false);
 
   // Auto-detect OAuth user arriving from LoginScreen (already authenticated, needs profile)
+  // Pre-fill name from Google/Apple user metadata
   useEffect(() => {
     if (isAuthenticated && needsRegistration) {
       setIsOAuthSignup(true);
       setStep(2);
+
+      // Pre-fill name from OAuth provider metadata
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user?.user_metadata) {
+          const meta = session.user.user_metadata;
+          // Google provides full_name or name; Apple provides first/last name
+          const oauthName =
+            meta.full_name ||
+            meta.name ||
+            (meta.given_name && meta.family_name
+              ? `${meta.given_name} ${meta.family_name}`
+              : meta.given_name || '');
+          if (oauthName && !name) {
+            setName(oauthName);
+          }
+        }
+      });
     }
   }, [isAuthenticated, needsRegistration]);
 
@@ -192,7 +211,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                   onPress={() => handleSocialAuth('apple')}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="logo-apple" size={20} color="#000000" />
+                  <Ionicons name="logo-apple" size={20} color={colors.background} />
                   <Text style={styles.socialButtonText}>Continue with Apple</Text>
                 </TouchableOpacity>
 
@@ -201,7 +220,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                   onPress={() => handleSocialAuth('google')}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="logo-google" size={18} color="#000000" />
+                  <Ionicons name="logo-google" size={18} color={colors.background} />
                   <Text style={styles.socialButtonText}>Continue with Google</Text>
                 </TouchableOpacity>
               </View>
@@ -267,7 +286,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                     <Ionicons
                       name={r.icon}
                       size={22}
-                      color={selectedRole === r.value ? '#FFFFFF' : colors.textInactive}
+                      color={selectedRole === r.value ? colors.textPrimary : colors.textInactive}
                     />
                     <Text
                       style={[
@@ -325,7 +344,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                         <Ionicons
                           name={s.icon}
                           size={18}
-                          color={sport === s.value ? '#FFFFFF' : colors.textInactive}
+                          color={sport === s.value ? colors.textPrimary : colors.textInactive}
                           style={styles.sportIcon}
                         />
                         <Text
@@ -536,7 +555,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   roleChipLabelSelected: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   roleChipDesc: {
     ...typography.metadataSmall,
@@ -589,7 +608,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
   },
   sportChipTextSelected: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
 
   // ── Footer ────────────────────────────────────────────────────────

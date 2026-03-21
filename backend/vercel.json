@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "app/api/v1/recommendations/refresh/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/v1/chat/*/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/v1/for-you/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}

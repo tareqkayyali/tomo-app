@@ -172,7 +172,7 @@ export function PrivacySettingsScreen() {
         {/* Parental consent warning */}
         {parentalConsentRequired && (
           <View style={styles.warningCard}>
-            <Ionicons name="warning-outline" size={20} color="#FFD43B" />
+            <Ionicons name="warning-outline" size={20} color={colors.warning} />
             <Text style={styles.warningText}>
               Parental consent is required for athletes under 18 to enable their public passport.
             </Text>
@@ -277,7 +277,7 @@ function createStyles(colors: ThemeColors) {
     warningText: {
       fontFamily: fontFamily.regular,
       fontSize: 12,
-      color: '#FFD43B',
+      color: colors.warning,
       flex: 1,
     },
 

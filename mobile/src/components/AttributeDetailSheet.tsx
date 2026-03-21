@@ -30,13 +30,14 @@ function MetricBar({
   index: number;
   s: ReturnType<typeof createStyles>;
 }) {
+  const { colors } = useTheme();
   const barPct = Math.min((metric.rating / 1000) * 100, 100);
   const fillProgress = useBarFill(barPct, 100 + index * 60);
 
   const barStyle = {
     width: `${barPct}%` as any,
     backgroundColor:
-      barPct >= 70 ? '#30D158' : barPct >= 40 ? '#FFD60A' : '#00D9FF',
+      barPct >= 70 ? colors.accent : barPct >= 40 ? colors.warning : colors.info,
   };
 
   return (
@@ -65,7 +66,7 @@ export function AttributeDetailSheet({
   const { sportConfig } = useSportContext();
   const s = React.useMemo(() => createStyles(colors), [colors]);
   const entranceStyle = useSpringEntrance(0);
-  const attrColor = sportConfig.attributeColors[attribute] ?? '#888888';
+  const attrColor = sportConfig.attributeColors[attribute] ?? colors.textSecondary;
   const fullAttr = sportConfig.fullAttributes.find(a => a.key === attribute);
   const attrMetrics = metrics.filter((m) => m.dna === attribute);
 
@@ -91,12 +92,12 @@ export function AttributeDetailSheet({
           <Ionicons
             name={data.trend > 0 ? 'trending-up' : 'trending-down'}
             size={16}
-            color={data.trend > 0 ? '#30D158' : '#8E8E93'}
+            color={data.trend > 0 ? colors.accent : colors.textSecondary}
           />
           <Text
             style={[
               s.trendText,
-              { color: data.trend > 0 ? '#30D158' : '#8E8E93' },
+              { color: data.trend > 0 ? colors.accent : colors.textSecondary },
             ]}
           >
             {data.trend > 0 ? '+' : ''}{data.trend} from last week

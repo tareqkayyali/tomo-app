@@ -55,7 +55,7 @@ function isRetryableError(error: unknown): boolean {
 /**
  * Make authenticated API request with timeout and retry logic
  */
-async function apiRequest<T>(
+export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
@@ -235,6 +235,7 @@ function mapUserFromApi(raw: Record<string, unknown>): User {
     studyPlanConfig: (raw.study_plan_config as User['studyPlanConfig']) || undefined,
     customTrainingTypes: (raw.custom_training_types as User['customTrainingTypes']) || undefined,
     connectedWearables: (raw.connected_wearables as User['connectedWearables']) || undefined,
+    dateOfBirth: (raw.date_of_birth as string | null) ?? null,
   } as User;
 }
 
@@ -425,7 +426,7 @@ export async function deleteCalendarEvent(eventId: string): Promise<{ success: b
  */
 export async function updateCalendarEvent(
   eventId: string,
-  patch: { date?: string; startTime?: string; endTime?: string | null },
+  patch: { date?: string; startTime?: string; endTime?: string | null; notes?: string; name?: string; intensity?: string | null },
 ): Promise<{ event: CalendarEvent }> {
   return apiRequest<{ event: CalendarEvent }>(`/api/v1/calendar/events/${eventId}`, {
     method: 'PATCH',
@@ -683,7 +684,8 @@ export async function getChatSuggestions(): Promise<ChatSuggestionsResponse> {
  */
 export async function getBriefing(): Promise<DailyBriefing> {
   const hour = new Date().getHours();
-  return apiRequest<DailyBriefing>(`/api/v1/chat/briefing?hour=${hour}`);
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return apiRequest<DailyBriefing>(`/api/v1/chat/briefing?hour=${hour}&tz=${encodeURIComponent(tz)}`);
 }
 
 // ============================================
@@ -781,6 +783,36 @@ export async function sendAgentChatMessage(
     clearTimeout(timeoutId);
     throw error;
   }
+}
+
+/**
+ * Transcribe audio to text using Whisper via the backend.
+ * Accepts a local file URI (e.g. from expo-av recording).
+ */
+export async function transcribeAudio(audioUri: string): Promise<string> {
+  const token = await getIdToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const formData = new FormData();
+  formData.append('audio', {
+    uri: audioUri,
+    type: 'audio/m4a',
+    name: 'voice.m4a',
+  } as any);
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/transcribe`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Transcription failed');
+  }
+
+  const data = await response.json();
+  return data.text;
 }
 
 // ============================================
@@ -1365,6 +1397,28 @@ export async function submitPlayerTest(
   data: { testType: string; sport: string; values: Record<string, unknown>; rawInputs?: Record<string, unknown> },
 ): Promise<{ suggestion: Suggestion }> {
   return apiRequest<{ suggestion: Suggestion }>(`/api/v1/coach/players/${playerId}/tests`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Create a training programme for a player (coach only)
+ */
+export async function createCoachProgramme(data: {
+  name: string;
+  description?: string;
+  startDate: string;
+  weeks: number;
+  seasonCycle?: string;
+  targetPlayerIds: string[];
+  category?: string;
+  intensity?: string;
+  frequency?: string;
+  drills?: Array<{ name: string; sets: string; reps: string; rest: string; notes: string }>;
+  coachNotes?: string;
+}): Promise<{ programme: any }> {
+  return apiRequest<{ programme: any }>('/api/v1/coach/programmes', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -2084,6 +2138,8 @@ export interface RawTestGroupTest {
   unit: string;
   date: string;
   displayName: string;
+  source?: string;
+  coachName?: string;
 }
 
 export interface RawTestGroup {
@@ -2141,6 +2197,9 @@ export interface OutputSnapshot {
       score: number;
       unit: string;
       date: string;
+      source?: string;
+      coachId?: string;
+      coachName?: string;
     }>;
   };
   programs: {
@@ -2168,6 +2227,9 @@ export interface OutputSnapshot {
         coachingCues: string[];
       };
       phvWarnings: string[];
+      coachId?: string;
+      coachName?: string;
+      assignedAt?: string;
     }>;
     weeklyPlanSuggestion: string | null;
     weeklyStructure?: Record<string, number>;
@@ -2176,11 +2238,31 @@ export interface OutputSnapshot {
       phvStage: string;
       position: string;
     };
+    isAiGenerated?: boolean;
+    generatedAt?: string | null;
   };
 }
 
-export async function getOutputSnapshot(): Promise<OutputSnapshot> {
-  return apiRequest<OutputSnapshot>('/api/v1/output/snapshot');
+export async function getOutputSnapshot(targetPlayerId?: string): Promise<OutputSnapshot> {
+  const params = new URLSearchParams();
+  if (targetPlayerId) params.set('targetPlayerId', targetPlayerId);
+  // Cache-bust to prevent stale browser cache
+  params.set('_t', String(Date.now()));
+  return apiRequest<OutputSnapshot>(`/api/v1/output/snapshot?${params.toString()}`);
+}
+
+export interface ProgramRefreshResponse {
+  refreshed: boolean;
+  count?: number;
+  programs?: OutputSnapshot['programs'] | null;
+  error?: string;
+}
+
+export async function refreshProgramRecommendations(force = false): Promise<ProgramRefreshResponse> {
+  return apiRequest<ProgramRefreshResponse>(
+    `/api/v1/programs/refresh${force ? '?force=true' : ''}`,
+    { method: 'POST', body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }) }
+  );
 }
 
 // ── Athlete Snapshot (Layer 2 — Data Fabric) ────────────────────────
@@ -2352,9 +2434,14 @@ export async function refreshRecommendations(
     });
     clearTimeout(timeoutId);
 
-    if (!res.ok) return { refreshed: false, reason: 'api_error' };
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      console.warn(`[refreshRecommendations] API error ${res.status}: ${errBody}`);
+      return { refreshed: false, reason: 'api_error' };
+    }
     return await res.json();
-  } catch {
+  } catch (err) {
+    console.warn('[refreshRecommendations] Network error:', (err as Error).message);
     return { refreshed: false, reason: 'network_error' };
   }
 }
@@ -2450,4 +2537,60 @@ export async function getMasterySnapshot(
 ): Promise<MasterySnapshot> {
   const params = targetPlayerId ? `?targetPlayerId=${targetPlayerId}` : '';
   return apiRequest<MasterySnapshot>(`/api/v1/mastery/snapshot${params}`);
+}
+
+// ============================================
+// Integrations (Wearable connections)
+// ============================================
+
+export interface IntegrationStatus {
+  provider: string;
+  connected: boolean;
+  sync_status: string | null;
+  sync_error: string | null;
+  last_sync_at: string | null;
+  connected_at: string | null;
+}
+
+export async function getIntegrationStatus(): Promise<{ integrations: IntegrationStatus[] }> {
+  return apiRequest<{ integrations: IntegrationStatus[] }>('/api/v1/integrations/status');
+}
+
+export async function syncWhoop(): Promise<{
+  synced: boolean;
+  events_emitted: number;
+  summary: { recoveries: number; sleeps: number; workouts: number; cycles: number };
+}> {
+  return apiRequest('/api/v1/integrations/whoop/sync', { method: 'POST' });
+}
+
+export async function disconnectWhoop(): Promise<{ disconnected: boolean }> {
+  return apiRequest('/api/v1/integrations/whoop', { method: 'DELETE' });
+}
+
+/**
+ * Get the WHOOP OAuth authorize URL from the backend.
+ * The backend creates a CSRF state token and returns the WHOOP OAuth URL.
+ */
+export async function getWhoopAuthorizeUrl(): Promise<string> {
+  const data = await apiRequest<{ url: string }>('/api/v1/integrations/whoop/authorize');
+  return data.url;
+}
+
+// ============================================
+// Program Interactions (done/dismiss/active)
+// ============================================
+
+export async function interactWithProgram(
+  programId: string,
+  action: 'done' | 'dismissed' | 'active'
+): Promise<{ success: boolean; toggled?: 'on' | 'off' }> {
+  return apiRequest('/api/v1/programs/interact', {
+    method: 'POST',
+    body: JSON.stringify({ programId, action }),
+  });
+}
+
+export async function fetchActivePrograms(): Promise<{ programIds: string[] }> {
+  return apiRequest('/api/v1/programs/active');
 }

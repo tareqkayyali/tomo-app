@@ -17,6 +17,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View, Pressable, Image, Text, PanResponder } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -45,26 +46,23 @@ import { PrivacySettingsScreen } from '../screens/PrivacySettingsScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { WorkoutFeedbackScreen } from '../screens/WorkoutFeedbackScreen';
 import { AddEventScreen } from '../screens/AddEventScreen';
+import { EventEditScreen } from '../screens/EventEditScreen';
 import { DiagnosticsScreen } from '../screens/DiagnosticsScreen';
 import { DrillDetailScreen } from '../screens/DrillDetailScreen';
 import { DrillCameraScreen } from '../screens/DrillCameraScreen';
 import { SessionCompleteScreen } from '../screens/SessionCompleteScreen';
 import { DashboardScreen as FullChatScreen } from '../screens/DashboardScreen';
-import { PhoneTestsListScreen } from '../screens/PhoneTestsListScreen';
-import { ReactionTestScreen } from '../screens/ReactionTestScreen';
-import { JumpTestScreen } from '../screens/JumpTestScreen';
-import { SprintTestScreen } from '../screens/SprintTestScreen';
-import { AgilityTestScreen } from '../screens/AgilityTestScreen';
-import { BalanceTestScreen } from '../screens/BalanceTestScreen';
-import { PhoneTestCompleteScreen } from '../screens/PhoneTestCompleteScreen';
 import { ShotDetailScreen } from '../screens/ShotDetailScreen';
 import { ShotSessionScreen } from '../screens/ShotSessionScreen';
 import { PadelRatingScreen } from '../screens/PadelRatingScreen';
 import { FootballSkillDetailScreen, FootballRatingScreen, FootballTestInputScreen } from '../screens/football';
+import { PlayerCVScreen } from '../screens/PlayerCVScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { LinkAccountScreen } from '../screens/LinkAccountScreen';
 import { StudyPlanPreviewScreen } from '../screens/StudyPlanPreviewScreen';
 import { MyRulesScreen } from '../screens/MyRulesScreen';
+import { FavoritesScreen } from '../screens/FavoritesScreen';
+import PHVCalculatorScreen from '../screens/PHVCalculatorScreen';
 
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
@@ -72,10 +70,12 @@ import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { useAuth } from '../hooks/useAuth';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { NotificationsProvider, useNotifications } from '../hooks/useNotifications';
+import { SubTabProvider, useSubTabs } from '../hooks/useSubTabContext';
 
 import type { MainTabParamList, MainStackParamList } from './types';
 import { layout, spacing, borderRadius } from '../theme';
 import { useTheme } from '../hooks/useTheme';
+import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -177,12 +177,34 @@ const TAB_ORDER = ['Plan', 'Test', 'Chat', 'Progress', 'ForYou'] as const;
 function TabNavigator() {
   const { colors } = useTheme();
   const { pendingDrillNotifs } = useNotifications();
+  const subTabs = useSubTabs();
   const [activeTab, setActiveTab] = useState<string>('Chat');
+  const [initialTab, setInitialTab] = useState<string | null>(null);
   const navigationRef = useRef<any>(null);
   const activeTabRef = useRef(activeTab);
+  const subTabsRef = useRef(subTabs);
   useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+  useEffect(() => { subTabsRef.current = subTabs; }, [subTabs]);
 
-  // ── Swipe between tabs (Instagram-style) ──────────────────
+  // Persist active tab so it survives page reloads (web) and app restarts
+  useEffect(() => {
+    AsyncStorage.getItem('tomo_active_tab').then((saved) => {
+      if (saved && TAB_ORDER.includes(saved as any)) {
+        setActiveTab(saved);
+        setInitialTab(saved);
+      } else {
+        setInitialTab('Chat');
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (activeTab) {
+      AsyncStorage.setItem('tomo_active_tab', activeTab);
+    }
+  }, [activeTab]);
+
+  // ── Swipe between tabs + sub-tabs ──────────────────────────
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
@@ -193,19 +215,56 @@ function TabNavigator() {
         const SWIPE_THRESHOLD = 60;
         if (Math.abs(gestureState.dx) < SWIPE_THRESHOLD) return;
 
-        const currentIdx = TAB_ORDER.indexOf(activeTabRef.current as typeof TAB_ORDER[number]);
+        const currentTab = activeTabRef.current;
+        const currentIdx = TAB_ORDER.indexOf(currentTab as typeof TAB_ORDER[number]);
         if (currentIdx === -1) return;
 
-        const nextIdx = gestureState.dx < 0
-          ? Math.min(currentIdx + 1, TAB_ORDER.length - 1) // swipe left → next
-          : Math.max(currentIdx - 1, 0); // swipe right → prev
+        const swipeLeft = gestureState.dx < 0;
+        const controller = subTabsRef.current.get(currentTab);
+
+        // Try sub-tab navigation first
+        if (controller) {
+          if (swipeLeft && controller.activeIndex < controller.tabs.length - 1) {
+            controller.setTab(controller.activeIndex + 1);
+            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            return;
+          }
+          if (!swipeLeft && controller.activeIndex > 0) {
+            controller.setTab(controller.activeIndex - 1);
+            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            return;
+          }
+        }
+
+        // Sub-tab exhausted (or none) → switch main tab
+        const nextIdx = swipeLeft
+          ? Math.min(currentIdx + 1, TAB_ORDER.length - 1)
+          : Math.max(currentIdx - 1, 0);
 
         if (nextIdx !== currentIdx && navigationRef.current) {
           const nextTab = TAB_ORDER[nextIdx];
-          navigationRef.current.navigate(nextTab);
-          if (Platform.OS !== 'web') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+          // When entering a tab with sub-tabs, start at first (swipe left) or last (swipe right)
+          const nextController = subTabsRef.current.get(nextTab);
+          if (nextController) {
+            const targetIdx = swipeLeft ? 0 : nextController.tabs.length - 1;
+            nextController.setTab(targetIdx);
           }
+
+          // Pass initialTab param for screens with sub-tabs (handles first-mount case
+          // where the controller doesn't exist yet)
+          const subTabMap: Record<string, string[]> = {
+            Plan: ['dayflow', 'studyplan', 'trainingplan'],
+            Test: ['vitals', 'metrics', 'programs'],
+          };
+          const subTabs = subTabMap[nextTab];
+          if (subTabs) {
+            const initialTab = swipeLeft ? subTabs[0] : subTabs[subTabs.length - 1];
+            navigationRef.current.navigate(nextTab, { initialTab });
+          } else {
+            navigationRef.current.navigate(nextTab);
+          }
+          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
       },
     })
@@ -217,10 +276,13 @@ function TabNavigator() {
     }
   }, []);
 
+  // Wait for initial tab to be resolved from storage before rendering
+  if (!initialTab) return null;
+
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
       <Tab.Navigator
-        initialRouteName="Chat"
+        initialRouteName={(initialTab || 'Chat') as keyof MainTabParamList}
         screenListeners={({ navigation }) => ({
           focus: () => {
             navigationRef.current = navigation;
@@ -277,7 +339,7 @@ function TabNavigator() {
           component={ForYouScreen}
           options={pendingDrillNotifs.length > 0 ? {
             tabBarBadge: pendingDrillNotifs.length,
-            tabBarBadgeStyle: { backgroundColor: '#FF6B35', fontSize: 10, fontWeight: '700' },
+            tabBarBadgeStyle: { backgroundColor: colors.accent, fontSize: 10, fontWeight: '700' },
           } : undefined}
         />
       </Tab.Navigator>
@@ -326,6 +388,7 @@ export function MainNavigator() {
   const { colors } = useTheme();
   const stackHeaderOptions = useStackHeaderOptions();
   return (
+    <SubTabProvider>
     <NotificationsProvider>
     <Stack.Navigator
       screenOptions={{
@@ -376,6 +439,11 @@ export function MainNavigator() {
         options={{ headerShown: false, presentation: 'modal' }}
       />
       <Stack.Screen
+        name="EventEdit"
+        component={EventEditScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="Diagnostics"
         component={DiagnosticsScreen}
         options={{ headerShown: true, title: 'Diagnostics', ...stackHeaderOptions }}
@@ -406,47 +474,6 @@ export function MainNavigator() {
         component={FullChatScreen}
         options={{ headerShown: true, title: 'TOMO', ...stackHeaderOptions }}
       />
-      <Stack.Screen
-        name="PhoneTestsList"
-        component={PhoneTestsListScreen}
-        options={{ headerShown: true, title: 'Phone Tests', ...stackHeaderOptions }}
-      />
-      <Stack.Screen
-        name="ReactionTest"
-        component={ReactionTestScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="JumpTest"
-        component={JumpTestScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="SprintTest"
-        component={SprintTestScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="AgilityTest"
-        component={AgilityTestScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="BalanceTest"
-        component={BalanceTestScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="PhoneTestComplete"
-        component={PhoneTestCompleteScreen}
-        options={{
-          headerShown: true,
-          title: 'Test Results',
-          ...stackHeaderOptions,
-          headerBackVisible: false,
-          gestureEnabled: false,
-        }}
-      />
       {/* Padel-specific screens */}
       <Stack.Screen
         name="ShotDetail"
@@ -475,6 +502,11 @@ export function MainNavigator() {
         options={{ headerShown: true, title: 'Football Rating', ...stackHeaderOptions }}
       />
       <Stack.Screen
+        name="PlayerCV"
+        component={PlayerCVScreen}
+        options={{ headerShown: true, title: 'Player CV', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
         name="FootballTestInput"
         component={FootballTestInputScreen}
         options={{ headerShown: true, title: 'Football Test', ...stackHeaderOptions }}
@@ -483,6 +515,12 @@ export function MainNavigator() {
       <Stack.Screen
         name="MyRules"
         component={MyRulesScreen}
+        options={{ headerShown: false }}
+      />
+      {/* Favorites screen */}
+      <Stack.Screen
+        name="Favorites"
+        component={FavoritesScreen}
         options={{ headerShown: false }}
       />
       {/* Study plan screens */}
@@ -502,8 +540,14 @@ export function MainNavigator() {
         component={LinkAccountScreen}
         options={{ headerShown: true, title: 'Link Account', ...stackHeaderOptions }}
       />
+      <Stack.Screen
+        name="PHVCalculator"
+        component={PHVCalculatorScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
     </NotificationsProvider>
+    </SubTabProvider>
   );
 }
 
@@ -547,11 +591,11 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   centerButtonFocusRing: {
-    borderColor: '#FF6B35',
+    borderColor: colors.accent,
   },
   centerLogo: {
     width: 32,
     height: 32,
-    tintColor: '#FFFFFF',
+    tintColor: colors.textPrimary,
   },
 });

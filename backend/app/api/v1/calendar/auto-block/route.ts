@@ -166,10 +166,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(
-      `[auto-block] user=${userId} deleted=${toDelete.length} created=${toInsert.length} range=${rangeStart}..${rangeEnd}`
-    );
-
     return NextResponse.json({
       created: toInsert.length,
       deleted: toDelete.length,

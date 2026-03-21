@@ -54,7 +54,7 @@ type Props = {
 const SCREEN = Dimensions.get('window');
 const TARGET_SIZE = 70;
 const TOTAL_TARGETS = 15;
-const TARGET_COLORS = ['#FF6B35', '#7B61FF', '#00D9FF', '#30D158'];
+const TARGET_COLORS = [colors.accent, colors.info, colors.info, colors.accent];
 
 // Safe area for target placement
 const PADDING_H = 40;
@@ -260,7 +260,7 @@ export function ReactionTestScreen({ navigation }: Props) {
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <Ionicons name="play" size={22} color="#FFFFFF" />
+              <Ionicons name="play" size={22} color={colors.textPrimary} />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -327,7 +327,7 @@ export function ReactionTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <Ionicons name="checkmark-circle" size={80} color="#30D158" />
+            <Ionicons name="checkmark-circle" size={80} color={colors.accent} />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   startText: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   backWrap: {
     paddingVertical: spacing.md,
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 32,
-    color: '#30D158',
+    color: colors.accent,
     marginTop: spacing.md,
   },
 });

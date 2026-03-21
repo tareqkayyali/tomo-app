@@ -7,23 +7,35 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import { GlassCard } from '../GlassCard';
 import { GlowWrapper } from '../GlowWrapper';
+import { AttachToTrainingSheet } from './AddToCalendarSheet';
 import type { OutputSnapshot } from '../../services/api';
+import { colors } from '../../theme/colors';
 
 interface Props {
   programs: OutputSnapshot['programs'];
   gaps?: string[];
+  isDeepRefreshing?: boolean;
+  onForceRefresh?: () => void;
+  onNavigateCheckin?: () => void;
+  onNavigateTests?: () => void;
+  onNavigateSettings?: () => void;
+  onProgramDone?: (programId: string) => void;
+  onProgramDismiss?: (programId: string) => void;
+  activeIds?: string[];
+  onToggleActive?: (programId: string) => void;
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
-  mandatory: '#FF453A',
-  high: '#FF9500',
-  medium: '#30D158',
+  mandatory: colors.error,
+  high: colors.warning,
+  medium: colors.accent,
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -47,35 +59,130 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  beginner: '#30D158',
-  intermediate: '#FF9500',
-  advanced: '#FF453A',
+  beginner: colors.accent,
+  intermediate: colors.warning,
+  advanced: colors.error,
 };
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function ProgramsSection({ programs, gaps = [] }: Props) {
+export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive }: Props) {
   const { colors } = useTheme();
   const { recommendations, weeklyPlanSuggestion, weeklyStructure, playerProfile } = programs;
+  const [heroExpanded, setHeroExpanded] = useState(false);
+  const [coachGroupExpanded, setCoachGroupExpanded] = useState(true);
+  const [calendarSheetProgram, setCalendarSheetProgram] = useState<any>(null);
+  const isAiGenerated = (programs as any).isAiGenerated === true;
+  const dataStatus = (programs as any).dataStatus;
+  const dataNeeded: string[] = (programs as any).dataNeeded || [];
 
-  if (recommendations.length === 0) {
+  // Show generating state ONLY when dataStatus is explicitly 'generating'
+  // If recommendations is empty but dataStatus is not 'generating', show empty state with retry
+  if (dataStatus === 'generating') {
     return (
       <GlassCard>
         <View style={styles.emptyState}>
-          <Ionicons name="barbell-outline" size={40} color={colors.textMuted} />
-          <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Programs Yet</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-            Complete your profile (height, weight, position) to get personalized training programs.
+          <View style={[styles.emptyIconCircle, { backgroundColor: colors.accent2 + '12' }]}>
+            <ActivityIndicator size={28} color={colors.accent2} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
+            Building Your Programs
           </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+            Our AI is creating a personalized training program based on your profile. This takes a moment...
+          </Text>
+
+          {/* Data-needed hints to improve personalization */}
+          {dataNeeded.length > 0 && (
+            <View style={styles.checklistContainer}>
+              <Text style={[styles.checklistHeader, { color: colors.textInactive }]}>
+                Want better programs? Try:
+              </Text>
+              {dataNeeded.map((item, i) => (
+                <View key={i} style={styles.checklistRow}>
+                  <Ionicons name="add-circle-outline" size={14} color={colors.accent1} />
+                  <Text style={[styles.checklistText, { color: colors.textInactive }]}>{item}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* CTA buttons */}
+          <View style={styles.ctaRow}>
+            {onNavigateCheckin && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  { backgroundColor: colors.accent1, opacity: pressed ? 0.8 : 1 },
+                ]}
+                onPress={onNavigateCheckin}
+              >
+                <Ionicons name="checkmark-circle-outline" size={16} color="#FFF" />
+                <Text style={styles.ctaButtonText}>Daily Check-in</Text>
+              </Pressable>
+            )}
+            {onForceRefresh && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  { backgroundColor: colors.accent2, opacity: pressed ? 0.8 : 1 },
+                ]}
+                onPress={onForceRefresh}
+              >
+                <Ionicons name="refresh-outline" size={16} color="#FFF" />
+                <Text style={styles.ctaButtonText}>Generate Now</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
       </GlassCard>
     );
   }
 
-  // Group by priority
-  const mandatory = recommendations.filter((r) => r.priority === 'mandatory');
-  const high = recommendations.filter((r) => r.priority === 'high');
-  const medium = recommendations.filter((r) => r.priority === 'medium');
+  // Empty state with retry — when no programs and not generating
+  if (recommendations.length === 0) {
+    return (
+      <GlassCard>
+        <View style={styles.emptyState}>
+          <View style={[styles.emptyIconCircle, { backgroundColor: colors.accent1 + '12' }]}>
+            <Ionicons name="barbell-outline" size={28} color={colors.accent1} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
+            No Programs Yet
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+            Tap below to generate personalized training programs based on your profile.
+          </Text>
+          {onForceRefresh && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.ctaButton,
+                { backgroundColor: colors.accent1, opacity: pressed ? 0.8 : 1, marginTop: 12 },
+              ]}
+              onPress={onForceRefresh}
+            >
+              <Ionicons name="sparkles-outline" size={16} color="#FFF" />
+              <Text style={styles.ctaButtonText}>Generate Programs</Text>
+            </Pressable>
+          )}
+        </View>
+      </GlassCard>
+    );
+  }
+
+  // Separate coach-assigned programs from AI/inline programs
+  const coachAssigned = recommendations.filter((r: any) => r.programId?.startsWith('coach_') || r.coachId);
+  const aiPrograms = recommendations.filter((r: any) => !r.programId?.startsWith('coach_') && !r.coachId);
+
+  // Separate active programs from the rest
+  const activeSet = new Set(activeIds);
+  const activePrograms = aiPrograms.filter((r) => activeSet.has(r.programId));
+  const nonActiveAiPrograms = aiPrograms.filter((r) => !activeSet.has(r.programId));
+
+  // Group non-active AI/inline by priority
+  const mandatory = nonActiveAiPrograms.filter((r) => r.priority === 'mandatory');
+  const high = nonActiveAiPrograms.filter((r) => r.priority === 'high');
+  const medium = nonActiveAiPrograms.filter((r) => r.priority === 'medium');
 
   // Count physical vs technical
   const physicalCount = recommendations.filter((r) => r.type === 'physical').length;
@@ -88,121 +195,89 @@ export function ProgramsSection({ programs, gaps = [] }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* ── Hero: Your Training Blueprint ─────────────────────── */}
-      <GlowWrapper glow="subtle">
-        <GlassCard>
-          <Text style={[styles.heroTitle, { color: colors.textOnDark }]}>
-            Your Training Blueprint
+      {/* ── Deep Refresh Indicator ──────────────────────────────── */}
+      {isDeepRefreshing && (
+        <View style={[styles.refreshBanner, { backgroundColor: 'rgba(255, 107, 53, 0.08)' }]}>
+          <ActivityIndicator size="small" color={colors.accent1} />
+          <Text style={[styles.refreshText, { color: colors.accent1 }]}>
+            Personalizing your programs...
           </Text>
-          <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-            Personalized for {playerProfile.position === 'ALL' ? 'your position' : playerProfile.position} · {playerProfile.ageBand}
-          </Text>
+        </View>
+      )}
 
-          {/* Quick stats row */}
-          <View style={styles.statsRow}>
-            <View style={[styles.statChip, { backgroundColor: '#FF453A18' }]}>
-              <Text style={[styles.statValue, { color: '#FF453A' }]}>{mandatory.length}</Text>
-              <Text style={[styles.statLabel, { color: colors.textMuted }]}>Must Do</Text>
+      {/* Training Blueprint hero removed — programs speak for themselves */}
+
+      {/* ── Coach Assigned Programs ───────────────────────────── */}
+      {coachAssigned.length > 0 && (
+        <View style={styles.group}>
+          <Pressable onPress={() => setCoachGroupExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
+            <Ionicons
+              name={coachGroupExpanded ? 'chevron-down' : 'chevron-forward'}
+              size={16}
+              color={colors.textMuted}
+            />
+            <View style={[styles.priorityDot, { backgroundColor: colors.info }]} />
+            <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>🏋️ Coach Assigned</Text>
+            <View style={[styles.countBadge, { backgroundColor: '#4A9EFF22' }]}>
+              <Text style={[styles.countBadgeText, { color: colors.info }]}>{coachAssigned.length}</Text>
             </View>
-            <View style={[styles.statChip, { backgroundColor: '#FF950018' }]}>
-              <Text style={[styles.statValue, { color: '#FF9500' }]}>{high.length}</Text>
-              <Text style={[styles.statLabel, { color: colors.textMuted }]}>Recommended</Text>
-            </View>
-            <View style={[styles.statChip, { backgroundColor: '#30D15818' }]}>
-              <Text style={[styles.statValue, { color: '#30D158' }]}>{physicalCount}⚡ {technicalCount}⚽</Text>
-              <Text style={[styles.statLabel, { color: colors.textMuted }]}>Physical · Technical</Text>
-            </View>
-          </View>
-
-          {/* Week at a glance */}
-          <View style={styles.weekRow}>
-            {DAY_LABELS.map((day, i) => {
-              const isRest = i >= 5;
-              const isTraining = !isRest && i < Math.min(totalWeeklySessions, 5);
-              const dotColor = isRest ? colors.textMuted
-                : isTraining ? '#FF6B35'
-                : colors.glassBorder;
-              return (
-                <View key={day} style={styles.dayCol}>
-                  <View style={[styles.dayDot, { backgroundColor: dotColor }]} />
-                  <Text style={[styles.dayLabel, { color: colors.textMuted }]}>{day}</Text>
-                </View>
-              );
-            })}
-          </View>
-
-          {weeklyPlanSuggestion && (
-            <Text style={[styles.weekSuggestion, { color: colors.textMuted }]}>
-              {weeklyPlanSuggestion}
-            </Text>
-          )}
-
-          {/* Weekly structure chips */}
-          {weeklyStructure && (
-            <View style={styles.structureRow}>
-              {Object.entries(weeklyStructure).map(([key, val]) => (
-                <View key={key} style={[styles.structureChip, { backgroundColor: colors.glass }]}>
-                  <Text style={[styles.structureText, { color: colors.textMuted }]}>
-                    {key.charAt(0).toUpperCase() + key.slice(1)} {val}x
-                  </Text>
-                </View>
+          </Pressable>
+          {coachGroupExpanded && (
+            <>
+              <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+                Programs assigned to you by your coach
+              </Text>
+              {coachAssigned.map((p: any) => (
+                <ProgramCard key={p.programId} program={p} colors={colors} onAddToCalendar={setCalendarSheetProgram} />
               ))}
-            </View>
+            </>
           )}
-        </GlassCard>
-      </GlowWrapper>
+        </View>
+      )}
 
-      {/* ── Gap Connection Banner ──────────────────────────────── */}
-      {gaps.length > 0 && (
-        <GlassCard>
-          <View style={styles.gapHeader}>
-            <Ionicons name="analytics-outline" size={18} color={colors.accent1} />
-            <Text style={[styles.gapTitle, { color: colors.textOnDark }]}>
-              Based on your test results
-            </Text>
-          </View>
-          <Text style={[styles.gapSubtitle, { color: colors.textMuted }]}>
-            We've added programs targeting your weakest areas
-          </Text>
-          <View style={styles.gapChips}>
-            {gaps.slice(0, 3).map((gap) => (
-              <View key={gap} style={styles.gapChipRow}>
-                <View style={[styles.gapChip, { backgroundColor: 'rgba(255, 149, 0, 0.15)' }]}>
-                  <Ionicons name="trending-down" size={12} color="#FF9500" />
-                  <Text style={[styles.gapChipText, { color: '#FF9500' }]}>{gap}</Text>
-                </View>
-                <Ionicons name="arrow-forward" size={14} color={colors.accent1} />
-                <Text style={[styles.gapArrowText, { color: colors.accent1 }]}>Program added</Text>
-              </View>
-            ))}
-          </View>
-        </GlassCard>
+      {/* ── Active Programs ────────────────────────────────────── */}
+      {activePrograms.length > 0 && (
+        <ActiveGroup programs={activePrograms} colors={colors} onDone={onProgramDone} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
       )}
 
       {/* ── Priority Groups ────────────────────────────────────── */}
       {mandatory.length > 0 && (
-        <PriorityGroup label="mandatory" programs={mandatory} colors={colors} />
+        <PriorityGroup label="mandatory" programs={mandatory} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} activeIds={activeIds} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
       )}
       {high.length > 0 && (
-        <PriorityGroup label="high" programs={high} colors={colors} />
+        <PriorityGroup label="high" programs={high} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} activeIds={activeIds} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
       )}
       {medium.length > 0 && (
-        <PriorityGroup label="medium" programs={medium} colors={colors} />
+        <PriorityGroup label="medium" programs={medium} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} activeIds={activeIds} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
       )}
+
+      <AttachToTrainingSheet
+        visible={!!calendarSheetProgram}
+        onClose={() => setCalendarSheetProgram(null)}
+        program={calendarSheetProgram}
+      />
     </View>
   );
 }
 
 // ── Priority Group ──────────────────────────────────────────────────────
 
-function PriorityGroup({ label, programs, colors }: {
+function PriorityGroup({ label, programs, colors, onDone, onDismiss, activeIds = [], onToggleActive, onAddToCalendar }: {
   label: string;
   programs: OutputSnapshot['programs']['recommendations'];
   colors: any;
+  onDone?: (programId: string) => void;
+  onDismiss?: (programId: string) => void;
+  activeIds?: string[];
+  onToggleActive?: (programId: string) => void;
+  onAddToCalendar?: (program: any) => void;
 }) {
   const priorityColor = PRIORITY_COLORS[label] || '#666';
   const displayLabel = PRIORITY_LABELS[label] || label;
   const description = PRIORITY_DESCRIPTIONS[label] || '';
+
+  // Collapse/expand state — default expanded
+  const [expanded, setExpanded] = useState(true);
 
   // Show first 5 collapsed, rest behind "show more"
   const [showAll, setShowAll] = useState(false);
@@ -211,28 +286,78 @@ function PriorityGroup({ label, programs, colors }: {
 
   return (
     <View style={styles.group}>
-      <View style={styles.groupHeader}>
+      <Pressable onPress={() => setExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
+        <Ionicons
+          name={expanded ? 'chevron-down' : 'chevron-forward'}
+          size={16}
+          color={colors.textMuted}
+        />
         <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
         <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>{displayLabel}</Text>
         <View style={[styles.countBadge, { backgroundColor: priorityColor + '22' }]}>
           <Text style={[styles.countBadgeText, { color: priorityColor }]}>{programs.length}</Text>
         </View>
-      </View>
-      <Text style={[styles.groupDesc, { color: colors.textMuted }]}>{description}</Text>
+      </Pressable>
 
-      {visible.map((p) => (
-        <ProgramCard key={p.programId} program={p} colors={colors} />
-      ))}
+      {expanded && (
+        <>
+          <Text style={[styles.groupDesc, { color: colors.textMuted }]}>{description}</Text>
 
-      {hasMore && !showAll && (
-        <Pressable onPress={() => setShowAll(true)}>
-          <View style={[styles.showMoreBtn, { backgroundColor: colors.glass }]}>
-            <Text style={[styles.showMoreText, { color: colors.accent1 }]}>
-              Show {programs.length - 5} more
-            </Text>
-            <Ionicons name="chevron-down" size={14} color={colors.accent1} />
-          </View>
-        </Pressable>
+          {visible.map((p) => (
+            <ProgramCard key={p.programId} program={p} colors={colors} onDone={onDone} onDismiss={onDismiss} isActive={activeIds.includes(p.programId)} onToggleActive={onToggleActive} onAddToCalendar={onAddToCalendar} />
+          ))}
+
+          {hasMore && !showAll && (
+            <Pressable onPress={() => setShowAll(true)}>
+              <View style={[styles.showMoreBtn, { backgroundColor: colors.glass }]}>
+                <Text style={[styles.showMoreText, { color: colors.accent1 }]}>
+                  Show {programs.length - 5} more
+                </Text>
+                <Ionicons name="chevron-down" size={14} color={colors.accent1} />
+              </View>
+            </Pressable>
+          )}
+        </>
+      )}
+    </View>
+  );
+}
+
+// ── Active Programs Group ────────────────────────────────────────────────
+
+function ActiveGroup({ programs, colors, onDone, onToggleActive, onAddToCalendar }: {
+  programs: OutputSnapshot['programs']['recommendations'];
+  colors: any;
+  onDone?: (programId: string) => void;
+  onToggleActive?: (programId: string) => void;
+  onAddToCalendar?: (program: any) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <View style={styles.group}>
+      <Pressable onPress={() => setExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
+        <Ionicons
+          name={expanded ? 'chevron-down' : 'chevron-forward'}
+          size={16}
+          color={colors.textMuted}
+        />
+        <View style={[styles.priorityDot, { backgroundColor: colors.accent }]} />
+        <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>{'🔥 Active Programs'}</Text>
+        <View style={[styles.countBadge, { backgroundColor: '#2ECC7122' }]}>
+          <Text style={[styles.countBadgeText, { color: colors.accent }]}>{programs.length}</Text>
+        </View>
+      </Pressable>
+
+      {expanded && (
+        <>
+          <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+            Programs you're currently working on
+          </Text>
+          {programs.map((p) => (
+            <ProgramCard key={p.programId} program={p} colors={colors} onDone={onDone} isActive={true} onToggleActive={onToggleActive} hideNotForMe onAddToCalendar={onAddToCalendar} />
+          ))}
+        </>
       )}
     </View>
   );
@@ -240,36 +365,36 @@ function PriorityGroup({ label, programs, colors }: {
 
 // ── Program Card ────────────────────────────────────────────────────────
 
-function ProgramCard({ program, colors }: {
+function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleActive, hideNotForMe, onAddToCalendar }: {
   program: OutputSnapshot['programs']['recommendations'][0];
   colors: any;
+  onDone?: (programId: string) => void;
+  onDismiss?: (programId: string) => void;
+  isActive?: boolean;
+  onToggleActive?: (programId: string) => void;
+  hideNotForMe?: boolean;
+  onAddToCalendar?: (program: any) => void;
 }) {
+  const navigation = useNavigation<any>();
   const [expanded, setExpanded] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'done' | 'dismissed' | null>(null);
   const priorityColor = PRIORITY_COLORS[program.priority] || '#666';
   const emoji = CATEGORY_EMOJI[program.category] || '📋';
   const diffColor = DIFFICULTY_COLORS[program.difficulty] || '#666';
 
+  const isCoachAssigned = (program as any).coachName || (program as any).coachId;
+
   return (
-    <Pressable onPress={() => setExpanded(!expanded)}>
+    <Pressable onPress={() => !confirmAction && setExpanded(!expanded)}>
       <GlassCard>
-        {/* Header with emoji + name */}
+        {/* Collapsed: single row — emoji + name + freq/duration + chevron */}
         <View style={styles.cardHeader}>
           <Text style={styles.cardEmoji}>{emoji}</Text>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.programName, { color: colors.textOnDark }]}>{program.name}</Text>
-            <View style={styles.metaRow}>
-              <Text style={[styles.programMeta, { color: colors.textMuted }]}>
-                {program.frequency} · {program.durationMin}min
-              </Text>
-              <View style={[styles.diffBadge, { backgroundColor: diffColor + '22' }]}>
-                <Text style={[styles.diffText, { color: diffColor }]}>{program.difficulty}</Text>
-              </View>
-              <View style={[styles.typeBadge, { backgroundColor: program.type === 'physical' ? '#FF6B3518' : '#5E5CE618' }]}>
-                <Text style={[styles.typeText, { color: program.type === 'physical' ? '#FF6B35' : '#5E5CE6' }]}>
-                  {program.type === 'physical' ? '⚡' : '⚽'} {program.type}
-                </Text>
-              </View>
-            </View>
+            <Text style={[styles.programName, { color: colors.textOnDark }]} numberOfLines={1}>{program.name}</Text>
+            <Text style={[styles.programMeta, { color: colors.textMuted }]}>
+              {program.frequency} · {program.durationMin} min
+            </Text>
           </View>
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -278,33 +403,55 @@ function ProgramCard({ program, colors }: {
           />
         </View>
 
-        {/* Impact statement — the Gen Z hook */}
-        <View style={[styles.impactBanner, { backgroundColor: priorityColor + '10' }]}>
-          <Ionicons name="flash" size={14} color={priorityColor} />
-          <Text style={[styles.impactText, { color: priorityColor }]}>
-            {program.impact}
-          </Text>
-        </View>
-
-        {/* Position note */}
-        {program.positionNote && !expanded ? (
-          <View style={[styles.positionBadge, { backgroundColor: colors.accent1 + '12' }]}>
-            <Ionicons name="football-outline" size={12} color={colors.accent1} />
-            <Text style={[styles.positionBadgeText, { color: colors.accent1 }]}>{program.positionNote}</Text>
-          </View>
-        ) : null}
-
-        {/* PHV Warnings */}
-        {program.phvWarnings.length > 0 && (
-          <View style={[styles.warningBadge, { backgroundColor: '#FF453A15' }]}>
-            <Ionicons name="warning-outline" size={12} color="#FF453A" />
-            <Text style={styles.warningText}>{program.phvWarnings[0]}</Text>
-          </View>
-        )}
-
         {/* ── Expanded content ────────────────────────────────── */}
         {expanded && (
           <View style={styles.expandedContent}>
+            {/* Coach badge */}
+            {isCoachAssigned && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="person-circle-outline" size={14} color={colors.info} />
+                <Text style={{ fontSize: 11, fontFamily: fontFamily.semiBold, color: colors.info }}>
+                  Assigned by Coach {(program as any).coachName || ''}
+                </Text>
+              </View>
+            )}
+
+            {/* Difficulty + type badges */}
+            <View style={styles.metaRow}>
+              <View style={[styles.diffBadge, { backgroundColor: diffColor + '22' }]}>
+                <Text style={[styles.diffText, { color: diffColor }]}>{program.difficulty}</Text>
+              </View>
+              <View style={[styles.typeBadge, { backgroundColor: program.type === 'physical' ? '#2ECC7118' : '#5E5CE618' }]}>
+                <Text style={[styles.typeText, { color: program.type === 'physical' ? colors.accent : colors.info }]}>
+                  {program.type === 'physical' ? '⚡' : '⚽'} {program.type}
+                </Text>
+              </View>
+            </View>
+
+            {/* Impact statement */}
+            <View style={[styles.impactBanner, { backgroundColor: priorityColor + '10' }]}>
+              <Ionicons name="flash" size={14} color={priorityColor} />
+              <Text style={[styles.impactText, { color: priorityColor }]}>
+                {program.impact}
+              </Text>
+            </View>
+
+            {/* Position note */}
+            {program.positionNote ? (
+              <View style={[styles.positionBadge, { backgroundColor: colors.accent1 + '12' }]}>
+                <Ionicons name="football-outline" size={12} color={colors.accent1} />
+                <Text style={[styles.positionBadgeText, { color: colors.accent1 }]}>{program.positionNote}</Text>
+              </View>
+            ) : null}
+
+            {/* PHV Warnings */}
+            {program.phvWarnings.length > 0 && (
+              <View style={[styles.warningBadge, { backgroundColor: '#FF453A15' }]}>
+                <Ionicons name="warning-outline" size={12} color={colors.error} />
+                <Text style={styles.warningText}>{program.phvWarnings[0]}</Text>
+              </View>
+            )}
+
             {/* Description */}
             <Text style={[styles.descriptionText, { color: colors.textMuted }]}>
               {program.description}
@@ -330,7 +477,7 @@ function ProgramCard({ program, colors }: {
               </View>
             )}
 
-            {/* Position note in expanded */}
+            {/* Position note expanded */}
             {program.positionNote ? (
               <View style={styles.positionExpandedRow}>
                 <Ionicons name="football-outline" size={14} color={colors.accent1} />
@@ -364,14 +511,148 @@ function ProgramCard({ program, colors }: {
             {/* All PHV warnings in expanded */}
             {program.phvWarnings.length > 1 && (
               <View style={[styles.phvExpandedBlock, { backgroundColor: '#FF453A10' }]}>
-                <Text style={[styles.phvExpandedTitle, { color: '#FF453A' }]}>⚠️ Growth considerations</Text>
+                <Text style={[styles.phvExpandedTitle, { color: colors.error }]}>⚠️ Growth considerations</Text>
                 {program.phvWarnings.map((w, i) => (
-                  <Text key={i} style={[styles.phvExpandedText, { color: '#FF453A' }]}>• {w}</Text>
+                  <Text key={i} style={[styles.phvExpandedText, { color: colors.error }]}>• {w}</Text>
                 ))}
+              </View>
+            )}
+
+            {/* Add to Calendar */}
+            {onAddToCalendar && (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onAddToCalendar({
+                    programId: program.programId,
+                    name: program.name,
+                    durationMin: program.durationMin,
+                    type: program.type,
+                    category: program.category,
+                    difficulty: program.difficulty,
+                    description: program.description,
+                    frequency: program.frequency,
+                    prescription: program.prescription,
+                  });
+                }}
+                style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
+              >
+                <Ionicons name="barbell-outline" size={16} color={colors.info} />
+                <Text style={[styles.askTomoText, { color: colors.info }]}>Add to Training</Text>
+              </Pressable>
+            )}
+
+            {/* Ask Tomo about this program */}
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                const prompt = `Explain my ${program.name} program drills`;
+                navigation.navigate('Main', {
+                  screen: 'MainTabs',
+                  params: {
+                    screen: 'Chat',
+                    params: { prefillMessage: prompt, newSession: true },
+                  },
+                });
+              }}
+              style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.info} />
+              <Text style={[styles.askTomoText, { color: colors.info }]}>Ask Tomo about this program</Text>
+            </Pressable>
+
+            {/* Action buttons — Active / Done / Not for me */}
+            {!isCoachAssigned && (onDone || onDismiss || onToggleActive) && (
+              <View
+                style={styles.cardActions}
+                onStartShouldSetResponder={() => true}
+                onTouchEnd={(e) => e.stopPropagation()}
+              >
+                {onToggleActive && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.cardActionBtn,
+                      { backgroundColor: (isActive ? colors.accent : colors.textMuted) + '18', opacity: pressed ? 0.7 : 1 },
+                    ]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onToggleActive(program.programId);
+                    }}
+                  >
+                    <Ionicons name={isActive ? 'flame' : 'flame-outline'} size={16} color={isActive ? colors.accent : colors.textMuted} />
+                    <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.textMuted }]}>Active</Text>
+                  </Pressable>
+                )}
+                {onDone && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.cardActionBtn,
+                      { backgroundColor: colors.accent + '18', opacity: pressed ? 0.7 : 1 },
+                    ]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setConfirmAction('done');
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={16} color={colors.accent} />
+                    <Text style={[styles.cardActionText, { color: colors.accent }]}>Done</Text>
+                  </Pressable>
+                )}
+                {onDismiss && !hideNotForMe && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.cardActionBtn,
+                      { backgroundColor: colors.textMuted + '12', opacity: pressed ? 0.7 : 1 },
+                    ]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setConfirmAction('dismissed');
+                    }}
+                  >
+                    <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
+                    <Text style={[styles.cardActionText, { color: colors.textMuted }]}>Not for me</Text>
+                  </Pressable>
+                )}
               </View>
             )}
           </View>
         )}
+
+        {/* Confirmation bar — appears at bottom of card, right where user tapped */}
+        {confirmAction && (() => {
+          const isDone = confirmAction === 'done';
+          return (
+            <View style={[styles.confirmRow, { backgroundColor: isDone ? '#2ECC7110' : colors.accent1 + '10', borderRadius: borderRadius.sm, marginTop: spacing.sm }]}>
+              <Ionicons
+                name={isDone ? 'checkmark-circle' : 'close-circle'}
+                size={18}
+                color={isDone ? colors.accent : colors.accent1}
+              />
+              <Text style={[styles.confirmLabel, { color: colors.textOnDark }]} numberOfLines={1}>
+                {isDone ? 'Mark as done?' : 'Remove this?'}
+              </Text>
+              <Pressable
+                style={({ pressed }) => [styles.confirmChip, { backgroundColor: colors.backgroundElevated, opacity: pressed ? 0.7 : 1 }]}
+                onPress={(e) => { e.stopPropagation(); setConfirmAction(null); }}
+              >
+                <Text style={[styles.confirmChipText, { color: colors.textInactive }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.confirmChip, { backgroundColor: isDone ? colors.accent : colors.accent1, opacity: pressed ? 0.8 : 1 }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  if (confirmAction === 'done' && onDone) onDone(program.programId);
+                  if (confirmAction === 'dismissed' && onDismiss) onDismiss(program.programId);
+                  setConfirmAction(null);
+                }}
+              >
+                <Text style={[styles.confirmChipText, { color: '#FFF' }]}>
+                  {isDone ? 'Done' : 'Remove'}
+                </Text>
+              </Pressable>
+            </View>
+          );
+        })()}
       </GlassCard>
     </Pressable>
   );
@@ -391,8 +672,27 @@ function RxChip({ label, value, colors }: { label: string; value: string; colors
 const styles = StyleSheet.create({
   container: { gap: spacing.sm },
 
+  // Deep refresh
+  refreshBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: borderRadius.md,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+  },
+  refreshText: { fontFamily: fontFamily.medium, fontSize: 13 },
+
   // Hero
-  heroTitle: { fontFamily: fontFamily.bold, fontSize: 18, marginBottom: 2 },
+  heroTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  heroTitle: { fontFamily: fontFamily.bold, fontSize: 18, flex: 1 },
+  aiBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  aiBadgeText: { fontFamily: fontFamily.semiBold, fontSize: 11, color: colors.info },
   heroSubtitle: { fontFamily: fontFamily.regular, fontSize: 13, marginBottom: spacing.md },
   statsRow: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md },
   statChip: { flex: 1, borderRadius: borderRadius.sm, paddingVertical: 8, alignItems: 'center' },
@@ -404,6 +704,8 @@ const styles = StyleSheet.create({
   dayCol: { alignItems: 'center', gap: 4 },
   dayDot: { width: 10, height: 10, borderRadius: 5 },
   dayLabel: { fontFamily: fontFamily.regular, fontSize: 10 },
+  expandHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 4 },
+  expandHintText: { fontFamily: fontFamily.medium, fontSize: 12 },
   weekSuggestion: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 17, marginBottom: spacing.sm },
   structureRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   structureChip: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
@@ -427,6 +729,12 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 4,
   },
+  groupHeaderTappable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+  },
   priorityDot: { width: 8, height: 8, borderRadius: 4 },
   groupLabel: { fontFamily: fontFamily.bold, fontSize: 15 },
   countBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
@@ -445,7 +753,7 @@ const styles = StyleSheet.create({
   // Program card
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 10,
   },
   cardEmoji: { fontSize: 24, marginTop: 2 },
@@ -493,7 +801,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     alignSelf: 'flex-start',
   },
-  warningText: { fontFamily: fontFamily.medium, fontSize: 11, color: '#FF453A' },
+  warningText: { fontFamily: fontFamily.medium, fontSize: 11, color: colors.error },
 
   // Expanded
   expandedContent: { marginTop: spacing.sm, gap: spacing.sm },
@@ -518,12 +826,120 @@ const styles = StyleSheet.create({
   phvExpandedTitle: { fontFamily: fontFamily.semiBold, fontSize: 12 },
   phvExpandedText: { fontFamily: fontFamily.regular, fontSize: 11 },
 
+  // Compact inline confirmation
+  confirmRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  confirmLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
+    flex: 1,
+  },
+  confirmChip: {
+    paddingHorizontal: spacing.compact,
+    paddingVertical: 5,
+    borderRadius: borderRadius.full,
+  },
+  confirmChipText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 12,
+  },
+
+  // Ask Tomo
+  askTomoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  askTomoText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
+  },
+
+  // Card actions
+  cardActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  cardActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.compact,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+  },
+  cardActionText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 12,
+  },
+
   // Empty
   emptyState: {
     alignItems: 'center',
-    paddingVertical: spacing.huge,
+    paddingVertical: spacing.xl,
     gap: spacing.sm,
   },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
   emptyTitle: { fontFamily: fontFamily.semiBold, fontSize: 16 },
-  emptySubtitle: { fontFamily: fontFamily.regular, fontSize: 13, textAlign: 'center', paddingHorizontal: spacing.lg },
+  emptySubtitle: { fontFamily: fontFamily.regular, fontSize: 13, textAlign: 'center', paddingHorizontal: spacing.lg, lineHeight: 19 },
+  checklistContainer: {
+    alignSelf: 'stretch',
+    marginTop: spacing.md,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  checklistHeader: {
+    fontFamily: fontFamily.medium,
+    fontSize: 12,
+    marginBottom: spacing.xs,
+  },
+  checklistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  checklistText: {
+    fontFamily: fontFamily.regular,
+    fontSize: 13,
+    flex: 1,
+  },
+  ctaRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+  },
+  ctaButtonText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
 });

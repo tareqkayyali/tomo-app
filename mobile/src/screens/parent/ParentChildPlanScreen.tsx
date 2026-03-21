@@ -34,8 +34,9 @@ import { spacing, layout, fontFamily, borderRadius } from '../../theme';
 import type { ParentTabParamList, ParentStackParamList } from '../../navigation/types';
 import type { PlayerSummary } from '../../types';
 
+// @ts-ignore — Legacy screen, kept for backward compat. New flow uses ParentChildDetailScreen.
 type Props = CompositeScreenProps<
-  BottomTabScreenProps<ParentTabParamList, 'Timeline'>,
+  BottomTabScreenProps<ParentTabParamList, 'Children'>,
   NativeStackScreenProps<ParentStackParamList>
 >;
 

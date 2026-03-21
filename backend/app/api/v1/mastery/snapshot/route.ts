@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requireRelationship } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getRecommendations } from "@/services/recommendations/getRecommendations";
 import {
@@ -363,7 +363,7 @@ function inferDirection(rawType: string): "lower_better" | "higher_better" {
 /**
  * Build the 6-axis radar from pillar percentiles (player's actual values).
  */
-function buildRadarFromPillars(pillars: MasteryPillar[]): RadarAxis[] {
+function buildRadarFromPillars(pillars: MasteryPillar[], cmsColors?: Map<string, string>): RadarAxis[] {
   const groupPercentiles = new Map<string, number>();
   for (const p of pillars) {
     if (p.avgPercentile !== null) {
@@ -384,7 +384,9 @@ function buildRadarFromPillars(pillars: MasteryPillar[]): RadarAxis[] {
           )
         : 0;
 
-    axes.push({ key, label: def.label, value: avgP, maxValue: 99, color: def.color });
+    // Use CMS attribute color if available, fall back to hardcoded
+    const color = cmsColors?.get(key) || def.color;
+    axes.push({ key, label: def.label, value: avgP, maxValue: 99, color });
   }
   return axes;
 }
@@ -395,7 +397,7 @@ function buildRadarFromPillars(pillars: MasteryPillar[]): RadarAxis[] {
  * Axes with at least one norm metric get value 50 (the median target),
  * axes with no norm data get 0.
  */
-function buildBenchmarkRadar(pillars: MasteryPillar[], norms: NormRow[]): RadarAxis[] {
+function buildBenchmarkRadar(pillars: MasteryPillar[], norms: NormRow[], cmsColors?: Map<string, string>): RadarAxis[] {
   // Determine which groups have norm data
   const groupHasNorms = new Set<string>();
   for (const norm of norms) {
@@ -406,12 +408,13 @@ function buildBenchmarkRadar(pillars: MasteryPillar[], norms: NormRow[]): RadarA
   const axes: RadarAxis[] = [];
   for (const [key, def] of Object.entries(RADAR_AXIS_MAP)) {
     const hasData = def.groupIds.some((gid) => groupHasNorms.has(gid));
+    const color = cmsColors?.get(key) || def.color;
     axes.push({
       key,
       label: def.label,
-      value: hasData ? 50 : 0, // P50 = 50th percentile by definition
+      value: hasData ? 50 : 0,
       maxValue: 99,
-      color: def.color,
+      color,
     });
   }
   return axes;
@@ -431,19 +434,9 @@ export async function GET(req: NextRequest) {
   let athleteId = requestingUserId;
 
   if (targetPlayerId && targetPlayerId !== requestingUserId) {
-    // Verify the requesting user has permission to view this player
-    const { data: requestingProfile } = await (db as any)
-      .from("users")
-      .select("role")
-      .eq("id", requestingUserId)
-      .single();
-
-    if (!requestingProfile || !["COACH", "PARENT"].includes(requestingProfile.role)) {
-      return NextResponse.json(
-        { error: "Not authorized to view this player" },
-        { status: 403 },
-      );
-    }
+    // Verify the requesting user has an active relationship with the target player
+    const rel = await requireRelationship(requestingUserId, targetPlayerId);
+    if ("error" in rel) return rel.error;
 
     athleteId = targetPlayerId;
   }
@@ -466,8 +459,8 @@ export async function GET(req: NextRequest) {
   const position = profile.position || "ALL";
   const gender = profile.gender || "male";
 
-  // 2. Parallel fetches — benchmark snapshots, norms, raw test sessions, AND Layer 4 recs
-  const [benchmarkResult, normsResult, rawTestsResult, masteryRecsResult] = await Promise.allSettled([
+  // 2. Parallel fetches — benchmark snapshots, norms, raw test sessions, sport attributes, AND Layer 4 recs
+  const [benchmarkResult, normsResult, rawTestsResult, sportAttrsResult, masteryRecsResult] = await Promise.allSettled([
     getPlayerBenchmarkProfile(athleteId),
     getPositionNorms(sport, position, ageBand, gender, "elite"),
     db
@@ -476,6 +469,12 @@ export async function GET(req: NextRequest) {
       .eq("user_id", athleteId)
       .order("date", { ascending: false })
       .limit(100),
+    // Fetch CMS sport attribute colors for radar
+    db
+      .from("sport_attributes")
+      .select("key, color, label, full_name")
+      .eq("sport_id", sport)
+      .order("sort_order", { ascending: true }),
     // Layer 4 — DEVELOPMENT, MOTIVATION, CV_OPPORTUNITY recs for mastery page
     getRecommendations(athleteId, {
       role: "ATHLETE",
@@ -492,6 +491,34 @@ export async function GET(req: NextRequest) {
 
   const masteryRecs: any[] =
     masteryRecsResult.status === "fulfilled" ? (masteryRecsResult.value as any[]) : [];
+
+  // Build CMS attribute color override map
+  // Maps radar axis keys (pace, power, agility, endurance, strength, mobility)
+  // to CMS sport_attributes colors (pace, shooting, passing, dribbling, defending, physicality)
+  const RADAR_TO_ATTRIBUTE: Record<string, string> = {
+    pace: "pace",
+    power: "physicality",
+    agility: "dribbling",
+    endurance: "defending",
+    strength: "shooting",
+    mobility: "passing",
+  };
+
+  const cmsAttrColors = new Map<string, string>();
+  if (sportAttrsResult.status === "fulfilled") {
+    const attrs = (sportAttrsResult.value as any)?.data ?? [];
+    const attrColorByKey = new Map<string, string>();
+    for (const attr of attrs) {
+      if (attr.key && attr.color) {
+        attrColorByKey.set(attr.key, attr.color);
+      }
+    }
+    // Map radar axis keys → CMS attribute colors
+    for (const [radarKey, attrKey] of Object.entries(RADAR_TO_ATTRIBUTE)) {
+      const color = attrColorByKey.get(attrKey);
+      if (color) cmsAttrColors.set(radarKey, color);
+    }
+  }
 
   // Deduplicate raw tests: latest per test_type
   const rawTests = rawTestsResult.status === "fulfilled"
@@ -517,8 +544,8 @@ export async function GET(req: NextRequest) {
   const pillars = buildMasteryPillars(benchmarkResults, norms, recentRawTests);
 
   // 4. Radar profiles — player actual + benchmark (P50 target)
-  const radarProfile = buildRadarFromPillars(pillars);
-  const benchmarkRadarProfile = buildBenchmarkRadar(pillars, norms);
+  const radarProfile = buildRadarFromPillars(pillars, cmsAttrColors);
+  const benchmarkRadarProfile = buildBenchmarkRadar(pillars, norms, cmsAttrColors);
 
   // 5. Overall rating + tier
   const pillarsWithData = pillars.filter((p) => p.avgPercentile !== null);
@@ -564,6 +591,6 @@ export async function GET(req: NextRequest) {
   };
 
   return NextResponse.json(snapshot, {
-    headers: { "api-version": "v1", "Cache-Control": "private, max-age=300" },
+    headers: { "api-version": "v1", "Cache-Control": "private, no-cache" },
   });
 }

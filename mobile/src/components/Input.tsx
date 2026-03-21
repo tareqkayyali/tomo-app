@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   input: {
     ...typography.body,
     flex: 1,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     paddingVertical: spacing.compact,
     backgroundColor: 'transparent',
   },

@@ -157,7 +157,14 @@ export async function executeTimelineTool(
           .lte("start_at", dayEnd)
           .order("start_at");
         if (error) throw error;
-        return { result: { date, events: data ?? [] } };
+        // Convert UTC times to player's local timezone for Claude
+        const localEvents = (data ?? []).map(e => ({
+          ...e,
+          local_start: new Date(e.start_at).toLocaleString("en-GB", { timeZone: context.timezone, hour: "2-digit", minute: "2-digit", hour12: false }),
+          local_end: e.end_at ? new Date(e.end_at).toLocaleString("en-GB", { timeZone: context.timezone, hour: "2-digit", minute: "2-digit", hour12: false }) : null,
+          local_date: new Date(e.start_at).toLocaleDateString("en-CA", { timeZone: context.timezone }),
+        }));
+        return { result: { date, timezone: context.timezone, events: localEvents } };
       }
 
       case "get_week_schedule": {
@@ -175,14 +182,16 @@ export async function executeTimelineTool(
           .order("start_at");
         if (error) throw error;
 
-        // Group by date
+        // Group by LOCAL date (not UTC) and add local times
         const byDate: Record<string, any[]> = {};
         for (const event of data ?? []) {
-          const eventDate = event.start_at.split("T")[0];
-          if (!byDate[eventDate]) byDate[eventDate] = [];
-          byDate[eventDate].push(event);
+          const localDate = new Date(event.start_at).toLocaleDateString("en-CA", { timeZone: context.timezone });
+          const localStart = new Date(event.start_at).toLocaleString("en-GB", { timeZone: context.timezone, hour: "2-digit", minute: "2-digit", hour12: false });
+          const localEnd = event.end_at ? new Date(event.end_at).toLocaleString("en-GB", { timeZone: context.timezone, hour: "2-digit", minute: "2-digit", hour12: false }) : null;
+          if (!byDate[localDate]) byDate[localDate] = [];
+          byDate[localDate].push({ ...event, local_start: localStart, local_end: localEnd, local_date: localDate });
         }
-        return { result: { startDate: start, endDate: end, schedule: byDate } };
+        return { result: { startDate: start, endDate: end, timezone: context.timezone, schedule: byDate } };
       }
 
       case "create_event": {
@@ -445,7 +454,7 @@ export function buildTimelineSystemPrompt(context: PlayerContext): string {
 PLAYER CONTEXT:
 - Name: ${context.name}
 - Sport: ${context.sport} | Age Band: ${context.ageBand ?? "Unknown"}
-- Today: ${context.todayDate} (${new Date(`${context.todayDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" })})
+- Today: ${context.todayDate} (${new Date(`${context.todayDate}T12:00:00`).toLocaleDateString("en-US", { timeZone: context.timezone, weekday: "long" })})
 - Tomorrow: ${tomorrow}
 - Current time: ${context.currentTime}
 - Today's events: ${eventsDesc}
@@ -482,8 +491,13 @@ CONVERSATION CONTEXT — CRITICAL:
 - ALWAYS use get_today_events with the correct date parameter from conversation context. Do NOT default to today when the context is about another day.
 - When the user says "tomorrow", use date ${tomorrow}. When they say "today", use date ${context.todayDate}.
 
+TIMEZONE — CRITICAL:
+- The player's timezone is ${context.timezone}. Current local time: ${context.currentTime}.
+- Event tool results include "local_start" and "local_end" fields — ALWAYS use these for display, NOT "start_at" or "end_at" (which are UTC).
+- When showing times to the player, use the local_start/local_end values (e.g. "13:00" not "10:00+00:00").
+
 TIME DIRECTION — CRITICAL:
-- The current time is ${context.currentTime}. Any event with a start_at BEFORE now ON TODAY'S DATE is in the PAST.
+- The current time is ${context.currentTime}. Any event with a local_start BEFORE now ON TODAY'S DATE is in the PAST.
 - NEVER delete, modify, recommend changes to, or reschedule PAST events. They already happened.
 - NEVER show past events with action chips or suggest cancelling them. Past events are read-only load data.
 - All actions (create, update, delete) must target FUTURE events and time slots only.

@@ -27,22 +27,37 @@ import {
   markAllNotificationsRead,
   respondToParentLink,
 } from '../services/api';
-import { spacing, borderRadius, layout } from '../theme';
+import { spacing, borderRadius, layout, fontFamily } from '../theme';
 import type { AppNotification, NotificationType } from '../types';
 import { DrillNotificationCard } from '../components/player/DrillNotificationCard';
+import { colors } from '../theme/colors';
 
 const ICON_MAP: Record<NotificationType, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  suggestion_received: { icon: 'bulb-outline', color: '#FF6B35' },
-  suggestion_resolved: { icon: 'checkmark-circle-outline', color: '#2ED573' },
-  relationship_accepted: { icon: 'people-outline', color: '#4A9EFF' },
-  relationship_declined: { icon: 'person-remove-outline', color: '#E74C3C' },
-  test_result_added: { icon: 'flash-outline', color: '#FF6B35' },
-  parent_link_request: { icon: 'people-outline', color: '#4A9EFF' },
-  coach_link_request: { icon: 'fitness-outline', color: '#FF6B35' },
-  study_info_request: { icon: 'school-outline', color: '#4A9EFF' },
-  coach_drill_assigned: { icon: 'barbell-outline', color: '#FF6B35' },
-  coach_programme_published: { icon: 'megaphone-outline', color: '#4A9EFF' },
+  suggestion_received: { icon: 'bulb-outline', color: colors.accent },
+  suggestion_resolved: { icon: 'checkmark-circle-outline', color: colors.accent },
+  relationship_accepted: { icon: 'people-outline', color: colors.info },
+  relationship_declined: { icon: 'person-remove-outline', color: colors.error },
+  test_result_added: { icon: 'flash-outline', color: colors.accent },
+  parent_link_request: { icon: 'people-outline', color: colors.info },
+  coach_link_request: { icon: 'fitness-outline', color: colors.accent },
+  study_info_request: { icon: 'school-outline', color: colors.info },
+  coach_drill_assigned: { icon: 'barbell-outline', color: colors.accent },
+  coach_programme_published: { icon: 'megaphone-outline', color: colors.info },
 };
+
+function getNavHint(type: string, data?: Record<string, unknown>): string | null {
+  switch (type) {
+    case 'test_result_added': return 'View in My Metrics';
+    case 'suggestion_received': {
+      if (data?.type === 'program' || data?.programmeId) return 'View in My Programs';
+      return 'View in Timeline';
+    }
+    case 'suggestion_resolved': return 'View in Timeline';
+    case 'coach_programme_published': return 'View in Timeline';
+    case 'relationship_accepted': return 'View Profile';
+    default: return null;
+  }
+}
 
 function timeAgo(dateStr: string): string {
   const now = Date.now();
@@ -102,9 +117,49 @@ export function NotificationsScreen() {
       }
     }
 
-    // Deep-link: study_info_request → EditProfile
-    if (notif.type === 'study_info_request') {
-      navigation.navigate('EditProfile');
+    // Deep navigation by notification type
+    switch (notif.type) {
+      case 'test_result_added':
+        // Coach submitted a test → go to Output tab → My Metrics
+        (navigation as any).navigate('Test', { initialTab: 'metrics' });
+        break;
+
+      case 'suggestion_received': {
+        // Coach assigned a program or study block
+        const payload = notif.data as Record<string, unknown>;
+        if (payload?.type === 'program' || payload?.programmeId) {
+          // Program → go to Output tab → My Programs
+          (navigation as any).navigate('Test', { initialTab: 'programs' });
+        } else {
+          // Study block or other suggestion → go to Timeline
+          (navigation as any).navigate('Plan');
+        }
+        break;
+      }
+
+      case 'suggestion_resolved':
+        // Suggestion was resolved → go to Timeline to see result
+        (navigation as any).navigate('Plan');
+        break;
+
+      case 'relationship_accepted':
+      case 'relationship_declined':
+        // Relationship update → go to Profile
+        (navigation as any).navigate('Profile');
+        break;
+
+      case 'study_info_request':
+        (navigation as any).navigate('Profile');
+        break;
+
+      case 'coach_programme_published':
+        // Programme published → go to Timeline to see scheduled events
+        (navigation as any).navigate('Plan');
+        break;
+
+      default:
+        // No specific navigation for other types
+        break;
     }
   }, [navigation]);
 
@@ -199,14 +254,14 @@ export function NotificationsScreen() {
                     onPress={() => handleRespondToLink(item, 'accept')}
                     style={[styles.linkBtn, styles.linkBtnAccept]}
                   >
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={14} color={colors.textPrimary} />
                     <Text style={styles.linkBtnText}>Accept</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => handleRespondToLink(item, 'decline')}
                     style={[styles.linkBtn, styles.linkBtnDecline]}
                   >
-                    <Ionicons name="close" size={14} color="#FFFFFF" />
+                    <Ionicons name="close" size={14} color={colors.textPrimary} />
                     <Text style={styles.linkBtnText}>Decline</Text>
                   </Pressable>
                 </>
@@ -222,10 +277,20 @@ export function NotificationsScreen() {
             ]}>
               <Text style={[
                 styles.resolvedText,
-                { color: resolved === 'accepted' ? '#2ED573' : '#E74C3C' },
+                { color: resolved === 'accepted' ? colors.accent : colors.error },
               ]}>
                 {resolved === 'accepted' ? 'Accepted' : 'Declined'}
               </Text>
+            </View>
+          )}
+
+          {/* Action hint for navigable notifications */}
+          {!isParentLink && getNavHint(item.type, item.data) && (
+            <View style={styles.navHintRow}>
+              <Text style={[styles.navHintText, { color: colors.accent1 }]}>
+                {getNavHint(item.type, item.data)}
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color={colors.accent1} />
             </View>
           )}
 
@@ -233,7 +298,7 @@ export function NotificationsScreen() {
             {timeAgo(item.created_at)}
           </Text>
         </View>
-        {!item.read && <View style={[styles.unreadDot, { backgroundColor: '#FF6B35' }]} />}
+        {!item.read && <View style={[styles.unreadDot, { backgroundColor: colors.accent }]} />}
       </Pressable>
     );
   };
@@ -337,6 +402,16 @@ const styles = StyleSheet.create({
   cardTime: {
     fontSize: 12,
   },
+  navHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 4,
+  },
+  navHintText: {
+    fontSize: 11,
+    fontFamily: fontFamily.semiBold,
+  },
   unreadDot: {
     width: 8,
     height: 8,
@@ -372,13 +447,13 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
   },
   linkBtnAccept: {
-    backgroundColor: '#2ED573',
+    backgroundColor: colors.accent,
   },
   linkBtnDecline: {
-    backgroundColor: '#E74C3C',
+    backgroundColor: colors.error,
   },
   linkBtnText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '700',
   },

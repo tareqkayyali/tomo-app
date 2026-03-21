@@ -280,7 +280,7 @@ export function ShotSessionScreen({ navigation }: Props) {
     <View style={[styles.screen, styles.successContainer]}>
       <Animated.View style={[entrance, styles.successContent]}>
         <View style={styles.successIcon}>
-          <Ionicons name="checkmark-circle" size={64} color="#30D158" />
+          <Ionicons name="checkmark-circle" size={64} color={colors.accent} />
         </View>
         <Text style={styles.successTitle}>Session Logged!</Text>
         <Text style={styles.successSubtitle}>
@@ -332,7 +332,7 @@ function TypeChip({
         <Ionicons
           name={icon as any}
           size={16}
-          color={active ? '#FFFFFF' : colors.textInactive}
+          color={active ? colors.textPrimary : colors.textInactive}
         />
         <Text
           style={[styles.typeChipText, active && styles.typeChipTextActive]}
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     color: colors.textInactive,
   },
   typeChipTextActive: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   selectorWrap: {
     marginBottom: spacing.xl,

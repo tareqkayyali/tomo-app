@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requireRelationship } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { aggregateWeeklyVitals } from "@/services/output/weeklyVitalsAggregator";
 import { buildPHVDisplay, type PHVDisplayData } from "@/services/output/ltadMapper";
@@ -20,6 +20,7 @@ import {
   type BenchmarkResult,
 } from "@/services/benchmarkService";
 import { getInlinePrograms } from "@/services/programs/footballPrograms";
+import { getCachedProgramRecommendations, triggerDeepProgramRefreshAsync } from "@/services/programs/deepProgramRefresh";
 import { getAgeBand } from "@/scripts/seeds/football_benchmark_seed";
 import { getRecommendations } from "@/services/recommendations/getRecommendations";
 import {
@@ -238,9 +239,9 @@ interface RawTestGroup {
 }
 
 function groupRawTestsIntoGroups(
-  recentTests: Array<{ testType: string; score: number; unit: string; date: string }>
+  recentTests: Array<{ testType: string; score: number; unit: string; date: string; source?: string; coachId?: string; coachName?: string }>
 ): RawTestGroup[] {
-  const testsByGroup = new Map<string, Array<{ testType: string; score: number; unit: string; date: string; displayName: string }>>();
+  const testsByGroup = new Map<string, Array<{ testType: string; score: number; unit: string; date: string; displayName: string; source?: string; coachName?: string }>>();
 
   for (const t of recentTests) {
     const groupId = RAW_TEST_GROUP_MAP[t.testType];
@@ -309,7 +310,17 @@ export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
 
-  const userId = auth.user.id;
+  // Support coach/parent viewing a player's output data
+  const targetPlayerId = req.nextUrl.searchParams.get("targetPlayerId");
+  let userId = auth.user.id;
+
+  if (targetPlayerId) {
+    // Verify the requesting user has a relationship with the target player
+    const rel = await requireRelationship(auth.user.id, targetPlayerId);
+    if ("error" in rel) return rel.error;
+    userId = targetPlayerId;
+  }
+
   const db = supabaseAdmin();
 
   // 1. Get user profile
@@ -326,7 +337,7 @@ export async function GET(req: NextRequest) {
   const ageBand = getAgeBand(profile.date_of_birth);
 
   // 2. Parallel fetches — all wrapped in allSettled for resilience
-  const [vitalsResult, phvResult, benchmarkResult, checkinResult, rawTestsResult, devRecsResult] = await Promise.allSettled([
+  const [vitalsResult, phvResult, benchmarkResult, checkinResult, rawTestsResult, devRecsResult, aiProgramsResult] = await Promise.allSettled([
     aggregateWeeklyVitals(userId, 7),
     getPlayerPHVStage(userId),
     getPlayerBenchmarkProfile(userId),
@@ -350,6 +361,8 @@ export async function GET(req: NextRequest) {
       recTypes: ["DEVELOPMENT", "CV_OPPORTUNITY", "READINESS", "LOAD_WARNING"],
       limit: 5,
     }),
+    // Layer 5 — AI-generated program recommendations (cached)
+    getCachedProgramRecommendations(userId),
   ]);
 
   // Extract results with safe fallbacks
@@ -358,8 +371,13 @@ export async function GET(req: NextRequest) {
     : { metrics: [], periodStart: "", periodEnd: "", overallSummary: "Could not load vitals." };
 
   const phvRaw = phvResult.status === "fulfilled" ? phvResult.value : null;
-  const phvDisplay: PHVDisplayData | null = phvRaw
-    ? buildPHVDisplay(phvRaw.maturityOffset, phvRaw.phvStage)
+  const phvDisplay: (PHVDisplayData & { standingHeightCm?: number; sittingHeightCm?: number; weightKg?: number }) | null = phvRaw
+    ? {
+        ...buildPHVDisplay(phvRaw.maturityOffset, phvRaw.phvStage),
+        standingHeightCm: (phvRaw as any).standingHeightCm,
+        sittingHeightCm: (phvRaw as any).sittingHeightCm,
+        weightKg: (phvRaw as any).weightKg,
+      }
     : null;
 
   const benchmarkProfile = benchmarkResult.status === "fulfilled"
@@ -374,6 +392,10 @@ export async function GET(req: NextRequest) {
     ? (devRecsResult.value as any[])
     : [];
 
+  const aiPrograms = aiProgramsResult.status === "fulfilled"
+    ? aiProgramsResult.value
+    : null;
+
   const rawTests = rawTestsResult.status === "fulfilled"
     ? ((rawTestsResult.value as any)?.data ?? []) as Array<{
         test_type: string; score: number; date: string; raw_data: any;
@@ -381,7 +403,7 @@ export async function GET(req: NextRequest) {
     : [];
 
   // Deduplicate: latest per test_type
-  const latestRawByType = new Map<string, { testType: string; score: number; unit: string; date: string }>();
+  const latestRawByType = new Map<string, { testType: string; score: number; unit: string; date: string; source?: string; coachId?: string }>();
   for (const t of rawTests) {
     if (!latestRawByType.has(t.test_type)) {
       latestRawByType.set(t.test_type, {
@@ -389,10 +411,44 @@ export async function GET(req: NextRequest) {
         score: Number(t.score),
         unit: t.raw_data?.unit || "",
         date: t.date,
+        source: t.raw_data?.source || undefined,
+        coachId: t.raw_data?.coachId || undefined,
       });
     }
   }
-  const recentTests = Array.from(latestRawByType.values());
+  const recentTestsRaw = Array.from(latestRawByType.values());
+
+  // Second parallel block: coach names for tests, coach programs, and program interactions
+  // These depend on results from the first block (coachIds from rawTests)
+  const coachIds = [...new Set(recentTestsRaw.filter(t => t.coachId).map(t => t.coachId!))];
+
+  const [coachNamesRes, coachProgramsRes, programInteractionsRes] = await Promise.all([
+    // Resolve coach names for coach-submitted tests
+    coachIds.length > 0
+      ? db.from("users").select("id, name").in("id", coachIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; name: string }> }),
+    // Fetch coach-assigned programs (from suggestions)
+    db
+      .from("suggestions")
+      .select("id, title, payload, status, author_id, created_at")
+      .eq("player_id", userId)
+      .eq("suggestion_type", "calendar_event")
+      .order("created_at", { ascending: false })
+      .limit(20),
+    // Fetch program interactions (done/dismissed) to filter out
+    (supabaseAdmin() as any)
+      .from("program_interactions")
+      .select("program_id, action")
+      .eq("user_id", userId) as Promise<{ data: Array<{ program_id: string; action: string }> | null }>,
+  ]);
+
+  // Extract coach name map for tests
+  const coachNameMap: Record<string, string> = {};
+  for (const c of coachNamesRes.data || []) coachNameMap[c.id] = c.name;
+  const recentTests = recentTestsRaw.map(t => ({
+    ...t,
+    coachName: t.coachId ? coachNameMap[t.coachId] || undefined : undefined,
+  }));
 
   // 3. Group benchmarks into 7 test groups + build radar profile
   const categories = benchmarkProfile
@@ -406,15 +462,116 @@ export async function GET(req: NextRequest) {
   // 3b. Group vitals into 7 vital groups
   const vitalGroups = groupVitalsIntoGroups(weekSummary.metrics || []);
 
-  // 4. Program recommendations — inline from hardcoded data (no DB tables needed)
-  const inlineResult = getInlinePrograms(
-    profile.position,
-    ageBand,
-    phvRaw?.phvStage,
-    benchmarkProfile?.gaps ?? [],
+  // 3d. Extract coach-assigned programs
+  const coachPrograms = (coachProgramsRes as any).data ?? null;
+  const coachProgramEntries = (coachPrograms || []).filter((s: any) => s.payload?.type === 'program');
+
+  // Third parallel block: resolve coach names for programs (depends on coachProgramEntries)
+  const programCoachIds = [...new Set(coachProgramEntries.map((s: any) => s.author_id).filter(Boolean))] as string[];
+  const programCoachNames: Record<string, string> = {};
+  if (programCoachIds.length > 0) {
+    const { data: coaches } = await db.from("users").select("id, name").in("id", programCoachIds);
+    for (const c of coaches || []) programCoachNames[c.id] = c.name;
+  }
+
+  // Convert coach programs to InlineProgram format
+  const coachProgramsAsInline = coachProgramEntries.map((s: any) => ({
+    programId: `coach_${s.id}`,
+    name: s.payload?.programName || s.title?.replace('Training Program: ', '') || 'Coach Program',
+    category: s.payload?.category || 'strength',
+    type: 'physical' as const,
+    priority: 'mandatory' as const,
+    durationMin: 45,
+    description: s.payload?.description || '',
+    impact: `Assigned by Coach ${programCoachNames[s.author_id] || ''}`,
+    frequency: s.payload?.frequency || '3x/week',
+    difficulty: s.payload?.intensity || 'moderate',
+    tags: [s.payload?.category, 'coach-assigned'].filter(Boolean),
+    positionNote: '',
+    reason: `Your coach ${programCoachNames[s.author_id] || ''} assigned this ${s.payload?.duration || ''} ${s.payload?.categoryLabel || s.payload?.category || ''} program for you.${s.payload?.coachNotes ? ` Notes: ${s.payload.coachNotes}` : ''}`,
+    prescription: {
+      sets: 3,
+      reps: '10-12',
+      intensity: s.payload?.intensity || 'moderate',
+      rpe: '7',
+      rest: '60s',
+      frequency: s.payload?.frequency || '3x/week',
+      coachingCues: s.payload?.drills?.map((d: any) => `${d.name}: ${d.sets}×${d.reps} (rest ${d.rest})${d.notes ? ` — ${d.notes}` : ''}`) || [],
+    },
+    phvWarnings: [],
+    coachName: programCoachNames[s.author_id] || undefined,
+    coachId: s.author_id,
+    assignedAt: s.created_at,
+  }));
+
+  // Extract program interactions
+  const programInteractions = programInteractionsRes.data;
+
+  const excludedProgramIds = new Set(
+    (programInteractions || []).map((pi) => pi.program_id)
   );
 
-  // 5. Build unified response
+  // 4. Program recommendations — AI-first, no hardcoded fallback.
+  //
+  // Strategy:
+  //   - AI programs cached → use them (personalized to full context)
+  //   - No AI cache → show "generating" state, frontend triggers deep refresh
+  //   - AI always generates based on whatever data is available:
+  //     * Full data users: position + age + benchmarks + gaps + load + vitals
+  //     * New users: just position + age band (still relevant programs)
+  //
+  // Data-needed hints help users understand how to get BETTER programs,
+  // but we never block programs entirely (AI handles sparse data gracefully).
+
+  const hasTestData = (benchmarkProfile?.results?.length ?? 0) > 0 || rawTests.length > 0;
+  const hasCheckinData = checkinData !== null;
+  const hasVitalData = weekSummary.metrics?.length > 0;
+
+  // Hints for improving personalization (shown alongside programs)
+  const dataNeeded: string[] = [];
+  if (!hasCheckinData) dataNeeded.push("Complete a daily check-in for readiness tracking");
+  if (!hasTestData) dataNeeded.push("Log a fitness test to benchmark your level");
+  if (!hasVitalData) dataNeeded.push("Connect a wearable or log vitals");
+
+  const rieRecsMapped = devRecs.map((r: any) => ({
+    recType: r.rec_type,
+    priority: r.priority,
+    title: r.title,
+    bodyShort: r.body_short,
+    confidence: r.confidence_score,
+  }));
+
+  // 5. Build unified response — AI-only, no hardcoded inline fallback
+  const programsSection = aiPrograms ? {
+    recommendations: [...coachProgramsAsInline, ...aiPrograms.programs]
+      .filter((p: any) => !excludedProgramIds.has(p.programId)),
+    weeklyPlanSuggestion: aiPrograms.weeklyPlanSuggestion,
+    weeklyStructure: aiPrograms.weeklyStructure,
+    playerProfile: aiPrograms.playerProfile,
+    isAiGenerated: true,
+    generatedAt: aiPrograms.generatedAt,
+    dataStatus: "ready" as const,
+    dataNeeded, // Show hints even with programs — helps users improve personalization
+    rieRecommendations: rieRecsMapped,
+  } : {
+    // No AI cache — trigger deep refresh in background, show generating state
+    ...(() => { triggerDeepProgramRefreshAsync(userId); return {}; })(),
+    recommendations: [...coachProgramsAsInline]
+      .filter((p: any) => !excludedProgramIds.has(p.programId)),
+    weeklyPlanSuggestion: null,
+    weeklyStructure: null,
+    playerProfile: {
+      ageBand,
+      phvStage: phvRaw?.phvStage ?? "not_applicable",
+      position: profile.position || "ALL",
+    },
+    isAiGenerated: false,
+    generatedAt: null,
+    dataStatus: "generating" as const,
+    dataNeeded,
+    rieRecommendations: rieRecsMapped,
+  };
+
   const snapshot = {
     vitals: {
       weekSummary,
@@ -431,27 +588,16 @@ export async function GET(req: NextRequest) {
       gaps: benchmarkProfile?.gaps ?? [],
       recentTests,
     },
-    programs: {
-      recommendations: inlineResult.programs,
-      weeklyPlanSuggestion: inlineResult.weeklyPlanSuggestion,
-      weeklyStructure: inlineResult.weeklyStructure,
-      playerProfile: {
-        ageBand,
-        phvStage: phvRaw?.phvStage ?? "not_applicable",
-        position: profile.position || "ALL",
-      },
-      // Layer 4 — RIE recs for gap-aware program selection
-      rieRecommendations: devRecs.map((r: any) => ({
-        recType: r.rec_type,
-        priority: r.priority,
-        title: r.title,
-        bodyShort: r.body_short,
-        confidence: r.confidence_score,
-      })),
-    },
+    programs: programsSection,
+    _v: 2, // Version marker — if you see this in DevTools response, new code is live
   };
 
   return NextResponse.json(snapshot, {
-    headers: { "api-version": "v1", "Cache-Control": "private, max-age=300" },
+    headers: {
+      "api-version": "v1",
+      "Cache-Control": "private, no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+    },
   });
 }

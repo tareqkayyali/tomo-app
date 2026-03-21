@@ -49,7 +49,7 @@ export function LoopIndicator({ steps, onStepPress }: LoopIndicatorProps) {
                 ]}
               >
                 {done && (
-                  <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                  <Ionicons name="checkmark" size={12} color={colors.textPrimary} />
                 )}
               </View>
               {/* Label */}

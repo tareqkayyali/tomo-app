@@ -1,6 +1,7 @@
 /**
  * Supabase Client for React Native / Web
- * Uses AsyncStorage for session persistence on native, localStorage on web.
+ * Uses SecureStore for session persistence on native (encrypted),
+ * localStorage on web.
  * Reads config from EXPO_PUBLIC_* env vars (preferred) or app.json extra.
  */
 
@@ -12,6 +13,7 @@ if (Platform.OS !== "web") {
 
 import { createClient } from "@supabase/supabase-js";
 import Constants from "expo-constants";
+import * as SecureStore from "expo-secure-store";
 
 const SUPABASE_URL =
   process.env.EXPO_PUBLIC_SUPABASE_URL ||
@@ -23,23 +25,44 @@ const SUPABASE_ANON_KEY =
   Constants.expoConfig?.extra?.supabaseAnonKey ||
   "";
 
-// Log resolved config on startup for debugging
-console.log(`[Supabase] URL: ${SUPABASE_URL}`);
-console.log(`[Supabase] Key present: ${SUPABASE_ANON_KEY ? 'yes' : 'NO — auth will fail'}`);
-
-// On web, use default localStorage. On native, use AsyncStorage.
-function getAuthStorage() {
-  if (Platform.OS === "web") {
-    return undefined; // Supabase uses localStorage by default on web
-  }
-  // Lazy require to avoid web bundling issues
-  const AsyncStorage = require("@react-native-async-storage/async-storage").default;
-  return AsyncStorage;
-}
+/**
+ * Secure storage adapter for Supabase auth.
+ * Native: expo-secure-store (encrypted keychain/keystore).
+ * Web: default localStorage (Supabase handles this when storage is undefined).
+ */
+const secureStorage = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === "web") {
+      // Lazy require to avoid web bundling issues
+      const AsyncStorage =
+        require("@react-native-async-storage/async-storage").default;
+      return AsyncStorage.getItem(key);
+    }
+    return SecureStore.getItemAsync(key);
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === "web") {
+      const AsyncStorage =
+        require("@react-native-async-storage/async-storage").default;
+      await AsyncStorage.setItem(key, value);
+      return;
+    }
+    await SecureStore.setItemAsync(key, value);
+  },
+  removeItem: async (key: string): Promise<void> => {
+    if (Platform.OS === "web") {
+      const AsyncStorage =
+        require("@react-native-async-storage/async-storage").default;
+      await AsyncStorage.removeItem(key);
+      return;
+    }
+    await SecureStore.deleteItemAsync(key);
+  },
+};
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: getAuthStorage(),
+    storage: secureStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: Platform.OS === "web", // Enable URL detection on web for OAuth

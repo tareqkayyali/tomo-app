@@ -31,12 +31,14 @@ interface SuggestionCardProps {
 }
 
 // Type-specific icons and colors
-const TYPE_META: Record<SuggestionType, { icon: keyof typeof Ionicons.glyphMap; label: string; accentColor: string }> = {
-  test_result: { icon: 'flash-outline', label: 'Test Result', accentColor: '#FF6B35' },
-  study_block: { icon: 'book-outline', label: 'Study Block', accentColor: '#4A9EFF' },
-  exam_date: { icon: 'school-outline', label: 'Exam Date', accentColor: '#E74C3C' },
-  calendar_event: { icon: 'calendar-outline', label: 'Event', accentColor: '#2ED573' },
-};
+function getTypeMeta(colors: { accent: string; error: string; info: string; warning: string }) {
+  return {
+    test_result: { icon: 'flash-outline' as keyof typeof Ionicons.glyphMap, label: 'Test Result', accentColor: colors.accent },
+    study_block: { icon: 'book-outline' as keyof typeof Ionicons.glyphMap, label: 'Study Block', accentColor: colors.info },
+    exam_date: { icon: 'school-outline' as keyof typeof Ionicons.glyphMap, label: 'Exam Date', accentColor: colors.error },
+    calendar_event: { icon: 'calendar-outline' as keyof typeof Ionicons.glyphMap, label: 'Event', accentColor: colors.accent },
+  };
+}
 
 function formatPayload(type: SuggestionType, payload: Record<string, unknown>): string {
   switch (type) {
@@ -63,7 +65,8 @@ export function SuggestionCard({ suggestion, onResolved }: SuggestionCardProps) 
   const { colors } = useTheme();
   const [loading, setLoading] = useState<'accepted' | 'declined' | null>(null);
 
-  const meta = TYPE_META[suggestion.suggestion_type] || TYPE_META.calendar_event;
+  const typeMeta = getTypeMeta(colors);
+  const meta = typeMeta[suggestion.suggestion_type] || typeMeta.calendar_event;
 
   const handleAction = async (status: 'accepted' | 'declined') => {
     setLoading(status);
@@ -116,7 +119,7 @@ export function SuggestionCard({ suggestion, onResolved }: SuggestionCardProps) 
           style={({ pressed }) => [
             styles.actionBtn,
             styles.acceptBtn,
-            { backgroundColor: '#2ED573', opacity: pressed || loading === 'accepted' ? 0.7 : 1 },
+            { backgroundColor: colors.accent, opacity: pressed || loading === 'accepted' ? 0.7 : 1 },
           ]}
         >
           {loading === 'accepted' ? (

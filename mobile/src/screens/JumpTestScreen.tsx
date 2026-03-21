@@ -307,7 +307,7 @@ export function JumpTestScreen({ navigation }: Props) {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: 'rgba(123,97,255,0.15)' }]}>
-            <Ionicons name="arrow-up-outline" size={40} color="#7B61FF" />
+            <Ionicons name="arrow-up-outline" size={40} color={colors.info} />
           </View>
           <Text style={styles.title}>Jump Height</Text>
           <Text style={styles.subtitle}>Measure your vertical jump using phone sensors</Text>
@@ -330,12 +330,12 @@ export function JumpTestScreen({ navigation }: Props) {
 
           <Pressable onPress={handleStart} style={styles.startWrap}>
             <LinearGradient
-              colors={['#7B61FF', '#7B61FFCC']}
+              colors={[colors.info, '#3498DBCC']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <Ionicons name="play" size={22} color="#FFFFFF" />
+              <Ionicons name="play" size={22} color={colors.textPrimary} />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -394,7 +394,7 @@ export function JumpTestScreen({ navigation }: Props) {
             <Ionicons
               name={phase === 'jumping' ? 'rocket-outline' : 'fitness-outline'}
               size={80}
-              color="#7B61FF"
+              color={colors.info}
             />
             <Text style={styles.jumpNow}>
               {phase === 'jumping' ? 'In the air!' : 'JUMP!'}
@@ -423,7 +423,7 @@ export function JumpTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <Ionicons name="checkmark-circle" size={80} color="#30D158" />
+            <Ionicons name="checkmark-circle" size={80} color={colors.accent} />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   stepNumText: {
     fontFamily: fontFamily.bold,
     fontSize: 14,
-    color: '#7B61FF',
+    color: colors.info,
   },
   stepText: {
     fontFamily: fontFamily.regular,
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   startText: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   backWrap: { paddingVertical: spacing.md },
   backText: {
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   countdownNum: {
     fontFamily: fontFamily.bold,
     fontSize: 120,
-    color: '#7B61FF',
+    color: colors.info,
     lineHeight: 130,
   },
   holdText: {
@@ -572,11 +572,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   jumpDotActive: {
-    backgroundColor: '#7B61FF',
+    backgroundColor: colors.info,
     transform: [{ scale: 1.3 }],
   },
   jumpDotDone: {
-    backgroundColor: '#30D158',
+    backgroundColor: colors.accent,
   },
 
   centerContent: {
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
   jumpNow: {
     fontFamily: fontFamily.bold,
     fontSize: 48,
-    color: '#7B61FF',
+    color: colors.info,
     marginTop: spacing.lg,
   },
 
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   resultHeight: {
     fontFamily: fontFamily.bold,
     fontSize: 96,
-    color: '#7B61FF',
+    color: colors.info,
     lineHeight: 100,
   },
   resultUnit: {
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   jumpResultValue: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: '#7B61FF',
+    color: colors.info,
   },
 
   // Done
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 32,
-    color: '#30D158',
+    color: colors.accent,
     marginTop: spacing.md,
   },
 });

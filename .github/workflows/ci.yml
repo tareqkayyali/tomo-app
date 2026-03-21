@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install backend deps
+        run: cd backend && npm ci
+
+      - name: Type check backend
+        run: cd backend && npx tsc --noEmit
+
+      - name: Install mobile deps
+        run: cd mobile && npm ci
+
+      - name: Type check mobile
+        run: cd mobile && npx tsc --noEmit
+
+  deploy-backend:
+    name: Deploy Backend
+    needs: typecheck
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: cd backend && npm ci
+
+      - name: Deploy to Vercel
+        run: cd backend && npx vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }} --scope tareqkayyalis-projects
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: typecheck
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: cd mobile && npm ci
+
+      - name: Export web
+        run: cd mobile && npx expo export --platform web
+
+      - name: Setup Vercel project link
+        run: |
+          mkdir -p mobile/dist/.vercel
+          echo '{"projectId":"prj_q1uTcXazyBCVTQRkJNQxblofVkNQ","orgId":"team_O05XelWPyLJ2yHVFmmzjYqjc"}' > mobile/dist/.vercel/project.json
+
+      - name: Deploy to Vercel
+        run: cd mobile/dist && npx vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }} --scope tareqkayyalis-projects
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

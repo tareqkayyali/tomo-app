@@ -19,14 +19,13 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import { GlassCard } from '../GlassCard';
-import { GlowWrapper } from '../GlowWrapper';
-import { HexagonRadar, type RadarAttribute } from '../HexagonRadar';
 import { PercentileBar } from '../benchmarks/PercentileBar';
 import { TestHistoryTimeline } from './TestHistoryTimeline';
 import { InlineTestInput } from './InlineTestInput';
 import {
   searchTestCatalog,
   logTestResult,
+  submitPlayerTest,
   getMyTestResults,
   type TestCatalogItem,
   type MyTestResult,
@@ -55,15 +54,14 @@ const METRIC_TO_CATALOG: Record<string, string> = {
 interface Props {
   metrics: OutputSnapshot['metrics'];
   onTestLogged?: () => void;
+  /** When set, logs tests via coach API (creates suggestion + notification for player) */
+  targetPlayerId?: string;
 }
 
-export function MetricsSection({ metrics, onTestLogged }: Props) {
+export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props) {
   const { colors } = useTheme();
   const recentTests = metrics.recentTests ?? [];
-  const radarProfile = metrics.radarProfile ?? [];
   const rawTestGroups = metrics.rawTestGroups ?? [];
-  const hasRadar = radarProfile.some((a) => a.value > 0);
-
   // Find tests not in any raw test group (ungrouped)
   const groupedTestTypes = new Set(rawTestGroups.flatMap((g) => g.tests.map((t) => t.testType)));
   const ungroupedTests = recentTests.filter((t) => !groupedTestTypes.has(t.testType));
@@ -82,17 +80,35 @@ export function MetricsSection({ metrics, onTestLogged }: Props) {
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (!q.trim()) { setCatalogResults([]); return; }
+
+    // For coach mode, show all tests even on empty query
+    if (!q.trim() && !targetPlayerId) { setCatalogResults([]); return; }
 
     searchTimerRef.current = setTimeout(async () => {
       setCatalogLoading(true);
       try {
-        const data = await searchTestCatalog(q);
+        const data = await searchTestCatalog(q || undefined);
         setCatalogResults(data.tests);
       } catch { setCatalogResults([]); }
       finally { setCatalogLoading(false); }
-    }, 250);
-  }, []);
+    }, q.trim() ? 250 : 50); // faster for empty query (load all)
+  }, [targetPlayerId]);
+
+  // Auto-load all tests for coach on focus
+  const handleSearchFocus = useCallback(() => {
+    setSearchFocused(true);
+    if (targetPlayerId && catalogResults.length === 0 && !searchQuery) {
+      // Load full catalog for coaches
+      (async () => {
+        setCatalogLoading(true);
+        try {
+          const data = await searchTestCatalog();
+          setCatalogResults(data.tests);
+        } catch { /* silent */ }
+        finally { setCatalogLoading(false); }
+      })();
+    }
+  }, [targetPlayerId, catalogResults.length, searchQuery]);
 
   const handleSelectTest = useCallback((item: TestCatalogItem) => {
     setPendingTest(item);
@@ -110,30 +126,52 @@ export function MetricsSection({ metrics, onTestLogged }: Props) {
 
     setSubmitting(true);
     try {
-      await logTestResult({
-        testType: pendingTest.id,
-        score: numVal,
-        unit: pendingTest.unit,
-        date: new Date().toISOString().slice(0, 10),
-      });
+      if (targetPlayerId) {
+        // Coach mode: use coach API → creates suggestion + notification for player
+        await submitPlayerTest(targetPlayerId, {
+          testType: pendingTest.id,
+          sport: 'football',
+          values: { primaryValue: numVal, unit: pendingTest.unit },
+        });
+      } else {
+        // Player mode: log for self
+        await logTestResult({
+          testType: pendingTest.id,
+          score: numVal,
+          unit: pendingTest.unit,
+          date: new Date().toISOString().slice(0, 10),
+        });
+      }
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPendingTest(null);
       setPendingValue('');
       onTestLogged?.();
     } catch { Alert.alert('Error', 'Could not save test result.'); }
     finally { setSubmitting(false); }
-  }, [pendingTest, pendingValue, onTestLogged]);
+  }, [pendingTest, pendingValue, onTestLogged, targetPlayerId]);
 
-  const showDropdown = searchFocused && searchQuery.length > 0 && (catalogResults.length > 0 || catalogLoading);
+  // Helper: log test via player or coach API
+  const doLogTest = useCallback(async (testType: string, score: number, unit?: string) => {
+    if (targetPlayerId) {
+      await submitPlayerTest(targetPlayerId, {
+        testType,
+        sport: 'football',
+        values: { primaryValue: score, unit: unit || '' },
+      });
+    } else {
+      await logTestResult({
+        testType,
+        score,
+        unit,
+        date: new Date().toISOString().slice(0, 10),
+      });
+    }
+  }, [targetPlayerId]);
 
-  // Map radar profile to HexagonRadar attributes
-  const radarAttributes: RadarAttribute[] = radarProfile.map((a) => ({
-    key: a.key,
-    label: a.label,
-    value: a.value,
-    maxValue: a.maxValue,
-    color: a.color,
-  }));
+  const showDropdown = searchFocused && (
+    (searchQuery.length > 0 && (catalogResults.length > 0 || catalogLoading)) ||
+    (targetPlayerId && catalogResults.length > 0) // Coach mode: show all on focus
+  );
 
   return (
     <View style={styles.container}>
@@ -150,7 +188,7 @@ export function MetricsSection({ metrics, onTestLogged }: Props) {
             placeholderTextColor={colors.textInactive}
             value={searchQuery}
             onChangeText={handleSearch}
-            onFocus={() => setSearchFocused(true)}
+            onFocus={handleSearchFocus}
             onBlur={() => { setTimeout(() => setSearchFocused(false), 200); }}
           />
           {searchQuery !== '' && (
@@ -239,51 +277,13 @@ export function MetricsSection({ metrics, onTestLogged }: Props) {
         </GlassCard>
       )}
 
-      {/* ── FIFA-Style Radar Hero Card ────────────────────────── */}
-      {hasRadar && (
-        <GlowWrapper glow="orange">
-          <GlassCard>
-            <View style={styles.radarCenter}>
-              <Text style={[styles.radarTitle, { color: colors.textOnDark }]}>Your Football DNA</Text>
-              <HexagonRadar
-                attributes={radarAttributes}
-                size={200}
-                animate
-                fillColor="#FF6B35"
-                fillOpacity={0.2}
-              />
-              {/* Overall percentile badge */}
-              {metrics.overallPercentile != null && (
-                <View style={[styles.overallBadge, { backgroundColor: getZoneColor(metrics.overallPercentile) + '22' }]}>
-                  <Text style={[styles.overallBadgeText, { color: getZoneColor(metrics.overallPercentile) }]}>
-                    P{metrics.overallPercentile} · {getZoneLabel(metrics.overallPercentile)}
-                  </Text>
-                </View>
-              )}
-              {/* Strengths & Gaps chips */}
-              <View style={styles.chipRow}>
-                {metrics.strengths.slice(0, 3).map((s) => (
-                  <View key={s} style={[styles.chip, { backgroundColor: 'rgba(48, 209, 88, 0.15)' }]}>
-                    <Text style={[styles.chipText, { color: '#30D158' }]}>{s}</Text>
-                  </View>
-                ))}
-                {metrics.gaps.slice(0, 3).map((g) => (
-                  <View key={g} style={[styles.chip, { backgroundColor: 'rgba(255, 149, 0, 0.15)' }]}>
-                    <Text style={[styles.chipText, { color: '#FF9500' }]}>{g}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </GlassCard>
-        </GlowWrapper>
-      )}
 
       {/* ── Raw Test Group Cards (when no benchmark snapshots) ── */}
       {rawTestGroups.length > 0 && metrics.categories.length === 0 && (
         <View style={{ gap: spacing.sm }}>
           <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Your Tests by Category</Text>
           {rawTestGroups.map((group) => (
-            <RawTestGroupCard key={group.groupId} group={group} colors={colors} onTestLogged={onTestLogged} />
+            <RawTestGroupCard key={group.groupId} group={group} colors={colors} onTestLogged={onTestLogged} logTest={doLogTest} />
           ))}
           {/* Ungrouped tests */}
           {ungroupedTests.length > 0 && (
@@ -293,9 +293,19 @@ export function MetricsSection({ metrics, onTestLogged }: Props) {
                 <GlassCard key={t.testType}>
                   <View style={styles.rawTestRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.rawTestName, { color: colors.textOnDark }]}>
-                        {t.testType.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={[styles.rawTestName, { color: colors.textOnDark }]}>
+                          {t.testType.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </Text>
+                        {(t as any).coachName && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#4A9EFF18', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 9999 }}>
+                            <Ionicons name="person-circle-outline" size={10} color={colors.info} />
+                            <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.info }}>
+                              Coach {(t as any).coachName}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={[styles.rawTestMeta, { color: colors.textMuted }]}>
                         {t.date}{t.unit ? ` · ${t.unit}` : ''}
                       </Text>
@@ -326,7 +336,7 @@ export function MetricsSection({ metrics, onTestLogged }: Props) {
       {metrics.categories.length > 0 && (
         <View style={{ gap: spacing.sm }}>
           {metrics.categories.map((cat) => (
-            <TestGroupCard key={cat.groupId || cat.category} category={cat} colors={colors} onTestLogged={onTestLogged} />
+            <TestGroupCard key={cat.groupId || cat.category} category={cat} colors={colors} onTestLogged={onTestLogged} logTest={doLogTest} />
           ))}
         </View>
       )}
@@ -336,10 +346,11 @@ export function MetricsSection({ metrics, onTestLogged }: Props) {
 
 // ── Test Group Card ─────────────────────────────────────────────────────
 
-function TestGroupCard({ category, colors, onTestLogged }: {
+function TestGroupCard({ category, colors, onTestLogged, logTest }: {
   category: TestGroupCategory;
   colors: any;
   onTestLogged?: () => void;
+  logTest: (testType: string, score: number, unit?: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const themeColor = getGroupThemeColor(category.colorTheme || 'orange');
@@ -410,31 +421,16 @@ function TestGroupCard({ category, colors, onTestLogged }: {
           />
         </View>
 
-        {/* Athlete description */}
-        {category.athleteDescription && (
-          <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
-            {category.athleteDescription}
-          </Text>
-        )}
+        {/* Preview chips removed — collapsed cards show header only */}
 
-        {/* Collapsed: inline preview of top 2 test results */}
-        {!expanded && previewMetrics.length > 0 && (
-          <View style={styles.previewRow}>
-            {previewMetrics.map((m) => (
-              <View key={m.metricKey} style={[styles.previewChip, { backgroundColor: themeColor + '12' }]}>
-                <Text style={[styles.previewLabel, { color: colors.textMuted }]}>{m.metricLabel}</Text>
-                <Text style={[styles.previewValue, { color: themeColor }]}>
-                  {m.value}{m.unit ? ` ${m.unit}` : ''}
-                </Text>
-                <Text style={[styles.previewBadge, { color: zoneColor }]}>P{m.percentile}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Expanded: full PercentileBar per test with history/log-new */}
+        {/* Expanded: description + full PercentileBar per test with history/log-new */}
         {expanded && (
           <View style={styles.expandedTests}>
+            {category.athleteDescription && (
+              <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+                {category.athleteDescription}
+              </Text>
+            )}
             <Text style={[styles.catSummary, { color: colors.textMuted }]}>
               {category.categorySummary}
             </Text>
@@ -451,12 +447,7 @@ function TestGroupCard({ category, colors, onTestLogged }: {
                     unit={m.unit}
                     currentValue={m.value}
                     onSave={async (score) => {
-                      await logTestResult({
-                        testType: METRIC_TO_CATALOG[m.metricKey] || m.metricKey,
-                        score,
-                        unit: m.unit,
-                        date: new Date().toISOString().slice(0, 10),
-                      });
+                      await logTest(METRIC_TO_CATALOG[m.metricKey] || m.metricKey, score, m.unit);
                       setActiveMode(null);
                       setActiveMetricKey(null);
                       onTestLogged?.();
@@ -484,10 +475,11 @@ function TestGroupCard({ category, colors, onTestLogged }: {
 
 // ── Raw Test Group Card (no percentiles, just values) ────────────────────
 
-function RawTestGroupCard({ group, colors, onTestLogged }: {
+function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
   group: RawTestGroup;
   colors: any;
   onTestLogged?: () => void;
+  logTest: (testType: string, score: number, unit?: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const themeColor = getGroupThemeColor(group.colorTheme || 'orange');
@@ -535,33 +527,29 @@ function RawTestGroupCard({ group, colors, onTestLogged }: {
           />
         </View>
 
-        {/* Athlete description */}
-        <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
-          {group.athleteDescription}
-        </Text>
+        {/* Preview chips removed — collapsed cards show header only */}
 
-        {/* Collapsed: inline preview of top 2 test results */}
-        {!expanded && previewTests.length > 0 && (
-          <View style={styles.previewRow}>
-            {previewTests.map((t) => (
-              <View key={t.testType} style={[styles.previewChip, { backgroundColor: themeColor + '12' }]}>
-                <Text style={[styles.previewLabel, { color: colors.textMuted }]}>{t.displayName}</Text>
-                <Text style={[styles.previewValue, { color: themeColor }]}>
-                  {t.score}{t.unit ? ` ${t.unit}` : ''}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Expanded: all tests with values + action icons */}
+        {/* Expanded: description + all tests with values + action icons */}
         {expanded && (
           <View style={styles.expandedTests}>
+            <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+              {group.athleteDescription}
+            </Text>
             {group.tests.map((t) => (
               <View key={t.testType}>
                 <View style={styles.rawExpandedRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.rawExpandedName, { color: colors.textOnDark }]}>{t.displayName}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <Text style={[styles.rawExpandedName, { color: colors.textOnDark }]}>{t.displayName}</Text>
+                      {(t as any).coachName && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#4A9EFF18', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 9999 }}>
+                          <Ionicons name="person-circle-outline" size={10} color={colors.info} />
+                          <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.info }}>
+                            Coach {(t as any).coachName}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={[styles.rawExpandedDate, { color: colors.textMuted }]}>{t.date}</Text>
                   </View>
                   <View style={styles.rawActionIcons}>
@@ -610,12 +598,7 @@ function RawTestGroupCard({ group, colors, onTestLogged }: {
                     unit={t.unit || ''}
                     currentValue={t.score}
                     onSave={async (score) => {
-                      await logTestResult({
-                        testType: t.testType,
-                        score,
-                        unit: t.unit || undefined,
-                        date: new Date().toISOString().slice(0, 10),
-                      });
+                      await logTest(t.testType, score, t.unit || undefined);
                       setActiveMode(null);
                       setActiveTestType(null);
                       onTestLogged?.();
@@ -733,13 +716,6 @@ const styles = StyleSheet.create({
   },
 
   // Radar hero
-  radarCenter: { alignItems: 'center', gap: spacing.sm },
-  radarTitle: { fontFamily: fontFamily.semiBold, fontSize: 16 },
-  overallBadge: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 5 },
-  overallBadgeText: { fontFamily: fontFamily.bold, fontSize: 14 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
-  chip: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  chipText: { fontFamily: fontFamily.medium, fontSize: 11 },
 
   // Raw tests
   sectionLabel: { fontFamily: fontFamily.medium, fontSize: 12, letterSpacing: 0.8, textTransform: 'uppercase' as const },

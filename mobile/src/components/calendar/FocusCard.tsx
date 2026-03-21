@@ -72,7 +72,7 @@ export function FocusCard({
               end={{ x: 1, y: 0 }}
               style={styles.addButtonGradient}
             >
-              <Ionicons name="add" size={18} color="#FFFFFF" />
+              <Ionicons name="add" size={18} color={colors.textPrimary} />
               <Text style={styles.addButtonText}>Add Event</Text>
             </LinearGradient>
           </Pressable>
@@ -217,7 +217,7 @@ function createStyles(colors: ThemeColors) {
     addButtonText: {
       fontFamily: fontFamily.semiBold,
       fontSize: 16,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
 
     // Footer

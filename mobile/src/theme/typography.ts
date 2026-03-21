@@ -253,7 +253,7 @@ export function createTypography(colors: ThemeColors): Record<string, TextStyle>
       fontFamily: fontFamily.medium,
       fontSize: 16,
       lineHeight: 22,
-      color: colors.accent1,
+      color: colors.accent,
       letterSpacing: letterSpacing.tagline,
     },
 

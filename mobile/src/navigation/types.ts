@@ -16,7 +16,7 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
   Plan: undefined;
   Test: { initialTab?: 'vitals' | 'metrics' | 'programs' } | undefined;
-  Chat: undefined;
+  Chat: { prefillMessage?: string } | undefined;
   Progress: undefined;
   ForYou: undefined;
 };
@@ -30,6 +30,16 @@ export type MainStackParamList = {
   History: undefined;
   WorkoutFeedback: undefined;
   AddEvent: { initialType?: string; date?: string; startTime?: string } | undefined;
+  EventEdit: {
+    eventId: string;
+    name: string;
+    type: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    notes?: string;
+    intensity?: string;
+  };
   PrivacySettings: undefined;
   Diagnostics: undefined;
   DrillDetail: { drillId: string };
@@ -41,12 +51,27 @@ export type MainStackParamList = {
     durationSeconds: number;
   };
   FullChat: undefined;
-  PhoneTestsList: undefined;
-  ReactionTest: undefined;
-  JumpTest: undefined;
-  SprintTest: undefined;
+  // Padel-specific screens
+  ShotDetail: { shotType: string };
+  ShotSession: undefined;
+  PadelRating: undefined;
+  // Football-specific screens
+  FootballSkillDetail: { skill: string };
+  FootballRating: undefined;
+  PlayerCV: undefined;
+  FootballTestInput: { testId: string };
+  // Rules screen
+  MyRules: undefined;
+  // Favorites screen
+  Favorites: undefined;
+  // Study plan screens
+  StudyPlanPreview: { blocks: string; warnings?: string; planType?: 'study' | 'training'; exams?: string; config?: string; savedPlanId?: string; viewOnly?: string }; // JSON-stringified
+  // Phone-based test screens
   AgilityTest: undefined;
   BalanceTest: undefined;
+  JumpTest: undefined;
+  ReactionTest: undefined;
+  SprintTest: undefined;
   PhoneTestComplete: {
     testId: string;
     testName: string;
@@ -56,18 +81,9 @@ export type MainStackParamList = {
     metrics: Record<string, number>;
     durationSeconds: number;
   };
-  // Padel-specific screens
-  ShotDetail: { shotType: string };
-  ShotSession: undefined;
-  PadelRating: undefined;
-  // Football-specific screens
-  FootballSkillDetail: { skill: string };
-  FootballRating: undefined;
-  FootballTestInput: { testId: string };
-  // Rules screen
-  MyRules: undefined;
-  // Study plan screens
-  StudyPlanPreview: { blocks: string; warnings?: string; planType?: 'study' | 'training'; exams?: string; config?: string; savedPlanId?: string; viewOnly?: string }; // JSON-stringified
+  PhoneTestsList: undefined;
+  // PHV
+  PHVCalculator: { existingOffset?: number; existingStage?: string } | undefined;
   // Multi-role screens
   Notifications: undefined;
   LinkAccount: undefined;
@@ -77,8 +93,7 @@ export type MainStackParamList = {
 
 export type CoachTabParamList = {
   Players: undefined;
-  Programmes: undefined;
-  Settings: undefined;
+  CoachProfile: undefined;
 };
 
 export type CoachStackParamList = {
@@ -86,6 +101,7 @@ export type CoachStackParamList = {
   CoachPlayerDetail: { playerId: string; playerName: string };
   CoachPlayerPlan: { playerId: string; playerName: string };
   CoachTestInput: { playerId: string; playerName: string };
+  CoachAddProgram: { playerId: string; playerName: string };
   CoachInvite: undefined;
   RecommendEvent: { playerId: string; playerName: string; allowedTypes: string[] };
   Profile: undefined;
@@ -94,14 +110,13 @@ export type CoachStackParamList = {
 // ── Parent Navigation ────────────────────────────────────────────────────
 
 export type ParentTabParamList = {
-  Timeline: undefined;
-  Exams: undefined;
-  Mastery: undefined;
-  Settings: undefined;
+  Children: undefined;
+  ParentProfile: undefined;
 };
 
 export type ParentStackParamList = {
   ParentTabs: undefined;
+  ParentChildDetail: { childId: string; childName: string };
   ParentDailyView: { childId: string; childName: string; date: string };
   ParentAddStudy: { childId: string; childName: string };
   ParentAddExam: { childId: string; childName: string };

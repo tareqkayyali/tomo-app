@@ -8,8 +8,8 @@
  * 4. Empty state overlay when no test data
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { DNACard, type CardAttribute } from '../DNACard';
 import { GlassCard } from '../GlassCard';
@@ -76,7 +76,31 @@ export function MasteryContent({
   onAttributeTap,
 }: Props) {
   const { colors } = useTheme();
-  const attributes = radarToAttributes(data.radarProfile);
+
+  // Listen for draft radar color overrides from CMS preview (web only)
+  const [draftRadarColors, setDraftRadarColors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    function handleMessage(event: MessageEvent) {
+      const msg = event.data;
+      if (msg?.type === 'TOMO_DRAFT_RADAR_COLORS' && msg.payload) {
+        setDraftRadarColors(msg.payload as Record<string, string>);
+      }
+    }
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Apply draft color overrides to radar profile
+  const radarWithOverrides = data.radarProfile.map((axis) => ({
+    ...axis,
+    color: draftRadarColors[axis.key] || axis.color,
+  }));
+
+  const attributes = radarToAttributes(radarWithOverrides);
   const benchmarkAttributes = data.benchmarkRadarProfile
     ? radarToAttributes(data.benchmarkRadarProfile)
     : undefined;
@@ -163,7 +187,7 @@ export function MasteryContent({
                 {data.strengths.length > 0 && (
                   <View style={styles.chipColumn}>
                     <Text
-                      style={[styles.chipColumnLabel, { color: '#30D158' }]}
+                      style={[styles.chipColumnLabel, { color: colors.accent }]}
                     >
                       💪 Strengths
                     </Text>
@@ -183,7 +207,7 @@ export function MasteryContent({
                 {data.gaps.length > 0 && (
                   <View style={styles.chipColumn}>
                     <Text
-                      style={[styles.chipColumnLabel, { color: '#F39C12' }]}
+                      style={[styles.chipColumnLabel, { color: colors.warning }]}
                     >
                       🎯 Growth Areas
                     </Text>

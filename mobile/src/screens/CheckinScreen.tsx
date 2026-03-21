@@ -1,9 +1,9 @@
 /**
- * Check-in Screen — Step-by-step wizard
+ * Check-in Screen — Gen Z emoji-driven wellness wizard
  *
- * One question at a time for clarity and calmness.
- * Archetype-colored progress bar, large touch targets,
- * calm labels, animated transitions.
+ * 7 steps, one question at a time. Tap an emoji → auto-advance.
+ * Stories-style dot progress. Glass card aesthetic.
+ * Haptic feedback on every interaction.
  *
  * SAFETY: Pain flag always triggers REST recommendation.
  * "This is not medical advice" disclaimer on pain step.
@@ -13,18 +13,19 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  SafeAreaView,
   Pressable,
   TextInput,
   ScrollView,
   Platform,
+  Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeInRight,
   FadeOutLeft,
   FadeIn,
+  FadeInDown,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
@@ -35,8 +36,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { Ionicons } from '@expo/vector-icons';
-import { ProgressBar } from '../components';
-import { colors, spacing, typography, borderRadius, shadows, fontFamily, layout } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../hooks/useTheme';
+import { spacing, borderRadius, shadows, fontFamily } from '../theme';
 import { getArchetypeProfile } from '../services/archetypeProfile';
 import { submitCheckin } from '../services/api';
 import { getReadinessScore } from '../services/readinessScore';
@@ -45,6 +47,8 @@ import { useAuth } from '../hooks/useAuth';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
 import type { CheckinResponse } from '../types';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,14 +71,69 @@ export interface CheckinStep {
 }
 
 // ---------------------------------------------------------------------------
+// Emoji option config
+// ---------------------------------------------------------------------------
+
+interface EmojiOption {
+  emoji: string;
+  label: string;
+  value: number;
+}
+
+const STEP_EMOJIS: Record<string, EmojiOption[]> = {
+  mood: [
+    { emoji: '\uD83D\uDE29', label: 'Rough', value: 2 },
+    { emoji: '\uD83D\uDE15', label: 'Meh', value: 4 },
+    { emoji: '\uD83D\uDE10', label: 'Okay', value: 6 },
+    { emoji: '\uD83D\uDE42', label: 'Good', value: 8 },
+    { emoji: '\uD83D\uDE04', label: 'Great', value: 10 },
+  ],
+  sleepHours: [
+    { emoji: '\uD83D\uDE34', label: '<5h', value: 4 },
+    { emoji: '\uD83D\uDE2A', label: '5-6h', value: 5.5 },
+    { emoji: '\uD83D\uDE0A', label: '7h', value: 7 },
+    { emoji: '\uD83D\uDE0E', label: '8h', value: 8 },
+    { emoji: '\uD83E\uDD29', label: '9h+', value: 9.5 },
+  ],
+  energy: [
+    { emoji: '\uD83E\uDEAB', label: 'Dead', value: 2 },
+    { emoji: '\uD83D\uDE2E\u200D\uD83D\uDCA8', label: 'Low', value: 4 },
+    { emoji: '\uD83D\uDE10', label: 'Okay', value: 6 },
+    { emoji: '\u26A1', label: 'Wired', value: 8 },
+    { emoji: '\uD83D\uDD25', label: 'On Fire', value: 10 },
+  ],
+  soreness: [
+    { emoji: '\uD83D\uDCAA', label: 'Fresh', value: 2 },
+    { emoji: '\uD83D\uDC4D', label: 'Slight', value: 4 },
+    { emoji: '\uD83D\uDE10', label: 'Some', value: 6 },
+    { emoji: '\uD83D\uDE23', label: 'Sore', value: 8 },
+    { emoji: '\uD83E\uDD15', label: 'Wrecked', value: 10 },
+  ],
+  academicStress: [
+    { emoji: '\uD83D\uDE0E', label: 'Chill', value: 2 },
+    { emoji: '\uD83D\uDCDA', label: 'Some', value: 4 },
+    { emoji: '\uD83D\uDE30', label: 'Busy', value: 6 },
+    { emoji: '\uD83E\uDD2F', label: 'Hectic', value: 8 },
+    { emoji: '\uD83D\uDC80', label: 'Maxed', value: 10 },
+  ],
+  effortYesterday: [
+    { emoji: '\uD83D\uDECB\uFE0F', label: 'Rest', value: 2 },
+    { emoji: '\uD83D\uDEB6', label: 'Light', value: 4 },
+    { emoji: '\uD83C\uDFC3', label: 'Medium', value: 6 },
+    { emoji: '\uD83D\uDCAA', label: 'Hard', value: 8 },
+    { emoji: '\uD83E\uDD75', label: 'Brutal', value: 10 },
+  ],
+};
+
+// ---------------------------------------------------------------------------
 // Step configuration (pure, exported for testing)
 // ---------------------------------------------------------------------------
 
 export const CHECKIN_STEPS: CheckinStep[] = [
   {
     key: 'mood',
-    label: 'How are you feeling today?',
-    sublabel: 'Overall mood right now',
+    label: 'How you feeling?',
+    sublabel: 'Overall vibe right now',
     type: 'slider',
     min: 1,
     max: 10,
@@ -84,7 +143,7 @@ export const CHECKIN_STEPS: CheckinStep[] = [
   },
   {
     key: 'sleepHours',
-    label: 'How much sleep did you get?',
+    label: "How'd you sleep?",
     sublabel: 'Hours of sleep last night',
     type: 'sleep',
     min: 4,
@@ -93,8 +152,8 @@ export const CHECKIN_STEPS: CheckinStep[] = [
   },
   {
     key: 'energy',
-    label: 'What is your energy level?',
-    sublabel: 'How energized do you feel',
+    label: 'Energy level?',
+    sublabel: 'How charged up are you',
     type: 'slider',
     min: 1,
     max: 10,
@@ -104,8 +163,8 @@ export const CHECKIN_STEPS: CheckinStep[] = [
   },
   {
     key: 'soreness',
-    label: 'Any muscle soreness?',
-    sublabel: 'Overall body soreness',
+    label: 'Body soreness?',
+    sublabel: 'How your muscles feeling',
     type: 'slider',
     min: 1,
     max: 10,
@@ -115,8 +174,8 @@ export const CHECKIN_STEPS: CheckinStep[] = [
   },
   {
     key: 'academicStress',
-    label: 'Academic stress today?',
-    sublabel: 'Exams, homework, or study load',
+    label: 'Academic load?',
+    sublabel: 'Exams, homework, study stress',
     type: 'slider',
     min: 1,
     max: 10,
@@ -126,7 +185,7 @@ export const CHECKIN_STEPS: CheckinStep[] = [
   },
   {
     key: 'effortYesterday',
-    label: "Yesterday's training effort?",
+    label: "Yesterday's training?",
     sublabel: 'How hard was your last session',
     type: 'slider',
     min: 1,
@@ -148,13 +207,11 @@ export const CHECKIN_STEPS: CheckinStep[] = [
 // Pure helpers (exported for testing)
 // ---------------------------------------------------------------------------
 
-/** Progress fraction: 0 at step 0, 1 at final step. */
 export function getProgressPercent(stepIndex: number, totalSteps: number): number {
   if (totalSteps <= 1) return stepIndex >= 1 ? 1 : 0;
   return Math.max(0, Math.min(1, stepIndex / (totalSteps - 1)));
 }
 
-/** Default value for a step key. */
 export function getDefaultValue(key: string): number {
   switch (key) {
     case 'sleepHours': return 7;
@@ -167,13 +224,11 @@ export function getDefaultValue(key: string): number {
   }
 }
 
-/** Human-readable display for a value on a given step. */
 export function getValueDisplay(key: string, value: number): string {
   if (key === 'sleepHours') return `${value}h`;
   return `${value}/10`;
 }
 
-/** Build the API payload from wizard answers. */
 export function buildCheckinPayload(
   answers: Record<string, number>,
   painFlag: boolean,
@@ -200,7 +255,6 @@ export function buildCheckinPayload(
   };
 }
 
-/** Calm completion message per archetype. */
 export function getCompletionMessage(archetype: string | null | undefined): string {
   const key = (archetype ?? '').toLowerCase();
   switch (key) {
@@ -213,17 +267,11 @@ export function getCompletionMessage(archetype: string | null | undefined): stri
 }
 
 // ---------------------------------------------------------------------------
-// Muted pain rose (calm, not aggressive red)
-// ---------------------------------------------------------------------------
-
-const PAIN_RED = colors.readinessRed;         // #FF453A — vivid on dark bg
-const PAIN_RED_BG = colors.readinessRedBg;    // rgba(255,69,58,0.15)
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export function CheckinScreen({ navigation }: CheckinScreenProps) {
+  const { colors } = useTheme();
   const { profile } = useAuth();
   const archetype = profile?.archetype ?? null;
   const accentColor = getArchetypeProfile(archetype).color;
@@ -239,6 +287,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
     }
     return defaults;
   });
+  const [selectedEmojis, setSelectedEmojis] = useState<Record<string, number>>({});
   const [painFlag, setPainFlag] = useState(false);
   const [painLocation, setPainLocation] = useState('');
 
@@ -254,8 +303,6 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
   // Animated checkmark
   const checkScale = useSharedValue(0);
   const checkOpacity = useSharedValue(0);
-
-  // Animated badge pop (for archetype/milestone)
   const badgeScale = useSharedValue(0);
   const badgeOpacity = useSharedValue(0);
 
@@ -271,7 +318,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
 
   const currentStep = CHECKIN_STEPS[stepIndex];
   const isLastStep = stepIndex === CHECKIN_STEPS.length - 1;
-  const progress = getProgressPercent(stepIndex, CHECKIN_STEPS.length);
+  const totalSteps = CHECKIN_STEPS.length;
 
   const goNext = useCallback(() => {
     if (isLastStep) return;
@@ -279,16 +326,29 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
   }, [isLastStep]);
 
   const goBack = useCallback(() => {
-    if (stepIndex === 0) return;
+    if (stepIndex === 0) {
+      navigation.goBack();
+      return;
+    }
     setStepIndex((i) => i - 1);
-  }, [stepIndex]);
+  }, [stepIndex, navigation]);
 
-  const setAnswer = useCallback((key: string, value: number) => {
+  const handleEmojiSelect = useCallback((key: string, value: number, emojiIdx: number) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     setAnswers((prev) => ({ ...prev, [key]: value }));
+    setSelectedEmojis((prev) => ({ ...prev, [key]: emojiIdx }));
+    // Auto-advance after a brief moment
+    setTimeout(() => {
+      setStepIndex((i) => {
+        if (i >= CHECKIN_STEPS.length - 1) return i;
+        return i + 1;
+      });
+    }, 400);
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    // Medium impact haptic on submit
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
@@ -302,50 +362,39 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
       setIsComplete(true);
       track('checkin_complete', { readiness: response.plan?.readinessLevel, sport: profile?.sport });
 
-      // Check for milestone unlocks
       const newlyUnlocked = response.gamification?.milestones?.newlyUnlocked;
       if (newlyUnlocked && newlyUnlocked.length > 0) {
         track('streak_milestone', { milestone: newlyUnlocked[0].id, streak: response.gamification?.streak?.currentStreak });
         setMilestoneReward(newlyUnlocked[0].reward);
         setShowConfetti(true);
-        // Extra celebration haptic
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
       }
 
-      // Check for archetype assignment
       const archetypeData = response.gamification?.archetype;
       if (archetypeData?.newlyAssigned && archetypeData.archetype) {
         setNewArchetype(archetypeData.archetype);
       }
 
-      // Success haptic on completion
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
-      // Animate checkmark
       checkOpacity.value = withTiming(1, { duration: 200 });
       checkScale.value = withSequence(
         withTiming(1.2, { duration: 300, easing: Easing.out(Easing.back(2)) }),
         withDelay(100, withTiming(1, { duration: 200 })),
       );
 
-      // Badge pop animation (delayed after checkmark)
       if ((newlyUnlocked && newlyUnlocked.length > 0) || archetypeData?.newlyAssigned) {
         badgeOpacity.value = withDelay(800, withTiming(1, { duration: 200 }));
-        badgeScale.value = withDelay(
-          800,
-          withSpring(1, { damping: 8, stiffness: 200 }),
-        );
+        badgeScale.value = withDelay(800, withSpring(1, { damping: 8, stiffness: 200 }));
       }
 
-      // Delay navigation to show celebration
       const delay = showConfetti || archetypeData?.newlyAssigned ? 3500 : 2000;
       setTimeout(() => navigation.goBack(), delay);
     } catch {
-      // Fallback: compute readiness locally
       const fallback = getReadinessScore({
         energy: payload.energy,
         soreness: payload.soreness,
@@ -360,49 +409,89 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
         withTiming(1.2, { duration: 300, easing: Easing.out(Easing.back(2)) }),
         withDelay(100, withTiming(1, { duration: 200 })),
       );
-      setErrorMessage(
-        `Readiness: ${fallback.level}. Connect to server for full plans.`,
-      );
+      setErrorMessage(`Readiness: ${fallback.level}. Connect to server for full plans.`);
       setTimeout(() => navigation.goBack(), 2500);
     } finally {
       setIsSubmitting(false);
     }
-  }, [answers, painFlag, painLocation, navigation, checkOpacity, checkScale]);
+  }, [answers, painFlag, painLocation, navigation, checkOpacity, checkScale, showConfetti, profile?.sport, badgeOpacity, badgeScale]);
 
   // ---- Completion view ----
   if (isComplete) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <View style={styles.completionContainer}>
-          <Animated.View style={[styles.checkCircle, { borderColor: accentColor }, checkStyle]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl }}>
+          <Animated.View style={[{
+            width: 100,
+            height: 100,
+            borderRadius: 50,
+            borderWidth: 3,
+            borderColor: accentColor,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.backgroundElevated,
+            ...shadows.lg,
+          }, checkStyle]}>
             <Ionicons name="checkmark" size={48} color={accentColor} />
           </Animated.View>
+
           <Animated.Text
             entering={FadeIn.delay(400).duration(400)}
-            style={styles.completionTitle}
+            style={{
+              fontFamily: fontFamily.bold,
+              fontSize: 24,
+              color: colors.textOnDark,
+              marginTop: spacing.xl,
+              textAlign: 'center',
+            }}
           >
-            Check-in complete
+            You're locked in
           </Animated.Text>
+
           <Animated.Text
             entering={FadeIn.delay(600).duration(400)}
-            style={[styles.completionMessage, { color: accentColor }]}
+            style={{
+              fontFamily: fontFamily.medium,
+              fontSize: 15,
+              color: accentColor,
+              marginTop: spacing.sm,
+              textAlign: 'center',
+            }}
           >
             {getCompletionMessage(archetype)}
           </Animated.Text>
 
-          {/* Milestone Badge Pop */}
           {milestoneReward && (
-            <Animated.View style={[styles.celebrationBadge, badgeStyle]}>
+            <Animated.View style={[{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'rgba(255, 107, 53, 0.12)',
+              borderRadius: borderRadius.full,
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.compact,
+              marginTop: spacing.lg,
+              gap: spacing.sm,
+            }, badgeStyle]}>
               <Ionicons name="trophy" size={22} color={colors.accent1} />
-              <Text style={styles.celebrationText}>{milestoneReward}</Text>
+              <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 14, color: colors.accent1 }}>
+                {milestoneReward}
+              </Text>
             </Animated.View>
           )}
 
-          {/* Archetype Badge Pop */}
           {newArchetype && !milestoneReward && (
-            <Animated.View style={[styles.celebrationBadge, badgeStyle]}>
+            <Animated.View style={[{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'rgba(255, 107, 53, 0.12)',
+              borderRadius: borderRadius.full,
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.compact,
+              marginTop: spacing.lg,
+              gap: spacing.sm,
+            }, badgeStyle]}>
               <Ionicons name="shield-checkmark" size={22} color={colors.accent1} />
-              <Text style={styles.celebrationText}>
+              <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 14, color: colors.accent1 }}>
                 {getArchetypeProfile(newArchetype).name} Archetype Unlocked!
               </Text>
             </Animated.View>
@@ -411,15 +500,27 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
           {errorMessage !== '' && (
             <Animated.View
               entering={FadeIn.delay(800).duration(300)}
-              style={styles.fallbackBanner}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.readinessYellowBg,
+                borderRadius: borderRadius.md,
+                padding: spacing.md,
+                marginTop: spacing.lg,
+              }}
             >
-              <Ionicons name="alert-circle" size={16} color={colors.warning} />
-              <Text style={styles.fallbackText}>{errorMessage}</Text>
+              <Ionicons name="alert-circle" size={16} color={colors.readinessYellow} />
+              <Text style={{
+                fontFamily: fontFamily.regular,
+                fontSize: 13,
+                color: colors.readinessYellow,
+                marginLeft: spacing.sm,
+                flex: 1,
+              }}>{errorMessage}</Text>
             </Animated.View>
           )}
         </View>
 
-        {/* Confetti Cannon */}
         {showConfetti && (
           <ConfettiCannon
             ref={confettiRef}
@@ -428,7 +529,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
             fadeOut
             autoStart
             fallSpeed={3000}
-            colors={[colors.accent1, colors.accent2, '#FFD700', '#FFFFFF']}
+            colors={[colors.accent1, colors.accent2, colors.tierGold, colors.textPrimary]}
           />
         )}
       </SafeAreaView>
@@ -437,58 +538,120 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
 
   // ---- Wizard ----
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {/* Progress bar */}
-      <View style={styles.progressArea}>
-        <ProgressBar progress={progress} color={accentColor} height={6} />
-        <Text style={styles.stepCounter}>
-          {stepIndex + 1} of {CHECKIN_STEPS.length}
-        </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+      {/* Header: back + dot progress */}
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.lg,
+        paddingTop: spacing.md,
+        paddingBottom: spacing.sm,
+      }}>
+        <Pressable
+          onPress={goBack}
+          hitSlop={12}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: colors.inputBackground,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name={stepIndex === 0 ? 'close' : 'arrow-back'} size={20} color={colors.textInactive} />
+        </Pressable>
+
+        {/* Dot progress (Stories-style) */}
+        <View style={{
+          flex: 1,
+          flexDirection: 'row',
+          justifyContent: 'center',
+          gap: 6,
+          marginHorizontal: spacing.md,
+        }}>
+          {CHECKIN_STEPS.map((_, i) => (
+            <View
+              key={i}
+              style={{
+                flex: 1,
+                height: 3,
+                borderRadius: 2,
+                backgroundColor: i <= stepIndex ? colors.accent1 : colors.borderLight,
+                maxWidth: 40,
+              }}
+            />
+          ))}
+        </View>
+
+        {/* Skip button (only for skippable, non-last steps) */}
+        {currentStep.skippable && !isLastStep ? (
+          <Pressable onPress={goNext} hitSlop={12} accessibilityLabel="Skip question">
+            <Text style={{ fontFamily: fontFamily.medium, fontSize: 14, color: colors.textMuted }}>
+              Skip
+            </Text>
+          </Pressable>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg }}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Back button */}
-        {stepIndex > 0 && (
-          <Pressable onPress={goBack} style={styles.backButton} accessibilityLabel="Go back">
-            <Ionicons name="arrow-back" size={20} color={colors.textInactive} />
-            <Text style={styles.backText}>Back</Text>
-          </Pressable>
-        )}
-
         {/* Step content */}
         <Animated.View
           key={stepIndex}
-          entering={FadeInRight.duration(300)}
-          exiting={FadeOutLeft.duration(200)}
-          style={styles.stepContent}
+          entering={FadeInRight.duration(250)}
+          exiting={FadeOutLeft.duration(150)}
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            paddingBottom: spacing.xl,
+          }}
         >
-          <Text style={styles.stepLabel}>{currentStep.label}</Text>
-          <Text style={styles.stepSublabel}>{currentStep.sublabel}</Text>
+          {/* Step icon */}
+          <View style={{ alignItems: 'center', marginBottom: spacing.lg }}>
+            <Text style={{ fontSize: 44 }}>
+              {currentStep.type === 'pain' ? '\uD83E\uDE7A' :
+               selectedEmojis[currentStep.key] != null
+                ? STEP_EMOJIS[currentStep.key]?.[selectedEmojis[currentStep.key]]?.emoji
+                : STEP_EMOJIS[currentStep.key]?.[2]?.emoji ?? '\uD83D\uDE42'}
+            </Text>
+          </View>
 
-          {/* Slider-type step */}
-          {currentStep.type === 'slider' && (
-            <SliderGrid
-              min={currentStep.min!}
-              max={currentStep.max!}
-              value={answers[currentStep.key]}
-              onChange={(v) => setAnswer(currentStep.key, v)}
-              lowLabel={currentStep.lowLabel!}
-              highLabel={currentStep.highLabel!}
-              accentColor={accentColor}
-            />
-          )}
+          {/* Question */}
+          <Text style={{
+            fontFamily: fontFamily.bold,
+            fontSize: 28,
+            color: colors.textOnDark,
+            textAlign: 'center',
+            letterSpacing: -0.5,
+            marginBottom: spacing.xs,
+          }}>
+            {currentStep.label}
+          </Text>
+          <Text style={{
+            fontFamily: fontFamily.regular,
+            fontSize: 14,
+            color: colors.textInactive,
+            textAlign: 'center',
+            marginBottom: spacing.xxl,
+          }}>
+            {currentStep.sublabel}
+          </Text>
 
-          {/* Sleep-type step */}
-          {currentStep.type === 'sleep' && (
-            <SleepGrid
-              min={currentStep.min!}
-              max={currentStep.max!}
-              value={answers[currentStep.key]}
-              onChange={(v) => setAnswer(currentStep.key, v)}
+          {/* Emoji options (for non-pain steps) */}
+          {currentStep.type !== 'pain' && STEP_EMOJIS[currentStep.key] && (
+            <EmojiPicker
+              options={STEP_EMOJIS[currentStep.key]}
+              selectedIndex={selectedEmojis[currentStep.key] ?? -1}
+              onSelect={(value, idx) => handleEmojiSelect(currentStep.key, value, idx)}
               accentColor={accentColor}
+              colors={colors}
             />
           )}
 
@@ -499,49 +662,52 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
               onToggle={setPainFlag}
               painLocation={painLocation}
               onLocationChange={setPainLocation}
+              colors={colors}
             />
-          )}
-
-          {/* Value display */}
-          {currentStep.type !== 'pain' && (
-            <Text style={[styles.valueDisplay, { color: accentColor }]}>
-              {getValueDisplay(currentStep.key, answers[currentStep.key])}
-            </Text>
           )}
         </Animated.View>
       </ScrollView>
 
-      {/* Bottom action area */}
-      <View style={styles.bottomArea}>
-        {isLastStep ? (
+      {/* Bottom action — only on pain step (last step) */}
+      {isLastStep && (
+        <View style={{
+          paddingHorizontal: spacing.lg,
+          paddingBottom: spacing.xl,
+          paddingTop: spacing.md,
+        }}>
           <Pressable
             onPress={handleSubmit}
             disabled={isSubmitting}
-            style={[styles.nextButton, { backgroundColor: accentColor, opacity: isSubmitting ? 0.6 : 1 }]}
+            style={{ opacity: isSubmitting ? 0.6 : 1 }}
             accessibilityLabel="Submit check-in"
           >
-            <Text style={styles.nextButtonText}>
-              {isSubmitting ? 'Submitting...' : 'Get My Plan'}
-            </Text>
-            {!isSubmitting && <Ionicons name="fitness" size={20} color="#FFFFFF" />}
+            <LinearGradient
+              colors={[colors.accent1, colors.accent2]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: spacing.sm,
+                paddingVertical: 16,
+                borderRadius: borderRadius.lg,
+                ...shadows.glowSubtle,
+              }}
+            >
+              <Text style={{
+                fontFamily: fontFamily.bold,
+                fontSize: 16,
+                color: colors.textPrimary,
+                letterSpacing: 0.5,
+              }}>
+                {isSubmitting ? 'Submitting...' : 'Get My Plan'}
+              </Text>
+              {!isSubmitting && <Ionicons name="flash" size={20} color={colors.textPrimary} />}
+            </LinearGradient>
           </Pressable>
-        ) : (
-          <Pressable
-            onPress={goNext}
-            style={[styles.nextButton, { backgroundColor: accentColor }]}
-            accessibilityLabel="Next question"
-          >
-            <Text style={styles.nextButtonText}>Next</Text>
-            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-          </Pressable>
-        )}
-
-        {currentStep.skippable && !isLastStep && (
-          <Pressable onPress={goNext} style={styles.skipButton} accessibilityLabel="Skip question">
-            <Text style={styles.skipText}>Skip</Text>
-          </Pressable>
-        )}
-      </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -550,98 +716,90 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function SliderGrid({
-  min,
-  max,
-  value,
-  onChange,
-  lowLabel,
-  highLabel,
+function EmojiPicker({
+  options,
+  selectedIndex,
+  onSelect,
   accentColor,
+  colors,
 }: {
-  min: number;
-  max: number;
-  value: number;
-  onChange: (v: number) => void;
-  lowLabel: string;
-  highLabel: string;
+  options: EmojiOption[];
+  selectedIndex: number;
+  onSelect: (value: number, idx: number) => void;
   accentColor: string;
+  colors: any;
 }) {
-  const options = [];
-  for (let i = min; i <= max; i++) options.push(i);
+  const emojiSize = Math.min(64, (SCREEN_WIDTH - spacing.lg * 2 - spacing.md * 4) / 5);
 
   return (
-    <View style={styles.gridContainer}>
-      <View style={styles.gridRow}>
-        {options.map((n) => (
-          <Pressable
-            key={n}
-            onPress={() => onChange(n)}
-            style={[
-              styles.gridButton,
-              value === n && { backgroundColor: accentColor, borderColor: accentColor },
-            ]}
-            accessibilityLabel={`Select ${n}`}
-          >
-            <Text
-              style={[
-                styles.gridButtonText,
-                value === n && styles.gridButtonTextSelected,
-              ]}
+    <View style={{ alignItems: 'center' }}>
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: spacing.compact,
+      }}>
+        {options.map((opt, idx) => {
+          const isSelected = selectedIndex === idx;
+          return (
+            <Pressable
+              key={idx}
+              onPress={() => onSelect(opt.value, idx)}
+              style={({ pressed }) => ({
+                alignItems: 'center',
+                gap: spacing.xs,
+                transform: [{ scale: pressed ? 0.9 : 1 }],
+              })}
+              accessibilityLabel={`${opt.label} - ${opt.emoji}`}
             >
-              {n}
-            </Text>
-          </Pressable>
-        ))}
+              <View style={{
+                width: emojiSize,
+                height: emojiSize,
+                borderRadius: emojiSize / 2,
+                backgroundColor: isSelected
+                  ? accentColor + '20'
+                  : colors.inputBackground,
+                borderWidth: isSelected ? 2.5 : 1,
+                borderColor: isSelected ? accentColor : colors.borderLight,
+                alignItems: 'center',
+                justifyContent: 'center',
+                ...(isSelected ? {
+                  shadowColor: accentColor,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 12,
+                  elevation: 6,
+                } : {}),
+              }}>
+                <Text style={{ fontSize: emojiSize * 0.45 }}>{opt.emoji}</Text>
+              </View>
+              <Text style={{
+                fontFamily: isSelected ? fontFamily.semiBold : fontFamily.regular,
+                fontSize: 11,
+                color: isSelected ? accentColor : colors.textMuted,
+                textAlign: 'center',
+              }}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
-      <View style={styles.gridLabels}>
-        <Text style={styles.gridLabelText}>{lowLabel}</Text>
-        <Text style={styles.gridLabelText}>{highLabel}</Text>
-      </View>
-    </View>
-  );
-}
 
-function SleepGrid({
-  min,
-  max,
-  value,
-  onChange,
-  accentColor,
-}: {
-  min: number;
-  max: number;
-  value: number;
-  onChange: (v: number) => void;
-  accentColor: string;
-}) {
-  const options = [];
-  for (let i = min; i <= max; i++) options.push(i);
-
-  return (
-    <View style={styles.gridContainer}>
-      <View style={styles.gridRow}>
-        {options.map((n) => (
-          <Pressable
-            key={n}
-            onPress={() => onChange(n)}
-            style={[
-              styles.sleepGridButton,
-              value === n && { backgroundColor: accentColor, borderColor: accentColor },
-            ]}
-            accessibilityLabel={`Select ${n} hours`}
-          >
-            <Text
-              style={[
-                styles.gridButtonText,
-                value === n && styles.gridButtonTextSelected,
-              ]}
-            >
-              {n}h
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      {/* Selected value display */}
+      {selectedIndex >= 0 && (
+        <Animated.Text
+          entering={FadeInDown.duration(200)}
+          style={{
+            fontFamily: fontFamily.bold,
+            fontSize: 42,
+            color: accentColor,
+            textAlign: 'center',
+            marginTop: spacing.xl,
+          }}
+        >
+          {options[selectedIndex].emoji}
+        </Animated.Text>
+      )}
     </View>
   );
 }
@@ -651,348 +809,134 @@ function PainToggle({
   onToggle,
   painLocation,
   onLocationChange,
+  colors,
 }: {
   painFlag: boolean;
   onToggle: (v: boolean) => void;
   painLocation: string;
   onLocationChange: (v: string) => void;
+  colors: any;
 }) {
   return (
-    <View style={styles.painContainer}>
-      <View style={styles.painToggleRow}>
+    <View>
+      <View style={{ flexDirection: 'row', gap: spacing.md }}>
+        {/* No pain */}
         <Pressable
-          onPress={() => onToggle(false)}
-          style={[
-            styles.painChoice,
-            !painFlag && styles.painChoiceNo,
-          ]}
+          onPress={() => {
+            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onToggle(false);
+          }}
+          style={({ pressed }) => ({
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: spacing.sm,
+            paddingVertical: spacing.xl,
+            borderRadius: borderRadius.xl,
+            borderWidth: 2,
+            borderColor: !painFlag ? colors.readinessGreen : colors.borderLight,
+            backgroundColor: !painFlag ? colors.readinessGreenBg : colors.inputBackground,
+            transform: [{ scale: pressed ? 0.96 : 1 }],
+          })}
           accessibilityLabel="No pain"
         >
-          <Ionicons
-            name="checkmark-circle"
-            size={24}
-            color={!painFlag ? colors.readinessGreen : colors.textMuted}
-          />
-          <Text style={[styles.painChoiceText, !painFlag && { color: colors.readinessGreen }]}>
-            No
+          <Text style={{ fontSize: 36 }}>{'\u2705'}</Text>
+          <Text style={{
+            fontFamily: fontFamily.semiBold,
+            fontSize: 16,
+            color: !painFlag ? colors.readinessGreen : colors.textInactive,
+          }}>
+            All good
           </Text>
         </Pressable>
+
+        {/* Has pain */}
         <Pressable
-          onPress={() => onToggle(true)}
-          style={[
-            styles.painChoice,
-            painFlag && styles.painChoiceYes,
-          ]}
+          onPress={() => {
+            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onToggle(true);
+          }}
+          style={({ pressed }) => ({
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: spacing.sm,
+            paddingVertical: spacing.xl,
+            borderRadius: borderRadius.xl,
+            borderWidth: 2,
+            borderColor: painFlag ? colors.readinessRed : colors.borderLight,
+            backgroundColor: painFlag ? colors.readinessRedBg : colors.inputBackground,
+            transform: [{ scale: pressed ? 0.96 : 1 }],
+          })}
           accessibilityLabel="Yes, I have pain"
         >
-          <Ionicons
-            name="medkit"
-            size={24}
-            color={painFlag ? PAIN_RED : colors.textMuted}
-          />
-          <Text style={[styles.painChoiceText, painFlag && { color: PAIN_RED }]}>
-            Yes
+          <Text style={{ fontSize: 36 }}>{'\uD83E\uDE79'}</Text>
+          <Text style={{
+            fontFamily: fontFamily.semiBold,
+            fontSize: 16,
+            color: painFlag ? colors.readinessRed : colors.textInactive,
+          }}>
+            Something hurts
           </Text>
         </Pressable>
       </View>
 
       {painFlag && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.painExpanded}>
-          <Text style={styles.painLocationLabel}>Where does it hurt?</Text>
+        <Animated.View entering={FadeIn.duration(300)} style={{ marginTop: spacing.lg }}>
+          <Text style={{
+            fontFamily: fontFamily.medium,
+            fontSize: 14,
+            color: colors.textInactive,
+            marginBottom: spacing.sm,
+          }}>
+            Where does it hurt?
+          </Text>
           <TextInput
-            style={styles.painInput}
+            style={{
+              fontFamily: fontFamily.medium,
+              fontSize: 16,
+              backgroundColor: colors.inputBackground,
+              borderRadius: borderRadius.lg,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.md,
+              color: colors.textOnDark,
+            }}
             placeholder="e.g. left knee, right shoulder"
             placeholderTextColor={colors.textMuted}
             value={painLocation}
             onChangeText={onLocationChange}
           />
-          <View style={styles.painWarning}>
-            <Ionicons name="alert-circle" size={16} color={PAIN_RED} />
-            <Text style={styles.painWarningText}>
-              Pain detected — REST will be recommended. This is not medical advice.
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: spacing.sm,
+            backgroundColor: colors.readinessRedBg,
+            padding: spacing.compact,
+            borderRadius: borderRadius.sm,
+            gap: spacing.xs,
+          }}>
+            <Ionicons name="alert-circle" size={14} color={colors.readinessRed} />
+            <Text style={{
+              fontFamily: fontFamily.regular,
+              fontSize: 12,
+              color: colors.textInactive,
+              flex: 1,
+            }}>
+              Pain detected — REST will be recommended
             </Text>
           </View>
         </Animated.View>
       )}
 
-      {/* Always-visible disclaimer */}
-      <Text style={styles.disclaimer}>
+      <Text style={{
+        fontFamily: fontFamily.regular,
+        fontSize: 11,
+        color: colors.textMuted,
+        textAlign: 'center',
+        marginTop: spacing.lg,
+      }}>
         This is not medical advice. Always consult a professional for injuries.
       </Text>
     </View>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,              // #1A1D2E
-  },
-  progressArea: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  stepCounter: {
-    ...typography.caption,
-    color: colors.textInactive,                       // #8E8E93
-    textAlign: 'right',
-    marginTop: spacing.xs,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  backText: {
-    ...typography.bodySmall,
-    color: colors.textInactive,                       // gray, readable on dark
-    marginLeft: spacing.xs,
-  },
-  stepContent: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingBottom: spacing.xl,
-  },
-  stepLabel: {
-    ...typography.h2,
-    color: colors.textOnDark,                         // #FFFFFF
-    marginBottom: spacing.xs,
-  },
-  stepSublabel: {
-    ...typography.bodyOnDark,
-    color: colors.textInactive,                       // #8E8E93
-    marginBottom: spacing.xl,
-  },
-
-  // ── Grid (slider numbers) ─────────────────────────────────────────
-  gridContainer: {
-    marginTop: spacing.md,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    justifyContent: 'center',
-  },
-  gridButton: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: colors.borderLight,                  // subtle white border on dark
-    backgroundColor: colors.backgroundElevated,       // #222538
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sleepGridButton: {
-    paddingHorizontal: spacing.md,
-    height: 56,
-    borderRadius: borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: colors.borderLight,
-    backgroundColor: colors.backgroundElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gridButtonText: {
-    fontFamily: fontFamily.medium,
-    fontSize: 16,
-    color: colors.textInactive,                       // gray when not selected
-  },
-  gridButtonTextSelected: {
-    color: '#FFFFFF',
-    fontFamily: fontFamily.semiBold,
-  },
-  gridLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  gridLabelText: {
-    ...typography.caption,
-    color: colors.textMuted,                          // #6E6E73
-  },
-
-  // ── Value display ─────────────────────────────────────────────────
-  valueDisplay: {
-    fontFamily: fontFamily.bold,
-    fontSize: 36,
-    lineHeight: 44,
-    color: colors.textOnDark,                         // overridden inline with accentColor
-    textAlign: 'center',
-    marginTop: spacing.lg,
-  },
-
-  // ── Pain ──────────────────────────────────────────────────────────
-  painContainer: {
-    marginTop: spacing.md,
-  },
-  painToggleRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  painChoice: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-    borderRadius: borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: colors.borderLight,
-    backgroundColor: colors.backgroundElevated,       // dark card
-  },
-  painChoiceNo: {
-    backgroundColor: colors.readinessGreenBg,         // rgba green tint
-    borderColor: colors.readinessGreen,
-  },
-  painChoiceYes: {
-    backgroundColor: PAIN_RED_BG,                     // rgba red tint
-    borderColor: PAIN_RED,
-  },
-  painChoiceText: {
-    ...typography.button,
-    color: colors.textInactive,
-  },
-  painExpanded: {
-    marginTop: spacing.lg,
-  },
-  painLocationLabel: {
-    ...typography.label,
-    color: colors.textInactive,
-    marginBottom: spacing.xs,
-  },
-  painInput: {
-    fontFamily: fontFamily.medium,
-    fontSize: 16,
-    backgroundColor: colors.backgroundElevated,       // dark input bg
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    color: colors.textOnDark,                         // white text in input
-  },
-  painWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    backgroundColor: PAIN_RED_BG,
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
-  },
-  painWarningText: {
-    ...typography.caption,
-    color: colors.textInactive,                       // #8E8E93 — "not medical advice"
-    marginLeft: spacing.xs,
-    flex: 1,
-  },
-
-  // ── Disclaimer ─────────────────────────────────────────────────────
-  disclaimer: {
-    ...typography.caption,
-    color: colors.textInactive,                       // #8E8E93 gray
-    textAlign: 'center',
-    marginTop: spacing.lg,
-  },
-
-  // ── Bottom area ───────────────────────────────────────────────────
-  bottomArea: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingTop: spacing.md,
-  },
-  nextButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    ...shadows.glowSubtle,                            // subtle orange glow
-  },
-  nextButtonText: {
-    ...typography.button,
-    color: '#FFFFFF',                                 // white text on orange button
-  },
-  skipButton: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    marginTop: spacing.xs,
-  },
-  skipText: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-  },
-
-  // ── Completion ────────────────────────────────────────────────────
-  completionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  checkCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.backgroundElevated,       // dark circle bg
-    ...shadows.lg,
-  },
-  completionTitle: {
-    ...typography.h2,
-    color: colors.textOnDark,                         // white
-    marginTop: spacing.xl,
-  },
-  completionMessage: {
-    ...typography.bodyOnDark,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  fallbackBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.readinessYellowBg,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginTop: spacing.lg,
-  },
-  fallbackText: {
-    ...typography.bodySmall,
-    color: colors.readinessYellow,
-    marginLeft: spacing.sm,
-    flex: 1,
-  },
-
-  // ── Celebration badge ────────────────────────────────────────────
-  celebrationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 107, 53, 0.12)',
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.compact,
-    marginTop: spacing.lg,
-    gap: spacing.sm,
-  },
-  celebrationText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 14,
-    color: colors.accent1,
-  },
-});

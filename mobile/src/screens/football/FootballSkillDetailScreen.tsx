@@ -29,6 +29,7 @@ import { fontFamily, borderRadius, spacing } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/types';
+import { colors } from '../../theme/colors';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -43,17 +44,17 @@ type Props = NativeStackScreenProps<MainStackParamList, 'FootballSkillDetail'>;
 
 /** Growth-oriented skill tier labels — never "Weak" or red */
 function getSkillTier(rating: number): { text: string; color: string } {
-  if (rating >= 70) return { text: 'Strong', color: '#30D158' };
-  if (rating >= 40) return { text: 'Building', color: '#B0B0B0' };
-  return { text: 'Next Level', color: '#00D9FF' };
+  if (rating >= 70) return { text: 'Strong', color: colors.accent };
+  if (rating >= 40) return { text: 'Building', color: colors.textSecondary };
+  return { text: 'Next Level', color: colors.info };
 }
 
 /** Bar fill color matching SkillRatingBar pattern */
 function getBarColor(pct: number): string {
-  if (pct >= 70) return '#30D158';
-  if (pct >= 50) return '#FFD60A';
-  if (pct >= 40) return '#FF9500';
-  return '#00D9FF';
+  if (pct >= 70) return colors.accent;
+  if (pct >= 50) return colors.warning;
+  if (pct >= 40) return colors.warning;
+  return colors.info;
 }
 
 // ═══ RESEARCH CONTEXT ═══
@@ -258,7 +259,7 @@ function MiniLineChart({
 
   // Highlight improvement: color the line green if overall trend is up
   const overallTrend = data[data.length - 1].rating - data[0].rating;
-  const lineColor = overallTrend > 0 ? '#30D158' : colors.accent2;
+  const lineColor = overallTrend > 0 ? colors.accent : colors.accent2;
 
   return (
     <Svg width={width} height={height}>
@@ -380,12 +381,12 @@ export function FootballSkillDetailScreen({ route }: Props) {
                 <Ionicons
                   name={skillData.trend > 0 ? 'trending-up' : 'trending-down'}
                   size={14}
-                  color={skillData.trend > 0 ? '#30D158' : colors.accent2}
+                  color={skillData.trend > 0 ? colors.accent : colors.accent2}
                 />
                 <Text
                   style={[
                     s.trendText,
-                    { color: skillData.trend > 0 ? '#30D158' : colors.accent2 },
+                    { color: skillData.trend > 0 ? colors.accent : colors.accent2 },
                   ]}
                 >
                   {skillData.trend > 0 ? '+' : ''}{skillData.trend}
@@ -400,7 +401,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
           {/* Mastery experience (Bandura) */}
           {totalImprovement > 0 && (
             <View style={s.masteryBadge}>
-              <Ionicons name="arrow-up-circle" size={14} color="#30D158" />
+              <Ionicons name="arrow-up-circle" size={14} color={colors.accent} />
               <Text style={s.masteryText}>
                 You've improved {config.name} by {totalImprovement} points since you started tracking
               </Text>
@@ -428,7 +429,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
           {/* Growth edge callout */}
           <View style={s.growthEdge}>
             <View style={s.growthEdgeHeader}>
-              <Ionicons name="sparkles" size={14} color="#00D9FF" />
+              <Ionicons name="sparkles" size={14} color={colors.info} />
               <Text style={s.growthEdgeTitle}>Your Growth Edge</Text>
             </View>
             <Text style={s.growthEdgeText}>
@@ -628,7 +629,7 @@ function createStyles(colors: ThemeColors) {
     masteryText: {
       fontFamily: fontFamily.medium,
       fontSize: 12,
-      color: '#30D158',
+      color: colors.accent,
       flex: 1,
     },
 
@@ -657,7 +658,7 @@ function createStyles(colors: ThemeColors) {
     growthEdgeTitle: {
       fontFamily: fontFamily.semiBold,
       fontSize: 12,
-      color: '#00D9FF',
+      color: colors.info,
     },
     growthEdgeText: {
       fontFamily: fontFamily.regular,
@@ -680,7 +681,7 @@ function createStyles(colors: ThemeColors) {
     chartAnnotation: {
       fontFamily: fontFamily.medium,
       fontSize: 11,
-      color: '#30D158',
+      color: colors.accent,
       textAlign: 'center',
       marginTop: spacing.sm,
     },

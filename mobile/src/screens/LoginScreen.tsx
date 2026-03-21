@@ -20,6 +20,7 @@ import {
   Platform,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -65,22 +66,17 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
   };
 
   const handleLogin = async () => {
-    console.log('[LoginScreen] handleLogin called, email:', email);
     if (!validate()) {
-      console.log('[LoginScreen] validation failed');
       return;
     }
     setLoginError('');
     try {
       await login(email, password);
-      console.log('[LoginScreen] login succeeded');
     } catch (error) {
       const msg = (error as Error).message;
       console.error('[LoginScreen] login error:', msg);
       setLoginError(msg);
-      if (Platform.OS === 'web') {
-        window.alert('Login failed: ' + msg);
-      }
+      Alert.alert('Tomo', 'Login failed: ' + msg);
     }
   };
 
@@ -147,7 +143,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
                 onPress={() => handleSocialAuth('apple')}
                 activeOpacity={0.8}
               >
-                <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                <Ionicons name="logo-apple" size={20} color={colors.textPrimary} />
                 <Text style={styles.socialBtnText}>Apple</Text>
               </TouchableOpacity>
 
@@ -156,7 +152,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
                 onPress={() => handleSocialAuth('google')}
                 activeOpacity={0.8}
               >
-                <Ionicons name="logo-google" size={18} color="#FFFFFF" />
+                <Ionicons name="logo-google" size={18} color={colors.textPrimary} />
                 <Text style={styles.socialBtnText}>Google</Text>
               </TouchableOpacity>
             </View>
@@ -238,7 +234,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
                 style={styles.getStartedGradient}
               >
                 <Text style={styles.getStartedText}>Create Account</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                <Ionicons name="arrow-forward" size={18} color={colors.textPrimary} />
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -259,7 +255,7 @@ const GAP = spacing.md; // 16px
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -285,7 +281,7 @@ const styles = StyleSheet.create({
   brandName: {
     fontFamily: fontFamily.light,
     fontSize: 48,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     letterSpacing: 2,
     marginBottom: 2,
   },
@@ -344,7 +340,7 @@ const styles = StyleSheet.create({
   socialBtnText: {
     fontFamily: fontFamily.semiBold,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
 
   // Email toggle link
@@ -427,7 +423,7 @@ const styles = StyleSheet.create({
   getStartedText: {
     fontFamily: fontFamily.bold,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
 
   // ── Footer ──────────────────────────────────────────────────────

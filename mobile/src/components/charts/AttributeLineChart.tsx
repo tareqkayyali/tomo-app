@@ -153,7 +153,7 @@ export function AttributeLineChart({
 
         {/* Current value dot */}
         <SvgCircle cx={lastX} cy={lastY} r={5} fill={color} />
-        <SvgCircle cx={lastX} cy={lastY} r={3} fill="#FFFFFF" />
+        <SvgCircle cx={lastX} cy={lastY} r={3} fill={colors.textPrimary} />
 
         {/* Score label near dot */}
         <SvgText

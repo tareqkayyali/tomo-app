@@ -2,7 +2,6 @@
  * Own It Screen — AI-powered personalized recommendations.
  *
  * Single scrollable page:
- *   ReadinessHero — snapshot-driven readiness state
  *   Sports recs   — READINESS, LOAD_WARNING, RECOVERY, DEVELOPMENT, MOTIVATION
  *   Study recs    — ACADEMIC
  *   Updates       — CV_OPPORTUNITY, TRIANGLE_ALERT
@@ -26,25 +25,21 @@ import { SkeletonCard, ErrorState } from '../components';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
+import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { QuickAccessBar } from '../components/QuickAccessBar';
+import { useQuickActions } from '../hooks/useQuickActions';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
-import { ReadinessHero, RecSection } from '../components/ownit';
+import { RecSection } from '../components/ownit';
 import type { ForYouRecommendation } from '../components/ownit';
 import type { RIERecommendation } from '../services/api';
 import { useOwnItData } from '../hooks/useOwnItData';
+import { usePageConfig } from '../hooks/usePageConfig';
 import { useTheme } from '../hooks/useTheme';
-import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import {
   spacing,
   fontFamily,
   layout,
 } from '../theme';
-
-// ── Weekday helper ───────────────────────────────────────────────────
-const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-function getWeekday() {
-  return WEEKDAYS[new Date().getDay()];
-}
 
 // ── Map RIE rec → RecCard shape ──────────────────────────────────────
 function toCardRec(r: RIERecommendation): ForYouRecommendation {
@@ -70,6 +65,7 @@ function toCardRec(r: RIERecommendation): ForYouRecommendation {
 
 export function ForYouScreen() {
   const { colors } = useTheme();
+  const pageConfig = usePageConfig('own_it');
   const navigation = useNavigation<any>();
   const { needsCheckin } = useCheckinStatus();
   const {
@@ -83,7 +79,12 @@ export function ForYouScreen() {
     isDeepRefreshing,
     onRefresh,
     forceRefresh,
+    refreshError,
   } = useOwnItData();
+  const quickActions = useQuickActions(
+    { key: 'refresh', icon: 'refresh-outline', label: 'Refresh', onPress: forceRefresh, accentColor: colors.accent2 },
+    navigation,
+  );
 
   const sportsCards = sportsRecs.map(toCardRec);
   const studyCards = studyRecs.map(toCardRec);
@@ -111,29 +112,7 @@ export function ForYouScreen() {
         }}
       >
         {/* Left — QuickAccessBar */}
-        <QuickAccessBar
-          actions={[
-            {
-              key: 'refresh',
-              icon: 'refresh-outline',
-              label: 'Refresh',
-              onPress: forceRefresh,
-              accentColor: colors.accent2,
-            },
-            {
-              key: 'tests',
-              icon: 'fitness-outline',
-              label: 'Tests',
-              onPress: () => navigation.navigate('PhoneTestsList'),
-            },
-            {
-              key: 'schedule',
-              icon: 'calendar-outline',
-              label: 'Schedule',
-              onPress: () => navigation.navigate('AddEvent'),
-            },
-          ]}
-        />
+        <QuickAccessBar actions={quickActions} />
 
         {/* Right — Actions */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -141,31 +120,6 @@ export function ForYouScreen() {
           <NotificationBell />
           <HeaderProfileButton />
         </View>
-      </View>
-
-      {/* ── Title row ── */}
-      <View style={{ paddingHorizontal: layout.screenMargin, paddingBottom: spacing.sm }}>
-        <Text
-          style={{
-            fontFamily: fontFamily.medium,
-            fontSize: 11,
-            color: colors.textMuted,
-            letterSpacing: 1.5,
-            textTransform: 'uppercase',
-          }}
-        >
-          TOMO · {getWeekday()}
-        </Text>
-        <Text
-          style={{
-            fontFamily: fontFamily.bold,
-            fontSize: 24,
-            color: colors.textOnDark,
-            marginTop: 2,
-          }}
-        >
-          Own It
-        </Text>
       </View>
 
       {/* ── Content ── */}
@@ -231,6 +185,30 @@ export function ForYouScreen() {
           </View>
         )}
 
+        {/* Refresh Error */}
+        {refreshError && !isDeepRefreshing && !hasAnyRecs && (
+          <View
+            style={{
+              alignItems: 'center',
+              paddingVertical: spacing.xl,
+              paddingHorizontal: spacing.xxl,
+              gap: spacing.sm,
+            }}
+          >
+            <Ionicons name="warning-outline" size={32} color={colors.textMuted} />
+            <Text
+              style={{
+                fontFamily: fontFamily.medium,
+                fontSize: 13,
+                color: colors.textMuted,
+                textAlign: 'center',
+              }}
+            >
+              {refreshError}
+            </Text>
+          </View>
+        )}
+
         {/* Subtle updating indicator when recs exist but refresh is running */}
         {isDeepRefreshing && hasAnyRecs && (
           <View
@@ -258,36 +236,33 @@ export function ForYouScreen() {
         {/* Main Content */}
         {hasAnyContent && (
           <>
-            {/* Readiness Hero */}
-            <ReadinessHero snapshot={snapshot} />
-
             {/* Sports Recommendations */}
             <RecSection
-              title="Sports"
+              title={pageConfig?.metadata?.tabLabels?.['sports'] || "Sports"}
               icon="fitness-outline"
               color={colors.accent1}
               recs={sportsCards}
-              emptyMessage={snapshot ? 'No active sports recommendations' : undefined}
+              emptyMessage={snapshot ? (pageConfig?.metadata?.emptyStates?.['sports'] || 'No active sports recommendations') : undefined}
               indexOffset={0}
               onAction={handleRecAction}
             />
 
             {/* Study Recommendations */}
             <RecSection
-              title="Study"
+              title={pageConfig?.metadata?.tabLabels?.['study'] || "Study"}
               icon="school-outline"
               color={colors.accent2}
               recs={studyCards}
-              emptyMessage={snapshot ? 'No active study recommendations' : undefined}
+              emptyMessage={snapshot ? (pageConfig?.metadata?.emptyStates?.['study'] || 'No active study recommendations') : undefined}
               indexOffset={sportsCards.length}
               onAction={handleRecAction}
             />
 
             {/* Updates (CV, Triangle) — only if present */}
             <RecSection
-              title="Updates"
+              title={pageConfig?.metadata?.tabLabels?.['updates'] || "Updates"}
               icon="bulb-outline"
-              color="#7B61FF"
+              color={colors.info}
               recs={updateCards}
               indexOffset={sportsCards.length + studyCards.length}
               onAction={handleRecAction}
@@ -314,7 +289,7 @@ export function ForYouScreen() {
                 textAlign: 'center',
               }}
             >
-              Your Recommendations
+              {pageConfig?.metadata?.pageTitle || 'Your Recommendations'}
             </Text>
             <Text
               style={{

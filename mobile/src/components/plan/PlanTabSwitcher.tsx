@@ -15,6 +15,7 @@ import {
   LayoutChangeEvent,
 } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
+import { useComponentStyle } from '../../hooks/useComponentStyle';
 import type { ThemeColors } from '../../theme/colors';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 
@@ -23,6 +24,8 @@ export type PlanTab = 'dayflow' | 'studyplan' | 'trainingplan';
 type PlanTabSwitcherProps = {
   activeTab: PlanTab;
   onTabChange: (tab: PlanTab) => void;
+  /** CMS-driven label overrides keyed by tab key (e.g. { dayflow: 'My Flow' }) */
+  tabLabels?: Record<string, string>;
 };
 
 const TABS: { key: PlanTab; label: string }[] = [
@@ -31,8 +34,9 @@ const TABS: { key: PlanTab; label: string }[] = [
   { key: 'trainingplan', label: 'Training' },
 ];
 
-export function PlanTabSwitcher({ activeTab, onTabChange }: PlanTabSwitcherProps) {
+export function PlanTabSwitcher({ activeTab, onTabChange, tabLabels }: PlanTabSwitcherProps) {
   const { colors } = useTheme();
+  const { getComponentStyle } = useComponentStyle();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const tabWidths = useRef<number[]>([0, 0, 0]);
   const tabOffsets = useRef<number[]>([0, 0, 0]);
@@ -73,8 +77,8 @@ export function PlanTabSwitcher({ activeTab, onTabChange }: PlanTabSwitcherProps
               style={styles.tab}
               activeOpacity={0.7}
             >
-              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-                {tab.label}
+              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive, getComponentStyle('tab_label')]}>
+                {tabLabels?.[tab.key] || tab.label}
               </Text>
             </TouchableOpacity>
           );

@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 /**
  * Tomo Football Type Definitions
  * Player Card, Skill Mastery, Football Rating Pathway
@@ -61,7 +62,7 @@ export const FOOTBALL_ATTRIBUTE_CONFIG: Record<FootballAttribute, FootballAttrib
     label: 'PAC',
     abbreviation: 'PAC',
     description: 'Speed, acceleration, and sprint ability',
-    color: '#3498DB',
+    color: colors.info,
     maxValue: 99,
     subAttributes: [
       { name: '5m Sprint', weight: 0.15, description: 'Explosive start over 5 meters', unit: 's' },
@@ -77,7 +78,7 @@ export const FOOTBALL_ATTRIBUTE_CONFIG: Record<FootballAttribute, FootballAttrib
     label: 'SHO',
     abbreviation: 'SHO',
     description: 'Shot power, accuracy, and finishing ability',
-    color: '#FF6B35',
+    color: colors.accent,
     maxValue: 99,
     subAttributes: [
       { name: 'Shot Power', weight: 0.25, description: 'Maximum ball speed on strike', unit: 'km/h' },
@@ -93,7 +94,7 @@ export const FOOTBALL_ATTRIBUTE_CONFIG: Record<FootballAttribute, FootballAttrib
     label: 'PAS',
     abbreviation: 'PAS',
     description: 'Passing range, accuracy, and distribution',
-    color: '#30D158',
+    color: colors.accent,
     maxValue: 99,
     subAttributes: [
       { name: 'Long Pass Distance', weight: 0.15, description: 'Maximum accurate long pass range', unit: 'm' },
@@ -109,7 +110,7 @@ export const FOOTBALL_ATTRIBUTE_CONFIG: Record<FootballAttribute, FootballAttrib
     label: 'DRI',
     abbreviation: 'DRI',
     description: 'Agility, ball control, and change of direction',
-    color: '#00D9FF',
+    color: colors.info,
     maxValue: 99,
     subAttributes: [
       { name: 'T-Test Agility', weight: 0.20, description: 'Time on standard T-test agility course', unit: 's' },
@@ -125,7 +126,7 @@ export const FOOTBALL_ATTRIBUTE_CONFIG: Record<FootballAttribute, FootballAttrib
     label: 'DEF',
     abbreviation: 'DEF',
     description: 'Defensive ability, aerial strength, and recovery',
-    color: '#7B61FF',
+    color: colors.info,
     maxValue: 99,
     subAttributes: [
       { name: 'Standing Vertical Jump', weight: 0.20, description: 'Jump height from standing position', unit: 'cm' },
@@ -141,7 +142,7 @@ export const FOOTBALL_ATTRIBUTE_CONFIG: Record<FootballAttribute, FootballAttrib
     label: 'PHY',
     abbreviation: 'PHY',
     description: 'Endurance, power, and physical resilience',
-    color: '#E74C3C',
+    color: colors.error,
     maxValue: 99,
     subAttributes: [
       { name: 'CMJ Jump Height', weight: 0.20, description: 'Countermovement jump height', unit: 'cm' },
@@ -322,16 +323,16 @@ export interface FootballRatingLevel {
 }
 
 export const FOOTBALL_RATING_LEVELS: FootballRatingLevel[] = [
-  { name: 'Newcomer',      minRating: 0,   maxRating: 199,  description: 'Just starting your football journey',   color: '#8E8E93' },
-  { name: 'Beginner',      minRating: 200, maxRating: 349,  description: 'Learning the fundamentals',             color: '#A2845E' },
-  { name: 'Park Player',   minRating: 350, maxRating: 449,  description: 'Confident in casual play',              color: '#C0C0C0' },
-  { name: 'Sunday League', minRating: 450, maxRating: 549,  description: 'Competitive recreational player',       color: '#30D158' },
-  { name: 'Club Player',   minRating: 550, maxRating: 649,  description: 'Regular club-level competitor',         color: '#3498DB' },
-  { name: 'Academy Elite', minRating: 650, maxRating: 749,  description: 'Academy standard, scouted talent',      color: '#7B61FF' },
-  { name: 'Semi-Pro',      minRating: 750, maxRating: 849,  description: 'Semi-professional standard',            color: '#FF9500' },
-  { name: 'Professional',  minRating: 850, maxRating: 929,  description: 'Full professional footballer',          color: '#FF6B35' },
-  { name: 'World Class',   minRating: 930, maxRating: 979,  description: 'Among the best in the world',          color: '#FFD700' },
-  { name: 'Legend',         minRating: 980, maxRating: 1000, description: 'All-time great, generational talent',  color: '#E74C3C' },
+  { name: 'Newcomer',      minRating: 0,   maxRating: 199,  description: 'Just starting your football journey',   color: colors.textSecondary },
+  { name: 'Beginner',      minRating: 200, maxRating: 349,  description: 'Learning the fundamentals',             color: colors.warning },
+  { name: 'Park Player',   minRating: 350, maxRating: 449,  description: 'Confident in casual play',              color: colors.tierSilver },
+  { name: 'Sunday League', minRating: 450, maxRating: 549,  description: 'Competitive recreational player',       color: colors.accent },
+  { name: 'Club Player',   minRating: 550, maxRating: 649,  description: 'Regular club-level competitor',         color: colors.info },
+  { name: 'Academy Elite', minRating: 650, maxRating: 749,  description: 'Academy standard, scouted talent',      color: colors.info },
+  { name: 'Semi-Pro',      minRating: 750, maxRating: 849,  description: 'Semi-professional standard',            color: colors.warning },
+  { name: 'Professional',  minRating: 850, maxRating: 929,  description: 'Full professional footballer',          color: colors.accent },
+  { name: 'World Class',   minRating: 930, maxRating: 979,  description: 'Among the best in the world',          color: colors.tierGold },
+  { name: 'Legend',         minRating: 980, maxRating: 1000, description: 'All-time great, generational talent',  color: colors.error },
 ];
 
 // ═══ FOOTBALL PLAYER CARD ═══

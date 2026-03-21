@@ -44,7 +44,7 @@ function ShotChip({
         <Ionicons
           name={(def?.icon ?? 'help-outline') as any}
           size={16}
-          color={isSelected ? '#FFFFFF' : colors.textInactive}
+          color={isSelected ? colors.textPrimary : colors.textInactive}
         />
         <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
           {def?.name ?? shot}
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     color: colors.textInactive,
   },
   chipTextSelected: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontFamily: fontFamily.semiBold,
   },
 });

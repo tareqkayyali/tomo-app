@@ -25,24 +25,28 @@ function resolveApiBaseUrl(): string {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
+  // Always use production API unless a local backend is explicitly running
+  // For local dev: set EXPO_PUBLIC_API_URL=http://localhost:3000 in .env
   if (!__DEV__) {
     return PRODUCTION_API_URL;
   }
 
-  const debuggerHost =
-    Constants.expoConfig?.hostUri ??
-    Constants.manifest2?.extra?.expoGo?.debuggerHost;
+  // In dev on web (browser), try local backend
+  if (Platform.OS === 'web') {
+    const debuggerHost =
+      Constants.expoConfig?.hostUri ??
+      Constants.manifest2?.extra?.expoGo?.debuggerHost;
 
-  if (debuggerHost) {
-    const host = debuggerHost.split(":")[0];
-    return `http://${host}:3000`;
+    if (debuggerHost) {
+      const host = debuggerHost.split(":")[0];
+      return `http://${host}:3000`;
+    }
+    return "http://localhost:3000";
   }
 
-  if (Platform.OS === "android") {
-    return "http://10.0.2.2:3000";
-  }
-
-  return "http://localhost:3000";
+  // On mobile (Expo Go / dev client), always use production API
+  // Local backend isn't reachable from physical devices without extra setup
+  return PRODUCTION_API_URL;
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
@@ -50,6 +54,3 @@ export const REQUEST_TIMEOUT = 15000;
 export const MAX_RETRIES = 2;
 export const INITIAL_RETRY_DELAY = 1000;
 
-// Log resolved API URL on startup
-console.log(`[API] Base URL: ${API_BASE_URL}`);
-console.log(`[API] __DEV__: ${__DEV__}, Platform: ${Platform.OS}`);

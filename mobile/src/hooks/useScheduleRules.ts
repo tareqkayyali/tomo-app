@@ -15,10 +15,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getScheduleRules, updateScheduleRules } from '../services/api';
 import type { ScheduleRulesResponse } from '../services/api';
+import { colors } from '../theme/colors';
 
 // ── Types (mirrors backend scheduleRuleEngine) ──────────────────
 
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface LinkedProgram {
+  programId: string;
+  name: string;
+  category: string;
+}
 
 export interface TrainingCategoryRule {
   id: string;
@@ -31,6 +38,7 @@ export interface TrainingCategoryRule {
   daysPerWeek: number;
   sessionDuration: number;
   preferredTime: 'morning' | 'afternoon' | 'evening';
+  linkedPrograms?: LinkedProgram[];
 }
 
 export interface ExamScheduleEntry {
@@ -124,7 +132,7 @@ const DEFAULT_TRAINING_CATEGORIES: TrainingCategoryRule[] = [
     id: 'club',
     label: 'Club / Academy',
     icon: 'football-outline',
-    color: '#FF6B35',
+    color: colors.accent,
     enabled: true,
     mode: 'fixed_days',
     fixedDays: [1, 3, 5],
@@ -136,7 +144,7 @@ const DEFAULT_TRAINING_CATEGORIES: TrainingCategoryRule[] = [
     id: 'gym',
     label: 'Gym',
     icon: 'barbell-outline',
-    color: '#00D9FF',
+    color: colors.info,
     enabled: true,
     mode: 'days_per_week',
     fixedDays: [],
@@ -148,7 +156,7 @@ const DEFAULT_TRAINING_CATEGORIES: TrainingCategoryRule[] = [
     id: 'personal',
     label: 'Personal',
     icon: 'fitness-outline',
-    color: '#30D158',
+    color: colors.accent,
     enabled: false,
     mode: 'days_per_week',
     fixedDays: [],
@@ -296,12 +304,7 @@ export function useScheduleRules() {
           payload[key] = (prefs as any)[key];
         }
 
-        console.log('[useScheduleRules] saving', Object.keys(payload).length, 'fields');
-        console.log('[useScheduleRules] sample values — sleep_end:', payload.sleep_end, 'school_start:', payload.school_start);
-
         const result = await updateScheduleRules(payload);
-
-        console.log('[useScheduleRules] API response:', JSON.stringify(result));
 
         // Mark as saved
         savedPrefsRef.current = { ...prefs };
@@ -310,7 +313,6 @@ export function useScheduleRules() {
           return { ...prev, scenario: result.scenario };
         });
         setDirty(false);
-        console.log('[useScheduleRules] save SUCCESS');
         return true;
       } catch (err) {
         console.error('[useScheduleRules] save failed:', err);

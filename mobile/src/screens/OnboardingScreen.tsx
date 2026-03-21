@@ -27,6 +27,7 @@ import Animated, {
   SlideInLeft,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Button, Input } from '../components';
 import {
   colors,
@@ -64,8 +65,8 @@ type StepId =
 
 // ── Sport Selection ───────────────────────────────────────────────────────
 const SPORT_OPTIONS: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
-  { key: 'football', label: 'Football', icon: 'football-outline', color: '#FF6B35' },
-  { key: 'padel', label: 'Padel', icon: 'tennisball-outline', color: '#00D9FF' },
+  { key: 'football', label: 'Football', icon: 'football-outline', color: colors.accent },
+  { key: 'padel', label: 'Padel', icon: 'tennisball-outline', color: colors.info },
 ];
 
 // ── Football Position ────────────────────────────────────────────────────
@@ -164,6 +165,22 @@ export function OnboardingScreen() {
   const [footballCompetition, setFootballCompetition] = useState('');
   const [footballSelfAssessment, setFootballSelfAssessment] = useState<Record<string, number>>({});
 
+  // ── Date of birth state ──────────────────────────────────────────
+  const [showDobPicker, setShowDobPicker] = useState(false);
+  const [dobDate, setDobDate] = useState(new Date(2008, 0, 1));
+  const [dobSelected, setDobSelected] = useState(false);
+  const [calculatedAge, setCalculatedAge] = useState<number | null>(null);
+
+  const onDobChange = useCallback((event: any, selectedDate?: Date) => {
+    setShowDobPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setDobDate(selectedDate);
+      setDobSelected(true);
+      const age = Math.floor((Date.now() - selectedDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      setCalculatedAge(age);
+    }
+  }, []);
+
   // ── Education state ────────────────────────────────────────────────
   const [educationType, setEducationType] = useState<EducationType | ''>('');
   const [educationYear, setEducationYear] = useState(0);
@@ -258,6 +275,8 @@ export function OnboardingScreen() {
         height: height ? Number(height) : undefined,
         weight: weight ? Number(weight) : undefined,
         gender: gender as Gender,
+        dateOfBirth: dobSelected ? dobDate.toISOString().split('T')[0] : undefined,
+        age: calculatedAge ?? undefined,
         position: position || footballPosition || undefined,
         playingStyle: playingStyle || undefined,
         primaryGoal: primaryGoal as PrimaryGoal,
@@ -279,15 +298,7 @@ export function OnboardingScreen() {
       await refreshProfile();
     } catch (err) {
       console.error('[Onboarding] submit failed:', err);
-      if (Platform.OS === 'web') {
-        window.alert('Could not save your profile. Please try again.');
-      } else {
-        Alert.alert(
-          'Error',
-          'Could not save your profile. Please try again.',
-          [{ text: 'OK' }],
-        );
-      }
+      Alert.alert('Tomo', 'Could not save your profile. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -296,7 +307,7 @@ export function OnboardingScreen() {
     primaryGoal, refreshProfile,
     selectedSports, footballPosition, footballExperience,
     footballCompetition, footballSelfAssessment,
-    educationType, educationYear,
+    educationType, educationYear, dobSelected, dobDate, calculatedAge,
   ]);
 
   // ── Render Steps ────────────────────────────────────────────────────
@@ -442,7 +453,7 @@ export function OnboardingScreen() {
                   </Text>
                 </View>
                 {footballExperience === e.value && (
-                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                  <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -461,7 +472,7 @@ export function OnboardingScreen() {
                 <Ionicons
                   name={c.icon}
                   size={22}
-                  color={footballCompetition === c.value ? '#FFFFFF' : colors.textInactive}
+                  color={footballCompetition === c.value ? colors.textPrimary : colors.textInactive}
                 />
                 <Text
                   style={[
@@ -472,7 +483,7 @@ export function OnboardingScreen() {
                   {c.label}
                 </Text>
                 {footballCompetition === c.value && (
-                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                  <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -512,7 +523,37 @@ export function OnboardingScreen() {
               ))}
             </View>
 
-            {/* Section 2: Height + Weight */}
+            {/* Section 2: Date of Birth */}
+            <Text style={styles_s.fieldLabel}>Date of Birth</Text>
+            <Pressable
+              onPress={() => setShowDobPicker(true)}
+              style={[styles_s.dobPickerButton, { backgroundColor: colors.inputBackground }]}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.accent2} />
+              <Text style={[styles_s.dobPickerText, { color: dobSelected ? colors.textOnDark : colors.textMuted }]}>
+                {dobSelected
+                  ? dobDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : 'Select your date of birth'}
+              </Text>
+            </Pressable>
+            {showDobPicker && (
+              <DateTimePicker
+                value={dobDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onDobChange}
+                maximumDate={new Date()}
+                minimumDate={new Date(2000, 0, 1)}
+                themeVariant="dark"
+              />
+            )}
+            {calculatedAge != null && (
+              <Text style={[styles_s.dobAgeLabel, { color: colors.accent2 }]}>
+                Age: {calculatedAge} years
+              </Text>
+            )}
+
+            {/* Section 3: Height + Weight */}
             <View style={styles_s.row}>
               <View style={styles_s.halfInput}>
                 <Input
@@ -586,7 +627,7 @@ export function OnboardingScreen() {
                 <Ionicons
                   name={g.icon as keyof typeof Ionicons.glyphMap}
                   size={22}
-                  color={primaryGoal === g.value ? '#FFFFFF' : colors.textInactive}
+                  color={primaryGoal === g.value ? colors.textPrimary : colors.textInactive}
                 />
                 <Text
                   style={[
@@ -597,7 +638,7 @@ export function OnboardingScreen() {
                   {g.label}
                 </Text>
                 {primaryGoal === g.value && (
-                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                  <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -993,6 +1034,27 @@ const styles_s = StyleSheet.create({
     marginTop: spacing.md,
   },
 
+  // ── DOB Picker ──────────────────────────────────────────────────
+  dobPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.compact,
+    minHeight: 48,
+    marginBottom: spacing.xs,
+  },
+  dobPickerText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 15,
+  },
+  dobAgeLabel: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 13,
+    marginBottom: spacing.sm,
+  },
+
   // ── Row layout ────────────────────────────────────────────────────
   row: {
     flexDirection: 'row',
@@ -1029,7 +1091,7 @@ const styles_s = StyleSheet.create({
     color: colors.textInactive,
   },
   selectChipTextActive: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   chipIcon: {
     marginRight: spacing.xs,
@@ -1058,7 +1120,7 @@ const styles_s = StyleSheet.create({
     flex: 1,
   },
   goalTextActive: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
 
   // ── Summary Card ──────────────────────────────────────────────────
@@ -1171,7 +1233,7 @@ const styles_s = StyleSheet.create({
     color: colors.textInactive,
   },
   assessBtnTextActive: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
 
   // ── Nav Buttons ───────────────────────────────────────────────────

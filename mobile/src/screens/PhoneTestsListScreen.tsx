@@ -127,7 +127,7 @@ export function PhoneTestsListScreen({ navigation }: Props) {
                   end={{ x: 1, y: 0 }}
                   style={styles.testButton}
                 >
-                  <Ionicons name="play" size={16} color="#FFFFFF" />
+                  <Ionicons name="play" size={16} color={colors.textPrimary} />
                   <Text style={styles.testButtonText}>Start Test</Text>
                 </LinearGradient>
               </Pressable>
@@ -213,6 +213,6 @@ const styles = StyleSheet.create({
   testButtonText: {
     fontFamily: fontFamily.bold,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
 });

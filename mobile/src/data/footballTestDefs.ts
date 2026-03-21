@@ -15,6 +15,7 @@ import type { FootballAttribute } from '../types/football';
 import { FOOTBALL_ATTRIBUTE_LABELS } from '../types/football';
 import { FOOTBALL_SKILL_CONFIG, FOOTBALL_SKILL_ORDER } from '../types/football';
 import type { FootballSkill } from '../types/football';
+import { colors } from '../theme/colors';
 
 // ═══ INTERFACES ═══
 
@@ -99,7 +100,7 @@ export const FOOTBALL_TEST_DEFS: FootballTestDef[] = [
     id: 'sprint',
     name: 'Sprint Test',
     icon: 'flash-outline',
-    color: '#3498DB',
+    color: colors.info,
     attribute: 'pace',
     description: 'Measure your speed over 30 meters with optional splits.',
     researchNote: 'Sprint performance improves ~15% from U14 to senior (Radziminski et al., 2025). The 30m sprint is the standard benchmark for football acceleration.',
@@ -131,7 +132,7 @@ export const FOOTBALL_TEST_DEFS: FootballTestDef[] = [
     id: 'jump',
     name: 'Jump Test',
     icon: 'arrow-up-outline',
-    color: '#E74C3C',
+    color: colors.error,
     attribute: ['physicality', 'defending'],
     description: 'Countermovement jump height from flight time or direct measurement.',
     researchNote: 'CMJ increases ~50% from U14 to senior (Research Section 6.2). Jump height reflects lower-body power critical for aerial duels and acceleration.',
@@ -176,7 +177,7 @@ export const FOOTBALL_TEST_DEFS: FootballTestDef[] = [
     id: 'endurance',
     name: 'Endurance Test',
     icon: 'fitness-outline',
-    color: '#E74C3C',
+    color: colors.error,
     attribute: 'physicality',
     description: 'Yo-Yo Intermittent Recovery Level 1 test distance.',
     researchNote: 'Yo-Yo IR1 doubles from U14 to senior (Research Section 6.4). VO2max is derived via Bangsbo formula: VO2max = d x 0.0084 + 36.4.',
@@ -205,7 +206,7 @@ export const FOOTBALL_TEST_DEFS: FootballTestDef[] = [
     id: 'agility',
     name: 'Agility Test',
     icon: 'git-branch-outline',
-    color: '#00D9FF',
+    color: colors.info,
     attribute: 'dribbling',
     description: 'Change of direction speed — choose Illinois, 5-0-5, or T-Test.',
     researchNote: 'Agility is neural and peaks earlier than power-based traits (Research Section 6.3). COD ability separates elite from sub-elite youth players.',
@@ -230,7 +231,7 @@ export const FOOTBALL_TEST_DEFS: FootballTestDef[] = [
     id: 'shooting',
     name: 'Shooting Test',
     icon: 'football-outline',
-    color: '#FF6B35',
+    color: colors.accent,
     attribute: 'shooting',
     description: 'Measure shot power with optional kick distance and non-dominant foot.',
     researchNote: 'Kick velocity increases with leg strength maturation. Shot power at professional level averages 100-115 km/h dominant foot.',
@@ -249,7 +250,7 @@ export const FOOTBALL_TEST_DEFS: FootballTestDef[] = [
     id: 'passing',
     name: 'Passing Test',
     icon: 'navigate-outline',
-    color: '#30D158',
+    color: colors.accent,
     attribute: 'passing',
     description: 'Long pass distance and accuracy drill score.',
     researchNote: 'Pass distance follows the power maturation curve. Accuracy in structured drills distinguishes academy players from recreational.',
@@ -268,7 +269,7 @@ export const FOOTBALL_TEST_DEFS: FootballTestDef[] = [
     id: 'strength',
     name: 'Strength Test',
     icon: 'barbell-outline',
-    color: '#7B61FF',
+    color: colors.info,
     attribute: ['defending', 'physicality'],
     description: 'Grip strength and relative squat strength for overall power.',
     researchNote: 'Strength peaks at 16-18 years (Sherwood, 2021). Grip strength correlates with upper body power needed for shielding and aerial duels.',
@@ -287,7 +288,7 @@ export const FOOTBALL_TEST_DEFS: FootballTestDef[] = [
     id: 'selfAssessment',
     name: 'Skill Assessment',
     icon: 'star-outline',
-    color: '#F39C12',
+    color: colors.warning,
     attribute: ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physicality'],
     description: 'Rate your 8 football skills across 24 sub-metrics (1-5 scale).',
     researchNote: 'Self-assessment builds self-awareness and metacognitive skills. Combined with physical tests, it gives a full player profile.',

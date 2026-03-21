@@ -12,6 +12,7 @@ import type { PlayerNotification, DrillAssignedNotifData } from '../../types/pro
 import { CATEGORY_COLORS, CATEGORY_LABELS } from '../../types/programme';
 import { actOnNotification } from '../../services/api';
 import type { ThemeColors } from '../../theme';
+import { colors } from '../../theme/colors';
 
 interface Props {
   notification: PlayerNotification;
@@ -113,7 +114,7 @@ export function DrillNotificationCard({ notification, onActed, colors }: Props) 
       <View style={s.drillList}>
         {data.drills.map((drill, i) => {
           const catKey = drill.drillCategory as keyof typeof CATEGORY_COLORS;
-          const color = CATEGORY_COLORS[catKey] ?? '#6B6B6B';
+          const color = CATEGORY_COLORS[catKey] ?? colors.textDisabled;
           const label = CATEGORY_LABELS[catKey] ?? drill.drillCategory;
           const dateStr = formatDateShort(drill.scheduledDate);
 
@@ -211,7 +212,7 @@ function createStyles(_colors: ThemeColors) {
       backgroundColor: '#111',
       borderRadius: 14,
       borderWidth: 0.5,
-      borderColor: '#1E1E1E',
+      borderColor: colors.backgroundElevated,
       overflow: 'hidden',
     },
     unread: { borderColor: 'rgba(255,107,53,.3)' },
@@ -222,7 +223,7 @@ function createStyles(_colors: ThemeColors) {
       width: 36,
       height: 36,
       borderRadius: 10,
-      backgroundColor: '#3498DB',
+      backgroundColor: colors.info,
       alignItems: 'center',
       justifyContent: 'center',
       flexShrink: 0,
@@ -230,8 +231,8 @@ function createStyles(_colors: ThemeColors) {
     coachAvatarText: { fontSize: 13, fontFamily: 'Poppins_700Bold', color: '#FFF' },
     coachInfo: { flex: 1 },
     coachName: { fontSize: 13, fontFamily: 'Poppins_700Bold', color: '#FFF' },
-    notifMeta: { fontSize: 10, fontFamily: 'Poppins_400Regular', color: '#6B6B6B', marginTop: 1 },
-    unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF6B35' },
+    notifMeta: { fontSize: 10, fontFamily: 'Poppins_400Regular', color: colors.textDisabled, marginTop: 1 },
+    unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
     actedBadge: {
       backgroundColor: 'rgba(46,204,113,.12)',
       borderRadius: 5,
@@ -240,12 +241,12 @@ function createStyles(_colors: ThemeColors) {
       borderWidth: 0.5,
       borderColor: 'rgba(46,204,113,.3)',
     },
-    actedBadgeText: { fontSize: 9, fontFamily: 'Poppins_600SemiBold', color: '#2ECC71' },
+    actedBadgeText: { fontSize: 9, fontFamily: 'Poppins_600SemiBold', color: colors.accent },
     programmeBanner: {
       paddingHorizontal: 14,
       paddingBottom: 10,
       borderBottomWidth: 0.5,
-      borderBottomColor: '#1E1E1E',
+      borderBottomColor: colors.backgroundElevated,
     },
     programmeLabel: {
       fontSize: 8,
@@ -255,10 +256,10 @@ function createStyles(_colors: ThemeColors) {
       textTransform: 'uppercase',
       marginBottom: 2,
     },
-    programmeName: { fontSize: 12, fontFamily: 'Poppins_600SemiBold', color: '#B0B0B0' },
+    programmeName: { fontSize: 12, fontFamily: 'Poppins_600SemiBold', color: colors.textSecondary },
     drillList: { padding: 10, gap: 8 },
     drillItem: {
-      backgroundColor: '#0D0D0D',
+      backgroundColor: colors.background,
       borderRadius: 9,
       padding: 10,
       borderLeftWidth: 3,
@@ -273,7 +274,7 @@ function createStyles(_colors: ThemeColors) {
       paddingHorizontal: 6,
       paddingVertical: 2,
     },
-    mandTagText: { fontSize: 8, fontFamily: 'Poppins_700Bold', color: '#1ABC9C' },
+    mandTagText: { fontSize: 8, fontFamily: 'Poppins_700Bold', color: colors.accent },
     drillItemHeader: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -285,9 +286,9 @@ function createStyles(_colors: ThemeColors) {
     drillDate: { fontSize: 10, fontFamily: 'Poppins_400Regular', color: '#555' },
     drillName: { fontSize: 13, fontFamily: 'Poppins_700Bold', color: '#FFF', marginBottom: 6 },
     prescRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginBottom: 4 },
-    prescItem: { fontSize: 10, fontFamily: 'Poppins_600SemiBold', color: '#9B9B9B' },
-    prescDivider: { fontSize: 10, color: '#3D3D3D' },
-    intensityText: { fontSize: 10, fontFamily: 'Poppins_400Regular', color: '#6B6B6B', marginBottom: 4 },
+    prescItem: { fontSize: 10, fontFamily: 'Poppins_600SemiBold', color: colors.textSecondary },
+    prescDivider: { fontSize: 10, color: colors.border },
+    intensityText: { fontSize: 10, fontFamily: 'Poppins_400Regular', color: colors.textDisabled, marginBottom: 4 },
     coachNoteBox: {
       backgroundColor: 'rgba(52,152,219,.08)',
       borderRadius: 6,
@@ -297,33 +298,33 @@ function createStyles(_colors: ThemeColors) {
     coachNoteLabel: {
       fontSize: 8,
       fontFamily: 'Poppins_700Bold',
-      color: '#3498DB',
+      color: colors.info,
       letterSpacing: 0.08,
       marginBottom: 2,
     },
-    coachNoteText: { fontSize: 10, fontFamily: 'Poppins_400Regular', color: '#9B9B9B', lineHeight: 15 },
+    coachNoteText: { fontSize: 10, fontFamily: 'Poppins_400Regular', color: colors.textSecondary, lineHeight: 15 },
     actionRow: {
       flexDirection: 'row',
       gap: 8,
       padding: 12,
       paddingTop: 6,
       borderTopWidth: 0.5,
-      borderTopColor: '#1E1E1E',
+      borderTopColor: colors.backgroundElevated,
     },
     chatBtn: {
       flex: 1,
       padding: 10,
       borderRadius: 8,
       borderWidth: 0.5,
-      borderColor: '#2D2D2D',
+      borderColor: colors.border,
       alignItems: 'center',
     },
-    chatBtnText: { fontSize: 11, fontFamily: 'Poppins_500Medium', color: '#6B6B6B' },
+    chatBtnText: { fontSize: 11, fontFamily: 'Poppins_500Medium', color: colors.textDisabled },
     addBtn: {
       flex: 1.5,
       padding: 10,
       borderRadius: 8,
-      backgroundColor: '#FF6B35',
+      backgroundColor: colors.accent,
       alignItems: 'center',
     },
     addBtnText: { fontSize: 11, fontFamily: 'Poppins_700Bold', color: '#FFF' },
@@ -333,9 +334,9 @@ function createStyles(_colors: ThemeColors) {
       padding: 10,
       borderRadius: 8,
       borderWidth: 0.5,
-      borderColor: '#2D2D2D',
+      borderColor: colors.border,
       alignItems: 'center',
     },
-    viewScheduleBtnText: { fontSize: 11, fontFamily: 'Poppins_400Regular', color: '#6B6B6B' },
+    viewScheduleBtnText: { fontSize: 11, fontFamily: 'Poppins_400Regular', color: colors.textDisabled },
   });
 }

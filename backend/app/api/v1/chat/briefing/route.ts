@@ -7,11 +7,12 @@ export async function GET(req: NextRequest) {
   if ("error" in auth) return auth.error;
 
   try {
-    // Client can pass local hour for timezone-aware greetings
+    // Client can pass local hour + timezone for timezone-aware briefing
     const hourParam = req.nextUrl.searchParams.get("hour");
     const clientHour = hourParam ? parseInt(hourParam, 10) : undefined;
+    const timezone = req.nextUrl.searchParams.get("tz") || undefined;
 
-    const briefing = await generateBriefing(auth.user.id, clientHour);
+    const briefing = await generateBriefing(auth.user.id, clientHour, timezone);
 
     return NextResponse.json(briefing, {
       headers: { "api-version": "v1" },

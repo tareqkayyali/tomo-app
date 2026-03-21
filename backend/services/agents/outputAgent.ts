@@ -216,6 +216,22 @@ export const outputTools = [
     },
   },
   {
+    name: "get_my_programs",
+    description:
+      "Get the athlete's current personalized training programs including AI-generated and coach-assigned programs. Use this when the athlete asks about their programs, a specific program by name, or wants details about a recommended training program.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        program_name: {
+          type: "string",
+          description:
+            "Optional: filter by program name (partial match). If not provided, returns all programs.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: "get_program_by_id",
     description:
       "Get full details of a specific training program including prescriptions, PHV guidance, and equipment. Use when player asks about a specific programme by name or ID.",
@@ -551,6 +567,86 @@ export async function executeOutputTool(
         return { result };
       }
 
+      case "get_my_programs": {
+        console.warn("[get_my_programs] called with input:", JSON.stringify(toolInput));
+
+        const { data: snapshot, error: snapErr } = await (db as any)
+          .from("athlete_snapshots")
+          .select("program_recommendations")
+          .eq("athlete_id", userId)
+          .single();
+
+        if (snapErr) {
+          console.warn("[get_my_programs] DB error:", snapErr.message);
+          return { result: null, error: `Failed to fetch programs: ${snapErr.message}` };
+        }
+
+        let raw = snapshot?.program_recommendations;
+        // Handle case where it's stored as a string
+        if (typeof raw === 'string') {
+          try { raw = JSON.parse(raw); } catch { raw = null; }
+        }
+        // program_recommendations is a DeepProgramResult object: { programs: [...], isAiGenerated, ... }
+        // NOT a flat array — programs are nested under .programs
+        let programs: any[] = [];
+        if (Array.isArray(raw)) {
+          programs = raw;
+        } else if (raw && Array.isArray(raw.programs)) {
+          programs = raw.programs;
+        }
+        console.warn("[get_my_programs] found", programs.length, "programs in snapshot");
+
+        // Filter by name if provided — fuzzy match: split search into words and match any
+        const nameFilter = toolInput.program_name?.toLowerCase()?.trim();
+        if (nameFilter) {
+          const searchWords = nameFilter.split(/\s+/).filter((w: string) => w.length > 2);
+          programs = programs.filter((p: any) => {
+            const pName = (p.name || '').toLowerCase();
+            const pId = (p.programId || '').toLowerCase();
+            const pCategory = (p.category || '').toLowerCase();
+            const pTags = (p.tags || []).join(' ').toLowerCase();
+            const searchable = `${pName} ${pId} ${pCategory} ${pTags}`;
+            // Match if ANY search word appears in any field
+            return searchWords.some((w: string) => searchable.includes(w));
+          });
+          console.warn("[get_my_programs] filter:", nameFilter, "words:", searchWords, "matched:", programs.length);
+        }
+
+        // Limit to max 5 programs to avoid overwhelming Claude's context
+        const limited = programs.slice(0, 5);
+        console.warn("[get_my_programs] returning", limited.length, "programs (filtered:", !!nameFilter, ")");
+
+        if (limited.length === 0) {
+          return {
+            result: {
+              found: false,
+              message: "No matching programs found in your current recommendations.",
+              totalPrograms: programs.length,
+            },
+          };
+        }
+
+        return {
+          result: {
+            found: true,
+            count: limited.length,
+            totalAvailable: programs.length,
+            programs: limited.map((p: any) => ({
+              name: p.name,
+              category: p.category,
+              type: p.type,
+              priority: p.priority,
+              frequency: p.frequency,
+              durationMin: p.durationMin,
+              difficulty: p.difficulty,
+              description: p.description,
+              reason: p.reason,
+              prescription: p.prescription,
+            })),
+          },
+        };
+      }
+
       case "get_program_by_id": {
         const { data: programData } = await (db as any)
           .from("football_training_programs")
@@ -646,11 +742,12 @@ When the player asks about weaknesses, strengths, gaps, or areas to improve (WIT
 6. If truly zero data exists, explain what tests/check-ins to complete and give general position-based advice.
 
 TRAINING PROGRAMS:
-1. When player asks about training programmes, development plans, or 6-week blocks, use get_training_program_recommendations.
-2. NEVER prescribe sets/reps/intensity from memory — ALWAYS use the tool to get evidence-based, age-appropriate, PHV-modified prescriptions.
-3. When PHV data is provided (height, sitting height, weight, age), use calculate_phv_stage FIRST, then recommend programs.
-4. Mid-PHV athletes: flag prominently — no maximal loading, no barbell squats, modified Nordic protocol.
-5. Use get_program_by_id when the player asks about a specific training programme.
+1. When the athlete asks about their training programs, a specific program, or wants drill details for a recommended program, use the get_my_programs tool first to check their personalized recommendations before searching the general drill catalog.
+2. When player asks about training programmes, development plans, or 6-week blocks, use get_training_program_recommendations.
+3. NEVER prescribe sets/reps/intensity from memory — ALWAYS use the tool to get evidence-based, age-appropriate, PHV-modified prescriptions.
+4. When PHV data is provided (height, sitting height, weight, age), use calculate_phv_stage FIRST, then recommend programs.
+5. Mid-PHV athletes: flag prominently — no maximal loading, no barbell squats, modified Nordic protocol.
+6. Use get_program_by_id when the player asks about a specific training programme.
 
 BENCHMARKS & COMPARISONS:
 ONLY call get_benchmark_comparison when the player EXPLICITLY asks to compare against peers.

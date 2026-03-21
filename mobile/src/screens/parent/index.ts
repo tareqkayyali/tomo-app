@@ -1,4 +1,6 @@
 export { ParentCalendarScreen } from './ParentCalendarScreen';
+export { ParentChildrenScreen } from './ParentChildrenScreen';
+export { ParentChildDetailScreen } from './ParentChildDetailScreen';
 export { ParentChildPlanScreen } from './ParentChildPlanScreen';
 export { ParentStudyPlanScreen } from './ParentStudyPlanScreen';
 export { ParentExamScreen } from './ParentExamScreen';
@@ -6,5 +8,6 @@ export { ParentMasteryScreen } from './ParentMasteryScreen';
 export { ParentAddStudyScreen } from './ParentAddStudyScreen';
 export { ParentAddExamScreen } from './ParentAddExamScreen';
 export { ParentInviteScreen } from './ParentInviteScreen';
+export { ParentProfileScreen } from './ParentProfileScreen';
 export { ParentSettingsScreen } from './ParentSettingsScreen';
 export { ParentOnboardingScreen } from './ParentOnboardingScreen';

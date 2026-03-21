@@ -6,6 +6,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import crypto from 'crypto';
 import type { RecType, RecPriority } from '../types';
 import type { KnowledgeChunk } from './ragRetriever';
 
@@ -19,6 +20,53 @@ export interface AugmentedRecContent {
   body_coach: string;
   evidence_basis_text: string;
   action_cta: string;
+}
+
+// ---------------------------------------------------------------------------
+// In-memory cache (1-hour TTL)
+// ---------------------------------------------------------------------------
+
+interface CacheEntry {
+  content: AugmentedRecContent;
+  expiresAt: number;
+}
+
+const ragCache = new Map<string, CacheEntry>();
+const RAG_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function getCacheKey(
+  recType: RecType,
+  title: string,
+  chunks: KnowledgeChunk[],
+  snapshot: Record<string, unknown>
+): string {
+  const hash = crypto
+    .createHash('sha256')
+    .update(JSON.stringify({ recType, title, chunkIds: chunks.map(c => c.title), snapshot }))
+    .digest('hex')
+    .slice(0, 16);
+  return `rag_${recType}_${hash}`;
+}
+
+function getFromCache(key: string): AugmentedRecContent | null {
+  const entry = ragCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    ragCache.delete(key);
+    return null;
+  }
+  return entry.content;
+}
+
+function setCache(key: string, content: AugmentedRecContent): void {
+  // Evict expired entries periodically (when cache exceeds 100 entries)
+  if (ragCache.size > 100) {
+    const now = Date.now();
+    for (const [k, v] of ragCache) {
+      if (now > v.expiresAt) ragCache.delete(k);
+    }
+  }
+  ragCache.set(key, { content, expiresAt: Date.now() + RAG_CACHE_TTL_MS });
 }
 
 // ---------------------------------------------------------------------------
@@ -89,6 +137,13 @@ export async function generateAugmentedContent(
   phv: { phvStage: string; loadingMultiplier: number } | null,
   retrievedChunks: KnowledgeChunk[]
 ): Promise<AugmentedRecContent> {
+  // Check cache first
+  const cacheKey = getCacheKey(recType, title, retrievedChunks, snapshot);
+  const cached = getFromCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   // Build the knowledge section
   const knowledgeSection = retrievedChunks
     .map((c, i) => (
@@ -136,7 +191,7 @@ Produce a JSON object with exactly these 5 fields:
 Respond ONLY with valid JSON matching these 5 fields. No markdown, no explanation.`;
 
   const response = await getClient().messages.create({
-    model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+    model: process.env.ANTHROPIC_RAG_MODEL || 'claude-haiku-4-5-20251001',
     max_tokens: 600,
     temperature: 0.7,
     system: PROFESSOR_SYSTEM_PROMPT,
@@ -157,6 +212,9 @@ Respond ONLY with valid JSON matching these 5 fields. No markdown, no explanatio
   if (!parsed.body_short || !parsed.body_long) {
     throw new Error('Missing required body_short or body_long in Claude response');
   }
+
+  // Cache the result
+  setCache(cacheKey, parsed);
 
   return parsed;
 }

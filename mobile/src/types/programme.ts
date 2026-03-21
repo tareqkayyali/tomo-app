@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 /**
  * Programme Types — Coach drill builder + player notification types.
  */
@@ -29,11 +30,11 @@ export type NotificationType =
 // ── Constants ────────────────────────────────────────────────────
 
 export const CATEGORY_COLORS: Record<DrillCategory, string> = {
-  warmup: '#F39C12',
-  training: '#FF6B35',
-  cooldown: '#3498DB',
-  recovery: '#2ECC71',
-  activation: '#E74C3C',
+  warmup: colors.warning,
+  training: colors.accent,
+  cooldown: colors.info,
+  recovery: colors.accent,
+  activation: colors.error,
 };
 
 export const CATEGORY_LABELS: Record<DrillCategory, string> = {
@@ -62,10 +63,10 @@ export const CYCLE_LABELS: Record<SeasonCycle, string> = {
 };
 
 export const CYCLE_COLORS: Record<SeasonCycle, string> = {
-  pre_season: '#3498DB',
-  in_season: '#FF6B35',
-  off_season: '#2ECC71',
-  exam_period: '#9B59B6',
+  pre_season: colors.info,
+  in_season: colors.accent,
+  off_season: colors.accent,
+  exam_period: colors.info,
 };
 
 // ── Interfaces ───────────────────────────────────────────────────

@@ -89,11 +89,7 @@ export function ParentOnboardingScreen() {
       await refreshProfile();
     } catch (err) {
       console.error('[ParentOnboarding] finish failed:', err);
-      if (Platform.OS === 'web') {
-        window.alert('Could not complete setup. Please try again.');
-      } else {
-        Alert.alert('Error', 'Could not complete setup. Please try again.');
-      }
+      Alert.alert('Tomo', 'Could not complete setup. Please try again.');
     } finally {
       setIsFinishing(false);
     }
@@ -107,11 +103,7 @@ export function ParentOnboardingScreen() {
       await refreshProfile();
     } catch (err) {
       console.error('[ParentOnboarding] skip failed:', err);
-      if (Platform.OS === 'web') {
-        window.alert('Could not complete setup. Please try again.');
-      } else {
-        Alert.alert('Error', 'Could not complete setup. Please try again.');
-      }
+      Alert.alert('Tomo', 'Could not complete setup. Please try again.');
     } finally {
       setIsFinishing(false);
     }

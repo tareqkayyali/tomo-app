@@ -49,10 +49,10 @@ function SportCard({
             end={{ x: 1, y: 1 }}
             style={[styles.card, styles.cardSelected]}
           >
-            <Ionicons name={option.icon as any} size={40} color="#FFFFFF" />
+            <Ionicons name={option.icon as any} size={40} color={colors.textPrimary} />
             <Text style={styles.cardLabel}>{option.label}</Text>
             <View style={styles.checkBadge}>
-              <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+              <Ionicons name="checkmark-circle" size={18} color={colors.textPrimary} />
             </View>
           </LinearGradient>
         ) : (

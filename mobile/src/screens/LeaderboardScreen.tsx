@@ -48,6 +48,7 @@ import { useSportContext } from '../hooks/useSportContext';
 import { SportSwitcher } from '../components/common/SportSwitcher';
 import { useFadeIn } from '../hooks/useFadeIn';
 import type { LeaderboardEntry, LeaderboardResponse } from '../types';
+import { colors } from '../theme/colors';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -392,9 +393,9 @@ function PodiumSlot({
   const initial = (entry.displayName || entry.name || '?').charAt(0).toUpperCase();
 
   const medalColors: Record<number, string> = {
-    1: '#FFD700',
-    2: '#C0C0C0',
-    3: '#CD7F32',
+    1: colors.tierGold,
+    2: colors.tierSilver,
+    3: colors.tierBronze,
   };
 
   const avatar = (

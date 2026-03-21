@@ -11,12 +11,14 @@ import { emitEventSafe } from "@/services/events/eventEmitter";
 // (Vercel serverless kills fire-and-forget tasks after response is sent)
 
 export async function POST(req: NextRequest) {
-  const auth = requireAuth(req);
-  if ("error" in auth) return auth.error;
+  try {
+    const auth = requireAuth(req);
+    if ("error" in auth) return auth.error;
 
-  // 1. Validate with Zod
-  const body = await req.json();
-  const parsed = checkinSchema.safeParse(body);
+    // 1. Validate with Zod
+    let body;
+    try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }); }
+    const parsed = checkinSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.flatten() },
@@ -199,4 +201,8 @@ export async function POST(req: NextRequest) {
     },
     { status: 201, headers: { "api-version": "v1" } }
   );
+  } catch (err: any) {
+    console.error('[checkin] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

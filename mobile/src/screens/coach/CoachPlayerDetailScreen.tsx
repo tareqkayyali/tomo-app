@@ -1,23 +1,20 @@
 /**
- * Coach Player Detail Screen
+ * Coach Player Detail Screen — Gen Z redesign with 4 inner tabs + swipe
  *
- * 2-tab layout under player header:
- *   Timeline (UnifiedDayView) | Mastery (ProgressScreen)
+ * Tabs: Timeline | Mastery | Programmes | Tests
  *
- * FAB on Timeline tab → RecommendEvent
- * Header button → Submit Test
+ * Compact player header card. Swipeable inner tabs.
  */
 
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Platform,
+  PanResponder,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -25,20 +22,28 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { UnifiedDayView } from '../../components/plan/UnifiedDayView';
 import { ErrorState } from '../../components';
 import { ProgressScreen } from '../ProgressScreen';
+import { ProgrammesTab } from '../../components/coach/ProgrammesTab';
+import { TestsTab } from '../../components/coach/TestsTab';
 import { usePlayerCalendarData } from '../../hooks/usePlayerCalendarData';
 import { useTriangleSnapshot } from '../../hooks/useTriangleSnapshot';
 import { ragToColor, acwrRiskLabel } from '../../hooks/useAthleteSnapshot';
 import { useTheme } from '../../hooks/useTheme';
 import { getPlayerReadiness } from '../../services/api';
 import { toDateStr } from '../../utils/calendarHelpers';
+import { GlassCard } from '../../components/GlassCard';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { CoachStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<CoachStackParamList, 'CoachPlayerDetail'>;
 
-type ActiveTab = 'timeline' | 'mastery';
+type ActiveTab = 'timeline' | 'mastery' | 'programmes' | 'tests';
 
-// ── Helpers ──────────────────────────────────────────────────────────────
+const TABS: { key: ActiveTab; label: string }[] = [
+  { key: 'timeline', label: 'Timeline' },
+  { key: 'mastery', label: 'Mastery' },
+  { key: 'programmes', label: 'Programs' },
+  { key: 'tests', label: 'Tests' },
+];
 
 function addDays(date: Date, days: number): Date {
   const d = new Date(date);
@@ -51,14 +56,10 @@ function dotColorForLevel(
   themeColors: { success: string; warning: string; error: string; textMuted: string },
 ): string {
   switch (level?.toUpperCase()) {
-    case 'GREEN':
-      return themeColors.success;
-    case 'YELLOW':
-      return themeColors.warning;
-    case 'RED':
-      return themeColors.error;
-    default:
-      return themeColors.textMuted;
+    case 'GREEN': return themeColors.success;
+    case 'YELLOW': return themeColors.warning;
+    case 'RED': return themeColors.error;
+    default: return themeColors.textMuted;
   }
 }
 
@@ -68,8 +69,6 @@ interface ReadinessEntry {
   [key: string]: unknown;
 }
 
-// ── Component ────────────────────────────────────────────────────────────
-
 export function CoachPlayerDetailScreen({ route, navigation }: Props) {
   const { playerId, playerName } = route.params;
   const { colors } = useTheme();
@@ -78,82 +77,58 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('timeline');
   const [readiness, setReadiness] = useState<ReadinessEntry[]>([]);
 
-  // ── Calendar data for Timeline tab ──────────────────────────────────
-
+  // Calendar data for Timeline tab
   const calendar = usePlayerCalendarData(playerId, 'coach');
   const { events, isLoading, backendError, setSelectedDate, refresh, dayLocks } = calendar;
 
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState(false);
 
-  // ── Readiness dots (always fetch) ───────────────────────────────────
-
+  // Readiness dots
   useEffect(() => {
+    let isMounted = true;
     (async () => {
       try {
         const res = await getPlayerReadiness(playerId);
+        if (!isMounted) return;
         setReadiness((res.readiness as ReadinessEntry[]).slice(-14));
-      } catch {
-        // silent
+      } catch (e) {
+        console.warn('[CoachPlayerDetailScreen] fetch readiness error:', e);
       }
     })();
+    return () => { isMounted = false; };
   }, [playerId]);
 
-  // ── Day navigation ──────────────────────────────────────────────────
-
+  // Day navigation
   const goToPrevDay = useCallback(() => {
-    setSelectedDay((prev) => {
-      const next = addDays(prev, -1);
-      setSelectedDate(next);
-      return next;
-    });
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    setSelectedDay((prev) => { const next = addDays(prev, -1); setSelectedDate(next); return next; });
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [setSelectedDate]);
 
   const goToNextDay = useCallback(() => {
-    setSelectedDay((prev) => {
-      const next = addDays(prev, 1);
-      setSelectedDate(next);
-      return next;
-    });
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    setSelectedDay((prev) => { const next = addDays(prev, 1); setSelectedDate(next); return next; });
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [setSelectedDate]);
 
   const goToToday = useCallback(() => {
-    const today = new Date();
-    setSelectedDay(today);
-    setSelectedDate(today);
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    const today = new Date(); setSelectedDay(today); setSelectedDate(today);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [setSelectedDate]);
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    refresh();
-    setTimeout(() => setRefreshing(false), 1000);
+    setRefreshing(true); refresh(); setTimeout(() => setRefreshing(false), 1000);
   }, [refresh]);
-
-  // ── Computed values ─────────────────────────────────────────────────
 
   const todayStr = toDateStr(new Date());
   const selectedDayStr = toDateStr(selectedDay);
   const isToday = selectedDayStr === todayStr;
 
   const dayEvents = useMemo(
-    () =>
-      events
-        .filter((e) => e.date === selectedDayStr)
-        .sort((a, b) => {
-          if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime);
-          if (a.startTime) return -1;
-          if (b.startTime) return 1;
-          return 0;
-        }),
+    () => events.filter((e) => e.date === selectedDayStr)
+      .sort((a, b) => {
+        if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime);
+        if (a.startTime) return -1; if (b.startTime) return 1; return 0;
+      }),
     [events, selectedDayStr],
   );
 
@@ -163,302 +138,252 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
     const tomorrow = addDays(new Date(), 1);
     if (toDateStr(yesterday) === selectedDayStr) return 'Yesterday';
     if (toDateStr(tomorrow) === selectedDayStr) return 'Tomorrow';
-    return selectedDay.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
+    return selectedDay.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   }, [selectedDay, selectedDayStr, isToday]);
 
-  // ── Tab switcher ────────────────────────────────────────────────────
+  // Tab swipe + press
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt, gs) =>
+        Math.abs(gs.dx) > 30 && Math.abs(gs.dy) < Math.abs(gs.dx) * 0.5,
+      onPanResponderRelease: (_evt, gs) => {
+        if (Math.abs(gs.dx) < 60) return;
+        const currentIdx = TABS.findIndex(t => t.key === activeTabRef.current);
+        if (currentIdx === -1) return;
+        const nextIdx = gs.dx < 0
+          ? Math.min(currentIdx + 1, TABS.length - 1)
+          : Math.max(currentIdx - 1, 0);
+        if (nextIdx !== currentIdx) {
+          setActiveTab(TABS[nextIdx].key);
+          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      },
+    })
+  ).current;
 
   const handleTabPress = useCallback((tab: ActiveTab) => {
     setActiveTab(tab);
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
-  // ── Render ──────────────────────────────────────────────────────────
+  // Initials
+  const initials = playerName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* ─── Player Header ─── */}
-      <View style={[styles.headerCard, { backgroundColor: colors.surfaceElevated }]}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.playerName, { color: colors.textOnDark }]}>{playerName}</Text>
-            <View style={styles.headerMeta}>
-              <Ionicons name="football-outline" size={16} color={colors.accent1} />
-              <Text style={[styles.headerMetaText, { color: colors.textMuted }]}>Player</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]} {...panResponder.panHandlers}>
+      {/* ─── Compact Player Header ─── */}
+      <View style={{ paddingHorizontal: layout.screenMargin, paddingTop: spacing.xs }}>
+        <View style={[styles.headerCard, { backgroundColor: colors.surfaceElevated }]}>
+          <View style={styles.headerRow}>
+            <View style={[styles.avatar, { backgroundColor: colors.accent1 + '22' }]}>
+              <Text style={[styles.avatarText, { color: colors.accent1 }]}>{initials}</Text>
+            </View>
+            <View style={styles.headerInfo}>
+              <Text style={[styles.playerName, { color: colors.textOnDark }]} numberOfLines={1}>
+                {playerName}
+              </Text>
+              <View style={styles.headerChips}>
+                {snapshot && (
+                  <>
+                    <View style={[styles.ragDot, { backgroundColor: ragToColor(snapshot.readiness_rag) }]} />
+                    {snapshot.acwr != null && (
+                      <Text style={[styles.chipText, { color: colors.accent2 }]}>
+                        ACWR {snapshot.acwr.toFixed(1)}
+                      </Text>
+                    )}
+                  </>
+                )}
+                {isLive && (
+                  <View style={[styles.liveBadge, { backgroundColor: colors.success + '33' }]}>
+                    <Text style={{ fontSize: 8, color: colors.success, fontFamily: fontFamily.semiBold }}>LIVE</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            {/* Action buttons — compact */}
+            <View style={styles.actionButtons}>
+              <Pressable
+                onPress={() => navigation.navigate('CoachAddProgram', { playerId, playerName })}
+                style={[styles.actionBtn, { backgroundColor: colors.accent2 + '22' }]}
+              >
+                <Ionicons name="barbell-outline" size={16} color={colors.accent2} />
+              </Pressable>
+              <Pressable
+                onPress={() => navigation.navigate('CoachTestInput', { playerId, playerName })}
+                style={[styles.actionBtn, { backgroundColor: colors.accent1 }]}
+              >
+                <Ionicons name="flash-outline" size={16} color={colors.textPrimary} />
+              </Pressable>
             </View>
           </View>
-          {/* Submit Test button */}
-          <Pressable
-            onPress={() => navigation.navigate('CoachTestInput', { playerId, playerName })}
-            style={({ pressed }) => [
-              styles.testButton,
-              { backgroundColor: colors.accent1, opacity: pressed ? 0.85 : 1 },
-            ]}
-          >
-            <Ionicons name="flash-outline" size={16} color={colors.textOnDark} />
-            <Text style={[styles.testButtonText, { color: colors.textOnDark }]}>Test</Text>
-          </Pressable>
+
+          {/* Readiness dots — compact */}
+          {readiness.length > 0 && (
+            <View style={styles.readinessRow}>
+              {readiness.map((entry, idx) => (
+                <View
+                  key={idx}
+                  style={[styles.readinessDotSmall, { backgroundColor: dotColorForLevel(entry.level as string | undefined, colors) }]}
+                />
+              ))}
+            </View>
+          )}
         </View>
-
-        {/* Snapshot summary — live metrics from Data Fabric */}
-        {snapshot && (
-          <View style={styles.snapshotRow}>
-            <View style={styles.snapshotChip}>
-              <View style={[styles.ragDot, { backgroundColor: ragToColor(snapshot.readiness_rag) }]} />
-              <Text style={[styles.snapshotLabel, { color: colors.textMuted }]}>Readiness</Text>
-            </View>
-            {snapshot.acwr != null && (
-              <View style={styles.snapshotChip}>
-                <Text style={[styles.snapshotValue, { color: colors.accent2 }]}>
-                  {snapshot.acwr.toFixed(2)}
-                </Text>
-                <Text style={[styles.snapshotLabel, { color: colors.textMuted }]}>
-                  ACWR · {acwrRiskLabel(snapshot.acwr)}
-                </Text>
-              </View>
-            )}
-            {snapshot.dual_load_index != null && (
-              <View style={styles.snapshotChip}>
-                <Text style={[styles.snapshotValue, { color: colors.accent1 }]}>
-                  {snapshot.dual_load_index}
-                </Text>
-                <Text style={[styles.snapshotLabel, { color: colors.textMuted }]}>Load</Text>
-              </View>
-            )}
-            {isLive && (
-              <View style={[styles.liveBadge, { backgroundColor: colors.success + '33' }]}>
-                <Text style={{ fontSize: 9, color: colors.success, fontFamily: fontFamily.semiBold }}>LIVE</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Readiness dots */}
-        {readiness.length > 0 && (
-          <View style={styles.readinessRow}>
-            {readiness.map((entry, idx) => {
-              const date = new Date(entry.date);
-              const dayLabelShort = date.toLocaleDateString('en-US', { weekday: 'narrow' });
-              return (
-                <View key={idx} style={styles.readinessDotCol}>
-                  <View
-                    style={[
-                      styles.readinessDot,
-                      { backgroundColor: dotColorForLevel(entry.level as string | undefined, colors) },
-                    ]}
-                  />
-                  <Text style={[styles.readinessDayLabel, { color: colors.textInactive }]}>
-                    {dayLabelShort}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
       </View>
 
-      {/* ─── Tab Bar ─── */}
-      <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-        <Pressable
-          onPress={() => handleTabPress('timeline')}
-          style={[
-            styles.tab,
-            activeTab === 'timeline' && { borderBottomColor: colors.accent1, borderBottomWidth: 2 },
-          ]}
-        >
-          <Ionicons
-            name="calendar-outline"
-            size={18}
-            color={activeTab === 'timeline' ? colors.accent1 : colors.textInactive}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: activeTab === 'timeline' ? colors.accent1 : colors.textInactive },
-            ]}
-          >
-            Timeline
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => handleTabPress('mastery')}
-          style={[
-            styles.tab,
-            activeTab === 'mastery' && { borderBottomColor: colors.accent1, borderBottomWidth: 2 },
-          ]}
-        >
-          <Ionicons
-            name="trending-up-outline"
-            size={18}
-            color={activeTab === 'mastery' ? colors.accent1 : colors.textInactive}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: activeTab === 'mastery' ? colors.accent1 : colors.textInactive },
-            ]}
-          >
-            Mastery
-          </Text>
-        </Pressable>
+      {/* ─── Tab Bar (text only, no icons) ─── */}
+      <View style={[styles.tabBar, { borderBottomColor: colors.borderLight }]}>
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => handleTabPress(tab.key)}
+              style={[
+                styles.tab,
+                isActive && { borderBottomColor: colors.accent1, borderBottomWidth: 2 },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color: isActive ? colors.accent1 : colors.textInactive,
+                    fontFamily: isActive ? fontFamily.semiBold : fontFamily.medium,
+                  },
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* ─── Tab Content ─── */}
       <View style={styles.tabContent}>
-        {activeTab === 'timeline' ? (
+        {activeTab === 'timeline' && (
           <>
-            {backendError && (
-              <ErrorState
-                message="Could not load data. Pull to retry."
-                onRetry={refresh}
-                compact
-              />
-            )}
+            {backendError && <ErrorState message="Could not load data. Pull to retry." onRetry={refresh} compact />}
             <UnifiedDayView
-              role="coach"
-              isOwner={false}
-              targetUserName={playerName}
-              events={dayEvents}
-              selectedDay={selectedDay}
-              dayLabel={dayLabel}
-              isToday={isToday}
-              isLoading={isLoading}
-              isLocked={!!dayLocks[selectedDayStr]}
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              onPrevDay={goToPrevDay}
-              onNextDay={goToNextDay}
-              onToday={goToToday}
+              role="coach" isOwner={false} targetUserName={playerName}
+              events={dayEvents} selectedDay={selectedDay} dayLabel={dayLabel}
+              isToday={isToday} isLoading={isLoading} isLocked={!!dayLocks[selectedDayStr]}
+              refreshing={refreshing} onRefresh={onRefresh}
+              onPrevDay={goToPrevDay} onNextDay={goToNextDay} onToday={goToToday}
             />
           </>
-        ) : (
-          <ProgressScreen
-            navigation={navigation as any}
-            targetPlayerId={playerId}
-            targetPlayerName={playerName}
-          />
+        )}
+        {activeTab === 'mastery' && (
+          <ProgressScreen navigation={navigation as any} targetPlayerId={playerId} targetPlayerName={playerName} />
+        )}
+        {activeTab === 'programmes' && (
+          <ProgrammesTab playerId={playerId} playerName={playerName} />
+        )}
+        {activeTab === 'tests' && (
+          <TestsTab playerId={playerId} playerName={playerName} navigation={navigation} />
         )}
       </View>
     </View>
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+
+  // Header — compact
   headerCard: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginHorizontal: layout.screenMargin,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 14,
+    fontFamily: fontFamily.bold,
+  },
+  headerInfo: {
+    flex: 1,
   },
   playerName: {
-    fontSize: 22,
+    fontSize: 16,
     fontFamily: fontFamily.bold,
-    marginBottom: 2,
   },
-  headerMeta: {
+  headerChips: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 6,
+    marginTop: 1,
   },
-  headerMetaText: {
-    fontSize: 14,
-  },
-  testButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  testButtonText: {
-    fontSize: 13,
+  chipText: {
+    fontSize: 10,
     fontFamily: fontFamily.semiBold,
   },
-  snapshotRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  snapshotChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  snapshotValue: {
-    fontSize: 14,
-    fontFamily: fontFamily.bold,
-  },
-  snapshotLabel: {
-    fontSize: 11,
-    fontFamily: fontFamily.medium,
-  },
   ragDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
   },
   liveBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  actionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Readiness dots
   readinessRow: {
     flexDirection: 'row',
-    marginTop: spacing.sm,
     gap: 2,
+    marginTop: spacing.xs,
+    paddingHorizontal: 2,
   },
-  readinessDotCol: {
-    alignItems: 'center',
+  readinessDotSmall: {
     flex: 1,
+    height: 3,
+    borderRadius: 1.5,
   },
-  readinessDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginBottom: 2,
-  },
-  readinessDayLabel: {
-    fontSize: 9,
-    fontFamily: fontFamily.medium,
-  },
+
+  // Tab bar — text only
   tabBar: {
     flexDirection: 'row',
-    borderBottomWidth: 0.5,
+    borderBottomWidth: 1,
     marginHorizontal: layout.screenMargin,
+    marginTop: spacing.xs,
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     paddingVertical: spacing.sm,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
   tabText: {
-    fontSize: 14,
-    fontFamily: fontFamily.semiBold,
+    fontSize: 13,
   },
   tabContent: {
     flex: 1,

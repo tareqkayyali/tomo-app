@@ -29,7 +29,10 @@ import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { HexagonRadar, type RadarAttribute } from './HexagonRadar';
 import { useScaleOnPress, useSpringEntrance } from '../hooks/useAnimations';
+import { useDNATierConfig } from '../hooks/useUIConfig';
+import { useComponentStyle } from '../hooks/useComponentStyle';
 import { fontFamily, borderRadius, spacing } from '../theme';
+import { colors } from '../theme/colors';
 
 // ═══ TIER SYSTEM ═══
 
@@ -37,36 +40,29 @@ import { fontFamily, borderRadius, spacing } from '../theme';
  * Card tiers map to visual prestige.
  * Bronze = muted, Silver = lighter, Gold = vibrant Tomo gradient,
  * Diamond = premium holographic.
+ *
+ * Tier visuals are now CMS-managed via the ui_config table.
+ * The useDNATierConfig hook fetches from the content API and caches locally.
+ * Hardcoded defaults are kept as fallbacks.
  */
 export type CardTier = 'bronze' | 'silver' | 'gold' | 'diamond';
 
-const TIER_GRADIENT: Record<CardTier, { gradient: [string, string]; text: string }> = {
-  bronze: {
-    gradient: ['#CD7F32', '#8B5E3C'],
-    text: '#FFF8F0',
-  },
-  silver: {
-    gradient: ['#C0C0C0', '#808080'],
-    text: '#FFFFFF',
-  },
-  gold: {
-    gradient: ['#FF6B35', '#00B4D8'],
-    text: '#FFFFFF',
-  },
-  diamond: {
-    gradient: ['#6366F1', '#8B5CF6'],
-    text: '#FFFFFF',
-  },
+// Hardcoded fallbacks (used if CMS config hasn't loaded yet)
+const FALLBACK_GRADIENT: Record<CardTier, { gradient: [string, string]; text: string }> = {
+  bronze: { gradient: [colors.tierBronze, colors.tierBronzeDark], text: colors.textPrimary },
+  silver: { gradient: [colors.tierSilver, colors.tierSilverDark], text: colors.textPrimary },
+  gold: { gradient: [colors.accent, colors.info], text: colors.textPrimary },
+  diamond: { gradient: [colors.warning, colors.warning], text: colors.textPrimary },
 };
 
-const TIER_ICON: Record<CardTier, keyof typeof Ionicons.glyphMap> = {
+const FALLBACK_ICON: Record<CardTier, keyof typeof Ionicons.glyphMap> = {
   bronze: 'shield',
   silver: 'shield',
   gold: 'star',
   diamond: 'diamond',
 };
 
-const TIER_LABEL: Record<CardTier, string> = {
+const FALLBACK_LABEL: Record<CardTier, string> = {
   bronze: 'Bronze',
   silver: 'Silver',
   gold: 'Gold',
@@ -143,7 +139,16 @@ export function DNACard({
 }: DNACardProps) {
   const { animatedStyle: scaleStyle, onPressIn, onPressOut } = useScaleOnPress();
   const entranceStyle = useSpringEntrance(0, 0, trigger);
-  const tierVisual = TIER_GRADIENT[cardTier];
+  const { getComponentStyle } = useComponentStyle();
+
+  // CMS-managed tier visuals (falls back to hardcoded defaults)
+  const { tierConfig } = useDNATierConfig();
+  const cmsTier = tierConfig.tiers[cardTier];
+  const tierVisual = cmsTier
+    ? { gradient: cmsTier.gradient as [string, string], text: cmsTier.text }
+    : FALLBACK_GRADIENT[cardTier];
+  const tierIcon = (cmsTier?.icon ?? FALLBACK_ICON[cardTier]) as keyof typeof Ionicons.glyphMap;
+  const tierLabel = cmsTier?.label ?? FALLBACK_LABEL[cardTier];
 
   // Map CardAttribute[] to RadarAttribute[] for HexagonRadar
   const radarAttributes: RadarAttribute[] = attributes.map((attr) => ({
@@ -175,16 +180,16 @@ export function DNACard({
           {/* Header: Overall + Position & Tier */}
           <View style={styles.header}>
             <View style={styles.overallContainer}>
-              <Text style={[styles.overallNumber, { color: tierVisual.text }]}>
+              <Text style={[styles.overallNumber, { color: tierVisual.text }, getComponentStyle('dna_card_overall_number')]}>
                 {overallRating}
               </Text>
-              <Text style={[styles.overallLabel, { color: tierVisual.text }]}>OVR</Text>
+              <Text style={[styles.overallLabel, { color: tierVisual.text }, getComponentStyle('dna_card_overall_label')]}>OVR</Text>
             </View>
 
             <View style={styles.headerRight}>
               {/* Position badge */}
               <View style={styles.positionBadge}>
-                <Text style={[styles.positionText, { color: tierVisual.text }]}>
+                <Text style={[styles.positionText, { color: tierVisual.text }, getComponentStyle('dna_card_position_badge')]}>
                   {position}
                 </Text>
               </View>
@@ -192,12 +197,12 @@ export function DNACard({
               {/* Tier badge */}
               <View style={styles.tierBadge}>
                 <Ionicons
-                  name={TIER_ICON[cardTier]}
+                  name={tierIcon}
                   size={14}
                   color={tierVisual.text}
                 />
-                <Text style={[styles.tierText, { color: tierVisual.text }]}>
-                  {TIER_LABEL[cardTier]}
+                <Text style={[styles.tierText, { color: tierVisual.text }, getComponentStyle('dna_card_tier_badge')]}>
+                  {tierLabel}
                 </Text>
               </View>
 
@@ -240,21 +245,21 @@ export function DNACard({
                   onPress={() => onAttributeTap?.(attrKey)}
                   accessibilityLabel={`${attr.abbreviation} ${attr.value} out of ${attr.maxValue}`}
                 >
-                  <Text style={[styles.attrLabel, { color: attr.color }]}>
+                  <Text style={[styles.attrLabel, { color: attr.color }, getComponentStyle('dna_card_attribute_label')]}>
                     {attr.label}
                   </Text>
-                  <Text style={styles.attrScore}>{attr.value}</Text>
+                  <Text style={[styles.attrScore, getComponentStyle('dna_card_attribute_score')]}>{attr.value}</Text>
                   {trend !== 0 && (
                     <View style={styles.trendRow}>
                       <Ionicons
                         name={trend > 0 ? 'caret-up' : 'caret-down'}
                         size={10}
-                        color={trend > 0 ? '#30D158' : '#8E8E93'}
+                        color={trend > 0 ? colors.accent : colors.textSecondary}
                       />
                       <Text
                         style={[
                           styles.trendText,
-                          { color: trend > 0 ? '#30D158' : '#8E8E93' },
+                          { color: trend > 0 ? colors.accent : colors.textSecondary },
                         ]}
                       >
                         {Math.abs(trend)}
@@ -367,7 +372,7 @@ const styles = StyleSheet.create({
   attrScore: {
     fontFamily: fontFamily.bold,
     fontSize: 22,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   trendRow: {
     flexDirection: 'row',

@@ -215,7 +215,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <Ionicons name="play" size={24} color="#FFFFFF" />
+              <Ionicons name="play" size={24} color={colors.textPrimary} />
               <Text style={styles.startButtonText}>Start Drill</Text>
             </LinearGradient>
           </Pressable>
@@ -289,7 +289,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
   // phase === 'done'
   return (
     <View style={styles.fullCenter}>
-      <Ionicons name="checkmark-circle" size={64} color="#30D158" />
+      <Ionicons name="checkmark-circle" size={64} color={colors.accent} />
       <Text style={styles.doneText}>Complete!</Text>
     </View>
   );
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   startButtonText: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   recordButtonWrap: {
     flexDirection: 'row',
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 28,
-    color: '#30D158',
+    color: colors.accent,
     marginTop: spacing.md,
   },
 });

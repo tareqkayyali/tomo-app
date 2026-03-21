@@ -56,8 +56,8 @@ function daysUntil(examDate: string): number {
 
 function urgencyColor(days: number, colors: ThemeColors): string {
   if (days <= 0) return colors.textInactive;
-  if (days <= 7) return '#E74C3C';
-  if (days <= 14) return '#F39C12';
+  if (days <= 7) return colors.error;
+  if (days <= 14) return colors.warning;
   return colors.accent1;
 }
 
@@ -268,11 +268,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
       const existingStudyBlocks = existingEvents.filter((e: any) => e.type === 'study_block');
 
       const proceedWithGeneration = async (eventsForGenerator: any[]) => {
-        console.log('[StudyPlan] Running generator with', exams.length, 'exams,', subjects.length, 'subjects');
-        console.log('[StudyPlan] Config:', JSON.stringify(currentConfig));
         const result = generateStudyPlan(currentConfig, exams, trainingPrefs, eventsForGenerator, schoolSchedule, rules?.effectiveRules);
-        console.log('[StudyPlan] Generated', result.blocks.length, 'blocks,', result.warnings.length, 'warnings');
-        if (result.warnings.length > 0) console.log('[StudyPlan] Warnings:', result.warnings);
 
         if (result.blocks.length === 0) {
           const msg = result.warnings.length > 0
@@ -343,9 +339,9 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
         <Text style={styles.emptySubtitle}>
           Add your subjects and exam schedule in My Rules to generate a study plan.
         </Text>
-        <TouchableOpacity style={styles.rulesBtn} onPress={onNavigateToRules}>
-          <Ionicons name="options-outline" size={18} color="#FFF" />
-          <Text style={styles.rulesBtnText}>Go to Rules</Text>
+        <TouchableOpacity style={[styles.rulesBtn, { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D`, borderWidth: 1 }]} onPress={onNavigateToRules}>
+          <Ionicons name="options-outline" size={16} color={colors.accent1} />
+          <Text style={[styles.rulesBtnText, { color: colors.accent1 }]}>Go to Rules</Text>
         </TouchableOpacity>
       </ScrollView>
     );
@@ -387,7 +383,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                   }}
                 >
                   <View style={styles.savedPlanHeader}>
-                    <Ionicons name="document-text" size={16} color="#6366F1" />
+                    <Ionicons name="document-text" size={16} color={colors.warning} />
                     <TouchableOpacity
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       onPress={async () => {
@@ -461,8 +457,8 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             style={[styles.infoBanner, { backgroundColor: '#E74C3C12' }]}
             onPress={onNavigateToRules}
           >
-            <Ionicons name="alert-circle" size={16} color="#E74C3C" />
-            <Text style={[styles.infoBannerText, { color: '#E74C3C' }]}>
+            <Ionicons name="alert-circle" size={16} color={colors.error} />
+            <Text style={[styles.infoBannerText, { color: colors.error }]}>
               No exams scheduled
             </Text>
             <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Add in Rules</Text>
@@ -478,12 +474,12 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             style={[
               styles.chip,
               strategy === 'last_exam_first'
-                ? { backgroundColor: colors.accent1, borderColor: colors.accent1 }
+                ? { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D` }
                 : { backgroundColor: 'transparent', borderColor: colors.border },
             ]}
             onPress={() => { setStrategy('last_exam_first'); saveConfig({ ...currentConfig, strategy: 'last_exam_first' }); }}
           >
-            <Text style={[styles.chipText, { color: strategy === 'last_exam_first' ? '#FFF' : colors.textOnDark }]}>
+            <Text style={[styles.chipText, { color: strategy === 'last_exam_first' ? colors.accent1 : colors.textInactive }]}>
               Closest first
             </Text>
           </TouchableOpacity>
@@ -491,12 +487,12 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             style={[
               styles.chip,
               strategy === 'first_exam_first'
-                ? { backgroundColor: colors.accent1, borderColor: colors.accent1 }
+                ? { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D` }
                 : { backgroundColor: 'transparent', borderColor: colors.border },
             ]}
             onPress={() => { setStrategy('first_exam_first'); saveConfig({ ...currentConfig, strategy: 'first_exam_first' }); }}
           >
-            <Text style={[styles.chipText, { color: strategy === 'first_exam_first' ? '#FFF' : colors.textOnDark }]}>
+            <Text style={[styles.chipText, { color: strategy === 'first_exam_first' ? colors.accent1 : colors.textInactive }]}>
               Furthest first
             </Text>
           </TouchableOpacity>
@@ -568,8 +564,8 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                 style={[styles.infoBanner, { backgroundColor: '#F39C1212', marginBottom: spacing.sm }]}
                 onPress={onNavigateToRules}
               >
-                <Ionicons name="warning-outline" size={16} color="#F39C12" />
-                <Text style={[styles.infoBannerText, { color: '#F39C12' }]}>{reason}</Text>
+                <Ionicons name="warning-outline" size={16} color={colors.warning} />
+                <Text style={[styles.infoBannerText, { color: colors.warning }]}>{reason}</Text>
                 {(subjects.length === 0 || exams.length === 0) && (
                   <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Fix in Rules</Text>
                 )}
@@ -579,15 +575,15 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             {/* Edit existing plan */}
             {hasExistingPlan && (
               <TouchableOpacity
-                style={[styles.generateBtn, { backgroundColor: '#6366F1', marginBottom: spacing.sm }]}
+                style={[styles.generateBtn, { backgroundColor: `${colors.warning}1F`, borderColor: `${colors.warning}4D`, borderWidth: 1, marginBottom: spacing.sm }]}
                 onPress={() => {
                   const latest = savedPlans[0];
                   onNavigateToPreview(latest.blocks, undefined, latest.config, latest.id);
                 }}
-                activeOpacity={0.8}
+                activeOpacity={0.7}
               >
-                <Ionicons name="pencil" size={18} color="#FFF" />
-                <Text style={styles.generateBtnText}>Edit Study Plan</Text>
+                <Ionicons name="pencil" size={16} color={colors.warning} />
+                <Text style={[styles.generateBtnText, { color: colors.warning }]}>Edit Study Plan</Text>
               </TouchableOpacity>
             )}
 
@@ -595,20 +591,20 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             <TouchableOpacity
               style={[styles.generateBtn, {
                 opacity: !canGenerate || isGenerating ? 0.4 : 1,
-                backgroundColor: hasExistingPlan ? 'transparent' : colors.accent1,
-                borderWidth: hasExistingPlan ? 1 : 0,
-                borderColor: colors.accent1,
+                backgroundColor: `${colors.accent1}1F`,
+                borderWidth: 1,
+                borderColor: `${colors.accent1}4D`,
               }]}
               onPress={handleGenerate}
               disabled={!canGenerate || isGenerating}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
             >
               {isGenerating ? (
-                <ActivityIndicator size="small" color={hasExistingPlan ? colors.accent1 : '#FFF'} />
+                <ActivityIndicator size="small" color={colors.accent1} />
               ) : (
-                <Ionicons name="sparkles" size={18} color={hasExistingPlan ? colors.accent1 : '#FFF'} />
+                <Ionicons name="sparkles" size={16} color={colors.accent1} />
               )}
-              <Text style={[styles.generateBtnText, { color: hasExistingPlan ? colors.accent1 : '#FFF' }]}>
+              <Text style={[styles.generateBtnText, { color: colors.accent1 }]}>
                 {isGenerating ? 'Generating plan...' : hasExistingPlan ? 'Regenerate New Plan' : 'Generate Study Plan'}
               </Text>
             </TouchableOpacity>
@@ -668,17 +664,16 @@ function createStyles(colors: ThemeColors) {
     rulesBtn: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: 8,
-      paddingVertical: 12,
-      paddingHorizontal: 24,
-      borderRadius: borderRadius.md,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 12,
       marginTop: spacing.sm,
-      backgroundColor: colors.accent1,
     },
     rulesBtnText: {
-      color: '#FFF',
-      fontSize: 16,
-      fontFamily: fontFamily.semiBold,
+      fontSize: 13,
+      fontFamily: fontFamily.medium,
     },
 
     // Config banner (matches Training tab exactly)
@@ -733,7 +728,7 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 14,
       backgroundColor: colors.surfaceElevated,
       borderWidth: 1,
-      borderColor: `#6366F120`,
+      borderColor: `#F39C1220`,
     },
     savedPlanHeader: {
       flexDirection: 'row',
@@ -810,8 +805,8 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
     },
     chipText: {
-      fontSize: 14,
-      fontFamily: fontFamily.semiBold,
+      fontSize: 13,
+      fontFamily: fontFamily.medium,
     },
 
     // Subject rows
@@ -870,20 +865,19 @@ function createStyles(colors: ThemeColors) {
       color: colors.accent1,
     },
 
-    // Generate button (matches Training tab)
+    // Generate button (subtle style — matches "Ask Tomo" in My Programs)
     generateBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      paddingVertical: 14,
-      borderRadius: 14,
-      backgroundColor: colors.accent1,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 12,
     },
     generateBtnText: {
-      color: '#FFF',
-      fontSize: 16,
-      fontFamily: fontFamily.bold,
+      fontSize: 13,
+      fontFamily: fontFamily.medium,
     },
   });
 }

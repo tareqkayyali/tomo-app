@@ -24,6 +24,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rateLimit";
+import { logger } from "@/lib/logger";
 import { buildPlayerContext } from "@/services/agents/contextBuilder";
 import { orchestrate } from "@/services/agents/orchestrator";
 import {
@@ -47,6 +49,15 @@ import { extractConversationState } from "@/services/agents/conversationStateExt
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
+
+  // Rate limit: 20 requests/minute per user for this expensive endpoint
+  const { allowed } = checkRateLimit(auth.user.id, 20, 60000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again shortly.' },
+      { status: 429, headers: { 'Retry-After': '60' } }
+    );
+  }
 
   let body: {
     message: string;
@@ -90,9 +101,6 @@ export async function POST(req: NextRequest) {
   const guardrailResult = preFlightCheck(body.message);
 
   if (guardrailResult.blocked) {
-    console.log(
-      `[chat-guardrail] blocked category=${guardrailResult.category} userId=${auth.user.id.slice(0, 8)}...`
-    );
     return NextResponse.json({
       message: guardrailResult.message,
       refreshTargets: [],
@@ -138,7 +146,6 @@ export async function POST(req: NextRequest) {
           await clearPendingAction(session.id);
         } else if (pendingResult.expired) {
           // Pending action expired — let the user know
-          console.log(`[chat] Pending action expired for session ${session.id}`);
         }
       }
 
@@ -234,7 +241,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : "Agent chat error";
-    console.error("Agent chat route error:", err);
+    logger.error("Agent chat route error", { error: err instanceof Error ? err.message : String(err), userId: auth.user.id });
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

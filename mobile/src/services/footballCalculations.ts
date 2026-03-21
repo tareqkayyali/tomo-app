@@ -21,6 +21,7 @@ import {
   FOOTBALL_POSITION_WEIGHTS,
   FOOTBALL_RATING_LEVELS,
 } from '../types/football';
+import { colors } from '../theme/colors';
 
 // ═══ NORMATIVE DATA ═══
 // Age-group norms for the 0-99 attribute score space.
@@ -93,12 +94,12 @@ export const FOOTBALL_NORMATIVE_DATA: Record<FootballAttribute, AgeNorm[]> = {
 // ═══ ATTRIBUTE COLORS ═══
 
 export const FOOTBALL_ATTRIBUTE_COLORS: Record<FootballAttribute, string> = {
-  pace: '#3498DB',
-  shooting: '#FF6B35',
-  passing: '#30D158',
-  dribbling: '#00D9FF',
-  defending: '#7B61FF',
-  physicality: '#E74C3C',
+  pace: colors.info,
+  shooting: colors.accent,
+  passing: colors.accent,
+  dribbling: colors.info,
+  defending: colors.info,
+  physicality: colors.error,
 };
 
 // ═══ INTERNAL HELPERS ═══

@@ -24,8 +24,9 @@ import { getParentChildren } from '../../services/api';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ParentTabParamList, ParentStackParamList } from '../../navigation/types';
 
+// @ts-ignore — Legacy screen, replaced by ParentProfileScreen
 type Props = CompositeScreenProps<
-  BottomTabScreenProps<ParentTabParamList, 'Settings'>,
+  BottomTabScreenProps<ParentTabParamList, 'Children'>,
   NativeStackScreenProps<ParentStackParamList>
 >;
 
@@ -119,7 +120,7 @@ export function ParentSettingsScreen({ navigation }: Props) {
 
           <TouchableOpacity
             style={styles.settingsRow}
-            onPress={() => navigation.navigate('EditProfile')}
+            onPress={() => navigation.navigate('Profile' as any)}
           >
             <View style={[styles.settingsIconWrap, { backgroundColor: colors.accent2 + '22' }]}>
               <Ionicons name="create-outline" size={20} color={colors.accent2} />

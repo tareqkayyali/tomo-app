@@ -24,8 +24,10 @@ import { ParentNavigator } from './ParentNavigator';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ParentOnboardingScreen } from '../screens/parent/ParentOnboardingScreen';
 import { CoachOnboardingScreen } from '../screens/coach/CoachOnboardingScreen';
+import { PreviewScreen } from '../screens/PreviewScreen';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { useConfig } from '../hooks/useConfigProvider';
 import { trackScreen } from '../services/analytics';
 import type { RootStackParamList } from './types';
 
@@ -38,12 +40,38 @@ function getActiveRouteName(state: any): string | undefined {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const linking = {
+  prefixes: ['tomo://', 'https://app.my-tomo.com'],
+  config: {
+    screens: {
+      Main: {
+        screens: {
+          MainTabs: {
+            screens: {
+              Plan: 'timeline',
+              Test: 'output',
+              Chat: 'chat',
+              Progress: 'mastery',
+              ForYou: 'own-it',
+            },
+          },
+          Checkin: 'checkin',
+          AddEvent: 'add-event',
+          Settings: 'settings',
+          Profile: 'profile',
+        },
+      },
+    },
+  },
+};
+
 export function RootNavigator() {
   const { colors } = useTheme();
   const { isAuthenticated, isLoading, needsRegistration, profile, role } = useAuth();
+  const { isPreviewMode } = useConfig();
 
-  // Show loading while checking auth state
-  if (isLoading) {
+  // Show loading while checking auth state (skip in preview mode)
+  if (isLoading && !isPreviewMode) {
     return (
       <View style={[styles.loading, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.accent1} />
@@ -51,8 +79,11 @@ export function RootNavigator() {
     );
   }
 
-  const showAuth = !isAuthenticated || needsRegistration;
-  const showOnboarding = isAuthenticated && !needsRegistration && profile && !profile.onboardingComplete;
+  // In CMS preview mode, skip auth gates — AuthProvider already uses DEV_USER
+  // so the real app renders with mock data for theme previewing.
+
+  const showAuth = !isPreviewMode && (!isAuthenticated || needsRegistration);
+  const showOnboarding = !isPreviewMode && isAuthenticated && !needsRegistration && profile && !profile.onboardingComplete;
 
   // Determine which main navigator to show based on role
   const getMainScreen = () => {
@@ -68,6 +99,7 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer
+      linking={linking}
       onStateChange={(state) => {
         const name = getActiveRouteName(state);
         if (name) trackScreen(name);

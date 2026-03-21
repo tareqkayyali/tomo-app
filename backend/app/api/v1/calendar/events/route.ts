@@ -17,6 +17,7 @@ import {
 import type { ScheduleEvent } from "@/services/schedulingEngine";
 import { estimateTotalLoad } from "@/services/events/computations/loadEstimator";
 import { bridgeCalendarToEventStream } from "@/services/events/calendarBridge";
+import { parsePagination, paginatedResponse, hasPaginationParams } from "@/lib/pagination";
 
 // ─── Validation ────────────────────────────────────────────────────────────
 
@@ -250,6 +251,7 @@ export async function GET(req: NextRequest) {
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
   const tz = searchParams.get("tz") || "UTC";
+  const paginate = hasPaginationParams(req);
 
   const db = supabaseAdmin();
 
@@ -257,6 +259,31 @@ export async function GET(req: NextRequest) {
     // Convert local day boundaries to UTC for querying
     const dayStart = localToUtc(date, "00:00:00", tz);
     const dayEnd = localToUtc(date, "23:59:59", tz);
+
+    if (paginate) {
+      const params = parsePagination(req, 50, 200);
+      const { data: rows, error, count } = await db
+        .from("calendar_events")
+        .select("*", { count: "exact" })
+        .eq("user_id", auth.user.id)
+        .gte("start_at", dayStart)
+        .lte("start_at", dayEnd)
+        .order("start_at", { ascending: true })
+        .range(params.offset, params.offset + params.limit - 1);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      const events = (rows || []).map((r) =>
+        mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
+      );
+
+      return NextResponse.json(
+        paginatedResponse(events, count ?? 0, params),
+        { headers: { "api-version": "v1" } }
+      );
+    }
 
     const { data: rows, error } = await db
       .from("calendar_events")
@@ -283,6 +310,31 @@ export async function GET(req: NextRequest) {
   if (startDate && endDate) {
     const rangeStart = localToUtc(startDate, "00:00:00", tz);
     const rangeEnd = localToUtc(endDate, "23:59:59", tz);
+
+    if (paginate) {
+      const params = parsePagination(req, 50, 200);
+      const { data: rows, error, count } = await db
+        .from("calendar_events")
+        .select("*", { count: "exact" })
+        .eq("user_id", auth.user.id)
+        .gte("start_at", rangeStart)
+        .lte("start_at", rangeEnd)
+        .order("start_at", { ascending: true })
+        .range(params.offset, params.offset + params.limit - 1);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      const events = (rows || []).map((r) =>
+        mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
+      );
+
+      return NextResponse.json(
+        paginatedResponse(events, count ?? 0, params),
+        { headers: { "api-version": "v1" } }
+      );
+    }
 
     const { data: rows, error } = await db
       .from("calendar_events")

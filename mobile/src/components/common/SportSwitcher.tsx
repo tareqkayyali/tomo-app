@@ -38,29 +38,32 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { useSportContext, type ActiveSport } from '../../hooks/useSportContext';
 import { fontFamily, spacing } from '../../theme';
+import { colors } from '../../theme/colors';
 
 // ═══ SPORT DEFINITIONS ═══
 
 /** Static metadata for each supported sport in the switcher. */
-const SPORT_META: Record<ActiveSport, {
+function getSportMeta(accentColor: string): Record<ActiveSport, {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
   gradientEnd: string;
-}> = {
-  football: {
-    label: 'Football',
-    icon: 'football-outline',
-    color: '#30D158',
-    gradientEnd: '#1A8E3A',
-  },
-  padel: {
-    label: 'Padel',
-    icon: 'tennisball-outline',
-    color: '#FF6B35',
-    gradientEnd: '#CC5529',
-  },
-};
+}> {
+  return {
+    football: {
+      label: 'Football',
+      icon: 'football-outline',
+      color: accentColor,
+      gradientEnd: colors.accentDark,
+    },
+    padel: {
+      label: 'Padel',
+      icon: 'tennisball-outline',
+      color: accentColor,
+      gradientEnd: colors.warning,
+    },
+  };
+}
 
 /** Order of segments — both sports are visually equal. */
 const SPORT_ORDER: ActiveSport[] = ['football', 'padel'];
@@ -128,7 +131,8 @@ interface SegmentProps {
  */
 function Segment({ sport, isActive, onPress }: SegmentProps) {
   const { colors: themeColors } = useTheme();
-  const meta = SPORT_META[sport];
+  const sportMeta = getSportMeta(themeColors.accent);
+  const meta = sportMeta[sport];
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -169,8 +173,8 @@ function Segment({ sport, isActive, onPress }: SegmentProps) {
             end={{ x: 1, y: 1 }}
             style={styles.segmentActive}
           >
-            <Ionicons name={meta.icon} size={14} color="#FFFFFF" />
-            <Text style={styles.segmentTextActive}>{meta.label}</Text>
+            <Ionicons name={meta.icon} size={14} color={themeColors.textOnAccent} />
+            <Text style={[styles.segmentTextActive, { color: themeColors.textOnAccent }]}>{meta.label}</Text>
           </LinearGradient>
         ) : (
           <View style={styles.segmentInactive}>
@@ -226,7 +230,7 @@ const styles = StyleSheet.create({
   segmentTextActive: {
     fontFamily: fontFamily.semiBold,
     fontSize: 13,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   segmentTextInactive: {
     fontFamily: fontFamily.medium,

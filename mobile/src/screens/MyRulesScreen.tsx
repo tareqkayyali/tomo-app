@@ -46,6 +46,7 @@ import { syncAutoBlocks } from '../services/api';
 import type { ThemeColors } from '../theme/colors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
+import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'MyRules'>;
 
@@ -58,17 +59,17 @@ const DURATION_OPTIONS = [30, 45, 60, 90];
 
 // ── Scenario display ──
 const SCENARIO_DISPLAY: Record<string, { label: string; color: string; icon: string }> = {
-  normal: { label: 'Normal Mode', color: '#30D158', icon: 'checkmark-circle' },
-  league_active: { label: 'League Season', color: '#FF6B35', icon: 'trophy' },
-  exam_period: { label: 'Exam Period', color: '#6366F1', icon: 'school' },
-  league_and_exam: { label: 'League + Exams', color: '#F59E0B', icon: 'warning' },
+  normal: { label: 'Normal Mode', color: colors.accent, icon: 'checkmark-circle' },
+  league_active: { label: 'League Season', color: colors.accent, icon: 'trophy' },
+  exam_period: { label: 'Exam Period', color: colors.warning, icon: 'school' },
+  league_and_exam: { label: 'League + Exams', color: colors.warning, icon: 'warning' },
 };
 
 // ── Section colors ──
 const SECTION_COLORS = {
-  core: '#00D9FF',
-  study: '#6366F1',
-  training: '#FF6B35',
+  core: colors.info,
+  study: colors.warning,
+  training: colors.accent,
 };
 
 // ── Month names ──
@@ -82,8 +83,8 @@ export function MyRulesScreen({ navigation }: Props) {
 
   // Section collapse state
   const [coreOpen, setCoreOpen] = useState(true);
-  const [studyOpen, setStudyOpen] = useState(true);
-  const [trainingOpen, setTrainingOpen] = useState(true);
+  const [studyOpen, setStudyOpen] = useState(false);
+  const [trainingOpen, setTrainingOpen] = useState(false);
 
   const hasMigrated = useRef(false);
 
@@ -183,12 +184,10 @@ export function MyRulesScreen({ navigation }: Props) {
 
   // ── Save handler ──
   const handleSave = useCallback(async () => {
-    console.log('[MyRules] Save button pressed, dirty:', dirty);
     setSaveError(null);
 
     try {
       const success = await save();
-      console.log('[MyRules] Save result:', success);
       if (success) {
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setShowSaved(true);
@@ -203,7 +202,6 @@ export function MyRulesScreen({ navigation }: Props) {
             sleepStart: prefs.sleep_start,
             sleepEnd: prefs.sleep_end,
           });
-          console.log('[MyRules] Auto-block sync:', result);
         } catch (err) {
           console.warn('[MyRules] Auto-block sync failed (non-fatal):', err);
         }
@@ -268,7 +266,7 @@ export function MyRulesScreen({ navigation }: Props) {
           </Animated.View>
         )}
         {saveError && (
-          <Text style={{ color: '#E74C3C', fontSize: 11, fontFamily: fontFamily.medium }}>{saveError}</Text>
+          <Text style={{ color: colors.error, fontSize: 11, fontFamily: fontFamily.medium }}>{saveError}</Text>
         )}
         {dirty && (
           <View style={styles.headerActions}>
@@ -388,8 +386,8 @@ export function MyRulesScreen({ navigation }: Props) {
               <Switch
                 value={prefs.league_is_active}
                 onValueChange={(v) => edit({ league_is_active: v })}
-                trackColor={{ false: colors.border, true: '#FF6B3580' }}
-                thumbColor={prefs.league_is_active ? '#FF6B35' : colors.textInactive}
+                trackColor={{ false: colors.border, true: '#2ECC7180' }}
+                thumbColor={prefs.league_is_active ? colors.accent : colors.textInactive}
               />
             </SettingRow>
           </View>
@@ -439,8 +437,8 @@ export function MyRulesScreen({ navigation }: Props) {
               <Switch
                 value={prefs.exam_period_active}
                 onValueChange={(v) => edit({ exam_period_active: v })}
-                trackColor={{ false: colors.border, true: '#6366F180' }}
-                thumbColor={prefs.exam_period_active ? '#6366F1' : colors.textInactive}
+                trackColor={{ false: colors.border, true: '#F39C1280' }}
+                thumbColor={prefs.exam_period_active ? colors.warning : colors.textInactive}
               />
             </SettingRow>
 
@@ -521,7 +519,7 @@ export function MyRulesScreen({ navigation }: Props) {
                     id: name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now(),
                     label: name.trim(),
                     icon: 'add-circle-outline',
-                    color: '#A78BFA',
+                    color: colors.info,
                     enabled: true,
                     mode: 'days_per_week',
                     fixedDays: [],
@@ -1034,21 +1032,21 @@ function ExamScheduleList({
           >
             <Text style={[examStyles.subject, { color: colors.textOnDark }]}>{entry.subject}</Text>
             <View style={examStyles.dateRow}>
-              <Ionicons name="calendar-outline" size={12} color="#6366F1" />
-              <Text style={[examStyles.date, { color: '#6366F1' }]}>{entry.examDate}</Text>
+              <Ionicons name="calendar-outline" size={12} color={colors.warning} />
+              <Text style={[examStyles.date, { color: colors.warning }]}>{entry.examDate}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => onChange(entries.filter((e) => e.id !== entry.id))}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close-circle" size={20} color="#E74C3C" />
+            <Ionicons name="close-circle" size={20} color={colors.error} />
           </TouchableOpacity>
         </View>
       ))}
       <TouchableOpacity onPress={addExam} style={examStyles.addBtn}>
-        <Ionicons name="add-circle-outline" size={16} color="#6366F1" />
-        <Text style={[examStyles.addText, { color: '#6366F1' }]}>Add Exam</Text>
+        <Ionicons name="add-circle-outline" size={16} color={colors.warning} />
+        <Text style={[examStyles.addText, { color: colors.warning }]}>Add Exam</Text>
       </TouchableOpacity>
     </View>
   );
@@ -1326,15 +1324,15 @@ function DatePickerModal({
                   key={idx}
                   style={[
                     dpStyles.cell,
-                    isSelected && { backgroundColor: '#6366F1', borderRadius: 18 },
-                    isToday && !isSelected && { borderWidth: 1.5, borderColor: '#6366F140', borderRadius: 18 },
+                    isSelected && { backgroundColor: colors.warning, borderRadius: 18 },
+                    isToday && !isSelected && { borderWidth: 1.5, borderColor: '#F39C1240', borderRadius: 18 },
                   ]}
                   onPress={() => setPickedDay(day)}
                 >
                   <Text style={[
                     dpStyles.cellText,
                     { color: isSelected ? '#FFF' : colors.textOnDark },
-                    isToday && !isSelected && { color: '#6366F1' },
+                    isToday && !isSelected && { color: colors.warning },
                   ]}>
                     {day}
                   </Text>
@@ -1350,7 +1348,7 @@ function DatePickerModal({
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => onSelect(formatSelected())}
-              style={[dpStyles.selectBtn, { backgroundColor: '#6366F1' }]}
+              style={[dpStyles.selectBtn, { backgroundColor: colors.warning }]}
             >
               <Text style={dpStyles.selectText}>Select</Text>
             </TouchableOpacity>
@@ -1685,7 +1683,7 @@ function createStyles(colors: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      backgroundColor: '#30D158',
+      backgroundColor: colors.accent,
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: borderRadius.full,

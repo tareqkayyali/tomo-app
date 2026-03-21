@@ -15,9 +15,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
 import { spacing, fontFamily, borderRadius } from '../theme';
+import { colors } from '../theme/colors';
 
 // Purple accent for academic blocks (matching prototype)
-const ACADEMIC_PURPLE = '#A855F7';
+const ACADEMIC_PURPLE = colors.info;
 
 type BalanceBarProps = {
   /** Training hours today */

@@ -31,8 +31,6 @@ export async function triggerRecommendationComputation(event: AthleteEvent): Pro
 
   if (!recTypes || recTypes.length === 0) return;
 
-  console.log(`[RIE] Dispatching ${recTypes.join(', ')} for ${event.event_type} (athlete: ${event.athlete_id})`);
-
   for (const recType of recTypes) {
     try {
       await computeRecommendation(event.athlete_id, recType, event);

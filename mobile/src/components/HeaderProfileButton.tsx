@@ -13,15 +13,19 @@ import { useTheme } from '../hooks/useTheme';
 interface HeaderProfileButtonProps {
   photoUrl?: string | null;
   initial?: string;
+  /** Override default navigation (e.g., navigate to coach/parent profile tab) */
+  onPress?: () => void;
 }
 
-export function HeaderProfileButton({ photoUrl, initial }: HeaderProfileButtonProps) {
+export function HeaderProfileButton({ photoUrl, initial, onPress }: HeaderProfileButtonProps) {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
 
+  const handlePress = onPress || (() => navigation.navigate('Profile'));
+
   return (
     <Pressable
-      onPress={() => navigation.navigate('Profile')}
+      onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel="View profile"
       hitSlop={6}

@@ -2,6 +2,9 @@
  * Component Exports for Tomo
  */
 
+// ─── Error Handling ───────────────────────────────────────────────
+export { ErrorBoundary } from './ErrorBoundary';
+
 // ─── Core Design System ───────────────────────────────────────────
 export { Button } from './Button';
 export { Input } from './Input';

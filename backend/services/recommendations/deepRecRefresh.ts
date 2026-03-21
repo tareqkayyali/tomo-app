@@ -5,7 +5,7 @@
  * generate rich, personalized, ACTIONABLE recommendations via Claude.
  *
  * Trigger points:
- *   1. On Own It page visit when data is stale (>6h since last refresh)
+ *   1. On Own It page visit when data is stale (>12h since last refresh)
  *   2. Manual refresh button (force=true bypasses staleness check)
  *
  * Architecture:
@@ -21,6 +21,7 @@ import { buildPlayerContext, type PlayerContext } from '@/services/agents/contex
 import { supersedeExisting } from './supersedeExisting';
 import { REC_EXPIRY_HOURS } from './constants';
 import type { RecType, RecPriority, RecommendationInsert } from './types';
+import { withRetry } from '@/lib/aiRetry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,10 +63,10 @@ function getClient(): Anthropic {
 // Staleness Check
 // ---------------------------------------------------------------------------
 
-const DEEP_REFRESH_STALE_HOURS = 6;
+const DEEP_REFRESH_STALE_HOURS = 12;
 
 /**
- * Check whether the athlete's deep recommendations are stale (>6h old).
+ * Check whether the athlete's deep recommendations are stale (>12h old).
  * Returns true if a refresh is needed.
  */
 export async function isDeepRefreshStale(athleteId: string): Promise<boolean> {
@@ -182,9 +183,13 @@ export async function deepRecRefresh(
 ): Promise<{ count: number; error?: string }> {
   const startTime = Date.now();
 
-  try {
-    console.log(`[DeepRecRefresh] Starting for ${athleteId}`);
+  // Guard: fail fast if API key is not configured
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('[DeepRecRefresh] ANTHROPIC_API_KEY not set — cannot generate recommendations');
+    return { count: 0, error: 'ANTHROPIC_API_KEY not configured' };
+  }
 
+  try {
     // 1. Build full PlayerContext (10 parallel data fetches)
     const ctx = await buildPlayerContext(athleteId, 'OwnIt', '', timezone);
 
@@ -192,13 +197,16 @@ export async function deepRecRefresh(
     const userPrompt = buildDeepRecPrompt(ctx);
 
     // 3. Call Claude
-    const response = await getClient().messages.create({
-      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-      max_tokens: 3000,
-      temperature: 0.5,
-      system: DEEP_REC_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userPrompt }],
-    });
+    const response = await withRetry(
+      () => getClient().messages.create({
+        model: process.env.ANTHROPIC_REC_MODEL || 'claude-haiku-4-5-20251001',
+        max_tokens: 3000,
+        temperature: 0.5,
+        system: DEEP_REC_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+      '[DeepRecRefresh] Claude API'
+    );
 
     // 4. Parse response
     const text = response.content
@@ -290,8 +298,6 @@ export async function deepRecRefresh(
     }
 
     const elapsed = Date.now() - startTime;
-    console.log(`[DeepRecRefresh] Completed for ${athleteId}: ${inserted}/${recs.length} recs inserted in ${elapsed}ms`);
-
     return { count: inserted };
   } catch (err) {
     const elapsed = Date.now() - startTime;
@@ -402,7 +408,7 @@ Day type: ${ctx.temporalContext.dayType}
 Match day: ${ctx.temporalContext.isMatchDay ? `YES — ${ctx.temporalContext.matchDetails}` : 'No'}
 Exam proximity: ${ctx.temporalContext.isExamProximity ? `YES — ${ctx.temporalContext.examDetails}` : 'No'}
 Today's events: ${ctx.todayEvents.length > 0
-    ? ctx.todayEvents.map(e => `${e.title} (${e.event_type}) ${e.start_at ? new Date(e.start_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}`).join(', ')
+    ? ctx.todayEvents.map(e => `${e.title} (${e.event_type}) ${e.start_at ? new Date(e.start_at).toLocaleTimeString('en-GB', { timeZone: ctx.timezone, hour: '2-digit', minute: '2-digit', hour12: false }) : ''}`).join(', ')
     : 'Nothing scheduled'}
 Academic load score: ${ctx.academicLoadScore}/10
 Active scenario: ${ctx.activeScenario}`);
@@ -410,7 +416,7 @@ Active scenario: ${ctx.activeScenario}`);
   // Upcoming exams
   if (ctx.upcomingExams.length > 0) {
     sections.push(`--- UPCOMING EXAMS (next 14 days) ---
-${ctx.upcomingExams.map(e => `${e.title} — ${new Date(e.start_at).toLocaleDateString()}`).join('\n')}`);
+${ctx.upcomingExams.map(e => `${e.title} — ${new Date(e.start_at).toLocaleDateString('en-US', { timeZone: ctx.timezone, month: 'short', day: 'numeric' })}`).join('\n')}`);
   }
 
   // Data completeness assessment

@@ -17,13 +17,20 @@ import { colors, spacing, borderRadius, fontFamily } from '../../theme';
 import { getEventTypeColor, getSportDotColor, getSportLabel } from '../../utils/calendarHelpers';
 import type { CalendarEvent } from '../../types';
 
+interface LinkedProgramInfo {
+  programId: string;
+  name: string;
+  category: string;
+}
+
 interface Props {
   event: CalendarEvent;
   onDelete?: (eventId: string) => Promise<boolean> | void;
   compact?: boolean;
+  linkedPrograms?: LinkedProgramInfo[];
 }
 
-export function EventCard({ event, onDelete, compact = false }: Props) {
+export function EventCard({ event, onDelete, compact = false, linkedPrograms = [] }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const typeColor = getEventTypeColor(event.type);
@@ -132,6 +139,16 @@ export function EventCard({ event, onDelete, compact = false }: Props) {
             <Text style={styles.notes}>{event.notes}</Text>
           ) : null}
 
+          {/* Linked programs from training categories */}
+          {linkedPrograms.length > 0 && (
+            <View style={styles.linkedProgramsRow}>
+              <Ionicons name="barbell-outline" size={12} color={colors.accent2} />
+              <Text style={styles.linkedProgramsText} numberOfLines={expanded ? undefined : 1}>
+                {linkedPrograms.map((lp) => lp.name).join(', ')}
+              </Text>
+            </View>
+          )}
+
           {expanded && onDelete && (
             <Pressable onPress={handleDelete} style={styles.deleteBtn}>
               <Ionicons name="trash-outline" size={16} color={colors.error} />
@@ -216,6 +233,18 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: spacing.sm,
     lineHeight: 18,
+  },
+  linkedProgramsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  linkedProgramsText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
+    color: colors.info,
+    flex: 1,
   },
   deleteBtn: {
     flexDirection: 'row',

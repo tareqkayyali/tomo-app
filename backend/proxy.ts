@@ -5,6 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 // Allowed web origins for CORS
 const ALLOWED_ORIGINS = [
   "https://app.my-tomo.com",
+  "https://api.my-tomo.com",
+  "http://localhost:3000",
   "http://localhost:8081",
   "http://localhost:19006",
 ];
@@ -16,7 +18,7 @@ function getCorsHeaders(origin: string | null) {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
     "Access-Control-Allow-Headers":
-      "Content-Type, Authorization, x-user-id, x-user-email, api-version",
+      "Content-Type, Authorization, x-user-id, x-user-email, api-version, x-timezone",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
   };
@@ -59,6 +61,11 @@ export async function proxy(req: NextRequest) {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
   }
 
+  // Config bundle routes are public (theme, page configs, feature flags)
+  if (pathname.startsWith("/api/v1/config")) {
+    return addCorsHeaders(NextResponse.next({ request: req }), origin);
+  }
+
   // Training drill catalog is public (except /recommend which needs auth)
   if (
     pathname.startsWith("/api/v1/training/drills") &&
@@ -79,6 +86,11 @@ export async function proxy(req: NextRequest) {
 
   // Calendar bridge cron uses CRON_SECRET auth (bypass Supabase token check)
   if (pathname === "/api/v1/events/bridge-calendar") {
+    return addCorsHeaders(NextResponse.next({ request: req }), origin);
+  }
+
+  // WHOOP OAuth callback is a redirect from WHOOP (no auth header available)
+  if (pathname === "/api/v1/integrations/whoop/callback") {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
   }
 

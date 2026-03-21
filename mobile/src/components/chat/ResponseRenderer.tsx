@@ -29,6 +29,7 @@ import type {
   SchedulePreviewEvent,
   ActionChip,
 } from '../../types/chat';
+import { colors } from '../../theme/colors';
 
 // ── Style Factory ────────────────────────────────────────────────
 
@@ -78,8 +79,8 @@ function createStyles(colors: ThemeColors) {
       fontSize: 13,
       color: colors.textInactive,
     },
-    trendUp: { color: '#4ADE80' },
-    trendDown: { color: '#F87171' },
+    trendUp: { color: colors.accent },
+    trendDown: { color: colors.error },
     trendFlat: { color: colors.textInactive },
 
     // Schedule List
@@ -120,7 +121,7 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
     },
     scheduleClash: {
-      color: '#F87171',
+      color: colors.error,
     },
 
     // Zone Stack
@@ -173,7 +174,7 @@ function createStyles(colors: ThemeColors) {
     clashEvents: {
       fontFamily: fontFamily.semiBold,
       fontSize: 14,
-      color: '#F87171',
+      color: colors.error,
     },
     clashTime: {
       fontFamily: fontFamily.regular,
@@ -183,7 +184,7 @@ function createStyles(colors: ThemeColors) {
     clashFix: {
       fontFamily: fontFamily.medium,
       fontSize: 13,
-      color: '#4ADE80',
+      color: colors.accent,
     },
 
     // Benchmark Bar
@@ -289,7 +290,7 @@ function createStyles(colors: ThemeColors) {
     },
     scheduleClashBorder: {
       borderLeftWidth: 3,
-      borderLeftColor: '#FF6B35',
+      borderLeftColor: colors.accent,
       paddingLeft: 7,
     },
 
@@ -328,7 +329,7 @@ function createStyles(colors: ThemeColors) {
     confirmBtnText: {
       fontFamily: fontFamily.bold,
       fontSize: 14,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
     cancelBtn: {
       flex: 0.6,
@@ -620,7 +621,7 @@ function createStyles(colors: ThemeColors) {
     schedulePreviewAltText: {
       fontFamily: fontFamily.medium,
       fontSize: 11,
-      color: '#4ADE80',
+      color: colors.accent,
     },
     schedulePreviewRemoveBtn: {
       padding: 4,
@@ -640,7 +641,7 @@ function createStyles(colors: ThemeColors) {
     schedulePreviewConfirmText: {
       fontFamily: fontFamily.bold,
       fontSize: 14,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
     schedulePreviewScenarioBadge: {
       fontFamily: fontFamily.semiBold,
@@ -719,12 +720,12 @@ function StatGridCard({
 }
 
 const SCHEDULE_COLORS: Record<string, string> = {
-  training: '#FF6B35',
-  match: '#4ADE80',
-  study: '#60A5FA',
-  rest: '#A78BFA',
-  exam: '#F87171',
-  other: '#94A3B8',
+  training: colors.accent,
+  match: colors.accent,
+  study: colors.info,
+  rest: colors.info,
+  exam: colors.error,
+  other: colors.textSecondary,
 };
 
 const BADGE_LABELS: Record<string, string> = {
@@ -764,7 +765,7 @@ function ScheduleListCard({
               style={[
                 styles.scheduleTypeBadge,
                 {
-                  borderColor: item.clash ? '#FF6B35' : badgeColor,
+                  borderColor: item.clash ? colors.accent : badgeColor,
                   backgroundColor: item.clash
                     ? 'rgba(255, 107, 53, 0.12)'
                     : `${badgeColor}15`,
@@ -774,7 +775,7 @@ function ScheduleListCard({
               <Text
                 style={[
                   styles.scheduleTypeBadgeText,
-                  { color: item.clash ? '#FF6B35' : badgeColor },
+                  { color: item.clash ? colors.accent : badgeColor },
                 ]}
               >
                 {item.clash ? '⚡ Clash' : BADGE_LABELS[item.type] || item.type}
@@ -788,9 +789,9 @@ function ScheduleListCard({
 }
 
 const ZONE_COLORS: Record<string, string> = {
-  green: '#4ADE80',
-  yellow: '#FBBF24',
-  red: '#F87171',
+  green: colors.accent,
+  yellow: colors.warning,
+  red: colors.error,
 };
 
 function ZoneStackCard({
@@ -951,17 +952,17 @@ function ConfirmCardComponent({
 // ── Session Plan Card ────────────────────────────────────────────
 
 const CATEGORY_COLORS: Record<string, string> = {
-  warmup: '#FBBF24',
-  training: '#FF6B35',
-  cooldown: '#A78BFA',
-  recovery: '#4ADE80',
-  activation: '#60A5FA',
+  warmup: colors.warning,
+  training: colors.accent,
+  cooldown: colors.info,
+  recovery: colors.accent,
+  activation: colors.info,
 };
 
 const INTENSITY_COLORS: Record<string, { bg: string; text: string }> = {
-  light: { bg: 'rgba(74, 222, 128, 0.15)', text: '#4ADE80' },
-  moderate: { bg: 'rgba(255, 107, 53, 0.15)', text: '#FF6B35' },
-  hard: { bg: 'rgba(248, 113, 113, 0.15)', text: '#F87171' },
+  light: { bg: 'rgba(74, 222, 128, 0.15)', text: colors.accent },
+  moderate: { bg: 'rgba(255, 107, 53, 0.15)', text: colors.accent },
+  hard: { bg: 'rgba(248, 113, 113, 0.15)', text: colors.error },
 };
 
 function SessionPlanCard({
@@ -977,11 +978,11 @@ function SessionPlanCard({
 }) {
   const readinessColor =
     card.readiness === 'Green'
-      ? '#4ADE80'
+      ? colors.accent
       : card.readiness === 'Yellow'
-        ? '#FBBF24'
+        ? colors.warning
         : card.readiness === 'Red'
-          ? '#F87171'
+          ? colors.error
           : colors.textInactive;
 
   return (
@@ -1002,7 +1003,7 @@ function SessionPlanCard({
       </View>
 
       {card.items.map((item, i) => {
-        const catColor = CATEGORY_COLORS[item.category] || '#FF6B35';
+        const catColor = CATEGORY_COLORS[item.category] || colors.accent;
         const intColors = INTENSITY_COLORS[item.intensity] || INTENSITY_COLORS.moderate;
         return (
           <Pressable
@@ -1124,14 +1125,14 @@ function DrillCardComponent({
 // ── Schedule Preview Card ────────────────────────────────────────
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  training: '#FF6B35',
-  match: '#4ADE80',
-  study: '#60A5FA',
-  gym: '#A78BFA',
-  club: '#FF6B35',
-  exam: '#F87171',
-  recovery: '#4ADE80',
-  rest: '#94A3B8',
+  training: colors.accent,
+  match: colors.accent,
+  study: colors.info,
+  gym: colors.info,
+  club: colors.accent,
+  exam: colors.error,
+  recovery: colors.accent,
+  rest: colors.textSecondary,
 };
 
 const VIOLATION_ICONS: Record<string, string> = {
@@ -1188,7 +1189,7 @@ function SchedulePreviewCardComponent({
         <View key={date}>
           <Text style={styles.schedulePreviewDate}>{date}</Text>
           {events.map((evt, i) => {
-            const dotColor = EVENT_TYPE_COLORS[evt.event_type] || '#94A3B8';
+            const dotColor = EVENT_TYPE_COLORS[evt.event_type] || colors.textSecondary;
             const hasErrors = evt.violations.some((v) => v.severity === 'error');
             const hasWarnings = evt.violations.some((v) => v.severity === 'warning');
 
@@ -1205,7 +1206,7 @@ function SchedulePreviewCardComponent({
                 <View
                   style={[
                     styles.sessionPlanDot,
-                    { backgroundColor: hasErrors ? '#F87171' : dotColor },
+                    { backgroundColor: hasErrors ? colors.error : dotColor },
                   ]}
                 />
 
@@ -1228,7 +1229,7 @@ function SchedulePreviewCardComponent({
                           styles.schedulePreviewViolationText,
                           {
                             color:
-                              v.severity === 'error' ? '#F87171' : '#FBBF24',
+                              v.severity === 'error' ? colors.error : colors.warning,
                           },
                         ]}
                       >

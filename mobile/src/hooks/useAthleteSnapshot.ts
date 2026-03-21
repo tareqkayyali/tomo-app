@@ -11,6 +11,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getAthleteSnapshot, type AthleteSnapshot } from '../services/api';
+import { colors } from '../theme/colors';
 
 interface UseAthleteSnapshotReturn {
   snapshot: AthleteSnapshot | null;
@@ -67,13 +68,13 @@ export function useAthleteSnapshot(
 export function ragToColor(rag: string | null | undefined): string {
   switch (rag) {
     case 'GREEN':
-      return '#30D158';
+      return colors.accent;
     case 'AMBER':
-      return '#F39C12';
+      return colors.warning;
     case 'RED':
-      return '#E74C3C';
+      return colors.error;
     default:
-      return '#B0B0B0';
+      return colors.textSecondary;
   }
 }
 

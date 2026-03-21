@@ -16,8 +16,9 @@ import { isSameDay, toDateStr } from '../../utils/calendarHelpers';
 import type { CalendarEvent } from '../../types';
 import type { WeekDay } from '../../utils/calendarHelpers';
 import type { ThemeColors } from '../../theme/colors';
+import { colors } from '../../theme/colors';
 
-const ACADEMIC_PURPLE = '#A855F7';
+const ACADEMIC_PURPLE = colors.info;
 
 interface Props {
   weekDays: WeekDay[];
@@ -162,8 +163,8 @@ export function WeekBarChart({ weekDays, events, selectedDate, onDayPress }: Pro
             {/* Event tag */}
             <View style={styles.tagCol}>
               {day.hasExam ? (
-                <View style={[styles.eventTag, { backgroundColor: '#E74C3C22' }]}>
-                  <Text style={[styles.eventTagText, { color: '#E74C3C' }]}>
+                <View style={[styles.eventTag, { backgroundColor: colors.error + '22' }]}>
+                  <Text style={[styles.eventTagText, { color: colors.error }]}>
                     📝 {day.examSubject.slice(0, 4)}
                   </Text>
                 </View>

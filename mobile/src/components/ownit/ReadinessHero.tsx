@@ -4,25 +4,24 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { GlassCard } from '../GlassCard';
 import { GlowWrapper } from '../GlowWrapper';
 import { MetricPill } from './MetricPill';
 import { useTheme } from '../../hooks/useTheme';
-import { spacing, fontFamily, borderRadius } from '../../theme';
+import { spacing, fontFamily } from '../../theme';
 import type { AthleteSnapshot } from '../../services/api';
 
 interface ReadinessHeroProps {
   snapshot: AthleteSnapshot | null;
 }
 
-function ragColor(rag: string | null | undefined): string {
-  if (rag === 'GREEN' || rag === 'green') return '#30D158';
-  if (rag === 'AMBER' || rag === 'yellow') return '#F39C12';
-  if (rag === 'RED' || rag === 'red') return '#E74C3C';
-  return '#6B6B6B';
+function ragColor(rag: string | null | undefined, tc: { accent: string; warning: string; error: string; textDisabled: string }): string {
+  if (rag === 'GREEN' || rag === 'green') return tc.accent;
+  if (rag === 'AMBER' || rag === 'yellow') return tc.warning;
+  if (rag === 'RED' || rag === 'red') return tc.error;
+  return tc.textDisabled;
 }
 
 function ragLabel(rag: string | null | undefined): string {
@@ -32,12 +31,12 @@ function ragLabel(rag: string | null | undefined): string {
   return 'Check In';
 }
 
-function acwrColor(acwr: number | null | undefined): string {
-  if (acwr == null) return '#6B6B6B';
-  if (acwr > 1.5) return '#E74C3C';
-  if (acwr > 1.3) return '#F39C12';
-  if (acwr < 0.8) return '#00D9FF';
-  return '#30D158';
+function acwrColor(acwr: number | null | undefined, tc: { accent: string; warning: string; error: string; info: string; textDisabled: string }): string {
+  if (acwr == null) return tc.textDisabled;
+  if (acwr > 1.5) return tc.error;
+  if (acwr > 1.3) return tc.warning;
+  if (acwr < 0.8) return tc.info;
+  return tc.accent;
 }
 
 function trendIcon(trend: string | null | undefined): keyof typeof Ionicons.glyphMap {
@@ -46,64 +45,24 @@ function trendIcon(trend: string | null | undefined): keyof typeof Ionicons.glyp
   return 'remove-outline';
 }
 
-function trendColor(trend: string | null | undefined): string {
-  if (trend === 'IMPROVING') return '#30D158';
-  if (trend === 'DECLINING') return '#E74C3C';
-  return '#F39C12';
+function trendColor(trend: string | null | undefined, tc: { accent: string; warning: string; error: string }): string {
+  if (trend === 'IMPROVING') return tc.accent;
+  if (trend === 'DECLINING') return tc.error;
+  return tc.warning;
 }
 
 export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
   const { colors } = useTheme();
-  const navigation = useNavigation<any>();
 
-  // Fully empty — no snapshot at all
+  // No snapshot — don't render anything
   if (!snapshot) {
-    return (
-      <GlassCard style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }}>
-        <View style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
-          <Ionicons name="pulse-outline" size={40} color={colors.textMuted} />
-          <Text
-            style={{
-              fontFamily: fontFamily.medium,
-              fontSize: 14,
-              color: colors.textMuted,
-              marginTop: spacing.sm,
-              textAlign: 'center',
-            }}
-          >
-            Check in to see your readiness
-          </Text>
-          <Pressable
-            onPress={() => navigation.navigate('Checkin')}
-            style={{
-              marginTop: spacing.md,
-              backgroundColor: colors.accent1,
-              paddingHorizontal: spacing.lg,
-              paddingVertical: spacing.sm,
-              borderRadius: borderRadius.full,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: fontFamily.semiBold,
-                fontSize: 12,
-                color: '#FFFFFF',
-                textTransform: 'uppercase',
-                letterSpacing: 0.8,
-              }}
-            >
-              Check In
-            </Text>
-          </Pressable>
-        </View>
-      </GlassCard>
-    );
+    return null;
   }
 
   const hasReadiness = snapshot.readiness_score != null;
   const score = snapshot.readiness_score;
   const rag = snapshot.readiness_rag;
-  const color = hasReadiness ? ragColor(rag) : '#00D9FF';
+  const color = hasReadiness ? ragColor(rag, colors) : colors.info;
   const glowPreset = rag === 'RED' || rag === 'red' ? 'orange' : 'cyan';
 
   return (
@@ -112,7 +71,7 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
         <GlassCard>
           {/* Score Ring + Label */}
           <View style={{ alignItems: 'center' }}>
-            {hasReadiness ? (
+            {hasReadiness && (
               <>
                 <View
                   style={{
@@ -147,35 +106,6 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
                   {ragLabel(rag)}
                 </Text>
               </>
-            ) : (
-              <>
-                <Pressable
-                  onPress={() => navigation.navigate('Checkin')}
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 40,
-                    borderWidth: 2,
-                    borderColor: colors.textMuted + '40',
-                    borderStyle: 'dashed',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: colors.textMuted + '08',
-                  }}
-                >
-                  <Ionicons name="add" size={28} color={colors.accent1} />
-                </Pressable>
-                <Text
-                  style={{
-                    fontFamily: fontFamily.semiBold,
-                    fontSize: 13,
-                    color: colors.accent1,
-                    marginTop: spacing.sm,
-                  }}
-                >
-                  Check in for readiness
-                </Text>
-              </>
             )}
 
             {/* Wellness Trend */}
@@ -191,7 +121,7 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
                 <Ionicons
                   name={trendIcon(snapshot.wellness_trend)}
                   size={14}
-                  color={trendColor(snapshot.wellness_trend)}
+                  color={trendColor(snapshot.wellness_trend, colors)}
                 />
                 <Text
                   style={{
@@ -222,7 +152,7 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
               <MetricPill
                 label="ACWR"
                 value={snapshot.acwr.toFixed(2)}
-                color={acwrColor(snapshot.acwr)}
+                color={acwrColor(snapshot.acwr, colors)}
                 icon="pulse-outline"
               />
             )}
@@ -230,7 +160,7 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
               <MetricPill
                 label="Load"
                 value={`${Math.round(snapshot.dual_load_index)}/100`}
-                color={snapshot.dual_load_index > 80 ? '#E74C3C' : snapshot.dual_load_index > 60 ? '#F39C12' : '#30D158'}
+                color={snapshot.dual_load_index > 80 ? colors.error : snapshot.dual_load_index > 60 ? colors.warning : colors.accent}
                 icon="barbell-outline"
               />
             )}
@@ -244,7 +174,7 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
               <MetricPill
                 label="Sleep"
                 value={`${snapshot.sleep_quality}/10`}
-                color={snapshot.sleep_quality < 5 ? '#E74C3C' : snapshot.sleep_quality < 7 ? '#F39C12' : '#30D158'}
+                color={snapshot.sleep_quality < 5 ? colors.error : snapshot.sleep_quality < 7 ? colors.warning : colors.accent}
                 icon="moon-outline"
               />
             )}
@@ -254,8 +184,8 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
                 value={`${Math.round(snapshot.hrv_today_ms)}ms`}
                 color={
                   snapshot.hrv_baseline_ms != null && snapshot.hrv_today_ms < snapshot.hrv_baseline_ms * 0.85
-                    ? '#E74C3C'
-                    : '#30D158'
+                    ? colors.error
+                    : colors.accent
                 }
                 icon="heart-outline"
               />
@@ -264,7 +194,7 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
               <MetricPill
                 label="Risk"
                 value="Injury"
-                color="#E74C3C"
+                color={colors.error}
                 icon="warning-outline"
               />
             )}

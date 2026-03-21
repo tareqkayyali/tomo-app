@@ -3,7 +3,8 @@
  * Manages authentication state across the app
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { onAuthChange, signIn, signUp, signOut, signInWithProvider, AuthUser } from '../services/auth';
 import { getUser, registerUser } from '../services/api';
@@ -14,6 +15,12 @@ import type { User, Sport, UserRole } from '../types';
 // Set to true to bypass Supabase auth and use mock user data.
 // Only works in __DEV__ builds. Set to false before deploying.
 const DEV_BYPASS = false;
+
+// Preview mode — activated via ?preview=true query param (CMS iframe)
+const PREVIEW_MODE =
+  Platform.OS === 'web' &&
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('preview') === 'true';
 
 const DEV_USER: AuthUser = {
   uid: '8c15ffce-6416-4735-beb5-a144cd0ea2b2', // tareq.kayyali@gmail.com in Supabase auth
@@ -74,11 +81,16 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(DEV_BYPASS ? DEV_USER : null);
-  const [profile, setProfile] = useState<User | null>(DEV_BYPASS ? DEV_PROFILE : null);
-  const [isLoading, setIsLoading] = useState(DEV_BYPASS ? false : true);
+  const bypass = DEV_BYPASS || PREVIEW_MODE;
+  const [user, setUser] = useState<AuthUser | null>(bypass ? DEV_USER : null);
+  const [profile, setProfile] = useState<User | null>(bypass ? DEV_PROFILE : null);
+  const [isLoading, setIsLoading] = useState(bypass ? false : true);
   const [needsRegistration, setNeedsRegistration] = useState(false);
   const [devRoleOverride, setDevRoleOverride] = useState<UserRole | null>(null);
+
+  // Ref to track current user without triggering callback re-creation
+  const userRef = useRef(user);
+  userRef.current = user;
 
   // Initialize Mixpanel once
   useEffect(() => {
@@ -124,8 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen to auth state changes (skipped in DEV_BYPASS mode)
   useEffect(() => {
-    if (DEV_BYPASS) {
-      console.log('[useAuth] DEV_BYPASS active — skipping auth listener');
+    if (bypass) {
       return;
     }
 
@@ -143,11 +154,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthChange(async (authUser) => {
       didFire = true;
       clearTimeout(timeout);
-      setUser(authUser);
       if (authUser) {
-        // Try to load profile but don't block if it fails
+        // IMPORTANT: Keep isLoading true and don't set user until profile check
+        // completes. This prevents a flash of the main app screen for OAuth users
+        // who haven't registered yet (needsRegistration would briefly be false).
+        setIsLoading(true);
         await loadProfile();
+        setUser(authUser);
       } else {
+        setUser(null);
         setProfile(null);
         setNeedsRegistration(false);
       }
@@ -161,12 +176,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Login — load profile directly to avoid race with onAuthChange
-  const login = async (email: string, password: string) => {
-    console.log('[useAuth] login called');
+  const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
       const authUser = await signIn(email, password);
-      console.log('[useAuth] signIn succeeded, uid:', authUser.uid);
       setUser(authUser);
       // Load profile but don't let it block login forever — 10s timeout
       try {
@@ -176,7 +189,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setTimeout(() => reject(new Error('Profile load timed out')), 10000)
           ),
         ]);
-        console.log('[useAuth] profile loaded');
       } catch (profileErr) {
         console.warn('[useAuth] profile load failed:', (profileErr as Error).message);
         // Auth succeeded even if profile load fails — user is still authenticated
@@ -187,13 +199,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Social login (Google / Apple) via OAuth
-  const socialLogin = async (provider: 'google' | 'apple') => {
+  const socialLogin = useCallback(async (provider: 'google' | 'apple') => {
     setIsLoading(true);
     try {
       const authUser = await signInWithProvider(provider);
+      // On web, signInWithProvider triggers a full page redirect to Google/Apple.
+      // The function returns a placeholder { uid: "", email: null } but the page
+      // is about to navigate away. Do NOT set user state — it would briefly make
+      // isAuthenticated=true and flash the main app before the redirect completes.
+      // When the page reloads after OAuth, onAuthStateChange handles everything.
+      if (Platform.OS === 'web') {
+        // Keep loading spinner visible until the redirect happens
+        return;
+      }
+      // Native: the OAuth completed in-browser and returned tokens
       setUser(authUser);
       // Try to load existing profile; if 404, loadProfile sets needsRegistration
       await loadProfile();
@@ -202,10 +224,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Register (create Supabase account + backend profile)
-  const register = async (
+  const register = useCallback(async (
     email: string,
     password: string,
     profileData: { name: string; age?: number; sport?: Sport; role?: UserRole; displayRole?: string }
@@ -233,10 +255,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Complete registration for OAuth users (already authenticated, just need backend profile)
-  const completeRegistration = async (
+  const completeRegistration = useCallback(async (
     profileData: { name: string; age?: number; sport?: Sport; role?: UserRole; displayRole?: string }
   ) => {
     setIsLoading(true);
@@ -256,49 +278,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Logout
-  const logout = async () => {
+  const logout = useCallback(async () => {
     resetAnalytics();
     await signOut();
     setProfile(null);
-  };
+  }, []);
 
-  // Refresh profile
-  const refreshProfile = async () => {
-    if (user) {
+  // Refresh profile (uses ref to avoid re-creating on user change)
+  const refreshProfile = useCallback(async () => {
+    if (userRef.current) {
       await loadProfile();
     }
-  };
+  }, []);
 
   // Derive role from profile, default to 'player'. Dev override takes precedence.
   const role: UserRole = devRoleOverride || profile?.role || 'player';
 
   // Dev-only: set role override for testing
-  const setDevRole = (newRole: UserRole) => {
+  const setDevRole = useCallback((newRole: UserRole) => {
     setDevRoleOverride(newRole);
-  };
+  }, []);
+
+  const value = useMemo<AuthContextType>(() => ({
+    user,
+    profile,
+    isLoading,
+    isAuthenticated: !!user,
+    needsRegistration,
+    role,
+    devRoleOverride,
+    setDevRole,
+    login,
+    socialLogin,
+    register,
+    completeRegistration,
+    logout,
+    refreshProfile,
+  }), [
+    user,
+    profile,
+    isLoading,
+    needsRegistration,
+    role,
+    devRoleOverride,
+    setDevRole,
+    login,
+    socialLogin,
+    register,
+    completeRegistration,
+    logout,
+    refreshProfile,
+  ]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        isLoading,
-        isAuthenticated: !!user,
-        needsRegistration,
-        role,
-        devRoleOverride,
-        setDevRole,
-        login,
-        socialLogin,
-        register,
-        completeRegistration,
-        logout,
-        refreshProfile,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

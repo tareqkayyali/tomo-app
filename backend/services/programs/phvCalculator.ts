@@ -30,6 +30,9 @@ export interface PHVResult {
   trainingPriorities: string[];
   safetyWarnings: string[];
   trainingImplication: string;
+  standingHeightCm?: number;
+  sittingHeightCm?: number;
+  weightKg?: number;
 }
 
 // ── Mirwald Equation ────────────────────────────────────────────────────
@@ -184,21 +187,45 @@ export async function getPlayerPHVStage(
 ): Promise<PHVResult | null> {
   const db = supabaseAdmin();
 
+  // Try player_phv_assessments table first (legacy)
   const { data } = await (db as any)
     .from("player_phv_assessments")
     .select(
-      "maturity_offset, phv_stage, loading_multiplier, training_priorities, safety_warnings"
+      "maturity_offset, phv_stage, loading_multiplier, training_priorities, safety_warnings, standing_height_cm, sitting_height_cm, weight_kg"
     )
     .eq("user_id", userId)
     .order("assessment_date", { ascending: false })
     .limit(1)
     .maybeSingle() as { data: any };
 
-  if (!data) return null;
+  if (data?.maturity_offset != null) {
+    const result = buildPHVResult(data.maturity_offset);
+    return {
+      ...result,
+      standingHeightCm: data.standing_height_cm,
+      sittingHeightCm: data.sitting_height_cm,
+      weightKg: data.weight_kg,
+    };
+  }
 
-  // Rebuild full result from stored offset
-  const result = buildPHVResult(data.maturity_offset);
-  return result;
+  // Fallback: read from athlete_snapshots (written by PHV_MEASUREMENT event)
+  const { data: snapshot } = await (db as any)
+    .from("athlete_snapshots")
+    .select("phv_offset_years, phv_stage, height_cm, sitting_height_cm, weight_kg")
+    .eq("athlete_id", userId)
+    .maybeSingle() as { data: any };
+
+  if (snapshot?.phv_offset_years != null) {
+    const result = buildPHVResult(snapshot.phv_offset_years);
+    return {
+      ...result,
+      standingHeightCm: snapshot.height_cm,
+      sittingHeightCm: snapshot.sitting_height_cm,
+      weightKg: snapshot.weight_kg,
+    };
+  }
+
+  return null;
 }
 
 /**

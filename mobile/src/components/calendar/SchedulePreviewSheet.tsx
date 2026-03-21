@@ -175,8 +175,8 @@ export function SchedulePreviewSheet({
                             color={
                               evt.accepted
                                 ? hasErrors
-                                  ? '#FBBF24'
-                                  : '#4ADE80'
+                                  ? colors.warning
+                                  : colors.accent
                                 : colors.textInactive
                             }
                           />
@@ -197,7 +197,7 @@ export function SchedulePreviewSheet({
                               style={[
                                 styles.violationText,
                                 {
-                                  color: v.severity === 'error' ? '#F87171' : '#FBBF24',
+                                  color: v.severity === 'error' ? colors.error : colors.warning,
                                 },
                               ]}
                             >
@@ -389,7 +389,7 @@ function createStyles(colors: ThemeColors) {
     altChipText: {
       fontFamily: fontFamily.medium,
       fontSize: 11,
-      color: '#4ADE80',
+      color: colors.accent,
     },
     footer: {
       paddingHorizontal: 20,
@@ -406,7 +406,7 @@ function createStyles(colors: ThemeColors) {
     confirmText: {
       fontFamily: fontFamily.bold,
       fontSize: 15,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
   });
 }

@@ -39,6 +39,7 @@ import {
 } from '../services/schedulingEngine';
 import type { ScheduleEvent } from '../services/schedulingEngine';
 import { SlotPill } from '../components/flow/SlotPill';
+import { useScheduleRules } from '../hooks/useScheduleRules';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../navigation/types';
@@ -240,6 +241,7 @@ function TimePickerModal({
 export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { rules } = useScheduleRules();
 
   const params = route.params as { initialType?: string; date?: string; startTime?: string } | undefined;
   const hasStartTime = !!(params?.startTime);
@@ -312,6 +314,28 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
         ? addMinutesToTime(startTime, duration)
         : undefined;
 
+      // Auto-inject linked program names for training events
+      let autoNotes = notes.trim();
+      if (eventType === 'training' && rules?.preferences?.training_categories) {
+        // Collect linked programs from all enabled training categories
+        const allLinked = rules.preferences.training_categories
+          .filter((cat) => cat.enabled && cat.linkedPrograms?.length)
+          .flatMap((cat) => cat.linkedPrograms!);
+        if (allLinked.length > 0) {
+          // Deduplicate by programId
+          const seen = new Set<string>();
+          const unique = allLinked.filter((p) => {
+            if (seen.has(p.programId)) return false;
+            seen.add(p.programId);
+            return true;
+          });
+          const programNames = unique.map((p) => p.name).join(', ');
+          autoNotes = autoNotes
+            ? `${autoNotes}\n📋 Programs: ${programNames}`
+            : `📋 Programs: ${programNames}`;
+        }
+      }
+
       await createCalendarEvent({
         name: TYPE_NAMES[eventType],
         type: eventType,
@@ -319,7 +343,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
         date,
         startTime: startTime || undefined,
         endTime: computedEndTime,
-        notes: notes.trim() || undefined,
+        notes: autoNotes || undefined,
       });
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.goBack();
@@ -328,7 +352,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [eventType, date, startTime, duration, notes, navigation]);
+  }, [eventType, date, startTime, duration, notes, navigation, rules]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
@@ -383,7 +407,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                     <Ionicons
                       name={t.icon}
                       size={15}
-                      color={active ? '#FFFFFF' : colors.textMuted}
+                      color={active ? colors.textPrimary : colors.textMuted}
                     />
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
                       {t.label}
@@ -683,7 +707,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.textMuted,
     },
     chipTextActive: {
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
 
     notesInput: {
@@ -810,7 +834,7 @@ function createModalStyles(colors: ThemeColors) {
     confirmText: {
       fontFamily: fontFamily.bold,
       fontSize: 16,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
     dateOption: {
       flexDirection: 'row',

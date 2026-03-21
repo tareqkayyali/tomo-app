@@ -3,7 +3,7 @@
  * Tomo Design System — rounded rectangle pill badges
  *
  * Variants:
- *   chip     — #ECECF1 bg, #FF6B35 text (suggestion chips)
+ *   chip     — #ECECF1 bg, #2ECC71 text (suggestion chips)
  *   success  — green tint bg, green text
  *   warning  — yellow tint bg, yellow text
  *   error    — red tint bg, red text
@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../theme';
+import { useComponentStyle } from '../hooks/useComponentStyle';
 
 type BadgeVariant = 'chip' | 'success' | 'warning' | 'error' | 'info' | 'outline';
 type BadgeSize = 'small' | 'medium';
@@ -39,7 +40,7 @@ interface BadgeProps {
 const variantConfig: Record<BadgeVariant, { bg: string; text: string; border?: string }> = {
   chip: {
     bg: colors.chipBackground,    // #ECECF1
-    text: colors.chipText,        // #FF6B35
+    text: colors.chipText,        // #2ECC71
   },
   success: {
     bg: colors.readinessGreenBg,
@@ -74,6 +75,7 @@ export function Badge({
   textStyle,
 }: BadgeProps) {
   const config = variantConfig[variant];
+  const { getComponentStyle } = useComponentStyle();
   const isSmall = size === 'small';
 
   const containerStyle: ViewStyle[] = [
@@ -90,6 +92,7 @@ export function Badge({
   const labelStyle: TextStyle[] = [
     isSmall ? styles.textSmall : styles.text,
     { color: config.text },
+    getComponentStyle('badge_text') as TextStyle,
     textStyle as TextStyle,
   ];
 

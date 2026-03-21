@@ -78,6 +78,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
         daysPerWeek: rc.daysPerWeek,
         sessionDuration: rc.sessionDuration,
         preferredTime: rc.preferredTime,
+        linkedPrograms: rc.linkedPrograms,
       }));
     }
     // Fallback to profile
@@ -248,9 +249,9 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
         <Text style={styles.emptySubtitle}>
           Set up your training schedule in My Rules to generate a plan.
         </Text>
-        <TouchableOpacity style={styles.rulesBtn} onPress={onNavigateToRules}>
-          <Ionicons name="options-outline" size={18} color="#FFF" />
-          <Text style={styles.rulesBtnText}>Go to Rules</Text>
+        <TouchableOpacity style={[styles.rulesBtn, { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D`, borderWidth: 1 }]} onPress={onNavigateToRules}>
+          <Ionicons name="options-outline" size={16} color={colors.accent1} />
+          <Text style={[styles.rulesBtnText, { color: colors.accent1 }]}>Go to Rules</Text>
         </TouchableOpacity>
       </ScrollView>
     );
@@ -329,6 +330,11 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
                   <Text style={[styles.catMeta, { color: colors.textInactive }]}>
                     {daysLabel} · {cat.sessionDuration}m · {cat.preferredTime}
                   </Text>
+                  {cat.linkedPrograms && cat.linkedPrograms.length > 0 && (
+                    <Text style={[styles.catMeta, { color: colors.info, marginTop: 2 }]} numberOfLines={2}>
+                      📋 {cat.linkedPrograms.map(p => p.name).join(', ')}
+                    </Text>
+                  )}
                 </View>
                 {cat.enabled ? (
                   <View style={[styles.statusDot, { backgroundColor: cat.color }]} />
@@ -351,17 +357,22 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
 
       {/* ─── Generate CTA ─── */}
       <TouchableOpacity
-        style={[styles.generateBtn, { opacity: isGenerating || enabledCategories.length === 0 ? 0.6 : 1 }]}
+        style={[styles.generateBtn, {
+          opacity: isGenerating || enabledCategories.length === 0 ? 0.4 : 1,
+          backgroundColor: `${colors.accent1}1F`,
+          borderWidth: 1,
+          borderColor: `${colors.accent1}4D`,
+        }]}
         onPress={handleGenerate}
         disabled={isGenerating || enabledCategories.length === 0}
-        activeOpacity={0.8}
+        activeOpacity={0.7}
       >
         {isGenerating ? (
-          <ActivityIndicator size="small" color="#FFF" />
+          <ActivityIndicator size="small" color={colors.accent1} />
         ) : (
-          <Ionicons name="sparkles" size={18} color="#FFF" />
+          <Ionicons name="sparkles" size={16} color={colors.accent1} />
         )}
-        <Text style={styles.generateBtnText}>
+        <Text style={[styles.generateBtnText, { color: colors.accent1 }]}>
           {isGenerating ? 'Checking calendar...' : 'Generate Training Plan'}
         </Text>
       </TouchableOpacity>
@@ -418,17 +429,16 @@ function createStyles(colors: ThemeColors) {
     rulesBtn: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: 8,
-      paddingVertical: 12,
-      paddingHorizontal: 24,
-      borderRadius: borderRadius.md,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 12,
       marginTop: spacing.sm,
-      backgroundColor: colors.accent1,
     },
     rulesBtnText: {
-      color: '#FFF',
-      fontSize: 16,
-      fontFamily: fontFamily.semiBold,
+      fontSize: 13,
+      fontFamily: fontFamily.medium,
     },
 
     // Config banner (matches Study tab exactly)
@@ -559,20 +569,19 @@ function createStyles(colors: ThemeColors) {
       color: colors.accent1,
     },
 
-    // Generate button (matches Study tab)
+    // Generate button (subtle style — matches "Ask Tomo" in My Programs)
     generateBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      paddingVertical: 14,
-      borderRadius: 14,
-      backgroundColor: colors.accent1,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 12,
     },
     generateBtnText: {
-      color: '#FFF',
-      fontSize: 16,
-      fontFamily: fontFamily.bold,
+      fontSize: 13,
+      fontFamily: fontFamily.medium,
     },
   });
 }

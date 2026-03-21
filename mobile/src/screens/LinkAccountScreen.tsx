@@ -22,6 +22,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { acceptInviteCode } from '../services/api';
 import { spacing, borderRadius, layout } from '../theme';
+import { colors } from '../theme/colors';
 
 export function LinkAccountScreen() {
   const { colors } = useTheme();
@@ -51,7 +52,7 @@ export function LinkAccountScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.inner}>
           <View style={[styles.successIcon, { backgroundColor: '#2ED57322' }]}>
-            <Ionicons name="checkmark-circle" size={48} color="#2ED573" />
+            <Ionicons name="checkmark-circle" size={48} color={colors.accent} />
           </View>
           <Text style={[styles.title, { color: colors.textOnDark }]}>Linked!</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
@@ -116,9 +117,9 @@ export function LinkAccountScreen() {
           ]}
         >
           {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={colors.textPrimary} />
           ) : (
-            <Text style={[styles.submitText, { color: isValid ? '#FFFFFF' : colors.textInactive }]}>
+            <Text style={[styles.submitText, { color: isValid ? colors.textPrimary : colors.textInactive }]}>
               Link Account
             </Text>
           )}
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   doneButtonText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

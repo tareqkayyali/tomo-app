@@ -13,14 +13,15 @@ import type {
   SportOption,
   PhysicalMetric,
 } from '../types/padel';
+import { colors } from '../theme/colors';
 
 // ═══ SPORT OPTIONS ═══
 
 export const SPORT_OPTIONS: SportOption[] = [
-  { value: 'padel', label: 'Padel', icon: 'tennisball', color: '#FF6B35', available: true },
-  { value: 'football', label: 'Football', icon: 'football', color: '#30D158', available: false },
-  { value: 'basketball', label: 'Basketball', icon: 'basketball', color: '#FF9500', available: false },
-  { value: 'tennis', label: 'Tennis', icon: 'tennisball-outline', color: '#00D9FF', available: false },
+  { value: 'padel', label: 'Padel', icon: 'tennisball', color: colors.accent, available: true },
+  { value: 'football', label: 'Football', icon: 'football', color: colors.accent, available: false },
+  { value: 'basketball', label: 'Basketball', icon: 'basketball', color: colors.warning, available: false },
+  { value: 'tennis', label: 'Tennis', icon: 'tennisball-outline', color: colors.info, available: false },
 ];
 
 // ═══ SHOT DEFINITIONS ═══

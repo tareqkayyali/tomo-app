@@ -62,7 +62,7 @@ export function WeekSummaryStrip({
       icon: 'star',
       value: `+${pointsEarned}`,
       label: 'Points',
-      color: '#F59E0B',
+      color: colors.warning,
     },
   ];
 

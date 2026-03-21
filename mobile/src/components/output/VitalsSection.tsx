@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -12,64 +12,106 @@ import { GlassCard } from '../GlassCard';
 import { GlowWrapper } from '../GlowWrapper';
 import type { OutputSnapshot, VitalGroup, VitalMetric } from '../../services/api';
 import { getRagColor, getRagBgColor, getTrendIcon, getTrendColor, getGroupThemeColor } from './outputTypes';
+import { colors } from '../../theme/colors';
 
 interface Props {
   vitals: OutputSnapshot['vitals'];
+  connectedSources?: string[]; // e.g. ['whoop', 'healthkit']
+  sourcesLoading?: boolean; // true while fetching connection status
+  onConnectWhoop?: () => void; // Navigate to Settings to connect WHOOP
 }
 
 // Map readiness score to ReadinessRing-compatible level
 const READINESS_MAP: Record<string, { score: number; color: string; glow: string; label: string }> = {
-  Green: { score: 85, color: '#30D158', glow: 'rgba(48, 209, 88, 0.25)', label: 'Ready' },
-  Yellow: { score: 55, color: '#F39C12', glow: 'rgba(243, 156, 18, 0.25)', label: 'Caution' },
-  Red: { score: 25, color: '#E74C3C', glow: 'rgba(231, 76, 60, 0.25)', label: 'Rest' },
+  Green: { score: 85, color: colors.accent, glow: 'rgba(48, 209, 88, 0.25)', label: 'Ready' },
+  Yellow: { score: 55, color: colors.warning, glow: 'rgba(243, 156, 18, 0.25)', label: 'Caution' },
+  Red: { score: 25, color: colors.error, glow: 'rgba(231, 76, 60, 0.25)', label: 'Rest' },
 };
 
-export function VitalsSection({ vitals }: Props) {
+export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = false, onConnectWhoop }: Props) {
   const { colors } = useTheme();
   const { vitalGroups, phv, readiness } = vitals;
+  const [heroExpanded, setHeroExpanded] = useState(false);
 
   const readinessInfo = readiness.score ? READINESS_MAP[readiness.score] : null;
   const hasVitalData = vitalGroups && vitalGroups.some((g) => g.metrics.length > 0);
+  const isWhoopConnected = connectedSources.includes('whoop');
 
   return (
     <View style={styles.container}>
+      {/* ── WHOOP Connection Banner (hidden while loading to prevent flash) ── */}
+      {sourcesLoading ? null : isWhoopConnected ? (
+        <View style={[styles.whoopBanner, { backgroundColor: colors.accent + '12', borderColor: colors.accent + '30' }]}>
+          <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
+          <Text style={[styles.whoopBannerText, { color: colors.accent }]}>WHOOP Connected</Text>
+          {connectedSources.filter(s => s !== 'whoop').map((src) => (
+            <View key={src} style={[styles.sourcePill, { backgroundColor: colors.accent2 + '18' }]}>
+              <Text style={[styles.sourcePillText, { color: colors.accent2 }]}>{src.toUpperCase()}</Text>
+            </View>
+          ))}
+        </View>
+      ) : onConnectWhoop ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.whoopBanner,
+            { backgroundColor: colors.accent1 + '10', borderColor: colors.accent1 + '30' },
+            pressed && { opacity: 0.7 },
+          ]}
+          onPress={onConnectWhoop}
+        >
+          <Ionicons name="fitness-outline" size={18} color={colors.accent1} />
+          <Text style={[styles.whoopBannerText, { color: colors.accent1 }]}>Connect WHOOP</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.accent1} style={{ marginLeft: 'auto' }} />
+        </Pressable>
+      ) : null}
+
       {/* ── Readiness Hero Card ─────────────────────────────────── */}
       <GlowWrapper glow={readinessInfo ? 'subtle' : 'none'}>
-        <GlassCard>
-          <View style={styles.heroCenter}>
-            {/* Large circular readiness indicator */}
-            <View style={[styles.readinessCircle, {
-              borderColor: readinessInfo?.color || colors.glassBorder,
-              shadowColor: readinessInfo?.glow || 'transparent',
-            }]}>
-              <Text style={[styles.readinessScore, { color: readinessInfo?.color || colors.textMuted }]}>
-                {readinessInfo?.score ?? '—'}
-              </Text>
-              <Text style={[styles.readinessLabel, { color: readinessInfo?.color || colors.textMuted }]}>
-                {readinessInfo?.label ?? 'No Data'}
-              </Text>
-            </View>
-
-            <Text style={[styles.heroTitle, { color: colors.textOnDark }]}>
-              {readiness.score ? 'Today\'s Readiness' : 'How Are You Feeling?'}
-            </Text>
-            <Text style={[styles.heroSummary, { color: colors.textMuted }]}>
-              {readiness.summary}
-            </Text>
-
-            {/* Mini stats row */}
-            {readiness.energy != null && (
-              <View style={styles.miniStatsRow}>
-                <MiniStat icon="flash" label="Energy" value={readiness.energy} max={5} colors={colors} />
-                <MiniStat icon="happy" label="Mood" value={readiness.mood ?? 0} max={5} colors={colors} />
-                <MiniStat icon="moon" label="Sleep" value={readiness.sleepHours ?? 0} max={10} suffix="h" colors={colors} />
-                {readiness.soreness != null && (
-                  <MiniStat icon="fitness" label="Soreness" value={readiness.soreness} max={5} colors={colors} />
-                )}
+        <TouchableOpacity activeOpacity={0.8} onPress={() => setHeroExpanded(!heroExpanded)}>
+          <GlassCard>
+            <View style={styles.heroCenter}>
+              {/* Large circular readiness indicator */}
+              <View style={[styles.readinessCircle, {
+                borderColor: readinessInfo?.color || colors.glassBorder,
+                shadowColor: readinessInfo?.glow || 'transparent',
+              }]}>
+                <Text style={[styles.readinessScore, { color: readinessInfo?.color || colors.textMuted }]}>
+                  {readinessInfo?.score ?? '—'}
+                </Text>
+                <Text style={[styles.readinessLabel, { color: readinessInfo?.color || colors.textMuted }]}>
+                  {readinessInfo?.label ?? 'No Data'}
+                </Text>
               </View>
-            )}
-          </View>
-        </GlassCard>
+
+              <Text style={[styles.heroTitle, { color: colors.textOnDark }]}>
+                {readiness.score ? 'Today\'s Readiness' : 'How Are You Feeling?'}
+              </Text>
+              <Text style={[styles.heroSummary, { color: colors.textMuted }]}>
+                {readiness.summary}
+              </Text>
+
+              {/* Mini stats row — hidden until tapped */}
+              {heroExpanded && readiness.energy != null && (
+                <View style={styles.miniStatsRow}>
+                  <MiniStat icon="flash" label="Energy" value={readiness.energy} max={5} colors={colors} />
+                  <MiniStat icon="happy" label="Mood" value={readiness.mood ?? 0} max={5} colors={colors} />
+                  <MiniStat icon="moon" label="Sleep" value={readiness.sleepHours ?? 0} max={10} suffix="h" colors={colors} />
+                  {readiness.soreness != null && (
+                    <MiniStat icon="fitness" label="Soreness" value={readiness.soreness} max={5} colors={colors} />
+                  )}
+                </View>
+              )}
+
+              {/* Tap hint */}
+              {!heroExpanded && readiness.energy != null && (
+                <View style={styles.tapHint}>
+                  <Ionicons name={heroExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textMuted} />
+                  <Text style={[styles.tapHintText, { color: colors.textMuted }]}>Tap for details</Text>
+                </View>
+              )}
+            </View>
+          </GlassCard>
+        </TouchableOpacity>
       </GlowWrapper>
 
       {/* ── Vital Group Cards ───────────────────────────────────── */}
@@ -186,12 +228,12 @@ function VitalGroupCard({ group, phv, colors, index }: {
 
             {/* PHV/LTAD info inside Body & Growth */}
             {phv && (
-              <View style={[styles.phvBanner, { backgroundColor: '#FF6B35' + '15', borderColor: '#FF6B35' + '33' }]}>
+              <View style={[styles.phvBanner, { backgroundColor: colors.accent + '15', borderColor: colors.accent + '33' }]}>
                 <Text style={styles.phvEmoji}>{phv.ltad.emoji}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.phvTitle, { color: colors.textOnDark }]}>
                     {phv.ltad.stageName}
-                    <Text style={[styles.phvOffset, { color: '#FF6B35' }]}>
+                    <Text style={[styles.phvOffset, { color: colors.accent }]}>
                       {' '}PHV {phv.maturityOffset > 0 ? '+' : ''}{phv.maturityOffset.toFixed(1)}
                     </Text>
                   </Text>
@@ -202,7 +244,7 @@ function VitalGroupCard({ group, phv, colors, index }: {
                   <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
                     <View style={[styles.progressFill, {
                       width: `${phv.ltad.progressPercent}%`,
-                      backgroundColor: '#FF6B35',
+                      backgroundColor: colors.accent,
                     }]} />
                   </View>
                   <View style={styles.focusTags}>
@@ -258,6 +300,31 @@ function MetricRow({ metric, themeColor, colors }: {
 const styles = StyleSheet.create({
   container: { gap: spacing.sm },
 
+  // WHOOP connection banner
+  whoopBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.compact,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  whoopBannerText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 13,
+  },
+  sourcePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  sourcePillText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+
   // Hero
   heroCenter: { alignItems: 'center', gap: spacing.sm },
   readinessCircle: {
@@ -273,6 +340,10 @@ const styles = StyleSheet.create({
   readinessLabel: { fontFamily: fontFamily.medium, fontSize: 13, marginTop: -4 },
   heroTitle: { fontFamily: fontFamily.semiBold, fontSize: 16 },
   heroSummary: { fontFamily: fontFamily.regular, fontSize: 13, textAlign: 'center', lineHeight: 19 },
+
+  // Tap hint
+  tapHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.xs },
+  tapHintText: { fontFamily: fontFamily.regular, fontSize: 11 },
 
   // Mini stats
   miniStatsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },

@@ -3,10 +3,15 @@ import { requireAuth } from "@/lib/auth";
 import { getStreakInfo } from "@/services/complianceService";
 
 export async function GET(req: NextRequest) {
-  const auth = requireAuth(req);
-  if ("error" in auth) return auth.error;
+  try {
+    const auth = requireAuth(req);
+    if ("error" in auth) return auth.error;
 
-  const info = await getStreakInfo(auth.user.id);
+    const info = await getStreakInfo(auth.user.id);
 
-  return NextResponse.json(info, { headers: { "api-version": "v1" } });
+    return NextResponse.json(info, { headers: { "api-version": "v1", "Cache-Control": "private, max-age=60" } });
+  } catch (err: any) {
+    console.error('[streak] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

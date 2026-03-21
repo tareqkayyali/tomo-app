@@ -41,6 +41,7 @@ import { fontFamily, spacing, borderRadius } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/types';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'FootballRating'>;
 
@@ -55,10 +56,10 @@ const FOOTBALL_PRO_MILESTONES = [
 // ═══ HELPERS ═══
 
 function getTierLabel(pathwayRating: number): { label: string; color: string } {
-  if (pathwayRating >= 850) return { label: 'Diamond', color: '#B9F2FF' };
-  if (pathwayRating >= 650) return { label: 'Gold', color: '#FFD700' };
-  if (pathwayRating >= 450) return { label: 'Silver', color: '#C0C0C0' };
-  return { label: 'Bronze', color: '#CD7F32' };
+  if (pathwayRating >= 850) return { label: 'Diamond', color: colors.tierDiamond };
+  if (pathwayRating >= 650) return { label: 'Gold', color: colors.tierGold };
+  if (pathwayRating >= 450) return { label: 'Silver', color: colors.tierSilver };
+  return { label: 'Bronze', color: colors.tierBronze };
 }
 
 // ═══ RATING HISTORY CHART ═══
@@ -102,14 +103,14 @@ function RatingHistoryChart({
     <View>
       <Svg width={width} height={height}>
         <Path d={areaD} fill="rgba(48, 209, 88, 0.1)" />
-        <Path d={pathD} stroke="#30D158" strokeWidth={2.5} fill="none" />
+        <Path d={pathD} stroke={colors.accent} strokeWidth={2.5} fill="none" />
         {points.map((p, i) => (
           <SvgCircle
             key={i}
             cx={p.x}
             cy={p.y}
             r={4}
-            fill="#30D158"
+            fill={colors.accent}
             stroke={colors.background}
             strokeWidth={2}
           />
@@ -187,7 +188,7 @@ function ContributionBar({
         </Text>
       </View>
       {isStrong && (
-        <Ionicons name="arrow-up" size={12} color="#30D158" style={contribStyles.arrow} />
+        <Ionicons name="arrow-up" size={12} color={colors.accent} style={contribStyles.arrow} />
       )}
     </View>
   );
@@ -266,7 +267,7 @@ function PositionFitRow({
   return (
     <View style={[fitStyles.row, isCurrent && { backgroundColor: 'rgba(48, 209, 88, 0.08)', borderRadius: 8 }]}>
       <View style={fitStyles.posWrap}>
-        <Text style={[fitStyles.posLabel, { color: isCurrent ? '#30D158' : colors.textOnDark }]}>
+        <Text style={[fitStyles.posLabel, { color: isCurrent ? colors.accent : colors.textOnDark }]}>
           {position}
         </Text>
         <Text style={[fitStyles.posName, { color: colors.textMuted }]}>
@@ -275,13 +276,13 @@ function PositionFitRow({
       </View>
       <View style={fitStyles.barTrack}>
         <LinearGradient
-          colors={isCurrent ? ['#30D158', '#3498DB'] : [colors.accent1, colors.accent2]}
+          colors={isCurrent ? [colors.accent, colors.info] : [colors.accent1, colors.accent2]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[fitStyles.barFill, { width: `${Math.min(pct, 100)}%` }]}
         />
       </View>
-      <Text style={[fitStyles.overallText, { color: isCurrent ? '#30D158' : colors.textOnDark }]}>
+      <Text style={[fitStyles.overallText, { color: isCurrent ? colors.accent : colors.textOnDark }]}>
         {overall}
       </Text>
       {isCurrent && (
@@ -340,7 +341,7 @@ const fitStyles = StyleSheet.create({
   currentText: {
     fontFamily: fontFamily.semiBold,
     fontSize: 9,
-    color: '#30D158',
+    color: colors.accent,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -503,7 +504,7 @@ export function FootballRatingScreen({ navigation }: Props) {
           {/* Growth since joining */}
           {growthSinceJoining > 0 && (
             <View style={s.heroGrowthRow}>
-              <Ionicons name="trending-up" size={14} color="#30D158" />
+              <Ionicons name="trending-up" size={14} color={colors.accent} />
               <Text style={s.heroGrowthText}>
                 +{growthSinceJoining} rating points this month
               </Text>
@@ -637,7 +638,7 @@ export function FootballRatingScreen({ navigation }: Props) {
 
           {bestAlternative && bestAlternative.overall <= card.overallRating && (
             <View style={s.altSuggestion}>
-              <Ionicons name="checkmark-circle-outline" size={16} color="#30D158" />
+              <Ionicons name="checkmark-circle-outline" size={16} color={colors.accent} />
               <Text style={s.altSuggestionText}>
                 {positionLabel} is your strongest position fit — great match for your attributes!
               </Text>
@@ -671,7 +672,7 @@ export function FootballRatingScreen({ navigation }: Props) {
                 </View>
                 <View style={s.projDivider} />
                 <View style={s.projStat}>
-                  <Text style={[s.projValue, { color: '#30D158' }]}>
+                  <Text style={[s.projValue, { color: colors.accent }]}>
                     ~{projection.weeksToNext}w
                   </Text>
                   <Text style={s.projLabel}>estimated</Text>
@@ -818,7 +819,7 @@ function createStyles(colors: ThemeColors) {
     heroGrowthText: {
       fontFamily: fontFamily.medium,
       fontSize: 13,
-      color: '#30D158',
+      color: colors.accent,
     },
     heroMilestoneRow: {
       width: '100%',

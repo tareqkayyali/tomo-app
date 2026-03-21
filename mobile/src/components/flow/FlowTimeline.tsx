@@ -28,15 +28,6 @@ interface Props {
 
 // ─── Color + emoji mapping by event type (matches prototype) ────────────────
 
-const TYPE_COLORS: Record<string, string> = {
-  training: '#FF6B35',
-  match: '#FF6B35',
-  study_block: '#6366F1',
-  exam: '#E74C3C',
-  recovery: '#00D9FF',
-  other: '#666666',
-};
-
 const TYPE_EMOJIS: Record<string, string> = {
   training: '⚡',
   match: '⚽',
@@ -46,8 +37,16 @@ const TYPE_EMOJIS: Record<string, string> = {
   other: '📋',
 };
 
-function getTypeColor(type: string): string {
-  return TYPE_COLORS[type] ?? '#666666';
+function getTypeColor(type: string, colors: ThemeColors): string {
+  const map: Record<string, string> = {
+    training: colors.accent,
+    match: colors.accent,
+    study_block: colors.warning,
+    exam: colors.error,
+    recovery: colors.info,
+    other: colors.textDisabled,
+  };
+  return map[type] ?? colors.textDisabled;
 }
 
 function getTypeEmoji(type: string): string {
@@ -110,7 +109,7 @@ function TimelineEvent({
   colors: ThemeColors;
 }) {
   const styles = createStyles(colors);
-  const typeColor = getTypeColor(event.type);
+  const typeColor = getTypeColor(event.type, colors);
   const emoji = getTypeEmoji(event.type);
   const entranceStyle = useSpringEntrance(index, 100);
   const pulseStyle = usePulse(1, 1.08);
@@ -194,7 +193,7 @@ function TimelineEvent({
             )}
             {isCompleted && !readOnly && (
               <Pressable onPress={handleUndo} style={styles.undoBtn}>
-                <Ionicons name="arrow-undo" size={14} color="#FFFFFF" />
+                <Ionicons name="arrow-undo" size={14} color={colors.textOnAccent} />
                 <Text style={styles.undoText}>UNDO</Text>
               </Pressable>
             )}
@@ -217,7 +216,7 @@ function TimelineEvent({
 
           {/* Auto-scheduled note for study blocks */}
           {event.type === 'study_block' && event.notes && event.notes.toLowerCase().includes('auto') && (
-            <Text style={[styles.autoNote, { color: '#6366F1' }]}>
+            <Text style={[styles.autoNote, { color: colors.warning }]}>
               📝 Exam prep — Tomo auto-scheduled
             </Text>
           )}
@@ -359,7 +358,7 @@ function createStyles(colors: ThemeColors) {
       textDecorationLine: 'line-through',
     },
     nowBadge: {
-      backgroundColor: '#FF6B35',
+      backgroundColor: colors.accent,
       paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: borderRadius.full,
@@ -367,7 +366,7 @@ function createStyles(colors: ThemeColors) {
     nowText: {
       fontFamily: fontFamily.bold,
       fontSize: 10,
-      color: '#FFFFFF',
+      color: colors.textOnAccent,
       letterSpacing: 1,
     },
     eventMeta: {
@@ -425,7 +424,7 @@ function createStyles(colors: ThemeColors) {
     undoText: {
       fontFamily: fontFamily.bold,
       fontSize: 12,
-      color: '#FFFFFF',
+      color: colors.textOnAccent,
       letterSpacing: 0.5,
     },
     emptyContainer: {

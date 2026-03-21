@@ -67,8 +67,8 @@ export function LockInCard() {
         end={{ x: 1, y: 0 }}
         style={styles.pill}
       >
-        <Ionicons name="lock-closed" size={11} color="#FFFFFF" />
-        <Text style={[styles.pillText, { color: '#FFFFFF' }]}>Lock In</Text>
+        <Ionicons name="lock-closed" size={11} color={colors.textOnAccent} />
+        <Text style={[styles.pillText, { color: colors.textOnAccent }]}>Lock In</Text>
       </LinearGradient>
     </Pressable>
   );

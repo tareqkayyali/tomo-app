@@ -28,15 +28,16 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { DrillNotificationCard } from '../player/DrillNotificationCard';
 import type { ThemeColors } from '../../theme/colors';
 import { spacing, fontFamily, borderRadius } from '../../theme';
+import { colors } from '../../theme/colors';
 
 // ── Category colors ──────────────────────────────────────────────
 
 const CAT_COLORS: Record<string, string> = {
-  warmup: '#F7B731',
-  training: '#FF6B35',
-  cooldown: '#00D9FF',
-  recovery: '#2ECC71',
-  activation: '#AF52DE',
+  warmup: colors.warning,
+  training: colors.accent,
+  cooldown: colors.info,
+  recovery: colors.accent,
+  activation: colors.info,
 };
 
 const CAT_LABELS: Record<string, string> = {
@@ -48,9 +49,9 @@ const CAT_LABELS: Record<string, string> = {
 };
 
 const INTENSITY_COLORS: Record<string, string> = {
-  light: '#2ECC71',
-  moderate: '#F7B731',
-  hard: '#FF3B30',
+  light: colors.accent,
+  moderate: colors.warning,
+  hard: colors.error,
 };
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -206,7 +207,7 @@ export function MyDrillsTab({ colors }: Props) {
             {readiness ? (
               <Text style={s.sectionSub}>
                 Based on your{' '}
-                <Text style={{ color: readiness === 'GREEN' ? '#2ECC71' : readiness === 'YELLOW' ? '#F7B731' : '#FF3B30' }}>
+                <Text style={{ color: readiness === 'GREEN' ? colors.accent : readiness === 'YELLOW' ? colors.warning : colors.error }}>
                   {readiness}
                 </Text>{' '}
                 readiness
@@ -379,9 +380,9 @@ function DrillCard({
   onSchedule: () => void;
 }) {
   const { drill, reason } = rec;
-  const catColor = CAT_COLORS[drill.category] ?? '#6B6B6B';
+  const catColor = CAT_COLORS[drill.category] ?? colors.textDisabled;
   const catLabel = CAT_LABELS[drill.category] ?? drill.category;
-  const intColor = INTENSITY_COLORS[drill.intensity] ?? '#B0B0B0';
+  const intColor = INTENSITY_COLORS[drill.intensity] ?? colors.textSecondary;
 
   return (
     <View style={[s.drillCard, { borderLeftColor: catColor }]}>

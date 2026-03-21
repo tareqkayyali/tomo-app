@@ -28,8 +28,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
@@ -66,9 +65,12 @@ import { useAuth } from '../hooks/useAuth';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
+import { QuickAccessBar } from '../components/QuickAccessBar';
+import { useFavorites } from '../hooks/useFavorites';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
-import { RoleSwitcher } from '../components/RoleSwitcher';
 import { useAllQuotes } from '../hooks/useContentHelpers';
+import { useVoiceInput } from '../hooks/useVoiceInput';
+import { VoicePulse } from '../components/chat/VoicePulse';
 import type { Quote } from '../hooks/useContentHelpers';
 import { track } from '../services/analytics';
 import {
@@ -80,6 +82,7 @@ import {
   setActiveChatId,
 } from '../services/savedChats';
 import type { SavedChat, SavedMessage } from '../services/savedChats';
+import { usePageConfig } from '../hooks/usePageConfig';
 import type {
   ChatMessage as ChatMessageType,
   SuggestionChip as SuggestionChipType,
@@ -178,7 +181,7 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.medium,
       fontSize: 15,
       lineHeight: 20,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
       letterSpacing: 3,
     },
 
@@ -385,6 +388,20 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.background,
     },
 
+    // ── Voice Transcribing ────────────────────────────────────────────
+    transcribingContainer: {
+      flex: 1,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: 8,
+      paddingVertical: 8,
+    },
+    transcribingText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 14,
+    },
+
     // ── Scroll-to-bottom Button ────────────────────────────────────────
     scrollDownBtn: {
       position: 'absolute',
@@ -540,7 +557,7 @@ function createStyles(colors: ThemeColors) {
     confirmBtnConfirmText: {
       fontFamily: fontFamily.medium,
       fontSize: 14,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
     batchActionRow: {
       flexDirection: 'row',
@@ -566,7 +583,7 @@ function useHomeStyles() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function SuggestionChip({
+const SuggestionChip = React.memo(function SuggestionChip({
   chip,
   onPress,
 }: {
@@ -585,7 +602,7 @@ function SuggestionChip({
       <Text style={styles.chipText}>{chip.label}</Text>
     </Pressable>
   );
-}
+});
 
 /** Blinking cursor for streaming messages */
 function StreamingCursor() {
@@ -610,7 +627,7 @@ function StreamingCursor() {
   );
 }
 
-function ChatBubble({
+const ChatBubble = React.memo(function ChatBubble({
   message,
   onChipPress,
   onConfirm,
@@ -645,7 +662,7 @@ function ChatBubble({
           <Text
             style={[styles.userBubbleText, message.error && styles.bubbleTextError]}
           >
-            {message.text}
+            {message.text.replace(/\s*\[drillId:[^\]]*\]/g, '')}
           </Text>
           {message.error && <Text style={styles.retryHint}>Tap to retry</Text>}
         </View>
@@ -671,7 +688,7 @@ function ChatBubble({
       </View>
     </View>
   );
-}
+});
 
 /** Animated 3-dot typing indicator */
 function TypingDots() {
@@ -713,7 +730,7 @@ function TypingDots() {
 }
 
 /** Motivational Quote Card */
-function QuoteCard({ quote }: { quote: Quote }) {
+const QuoteCard = React.memo(function QuoteCard({ quote }: { quote: Quote }) {
   const styles = useHomeStyles();
   const fadeIn = useSharedValue(0);
 
@@ -736,13 +753,13 @@ function QuoteCard({ quote }: { quote: Quote }) {
       <Text style={styles.quoteAuthor} numberOfLines={1}>{'— ' + quote.author}</Text>
     </Animated.View>
   );
-}
+});
 
 /** Confirmation Card — shown when agent wants to execute a write action.
  *  Supports batch actions: when actions[] has multiple items, shows each
  *  with individual confirm buttons plus a "Confirm All" option.
  */
-function ConfirmationCard({
+const ConfirmationCard = React.memo(function ConfirmationCard({
   confirmation,
   onConfirm,
   onCancel,
@@ -826,7 +843,7 @@ function ConfirmationCard({
       )}
     </View>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -948,11 +965,14 @@ function getTimeAgo(dateStr: string): string {
 }
 
 export function HomeScreen() {
-  const { colors, isDark, toggle } = useTheme();
+  const { colors } = useTheme();
   const styles = useHomeStyles();
+  const pageConfig = usePageConfig('tomo_chat');
   const { profile } = useAuth();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { needsCheckin } = useCheckinStatus();
+  const { selectedOptions: favoriteOptions } = useFavorites();
   // sportConfig removed — no mock data sync needed
   const allQuotes = useAllQuotes();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -960,6 +980,45 @@ export function HomeScreen() {
   const [chips, setChips] = useState<SuggestionChipType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+
+  // Voice input
+  const {
+    state: voiceState,
+    duration: voiceDuration,
+    transcript,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    clearTranscript,
+    isRecording,
+    isUploading,
+  } = useVoiceInput();
+
+  // When transcript arrives, populate input
+  useEffect(() => {
+    if (transcript) {
+      setInputText(transcript);
+      clearTranscript();
+    }
+  }, [transcript]);
+
+  // Handle prefillMessage from navigation (e.g. "Ask Tomo" from ProgramCard)
+  useEffect(() => {
+    if (route.params?.prefillMessage) {
+      const msg = route.params.prefillMessage;
+      // Start a fresh session if requested (avoids agent lock from previous conversation)
+      if (route.params?.newSession) {
+        handleNewChat().then(() => {
+          setInputText(msg);
+        });
+      } else {
+        setInputText(msg);
+      }
+      // Clear the params so it doesn't re-trigger
+      navigation.setParams({ prefillMessage: undefined, newSession: undefined });
+    }
+  }, [route.params?.prefillMessage]);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [todayData, setTodayData] = useState<any>(null);
   const flatListRef = useRef<FlatList<DisplayMessage>>(null);
@@ -1348,6 +1407,8 @@ export function HomeScreen() {
   // ── Chip press ─────────────────────────────────────────────────────
   const handleChipPress = useCallback(
     (message: string) => {
+      // Strip [drillId:...] brackets from display — keep them in the API call for tool routing
+      // The user sees a clean message, but the backend still gets the drill ID
       handleSend(message);
     },
     [handleSend],
@@ -1464,9 +1525,6 @@ export function HomeScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.wordmark}>TOMO</Text>
-        </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent1} />
         </View>
@@ -1481,46 +1539,30 @@ export function HomeScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
-        {/* ─── Header with Wordmark + Chat Controls ────────────────── */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Pressable onPress={toggle} hitSlop={8} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="Toggle theme">
-              <Ionicons
-                name={isDark ? 'moon' : 'sunny'}
-                size={20}
-                color={colors.accent1}
-              />
-            </Pressable>
-            <Pressable
-              onPress={() => setShowSavedChats(true)}
-              hitSlop={8}
-              style={styles.headerBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Saved chats"
-            >
-              <Ionicons name="chatbubbles-outline" size={22} color={colors.textOnDark} />
-            </Pressable>
-          </View>
-          <View style={styles.wordmarkWrap}>
-            <LinearGradient
-              colors={colors.gradientOrangeCyan}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.wordmarkPill}
-            >
-              <Text style={styles.wordmark}>TOMO</Text>
-            </LinearGradient>
-          </View>
-          <View style={styles.headerLeft}>
-            <Pressable
-              onPress={handleNewChat}
-              hitSlop={8}
-              style={styles.headerBtn}
-              accessibilityRole="button"
-              accessibilityLabel="New chat"
-            >
-              <Ionicons name="create-outline" size={22} color={colors.textOnDark} />
-            </Pressable>
+        {/* ─── Standardized Header ────────────────── */}
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: layout.screenMargin,
+          paddingTop: spacing.sm,
+          paddingBottom: spacing.sm,
+        }}>
+          <QuickAccessBar actions={[
+            { key: 'saved', icon: 'chatbubbles-outline', label: 'Saved Chats', onPress: () => setShowSavedChats(true) },
+            { key: 'new', icon: 'create-outline', label: 'New Chat', onPress: handleNewChat },
+            ...favoriteOptions.map((opt) => ({
+              key: opt.key,
+              icon: opt.icon,
+              label: opt.label,
+              onPress: () => {
+                if (opt.route) navigation.navigate(opt.route);
+                else if (opt.tabRoute) navigation.navigate(opt.tabRoute.tab, opt.tabRoute.params);
+              },
+            })),
+            { key: 'more', icon: 'ellipsis-horizontal', label: 'More', onPress: () => navigation.navigate('Favorites') },
+          ]} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
             <NotificationBell />
             <HeaderProfileButton
@@ -1530,8 +1572,7 @@ export function HomeScreen() {
           </View>
         </View>
 
-        {/* ─── Dev Role Switcher (dev builds only) ───────────────── */}
-        <RoleSwitcher />
+        {/* RoleSwitcher removed — use Supabase SQL to change roles */}
 
         {/* ─── Saved Chats Overlay ─────────────────────────────────── */}
         {showSavedChats && (
@@ -1552,7 +1593,7 @@ export function HomeScreen() {
               <QuoteCard quote={currentQuote} />
 
               <Text style={styles.emptySubtitle}>
-                Ask about training, recovery, nutrition, or how you're feeling.
+                {pageConfig?.metadata?.emptyStates?.['chat_subtitle'] || 'Ask about training, recovery, nutrition, or how you\'re feeling.'}
               </Text>
             </View>
             <View style={styles.chipsContainer}>
@@ -1616,6 +1657,10 @@ export function HomeScreen() {
               onContentSizeChange={scrollToBottom}
               onScroll={handleScroll}
               scrollEventThrottle={100}
+              windowSize={7}
+              maxToRenderPerBatch={5}
+              initialNumToRender={15}
+              removeClippedSubviews={Platform.OS !== 'web'}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -1656,49 +1701,104 @@ export function HomeScreen() {
         {!showSavedChats && (
           <View style={styles.inputBarContainer} {...inputBarPan.panHandlers}>
             <View style={styles.inputBar}>
-              <TextInput
-                style={styles.textInput}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder="Ask anything"
-                placeholderTextColor={colors.textInactive}
-                multiline
-                blurOnSubmit={false}
-                textAlignVertical="center"
-                editable={!isSending}
-              />
-
-              {isSending ? (
-                <Pressable
-                  onPress={handleCancel}
-                  style={({ pressed }) => [
-                    styles.stopButton,
-                    pressed && styles.sendButtonPressed,
-                  ]}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Stop generating"
-                >
-                  <View style={styles.stopIcon} />
-                </Pressable>
+              {isRecording ? (
+                /* ─── Recording Mode ─── */
+                <VoicePulse
+                  duration={voiceDuration}
+                  onStop={stopRecording}
+                  onCancel={cancelRecording}
+                />
+              ) : isUploading ? (
+                /* ─── Transcribing Mode ─── */
+                <View style={styles.transcribingContainer}>
+                  <ActivityIndicator size={18} color={colors.accent2} />
+                  <Text style={[styles.transcribingText, { color: colors.accent2 }]}>
+                    Transcribing...
+                  </Text>
+                </View>
               ) : (
-                <Pressable
-                  onPress={() => handleSend()}
-                  style={({ pressed }) => [
-                    styles.sendButton,
-                    pressed && styles.sendButtonPressed,
-                  ]}
-                  hitSlop={8}
-                  disabled={!inputText.trim()}
-                  accessibilityRole="button"
-                  accessibilityLabel="Send message"
-                >
-                  <Ionicons
-                    name="arrow-up-circle"
-                    size={28}
-                    color={inputText.trim() ? colors.accent1 : colors.textInactive}
+                /* ─── Normal Input Mode ─── */
+                <>
+                  <TextInput
+                    style={styles.textInput}
+                    value={inputText}
+                    onChangeText={setInputText}
+                    placeholder={pageConfig?.metadata?.emptyStates?.['input_placeholder'] || "Ask anything"}
+                    placeholderTextColor={colors.textInactive}
+                    multiline
+                    blurOnSubmit={false}
+                    textAlignVertical="center"
+                    editable={!isSending}
                   />
-                </Pressable>
+
+                  {isSending ? (
+                    <Pressable
+                      onPress={handleCancel}
+                      style={({ pressed }) => [
+                        styles.stopButton,
+                        pressed && styles.sendButtonPressed,
+                      ]}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Stop generating"
+                    >
+                      <View style={styles.stopIcon} />
+                    </Pressable>
+                  ) : inputText.trim() ? (
+                    <Pressable
+                      onPress={() => handleSend()}
+                      style={({ pressed }) => [
+                        styles.sendButton,
+                        pressed && styles.sendButtonPressed,
+                      ]}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Send message"
+                    >
+                      <Ionicons
+                        name="arrow-up-circle"
+                        size={28}
+                        color={colors.accent1}
+                      />
+                    </Pressable>
+                  ) : Platform.OS !== 'web' ? (
+                    /* ─── Mic Button (mobile only, when input empty) ─── */
+                    <Pressable
+                      onPress={startRecording}
+                      style={({ pressed }) => [
+                        styles.sendButton,
+                        pressed && styles.sendButtonPressed,
+                      ]}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Voice input"
+                    >
+                      <Ionicons
+                        name="mic-outline"
+                        size={26}
+                        color={colors.accent1}
+                      />
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      onPress={() => handleSend()}
+                      style={({ pressed }) => [
+                        styles.sendButton,
+                        pressed && styles.sendButtonPressed,
+                      ]}
+                      hitSlop={8}
+                      disabled
+                      accessibilityRole="button"
+                      accessibilityLabel="Send message"
+                    >
+                      <Ionicons
+                        name="arrow-up-circle"
+                        size={28}
+                        color={colors.textInactive}
+                      />
+                    </Pressable>
+                  )}
+                </>
               )}
             </View>
           </View>

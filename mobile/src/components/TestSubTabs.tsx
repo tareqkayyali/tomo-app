@@ -140,7 +140,7 @@ function createStyles(colors: ThemeColors) {
     badgeText: {
       fontFamily: fontFamily.semiBold,
       fontSize: 10,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
     indicator: {
       position: 'absolute',

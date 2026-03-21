@@ -170,7 +170,7 @@ export function UnifiedDayView({
             {/* Lock badge for coach/parent */}
             {!isOwner && isLocked && (
               <View style={styles.lockBadge}>
-                <Ionicons name="lock-closed" size={10} color="#2ED573" />
+                <Ionicons name="lock-closed" size={10} color={colors.accent} />
               </View>
             )}
           </View>
@@ -376,7 +376,7 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.semiBold,
       fontSize: 12,
       letterSpacing: 1,
-      color: '#A855F7',
+      color: colors.info,
     },
     aiText: {
       fontFamily: fontFamily.regular,

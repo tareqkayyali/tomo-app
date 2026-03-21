@@ -240,10 +240,10 @@ export function BalanceTestScreen({ navigation }: Props) {
 
   // Get ring color based on deviation
   const getRingColor = (dev: number): string => {
-    if (dev < 0.3) return '#30D158';
-    if (dev < 0.8) return '#FFD60A';
-    if (dev < 1.5) return '#FF9500';
-    return '#FF453A';
+    if (dev < 0.3) return colors.accent;
+    if (dev < 0.8) return colors.warning;
+    if (dev < 1.5) return colors.warning;
+    return colors.error;
   };
 
   // ── Instructions ──
@@ -252,7 +252,7 @@ export function BalanceTestScreen({ navigation }: Props) {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,214,10,0.15)' }]}>
-            <Ionicons name="body-outline" size={40} color="#FFD60A" />
+            <Ionicons name="body-outline" size={40} color={colors.warning} />
           </View>
           <Text style={styles.title}>Balance & Stability</Text>
           <Text style={styles.subtitle}>Test your balance by standing on one leg</Text>
@@ -275,12 +275,12 @@ export function BalanceTestScreen({ navigation }: Props) {
 
           <Pressable onPress={handleStart} style={styles.startWrap}>
             <LinearGradient
-              colors={['#FFD60A', '#FF9500']}
+              colors={[colors.warning, colors.warning]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <Ionicons name="play" size={22} color="#FFFFFF" />
+              <Ionicons name="play" size={22} color={colors.textPrimary} />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -354,7 +354,7 @@ export function BalanceTestScreen({ navigation }: Props) {
 
       {phase === 'done' && (
         <View style={styles.doneWrap}>
-          <Ionicons name="checkmark-circle" size={80} color="#30D158" />
+          <Ionicons name="checkmark-circle" size={80} color={colors.accent} />
           <Text style={styles.doneScore}>{liveScore}/100</Text>
           <Text style={styles.doneText}>Done!</Text>
         </View>
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   stepNumText: {
     fontFamily: fontFamily.bold,
     fontSize: 14,
-    color: '#FFD60A',
+    color: colors.warning,
   },
   stepText: {
     fontFamily: fontFamily.regular,
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   startText: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   backWrap: { paddingVertical: spacing.md },
   backText: {
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   countdownNum: {
     fontFamily: fontFamily.bold,
     fontSize: 120,
-    color: '#FFD60A',
+    color: colors.warning,
     lineHeight: 130,
   },
   holdText: {
@@ -543,13 +543,13 @@ const styles = StyleSheet.create({
   doneScore: {
     fontFamily: fontFamily.bold,
     fontSize: 48,
-    color: '#FFD60A',
+    color: colors.warning,
     marginTop: spacing.md,
   },
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 32,
-    color: '#30D158',
+    color: colors.accent,
     marginTop: spacing.sm,
   },
 });

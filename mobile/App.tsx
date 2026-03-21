@@ -20,9 +20,13 @@ import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { ThemeProvider, useTheme } from './src/hooks/useTheme';
 import { SportProvider, type ActiveSport } from './src/hooks/useSportContext';
 import { ContentProvider } from './src/hooks/useContentProvider';
+import { ConfigProvider } from './src/hooks/useConfigProvider';
 import { RootNavigator } from './src/navigation';
-import { AnimatedSplashScreen } from './src/components';
+import { AnimatedSplashScreen, ErrorBoundary } from './src/components';
 import { injectWebFonts } from './src/utils/webFonts';
+import { initSentry, wrapWithSentry } from './src/services/sentry';
+
+initSentry();
 
 SplashScreen.preventAutoHideAsync();
 
@@ -63,7 +67,7 @@ function AppContent() {
   );
 }
 
-export default function App() {
+function App() {
   // On web, fonts are loaded via CSS @font-face injection (injectWebFonts above).
   // useFonts() hangs on web static exports because expo-font's dynamic loading
   // can't resolve bundled node_modules paths. So we skip it entirely on web.
@@ -99,15 +103,21 @@ export default function App() {
   }
 
   return (
-    <View style={styles.root} onLayout={onLayoutRootView}>
-      <AnimatedSplashScreen isReady={fontsLoaded}>
-        <ThemeProvider>
-          <AppContent />
-        </ThemeProvider>
-      </AnimatedSplashScreen>
-    </View>
+    <ErrorBoundary>
+      <View style={styles.root} onLayout={onLayoutRootView}>
+        <AnimatedSplashScreen isReady={fontsLoaded}>
+          <ConfigProvider>
+            <ThemeProvider>
+              <AppContent />
+            </ThemeProvider>
+          </ConfigProvider>
+        </AnimatedSplashScreen>
+      </View>
+    </ErrorBoundary>
   );
 }
+
+export default wrapWithSentry(App);
 
 const styles = StyleSheet.create({
   root: {

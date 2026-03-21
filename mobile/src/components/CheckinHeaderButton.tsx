@@ -11,6 +11,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GlowWrapper } from './GlowWrapper';
 import { useTheme } from '../hooks/useTheme';
+import { colors } from '../theme/colors';
 
 interface CheckinHeaderButtonProps {
   needsCheckin: boolean;
@@ -37,10 +38,10 @@ export function CheckinHeaderButton({ needsCheckin, onPress }: CheckinHeaderButt
       <Ionicons
         name={needsCheckin ? 'pulse' : 'checkmark-circle'}
         size={22}
-        color={needsCheckin ? colors.accent1 : '#30D158'}
+        color={needsCheckin ? colors.accent1 : colors.accent}
       />
       {/* Red dot badge when check-in needed */}
-      {needsCheckin && <View style={styles.badge} />}
+      {needsCheckin && <View style={[styles.badge, { backgroundColor: colors.error }]} />}
     </Pressable>
   );
 
@@ -74,6 +75,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#E74C3C',
+    backgroundColor: colors.error,
   },
 });

@@ -26,6 +26,9 @@ import {
 import type { GestureResponderEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MainStackParamList } from '../../navigation/types';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
 import { getIntensityConfig } from '../../utils/calendarHelpers';
@@ -53,14 +56,7 @@ const LONG_PRESS_MS = 400;
 
 // ─── Type colors / emojis (match FlowTimeline) ─────────────────────────────
 
-const TYPE_COLORS: Record<string, string> = {
-  training: '#FF6B35',
-  match: '#FF6B35',
-  study_block: '#6366F1',
-  exam: '#E74C3C',
-  recovery: '#00D9FF',
-  other: '#666666',
-};
+// TYPE_COLORS moved into getTypeColor() to use theme tokens
 
 const TYPE_EMOJIS: Record<string, string> = {
   training: '\u26A1',
@@ -71,8 +67,16 @@ const TYPE_EMOJIS: Record<string, string> = {
   other: '\uD83D\uDCCB',
 };
 
-function getTypeColor(type: string): string {
-  return TYPE_COLORS[type] ?? '#666666';
+function getTypeColor(type: string, colors: ThemeColors): string {
+  const map: Record<string, string> = {
+    training: colors.accent,
+    match: colors.accent,
+    study_block: colors.warning,
+    exam: colors.error,
+    recovery: colors.info,
+    other: colors.textDisabled,
+  };
+  return map[type] ?? colors.textDisabled;
 }
 
 function getTypeEmoji(type: string): string {
@@ -535,7 +539,7 @@ export function DayGrid({
         <View style={styles.untimedSection}>
           <Text style={[styles.untimedHeader, { color: colors.textMuted }]}>NO TIME SET</Text>
           {untimedEvents.map((evt) => {
-            const typeColor = getTypeColor(evt.type);
+            const typeColor = getTypeColor(evt.type, colors);
             const isCompleted = completedEventIds.has(evt.id);
             return (
               <View
@@ -618,7 +622,7 @@ export function DayGrid({
         {/* Smart Calendar: gap markers between events */}
         {gapMarkers.map((gap, i) => {
           const midY = (gap.yStart + gap.yEnd) / 2;
-          const markerColor = gap.adequate ? '#2ECC71' : '#F7B731';
+          const markerColor = gap.adequate ? colors.accent : colors.warning;
           return (
             <View
               key={`gap-${i}`}
@@ -665,7 +669,7 @@ export function DayGrid({
           const duration = endMin - startMin;
           const top = minutesToY(startMin);
           const height = Math.max((duration / 30) * SLOT_HEIGHT, SLOT_HEIGHT * 0.8);
-          const typeColor = getTypeColor(evt.type);
+          const typeColor = getTypeColor(evt.type, colors);
           const isCompleted = completedEventIds.has(evt.id);
           const isCurrent = evt.id === currentEventId;
           const isDragging = dragState?.eventId === evt.id;
@@ -850,6 +854,7 @@ const StaticEventBlock = React.memo(function StaticEventBlock({
   onDragStart,
   colors,
 }: StaticEventBlockProps) {
+  const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const timeStr = event.startTime
     ? event.endTime
       ? `${format12h(event.startTime)} – ${format12h(event.endTime)}`
@@ -1083,7 +1088,7 @@ const StaticEventBlock = React.memo(function StaticEventBlock({
           {isCurrent && !isCompleted && !isEditing && (
             <View
               style={{
-                backgroundColor: '#FF6B35',
+                backgroundColor: colors.accent,
                 borderRadius: 4,
                 paddingHorizontal: 4,
                 paddingVertical: 1,
@@ -1098,15 +1103,24 @@ const StaticEventBlock = React.memo(function StaticEventBlock({
                 if (Platform.OS !== 'web') {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }
-                onEditToggle(event.id);
+                navigation.navigate('EventEdit', {
+                  eventId: event.id,
+                  name: event.name,
+                  type: event.type,
+                  date: event.date || '',
+                  startTime: event.startTime || '08:00',
+                  endTime: event.endTime || '09:00',
+                  notes: event.notes || '',
+                  intensity: event.intensity || 'medium',
+                });
               }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={{ padding: 2 }}
             >
               <Ionicons
-                name={isEditing ? 'close-outline' : 'pencil-outline'}
+                name="pencil-outline"
                 size={12}
-                color={isEditing ? colors.textSecondary : typeColor}
+                color={typeColor}
               />
             </Pressable>
           )}
@@ -1114,6 +1128,22 @@ const StaticEventBlock = React.memo(function StaticEventBlock({
             <Ionicons name="reorder-three-outline" size={14} color={colors.textInactive + '80'} />
           )}
         </View>
+
+        {/* Linked program notes (auto-injected) */}
+        {!isEditing && event.notes && event.notes.includes('📋') && (
+          <Text
+            numberOfLines={1}
+            style={{
+              fontSize: 9,
+              fontFamily: fontFamily.regular,
+              color: colors.info,
+              marginTop: 1,
+              opacity: 0.85,
+            }}
+          >
+            {event.notes.split('\n').find((l: string) => l.includes('📋'))?.replace('📋 ', '') ?? ''}
+          </Text>
+        )}
 
         {/* ── Inline edit panel (3 rows: date, time, actions) ── */}
         {isEditing && (
@@ -1200,7 +1230,7 @@ const StaticEventBlock = React.memo(function StaticEventBlock({
                   onPress={handleSave}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   style={{
-                    backgroundColor: '#2ED573',
+                    backgroundColor: colors.accent,
                     borderRadius: 4,
                     padding: 4,
                     opacity: isSaving ? 0.5 : 1,
@@ -1219,7 +1249,7 @@ const StaticEventBlock = React.memo(function StaticEventBlock({
                     padding: 4,
                   }}
                 >
-                  <Ionicons name="trash-outline" size={12} color="#E74C3C" />
+                  <Ionicons name="trash-outline" size={12} color={colors.error} />
                 </Pressable>
               )}
             </View>
@@ -1257,7 +1287,7 @@ const StaticEventBlock = React.memo(function StaticEventBlock({
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }}
               style={{
-                backgroundColor: '#2ED573',
+                backgroundColor: colors.accent,
                 borderRadius: 4,
                 paddingHorizontal: 8,
                 paddingVertical: 3,
@@ -1373,13 +1403,13 @@ function createStyles(colors: ThemeColors) {
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: '#FF3B30',
+      backgroundColor: colors.error,
       marginLeft: -4,
     },
     nowLine: {
       flex: 1,
       height: 2,
-      backgroundColor: '#FF3B30',
+      backgroundColor: colors.error,
     },
   });
 }

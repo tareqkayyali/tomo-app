@@ -5,9 +5,9 @@
  * padel shots (Bandeja, Vibora, Smash, etc.) with identical visual treatment.
  *
  * Psychology (Presenting Improvement Areas — Research Section 15.3):
- * - Skills below 40: labeled "Next Level" in teal (#00D9FF), NEVER "Weak" or red
+ * - Skills below 40: labeled "Next Level" in teal (#3498DB), NEVER "Weak" or red
  * - Skills 40-69: labeled "Building" in neutral
- * - Skills 70+: labeled "Strong" in green (#30D158)
+ * - Skills 70+: labeled "Strong" in green (#2ECC71)
  * - Each skill shows social persuasion message (Bandura):
  *   "Players who train [skill] 3x/week improve by [X] points in 6 weeks"
  * - Expanding a sub-metric shows mini trend context if history exists
@@ -77,10 +77,10 @@ export interface SkillRatingBarProps {
 // ═══ RATING LABELS ═══
 // Research Section 15.3: Growth-oriented language, never "Weak" or red
 
-function getSkillLabel(rating: number): { text: string; color: string } {
-  if (rating >= 70) return { text: 'Strong', color: '#30D158' };
-  if (rating >= 40) return { text: 'Building', color: '#B0B0B0' };
-  return { text: 'Next Level', color: '#00D9FF' };
+function getSkillLabel(rating: number, colors: ThemeColors): { text: string; color: string } {
+  if (rating >= 70) return { text: 'Strong', color: colors.accent };
+  if (rating >= 40) return { text: 'Building', color: colors.textSecondary };
+  return { text: 'Next Level', color: colors.info };
 }
 
 /**
@@ -88,11 +88,11 @@ function getSkillLabel(rating: number): { text: string; color: string } {
  * Uses growth-oriented colors: teal for low (opportunity),
  * neutral for mid, green for high.
  */
-function getSkillColor(rating: number): string {
-  if (rating >= 70) return '#30D158';
-  if (rating >= 50) return '#FFD60A';
-  if (rating >= 40) return '#FF9500';
-  return '#00D9FF'; // teal for "Next Level" — NOT red
+function getSkillColor(rating: number, colors: ThemeColors): string {
+  if (rating >= 70) return colors.accent;
+  if (rating >= 50) return colors.warning;
+  if (rating >= 40) return colors.warning;
+  return colors.info; // teal for "Next Level" — NOT red
 }
 
 /**
@@ -195,8 +195,8 @@ export function SkillRatingBar({
 
   const entranceStyle = useSpringEntrance(index, 100, trigger);
   const barWidth = useBarFill(skill.overall, 200 + index * 80, trigger);
-  const skillColor = getSkillColor(skill.overall);
-  const label = getSkillLabel(skill.overall);
+  const skillColor = getSkillColor(skill.overall, colors);
+  const label = getSkillLabel(skill.overall, colors);
 
   const barStyle = useAnimatedStyle(() => ({
     width: `${barWidth.value}%`,
@@ -234,12 +234,12 @@ export function SkillRatingBar({
                 <Ionicons
                   name={trend > 0 ? 'caret-up' : 'caret-down'}
                   size={10}
-                  color={trend > 0 ? '#30D158' : '#8E8E93'}
+                  color={trend > 0 ? colors.accent : colors.textSecondary}
                 />
                 <Text
                   style={[
                     styles.trendText,
-                    { color: trend > 0 ? '#30D158' : '#8E8E93' },
+                    { color: trend > 0 ? colors.accent : colors.textSecondary },
                   ]}
                 >
                   {Math.abs(trend)}
@@ -309,7 +309,7 @@ function SubMetricRow({
   // Normalize to 0-1: values ≤10 treated as /10 scale, >10 as /99
   const maxVal = subMetric.value > 10 ? 99 : 10;
   const fillPct = Math.min(subMetric.value / maxVal, 1) * 100;
-  const barColor = fillPct >= 70 ? '#30D158' : fillPct >= 40 ? '#FFD60A' : '#00D9FF';
+  const barColor = fillPct >= 70 ? colors.accent : fillPct >= 40 ? colors.warning : colors.info;
 
   return (
     <View style={styles.subMetricRow}>

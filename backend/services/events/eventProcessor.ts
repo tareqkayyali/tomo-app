@@ -18,8 +18,23 @@ import { handleInjuryEvent } from './handlers/injuryHandler';
 import { handleCompetitionResult } from './handlers/competitionHandler';
 import { handleDrillCompleted } from './handlers/drillHandler';
 import { writeSnapshot } from './snapshot/snapshotWriter';
+import { logger } from '@/lib/logger';
 import { triggerRecommendationComputation } from '../recommendations/recommendationDispatcher';
+import { triggerDeepProgramRefreshAsync, isDeepProgramStale } from '../programs/deepProgramRefresh';
 import type { AthleteEvent } from './types';
+
+/** Event types that should trigger a program recommendation refresh */
+const PROGRAM_REFRESH_TRIGGERS = new Set<string>([
+  EVENT_TYPES.ASSESSMENT_RESULT,   // New test scores → benchmarks change
+  EVENT_TYPES.WELLNESS_CHECKIN,    // Readiness changes → load caps change
+  EVENT_TYPES.SESSION_LOG,         // Training load changes → ACWR changes
+  EVENT_TYPES.INJURY_FLAG,         // Injury → block categories
+  EVENT_TYPES.INJURY_CLEARED,      // Cleared → unblock categories
+  EVENT_TYPES.PHV_MEASUREMENT,     // PHV change → program contraindications
+  EVENT_TYPES.WEARABLE_SYNC,       // HRV/sleep data → load adjustments
+  EVENT_TYPES.ACADEMIC_EVENT,      // Exam period → dual load
+  EVENT_TYPES.STUDY_SESSION_LOG,   // Academic load → dual load
+]);
 
 /**
  * Process a single event. Called by the webhook route.
@@ -30,8 +45,6 @@ import type { AthleteEvent } from './types';
 export async function processEvent(event: AthleteEvent): Promise<void> {
   const startMs = Date.now();
   const { athlete_id, event_type, event_id } = event;
-
-  console.log(`[EventProcessor] Processing ${event_type} for athlete ${athlete_id} (event: ${event_id})`);
 
   try {
     // ── Route to type-specific handler ──
@@ -104,7 +117,7 @@ export async function processEvent(event: AthleteEvent): Promise<void> {
         break;
 
       default:
-        console.warn(`[EventProcessor] Unknown event_type: ${event_type}`);
+        logger.warn('Unknown event_type', { event_type, event_id, athlete_id });
     }
 
     // ── Always write updated snapshot ──
@@ -112,13 +125,25 @@ export async function processEvent(event: AthleteEvent): Promise<void> {
 
     // ── Layer 4: Recommendation Intelligence Engine (fire-and-forget) ──
     triggerRecommendationComputation(event).catch(err =>
-      console.error('[RIE] recommendation computation failed:', err)
+      logger.error('Recommendation computation failed', { event_type, event_id, athlete_id, error: (err as Error).message })
     );
 
+    // ── Layer 5: Program Recommendation Refresh (fire-and-forget) ──
+    // Only trigger on events that meaningfully change program suitability.
+    // Checks staleness first to avoid unnecessary AI calls.
+    if (PROGRAM_REFRESH_TRIGGERS.has(event_type)) {
+      isDeepProgramStale(athlete_id).then(stale => {
+        if (stale) {
+          triggerDeepProgramRefreshAsync(athlete_id);
+        }
+      }).catch(err =>
+        logger.error('Program refresh check failed', { event_type, athlete_id, error: (err as Error).message })
+      );
+    }
+
     const durationMs = Date.now() - startMs;
-    console.log(`[EventProcessor] Completed ${event_type} in ${durationMs}ms`);
   } catch (err) {
-    console.error(`[EventProcessor] Error processing ${event_type}:`, (err as Error).message);
+    logger.error('Event processing failed', { event_type, event_id, athlete_id, error: (err as Error).message });
     // Don't re-throw — webhook should return 200 to avoid retries on permanent failures.
     // Transient failures will be caught by monitoring.
   }

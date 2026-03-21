@@ -206,6 +206,7 @@ export async function buildPlayerContext(
     snapshotRes,
     projectedLoadRes,
     recsRes,
+    benchmarkProfileRes,
   ] = await Promise.allSettled([
     (db as any)
       .from("users")
@@ -269,6 +270,8 @@ export async function buildPlayerContext(
       .not("estimated_load_au", "is", null),
     // Layer 4 recs — top 5 active recommendations for AI context
     getRecommendations(userId, { role: "ATHLETE", limit: 5 }),
+    // Benchmark profile from normative data (moved into parallel block)
+    getPlayerBenchmarkProfile(userId),
   ]);
 
   const profile =
@@ -392,19 +395,15 @@ export async function buildPlayerContext(
       }
     : null;
 
-  // Benchmark profile from normative data (graceful fallback if service unavailable)
+  // Benchmark profile from normative data (fetched in parallel above)
   let benchmarkProfile: { overallPercentile: number; strengths: string[]; gaps: string[] } | null = null;
-  try {
-    const bp = await getPlayerBenchmarkProfile(userId);
-    if (bp) {
-      benchmarkProfile = {
-        overallPercentile: bp.overallPercentile,
-        strengths: bp.strengths,
-        gaps: bp.gaps,
-      };
-    }
-  } catch {
-    // Graceful — agents still work without benchmark data
+  if (benchmarkProfileRes.status === "fulfilled" && benchmarkProfileRes.value) {
+    const bp = benchmarkProfileRes.value;
+    benchmarkProfile = {
+      overallPercentile: bp.overallPercentile,
+      strengths: bp.strengths,
+      gaps: bp.gaps,
+    };
   }
 
   // ── Temporal Context (Layer 2) ──────────────────────────────────

@@ -134,6 +134,10 @@ export interface OnboardingData {
   footballCompetition?: 'recreational' | 'club' | 'academy' | 'professional';
   footballSelfAssessment?: Record<string, number>;
 
+  // Date of birth & age
+  dateOfBirth?: string; // ISO date string (YYYY-MM-DD)
+  age?: number;
+
   // Legacy fields (kept for backward compat)
   weeklyTrainingDays?: number;
   typicalSessionLength?: number;
@@ -747,6 +751,7 @@ export interface TrainingCategoryConfig {
   daysPerWeek: number;
   sessionDuration: number;
   preferredTime: 'morning' | 'afternoon' | 'evening';
+  linkedPrograms?: { programId: string; name: string; category?: string }[];
 }
 
 export interface TrainingPlanConfig {
@@ -762,6 +767,7 @@ export interface TrainingBlock {
   date: string;
   startTime: string;
   endTime: string;
+  linkedPrograms?: { programId: string; name: string }[];
 }
 
 export interface TrainingGeneratorResult {

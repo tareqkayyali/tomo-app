@@ -5,11 +5,13 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { emitEventSafe } from "@/services/events/eventEmitter";
 
 export async function POST(req: NextRequest) {
-  const auth = requireAuth(req);
-  if ("error" in auth) return auth.error;
+  try {
+    const auth = requireAuth(req);
+    if ("error" in auth) return auth.error;
 
-  const body = await req.json();
-  const parsed = feedbackSchema.safeParse(body);
+    let body;
+    try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }); }
+    const parsed = feedbackSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.flatten() },
@@ -73,8 +75,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json(
-    { plan },
-    { headers: { "api-version": "v1" } }
-  );
+    return NextResponse.json(
+      { plan },
+      { headers: { "api-version": "v1" } }
+    );
+  } catch (err: any) {
+    console.error('[feedback] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

@@ -27,8 +27,9 @@ import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { ParentTabParamList, ParentStackParamList } from '../../navigation/types';
 import type { PlayerSummary } from '../../types';
 
+// @ts-ignore — Legacy tab name, now embedded in ParentChildDetailScreen
 type Props = CompositeScreenProps<
-  BottomTabScreenProps<ParentTabParamList, 'Mastery'>,
+  BottomTabScreenProps<ParentTabParamList, 'Children'>,
   NativeStackScreenProps<ParentStackParamList>
 >;
 

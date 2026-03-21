@@ -34,6 +34,7 @@ import {
   DNA_OVERALL_WEIGHTS,
 } from '../services/padelCalculations';
 import { FOOTBALL_ATTRIBUTE_COLORS } from '../services/footballCalculations';
+import { colors } from '../theme/colors';
 
 /**
  * Build a minimal fallback ContentBundle from hardcoded TypeScript data.
@@ -42,8 +43,8 @@ import { FOOTBALL_ATTRIBUTE_COLORS } from '../services/footballCalculations';
 export function buildFallbackBundle(): ContentBundle {
   // Sports
   const sports = [
-    { id: 'football', label: 'Football', icon: 'football-outline', color: '#FF6B35', sort_order: 1, available: true, config: {} },
-    { id: 'padel', label: 'Padel', icon: 'tennisball-outline', color: '#00D9FF', sort_order: 2, available: true, config: { dnaOverallWeights: DNA_OVERALL_WEIGHTS } },
+    { id: 'football', label: 'Football', icon: 'football-outline', color: colors.accent, sort_order: 1, available: true, config: {} },
+    { id: 'padel', label: 'Padel', icon: 'tennisball-outline', color: colors.info, sort_order: 2, available: true, config: { dnaOverallWeights: DNA_OVERALL_WEIGHTS } },
   ];
 
   // Football attributes

@@ -48,10 +48,10 @@ export function GradientButton({
         ]}
       >
         {loading ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
+          <ActivityIndicator color={colors.textPrimary} size="small" />
         ) : (
           <>
-            {icon && <Ionicons name={icon} size={small ? 16 : 20} color="#FFFFFF" />}
+            {icon && <Ionicons name={icon} size={small ? 16 : 20} color={colors.textPrimary} />}
             <Text style={[styles.text, small && styles.textSmall]}>{title}</Text>
           </>
         )}
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   text: {
     fontFamily: fontFamily.semiBold,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   textSmall: {

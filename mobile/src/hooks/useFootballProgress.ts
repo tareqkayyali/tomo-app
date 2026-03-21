@@ -56,7 +56,11 @@ export function useFootballProgress(
   }, [userId, age, position]);
 
   useEffect(() => {
-    fetchAndCompute();
+    let isMounted = true;
+    (async () => {
+      await fetchAndCompute();
+    })();
+    return () => { isMounted = false; };
   }, [fetchAndCompute]);
 
   return {

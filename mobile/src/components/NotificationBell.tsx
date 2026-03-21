@@ -10,6 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import { useTheme } from '../hooks/useTheme';
 import { useNotifications } from '../hooks/useNotifications';
+import { colors } from '../theme/colors';
 
 export function NotificationBell() {
   const { colors } = useTheme();
@@ -30,8 +31,8 @@ export function NotificationBell() {
     >
       <Ionicons name="notifications-outline" size={22} color={colors.textOnDark} />
       {unreadCount > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>
+        <View style={[styles.badge, { backgroundColor: colors.error }]}>
+          <Text style={[styles.badgeText, { color: colors.textOnAccent }]}>
             {unreadCount > 9 ? '9+' : String(unreadCount)}
           </Text>
         </View>
@@ -51,7 +52,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: '#E74C3C',
+    backgroundColor: colors.error,
     borderRadius: 8,
     minWidth: 16,
     height: 16,
@@ -60,7 +61,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 10,
     fontWeight: '700',
   },

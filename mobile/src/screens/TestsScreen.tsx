@@ -19,6 +19,7 @@ import {
   Animated,
   LayoutChangeEvent,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { QuickAccessBar } from '../components/QuickAccessBar';
+import { useQuickActions } from '../hooks/useQuickActions';
 import {
   spacing,
   fontFamily,
@@ -37,13 +39,19 @@ import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useOutputData } from '../hooks/useOutputData';
+import { useConnectedSources } from '../hooks/useConnectedSources';
+import { interactWithProgram, fetchActivePrograms } from '../services/api';
 import { VitalsSection } from '../components/output/VitalsSection';
 import { MetricsSection } from '../components/output/MetricsSection';
 import { ProgramsSection } from '../components/output/ProgramsSection';
+import { PHVBanner } from '../components/output/PHVBanner';
+import type { PHVCategory, LTADStage } from '../utils/phvCalculator';
 import type { CompositeNavigationProp, RouteProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainTabParamList, MainStackParamList } from '../navigation/types';
+import { useSubTabRegistry } from '../hooks/useSubTabContext';
+import { usePageConfig } from '../hooks/usePageConfig';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -65,15 +73,26 @@ const OUTPUT_TABS: { key: Tab; label: string }[] = [
   { key: 'programs', label: 'My Programs' },
 ];
 
+const LTAD_MAP: Record<string, LTADStage> = {
+  'pre-phv-early': 'FUNdamentals',
+  'pre-phv-approaching': 'Learn to Train',
+  'at-phv': 'Train to Train',
+  'post-phv-recent': 'Train to Compete',
+  'post-phv-stable': 'Train to Win',
+};
+
 /** Animated underline tab switcher — same pattern as PlanTabSwitcher */
 function OutputTabSwitcher({
   activeTab,
   onTabChange,
   colors,
+  tabLabels,
 }: {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
   colors: ThemeColors;
+  /** CMS-driven label overrides keyed by tab key */
+  tabLabels?: Record<string, string>;
 }) {
   const tabWidths = useRef<number[]>([0, 0, 0]);
   const tabOffsets = useRef<number[]>([0, 0, 0]);
@@ -121,7 +140,7 @@ function OutputTabSwitcher({
                   color: isActive ? colors.accent1 : colors.textInactive,
                 }}
               >
-                {tab.label}
+                {tabLabels?.[tab.key] || tab.label}
               </Text>
             </TouchableOpacity>
           );
@@ -148,11 +167,17 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
   const { colors } = useTheme();
   const { profile } = useAuth();
   const { needsCheckin } = useCheckinStatus();
+  const pageConfig = usePageConfig('output');
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { data, loading, error, refresh } = useOutputData();
+  const { data, setData, loading, error, refresh, isDeepRefreshing, forceRefreshPrograms } = useOutputData();
+  const { sources: connectedSources, loading: sourcesLoading } = useConnectedSources();
 
   const paramTab = route?.params?.initialTab as Tab | undefined;
   const [activeTab, setActiveTab] = useState<Tab>(paramTab || 'vitals');
+  const quickActions = useQuickActions(
+    { key: 'vitals', icon: 'pulse-outline', label: 'My Vitals', onPress: () => setActiveTab('vitals'), accentColor: colors.accent2 },
+    navigation,
+  );
 
   // Switch tab when navigated with initialTab param
   useEffect(() => {
@@ -160,6 +185,66 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       setActiveTab(paramTab);
     }
   }, [paramTab]);
+
+  // Refresh data when screen gains focus (e.g. returning from PHV calculator)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      refresh();
+    });
+    return unsubscribe;
+  }, [navigation, refresh]);
+
+  // Register sub-tabs for swipe navigation
+  const subTabRegistry = useSubTabRegistry();
+  const SUB_TABS: Tab[] = ['vitals', 'metrics', 'programs'];
+  useEffect(() => {
+    subTabRegistry.register('Test', {
+      tabs: SUB_TABS,
+      activeIndex: SUB_TABS.indexOf(activeTab),
+      setTab: (idx: number) => setActiveTab(SUB_TABS[idx]),
+    });
+    return () => subTabRegistry.unregister('Test');
+  }, [activeTab]);
+
+  // ── Active program IDs ──────────────────────────────────────
+  const [activeIds, setActiveIds] = useState<string[]>([]);
+
+  const loadActiveIds = useCallback(async () => {
+    try {
+      const { programIds } = await fetchActivePrograms();
+      setActiveIds(programIds);
+    } catch (e) {
+      console.warn('[TestsScreen] Failed to fetch active programs:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadActiveIds();
+  }, [loadActiveIds]);
+
+  // Also reload active IDs on focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadActiveIds();
+    });
+    return unsubscribe;
+  }, [navigation, loadActiveIds]);
+
+  const handleToggleActive = useCallback((programId: string) => {
+    // Optimistic toggle
+    setActiveIds((prev) => {
+      if (prev.includes(programId)) {
+        return prev.filter((id) => id !== programId);
+      }
+      return [...prev, programId];
+    });
+
+    // Persist to backend (non-blocking)
+    interactWithProgram(programId, 'active').catch((e) =>
+      console.warn('[TestsScreen] Active toggle failed:', e)
+    );
+  }, []);
+
   const [refreshing, setRefreshing] = useState(false);
 
 
@@ -169,17 +254,36 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
     setRefreshing(false);
   }, [refresh]);
 
+  // ── Program interactions (done/dismiss) ─────────────────────────
+  // Confirmation is handled inline by ProgramCard — this just does the action
+  const handleProgramAction = useCallback((programId: string, action: 'done' | 'dismissed') => {
+    // Optimistic removal — remove from local state immediately
+    setData((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        programs: {
+          ...prev.programs,
+          recommendations: prev.programs.recommendations.filter(
+            (p: any) => p.programId !== programId
+          ),
+        },
+      };
+    });
+
+    // Persist to backend (non-blocking)
+    interactWithProgram(programId, action).catch((e) =>
+      console.warn('[TestsScreen] Program interaction failed:', e)
+    );
+  }, [setData]);
+
   // ── Render ─────────────────────────────────────────────────────
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* ── Top Row ── */}
       <View style={styles.headerArea}>
-        <QuickAccessBar actions={[
-          { key: 'settings', icon: 'settings-outline', label: 'Settings', onPress: () => navigation.navigate('Settings') },
-          { key: 'logTest', icon: 'create-outline', label: 'Log Test', onPress: () => navigation.navigate('PhoneTestsList') },
-          { key: 'more', icon: 'ellipsis-horizontal', label: 'More', onPress: () => {} },
-        ]} />
+        <QuickAccessBar actions={quickActions} />
         <View style={styles.headerRight}>
           <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
           <NotificationBell />
@@ -191,7 +295,26 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       </View>
 
       {/* ── Tab Switcher (underline style — matches Timeline) ── */}
-      <OutputTabSwitcher activeTab={activeTab} onTabChange={setActiveTab} colors={colors} />
+      <OutputTabSwitcher activeTab={activeTab} onTabChange={setActiveTab} colors={colors} tabLabels={pageConfig?.metadata?.tabLabels} />
+
+      {/* ── PHV Banner (shows on all sub-tabs) ── */}
+      {data && (
+        <View style={{ paddingHorizontal: layout.screenMargin }}>
+          <PHVBanner
+            phvOffset={data.vitals.phv?.maturityOffset ?? null}
+            phvStage={data.vitals.phv?.phvStage ?? null}
+            ltadStage={data.vitals.phv?.ltad?.stageName ?? (data.vitals.phv?.phvStage ? LTAD_MAP[data.vitals.phv.phvStage] ?? null : null)}
+            onCalculatePress={() => navigation.navigate('PHVCalculator' as any, {
+              existingOffset: data.vitals.phv?.maturityOffset,
+              existingStage: data.vitals.phv?.phvStage,
+              existingLtad: data.vitals.phv?.ltad?.stageName,
+              standingHeight: data.vitals.phv?.standingHeightCm,
+              sittingHeight: data.vitals.phv?.sittingHeightCm,
+              weight: data.vitals.phv?.weightKg,
+            })}
+          />
+        </View>
+      )}
 
       {/* ── Content ── */}
       <ScrollView
@@ -216,9 +339,30 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
           </View>
         ) : data ? (
           <>
-            {activeTab === 'vitals' && <VitalsSection vitals={data.vitals} />}
+            {activeTab === 'vitals' && (
+              <VitalsSection
+                vitals={data.vitals}
+                connectedSources={connectedSources}
+                sourcesLoading={sourcesLoading}
+                onConnectWhoop={() => navigation.navigate('Settings' as any)}
+              />
+            )}
             {activeTab === 'metrics' && <MetricsSection metrics={data.metrics} onTestLogged={refresh} />}
-            {activeTab === 'programs' && <ProgramsSection programs={data.programs} gaps={data.metrics.gaps} />}
+            {activeTab === 'programs' && (
+              <ProgramsSection
+                programs={data.programs}
+                gaps={data.metrics.gaps}
+                isDeepRefreshing={isDeepRefreshing}
+                onForceRefresh={forceRefreshPrograms}
+                onNavigateCheckin={() => navigation.navigate('Checkin' as any)}
+                onNavigateTests={() => setActiveTab('metrics')}
+                onNavigateSettings={() => navigation.navigate('Settings' as any)}
+                onProgramDone={(id) => handleProgramAction(id, 'done')}
+                onProgramDismiss={(id) => handleProgramAction(id, 'dismissed')}
+                activeIds={activeIds}
+                onToggleActive={handleToggleActive}
+              />
+            )}
           </>
         ) : null}
       </ScrollView>

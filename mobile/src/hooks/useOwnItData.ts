@@ -58,7 +58,9 @@ export function useOwnItData() {
   const [refreshing, setRefreshing] = useState(false);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const [isDeepRefreshing, setIsDeepRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const deepRefreshInFlight = useRef(false);
+  const lastDeepRefreshRef = useRef(0);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -95,9 +97,19 @@ export function useOwnItData() {
     if (deepRefreshInFlight.current) return;
     deepRefreshInFlight.current = true;
     setIsDeepRefreshing(true);
+    setRefreshError(null);
 
     try {
       const result = await refreshRecommendations(force ? { force: true } : undefined);
+
+      // Check for API-level errors
+      if (!result.refreshed && result.reason === 'api_error') {
+        console.warn('[useOwnItData] Deep refresh API error');
+        setRefreshError('Unable to generate recommendations. Try again later.');
+      } else if (!result.refreshed && result.reason === 'network_error') {
+        console.warn('[useOwnItData] Deep refresh network error');
+        setRefreshError('Network error. Check your connection and try again.');
+      }
 
       if (result.refreshed && (result.count ?? 0) > 0) {
         // New recs were generated — re-fetch to show them
@@ -120,8 +132,9 @@ export function useOwnItData() {
           }
         }
       }
-    } catch {
-      // Non-fatal — existing recs remain
+    } catch (err) {
+      console.warn('[useOwnItData] Deep refresh failed:', (err as Error).message);
+      setRefreshError('Failed to refresh recommendations');
     } finally {
       setIsDeepRefreshing(false);
       deepRefreshInFlight.current = false;
@@ -138,30 +151,41 @@ export function useOwnItData() {
 
   // Load cache on mount, then fetch, then deep refresh
   useEffect(() => {
+    let isMounted = true;
     (async () => {
       try {
         const [cachedSnap, cachedRecs] = await Promise.all([
           AsyncStorage.getItem(SNAPSHOT_CACHE_KEY),
           AsyncStorage.getItem(RECS_CACHE_KEY),
         ]);
+        if (!isMounted) return;
         if (cachedSnap) setSnapshot(JSON.parse(cachedSnap));
         if (cachedRecs) setRecs(JSON.parse(cachedRecs));
-      } catch {}
+      } catch (e) {
+        console.warn('[useOwnItData] cache load error:', e);
+      }
+      if (!isMounted) return;
       // Fetch current data from DB
       await fetchData();
+      if (!isMounted) return;
       // Then trigger deep refresh (Claude analysis) — updates UI when done
       triggerDeepRefresh();
     })();
+    return () => { isMounted = false; };
   }, []);
 
-  // Refresh on screen focus (after initial load)
+  // Refresh on screen focus (after initial load) — with 5-minute cooldown on deep refresh
   useEffect(() => {
     if (isFocused && hasFetchedOnce) {
       fetchData();
-      // Also trigger deep refresh on re-focus (staleness check is server-side)
-      triggerDeepRefresh();
+      const now = Date.now();
+      const DEEP_REFRESH_COOLDOWN = 300_000; // 5 minutes
+      if (now - lastDeepRefreshRef.current >= DEEP_REFRESH_COOLDOWN) {
+        lastDeepRefreshRef.current = now;
+        triggerDeepRefresh();
+      }
     }
-  }, [isFocused]);
+  }, [isFocused, hasFetchedOnce, fetchData, triggerDeepRefresh]);
 
   const onRefresh = useCallback(async () => {
     await fetchData(true);
@@ -180,6 +204,7 @@ export function useOwnItData() {
     error,
     refreshing,
     isDeepRefreshing,
+    refreshError,
     onRefresh,
     forceRefresh,
   };

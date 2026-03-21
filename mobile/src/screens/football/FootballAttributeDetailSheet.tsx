@@ -85,7 +85,7 @@ export function FootballAttributeDetailSheet({
 
   // Attribute config
   const fullAttr = sportConfig.fullAttributes.find((a) => a.key === attribute);
-  const attrColor = sportConfig.attributeColors[attribute] ?? '#888888';
+  const attrColor = sportConfig.attributeColors[attribute] ?? colors.textSecondary;
 
   // Age percentile
   const percentile = getAttributePercentile(attribute, data.score, age, position);
@@ -126,12 +126,12 @@ export function FootballAttributeDetailSheet({
           <Ionicons
             name={data.trend > 0 ? 'trending-up' : 'trending-down'}
             size={16}
-            color={data.trend > 0 ? '#30D158' : attrColor}
+            color={data.trend > 0 ? colors.accent : attrColor}
           />
           <Text
             style={[
               s.trendText,
-              { color: data.trend > 0 ? '#30D158' : attrColor },
+              { color: data.trend > 0 ? colors.accent : attrColor },
             ]}
           >
             {data.trend > 0

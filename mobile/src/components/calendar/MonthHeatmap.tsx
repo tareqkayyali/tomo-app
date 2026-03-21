@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   dayNumberTodayText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   readinessDot: {
     width: 5,

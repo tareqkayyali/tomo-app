@@ -10,6 +10,7 @@ import { Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { borderRadius, fontFamily, spacing } from '../../theme';
+import { colors } from '../../theme/colors';
 
 interface DayLockButtonProps {
   isLocked: boolean;
@@ -67,7 +68,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
   },
   pillLocked: {
-    backgroundColor: '#2ED573',
+    backgroundColor: colors.accent,
   },
   pillUnlocked: {
     borderWidth: 1,

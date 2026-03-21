@@ -33,6 +33,7 @@ import type { ThemeColors } from '../theme/colors';
 import { createSuggestion } from '../services/api';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { IntensityLevel, EventSport } from '../types';
+import { colors } from '../theme/colors';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,9 +76,9 @@ const SPORT_OPTIONS: Array<{
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
 }> = [
-  { key: 'football', label: 'Football', icon: 'football-outline', color: '#FF6B35' },
-  { key: 'padel', label: 'Padel', icon: 'tennisball-outline', color: '#00D9FF' },
-  { key: 'general', label: 'General', icon: 'ellipsis-horizontal', color: '#AAAAAA' },
+  { key: 'football', label: 'Football', icon: 'football-outline', color: colors.accent },
+  { key: 'padel', label: 'Padel', icon: 'tennisball-outline', color: colors.info },
+  { key: 'general', label: 'General', icon: 'ellipsis-horizontal', color: colors.textSecondary },
 ];
 
 const INTENSITY_OPTIONS: Array<{
@@ -85,10 +86,10 @@ const INTENSITY_OPTIONS: Array<{
   label: string;
   color: string;
 }> = [
-  { key: 'REST', label: 'Rest', color: '#8E8E93' },
-  { key: 'LIGHT', label: 'Light', color: '#30D158' },
-  { key: 'MODERATE', label: 'Moderate', color: '#FF9500' },
-  { key: 'HARD', label: 'Hard', color: '#FF453A' },
+  { key: 'REST', label: 'Rest', color: colors.textSecondary },
+  { key: 'LIGHT', label: 'Light', color: colors.accent },
+  { key: 'MODERATE', label: 'Moderate', color: colors.warning },
+  { key: 'HARD', label: 'Hard', color: colors.error },
 ];
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
@@ -372,12 +373,12 @@ export function RecommendEventScreen({ navigation, route }: Props) {
                   <Ionicons
                     name={et.icon}
                     size={16}
-                    color={eventType === et.key ? '#FFFFFF' : colors.textMuted}
+                    color={eventType === et.key ? colors.textPrimary : colors.textMuted}
                   />
                   <Text
                     style={[
                       styles.chipText,
-                      eventType === et.key && { color: '#FFFFFF' },
+                      eventType === et.key && { color: colors.textPrimary },
                     ]}
                   >
                     {et.label}
@@ -506,7 +507,7 @@ export function RecommendEventScreen({ navigation, route }: Props) {
               { backgroundColor: colors.accent1, opacity: pressed || submitting ? 0.7 : 1 },
             ]}
           >
-            <Ionicons name="paper-plane" size={18} color="#FFFFFF" />
+            <Ionicons name="paper-plane" size={18} color={colors.textPrimary} />
             <Text style={styles.submitText}>
               {submitting ? 'Sending…' : 'Send Recommendation'}
             </Text>
@@ -699,7 +700,7 @@ function createStyles(colors: ThemeColors) {
     submitText: {
       fontFamily: fontFamily.semiBold,
       fontSize: 16,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
   });
 }
@@ -798,7 +799,7 @@ function createModalStyles(colors: ThemeColors) {
     confirmText: {
       fontFamily: fontFamily.semiBold,
       fontSize: 16,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
   });
 }

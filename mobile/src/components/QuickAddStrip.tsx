@@ -31,7 +31,7 @@ export function QuickAddStrip({ onAdd }: QuickAddStripProps) {
 
   const actions: QuickAction[] = [
     { key: 'training', icon: 'barbell-outline', label: 'Training', color: colors.accent1 },
-    { key: 'study_block', icon: 'book-outline', label: 'Study', color: '#A855F7' },
+    { key: 'study_block', icon: 'book-outline', label: 'Study', color: colors.info },
     { key: 'match', icon: 'football-outline', label: 'Match', color: colors.accent2 },
     { key: 'recovery', icon: 'leaf-outline', label: 'Rest', color: colors.readinessGreen },
   ];

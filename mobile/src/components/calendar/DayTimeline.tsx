@@ -24,6 +24,7 @@ import {
 } from '../../utils/calendarHelpers';
 import { EventCard } from './EventCard';
 import type { CalendarEvent } from '../../types';
+import type { TrainingCategoryRule } from '../../hooks/useScheduleRules';
 
 const HOUR_HEIGHT = 72;
 const START_HOUR = 6;
@@ -36,6 +37,30 @@ interface Props {
   events: CalendarEvent[];
   selectedDate: Date;
   onDeleteEvent?: (eventId: string) => Promise<boolean> | void;
+  trainingCategories?: TrainingCategoryRule[];
+}
+
+/**
+ * Find linked programs for a training event by matching event name
+ * against training category labels.
+ */
+function getLinkedProgramsForEvent(
+  event: CalendarEvent,
+  categories: TrainingCategoryRule[],
+): { programId: string; name: string; category: string }[] {
+  if (event.type !== 'training') return [];
+  // Match by event name containing category label, or category label containing event name
+  const eventNameLower = event.name.toLowerCase();
+  for (const cat of categories) {
+    const catLabelLower = cat.label.toLowerCase();
+    if (
+      eventNameLower.includes(catLabelLower) ||
+      catLabelLower.includes(eventNameLower)
+    ) {
+      return cat.linkedPrograms ?? [];
+    }
+  }
+  return [];
 }
 
 // ─── Current Time Indicator ─────────────────────────────────────────────────
@@ -108,9 +133,11 @@ function HourGridLines() {
 function TimelineEventBlock({
   event,
   onDelete,
+  trainingCategories = [],
 }: {
   event: CalendarEvent;
   onDelete?: (id: string) => Promise<boolean> | void;
+  trainingCategories?: TrainingCategoryRule[];
 }) {
   const typeColor = getEventTypeColor(event.type);
 
@@ -143,6 +170,15 @@ function TimelineEventBlock({
       <Text style={styles.eventBlockTime}>
         {event.startTime}{event.endTime ? ` – ${event.endTime}` : ''}
       </Text>
+      {(() => {
+        const linked = getLinkedProgramsForEvent(event, trainingCategories);
+        if (linked.length === 0) return null;
+        return (
+          <Text style={styles.eventBlockLinked} numberOfLines={1}>
+            {linked.map((lp) => lp.name).join(', ')}
+          </Text>
+        );
+      })()}
     </View>
   );
 }
@@ -170,7 +206,7 @@ function UntimedEvents({
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-export function DayTimeline({ events, selectedDate, onDeleteEvent }: Props) {
+export function DayTimeline({ events, selectedDate, onDeleteEvent, trainingCategories = [] }: Props) {
   const { timedEvents, untimedEvents } = useMemo(() => {
     const timed: CalendarEvent[] = [];
     const untimed: CalendarEvent[] = [];
@@ -218,6 +254,7 @@ export function DayTimeline({ events, selectedDate, onDeleteEvent }: Props) {
                 key={event.id}
                 event={event}
                 onDelete={onDeleteEvent}
+                trainingCategories={trainingCategories}
               />
             ))}
           </View>
@@ -328,6 +365,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: 11,
     color: colors.textInactive,
+    marginTop: 2,
+  },
+  eventBlockLinked: {
+    fontFamily: fontFamily.medium,
+    fontSize: 10,
+    color: colors.info,
     marginTop: 2,
   },
 

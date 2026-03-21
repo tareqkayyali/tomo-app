@@ -38,7 +38,7 @@ export function DualLoadBar({ athleticLoad, academicLoad }: DualLoadBarProps) {
           <View
             style={{
               width: `${athleticPct}%`,
-              backgroundColor: '#FF6B35',
+              backgroundColor: colors.accent,
               borderTopLeftRadius: 3,
               borderBottomLeftRadius: 3,
             }}
@@ -48,7 +48,7 @@ export function DualLoadBar({ athleticLoad, academicLoad }: DualLoadBarProps) {
           <View
             style={{
               width: `${academicPct}%`,
-              backgroundColor: '#00D9FF',
+              backgroundColor: colors.info,
               borderTopRightRadius: 3,
               borderBottomRightRadius: 3,
             }}
@@ -68,7 +68,7 @@ export function DualLoadBar({ athleticLoad, academicLoad }: DualLoadBarProps) {
           style={{
             fontFamily: fontFamily.regular,
             fontSize: 10,
-            color: '#FF6B35',
+            color: colors.accent,
           }}
         >
           Athletic {Math.round(athleticLoad)} AU
@@ -77,7 +77,7 @@ export function DualLoadBar({ athleticLoad, academicLoad }: DualLoadBarProps) {
           style={{
             fontFamily: fontFamily.regular,
             fontSize: 10,
-            color: '#00D9FF',
+            color: colors.info,
           }}
         >
           Academic {Math.round(academicLoad)} AU

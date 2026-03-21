@@ -391,21 +391,54 @@ export function buildBenchmarkResponse(data: {
 export function parseStructuredResponse(
   rawText: string
 ): TomoResponse | null {
-  // Look for JSON block in Claude's response
-  const jsonMatch = rawText.match(/```json\s*([\s\S]*?)```/) ||
-    rawText.match(/\{[\s\S]*"headline"[\s\S]*"cards"[\s\S]*\}/);
-
-  if (!jsonMatch) return null;
-
-  try {
-    const jsonStr = jsonMatch[1] || jsonMatch[0];
-    const parsed = JSON.parse(jsonStr);
-
-    if (parsed.headline && Array.isArray(parsed.cards)) {
-      return parsed as TomoResponse;
+  // Strategy 1: Look for ```json ... ``` fenced block
+  const fencedMatch = rawText.match(/```json\s*([\s\S]*?)```/);
+  if (fencedMatch) {
+    try {
+      const parsed = JSON.parse(fencedMatch[1]);
+      if (parsed.headline && Array.isArray(parsed.cards)) {
+        return parsed as TomoResponse;
+      }
+    } catch {
+      // Not valid JSON in fenced block
     }
-  } catch {
-    // Not valid JSON — return null
+  }
+
+  // Strategy 2: Try parsing the entire text as JSON (Claude sometimes returns pure JSON)
+  const trimmed = rawText.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed.headline && Array.isArray(parsed.cards)) {
+        return parsed as TomoResponse;
+      }
+    } catch {
+      // Not valid JSON
+    }
+  }
+
+  // Strategy 3: Find the outermost { ... } that contains "headline" using brace matching
+  const firstBrace = rawText.indexOf('{');
+  if (firstBrace >= 0 && rawText.includes('"headline"') && rawText.includes('"cards"')) {
+    let depth = 0;
+    let start = firstBrace;
+    for (let i = firstBrace; i < rawText.length; i++) {
+      if (rawText[i] === '{') depth++;
+      else if (rawText[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          try {
+            const parsed = JSON.parse(rawText.substring(start, i + 1));
+            if (parsed.headline && Array.isArray(parsed.cards)) {
+              return parsed as TomoResponse;
+            }
+          } catch {
+            // Continue looking
+          }
+          break;
+        }
+      }
+    }
   }
 
   return null;

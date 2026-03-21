@@ -4,6 +4,7 @@
  */
 
 import type { DNAAttribute, DNATier, ShotType } from '../types/padel';
+import { colors } from '../theme/colors';
 
 // ═══ DNA ATTRIBUTE WEIGHTS (for Overall) ═══
 
@@ -52,36 +53,36 @@ export const TIER_COLORS: Record<DNATier, {
   text: string;
 }> = {
   bronze: {
-    gradient: ['#CD7F32', '#8B5E3C'],
-    border: '#CD7F32',
-    text: '#FFF8F0',
+    gradient: [colors.tierBronze, colors.tierBronzeDark],
+    border: colors.tierBronze,
+    text: colors.textPrimary,
   },
   silver: {
-    gradient: ['#C0C0C0', '#808080'],
-    border: '#C0C0C0',
-    text: '#FFFFFF',
+    gradient: [colors.tierSilver, colors.tierSilverDark],
+    border: colors.tierSilver,
+    text: colors.textPrimary,
   },
   gold: {
-    gradient: ['#FF6B35', '#00B4D8'],
-    border: '#FF6B35',
-    text: '#FFFFFF',
+    gradient: [colors.accent, colors.info],
+    border: colors.accent,
+    text: colors.textPrimary,
   },
   diamond: {
-    gradient: ['#6366F1', '#8B5CF6'],
-    border: '#A78BFA',
-    text: '#FFFFFF',
+    gradient: [colors.warning, colors.warning],
+    border: colors.info,
+    text: colors.textPrimary,
   },
 };
 
 // ═══ DNA ATTRIBUTE COLORS ═══
 
 export const DNA_ATTRIBUTE_COLORS: Record<DNAAttribute, string> = {
-  power: '#FF6B35',    // orange
-  reflexes: '#FFD60A', // yellow
-  control: '#30D158',  // green
-  stamina: '#00D9FF',  // cyan
-  agility: '#FF9500',  // amber
-  tactics: '#5856D6',  // indigo
+  power: colors.accent,    // orange
+  reflexes: colors.warning, // yellow
+  control: colors.accent,  // green
+  stamina: colors.info,  // cyan
+  agility: colors.warning,  // amber
+  tactics: colors.info,  // indigo
 };
 
 // ═══ SHOT RATING CALCULATIONS ═══
@@ -181,11 +182,11 @@ export function getRatingTier(rating: number): number {
 }
 
 export const RATING_TIER_NAMES = ['Beginner', 'Developing', 'Competitive', 'Advanced', 'Elite'];
-export const RATING_TIER_COLORS = ['#FFCDD2', '#FFE0B2', '#FFF9C4', '#C8E6C9', '#A5D6A7'];
+export const RATING_TIER_COLORS = [colors.error, colors.warning, colors.warning, colors.accentLight, colors.accent];
 
 export function getShotRatingColor(rating: number): string {
-  if (rating >= 70) return '#30D158';  // green
-  if (rating >= 50) return '#FFD60A';  // yellow
-  if (rating >= 35) return '#FF9500';  // orange
-  return '#00D9FF';                     // teal — growth-oriented
+  if (rating >= 70) return colors.accent;  // green
+  if (rating >= 50) return colors.warning;  // yellow
+  if (rating >= 35) return colors.warning;  // orange
+  return colors.info;                     // teal — growth-oriented
 }

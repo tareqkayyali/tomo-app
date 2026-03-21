@@ -18,6 +18,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { fontFamily, spacing } from '../theme';
 import type { UserRole } from '../types';
+import { colors } from '../theme/colors';
 
 // ═══ ROLE DEFINITIONS ═══
 
@@ -103,8 +104,8 @@ function RoleSegment({
           end={{ x: 1, y: 1 }}
           style={styles.segmentActive}
         >
-          <Ionicons name={roleDef.icon} size={13} color="#FFFFFF" />
-          <Text style={styles.segmentTextActive}>{roleDef.label}</Text>
+          <Ionicons name={roleDef.icon} size={13} color={themeColors.textOnAccent} />
+          <Text style={[styles.segmentTextActive, { color: themeColors.textOnAccent }]}>{roleDef.label}</Text>
         </LinearGradient>
       ) : (
         <View style={styles.segmentInactive}>
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
   segmentTextActive: {
     fontFamily: fontFamily.semiBold,
     fontSize: 12,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   segmentTextInactive: {
     fontFamily: fontFamily.medium,

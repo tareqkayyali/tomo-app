@@ -71,7 +71,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.textInactive,
     },
     tabTextActive: {
-      color: '#FFFFFF',
+      color: colors.textPrimary,
       fontFamily: fontFamily.semiBold,
     },
   });

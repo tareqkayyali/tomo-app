@@ -1,17 +1,13 @@
 /**
- * Tomo Layout & Spacing System
- * 8pt base grid with generous whitespace (minimalist luxury)
+ * Tomo Layout & Spacing System — Brand Kit Aligned
+ * 8pt base grid · 16px card padding · 8px card radius
  *
- * Reference: Tomo UI Aesthetic Features doc Section 2.3
- *
- * Margins:          20px horizontal screen margins
- * Safe Area:        16px top padding (below status bar)
- * Vertical Rhythm:  16px spacing between cards
- * Internal Padding: 20px standard padding inside cards
- * Grid Unit:        8pt base unit
+ * Source: tomo_brand_kit.pdf Section 07 (Component Patterns)
+ * Cards: 8px radius · #1A1A1A bg · 1px #2D2D2D border · 16px padding
  */
 
 import { ViewStyle } from 'react-native';
+import { colors } from '../theme/colors';
 
 // ─── 8pt Grid Spacing ──────────────────────────────────────────────
 export const spacing = {
@@ -61,24 +57,24 @@ export const layout = {
   authMaxWidth: 480,
 };
 
-// ─── Border Radius ─────────────────────────────────────────────────
+// ─── Border Radius (Brand Kit: 8px cards, 12px buttons) ────────────
 export const borderRadius = {
-  /** 8px — subtle rounding */
+  /** 8px — standard cards (Brand Kit default) */
   sm: 8,
   /** 12px — buttons */
   md: 12,
-  /** 16px — standard cards (Type 2: Rounded Rectangles) */
+  /** 16px — large cards */
   lg: 16,
   /** 20px — chat bubbles */
   chat: 20,
-  /** 24px — large cards, input pills */
+  /** 24px — input pills */
   xl: 24,
-  /** 30px — blob card minimum radius */
-  blobMin: 30,
-  /** 45px — blob card medium radius */
-  blobMid: 45,
-  /** 60px — blob card maximum radius */
-  blobMax: 60,
+  /** @deprecated Use sm (8) instead */
+  blobMin: 8,
+  /** @deprecated Use sm (8) instead */
+  blobMid: 8,
+  /** @deprecated Use sm (8) instead */
+  blobMax: 8,
   /** 9999px — full circle / pill shape */
   full: 9999,
 };
@@ -87,7 +83,7 @@ export const borderRadius = {
 export const shadows: Record<string, ViewStyle> = {
   /** Subtle elevation for cards on dark background */
   sm: {
-    shadowColor: '#000000',
+    shadowColor: colors.background,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
     shadowRadius: 3,
@@ -95,7 +91,7 @@ export const shadows: Record<string, ViewStyle> = {
   },
   /** Standard card shadow: 0px 2px 8px rgba(0,0,0,0.15) */
   md: {
-    shadowColor: '#000000',
+    shadowColor: colors.background,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -103,47 +99,41 @@ export const shadows: Record<string, ViewStyle> = {
   },
   /** Prominent elevation */
   lg: {
-    shadowColor: '#000000',
+    shadowColor: colors.background,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.20,
     shadowRadius: 12,
     elevation: 8,
   },
 
-  // ─── Selective Glow Effects (Critical to Tomo Aesthetic) ─────────
-  /**
-   * Orange glow — applied to bottom-right of cards (e.g., Streak card)
-   * box-shadow: 0px 4px 16px rgba(255, 107, 53, 0.2)
-   */
+  // ─── Accent Glow (Brand Kit: subtle green accent shadow) ──────────
+  /** @deprecated — Brand Kit says no glow effects. Kept as subtle green for compat. */
   glowOrange: {
-    shadowColor: '#FF6B35',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 0.20,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  /**
-   * Cyan glow — applied to top-left of cards (e.g., Sleep card)
-   * box-shadow: -4px -4px 16px rgba(0, 217, 255, 0.25)
-   */
+  /** @deprecated — Use md shadow instead */
   glowCyan: {
-    shadowColor: '#00D9FF',
-    shadowOffset: { width: -4, height: -4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  /** Orange glow for avatar rings and #1 leaderboard position */
+  /** @deprecated — Use md shadow instead */
   glowOrangeRing: {
-    shadowColor: '#FF6B35',
+    shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.30,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  /** Subtle glow for interactive elements on hover/press */
+  /** Subtle accent glow for interactive elements */
   glowSubtle: {
-    shadowColor: '#FF6B35',
+    shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.10,
     shadowRadius: 8,

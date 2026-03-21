@@ -1,13 +1,14 @@
+import { colors } from '../../theme/colors';
 /**
  * Output Page — Shared Types & Color Helpers
  */
 
 // ── RAG Status Colors ────────────────────────────────────────────────
 export const RAG_COLORS = {
-  green: '#30D158',
-  amber: '#F39C12',
-  red: '#E74C3C',
-  none: '#6B6B6B',
+  green: colors.accent,
+  amber: colors.warning,
+  red: colors.error,
+  none: colors.textDisabled,
 } as const;
 
 export const RAG_BG_COLORS = {
@@ -29,11 +30,11 @@ export function getRagBgColor(status: RagStatus): string {
 
 // ── Zone Colors (Percentile-based) ──────────────────────────────────
 export const ZONE_COLORS = {
-  elite: '#27AE60',
-  good: '#2ECC71',
-  average: '#3498DB',
-  developing: '#F39C12',
-  below: '#E74C3C',
+  elite: colors.accentDark,
+  good: colors.accent,
+  average: colors.info,
+  developing: colors.warning,
+  below: colors.error,
 } as const;
 
 export type PercentileZone = 'elite' | 'good' | 'average' | 'developing' | 'below';
@@ -60,18 +61,18 @@ export function getZoneLabel(p: number): string {
 
 // ── Group Color Themes ──────────────────────────────────────────────
 export const GROUP_THEME_COLORS: Record<string, string> = {
-  yellow: '#FFD60A',
-  orange: '#FF6B35',
-  teal: '#00D9FF',
-  blue: '#3498DB',
-  red: '#E74C3C',
-  green: '#30D158',
-  purple: '#A855F7',
-  pink: '#FF6B9D',
+  yellow: colors.warning,
+  orange: colors.accent,
+  teal: colors.info,
+  blue: colors.info,
+  red: colors.error,
+  green: colors.accent,
+  purple: colors.info,
+  pink: colors.error,
 };
 
 export function getGroupThemeColor(theme: string): string {
-  return GROUP_THEME_COLORS[theme] || '#FF6B35';
+  return GROUP_THEME_COLORS[theme] || colors.accent;
 }
 
 // ── Trend Helpers ───────────────────────────────────────────────────
@@ -84,7 +85,7 @@ export function getTrendIcon(trend: 'up' | 'down' | 'stable'): string {
 }
 
 export function getTrendColor(trend: 'up' | 'down' | 'stable', higherIsBetter = true): string {
-  if (trend === 'stable') return '#B0B0B0';
+  if (trend === 'stable') return colors.textSecondary;
   const isGood = higherIsBetter ? trend === 'up' : trend === 'down';
-  return isGood ? '#30D158' : '#E74C3C';
+  return isGood ? colors.accent : colors.error;
 }

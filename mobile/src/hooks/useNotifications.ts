@@ -6,7 +6,8 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState, Linking, Platform } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from './useAuth';
 import {
   getPlayerNotifications,
@@ -124,6 +125,38 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     setup();
     return () => sub?.remove?.();
   }, [refresh]);
+
+  // Handle notification taps — navigate to the relevant screen
+  const navigation = useNavigation<any>();
+  useEffect(() => {
+    let sub: any;
+    const setup = async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        sub = Notifications.addNotificationResponseReceivedListener((response) => {
+          const data = response.notification.request.content.data as
+            | { screen?: string; url?: string; [key: string]: any }
+            | undefined;
+          if (!data) return;
+
+          if (data.screen) {
+            // Navigate to a named screen (e.g. "Checkin", "DrillDetail")
+            navigation.navigate(data.screen, data.params ?? undefined);
+          } else if (data.url) {
+            // Let the deep-linking handler process the URL
+            Linking.openURL(data.url);
+          }
+
+          // Refresh notifications list after tap
+          refresh();
+        });
+      } catch {
+        // expo-notifications may not be available
+      }
+    };
+    setup();
+    return () => sub?.remove?.();
+  }, [navigation, refresh]);
 
   const pendingDrillNotifs = notifications.filter(
     (n) => n.type === 'coach_drill_assigned' && !n.isActed

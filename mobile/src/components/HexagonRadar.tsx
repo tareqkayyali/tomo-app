@@ -21,6 +21,7 @@ import Animated, {
 import { useRadarGrow } from '../hooks/useAnimations';
 import { fontFamily } from '../theme';
 import { useTheme } from '../hooks/useTheme';
+import { useComponentStyle } from '../hooks/useComponentStyle';
 import type { ThemeColors } from '../theme/colors';
 
 const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
@@ -55,11 +56,11 @@ export interface HexagonRadarProps {
   animate?: boolean;
   /** Called when the user taps an attribute label */
   onAttributeTap?: (key: string) => void;
-  /** Fill color for the data polygon (default '#FF6B35') */
+  /** Fill color for the data polygon (default colors.accent) */
   fillColor?: string;
   /** Fill opacity for the data polygon (default 0.25) */
   fillOpacity?: number;
-  /** Fill color for the benchmark polygon (default '#FFFFFF') */
+  /** Fill color for the benchmark polygon (default colors.textPrimary) */
   benchmarkColor?: string;
   /** Fill opacity for the benchmark polygon (default 0.08) */
   benchmarkOpacity?: number;
@@ -91,12 +92,17 @@ export function HexagonRadar({
   size = 220,
   animate = true,
   onAttributeTap,
-  fillColor = '#FF6B35',
+  fillColor: fillColorProp,
   fillOpacity = 0.25,
-  benchmarkColor = '#FFFFFF',
+  benchmarkColor: benchmarkColorProp,
   benchmarkOpacity = 0.08,
 }: HexagonRadarProps) {
   const { colors } = useTheme();
+  const fillColor = fillColorProp ?? colors.accent;
+  const benchmarkColor = benchmarkColorProp ?? colors.textPrimary;
+  const { getComponentStyle } = useComponentStyle();
+  const radarLabelStyle = getComponentStyle('radar_label');
+  const radarScoreStyle = getComponentStyle('radar_score');
   const s = useMemo(() => createStyles(colors), [colors]);
   const cx = size / 2;
   const cy = size / 2;
@@ -220,7 +226,7 @@ export function HexagonRadar({
               y1={v1.y}
               x2={v2.x}
               y2={v2.y}
-              stroke="#000000"
+              stroke={colors.background}
               strokeWidth={1.5}
               strokeOpacity={0.9}
             />
@@ -238,7 +244,7 @@ export function HexagonRadar({
               cy={v.y}
               r={4}
               fill={attr.color}
-              stroke="#000000"
+              stroke={colors.background}
               strokeWidth={1.5}
             />
           );
@@ -263,10 +269,10 @@ export function HexagonRadar({
             ]}
             accessibilityLabel={`${attr.label} ${attr.value}`}
           >
-            <Text style={[s.labelText, { color: attr.color }]}>
+            <Text style={[s.labelText, { color: attr.color }, radarLabelStyle]}>
               {attr.label}
             </Text>
-            <Text style={s.labelScore}>{attr.value}</Text>
+            <Text style={[s.labelScore, radarScoreStyle]}>{attr.value}</Text>
           </Pressable>
         );
       })}
@@ -295,7 +301,7 @@ function createStyles(colors: ThemeColors) {
     labelScore: {
       fontFamily: fontFamily.semiBold,
       fontSize: 12,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
       marginTop: 1,
     },
   });

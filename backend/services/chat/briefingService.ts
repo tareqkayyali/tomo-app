@@ -224,10 +224,12 @@ function generateQuickActions(
 
 export async function generateBriefing(
   userId: string,
-  clientHour?: number
+  clientHour?: number,
+  timezone?: string
 ): Promise<DailyBriefing> {
   const db = supabaseAdmin();
-  const today = new Date().toISOString().slice(0, 10);
+  const tz = timezone || "UTC";
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD in player's local TZ
   const localHour = clientHour ?? new Date().getHours();
 
   // 7 parallel queries (6 existing + Layer 4 recs)
@@ -319,6 +321,7 @@ export async function generateBriefing(
     title: e.title,
     time: e.start_at
       ? new Date(e.start_at).toLocaleTimeString("en-US", {
+          timeZone: tz,
           hour: "numeric",
           minute: "2-digit",
         })

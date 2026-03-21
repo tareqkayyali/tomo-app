@@ -1,6 +1,10 @@
 /**
- * Coach Players Screen
- * Grid/list of linked players with readiness indicators and streak counts.
+ * Coach Players Screen — Gen Z redesign
+ *
+ * Full-width glass card list of linked players with readiness indicators,
+ * ACWR badges, streak counts, and last active time.
+ *
+ * Standard Tomo header pattern + QuickAccessBar.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -20,15 +24,35 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
 import { getCoachPlayers } from '../../services/api';
-import { ragToColor } from '../../hooks/useAthleteSnapshot';
+import { ragToColor, acwrRiskLabel } from '../../hooks/useAthleteSnapshot';
+import { GlassCard } from '../../components/GlassCard';
+import { QuickAccessBar } from '../../components/QuickAccessBar';
+import { NotificationBell } from '../../components/NotificationBell';
+import { HeaderProfileButton } from '../../components/HeaderProfileButton';
+import { useAuth } from '../../hooks/useAuth';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { CoachStackParamList } from '../../navigation/types';
 import type { PlayerSummary } from '../../types';
+import { colors } from '../../theme/colors';
 
 type Nav = NativeStackNavigationProp<CoachStackParamList>;
 
+function formatRelativeTime(dateStr?: string): string {
+  if (!dateStr) return 'Never';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return `${Math.floor(days / 7)}w ago`;
+}
+
 export function CoachPlayersScreen() {
   const { colors } = useTheme();
+  const { profile } = useAuth();
   const navigation = useNavigation<Nav>();
   const [players, setPlayers] = useState<PlayerSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,9 +79,30 @@ export function CoachPlayersScreen() {
     fetchPlayers();
   }, [fetchPlayers]);
 
+  // Quick actions
+  const quickActions = [
+    {
+      key: 'invite',
+      icon: 'person-add-outline' as const,
+      label: 'Invite',
+      accentColor: colors.accent2,
+      onPress: () => navigation.navigate('CoachInvite'),
+    },
+  ];
+
+  const weekday = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+  const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
+
   const renderPlayer = useCallback(
     ({ item }: { item: PlayerSummary }) => {
-      const dotColor = ragToColor(item.readinessRag);
+      const dotColor = ragToColor(item.readinessRag ?? undefined);
+      const initials = item.name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+
       return (
         <Pressable
           onPress={() =>
@@ -66,40 +111,54 @@ export function CoachPlayersScreen() {
               playerName: item.name,
             })
           }
-          style={({ pressed }) => [
-            styles.card,
-            { backgroundColor: colors.surfaceElevated, opacity: pressed ? 0.85 : 1 },
-          ]}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
-          <View style={styles.cardHeader}>
-            <Text style={[styles.playerName, { color: colors.textOnDark }]} numberOfLines={1}>
-              {item.name}
-            </Text>
-            <View style={[styles.readinessDot, { backgroundColor: dotColor }]} />
-          </View>
-
-          <View style={styles.cardMeta}>
-            <View style={[styles.sportBadge, { backgroundColor: colors.accent1 + '22' }]}>
-              <Text style={[styles.sportBadgeText, { color: colors.accent1 }]}>
-                {item.sport.charAt(0).toUpperCase() + item.sport.slice(1)}
-              </Text>
-            </View>
-
-            {item.acwr != null && (
-              <View style={[styles.acwrBadge, { backgroundColor: colors.accent2 + '22' }]}>
-                <Text style={[styles.acwrText, { color: colors.accent2 }]}>
-                  ACWR {item.acwr.toFixed(1)}
-                </Text>
+          <GlassCard>
+            <View style={styles.playerRow}>
+              {/* Avatar */}
+              <View style={[styles.avatar, { backgroundColor: colors.accent1 + '22' }]}>
+                <Text style={[styles.avatarText, { color: colors.accent1 }]}>{initials}</Text>
               </View>
-            )}
 
-            <View style={styles.streakRow}>
-              <Ionicons name="flame-outline" size={14} color={colors.accent1} />
-              <Text style={[styles.streakText, { color: colors.textMuted }]}>
-                {item.currentStreak}
-              </Text>
+              {/* Info */}
+              <View style={styles.playerInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={[styles.playerName, { color: colors.textOnDark }]} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <View style={[styles.readinessDot, { backgroundColor: dotColor }]} />
+                </View>
+                <View style={styles.metaRow}>
+                  <View style={[styles.sportPill, { backgroundColor: colors.accent1 + '18' }]}>
+                    <Text style={[styles.sportPillText, { color: colors.accent1 }]}>
+                      {item.sport?.charAt(0).toUpperCase() + item.sport?.slice(1)}
+                    </Text>
+                  </View>
+                  {item.acwr != null && (
+                    <View style={[styles.acwrChip, { backgroundColor: colors.accent2 + '18' }]}>
+                      <Text style={[styles.acwrText, { color: colors.accent2 }]}>
+                        ACWR {item.acwr.toFixed(1)}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.streakRow}>
+                    <Ionicons name="flame" size={13} color={colors.accent1} />
+                    <Text style={[styles.streakText, { color: colors.textMuted }]}>
+                      {item.currentStreak || 0}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Chevron */}
+              <View style={styles.chevronCol}>
+                <Text style={[styles.lastActive, { color: colors.textInactive }]}>
+                  {formatRelativeTime(item.lastSessionAt ?? undefined)}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textInactive} />
+              </View>
             </View>
-          </View>
+          </GlassCard>
         </Pressable>
       );
     },
@@ -116,29 +175,56 @@ export function CoachPlayersScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <Text style={[styles.title, { color: colors.textOnDark }]}>Players</Text>
+      {/* ── Header ──────────────────────────────────────── */}
+      <View style={styles.headerArea}>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>
+            TOMO · {weekday}
+          </Text>
+          <Text style={[styles.headerTitle, { color: colors.textOnDark }]}>My Players</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <QuickAccessBar actions={quickActions} />
+          <NotificationBell />
+          <HeaderProfileButton
+            initial={initial}
+            photoUrl={profile?.photoUrl ?? undefined}
+            onPress={() => (navigation as any).navigate('CoachProfile')}
+          />
+        </View>
+      </View>
 
+      {/* ── Player List / Empty State ───────────────────── */}
       {players.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="people-outline" size={64} color={colors.textInactive} />
-          <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-            No players linked yet
-          </Text>
-          <Pressable
-            onPress={() => navigation.navigate('CoachInvite')}
-            style={[styles.emptyButton, { backgroundColor: colors.accent1 }]}
-          >
-            <Text style={[styles.emptyButtonText, { color: colors.textOnDark }]}>Generate Invite Code</Text>
-          </Pressable>
+          <GlassCard>
+            <View style={styles.emptyContent}>
+              <View style={[styles.emptyIcon, { backgroundColor: colors.accent1 + '15' }]}>
+                <Ionicons name="people-outline" size={48} color={colors.accent1} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
+                No players yet
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+                Share your invite code with players to start tracking their progress
+              </Text>
+              <Pressable
+                onPress={() => navigation.navigate('CoachInvite')}
+                style={[styles.emptyButton, { backgroundColor: colors.accent1 }]}
+              >
+                <Ionicons name="person-add-outline" size={16} color={colors.textPrimary} />
+                <Text style={styles.emptyButtonText}>Generate Invite Code</Text>
+              </Pressable>
+            </View>
+          </GlassCard>
         </View>
       ) : (
         <FlatList
           data={players}
           keyExtractor={(item) => item.id}
           renderItem={renderPlayer}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
           contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -156,61 +242,96 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  title: {
-    fontSize: 28,
-    fontFamily: fontFamily.bold,
-    marginHorizontal: layout.screenMargin,
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
+
+  // Header
+  headerArea: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: layout.screenMargin,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
+  headerLeft: {},
+  headerSubtitle: {
+    fontSize: 10,
+    fontFamily: fontFamily.semiBold,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontFamily: fontFamily.bold,
+    letterSpacing: -0.5,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+
+  // List
   listContent: {
     paddingHorizontal: layout.screenMargin,
     paddingBottom: spacing.xxl,
   },
-  row: {
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  card: {
-    width: '48%',
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-  },
-  cardHeader: {
+
+  // Player card
+  playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    gap: spacing.md,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 16,
+    fontFamily: fontFamily.bold,
+  },
+  playerInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   playerName: {
     fontSize: 16,
     fontFamily: fontFamily.semiBold,
     flex: 1,
-    marginRight: spacing.sm,
   },
   readinessDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
   },
-  cardMeta: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 6,
+    flexWrap: 'wrap',
   },
-  sportBadge: {
-    paddingHorizontal: spacing.sm,
+  sportPill: {
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.full,
   },
-  sportBadgeText: {
-    fontSize: 12,
+  sportPillText: {
+    fontSize: 11,
     fontFamily: fontFamily.semiBold,
   },
-  acwrBadge: {
-    paddingHorizontal: spacing.sm,
+  acwrChip: {
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.full,
   },
   acwrText: {
     fontSize: 11,
@@ -219,31 +340,63 @@ const styles = StyleSheet.create({
   streakRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   streakText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: fontFamily.medium,
   },
+  chevronCol: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  lastActive: {
+    fontSize: 10,
+    fontFamily: fontFamily.regular,
+  },
+
+  // Empty state
   emptyState: {
     flex: 1,
+    paddingHorizontal: layout.screenMargin,
+    justifyContent: 'center',
+  },
+  emptyContent: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
+  },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.sm,
   },
-  emptyText: {
-    fontSize: 16,
-    marginTop: spacing.md,
-    marginBottom: spacing.xl,
+  emptyTitle: {
+    fontSize: 18,
+    fontFamily: fontFamily.bold,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
     textAlign: 'center',
+    paddingHorizontal: spacing.lg,
+    lineHeight: 20,
   },
   emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.compact,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.sm,
   },
   emptyButtonText: {
     fontSize: 15,
     fontFamily: fontFamily.semiBold,
+    color: colors.textPrimary,
   },
 });

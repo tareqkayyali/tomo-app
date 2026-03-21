@@ -111,18 +111,26 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
     try {
       const raw = JSON.parse(route.params.blocks);
       if (planType === 'training') {
-        return (raw as TrainingBlock[]).map((b) => ({
-          id: b.id,
-          title: b.categoryLabel,
-          subtitle: `${b.startTime} – ${b.endTime}`,
-          date: b.date,
-          startTime: b.startTime,
-          endTime: b.endTime,
-          color: b.categoryColor || colors.accent1,
-          icon: 'barbell-outline',
-          eventType: 'training' as const,
-          notes: b.categoryLabel,
-        }));
+        return (raw as TrainingBlock[]).map((b) => {
+          const programNames = b.linkedPrograms?.length
+            ? b.linkedPrograms.map(p => p.name).join(', ')
+            : '';
+          const notes = programNames
+            ? `${b.categoryLabel}\n📋 Programs: ${programNames}`
+            : b.categoryLabel;
+          return {
+            id: b.id,
+            title: b.categoryLabel,
+            subtitle: `${b.startTime} – ${b.endTime}`,
+            date: b.date,
+            startTime: b.startTime,
+            endTime: b.endTime,
+            color: b.categoryColor || colors.accent1,
+            icon: 'barbell-outline',
+            eventType: 'training' as const,
+            notes,
+          };
+        });
       }
       const studyBlocks = raw as StudyBlock[];
       rawStudyBlocksRef.current = studyBlocks;
@@ -133,7 +141,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
         date: b.date,
         startTime: b.startTime,
         endTime: b.endTime,
-        color: '#6366F1',
+        color: '#F39C12',
         icon: 'book-outline',
         eventType: 'study_block' as const,
         notes: `For ${b.examType} on ${b.examDate}`,
@@ -367,7 +375,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
     }
   }, [blocks, rules?.preferences, config]);
 
-  const accentColor = planType === 'training' ? colors.accent1 : '#6366F1';
+  const accentColor = planType === 'training' ? colors.accent1 : '#F39C12';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -463,7 +471,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                                 key={subj}
                                 style={[
                                   styles.editChip,
-                                  isActive && { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+                                  isActive && { backgroundColor: '#F39C12', borderColor: '#F39C12' },
                                 ]}
                                 onPress={() => {
                                   if (!isActive) {

@@ -55,33 +55,162 @@ export interface PositionMatrixEntry {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
+/**
+ * Build per-band prescriptions with REAL differentiation across age groups.
+ * Each band gets distinct reps, intensity, rest, RPE, frequency, and cues.
+ */
 function makePrescriptions(
-  base: Omit<Prescription, "frequency"> & { frequency?: string },
-  overrides?: Partial<Record<string, Partial<Prescription>>>
+  config: {
+    /** SEN baseline */
+    sets: number; reps: string; intensity: string; rpe: string; rest: string;
+    frequency?: string; coachingCues: string[];
+    /** Per-band overrides — partial fields merged on top of age-scaled defaults */
+    bands?: Partial<Record<string, Partial<Prescription>>>;
+  },
+  /** Legacy overrides param for backward compat */
+  legacyOverrides?: Partial<Record<string, Partial<Prescription>>>
 ): Record<string, Prescription> {
-  const bands = ["U13", "U15", "U17", "U19", "U21", "SEN", "VET"];
-  const result: Record<string, Prescription> = {};
-  const scaling: Record<string, { setsMul: number; rpeMul: number }> = {
-    U13: { setsMul: 0.5, rpeMul: 0.7 },
-    U15: { setsMul: 0.65, rpeMul: 0.8 },
-    U17: { setsMul: 0.8, rpeMul: 0.85 },
-    U19: { setsMul: 0.9, rpeMul: 0.9 },
-    U21: { setsMul: 0.95, rpeMul: 0.95 },
-    SEN: { setsMul: 1.0, rpeMul: 1.0 },
-    VET: { setsMul: 0.85, rpeMul: 0.9 },
+  const overrides = config.bands ?? legacyOverrides ?? {};
+
+  // Age-appropriate scaling templates
+  const templates: Record<string, {
+    setsMul: number; repsScale: string; intensityScale: string;
+    rpeScale: string; restScale: string; freqScale: string;
+    cuePrefix: string[];
+  }> = {
+    U13: {
+      setsMul: 0.5,
+      repsScale: "reduce_30",
+      intensityScale: "light",
+      rpeScale: "5-6",
+      restScale: "extend_30",
+      freqScale: "reduce_1",
+      cuePrefix: ["Focus on technique over speed", "Quality movement patterns"],
+    },
+    U15: {
+      setsMul: 0.65,
+      repsScale: "reduce_20",
+      intensityScale: "moderate",
+      rpeScale: "6-7",
+      restScale: "extend_15",
+      freqScale: "same",
+      cuePrefix: ["Build consistency before intensity"],
+    },
+    U17: {
+      setsMul: 0.8,
+      repsScale: "reduce_10",
+      intensityScale: "moderate_high",
+      rpeScale: "7-8",
+      restScale: "same",
+      freqScale: "same",
+      cuePrefix: [],
+    },
+    U19: {
+      setsMul: 0.9,
+      repsScale: "same",
+      intensityScale: "same",
+      rpeScale: "8",
+      restScale: "same",
+      freqScale: "same",
+      cuePrefix: [],
+    },
+    U21: {
+      setsMul: 0.95,
+      repsScale: "same",
+      intensityScale: "same",
+      rpeScale: "same",
+      restScale: "same",
+      freqScale: "same",
+      cuePrefix: [],
+    },
+    SEN: {
+      setsMul: 1.0,
+      repsScale: "same",
+      intensityScale: "same",
+      rpeScale: "same",
+      restScale: "same",
+      freqScale: "same",
+      cuePrefix: [],
+    },
+    VET: {
+      setsMul: 0.8,
+      repsScale: "reduce_20",
+      intensityScale: "moderate",
+      rpeScale: "6-7",
+      restScale: "extend_30",
+      freqScale: "reduce_1",
+      cuePrefix: ["Prioritize recovery", "Listen to your body"],
+    },
   };
 
-  for (const band of bands) {
-    const scale = scaling[band];
-    const override = overrides?.[band] ?? {};
+  function scaleReps(base: string, scale: string): string {
+    if (scale === "same") return base;
+    // Extract numeric range like "4-6" or single like "8"
+    const match = base.match(/(\d+)(?:\s*-\s*(\d+))?/);
+    if (!match) return base;
+    const lo = parseInt(match[1]);
+    const hi = match[2] ? parseInt(match[2]) : lo;
+    const factor = scale === "reduce_30" ? 0.7 : scale === "reduce_20" ? 0.8 : 0.9;
+    const newLo = Math.max(1, Math.round(lo * factor));
+    const newHi = Math.max(newLo, Math.round(hi * factor));
+    const suffix = base.replace(/\d+\s*-?\s*\d*/, "").trim();
+    return newLo === newHi ? `${newLo}${suffix ? " " + suffix : ""}` : `${newLo}-${newHi}${suffix ? " " + suffix : ""}`;
+  }
+
+  function scaleIntensity(base: string, scale: string): string {
+    if (scale === "same") return base;
+    // Handle percentage ranges
+    const pctMatch = base.match(/(\d+)(?:\s*-\s*(\d+))?\s*%/);
+    if (pctMatch) {
+      const lo = parseInt(pctMatch[1]);
+      const hi = pctMatch[2] ? parseInt(pctMatch[2]) : lo;
+      const factor = scale === "light" ? 0.75 : scale === "moderate" ? 0.85 : 0.92;
+      return `${Math.round(lo * factor)}-${Math.round(hi * factor)}%`;
+    }
+    // Handle text-based intensity
+    if (scale === "light") return "light — technique focus";
+    if (scale === "moderate") return "moderate — controlled";
+    if (scale === "moderate_high") return base.replace("match pace", "building to match pace");
+    return base;
+  }
+
+  function scaleRest(base: string, scale: string): string {
+    if (scale === "same") return base;
+    const match = base.match(/(\d+)(?:\s*-\s*(\d+))?\s*(s|sec|min)/i);
+    if (!match) return base;
+    const lo = parseInt(match[1]);
+    const unit = match[3].toLowerCase();
+    const addSec = scale === "extend_30" ? 30 : 15;
+    if (unit.startsWith("min")) return `${lo}-${lo + 1} min`;
+    return `${lo + addSec}s`;
+  }
+
+  function scaleFreq(base: string, scale: string): string {
+    if (scale === "same") return base;
+    const match = base.match(/(\d+)(?:\s*-\s*(\d+))?/);
+    if (!match) return base;
+    const lo = parseInt(match[1]);
+    const hi = match[2] ? parseInt(match[2]) : lo;
+    const newLo = Math.max(1, lo - 1);
+    const newHi = Math.max(newLo, hi - 1);
+    return newLo === newHi ? `${newLo}x/week` : `${newLo}-${newHi}x/week`;
+  }
+
+  const result: Record<string, Prescription> = {};
+  const freq = config.frequency ?? "2x/week";
+
+  for (const [band, tmpl] of Object.entries(templates)) {
+    const ov = overrides[band] ?? {};
+    const scaledCues = [...tmpl.cuePrefix, ...config.coachingCues].slice(0, 4);
+
     result[band] = {
-      sets: override.sets ?? Math.max(1, Math.round(base.sets * scale.setsMul)),
-      reps: override.reps ?? base.reps,
-      intensity: override.intensity ?? base.intensity,
-      rpe: override.rpe ?? base.rpe,
-      rest: override.rest ?? base.rest,
-      frequency: override.frequency ?? base.frequency ?? "2x/week",
-      coachingCues: override.coachingCues ?? base.coachingCues,
+      sets: ov.sets ?? Math.max(1, Math.round(config.sets * tmpl.setsMul)),
+      reps: ov.reps ?? scaleReps(config.reps, tmpl.repsScale),
+      intensity: ov.intensity ?? scaleIntensity(config.intensity, tmpl.intensityScale),
+      rpe: ov.rpe ?? (tmpl.rpeScale === "same" ? config.rpe : tmpl.rpeScale),
+      rest: ov.rest ?? scaleRest(config.rest, tmpl.restScale),
+      frequency: ov.frequency ?? scaleFreq(freq, tmpl.freqScale),
+      coachingCues: ov.coachingCues ?? scaledCues,
     };
   }
   return result;

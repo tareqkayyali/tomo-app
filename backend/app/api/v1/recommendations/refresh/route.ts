@@ -19,12 +19,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { deepRecRefresh, isDeepRefreshStale } from '@/services/recommendations/deepRecRefresh';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
   // Auth handled by proxy.ts
   const userId = request.headers.get('x-user-id');
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Rate limit: 5 requests/minute per user for this expensive endpoint
+  const { allowed } = checkRateLimit(userId, 5, 60000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again shortly.' },
+      { status: 429, headers: { 'Retry-After': '60' } }
+    );
   }
 
   const { searchParams } = new URL(request.url);

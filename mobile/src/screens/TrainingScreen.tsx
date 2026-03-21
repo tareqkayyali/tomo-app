@@ -27,6 +27,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { QuickAccessBar } from '../components/QuickAccessBar';
+import { useQuickActions } from '../hooks/useQuickActions';
 import { SuggestionsBanner } from '../components/SuggestionsBanner';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { useCalendarData } from '../hooks/useCalendarData';
@@ -39,6 +40,8 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainTabParamList, MainStackParamList } from '../navigation/types';
+import { useSubTabRegistry } from '../hooks/useSubTabContext';
+import { usePageConfig } from '../hooks/usePageConfig';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -103,11 +106,28 @@ function addDays(date: Date, days: number): Date {
 export function TrainingScreen({ navigation }: TrainingScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const pageConfig = usePageConfig('timeline');
 
   const { profile, role } = useAuth();
   const { needsCheckin } = useCheckinStatus();
+  const quickActions = useQuickActions(
+    { key: 'rules', icon: 'options-outline', label: 'My Rules', onPress: () => navigation.navigate('MyRules'), accentColor: colors.accent2 },
+    navigation,
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<PlanTab>('dayflow');
+
+  // Register sub-tabs for swipe navigation
+  const subTabRegistry = useSubTabRegistry();
+  const SUB_TABS: PlanTab[] = ['dayflow', 'studyplan', 'trainingplan'];
+  useEffect(() => {
+    subTabRegistry.register('Plan', {
+      tabs: SUB_TABS,
+      activeIndex: SUB_TABS.indexOf(activeTab),
+      setTab: (idx: number) => setActiveTab(SUB_TABS[idx]),
+    });
+    return () => subTabRegistry.unregister('Plan');
+  }, [activeTab]);
 
   // Pending suggestions from coach/parent (player-only feature)
   const { suggestions, handleResolved, refresh: refreshSuggestions } = useSuggestions();
@@ -340,11 +360,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* ─── Header ─── */}
       <View style={styles.headerArea}>
-        <QuickAccessBar actions={[
-          { key: 'rules', icon: 'options-outline', label: 'My Rules', onPress: () => navigation.navigate('MyRules'), accentColor: colors.accent2 },
-          { key: 'add', icon: 'add-circle-outline', label: 'Add Event', onPress: () => navigation.navigate('AddEvent', { date: selectedDayStr }) },
-          { key: 'more', icon: 'ellipsis-horizontal', label: 'More', onPress: () => {} },
-        ]} />
+        <QuickAccessBar actions={quickActions} />
         <View style={styles.headerRight}>
           <CheckinHeaderButton needsCheckin={needsCheckin} onPress={() => navigation.navigate('Checkin' as any)} />
           <NotificationBell />
@@ -356,7 +372,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
       </View>
 
       {/* ─── Tab Switcher ─── */}
-      <PlanTabSwitcher activeTab={activeTab} onTabChange={setActiveTab} />
+      <PlanTabSwitcher activeTab={activeTab} onTabChange={setActiveTab} tabLabels={pageConfig?.metadata?.tabLabels} />
 
       {/* Error banner */}
       {activeTab === 'dayflow' && backendError && (

@@ -7,6 +7,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import type { SavedStudyPlan, StudyBlock } from '../types';
+import { colors } from '../theme/colors';
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -43,8 +44,8 @@ function formatTime(t: string): string {
 
 // Subject → consistent color
 const SUBJECT_COLORS = [
-  '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981',
-  '#3B82F6', '#EF4444', '#14B8A6', '#F97316', '#84CC16',
+  colors.warning, colors.warning, colors.error, colors.warning, colors.accent,
+  colors.info, colors.error, colors.accent, colors.warning, colors.accentLight,
 ];
 
 function subjectColor(subject: string, allSubjects: string[]): string {

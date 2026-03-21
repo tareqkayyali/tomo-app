@@ -291,7 +291,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
               </View>
             </GlowWrapper>
             <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={14} color="#FFFFFF" />
+              <Ionicons name="camera" size={14} color={colors.textPrimary} />
             </View>
           </Pressable>
 
@@ -394,9 +394,9 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           )}
           {activeSport === 'football' && (
             <MenuItem
-              icon="football"
-              label="My Football Profile"
-              onPress={() => navigation.navigate('FootballRating')}
+              icon="document-text"
+              label="Player CV"
+              onPress={() => navigation.navigate('PlayerCV')}
             />
           )}
           <MenuItem

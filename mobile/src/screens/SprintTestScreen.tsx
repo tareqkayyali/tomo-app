@@ -277,7 +277,7 @@ export function SprintTestScreen({ navigation }: Props) {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: 'rgba(0,217,255,0.15)' }]}>
-            <Ionicons name="speedometer-outline" size={40} color="#00D9FF" />
+            <Ionicons name="speedometer-outline" size={40} color={colors.info} />
           </View>
           <Text style={styles.title}>Sprint Speed</Text>
           <Text style={styles.subtitle}>Time your sprint with phone accelerometer</Text>
@@ -300,12 +300,12 @@ export function SprintTestScreen({ navigation }: Props) {
 
           <Pressable onPress={handleStart} style={styles.startWrap}>
             <LinearGradient
-              colors={['#00D9FF', '#00D9FFCC']}
+              colors={[colors.info, '#3498DBCC']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <Ionicons name="play" size={22} color="#FFFFFF" />
+              <Ionicons name="play" size={22} color={colors.textPrimary} />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -358,7 +358,7 @@ export function SprintTestScreen({ navigation }: Props) {
 
             <Pressable onPress={handleStop} style={styles.stopWrap}>
               <View style={styles.stopButton}>
-                <Ionicons name="stop" size={32} color="#FFFFFF" />
+                <Ionicons name="stop" size={32} color={colors.textPrimary} />
                 <Text style={styles.stopText}>STOP</Text>
               </View>
             </Pressable>
@@ -367,7 +367,7 @@ export function SprintTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <Ionicons name="checkmark-circle" size={80} color="#30D158" />
+            <Ionicons name="checkmark-circle" size={80} color={colors.accent} />
             <Text style={styles.doneTime}>{formatTime(elapsedMs)}s</Text>
             <Text style={styles.doneLabel}>Done!</Text>
           </View>
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   stepNumText: {
     fontFamily: fontFamily.bold,
     fontSize: 14,
-    color: '#00D9FF',
+    color: colors.info,
   },
   stepText: {
     fontFamily: fontFamily.regular,
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
   startText: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   backWrap: { paddingVertical: spacing.md },
   backText: {
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   countdownNum: {
     fontFamily: fontFamily.bold,
     fontSize: 120,
-    color: '#00D9FF',
+    color: colors.info,
     lineHeight: 130,
   },
 
@@ -510,13 +510,13 @@ const styles = StyleSheet.create({
   goText: {
     fontFamily: fontFamily.bold,
     fontSize: 80,
-    color: '#00D9FF',
+    color: colors.info,
     lineHeight: 90,
   },
   timerText: {
     fontFamily: fontFamily.bold,
     fontSize: 80,
-    color: '#00D9FF',
+    color: colors.info,
     lineHeight: 90,
   },
   timerUnit: {
@@ -532,10 +532,10 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#FF453A',
+    backgroundColor: colors.error,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF453A',
+    shadowColor: colors.error,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
   stopText: {
     fontFamily: fontFamily.bold,
     fontSize: 14,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     marginTop: 2,
   },
 
@@ -555,13 +555,13 @@ const styles = StyleSheet.create({
   doneTime: {
     fontFamily: fontFamily.bold,
     fontSize: 48,
-    color: '#00D9FF',
+    color: colors.info,
     marginTop: spacing.md,
   },
   doneLabel: {
     fontFamily: fontFamily.bold,
     fontSize: 24,
-    color: '#30D158',
+    color: colors.accent,
     marginTop: spacing.sm,
   },
 });

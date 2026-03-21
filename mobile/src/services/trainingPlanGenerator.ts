@@ -206,6 +206,7 @@ export function generateTrainingPlan(
           date: dateStr,
           startTime,
           endTime,
+          linkedPrograms: (category as any).linkedPrograms || [],
         });
 
         // Add to day events so subsequent categories/days see this block

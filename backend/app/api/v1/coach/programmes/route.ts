@@ -9,6 +9,7 @@ import {
   createProgramme,
   listCoachProgrammes,
 } from "@/services/coachProgrammeService";
+import { createNotification } from "@/services/notificationService";
 
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
@@ -54,6 +55,19 @@ export async function POST(req: NextRequest) {
       targetPositions: body.targetPositions ?? [],
       targetPlayerIds: body.targetPlayerIds ?? [],
     });
+
+    // Notify target players
+    const playerIds: string[] = body.targetPlayerIds ?? [];
+    for (const pid of playerIds) {
+      await createNotification({
+        userId: pid,
+        type: "suggestion_received",
+        title: "New training program assigned",
+        body: `Your coach assigned "${body.name}" — a ${body.weeks}-week ${body.category || 'training'} program`,
+        data: { programmeId: programme.id, coachId: auth.user.id },
+      }).catch(() => {}); // non-fatal
+    }
+
     return NextResponse.json(
       { programme },
       { headers: { "api-version": "v1" } }

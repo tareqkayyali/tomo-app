@@ -142,7 +142,7 @@ function createStyles(colors: ThemeColors) {
     todayText: {
       fontFamily: fontFamily.semiBold,
       fontSize: 13,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
   });
 }

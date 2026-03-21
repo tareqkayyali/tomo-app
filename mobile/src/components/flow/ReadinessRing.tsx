@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { fontFamily } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
+import type { ThemeColors } from '../../theme/colors';
 import type { ReadinessLevel } from '../../types';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -23,11 +24,14 @@ interface Props {
   size?: number;
 }
 
-const LEVEL_COLORS: Record<ReadinessLevel, string> = {
-  GREEN: '#30D158',
-  YELLOW: '#F39C12',
-  RED: '#E74C3C',
-};
+function getLevelColor(level: ReadinessLevel, colors: ThemeColors): string {
+  const map: Record<ReadinessLevel, string> = {
+    GREEN: colors.accent,
+    YELLOW: colors.warning,
+    RED: colors.error,
+  };
+  return map[level];
+}
 
 const LEVEL_LABELS: Record<ReadinessLevel, string> = {
   GREEN: 'Ready',
@@ -54,7 +58,7 @@ export function ReadinessRing({ score, level, size = 80 }: Props) {
     strokeDashoffset: circumference * (1 - progress.value),
   }));
 
-  const ringColor = LEVEL_COLORS[level];
+  const ringColor = getLevelColor(level, colors);
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>

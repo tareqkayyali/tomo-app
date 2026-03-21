@@ -4,7 +4,7 @@
  *
  * Variants:
  *   primary  — orange→teal gradient fill, white text, shadow, 12px radius
- *   secondary — transparent, #FF6B35 border, orange text
+ *   secondary — transparent, #2ECC71 border, orange text
  *   outline  — transparent, subtle white border (dark-bg friendly)
  *   ghost    — no background, orange text only
  *   gradient — orange→teal gradient (same as primary)
@@ -32,6 +32,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, shadows, layout, fontFamily } from '../theme';
 import { useTheme } from '../hooks/useTheme';
+import { useComponentStyle } from '../hooks/useComponentStyle';
 import type { ThemeColors } from '../theme/colors';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'gradient' | 'icon';
@@ -63,6 +64,7 @@ export function Button({
   textStyle,
 }: ButtonProps) {
   const { colors, typography } = useTheme();
+  const { getComponentStyle } = useComponentStyle();
   const themedVariants = React.useMemo(() => createVariantStyles(colors), [colors]);
   const sizeText = React.useMemo(() => createSizeTextStyles(typography), [typography]);
   const isDisabled = !!(disabled || loading);
@@ -110,11 +112,11 @@ export function Button({
   const textColor =
     variant === 'outline' || variant === 'ghost' || variant === 'secondary'
       ? colors.accent1
-      : '#FFFFFF';
+      : colors.textOnAccent;
 
   const loaderColor =
     variant === 'primary' || variant === 'gradient'
-      ? '#FFFFFF'
+      ? colors.textOnAccent
       : colors.accent1;
 
   const resolvedIcon = iconSize ?? (size === 'small' ? 16 : 18);
@@ -139,6 +141,7 @@ export function Button({
                 styles.text,
                 sizeText[size],
                 { color: textColor },
+                getComponentStyle('button_label'),
                 textStyle,
               ]}
             >

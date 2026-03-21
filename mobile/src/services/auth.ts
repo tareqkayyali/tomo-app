@@ -23,10 +23,8 @@ export interface AuthUser {
  * Sign in with email and password
  */
 export async function signIn(email: string, password: string): Promise<AuthUser> {
-  console.log('[Auth] signIn called for:', email);
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    console.log('[Auth] signIn response:', error ? `ERROR: ${error.message}` : 'success');
 
     if (error) throw new Error(getAuthErrorMessage(error.message));
 
@@ -80,10 +78,14 @@ export async function signInWithProvider(
 ): Promise<AuthUser> {
   if (Platform.OS === "web") {
     // Web: full redirect (Supabase handles the callback automatically)
+    // Always redirect back to the current origin (works for both prod and dev)
+    const webRedirect = __DEV__
+      ? window.location.origin
+      : "https://app.my-tomo.com";
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: webRedirect,
       },
     });
     if (error) throw new Error(getAuthErrorMessage(error.message));

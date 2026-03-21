@@ -150,7 +150,7 @@ export function DrillCameraScreen({ navigation, route }: Props) {
         ) : (
           <View style={styles.reviewActions}>
             <Pressable style={styles.saveButton} onPress={handleSaveVideo}>
-              <Ionicons name="cloud-upload-outline" size={22} color="#FFFFFF" />
+              <Ionicons name="cloud-upload-outline" size={22} color={colors.textPrimary} />
               <Text style={styles.saveButtonText}>Save Recording</Text>
             </Pressable>
             <Pressable style={styles.retakeButton} onPress={handleDiscard}>
@@ -178,11 +178,11 @@ export function DrillCameraScreen({ navigation, route }: Props) {
         {/* Top overlay */}
         <SafeAreaView style={styles.topOverlay} edges={['top']}>
           <Pressable onPress={() => navigation.goBack()} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color="#FFFFFF" />
+            <Ionicons name="close" size={28} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.drillLabel}>{drillName}</Text>
           <Pressable onPress={toggleFacing} style={styles.flipButton}>
-            <Ionicons name="camera-reverse-outline" size={24} color="#FFFFFF" />
+            <Ionicons name="camera-reverse-outline" size={24} color={colors.textPrimary} />
           </Pressable>
         </SafeAreaView>
 
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   drillLabel: {
     fontFamily: fontFamily.semiBold,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   flipButton: {
     width: 44,
@@ -276,12 +276,12 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.textPrimary,
   },
   recordingText: {
     fontFamily: fontFamily.bold,
     fontSize: 13,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     letterSpacing: 1,
   },
   recordButtonOuter: {
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 4,
-    borderColor: '#FFFFFF',
+    borderColor: colors.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#FF453A',
+    backgroundColor: colors.error,
   },
   recordButtonStop: {
     width: 32,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   permButtonText: {
     fontFamily: fontFamily.bold,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   skipButton: {
     paddingVertical: spacing.md,
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontFamily: fontFamily.bold,
     fontSize: 17,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   retakeButton: {
     flexDirection: 'row',

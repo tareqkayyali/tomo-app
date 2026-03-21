@@ -46,10 +46,10 @@ const RPE_LABELS: Record<number, string> = {
 };
 
 function getRpeColor(val: number): string {
-  if (val <= 3) return '#30D158';
-  if (val <= 5) return '#FFD60A';
-  if (val <= 7) return '#FF9500';
-  return '#FF453A';
+  if (val <= 3) return colors.accent;
+  if (val <= 5) return colors.warning;
+  if (val <= 7) return colors.warning;
+  return colors.error;
 }
 
 const METRIC_LABELS: Record<string, string> = {
@@ -130,7 +130,7 @@ export function PhoneTestCompleteScreen({ navigation, route }: Props) {
   if (saved) {
     return (
       <View style={styles.successCenter}>
-        <Ionicons name="checkmark-circle" size={80} color="#30D158" />
+        <Ionicons name="checkmark-circle" size={80} color={colors.accent} />
         <Text style={styles.successTitle}>Results Saved!</Text>
         <Text style={styles.successSub}>{testName}</Text>
         <Text style={styles.successScore}>
@@ -231,7 +231,7 @@ export function PhoneTestCompleteScreen({ navigation, route }: Props) {
               end={{ x: 1, y: 0 }}
               style={[styles.saveButton, saving && { opacity: 0.6 }]}
             >
-              <Ionicons name="save-outline" size={20} color="#FFFFFF" />
+              <Ionicons name="save-outline" size={20} color={colors.textPrimary} />
               <Text style={styles.saveText}>
                 {saving ? 'Saving...' : 'Save Results'}
               </Text>
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     color: colors.textInactive,
   },
   rpeDotTextActive: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontFamily: fontFamily.bold,
   },
   rpeLabel: {
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   saveText: {
     fontFamily: fontFamily.bold,
     fontSize: 17,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   skipWrap: { alignItems: 'center', paddingVertical: spacing.md },
   skipText: {
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   successTitle: {
     fontFamily: fontFamily.bold,
     fontSize: 28,
-    color: '#30D158',
+    color: colors.accent,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },

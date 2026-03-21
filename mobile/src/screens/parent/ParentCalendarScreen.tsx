@@ -83,24 +83,28 @@ export function ParentCalendarScreen({ navigation }: Props) {
 
   // Fetch children
   useEffect(() => {
+    let isMounted = true;
     (async () => {
       try {
         const res = await getParentChildren();
+        if (!isMounted) return;
         setChildren(res.children);
         if (res.children.length > 0) {
           setSelectedChild(res.children[0]);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        console.warn('[ParentCalendarScreen] fetch children error:', e);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     })();
+    return () => { isMounted = false; };
   }, []);
 
   // Fetch calendar when child or viewed month changes
   useEffect(() => {
     if (!selectedChild) return;
+    let isMounted = true;
     (async () => {
       try {
         // Fetch the full month range (with some padding for grid display)
@@ -109,6 +113,7 @@ export function ParentCalendarScreen({ navigation }: Props) {
         const startDate = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-01`;
         const endDate = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
         const res = await getChildCalendar(selectedChild.id, startDate, endDate);
+        if (!isMounted) return;
         const mapped: Record<string, string[]> = {};
         for (const evt of res.events) {
           const date = evt.date as string;
@@ -117,10 +122,12 @@ export function ParentCalendarScreen({ navigation }: Props) {
           if (!mapped[date].includes(type)) mapped[date].push(type);
         }
         setEvents(mapped);
-      } catch {
-        setEvents({});
+      } catch (e) {
+        console.warn('[ParentCalendarScreen] fetch calendar error:', e);
+        if (isMounted) setEvents({});
       }
     })();
+    return () => { isMounted = false; };
   }, [selectedChild, viewYear, viewMonth]);
 
   // Month navigation

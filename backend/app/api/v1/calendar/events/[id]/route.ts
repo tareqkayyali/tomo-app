@@ -31,6 +31,9 @@ const patchEventSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  notes: z.string().optional(),
+  name: z.string().min(1).max(200).optional(),
+  intensity: z.enum(["light", "medium", "hard"]).nullable().optional(),
 });
 
 // ─── Helper: check if a date is locked for a user ──────────────────────────
@@ -95,7 +98,7 @@ export async function PATCH(
     }
 
     // If moving to a different date, check that date's lock too
-    const { startTime, endTime, date: newDate } = parsed.data;
+    const { startTime, endTime, date: newDate, notes, name, intensity } = parsed.data;
     const targetDate = newDate || currentDate;
 
     if (newDate && newDate !== currentDate) {
@@ -130,6 +133,18 @@ export async function PATCH(
       const existingEndUtc = new Date(String(existing.end_at));
       const localEndTime = existingEndUtc.toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false });
       update.end_at = localToUtc(targetDate, `${localEndTime}:00`, tz);
+    }
+
+    if (notes !== undefined) {
+      update.notes = notes;
+    }
+
+    if (name !== undefined) {
+      update.name = name;
+    }
+
+    if (intensity !== undefined) {
+      update.intensity = intensity;
     }
 
     if (Object.keys(update).length === 0) {

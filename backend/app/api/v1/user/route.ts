@@ -40,6 +40,15 @@ const ALLOWED_UPDATE_FIELDS: Record<string, string> = {
   schoolSchedule: "school_schedule",
   customTrainingTypes: "custom_training_types",
   connectedWearables: "connected_wearables",
+  date_of_birth: "date_of_birth",
+  dateOfBirth: "date_of_birth",
+  gender: "gender",
+  height_cm: "height_cm",
+  heightCm: "height_cm",
+  weight_kg: "weight_kg",
+  weightKg: "weight_kg",
+  position: "position",
+  playingStyle: "playing_style",
 };
 
 export async function PUT(req: NextRequest) {

@@ -26,6 +26,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SkeletonCard, ErrorState } from '../components';
 import { QuickAccessBar, type QuickAction } from '../components/QuickAccessBar';
+import { useQuickActions } from '../hooks/useQuickActions';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
@@ -46,6 +47,7 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainTabParamList, MainStackParamList } from '../navigation/types';
+import { usePageConfig } from '../hooks/usePageConfig';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -103,6 +105,7 @@ export function ProgressScreen({
 }: ProgressScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const pageConfig = usePageConfig('mastery');
   const { profile } = useAuth();
   const { needsCheckin } = useCheckinStatus();
   const isFocused = useIsFocused();
@@ -122,17 +125,23 @@ export function ProgressScreen({
     setRefreshing(false);
   }, [refresh]);
 
-  // Content fade-in
-  const contentOpacity = useSharedValue(0);
+  // Content fade-in (skip focus check for external/embedded views)
+  const isExternalView = !!targetPlayerId;
+  const contentOpacity = useSharedValue(isExternalView ? 1 : 0);
   const contentFade = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
   useEffect(() => {
-    if (!isLoading && isFocused) {
+    if (isExternalView) {
+      // External views (coach/parent) — always visible, no focus gating
+      if (!isLoading) {
+        contentOpacity.value = withTiming(1, { duration: 400 });
+      }
+    } else if (!isLoading && isFocused) {
       contentOpacity.value = 0;
       contentOpacity.value = withTiming(1, { duration: 600 });
     } else if (!isFocused) {
       contentOpacity.value = 0;
     }
-  }, [isLoading, isFocused]);
+  }, [isLoading, isFocused, isExternalView]);
 
   // Navigate to My Metrics (Output tab) to record tests
   const goToMyMetrics = useCallback(() => {
@@ -140,36 +149,11 @@ export function ProgressScreen({
     navigation.navigate('Test' as any, { initialTab: 'metrics' });
   }, [navigation]);
 
-  // QuickAccessBar actions (matches Timeline & Output pattern)
-  const quickActions: QuickAction[] = useMemo(
-    () => [
-      {
-        key: 'record',
-        icon: 'stats-chart-outline',
-        label: 'Record Tests',
-        onPress: goToMyMetrics,
-        accentColor: colors.accent1,
-      },
-      {
-        key: 'compare',
-        icon: 'git-compare-outline',
-        label: 'Compare',
-        onPress: () => {
-          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          // TODO: Navigate to comparison screen
-        },
-      },
-      {
-        key: 'more',
-        icon: 'ellipsis-horizontal',
-        label: 'More',
-        onPress: () => {},
-      },
-    ],
-    [colors.accent1, navigation, goToMyMetrics],
+  // QuickAccessBar actions — page-specific + favorites + more
+  const quickActions = useQuickActions(
+    { key: 'metrics', icon: 'stats-chart-outline', label: 'My Metrics', onPress: goToMyMetrics, accentColor: colors.accent1 },
+    navigation,
   );
-
-  const isExternalView = !!targetPlayerId;
 
   // Shared header (matches Timeline & Output screens)
   const renderHeader = () => (
@@ -178,7 +162,7 @@ export function ProgressScreen({
         <QuickAccessBar actions={quickActions} />
       ) : (
         <Text style={[styles.externalLabel, { color: colors.textMuted }]}>
-          {(targetPlayerName || 'Player').toUpperCase()} · MASTERY
+          {(targetPlayerName || 'Player').toUpperCase()} · {(pageConfig?.metadata?.pageTitle || 'MASTERY').toUpperCase()}
         </Text>
       )}
       <View style={styles.headerRight}>
@@ -192,39 +176,43 @@ export function ProgressScreen({
     </View>
   );
 
+  // Wrapper: use SafeAreaView for own screen, plain View for embedded
+  const Wrapper = isExternalView ? View : SafeAreaView;
+  const wrapperProps = isExternalView ? { style: styles.container } : { style: styles.container, edges: ['top'] as const };
+
   // ── Loading state ──
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        {renderHeader()}
+      <Wrapper {...wrapperProps as any}>
+        {!isExternalView && renderHeader()}
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
         </ScrollView>
-      </SafeAreaView>
+      </Wrapper>
     );
   }
 
   // ── Error state ──
   if (masteryError && !masteryData) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        {renderHeader()}
+      <Wrapper {...wrapperProps as any}>
+        {!isExternalView && renderHeader()}
         <View style={{ flex: 1, justifyContent: 'center', padding: layout.screenMargin }}>
           <ErrorState
             message="Could not load mastery data. Pull to retry."
             onRetry={refresh}
           />
         </View>
-      </SafeAreaView>
+      </Wrapper>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* ── Header ── */}
-      {renderHeader()}
+    <Wrapper {...wrapperProps as any}>
+      {/* ── Header (hidden for external/embedded views) ── */}
+      {!isExternalView && renderHeader()}
 
       {/* ── Content ── */}
       <View style={{ flex: 1 }}>
@@ -263,7 +251,7 @@ export function ProgressScreen({
           </Animated.View>
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </Wrapper>
   );
 }
 

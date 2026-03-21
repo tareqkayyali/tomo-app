@@ -87,64 +87,18 @@ interface RecTypeConfig {
   label: string;
 }
 
-const REC_TYPE_CONFIG: Record<RecType, RecTypeConfig> = {
-  READINESS: {
-    color: '#30D158',
-    icon: 'pulse-outline',
-    glow: 'orange',
-    badgeVariant: 'success',
-    label: 'Readiness',
-  },
-  LOAD_WARNING: {
-    color: '#F39C12',
-    icon: 'warning-outline',
-    glow: 'orange',
-    badgeVariant: 'warning',
-    label: 'Load',
-  },
-  RECOVERY: {
-    color: '#30D158',
-    icon: 'leaf-outline',
-    glow: 'cyan',
-    badgeVariant: 'success',
-    label: 'Recovery',
-  },
-  DEVELOPMENT: {
-    color: '#00D9FF',
-    icon: 'trending-up-outline',
-    glow: 'cyan',
-    badgeVariant: 'info',
-    label: 'Development',
-  },
-  ACADEMIC: {
-    color: '#00D9FF',
-    icon: 'school-outline',
-    glow: 'cyan',
-    badgeVariant: 'info',
-    label: 'Academic',
-  },
-  CV_OPPORTUNITY: {
-    color: '#7B61FF',
-    icon: 'document-text-outline',
-    glow: 'subtle',
-    badgeVariant: 'outline',
-    label: 'CV',
-  },
-  TRIANGLE_ALERT: {
-    color: '#E74C3C',
-    icon: 'people-outline',
-    glow: 'orange',
-    badgeVariant: 'error',
-    label: 'Alert',
-  },
-  MOTIVATION: {
-    color: '#FF6B35',
-    icon: 'flame-outline',
-    glow: 'orange',
-    badgeVariant: 'chip',
-    label: 'Motivation',
-  },
-};
+function getRecTypeConfig(colors: { accent: string; warning: string; info: string; error: string }): Record<RecType, RecTypeConfig> {
+  return {
+    READINESS: { color: colors.accent, icon: 'pulse-outline', glow: 'orange', badgeVariant: 'success', label: 'Readiness' },
+    LOAD_WARNING: { color: colors.warning, icon: 'warning-outline', glow: 'orange', badgeVariant: 'warning', label: 'Load' },
+    RECOVERY: { color: colors.accent, icon: 'leaf-outline', glow: 'cyan', badgeVariant: 'success', label: 'Recovery' },
+    DEVELOPMENT: { color: colors.info, icon: 'trending-up-outline', glow: 'cyan', badgeVariant: 'info', label: 'Development' },
+    ACADEMIC: { color: colors.info, icon: 'school-outline', glow: 'cyan', badgeVariant: 'info', label: 'Academic' },
+    CV_OPPORTUNITY: { color: colors.info, icon: 'document-text-outline', glow: 'subtle', badgeVariant: 'outline', label: 'CV' },
+    TRIANGLE_ALERT: { color: colors.error, icon: 'people-outline', glow: 'orange', badgeVariant: 'error', label: 'Alert' },
+    MOTIVATION: { color: colors.accent, icon: 'flame-outline', glow: 'orange', badgeVariant: 'chip', label: 'Motivation' },
+  };
+}
 
 const PRIORITY_LABELS: Record<number, string> = {
   1: '🚨 URGENT',
@@ -163,23 +117,25 @@ interface PillConfig {
 
 function getEvidencePills(
   recType: RecType,
-  evidence?: Record<string, unknown>
+  evidence: Record<string, unknown> | undefined,
+  themeColors: { accent: string; warning: string; error: string; info: string; textDisabled: string }
 ): PillConfig[] {
   if (!evidence) return [];
   const pills: PillConfig[] = [];
 
+  const tc = themeColors;
   switch (recType) {
     case 'READINESS': {
       const acwr = evidence.acwr as number | null;
       if (acwr != null) {
-        const c = acwr > 1.5 ? '#E74C3C' : acwr > 1.3 ? '#F39C12' : acwr < 0.8 ? '#00D9FF' : '#30D158';
+        const c = acwr > 1.5 ? tc.error : acwr > 1.3 ? tc.warning : acwr < 0.8 ? tc.info : tc.accent;
         pills.push({ label: 'ACWR', value: acwr.toFixed(2), color: c, icon: 'pulse-outline' });
       }
       const sleep = evidence.sleep_quality as number | null;
-      if (sleep != null) pills.push({ label: 'Sleep', value: `${sleep}/10`, color: sleep < 5 ? '#E74C3C' : '#30D158', icon: 'moon-outline' });
+      if (sleep != null) pills.push({ label: 'Sleep', value: `${sleep}/10`, color: sleep < 5 ? tc.error : tc.accent, icon: 'moon-outline' });
       const rag = evidence.readiness_rag as string | null;
       if (rag) {
-        const c = rag === 'RED' ? '#E74C3C' : rag === 'AMBER' ? '#F39C12' : '#30D158';
+        const c = rag === 'RED' ? tc.error : rag === 'AMBER' ? tc.warning : tc.accent;
         pills.push({ label: 'RAG', value: rag, color: c });
       }
       break;
@@ -187,66 +143,61 @@ function getEvidencePills(
     case 'LOAD_WARNING': {
       const acwr = evidence.acwr as number | null;
       if (acwr != null) {
-        const c = acwr > 1.5 ? '#E74C3C' : acwr > 1.3 ? '#F39C12' : '#30D158';
+        const c = acwr > 1.5 ? tc.error : acwr > 1.3 ? tc.warning : tc.accent;
         pills.push({ label: 'ACWR', value: acwr.toFixed(2), color: c, icon: 'pulse-outline' });
       }
       const atl = evidence.atl_7day as number | null;
-      if (atl != null) pills.push({ label: 'ATL', value: `${Math.round(atl)} AU`, color: '#FF6B35', icon: 'trending-up' });
+      if (atl != null) pills.push({ label: 'ATL', value: `${Math.round(atl)} AU`, color: tc.accent, icon: 'trending-up' });
       const ctl = evidence.ctl_28day as number | null;
-      if (ctl != null) pills.push({ label: 'CTL', value: `${Math.round(ctl)} AU`, color: '#00D9FF', icon: 'analytics-outline' });
+      if (ctl != null) pills.push({ label: 'CTL', value: `${Math.round(ctl)} AU`, color: tc.info, icon: 'analytics-outline' });
       break;
     }
     case 'ACADEMIC': {
       const dual = evidence.dual_load_index as number | null;
-      if (dual != null) pills.push({ label: 'Load', value: `${Math.round(dual)}%`, color: dual > 80 ? '#E74C3C' : '#F39C12', icon: 'barbell-outline' });
-      // Support both key names from different computers
+      if (dual != null) pills.push({ label: 'Load', value: `${Math.round(dual)}%`, color: dual > 80 ? tc.error : tc.warning, icon: 'barbell-outline' });
       const examDays = (evidence.days_until_exam ?? evidence.days_to_nearest_exam) as number | null;
-      if (examDays != null) pills.push({ label: 'Exam', value: `${examDays}d`, color: examDays <= 3 ? '#E74C3C' : '#F39C12', icon: 'school-outline' });
+      if (examDays != null) pills.push({ label: 'Exam', value: `${examDays}d`, color: examDays <= 3 ? tc.error : tc.warning, icon: 'school-outline' });
       const studyLoad = evidence.academic_load_7day as number | null;
-      if (studyLoad != null) pills.push({ label: 'Study', value: `${Math.round(studyLoad)} AU`, color: '#00D9FF', icon: 'book-outline' });
-      // New: exam subject
+      if (studyLoad != null) pills.push({ label: 'Study', value: `${Math.round(studyLoad)} AU`, color: tc.info, icon: 'book-outline' });
       const subject = evidence.nearest_exam_subject as string | null;
-      if (subject) pills.push({ label: 'Subject', value: subject, color: '#00D9FF', icon: 'document-text-outline' });
-      // New: upcoming exam count
+      if (subject) pills.push({ label: 'Subject', value: subject, color: tc.info, icon: 'document-text-outline' });
       const examCount = evidence.upcoming_exam_count as number | null;
-      if (examCount != null && examCount > 1) pills.push({ label: 'Exams', value: `${examCount}`, color: '#F39C12', icon: 'calendar-outline' });
-      // New: estimated prep hours
+      if (examCount != null && examCount > 1) pills.push({ label: 'Exams', value: `${examCount}`, color: tc.warning, icon: 'calendar-outline' });
       const prepHours = evidence.estimated_prep_hours as number | null;
-      if (prepHours != null) pills.push({ label: 'Prep', value: `~${Math.round(prepHours)}h`, color: '#00D9FF', icon: 'time-outline' });
-      // ACADEMIC gets up to 5 pills (more data to show)
+      if (prepHours != null) pills.push({ label: 'Prep', value: `~${Math.round(prepHours)}h`, color: tc.info, icon: 'time-outline' });
       return pills.slice(0, 5);
     }
     case 'RECOVERY': {
       const soreness = evidence.soreness as number | null;
-      if (soreness != null) pills.push({ label: 'Soreness', value: `${soreness}/10`, color: soreness > 6 ? '#E74C3C' : '#F39C12', icon: 'body-outline' });
+      if (soreness != null) pills.push({ label: 'Soreness', value: `${soreness}/10`, color: soreness > 6 ? tc.error : tc.warning, icon: 'body-outline' });
       const sleep = evidence.sleep_quality as number | null;
-      if (sleep != null) pills.push({ label: 'Sleep', value: `${sleep}/10`, color: sleep < 5 ? '#E74C3C' : '#30D158', icon: 'moon-outline' });
+      if (sleep != null) pills.push({ label: 'Sleep', value: `${sleep}/10`, color: sleep < 5 ? tc.error : tc.accent, icon: 'moon-outline' });
       break;
     }
     case 'DEVELOPMENT': {
       const zone = evidence.current_zone as string | null;
-      if (zone) pills.push({ label: 'Zone', value: zone, color: '#7B61FF', icon: 'stats-chart-outline' });
+      if (zone) pills.push({ label: 'Zone', value: zone, color: tc.info, icon: 'stats-chart-outline' });
       break;
     }
     case 'MOTIVATION': {
       const streak = evidence.streak_days as number | null;
-      if (streak != null) pills.push({ label: 'Streak', value: `${streak}🔥`, color: '#FF6B35', icon: 'flame-outline' });
+      if (streak != null) pills.push({ label: 'Streak', value: `${streak}🔥`, color: tc.accent, icon: 'flame-outline' });
       const sessions = evidence.sessions_total as number | null;
-      if (sessions != null) pills.push({ label: 'Sessions', value: `${sessions}`, color: '#00D9FF', icon: 'fitness-outline' });
+      if (sessions != null) pills.push({ label: 'Sessions', value: `${sessions}`, color: tc.info, icon: 'fitness-outline' });
       break;
     }
     case 'CV_OPPORTUNITY': {
       const cvScore = evidence.cv_completeness as number | null;
-      if (cvScore != null) pills.push({ label: 'CV', value: `${Math.round(cvScore)}%`, color: cvScore < 30 ? '#E74C3C' : cvScore < 60 ? '#F39C12' : '#30D158', icon: 'document-text-outline' });
+      if (cvScore != null) pills.push({ label: 'CV', value: `${Math.round(cvScore)}%`, color: cvScore < 30 ? tc.error : cvScore < 60 ? tc.warning : tc.accent, icon: 'document-text-outline' });
       const gaps = evidence.benchmark_gaps as string[] | null;
-      if (gaps?.length) pills.push({ label: 'Gaps', value: `${gaps.length} tests`, color: '#F39C12', icon: 'analytics-outline' });
+      if (gaps?.length) pills.push({ label: 'Gaps', value: `${gaps.length} tests`, color: tc.warning, icon: 'analytics-outline' });
       const percentile = evidence.overall_percentile as number | null;
-      if (percentile != null) pills.push({ label: 'Rank', value: `P${percentile}`, color: percentile > 50 ? '#30D158' : '#F39C12', icon: 'podium-outline' });
+      if (percentile != null) pills.push({ label: 'Rank', value: `P${percentile}`, color: percentile > 50 ? tc.accent : tc.warning, icon: 'podium-outline' });
       break;
     }
     case 'TRIANGLE_ALERT': {
       const severity = evidence.severity as string | null;
-      if (severity) pills.push({ label: 'Severity', value: severity, color: severity === 'HIGH' ? '#E74C3C' : '#F39C12', icon: 'alert-circle-outline' });
+      if (severity) pills.push({ label: 'Severity', value: severity, color: severity === 'HIGH' ? tc.error : tc.warning, icon: 'alert-circle-outline' });
       break;
     }
     default:
@@ -281,12 +232,12 @@ function formatExpiry(expiresAt: string | null | undefined): string | null {
   return `${days}d left`;
 }
 
-function expiryColor(expiresAt: string | null | undefined): string {
-  if (!expiresAt) return '#6B6B6B';
+function expiryColor(expiresAt: string | null | undefined, tc: { textDisabled: string; error: string }): string {
+  if (!expiresAt) return tc.textDisabled;
   const diffMs = new Date(expiresAt).getTime() - Date.now();
-  if (diffMs <= 0) return '#E74C3C';
-  if (diffMs < 2 * 3600000) return '#E74C3C'; // < 2 hours
-  return '#6B6B6B';
+  if (diffMs <= 0) return tc.error;
+  if (diffMs < 2 * 3600000) return tc.error; // < 2 hours
+  return tc.textDisabled;
 }
 
 // ── Dual Load Data Helper ─────────────────────────────────────────
@@ -308,7 +259,7 @@ function getDualLoadData(
 export function RecCard({ rec, index, onAction }: RecCardProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const config = REC_TYPE_CONFIG[rec.recType];
+  const config = getRecTypeConfig(colors)[rec.recType];
   const [expanded, setExpanded] = useState(false);
 
   const hasRag = (rec.retrievedChunkIds?.length ?? 0) > 0;
@@ -386,7 +337,7 @@ function P1Card({
             </View>
             <View style={s.typeRow}>
               {expiry && (
-                <Text style={[s.expiryText, { color: expiryColor(rec.expiresAt) }]}>
+                <Text style={[s.expiryText, { color: expiryColor(rec.expiresAt, colors) }]}>
                   {expiry}
                 </Text>
               )}
@@ -394,64 +345,71 @@ function P1Card({
             </View>
           </View>
 
-          {/* Title */}
-          <Text style={s.p1Title}>{rec.title}</Text>
-
-          {/* Body short */}
-          <Text style={s.p1Body}>{rec.bodyShort}</Text>
-
-          {/* Evidence Pills */}
-          {(() => {
-            const pills = getEvidencePills(rec.recType as RecType, rec.evidenceBasis);
-            if (pills.length === 0) return null;
-            return (
-              <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm, flexWrap: 'wrap' }}>
-                {pills.map((p, i) => (
-                  <MetricPill key={i} label={p.label} value={p.value} color={p.color} icon={p.icon} />
-                ))}
-              </View>
-            );
-          })()}
-
-          {/* Dual Load Bar */}
-          {dualLoad && <DualLoadBar athleticLoad={dualLoad.athletic} academicLoad={dualLoad.academic} />}
-
-          {/* Contributing Factors */}
-          {factors.length > 0 && (
-            <View style={s.factorsContainer}>
-              {factors.map((f, i) => (
-                <View key={i} style={s.factorRow}>
-                  <View style={[s.factorBullet, { backgroundColor: config.color }]} />
-                  <Text style={s.factorText}>{f}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Expandable body long */}
-          {rec.bodyLong ? (
-            <>
-              {expanded && <Text style={s.bodyLong}>{rec.bodyLong}</Text>}
-              <Pressable onPress={() => setExpanded(!expanded)} hitSlop={8}>
-                <Text style={s.showMore}>
-                  {expanded ? 'Show less' : 'Show more →'}
-                </Text>
-              </Pressable>
-            </>
-          ) : null}
-
-          {/* Action CTA */}
-          <ActionCTA action={rec.action} onAction={onAction} colors={colors} />
-
-          {/* Confidence bar */}
-          <View style={s.confidenceTrack}>
-            <LinearGradient
-              colors={[colors.accent1, colors.accent2]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[s.confidenceFill, { width: `${Math.round((rec.confidence || 0) * 100)}%` }]}
+          {/* Title + chevron */}
+          <Pressable
+            onPress={() => setExpanded(!expanded)}
+            hitSlop={8}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <Text style={[s.p1Title, { flex: 1, marginBottom: 0 }]}>{rec.title}</Text>
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={colors.textMuted}
+              style={{ marginLeft: spacing.sm }}
             />
-          </View>
+          </Pressable>
+
+          {/* Expanded details */}
+          {expanded && (
+            <>
+              {/* Body short */}
+              <Text style={[s.p1Body, { marginTop: spacing.sm }]}>{rec.bodyShort}</Text>
+
+              {/* Evidence Pills */}
+              {(() => {
+                const pills = getEvidencePills(rec.recType as RecType, rec.evidenceBasis, colors);
+                if (pills.length === 0) return null;
+                return (
+                  <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm, flexWrap: 'wrap' }}>
+                    {pills.map((p, i) => (
+                      <MetricPill key={i} label={p.label} value={p.value} color={p.color} icon={p.icon} />
+                    ))}
+                  </View>
+                );
+              })()}
+
+              {/* Dual Load Bar */}
+              {dualLoad && <DualLoadBar athleticLoad={dualLoad.athletic} academicLoad={dualLoad.academic} />}
+
+              {/* Contributing Factors */}
+              {factors.length > 0 && (
+                <View style={s.factorsContainer}>
+                  {factors.map((f, i) => (
+                    <View key={i} style={s.factorRow}>
+                      <View style={[s.factorBullet, { backgroundColor: config.color }]} />
+                      <Text style={s.factorText}>{f}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {rec.bodyLong && <Text style={s.bodyLong}>{rec.bodyLong}</Text>}
+
+              {/* Action CTA */}
+              <ActionCTA action={rec.action} onAction={onAction} colors={colors} />
+
+              {/* Confidence bar */}
+              <View style={s.confidenceTrack}>
+                <LinearGradient
+                  colors={[colors.accent1, colors.accent2]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[s.confidenceFill, { width: `${Math.round((rec.confidence || 0) * 100)}%` }]}
+                />
+              </View>
+            </>
+          )}
         </GlassCard>
       </GlowWrapper>
     </Animated.View>
@@ -479,68 +437,73 @@ function P2Card({
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).duration(350).springify()}>
       <GlassCard style={{ borderLeftWidth: 3, borderLeftColor: config.color, marginBottom: spacing.sm }}>
-        {/* Top row */}
-        <View style={s.topRow}>
+        {/* Top row — collapsed: icon + title + priority badge + chevron */}
+        <Pressable
+          onPress={() => setExpanded(!expanded)}
+          hitSlop={8}
+          style={s.topRow}
+        >
           <View style={[s.typeRow, { flex: 1 }]}>
             <Ionicons name={config.icon} size={18} color={config.color} />
             <Text style={s.p2Title} numberOfLines={1}>{rec.title}</Text>
-            {hasRag && <Badge label="Research-backed" variant="outline" size="small" icon="library-outline" />}
           </View>
           <View style={s.typeRow}>
             {expiry && (
-              <Text style={[s.expiryText, { color: expiryColor(rec.expiresAt) }]}>
+              <Text style={[s.expiryText, { color: expiryColor(rec.expiresAt, colors) }]}>
                 {expiry}
               </Text>
             )}
             <Badge label={PRIORITY_LABELS[2]} variant="warning" size="small" />
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.textMuted}
+            />
           </View>
-        </View>
+        </Pressable>
 
-        {/* Body */}
-        <Text style={s.p2Body}>{rec.bodyShort}</Text>
-
-        {/* Evidence Pills */}
-        {(() => {
-          const pills = getEvidencePills(rec.recType as RecType, rec.evidenceBasis);
-          if (pills.length === 0) return null;
-          return (
-            <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm, flexWrap: 'wrap' }}>
-              {pills.map((p, i) => (
-                <MetricPill key={i} label={p.label} value={p.value} color={p.color} icon={p.icon} />
-              ))}
-            </View>
-          );
-        })()}
-
-        {/* Dual Load Bar */}
-        {dualLoad && <DualLoadBar athleticLoad={dualLoad.athletic} academicLoad={dualLoad.academic} />}
-
-        {/* Contributing Factors */}
-        {factors.length > 0 && (
-          <View style={s.factorsContainer}>
-            {factors.map((f, i) => (
-              <View key={i} style={s.factorRow}>
-                <View style={[s.factorBullet, { backgroundColor: config.color }]} />
-                <Text style={s.factorText}>{f}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Action CTA */}
-        <ActionCTA action={rec.action} onAction={onAction} colors={colors} />
-
-        {/* Expandable */}
-        {rec.bodyLong ? (
+        {/* Expanded details */}
+        {expanded && (
           <>
-            {expanded && <Text style={s.bodyLong}>{rec.bodyLong}</Text>}
-            <Pressable onPress={() => setExpanded(!expanded)} hitSlop={8}>
-              <Text style={s.showMore}>
-                {expanded ? 'Show less' : 'Show more →'}
-              </Text>
-            </Pressable>
+            {/* Body */}
+            <Text style={s.p2Body}>{rec.bodyShort}</Text>
+
+            {hasRag && <Badge label="Research-backed" variant="outline" size="small" icon="library-outline" />}
+
+            {/* Evidence Pills */}
+            {(() => {
+              const pills = getEvidencePills(rec.recType as RecType, rec.evidenceBasis, colors);
+              if (pills.length === 0) return null;
+              return (
+                <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm, flexWrap: 'wrap' }}>
+                  {pills.map((p, i) => (
+                    <MetricPill key={i} label={p.label} value={p.value} color={p.color} icon={p.icon} />
+                  ))}
+                </View>
+              );
+            })()}
+
+            {/* Dual Load Bar */}
+            {dualLoad && <DualLoadBar athleticLoad={dualLoad.athletic} academicLoad={dualLoad.academic} />}
+
+            {/* Contributing Factors */}
+            {factors.length > 0 && (
+              <View style={s.factorsContainer}>
+                {factors.map((f, i) => (
+                  <View key={i} style={s.factorRow}>
+                    <View style={[s.factorBullet, { backgroundColor: config.color }]} />
+                    <Text style={s.factorText}>{f}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {rec.bodyLong && <Text style={s.bodyLong}>{rec.bodyLong}</Text>}
+
+            {/* Action CTA */}
+            <ActionCTA action={rec.action} onAction={onAction} colors={colors} />
           </>
-        ) : null}
+        )}
       </GlassCard>
     </Animated.View>
   );
@@ -573,7 +536,7 @@ function P3Card({
             {hasRag && <Ionicons name="library-outline" size={12} color={colors.textMuted} style={{ marginLeft: 4 }} />}
           </View>
           {expiry && (
-            <Text style={[s.expiryText, { color: expiryColor(rec.expiresAt) }]}>
+            <Text style={[s.expiryText, { color: expiryColor(rec.expiresAt, colors) }]}>
               {expiry}
             </Text>
           )}
@@ -583,7 +546,7 @@ function P3Card({
 
         {/* Evidence Pills */}
         {(() => {
-          const pills = getEvidencePills(rec.recType as RecType, rec.evidenceBasis);
+          const pills = getEvidencePills(rec.recType as RecType, rec.evidenceBasis, colors);
           if (pills.length === 0) return null;
           return (
             <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm, flexWrap: 'wrap' }}>

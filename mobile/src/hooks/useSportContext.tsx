@@ -121,6 +121,7 @@ import {
 import {
   SHOT_DEFINITIONS,
 } from '../services/padelDefinitions';
+import { colors } from '../theme/colors';
 
 // ═══ TYPES ═══
 
@@ -395,7 +396,7 @@ function buildFootballConfig(): SportConfig {
     sport: 'football',
     label: 'Football',
     icon: 'football-outline',
-    color: '#30D158',
+    color: colors.accent,
     attributes,
     skills,
     ratingLevels,
@@ -481,7 +482,7 @@ function buildPadelConfig(): SportConfig {
     sport: 'padel',
     label: 'Padel',
     icon: 'tennisball-outline',
-    color: '#FF6B35',
+    color: colors.accent,
     attributes,
     skills,
     ratingLevels,

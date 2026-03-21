@@ -84,8 +84,33 @@ export async function handleAssessmentResult(event: AthleteEvent): Promise<void>
  * Computes PHV offset and stage, updates snapshot.
  */
 export async function handlePhvMeasurement(event: AthleteEvent): Promise<void> {
-  const payload = event.payload as PhvMeasurementPayload;
-  await updatePhvFromMeasurement(event.athlete_id, payload);
+  const payload = event.payload as any;
+  const db = supabaseAdmin();
+
+  // The frontend sends the pre-computed PHV offset and stage
+  const update: Record<string, any> = {
+    athlete_id: event.athlete_id,
+    snapshot_at: new Date().toISOString(),
+  };
+
+  if (payload.standing_height_cm) update.height_cm = payload.standing_height_cm;
+  if (payload.sitting_height_cm) update.sitting_height_cm = payload.sitting_height_cm;
+  if (payload.weight_kg) update.weight_kg = payload.weight_kg;
+  if (payload.date_of_birth) update.date_of_birth = payload.date_of_birth;
+  if (payload.sex) update.sex = payload.sex;
+  if (payload.maturity_offset != null) update.phv_offset_years = payload.maturity_offset;
+  if (payload.phv_stage) {
+    // Map detailed category to simple PRE/CIRCA/POST for the snapshot
+    const stage = String(payload.phv_stage);
+    if (stage.startsWith('pre-phv')) update.phv_stage = 'PRE';
+    else if (stage === 'at-phv') update.phv_stage = 'CIRCA';
+    else if (stage.startsWith('post-phv')) update.phv_stage = 'POST';
+    else update.phv_stage = stage;
+  }
+
+  await (db as any)
+    .from('athlete_snapshots')
+    .upsert(update, { onConflict: 'athlete_id' });
 }
 
 /**

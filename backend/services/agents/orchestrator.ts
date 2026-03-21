@@ -25,6 +25,7 @@ import {
 } from "./masteryAgent";
 import { validateResponse, GUARDRAIL_SYSTEM_BLOCK, categorizeMessage } from "./chatGuardrails";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { logger } from "@/lib/logger";
 import { getDayBoundsISO, toTimezoneISO } from "./contextBuilder";
 import {
   parseStructuredResponse,
@@ -37,6 +38,7 @@ import {
 } from "./responseFormatter";
 import { isAffirmation, type ConversationMessage, type ConversationState } from "./sessionService";
 import { buildRuleContext } from "@/services/scheduling/scheduleRuleEngine";
+import { withRetry } from "@/lib/aiRetry";
 // conversationStateExtractor is called from route.ts, not here
 
 const MAX_TOOL_ITERATIONS = 5;
@@ -101,6 +103,20 @@ function routeToAgents(
   const lower = message.toLowerCase();
   const agents = new Set<"timeline" | "output" | "mastery">();
 
+  // Program-specific queries → Output agent FIRST (has get_my_programs tool)
+  const isProgramQuery = /program|my program|training program|program.*detail|about.*program/i.test(lower);
+
+  // Output signals — checked first so it's primary when both match
+  if (
+    isProgramQuery ||
+    context.activeTab === "Output" ||
+    /readiness|tired|energy|sleep|recovery|vitals|how (do|am) i feel|check.?in|score|metric|compare|benchmark|percentile|rank|how.*stack up|vs other|test result|how fit|sprint|jump|sore|soreness|pain|drill|exercise|workout|warm.?up|cool.?down|practice plan|training plan|what.*(should|can) i train|weakness|weak|gap|strength|area.*(improve|work|develop)|where.*(need|lack)|my best|my worst/i.test(
+      lower
+    )
+  ) {
+    agents.add("output");
+  }
+
   // Timeline signals
   if (
     context.activeTab === "Timeline" ||
@@ -109,16 +125,6 @@ function routeToAgents(
     )
   ) {
     agents.add("timeline");
-  }
-
-  // Output signals
-  if (
-    context.activeTab === "Output" ||
-    /readiness|tired|energy|sleep|recovery|vitals|how (do|am) i feel|check.?in|score|metric|compare|benchmark|percentile|rank|how.*stack up|vs other|test result|how fit|sprint|jump|sore|soreness|pain|drill|exercise|workout|warm.?up|cool.?down|practice plan|training plan|what.*(should|can) i train|weakness|weak|gap|strength|area.*(improve|work|develop)|where.*(need|lack)|my best|my worst/i.test(
-      lower
-    )
-  ) {
-    agents.add("output");
   }
 
   // Mastery signals
@@ -213,7 +219,7 @@ export async function orchestrate(
     const rawMessage = allResults.join("\n");
     const validation = validateResponse(rawMessage);
     if (!validation.safe) {
-      console.warn("[chat-guardrail] Response leak detected in confirmation, sanitizing...");
+      logger.warn("[chat-guardrail] Response leak detected in confirmation, sanitizing");
     }
 
     // Build date-aware follow-up chips based on the confirmed action's date
@@ -235,13 +241,24 @@ export async function orchestrate(
   // Route to appropriate agent(s) — with agent lock for conversation stability
   let agentTypes: ("timeline" | "output" | "mastery")[];
 
-  if (activeAgent && !detectTopicShift(userMessage, activeAgent)) {
-    // Agent lock: stay with current agent unless explicit topic shift
+  // Program queries always break agent lock — they need the Output agent's get_my_programs tool
+  const forceOutputRoute = /program|my program|training program|about.*program/i.test(userMessage.toLowerCase());
+
+  if (activeAgent && !forceOutputRoute && !detectTopicShift(userMessage, activeAgent)) {
+    // Agent lock: stay with current agent unless explicit topic shift or program query
     agentTypes = [activeAgent as "timeline" | "output" | "mastery"];
   } else {
     agentTypes = routeToAgents(userMessage, context, lastAgentType);
   }
   const primaryAgent = agentTypes[0];
+
+  logger.info("[orchestrator] routing", {
+    primaryAgent,
+    allAgents: agentTypes,
+    forceOutputRoute,
+    activeAgent,
+    messagePreview: userMessage.substring(0, 80),
+  });
 
   // Build combined tools and system prompt for this request
   const { tools, systemPrompt } = buildAgentConfig(agentTypes, context, conversationState);
@@ -264,13 +281,16 @@ export async function orchestrate(
   const refreshTargets: string[] = [];
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-    const response = await anthropic.messages.create({
-      model,
-      max_tokens: 1024,
-      system: systemPrompt,
-      tools: tools as Anthropic.Tool[],
-      messages,
-    });
+    const response = await withRetry(
+      () => anthropic.messages.create({
+        model,
+        max_tokens: 4096,
+        system: systemPrompt,
+        tools: tools as Anthropic.Tool[],
+        messages,
+      }),
+      '[orchestrator] Claude API'
+    );
 
     // If end_turn — extract text and return
     if (response.stop_reason === "end_turn") {
@@ -282,11 +302,27 @@ export async function orchestrate(
       const finalMessage = text || "I couldn't process that — try rephrasing?";
       const validation = validateResponse(finalMessage);
       if (!validation.safe) {
-        console.warn("[chat-guardrail] Response leak detected, sanitizing...");
+        logger.warn("[chat-guardrail] Response leak detected, sanitizing");
       }
+
+      // Debug: log what Claude returned so we can diagnose parse failures
+      const rawPreview = validation.sanitized.substring(0, 200);
+      logger.info("[orchestrator] Claude raw response preview", {
+        length: validation.sanitized.length,
+        startsWithBrace: validation.sanitized.trim().startsWith('{'),
+        hasJsonFence: validation.sanitized.includes('```json'),
+        hasHeadline: validation.sanitized.includes('"headline"'),
+        hasCards: validation.sanitized.includes('"cards"'),
+        preview: rawPreview,
+      });
 
       // Try to parse structured response from Claude's output
       const structured = parseStructuredResponse(validation.sanitized);
+
+      logger.info("[orchestrator] Parse result", {
+        parsed: !!structured,
+        cardCount: structured?.cards?.length ?? 0,
+      });
 
       // Auto-generate per-drill chips from session_plan cards
       if (structured) {
@@ -340,7 +376,7 @@ export async function orchestrate(
         try {
           validation = await validateCalendarActions(actions, context);
         } catch (err) {
-          console.warn("[orchestrator] Calendar validation failed:", err instanceof Error ? err.message : err);
+          logger.warn("[orchestrator] Calendar validation failed", { error: err instanceof Error ? err.message : String(err) });
         }
 
         const { warnings: calendarWarnings, suggestedSlots } = validation;
@@ -457,6 +493,11 @@ export async function orchestrate(
     break;
   }
 
+  logger.error("[orchestrator] Exhausted tool iterations without final response", {
+    userId: context.userId,
+    agent: primaryAgent,
+    iterations: MAX_TOOL_ITERATIONS,
+  });
   return {
     message: "I couldn't process that — try rephrasing?",
     refreshTargets,

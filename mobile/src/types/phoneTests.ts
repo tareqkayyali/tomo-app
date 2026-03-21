@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 /**
  * Phone Test Types & Definitions
  * 5 phone-based athletic tests using screen + sensors
@@ -54,7 +55,7 @@ export const PHONE_TESTS: PhoneTestDef[] = [
     name: 'Reaction Speed',
     shortName: 'Reaction',
     icon: 'hand-left-outline',
-    color: '#FF6B35',
+    color: colors.accent,
     category: 'reaction',
     description: 'Tap colored targets as fast as you can. Measures pure reaction time.',
     durationSeconds: 30,
@@ -71,7 +72,7 @@ export const PHONE_TESTS: PhoneTestDef[] = [
     name: 'Vertical Jump',
     shortName: 'Jump',
     icon: 'arrow-up-outline',
-    color: '#7B61FF',
+    color: colors.info,
     category: 'explosive',
     description: 'Hold phone and jump. Accelerometer measures hang time to estimate jump height.',
     durationSeconds: 20,
@@ -88,7 +89,7 @@ export const PHONE_TESTS: PhoneTestDef[] = [
     name: 'Sprint Speed',
     shortName: 'Sprint',
     icon: 'speedometer-outline',
-    color: '#00D9FF',
+    color: colors.info,
     category: 'speed',
     description: 'Hold phone and sprint. Detects start and stop from accelerometer data.',
     durationSeconds: 15,
@@ -105,7 +106,7 @@ export const PHONE_TESTS: PhoneTestDef[] = [
     name: 'Agility Shuffle',
     shortName: 'Agility',
     icon: 'swap-horizontal-outline',
-    color: '#30D158',
+    color: colors.accent,
     category: 'agility',
     description: 'Shuffle left and right following cues. Measures reaction and lateral speed.',
     durationSeconds: 30,
@@ -122,7 +123,7 @@ export const PHONE_TESTS: PhoneTestDef[] = [
     name: 'Balance Test',
     shortName: 'Balance',
     icon: 'body-outline',
-    color: '#FFD60A',
+    color: colors.warning,
     category: 'balance',
     description: 'Stand on one leg holding phone. Gyroscope measures how stable you remain.',
     durationSeconds: 30,

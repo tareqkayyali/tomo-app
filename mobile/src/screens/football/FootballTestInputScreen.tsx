@@ -412,7 +412,7 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
           {/* New PB Badge */}
           {resultData.isNewPB && (
             <View style={styles.pbBadge}>
-              <Ionicons name="trophy" size={16} color="#FFD700" />
+              <Ionicons name="trophy" size={16} color={colors.warning} />
               <Text style={styles.pbBadgeText}>New Personal Best!</Text>
             </View>
           )}
@@ -477,7 +477,7 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
             fadeOut
             autoStart
             fallSpeed={3000}
-            colors={[colors.accent1, colors.accent2, '#FFD700', '#FFFFFF']}
+            colors={[colors.accent1, colors.accent2, colors.tierGold, colors.textPrimary]}
           />
         )}
       </SafeAreaView>
@@ -850,7 +850,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.textInactive,
     },
     selectPillTextActive: {
-      color: '#FFFFFF',
+      color: colors.textPrimary,
       fontFamily: fontFamily.semiBold,
     },
 
@@ -906,7 +906,7 @@ function createStyles(colors: ThemeColors) {
     pbBadgeText: {
       fontFamily: fontFamily.bold,
       fontSize: 14,
-      color: '#30D158',
+      color: colors.accent,
     },
 
     // ── Derived Metrics ──
@@ -1037,7 +1037,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.textInactive,
     },
     selfRatingTextActive: {
-      color: '#FFFFFF',
+      color: colors.textPrimary,
     },
   });
 }

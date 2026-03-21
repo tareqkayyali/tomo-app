@@ -30,10 +30,20 @@ import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { ParentTabParamList, ParentStackParamList } from '../../navigation/types';
 import type { PlayerSummary, StudyProfile, ExamEntry } from '../../types';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<ParentTabParamList, 'Exams'>,
+// @ts-ignore — Legacy tab name, now embedded in ParentChildDetailScreen
+type TabProps = CompositeScreenProps<
+  BottomTabScreenProps<ParentTabParamList, 'Children'>,
   NativeStackScreenProps<ParentStackParamList>
 >;
+
+// Props can come from tab navigation OR embedded in ParentChildDetailScreen
+interface EmbeddedProps {
+  childId?: string;
+  childName?: string;
+  navigation?: any;
+}
+
+type Props = TabProps | EmbeddedProps;
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -55,48 +65,64 @@ function examTypeEmoji(type: string): string {
 
 // ── Component ────────────────────────────────────────────────────────────
 
-export function ParentExamScreen({ navigation }: Props) {
+export function ParentExamScreen(props: Props) {
   const { colors } = useTheme();
+  const navigation = (props as any).navigation;
+
+  // If childId is provided directly (embedded mode), skip child fetching
+  const embeddedChildId = (props as EmbeddedProps).childId;
+  const embeddedChildName = (props as EmbeddedProps).childName;
+  const isEmbedded = !!embeddedChildId;
 
   const [children, setChildren] = useState<PlayerSummary[]>([]);
-  const [selectedChild, setSelectedChild] = useState<PlayerSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedChild, setSelectedChild] = useState<PlayerSummary | null>(
+    embeddedChildId ? { id: embeddedChildId, name: embeddedChildName || '' } as PlayerSummary : null
+  );
+  const [loading, setLoading] = useState(!isEmbedded);
   const [studyProfile, setStudyProfile] = useState<StudyProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  // ── Fetch children ──────────────────────────────────────────────────
+  // ── Fetch children (only if not embedded) ─────────────────────────
 
   useEffect(() => {
+    if (isEmbedded) return;
+    let isMounted = true;
     (async () => {
       try {
         const res = await getParentChildren();
+        if (!isMounted) return;
         setChildren(res.children);
         if (res.children.length > 0) setSelectedChild(res.children[0]);
-      } catch {
-        // silent
+      } catch (e) {
+        console.warn('[ParentExamScreen] fetch children error:', e);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     })();
-  }, []);
+    return () => { isMounted = false; };
+  }, [isEmbedded]);
 
   // ── Fetch study profile when child changes ──────────────────────────
 
   useEffect(() => {
     if (!selectedChild) return;
+    let isMounted = true;
     setProfileLoading(true);
     setStudyProfile(null);
 
     (async () => {
       try {
         const res = await getChildStudyProfile(selectedChild.id);
+        if (!isMounted) return;
         setStudyProfile(res.studyProfile);
-      } catch {
-        setStudyProfile(null);
+      } catch (e) {
+        console.warn('[ParentExamScreen] fetch study profile error:', e);
+        if (isMounted) setStudyProfile(null);
       } finally {
-        setProfileLoading(false);
+        if (isMounted) setProfileLoading(false);
       }
     })();
+    return () => { isMounted = false; };
   }, [selectedChild]);
 
   // ── Computed ────────────────────────────────────────────────────────
@@ -130,7 +156,7 @@ export function ParentExamScreen({ navigation }: Props) {
     );
   }
 
-  if (children.length === 0) {
+  if (!isEmbedded && children.length === 0) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.emptyContainer}>
@@ -151,16 +177,18 @@ export function ParentExamScreen({ navigation }: Props) {
   // ── Render ──────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.headerArea}>
-        <Text style={[styles.screenTitle, { color: colors.textOnDark }]}>
-          {firstName}'s Exams
-        </Text>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={isEmbedded ? [] : ['top']}>
+      {/* Header — only show when standalone, not embedded */}
+      {!isEmbedded && (
+        <View style={styles.headerArea}>
+          <Text style={[styles.screenTitle, { color: colors.textOnDark }]}>
+            {firstName}'s Exams
+          </Text>
+        </View>
+      )}
 
-      {/* Child selector */}
-      {children.length > 1 && (
+      {/* Child selector — only show when standalone with multiple children */}
+      {!isEmbedded && children.length > 1 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}

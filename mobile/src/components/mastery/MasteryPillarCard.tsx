@@ -19,9 +19,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { GlassCard } from '../GlassCard';
 import { DualLayerMetricRow } from './DualLayerMetricRow';
 import { useTheme } from '../../hooks/useTheme';
+import { useComponentStyle } from '../../hooks/useComponentStyle';
 import { fontFamily } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import type { MasteryPillar, MasteryMetric } from '../../services/api';
+import { colors } from '../../theme/colors';
 
 // Enable LayoutAnimation on Android
 if (
@@ -34,11 +36,11 @@ if (
 // ── Zone color helper ────────────────────────────────────────────────
 
 const ZONE_COLORS: Record<string, string> = {
-  elite: '#27AE60',
-  good: '#2ECC71',
-  average: '#3498DB',
-  developing: '#F39C12',
-  below: '#E74C3C',
+  elite: colors.accentDark,
+  good: colors.accent,
+  average: colors.info,
+  developing: colors.warning,
+  below: colors.error,
 };
 
 function getPercentileZone(percentile: number): string {
@@ -50,8 +52,8 @@ function getPercentileZone(percentile: number): string {
 }
 
 function getZoneColor(percentile: number | null): string {
-  if (percentile === null) return '#3498DB';
-  return ZONE_COLORS[getPercentileZone(percentile)] || '#3498DB';
+  if (percentile === null) return colors.info;
+  return ZONE_COLORS[getPercentileZone(percentile)] || colors.info;
 }
 
 // ── Compact metric chip (collapsed state) ────────────────────────────
@@ -134,6 +136,7 @@ interface Props {
 
 export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
   const { colors } = useTheme();
+  const { getComponentStyle } = useComponentStyle();
   const [expanded, setExpanded] = useState(initialExpanded);
 
   const toggleExpand = useCallback(() => {
@@ -162,7 +165,7 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
         <View style={styles.headerLeft}>
           <Text style={styles.emoji}>{pillar.emoji}</Text>
           <Text
-            style={[styles.title, { color: colors.textOnDark }]}
+            style={[styles.title, { color: colors.textOnDark }, getComponentStyle('pillar_title')]}
             numberOfLines={1}
           >
             {pillar.displayName}
@@ -176,7 +179,7 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
                 { backgroundColor: zoneColor + '22', borderColor: zoneColor },
               ]}
             >
-              <Text style={[styles.percentileText, { color: zoneColor }]}>
+              <Text style={[styles.percentileText, { color: zoneColor }, getComponentStyle('pillar_value')]}>
                 P{pillar.avgPercentile}
               </Text>
             </View>
@@ -189,10 +192,12 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
         </View>
       </TouchableOpacity>
 
-      {/* Description — always visible */}
-      <Text style={[styles.description, { color: colors.textMuted }]}>
-        {pillar.athleteDescription}
-      </Text>
+      {/* Description — only when expanded */}
+      {expanded && (
+        <Text style={[styles.description, { color: colors.textMuted }, getComponentStyle('pillar_description')]}>
+          {pillar.athleteDescription}
+        </Text>
+      )}
 
       {/* Collapsed: top 2 metric chips */}
       {!expanded && topMetrics.length > 0 && (

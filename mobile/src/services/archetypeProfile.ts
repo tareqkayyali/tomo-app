@@ -19,6 +19,7 @@
  */
 
 import type { Archetype } from '../types';
+import { colors } from '../theme/colors';
 
 export interface ArchetypeProfile {
   name: string;
@@ -31,7 +32,7 @@ const PROFILES: Record<Archetype, ArchetypeProfile> = {
   phoenix: {
     name: 'The Phoenix',
     tone: 'Self-renewal, smart pacing',
-    color: '#FF6B6B',
+    color: colors.error,
     microcopyExamples: [
       'Rise again, stronger than before.',
       'Recovery is your superpower.',
@@ -42,7 +43,7 @@ const PROFILES: Record<Archetype, ArchetypeProfile> = {
   titan: {
     name: 'The Titan',
     tone: 'Solid, patient force',
-    color: '#4C6EF5',
+    color: colors.info,
     microcopyExamples: [
       'Steady effort builds greatness.',
       'Patience is your edge.',
@@ -53,7 +54,7 @@ const PROFILES: Record<Archetype, ArchetypeProfile> = {
   blade: {
     name: 'The Blade',
     tone: 'Sharp, precise, minimalist',
-    color: '#12B886',
+    color: colors.accent,
     microcopyExamples: [
       'Quality over quantity. Always.',
       'One sharp session beats three dull ones.',
@@ -64,7 +65,7 @@ const PROFILES: Record<Archetype, ArchetypeProfile> = {
   surge: {
     name: 'The Surge',
     tone: 'Dynamic, emotional, explosive',
-    color: '#FFD43B',
+    color: colors.warning,
     microcopyExamples: [
       'Channel that energy today.',
       'Variety keeps you sharp.',
@@ -77,7 +78,7 @@ const PROFILES: Record<Archetype, ArchetypeProfile> = {
 const DEFAULT_PROFILE: ArchetypeProfile = {
   name: 'Athlete',
   tone: 'Balanced, encouraging',
-  color: '#4A90A4',
+  color: colors.info,
   microcopyExamples: [
     'Every check-in counts.',
     'Stay consistent. Results will follow.',

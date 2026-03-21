@@ -10,7 +10,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import NetInfo from '@react-native-community/netinfo';
+// NetInfo is optional — gracefully degrade if not installed
+let NetInfo: { addEventListener?: (cb: (state: { isConnected: boolean | null }) => void) => () => void } | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  NetInfo = require('@react-native-community/netinfo').default;
+} catch {
+  // Package not installed — network-restore flush disabled
+}
 import { eventQueue } from '../services/eventQueue';
 
 export function useEventQueue() {
@@ -59,9 +66,10 @@ export function useEventQueue() {
     return () => subscription.remove();
   }, [flush]);
 
-  // Flush on network connectivity restored
+  // Flush on network connectivity restored (only if NetInfo is available)
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
+    if (!NetInfo?.addEventListener) return;
+    const unsubscribe = NetInfo.addEventListener((state: { isConnected: boolean | null; isInternetReachable?: boolean | null }) => {
       if (state.isConnected && state.isInternetReachable !== false) {
         flush();
       }

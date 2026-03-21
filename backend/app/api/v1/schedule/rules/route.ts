@@ -89,8 +89,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
-    console.log("[schedule/rules PATCH] user:", auth.user.id, "fields:", Object.keys(updates).join(", "));
-
     const db = supabaseAdmin();
     const upsertPayload = {
       user_id: auth.user.id,

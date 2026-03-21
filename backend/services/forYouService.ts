@@ -285,7 +285,7 @@ async function generateAIRecommendations(
 
   try {
     const client = new Anthropic({ apiKey });
-    const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
+    const model = process.env.ANTHROPIC_FORYOU_MODEL || "claude-haiku-4-5-20251001";
 
     // Find weakest attribute
     const attrs = Object.entries(data.attributeScores);

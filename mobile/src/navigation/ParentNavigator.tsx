@@ -1,35 +1,39 @@
 /**
- * Parent Navigator — 4-tab bottom navigation
+ * Parent Navigator — 2-tab bottom navigation
  *
- * Tabs:
- *   Timeline | Exams | Mastery | Settings
+ * Tabs: Children | Profile
  *
- * Stack wraps tabs + detail screens for drill-in navigation.
+ * Child detail screen has inline 3-tab layout:
+ *   Timeline | Exams | Mastery
+ *
+ * Stack wraps tabs + detail screens:
+ *   ParentTabs → ParentChildDetail → ParentAddStudy → ParentAddExam → etc.
  */
 
-import React from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, StyleSheet, Pressable, PanResponder, Platform } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 
-import {
-  ParentCalendarScreen,
-  ParentChildPlanScreen,
-  ParentExamScreen,
-  ParentMasteryScreen,
-  ParentAddStudyScreen,
-  ParentAddExamScreen,
-  ParentInviteScreen,
-  ParentSettingsScreen,
-} from '../screens/parent';
+import { ParentChildrenScreen } from '../screens/parent/ParentChildrenScreen';
+import { ParentChildDetailScreen } from '../screens/parent/ParentChildDetailScreen';
+import { ParentCalendarScreen } from '../screens/parent/ParentCalendarScreen';
+import { ParentAddStudyScreen } from '../screens/parent/ParentAddStudyScreen';
+import { ParentAddExamScreen } from '../screens/parent/ParentAddExamScreen';
+import { ParentInviteScreen } from '../screens/parent/ParentInviteScreen';
+import { ParentProfileScreen } from '../screens/parent/ParentProfileScreen';
 import { RecommendEventScreen } from '../screens/RecommendEventScreen';
-
 import { ProfileScreen } from '../screens/ProfileScreen';
 
-import type { ParentTabParamList, ParentStackParamList } from './types';
-import { layout, spacing } from '../theme';
 import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../hooks/useAuth';
+import { HeaderProfileButton } from '../components/HeaderProfileButton';
+import { NotificationBell } from '../components/NotificationBell';
+import { layout, spacing } from '../theme';
+import type { ParentTabParamList, ParentStackParamList } from './types';
 
 const Tab = createBottomTabNavigator<ParentTabParamList>();
 const Stack = createNativeStackNavigator<ParentStackParamList>();
@@ -39,27 +43,56 @@ const Stack = createNativeStackNavigator<ParentStackParamList>();
 type TabName = keyof ParentTabParamList;
 
 const TAB_ICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
-  Timeline: 'calendar-outline',
-  Exams: 'school-outline',
-  Mastery: 'trending-up-outline',
-  Settings: 'settings-outline',
+  Children: 'people-outline',
+  ParentProfile: 'person-circle-outline',
 };
 
 const TAB_LABELS: Record<TabName, string> = {
-  Timeline: 'Timeline',
-  Exams: 'Exams',
-  Mastery: 'Mastery',
-  Settings: 'Settings',
+  Children: 'Children',
+  ParentProfile: 'Profile',
 };
 
 // ── Tab Navigator ───────────────────────────────────────────────────
 
+const PARENT_TAB_ORDER = ['Children', 'ParentProfile'] as const;
+
 function ParentTabNavigator() {
   const { colors } = useTheme();
+  const [activeTab, setActiveTab] = useState<string>('Children');
+  const navRef = useRef<any>(null);
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt, gs) =>
+        Math.abs(gs.dx) > 30 && Math.abs(gs.dy) < Math.abs(gs.dx) * 0.5,
+      onPanResponderRelease: (_evt, gs) => {
+        if (Math.abs(gs.dx) < 60) return;
+        const currentIdx = PARENT_TAB_ORDER.indexOf(activeTabRef.current as any);
+        if (currentIdx === -1) return;
+        const nextIdx = gs.dx < 0
+          ? Math.min(currentIdx + 1, PARENT_TAB_ORDER.length - 1)
+          : Math.max(currentIdx - 1, 0);
+        if (nextIdx !== currentIdx && navRef.current) {
+          navRef.current.navigate(PARENT_TAB_ORDER[nextIdx]);
+          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      },
+    })
+  ).current;
 
   return (
+    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
     <Tab.Navigator
-      initialRouteName="Timeline"
+      initialRouteName="Children"
+      screenListeners={({ navigation }) => {
+        navRef.current = navigation;
+        return { state: (e: any) => {
+          const idx = e.data?.state?.index;
+          if (idx != null) setActiveTab(PARENT_TAB_ORDER[idx]);
+        }};
+      }}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ color, size }) => (
@@ -76,24 +109,66 @@ function ParentTabNavigator() {
         }],
       })}
     >
-      <Tab.Screen name="Timeline" component={ParentChildPlanScreen} />
-      <Tab.Screen name="Exams" component={ParentExamScreen} />
-      <Tab.Screen name="Mastery" component={ParentMasteryScreen} />
-      <Tab.Screen name="Settings" component={ParentSettingsScreen} />
+      <Tab.Screen name="Children" component={ParentChildrenScreen} />
+      <Tab.Screen name="ParentProfile" component={ParentProfileScreen} />
     </Tab.Navigator>
+    </View>
   );
 }
 
 // ── Stack wrapping tabs + detail screens ────────────────────────────
+
+function ParentHeaderRight() {
+  const { profile } = useAuth();
+  const navigation = useNavigation<any>();
+  const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <NotificationBell />
+      <HeaderProfileButton
+        initial={initial}
+        photoUrl={profile?.photoUrl ?? undefined}
+        onPress={() => navigation.navigate('ParentTabs', { screen: 'ParentProfile' })}
+      />
+    </View>
+  );
+}
+
+function ParentBackButton() {
+  const nav = useNavigation();
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={() => nav.goBack()}
+      style={{
+        padding: 8,
+        marginLeft: 4,
+        backgroundColor: colors.accent1 + '18',
+        borderRadius: 20,
+        width: 36,
+        height: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      hitSlop={8}
+    >
+      <Ionicons name="chevron-back" size={22} color={colors.accent1} />
+    </Pressable>
+  );
+}
 
 export function ParentNavigator() {
   const { colors } = useTheme();
 
   const stackHeaderOptions = {
     headerStyle: { backgroundColor: colors.background },
-    headerTintColor: colors.textOnDark,
+    headerTintColor: colors.accent1,
     headerTitleStyle: { color: colors.textOnDark },
     headerShadowVisible: false,
+    headerBackTitleVisible: false,
+    headerLeft: () => <ParentBackButton />,
+    headerRight: () => <ParentHeaderRight />,
+    headerRightContainerStyle: { paddingRight: spacing.md } as any,
   };
 
   return (
@@ -105,6 +180,11 @@ export function ParentNavigator() {
       }}
     >
       <Stack.Screen name="ParentTabs" component={ParentTabNavigator} />
+      <Stack.Screen
+        name="ParentChildDetail"
+        component={ParentChildDetailScreen}
+        options={{ headerShown: true, title: 'Child Detail', ...stackHeaderOptions }}
+      />
       <Stack.Screen
         name="ParentDailyView"
         component={ParentCalendarScreen as any}

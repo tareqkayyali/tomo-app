@@ -242,7 +242,7 @@ export function FootballProgressContent({
             const score = attrData?.score ?? 0;
             const trend = attrData?.trend ?? 0;
             const attrColor = FOOTBALL_ATTRIBUTE_COLORS[attr];
-            const barColor = score >= 70 ? '#30D158' : score >= 50 ? '#F39C12' : '#E74C3C';
+            const barColor = score >= 70 ? colors.accent : score >= 50 ? colors.warning : colors.error;
             const isSelected = selectedAttr === attr;
 
             return (
@@ -275,7 +275,7 @@ export function FootballProgressContent({
                     <Ionicons
                       name={trend > 0 ? 'caret-up' : 'caret-down'}
                       size={12}
-                      color={trend > 0 ? '#30D158' : '#F39C12'}
+                      color={trend > 0 ? colors.accent : colors.warning}
                       style={{ marginLeft: 2 }}
                     />
                   )}

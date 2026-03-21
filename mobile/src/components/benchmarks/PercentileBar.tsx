@@ -3,14 +3,17 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BenchmarkResult } from '../../types/benchmarks';
 import { useTheme } from '../../hooks/useTheme';
+import { colors } from '../../theme/colors';
 
-const ZONE_COLORS = {
-  elite: '#27AE60',
-  good: '#2ECC71',
-  average: '#3498DB',
-  developing: '#F39C12',
-  below: '#E74C3C',
-};
+function getZoneColors(colors: { accentDark: string; accent: string; info: string; warning: string; error: string }) {
+  return {
+    elite: colors.accentDark,
+    good: colors.accent,
+    average: colors.info,
+    developing: colors.warning,
+    below: colors.error,
+  };
+}
 
 interface Props {
   benchmark: BenchmarkResult;
@@ -22,11 +25,12 @@ interface Props {
 
 export function PercentileBar({ benchmark, onShowHistory, onLogNew }: Props) {
   const { colors } = useTheme();
-  const color = ZONE_COLORS[benchmark.zone];
+  const zoneColors = getZoneColors(colors);
+  const color = zoneColors[benchmark.zone];
   const fillPct = benchmark.percentile;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { borderTopColor: colors.border }]}>
       <View style={styles.header}>
         <Text style={[styles.label, { color: colors.textOnDark }]}>
           {benchmark.metricLabel}
@@ -70,7 +74,7 @@ export function PercentileBar({ benchmark, onShowHistory, onLogNew }: Props) {
         <View
           style={[
             styles.marker,
-            { left: `${fillPct}%`, backgroundColor: color },
+            { left: `${fillPct}%`, backgroundColor: color, borderColor: colors.background },
           ]}
         />
       </View>
@@ -96,7 +100,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 0.5,
-    borderTopColor: '#2D2D2D',
+    borderTopColor: colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -135,7 +139,7 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: '#0A0A0A',
+    borderColor: colors.background,
     transform: [{ translateX: -7 }],
   },
   zones: { flexDirection: 'row', justifyContent: 'space-between' },

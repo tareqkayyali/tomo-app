@@ -11,19 +11,20 @@ import { useTheme } from '../../hooks/useTheme';
 import { fontFamily } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import type { MasteryMetric } from '../../services/api';
+import { colors } from '../../theme/colors';
 
 // ── Zone colors (same as PercentileBar) ──────────────────────────────
 
 const ZONE_COLORS: Record<string, string> = {
-  elite: '#27AE60',
-  good: '#2ECC71',
-  average: '#3498DB',
-  developing: '#F39C12',
-  below: '#E74C3C',
+  elite: colors.accentDark,
+  good: colors.accent,
+  average: colors.info,
+  developing: colors.warning,
+  below: colors.error,
 };
 
 function getZoneColor(zone: string | null): string {
-  return zone ? ZONE_COLORS[zone] || '#3498DB' : '#3498DB';
+  return zone ? ZONE_COLORS[zone] || colors.info : colors.info;
 }
 
 /**
@@ -88,8 +89,8 @@ export function DualLayerMetricRow({ metric }: Props) {
     deltaFavorable === null
       ? colors.textMuted
       : deltaFavorable
-        ? '#30D158'
-        : '#F39C12';
+        ? colors.accent
+        : colors.warning;
 
   return (
     <View style={styles.container}>

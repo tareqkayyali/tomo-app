@@ -50,12 +50,14 @@ interface QuickOption {
   color: string;
 }
 
-const QUICK_OPTIONS: QuickOption[] = [
-  { type: 'training', name: 'Training', label: 'Training', icon: 'flash', duration: 60, color: '#FF6B35' },
-  { type: 'recovery', name: 'Recovery', label: 'Recovery', icon: 'leaf', duration: 30, color: '#2ED573' },
-  { type: 'study_block', name: 'Study Block', label: 'Study', icon: 'book', duration: 60, color: '#5B7FFF' },
-  { type: 'match', name: 'Match', label: 'Match', icon: 'trophy', duration: 90, color: '#FFD93D' },
-];
+function getQuickOptions(colors: ThemeColors): QuickOption[] {
+  return [
+    { type: 'training', name: 'Training', label: 'Training', icon: 'flash', duration: 60, color: colors.accent },
+    { type: 'recovery', name: 'Recovery', label: 'Recovery', icon: 'leaf', duration: 30, color: colors.accent },
+    { type: 'study_block', name: 'Study Block', label: 'Study', icon: 'book', duration: 60, color: colors.info },
+    { type: 'match', name: 'Match', label: 'Match', icon: 'trophy', duration: 90, color: colors.warning },
+  ];
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -72,6 +74,7 @@ export function QuickScheduleMenu({
 }: QuickScheduleMenuProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const QUICK_OPTIONS = useMemo(() => getQuickOptions(colors), [colors]);
 
   const handleOptionPress = useCallback(
     (option: QuickOption) => {

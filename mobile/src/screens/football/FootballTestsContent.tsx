@@ -56,7 +56,6 @@ export function FootballTestsContent({ navigation }: FootballTestsContentProps) 
 
   const fadeIn0 = useFadeIn(0, { trigger: isFocused });
   const fadeIn1 = useFadeIn(1, { trigger: isFocused });
-  const fadeIn2 = useFadeIn(2, { trigger: isFocused });
 
   const handleStartTest = useCallback(
     (testId: string) => {
@@ -92,38 +91,6 @@ export function FootballTestsContent({ navigation }: FootballTestsContentProps) 
         ))}
       </Animated.View>
 
-      {/* Phone Tests Link */}
-      <Animated.View style={fadeIn2}>
-        <Pressable
-          onPress={() => navigation.navigate('PhoneTestsList')}
-          style={({ pressed }) => [pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-        >
-          <LinearGradient
-            colors={['rgba(255,107,53,0.20)', 'rgba(0,217,255,0.15)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.phoneCard}
-          >
-            <View style={styles.phoneIconWrap}>
-              <LinearGradient
-                colors={colors.gradientOrangeCyan}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.phoneIconBox}
-              >
-                <Ionicons name="phone-portrait-outline" size={28} color="#FFFFFF" />
-              </LinearGradient>
-            </View>
-            <View style={styles.phoneInfo}>
-              <Text style={styles.phoneTitle}>Phone Only</Text>
-              <Text style={styles.phoneDesc}>
-                Reaction, jump, sprint, agility & balance tests using your phone sensors
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textInactive} />
-          </LinearGradient>
-        </Pressable>
-      </Animated.View>
     </>
   );
 }
@@ -247,39 +214,5 @@ function createStyles(colors: ThemeColors) {
       justifyContent: 'flex-end',
     },
 
-    // Phone Card
-    phoneCard: {
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: colors.glassBorder,
-      padding: spacing.lg,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      overflow: 'hidden',
-    },
-    phoneIconWrap: {},
-    phoneIconBox: {
-      width: 48,
-      height: 48,
-      borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    phoneInfo: {
-      flex: 1,
-    },
-    phoneTitle: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 16,
-      color: colors.textOnDark,
-      marginBottom: 2,
-    },
-    phoneDesc: {
-      fontFamily: fontFamily.regular,
-      fontSize: 13,
-      color: colors.textInactive,
-      lineHeight: 18,
-    },
   });
 }

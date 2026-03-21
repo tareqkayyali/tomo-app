@@ -11,6 +11,7 @@ import { useTheme } from '../hooks/useTheme';
 import { SuggestionCard } from './SuggestionCard';
 import { spacing, borderRadius } from '../theme';
 import type { Suggestion } from '../types';
+import { colors } from '../theme/colors';
 
 interface SuggestionsBannerProps {
   suggestions: Suggestion[];
@@ -31,8 +32,8 @@ export function SuggestionsBanner({ suggestions, onResolved }: SuggestionsBanner
         style={[styles.header, { backgroundColor: colors.surface }]}
       >
         <View style={styles.headerLeft}>
-          <View style={[styles.countBadge, { backgroundColor: '#FF6B35' }]}>
-            <Text style={styles.countText}>{suggestions.length}</Text>
+          <View style={[styles.countBadge, { backgroundColor: colors.accent }]}>
+            <Text style={[styles.countText, { color: colors.textOnAccent }]}>{suggestions.length}</Text>
           </View>
           <Text style={[styles.headerTitle, { color: colors.textOnDark }]}>
             Pending Suggestions
@@ -84,7 +85,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   countText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '700',
   },

@@ -70,11 +70,13 @@ export interface RatingPathwayProps {
   trigger?: boolean;
 }
 
-/** Sport-specific gradient for the progress bar fill */
-const SPORT_BAR_GRADIENT: Record<string, [string, string]> = {
-  football: ['#30D158', '#3498DB'],
-  padel: ['#FF6B35', '#00D9FF'],
-};
+/** Sport-specific gradient for the progress bar fill — uses theme tokens */
+function getSportBarGradient(colors: { accent: string; info: string }): Record<string, [string, string]> {
+  return {
+    football: [colors.accent, colors.info],
+    padel: [colors.accent, colors.info],
+  };
+}
 
 // ═══ COMPONENT ═══
 
@@ -93,7 +95,8 @@ export function RatingPathway({
   const entranceStyle = useSpringEntrance(index, 0, trigger);
   const pulseStyle = usePulse(1, 1.2);
   const pct = Math.min(currentRating / 1000, 1);
-  const gradient = SPORT_BAR_GRADIENT[sport] ?? SPORT_BAR_GRADIENT.padel;
+  const sportBarGradients = getSportBarGradient(colors);
+  const gradient = sportBarGradients[sport] ?? sportBarGradients.padel;
 
   // Find next level above current rating
   const nextLevel = allLevels.find((l) => l.minRating > currentRating);

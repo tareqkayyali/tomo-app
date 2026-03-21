@@ -1,8 +1,11 @@
 /**
  * GET /api/v1/parent/children/[id]/study-profile
  *
- * Returns the linked child's study profile data (subjects, exams, training prefs).
+ * Returns the linked child's study profile data (subjects, exams, schedule prefs).
  * Parent only — requires active relationship.
+ *
+ * Reads exam data from player_schedule_preferences (single source of truth)
+ * and basic info from users table.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,8 +28,8 @@ export async function GET(
   if ("error" in relResult) return relResult.error;
 
   const db = supabaseAdmin();
-  // Note: study_subjects, exam_schedule, training_preferences are JSONB columns
-  // added after the last type generation. Using raw query select + type assertion.
+
+  // 1. Get basic user info
   const { data: child, error } = await db
     .from("users")
     .select("name, school_hours")
@@ -37,22 +40,28 @@ export async function GET(
     return NextResponse.json({ error: "Child not found" }, { status: 404 });
   }
 
-  // Fetch JSONB columns separately via raw select to avoid generated type mismatch
-  const { data: rawUser } = await db
-    .from("users")
+  // 2. Get exam/study data from player_schedule_preferences (the correct table)
+  const { data: schedPrefs } = await db
+    .from("player_schedule_preferences")
     .select("*")
-    .eq("id", childId)
+    .eq("user_id", childId)
     .single();
 
-  const raw = rawUser as Record<string, unknown> | null;
+  const prefs = schedPrefs as Record<string, unknown> | null;
+
+  // 3. Build study profile from the correct source
+  const examSchedule = (prefs?.exam_schedule as any[]) || [];
+  const studySubjects = (prefs?.study_subjects as string[]) || (prefs?.exam_subjects as string[]) || [];
 
   return NextResponse.json({
     studyProfile: {
       name: child.name,
-      studySubjects: (raw?.study_subjects as unknown[]) || [],
-      examSchedule: (raw?.exam_schedule as unknown[]) || [],
-      trainingPreferences: (raw?.training_preferences as Record<string, unknown>) || {},
-      studyPlanConfig: (raw?.study_plan_config as Record<string, unknown>) || {},
+      studySubjects,
+      examSchedule,
+      examPeriodActive: prefs?.exam_period_active ?? false,
+      examStartDate: prefs?.exam_start_date ?? null,
+      preExamStudyWeeks: prefs?.pre_exam_study_weeks ?? 4,
+      daysPerSubject: prefs?.days_per_subject ?? 2,
       schoolHours: child.school_hours,
     },
   });

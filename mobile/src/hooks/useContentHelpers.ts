@@ -16,6 +16,7 @@ import { useMemo } from 'react';
 import { useContent } from './useContentProvider';
 import type { ContentBundle } from '../services/contentService';
 import { DERIVED_METRIC_CALCULATORS } from '../services/derivedMetricCalculators';
+import { colors } from '../theme/colors';
 
 // ═══ TYPES ═══
 
@@ -126,7 +127,7 @@ export function extractBlazePodDrills(
     name: item.content?.name ?? '',
     shortName: item.content?.shortName ?? '',
     icon: item.content?.icon ?? 'flash-outline',
-    color: item.content?.color ?? '#FF6B35',
+    color: item.content?.color ?? colors.accent,
     sets: item.content?.sets ?? 3,
     setDurationSec: item.content?.setDurationSec ?? 30,
     restBetweenSetsSec: item.content?.restBetweenSetsSec ?? 30,
@@ -223,10 +224,10 @@ export function useContentItems(
 // ═══ SPORT OPTIONS ═══
 
 const FALLBACK_SPORT_OPTIONS = [
-  { value: 'padel', label: 'Padel', icon: 'tennisball', color: '#FF6B35', available: true },
-  { value: 'football', label: 'Football', icon: 'football', color: '#30D158', available: true },
-  { value: 'basketball', label: 'Basketball', icon: 'basketball', color: '#FF9500', available: false },
-  { value: 'tennis', label: 'Tennis', icon: 'tennisball-outline', color: '#00D9FF', available: false },
+  { value: 'padel', label: 'Padel', icon: 'tennisball', color: colors.accent, available: true },
+  { value: 'football', label: 'Football', icon: 'football', color: colors.accent, available: true },
+  { value: 'basketball', label: 'Basketball', icon: 'basketball', color: colors.warning, available: false },
+  { value: 'tennis', label: 'Tennis', icon: 'tennisball-outline', color: colors.info, available: false },
 ];
 
 /**

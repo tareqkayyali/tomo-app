@@ -15,15 +15,19 @@ export function useRelationships() {
     try {
       const res = await getRelationships();
       setRelationships(res.relationships || []);
-    } catch {
-      // Silently fail
+    } catch (e) {
+      console.warn('[useRelationships] fetch error:', e);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchRelationships();
+    let isMounted = true;
+    (async () => {
+      await fetchRelationships();
+    })();
+    return () => { isMounted = false; };
   }, [fetchRelationships]);
 
   return {
