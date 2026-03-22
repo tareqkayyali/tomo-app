@@ -500,14 +500,9 @@ function P2Card({
         >
           <View style={[s.typeRow, { flex: 1 }]}>
             <Ionicons name={config.icon} size={18} color={config.color} />
-            <Text style={s.p2Title} numberOfLines={1}>{rec.title}</Text>
+            <Text style={s.p2Title} numberOfLines={2}>{rec.title}</Text>
           </View>
-          <View style={s.typeRow}>
-            {expiry && (
-              <Text style={[s.expiryText, { color: expiryColor(rec.expiresAt, colors) }]}>
-                {expiry}
-              </Text>
-            )}
+          <View style={[s.typeRow, { flexShrink: 0 }]}>
             <Badge label={PRIORITY_LABELS[2]} variant="warning" size="small" />
             <Ionicons
               name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -587,7 +582,7 @@ function P3Card({
         <View style={[s.topRow, { marginBottom: spacing.xs }]}>
           <View style={[s.typeRow, { flex: 1 }]}>
             <Ionicons name={config.icon} size={16} color={config.color} />
-            <Text style={s.p3Title} numberOfLines={1}>{rec.title}</Text>
+            <Text style={s.p3Title} numberOfLines={2}>{rec.title}</Text>
             {hasRag && <Ionicons name="library-outline" size={12} color={colors.textMuted} style={{ marginLeft: 4 }} />}
           </View>
           {expiry && (
