@@ -129,7 +129,7 @@ Every recommendation MUST include an "action" object that deep-links to a specif
 
 | Intent | action.type | action.params | Example action.label |
 |--------|------------|---------------|---------------------|
-| Run a phone test (sprint, jump, agility, etc.) | "PhoneTestsList" | (none) | "Run a Test" |
+| Run a phone test (sprint, jump, agility, etc.) | "Test" | { "initialTab": "metrics" } | "Run a Test" |
 | Schedule a training session | "AddEvent" | { "initialType": "training" } | "Schedule Training" |
 | Schedule a study block | "AddEvent" | { "initialType": "study_block" } | "Schedule Study" |
 | Schedule recovery | "AddEvent" | { "initialType": "recovery" } | "Plan Recovery" |
