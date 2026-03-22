@@ -162,7 +162,8 @@ Rules:
   - Recovery protocols to plan ahead
 - CRITICAL: P2 content must say "today"/"now"/"tonight". P3 content must say "tomorrow"/"next few days".
 - For young athletes (U15 and below): warm, encouraging tone. U17+: direct, peer-level.
-- body_short must be ≤140 characters, action-oriented, specific
+- title must be SHORT — max 35 characters. Be punchy: "Check In Now", "Log Training", "Plan Study Block"
+- body_short must be ≤120 characters, action-oriented, specific
 - body_long must be 2–4 sentences with specific numbers and clear reasoning
 - Cross-reference data: e.g., poor sleep + high ACWR + exam in 2 days = compound risk
 - Never repeat what the existing event-triggered recs already cover (they're listed below)

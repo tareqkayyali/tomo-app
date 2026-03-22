@@ -725,7 +725,7 @@ function createStyles(colors: ThemeColors) {
     // P1
     p1Title: {
       fontFamily: fontFamily.bold,
-      fontSize: 18,
+      fontSize: 15,
       color: colors.textOnDark,
       marginBottom: spacing.xs,
     },
@@ -750,7 +750,7 @@ function createStyles(colors: ThemeColors) {
     // P2
     p2Title: {
       fontFamily: fontFamily.semiBold,
-      fontSize: 15,
+      fontSize: 13,
       color: colors.textOnDark,
     },
     p2Body: {
@@ -763,7 +763,7 @@ function createStyles(colors: ThemeColors) {
     // P3
     p3Title: {
       fontFamily: fontFamily.semiBold,
-      fontSize: 14,
+      fontSize: 13,
       color: colors.textOnDark,
     },
     p3Body: {
