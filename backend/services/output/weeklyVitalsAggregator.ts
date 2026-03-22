@@ -22,6 +22,7 @@ export interface VitalMetricSummary {
   trendPercent: number; // e.g. +12 or -5
   summary: string; // plain English
   color: string;
+  lastRecordedAt: string | null; // ISO date of most recent reading for this metric
 }
 
 export interface WeeklyVitalsSummary {
@@ -84,22 +85,24 @@ export async function aggregateWeeklyVitals(
   const currentData = (currentRes.data || []) as Array<{ metric_type: string; value: number; date: string }>;
   const priorData = (priorRes.data || []) as Array<{ metric_type: string; value: number; date: string }>;
 
-  // Group by metric
+  // Group by metric (values + latest date)
   const currentGrouped = groupByMetric(currentData);
   const priorGrouped = groupByMetric(priorData);
 
   const metrics: VitalMetricSummary[] = [];
 
-  for (const [metric, values] of Object.entries(currentGrouped)) {
+  for (const [metric, grouped] of Object.entries(currentGrouped)) {
     const config = METRIC_CONFIG[metric];
     if (!config) continue;
 
+    const values = grouped.values;
     const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length * 10) / 10;
     const min = Math.round(Math.min(...values) * 10) / 10;
     const max = Math.round(Math.max(...values) * 10) / 10;
 
     // Trend vs prior week
-    const priorValues = priorGrouped[metric] || [];
+    const priorGroupedMetric = priorGrouped[metric];
+    const priorValues = priorGroupedMetric?.values || [];
     const priorAvg = priorValues.length > 0
       ? priorValues.reduce((a, b) => a + b, 0) / priorValues.length
       : avg;
@@ -126,6 +129,7 @@ export async function aggregateWeeklyVitals(
       trendPercent,
       summary,
       color: config.color,
+      lastRecordedAt: grouped.lastDate,
     });
   }
 
@@ -144,11 +148,21 @@ export async function aggregateWeeklyVitals(
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-function groupByMetric(data: Array<{ metric_type: string; value: number }>): Record<string, number[]> {
-  const grouped: Record<string, number[]> = {};
+interface GroupedMetric {
+  values: number[];
+  lastDate: string | null;
+}
+
+function groupByMetric(data: Array<{ metric_type: string; value: number; date: string }>): Record<string, GroupedMetric> {
+  const grouped: Record<string, GroupedMetric> = {};
   for (const row of data) {
-    if (!grouped[row.metric_type]) grouped[row.metric_type] = [];
-    grouped[row.metric_type].push(Number(row.value));
+    if (!grouped[row.metric_type]) {
+      grouped[row.metric_type] = { values: [], lastDate: null };
+    }
+    grouped[row.metric_type].values.push(Number(row.value));
+    if (!grouped[row.metric_type].lastDate || row.date > grouped[row.metric_type].lastDate!) {
+      grouped[row.metric_type].lastDate = row.date;
+    }
   }
   return grouped;
 }

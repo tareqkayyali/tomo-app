@@ -345,6 +345,14 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
                 connectedSources={connectedSources}
                 sourcesLoading={sourcesLoading}
                 onConnectWhoop={() => navigation.navigate('Settings' as any)}
+                onSyncNow={async () => {
+                  try {
+                    const { syncWhoop } = await import('../services/api');
+                    await syncWhoop();
+                    refresh();
+                  } catch { /* sync failed — refresh will show stale state */ }
+                }}
+                onCheckIn={() => navigation.navigate('Checkin' as any)}
               />
             )}
             {activeTab === 'metrics' && <MetricsSection metrics={data.metrics} onTestLogged={refresh} />}

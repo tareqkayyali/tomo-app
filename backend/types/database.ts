@@ -124,6 +124,87 @@ export type Database = {
           },
         ]
       }
+      athlete_recommendations: {
+        Row: {
+          acted_at: string | null
+          athlete_id: string
+          body_long: string | null
+          body_short: string
+          confidence_score: number | null
+          context: Json
+          created_at: string
+          evidence_basis: Json
+          expires_at: string | null
+          priority: number
+          rec_id: string
+          rec_type: string
+          retrieved_chunk_ids: string[] | null
+          status: string
+          title: string
+          trigger_event_id: string | null
+          visible_to_athlete: boolean
+          visible_to_coach: boolean
+          visible_to_parent: boolean
+        }
+        Insert: {
+          acted_at?: string | null
+          athlete_id: string
+          body_long?: string | null
+          body_short: string
+          confidence_score?: number | null
+          context?: Json
+          created_at?: string
+          evidence_basis?: Json
+          expires_at?: string | null
+          priority: number
+          rec_id?: string
+          rec_type: string
+          retrieved_chunk_ids?: string[] | null
+          status?: string
+          title: string
+          trigger_event_id?: string | null
+          visible_to_athlete?: boolean
+          visible_to_coach?: boolean
+          visible_to_parent?: boolean
+        }
+        Update: {
+          acted_at?: string | null
+          athlete_id?: string
+          body_long?: string | null
+          body_short?: string
+          confidence_score?: number | null
+          context?: Json
+          created_at?: string
+          evidence_basis?: Json
+          expires_at?: string | null
+          priority?: number
+          rec_id?: string
+          rec_type?: string
+          retrieved_chunk_ids?: string[] | null
+          status?: string
+          title?: string
+          trigger_event_id?: string | null
+          visible_to_athlete?: boolean
+          visible_to_coach?: boolean
+          visible_to_parent?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_recommendations_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "athlete_recommendations_trigger_event_id_fkey"
+            columns: ["trigger_event_id"]
+            isOneToOne: false
+            referencedRelation: "athlete_events"
+            referencedColumns: ["event_id"]
+          },
+        ]
+      }
       athlete_snapshots: {
         Row: {
           academic_load_7day: number | null
@@ -139,6 +220,7 @@ export type Database = {
           dual_load_index: number | null
           height_cm: number | null
           hrv_baseline_ms: number | null
+          hrv_recorded_at: string | null
           hrv_today_ms: number | null
           injury_risk_flag: string | null
           last_checkin_at: string | null
@@ -153,6 +235,7 @@ export type Database = {
           resting_hr_bpm: number | null
           sessions_total: number
           sleep_quality: number | null
+          sleep_recorded_at: string | null
           snapshot_at: string
           speed_profile: Json
           sport: string | null
@@ -178,6 +261,7 @@ export type Database = {
           dual_load_index?: number | null
           height_cm?: number | null
           hrv_baseline_ms?: number | null
+          hrv_recorded_at?: string | null
           hrv_today_ms?: number | null
           injury_risk_flag?: string | null
           last_checkin_at?: string | null
@@ -192,6 +276,7 @@ export type Database = {
           resting_hr_bpm?: number | null
           sessions_total?: number
           sleep_quality?: number | null
+          sleep_recorded_at?: string | null
           snapshot_at?: string
           speed_profile?: Json
           sport?: string | null
@@ -217,6 +302,7 @@ export type Database = {
           dual_load_index?: number | null
           height_cm?: number | null
           hrv_baseline_ms?: number | null
+          hrv_recorded_at?: string | null
           hrv_today_ms?: number | null
           injury_risk_flag?: string | null
           last_checkin_at?: string | null
@@ -231,6 +317,7 @@ export type Database = {
           resting_hr_bpm?: number | null
           sessions_total?: number
           sleep_quality?: number | null
+          sleep_recorded_at?: string | null
           snapshot_at?: string
           speed_profile?: Json
           sport?: string | null
@@ -1443,6 +1530,98 @@ export type Database = {
           },
         ]
       }
+      rag_knowledge_chunks: {
+        Row: {
+          age_groups: string[] | null
+          athlete_summary: string
+          chunk_id: string
+          coach_summary: string
+          content: string
+          contexts: string[] | null
+          created_at: string | null
+          domain: string
+          embedding: string | null
+          evidence_grade: string | null
+          last_reviewed: string | null
+          phv_stages: string[] | null
+          primary_source: string | null
+          rec_types: string[] | null
+          sports: string[] | null
+          title: string
+        }
+        Insert: {
+          age_groups?: string[] | null
+          athlete_summary: string
+          chunk_id?: string
+          coach_summary: string
+          content: string
+          contexts?: string[] | null
+          created_at?: string | null
+          domain: string
+          embedding?: string | null
+          evidence_grade?: string | null
+          last_reviewed?: string | null
+          phv_stages?: string[] | null
+          primary_source?: string | null
+          rec_types?: string[] | null
+          sports?: string[] | null
+          title: string
+        }
+        Update: {
+          age_groups?: string[] | null
+          athlete_summary?: string
+          chunk_id?: string
+          coach_summary?: string
+          content?: string
+          contexts?: string[] | null
+          created_at?: string | null
+          domain?: string
+          embedding?: string | null
+          evidence_grade?: string | null
+          last_reviewed?: string | null
+          phv_stages?: string[] | null
+          primary_source?: string | null
+          rec_types?: string[] | null
+          sports?: string[] | null
+          title?: string
+        }
+        Relationships: []
+      }
+      rec_delivery_log: {
+        Row: {
+          delivered_at: string
+          delivered_via: string
+          interacted_at: string | null
+          interaction: string | null
+          log_id: string
+          rec_id: string
+        }
+        Insert: {
+          delivered_at?: string
+          delivered_via: string
+          interacted_at?: string | null
+          interaction?: string | null
+          log_id?: string
+          rec_id: string
+        }
+        Update: {
+          delivered_at?: string
+          delivered_via?: string
+          interacted_at?: string | null
+          interaction?: string | null
+          log_id?: string
+          rec_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rec_delivery_log_rec_id_fkey"
+            columns: ["rec_id"]
+            isOneToOne: false
+            referencedRelation: "athlete_recommendations"
+            referencedColumns: ["rec_id"]
+          },
+        ]
+      }
       relationships: {
         Row: {
           accepted_at: string | null
@@ -2359,6 +2538,27 @@ export type Database = {
     }
     Functions: {
       content_manifest: { Args: never; Returns: Json }
+      match_knowledge_chunks: {
+        Args: {
+          filter_age_groups: string[]
+          filter_phv_stages: string[]
+          filter_rec_types: string[]
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          athlete_summary: string
+          chunk_id: string
+          coach_summary: string
+          content: string
+          domain: string
+          evidence_grade: string
+          primary_source: string
+          similarity: number
+          title: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

@@ -1,6 +1,6 @@
 /**
- * VitalsSection — Gen Z redesign with ReadinessHero + 7 VitalGroupCards.
- * Groups wearable data into meaningful clusters with RAG status indicators.
+ * VitalsSection — Two-block layout: "Right Now" (real-time) + "This Week" (historical).
+ * Shows freshness badges, stale data banners, and pushes users to sync/check-in.
  */
 
 import React, { useState } from 'react';
@@ -12,34 +12,52 @@ import { GlassCard } from '../GlassCard';
 import { GlowWrapper } from '../GlowWrapper';
 import type { OutputSnapshot, VitalGroup, VitalMetric } from '../../services/api';
 import { getRagColor, getRagBgColor, getTrendIcon, getTrendColor, getGroupThemeColor } from './outputTypes';
-import { colors } from '../../theme/colors';
+import { colors as themeColors } from '../../theme/colors';
 
 interface Props {
   vitals: OutputSnapshot['vitals'];
-  connectedSources?: string[]; // e.g. ['whoop', 'healthkit']
-  sourcesLoading?: boolean; // true while fetching connection status
-  onConnectWhoop?: () => void; // Navigate to Settings to connect WHOOP
+  connectedSources?: string[];
+  sourcesLoading?: boolean;
+  onConnectWhoop?: () => void;
+  onSyncNow?: () => void;
+  onCheckIn?: () => void;
 }
 
 // Map readiness score to ReadinessRing-compatible level
 const READINESS_MAP: Record<string, { score: number; color: string; glow: string; label: string }> = {
-  Green: { score: 85, color: colors.accent, glow: 'rgba(48, 209, 88, 0.25)', label: 'Ready' },
-  Yellow: { score: 55, color: colors.warning, glow: 'rgba(243, 156, 18, 0.25)', label: 'Caution' },
-  Red: { score: 25, color: colors.error, glow: 'rgba(231, 76, 60, 0.25)', label: 'Rest' },
+  Green: { score: 85, color: themeColors.accent, glow: 'rgba(48, 209, 88, 0.25)', label: 'Ready' },
+  Yellow: { score: 55, color: themeColors.warning, glow: 'rgba(243, 156, 18, 0.25)', label: 'Caution' },
+  Red: { score: 25, color: themeColors.error, glow: 'rgba(231, 76, 60, 0.25)', label: 'Rest' },
 };
 
-export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = false, onConnectWhoop }: Props) {
+// Freshness colors
+const FRESHNESS_COLORS: Record<string, string> = {
+  fresh: '#30D158',
+  aging: '#F39C12',
+  stale: '#E74C3C',
+  no_data: '#6B6B6B',
+};
+
+export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = false, onConnectWhoop, onSyncNow, onCheckIn }: Props) {
   const { colors } = useTheme();
   const { vitalGroups, phv, readiness } = vitals;
+  const realTime = (vitals as any).realTime;
+  const historical = (vitals as any).historical;
   const [heroExpanded, setHeroExpanded] = useState(false);
 
   const readinessInfo = readiness.score ? READINESS_MAP[readiness.score] : null;
-  const hasVitalData = vitalGroups && vitalGroups.some((g) => g.metrics.length > 0);
+  const effectiveGroups = historical?.vitalGroups ?? vitalGroups;
+  const hasVitalData = effectiveGroups && effectiveGroups.some((g: VitalGroup) => g.metrics.length > 0);
   const isWhoopConnected = connectedSources.includes('whoop');
+
+  const overallFreshness = realTime?.overallFreshness ?? 'no_data';
+  const staleBanner = realTime?.staleBanner ?? null;
+  const realTimeMetrics = realTime?.metrics ?? [];
+  const realTimeReadiness = realTime?.readiness ?? null;
 
   return (
     <View style={styles.container}>
-      {/* ── WHOOP Connection Banner (hidden while loading to prevent flash) ── */}
+      {/* ── WHOOP Connection Banner ── */}
       {sourcesLoading ? null : isWhoopConnected ? (
         <View style={[styles.whoopBanner, { backgroundColor: colors.accent + '12', borderColor: colors.accent + '30' }]}>
           <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
@@ -65,15 +83,72 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
         </Pressable>
       ) : null}
 
-      {/* ── Readiness Hero Card ─────────────────────────────────── */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* BLOCK 1: RIGHT NOW                                         */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.textOnDark }]}>Right Now</Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>Latest readings</Text>
+      </View>
+
+      {/* Stale Data Banner */}
+      {staleBanner?.show && (
+        <GlassCard>
+          <View style={[styles.staleBanner, { borderColor: overallFreshness === 'no_data' ? colors.textMuted + '40' : '#E74C3C40' }]}>
+            <Ionicons
+              name="alert-circle-outline"
+              size={22}
+              color={overallFreshness === 'no_data' ? colors.textMuted : '#E74C3C'}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.staleBannerText, { color: colors.textOnDark }]}>
+                {staleBanner.message}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.staleBannerActions}>
+            {isWhoopConnected && onSyncNow && (
+              <TouchableOpacity
+                style={[styles.staleCta, { backgroundColor: colors.accent1 }]}
+                onPress={onSyncNow}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="sync-outline" size={14} color="#FFF" />
+                <Text style={styles.staleCtaText}>Sync Now</Text>
+              </TouchableOpacity>
+            )}
+            {onCheckIn && (
+              <TouchableOpacity
+                style={[styles.staleCta, { backgroundColor: colors.accent2 }]}
+                onPress={onCheckIn}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="create-outline" size={14} color="#FFF" />
+                <Text style={styles.staleCtaText}>Check In</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </GlassCard>
+      )}
+
+      {/* Readiness Hero Card */}
       <GlowWrapper glow={readinessInfo ? 'subtle' : 'none'}>
         <TouchableOpacity activeOpacity={0.8} onPress={() => setHeroExpanded(!heroExpanded)}>
           <GlassCard>
             <View style={styles.heroCenter}>
+              {/* Freshness badge on readiness */}
+              {realTimeReadiness && (
+                <FreshnessBadge
+                  freshness={realTimeReadiness.freshness}
+                  timeAgo={realTimeReadiness.timeAgo}
+                />
+              )}
+
               {/* Large circular readiness indicator */}
               <View style={[styles.readinessCircle, {
                 borderColor: readinessInfo?.color || colors.glassBorder,
                 shadowColor: readinessInfo?.glow || 'transparent',
+                opacity: overallFreshness === 'stale' ? 0.5 : 1,
               }]}>
                 <Text style={[styles.readinessScore, { color: readinessInfo?.color || colors.textMuted }]}>
                   {readinessInfo?.score ?? '—'}
@@ -90,7 +165,7 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
                 {readiness.summary}
               </Text>
 
-              {/* Mini stats row — hidden until tapped */}
+              {/* Mini stats row */}
               {heroExpanded && readiness.energy != null && (
                 <View style={styles.miniStatsRow}>
                   <MiniStat icon="flash" label="Energy" value={readiness.energy} max={5} colors={colors} />
@@ -102,10 +177,9 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
                 </View>
               )}
 
-              {/* Tap hint */}
               {!heroExpanded && readiness.energy != null && (
                 <View style={styles.tapHint}>
-                  <Ionicons name={heroExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textMuted} />
+                  <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
                   <Text style={[styles.tapHintText, { color: colors.textMuted }]}>Tap for details</Text>
                 </View>
               )}
@@ -114,8 +188,24 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
         </TouchableOpacity>
       </GlowWrapper>
 
-      {/* ── Vital Group Cards ───────────────────────────────────── */}
-      {hasVitalData && vitalGroups.map((group, index) => (
+      {/* Real-Time Metric Cards (HRV, Resting HR, Sleep) */}
+      {realTimeMetrics.length > 0 && (
+        <View style={styles.realTimeRow}>
+          {realTimeMetrics.map((m: any) => (
+            <RealTimeCard key={m.metric} metric={m} colors={colors} />
+          ))}
+        </View>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* BLOCK 2: THIS WEEK                                         */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <View style={[styles.sectionHeader, { marginTop: spacing.lg }]}>
+        <Text style={[styles.sectionTitle, { color: colors.textOnDark }]}>This Week</Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>7-day trends</Text>
+      </View>
+
+      {hasVitalData && effectiveGroups.map((group: VitalGroup, index: number) => (
         group.metrics.length > 0 && (
           <VitalGroupCard
             key={group.groupId}
@@ -127,8 +217,8 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
         )
       ))}
 
-      {/* ── Empty State ─────────────────────────────────────────── */}
-      {!hasVitalData && (
+      {/* Empty State */}
+      {!hasVitalData && !staleBanner?.show && (
         <GlassCard>
           <View style={styles.emptyState}>
             <Ionicons name="watch-outline" size={40} color={colors.textMuted} />
@@ -139,6 +229,44 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
           </View>
         </GlassCard>
       )}
+    </View>
+  );
+}
+
+// ── Freshness Badge ─────────────────────────────────────────────────────
+
+function FreshnessBadge({ freshness, timeAgo }: { freshness: string; timeAgo: string }) {
+  const color = FRESHNESS_COLORS[freshness] || FRESHNESS_COLORS.no_data;
+  return (
+    <View style={styles.freshnessBadge}>
+      <View style={[styles.freshnessDot, { backgroundColor: color }]} />
+      <Text style={[styles.freshnessText, { color }]}>
+        {freshness === 'no_data' ? 'No data' : timeAgo}
+      </Text>
+    </View>
+  );
+}
+
+// ── Real-Time Metric Card ───────────────────────────────────────────────
+
+function RealTimeCard({ metric, colors }: { metric: any; colors: any }) {
+  const isStale = metric.freshness === 'stale' || metric.freshness === 'no_data';
+  const freshnessColor = FRESHNESS_COLORS[metric.freshness] || FRESHNESS_COLORS.no_data;
+
+  return (
+    <View style={[styles.realTimeCard, { backgroundColor: colors.glass, opacity: isStale ? 0.5 : 1 }]}>
+      <View style={styles.realTimeCardHeader}>
+        <Text style={styles.realTimeEmoji}>{metric.emoji}</Text>
+        <View style={[styles.freshnessDotSmall, { backgroundColor: freshnessColor }]} />
+      </View>
+      <Text style={[styles.realTimeValue, { color: colors.textOnDark }]}>
+        {metric.value != null ? (Number.isInteger(metric.value) ? metric.value : metric.value.toFixed(1)) : '—'}
+        <Text style={[styles.realTimeUnit, { color: colors.textMuted }]}>{metric.unit}</Text>
+      </Text>
+      <Text style={[styles.realTimeLabel, { color: colors.textMuted }]}>{metric.label}</Text>
+      <Text style={[styles.realTimeTimeAgo, { color: freshnessColor }]}>
+        {metric.freshness === 'no_data' ? 'No data' : metric.timeAgo}
+      </Text>
     </View>
   );
 }
@@ -171,9 +299,7 @@ function VitalGroupCard({ group, phv, colors, index }: {
   const [expanded, setExpanded] = useState(false);
   const themeColor = getGroupThemeColor(group.colorTheme);
   const ragColor = getRagColor(group.ragStatus);
-  const ragBg = getRagBgColor(group.ragStatus);
 
-  // Pick top 2 metrics for collapsed preview
   const previewMetrics = group.metrics.slice(0, 2);
 
   return (
@@ -187,7 +313,6 @@ function VitalGroupCard({ group, phv, colors, index }: {
               {group.displayName}
             </Text>
           </View>
-          {/* RAG dot */}
           {group.ragStatus !== 'none' && (
             <View style={[styles.ragDot, { backgroundColor: ragColor }]} />
           )}
@@ -198,7 +323,7 @@ function VitalGroupCard({ group, phv, colors, index }: {
           />
         </View>
 
-        {/* Collapsed: preview metrics inline */}
+        {/* Collapsed: preview metrics */}
         {!expanded && previewMetrics.length > 0 && (
           <View style={styles.previewRow}>
             {previewMetrics.map((m) => (
@@ -240,7 +365,6 @@ function VitalGroupCard({ group, phv, colors, index }: {
                   <Text style={[styles.phvDesc, { color: colors.textMuted }]}>
                     {phv.ltad.description}
                   </Text>
-                  {/* Progress bar */}
                   <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
                     <View style={[styles.progressFill, {
                       width: `${phv.ltad.progressPercent}%`,
@@ -300,41 +424,62 @@ function MetricRow({ metric, themeColor, colors }: {
 const styles = StyleSheet.create({
   container: { gap: spacing.sm },
 
-  // WHOOP connection banner
+  // Section headers
+  sectionHeader: { marginBottom: spacing.xs },
+  sectionTitle: { fontFamily: fontFamily.semiBold, fontSize: 16 },
+  sectionSubtitle: { fontFamily: fontFamily.regular, fontSize: 12, marginTop: 2 },
+
+  // WHOOP banner
   whoopBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.compact,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.compact,
+    borderRadius: borderRadius.lg, borderWidth: 1,
+  },
+  whoopBannerText: { fontFamily: fontFamily.semiBold, fontSize: 13 },
+  sourcePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: borderRadius.full },
+  sourcePillText: { fontFamily: fontFamily.semiBold, fontSize: 10, letterSpacing: 0.5 },
+
+  // Stale data banner
+  staleBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderLeftWidth: 3, paddingLeft: spacing.sm,
+  },
+  staleBannerText: { fontFamily: fontFamily.medium, fontSize: 13, lineHeight: 19 },
+  staleBannerActions: {
+    flexDirection: 'row', gap: spacing.sm, marginTop: spacing.compact,
+  },
+  staleCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: borderRadius.md,
+  },
+  staleCtaText: { fontFamily: fontFamily.semiBold, fontSize: 12, color: '#FFF' },
+
+  // Freshness badge
+  freshnessBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  freshnessDot: { width: 6, height: 6, borderRadius: 3 },
+  freshnessText: { fontFamily: fontFamily.medium, fontSize: 10 },
+  freshnessDotSmall: { width: 5, height: 5, borderRadius: 2.5 },
+
+  // Real-time cards
+  realTimeRow: { flexDirection: 'row', gap: spacing.sm },
+  realTimeCard: {
+    flex: 1, alignItems: 'center', gap: 3,
+    paddingVertical: spacing.compact, paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
-    borderWidth: 1,
   },
-  whoopBannerText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 13,
-  },
-  sourcePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  sourcePillText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 10,
-    letterSpacing: 0.5,
-  },
+  realTimeCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  realTimeEmoji: { fontSize: 18 },
+  realTimeValue: { fontFamily: fontFamily.bold, fontSize: 20 },
+  realTimeUnit: { fontFamily: fontFamily.regular, fontSize: 11 },
+  realTimeLabel: { fontFamily: fontFamily.medium, fontSize: 11 },
+  realTimeTimeAgo: { fontFamily: fontFamily.regular, fontSize: 9 },
 
   // Hero
   heroCenter: { alignItems: 'center', gap: spacing.sm },
   readinessCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
+    width: 120, height: 120, borderRadius: 60, borderWidth: 4,
+    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs,
   },
   readinessScore: { fontFamily: fontFamily.bold, fontSize: 36 },
   readinessLabel: { fontFamily: fontFamily.medium, fontSize: 13, marginTop: -4 },
@@ -348,11 +493,8 @@ const styles = StyleSheet.create({
   // Mini stats
   miniStatsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
   miniStat: {
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: spacing.compact,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
+    alignItems: 'center', gap: 2,
+    paddingHorizontal: spacing.compact, paddingVertical: spacing.xs, borderRadius: borderRadius.sm,
   },
   miniLabel: { fontFamily: fontFamily.regular, fontSize: 10 },
   miniValue: { fontFamily: fontFamily.semiBold, fontSize: 13 },
@@ -366,12 +508,8 @@ const styles = StyleSheet.create({
   // Preview (collapsed)
   previewRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   previewChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: borderRadius.sm,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: borderRadius.sm,
   },
   previewLabel: { fontFamily: fontFamily.regular, fontSize: 11 },
   previewValue: { fontFamily: fontFamily.semiBold, fontSize: 13 },
@@ -394,12 +532,8 @@ const styles = StyleSheet.create({
 
   // PHV Banner
   phvBanner: {
-    flexDirection: 'row',
-    gap: 10,
-    padding: spacing.compact,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    marginTop: spacing.xs,
+    flexDirection: 'row', gap: 10, padding: spacing.compact,
+    borderRadius: borderRadius.md, borderWidth: 1, marginTop: spacing.xs,
   },
   phvEmoji: { fontSize: 24, marginTop: 2 },
   phvTitle: { fontFamily: fontFamily.semiBold, fontSize: 14 },

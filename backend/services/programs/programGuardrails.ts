@@ -11,31 +11,55 @@
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { InlineProgram, Prescription } from "./footballPrograms";
+import { getRecommendationConfig } from "@/services/recommendations/recommendationConfig";
+import { buildSelectColumns, mapRowToState } from "./snapshotFieldRegistry";
 
 // ── Types ──
 
+/**
+ * SnapshotState — camelCase read model for guardrail evaluation.
+ * Fields are auto-mapped from athlete_snapshots via snapshotFieldRegistry.
+ * When adding new columns, update SNAPSHOT_COLUMNS in snapshotFieldRegistry.ts.
+ */
 export interface SnapshotState {
+  // Load metrics
   acwr: number | null;
   atl7day: number | null;
   ctl28day: number | null;
   dualLoadIndex: number | null;
   athleticLoad7day: number | null;
   academicLoad7day: number | null;
+  // Readiness
   readinessScore: number | null;
   readinessRag: string | null;
   hrvTodayMs: number | null;
   hrvBaselineMs: number | null;
   sleepQuality: number | null;
+  restingHrBpm: number | null;
+  // Vitals freshness timestamps
+  hrvRecordedAt: string | null;
+  sleepRecordedAt: string | null;
+  // Wellness
   wellness7dayAvg: number | null;
   wellnessTrend: string | null;
+  // Injury & flags
   injuryRiskFlag: string | null;
+  triangleRag: string | null;
+  // PHV
   phvStage: string | null;
+  phvOffsetYears: number | null;
+  // Performance history
   sessionsTotal: number | null;
   trainingAgeWeeks: number | null;
   streakDays: number | null;
+  cvCompleteness: number | null;
+  coachabilityIndex: number | null;
+  // JSON blobs
   masteryScores: Record<string, number> | null;
   speedProfile: Record<string, number> | null;
   strengthBenchmarks: Record<string, number> | null;
+  // Allow dynamic field access for custom rules
+  [key: string]: unknown;
 }
 
 export interface GuardrailResult {
@@ -48,130 +72,152 @@ export interface GuardrailResult {
 // ── Fetch Snapshot ──
 
 export async function getSnapshotState(athleteId: string): Promise<SnapshotState | null> {
+  const selectCols = buildSelectColumns();
+
   const { data } = await (supabaseAdmin() as any)
     .from("athlete_snapshots")
-    .select(
-      "acwr, atl_7day, ctl_28day, dual_load_index, athletic_load_7day, " +
-      "academic_load_7day, readiness_score, readiness_rag, hrv_today_ms, " +
-      "hrv_baseline_ms, sleep_quality, wellness_7day_avg, wellness_trend, " +
-      "injury_risk_flag, phv_stage, sessions_total, training_age_weeks, " +
-      "streak_days, mastery_scores, speed_profile, strength_benchmarks"
-    )
+    .select(selectCols)
     .eq("athlete_id", athleteId)
     .maybeSingle();
 
   if (!data) return null;
 
-  return {
-    acwr: data.acwr,
-    atl7day: data.atl_7day,
-    ctl28day: data.ctl_28day,
-    dualLoadIndex: data.dual_load_index,
-    athleticLoad7day: data.athletic_load_7day,
-    academicLoad7day: data.academic_load_7day,
-    readinessScore: data.readiness_score,
-    readinessRag: data.readiness_rag,
-    hrvTodayMs: data.hrv_today_ms,
-    hrvBaselineMs: data.hrv_baseline_ms,
-    sleepQuality: data.sleep_quality,
-    wellness7dayAvg: data.wellness_7day_avg,
-    wellnessTrend: data.wellness_trend,
-    injuryRiskFlag: data.injury_risk_flag,
-    phvStage: data.phv_stage,
-    sessionsTotal: data.sessions_total,
-    trainingAgeWeeks: data.training_age_weeks,
-    streakDays: data.streak_days,
-    masteryScores: data.mastery_scores,
-    speedProfile: data.speed_profile,
-    strengthBenchmarks: data.strength_benchmarks,
-  };
+  return mapRowToState(data) as SnapshotState;
 }
 
 // ── Apply Guardrails ──
 
-export function applyGuardrails(
+export async function applyGuardrails(
   programs: InlineProgram[],
   snapshot: SnapshotState
-): GuardrailResult {
+): Promise<GuardrailResult> {
+  const cfg = await getRecommendationConfig();
+  const g = cfg.guardrails;
   const rules: string[] = [];
   let loadCap = 1.0;
   const blockedCategories: string[] = [];
 
   // ── Rule 1: ACWR Load Gate ──
-  if (snapshot.acwr != null) {
-    if (snapshot.acwr > 1.5) {
-      // DANGER zone — drastically reduce
-      loadCap = Math.min(loadCap, 0.5);
-      rules.push(`ACWR ${snapshot.acwr.toFixed(2)} > 1.5 (danger): load capped at 50%`);
-    } else if (snapshot.acwr > 1.3) {
-      // High zone — moderate reduction
-      loadCap = Math.min(loadCap, 0.7);
-      rules.push(`ACWR ${snapshot.acwr.toFixed(2)} > 1.3 (high): load capped at 70%`);
-    } else if (snapshot.acwr < 0.6) {
-      // Under-training — encourage volume
-      rules.push(`ACWR ${snapshot.acwr.toFixed(2)} < 0.6: athlete under-trained, volume can increase`);
-      // No cap change — allow full load
+  if (g.acwr.enabled && snapshot.acwr != null) {
+    if (snapshot.acwr > g.acwr.dangerThreshold) {
+      loadCap = Math.min(loadCap, g.acwr.dangerCap);
+      rules.push(`ACWR ${snapshot.acwr.toFixed(2)} > ${g.acwr.dangerThreshold} (danger): load capped at ${Math.round(g.acwr.dangerCap * 100)}%`);
+    } else if (snapshot.acwr > g.acwr.highThreshold) {
+      loadCap = Math.min(loadCap, g.acwr.highCap);
+      rules.push(`ACWR ${snapshot.acwr.toFixed(2)} > ${g.acwr.highThreshold} (high): load capped at ${Math.round(g.acwr.highCap * 100)}%`);
+    } else if (snapshot.acwr < g.acwr.detrainingThreshold) {
+      rules.push(`ACWR ${snapshot.acwr.toFixed(2)} < ${g.acwr.detrainingThreshold}: athlete under-trained, volume can increase`);
     }
   }
 
   // ── Rule 2: Readiness Gate ──
-  if (snapshot.readinessRag === "RED") {
-    loadCap = Math.min(loadCap, 0.5);
-    rules.push("Readiness RED: max 50% load, skip high-intensity programs");
-    blockedCategories.push("sprint", "sled", "power", "plyometric");
-  } else if (snapshot.readinessRag === "AMBER") {
-    loadCap = Math.min(loadCap, 0.75);
-    rules.push("Readiness AMBER: max 75% load, reduce explosive work");
-  }
-
-  // ── Rule 3: HRV Suppression ──
-  if (snapshot.hrvTodayMs != null && snapshot.hrvBaselineMs != null && snapshot.hrvBaselineMs > 0) {
-    const hrvRatio = snapshot.hrvTodayMs / snapshot.hrvBaselineMs;
-    if (hrvRatio < 0.7) {
-      loadCap = Math.min(loadCap, 0.6);
-      rules.push(`HRV ${Math.round(hrvRatio * 100)}% of baseline: sympathetic stress, reduce load to 60%`);
-    } else if (hrvRatio < 0.85) {
-      loadCap = Math.min(loadCap, 0.8);
-      rules.push(`HRV ${Math.round(hrvRatio * 100)}% of baseline: slightly suppressed, reduce load to 80%`);
+  if (g.readiness.enabled) {
+    if (snapshot.readinessRag === "RED") {
+      loadCap = Math.min(loadCap, g.readiness.redCap);
+      rules.push(`Readiness RED: max ${Math.round(g.readiness.redCap * 100)}% load, skip high-intensity programs`);
+      blockedCategories.push(...g.readiness.redBlockedCategories);
+    } else if (snapshot.readinessRag === "AMBER") {
+      loadCap = Math.min(loadCap, g.readiness.amberCap);
+      rules.push(`Readiness AMBER: max ${Math.round(g.readiness.amberCap * 100)}% load, reduce explosive work`);
     }
   }
 
-  // ── Rule 4: Sleep Quality ──
-  if (snapshot.sleepQuality != null && snapshot.sleepQuality < 5) {
-    loadCap = Math.min(loadCap, 0.8);
-    rules.push(`Sleep quality ${snapshot.sleepQuality}/10: poor sleep, reduce volume by 20%`);
+  // ── Rule 3: HRV Suppression (skip if stale >24h) ──
+  if (g.hrv.enabled && snapshot.hrvTodayMs != null && snapshot.hrvBaselineMs != null && snapshot.hrvBaselineMs > 0) {
+    const hrvAgeHours = snapshot.hrvRecordedAt
+      ? (Date.now() - new Date(snapshot.hrvRecordedAt as string).getTime()) / 3600000
+      : Infinity;
+
+    if (hrvAgeHours > 24) {
+      rules.push(`HRV data is ${Math.round(hrvAgeHours / 24)}d old — skipping HRV-based load adjustment`);
+    } else {
+      const hrvRatio = snapshot.hrvTodayMs / snapshot.hrvBaselineMs;
+      if (hrvRatio < g.hrv.suppressedRatio) {
+        loadCap = Math.min(loadCap, g.hrv.suppressedCap);
+        rules.push(`HRV ${Math.round(hrvRatio * 100)}% of baseline: sympathetic stress, reduce load to ${Math.round(g.hrv.suppressedCap * 100)}%`);
+      } else if (hrvRatio < g.hrv.mildRatio) {
+        loadCap = Math.min(loadCap, g.hrv.mildCap);
+        rules.push(`HRV ${Math.round(hrvRatio * 100)}% of baseline: slightly suppressed, reduce load to ${Math.round(g.hrv.mildCap * 100)}%`);
+      }
+    }
   }
 
-  // ── Rule 5: Academic Load (Dual Load) ──
-  if (snapshot.dualLoadIndex != null && snapshot.dualLoadIndex > 80) {
-    loadCap = Math.min(loadCap, 0.7);
-    rules.push(`Dual load index ${snapshot.dualLoadIndex}/100: high combined load, cap athletic volume at 70%`);
-  } else if (snapshot.academicLoad7day != null && snapshot.academicLoad7day > 70) {
-    loadCap = Math.min(loadCap, 0.8);
-    rules.push(`Academic load ${snapshot.academicLoad7day}: exam period stress, reduce training to 80%`);
+  // ── Rule 4: Sleep Quality (skip if stale >24h) ──
+  if (g.sleep.enabled && snapshot.sleepQuality != null && snapshot.sleepQuality < g.sleep.poorThreshold) {
+    const sleepAgeHours = snapshot.sleepRecordedAt
+      ? (Date.now() - new Date(snapshot.sleepRecordedAt as string).getTime()) / 3600000
+      : Infinity;
+
+    if (sleepAgeHours > 24) {
+      rules.push(`Sleep data is ${Math.round(sleepAgeHours / 24)}d old — skipping sleep-based load adjustment`);
+    } else {
+      loadCap = Math.min(loadCap, g.sleep.poorCap);
+      rules.push(`Sleep quality ${snapshot.sleepQuality}/10: poor sleep, reduce volume by ${Math.round((1 - g.sleep.poorCap) * 100)}%`);
+    }
+  }
+
+  // ── Rule 5: Dual Load / Academic Load ──
+  if (g.dualLoad.enabled && snapshot.dualLoadIndex != null && snapshot.dualLoadIndex > g.dualLoad.criticalThreshold) {
+    loadCap = Math.min(loadCap, g.dualLoad.cap);
+    rules.push(`Dual load index ${snapshot.dualLoadIndex}/100: high combined load, cap athletic volume at ${Math.round(g.dualLoad.cap * 100)}%`);
+  } else if (g.academicLoad.enabled && snapshot.academicLoad7day != null && snapshot.academicLoad7day > g.academicLoad.highThreshold) {
+    loadCap = Math.min(loadCap, g.academicLoad.cap);
+    rules.push(`Academic load ${snapshot.academicLoad7day}: exam period stress, reduce training to ${Math.round(g.academicLoad.cap * 100)}%`);
   }
 
   // ── Rule 6: Injury Risk ──
-  if (snapshot.injuryRiskFlag === "high") {
-    loadCap = Math.min(loadCap, 0.6);
-    rules.push("Injury risk HIGH: prioritize prevention, cap load at 60%");
-    // Boost injury prevention programs
-  } else if (snapshot.injuryRiskFlag === "moderate") {
-    loadCap = Math.min(loadCap, 0.85);
-    rules.push("Injury risk moderate: include prevention in every session");
+  if (g.injuryRisk.enabled) {
+    if (snapshot.injuryRiskFlag === "high") {
+      loadCap = Math.min(loadCap, g.injuryRisk.highCap);
+      rules.push(`Injury risk HIGH: prioritize prevention, cap load at ${Math.round(g.injuryRisk.highCap * 100)}%`);
+    } else if (snapshot.injuryRiskFlag === "moderate") {
+      loadCap = Math.min(loadCap, g.injuryRisk.moderateCap);
+      rules.push("Injury risk moderate: include prevention in every session");
+    }
   }
 
   // ── Rule 7: Wellness Trend ──
-  if (snapshot.wellnessTrend === "declining" && snapshot.wellness7dayAvg != null && snapshot.wellness7dayAvg < 3) {
-    loadCap = Math.min(loadCap, 0.7);
+  if (g.wellness.enabled && snapshot.wellnessTrend === "declining" && snapshot.wellness7dayAvg != null && snapshot.wellness7dayAvg < g.wellness.decliningAvgThreshold) {
+    loadCap = Math.min(loadCap, g.wellness.cap);
     rules.push(`Wellness declining (avg ${snapshot.wellness7dayAvg.toFixed(1)}): reducing volume`);
   }
 
   // ── Rule 8: Training Age (Beginner Protection) ──
-  if (snapshot.trainingAgeWeeks != null && snapshot.trainingAgeWeeks < 8) {
-    loadCap = Math.min(loadCap, 0.7);
+  if (g.trainingAge.enabled && snapshot.trainingAgeWeeks != null && snapshot.trainingAgeWeeks < g.trainingAge.beginnerWeeks) {
+    loadCap = Math.min(loadCap, g.trainingAge.cap);
     rules.push(`Training age ${snapshot.trainingAgeWeeks}w: beginner, reduced volume for adaptation`);
-    blockedCategories.push("power"); // No Olympic lifts for beginners
+    blockedCategories.push(...g.trainingAge.blockedCategories);
+  }
+
+  // ── Custom Attributes (legacy) ──
+  for (const attr of cfg.customAttributes) {
+    if (!attr.enabled || !attr.fieldPath) continue;
+    const val = getNestedValue(snapshot, attr.fieldPath);
+    if (val != null && typeof val === "number" && val > attr.threshold) {
+      if (attr.action === "reduce_load") {
+        const cap = parseFloat(attr.actionValue) || 0.8;
+        loadCap = Math.min(loadCap, cap);
+        rules.push(`Custom "${attr.name}": ${attr.fieldPath}=${val} > ${attr.threshold}, load capped at ${Math.round(cap * 100)}%`);
+      } else if (attr.action === "block_category") {
+        blockedCategories.push(attr.actionValue);
+        rules.push(`Custom "${attr.name}": blocking category "${attr.actionValue}"`);
+      } else if (attr.action === "boost_priority") {
+        rules.push(`Custom "${attr.name}": boosting priority for "${attr.actionValue}"`);
+      }
+    }
+  }
+
+  // ── Visual Rules (from Rule Builder UI) ──
+  if (cfg.rules && cfg.rules.length > 0) {
+    // Only execute custom (non-builtIn) rules here — builtIn rules are
+    // already handled by the hardcoded logic above for backward compat.
+    const customVisualRules = cfg.rules.filter((r) => !r.builtIn);
+    if (customVisualRules.length > 0) {
+      const ruleResult = executeRules(snapshot, customVisualRules);
+      loadCap = Math.min(loadCap, ruleResult.loadCap);
+      blockedCategories.push(...ruleResult.blockedCategories);
+      rules.push(...ruleResult.appliedRules);
+    }
   }
 
   // ── Apply Rules to Programs ──
@@ -211,9 +257,9 @@ export function applyGuardrails(
   }
 
   // Boost mastery-weak areas
-  if (snapshot.masteryScores) {
+  if (g.masteryBoost.enabled && snapshot.masteryScores) {
     const weakPillars = Object.entries(snapshot.masteryScores)
-      .filter(([, v]) => typeof v === "number" && v < 40)
+      .filter(([, v]) => typeof v === "number" && v < g.masteryBoost.weakThreshold)
       .map(([k]) => k.toLowerCase());
 
     if (weakPillars.length > 0) {
@@ -278,8 +324,8 @@ function applyLoadCap(rx: Prescription, cap: number): Prescription {
 
 // ── Build Guardrail Summary for AI Prompt Injection ──
 
-export function buildGuardrailSummary(snapshot: SnapshotState): string {
-  const { appliedRules, loadCap, blockedCategories } = applyGuardrails([], snapshot);
+export async function buildGuardrailSummary(snapshot: SnapshotState): Promise<string> {
+  const { appliedRules, loadCap, blockedCategories } = await applyGuardrails([], snapshot);
 
   if (appliedRules.length === 0) return "No guardrail restrictions active — athlete is in good state.";
 
@@ -297,4 +343,114 @@ export function buildGuardrailSummary(snapshot: SnapshotState): string {
   lines.push("", "YOU MUST respect these guardrails in your program selection and prescription overrides.");
 
   return lines.join("\n");
+}
+
+// ── Nested value accessor for custom attributes ──
+
+function getNestedValue(obj: any, path: string): unknown {
+  return path.split(".").reduce((curr: any, key) => curr?.[key], obj);
+}
+
+// ── Visual Rule Engine ──
+
+import type { Rule, RuleCondition } from "@/services/recommendations/recommendationConfig";
+
+/**
+ * Resolve a field value from the snapshot, including derived fields.
+ */
+function resolveField(snapshot: SnapshotState, field: string): unknown {
+  if (field === "hrvRatio") {
+    if (snapshot.hrvTodayMs != null && snapshot.hrvBaselineMs != null && snapshot.hrvBaselineMs > 0) {
+      return snapshot.hrvTodayMs / snapshot.hrvBaselineMs;
+    }
+    return null;
+  }
+  return (snapshot as any)[field] ?? null;
+}
+
+/**
+ * Evaluate a single condition against a resolved value.
+ */
+function evalCondition(val: unknown, cond: RuleCondition): boolean {
+  if (val == null) return false;
+
+  const condVal = cond.value;
+
+  // Numeric comparison
+  if (typeof val === "number") {
+    const numTarget = typeof condVal === "number" ? condVal : parseFloat(String(condVal));
+    if (isNaN(numTarget)) return false;
+    switch (cond.operator) {
+      case ">": return val > numTarget;
+      case ">=": return val >= numTarget;
+      case "<": return val < numTarget;
+      case "<=": return val <= numTarget;
+      case "=": return val === numTarget;
+      case "!=": return val !== numTarget;
+      default: return false;
+    }
+  }
+
+  // String comparison
+  const strVal = String(val).toLowerCase();
+  const strTarget = String(condVal).toLowerCase();
+  switch (cond.operator) {
+    case "=": return strVal === strTarget;
+    case "!=": return strVal !== strTarget;
+    default: return false;
+  }
+}
+
+/**
+ * Execute all enabled rules against a snapshot.
+ * Returns the same GuardrailResult shape for compatibility.
+ */
+export function executeRules(
+  snapshot: SnapshotState,
+  rules: Rule[]
+): { loadCap: number; blockedCategories: string[]; appliedRules: string[] } {
+  let loadCap = 1.0;
+  const blockedCategories: string[] = [];
+  const appliedRules: string[] = [];
+
+  for (const rule of rules) {
+    if (!rule.enabled) continue;
+
+    // Evaluate all conditions (AND logic)
+    const allPass = rule.conditions.every((cond) => {
+      const val = resolveField(snapshot, cond.field);
+      return evalCondition(val, cond);
+    });
+
+    if (!allPass) continue;
+
+    // Execute actions
+    for (const action of rule.actions) {
+      switch (action.type) {
+        case "reduce_load": {
+          const cap = parseFloat(action.value) / 100;
+          if (!isNaN(cap) && cap > 0 && cap <= 1) {
+            loadCap = Math.min(loadCap, cap);
+          }
+          break;
+        }
+        case "block_category":
+          if (action.value) blockedCategories.push(action.value);
+          break;
+        case "boost_priority":
+          // Handled at program selection level
+          break;
+        case "log":
+          if (action.value) appliedRules.push(action.value);
+          break;
+      }
+    }
+
+    // If no log action was present, auto-generate one
+    if (!rule.actions.some((a) => a.type === "log")) {
+      appliedRules.push(`Rule "${rule.name}" triggered`);
+    }
+  }
+
+  return { loadCap, blockedCategories, appliedRules };
 }

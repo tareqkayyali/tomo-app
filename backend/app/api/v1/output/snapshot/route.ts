@@ -572,12 +572,143 @@ export async function GET(req: NextRequest) {
     rieRecommendations: rieRecsMapped,
   };
 
+  // ── Freshness + Real-Time Block ──────────────────────────────────────
+
+  type FreshnessStatus = "fresh" | "aging" | "stale" | "no_data";
+  function computeFreshness(lastRecordedAt: string | null): FreshnessStatus {
+    if (!lastRecordedAt) return "no_data";
+    const hoursAgo = (Date.now() - new Date(lastRecordedAt).getTime()) / 3600000;
+    if (hoursAgo < 4) return "fresh";
+    if (hoursAgo <= 24) return "aging";
+    return "stale";
+  }
+  function timeAgoLabel(dateStr: string | null): string {
+    if (!dateStr) return "No data";
+    const hoursAgo = (Date.now() - new Date(dateStr).getTime()) / 3600000;
+    if (hoursAgo < 1) return `${Math.round(hoursAgo * 60)}m ago`;
+    if (hoursAgo < 24) return `${Math.round(hoursAgo)}h ago`;
+    return `${Math.round(hoursAgo / 24)}d ago`;
+  }
+
+  // Fetch freshness metadata in parallel
+  const [wearableConnRes, snapshotMetaRes, latestVitalsRes] = await Promise.all([
+    (db as any)
+      .from("wearable_connections")
+      .select("provider, last_sync_at")
+      .eq("user_id", userId)
+      .order("last_sync_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    (db as any)
+      .from("athlete_snapshots")
+      .select("snapshot_at, last_checkin_at, hrv_recorded_at, sleep_recorded_at")
+      .eq("athlete_id", userId)
+      .maybeSingle(),
+    // Latest single readings for real-time block
+    db
+      .from("health_data")
+      .select("metric_type, value, date, created_at")
+      .eq("user_id", userId)
+      .in("metric_type", ["hrv", "resting_hr", "sleep_hours"])
+      .order("date", { ascending: false })
+      .limit(30), // fetch enough to get latest per type
+  ]);
+
+  const wearableConn = (wearableConnRes as any)?.data ?? null;
+  const snapshotMeta = (snapshotMetaRes as any)?.data ?? null;
+  const latestVitalsRaw = ((latestVitalsRes as any)?.data ?? []) as Array<{
+    metric_type: string; value: number; date: string; created_at: string;
+  }>;
+
+  // Deduplicate: latest per metric_type
+  const latestByType = new Map<string, { value: number; date: string; created_at: string }>();
+  for (const v of latestVitalsRaw) {
+    if (!latestByType.has(v.metric_type)) {
+      latestByType.set(v.metric_type, { value: v.value, date: v.date, created_at: v.created_at });
+    }
+  }
+
+  const realTimeMetricDefs = [
+    { metric: "hrv", label: "HRV", emoji: "💓", unit: "ms" },
+    { metric: "resting_hr", label: "Resting HR", emoji: "💗", unit: "bpm" },
+    { metric: "sleep_hours", label: "Sleep", emoji: "😴", unit: "hrs" },
+  ];
+
+  const realTimeMetrics = realTimeMetricDefs.map((def) => {
+    const latest = latestByType.get(def.metric);
+    const recordedAt = latest?.created_at ?? null;
+    return {
+      ...def,
+      value: latest ? Math.round(latest.value * 10) / 10 : null,
+      lastRecordedAt: recordedAt,
+      freshness: computeFreshness(recordedAt),
+      timeAgo: timeAgoLabel(recordedAt),
+    };
+  });
+
+  const readinessSummary = buildReadinessSummary(checkinData);
+  const checkinFreshness = computeFreshness(snapshotMeta?.last_checkin_at ?? checkinData?.date ?? null);
+
+  const freshnessStatuses = [...realTimeMetrics.map((m) => m.freshness), checkinFreshness];
+  const overallFreshness: FreshnessStatus = freshnessStatuses.includes("no_data")
+    ? "no_data"
+    : freshnessStatuses.includes("stale")
+    ? "stale"
+    : freshnessStatuses.includes("aging")
+    ? "aging"
+    : "fresh";
+
+  const lastSyncAt = wearableConn?.last_sync_at ?? null;
+  const daysSinceSync = lastSyncAt
+    ? Math.round((Date.now() - new Date(lastSyncAt).getTime()) / 86400000)
+    : null;
+
+  const staleBanner = (overallFreshness === "stale" || overallFreshness === "no_data")
+    ? {
+        show: true,
+        message: overallFreshness === "no_data"
+          ? "No vitals data yet. Connect a wearable or check in to start tracking."
+          : `Your vitals haven't been updated in ${daysSinceSync ?? "a few"} days. Sync your wearable or check in.`,
+        daysSinceSync: daysSinceSync ?? 0,
+      }
+    : null;
+
+  const snapshotAt = snapshotMeta?.snapshot_at ?? null;
+  const snapshotAgeMinutes = snapshotAt
+    ? Math.round((Date.now() - new Date(snapshotAt).getTime()) / 60000)
+    : null;
+
   const snapshot = {
     vitals: {
+      // Existing (backward compat)
       weekSummary,
       vitalGroups,
       phv: phvDisplay,
-      readiness: buildReadinessSummary(checkinData),
+      readiness: readinessSummary,
+      // New: freshness metadata
+      freshness: {
+        lastWearableSyncAt: lastSyncAt,
+        lastCheckinAt: snapshotMeta?.last_checkin_at ?? null,
+        snapshotAt,
+        snapshotAgeMinutes,
+      },
+      // New: real-time block
+      realTime: {
+        metrics: realTimeMetrics,
+        readiness: {
+          ...readinessSummary,
+          lastCheckinAt: snapshotMeta?.last_checkin_at ?? checkinData?.date ?? null,
+          freshness: checkinFreshness,
+          timeAgo: timeAgoLabel(snapshotMeta?.last_checkin_at ?? checkinData?.date ?? null),
+        },
+        overallFreshness,
+        staleBanner,
+      },
+      // New: historical block (aliases existing data)
+      historical: {
+        weekSummary,
+        vitalGroups,
+      },
     },
     metrics: {
       categories,

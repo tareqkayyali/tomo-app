@@ -43,6 +43,7 @@ export async function handleVitalReading(event: AthleteEvent): Promise<void> {
             athlete_id: event.athlete_id,
             hrv_baseline_ms: Math.round(baseline * 10) / 10,
             hrv_today_ms: payload.hrv_ms,
+            hrv_recorded_at: new Date().toISOString(),
             resting_hr_bpm: payload.resting_hr_bpm ?? null,
             snapshot_at: new Date().toISOString(),
           }, { onConflict: 'athlete_id' });
@@ -65,6 +66,7 @@ export async function handleSleepRecord(event: AthleteEvent): Promise<void> {
       .upsert({
         athlete_id: event.athlete_id,
         sleep_quality: payload.sleep_quality_score,
+        sleep_recorded_at: new Date().toISOString(),
         snapshot_at: new Date().toISOString(),
       }, { onConflict: 'athlete_id' });
   }
