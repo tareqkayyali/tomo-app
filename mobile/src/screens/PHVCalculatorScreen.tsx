@@ -325,19 +325,42 @@ export function PHVCalculatorScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.fieldLabel}>Date of Birth</Text>
             {Platform.OS === 'web' ? (
-              <View style={[styles.inputRow]}>
-                <TextInput
-                  style={[styles.input, { color: colors.textOnDark, backgroundColor: colors.inputBackground }]}
+              <Pressable
+                onPress={() => {
+                  const input = document.getElementById('phv-dob-input') as HTMLInputElement;
+                  if (input) input.showPicker?.();
+                }}
+                style={[styles.datePickerButton, { backgroundColor: colors.inputBackground }]}
+              >
+                <Ionicons name="calendar-outline" size={18} color={colors.accent1} />
+                <Text style={[styles.datePickerText, { color: dob ? colors.textOnDark : colors.textMuted }]}>
+                  {dob || 'Select your date of birth'}
+                </Text>
+                {/* Hidden native date input for web */}
+                <input
+                  id="phv-dob-input"
+                  type="date"
                   value={dob}
-                  onChangeText={(text) => {
-                    setDob(text);
-                    const parsed = new Date(text);
-                    if (!isNaN(parsed.getTime())) setDobDate(parsed);
+                  max={new Date().toISOString().split('T')[0]}
+                  min="2004-01-01"
+                  onChange={(e: any) => {
+                    const val = e.target.value;
+                    if (val) {
+                      setDob(val);
+                      setDobDate(new Date(val));
+                    }
                   }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textMuted}
+                  style={{
+                    position: 'absolute',
+                    opacity: 0,
+                    width: '100%',
+                    height: '100%',
+                    top: 0,
+                    left: 0,
+                    cursor: 'pointer',
+                  } as any}
                 />
-              </View>
+              </Pressable>
             ) : (
               <>
                 <Pressable
