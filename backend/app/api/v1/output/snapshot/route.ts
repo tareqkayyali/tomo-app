@@ -275,11 +275,26 @@ interface ReadinessSummary {
   summary: string;
 }
 
-function buildReadinessSummary(checkin: Record<string, unknown> | null): ReadinessSummary {
+function buildReadinessSummary(checkin: Record<string, unknown> | null): ReadinessSummary & { expired: boolean } {
   if (!checkin) {
     return {
       score: null, energy: null, soreness: null, sleepHours: null, mood: null, date: null,
       summary: "No check-in today. Tap to log how you're feeling.",
+      expired: true,
+    };
+  }
+
+  // Check if the checkin is from today
+  const today = new Date().toISOString().slice(0, 10);
+  const checkinDate = checkin.date as string | null;
+  const isExpired = !checkinDate || checkinDate < today;
+
+  if (isExpired) {
+    return {
+      score: null, energy: null, soreness: null, sleepHours: null, mood: null,
+      date: checkinDate,
+      summary: "Yesterday's check-in has expired. How are you feeling today?",
+      expired: true,
     };
   }
 
@@ -299,8 +314,9 @@ function buildReadinessSummary(checkin: Record<string, unknown> | null): Readine
     soreness: checkin.soreness as number | null,
     sleepHours,
     mood,
-    date: checkin.date as string | null,
+    date: checkinDate,
     summary,
+    expired: false,
   };
 }
 

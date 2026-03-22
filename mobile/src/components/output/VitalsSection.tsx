@@ -45,7 +45,8 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
   const historical = (vitals as any).historical;
   const [heroExpanded, setHeroExpanded] = useState(false);
 
-  const readinessInfo = readiness.score ? READINESS_MAP[readiness.score] : null;
+  const isExpired = (readiness as any).expired === true;
+  const readinessInfo = (!isExpired && readiness.score) ? READINESS_MAP[readiness.score] : null;
   const effectiveGroups = historical?.vitalGroups ?? vitalGroups;
   const hasVitalData = effectiveGroups && effectiveGroups.some((g: VitalGroup) => g.metrics.length > 0);
   const isWhoopConnected = connectedSources.includes('whoop');
@@ -159,14 +160,26 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
               </View>
 
               <Text style={[styles.heroTitle, { color: colors.textOnDark }]}>
-                {readiness.score ? 'Today\'s Readiness' : 'How Are You Feeling?'}
+                {isExpired ? 'Check In for Today' : readiness.score ? 'Today\'s Readiness' : 'How Are You Feeling?'}
               </Text>
               <Text style={[styles.heroSummary, { color: colors.textMuted }]}>
                 {readiness.summary}
               </Text>
 
+              {/* Check-in CTA when expired */}
+              {isExpired && onCheckIn && (
+                <TouchableOpacity
+                  style={[styles.checkinCta, { backgroundColor: colors.accent1 }]}
+                  onPress={onCheckIn}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="create-outline" size={16} color="#FFF" />
+                  <Text style={styles.checkinCtaText}>Check In Now</Text>
+                </TouchableOpacity>
+              )}
+
               {/* Mini stats row */}
-              {heroExpanded && readiness.energy != null && (
+              {!isExpired && heroExpanded && readiness.energy != null && (
                 <View style={styles.miniStatsRow}>
                   <MiniStat icon="flash" label="Energy" value={readiness.energy} max={5} colors={colors} />
                   <MiniStat icon="happy" label="Mood" value={readiness.mood ?? 0} max={5} colors={colors} />
@@ -177,7 +190,7 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
                 </View>
               )}
 
-              {!heroExpanded && readiness.energy != null && (
+              {!isExpired && !heroExpanded && readiness.energy != null && (
                 <View style={styles.tapHint}>
                   <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
                   <Text style={[styles.tapHintText, { color: colors.textMuted }]}>Tap for details</Text>
@@ -485,6 +498,14 @@ const styles = StyleSheet.create({
   readinessLabel: { fontFamily: fontFamily.medium, fontSize: 13, marginTop: -4 },
   heroTitle: { fontFamily: fontFamily.semiBold, fontSize: 16 },
   heroSummary: { fontFamily: fontFamily.regular, fontSize: 13, textAlign: 'center', lineHeight: 19 },
+
+  // Check-in CTA
+  checkinCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 20, paddingVertical: 10,
+    borderRadius: borderRadius.md, marginTop: spacing.sm,
+  },
+  checkinCtaText: { fontFamily: fontFamily.semiBold, fontSize: 14, color: '#FFF' },
 
   // Tap hint
   tapHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.xs },
