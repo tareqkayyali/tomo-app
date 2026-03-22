@@ -41,6 +41,9 @@ const TEST_CATALOG: TestCatalogItem[] = [
   { id: "drop-jump", name: "Drop Jump (RSI)", category: "Power", unit: "rsi", emoji: "⚡", description: "Reactive strength index from drop jump", direction: "higher", tags: ["jump", "reactive", "power", "rsi"] },
   { id: "vertical-jump", name: "Vertical Jump", category: "Power", unit: "cm", emoji: "🦘", description: "Maximum vertical jump reach", direction: "higher", tags: ["jump", "vertical", "power"] },
   { id: "triple-hop", name: "Triple Hop Test", category: "Power", unit: "cm", emoji: "🦘", description: "Three consecutive single-leg hops for distance", direction: "higher", tags: ["hop", "power", "single-leg"] },
+  { id: "sl-broad-jump-r", name: "SL Broad Jump (R)", category: "Power", unit: "cm", emoji: "🦘", description: "Single-leg broad jump — right leg", direction: "higher", tags: ["jump", "single-leg", "broad", "power", "right"] },
+  { id: "sl-broad-jump-l", name: "SL Broad Jump (L)", category: "Power", unit: "cm", emoji: "🦘", description: "Single-leg broad jump — left leg", direction: "higher", tags: ["jump", "single-leg", "broad", "power", "left"] },
+  { id: "seated-mb-throw", name: "Seated MB Throw", category: "Power", unit: "cm", emoji: "💪", description: "Seated medicine ball throw for distance", direction: "higher", tags: ["throw", "medicine ball", "power", "upper body", "seated"] },
 
   // Agility
   { id: "t-test", name: "Agility T-Test", category: "Agility", unit: "sec", emoji: "🔀", description: "Forward/lateral/backward T-shaped run", direction: "lower", tags: ["agility", "change of direction", "t-test"] },
@@ -56,10 +59,12 @@ const TEST_CATALOG: TestCatalogItem[] = [
   { id: "cooper-12min", name: "Cooper 12-min Run", category: "Endurance", unit: "m", emoji: "🫁", description: "Distance covered in 12 minutes", direction: "higher", tags: ["endurance", "cooper", "running", "vo2max"] },
   { id: "1-5km-run", name: "1.5km Run", category: "Endurance", unit: "min", emoji: "🫁", description: "Time to complete 1.5 kilometers", direction: "lower", tags: ["endurance", "running", "aerobic"] },
   { id: "vo2max", name: "Estimated VO2max", category: "Endurance", unit: "ml/kg/min", emoji: "🫁", description: "Estimated maximal oxygen uptake", direction: "higher", tags: ["endurance", "vo2max", "aerobic", "fitness"] },
+  { id: "mas-running", name: "MAS (Running)", category: "Endurance", unit: "km/h", emoji: "🫁", description: "Maximal Aerobic Speed — highest sustained running speed", direction: "higher", tags: ["endurance", "mas", "aerobic", "speed", "running"] },
+  { id: "glycolytic-power", name: "Glycolytic Power", category: "Endurance", unit: "W", emoji: "⚡", description: "Peak anaerobic power output", direction: "higher", tags: ["power", "anaerobic", "glycolytic", "watts"] },
 
   // Strength
-  { id: "bench-press-1rm", name: "Bench Press 1RM", category: "Strength", unit: "kg", emoji: "🏋️", description: "One rep max bench press", direction: "higher", tags: ["strength", "bench", "upper body", "1rm"] },
-  { id: "squat-1rm", name: "Back Squat 1RM", category: "Strength", unit: "kg", emoji: "🏋️", description: "One rep max back squat", direction: "higher", tags: ["strength", "squat", "lower body", "1rm"] },
+  { id: "1rm-bench", name: "Bench Press 1RM", category: "Strength", unit: "kg", emoji: "🏋️", description: "One rep max bench press", direction: "higher", tags: ["strength", "bench", "upper body", "1rm"] },
+  { id: "1rm-squat", name: "Back Squat 1RM", category: "Strength", unit: "kg", emoji: "🏋️", description: "One rep max back squat", direction: "higher", tags: ["strength", "squat", "lower body", "1rm"] },
   { id: "deadlift-1rm", name: "Deadlift 1RM", category: "Strength", unit: "kg", emoji: "🏋️", description: "One rep max deadlift", direction: "higher", tags: ["strength", "deadlift", "1rm"] },
   { id: "pull-ups", name: "Pull-Ups (Max)", category: "Strength", unit: "reps", emoji: "💪", description: "Maximum pull-ups in one set", direction: "higher", tags: ["strength", "pull-up", "upper body"] },
   { id: "push-ups", name: "Push-Ups (Max)", category: "Strength", unit: "reps", emoji: "💪", description: "Maximum push-ups in one set", direction: "higher", tags: ["strength", "push-up", "endurance"] },
