@@ -81,6 +81,16 @@ export const TEST_GROUP_MAP: Record<string, string> = {
   // Strength
   grip_strength: "strength",
   squat_rel: "strength",
+  squat_1rm: "strength",
+  bench_1rm: "strength",
+  // Power (additional)
+  vertical_jump: "power_explosiveness",
+  sl_broad_jump_r: "power_explosiveness",
+  sl_broad_jump_l: "power_explosiveness",
+  seated_mb_throw: "power_explosiveness",
+  glycolytic_power: "power_explosiveness",
+  // Aerobic (additional)
+  mas_running: "aerobic_endurance",
   // Body Composition
   body_fat_pct: "body_composition",
 };
@@ -119,9 +129,19 @@ export const RAW_TEST_GROUP_MAP: Record<string, string> = {
   "cooper-12min": "aerobic_endurance",
   // Strength
   "1rm-squat": "strength",
+  "1rm-bench": "strength",
+  "bench-press-1rm": "strength",
   "squat-relative": "strength",
   "squat-1rm": "strength",
   "grip-strength": "strength",
+  // Power (additional)
+  "sl-broad-jump-r": "power_explosiveness",
+  "sl-broad-jump-l": "power_explosiveness",
+  "seated-mb-throw": "power_explosiveness",
+  "glycolytic-power": "power_explosiveness",
+  // Aerobic (additional)
+  "mas-running": "aerobic_endurance",
+  "mas": "aerobic_endurance",
   // Body Composition
   "body-fat": "body_composition",
   // Recovery (mapped but not a main pillar)

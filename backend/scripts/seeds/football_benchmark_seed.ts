@@ -71,6 +71,15 @@ const METRICS: MetricDef[] = [
   { key: "squat_rel", label: "Relative Squat Strength", unit: "x BW", direction: "higher_better", attribute_key: "physicality" },
   { key: "max_speed", label: "Max Speed", unit: "km/h", direction: "higher_better", attribute_key: "pace" },
   { key: "hrv_rmssd", label: "HRV (rMSSD)", unit: "ms", direction: "higher_better", attribute_key: "physicality" },
+  { key: "sprint_20m", label: "20m Sprint", unit: "s", direction: "lower_better", attribute_key: "pace" },
+  { key: "vertical_jump", label: "Vertical Jump", unit: "cm", direction: "higher_better", attribute_key: "physicality" },
+  { key: "squat_1rm", label: "1RM Squat", unit: "kg", direction: "higher_better", attribute_key: "physicality" },
+  { key: "bench_1rm", label: "1RM Bench Press", unit: "kg", direction: "higher_better", attribute_key: "physicality" },
+  { key: "sl_broad_jump_r", label: "SL Broad Jump (R)", unit: "cm", direction: "higher_better", attribute_key: "physicality" },
+  { key: "sl_broad_jump_l", label: "SL Broad Jump (L)", unit: "cm", direction: "higher_better", attribute_key: "physicality" },
+  { key: "seated_mb_throw", label: "Seated MB Throw", unit: "cm", direction: "higher_better", attribute_key: "physicality" },
+  { key: "glycolytic_power", label: "Glycolytic Power", unit: "W", direction: "higher_better", attribute_key: "physicality" },
+  { key: "mas_running", label: "MAS (Running)", unit: "km/h", direction: "higher_better", attribute_key: "physicality" },
 ];
 
 // ── Senior Male Elite Baselines (p50 / std_dev per position) ────────
@@ -143,6 +152,51 @@ const SENIOR_MALE_ELITE: Record<string, Record<Position, Baseline>> = {
     CDM: { p50: 72, sd: 18 }, CM: { p50: 75, sd: 18 }, CAM: { p50: 70, sd: 18 },
     W: { p50: 70, sd: 18 }, ST: { p50: 68, sd: 18 }, ALL: { p50: 70, sd: 18 },
   },
+  sprint_20m: {
+    GK: { p50: 3.10, sd: 0.10 }, CB: { p50: 3.02, sd: 0.09 }, FB: { p50: 2.95, sd: 0.08 },
+    CDM: { p50: 3.00, sd: 0.09 }, CM: { p50: 2.98, sd: 0.08 }, CAM: { p50: 2.95, sd: 0.08 },
+    W: { p50: 2.90, sd: 0.08 }, ST: { p50: 2.93, sd: 0.08 }, ALL: { p50: 2.98, sd: 0.09 },
+  },
+  vertical_jump: {
+    GK: { p50: 42, sd: 5 }, CB: { p50: 40, sd: 5 }, FB: { p50: 38, sd: 5 },
+    CDM: { p50: 38, sd: 5 }, CM: { p50: 37, sd: 5 }, CAM: { p50: 39, sd: 5 },
+    W: { p50: 39, sd: 5 }, ST: { p50: 41, sd: 5 }, ALL: { p50: 39, sd: 5 },
+  },
+  squat_1rm: {
+    GK: { p50: 130, sd: 20 }, CB: { p50: 140, sd: 20 }, FB: { p50: 125, sd: 18 },
+    CDM: { p50: 135, sd: 18 }, CM: { p50: 125, sd: 18 }, CAM: { p50: 120, sd: 18 },
+    W: { p50: 115, sd: 18 }, ST: { p50: 130, sd: 20 }, ALL: { p50: 128, sd: 19 },
+  },
+  bench_1rm: {
+    GK: { p50: 75, sd: 12 }, CB: { p50: 80, sd: 12 }, FB: { p50: 70, sd: 10 },
+    CDM: { p50: 75, sd: 10 }, CM: { p50: 70, sd: 10 }, CAM: { p50: 68, sd: 10 },
+    W: { p50: 65, sd: 10 }, ST: { p50: 72, sd: 10 }, ALL: { p50: 72, sd: 11 },
+  },
+  sl_broad_jump_r: {
+    GK: { p50: 190, sd: 18 }, CB: { p50: 195, sd: 18 }, FB: { p50: 200, sd: 18 },
+    CDM: { p50: 195, sd: 18 }, CM: { p50: 192, sd: 18 }, CAM: { p50: 198, sd: 18 },
+    W: { p50: 200, sd: 18 }, ST: { p50: 195, sd: 18 }, ALL: { p50: 196, sd: 18 },
+  },
+  sl_broad_jump_l: {
+    GK: { p50: 188, sd: 18 }, CB: { p50: 193, sd: 18 }, FB: { p50: 198, sd: 18 },
+    CDM: { p50: 193, sd: 18 }, CM: { p50: 190, sd: 18 }, CAM: { p50: 196, sd: 18 },
+    W: { p50: 198, sd: 18 }, ST: { p50: 193, sd: 18 }, ALL: { p50: 194, sd: 18 },
+  },
+  seated_mb_throw: {
+    GK: { p50: 380, sd: 40 }, CB: { p50: 400, sd: 40 }, FB: { p50: 370, sd: 35 },
+    CDM: { p50: 390, sd: 38 }, CM: { p50: 370, sd: 35 }, CAM: { p50: 365, sd: 35 },
+    W: { p50: 360, sd: 35 }, ST: { p50: 385, sd: 38 }, ALL: { p50: 378, sd: 37 },
+  },
+  glycolytic_power: {
+    GK: { p50: 700, sd: 80 }, CB: { p50: 750, sd: 80 }, FB: { p50: 730, sd: 75 },
+    CDM: { p50: 760, sd: 80 }, CM: { p50: 740, sd: 75 }, CAM: { p50: 720, sd: 75 },
+    W: { p50: 710, sd: 75 }, ST: { p50: 740, sd: 80 }, ALL: { p50: 731, sd: 77 },
+  },
+  mas_running: {
+    GK: { p50: 15.5, sd: 1.2 }, CB: { p50: 16.0, sd: 1.0 }, FB: { p50: 16.5, sd: 1.0 },
+    CDM: { p50: 16.8, sd: 1.0 }, CM: { p50: 17.0, sd: 1.0 }, CAM: { p50: 16.5, sd: 1.0 },
+    W: { p50: 16.8, sd: 1.0 }, ST: { p50: 16.0, sd: 1.0 }, ALL: { p50: 16.4, sd: 1.1 },
+  },
 };
 
 // ── Age Band Scaling Factors (relative to SEN) ─────────────────────
@@ -194,6 +248,15 @@ const FEMALE_SCALE: Record<string, { multiplier: number; sdScale: number }> = {
   squat_rel: { multiplier: 0.80, sdScale: 1.1 },
   max_speed: { multiplier: 0.88, sdScale: 1.1 },
   hrv_rmssd: { multiplier: 1.0, sdScale: 1.1 }, // similar HRV
+  sprint_20m: { multiplier: 1.08, sdScale: 1.1 },
+  vertical_jump: { multiplier: 0.80, sdScale: 1.1 },
+  squat_1rm: { multiplier: 0.65, sdScale: 1.1 }, // ~35% lower absolute strength
+  bench_1rm: { multiplier: 0.60, sdScale: 1.1 },
+  sl_broad_jump_r: { multiplier: 0.85, sdScale: 1.1 },
+  sl_broad_jump_l: { multiplier: 0.85, sdScale: 1.1 },
+  seated_mb_throw: { multiplier: 0.75, sdScale: 1.1 },
+  glycolytic_power: { multiplier: 0.75, sdScale: 1.1 },
+  mas_running: { multiplier: 0.88, sdScale: 1.1 },
 };
 
 function applyGenderScale(
