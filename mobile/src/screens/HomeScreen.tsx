@@ -537,27 +537,33 @@ function createStyles(colors: ThemeColors) {
     },
     confirmBtn: {
       flex: 1,
-      paddingVertical: 10,
-      borderRadius: borderRadius.full,
+      flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 12,
     },
     confirmBtnCancel: {
-      backgroundColor: 'transparent',
+      backgroundColor: 'rgba(107, 107, 107, 0.12)',
       borderWidth: 1,
-      borderColor: colors.glassBorder,
+      borderColor: 'rgba(107, 107, 107, 0.3)',
     },
     confirmBtnCancelText: {
       fontFamily: fontFamily.medium,
-      fontSize: 14,
+      fontSize: 13,
       color: colors.textInactive,
     },
     confirmBtnConfirm: {
-      backgroundColor: colors.accent1,
+      backgroundColor: 'rgba(0, 217, 255, 0.12)',
+      borderWidth: 1,
+      borderColor: 'rgba(0, 217, 255, 0.3)',
     },
     confirmBtnConfirmText: {
       fontFamily: fontFamily.medium,
-      fontSize: 14,
-      color: colors.textPrimary,
+      fontSize: 13,
+      color: '#00D9FF',
     },
     batchActionRow: {
       flexDirection: 'row',
@@ -812,12 +818,14 @@ const ConfirmationCard = React.memo(function ConfirmationCard({
               onPress={onCancel}
               style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnCancel, pressed && { opacity: 0.7 }]}
             >
+              <Ionicons name="close-outline" size={16} color={colors.textInactive} />
               <Text style={styles.confirmBtnCancelText}>Cancel All</Text>
             </Pressable>
             <Pressable
               onPress={onConfirm}
               style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnConfirm, pressed && { opacity: 0.7 }]}
             >
+              <Ionicons name="checkmark-circle-outline" size={16} color="#00D9FF" />
               <Text style={styles.confirmBtnConfirmText}>Confirm All ({actions.length})</Text>
             </Pressable>
           </View>
@@ -830,12 +838,14 @@ const ConfirmationCard = React.memo(function ConfirmationCard({
               onPress={onCancel}
               style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnCancel, pressed && { opacity: 0.7 }]}
             >
+              <Ionicons name="close-outline" size={16} color={colors.textInactive} />
               <Text style={styles.confirmBtnCancelText}>Cancel</Text>
             </Pressable>
             <Pressable
               onPress={onConfirm}
               style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnConfirm, pressed && { opacity: 0.7 }]}
             >
+              <Ionicons name="checkmark-circle-outline" size={16} color="#00D9FF" />
               <Text style={styles.confirmBtnConfirmText}>Confirm</Text>
             </Pressable>
           </View>
