@@ -149,14 +149,12 @@ export function UnifiedDayView({
     }
   }, [isToday]);
 
-  // Flow header label
-  const flowLabel = useMemo(() => {
-    if (isOwner) {
-      return isToday ? "TODAY'S TIMELINE" : `${dayLabel.toUpperCase()}'S TIMELINE`;
-    }
-    const firstName = targetUserName?.split(' ')[0] || 'Player';
-    return `${firstName.toUpperCase()}'S TIMELINE`;
-  }, [isOwner, isToday, dayLabel, targetUserName]);
+  // Simple day display
+  const dayDisplay = useMemo(() => {
+    const dateStr = selectedDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (isToday) return { primary: 'Today', secondary: dateStr };
+    return { primary: dayLabel, secondary: null };
+  }, [isToday, dayLabel, selectedDay]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -168,20 +166,19 @@ export function UnifiedDayView({
         <Pressable onPress={onToday} style={styles.dayNavCenter}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[styles.dayNavLabel, !isToday && { color: colors.accent1 }]}>
-              {dayLabel}
+              {dayDisplay.primary}
             </Text>
-            {/* Lock badge for coach/parent */}
+            {dayDisplay.secondary && (
+              <Text style={[styles.dayNavDate, { color: colors.textMuted }]}>
+                {dayDisplay.secondary}
+              </Text>
+            )}
             {!isOwner && isLocked && (
               <View style={styles.lockBadge}>
                 <Ionicons name="lock-closed" size={10} color={colors.accent} />
               </View>
             )}
           </View>
-          {!isToday && (
-            <Text style={styles.dayNavDate}>
-              {selectedDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </Text>
-          )}
         </Pressable>
         <Pressable onPress={onNextDay} hitSlop={12} style={styles.dayNavArrow}>
           <Ionicons name="chevron-forward" size={22} color={colors.textOnDark} />
@@ -206,53 +203,48 @@ export function UnifiedDayView({
           />
         )}
 
-        {/* ─── FLOW Header + Pills ─── */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeaderLabel}>{flowLabel}</Text>
-          {isOwner && (
-            <View style={styles.pillRow}>
-              {/* Check-in pill (today only) */}
-              {isToday && onCheckinPress && (
-                <Pressable
-                  onPress={() => !hasCheckedInToday && onCheckinPress()}
+        {/* ─── Action pills row ─── */}
+        {isOwner && (
+          <View style={styles.pillRow}>
+            {isToday && onCheckinPress && (
+              <Pressable
+                onPress={() => !hasCheckedInToday && onCheckinPress()}
+                style={[
+                  styles.checkinPill,
+                  {
+                    backgroundColor: hasCheckedInToday
+                      ? `${colors.readinessGreen}18`
+                      : `${colors.accent1}22`,
+                    borderColor: hasCheckedInToday
+                      ? `${colors.readinessGreen}33`
+                      : `${colors.accent1}33`,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={hasCheckedInToday ? 'checkmark-circle' : 'clipboard-outline'}
+                  size={13}
+                  color={hasCheckedInToday ? colors.readinessGreen : colors.accent1}
+                />
+                <Text
                   style={[
-                    styles.checkinPill,
-                    {
-                      backgroundColor: hasCheckedInToday
-                        ? `${colors.readinessGreen}18`
-                        : `${colors.accent1}22`,
-                      borderColor: hasCheckedInToday
-                        ? `${colors.readinessGreen}33`
-                        : `${colors.accent1}33`,
-                    },
+                    styles.checkinPillText,
+                    { color: hasCheckedInToday ? colors.readinessGreen : colors.accent1 },
                   ]}
                 >
-                  <Ionicons
-                    name={hasCheckedInToday ? 'checkmark-circle' : 'clipboard-outline'}
-                    size={13}
-                    color={hasCheckedInToday ? colors.readinessGreen : colors.accent1}
-                  />
-                  <Text
-                    style={[
-                      styles.checkinPillText,
-                      { color: hasCheckedInToday ? colors.readinessGreen : colors.accent1 },
-                    ]}
-                  >
-                    {hasCheckedInToday ? 'Checked In' : 'Check In'}
-                  </Text>
-                </Pressable>
-              )}
-              {/* Day Lock Button (replaces LockInCard) */}
-              {onToggleLock && (
-                <DayLockButton
-                  isLocked={isLocked}
-                  isLoading={isLockLoading}
-                  onToggle={onToggleLock}
-                />
-              )}
-            </View>
-          )}
-        </View>
+                  {hasCheckedInToday ? 'Checked In' : 'Check In'}
+                </Text>
+              </Pressable>
+            )}
+            {onToggleLock && (
+              <DayLockButton
+                isLocked={isLocked}
+                isLoading={isLockLoading}
+                onToggle={onToggleLock}
+              />
+            )}
+          </View>
+        )}
 
         {/* ─── Connected Spine Timeline ─── */}
         <View style={styles.timelineSection}>
