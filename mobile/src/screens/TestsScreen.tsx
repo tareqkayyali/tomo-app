@@ -178,7 +178,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
   const quickActions = useQuickActions(
     {
       key: 'wearables',
-      icon: isWhoopConnected ? 'checkmark-circle' : 'pulse-outline',
+      icon: isWhoopConnected ? 'watch' : 'watch-outline',
       label: isWhoopConnected ? 'Connected' : 'Wearables',
       onPress: () => navigation.navigate('Settings' as any),
       accentColor: isWhoopConnected ? colors.accent : colors.accent2,
