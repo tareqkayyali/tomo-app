@@ -89,3 +89,37 @@ export function getTrendColor(trend: 'up' | 'down' | 'stable', higherIsBetter = 
   const isGood = higherIsBetter ? trend === 'up' : trend === 'down';
   return isGood ? colors.accent : colors.error;
 }
+
+// ── Vital Context Helpers ───────────────────────────────────────────
+
+export const ZONE_BG_COLORS: Record<string, string> = {
+  elite: 'rgba(48, 209, 88, 0.15)',
+  good: 'rgba(48, 209, 88, 0.12)',
+  average: 'rgba(0, 217, 255, 0.12)',
+  developing: 'rgba(243, 156, 18, 0.12)',
+  below: 'rgba(231, 76, 60, 0.12)',
+};
+
+export function getZoneBadgeColor(zone: string | null | undefined): string {
+  if (!zone) return colors.textDisabled;
+  return ZONE_COLORS[zone as PercentileZone] || colors.textDisabled;
+}
+
+export function getZoneBadgeBg(zone: string | null | undefined): string {
+  if (!zone) return 'rgba(107, 107, 107, 0.10)';
+  return ZONE_BG_COLORS[zone] || 'rgba(107, 107, 107, 0.10)';
+}
+
+export function getBaselineText(deviation: number | null | undefined): string {
+  if (deviation == null || Math.abs(deviation) < 5) return '';
+  const dir = deviation > 0 ? 'above' : 'below';
+  return `${Math.abs(Math.round(deviation))}% ${dir} your usual`;
+}
+
+export function getStoryStatusColor(status: 'strong' | 'mixed' | 'weak'): string {
+  switch (status) {
+    case 'strong': return '#30D158';
+    case 'mixed': return '#F39C12';
+    case 'weak': return '#E74C3C';
+  }
+}

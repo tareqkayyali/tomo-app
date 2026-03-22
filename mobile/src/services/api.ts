@@ -2084,6 +2084,23 @@ export interface VitalMetric {
   trendPercent: number;
   summary: string;
   color: string;
+  // Context fields
+  percentile?: number | null;
+  zone?: string | null;
+  zoneLabel?: string | null;
+  baseline30d?: number | null;
+  baselineDeviation?: number | null;
+  contextInsight?: string | null;
+}
+
+export interface VitalStoryBlock {
+  storyId: string;
+  title: string;
+  emoji: string;
+  status: 'strong' | 'mixed' | 'weak';
+  statusColor: string;
+  narrative: string;
+  contributingMetrics: string[];
 }
 
 export interface VitalGroup {

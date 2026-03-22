@@ -11,7 +11,8 @@ import { spacing, fontFamily, borderRadius } from '../../theme';
 import { GlassCard } from '../GlassCard';
 import { GlowWrapper } from '../GlowWrapper';
 import type { OutputSnapshot, VitalGroup, VitalMetric } from '../../services/api';
-import { getRagColor, getRagBgColor, getTrendIcon, getTrendColor, getGroupThemeColor } from './outputTypes';
+import { getRagColor, getRagBgColor, getTrendIcon, getTrendColor, getGroupThemeColor, getZoneBadgeColor, getZoneBadgeBg, getBaselineText, getStoryStatusColor } from './outputTypes';
+import type { VitalStoryBlock } from '../../services/api';
 import { colors as themeColors } from '../../theme/colors';
 
 interface Props {
@@ -48,6 +49,7 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
   const isExpired = (readiness as any).expired === true;
   const readinessInfo = (!isExpired && readiness.score) ? READINESS_MAP[readiness.score] : null;
   const effectiveGroups = historical?.vitalGroups ?? vitalGroups;
+  const stories: VitalStoryBlock[] = historical?.stories ?? [];
   const hasVitalData = effectiveGroups && effectiveGroups.some((g: VitalGroup) => g.metrics.length > 0);
   const isWhoopConnected = connectedSources.includes('whoop');
 
@@ -205,6 +207,11 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
         <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>7-day trends</Text>
       </View>
 
+      {/* Story Blocks — combined cross-metric insights */}
+      {stories.length > 0 && stories.map((story: VitalStoryBlock) => (
+        <StoryBlockCard key={story.storyId} story={story} colors={colors} />
+      ))}
+
       {hasVitalData && effectiveGroups.map((group: VitalGroup, index: number) => (
         group.metrics.length > 0 && (
           <VitalGroupCard
@@ -252,6 +259,7 @@ function FreshnessBadge({ freshness, timeAgo }: { freshness: string; timeAgo: st
 function RealTimeCard({ metric, colors }: { metric: any; colors: any }) {
   const isStale = metric.freshness === 'stale' || metric.freshness === 'no_data';
   const freshnessColor = FRESHNESS_COLORS[metric.freshness] || FRESHNESS_COLORS.no_data;
+  const baselineText = getBaselineText(metric.baselineDeviation);
 
   return (
     <View style={[styles.realTimeCard, { backgroundColor: colors.glass, opacity: isStale ? 0.5 : 1 }]}>
@@ -263,6 +271,18 @@ function RealTimeCard({ metric, colors }: { metric: any; colors: any }) {
         {metric.value != null ? (Number.isInteger(metric.value) ? metric.value : metric.value.toFixed(1)) : '—'}
         <Text style={[styles.realTimeUnit, { color: colors.textMuted }]}>{metric.unit}</Text>
       </Text>
+      {/* Zone badge */}
+      {metric.zoneLabel && (
+        <View style={[styles.zoneBadge, { backgroundColor: getZoneBadgeBg(metric.zone) }]}>
+          <Text style={[styles.zoneBadgeText, { color: getZoneBadgeColor(metric.zone) }]}>
+            {metric.zoneLabel}
+          </Text>
+        </View>
+      )}
+      {/* Baseline deviation */}
+      {baselineText ? (
+        <Text style={[styles.realTimeBaseline, { color: colors.textMuted }]}>{baselineText}</Text>
+      ) : null}
       <Text style={[styles.realTimeLabel, { color: colors.textMuted }]}>{metric.label}</Text>
       <Text style={[styles.realTimeTimeAgo, { color: freshnessColor }]}>
         {metric.freshness === 'no_data' ? 'No data' : metric.timeAgo}
@@ -398,7 +418,17 @@ function MetricRow({ metric, themeColor, colors }: {
     <View style={styles.metricRow}>
       <Text style={styles.metricEmoji}>{metric.emoji}</Text>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.metricLabel, { color: colors.textOnDark }]}>{metric.label}</Text>
+        <View style={styles.metricLabelRow}>
+          <Text style={[styles.metricLabel, { color: colors.textOnDark }]}>{metric.label}</Text>
+          {metric.zone && (
+            <View style={[styles.metricZoneDot, { backgroundColor: getZoneBadgeColor(metric.zone) }]} />
+          )}
+          {metric.zoneLabel && (
+            <Text style={[styles.metricZoneText, { color: getZoneBadgeColor(metric.zone) }]}>
+              {metric.zone === 'elite' ? 'Elite' : metric.zone === 'good' ? 'Good' : metric.zone === 'average' ? 'Avg' : metric.zone === 'developing' ? 'Dev' : 'Low'}
+            </Text>
+          )}
+        </View>
         <Text style={[styles.metricSummary, { color: colors.textMuted }]} numberOfLines={2}>
           {metric.summary}
         </Text>
@@ -416,6 +446,34 @@ function MetricRow({ metric, themeColor, colors }: {
         </View>
       </View>
     </View>
+  );
+}
+
+// ── Story Block Card ───────────────────────────────────────────────────
+
+function StoryBlockCard({ story, colors }: { story: VitalStoryBlock; colors: any }) {
+  const statusColor = getStoryStatusColor(story.status);
+  const statusLabel = story.status === 'strong' ? 'Strong' : story.status === 'mixed' ? 'Mixed' : 'Weak';
+
+  return (
+    <GlassCard>
+      <View style={styles.storyHeader}>
+        <Text style={styles.storyEmoji}>{story.emoji}</Text>
+        <Text style={[styles.storyTitle, { color: colors.textOnDark }]}>{story.title}</Text>
+        <View style={[styles.storyStatusDot, { backgroundColor: statusColor }]} />
+        <Text style={[styles.storyStatusLabel, { color: statusColor }]}>{statusLabel}</Text>
+      </View>
+      <Text style={[styles.storyNarrative, { color: colors.textMuted }]}>
+        {story.narrative}
+      </Text>
+      <View style={styles.storyMetrics}>
+        {story.contributingMetrics.map((m) => (
+          <View key={m} style={[styles.storyMetricPill, { backgroundColor: colors.glass }]}>
+            <Text style={[styles.storyMetricPillText, { color: colors.textMuted }]}>{m.replace('_', ' ')}</Text>
+          </View>
+        ))}
+      </View>
+    </GlassCard>
   );
 }
 
@@ -470,7 +528,12 @@ const styles = StyleSheet.create({
   realTimeValue: { fontFamily: fontFamily.bold, fontSize: 20 },
   realTimeUnit: { fontFamily: fontFamily.regular, fontSize: 11 },
   realTimeLabel: { fontFamily: fontFamily.medium, fontSize: 11 },
+  realTimeBaseline: { fontFamily: fontFamily.regular, fontSize: 9, marginTop: 1 },
   realTimeTimeAgo: { fontFamily: fontFamily.regular, fontSize: 9 },
+  zoneBadge: {
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: borderRadius.full, marginTop: 2,
+  },
+  zoneBadgeText: { fontFamily: fontFamily.medium, fontSize: 8, textAlign: 'center' },
 
   // Hero
   heroCenter: { alignItems: 'center', gap: spacing.sm },
@@ -527,7 +590,10 @@ const styles = StyleSheet.create({
   // Metric row
   metricRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 6 },
   metricEmoji: { fontSize: 16, marginTop: 2 },
+  metricLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metricLabel: { fontFamily: fontFamily.medium, fontSize: 13 },
+  metricZoneDot: { width: 6, height: 6, borderRadius: 3 },
+  metricZoneText: { fontFamily: fontFamily.medium, fontSize: 10 },
   metricSummary: { fontFamily: fontFamily.regular, fontSize: 11, lineHeight: 16, marginTop: 2 },
   metricValueCol: { alignItems: 'flex-end' },
   metricValue: { fontFamily: fontFamily.bold, fontSize: 16 },
@@ -549,6 +615,17 @@ const styles = StyleSheet.create({
   focusTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 },
   focusTag: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   focusTagText: { fontFamily: fontFamily.regular, fontSize: 10 },
+
+  // Story blocks
+  storyHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  storyEmoji: { fontSize: 18 },
+  storyTitle: { fontFamily: fontFamily.semiBold, fontSize: 14, flex: 1 },
+  storyStatusDot: { width: 8, height: 8, borderRadius: 4 },
+  storyStatusLabel: { fontFamily: fontFamily.semiBold, fontSize: 11 },
+  storyNarrative: { fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 19, marginTop: spacing.xs },
+  storyMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: spacing.sm },
+  storyMetricPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: borderRadius.full },
+  storyMetricPillText: { fontFamily: fontFamily.regular, fontSize: 10, textTransform: 'capitalize' },
 
   // Empty state
   emptyState: { alignItems: 'center', paddingVertical: spacing.huge, gap: spacing.sm },

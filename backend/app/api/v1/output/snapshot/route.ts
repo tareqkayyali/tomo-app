@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRelationship } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { aggregateWeeklyVitals } from "@/services/output/weeklyVitalsAggregator";
+import { getVitalPercentile } from "@/services/output/vitalsNormativeData";
 import { buildPHVDisplay, type PHVDisplayData } from "@/services/output/ltadMapper";
 import { getPlayerPHVStage } from "@/services/programs/phvCalculator";
 import {
@@ -354,7 +355,7 @@ export async function GET(req: NextRequest) {
 
   // 2. Parallel fetches — all wrapped in allSettled for resilience
   const [vitalsResult, phvResult, benchmarkResult, checkinResult, rawTestsResult, devRecsResult, aiProgramsResult] = await Promise.allSettled([
-    aggregateWeeklyVitals(userId, 7),
+    aggregateWeeklyVitals(userId, 7, profile.age ?? (profile.date_of_birth ? computeDecimalAge(profile.date_of_birth) : null)),
     getPlayerPHVStage(userId),
     getPlayerBenchmarkProfile(userId),
     db
@@ -590,6 +591,12 @@ export async function GET(req: NextRequest) {
 
   // ── Freshness + Real-Time Block ──────────────────────────────────────
 
+  function computeDecimalAge(dob: string): number {
+    const birth = new Date(dob);
+    const now = new Date();
+    return (now.getTime() - birth.getTime()) / (365.25 * 86400000);
+  }
+
   type FreshnessStatus = "fresh" | "aging" | "stale" | "no_data";
   function computeFreshness(lastRecordedAt: string | null): FreshnessStatus {
     if (!lastRecordedAt) return "no_data";
@@ -650,15 +657,27 @@ export async function GET(req: NextRequest) {
     { metric: "sleep_hours", label: "Sleep", emoji: "😴", unit: "hrs" },
   ];
 
+  const playerAge = profile.age ?? (profile.date_of_birth ? computeDecimalAge(profile.date_of_birth) : null);
+
   const realTimeMetrics = realTimeMetricDefs.map((def) => {
     const latest = latestByType.get(def.metric);
     const recordedAt = latest?.created_at ?? null;
+    const value = latest ? Math.round(latest.value * 10) / 10 : null;
+
+    // Age-band percentile context
+    const pResult = value != null ? getVitalPercentile(def.metric, value, playerAge) : null;
+
     return {
       ...def,
-      value: latest ? Math.round(latest.value * 10) / 10 : null,
+      value,
       lastRecordedAt: recordedAt,
       freshness: computeFreshness(recordedAt),
       timeAgo: timeAgoLabel(recordedAt),
+      // Context fields
+      percentile: pResult?.percentile ?? null,
+      zone: pResult?.zone ?? null,
+      zoneLabel: pResult?.zoneLabel ?? null,
+      contextInsight: pResult?.zoneLabel ?? null,
     };
   });
 
@@ -720,10 +739,11 @@ export async function GET(req: NextRequest) {
         overallFreshness,
         staleBanner,
       },
-      // New: historical block (aliases existing data)
+      // New: historical block (aliases existing data + stories)
       historical: {
         weekSummary,
         vitalGroups,
+        stories: (weekSummary as any)?.stories ?? [],
       },
     },
     metrics: {
