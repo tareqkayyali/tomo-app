@@ -461,7 +461,7 @@ After the check-in rec, generate remaining recs from non-readiness data (schedul
 Stale readiness score: ${se?.readinessScore ?? 'N/A'} (DO NOT trust)
 Stale readiness RAG: ${se?.readinessRag ?? 'N/A'} (DO NOT trust)
 Stale components: ${ctx.readinessComponents
-    ? `Energy ${ctx.readinessComponents.energy}/5, Soreness ${ctx.readinessComponents.soreness}/5, Sleep ${ctx.readinessComponents.sleepHours}h, Mood ${ctx.readinessComponents.mood}/5`
+    ? `Energy ${ctx.readinessComponents.energy}/10, Soreness ${ctx.readinessComponents.soreness}/10, Sleep ${ctx.readinessComponents.sleepHours}h, Mood ${ctx.readinessComponents.mood}/10`
     : 'No components'}`);
   } else {
     sections.push(`--- READINESS STATE ---
@@ -470,7 +470,7 @@ Readiness: ${ctx.readinessScore || 'No check-in today'}
 Readiness score (0-100): ${se?.readinessScore ?? 'N/A'}
 Readiness RAG: ${se?.readinessRag ?? 'N/A'}
 Last components: ${ctx.readinessComponents
-    ? `Energy ${ctx.readinessComponents.energy}/5, Soreness ${ctx.readinessComponents.soreness}/5, Sleep ${ctx.readinessComponents.sleepHours}h, Mood ${ctx.readinessComponents.mood}/5, Academic stress ${ctx.readinessComponents.academicStress ?? 'N/A'}/5, Pain: ${ctx.readinessComponents.painFlag ? 'YES' : 'No'}`
+    ? `Energy ${ctx.readinessComponents.energy}/10, Soreness ${ctx.readinessComponents.soreness}/10, Sleep ${ctx.readinessComponents.sleepHours}h, Mood ${ctx.readinessComponents.mood}/10, Academic stress ${ctx.readinessComponents.academicStress ?? 'N/A'}/10, Pain: ${ctx.readinessComponents.painFlag ? 'YES' : 'No'}`
     : 'No recent check-in'}`);
   }
 

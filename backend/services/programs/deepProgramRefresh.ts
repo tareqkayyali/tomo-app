@@ -17,6 +17,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { buildPlayerContext, type PlayerContext } from '@/services/agents/contextBuilder';
 import { FOOTBALL_PROGRAMS, POSITION_MATRIX, type InlineProgram } from './footballPrograms';
 import { getInlinePrograms } from './footballPrograms';
+import { getRecommendationConfig } from '@/services/recommendations/recommendationConfig';
 import { withRetry } from '@/lib/aiRetry';
 import { getSnapshotState, applyGuardrails, buildGuardrailSummary } from './programGuardrails';
 
@@ -70,7 +71,8 @@ function getClient(): Anthropic {
 // Staleness Check
 // ---------------------------------------------------------------------------
 
-const DEEP_PROGRAM_STALE_HOURS = 6;
+// Default — overridden by CMS config at runtime
+const DEEP_PROGRAM_STALE_HOURS_DEFAULT = 24;
 
 export async function isDeepProgramStale(athleteId: string): Promise<boolean> {
   const db = supabaseAdmin();
@@ -85,8 +87,10 @@ export async function isDeepProgramStale(athleteId: string): Promise<boolean> {
   const cached = data.program_recommendations as DeepProgramResult;
   if (!cached.generatedAt) return true;
 
+  const cfg = await getRecommendationConfig();
+  const staleHours = cfg.programRefresh.stalenessHours;
   const hoursSince = (Date.now() - new Date(cached.generatedAt).getTime()) / (1000 * 60 * 60);
-  return hoursSince > DEEP_PROGRAM_STALE_HOURS;
+  return hoursSince > staleHours;
 }
 
 /**
@@ -108,9 +112,11 @@ export async function getCachedProgramRecommendations(
   const cached = data.program_recommendations as DeepProgramResult;
   if (!cached.generatedAt || !cached.isAiGenerated) return null;
 
-  // Check staleness
+  // Check staleness using CMS config
+  const cfg = await getRecommendationConfig();
+  const staleHours = cfg.programRefresh.stalenessHours;
   const hoursSince = (Date.now() - new Date(cached.generatedAt).getTime()) / (1000 * 60 * 60);
-  if (hoursSince > DEEP_PROGRAM_STALE_HOURS) return null;
+  if (hoursSince > staleHours) return null;
 
   return cached;
 }
@@ -203,7 +209,7 @@ export async function deepProgramRefresh(
 
     // 2a. Get snapshot for guardrails
     const snapshot = await getSnapshotState(athleteId);
-    const guardrailSummary = snapshot ? buildGuardrailSummary(snapshot) : '';
+    const guardrailSummary = snapshot ? await buildGuardrailSummary(snapshot) : '';
 
     // 2b. Build prompt with athlete context + program catalog + guardrails
     const userPrompt = buildDeepProgramPrompt(ctx, excludedIds, guardrailSummary);
@@ -329,7 +335,7 @@ export async function deepProgramRefresh(
     // 5b. Apply deterministic guardrails on top of AI selection
     let finalPrograms = aiPrograms;
     if (snapshot) {
-      const guardrailed = applyGuardrails(aiPrograms, snapshot);
+      const guardrailed = await applyGuardrails(aiPrograms, snapshot);
       finalPrograms = guardrailed.programs;
       if (guardrailed.appliedRules.length > 0) {
         console.log(`[DeepProgramRefresh] Guardrails applied for ${athleteId}: ${guardrailed.appliedRules.join('; ')}`);
@@ -415,7 +421,7 @@ Readiness: ${ctx.readinessScore || 'No check-in today'}
 Readiness score (0-100): ${se?.readinessScore ?? 'N/A'}
 Readiness RAG: ${se?.readinessRag ?? 'N/A'}
 Components: ${ctx.readinessComponents
-    ? `Energy ${ctx.readinessComponents.energy}/5, Soreness ${ctx.readinessComponents.soreness}/5, Sleep ${ctx.readinessComponents.sleepHours}h, Mood ${ctx.readinessComponents.mood}/5`
+    ? `Energy ${ctx.readinessComponents.energy}/10, Soreness ${ctx.readinessComponents.soreness}/10, Sleep ${ctx.readinessComponents.sleepHours}h, Mood ${ctx.readinessComponents.mood}/10`
     : 'No recent check-in'}`);
 
   // ── Load

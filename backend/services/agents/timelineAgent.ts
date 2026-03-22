@@ -438,7 +438,7 @@ export function buildTimelineSystemPrompt(context: PlayerContext): string {
       : context.todayEvents
           .map(
             (e) =>
-              `${e.title} (${e.event_type}${e.start_at ? " at " + e.start_at.split("T")[1]?.slice(0, 5) : ""})`
+              `${e.title} (${e.event_type}${e.start_at ? " at " + new Date(e.start_at).toLocaleTimeString("en-GB", { timeZone: context.timezone, hour: "2-digit", minute: "2-digit", hour12: false }) : ""})`
           )
           .join(", ");
 
