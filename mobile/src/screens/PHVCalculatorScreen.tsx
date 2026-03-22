@@ -159,13 +159,21 @@ export function PHVCalculatorScreen() {
   }, []);
 
   // ── Calculate ───────────────────────────────────────────────────
+  const showAlert = useCallback((title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}: ${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  }, []);
+
   const handleCalculate = useCallback(() => {
     if (!sex) {
-      Alert.alert('Missing Info', 'Please select your sex to calculate PHV.');
+      showAlert('Missing Info', 'Please select your sex to calculate PHV.');
       return;
     }
     if (ageDecimal == null || ageDecimal < 10 || ageDecimal > 20) {
-      Alert.alert('Age Issue', 'PHV calculation requires age between 10 and 20. Please update your profile.');
+      showAlert('Age Issue', 'PHV calculation requires age between 10 and 20. Please update your profile.');
       return;
     }
 
@@ -174,7 +182,7 @@ export function PHVCalculatorScreen() {
     const weightKg = parseFloat(weight);
 
     if (isNaN(standingCm) || isNaN(sittingCm) || isNaN(weightKg)) {
-      Alert.alert('Missing Fields', 'Please fill in all measurements.');
+      showAlert('Missing Fields', 'Please fill in all measurements.');
       return;
     }
 
@@ -188,13 +196,13 @@ export function PHVCalculatorScreen() {
 
     const errors = validatePHVInputs(inputs);
     if (errors.length > 0) {
-      Alert.alert('Validation Error', errors.join('\n'));
+      showAlert('Validation Error', errors.join('\n'));
       return;
     }
 
     const phvResult = calculatePHV(inputs);
     setResult(phvResult);
-  }, [sex, ageDecimal, standingHeight, sittingHeight, weight]);
+  }, [sex, ageDecimal, standingHeight, sittingHeight, weight, showAlert]);
 
   // ── Save ────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -235,7 +243,15 @@ export function PHVCalculatorScreen() {
       try { await refreshProfile(); } catch {}
 
       setSavedMessage('✅ Growth stage saved!');
-      setTimeout(() => navigation.goBack(), 1500);
+      setTimeout(() => {
+        if (Platform.OS === 'web' && window.history.length > 1) {
+          window.history.back();
+        } else if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          (navigation as any).navigate('MainTabs');
+        }
+      }, 1500);
     } catch (e) {
       setSavedMessage('❌ Failed to save. Please try again.');
       setSaving(false);
@@ -254,7 +270,15 @@ export function PHVCalculatorScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.headerArea}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => {
+          if (Platform.OS === 'web' && window.history.length > 1) {
+            window.history.back();
+          } else if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            (navigation as any).navigate('MainTabs');
+          }
+        }} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -300,28 +324,46 @@ export function PHVCalculatorScreen() {
           {/* DOB display */}
           <View style={styles.inputGroup}>
             <Text style={styles.fieldLabel}>Date of Birth</Text>
-            <Pressable
-              onPress={() => setShowDatePicker(true)}
-              style={[styles.datePickerButton, { backgroundColor: colors.inputBackground }]}
-            >
-              <Ionicons name="calendar-outline" size={18} color={colors.accent1} />
-              <Text style={[styles.datePickerText, { color: dob ? colors.textOnDark : colors.textMuted }]}>
-                {dob || 'Select your date of birth'}
-              </Text>
-            </Pressable>
+            {Platform.OS === 'web' ? (
+              <View style={[styles.inputRow]}>
+                <TextInput
+                  style={[styles.input, { color: colors.textOnDark, backgroundColor: colors.inputBackground }]}
+                  value={dob}
+                  onChangeText={(text) => {
+                    setDob(text);
+                    const parsed = new Date(text);
+                    if (!isNaN(parsed.getTime())) setDobDate(parsed);
+                  }}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => setShowDatePicker(true)}
+                  style={[styles.datePickerButton, { backgroundColor: colors.inputBackground }]}
+                >
+                  <Ionicons name="calendar-outline" size={18} color={colors.accent1} />
+                  <Text style={[styles.datePickerText, { color: dob ? colors.textOnDark : colors.textMuted }]}>
+                    {dob || 'Select your date of birth'}
+                  </Text>
+                </Pressable>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={dobDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={onDateChange}
+                    maximumDate={new Date()}
+                    minimumDate={new Date(2004, 0, 1)}
+                    themeVariant="dark"
+                  />
+                )}
+              </>
+            )}
             {ageDecimal != null && (
               <Text style={[styles.readOnlyValue, { marginTop: 4 }]}>Age: {ageDecimal} years</Text>
-            )}
-            {showDatePicker && (
-              <DateTimePicker
-                value={dobDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onDateChange}
-                maximumDate={new Date()}
-                minimumDate={new Date(2004, 0, 1)}
-                themeVariant="dark"
-              />
             )}
           </View>
 
