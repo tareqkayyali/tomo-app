@@ -45,6 +45,12 @@ const navigation = [
     ],
   },
   {
+    label: "AI & Recommendations",
+    items: [
+      { name: "Recommendation Engine", href: "/admin/recommendation-engine", icon: "🤖" },
+    ],
+  },
+  {
     label: "App Design",
     items: [
       { name: "Brand Colors", href: "/admin/design/brand", icon: "🎨" },
