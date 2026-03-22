@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Write to player_phv_assessments (legacy table — getPlayerPHVStage reads from here first)
-    await (db as any).from('player_phv_assessments').insert({
+    const { error: assessmentErr } = await (db as any).from('player_phv_assessments').insert({
       user_id: userId,
       standing_height_cm,
       sitting_height_cm,
@@ -53,6 +53,9 @@ export async function POST(req: NextRequest) {
       phv_stage: simpleStage,
       assessment_date: new Date().toISOString().split('T')[0],
     });
+    if (assessmentErr) {
+      console.error('[PHV Save] player_phv_assessments insert failed:', assessmentErr);
+    }
 
     // 2. Update athlete_snapshots (Layer 2 — immediate read model)
     const snapshotUpdate: Record<string, any> = {
@@ -65,25 +68,36 @@ export async function POST(req: NextRequest) {
     if (maturity_offset != null) snapshotUpdate.phv_offset_years = maturity_offset;
     if (simpleStage) snapshotUpdate.phv_stage = simpleStage;
 
-    await (db as any)
+    const { error: snapshotErr } = await (db as any)
       .from('athlete_snapshots')
       .upsert(snapshotUpdate, { onConflict: 'athlete_id' });
+    if (snapshotErr) {
+      console.error('[PHV Save] athlete_snapshots upsert failed:', snapshotErr);
+    }
 
-    // 3. Update user profile
+    // 3. Update user profile (DOB, gender, height, weight — no sitting_height on users table)
     const profileUpdate: Record<string, any> = {};
     if (date_of_birth) profileUpdate.date_of_birth = date_of_birth;
     if (sex) profileUpdate.gender = sex;
-    if (standing_height_cm) profileUpdate.height_cm = standing_height_cm;
-    if (weight_kg) profileUpdate.weight_kg = weight_kg;
 
     if (Object.keys(profileUpdate).length > 0) {
-      await (db as any)
+      const { error: profileErr } = await (db as any)
         .from('users')
         .update(profileUpdate)
         .eq('id', userId);
+      if (profileErr) {
+        console.error('[PHV Save] users profile update failed:', profileErr);
+      }
     }
 
-    return NextResponse.json({ saved: true, phv_stage: simpleStage, maturity_offset });
+    return NextResponse.json({
+      saved: true,
+      phv_stage: simpleStage,
+      maturity_offset,
+      standing_height_cm,
+      sitting_height_cm,
+      weight_kg,
+    });
   } catch (err: any) {
     console.error('[PHV Save] error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

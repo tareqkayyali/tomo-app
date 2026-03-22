@@ -120,33 +120,39 @@ export function PHVCalculatorScreen() {
   // Age from profile DOB or age field
   const ageDecimal = profile?.age ?? null;
 
-  // ── Fetch PHV measurements from snapshot on mount (only what's missing) ──
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const { getOutputSnapshot } = require('../services/api');
-        const snapshot = await getOutputSnapshot();
-        if (!mounted) return;
+  // ── Fetch PHV measurements on mount AND on focus (returning from save) ──
+  const loadPHVData = useCallback(async () => {
+    try {
+      const { getOutputSnapshot } = require('../services/api');
+      const snapshot = await getOutputSnapshot();
 
-        const phv = snapshot?.vitals?.phv;
-        if (phv) {
-          if (phv.standingHeightCm) setStandingHeight(String(phv.standingHeightCm));
-          if (phv.sittingHeightCm) setSittingHeight(String(phv.sittingHeightCm));
-          if (phv.weightKg) setWeight(String(phv.weightKg));
-          if (phv.sex && (phv.sex === 'male' || phv.sex === 'female')) setSex(phv.sex);
-          if (phv.dateOfBirth) {
-            setDob(phv.dateOfBirth);
-            const parsed = new Date(phv.dateOfBirth);
-            if (!isNaN(parsed.getTime())) setDobDate(parsed);
-          }
+      const phv = snapshot?.vitals?.phv;
+      if (phv) {
+        if (phv.standingHeightCm) setStandingHeight(String(phv.standingHeightCm));
+        if (phv.sittingHeightCm) setSittingHeight(String(phv.sittingHeightCm));
+        if (phv.weightKg) setWeight(String(phv.weightKg));
+        if (phv.sex && (phv.sex === 'male' || phv.sex === 'female')) setSex(phv.sex);
+        if (phv.dateOfBirth) {
+          setDob(phv.dateOfBirth);
+          const parsed = new Date(phv.dateOfBirth);
+          if (!isNaN(parsed.getTime())) setDobDate(parsed);
         }
-      } catch (e) {
-        console.warn('[PHVCalculator] Failed to fetch snapshot:', e);
       }
-    })();
-    return () => { mounted = false; };
+    } catch (e) {
+      console.warn('[PHVCalculator] Failed to fetch snapshot:', e);
+    }
   }, []);
+
+  // Load on mount
+  useEffect(() => { loadPHVData(); }, [loadPHVData]);
+
+  // Re-load on focus (when navigating back to this screen)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadPHVData();
+    });
+    return unsubscribe;
+  }, [navigation, loadPHVData]);
 
   // ── Date picker handler ───────────────────────────────────────
   const onDateChange = useCallback((event: any, selectedDate?: Date) => {
