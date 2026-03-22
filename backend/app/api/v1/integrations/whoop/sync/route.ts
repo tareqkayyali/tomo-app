@@ -49,12 +49,25 @@ export async function POST(req: NextRequest) {
 
     const isFirstSync = !conn?.last_sync_at;
 
-    // Time window: 30 days for first sync, 24 hours for subsequent
+    // Check if force full sync requested (query param or no health_data yet)
+    const forceFullSync = req.nextUrl?.searchParams?.get("full") === "true";
+
+    // Check if health_data has any rows for this user (if empty, treat as first sync)
+    const { count: healthDataCount } = await db
+      .from("health_data")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    const hasNoHealthData = (healthDataCount ?? 0) === 0;
+
+    // Time window: 30 days for first sync or empty health_data, 7 days minimum otherwise
     const endDate = new Date().toISOString();
-    const lookbackMs = isFirstSync
+    const needsFullSync = isFirstSync || forceFullSync || hasNoHealthData;
+    const lookbackMs = needsFullSync
       ? 30 * 24 * 60 * 60 * 1000  // 30 days
-      : 24 * 60 * 60 * 1000;       // 24 hours
+      : 7 * 24 * 60 * 60 * 1000;  // 7 days (enough for weekly aggregator)
     const startDate = new Date(Date.now() - lookbackMs).toISOString();
+
+    console.log(`[whoop/sync] userId=${userId} firstSync=${isFirstSync} fullSync=${forceFullSync} noHealthData=${hasNoHealthData} lookback=${needsFullSync ? '30d' : '7d'}`);
 
     // Fetch all data types in parallel
     const [recoveries, sleeps, workouts, cycles] = await Promise.all([
@@ -75,6 +88,8 @@ export async function POST(req: NextRequest) {
         return [];
       }),
     ]);
+
+    console.log(`[whoop/sync] Fetched: recoveries=${recoveries.length} sleeps=${sleeps.length} workouts=${workouts.length} cycles=${cycles.length} window=${startDate} to ${endDate}`);
 
     // Map WHOOP data to Tomo events
     const vitalEvents = mapRecoveryToVitalReadings(recoveries);
