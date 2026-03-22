@@ -69,22 +69,24 @@ export async function POST(req: NextRequest) {
 
     console.log(`[whoop/sync] userId=${userId} firstSync=${isFirstSync} fullSync=${forceFullSync} noHealthData=${hasNoHealthData} lookback=${needsFullSync ? '30d' : '7d'}`);
 
-    // Fetch all data types in parallel
+    console.log(`[whoop/sync] Fetching window: ${startDate} → ${endDate}`);
+
+    // Fetch all data types in parallel — log errors instead of silently swallowing
     const [recoveries, sleeps, workouts, cycles] = await Promise.all([
       fetchRecoveries(accessToken, startDate, endDate).catch((e) => {
-        console.warn("[whoop/sync] Recovery fetch failed:", e.message);
+        console.error("[whoop/sync] Recovery fetch FAILED:", e.message);
         return [];
       }),
       fetchSleeps(accessToken, startDate, endDate).catch((e) => {
-        console.warn("[whoop/sync] Sleep fetch failed:", e.message);
+        console.error("[whoop/sync] Sleep fetch FAILED:", e.message);
         return [];
       }),
       fetchWorkouts(accessToken, startDate, endDate).catch((e) => {
-        console.warn("[whoop/sync] Workout fetch failed:", e.message);
+        console.error("[whoop/sync] Workout fetch FAILED:", e.message);
         return [];
       }),
       fetchCycles(accessToken, startDate, endDate).catch((e) => {
-        console.warn("[whoop/sync] Cycle fetch failed:", e.message);
+        console.error("[whoop/sync] Cycle fetch FAILED:", e.message);
         return [];
       }),
     ]);
@@ -156,8 +158,10 @@ export async function POST(req: NextRequest) {
       events_emitted: emitted,
       health_data_written: healthDataWritten,
       first_sync: isFirstSync,
+      full_sync: needsFullSync,
       lookback_days: needsFullSync ? 30 : 7,
-      _syncVersion: 2,
+      window: { start: startDate, end: endDate },
+      _syncVersion: 3,
       summary: {
         recoveries: recoveries.length,
         sleeps: sleeps.length,
