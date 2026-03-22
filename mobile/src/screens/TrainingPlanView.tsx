@@ -44,8 +44,8 @@ const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // ── Component ────────────────────────────────────────────────────────
 
 type TrainingPlanViewProps = {
-  onNavigateToPreview: (blocks: TrainingBlock[], warnings?: string[]) => void;
-  onNavigateToRules: () => void;
+  onNavigateToPreview?: (blocks: TrainingBlock[], warnings?: string[]) => void;
+  onNavigateToRules?: () => void;
 };
 
 export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: TrainingPlanViewProps) {
@@ -53,7 +53,16 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { profile } = useAuth();
   const { rules, loading, refresh } = useScheduleRules();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+
+  const handleNavigateToPreview = onNavigateToPreview ?? ((blocks: TrainingBlock[], warnings?: string[]) => {
+    navigation.navigate('StudyPlanPreview', {
+      blocks: JSON.stringify(blocks),
+      warnings: warnings?.length ? JSON.stringify(warnings) : undefined,
+      planType: 'training',
+    });
+  });
+  const handleNavigateToRules = onNavigateToRules ?? (() => navigation.navigate('MyRules'));
 
   // Refresh data when tab is focused
   useEffect(() => {
@@ -186,12 +195,12 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
             'Some sessions could not be placed',
             result.warnings.join('\n'),
             [
-              { text: 'View Plan Anyway', onPress: () => onNavigateToPreview(result.blocks, result.warnings) },
+              { text: 'View Plan Anyway', onPress: () => handleNavigateToPreview(result.blocks, result.warnings) },
               { text: 'Cancel', style: 'cancel' },
             ],
           );
         } else {
-          onNavigateToPreview(result.blocks);
+          handleNavigateToPreview(result.blocks);
         }
       };
 
@@ -225,7 +234,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
     } finally {
       setIsGenerating(false);
     }
-  }, [categories, enabledCategories, planWeeks, saveConfig, onNavigateToPreview, onNavigateToRules, schoolSchedule, rules?.effectiveRules]);
+  }, [categories, enabledCategories, planWeeks, saveConfig, handleNavigateToPreview, handleNavigateToRules, schoolSchedule, rules?.effectiveRules]);
 
   // ── Loading state (prevents empty-state flash) ─────────────────────
 
@@ -249,7 +258,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
         <Text style={styles.emptySubtitle}>
           Set up your training schedule in My Rules to generate a plan.
         </Text>
-        <TouchableOpacity style={[styles.rulesBtn, { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D`, borderWidth: 1 }]} onPress={onNavigateToRules}>
+        <TouchableOpacity style={[styles.rulesBtn, { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D`, borderWidth: 1 }]} onPress={handleNavigateToRules}>
           <Ionicons name="options-outline" size={16} color={colors.accent1} />
           <Text style={[styles.rulesBtnText, { color: colors.accent1 }]}>Go to Rules</Text>
         </TouchableOpacity>
@@ -263,7 +272,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
       {/* ─── Config summary banner (matches Study tab) ─── */}
-      <TouchableOpacity style={styles.configBanner} onPress={onNavigateToRules} activeOpacity={0.7}>
+      <TouchableOpacity style={styles.configBanner} onPress={handleNavigateToRules} activeOpacity={0.7}>
         <View style={styles.configBannerLeft}>
           <Ionicons name="options-outline" size={14} color={colors.accent1} />
           <Text style={[styles.configBannerText, { color: colors.textSecondary }]}>

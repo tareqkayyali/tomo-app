@@ -39,6 +39,7 @@ const TYPE_EMOJIS: Record<string, string> = {
 interface SpineTimelineProps {
   events: CalendarEvent[];
   onEventPress?: (event: CalendarEvent) => void;
+  onEventEdit?: (event: CalendarEvent) => void;
   onEventComplete?: (eventId: string) => void;
   onEventSkip?: (eventId: string) => void;
   completedIds?: Set<string>;
@@ -61,6 +62,7 @@ function formatTime(time: string | null): string {
 export function SpineTimeline({
   events,
   onEventPress,
+  onEventEdit,
   onEventComplete,
   onEventSkip,
   completedIds = new Set(),
@@ -146,7 +148,7 @@ export function SpineTimeline({
                 pressed && { opacity: 0.85 },
                 isDone && { opacity: 0.5 },
               ]}
-              onPress={() => onEventPress?.(event)}
+              onPress={() => onEventEdit ? onEventEdit(event) : onEventPress?.(event)}
             >
               <GlassCard>
                 {/* Time range */}
@@ -174,29 +176,36 @@ export function SpineTimeline({
                     </Text>
                   </View>
 
-                  {/* Done/Skip buttons */}
-                  {!isDone && (onEventComplete || onEventSkip) && (
-                    <View style={styles.actionRow}>
-                      {onEventComplete && (
-                        <Pressable
-                          onPress={(e) => { e.stopPropagation(); onEventComplete(event.id); }}
-                          hitSlop={8}
-                          style={styles.actionBtn}
-                        >
-                          <Ionicons name="checkmark-circle-outline" size={18} color={colors.accent} />
-                        </Pressable>
-                      )}
-                      {onEventSkip && (
-                        <Pressable
-                          onPress={(e) => { e.stopPropagation(); onEventSkip(event.id); }}
-                          hitSlop={8}
-                          style={styles.actionBtn}
-                        >
-                          <Ionicons name="close-circle-outline" size={18} color={colors.textMuted} />
-                        </Pressable>
-                      )}
-                    </View>
-                  )}
+                  {/* Action buttons: Edit + Done/Skip */}
+                  <View style={styles.actionRow}>
+                    {onEventEdit && !isDone && (
+                      <Pressable
+                        onPress={(e) => { e.stopPropagation(); onEventEdit(event); }}
+                        hitSlop={8}
+                        style={styles.actionBtn}
+                      >
+                        <Ionicons name="create-outline" size={18} color={colors.accent2} />
+                      </Pressable>
+                    )}
+                    {!isDone && onEventComplete && (
+                      <Pressable
+                        onPress={(e) => { e.stopPropagation(); onEventComplete(event.id); }}
+                        hitSlop={8}
+                        style={styles.actionBtn}
+                      >
+                        <Ionicons name="checkmark-circle-outline" size={18} color={colors.accent} />
+                      </Pressable>
+                    )}
+                    {!isDone && onEventSkip && (
+                      <Pressable
+                        onPress={(e) => { e.stopPropagation(); onEventSkip(event.id); }}
+                        hitSlop={8}
+                        style={styles.actionBtn}
+                      >
+                        <Ionicons name="close-circle-outline" size={18} color={colors.textMuted} />
+                      </Pressable>
+                    )}
+                  </View>
 
                   {/* Done/Skipped indicator */}
                   {isCompleted && (

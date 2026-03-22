@@ -64,8 +64,8 @@ function urgencyColor(days: number, colors: ThemeColors): string {
 // ── Component ────────────────────────────────────────────────────────
 
 type StudyPlanViewProps = {
-  onNavigateToPreview: (blocks: StudyBlock[], warnings?: string[], config?: StudyPlanConfig, savedPlanId?: string, viewOnly?: boolean) => void;
-  onNavigateToRules: () => void;
+  onNavigateToPreview?: (blocks: StudyBlock[], warnings?: string[], config?: StudyPlanConfig, savedPlanId?: string, viewOnly?: boolean) => void;
+  onNavigateToRules?: () => void;
 };
 
 export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyPlanViewProps) {
@@ -73,7 +73,20 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { profile } = useAuth();
   const { rules, loading, refresh } = useScheduleRules();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+
+  // Default navigation handlers when used as standalone screen
+  const handleNavigateToPreview = onNavigateToPreview ?? ((blocks: StudyBlock[], warnings?: string[], config?: StudyPlanConfig, savedPlanId?: string, viewOnly?: boolean) => {
+    navigation.navigate('StudyPlanPreview', {
+      blocks: JSON.stringify(blocks),
+      warnings: warnings?.length ? JSON.stringify(warnings) : undefined,
+      planType: 'study',
+      config: config ? JSON.stringify(config) : undefined,
+      savedPlanId,
+      viewOnly: viewOnly ? 'true' : undefined,
+    });
+  });
+  const handleNavigateToRules = onNavigateToRules ?? (() => navigation.navigate('MyRules'));
 
   // Saved study plans
   const [savedPlans, setSavedPlans] = useState<SavedStudyPlan[]>([]);
@@ -232,7 +245,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
   const handleGenerate = useCallback(async () => {
     if (subjects.length === 0 || exams.length === 0) {
       Alert.alert('Missing Info', 'Add your subjects and exam schedule in My Rules first.', [
-        { text: 'Go to Rules', onPress: onNavigateToRules },
+        { text: 'Go to Rules', onPress: handleNavigateToRules },
         { text: 'Cancel', style: 'cancel' },
       ]);
       return;
@@ -282,7 +295,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
         setIsGenerating(false);
 
         // Always go straight to preview — warnings are shown inline there
-        onNavigateToPreview(result.blocks, result.warnings.length > 0 ? result.warnings : undefined, currentConfig);
+        handleNavigateToPreview(result.blocks, result.warnings.length > 0 ? result.warnings : undefined, currentConfig);
       };
 
       if (existingStudyBlocks.length > 0) {
@@ -315,7 +328,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
     } finally {
       setIsGenerating(false);
     }
-  }, [subjects, exams, trainingPrefs, currentConfig, timeSlotStart, timeSlotEnd, sessionDuration, saveConfig, onNavigateToPreview, onNavigateToRules, schoolSchedule, rules?.effectiveRules]);
+  }, [subjects, exams, trainingPrefs, currentConfig, timeSlotStart, timeSlotEnd, sessionDuration, saveConfig, handleNavigateToPreview, handleNavigateToRules, schoolSchedule, rules?.effectiveRules]);
 
   // ── Loading state (prevents flash — matches Training tab) ──────────
 
@@ -339,7 +352,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
         <Text style={styles.emptySubtitle}>
           Add your subjects and exam schedule in My Rules to generate a study plan.
         </Text>
-        <TouchableOpacity style={[styles.rulesBtn, { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D`, borderWidth: 1 }]} onPress={onNavigateToRules}>
+        <TouchableOpacity style={[styles.rulesBtn, { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D`, borderWidth: 1 }]} onPress={handleNavigateToRules}>
           <Ionicons name="options-outline" size={16} color={colors.accent1} />
           <Text style={[styles.rulesBtnText, { color: colors.accent1 }]}>Go to Rules</Text>
         </TouchableOpacity>
@@ -367,7 +380,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                   key={plan.id}
                   style={styles.savedPlanCard}
                   activeOpacity={0.7}
-                  onPress={() => onNavigateToPreview(plan.blocks, undefined, plan.config, plan.id, true)}
+                  onPress={() => handleNavigateToPreview(plan.blocks, undefined, plan.config, plan.id, true)}
                   onLongPress={() => {
                     Alert.alert('Delete Plan?', `Remove "${plan.name}"?`, [
                       { text: 'Cancel', style: 'cancel' },
@@ -410,7 +423,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
       )}
 
       {/* ─── Config summary banner (matches Training tab) ─── */}
-      <TouchableOpacity style={styles.configBanner} onPress={onNavigateToRules} activeOpacity={0.7}>
+      <TouchableOpacity style={styles.configBanner} onPress={handleNavigateToRules} activeOpacity={0.7}>
         <View style={styles.configBannerLeft}>
           <Ionicons name="options-outline" size={14} color={colors.accent1} />
           <Text style={[styles.configBannerText, { color: colors.textSecondary }]}>
@@ -454,7 +467,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
         <View style={styles.section}>
           <TouchableOpacity
             style={[styles.infoBanner, { backgroundColor: '#E74C3C12' }]}
-            onPress={onNavigateToRules}
+            onPress={handleNavigateToRules}
           >
             <Ionicons name="alert-circle" size={16} color={colors.error} />
             <Text style={[styles.infoBannerText, { color: colors.error }]}>
@@ -561,7 +574,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             {reason && (
               <TouchableOpacity
                 style={[styles.infoBanner, { backgroundColor: '#F39C1212', marginBottom: spacing.sm }]}
-                onPress={onNavigateToRules}
+                onPress={handleNavigateToRules}
               >
                 <Ionicons name="warning-outline" size={16} color={colors.warning} />
                 <Text style={[styles.infoBannerText, { color: colors.warning }]}>{reason}</Text>
@@ -577,7 +590,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                 style={[styles.generateBtn, { backgroundColor: `${colors.warning}1F`, borderColor: `${colors.warning}4D`, borderWidth: 1, marginBottom: spacing.sm }]}
                 onPress={() => {
                   const latest = savedPlans[0];
-                  onNavigateToPreview(latest.blocks, undefined, latest.config, latest.id);
+                  handleNavigateToPreview(latest.blocks, undefined, latest.config, latest.id);
                 }}
                 activeOpacity={0.7}
               >

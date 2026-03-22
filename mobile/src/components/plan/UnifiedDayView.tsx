@@ -15,6 +15,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import {
   ExamStudyPlanner,
 } from '../../components';
@@ -116,6 +117,8 @@ export function UnifiedDayView({
 
   const emptyCompleted = useMemo(() => new Set<string>(), []);
   const noop = () => {};
+
+  const navigation = useNavigation<any>();
 
   // ScrollView ref for drag-scroll coordination
   const scrollViewRef = useRef<ScrollView>(null);
@@ -255,11 +258,17 @@ export function UnifiedDayView({
         <View style={styles.timelineSection}>
           <SpineTimeline
             events={events}
-            onEventPress={(event) => {
-              // Open event detail — same as tapping in DayGrid
-              if (onDelete && onUpdate) {
-                // Event cards are tappable for editing
-              }
+            onEventEdit={(event) => {
+              navigation.navigate('EventEdit', {
+                eventId: event.id,
+                name: event.name,
+                type: event.type,
+                date: event.date,
+                startTime: event.startTime || '',
+                endTime: event.endTime || '',
+                notes: event.notes || '',
+                intensity: event.intensity || '',
+              });
             }}
             onEventComplete={onComplete}
             onEventSkip={onSkip}

@@ -63,6 +63,8 @@ import { StudyPlanPreviewScreen } from '../screens/StudyPlanPreviewScreen';
 import { MyRulesScreen } from '../screens/MyRulesScreen';
 import { FavoritesScreen } from '../screens/FavoritesScreen';
 import PHVCalculatorScreen from '../screens/PHVCalculatorScreen';
+import { StudyPlanView } from '../screens/StudyPlanView';
+import { TrainingPlanView } from '../screens/TrainingPlanView';
 
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
@@ -544,6 +546,16 @@ export function MainNavigator() {
       <Stack.Screen
         name="PHVCalculator"
         component={PHVCalculatorScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="StudyPlanView"
+        component={StudyPlanView}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="TrainingPlanView"
+        component={TrainingPlanView}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

@@ -84,6 +84,9 @@ export type MainStackParamList = {
   PhoneTestsList: undefined;
   // PHV
   PHVCalculator: { existingOffset?: number; existingStage?: string } | undefined;
+  // Plan views (standalone screens)
+  StudyPlanView: undefined;
+  TrainingPlanView: undefined;
   // Multi-role screens
   Notifications: undefined;
   LinkAccount: undefined;
