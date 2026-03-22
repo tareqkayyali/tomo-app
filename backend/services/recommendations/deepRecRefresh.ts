@@ -142,20 +142,25 @@ Every recommendation MUST include an "action" object that deep-links to a specif
 Rules:
 - Generate between 5 and 8 recommendations with DEEP context. Quality over quantity.
 - Each rec must reference SPECIFIC numbers from the athlete's data. Be concrete, not generic.
-- TWO time horizons only:
-  - Priority 1-2 = TODAY section. What the athlete should do RIGHT NOW and today.
+- TWO time horizons only — you MUST use BOTH:
+  - Priority 2 = TODAY section (default for most recs). What to do TODAY.
+  - Priority 1 = TODAY section (urgent only — RED readiness, injury, dangerous load)
   - Priority 3 = TOMORROW section. What to plan for tomorrow and the next 2-3 days.
-- Generate 3-5 recs as P1 or P2 (Today) — these are the main focus. Go deep:
+- MANDATORY DISTRIBUTION — you MUST follow this exactly:
+  - AT LEAST 3 recs MUST be Priority 2 (Today). This is NON-NEGOTIABLE.
+  - AT LEAST 2 recs MUST be Priority 3 (Tomorrow). This is NON-NEGOTIABLE.
+  - Use Priority 1 only for genuine emergencies. Default to Priority 2 for today's actions.
+  - Do NOT put all recs in one priority level. Split them.
+- TODAY recs (P1-P2) — deep, actionable, specific to RIGHT NOW:
   - Reference specific readiness scores, load numbers, exam dates
   - Include actionable body_long with 3-4 sentences of personalized reasoning
   - Cross-reference multiple data points (e.g. "sleep was 6.2h + ACWR 1.1 + exam in 3 days = prioritize study over training")
-- Generate 2-3 recs as P3 (Tomorrow) — forward planning:
+- TOMORROW recs (P3) — forward planning for the next 1-3 days:
   - What to schedule or prepare for tomorrow
   - Study planning for upcoming exams
   - Training session recommendations for the next few days
   - Recovery protocols to plan ahead
-- CRITICAL: P1-P2 content must say "today"/"now"/"tonight". P3 content must say "tomorrow"/"next few days".
-- Only generate P1 if there's genuine urgency (RED readiness, dangerous load spike, injury risk)
+- CRITICAL: P2 content must say "today"/"now"/"tonight". P3 content must say "tomorrow"/"next few days".
 - For young athletes (U15 and below): warm, encouraging tone. U17+: direct, peer-level.
 - body_short must be ≤140 characters, action-oriented, specific
 - body_long must be 2–4 sentences with specific numbers and clear reasoning
