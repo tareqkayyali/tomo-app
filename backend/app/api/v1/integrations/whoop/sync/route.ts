@@ -103,11 +103,43 @@ export async function POST(req: NextRequest) {
       if (result) emitted++;
     }
 
+    // ── Write directly to health_data for My Vitals page ──
+    // The event processor may not run (webhook not configured), so we
+    // write here as the guaranteed path for WHOOP data visibility.
+    let healthDataWritten = 0;
+    for (const evt of vitalEvents) {
+      const p = evt.payload as Record<string, unknown>;
+      const date = new Date(evt.occurred_at).toISOString().slice(0, 10);
+      const rows: Array<{ user_id: string; date: string; metric_type: string; value: number; unit: string; source: string }> = [];
+
+      if (p.hrv_ms) rows.push({ user_id: userId, date, metric_type: "hrv", value: p.hrv_ms as number, unit: "ms", source: "whoop" });
+      if (p.resting_hr_bpm) rows.push({ user_id: userId, date, metric_type: "resting_hr", value: p.resting_hr_bpm as number, unit: "bpm", source: "whoop" });
+      if (p.spo2_percent) rows.push({ user_id: userId, date, metric_type: "blood_oxygen", value: p.spo2_percent as number, unit: "%", source: "whoop" });
+      if (p.recovery_score) rows.push({ user_id: userId, date, metric_type: "recovery_score", value: p.recovery_score as number, unit: "%", source: "whoop" });
+      if (p.skin_temp_celsius) rows.push({ user_id: userId, date, metric_type: "body_temp", value: p.skin_temp_celsius as number, unit: "°C", source: "whoop" });
+
+      for (const row of rows) {
+        await db.from("health_data").upsert(row, { onConflict: "user_id,date,metric_type", ignoreDuplicates: false }).then(() => healthDataWritten++).catch(() => {});
+      }
+    }
+
+    for (const evt of sleepEvents) {
+      const p = evt.payload as Record<string, unknown>;
+      const date = new Date(evt.occurred_at).toISOString().slice(0, 10);
+      if (p.sleep_duration_hours) {
+        await db.from("health_data").upsert(
+          { user_id: userId, date, metric_type: "sleep_hours", value: p.sleep_duration_hours as number, unit: "hrs", source: "whoop" },
+          { onConflict: "user_id,date,metric_type", ignoreDuplicates: false }
+        ).then(() => healthDataWritten++).catch(() => {});
+      }
+    }
+
     await updateSyncStatus(userId, "idle");
 
     return NextResponse.json({
       synced: true,
       events_emitted: emitted,
+      health_data_written: healthDataWritten,
       first_sync: isFirstSync,
       lookback_days: isFirstSync ? 30 : 1,
       summary: {

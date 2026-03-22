@@ -210,11 +210,16 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const result = await syncWhoop();
+      console.log('[Settings] WHOOP sync result:', JSON.stringify(result));
       await loadIntegrationStatus();
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      Alert.alert('Sync Failed', 'Could not sync WHOOP data. Please try again.');
       console.error('[Settings] WHOOP sync error:', e);
+      if (Platform.OS === 'web') {
+        window.alert('Could not sync WHOOP data. Please try again.');
+      } else {
+        Alert.alert('Sync Failed', 'Could not sync WHOOP data. Please try again.');
+      }
     } finally {
       setSyncing(false);
     }
