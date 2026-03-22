@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       cmj: "cmj",
       "broad-jump": "broad_jump",
       "squat-jump": "cmj",
-      "vertical-jump": "cmj",
+      "vertical-jump": "vertical_jump",
       "drop-jump": "cmj",
       // Agility / Dribbling
       "5-0-5": "agility_505",
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
       "reaction-time": "reaction_time",
       "choice-reaction": "reaction_time",
       // Strength
-      "1rm-squat": "squat_rel",
+      "1rm-squat": "squat_1rm",
       "squat-relative": "squat_rel",
       "grip-strength": "grip_strength",
       // Body Comp
@@ -139,14 +139,14 @@ export async function POST(req: NextRequest) {
       // Recovery
       hrv: "hrv_rmssd",
       // MAS / Aerobic
-      "mas-running": "vo2max",
-      "mas": "vo2max",
+      "mas-running": "mas_running",
+      "mas": "mas_running",
       // Strength extras
       "1rm-bench": "bench_1rm",
       "bench-press": "bench_1rm",
       // Power extras
-      "sl-broad-jump-r": "broad_jump",
-      "sl-broad-jump-l": "broad_jump",
+      "sl-broad-jump-r": "sl_broad_jump_r",
+      "sl-broad-jump-l": "sl_broad_jump_l",
       "seated-mb-throw": "seated_mb_throw",
       // Agility extras
       "5-10-5-agility": "agility_505",

@@ -142,6 +142,16 @@ const NORM_NAME_TO_METRIC_KEY: Record<string, string> = {
   "HRV RMSSD": "hrv_rmssd",
   "Sleep Duration": "sleep_duration",
   "Relative Squat Strength": "squat_rel",
+  "Glycolytic Power": "glycolytic_power",
+  "MAS Running": "mas_running",
+  "Broad Jump": "broad_jump",
+  "Seated MB Throw": "seated_mb_throw",
+  "1RM Squat": "squat_1rm",
+  "1RM Bench Press": "bench_1rm",
+  "Vertical Jump": "vertical_jump",
+  "SL Broad Jump R": "sl_broad_jump_r",
+  "SL Broad Jump L": "sl_broad_jump_l",
+  "5-10-5 Agility": "agility_505",
 };
 
 /** Extract mean and SD for a specific age from the JSONB arrays (ages 13-23) */
