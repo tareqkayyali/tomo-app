@@ -13,6 +13,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getOutputSnapshot,
@@ -167,6 +168,19 @@ export function useOutputData(targetPlayerId?: string) {
     })();
     return () => { isMounted = false; };
   }, [targetPlayerId]);
+
+  // ── Re-fetch on screen focus (e.g. returning from PHV Calculator) ──
+  const isFocused = useIsFocused();
+  const hasMounted = useRef(false);
+  useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return; // Skip first render (handled by mount effect above)
+    }
+    if (isFocused) {
+      fetchData();
+    }
+  }, [isFocused, fetchData]);
 
   // ── Manual refresh (pull-to-refresh) ───────────────────────────────
   const refresh = useCallback(async () => {
