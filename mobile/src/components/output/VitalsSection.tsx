@@ -107,28 +107,15 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
               </Text>
             </View>
           </View>
-          <View style={styles.staleBannerActions}>
-            {isWhoopConnected && onSyncNow && (
-              <TouchableOpacity
-                style={[styles.staleCta, { backgroundColor: colors.accent1 }]}
-                onPress={onSyncNow}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="sync-outline" size={14} color="#FFF" />
-                <Text style={styles.staleCtaText}>Sync Now</Text>
-              </TouchableOpacity>
-            )}
-            {onCheckIn && (
-              <TouchableOpacity
-                style={[styles.staleCta, { backgroundColor: colors.accent2 }]}
-                onPress={onCheckIn}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="create-outline" size={14} color="#FFF" />
-                <Text style={styles.staleCtaText}>Check In</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          {isWhoopConnected && onSyncNow && (
+            <Pressable
+              onPress={onSyncNow}
+              style={[styles.syncCtaButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
+            >
+              <Ionicons name="sync-outline" size={16} color="#00D9FF" />
+              <Text style={[styles.syncCtaText, { color: '#00D9FF' }]}>Sync Now</Text>
+            </Pressable>
+          )}
         </GlassCard>
       )}
 
@@ -458,15 +445,12 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3, paddingLeft: spacing.sm,
   },
   staleBannerText: { fontFamily: fontFamily.medium, fontSize: 13, lineHeight: 19 },
-  staleBannerActions: {
-    flexDirection: 'row', gap: spacing.sm, marginTop: spacing.compact,
+  syncCtaButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 10, paddingHorizontal: 16,
+    borderRadius: 12, marginTop: 12, marginBottom: 8,
   },
-  staleCta: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: borderRadius.md,
-  },
-  staleCtaText: { fontFamily: fontFamily.semiBold, fontSize: 12, color: '#FFF' },
+  syncCtaText: { fontFamily: fontFamily.medium, fontSize: 13 },
 
   // Freshness badge
   freshnessBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
