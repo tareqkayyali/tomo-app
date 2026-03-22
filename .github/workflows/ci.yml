@@ -16,6 +16,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            mobile/package-lock.json
 
       - name: Install backend deps
         run: cd backend && npm ci
@@ -40,6 +43,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install deps
         run: cd backend && npm ci
@@ -60,6 +64,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: mobile/package-lock.json
 
       - name: Install deps
         run: cd mobile && npm ci
