@@ -170,29 +170,37 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
   // ── WHOOP disconnect ────────────────────────────────────────────
 
   const handleDisconnectWhoop = useCallback(async () => {
-    Alert.alert(
-      'Disconnect WHOOP',
-      'This will stop syncing your WHOOP data. You can reconnect anytime.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Disconnect',
-          style: 'destructive',
-          onPress: async () => {
-            setWhoopLoading(true);
-            try {
-              await disconnectWhoop();
-              setWhoopStatus(null);
-              if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            } catch {
-              Alert.alert('Error', 'Could not disconnect WHOOP.');
-            } finally {
-              setWhoopLoading(false);
-            }
-          },
-        },
-      ],
-    );
+    const doDisconnect = async () => {
+      setWhoopLoading(true);
+      try {
+        await disconnectWhoop();
+        setWhoopStatus(null);
+        if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch {
+        if (Platform.OS === 'web') {
+          window.alert('Could not disconnect WHOOP.');
+        } else {
+          Alert.alert('Error', 'Could not disconnect WHOOP.');
+        }
+      } finally {
+        setWhoopLoading(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Disconnect WHOOP? This will stop syncing your WHOOP data. You can reconnect anytime.')) {
+        doDisconnect();
+      }
+    } else {
+      Alert.alert(
+        'Disconnect WHOOP',
+        'This will stop syncing your WHOOP data. You can reconnect anytime.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Disconnect', style: 'destructive', onPress: doDisconnect },
+        ],
+      );
+    }
   }, []);
 
   // ── WHOOP manual sync ───────────────────────────────────────────
