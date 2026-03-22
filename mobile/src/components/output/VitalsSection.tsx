@@ -1,19 +1,19 @@
 /**
- * VitalsSection — Two-block layout: "Right Now" (real-time) + "This Week" (historical).
- * Shows freshness badges, stale data banners, and pushes users to sync/check-in.
+ * VitalsSection — Unified card pattern matching Own It recommendations.
+ * Two sections: "Right Now" (real-time vitals) + "This Week" (stories + groups).
+ * Each card: collapsed title → expanded context + "Ask Tomo" button.
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import { GlassCard } from '../GlassCard';
-import { GlowWrapper } from '../GlowWrapper';
 import type { OutputSnapshot, VitalGroup, VitalMetric } from '../../services/api';
-import { getRagColor, getRagBgColor, getTrendIcon, getTrendColor, getGroupThemeColor, getZoneBadgeColor, getZoneBadgeBg, getBaselineText, getStoryStatusColor } from './outputTypes';
+import { getRagColor, getTrendIcon, getTrendColor, getGroupThemeColor, getZoneBadgeColor, getZoneBadgeBg, getBaselineText, getStoryStatusColor } from './outputTypes';
 import type { VitalStoryBlock } from '../../services/api';
-import { colors as themeColors } from '../../theme/colors';
 
 interface Props {
   vitals: OutputSnapshot['vitals'];
@@ -21,15 +21,7 @@ interface Props {
   sourcesLoading?: boolean;
   onConnectWhoop?: () => void;
   onSyncNow?: () => void;
-  onCheckIn?: () => void;
 }
-
-// Map readiness score to ReadinessRing-compatible level
-const READINESS_MAP: Record<string, { score: number; color: string; glow: string; label: string }> = {
-  Green: { score: 85, color: themeColors.accent, glow: 'rgba(48, 209, 88, 0.25)', label: 'Ready' },
-  Yellow: { score: 55, color: themeColors.warning, glow: 'rgba(243, 156, 18, 0.25)', label: 'Caution' },
-  Red: { score: 25, color: themeColors.error, glow: 'rgba(231, 76, 60, 0.25)', label: 'Rest' },
-};
 
 // Freshness colors
 const FRESHNESS_COLORS: Record<string, string> = {
@@ -39,24 +31,40 @@ const FRESHNESS_COLORS: Record<string, string> = {
   no_data: '#6B6B6B',
 };
 
-export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = false, onConnectWhoop, onSyncNow, onCheckIn }: Props) {
+// ── Metric title builder ──────────────────────────────────────────────
+function buildVitalTitle(m: any): string {
+  const val = m.value != null
+    ? `${Number.isInteger(m.value) ? m.value : m.value.toFixed(1)}${m.unit}`
+    : 'No data';
+  if (m.zoneLabel) return `${m.label}: ${val} — ${m.zoneLabel}`;
+  return `${m.label}: ${val}`;
+}
+
+function buildVitalContext(m: any): string {
+  const parts: string[] = [];
+  if (m.contextInsight) parts.push(m.contextInsight);
+  const baseline = getBaselineText(m.baselineDeviation);
+  if (baseline) parts.push(baseline);
+  if (m.freshness === 'stale') parts.push('This reading is stale — sync your wearable for fresh data.');
+  if (m.freshness === 'no_data') parts.push('No data available yet. Connect a wearable or sync to start tracking.');
+  if (parts.length === 0) parts.push(`Your latest ${m.label.toLowerCase()} reading.`);
+  return parts.join('\n');
+}
+
+// ═════════════════════════════════════════════════════════════════════
+
+export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = false, onConnectWhoop, onSyncNow }: Props) {
   const { colors } = useTheme();
-  const { vitalGroups, phv, readiness } = vitals;
   const realTime = (vitals as any).realTime;
   const historical = (vitals as any).historical;
-  const [heroExpanded, setHeroExpanded] = useState(false);
-
-  const isExpired = (readiness as any).expired === true;
-  const readinessInfo = (!isExpired && readiness.score) ? READINESS_MAP[readiness.score] : null;
-  const effectiveGroups = historical?.vitalGroups ?? vitalGroups;
+  const effectiveGroups = historical?.vitalGroups ?? vitals.vitalGroups;
   const stories: VitalStoryBlock[] = historical?.stories ?? [];
   const hasVitalData = effectiveGroups && effectiveGroups.some((g: VitalGroup) => g.metrics.length > 0);
   const isWhoopConnected = connectedSources.includes('whoop');
-
   const overallFreshness = realTime?.overallFreshness ?? 'no_data';
   const staleBanner = realTime?.staleBanner ?? null;
   const realTimeMetrics = realTime?.metrics ?? [];
-  const realTimeReadiness = realTime?.readiness ?? null;
+  const { phv } = vitals;
 
   return (
     <View style={styles.container}>
@@ -86,14 +94,6 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
         </Pressable>
       ) : null}
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* BLOCK 1: RIGHT NOW                                         */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.textOnDark }]}>Right Now</Text>
-        <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>Latest readings</Text>
-      </View>
-
       {/* Stale Data Banner */}
       {staleBanner?.show && (
         <GlassCard>
@@ -112,106 +112,41 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
           {isWhoopConnected && onSyncNow && (
             <Pressable
               onPress={onSyncNow}
-              style={[styles.syncCtaButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
+              style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
             >
               <Ionicons name="sync-outline" size={16} color="#00D9FF" />
-              <Text style={[styles.syncCtaText, { color: '#00D9FF' }]}>Sync Now</Text>
+              <Text style={[styles.askTomoText, { color: '#00D9FF' }]}>Sync Now</Text>
             </Pressable>
           )}
         </GlassCard>
       )}
 
-      {/* Readiness Hero Card */}
-      <GlowWrapper glow={readinessInfo ? 'subtle' : 'none'}>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => setHeroExpanded(!heroExpanded)}>
-          <GlassCard>
-            <View style={styles.heroCenter}>
-              {/* Freshness badge on readiness */}
-              {realTimeReadiness && (
-                <FreshnessBadge
-                  freshness={realTimeReadiness.freshness}
-                  timeAgo={realTimeReadiness.timeAgo}
-                />
-              )}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* BLOCK 1: RIGHT NOW                                         */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.textOnDark }]}>Right Now</Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>Latest readings</Text>
+      </View>
 
-              {/* Large circular readiness indicator */}
-              <View style={[styles.readinessCircle, {
-                borderColor: readinessInfo?.color || colors.glassBorder,
-                shadowColor: readinessInfo?.glow || 'transparent',
-                opacity: overallFreshness === 'stale' ? 0.5 : 1,
-              }]}>
-                <Text style={[styles.readinessScore, { color: readinessInfo?.color || colors.textMuted }]}>
-                  {readinessInfo?.score ?? '—'}
-                </Text>
-                <Text style={[styles.readinessLabel, { color: readinessInfo?.color || colors.textMuted }]}>
-                  {readinessInfo?.label ?? 'No Data'}
-                </Text>
-              </View>
-
-              <Text style={[styles.heroTitle, { color: colors.textOnDark }]}>
-                {isExpired ? 'Check In for Today' : readiness.score ? 'Today\'s Readiness' : 'How Are You Feeling?'}
-              </Text>
-              <Text style={[styles.heroSummary, { color: colors.textMuted }]}>
-                {readiness.summary}
-              </Text>
-
-              {/* Check-in CTA when expired */}
-              {isExpired && onCheckIn && (
-                <TouchableOpacity
-                  style={[styles.checkinCta, { backgroundColor: colors.accent1 }]}
-                  onPress={onCheckIn}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="create-outline" size={16} color="#FFF" />
-                  <Text style={styles.checkinCtaText}>Check In Now</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Mini stats row */}
-              {!isExpired && heroExpanded && readiness.energy != null && (
-                <View style={styles.miniStatsRow}>
-                  <MiniStat icon="flash" label="Energy" value={readiness.energy} max={5} colors={colors} />
-                  <MiniStat icon="happy" label="Mood" value={readiness.mood ?? 0} max={5} colors={colors} />
-                  <MiniStat icon="moon" label="Sleep" value={readiness.sleepHours ?? 0} max={10} suffix="h" colors={colors} />
-                  {readiness.soreness != null && (
-                    <MiniStat icon="fitness" label="Soreness" value={readiness.soreness} max={5} colors={colors} />
-                  )}
-                </View>
-              )}
-
-              {!isExpired && !heroExpanded && readiness.energy != null && (
-                <View style={styles.tapHint}>
-                  <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
-                  <Text style={[styles.tapHintText, { color: colors.textMuted }]}>Tap for details</Text>
-                </View>
-              )}
-            </View>
-          </GlassCard>
-        </TouchableOpacity>
-      </GlowWrapper>
-
-      {/* Real-Time Metric Cards (HRV, Resting HR, Sleep) */}
-      {realTimeMetrics.length > 0 && (
-        <View style={styles.realTimeRow}>
-          {realTimeMetrics.map((m: any) => (
-            <RealTimeCard key={m.metric} metric={m} colors={colors} />
-          ))}
-        </View>
-      )}
+      {realTimeMetrics.map((m: any) => (
+        <VitalCard key={m.metric} metric={m} colors={colors} />
+      ))}
 
       {/* ═══════════════════════════════════════════════════════════ */}
       {/* BLOCK 2: THIS WEEK                                         */}
       {/* ═══════════════════════════════════════════════════════════ */}
       <View style={[styles.sectionHeader, { marginTop: spacing.lg }]}>
         <Text style={[styles.sectionTitle, { color: colors.textOnDark }]}>This Week</Text>
-        <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>7-day trends</Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>7-day insights</Text>
       </View>
 
-      {/* Story Blocks — combined cross-metric insights */}
-      {stories.length > 0 && stories.map((story: VitalStoryBlock) => (
-        <StoryBlockCard key={story.storyId} story={story} colors={colors} />
+      {/* Story Blocks */}
+      {stories.map((story: VitalStoryBlock) => (
+        <StoryCard key={story.storyId} story={story} colors={colors} />
       ))}
 
+      {/* Vital Groups */}
       {hasVitalData && effectiveGroups.map((group: VitalGroup, index: number) => (
         group.metrics.length > 0 && (
           <VitalGroupCard
@@ -219,13 +154,12 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
             group={group}
             phv={group.groupId === 'body_growth' ? phv : null}
             colors={colors}
-            index={index}
           />
         )
       ))}
 
       {/* Empty State */}
-      {!hasVitalData && !staleBanner?.show && (
+      {!hasVitalData && !staleBanner?.show && realTimeMetrics.length === 0 && (
         <GlassCard>
           <View style={styles.emptyState}>
             <Ionicons name="watch-outline" size={40} color={colors.textMuted} />
@@ -240,112 +174,182 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
   );
 }
 
-// ── Freshness Badge ─────────────────────────────────────────────────────
+// ── Ask Tomo Button (shared) ─────────────────────────────────────────
 
-function FreshnessBadge({ freshness, timeAgo }: { freshness: string; timeAgo: string }) {
-  const color = FRESHNESS_COLORS[freshness] || FRESHNESS_COLORS.no_data;
+function AskTomoButton({ prompt, colors }: { prompt: string; colors: any }) {
+  const navigation = useNavigation<any>();
   return (
-    <View style={styles.freshnessBadge}>
-      <View style={[styles.freshnessDot, { backgroundColor: color }]} />
-      <Text style={[styles.freshnessText, { color }]}>
-        {freshness === 'no_data' ? 'No data' : timeAgo}
-      </Text>
-    </View>
+    <Pressable
+      onPress={() => {
+        navigation.navigate('Main', {
+          screen: 'MainTabs',
+          params: {
+            screen: 'Chat',
+            params: { prefillMessage: prompt, newSession: true },
+          },
+        });
+      }}
+      style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
+    >
+      <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.info} />
+      <Text style={[styles.askTomoText, { color: colors.info }]}>Ask Tomo about this</Text>
+    </Pressable>
   );
 }
 
-// ── Real-Time Metric Card ───────────────────────────────────────────────
+// ── Real-Time Vital Card (collapsed/expanded, matching Own It) ───────
 
-function RealTimeCard({ metric, colors }: { metric: any; colors: any }) {
-  const isStale = metric.freshness === 'stale' || metric.freshness === 'no_data';
+function VitalCard({ metric, colors }: { metric: any; colors: any }) {
+  const [expanded, setExpanded] = useState(false);
   const freshnessColor = FRESHNESS_COLORS[metric.freshness] || FRESHNESS_COLORS.no_data;
+  const zoneColor = getZoneBadgeColor(metric.zone);
+  const isStale = metric.freshness === 'stale' || metric.freshness === 'no_data';
+
+  const title = buildVitalTitle(metric);
+  const context = buildVitalContext(metric);
   const baselineText = getBaselineText(metric.baselineDeviation);
 
   return (
-    <View style={[styles.realTimeCard, { backgroundColor: colors.glass, opacity: isStale ? 0.5 : 1 }]}>
-      <View style={styles.realTimeCardHeader}>
-        <Text style={styles.realTimeEmoji}>{metric.emoji}</Text>
-        <View style={[styles.freshnessDotSmall, { backgroundColor: freshnessColor }]} />
-      </View>
-      <Text style={[styles.realTimeValue, { color: colors.textOnDark }]}>
-        {metric.value != null ? (Number.isInteger(metric.value) ? metric.value : metric.value.toFixed(1)) : '—'}
-        <Text style={[styles.realTimeUnit, { color: colors.textMuted }]}>{metric.unit}</Text>
-      </Text>
-      {/* Zone badge */}
-      {metric.zoneLabel && (
-        <View style={[styles.zoneBadge, { backgroundColor: getZoneBadgeBg(metric.zone) }]}>
-          <Text style={[styles.zoneBadgeText, { color: getZoneBadgeColor(metric.zone) }]}>
-            {metric.zoneLabel}
-          </Text>
+    <Pressable onPress={() => setExpanded(!expanded)}>
+      <GlassCard>
+        {/* Header — always visible */}
+        <View style={[styles.cardHeader, isStale && { opacity: 0.6 }]}>
+          <Text style={styles.cardEmoji}>{metric.emoji}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cardTitle, { color: colors.textOnDark }]} numberOfLines={1}>
+              {title}
+            </Text>
+          </View>
+          {/* Freshness dot */}
+          <View style={[styles.freshnessDot, { backgroundColor: freshnessColor }]} />
+          {/* Zone badge */}
+          {metric.zone && (
+            <View style={[styles.zonePill, { backgroundColor: getZoneBadgeBg(metric.zone) }]}>
+              <Text style={[styles.zonePillText, { color: zoneColor }]}>
+                {metric.zone === 'elite' ? 'Elite' : metric.zone === 'good' ? 'Good' : metric.zone === 'average' ? 'Avg' : metric.zone === 'developing' ? 'Dev' : 'Low'}
+              </Text>
+            </View>
+          )}
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.textMuted}
+          />
         </View>
-      )}
-      {/* Baseline deviation */}
-      {baselineText ? (
-        <Text style={[styles.realTimeBaseline, { color: colors.textMuted }]}>{baselineText}</Text>
-      ) : null}
-      <Text style={[styles.realTimeLabel, { color: colors.textMuted }]}>{metric.label}</Text>
-      <Text style={[styles.realTimeTimeAgo, { color: freshnessColor }]}>
-        {metric.freshness === 'no_data' ? 'No data' : metric.timeAgo}
-      </Text>
-    </View>
+
+        {/* Subtitle — always visible */}
+        <View style={styles.cardSubtitleRow}>
+          <Text style={[styles.cardTimeAgo, { color: freshnessColor }]}>
+            {metric.freshness === 'no_data' ? 'No data' : metric.timeAgo}
+          </Text>
+          {baselineText ? (
+            <Text style={[styles.cardBaseline, { color: colors.textMuted }]}> · {baselineText}</Text>
+          ) : null}
+        </View>
+
+        {/* Expanded content */}
+        {expanded && (
+          <View style={styles.expandedBody}>
+            <Text style={[styles.cardContext, { color: colors.textMuted }]}>{context}</Text>
+            <AskTomoButton
+              prompt={`My ${metric.label} is ${metric.value != null ? metric.value : 'unavailable'}${metric.unit}${metric.zoneLabel ? ` (${metric.zoneLabel})` : ''}. ${baselineText || ''} What does this mean for my training today?`}
+              colors={colors}
+            />
+          </View>
+        )}
+      </GlassCard>
+    </Pressable>
   );
 }
 
-// ── Mini Stat Chip ──────────────────────────────────────────────────────
+// ── Story Card (collapsed/expanded, matching Own It) ─────────────────
 
-function MiniStat({ icon, label, value, max, suffix, colors }: {
-  icon: string; label: string; value: number; max: number; suffix?: string; colors: any;
-}) {
+function StoryCard({ story, colors }: { story: VitalStoryBlock; colors: any }) {
+  const [expanded, setExpanded] = useState(false);
+  const statusColor = getStoryStatusColor(story.status);
+  const statusLabel = story.status === 'strong' ? 'Strong' : story.status === 'mixed' ? 'Mixed' : 'Weak';
+
   return (
-    <View style={[styles.miniStat, { backgroundColor: colors.glass }]}>
-      <Ionicons name={icon as any} size={14} color={colors.accent1} />
-      <Text style={[styles.miniLabel, { color: colors.textMuted }]}>{label}</Text>
-      <Text style={[styles.miniValue, { color: colors.textOnDark }]}>
-        {typeof value === 'number' ? (Number.isInteger(value) ? value : value.toFixed(1)) : value}
-        {suffix || `/${max}`}
-      </Text>
-    </View>
+    <Pressable onPress={() => setExpanded(!expanded)}>
+      <GlassCard>
+        {/* Header */}
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardEmoji}>{story.emoji}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cardTitle, { color: colors.textOnDark }]}>{story.title}</Text>
+          </View>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <Text style={[styles.statusLabel, { color: statusColor }]}>{statusLabel}</Text>
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.textMuted}
+          />
+        </View>
+
+        {/* Collapsed preview */}
+        {!expanded && (
+          <Text style={[styles.cardPreview, { color: colors.textMuted }]} numberOfLines={1}>
+            {story.narrative}
+          </Text>
+        )}
+
+        {/* Expanded content */}
+        {expanded && (
+          <View style={styles.expandedBody}>
+            <Text style={[styles.cardContext, { color: colors.textMuted }]}>{story.narrative}</Text>
+            <View style={styles.pillRow}>
+              {story.contributingMetrics.map((m) => (
+                <View key={m} style={[styles.metricPill, { backgroundColor: colors.glass }]}>
+                  <Text style={[styles.metricPillText, { color: colors.textMuted }]}>{m.replace(/_/g, ' ')}</Text>
+                </View>
+              ))}
+            </View>
+            <AskTomoButton
+              prompt={`My ${story.title.toLowerCase()} status is ${story.status}: ${story.narrative} What should I focus on?`}
+              colors={colors}
+            />
+          </View>
+        )}
+      </GlassCard>
+    </Pressable>
   );
 }
 
-// ── Vital Group Card ────────────────────────────────────────────────────
+// ── Vital Group Card (collapsed/expanded + Ask Tomo) ─────────────────
 
-function VitalGroupCard({ group, phv, colors, index }: {
+function VitalGroupCard({ group, phv, colors }: {
   group: VitalGroup;
   phv: OutputSnapshot['vitals']['phv'] | null;
   colors: any;
-  index: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const themeColor = getGroupThemeColor(group.colorTheme);
   const ragColor = getRagColor(group.ragStatus);
-
   const previewMetrics = group.metrics.slice(0, 2);
 
   return (
     <Pressable onPress={() => setExpanded(!expanded)}>
       <GlassCard>
         {/* Header */}
-        <View style={styles.groupHeader}>
-          <Text style={styles.groupEmoji}>{group.emoji}</Text>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardEmoji}>{group.emoji}</Text>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.groupName, { color: colors.textOnDark }]}>
-              {group.displayName}
-            </Text>
+            <Text style={[styles.cardTitle, { color: colors.textOnDark }]}>{group.displayName}</Text>
           </View>
           {group.ragStatus !== 'none' && (
-            <View style={[styles.ragDot, { backgroundColor: ragColor }]} />
+            <View style={[styles.statusDot, { backgroundColor: ragColor }]} />
           )}
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={18}
+            size={16}
             color={colors.textMuted}
           />
         </View>
 
         {/* Collapsed: preview metrics */}
         {!expanded && previewMetrics.length > 0 && (
-          <View style={styles.previewRow}>
+          <View style={styles.pillRow}>
             {previewMetrics.map((m) => (
               <View key={m.metric} style={[styles.previewChip, { backgroundColor: themeColor + '15' }]}>
                 <Text style={[styles.previewLabel, { color: colors.textMuted }]}>{m.label}</Text>
@@ -360,10 +364,10 @@ function VitalGroupCard({ group, phv, colors, index }: {
           </View>
         )}
 
-        {/* Expanded: full metric list + description */}
+        {/* Expanded: full metric list + description + Ask Tomo */}
         {expanded && (
-          <View style={styles.expandedContent}>
-            <Text style={[styles.groupDescription, { color: colors.textMuted }]}>
+          <View style={styles.expandedBody}>
+            <Text style={[styles.cardContext, { color: colors.textMuted }]}>
               {group.athleteDescription}
             </Text>
 
@@ -371,7 +375,7 @@ function VitalGroupCard({ group, phv, colors, index }: {
               <MetricRow key={m.metric} metric={m} themeColor={themeColor} colors={colors} />
             ))}
 
-            {/* PHV/LTAD info inside Body & Growth */}
+            {/* PHV/LTAD inside Body & Growth */}
             {phv && (
               <View style={[styles.phvBanner, { backgroundColor: colors.accent + '15', borderColor: colors.accent + '33' }]}>
                 <Text style={styles.phvEmoji}>{phv.ltad.emoji}</Text>
@@ -391,16 +395,21 @@ function VitalGroupCard({ group, phv, colors, index }: {
                       backgroundColor: colors.accent,
                     }]} />
                   </View>
-                  <View style={styles.focusTags}>
+                  <View style={styles.pillRow}>
                     {phv.ltad.trainingFocus.map((f, i) => (
-                      <View key={i} style={[styles.focusTag, { backgroundColor: colors.border }]}>
-                        <Text style={[styles.focusTagText, { color: colors.textOnDark }]}>{f}</Text>
+                      <View key={i} style={[styles.metricPill, { backgroundColor: colors.border }]}>
+                        <Text style={[styles.metricPillText, { color: colors.textOnDark }]}>{f}</Text>
                       </View>
                     ))}
                   </View>
                 </View>
               </View>
             )}
+
+            <AskTomoButton
+              prompt={`Tell me about my ${group.displayName.toLowerCase()} vitals this week. ${group.metrics.map(m => `${m.label}: ${m.avg}${m.unit} (${m.trend} ${Math.abs(m.trendPercent)}%)`).join(', ')}. What should I focus on?`}
+              colors={colors}
+            />
           </View>
         )}
       </GlassCard>
@@ -408,7 +417,7 @@ function VitalGroupCard({ group, phv, colors, index }: {
   );
 }
 
-// ── Individual Metric Row ───────────────────────────────────────────────
+// ── Metric Row ───────────────────────────────────────────────────────
 
 function MetricRow({ metric, themeColor, colors }: {
   metric: VitalMetric; themeColor: string; colors: any;
@@ -416,15 +425,15 @@ function MetricRow({ metric, themeColor, colors }: {
   const trendColor = getTrendColor(metric.trend);
   return (
     <View style={styles.metricRow}>
-      <Text style={styles.metricEmoji}>{metric.emoji}</Text>
+      <Text style={styles.metricRowEmoji}>{metric.emoji}</Text>
       <View style={{ flex: 1 }}>
         <View style={styles.metricLabelRow}>
           <Text style={[styles.metricLabel, { color: colors.textOnDark }]}>{metric.label}</Text>
           {metric.zone && (
-            <View style={[styles.metricZoneDot, { backgroundColor: getZoneBadgeColor(metric.zone) }]} />
+            <View style={[styles.zoneDotSmall, { backgroundColor: getZoneBadgeColor(metric.zone) }]} />
           )}
-          {metric.zoneLabel && (
-            <Text style={[styles.metricZoneText, { color: getZoneBadgeColor(metric.zone) }]}>
+          {metric.zone && (
+            <Text style={[styles.zoneTextSmall, { color: getZoneBadgeColor(metric.zone) }]}>
               {metric.zone === 'elite' ? 'Elite' : metric.zone === 'good' ? 'Good' : metric.zone === 'average' ? 'Avg' : metric.zone === 'developing' ? 'Dev' : 'Low'}
             </Text>
           )}
@@ -438,42 +447,11 @@ function MetricRow({ metric, themeColor, colors }: {
           {metric.avg != null ? (Number.isInteger(metric.avg) ? metric.avg : metric.avg.toFixed(1)) : '—'}
           <Text style={styles.metricUnit}>{metric.unit !== 'steps' ? metric.unit : ''}</Text>
         </Text>
-        <View style={styles.metricTrendRow}>
-          <Text style={[styles.metricTrend, { color: trendColor }]}>
-            {getTrendIcon(metric.trend)}
-            {metric.trendPercent ? ` ${Math.abs(metric.trendPercent)}%` : ''}
-          </Text>
-        </View>
+        <Text style={[styles.metricTrend, { color: trendColor }]}>
+          {getTrendIcon(metric.trend)}{metric.trendPercent ? ` ${Math.abs(metric.trendPercent)}%` : ''}
+        </Text>
       </View>
     </View>
-  );
-}
-
-// ── Story Block Card ───────────────────────────────────────────────────
-
-function StoryBlockCard({ story, colors }: { story: VitalStoryBlock; colors: any }) {
-  const statusColor = getStoryStatusColor(story.status);
-  const statusLabel = story.status === 'strong' ? 'Strong' : story.status === 'mixed' ? 'Mixed' : 'Weak';
-
-  return (
-    <GlassCard>
-      <View style={styles.storyHeader}>
-        <Text style={styles.storyEmoji}>{story.emoji}</Text>
-        <Text style={[styles.storyTitle, { color: colors.textOnDark }]}>{story.title}</Text>
-        <View style={[styles.storyStatusDot, { backgroundColor: statusColor }]} />
-        <Text style={[styles.storyStatusLabel, { color: statusColor }]}>{statusLabel}</Text>
-      </View>
-      <Text style={[styles.storyNarrative, { color: colors.textMuted }]}>
-        {story.narrative}
-      </Text>
-      <View style={styles.storyMetrics}>
-        {story.contributingMetrics.map((m) => (
-          <View key={m} style={[styles.storyMetricPill, { backgroundColor: colors.glass }]}>
-            <Text style={[styles.storyMetricPillText, { color: colors.textMuted }]}>{m.replace('_', ' ')}</Text>
-          </View>
-        ))}
-      </View>
-    </GlassCard>
   );
 }
 
@@ -497,84 +475,42 @@ const styles = StyleSheet.create({
   sourcePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: borderRadius.full },
   sourcePillText: { fontFamily: fontFamily.semiBold, fontSize: 10, letterSpacing: 0.5 },
 
-  // Stale data banner
+  // Stale banner
   staleBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderLeftWidth: 3, paddingLeft: spacing.sm,
   },
   staleBannerText: { fontFamily: fontFamily.medium, fontSize: 13, lineHeight: 19 },
-  syncCtaButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 10, paddingHorizontal: 16,
-    borderRadius: 12, marginTop: 12, marginBottom: 8,
-  },
-  syncCtaText: { fontFamily: fontFamily.medium, fontSize: 13 },
 
-  // Freshness badge
-  freshnessBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // ── Unified card pattern ──
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardEmoji: { fontSize: 20 },
+  cardTitle: { fontFamily: fontFamily.semiBold, fontSize: 14 },
+  cardSubtitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, marginLeft: 28 },
+  cardTimeAgo: { fontFamily: fontFamily.regular, fontSize: 11 },
+  cardBaseline: { fontFamily: fontFamily.regular, fontSize: 11 },
+  cardPreview: { fontFamily: fontFamily.regular, fontSize: 12, marginTop: 6, marginLeft: 28 },
+  cardContext: { fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 19 },
+
+  expandedBody: { marginTop: spacing.sm, gap: spacing.sm },
+
+  // Freshness
   freshnessDot: { width: 6, height: 6, borderRadius: 3 },
-  freshnessText: { fontFamily: fontFamily.medium, fontSize: 10 },
-  freshnessDotSmall: { width: 5, height: 5, borderRadius: 2.5 },
 
-  // Real-time cards
-  realTimeRow: { flexDirection: 'row', gap: spacing.sm },
-  realTimeCard: {
-    flex: 1, alignItems: 'center', gap: 3,
-    paddingVertical: spacing.compact, paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.lg,
-  },
-  realTimeCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  realTimeEmoji: { fontSize: 18 },
-  realTimeValue: { fontFamily: fontFamily.bold, fontSize: 20 },
-  realTimeUnit: { fontFamily: fontFamily.regular, fontSize: 11 },
-  realTimeLabel: { fontFamily: fontFamily.medium, fontSize: 11 },
-  realTimeBaseline: { fontFamily: fontFamily.regular, fontSize: 9, marginTop: 1 },
-  realTimeTimeAgo: { fontFamily: fontFamily.regular, fontSize: 9 },
-  zoneBadge: {
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: borderRadius.full, marginTop: 2,
-  },
-  zoneBadgeText: { fontFamily: fontFamily.medium, fontSize: 8, textAlign: 'center' },
+  // Zone
+  zonePill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: borderRadius.full },
+  zonePillText: { fontFamily: fontFamily.semiBold, fontSize: 9 },
 
-  // Hero
-  heroCenter: { alignItems: 'center', gap: spacing.sm },
-  readinessCircle: {
-    width: 120, height: 120, borderRadius: 60, borderWidth: 4,
-    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs,
-  },
-  readinessScore: { fontFamily: fontFamily.bold, fontSize: 36 },
-  readinessLabel: { fontFamily: fontFamily.medium, fontSize: 13, marginTop: -4 },
-  heroTitle: { fontFamily: fontFamily.semiBold, fontSize: 16 },
-  heroSummary: { fontFamily: fontFamily.regular, fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  // Status
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  statusLabel: { fontFamily: fontFamily.semiBold, fontSize: 11 },
 
-  // Check-in CTA
-  checkinCta: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 20, paddingVertical: 10,
-    borderRadius: borderRadius.md, marginTop: spacing.sm,
-  },
-  checkinCtaText: { fontFamily: fontFamily.semiBold, fontSize: 14, color: '#FFF' },
+  // Shared pills
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: spacing.xs },
+  metricPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: borderRadius.full },
+  metricPillText: { fontFamily: fontFamily.regular, fontSize: 10, textTransform: 'capitalize' },
 
-  // Tap hint
-  tapHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.xs },
-  tapHintText: { fontFamily: fontFamily.regular, fontSize: 11 },
-
-  // Mini stats
-  miniStatsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
-  miniStat: {
-    alignItems: 'center', gap: 2,
-    paddingHorizontal: spacing.compact, paddingVertical: spacing.xs, borderRadius: borderRadius.sm,
-  },
-  miniLabel: { fontFamily: fontFamily.regular, fontSize: 10 },
-  miniValue: { fontFamily: fontFamily.semiBold, fontSize: 13 },
-
-  // Group card
-  groupHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  groupEmoji: { fontSize: 20 },
-  groupName: { fontFamily: fontFamily.semiBold, fontSize: 15 },
-  ragDot: { width: 8, height: 8, borderRadius: 4, marginRight: 4 },
-
-  // Preview (collapsed)
-  previewRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  // Preview chips
   previewChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: borderRadius.sm,
@@ -583,25 +519,28 @@ const styles = StyleSheet.create({
   previewValue: { fontFamily: fontFamily.semiBold, fontSize: 13 },
   previewTrend: { fontFamily: fontFamily.medium, fontSize: 11 },
 
-  // Expanded
-  expandedContent: { marginTop: spacing.sm, gap: spacing.sm },
-  groupDescription: { fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 19, marginBottom: 4 },
+  // Ask Tomo button (matches Own It pattern exactly)
+  askTomoButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 10, paddingHorizontal: 16,
+    borderRadius: 12, marginTop: spacing.xs,
+  },
+  askTomoText: { fontFamily: fontFamily.medium, fontSize: 13 },
 
-  // Metric row
+  // Metric rows inside groups
   metricRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 6 },
-  metricEmoji: { fontSize: 16, marginTop: 2 },
+  metricRowEmoji: { fontSize: 16, marginTop: 2 },
   metricLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metricLabel: { fontFamily: fontFamily.medium, fontSize: 13 },
-  metricZoneDot: { width: 6, height: 6, borderRadius: 3 },
-  metricZoneText: { fontFamily: fontFamily.medium, fontSize: 10 },
+  zoneDotSmall: { width: 6, height: 6, borderRadius: 3 },
+  zoneTextSmall: { fontFamily: fontFamily.medium, fontSize: 10 },
   metricSummary: { fontFamily: fontFamily.regular, fontSize: 11, lineHeight: 16, marginTop: 2 },
   metricValueCol: { alignItems: 'flex-end' },
   metricValue: { fontFamily: fontFamily.bold, fontSize: 16 },
   metricUnit: { fontFamily: fontFamily.regular, fontSize: 11 },
-  metricTrendRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  metricTrend: { fontFamily: fontFamily.medium, fontSize: 11 },
+  metricTrend: { fontFamily: fontFamily.medium, fontSize: 11, marginTop: 2 },
 
-  // PHV Banner
+  // PHV banner
   phvBanner: {
     flexDirection: 'row', gap: 10, padding: spacing.compact,
     borderRadius: borderRadius.md, borderWidth: 1, marginTop: spacing.xs,
@@ -612,20 +551,6 @@ const styles = StyleSheet.create({
   phvDesc: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 17, marginTop: 4 },
   progressTrack: { height: 5, borderRadius: 3, marginTop: 8, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 3 },
-  focusTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 },
-  focusTag: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  focusTagText: { fontFamily: fontFamily.regular, fontSize: 10 },
-
-  // Story blocks
-  storyHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  storyEmoji: { fontSize: 18 },
-  storyTitle: { fontFamily: fontFamily.semiBold, fontSize: 14, flex: 1 },
-  storyStatusDot: { width: 8, height: 8, borderRadius: 4 },
-  storyStatusLabel: { fontFamily: fontFamily.semiBold, fontSize: 11 },
-  storyNarrative: { fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 19, marginTop: spacing.xs },
-  storyMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: spacing.sm },
-  storyMetricPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: borderRadius.full },
-  storyMetricPillText: { fontFamily: fontFamily.regular, fontSize: 10, textTransform: 'capitalize' },
 
   // Empty state
   emptyState: { alignItems: 'center', paddingVertical: spacing.huge, gap: spacing.sm },

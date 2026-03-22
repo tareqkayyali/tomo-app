@@ -352,7 +352,6 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
                     refresh();
                   } catch { /* sync failed — refresh will show stale state */ }
                 }}
-                onCheckIn={() => navigation.navigate('Checkin' as any)}
               />
             )}
             {activeTab === 'metrics' && <MetricsSection metrics={data.metrics} onTestLogged={refresh} />}
