@@ -156,7 +156,8 @@ export async function POST(req: NextRequest) {
       events_emitted: emitted,
       health_data_written: healthDataWritten,
       first_sync: isFirstSync,
-      lookback_days: isFirstSync ? 30 : 1,
+      lookback_days: needsFullSync ? 30 : 7,
+      _syncVersion: 2,
       summary: {
         recoveries: recoveries.length,
         sleeps: sleeps.length,
