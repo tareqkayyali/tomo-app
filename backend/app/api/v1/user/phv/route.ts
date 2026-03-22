@@ -107,11 +107,6 @@ export async function POST(req: NextRequest) {
       standing_height_cm,
       sitting_height_cm,
       weight_kg,
-      _debug: {
-        assessmentError: assessmentErr?.message ?? null,
-        snapshotError: snapshotErr?.message ?? null,
-        userId,
-      },
     });
   } catch (err: any) {
     console.error('[PHV Save] error:', err);
