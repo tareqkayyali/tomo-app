@@ -53,8 +53,7 @@ export function PercentileBar({ benchmark, onShowHistory, onLogNew }: Props) {
             ]}
           >
             <Text style={[styles.badgeText, { color }]}>
-              P{benchmark.percentile} &middot;{' '}
-              {benchmark.zone.charAt(0).toUpperCase() + benchmark.zone.slice(1)}
+              {benchmark.zone === 'elite' ? 'Elite' : benchmark.zone === 'good' ? 'Strong' : benchmark.zone === 'average' ? 'Solid' : benchmark.zone === 'developing' ? 'Developing' : 'Beginner'}
             </Text>
           </View>
         </View>
@@ -79,12 +78,18 @@ export function PercentileBar({ benchmark, onShowHistory, onLogNew }: Props) {
         />
       </View>
       <View style={styles.zones}>
-        {['P10', 'P25', 'P50', 'P75', 'P90'].map((z) => (
+        {[
+          { key: 'P10', label: 'Beginner' },
+          { key: 'P25', label: 'Developing' },
+          { key: 'P50', label: 'Solid' },
+          { key: 'P75', label: 'Strong' },
+          { key: 'P90', label: 'Elite' },
+        ].map((z) => (
           <Text
-            key={z}
+            key={z.key}
             style={[styles.zoneLabel, { color: colors.textMuted }]}
           >
-            {z}
+            {z.label}
           </Text>
         ))}
       </View>

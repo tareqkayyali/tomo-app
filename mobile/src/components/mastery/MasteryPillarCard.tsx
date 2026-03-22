@@ -180,7 +180,7 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
               ]}
             >
               <Text style={[styles.percentileText, { color: zoneColor }, getComponentStyle('pillar_value')]}>
-                P{pillar.avgPercentile}
+                {pillar.avgPercentile !== null && pillar.avgPercentile >= 90 ? 'Elite' : pillar.avgPercentile !== null && pillar.avgPercentile >= 75 ? 'Strong' : pillar.avgPercentile !== null && pillar.avgPercentile >= 40 ? 'Solid' : pillar.avgPercentile !== null && pillar.avgPercentile >= 20 ? 'Dev' : 'Beginner'}
               </Text>
             </View>
           )}

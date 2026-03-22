@@ -182,20 +182,26 @@ export function DualLayerMetricRow({ metric }: Props) {
 
       {/* Zone labels */}
       <View style={styles.zoneRow}>
-        {['P10', 'P25', 'P50', 'P75', 'P90'].map((z) => (
+        {[
+          { key: 'P10', label: 'Beginner' },
+          { key: 'P25', label: 'Developing' },
+          { key: 'P50', label: 'Solid' },
+          { key: 'P75', label: 'Strong' },
+          { key: 'P90', label: 'Elite' },
+        ].map((z) => (
           <Text
-            key={z}
+            key={z.key}
             style={[
               styles.zoneLabel,
               {
                 color:
-                  z === 'P50' ? colors.textInactive : colors.textMuted,
+                  z.key === 'P50' ? colors.textInactive : colors.textMuted,
                 fontFamily:
-                  z === 'P50' ? fontFamily.semiBold : fontFamily.regular,
+                  z.key === 'P50' ? fontFamily.semiBold : fontFamily.regular,
               },
             ]}
           >
-            {z}
+            {z.label}
           </Text>
         ))}
       </View>
