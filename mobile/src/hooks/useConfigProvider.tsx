@@ -105,8 +105,6 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
             id: 'draft',
             name: 'Draft Preview',
             is_active: true,
-            created_at: '',
-            updated_at: '',
             colors_dark: {
               ...(base.theme?.colors_dark || {}),
               ...(data.payload?.colors_dark || {}),
@@ -155,6 +153,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
             screen_label: data.payload?.screen_label || screenKey,
             sections: data.payload?.sections || [],
             metadata: data.payload?.metadata || {},
+            color_overrides: data.payload?.color_overrides || {},
             is_published: true,
           };
 

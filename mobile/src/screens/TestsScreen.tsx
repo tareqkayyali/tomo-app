@@ -308,9 +308,9 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
               existingOffset: data.vitals.phv?.maturityOffset,
               existingStage: data.vitals.phv?.phvStage,
               existingLtad: data.vitals.phv?.ltad?.stageName,
-              standingHeight: data.vitals.phv?.standingHeightCm,
-              sittingHeight: data.vitals.phv?.sittingHeightCm,
-              weight: data.vitals.phv?.weightKg,
+              standingHeight: (data.vitals.phv as any)?.standingHeightCm,
+              sittingHeight: (data.vitals.phv as any)?.sittingHeightCm,
+              weight: (data.vitals.phv as any)?.weightKg,
             })}
           />
         </View>

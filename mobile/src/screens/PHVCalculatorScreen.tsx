@@ -62,7 +62,7 @@ export function PHVCalculatorScreen() {
   const { colors } = useTheme();
   const { user, profile, refreshProfile } = useAuth();
   const navigation = useNavigation<Nav>();
-  const route = require('@react-navigation/native').useRoute<any>();
+  const route = (require('@react-navigation/native') as any).useRoute();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Existing PHV data passed from Output screen for recalculation

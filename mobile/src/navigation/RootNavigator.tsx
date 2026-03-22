@@ -40,7 +40,7 @@ function getActiveRouteName(state: any): string | undefined {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const linking = {
+const linking: any = {
   prefixes: ['tomo://', 'https://app.my-tomo.com'],
   config: {
     screens: {

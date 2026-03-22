@@ -26,7 +26,7 @@ export function initSentry() {
  */
 export function wrapWithSentry<P extends object>(component: ComponentType<P>): ComponentType<P> {
   if (!isConfigured) return component;
-  return Sentry.wrap(component);
+  return Sentry.wrap(component as any) as any;
 }
 
 export { Sentry };
