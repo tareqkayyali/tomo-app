@@ -502,14 +502,12 @@ function P2Card({
             <Ionicons name={config.icon} size={18} color={config.color} />
             <Text style={s.p2Title} numberOfLines={2}>{rec.title}</Text>
           </View>
-          <View style={[s.typeRow, { flexShrink: 0 }]}>
-            <Badge label={PRIORITY_LABELS[2]} variant="warning" size="small" />
-            <Ionicons
-              name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.textMuted}
-            />
-          </View>
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.textMuted}
+            style={{ flexShrink: 0, marginLeft: 8 }}
+          />
         </Pressable>
 
         {/* Expanded details */}
