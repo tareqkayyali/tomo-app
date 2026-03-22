@@ -199,48 +199,6 @@ export function UnifiedDayView({
           />
         )}
 
-        {/* ─── Action pills row ─── */}
-        {isOwner && (
-          <View style={styles.pillRow}>
-            {isToday && onCheckinPress && (
-              <Pressable
-                onPress={() => !hasCheckedInToday && onCheckinPress()}
-                style={[
-                  styles.checkinPill,
-                  {
-                    backgroundColor: hasCheckedInToday
-                      ? `${colors.readinessGreen}18`
-                      : `${colors.accent1}22`,
-                    borderColor: hasCheckedInToday
-                      ? `${colors.readinessGreen}33`
-                      : `${colors.accent1}33`,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={hasCheckedInToday ? 'checkmark-circle' : 'clipboard-outline'}
-                  size={13}
-                  color={hasCheckedInToday ? colors.readinessGreen : colors.accent1}
-                />
-                <Text
-                  style={[
-                    styles.checkinPillText,
-                    { color: hasCheckedInToday ? colors.readinessGreen : colors.accent1 },
-                  ]}
-                >
-                  {hasCheckedInToday ? 'Checked In' : 'Check In'}
-                </Text>
-              </Pressable>
-            )}
-            {onToggleLock && (
-              <DayLockButton
-                isLocked={isLocked}
-                isLoading={isLockLoading}
-                onToggle={onToggleLock}
-              />
-            )}
-          </View>
-        )}
 
         {/* ─── Connected Spine Timeline ─── */}
         <View style={styles.timelineSection}>
