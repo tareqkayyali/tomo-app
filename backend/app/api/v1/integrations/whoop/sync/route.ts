@@ -151,6 +151,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Also extract vitals from cycles (cycles often return even when recovery/sleep endpoints are empty)
+    for (const cycle of cycles) {
+      if (!cycle.score || cycle.score_state !== "SCORED") continue;
+      const date = new Date(cycle.end || cycle.updated_at).toISOString().slice(0, 10);
+      const rows: Array<{ user_id: string; date: string; metric_type: string; value: number; unit: string; source: string }> = [];
+
+      if (cycle.score.average_heart_rate) rows.push({ user_id: userId, date, metric_type: "heart_rate", value: cycle.score.average_heart_rate, unit: "bpm", source: "whoop" });
+      if (cycle.score.kilojoule) rows.push({ user_id: userId, date, metric_type: "calories", value: Math.round(cycle.score.kilojoule / 4.184), unit: "kcal", source: "whoop" });
+
+      for (const row of rows) {
+        await db.from("health_data").upsert(row, { onConflict: "user_id,date,metric_type", ignoreDuplicates: false }).then(() => healthDataWritten++).catch((e: any) => {
+          console.error(`[whoop/sync] health_data write failed:`, e.message);
+        });
+      }
+    }
+
     await updateSyncStatus(userId, "idle");
 
     return NextResponse.json({
