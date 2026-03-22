@@ -194,7 +194,7 @@ export async function getPlayerPHVStage(
       "maturity_offset, phv_stage, loading_multiplier, training_priorities, safety_warnings, standing_height_cm, sitting_height_cm, weight_kg"
     )
     .eq("user_id", userId)
-    .order("assessment_date", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle() as { data: any };
 

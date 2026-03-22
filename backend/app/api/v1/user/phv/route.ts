@@ -90,6 +90,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // If both DB writes failed, report as error
+    if (assessmentErr && snapshotErr) {
+      return NextResponse.json({
+        saved: false,
+        error: 'Both database writes failed',
+        assessmentError: assessmentErr?.message ?? String(assessmentErr),
+        snapshotError: snapshotErr?.message ?? String(snapshotErr),
+      }, { status: 500 });
+    }
+
     return NextResponse.json({
       saved: true,
       phv_stage: simpleStage,
