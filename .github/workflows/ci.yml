@@ -48,6 +48,11 @@ jobs:
       - name: Install deps
         run: cd backend && npm ci
 
+      - name: Setup Vercel project link
+        run: |
+          mkdir -p backend/.vercel
+          echo '{"projectId":"prj_N6gEOSuVnwS5QypgzCH2bSxpI4De","orgId":"team_O05XelWPyLJ2yHVFmmzjYqjc"}' > backend/.vercel/project.json
+
       - name: Deploy to Vercel
         run: cd backend && npx vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }} --scope tareqkayyalis-projects
         env:
