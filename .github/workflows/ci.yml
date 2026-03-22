@@ -32,34 +32,11 @@ jobs:
       - name: Type check mobile
         run: cd mobile && npx tsc --noEmit
 
-  deploy-backend:
-    name: Deploy Backend
-    needs: typecheck
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install deps
-        run: cd backend && npm ci
-
-      - name: Setup Vercel project link
-        run: |
-          mkdir -p backend/.vercel
-          echo '{"projectId":"prj_N6gEOSuVnwS5QypgzCH2bSxpI4De","orgId":"team_O05XelWPyLJ2yHVFmmzjYqjc"}' > backend/.vercel/project.json
-
-      - name: Deploy to Vercel
-        run: cd backend && npx vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }} --scope tareqkayyalis-projects
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
-  # Frontend deploy disabled — expo export + Vercel project linking is fragile in CI.
-  # Deploy frontend manually from local:
-  #   cd mobile && npx expo export --platform web
-  #   mkdir -p dist/.vercel && echo '{"projectId":"prj_q1uTcXazyBCVTQRkJNQxblofVkNQ","orgId":"team_O05XelWPyLJ2yHVFmmzjYqjc"}' > dist/.vercel/project.json
-  #   cd dist && npx vercel --prod --yes --scope tareqkayyalis-projects
+  # ── ALL DEPLOYS ARE MANUAL ──
+  # Vercel CLI in CI deploys to wrong projects (even with .vercel/project.json),
+  # causing 404s on app.my-tomo.com. Deploy both backend and frontend locally.
+  #
+  # Backend:  cd backend && npx vercel --prod --yes --scope tareqkayyalis-projects
+  # Frontend: cd mobile && npx expo export --platform web
+  #           mkdir -p dist/.vercel && echo '{"projectId":"prj_q1uTcXazyBCVTQRkJNQxblofVkNQ","orgId":"team_O05XelWPyLJ2yHVFmmzjYqjc"}' > dist/.vercel/project.json
+  #           cd dist && npx vercel --prod --yes --scope tareqkayyalis-projects
