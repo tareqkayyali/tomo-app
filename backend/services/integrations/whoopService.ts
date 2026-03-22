@@ -281,7 +281,7 @@ async function whoopGet<T>(
   return json;
 }
 
-// ── Data Fetchers ──
+// ── Data Fetchers (v2 API) ──
 export async function fetchRecoveries(
   accessToken: string,
   startDate: string,
@@ -289,8 +289,8 @@ export async function fetchRecoveries(
 ): Promise<WhoopRecovery[]> {
   const data = await whoopGet<{ records: WhoopRecovery[] }>(
     accessToken,
-    "/v1/recovery",
-    { start: startDate, end: endDate }
+    "/v2/recovery",
+    { start: startDate, end: endDate, limit: "25" }
   );
   return data.records || [];
 }
@@ -302,8 +302,8 @@ export async function fetchSleeps(
 ): Promise<WhoopSleep[]> {
   const data = await whoopGet<{ records: WhoopSleep[] }>(
     accessToken,
-    "/v1/activity/sleep",
-    { start: startDate, end: endDate }
+    "/v2/activity/sleep",
+    { start: startDate, end: endDate, limit: "25" }
   );
   return data.records || [];
 }
@@ -315,8 +315,8 @@ export async function fetchWorkouts(
 ): Promise<WhoopWorkout[]> {
   const data = await whoopGet<{ records: WhoopWorkout[] }>(
     accessToken,
-    "/v1/activity/workout",
-    { start: startDate, end: endDate }
+    "/v2/activity/workout",
+    { start: startDate, end: endDate, limit: "25" }
   );
   return data.records || [];
 }
@@ -328,8 +328,8 @@ export async function fetchCycles(
 ): Promise<WhoopCycle[]> {
   const data = await whoopGet<{ records: WhoopCycle[] }>(
     accessToken,
-    "/v1/cycle",
-    { start: startDate, end: endDate }
+    "/v2/cycle",
+    { start: startDate, end: endDate, limit: "25" }
   );
   return data.records || [];
 }
@@ -337,7 +337,7 @@ export async function fetchCycles(
 export async function fetchProfile(
   accessToken: string
 ): Promise<WhoopProfile> {
-  return whoopGet<WhoopProfile>(accessToken, "/v1/user/profile/basic");
+  return whoopGet<WhoopProfile>(accessToken, "/v2/user/profile/basic");
 }
 
 export async function fetchBodyMeasurement(
@@ -345,7 +345,7 @@ export async function fetchBodyMeasurement(
 ): Promise<WhoopBodyMeasurement> {
   return whoopGet<WhoopBodyMeasurement>(
     accessToken,
-    "/v1/user/measurement/body"
+    "/v2/user/measurement/body"
   );
 }
 
