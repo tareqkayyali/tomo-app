@@ -48,7 +48,8 @@ function delay(ms: number): Promise<void> {
  */
 function isRetryableError(error: unknown): boolean {
   if (error instanceof TypeError) return true; // network failures
-  if (error instanceof DOMException && error.name === 'AbortError') return true; // timeout
+  // AbortError from AbortController timeout — DOMException may not exist in React Native
+  if (error && typeof error === 'object' && 'name' in error && (error as any).name === 'AbortError') return true;
   return false;
 }
 
@@ -2578,7 +2579,25 @@ export async function syncWhoop(): Promise<{
   events_emitted: number;
   summary: { recoveries: number; sleeps: number; workouts: number; cycles: number };
 }> {
-  return apiRequest('/api/v1/integrations/whoop/sync', { method: 'POST' });
+  // WHOOP sync can take 30-60s for initial 30-day pull — use longer timeout
+  const token = await getIdToken();
+  if (!token) throw new Error('Not authenticated');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/integrations/whoop/sync`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    });
+    clearTimeout(timeoutId);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || 'WHOOP sync failed');
+    return data;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    throw e;
+  }
 }
 
 export async function disconnectWhoop(): Promise<{ disconnected: boolean }> {
