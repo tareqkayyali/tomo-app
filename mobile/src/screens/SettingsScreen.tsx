@@ -244,7 +244,8 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
     (key: string) => {
       if (key === 'whoop') {
         if (whoopStatus?.connected) {
-          handleDisconnectWhoop();
+          // Connected — use the explicit Disconnect button instead
+          return;
         } else {
           connectWhoop();
         }
@@ -263,7 +264,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.backBtn}>
+        <Pressable onPress={() => { if (navigation.canGoBack()) navigation.goBack(); else (navigation as any).navigate('Home'); }} hitSlop={12} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
         </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
@@ -348,26 +349,42 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                   </View>
                 </Pressable>
 
-                {/* Sync button for connected WHOOP */}
+                {/* Sync + Disconnect buttons for connected WHOOP */}
                 {w.key === 'whoop' && isConnected && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.syncButton,
-                      { backgroundColor: colors.backgroundElevated },
-                      pressed && { opacity: 0.7 },
-                    ]}
-                    onPress={handleSyncWhoop}
-                    disabled={syncing}
-                  >
-                    {syncing ? (
-                      <ActivityIndicator size="small" color={colors.accent2} />
-                    ) : (
-                      <Ionicons name="sync-outline" size={16} color={colors.accent2} />
-                    )}
-                    <Text style={[styles.syncButtonText, { color: colors.accent2 }]}>
-                      {syncing ? 'Syncing...' : 'Sync Now'}
-                    </Text>
-                  </Pressable>
+                  <View style={styles.whoopActions}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.syncButton,
+                        { backgroundColor: colors.backgroundElevated, flex: 1 },
+                        pressed && { opacity: 0.7 },
+                      ]}
+                      onPress={handleSyncWhoop}
+                      disabled={syncing}
+                    >
+                      {syncing ? (
+                        <ActivityIndicator size="small" color={colors.accent2} />
+                      ) : (
+                        <Ionicons name="sync-outline" size={16} color={colors.accent2} />
+                      )}
+                      <Text style={[styles.syncButtonText, { color: colors.accent2 }]}>
+                        {syncing ? 'Syncing...' : 'Sync Now'}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.syncButton,
+                        { backgroundColor: colors.error + '12', borderColor: colors.error + '30', borderWidth: 1 },
+                        pressed && { opacity: 0.7 },
+                      ]}
+                      onPress={handleDisconnectWhoop}
+                      disabled={whoopLoading}
+                    >
+                      <Ionicons name="unlink-outline" size={16} color={colors.error} />
+                      <Text style={[styles.syncButtonText, { color: colors.error }]}>
+                        Disconnect
+                      </Text>
+                    </Pressable>
+                  </View>
                 )}
               </View>
             );
@@ -507,6 +524,13 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.semiBold,
       fontSize: 12,
     },
+    whoopActions: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginTop: -4,
+      marginBottom: spacing.sm,
+      justifyContent: 'flex-end',
+    },
     syncButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -515,9 +539,6 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: 8,
       paddingHorizontal: 16,
       borderRadius: borderRadius.md,
-      marginBottom: spacing.sm,
-      marginTop: -4,
-      alignSelf: 'flex-end',
     },
     syncButtonText: {
       fontFamily: fontFamily.medium,
