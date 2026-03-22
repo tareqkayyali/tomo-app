@@ -272,7 +272,15 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => { if (navigation.canGoBack()) navigation.goBack(); else (navigation as any).navigate('Home'); }} hitSlop={12} style={styles.backBtn}>
+        <Pressable onPress={() => {
+          if (Platform.OS === 'web' && window.history.length > 1) {
+            window.history.back();
+          } else if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            (navigation as any).navigate('MainTabs');
+          }
+        }} hitSlop={12} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
         </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
