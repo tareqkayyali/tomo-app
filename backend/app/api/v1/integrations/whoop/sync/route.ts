@@ -161,7 +161,10 @@ export async function POST(req: NextRequest) {
       full_sync: needsFullSync,
       lookback_days: needsFullSync ? 30 : 7,
       window: { start: startDate, end: endDate },
-      _syncVersion: 3,
+      _syncVersion: 4,
+      _debug: {
+        firstCycle: cycles[0] ? { id: (cycles[0] as any).id, start: (cycles[0] as any).start, end: (cycles[0] as any).end } : null,
+      },
       summary: {
         recoveries: recoveries.length,
         sleeps: sleeps.length,

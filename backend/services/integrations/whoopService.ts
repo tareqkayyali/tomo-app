@@ -274,7 +274,11 @@ async function whoopGet<T>(
     throw new Error(`WHOOP API ${path} failed (${res.status}): ${text}`);
   }
 
-  return res.json();
+  const json = await res.json();
+  // Debug: log raw WHOOP response shape
+  const recordCount = Array.isArray(json?.records) ? json.records.length : 'N/A';
+  console.log(`[whoopGet] ${path} → ${res.status}, records: ${recordCount}, nextToken: ${json?.next_token || 'none'}`);
+  return json;
 }
 
 // ── Data Fetchers ──
