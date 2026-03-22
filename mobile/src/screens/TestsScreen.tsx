@@ -174,8 +174,15 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
 
   const paramTab = route?.params?.initialTab as Tab | undefined;
   const [activeTab, setActiveTab] = useState<Tab>(paramTab || 'vitals');
+  const isWhoopConnected = connectedSources.includes('whoop');
   const quickActions = useQuickActions(
-    { key: 'vitals', icon: 'pulse-outline', label: 'My Vitals', onPress: () => setActiveTab('vitals'), accentColor: colors.accent2 },
+    {
+      key: 'wearables',
+      icon: isWhoopConnected ? 'checkmark-circle' : 'pulse-outline',
+      label: isWhoopConnected ? 'Connected' : 'Wearables',
+      onPress: () => navigation.navigate('Settings' as any),
+      accentColor: isWhoopConnected ? colors.accent : colors.accent2,
+    },
     navigation,
   );
 
@@ -342,9 +349,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
             {activeTab === 'vitals' && (
               <VitalsSection
                 vitals={data.vitals}
-                connectedSources={connectedSources}
-                sourcesLoading={sourcesLoading}
-                onConnectWhoop={() => navigation.navigate('Settings' as any)}
+                isWhoopConnected={isWhoopConnected}
                 onSyncNow={async () => {
                   try {
                     const { syncWhoop } = await import('../services/api');

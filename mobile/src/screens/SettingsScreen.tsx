@@ -414,6 +414,35 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           <Text style={[styles.footnote, { color: colors.textInactive }]}>
             More wearables coming soon (Garmin, Oura, Fitbit)
           </Text>
+
+          {/* Go to Output button */}
+          <Pressable
+            onPress={() => navigation.navigate('Main' as any, {
+              screen: 'MainTabs',
+              params: { screen: 'Test', params: { initialTab: 'vitals' } },
+            })}
+            style={({ pressed }) => [
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                paddingVertical: 10,
+                paddingHorizontal: 16,
+                borderRadius: 12,
+                marginTop: 16,
+                backgroundColor: 'rgba(0, 217, 255, 0.12)',
+                borderColor: 'rgba(0, 217, 255, 0.3)',
+                borderWidth: 1,
+              },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Ionicons name="analytics-outline" size={16} color="#00D9FF" />
+            <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: '#00D9FF' }}>
+              Go to Output
+            </Text>
+          </Pressable>
         </View>
 
         {/* ── Body & Growth Section ── */}

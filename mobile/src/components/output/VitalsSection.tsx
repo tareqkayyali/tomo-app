@@ -17,9 +17,7 @@ import type { VitalStoryBlock } from '../../services/api';
 
 interface Props {
   vitals: OutputSnapshot['vitals'];
-  connectedSources?: string[];
-  sourcesLoading?: boolean;
-  onConnectWhoop?: () => void;
+  isWhoopConnected?: boolean;
   onSyncNow?: () => void;
 }
 
@@ -40,14 +38,13 @@ function buildVitalTitle(m: any): string {
 
 // ═════════════════════════════════════════════════════════════════════
 
-export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = false, onConnectWhoop, onSyncNow }: Props) {
+export function VitalsSection({ vitals, isWhoopConnected = false, onSyncNow }: Props) {
   const { colors } = useTheme();
   const realTime = (vitals as any).realTime;
   const historical = (vitals as any).historical;
   const effectiveGroups = historical?.vitalGroups ?? vitals.vitalGroups;
   const stories: VitalStoryBlock[] = historical?.stories ?? [];
   const hasVitalData = effectiveGroups && effectiveGroups.some((g: VitalGroup) => g.metrics.length > 0);
-  const isWhoopConnected = connectedSources.includes('whoop');
   const overallFreshness = realTime?.overallFreshness ?? 'no_data';
   const staleBanner = realTime?.staleBanner ?? null;
   const realTimeMetrics = realTime?.metrics ?? [];
@@ -55,32 +52,6 @@ export function VitalsSection({ vitals, connectedSources = [], sourcesLoading = 
 
   return (
     <View style={styles.container}>
-      {/* ── WHOOP Connection Banner ── */}
-      {sourcesLoading ? null : isWhoopConnected ? (
-        <View style={[styles.whoopBanner, { backgroundColor: colors.accent + '12', borderColor: colors.accent + '30' }]}>
-          <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
-          <Text style={[styles.whoopBannerText, { color: colors.accent }]}>WHOOP Connected</Text>
-          {connectedSources.filter(s => s !== 'whoop').map((src) => (
-            <View key={src} style={[styles.sourcePill, { backgroundColor: colors.accent2 + '18' }]}>
-              <Text style={[styles.sourcePillText, { color: colors.accent2 }]}>{src.toUpperCase()}</Text>
-            </View>
-          ))}
-        </View>
-      ) : onConnectWhoop ? (
-        <Pressable
-          style={({ pressed }) => [
-            styles.whoopBanner,
-            { backgroundColor: colors.accent1 + '10', borderColor: colors.accent1 + '30' },
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={onConnectWhoop}
-        >
-          <Ionicons name="fitness-outline" size={18} color={colors.accent1} />
-          <Text style={[styles.whoopBannerText, { color: colors.accent1 }]}>Connect WHOOP</Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.accent1} style={{ marginLeft: 'auto' }} />
-        </Pressable>
-      ) : null}
-
       {/* Stale Data Banner */}
       {staleBanner?.show && (
         <GlassCard>
@@ -455,16 +426,6 @@ const styles = StyleSheet.create({
   sectionHeader: { marginBottom: spacing.xs },
   sectionTitle: { fontFamily: fontFamily.semiBold, fontSize: 16 },
   sectionSubtitle: { fontFamily: fontFamily.regular, fontSize: 12, marginTop: 2 },
-
-  // WHOOP banner
-  whoopBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.compact,
-    borderRadius: borderRadius.lg, borderWidth: 1,
-  },
-  whoopBannerText: { fontFamily: fontFamily.semiBold, fontSize: 13 },
-  sourcePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: borderRadius.full },
-  sourcePillText: { fontFamily: fontFamily.semiBold, fontSize: 10, letterSpacing: 0.5 },
 
   // Stale banner
   staleBanner: {
