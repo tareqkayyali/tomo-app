@@ -212,11 +212,16 @@ export function PHVCalculatorScreen() {
 
   // ── Save ────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
-    if (!result || !user) return;
+    console.log('[PHV Save] handleSave called', { hasResult: !!result, hasUser: !!user, standingHeight, sittingHeight, weight });
+    if (!result || !user) {
+      console.warn('[PHV Save] Blocked — result:', !!result, 'user:', !!user);
+      return;
+    }
     setSaving(true);
     try {
       // Direct synchronous save — bypasses async event pipeline
       const { apiRequest } = require('../services/api');
+      console.log('[PHV Save] Calling API...');
       await apiRequest('/api/v1/user/phv', {
         method: 'POST',
         body: JSON.stringify({
@@ -230,9 +235,19 @@ export function PHVCalculatorScreen() {
           age_decimal: ageDecimal,
         }),
       });
+      console.log('[PHV Save] API call succeeded');
 
       // Refresh auth profile so DOB/gender are available instantly next time
       try { await refreshProfile(); } catch {}
+
+      // Clear the output snapshot cache so Output page fetches fresh data
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const keys = await AsyncStorage.getAllKeys();
+        const snapshotKeys = keys.filter((k: string) => k.includes('output_snapshot'));
+        if (snapshotKeys.length > 0) await AsyncStorage.multiRemove(snapshotKeys);
+        console.log('[PHV Save] Cleared snapshot cache:', snapshotKeys);
+      } catch {}
 
       setSavedMessage('✅ Growth stage saved!');
       setTimeout(() => {
@@ -243,7 +258,7 @@ export function PHVCalculatorScreen() {
         } else {
           (navigation as any).navigate('MainTabs');
         }
-      }, 1500);
+      }, 1200);
     } catch (e) {
       setSavedMessage('❌ Failed to save. Please try again.');
       setSaving(false);
@@ -480,13 +495,32 @@ export function PHVCalculatorScreen() {
                 </Text>
               ) : (
                 <>
-                  <GradientButton
-                    title="Save & Continue"
-                    onPress={handleSave}
-                    loading={saving}
-                    icon="checkmark-circle-outline"
-                    style={{ marginTop: spacing.lg }}
-                  />
+                  <Pressable
+                    onPress={() => {
+                      console.log('[PHV] Save button pressed!');
+                      handleSave();
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      paddingVertical: 14,
+                      paddingHorizontal: 24,
+                      borderRadius: 12,
+                      marginTop: spacing.lg,
+                      backgroundColor: 'rgba(0, 217, 255, 0.12)',
+                      borderColor: 'rgba(0, 217, 255, 0.3)',
+                      borderWidth: 1,
+                      opacity: saving ? 0.5 : 1,
+                    }}
+                    disabled={saving}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={18} color="#00D9FF" />
+                    <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 15, color: '#00D9FF' }}>
+                      {saving ? 'Saving...' : 'Save & Continue'}
+                    </Text>
+                  </Pressable>
                   <TouchableOpacity
                     onPress={handleRecalculate}
                     style={styles.recalcButton}
