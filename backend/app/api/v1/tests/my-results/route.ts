@@ -138,6 +138,24 @@ export async function POST(req: NextRequest) {
       "body-fat": "body_fat_pct",
       // Recovery
       hrv: "hrv_rmssd",
+      // MAS / Aerobic
+      "mas-running": "vo2max",
+      "mas": "vo2max",
+      // Strength extras
+      "1rm-bench": "bench_1rm",
+      "bench-press": "bench_1rm",
+      // Power extras
+      "vertical-jump": "cmj",
+      "sl-broad-jump-r": "broad_jump",
+      "sl-broad-jump-l": "broad_jump",
+      "seated-mb-throw": "seated_mb_throw",
+      // Agility extras
+      "5-10-5-agility": "agility_505",
+      // Speed extras
+      "glycolytic-power": "glycolytic_power",
+      "shot-power": "shot_speed",
+      "20m-sprint": "sprint_20m",
+      "flying-20m": "sprint_20m",
       // Legacy underscore IDs (backward compat)
       "10m_sprint": "sprint_10m",
       "30m_sprint": "sprint_30m",

@@ -120,7 +120,11 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
   }, []);
 
   const handleSavePending = useCallback(async () => {
-    if (!pendingTest || !pendingValue.trim()) return;
+    console.log('[MetricsSection] Save pressed', { pendingTest: pendingTest?.id, pendingValue, trimmed: pendingValue.trim() });
+    if (!pendingTest || !pendingValue.trim()) {
+      console.warn('[MetricsSection] Save aborted — no test or empty value', { hasTest: !!pendingTest, value: pendingValue });
+      return;
+    }
     const numVal = parseFloat(pendingValue);
     if (isNaN(numVal)) {
       if (Platform.OS === 'web') window.alert('Please enter a valid number.');
@@ -146,9 +150,12 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
           date: new Date().toISOString().slice(0, 10),
         });
       }
+      console.log('[MetricsSection] Test saved successfully! Refreshing...');
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPendingTest(null);
       setPendingValue('');
+      // Small delay to let the event processor + benchmark write complete before re-fetching
+      await new Promise(r => setTimeout(r, 800));
       onTestLogged?.();
     } catch (e: any) {
       console.error('[MetricsSection] Test save failed:', e);
