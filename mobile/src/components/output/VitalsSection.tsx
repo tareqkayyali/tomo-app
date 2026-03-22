@@ -52,32 +52,6 @@ export function VitalsSection({ vitals, isWhoopConnected = false, onSyncNow }: P
 
   return (
     <View style={styles.container}>
-      {/* Stale Data Banner */}
-      {staleBanner?.show && (
-        <GlassCard>
-          <View style={[styles.staleBanner, { borderColor: overallFreshness === 'no_data' ? colors.textMuted + '40' : '#E74C3C40' }]}>
-            <Ionicons
-              name="alert-circle-outline"
-              size={22}
-              color={overallFreshness === 'no_data' ? colors.textMuted : '#E74C3C'}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.staleBannerText, { color: colors.textOnDark }]}>
-                {staleBanner.message}
-              </Text>
-            </View>
-          </View>
-          {isWhoopConnected && onSyncNow && (
-            <Pressable
-              onPress={onSyncNow}
-              style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
-            >
-              <Ionicons name="sync-outline" size={16} color="#00D9FF" />
-              <Text style={[styles.askTomoText, { color: '#00D9FF' }]}>Sync Now</Text>
-            </Pressable>
-          )}
-        </GlassCard>
-      )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
       {/* BLOCK 1: RIGHT NOW                                         */}

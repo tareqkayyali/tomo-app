@@ -181,7 +181,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       icon: isWhoopConnected ? 'watch' : 'watch-outline',
       label: isWhoopConnected ? 'Connected' : 'Wearables',
       onPress: () => navigation.navigate('Settings' as any),
-      accentColor: isWhoopConnected ? colors.accent : colors.accent2,
+      accentColor: isWhoopConnected ? '#30D158' : '#E74C3C',
     },
     navigation,
   );
