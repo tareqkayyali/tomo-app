@@ -149,12 +149,13 @@ export function UnifiedDayView({
     }
   }, [isToday]);
 
-  // Simple day display
-  const dayDisplay = useMemo(() => {
-    const dateStr = selectedDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    if (isToday) return { primary: 'Today', secondary: dateStr };
-    return { primary: dayLabel, secondary: null };
-  }, [isToday, dayLabel, selectedDay]);
+  // Unified day display — same format for all days
+  const dayDisplayText = useMemo(() => {
+    const day = selectedDay.toLocaleDateString('en-US', { weekday: 'short' });
+    const date = selectedDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (isToday) return `Today, ${date}`;
+    return `${day}, ${date}`;
+  }, [isToday, selectedDay]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -165,14 +166,9 @@ export function UnifiedDayView({
         </Pressable>
         <Pressable onPress={onToday} style={styles.dayNavCenter}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={[styles.dayNavLabel, !isToday && { color: colors.accent1 }]}>
-              {dayDisplay.primary}
+            <Text style={[styles.dayNavLabel, isToday && { color: colors.accent1 }]}>
+              {dayDisplayText}
             </Text>
-            {dayDisplay.secondary && (
-              <Text style={[styles.dayNavDate, { color: colors.textMuted }]}>
-                {dayDisplay.secondary}
-              </Text>
-            )}
             {!isOwner && isLocked && (
               <View style={styles.lockBadge}>
                 <Ionicons name="lock-closed" size={10} color={colors.accent} />

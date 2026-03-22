@@ -20,8 +20,10 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
@@ -269,6 +271,14 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
   // ── Render ─────────────────────────────────────────────────────────
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+      {/* Back header */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 }}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
+          <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
+        </Pressable>
+        <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 18, color: colors.textOnDark, flex: 1 }}>Training Plan</Text>
+      </View>
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
       {/* ─── Config summary banner (matches Study tab) ─── */}
@@ -386,6 +396,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
         </Text>
       </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
