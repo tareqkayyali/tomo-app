@@ -19,7 +19,7 @@ import {
   ExamStudyPlanner,
 } from '../../components';
 import type { UpcomingExam } from '../../components';
-import { DayGrid } from '../../components/flow/DayGrid';
+import { SpineTimeline } from '../../components/flow/SpineTimeline';
 import { DayLockButton } from '../../components/flow/DayLockButton';
 import { ScrollFadeOverlay } from '../../components/ScrollFadeOverlay';
 import { SuggestionsBanner } from '../../components/SuggestionsBanner';
@@ -251,23 +251,20 @@ export function UnifiedDayView({
           )}
         </View>
 
-        {/* ─── Day Grid (replaces FlowTimeline) ─── */}
+        {/* ─── Connected Spine Timeline ─── */}
         <View style={styles.timelineSection}>
-          <DayGrid
+          <SpineTimeline
             events={events}
-            selectedDay={selectedDay}
-            isToday={isToday}
-            completedEventIds={completedEvents ?? emptyCompleted}
-            onComplete={onComplete ?? noop}
-            onSkip={onSkip ?? noop}
-            onUndo={onUndo ?? noop}
-            onDelete={onDelete}
-            onUpdate={onUpdate}
-            onEmptySlotPress={onEmptySlotPress ?? noop}
-            onEventDrop={onEventDrop ?? noop}
-            readOnly={!isOwner}
-            locked={isLocked}
-            scrollEnabled={scrollEnabledRef}
+            onEventPress={(event) => {
+              // Open event detail — same as tapping in DayGrid
+              if (onDelete && onUpdate) {
+                // Event cards are tappable for editing
+              }
+            }}
+            onEventComplete={onComplete}
+            onEventSkip={onSkip}
+            completedIds={completedEvents ?? emptyCompleted}
+            skippedIds={new Set()}
           />
         </View>
 

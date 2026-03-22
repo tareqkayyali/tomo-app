@@ -14,10 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { SkeletonCard, ErrorState } from '../components';
 import type { UpcomingExam } from '../components';
 import { UnifiedDayView } from '../components/plan/UnifiedDayView';
-import { PlanTabSwitcher } from '../components/plan/PlanTabSwitcher';
-import type { PlanTab } from '../components/plan/PlanTabSwitcher';
-import { StudyPlanView } from './StudyPlanView';
-import { TrainingPlanView } from './TrainingPlanView';
+// StudyPlanView and TrainingPlanView are now accessed via header buttons (separate screens)
 import { spacing, layout, shadows, fontFamily, borderRadius } from '../theme';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
@@ -111,23 +108,14 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   const { profile, role } = useAuth();
   const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const quickActions = useQuickActions(
-    { key: 'rules', icon: 'options-outline', label: 'My Rules', onPress: () => navigation.navigate('MyRules'), accentColor: colors.accent2 },
+    [
+      { key: 'study', icon: 'book-outline', label: 'Study', onPress: () => navigation.navigate('StudyPlanView' as any), accentColor: colors.accent2 },
+      { key: 'training', icon: 'barbell-outline', label: 'Training', onPress: () => navigation.navigate('TrainingPlanView' as any), accentColor: colors.accent1 },
+      { key: 'rules', icon: 'options-outline', label: 'My Rules', onPress: () => navigation.navigate('MyRules'), accentColor: colors.accent2 },
+    ],
     navigation,
   );
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<PlanTab>('dayflow');
-
-  // Register sub-tabs for swipe navigation
-  const subTabRegistry = useSubTabRegistry();
-  const SUB_TABS: PlanTab[] = ['dayflow', 'studyplan', 'trainingplan'];
-  useEffect(() => {
-    subTabRegistry.register('Plan', {
-      tabs: SUB_TABS,
-      activeIndex: SUB_TABS.indexOf(activeTab),
-      setTab: (idx: number) => setActiveTab(SUB_TABS[idx]),
-    });
-    return () => subTabRegistry.unregister('Plan');
-  }, [activeTab]);
 
   // Pending suggestions from coach/parent (player-only feature)
   const { suggestions, handleResolved, refresh: refreshSuggestions } = useSuggestions();
@@ -371,11 +359,8 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
         </View>
       </View>
 
-      {/* ─── Tab Switcher ─── */}
-      <PlanTabSwitcher activeTab={activeTab} onTabChange={setActiveTab} tabLabels={pageConfig?.metadata?.tabLabels} />
-
       {/* Error banner */}
-      {activeTab === 'dayflow' && backendError && (
+      {backendError && (
         <ErrorState
           message="Could not load data. Pull to retry."
           onRetry={refresh}
@@ -383,74 +368,45 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
         />
       )}
 
-      {activeTab === 'dayflow' ? (
-        /* ─── Unified Day View (includes day nav, timeline, FAB) ─── */
-        <UnifiedDayView
-          role="player"
-          isOwner={true}
-          events={dayEvents}
-          selectedDay={selectedDay}
-          dayLabel={dayLabel}
-          isToday={isToday}
-          isLoading={isLoading}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          onPrevDay={goToPrevDay}
-          onNextDay={goToNextDay}
-          onToday={goToToday}
-          isLocked={isLocked}
-          isLockLoading={isLockLoading}
-          onToggleLock={toggleLock}
-          onEmptySlotPress={(time) => {
-            if (!isLocked) {
-              navigation.navigate('AddEvent', { date: selectedDayStr, startTime: time });
-            }
-          }}
-          onEventDrop={async (eventId, newStart, newEnd) => {
-            if (!isLocked) {
-              await handleUpdateEvent(eventId, { startTime: newStart, endTime: newEnd });
-            }
-          }}
-          hasCheckedInToday={hasCheckedInToday}
-          suggestions={suggestions}
-          onSuggestionResolved={handleResolved}
-          upcomingExams={upcomingExams}
-          completedEvents={completedEvents}
-          onComplete={handleCompleteEvent}
-          onSkip={handleSkipEvent}
-          onUndo={handleUndoEvent}
-          onDelete={(eventId) => handleDeleteEvent(eventId)}
-          onUpdate={(eventId, patch) => handleUpdateEvent(eventId, patch)}
-          onCheckinPress={() => navigation.navigate('Checkin')}
-        />
-      ) : activeTab === 'studyplan' ? (
-        /* ─── Study Plan View ─── */
-        <StudyPlanView
-          onNavigateToPreview={(blocks, warnings, config, savedPlanId, viewOnly) =>
-            navigation.navigate('StudyPlanPreview', {
-              blocks: JSON.stringify(blocks),
-              warnings: warnings?.length ? JSON.stringify(warnings) : undefined,
-              planType: 'study',
-              config: config ? JSON.stringify(config) : undefined,
-              savedPlanId,
-              viewOnly: viewOnly ? 'true' : undefined,
-            })
+      {/* ─── Unified Day View (includes day nav, spine timeline, FAB) ─── */}
+      <UnifiedDayView
+        role="player"
+        isOwner={true}
+        events={dayEvents}
+        selectedDay={selectedDay}
+        dayLabel={dayLabel}
+        isToday={isToday}
+        isLoading={isLoading}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        onPrevDay={goToPrevDay}
+        onNextDay={goToNextDay}
+        onToday={goToToday}
+        isLocked={isLocked}
+        isLockLoading={isLockLoading}
+        onToggleLock={toggleLock}
+        onEmptySlotPress={(time) => {
+          if (!isLocked) {
+            navigation.navigate('AddEvent', { date: selectedDayStr, startTime: time });
           }
-          onNavigateToRules={() => navigation.navigate('MyRules')}
-        />
-      ) : (
-        /* ─── Training Plan View ─── */
-        <TrainingPlanView
-          onNavigateToPreview={(blocks, warnings) =>
-            navigation.navigate('StudyPlanPreview', {
-              blocks: JSON.stringify(blocks),
-              warnings: warnings?.length ? JSON.stringify(warnings) : undefined,
-              planType: 'training',
-            })
+        }}
+        onEventDrop={async (eventId, newStart, newEnd) => {
+          if (!isLocked) {
+            await handleUpdateEvent(eventId, { startTime: newStart, endTime: newEnd });
           }
-          onNavigateToRules={() => navigation.navigate('MyRules')}
-        />
-      )}
+        }}
+        hasCheckedInToday={hasCheckedInToday}
+        suggestions={suggestions}
+        onSuggestionResolved={handleResolved}
+        upcomingExams={upcomingExams}
+        completedEvents={completedEvents}
+        onComplete={handleCompleteEvent}
+        onSkip={handleSkipEvent}
+        onUndo={handleUndoEvent}
+        onDelete={(eventId) => handleDeleteEvent(eventId)}
+        onUpdate={(eventId, patch) => handleUpdateEvent(eventId, patch)}
+        onCheckinPress={() => navigation.navigate('Checkin')}
+      />
     </SafeAreaView>
   );
 }
