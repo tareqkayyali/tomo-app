@@ -209,11 +209,11 @@ export function PHVCalculatorScreen() {
     if (!result || !user) return;
     setSaving(true);
     try {
-      // 1. Save PHV measurement event (includes all measurements + DOB + sex)
-      await submitEventSafe({
-        athleteId: user.uid,
-        eventType: 'PHV_MEASUREMENT',
-        payload: {
+      // Direct synchronous save — bypasses async event pipeline
+      const { apiRequest } = require('../services/api');
+      await apiRequest('/api/v1/user/phv', {
+        method: 'POST',
+        body: JSON.stringify({
           standing_height_cm: parseFloat(standingHeight),
           sitting_height_cm: parseFloat(sittingHeight),
           weight_kg: parseFloat(weight),
@@ -221,23 +221,9 @@ export function PHVCalculatorScreen() {
           phv_stage: result.maturityCategory,
           date_of_birth: dob,
           sex: sex,
-        },
+          age_decimal: ageDecimal,
+        }),
       });
-
-      // 2. Also update user profile with DOB + gender + height + weight
-      try {
-        const { updateUser } = require('../services/api');
-        const profileUpdates: Record<string, any> = {};
-        if (dob) profileUpdates.date_of_birth = dob;
-        if (sex) profileUpdates.gender = sex;
-        if (standingHeight) profileUpdates.height_cm = parseFloat(standingHeight);
-        if (weight) profileUpdates.weight_kg = parseFloat(weight);
-        if (Object.keys(profileUpdates).length > 0) {
-          await updateUser(profileUpdates);
-        }
-      } catch (profileErr) {
-        console.warn('[PHVCalculator] Profile update failed (non-critical):', profileErr);
-      }
 
       // Refresh auth profile so DOB/gender are available instantly next time
       try { await refreshProfile(); } catch {}
