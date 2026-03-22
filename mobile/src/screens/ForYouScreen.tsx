@@ -88,10 +88,9 @@ export function ForYouScreen() {
 
   const allCards = [...sportsRecs, ...studyRecs, ...updateRecs].map(toCardRec);
 
-  // Group by time horizon: Today (P1-P2), Tomorrow (P3), This Week (P4)
+  // Group by time horizon: Today (P1-P2), Tomorrow (P3-P4)
   const todayCards = allCards.filter((r) => r.priority <= 2);
-  const tomorrowCards = allCards.filter((r) => r.priority === 3);
-  const weekCards = allCards.filter((r) => r.priority === 4);
+  const tomorrowCards = allCards.filter((r) => r.priority >= 3);
 
   const hasAnyContent = snapshot || allCards.length > 0;
   const hasAnyRecs = allCards.length > 0;
@@ -250,25 +249,14 @@ export function ForYouScreen() {
               onAction={handleRecAction}
             />
 
-            {/* Tomorrow — This Week Planning (P3) */}
+            {/* Tomorrow & Ahead (P3-P4) */}
             <TimeSection
               title="Tomorrow"
               icon="calendar-outline"
               color={colors.accent2}
               recs={tomorrowCards}
-              defaultExpanded={tomorrowCards.length <= 3}
+              defaultExpanded={true}
               indexOffset={todayCards.length}
-              onAction={handleRecAction}
-            />
-
-            {/* This Week — Informational (P4) */}
-            <TimeSection
-              title="This Week"
-              icon="layers-outline"
-              color={colors.info}
-              recs={weekCards}
-              defaultExpanded={false}
-              indexOffset={todayCards.length + tomorrowCards.length}
               onAction={handleRecAction}
             />
           </>
