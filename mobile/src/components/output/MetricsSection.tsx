@@ -122,7 +122,11 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
   const handleSavePending = useCallback(async () => {
     if (!pendingTest || !pendingValue.trim()) return;
     const numVal = parseFloat(pendingValue);
-    if (isNaN(numVal)) { Alert.alert('Invalid', 'Please enter a valid number.'); return; }
+    if (isNaN(numVal)) {
+      if (Platform.OS === 'web') window.alert('Please enter a valid number.');
+      else Alert.alert('Invalid', 'Please enter a valid number.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -146,8 +150,14 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
       setPendingTest(null);
       setPendingValue('');
       onTestLogged?.();
-    } catch { Alert.alert('Error', 'Could not save test result.'); }
-    finally { setSubmitting(false); }
+    } catch (e: any) {
+      console.error('[MetricsSection] Test save failed:', e);
+      if (Platform.OS === 'web') {
+        window.alert('Could not save test result: ' + (e?.message || 'Unknown error'));
+      } else {
+        Alert.alert('Error', 'Could not save test result.');
+      }
+    } finally { setSubmitting(false); }
   }, [pendingTest, pendingValue, onTestLogged, targetPlayerId]);
 
   // Helper: log test via player or coach API
