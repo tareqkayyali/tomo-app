@@ -59,6 +59,58 @@ export async function GET(req: NextRequest) {
 
 // ── POST /api/v1/tests/my-results ─────────────────────────────────────
 
+// Map catalog test IDs to benchmark metric keys
+// NOTE: Catalog IDs use hyphens (e.g. "10m-sprint"), not underscores
+const CATALOG_TO_METRIC: Record<string, string> = {
+  "10m-sprint": "sprint_10m",
+  "20m-sprint": "sprint_20m",
+  "30m-sprint": "sprint_30m",
+  "flying-10m": "est_max_speed",
+  "max-speed": "est_max_speed",
+  cmj: "cmj",
+  "broad-jump": "broad_jump",
+  "squat-jump": "cmj",
+  "vertical-jump": "vertical_jump",
+  "drop-jump": "cmj",
+  "5-0-5": "agility_505",
+  "t-test": "agility_505",
+  "illinois-agility": "agility_505",
+  "pro-agility": "agility_505",
+  "arrowhead-agility": "agility_505",
+  "yoyo-ir1": "vo2max",
+  "beep-test": "vo2max",
+  vo2max: "vo2max",
+  "cooper-12min": "vo2max",
+  "reaction-time": "reaction_time",
+  "choice-reaction": "reaction_time",
+  "1rm-squat": "squat_1rm",
+  "squat-relative": "squat_rel",
+  "grip-strength": "grip_strength",
+  "body-fat": "body_fat_pct",
+  hrv: "hrv_rmssd",
+  "mas-running": "mas_running",
+  "mas": "mas_running",
+  "1rm-bench": "bench_1rm",
+  "bench-press": "bench_1rm",
+  "sl-broad-jump-r": "sl_broad_jump_r",
+  "sl-broad-jump-l": "sl_broad_jump_l",
+  "seated-mb-throw": "seated_mb_throw",
+  "5-10-5-agility": "agility_505",
+  "glycolytic-power": "glycolytic_power",
+  "shot-power": "shot_speed",
+  "flying-20m": "sprint_20m",
+  "10m_sprint": "sprint_10m",
+  "30m_sprint": "sprint_30m",
+  countermovement_jump: "cmj",
+  broad_jump: "broad_jump",
+  yoyo_ir1: "vo2max",
+  "505_agility": "agility_505",
+  reaction_time: "reaction_time",
+  body_fat: "body_fat_pct",
+  squat_relative: "squat_rel",
+  max_speed: "est_max_speed",
+};
+
 const testResultSchema = z.object({
   testType: z.string().min(1).max(200), // matches catalog id or custom
   score: z.number(),
@@ -101,72 +153,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Map catalog test IDs to benchmark metric keys
-    // NOTE: Catalog IDs use hyphens (e.g. "10m-sprint"), not underscores
-    const CATALOG_TO_METRIC: Record<string, string> = {
-      // Speed / Pace
-      "10m-sprint": "sprint_10m",
-      "20m-sprint": "sprint_20m",
-      "30m-sprint": "sprint_30m",
-      "flying-10m": "est_max_speed",
-      "max-speed": "est_max_speed",
-      // Power / Physical
-      cmj: "cmj",
-      "broad-jump": "broad_jump",
-      "squat-jump": "cmj",
-      "vertical-jump": "vertical_jump",
-      "drop-jump": "cmj",
-      // Agility / Dribbling
-      "5-0-5": "agility_505",
-      "t-test": "agility_505",
-      "illinois-agility": "agility_505",
-      "pro-agility": "agility_505",
-      "arrowhead-agility": "agility_505",
-      // Endurance
-      "yoyo-ir1": "vo2max",
-      "beep-test": "vo2max",
-      vo2max: "vo2max",
-      "cooper-12min": "vo2max",
-      // Reaction / Defending
-      "reaction-time": "reaction_time",
-      "choice-reaction": "reaction_time",
-      // Strength
-      "1rm-squat": "squat_1rm",
-      "squat-relative": "squat_rel",
-      "grip-strength": "grip_strength",
-      // Body Comp
-      "body-fat": "body_fat_pct",
-      // Recovery
-      hrv: "hrv_rmssd",
-      // MAS / Aerobic
-      "mas-running": "mas_running",
-      "mas": "mas_running",
-      // Strength extras
-      "1rm-bench": "bench_1rm",
-      "bench-press": "bench_1rm",
-      // Power extras
-      "sl-broad-jump-r": "sl_broad_jump_r",
-      "sl-broad-jump-l": "sl_broad_jump_l",
-      "seated-mb-throw": "seated_mb_throw",
-      // Agility extras
-      "5-10-5-agility": "agility_505",
-      // Speed extras
-      "glycolytic-power": "glycolytic_power",
-      "shot-power": "shot_speed",
-      "flying-20m": "sprint_20m",
-      // Legacy underscore IDs (backward compat)
-      "10m_sprint": "sprint_10m",
-      "30m_sprint": "sprint_30m",
-      countermovement_jump: "cmj",
-      broad_jump: "broad_jump",
-      yoyo_ir1: "vo2max",
-      "505_agility": "agility_505",
-      reaction_time: "reaction_time",
-      body_fat: "body_fat_pct",
-      squat_relative: "squat_rel",
-      max_speed: "est_max_speed",
-    };
-
     // ── Emit ASSESSMENT_RESULT event to Athlete Data Fabric (dual-write) ──
     await emitEventSafe({
       athleteId: auth.user.id,
@@ -208,4 +194,50 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : "Invalid request body";
     return NextResponse.json({ error: message }, { status: 400 });
   }
+}
+
+// ── DELETE /api/v1/tests/my-results?metricKey=sprint_10m ──────────────
+
+export async function DELETE(req: NextRequest) {
+  const auth = requireAuth(req);
+  if ("error" in auth) return auth.error;
+
+  const { searchParams } = new URL(req.url);
+  const metricKey = searchParams.get("metricKey");
+  if (!metricKey) {
+    return NextResponse.json({ error: "metricKey is required" }, { status: 400 });
+  }
+
+  const db = supabaseAdmin();
+
+  // Find catalog test types that map to this metric key
+  const catalogIds = Object.entries(CATALOG_TO_METRIC)
+    .filter(([, mk]) => mk === metricKey)
+    .map(([catId]) => catId);
+
+  // Also include the metric key itself as a test_type (direct match)
+  const allTestTypes = [...new Set([...catalogIds, metricKey])];
+
+  // Delete from phone_test_sessions
+  const { error: sessErr } = await db
+    .from("phone_test_sessions")
+    .delete()
+    .eq("user_id", auth.user.id)
+    .in("test_type", allTestTypes);
+
+  if (sessErr) {
+    return NextResponse.json({ error: sessErr.message }, { status: 500 });
+  }
+
+  // Delete from player_benchmark_snapshots
+  await db
+    .from("player_benchmark_snapshots")
+    .delete()
+    .eq("user_id", auth.user.id)
+    .eq("metric_key", metricKey);
+
+  return NextResponse.json(
+    { deleted: true, metricKey },
+    { headers: { "api-version": "v1" } },
+  );
 }

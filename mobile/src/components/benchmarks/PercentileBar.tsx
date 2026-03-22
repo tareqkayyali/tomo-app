@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BenchmarkResult } from '../../types/benchmarks';
 import { useTheme } from '../../hooks/useTheme';
-import { colors } from '../../theme/colors';
+import { colors as themeColors } from '../../theme/colors';
 
 function getZoneColors(colors: { accentDark: string; accent: string; info: string; warning: string; error: string }) {
   return {
@@ -21,9 +21,13 @@ interface Props {
   onShowHistory?: (metricKey: string) => void;
   /** Log a new value for this metric */
   onLogNew?: (metricKey: string, metricLabel: string, unit: string) => void;
+  /** Edit this test result */
+  onEdit?: (metricKey: string, metricLabel: string, unit: string, currentValue: number) => void;
+  /** Delete this test result */
+  onDelete?: (metricKey: string, metricLabel: string) => void;
 }
 
-export function PercentileBar({ benchmark, onShowHistory, onLogNew }: Props) {
+export function PercentileBar({ benchmark, onShowHistory, onLogNew, onEdit, onDelete }: Props) {
   const { colors } = useTheme();
   const zoneColors = getZoneColors(colors);
   const color = zoneColors[benchmark.zone];
@@ -31,10 +35,16 @@ export function PercentileBar({ benchmark, onShowHistory, onLogNew }: Props) {
 
   return (
     <View style={[styles.container, { borderTopColor: colors.border }]}>
+      {/* Header: Label + Value + Actions */}
       <View style={styles.header}>
-        <Text style={[styles.label, { color: colors.textOnDark }]}>
-          {benchmark.metricLabel}
-        </Text>
+        <View style={styles.labelGroup}>
+          <Text style={[styles.label, { color: colors.textOnDark }]}>
+            {benchmark.metricLabel}
+          </Text>
+          <Text style={[styles.value, { color }]}>
+            {benchmark.value}{benchmark.unit ? ` ${benchmark.unit}` : ''}
+          </Text>
+        </View>
         <View style={styles.headerRight}>
           {onShowHistory && (
             <Pressable onPress={() => onShowHistory(benchmark.metricKey)} hitSlop={8} style={styles.actionIcon}>
@@ -44,6 +54,31 @@ export function PercentileBar({ benchmark, onShowHistory, onLogNew }: Props) {
           {onLogNew && (
             <Pressable onPress={() => onLogNew(benchmark.metricKey, benchmark.metricLabel, benchmark.unit)} hitSlop={8} style={styles.actionIcon}>
               <Ionicons name="add-circle-outline" size={16} color={colors.accent1} />
+            </Pressable>
+          )}
+          {onEdit && (
+            <Pressable onPress={() => onEdit(benchmark.metricKey, benchmark.metricLabel, benchmark.unit, benchmark.value)} hitSlop={8} style={styles.actionIcon}>
+              <Ionicons name="create-outline" size={15} color={colors.textMuted} />
+            </Pressable>
+          )}
+          {onDelete && (
+            <Pressable
+              onPress={() => {
+                const msg = `Delete ${benchmark.metricLabel} (${benchmark.value} ${benchmark.unit})?`;
+                if (Platform.OS === 'web') {
+                  if (window.confirm(msg)) onDelete(benchmark.metricKey, benchmark.metricLabel);
+                } else {
+                  const { Alert } = require('react-native');
+                  Alert.alert('Delete Test', msg, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => onDelete(benchmark.metricKey, benchmark.metricLabel) },
+                  ]);
+                }
+              }}
+              hitSlop={8}
+              style={styles.actionIcon}
+            >
+              <Ionicons name="trash-outline" size={15} color={colors.error} />
             </Pressable>
           )}
           <View
@@ -105,13 +140,17 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 0.5,
-    borderTopColor: colors.border,
+    borderTopColor: themeColors.border,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  labelGroup: {
+    flex: 1,
+    marginRight: 8,
   },
   headerRight: {
     flexDirection: 'row',
@@ -121,7 +160,8 @@ const styles = StyleSheet.create({
   actionIcon: {
     padding: 2,
   },
-  label: { fontSize: 13, fontWeight: '600', flex: 1 },
+  label: { fontSize: 13, fontWeight: '600' },
+  value: { fontSize: 15, fontWeight: '700', marginTop: 2 },
   badge: {
     borderRadius: 4,
     borderWidth: 0.5,
@@ -144,7 +184,7 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: colors.background,
+    borderColor: themeColors.background,
     transform: [{ translateX: -7 }],
   },
   zones: { flexDirection: 'row', justifyContent: 'space-between' },

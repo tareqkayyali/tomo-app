@@ -1218,6 +1218,12 @@ export async function logTestResult(data: {
   });
 }
 
+export async function deleteTestResult(metricKey: string): Promise<{ deleted: boolean }> {
+  return apiRequest<{ deleted: boolean }>(`/api/v1/tests/my-results?metricKey=${encodeURIComponent(metricKey)}`, {
+    method: 'DELETE',
+  });
+}
+
 // Re-export API_BASE_URL for diagnostics
 export { API_BASE_URL } from './apiConfig';
 

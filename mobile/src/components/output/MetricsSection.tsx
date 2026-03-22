@@ -25,6 +25,7 @@ import { InlineTestInput } from './InlineTestInput';
 import {
   searchTestCatalog,
   logTestResult,
+  deleteTestResult,
   submitPlayerTest,
   getMyTestResults,
   type TestCatalogItem,
@@ -413,6 +414,25 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
     setActiveMode('logNew');
   }, [activeMetricKey, activeMode]);
 
+  const handleEdit = useCallback((metricKey: string, _label: string, _unit: string, _currentValue: number) => {
+    // Edit = open log-new inline input pre-filled with current value
+    setActiveMetricKey(metricKey);
+    setActiveMode('logNew');
+  }, []);
+
+  const handleDelete = useCallback(async (metricKey: string, metricLabel: string) => {
+    try {
+      await deleteTestResult(metricKey);
+      console.log(`[MetricsSection] Deleted ${metricLabel}`);
+      await new Promise(r => setTimeout(r, 500));
+      onTestLogged?.();
+    } catch (e: any) {
+      console.error('[MetricsSection] Delete failed:', e);
+      if (Platform.OS === 'web') window.alert('Could not delete: ' + (e?.message || 'Unknown error'));
+      else Alert.alert('Error', 'Could not delete test result.');
+    }
+  }, [onTestLogged]);
+
   // Top 2 metrics for collapsed preview
   const previewMetrics = category.metrics.slice(0, 2);
 
@@ -457,6 +477,8 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
                   benchmark={m}
                   onShowHistory={handleShowHistory}
                   onLogNew={handleLogNew}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
                 />
                 {activeMetricKey === m.metricKey && activeMode === 'logNew' && (
                   <InlineTestInput
