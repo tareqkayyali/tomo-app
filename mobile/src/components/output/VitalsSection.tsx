@@ -33,22 +33,9 @@ const FRESHNESS_COLORS: Record<string, string> = {
 
 // ── Metric title builder ──────────────────────────────────────────────
 function buildVitalTitle(m: any): string {
-  const val = m.value != null
-    ? `${Number.isInteger(m.value) ? m.value : m.value.toFixed(1)}${m.unit}`
-    : 'No data';
-  if (m.zoneLabel) return `${m.label}: ${val} — ${m.zoneLabel}`;
-  return `${m.label}: ${val}`;
-}
-
-function buildVitalContext(m: any): string {
-  const parts: string[] = [];
-  if (m.contextInsight) parts.push(m.contextInsight);
-  const baseline = getBaselineText(m.baselineDeviation);
-  if (baseline) parts.push(baseline);
-  if (m.freshness === 'stale') parts.push('This reading is stale — sync your wearable for fresh data.');
-  if (m.freshness === 'no_data') parts.push('No data available yet. Connect a wearable or sync to start tracking.');
-  if (parts.length === 0) parts.push(`Your latest ${m.label.toLowerCase()} reading.`);
-  return parts.join('\n');
+  if (m.value == null) return m.label;
+  const val = Number.isInteger(m.value) ? m.value : m.value.toFixed(1);
+  return `${m.label} — ${val}${m.unit}`;
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -206,8 +193,12 @@ function VitalCard({ metric, colors }: { metric: any; colors: any }) {
   const isStale = metric.freshness === 'stale' || metric.freshness === 'no_data';
 
   const title = buildVitalTitle(metric);
-  const context = buildVitalContext(metric);
   const baselineText = getBaselineText(metric.baselineDeviation);
+  // Context comes from backend contextInsight (rich, cross-referenced with training/recovery)
+  const context = metric.contextInsight
+    || (metric.freshness === 'stale' ? 'This reading is stale — sync your wearable for fresh data.'
+    : metric.freshness === 'no_data' ? 'No data yet. Connect a wearable to start tracking.'
+    : `Your latest ${metric.label.toLowerCase()} reading.`);
 
   return (
     <Pressable onPress={() => setExpanded(!expanded)}>

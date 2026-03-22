@@ -613,6 +613,78 @@ export async function GET(req: NextRequest) {
     return `${Math.round(hoursAgo / 24)}d ago`;
   }
 
+  /**
+   * Build rich context insight for a real-time vital, cross-referencing
+   * check-in data (energy, soreness), weekly trends, and recovery state.
+   */
+  function buildRichContextInsight(
+    metric: string,
+    value: number | null,
+    pResult: { percentile: number; zone: string; zoneLabel: string } | null,
+    checkin: Record<string, unknown> | null,
+    weekMap: Map<string, any>,
+    snapshot: Record<string, unknown> | null,
+  ): string {
+    if (value == null) return "No data yet — sync your wearable to start tracking.";
+
+    const parts: string[] = [];
+    const weekData = weekMap.get(metric);
+    const energy = checkin?.energy as number | null;
+    const soreness = checkin?.soreness as number | null;
+    const sleepCheckin = checkin?.sleep_hours as number | null;
+
+    if (pResult) parts.push(pResult.zoneLabel);
+
+    switch (metric) {
+      case "hrv": {
+        // HRV: connect to recovery, soreness, training load
+        if (weekData?.trend === "down" && weekData.trendPercent && Math.abs(weekData.trendPercent) >= 5) {
+          parts.push(`Down ${Math.abs(weekData.trendPercent)}% this week — your body may need more recovery.`);
+        } else if (weekData?.trend === "up" && weekData.trendPercent && Math.abs(weekData.trendPercent) >= 5) {
+          parts.push(`Up ${Math.abs(weekData.trendPercent)}% this week — recovery is trending well.`);
+        }
+        if (soreness != null && soreness >= 4) {
+          parts.push(`You reported high soreness (${soreness}/5) — lower HRV is expected.`);
+        }
+        if (energy != null && energy <= 2) {
+          parts.push("Low energy today aligns with this reading. Consider a lighter session.");
+        } else if (energy != null && energy >= 4) {
+          parts.push("High energy today — your body is ready for a quality session.");
+        }
+        break;
+      }
+      case "resting_hr": {
+        // Resting HR: connect to stress, recovery, training intensity
+        if (weekData?.trend === "up" && weekData.trendPercent && Math.abs(weekData.trendPercent) >= 5) {
+          parts.push(`Rising ${Math.abs(weekData.trendPercent)}% this week — could indicate fatigue or stress.`);
+        } else if (weekData?.trend === "down" && weekData.trendPercent && Math.abs(weekData.trendPercent) >= 5) {
+          parts.push(`Dropping ${Math.abs(weekData.trendPercent)}% — a sign your fitness is improving.`);
+        }
+        if (soreness != null && soreness >= 4) {
+          parts.push("High soreness can elevate resting HR. Prioritize recovery today.");
+        }
+        break;
+      }
+      case "sleep_hours": {
+        // Sleep: connect to recovery needs, next-day performance
+        if (value < 7) {
+          parts.push("Under 7 hours can hurt recovery and focus. Try to get to bed earlier tonight.");
+        } else if (value >= 8.5) {
+          parts.push("Great sleep — your body got the recovery time it needs.");
+        }
+        if (sleepCheckin != null && Math.abs(value - sleepCheckin) > 1) {
+          parts.push(`Your check-in reported ${sleepCheckin}h — wearable and feel may differ.`);
+        }
+        if (energy != null && energy <= 2 && value >= 7) {
+          parts.push("Despite decent sleep, energy is low — watch for signs of overtraining.");
+        }
+        break;
+      }
+    }
+
+    return parts.join(" ");
+  }
+
   // Fetch freshness metadata in parallel
   const [wearableConnRes, snapshotMetaRes, latestVitalsRes] = await Promise.all([
     (db as any)
@@ -659,6 +731,11 @@ export async function GET(req: NextRequest) {
 
   const playerAge = profile.age ?? (profile.date_of_birth ? computeDecimalAge(profile.date_of_birth) : null);
 
+  // Build weekly metric map for cross-referencing
+  const weekMetrics = new Map<string, any>(
+    ((weekSummary as any)?.metrics ?? []).map((m: any) => [m.metric as string, m])
+  );
+
   const realTimeMetrics = realTimeMetricDefs.map((def) => {
     const latest = latestByType.get(def.metric);
     const recordedAt = latest?.created_at ?? null;
@@ -667,17 +744,21 @@ export async function GET(req: NextRequest) {
     // Age-band percentile context
     const pResult = value != null ? getVitalPercentile(def.metric, value, playerAge) : null;
 
+    // Build rich context insight cross-referencing training, recovery, schedule
+    const contextInsight = buildRichContextInsight(
+      def.metric, value, pResult, checkinData, weekMetrics, snapshotMeta
+    );
+
     return {
       ...def,
       value,
       lastRecordedAt: recordedAt,
       freshness: computeFreshness(recordedAt),
       timeAgo: timeAgoLabel(recordedAt),
-      // Context fields
       percentile: pResult?.percentile ?? null,
       zone: pResult?.zone ?? null,
       zoneLabel: pResult?.zoneLabel ?? null,
-      contextInsight: pResult?.zoneLabel ?? null,
+      contextInsight,
     };
   });
 
