@@ -114,19 +114,24 @@ export function PercentileBar({ benchmark, onShowHistory, onLogNew, onEdit, onDe
       </View>
       <View style={styles.zones}>
         {[
-          { key: 'P10', label: 'Beginner' },
-          { key: 'P25', label: 'Developing' },
-          { key: 'P50', label: 'Solid' },
-          { key: 'P75', label: 'Strong' },
-          { key: 'P90', label: 'Elite' },
-        ].map((z) => (
-          <Text
-            key={z.key}
-            style={[styles.zoneLabel, { color: colors.textMuted }]}
-          >
-            {z.label}
-          </Text>
-        ))}
+          { key: 'p10', label: 'Beginner' },
+          { key: 'p25', label: 'Developing' },
+          { key: 'p50', label: 'Solid' },
+          { key: 'p75', label: 'Strong' },
+          { key: 'p90', label: 'Elite' },
+        ].map((z) => {
+          const normVal = benchmark.norm?.[z.key as keyof typeof benchmark.norm];
+          return (
+            <View key={z.key} style={styles.zoneItem}>
+              <Text style={[styles.zoneLabel, { color: colors.textMuted }]}>{z.label}</Text>
+              {normVal != null && normVal !== 0 && (
+                <Text style={[styles.normValue, { color: colors.textInactive }]}>
+                  {typeof normVal === 'number' ? (normVal % 1 === 0 ? normVal : normVal.toFixed(1)) : normVal}
+                </Text>
+              )}
+            </View>
+          );
+        })}
       </View>
       <Text style={[styles.message, { color: colors.textMuted }]}>
         {benchmark.message}
@@ -188,6 +193,8 @@ const styles = StyleSheet.create({
     transform: [{ translateX: -7 }],
   },
   zones: { flexDirection: 'row', justifyContent: 'space-between' },
+  zoneItem: { alignItems: 'center' },
   zoneLabel: { fontSize: 9 },
+  normValue: { fontSize: 8, marginTop: 1 },
   message: { fontSize: 11, marginTop: 8, lineHeight: 16 },
 });

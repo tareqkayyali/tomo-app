@@ -180,30 +180,38 @@ export function DualLayerMetricRow({ metric }: Props) {
         )}
       </View>
 
-      {/* Zone labels */}
+      {/* Zone labels with norm values */}
       <View style={styles.zoneRow}>
         {[
-          { key: 'P10', label: 'Beginner' },
-          { key: 'P25', label: 'Developing' },
-          { key: 'P50', label: 'Solid' },
-          { key: 'P75', label: 'Strong' },
-          { key: 'P90', label: 'Elite' },
-        ].map((z) => (
-          <Text
-            key={z.key}
-            style={[
-              styles.zoneLabel,
-              {
-                color:
-                  z.key === 'P50' ? colors.textInactive : colors.textMuted,
-                fontFamily:
-                  z.key === 'P50' ? fontFamily.semiBold : fontFamily.regular,
-              },
-            ]}
-          >
-            {z.label}
-          </Text>
-        ))}
+          { key: 'p10', label: 'Beginner' },
+          { key: 'p25', label: 'Developing' },
+          { key: 'p50', label: 'Solid' },
+          { key: 'p75', label: 'Strong' },
+          { key: 'p90', label: 'Elite' },
+        ].map((z) => {
+          const normVal = metric.norm?.[z.key as keyof typeof metric.norm];
+          const isP50 = z.key === 'p50';
+          return (
+            <View key={z.key} style={styles.zoneItem}>
+              <Text
+                style={[
+                  styles.zoneLabel,
+                  {
+                    color: isP50 ? colors.textInactive : colors.textMuted,
+                    fontFamily: isP50 ? fontFamily.semiBold : fontFamily.regular,
+                  },
+                ]}
+              >
+                {z.label}
+              </Text>
+              {normVal != null && normVal !== 0 && (
+                <Text style={[styles.normValueLabel, { color: colors.textInactive }]}>
+                  {typeof normVal === 'number' ? (normVal % 1 === 0 ? normVal : normVal.toFixed(1)) : normVal}
+                </Text>
+              )}
+            </View>
+          );
+        })}
       </View>
 
       {/* Delta label */}
@@ -312,9 +320,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  zoneItem: {
+    alignItems: 'center',
+  },
   zoneLabel: {
     fontSize: 9,
     fontFamily: fontFamily.regular,
+  },
+  normValueLabel: {
+    fontSize: 8,
+    fontFamily: fontFamily.regular,
+    marginTop: 1,
   },
   deltaText: {
     fontSize: 11,
