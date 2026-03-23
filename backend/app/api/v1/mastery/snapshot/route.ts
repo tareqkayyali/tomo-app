@@ -418,7 +418,7 @@ function inferDirection(rawType: string): "lower_better" | "higher_better" {
 /**
  * Build the 6-axis radar from pillar percentiles (player's actual values).
  */
-function buildRadarFromPillars(pillars: MasteryPillar[], cmsColors?: Map<string, string>): RadarAxis[] {
+function buildRadarFromPillars(pillars: MasteryPillar[], cmsColors?: Map<string, string>, enabledPillarIds?: Set<string>): RadarAxis[] {
   const groupPercentiles = new Map<string, number>();
   for (const p of pillars) {
     if (p.avgPercentile !== null) {
@@ -428,6 +428,11 @@ function buildRadarFromPillars(pillars: MasteryPillar[], cmsColors?: Map<string,
 
   const axes: RadarAxis[] = [];
   for (const [key, def] of Object.entries(RADAR_AXIS_MAP)) {
+    // Skip radar axis if ALL its pillar groups are disabled
+    if (enabledPillarIds && def.groupIds.every((gid) => !enabledPillarIds.has(gid))) {
+      continue;
+    }
+
     const matchingPercentiles = def.groupIds
       .map((gid) => groupPercentiles.get(gid))
       .filter((v): v is number => v !== undefined);
@@ -452,7 +457,7 @@ function buildRadarFromPillars(pillars: MasteryPillar[], cmsColors?: Map<string,
  * Axes with at least one norm metric get value 50 (the median target),
  * axes with no norm data get 0.
  */
-function buildBenchmarkRadar(pillars: MasteryPillar[], norms: NormRow[], cmsColors?: Map<string, string>): RadarAxis[] {
+function buildBenchmarkRadar(pillars: MasteryPillar[], norms: NormRow[], cmsColors?: Map<string, string>, enabledPillarIds?: Set<string>): RadarAxis[] {
   // Determine which groups have norm data
   const groupHasNorms = new Set<string>();
   for (const norm of norms) {
@@ -462,6 +467,10 @@ function buildBenchmarkRadar(pillars: MasteryPillar[], norms: NormRow[], cmsColo
 
   const axes: RadarAxis[] = [];
   for (const [key, def] of Object.entries(RADAR_AXIS_MAP)) {
+    // Skip radar axis if ALL its pillar groups are disabled
+    if (enabledPillarIds && def.groupIds.every((gid) => !enabledPillarIds.has(gid))) {
+      continue;
+    }
     const hasData = def.groupIds.some((gid) => groupHasNorms.has(gid));
     const color = cmsColors?.get(key) || def.color;
     axes.push({
@@ -611,8 +620,10 @@ export async function GET(req: NextRequest) {
   const pillars = buildMasteryPillars(benchmarkResults, norms, recentRawTests, cmsPillars);
 
   // 4. Radar profiles — player actual + benchmark (P50 target)
-  const radarProfile = buildRadarFromPillars(pillars, cmsAttrColors);
-  const benchmarkRadarProfile = buildBenchmarkRadar(pillars, norms, cmsAttrColors);
+  // Build set of enabled pillar IDs to filter radar axes
+  const enabledPillarIds = new Set(pillars.map(p => p.groupId));
+  const radarProfile = buildRadarFromPillars(pillars, cmsAttrColors, enabledPillarIds);
+  const benchmarkRadarProfile = buildBenchmarkRadar(pillars, norms, cmsAttrColors, enabledPillarIds);
 
   // 5. Overall rating + tier
   const pillarsWithData = pillars.filter((p) => p.avgPercentile !== null);
