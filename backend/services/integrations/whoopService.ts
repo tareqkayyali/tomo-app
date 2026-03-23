@@ -224,6 +224,9 @@ export async function getValidAccessToken(userId: string): Promise<string> {
     ? new Date(conn.token_expires_at).getTime()
     : 0;
   const isExpired = Date.now() > expiresAt - 5 * 60 * 1000;
+  const minsUntilExpiry = Math.round((expiresAt - Date.now()) / 60000);
+
+  console.log(`[whoopService] Token check: expires_at=${conn.token_expires_at}, minsUntilExpiry=${minsUntilExpiry}, isExpired=${isExpired}, hasRefreshToken=${!!conn.refresh_token}`);
 
   // Reject __pending__ tokens (user started OAuth but never completed)
   if (conn.access_token === "__pending__") {
@@ -234,6 +237,8 @@ export async function getValidAccessToken(userId: string): Promise<string> {
     return conn.access_token;
   }
 
+  console.log(`[whoopService] Token expired for user ${userId}, attempting refresh...`);
+
   // Refresh the token
   if (!conn.refresh_token) {
     // Mark connection as needing re-auth
@@ -241,6 +246,7 @@ export async function getValidAccessToken(userId: string): Promise<string> {
       .update({ sync_status: "auth_required", updated_at: new Date().toISOString() })
       .eq("user_id", userId)
       .eq("provider", "whoop");
+    console.error(`[whoopService] CRITICAL: No refresh_token stored for user ${userId}`);
     throw new Error("WHOOP refresh token missing — user must reconnect");
   }
 
@@ -273,9 +279,13 @@ export async function getValidAccessToken(userId: string): Promise<string> {
     .eq("provider", "whoop");
 
   if (updateErr) {
-    console.error("[whoopService] Failed to persist refreshed tokens:", updateErr.message);
+    console.error("[whoopService] CRITICAL: Failed to persist refreshed tokens:", updateErr.message);
+    // Even though we have valid tokens in memory, they won't survive the next request
+    // This is the root cause of "must reconnect" — throw so the user knows
+    throw new Error("WHOOP token refresh succeeded but storage failed: " + updateErr.message);
   }
 
+  console.log(`[whoopService] Token refreshed successfully for user ${userId}, expires in ${tokens.expires_in}s`);
   return tokens.access_token;
 }
 
