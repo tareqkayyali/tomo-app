@@ -193,13 +193,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
     }
   }, [paramTab]);
 
-  // Refresh data when screen gains focus (e.g. returning from PHV calculator)
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      refresh();
-    });
-    return unsubscribe;
-  }, [navigation, refresh]);
+  // Auto-refresh on focus removed — user uses manual refresh button in toolbar
 
   // Register sub-tabs for swipe navigation
   const subTabRegistry = useSubTabRegistry();
