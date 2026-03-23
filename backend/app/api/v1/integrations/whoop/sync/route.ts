@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
       const date = new Date(evt.occurred_at).toISOString().slice(0, 10);
       if (p.sleep_duration_hours) {
         const { error: writeErr } = await db.from("health_data").upsert(
-          { user_id: userId, date, metric_type: "sleep_hours", value: p.sleep_duration_hours as number, unit: "hrs", source: "whoop", recorded_at: evt.occurred_at },
+          { user_id: userId, date, metric_type: "sleep_hours", value: p.sleep_duration_hours as number, unit: "hrs", source: "whoop" },
           { onConflict: "user_id,date,metric_type", ignoreDuplicates: false }
         );
         if (writeErr) {
@@ -184,6 +184,16 @@ export async function POST(req: NextRequest) {
           healthDataWritten++;
         }
       }
+    }
+
+    // Touch created_at on all health_data rows written in this sync window
+    // so freshness calculation sees them as "just updated"
+    if (healthDataWritten > 0) {
+      await db.from("health_data")
+        .update({ created_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .gte("date", startDate.slice(0, 10))
+        .catch((e: any) => console.warn("[whoop/sync] Could not touch created_at:", e?.message));
     }
 
     await updateSyncStatus(userId, "idle").catch(e =>
