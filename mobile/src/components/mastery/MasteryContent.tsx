@@ -169,64 +169,7 @@ export function MasteryContent({
         ))}
       </View>
 
-      {/* ── Section 3: Strengths & Growth Areas ── */}
-      {data.hasTestData &&
-        (data.strengths.length > 0 || data.gaps.length > 0) && (
-          <View style={styles.section}>
-            <GlassCard>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  { color: colors.textOnDark, marginBottom: spacing.md },
-                ]}
-              >
-                Strengths & Growth Areas
-              </Text>
-              <View style={styles.chipColumns}>
-                {/* Strengths */}
-                {data.strengths.length > 0 && (
-                  <View style={styles.chipColumn}>
-                    <Text
-                      style={[styles.chipColumnLabel, { color: colors.accent }]}
-                    >
-                      💪 Strengths
-                    </Text>
-                    <View style={styles.chipWrap}>
-                      {data.strengths.map((s) => (
-                        <Badge
-                          key={s}
-                          label={s}
-                          variant="success"
-                          size="small"
-                        />
-                      ))}
-                    </View>
-                  </View>
-                )}
-                {/* Gaps */}
-                {data.gaps.length > 0 && (
-                  <View style={styles.chipColumn}>
-                    <Text
-                      style={[styles.chipColumnLabel, { color: colors.warning }]}
-                    >
-                      🎯 Growth Areas
-                    </Text>
-                    <View style={styles.chipWrap}>
-                      {data.gaps.map((g) => (
-                        <Badge
-                          key={g}
-                          label={g}
-                          variant="warning"
-                          size="small"
-                        />
-                      ))}
-                    </View>
-                  </View>
-                )}
-              </View>
-            </GlassCard>
-          </View>
-        )}
+      {/* Strengths & Growth Areas removed — shown in Own It page */}
 
       {/* ── Section 4: Empty State CTA (no test data) ── */}
       {!data.hasTestData && (

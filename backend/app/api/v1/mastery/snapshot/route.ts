@@ -58,6 +58,7 @@ interface MasteryPillar {
   colorTheme: string;
   priority: number;
   athleteDescription: string;
+  radarLabel: string | null; // e.g., "PAC", "POW" — maps to radar axis
   metrics: MasteryMetric[];
   avgPercentile: number | null;
 }
@@ -338,6 +339,15 @@ function buildMasteryPillars(
       avgPercentile = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : null;
     }
 
+    // Find the radar axis label for this pillar (e.g., "PAC" for speed_acceleration)
+    let radarLabel: string | null = null;
+    for (const [, axDef] of Object.entries(RADAR_AXIS_MAP)) {
+      if (axDef.groupIds.includes(group.groupId)) {
+        radarLabel = axDef.label;
+        break;
+      }
+    }
+
     pillars.push({
       groupId: group.groupId,
       displayName: group.displayName,
@@ -345,6 +355,7 @@ function buildMasteryPillars(
       colorTheme: group.colorTheme,
       priority: group.priority,
       athleteDescription: group.athleteDescription,
+      radarLabel,
       metrics: metricsInGroup,
       avgPercentile,
     });

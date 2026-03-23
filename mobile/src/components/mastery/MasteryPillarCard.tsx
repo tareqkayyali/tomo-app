@@ -170,6 +170,11 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
           >
             {pillar.displayName}
           </Text>
+          {(pillar as any).radarLabel && (
+            <View style={[styles.radarLabelBadge, { backgroundColor: zoneColor + '22' }]}>
+              <Text style={[styles.radarLabelText, { color: zoneColor }]}>{(pillar as any).radarLabel}</Text>
+            </View>
+          )}
         </View>
         <View style={styles.headerRight}>
           {pillar.avgPercentile !== null && (
@@ -272,7 +277,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontFamily: fontFamily.semiBold,
-    flex: 1,
+    flexShrink: 1,
+  },
+  radarLabelBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  radarLabelText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    letterSpacing: 0.5,
   },
   headerRight: {
     flexDirection: 'row',
