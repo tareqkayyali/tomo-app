@@ -16,7 +16,7 @@ import { GlassCard } from '../GlassCard';
 import { GlowWrapper } from '../GlowWrapper';
 import { AttachToTrainingSheet } from './AddToCalendarSheet';
 import type { OutputSnapshot, ProgramCatalogItem } from '../../services/api';
-import { searchProgramCatalog, interactWithProgram } from '../../services/api';
+import { searchProgramCatalog } from '../../services/api';
 import { colors } from '../../theme/colors';
 
 interface Props {
@@ -31,7 +31,9 @@ interface Props {
   onProgramDismiss?: (programId: string) => void;
   activeIds?: string[];
   onToggleActive?: (programId: string) => void;
-  onTestLogged?: () => void; // callback to refresh after adding a program
+  playerSelectedIds?: string[];
+  onPlayerSelect?: (programId: string) => void;
+  onPlayerDeselect?: (programId: string) => void;
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -70,7 +72,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive, onTestLogged }: Props) {
+export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive, playerSelectedIds = [], onPlayerSelect, onPlayerDeselect }: Props) {
   const { colors } = useTheme();
   const { recommendations, weeklyPlanSuggestion, weeklyStructure, playerProfile } = programs;
   const [heroExpanded, setHeroExpanded] = useState(false);
@@ -82,7 +84,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ProgramCatalogItem[]>([]);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [addingProgram, setAddingProgram] = useState<string | null>(null);
+  // addingProgram removed — add is now optimistic/instant
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearch = useCallback((q: string) => {
@@ -99,25 +101,13 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
     }, 250);
   }, [recommendations]);
 
-  const handleAddProgram = useCallback(async (program: ProgramCatalogItem) => {
-    setAddingProgram(program.id);
-    try {
-      const result = await interactWithProgram(program.id, 'player_selected');
-      if (result.toggled === 'off') {
-        // Was already added from previous attempt — re-add it
-        await interactWithProgram(program.id, 'player_selected');
-      }
-      setSearchQuery('');
-      setSearchResults([]);
-      setSearchFocused(false);
-      // Program saved — user can tap refresh button to see it in My Picks
-    } catch (e: any) {
-      console.error('[ProgramsSection] Add program failed:', e);
-      if (Platform.OS === 'web') window.alert('Failed to add program: ' + (e?.message || ''));
-    } finally {
-      setAddingProgram(null);
-    }
-  }, [onTestLogged]);
+  const handleAddProgram = useCallback((program: ProgramCatalogItem) => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearchFocused(false);
+    // Optimistic — instantly add to local state via parent
+    onPlayerSelect?.(program.id);
+  }, [onPlayerSelect]);
   const isAiGenerated = (programs as any).isAiGenerated === true;
   const dataStatus = (programs as any).dataStatus;
   const dataNeeded: string[] = (programs as any).dataNeeded || [];
@@ -278,7 +268,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               key={prog.id}
               style={({ pressed }) => [styles.searchResultRow, pressed && { opacity: 0.7 }]}
               onPress={() => handleAddProgram(prog)}
-              disabled={addingProgram === prog.id}
+              disabled={playerSelectedIds.includes(prog.id)}
             >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.searchResultName, { color: colors.textOnDark }]} numberOfLines={1}>
@@ -288,8 +278,11 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
                   {prog.type} · {prog.difficulty} · {prog.duration_minutes}min
                 </Text>
               </View>
-              {addingProgram === prog.id ? (
-                <ActivityIndicator size="small" color={colors.accent1} />
+              {playerSelectedIds.includes(prog.id) ? (
+                <View style={[styles.addBadge, { backgroundColor: colors.accent + '18' }]}>
+                  <Ionicons name="checkmark" size={14} color={colors.accent} />
+                  <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.accent }}>Added</Text>
+                </View>
               ) : (
                 <View style={[styles.addBadge, { backgroundColor: colors.accent1 + '18' }]}>
                   <Ionicons name="add" size={14} color={colors.accent1} />
@@ -329,8 +322,8 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
         </View>
       )}
 
-      {/* ── Player Assigned Programs (My Picks) ─────────────── */}
-      {recommendations.filter(r => (r as any).priority === 'player_selected').length > 0 && (
+      {/* ── Player Assigned Programs (My Picks) — from local state, not snapshot ── */}
+      {playerSelectedIds.length > 0 && (
         <View style={styles.group}>
           <Pressable onPress={() => setMyPicksExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
             <Ionicons
@@ -342,7 +335,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
             <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>🎯 My Picks</Text>
             <View style={[styles.countBadge, { backgroundColor: colors.accent2 + '22' }]}>
               <Text style={[styles.countBadgeText, { color: colors.accent2 }]}>
-                {recommendations.filter(r => (r as any).priority === 'player_selected').length}
+                {playerSelectedIds.length}
               </Text>
             </View>
           </Pressable>
@@ -351,9 +344,28 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
                 Programs you added from the catalog
               </Text>
-              {recommendations.filter(r => (r as any).priority === 'player_selected').map((p) => (
-                <ProgramCard key={p.programId} program={p} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} isActive={activeIds.includes(p.programId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
-              ))}
+              {playerSelectedIds.map((psId) => {
+                // Find from snapshot recommendations first, fallback to minimal card
+                const fromSnapshot = recommendations.find(r => r.programId === psId);
+                if (fromSnapshot) {
+                  return <ProgramCard key={psId} program={fromSnapshot} colors={colors} onDone={() => onPlayerDeselect?.(psId)} onDismiss={() => onPlayerDeselect?.(psId)} isActive={activeIds.includes(psId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />;
+                }
+                // Minimal card for programs not yet in snapshot
+                return (
+                  <GlassCard key={psId}>
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.cardEmoji}>📋</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.programName, { color: colors.textOnDark }]} numberOfLines={1}>{psId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Text>
+                        <Text style={[styles.programMeta, { color: colors.textMuted }]}>Added by you</Text>
+                      </View>
+                      <Pressable onPress={() => onPlayerDeselect?.(psId)} hitSlop={8}>
+                        <Ionicons name="close-circle" size={20} color={colors.error} />
+                      </Pressable>
+                    </View>
+                  </GlassCard>
+                );
+              })}
             </>
           )}
         </View>

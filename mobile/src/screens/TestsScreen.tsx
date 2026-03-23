@@ -207,29 +207,23 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
     return () => subTabRegistry.unregister('Test');
   }, [activeTab]);
 
-  // ── Active program IDs ──────────────────────────────────────
+  // ── Active + Player-Selected program IDs (loaded once on mount) ──
   const [activeIds, setActiveIds] = useState<string[]>([]);
+  const [playerSelectedIds, setPlayerSelectedIds] = useState<string[]>([]);
 
-  const loadActiveIds = useCallback(async () => {
+  const loadProgramInteractions = useCallback(async () => {
     try {
-      const { programIds } = await fetchActivePrograms();
-      setActiveIds(programIds);
+      const result = await fetchActivePrograms();
+      setActiveIds(result.programIds);
+      setPlayerSelectedIds(result.playerSelectedIds ?? []);
     } catch (e) {
-      console.warn('[TestsScreen] Failed to fetch active programs:', e);
+      console.warn('[TestsScreen] Failed to fetch program interactions:', e);
     }
   }, []);
 
   useEffect(() => {
-    loadActiveIds();
-  }, [loadActiveIds]);
-
-  // Also reload active IDs on focus
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadActiveIds();
-    });
-    return unsubscribe;
-  }, [navigation, loadActiveIds]);
+    loadProgramInteractions();
+  }, [loadProgramInteractions]);
 
   const handleToggleActive = useCallback((programId: string) => {
     // Optimistic toggle
@@ -410,7 +404,15 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
                 onProgramDismiss={(id) => handleProgramAction(id, 'dismissed')}
                 activeIds={activeIds}
                 onToggleActive={handleToggleActive}
-                onTestLogged={refresh}
+                playerSelectedIds={playerSelectedIds}
+                onPlayerSelect={(id) => {
+                  setPlayerSelectedIds(prev => [...prev, id]);
+                  interactWithProgram(id, 'player_selected').catch(e => console.warn('[TestsScreen] Player select failed:', e));
+                }}
+                onPlayerDeselect={(id) => {
+                  setPlayerSelectedIds(prev => prev.filter(x => x !== id));
+                  interactWithProgram(id, 'dismissed').catch(e => console.warn('[TestsScreen] Player deselect failed:', e));
+                }}
               />
             )}
           </>

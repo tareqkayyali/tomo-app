@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 /**
  * GET /api/v1/programs/active
  *
- * Returns the list of program IDs the user has marked as "active".
+ * Returns program IDs the user has marked as "active" and "player_selected".
  */
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
@@ -14,9 +14,9 @@ export async function GET(req: NextRequest) {
   const db = supabaseAdmin() as any;
   const { data, error } = await db
     .from("program_interactions")
-    .select("program_id")
+    .select("program_id, action")
     .eq("user_id", auth.user.id)
-    .eq("action", "active");
+    .in("action", ["active", "player_selected"]);
 
   if (error) {
     console.error("[programs/active] Query error:", error.message);
@@ -26,7 +26,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const rows = data || [];
   return NextResponse.json({
-    programIds: (data || []).map((r: any) => r.program_id),
+    programIds: rows.filter((r: any) => r.action === "active").map((r: any) => r.program_id),
+    playerSelectedIds: rows.filter((r: any) => r.action === "player_selected").map((r: any) => r.program_id),
   });
 }

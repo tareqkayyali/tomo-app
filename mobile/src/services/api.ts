@@ -2653,6 +2653,6 @@ export async function searchProgramCatalog(q?: string): Promise<{ programs: Prog
   return apiRequest<{ programs: ProgramCatalogItem[] }>(`/api/v1/programs${params.toString() ? '?' + params.toString() : ''}`);
 }
 
-export async function fetchActivePrograms(): Promise<{ programIds: string[] }> {
+export async function fetchActivePrograms(): Promise<{ programIds: string[]; playerSelectedIds?: string[] }> {
   return apiRequest('/api/v1/programs/active');
 }
