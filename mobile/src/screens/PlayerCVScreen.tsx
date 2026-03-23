@@ -4,7 +4,7 @@
  * Training Stats, Club History, Competitions, Development, Export.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   ActivityIndicator, TextInput, Alert, Modal, SafeAreaView, Platform, Pressable,
@@ -15,7 +15,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useCVProfile, type ClubEntry } from '../hooks/useCVProfile';
 import { useFootballProgress } from '../hooks/useFootballProgress';
 import { useAthleteSnapshot } from '../hooks/useAthleteSnapshot';
-import { updateUser } from '../services/api';
+import { updateUser, getOutputSnapshot } from '../services/api';
+import { useMasteryData } from '../hooks/useMasteryData';
 import { fontFamily, spacing, borderRadius } from '../theme';
 import type { FootballPosition } from '../types/football';
 
@@ -322,6 +323,14 @@ export function PlayerCVScreen() {
   const snapshotHook = useAthleteSnapshot(uid);
   const snapshot = (snapshotHook as any)?.snapshot ?? null;
 
+  // Mastery data for Performance DNA radar values
+  const { data: masteryData } = useMasteryData();
+  // Output data for test benchmarks
+  const [outputData, setOutputData] = useState<any>(null);
+  useEffect(() => {
+    getOutputSnapshot().then(setOutputData).catch(() => {});
+  }, []);
+
   const [clubModalVisible, setClubModalVisible] = useState(false);
   const [editingClub, setEditingClub] = useState<ClubEntry | null>(null);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
@@ -408,71 +417,39 @@ export function PlayerCVScreen() {
         {card && (
           <Section title="Performance DNA" icon="star-outline" colors={colors}>
             <View style={ss.attrGrid}>
-              {Object.entries(card.attributes).map(([key, attr]: [string, any]) => (
-                <View key={key} style={ss.attrItem}>
-                  <Text style={[ss.attrScore, { color: colors.accent }]}>{attr.score}</Text>
-                  <Text style={[ss.attrName, { color: colors.textSecondary }]}>
-                    {key.substring(0, 3).toUpperCase()}
-                  </Text>
-                  {attr.trend !== 0 && (
-                    <Ionicons
-                      name={attr.trend > 0 ? 'trending-up' : 'trending-down'}
-                      size={12}
-                      color={attr.trend > 0 ? colors.accent : colors.error}
-                    />
-                  )}
+              {(masteryData?.radarProfile ?? Object.entries(card.attributes).map(([key, attr]: [string, any]) => ({
+                key, label: key.substring(0, 3).toUpperCase(), value: attr.score, maxValue: 99, color: colors.accent,
+              }))).map((axis: any) => (
+                <View key={axis.key} style={ss.attrItem}>
+                  <Text style={[ss.attrScore, { color: axis.color || colors.accent }]}>{axis.value}</Text>
+                  <Text style={[ss.attrName, { color: colors.textSecondary }]}>{axis.label}</Text>
                 </View>
               ))}
             </View>
           </Section>
         )}
 
-        {/* 4. TEST BENCHMARKS */}
+        {/* 4. TEST BENCHMARKS (from My Metrics) */}
         <Section title="Test Benchmarks" icon="speedometer-outline" colors={colors}>
-          {snap.speed_profile && typeof snap.speed_profile === 'object' ? (
-            <View style={ss.statRow}>
-              {Object.entries(snap.speed_profile as Record<string, number>).slice(0, 4).map(([k, v]) => (
-                <Stat key={k} label={k.replace(/_/g, ' ')} value={typeof v === 'number' ? v.toFixed(2) : v} colors={colors} />
+          {outputData?.metrics?.recentTests?.length > 0 ? (
+            <View style={ss.benchmarkList}>
+              {outputData.metrics.recentTests.slice(0, 8).map((test: any, i: number) => (
+                <View key={`${test.testType}-${i}`} style={[ss.benchmarkRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[ss.benchmarkLabel, { color: colors.textPrimary }]}>
+                    {test.testType.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                  </Text>
+                  <Text style={[ss.benchmarkValue, { color: colors.accent }]}>
+                    {test.score}{test.unit ? ` ${test.unit}` : ''}
+                  </Text>
+                </View>
               ))}
             </View>
           ) : (
-            <Text style={[ss.emptyText, { color: colors.textDisabled }]}>Record tests to populate benchmarks</Text>
-          )}
-          {snap.strength_benchmarks && typeof snap.strength_benchmarks === 'object' && (
-            <View style={[ss.statRow, { marginTop: 8 }]}>
-              {Object.entries(snap.strength_benchmarks as Record<string, number>).slice(0, 4).map(([k, v]) => (
-                <Stat key={k} label={k.replace(/_/g, ' ')} value={typeof v === 'number' ? v.toFixed(1) : v} colors={colors} />
-              ))}
-            </View>
+            <Text style={[ss.emptyText, { color: colors.textDisabled }]}>Record tests in My Metrics to populate benchmarks</Text>
           )}
         </Section>
 
-        {/* 5. MASTERY PILLARS */}
-        {snap.mastery_scores && typeof snap.mastery_scores === 'object' && (
-          <Section title="Mastery Pillars" icon="trophy-outline" colors={colors}>
-            {Object.entries(snap.mastery_scores as Record<string, number>).map(([pillar, score]) => (
-              <View key={pillar} style={ss.pillarRow}>
-                <Text style={[ss.pillarName, { color: colors.textPrimary }]}>{pillar.replace(/_/g, ' ')}</Text>
-                <View style={[ss.pillarTrack, { backgroundColor: colors.border }]}>
-                  <View style={[ss.pillarFill, { width: `${Math.min(score, 100)}%`, backgroundColor: colors.accent }]} />
-                </View>
-                <Text style={[ss.pillarScore, { color: colors.accent }]}>P{Math.round(score)}</Text>
-              </View>
-            ))}
-          </Section>
-        )}
-
-        {/* 6. TRAINING STATS */}
-        <Section title="Training Stats" icon="fitness-outline" colors={colors}>
-          <View style={ss.statRow}>
-            <Stat label="Sessions" value={snap.sessions_total as number} colors={colors} />
-            <Stat label="Training Age" value={snap.training_age_weeks ? `${snap.training_age_weeks}w` : null} colors={colors} />
-            <Stat label="Streak" value={snap.streak_days ? `${snap.streak_days}d` : null} colors={colors} />
-            <Stat label="ACWR" value={snap.acwr != null ? (snap.acwr as number).toFixed(2) : null} colors={colors} color={
-              snap.acwr != null ? ((snap.acwr as number) > 1.5 ? colors.error : (snap.acwr as number) > 1.3 ? colors.warning : colors.accent) : undefined
-            } />
-          </View>
-        </Section>
+        {/* Mastery Pillars + Training Stats removed — shown in Mastery page */}
 
         {/* 7. CLUB & ACADEMY HISTORY */}
         <Section title="Club & Academy History" icon="shield-outline" colors={colors}>
@@ -678,6 +655,10 @@ const ss = StyleSheet.create({
   exportBtnText: { fontFamily: fontFamily.semiBold, fontSize: 14 },
 
   emptyText: { fontFamily: fontFamily.regular, fontSize: 12, textAlign: 'center', paddingVertical: 12 },
+  benchmarkList: { gap: 2 },
+  benchmarkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  benchmarkLabel: { fontFamily: fontFamily.medium, fontSize: 13, flex: 1 },
+  benchmarkValue: { fontFamily: fontFamily.bold, fontSize: 14 },
 });
 
 // ── Modal Styles ──
