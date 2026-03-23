@@ -189,17 +189,16 @@ export function HexagonRadar({
           );
         })}
 
-        {/* Benchmark polygon (static reference shape) */}
+        {/* Benchmark polygon — P50 peer average (visible reference shape) */}
         {benchmarkPointsStr ? (
           <>
             <Polygon
               points={benchmarkPointsStr}
-              fill={benchmarkColor}
-              fillOpacity={benchmarkOpacity}
-              stroke={benchmarkColor}
-              strokeWidth={1}
-              strokeOpacity={0.25}
-              strokeDasharray="4,3"
+              fill="none"
+              stroke="#00D9FF"
+              strokeWidth={1.5}
+              strokeOpacity={0.6}
+              strokeDasharray="6,4"
             />
           </>
         ) : null}

@@ -230,6 +230,17 @@ export function DNACard({
                 fillColor={tierVisual.gradient[0]}
                 fillOpacity={0.3}
               />
+              {/* Legend */}
+              <View style={styles.radarLegend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendSwatch, { backgroundColor: tierVisual.gradient[0], opacity: 0.6 }]} />
+                  <Text style={[styles.legendText, { color: colors.textMuted }]}>You</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDash, { borderColor: '#00D9FF' }]} />
+                  <Text style={[styles.legendText, { color: colors.textMuted }]}>Peer Average</Text>
+                </View>
+              </View>
             </View>
           )}
 
@@ -349,6 +360,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.sm,
     marginBottom: spacing.xxl,
+  },
+  radarLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 8,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+  legendDash: {
+    width: 14,
+    height: 0,
+    borderTopWidth: 2,
+    borderStyle: 'dashed',
+  },
+  legendText: {
+    fontFamily: fontFamily.regular,
+    fontSize: 10,
   },
   attributeGrid: {
     flexDirection: 'row',
