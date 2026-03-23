@@ -331,6 +331,7 @@ function rawTypeToBenchmarkKey(rawType: string): string | null {
   const map: Record<string, string> = {
     "10m-sprint": "sprint_10m",
     "20m-sprint": "sprint_20m",
+    "flying-20m": "flying_20m",
     "30m-sprint": "sprint_30m",
     "cmj": "cmj",
     "broad-jump": "broad_jump",

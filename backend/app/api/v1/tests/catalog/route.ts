@@ -33,6 +33,7 @@ const TEST_CATALOG: TestCatalogItem[] = [
   { id: "60m-sprint", name: "60m Sprint", category: "Speed", unit: "sec", emoji: "🏃", description: "Sprint over 60 meters", direction: "lower", tags: ["sprint", "speed", "track"] },
   { id: "100m-sprint", name: "100m Sprint", category: "Speed", unit: "sec", emoji: "🏃", description: "Track 100m sprint", direction: "lower", tags: ["sprint", "speed", "track"] },
   { id: "flying-10m", name: "Flying 10m Sprint", category: "Speed", unit: "sec", emoji: "💨", description: "Max velocity over 10m with running start", direction: "lower", tags: ["sprint", "velocity", "flying"] },
+  { id: "flying-20m", name: "Flying 20m Sprint", category: "Speed", unit: "sec", emoji: "💨", description: "Top speed over 20m with running start", direction: "lower", tags: ["sprint", "velocity", "flying", "top speed"] },
 
   // Power / Jumping
   { id: "cmj", name: "Counter Movement Jump", category: "Power", unit: "cm", emoji: "🦘", description: "Vertical jump height with countermovement", direction: "higher", tags: ["jump", "power", "vertical", "cmj"] },

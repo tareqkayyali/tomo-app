@@ -39,6 +39,7 @@ import { getZoneColor, getZoneLabel, getGroupThemeColor } from './outputTypes';
 const METRIC_TO_CATALOG: Record<string, string> = {
   sprint_10m: '10m-sprint',
   sprint_20m: '20m-sprint',
+  flying_20m: 'flying-20m',
   sprint_30m: '30m-sprint',
   est_max_speed: 'flying-10m',
   cmj: 'cmj',

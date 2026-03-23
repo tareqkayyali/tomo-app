@@ -11,6 +11,7 @@ const FOOTBALL_TEST_TO_METRIC: Record<string, { key: string; label: string } | (
   "10m-sprint":     { key: "sprint_10m", label: "10m Sprint" },
   "10m_sprint":     { key: "sprint_10m", label: "10m Sprint" },
   "20m-sprint":     { key: "sprint_20m", label: "20m Sprint" },
+  "flying-20m":     { key: "flying_20m", label: "Flying 20m Sprint" },
   "30m-sprint":     { key: "sprint_30m", label: "30m Sprint" },
   "30m_sprint":     { key: "sprint_30m", label: "30m Sprint" },
   jump:             { key: "cmj", label: "CMJ Jump Height" },

@@ -62,6 +62,7 @@ export const TEST_GROUP_MAP: Record<string, string> = {
   // Speed & Acceleration
   sprint_10m: "speed_acceleration",
   sprint_20m: "speed_acceleration",
+  flying_20m: "speed_acceleration",
   sprint_30m: "speed_acceleration",
   est_max_speed: "speed_acceleration",
   // Power & Explosiveness
