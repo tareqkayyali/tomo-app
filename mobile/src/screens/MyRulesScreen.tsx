@@ -436,7 +436,13 @@ export function MyRulesScreen({ navigation }: Props) {
             <SettingRow label="Exam Mode" icon="document-text-outline" colors={colors}>
               <Switch
                 value={prefs.exam_period_active}
-                onValueChange={(v) => edit({ exam_period_active: v })}
+                onValueChange={(v) => {
+                  if (!v) {
+                    edit({ exam_period_active: false, exam_schedule: [] });
+                  } else {
+                    edit({ exam_period_active: true });
+                  }
+                }}
                 trackColor={{ false: colors.border, true: '#F39C1280' }}
                 thumbColor={prefs.exam_period_active ? colors.warning : colors.textInactive}
               />

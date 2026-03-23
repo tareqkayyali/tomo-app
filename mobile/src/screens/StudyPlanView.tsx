@@ -124,8 +124,9 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
   const timeSlotStart = prefs?.study_start ?? '15:00';
   const timeSlotEnd = prefs?.day_bounds_end ?? '22:00';
 
-  // Exams from rules
+  // Exams from rules — only when exam mode is enabled
   const exams = useMemo(() => {
+    if (!examModeEnabled) return [];
     if (prefs?.exam_schedule?.length) {
       return prefs.exam_schedule.map((e) => ({
         id: e.id,
@@ -136,7 +137,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
     }
     // Fallback to profile if rules have no exams yet
     return profile?.examSchedule || [];
-  }, [prefs?.exam_schedule, profile?.examSchedule]);
+  }, [examModeEnabled, prefs?.exam_schedule, profile?.examSchedule]);
 
   const futureExams = useMemo(
     () => exams.filter((e) => daysUntil(e.examDate) > 0),
