@@ -499,6 +499,7 @@ export async function GET(req: NextRequest) {
     type: 'physical' as const,
     priority: 'mandatory' as const,
     durationMin: 45,
+    durationWeeks: s.payload?.durationWeeks || 4,
     description: s.payload?.description || '',
     impact: `Assigned by Coach ${programCoachNames[s.author_id] || ''}`,
     frequency: s.payload?.frequency || '3x/week',

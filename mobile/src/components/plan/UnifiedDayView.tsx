@@ -250,6 +250,7 @@ export function UnifiedDayView({
                   endTime: event.endTime || '',
                   notes: event.notes || '',
                   intensity: event.intensity || '',
+                  linkedPrograms: (event as any).linkedPrograms || [],
                 });
               }}
               onEventComplete={onComplete}

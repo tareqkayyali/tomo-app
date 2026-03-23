@@ -32,6 +32,7 @@ import {
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
 import { updateCalendarEvent, deleteCalendarEvent } from '../services/api';
+import { useScheduleRules } from '../hooks/useScheduleRules';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../navigation/types';
@@ -251,6 +252,29 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
 
   const showIntensity = params.type === 'training' || params.type === 'match';
 
+  // ── Linked Programs ──
+  const linkedPrograms = (params as any).linkedPrograms ?? [];
+  const { rules, update: updateRules } = useScheduleRules();
+
+  const handleUnlinkProgram = useCallback(async (programId: string) => {
+    const categories = rules?.preferences?.training_categories ?? [];
+    const updated = categories.map((cat: any) => ({
+      ...cat,
+      linkedPrograms: (cat.linkedPrograms ?? []).filter(
+        (lp: any) => lp.programId !== programId
+      ),
+    }));
+    try {
+      await updateRules({ training_categories: updated });
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Navigate back to refresh
+      navigation.goBack();
+    } catch (e: any) {
+      if (Platform.OS === 'web') window.alert('Failed to unlink: ' + (e?.message || ''));
+      else Alert.alert('Error', 'Failed to unlink program.');
+    }
+  }, [rules, updateRules, navigation]);
+
   // ── Handlers ──
 
   const handleSave = useCallback(async () => {
@@ -454,6 +478,41 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
             />
           </View>
 
+          {/* ═══ Linked Programs ═══ */}
+          {params.type === 'training' && linkedPrograms.length > 0 && (
+            <View style={styles.group}>
+              <Text style={styles.groupLabel}>Linked Programs</Text>
+              {linkedPrograms.map((lp: any) => (
+                <View key={lp.programId} style={[styles.linkedProgramRow, { backgroundColor: colors.glass }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.linkedProgramName, { color: colors.textOnDark }]}>{lp.name}</Text>
+                    {lp.category && (
+                      <Text style={{ fontSize: 11, fontFamily: fontFamily.regular, color: colors.textMuted }}>{lp.category}</Text>
+                    )}
+                  </View>
+                  <Pressable
+                    onPress={() => {
+                      if (Platform.OS === 'web') {
+                        if (window.confirm(`Unlink "${lp.name}" from this training?`)) {
+                          handleUnlinkProgram(lp.programId);
+                        }
+                      } else {
+                        Alert.alert('Unlink Program', `Remove "${lp.name}" from this training?`, [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Unlink', style: 'destructive', onPress: () => handleUnlinkProgram(lp.programId) },
+                        ]);
+                      }
+                    }}
+                    hitSlop={8}
+                    style={({ pressed }) => [{ opacity: pressed ? 0.5 : 1 }]}
+                  >
+                    <Ionicons name="close-circle" size={22} color={colors.error} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
+
           {/* ═══ Save Button ═══ */}
           <Pressable
             onPress={handleSave}
@@ -595,6 +654,17 @@ function createStyles(colors: ThemeColors) {
       marginBottom: 8,
       textTransform: 'uppercase',
       letterSpacing: 0.3,
+    },
+    linkedProgramRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      borderRadius: borderRadius.md,
+      marginBottom: 6,
+    },
+    linkedProgramName: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 14,
     },
     groupDivider: {
       height: StyleSheet.hairlineWidth,

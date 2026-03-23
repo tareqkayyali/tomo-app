@@ -150,8 +150,27 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     handleUpdateEvent,
   } = calendar;
 
-  // Real events from API
-  const events = realEvents;
+  // Enrich training events with linked programs from schedule rules
+  const trainingCategories = rules?.preferences?.training_categories ?? [];
+  const events = useMemo(() => {
+    if (trainingCategories.length === 0) return realEvents;
+    return realEvents.map((evt) => {
+      if (evt.type !== 'training') return evt;
+      // Find the training category that matches this event name
+      const matchedCat = trainingCategories.find(
+        (cat) => cat.label && evt.name.toLowerCase().includes(cat.label.toLowerCase())
+      );
+      if (matchedCat?.linkedPrograms?.length) {
+        return { ...evt, linkedPrograms: matchedCat.linkedPrograms };
+      }
+      // Also try matching all categories' linked programs for generic "training" events
+      const allLinked = trainingCategories.flatMap((cat) => cat.linkedPrograms ?? []);
+      if (allLinked.length > 0 && !matchedCat) {
+        return { ...evt, linkedPrograms: allLinked };
+      }
+      return evt;
+    });
+  }, [realEvents, trainingCategories]);
 
   // Compute readiness from today's check-in
   const readiness = useMemo(

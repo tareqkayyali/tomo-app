@@ -39,6 +39,7 @@ export type MainStackParamList = {
     endTime: string;
     notes?: string;
     intensity?: string;
+    linkedPrograms?: Array<{ programId: string; name: string; category?: string }>;
   };
   PrivacySettings: undefined;
   Diagnostics: undefined;
