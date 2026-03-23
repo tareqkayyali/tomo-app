@@ -184,8 +184,36 @@ export default function NormativeSpreadsheet({
     }
   };
 
+  const [showGuide, setShowGuide] = useState(false);
+
   return (
     <div className="space-y-4">
+      {/* Reference Guide */}
+      <div className="rounded-md border bg-muted/30 p-3">
+        <button
+          onClick={() => setShowGuide(!showGuide)}
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
+        >
+          <span>{showGuide ? "▾" : "▸"}</span>
+          <span>How Means &amp; SDs Work</span>
+        </button>
+        {showGuide && (
+          <div className="mt-3 text-sm text-muted-foreground space-y-2">
+            <p><strong>Means</strong> = the average (50th percentile) value for that metric at each age. Example: 10m Sprint mean of 1.80s at age 15 means a typical player runs 10m in 1.80s.</p>
+            <p><strong>SDs</strong> (Standard Deviations) = the spread around that average. Smaller SD = players are tightly clustered. Larger SD = wider variation.</p>
+            <p className="font-medium text-foreground">How percentiles are calculated from Mean &amp; SD:</p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 pl-2">
+              <span>P90 (Elite)</span><span>= Mean + 1.282 × SD</span>
+              <span>P75 (Advanced)</span><span>= Mean + 0.674 × SD</span>
+              <span>P50 (Solid)</span><span>= Mean (the average)</span>
+              <span>P25 (Developing)</span><span>= Mean − 0.674 × SD</span>
+              <span>P10 (Foundation)</span><span>= Mean − 1.282 × SD</span>
+            </div>
+            <p className="text-xs italic">For "lower is better" metrics (sprint times), the direction is reversed. Position-specific norms shift means ±5-15% based on attribute relevance — Strikers get tighter shooting targets, CBs get tighter defending targets.</p>
+          </div>
+        )}
+      </div>
+
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="flex rounded-md border">
