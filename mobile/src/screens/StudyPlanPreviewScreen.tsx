@@ -292,10 +292,14 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
 
     if (failed.length > 0) {
       setBlocks(failed);
-      Alert.alert(
-        'Partial Success',
-        `${successCount} blocks added, ${failed.length} failed. Retry remaining?`,
-      );
+      if (Platform.OS === 'web') {
+        window.alert(`${successCount} blocks added, ${failed.length} failed. Retry remaining?`);
+      } else {
+        Alert.alert(
+          'Partial Success',
+          `${successCount} blocks added, ${failed.length} failed. Retry remaining?`,
+        );
+      }
     } else {
       // Save the study plan for later viewing
       if (planType === 'study') {
@@ -369,7 +373,11 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
       const plan = createStudyPlanFromBooking(currentStudyBlocks, examEntries, fallbackConfig);
       await exportStudyPlanPdf(plan);
     } catch (err) {
-      Alert.alert('Export Failed', 'Could not generate PDF. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not generate PDF. Please try again.');
+      } else {
+        Alert.alert('Export Failed', 'Could not generate PDF. Please try again.');
+      }
     } finally {
       setSaving(false);
     }

@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { PlayerNotification, DrillAssignedNotifData } from '../../types/programme';
 import { CATEGORY_COLORS, CATEGORY_LABELS } from '../../types/programme';
@@ -31,33 +31,50 @@ export function DrillNotificationCard({ notification, onActed, colors }: Props) 
 
   const handleAddToSchedule = async () => {
     if (isActed) return;
-    Alert.alert(
-      'Add all drills',
-      `Add ${data.drillCount} drill${data.drillCount > 1 ? 's' : ''} from ${data.coachName} to your schedule?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add all',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const result = await actOnNotification(notification.id, 'add_to_schedule');
-              if (result.success) {
-                onActed();
-                Alert.alert(
-                  'Added to schedule',
-                  `${result.eventsAdded} training sessions added to your Timeline.`
-                );
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Add ${data.drillCount} drill${data.drillCount > 1 ? 's' : ''} from ${data.coachName} to your schedule?`)) {
+        setLoading(true);
+        try {
+          const result = await actOnNotification(notification.id, 'add_to_schedule');
+          if (result.success) {
+            onActed();
+            window.alert(`${result.eventsAdded} training sessions added to your Timeline.`);
+          }
+        } catch (err: any) {
+          window.alert(err.message);
+        } finally {
+          setLoading(false);
+        }
+      }
+    } else {
+      Alert.alert(
+        'Add all drills',
+        `Add ${data.drillCount} drill${data.drillCount > 1 ? 's' : ''} from ${data.coachName} to your schedule?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Add all',
+            onPress: async () => {
+              setLoading(true);
+              try {
+                const result = await actOnNotification(notification.id, 'add_to_schedule');
+                if (result.success) {
+                  onActed();
+                  Alert.alert(
+                    'Added to schedule',
+                    `${result.eventsAdded} training sessions added to your Timeline.`
+                  );
+                }
+              } catch (err: any) {
+                Alert.alert('Error', err.message);
+              } finally {
+                setLoading(false);
               }
-            } catch (err: any) {
-              Alert.alert('Error', err.message);
-            } finally {
-              setLoading(false);
-            }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleViewInChat = () => {

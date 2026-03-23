@@ -160,7 +160,11 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
         }
       }
     } catch (e) {
-      Alert.alert('Error', 'Could not connect to WHOOP. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not connect to WHOOP. Please try again.');
+      } else {
+        Alert.alert('Error', 'Could not connect to WHOOP. Please try again.');
+      }
       console.error('[Settings] WHOOP connect error:', e);
     } finally {
       setWhoopLoading(false);
@@ -245,7 +249,11 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
       await refreshProfile();
     } catch {
       setWearables(wearables);
-      Alert.alert('Error', 'Could not update wearable status.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not update wearable status.');
+      } else {
+        Alert.alert('Error', 'Could not update wearable status.');
+      }
     } finally {
       setSaving(false);
     }

@@ -100,18 +100,18 @@ export async function POST(req: NextRequest) {
   }
 
   // Emit event to athlete data fabric (non-fatal)
+  // Uses MILESTONE_HIT as closest match — doesn't affect ACWR/load
   try {
     const { emitEventSafe } = await import("@/services/events/eventEmitter");
     await emitEventSafe({
       athleteId: auth.user.id,
-      eventType: "SESSION_LOG",
+      eventType: "MILESTONE_HIT",
       occurredAt: new Date().toISOString(),
       source: "MANUAL",
       payload: {
-        interaction_type: "PROGRAM_INTERACTION",
+        milestone_type: "PROGRAM_INTERACTION",
         program_id: programId,
         action,
-        training_load_au: 0,
       },
       createdBy: auth.user.id,
     });

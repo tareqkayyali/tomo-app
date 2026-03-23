@@ -92,7 +92,11 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Missing Info', 'Please enter a program name.');
+      if (Platform.OS === 'web') {
+        window.alert('Please enter a program name.');
+      } else {
+        Alert.alert('Missing Info', 'Please enter a program name.');
+      }
       return;
     }
 
@@ -128,9 +132,18 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
 
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const msg = `"${name}" has been sent to ${playerName.split(' ')[0]}. They'll receive a notification to review it.`;
-      Alert.alert('Program Sent', msg, [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+        navigation.goBack();
+      } else {
+        Alert.alert('Program Sent', msg, [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      }
     } catch (err) {
-      Alert.alert('Tomo', 'Failed to send program. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Failed to send program. Please try again.');
+      } else {
+        Alert.alert('Tomo', 'Failed to send program. Please try again.');
+      }
     } finally {
       setSaving(false);
     }

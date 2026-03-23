@@ -257,7 +257,10 @@ function ClubEditorModal({
             <TouchableOpacity
               style={[ms.modalBtn, { backgroundColor: colors.accent }]}
               onPress={() => {
-                if (!name.trim()) { Alert.alert('Enter club name'); return; }
+                if (!name.trim()) {
+                  if (Platform.OS === 'web') { window.alert('Enter club name'); } else { Alert.alert('Enter club name'); }
+                  return;
+                }
                 onSave({
                   club_name: name.trim(),
                   role,

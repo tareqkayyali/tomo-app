@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -124,12 +125,24 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
     setNotifying(true);
     try {
       await notifyChildStudyInfo(selectedChild.id);
-      Alert.alert('Sent!', `${selectedChild.name} will be notified to add their study info.`);
+      if (Platform.OS === 'web') {
+        window.alert(`${selectedChild.name} will be notified to add their study info.`);
+      } else {
+        Alert.alert('Sent!', `${selectedChild.name} will be notified to add their study info.`);
+      }
     } catch (err: any) {
       if (err?.message?.includes('24 hours')) {
-        Alert.alert('Already Sent', 'A notification was already sent in the last 24 hours.');
+        if (Platform.OS === 'web') {
+          window.alert('A notification was already sent in the last 24 hours.');
+        } else {
+          Alert.alert('Already Sent', 'A notification was already sent in the last 24 hours.');
+        }
       } else {
-        Alert.alert('Error', 'Could not send notification. Try again.');
+        if (Platform.OS === 'web') {
+          window.alert('Could not send notification. Try again.');
+        } else {
+          Alert.alert('Error', 'Could not send notification. Try again.');
+        }
       }
     } finally {
       setNotifying(false);
@@ -140,7 +153,11 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
 
   const handleSendSuggestion = useCallback(async () => {
     if (!selectedChild || !suggestTitle.trim()) {
-      Alert.alert('Missing Info', 'Please add a title for your suggestion.');
+      if (Platform.OS === 'web') {
+        window.alert('Please add a title for your suggestion.');
+      } else {
+        Alert.alert('Missing Info', 'Please add a title for your suggestion.');
+      }
       return;
     }
 
@@ -156,12 +173,20 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
           parentSuggestion: true,
         },
       });
-      Alert.alert('Sent!', `Suggestion sent to ${selectedChild.name}.`);
+      if (Platform.OS === 'web') {
+        window.alert(`Suggestion sent to ${selectedChild.name}.`);
+      } else {
+        Alert.alert('Sent!', `Suggestion sent to ${selectedChild.name}.`);
+      }
       setShowSuggestForm(false);
       setSuggestTitle('');
       setSuggestNotes('');
     } catch {
-      Alert.alert('Error', 'Failed to send suggestion. Try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Failed to send suggestion. Try again.');
+      } else {
+        Alert.alert('Error', 'Failed to send suggestion. Try again.');
+      }
     } finally {
       setSendingSuggestion(false);
     }

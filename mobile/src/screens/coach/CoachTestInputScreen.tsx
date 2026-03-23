@@ -144,7 +144,11 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
     const validTests = queue.filter(q => q.value && !isNaN(parseFloat(q.value)));
     if (validTests.length === 0) {
       const msg = 'Please enter values for at least one test.';
-      Alert.alert('Tomo', msg);
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Tomo', msg);
+      }
       return;
     }
 
@@ -165,7 +169,11 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
       applyFilter(searchQuery, selectedCategory);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong';
-      Alert.alert('Tomo', message);
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Tomo', message);
+      }
     } finally {
       setSubmitting(false);
     }

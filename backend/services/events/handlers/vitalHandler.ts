@@ -58,8 +58,35 @@ export async function handleVitalReading(event: AthleteEvent): Promise<void> {
   }
   await Promise.allSettled(writes);
 
-  // If this is a morning HRV reading, update baseline on snapshot
-  if (payload.hrv_ms && payload.measurement_window === 'MORNING') {
+  // Update snapshot with latest HRV/HR values whenever available
+  // Also compute baseline from 28-day window for morning readings
+  if (payload.hrv_ms) {
+    // Always write today's values to snapshot
+    const snapshotUpdate: Record<string, unknown> = {
+      athlete_id: event.athlete_id,
+      hrv_today_ms: payload.hrv_ms,
+      snapshot_at: new Date().toISOString(),
+    };
+    if (payload.resting_hr_bpm) {
+      snapshotUpdate.resting_hr_bpm = payload.resting_hr_bpm;
+    }
+
+    await db
+      .from('athlete_snapshots')
+      .upsert(snapshotUpdate, { onConflict: 'athlete_id' });
+  } else if (payload.resting_hr_bpm) {
+    // No HRV but has resting HR — still update snapshot
+    await db
+      .from('athlete_snapshots')
+      .upsert({
+        athlete_id: event.athlete_id,
+        resting_hr_bpm: payload.resting_hr_bpm,
+        snapshot_at: new Date().toISOString(),
+      }, { onConflict: 'athlete_id' });
+  }
+
+  // Compute HRV baseline from 28-day window (for morning readings or any HRV data)
+  if (payload.hrv_ms) {
     const { data: recentHRV } = await db
       .from('athlete_events')
       .select('payload')
@@ -77,14 +104,12 @@ export async function handleVitalReading(event: AthleteEvent): Promise<void> {
       if (hrvValues.length > 0) {
         const baseline = hrvValues.reduce((sum: number, v: number) => sum + v, 0) / hrvValues.length;
 
+        // Only update baseline (today's values already written above)
         await db
           .from('athlete_snapshots')
           .upsert({
             athlete_id: event.athlete_id,
             hrv_baseline_ms: Math.round(baseline * 10) / 10,
-            hrv_today_ms: payload.hrv_ms,
-            hrv_recorded_at: new Date().toISOString(),
-            resting_hr_bpm: payload.resting_hr_bpm ?? null,
             snapshot_at: new Date().toISOString(),
           }, { onConflict: 'athlete_id' });
       }

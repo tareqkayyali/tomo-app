@@ -147,6 +147,32 @@ export async function handleSessionLog(event: AthleteEvent): Promise<void> {
     trainingAgeWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
   }
 
+  // Compute streak: count consecutive days with SESSION_LOG going backwards from today
+  let streakDays = 0;
+  try {
+    const today = new Date();
+    for (let i = 0; i < 365; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(today.getDate() - i);
+      const dateStr = checkDate.toISOString().slice(0, 10);
+      const { count } = await db
+        .from('athlete_events')
+        .select('event_id', { count: 'exact', head: true })
+        .eq('athlete_id', event.athlete_id)
+        .in('event_type', ['SESSION_LOG', 'WELLNESS_CHECKIN'])
+        .gte('occurred_at', `${dateStr}T00:00:00Z`)
+        .lte('occurred_at', `${dateStr}T23:59:59Z`);
+      if ((count ?? 0) > 0) {
+        streakDays++;
+      } else if (i > 0) {
+        // No activity on this day and it's not today — streak broken
+        break;
+      }
+    }
+  } catch (e) {
+    console.warn('[sessionHandler] streak computation failed:', e);
+  }
+
   await db
     .from('athlete_snapshots')
     .upsert({
@@ -154,6 +180,7 @@ export async function handleSessionLog(event: AthleteEvent): Promise<void> {
       sessions_total: sessionCountRes.data?.length ?? 0,
       last_session_at: event.occurred_at,
       training_age_weeks: trainingAgeWeeks,
+      streak_days: streakDays,
       snapshot_at: new Date().toISOString(),
     }, { onConflict: 'athlete_id' });
 

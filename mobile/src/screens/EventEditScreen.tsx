@@ -316,7 +316,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
     }
   }, [saving, params, name, date, startTime, endTime, notes, intensity, navigation, removedProgramIds, rules, updateRules]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }

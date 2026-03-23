@@ -97,7 +97,11 @@ export function DrillBuilderScreen() {
         setMode('editor');
       }
     } catch {
-      Alert.alert('Error', 'Could not load programme');
+      if (Platform.OS === 'web') {
+        window.alert('Could not load programme');
+      } else {
+        Alert.alert('Error', 'Could not load programme');
+      }
     }
   }, []);
 
@@ -160,7 +164,11 @@ function ProgrammeList({
 
   const handleCreate = async () => {
     if (!form.name.trim()) {
-      Alert.alert('Name required', 'Give your programme a name');
+      if (Platform.OS === 'web') {
+        window.alert('Give your programme a name');
+      } else {
+        Alert.alert('Name required', 'Give your programme a name');
+      }
       return;
     }
     setCreating(true);
@@ -179,7 +187,11 @@ function ProgrammeList({
         onCreated(prog.id);
       }
     } catch {
-      Alert.alert('Error', 'Could not create programme');
+      if (Platform.OS === 'web') {
+        window.alert('Could not create programme');
+      } else {
+        Alert.alert('Error', 'Could not create programme');
+      }
     } finally {
       setCreating(false);
     }
@@ -422,7 +434,11 @@ function ProgrammeEditor({
           drills: (programme.drills || []).filter((d) => d.id !== drillRecordId),
         });
       } catch {
-        Alert.alert('Error', 'Could not remove drill');
+        if (Platform.OS === 'web') {
+          window.alert('Could not remove drill');
+        } else {
+          Alert.alert('Error', 'Could not remove drill');
+        }
       } finally {
         setDeleting(null);
       }
@@ -443,37 +459,58 @@ function ProgrammeEditor({
 
   const handlePublish = useCallback(async () => {
     if (programme.status === 'published') {
-      Alert.alert('Already published', 'This programme has already been published.');
+      if (Platform.OS === 'web') {
+        window.alert('This programme has already been published.');
+      } else {
+        Alert.alert('Already published', 'This programme has already been published.');
+      }
       return;
     }
-    Alert.alert(
-      'Publish Programme',
-      'This will add drills to all target players\' calendars and send push notifications. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Publish',
-          style: 'default',
-          onPress: async () => {
-            setPublishing(true);
-            try {
-              const result = await publishProgramme(programme.id);
-              if (result) {
-                Alert.alert(
-                  'Published!',
-                  `${result.eventsCreated} events created for ${result.playersTargeted} player${result.playersTargeted !== 1 ? 's' : ''}.`,
-                );
-                setProgramme({ ...programme, status: 'published' });
+    if (Platform.OS === 'web') {
+      if (window.confirm('This will add drills to all target players\' calendars and send push notifications. Continue?')) {
+        setPublishing(true);
+        try {
+          const result = await publishProgramme(programme.id);
+          if (result) {
+            window.alert(`${result.eventsCreated} events created for ${result.playersTargeted} player${result.playersTargeted !== 1 ? 's' : ''}.`);
+            setProgramme({ ...programme, status: 'published' });
+          }
+        } catch {
+          window.alert('Failed to publish programme');
+        } finally {
+          setPublishing(false);
+        }
+      }
+    } else {
+      Alert.alert(
+        'Publish Programme',
+        'This will add drills to all target players\' calendars and send push notifications. Continue?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Publish',
+            style: 'default',
+            onPress: async () => {
+              setPublishing(true);
+              try {
+                const result = await publishProgramme(programme.id);
+                if (result) {
+                  Alert.alert(
+                    'Published!',
+                    `${result.eventsCreated} events created for ${result.playersTargeted} player${result.playersTargeted !== 1 ? 's' : ''}.`,
+                  );
+                  setProgramme({ ...programme, status: 'published' });
+                }
+              } catch {
+                Alert.alert('Error', 'Failed to publish programme');
+              } finally {
+                setPublishing(false);
               }
-            } catch {
-              Alert.alert('Error', 'Failed to publish programme');
-            } finally {
-              setPublishing(false);
-            }
+            },
           },
-        },
-      ],
-    );
+        ],
+      );
+    }
   }, [programme, setProgramme]);
 
   const totalDrills = (programme.drills || []).length;
@@ -848,7 +885,11 @@ function DrillPicker({
         onDrillAdded(newDrills);
       }
     } catch {
-      Alert.alert('Error', 'Could not add drill');
+      if (Platform.OS === 'web') {
+        window.alert('Could not add drill');
+      } else {
+        Alert.alert('Error', 'Could not add drill');
+      }
     } finally {
       setAdding(false);
     }

@@ -12,6 +12,7 @@ import {
   Share,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,7 +36,11 @@ export function CoachInviteScreen() {
       setExpiresAt(res.expiresAt);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong';
-      Alert.alert('Error', message);
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Error', message);
+      }
     } finally {
       setGenerating(false);
     }
@@ -44,7 +49,11 @@ export function CoachInviteScreen() {
   const handleCopy = async () => {
     if (!code) return;
     await Clipboard.setStringAsync(code);
-    Alert.alert('Copied', 'Invite code copied to clipboard.');
+    if (Platform.OS === 'web') {
+      window.alert('Invite code copied to clipboard.');
+    } else {
+      Alert.alert('Copied', 'Invite code copied to clipboard.');
+    }
   };
 
   const handleShare = async () => {

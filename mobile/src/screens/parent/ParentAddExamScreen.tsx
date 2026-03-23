@@ -67,15 +67,15 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
 
   const handleSubmit = useCallback(async () => {
     if (!effectiveSubject.trim()) {
-      Alert.alert('Missing subject', 'Please select or enter a subject.');
+      if (Platform.OS === 'web') { window.alert('Please select or enter a subject.'); } else { Alert.alert('Missing subject', 'Please select or enter a subject.'); }
       return;
     }
     if (!examType) {
-      Alert.alert('Missing exam type', 'Please select an exam type.');
+      if (Platform.OS === 'web') { window.alert('Please select an exam type.'); } else { Alert.alert('Missing exam type', 'Please select an exam type.'); }
       return;
     }
     if (!examDate) {
-      Alert.alert('Missing date', 'Please select an exam date.');
+      if (Platform.OS === 'web') { window.alert('Please select an exam date.'); } else { Alert.alert('Missing date', 'Please select an exam date.'); }
       return;
     }
 
@@ -89,7 +89,11 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
       });
       setSuccess(true);
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to add exam.');
+      if (Platform.OS === 'web') {
+        window.alert(err?.message || 'Failed to add exam.');
+      } else {
+        Alert.alert('Error', err?.message || 'Failed to add exam.');
+      }
     } finally {
       setSubmitting(false);
     }

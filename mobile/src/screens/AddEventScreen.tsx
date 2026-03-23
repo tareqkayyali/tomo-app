@@ -348,7 +348,11 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.goBack();
     } catch {
-      Alert.alert('Error', 'Could not create event. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not create event. Please try again.');
+      } else {
+        Alert.alert('Error', 'Could not create event. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }

@@ -142,45 +142,62 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const handlePickPhoto = useCallback(async () => {
-    Alert.alert('Profile Photo', 'Choose a source', [
-      {
-        text: 'Camera',
-        onPress: async () => {
-          const perm = await ImagePicker.requestCameraPermissionsAsync();
-          if (!perm.granted) {
-            Alert.alert('Permission Required', 'Camera access is needed to take a photo.');
-            return;
-          }
-          const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.7,
-          });
-          if (!result.canceled && result.assets[0]) {
-            await doUpload(result.assets[0].uri);
-          }
+    if (Platform.OS === 'web') {
+      // On web, go straight to photo library (no camera)
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        window.alert('Photo library access is needed.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets[0]) {
+        await doUpload(result.assets[0].uri);
+      }
+    } else {
+      Alert.alert('Profile Photo', 'Choose a source', [
+        {
+          text: 'Camera',
+          onPress: async () => {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Permission Required', 'Camera access is needed to take a photo.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+            });
+            if (!result.canceled && result.assets[0]) {
+              await doUpload(result.assets[0].uri);
+            }
+          },
         },
-      },
-      {
-        text: 'Photo Library',
-        onPress: async () => {
-          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (!perm.granted) {
-            Alert.alert('Permission Required', 'Photo library access is needed.');
-            return;
-          }
-          const result = await ImagePicker.launchImageLibraryAsync({
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.7,
-          });
-          if (!result.canceled && result.assets[0]) {
-            await doUpload(result.assets[0].uri);
-          }
+        {
+          text: 'Photo Library',
+          onPress: async () => {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Permission Required', 'Photo library access is needed.');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+            });
+            if (!result.canceled && result.assets[0]) {
+              await doUpload(result.assets[0].uri);
+            }
+          },
         },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
   }, [profile?.uid]);
 
   const doUpload = useCallback(
@@ -192,7 +209,11 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         setPhotoUri(url);
         await updateUser({ photoUrl: url } as any);
       } catch {
-        Alert.alert('Error', 'Could not upload photo. Please try again.');
+        if (Platform.OS === 'web') {
+          window.alert('Could not upload photo. Please try again.');
+        } else {
+          Alert.alert('Error', 'Could not upload photo. Please try again.');
+        }
       } finally {
         setUploadingPhoto(false);
       }
@@ -235,7 +256,11 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   };
 
   const handleComingSoon = (feature: string) => {
-    Alert.alert('Coming Soon', `${feature} will be available in a future update.`);
+    if (Platform.OS === 'web') {
+      window.alert(`${feature} will be available in a future update.`);
+    } else {
+      Alert.alert('Coming Soon', `${feature} will be available in a future update.`);
+    }
   };
 
   // Stagger

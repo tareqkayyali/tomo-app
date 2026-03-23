@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Share,
   Alert,
+  Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,7 +42,11 @@ export function ParentInviteScreen({ navigation }: Props) {
       setCode(res.code);
       setExpiresAt(res.expiresAt);
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to generate invite code.');
+      if (Platform.OS === 'web') {
+        window.alert(err?.message || 'Failed to generate invite code.');
+      } else {
+        Alert.alert('Error', err?.message || 'Failed to generate invite code.');
+      }
     } finally {
       setLoading(false);
     }

@@ -99,7 +99,11 @@ export function CoachOnboardingScreen() {
       await refreshProfile();
     } catch (err) {
       console.error('[CoachOnboarding] finish failed:', err);
-      Alert.alert('Tomo', 'Could not complete setup. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not complete setup. Please try again.');
+      } else {
+        Alert.alert('Tomo', 'Could not complete setup. Please try again.');
+      }
     } finally {
       setIsFinishing(false);
     }
@@ -112,7 +116,11 @@ export function CoachOnboardingScreen() {
       await refreshProfile();
     } catch (err) {
       console.error('[CoachOnboarding] skip failed:', err);
-      Alert.alert('Tomo', 'Could not complete setup. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not complete setup. Please try again.');
+      } else {
+        Alert.alert('Tomo', 'Could not complete setup. Please try again.');
+      }
     } finally {
       setIsFinishing(false);
     }

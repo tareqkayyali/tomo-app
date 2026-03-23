@@ -122,10 +122,16 @@ export function ParentProfileScreen() {
             label="Change Password"
             color={colors.accent1}
             onPress={() => {
-              Alert.alert('Change Password', 'A password reset email will be sent to your email address.', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Send Reset Email', onPress: () => {} },
-              ]);
+              if (Platform.OS === 'web') {
+                if (window.confirm('A password reset email will be sent to your email address. Send Reset Email?')) {
+                  // send reset email
+                }
+              } else {
+                Alert.alert('Change Password', 'A password reset email will be sent to your email address.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Send Reset Email', onPress: () => {} },
+                ]);
+              }
             }}
             textColor={colors.textOnDark}
             chevronColor={colors.textInactive}

@@ -14,6 +14,7 @@ import {
   Alert,
   SafeAreaView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -56,7 +57,11 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
 
   const handleSubmit = useCallback(async () => {
     if (!effectiveSubject.trim()) {
-      Alert.alert('Missing subject', 'Please select or enter a subject.');
+      if (Platform.OS === 'web') {
+        window.alert('Please select or enter a subject.');
+      } else {
+        Alert.alert('Missing subject', 'Please select or enter a subject.');
+      }
       return;
     }
 
@@ -77,7 +82,11 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
 
       setSuccess(true);
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to create study block.');
+      if (Platform.OS === 'web') {
+        window.alert(err?.message || 'Failed to create study block.');
+      } else {
+        Alert.alert('Error', err?.message || 'Failed to create study block.');
+      }
     } finally {
       setSubmitting(false);
     }

@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -47,13 +47,21 @@ export function EventCard({ event, onDelete, compact = false, linkedPrograms = [
         console.warn('[EventCard] delete failed, reverting animation');
         opacity.value = withTiming(1, { duration: 200 });
         translateX.value = withTiming(0, { duration: 200 });
-        Alert.alert('Delete Failed', 'Could not delete event. Please try again.');
+        if (Platform.OS === 'web') {
+          window.alert('Could not delete event. Please try again.');
+        } else {
+          Alert.alert('Delete Failed', 'Could not delete event. Please try again.');
+        }
       }
     } catch {
       // Also reverse on error
       opacity.value = withTiming(1, { duration: 200 });
       translateX.value = withTiming(0, { duration: 200 });
-      Alert.alert('Delete Failed', 'Could not delete event. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not delete event. Please try again.');
+      } else {
+        Alert.alert('Delete Failed', 'Could not delete event. Please try again.');
+      }
     } finally {
       setDeleting(false);
     }
@@ -61,6 +69,15 @@ export function EventCard({ event, onDelete, compact = false, linkedPrograms = [
 
   const handleDelete = useCallback(() => {
     if (deleting) return;
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Remove "${event.name}"?`)) {
+        opacity.value = withTiming(0, { duration: 250 });
+        translateX.value = withTiming(-300, { duration: 250 }, () => {
+          runOnJS(executeDelete)();
+        });
+      }
+      return;
+    }
     Alert.alert('Delete Event', `Remove "${event.name}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
