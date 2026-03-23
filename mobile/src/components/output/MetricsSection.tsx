@@ -438,9 +438,9 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
   const previewMetrics = category.metrics.slice(0, 2);
 
   return (
-    <Pressable onPress={() => setExpanded(!expanded)}>
-      <GlassCard>
-        {/* Header */}
+    <GlassCard>
+      {/* Header — tap to expand/collapse */}
+      <Pressable onPress={() => setExpanded(!expanded)}>
         <View style={styles.groupHeader}>
           <Text style={styles.groupEmoji}>{category.emoji}</Text>
           <View style={{ flex: 1 }}>
@@ -458,8 +458,9 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
             style={{ marginLeft: 4 }}
           />
         </View>
+      </Pressable>
 
-        {/* Preview chips removed — collapsed cards show header only */}
+      {/* Preview chips removed — collapsed cards show header only */}
 
         {/* Expanded: description + full PercentileBar per test with history/log-new */}
         {expanded && (
@@ -490,6 +491,8 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
                       await logTest(METRIC_TO_CATALOG[m.metricKey] || m.metricKey, score, m.unit);
                       setActiveMode(null);
                       setActiveMetricKey(null);
+                      // Small delay to let benchmark recalculation complete
+                      await new Promise(r => setTimeout(r, 800));
                       onTestLogged?.();
                     }}
                     onCancel={() => { setActiveMode(null); setActiveMetricKey(null); }}
@@ -508,8 +511,7 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
             ))}
           </View>
         )}
-      </GlassCard>
-    </Pressable>
+    </GlassCard>
   );
 }
 
@@ -546,9 +548,9 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
   const previewTests = group.tests.slice(0, 2);
 
   return (
-    <Pressable onPress={() => setExpanded(!expanded)}>
-      <GlassCard>
-        {/* Header */}
+    <GlassCard>
+      {/* Header — tap to expand/collapse */}
+      <Pressable onPress={() => setExpanded(!expanded)}>
         <View style={styles.groupHeader}>
           <Text style={styles.groupEmoji}>{group.emoji}</Text>
           <View style={{ flex: 1 }}>
@@ -566,8 +568,9 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
             style={{ marginLeft: 4 }}
           />
         </View>
+      </Pressable>
 
-        {/* Preview chips removed — collapsed cards show header only */}
+      {/* Preview chips removed — collapsed cards show header only */}
 
         {/* Expanded: description + all tests with values + action icons */}
         {expanded && (
@@ -668,8 +671,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
             </View>
           </View>
         )}
-      </GlassCard>
-    </Pressable>
+    </GlassCard>
   );
 }
 
