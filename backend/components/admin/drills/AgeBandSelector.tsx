@@ -3,7 +3,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
-const AGE_BANDS = ["U14", "U17", "U20+"] as const;
+const AGE_BANDS = ["U14", "U17", "U19", "U20+"] as const;
 
 interface AgeBandSelectorProps {
   selected: string[];

@@ -27,6 +27,7 @@ export const drillCreateSchema = z.object({
     .min(1, "At least one instruction step is required"),
   duration_minutes: z.number().int().min(1).max(120).default(15),
   intensity: z.enum(["light", "moderate", "hard"]),
+  primary_attribute: z.string().nullable().optional(),
   attribute_keys: z.array(z.string()).default([]),
   age_bands: z.array(z.string()).default([]),
   position_keys: z.array(z.string()).default([]),

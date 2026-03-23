@@ -87,6 +87,9 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
   const [positionKeys, setPositionKeys] = useState<string[]>(
     (initialData?.position_keys as string[]) || []
   );
+  const [primaryAttribute, setPrimaryAttribute] = useState<string>(
+    (initialData?.primary_attribute as string) || ""
+  );
 
   // Media
   const [videoUrl, setVideoUrl] = useState((initialData?.video_url as string) || "");
@@ -141,6 +144,7 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
       duration_minutes: durationMinutes,
       intensity,
       attribute_keys: attributeKeys,
+      primary_attribute: primaryAttribute || null,
       age_bands: ageBands,
       position_keys: positionKeys,
       category,
@@ -366,7 +370,30 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label>Attribute Focus</Label>
+            <Label>Primary Attribute <span className="text-xs text-muted-foreground">(strongest focus — scores +10 for gap targeting)</span></Label>
+            <Select value={primaryAttribute || "_none"} onValueChange={(v) => setPrimaryAttribute(!v || v === "_none" ? "" : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select primary attribute..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— None —</SelectItem>
+                {attributes.length > 0
+                  ? attributes.map((a) => (
+                      <SelectItem key={a.key} value={a.key}>
+                        {a.full_name}
+                      </SelectItem>
+                    ))
+                  : ["pace", "shooting", "passing", "dribbling", "defending", "physicality", "recovery"].map((k) => (
+                      <SelectItem key={k} value={k} className="capitalize">
+                        {k}
+                      </SelectItem>
+                    ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Separator />
+          <div className="space-y-2">
+            <Label>Secondary Attributes <span className="text-xs text-muted-foreground">(each scores +2 for gap targeting)</span></Label>
             <AttributeMultiSelect
               selected={attributeKeys}
               onChange={setAttributeKeys}

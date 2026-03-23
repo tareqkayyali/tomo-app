@@ -272,7 +272,7 @@ export async function getRecommendedDrills(
         return primary && gapAttrs.includes(primary);
       });
       // Use gap-targeted if we have enough, otherwise fall back to all
-      if (gapTargeted.length >= 3) {
+      if (gapTargeted.length >= 2) {
         training = gapTargeted;
         console.log('[DrillRec] Using gap-targeted training drills only:', training.map(t => t.drill.name));
       }
