@@ -111,6 +111,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
   // ── Read everything from schedule rules ────────────────────────────
 
   const prefs = rules?.preferences;
+  const examModeEnabled = prefs?.exam_period_active ?? false;
   // Fallback: if rules.study_subjects is empty, use profile (migration bridge)
   const subjects = (prefs?.study_subjects?.length ? prefs.study_subjects : profile?.studySubjects) ?? [];
   const sessionDuration = (prefs?.study_duration_min ?? 45) as 30 | 45 | 60 | 90;
@@ -443,8 +444,8 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
         <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Edit Rules</Text>
       </TouchableOpacity>
 
-      {/* ─── Exam Countdown Pills ─── */}
-      {futureExams.length > 0 ? (
+      {/* ─── Exam Countdown Pills (only when exam mode enabled) ─── */}
+      {!examModeEnabled ? null : futureExams.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Upcoming Exams</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.examPillRow}>
@@ -488,8 +489,8 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
         </View>
       )}
 
-      {/* ─── Strategy (generation-specific, not in Rules) ─── */}
-      <View style={styles.section}>
+      {/* ─── Strategy (only when exam mode enabled) ─── */}
+      {examModeEnabled && <View style={styles.section}>
         <Text style={styles.sectionLabel}>Priority Strategy</Text>
         <View style={styles.chipRow}>
           <TouchableOpacity
@@ -519,7 +520,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </View>}
 
       {/* ─── Per-subject sessions/week (only subjects with future exams) ─── */}
       {examSubjects.length > 0 && (
