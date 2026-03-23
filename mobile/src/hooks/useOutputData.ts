@@ -13,7 +13,6 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getOutputSnapshot,
@@ -152,25 +151,16 @@ export function useOutputData(targetPlayerId?: string) {
     }
   }, [isViewingOther]);
 
-  // ── Initial mount: cache → fetch → deep refresh ───────────────────
+  // ── Initial mount: cache → fetch (no auto deep refresh) ───────────
   useEffect(() => {
     let isMounted = true;
     (async () => {
       await loadCache();
       if (!isMounted) return;
-      const snapshot = await fetchData();
-
-      // Trigger deep refresh for own data — AI generates for all users
-      // (even new users get programs based on age band + position)
-      if (!isViewingOther && isMounted) {
-        triggerDeepRefresh();
-      }
+      await fetchData();
     })();
     return () => { isMounted = false; };
   }, [targetPlayerId]);
-
-  // Auto-refresh on focus removed — user uses manual refresh button
-  const isFocused = useIsFocused(); // kept for potential future use
 
   // Auto-refresh removed — user uses manual refresh button in toolbar
 
