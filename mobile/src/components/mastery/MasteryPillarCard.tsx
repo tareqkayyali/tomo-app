@@ -164,17 +164,19 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
       >
         <View style={styles.headerLeft}>
           <Text style={styles.emoji}>{pillar.emoji}</Text>
-          <Text
-            style={[styles.title, { color: colors.textOnDark }, getComponentStyle('pillar_title')]}
-            numberOfLines={1}
-          >
-            {pillar.displayName}
-          </Text>
-          {(pillar as any).radarLabel && (
-            <View style={[styles.radarLabelBadge, { backgroundColor: zoneColor + '22' }]}>
-              <Text style={[styles.radarLabelText, { color: zoneColor }]}>{(pillar as any).radarLabel}</Text>
-            </View>
-          )}
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[styles.title, { color: colors.textOnDark }, getComponentStyle('pillar_title')]}
+              numberOfLines={1}
+            >
+              {pillar.displayName}
+            </Text>
+            {(pillar as any).radarLabel && (
+              <Text style={[styles.radarSubLabel, { color: zoneColor }]}>
+                Radar: {(pillar as any).radarLabel}
+              </Text>
+            )}
+          </View>
         </View>
         <View style={styles.headerRight}>
           {pillar.avgPercentile !== null && (
@@ -279,16 +281,11 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semiBold,
     flexShrink: 1,
   },
-  radarLabelBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 6,
-  },
-  radarLabelText: {
+  radarSubLabel: {
     fontSize: 10,
-    fontFamily: fontFamily.bold,
-    letterSpacing: 0.5,
+    fontFamily: fontFamily.medium,
+    marginTop: 1,
+    letterSpacing: 0.3,
   },
   headerRight: {
     flexDirection: 'row',
