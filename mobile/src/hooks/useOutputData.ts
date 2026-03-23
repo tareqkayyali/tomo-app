@@ -182,6 +182,15 @@ export function useOutputData(targetPlayerId?: string) {
     }
   }, [isFocused, fetchData]);
 
+  // ── Auto-refresh vitals every 60s while screen is focused ──────────
+  useEffect(() => {
+    if (!isFocused || isViewingOther) return;
+    const interval = setInterval(() => {
+      fetchData();
+    }, 60_000); // 60 seconds
+    return () => clearInterval(interval);
+  }, [isFocused, isViewingOther, fetchData]);
+
   // ── Manual refresh (pull-to-refresh) ───────────────────────────────
   const refresh = useCallback(async () => {
     setLoading(true);

@@ -354,7 +354,9 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
                   try {
                     const { syncWhoop } = await import('../services/api');
                     await syncWhoop();
-                    refresh();
+                    // Wait 2s for health_data writes to complete before refreshing
+                    await new Promise(r => setTimeout(r, 2000));
+                    await refresh();
                   } catch { /* sync failed — refresh will show stale state */ }
                 }}
               />

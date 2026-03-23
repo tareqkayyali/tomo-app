@@ -8,7 +8,7 @@ import { AppState } from 'react-native';
 import { getIntegrationStatus, syncWhoop } from '../services/api';
 import type { IntegrationStatus } from '../services/api';
 
-const SYNC_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes — vitals should stay fresh
 
 export function useConnectedSources(): { sources: string[]; loading: boolean } {
   const [sources, setSources] = useState<string[]>([]);
