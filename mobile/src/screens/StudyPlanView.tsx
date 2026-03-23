@@ -175,23 +175,33 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
 
   const savedConfig = profile?.studyPlanConfig;
 
-  // Subjects that have future exams — these drive sessions/week
+  // Subjects to show for study sessions — exam subjects if exams exist, otherwise all subjects
   const examSubjects = useMemo(
-    () => [...new Set(futureExams.map((e) => e.subject))],
-    [futureExams],
+    () => {
+      const fromExams = [...new Set(futureExams.map((e) => e.subject))];
+      return fromExams.length > 0 ? fromExams : subjects;
+    },
+    [futureExams, subjects],
   );
 
-  // Auto-calculate daysPerSubject from exam proximity
+  // Auto-calculate daysPerSubject from exam proximity, or default 2/week for no-exam mode
   const autoDaysPerSubject = useMemo(() => {
     const defaults: Record<string, number> = {};
-    for (const exam of futureExams) {
-      const days = daysUntil(exam.examDate);
-      if (days <= 7) defaults[exam.subject] = 4;
-      else if (days <= 14) defaults[exam.subject] = 3;
-      else defaults[exam.subject] = 2;
+    if (futureExams.length > 0) {
+      for (const exam of futureExams) {
+        const days = daysUntil(exam.examDate);
+        if (days <= 7) defaults[exam.subject] = 4;
+        else if (days <= 14) defaults[exam.subject] = 3;
+        else defaults[exam.subject] = 2;
+      }
+    } else {
+      // No exams — default 2 sessions/week per subject
+      for (const subj of subjects) {
+        defaults[subj] = 2;
+      }
     }
     return defaults;
-  }, [futureExams]);
+  }, [futureExams, subjects]);
 
   const [strategy, setStrategy] = useState<StudyStrategy>(savedConfig?.strategy || 'last_exam_first');
   const [daysPerSubject, setDaysPerSubject] = useState<Record<string, number>>(
@@ -246,8 +256,8 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
   // ── Generate ───────────────────────────────────────────────────────
 
   const handleGenerate = useCallback(async () => {
-    if (subjects.length === 0 || exams.length === 0) {
-      Alert.alert('Missing Info', 'Add your subjects and exam schedule in My Rules first.', [
+    if (subjects.length === 0) {
+      Alert.alert('Missing Info', 'Add your subjects in My Rules first.', [
         { text: 'Go to Rules', onPress: handleNavigateToRules },
         { text: 'Cancel', style: 'cancel' },
       ]);
@@ -345,15 +355,15 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
 
   // ── Empty state ────────────────────────────────────────────────────
 
-  if (subjects.length === 0 && exams.length === 0) {
+  if (subjects.length === 0) {
     return (
       <ScrollView contentContainerStyle={styles.emptyContainer}>
         <View style={styles.emptyIcon}>
           <Ionicons name="school-outline" size={32} color={colors.accent1} />
         </View>
-        <Text style={styles.emptyTitle}>No study info yet</Text>
+        <Text style={styles.emptyTitle}>No subjects added yet</Text>
         <Text style={styles.emptySubtitle}>
-          Add your subjects and exam schedule in My Rules to generate a study plan.
+          Add your subjects in My Rules to start planning your study sessions.
         </Text>
         <TouchableOpacity style={[styles.rulesBtn, { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D`, borderWidth: 1 }]} onPress={handleNavigateToRules}>
           <Ionicons name="options-outline" size={16} color={colors.accent1} />
@@ -525,7 +535,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
       {/* ─── Per-subject sessions/week (only subjects with future exams) ─── */}
       {examSubjects.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Sessions per week</Text>
+          <Text style={styles.sectionLabel}>Study Sessions Per Week</Text>
           {examSubjects.map((subj) => {
             const exam = futureExams.find((e) => e.subject === subj);
             const daysLeft = exam ? daysUntil(exam.examDate) : 0;
@@ -570,14 +580,10 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
 
       {/* ─── Generate / Edit CTA ─── */}
       {(() => {
-        const canGenerate = futureExams.length > 0 && subjects.length > 0;
+        const canGenerate = subjects.length > 0;
         const hasExistingPlan = savedPlans.length > 0;
         const reason = subjects.length === 0
           ? 'Add subjects in Rules first'
-          : exams.length === 0
-          ? 'Add exam schedule in Rules first'
-          : futureExams.length === 0
-          ? 'No upcoming exams — all dates are in the past'
           : null;
 
         return (
@@ -589,7 +595,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
               >
                 <Ionicons name="warning-outline" size={16} color={colors.warning} />
                 <Text style={[styles.infoBannerText, { color: colors.warning }]}>{reason}</Text>
-                {(subjects.length === 0 || exams.length === 0) && (
+                {subjects.length === 0 && (
                   <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Fix in Rules</Text>
                 )}
               </TouchableOpacity>
