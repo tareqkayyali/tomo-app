@@ -449,10 +449,15 @@ export async function executeOutputTool(
           limit: toolInput.limit ?? 6,
         });
 
+        console.log('[OutputAgent] Returning drills:', recommendations.map(r => ({
+          name: r.drill.name, score: r.score, reason: r.reason,
+          primary: (r.drill as any).primary_attribute
+        })));
         return {
           result: {
             readiness: context.readinessScore ?? "Unknown",
             drillCount: recommendations.length,
+            playerGapAttributes: context.benchmarkProfile?.gapAttributes ?? [],
             session: recommendations.map((r) => ({
               drillId: r.drill.id,
               name: r.drill.name,
@@ -460,12 +465,15 @@ export async function executeOutputTool(
               duration: r.drill.duration_minutes,
               intensity: r.drill.intensity,
               attributeKeys: r.drill.attribute_keys,
+              primaryAttribute: (r.drill as any).primary_attribute,
               equipment: r.equipment
                 .filter((e) => !e.optional)
                 .map((e) => e.name),
               reason: r.reason,
+              relevanceScore: r.score,
               tags: r.tags,
             })),
+            _note: "Drills are sorted by relevance score. Higher score = better match for player gaps. Present drills in this order.",
           },
         };
       }

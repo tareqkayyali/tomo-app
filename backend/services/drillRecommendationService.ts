@@ -181,6 +181,14 @@ export async function getRecommendedDrills(
   const position = context.position;
   const focusAttr = options?.focus;
 
+  // Debug: log gap attributes and first few drills' primary_attribute
+  console.log('[DrillRec] gapAttrs:', gapAttrs, 'focusAttr:', focusAttr);
+  if (filteredDrills.length > 0) {
+    console.log('[DrillRec] Sample drills:', filteredDrills.slice(0, 5).map((d: any) => ({
+      name: d.name, primary: d.primary_attribute, attrs: d.attribute_keys, sort: d.sort_order
+    })));
+  }
+
   const scored: RecommendedDrill[] = filteredDrills.map((drill: any) => {
     let score = 0;
     const reasons: string[] = [];
@@ -243,6 +251,11 @@ export async function getRecommendedDrills(
 
   // Sort by score descending
   scored.sort((a, b) => b.score - a.score);
+
+  // Debug: log top 8 scored drills
+  console.log('[DrillRec] Top scored:', scored.slice(0, 8).map(s => ({
+    name: s.drill.name, score: s.score, reason: s.reason, primary: (s.drill as any).primary_attribute
+  })));
 
   // 6. Category distribution for full sessions
   if (!options?.category) {
