@@ -169,18 +169,8 @@ export function useOutputData(targetPlayerId?: string) {
     return () => { isMounted = false; };
   }, [targetPlayerId]);
 
-  // ── Re-fetch on screen focus (e.g. returning from PHV Calculator) ──
-  const isFocused = useIsFocused();
-  const hasMounted = useRef(false);
-  useEffect(() => {
-    if (!hasMounted.current) {
-      hasMounted.current = true;
-      return; // Skip first render (handled by mount effect above)
-    }
-    if (isFocused) {
-      fetchData();
-    }
-  }, [isFocused, fetchData]);
+  // Auto-refresh on focus removed — user uses manual refresh button
+  const isFocused = useIsFocused(); // kept for potential future use
 
   // Auto-refresh removed — user uses manual refresh button in toolbar
 
