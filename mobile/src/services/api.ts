@@ -2583,6 +2583,8 @@ export async function getIntegrationStatus(): Promise<{ integrations: Integratio
 export async function syncWhoop(): Promise<{
   synced: boolean;
   events_emitted: number;
+  health_data_written?: number;
+  health_data_errors?: number;
   summary: { recoveries: number; sleeps: number; workouts: number; cycles: number };
 }> {
   // WHOOP sync can take 30-60s for initial 30-day pull — use longer timeout

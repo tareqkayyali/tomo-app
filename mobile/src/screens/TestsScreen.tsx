@@ -358,7 +358,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
                     await new Promise(r => setTimeout(r, 1500));
                     await refresh();
                     // Show warning if health_data had write errors
-                    if (result?.health_data_errors > 0) {
+                    if ((result?.health_data_errors ?? 0) > 0) {
                       const msg = `Synced but ${result.health_data_errors} vitals failed to save. Try again.`;
                       if (Platform.OS === 'web') window.alert(msg);
                       else Alert.alert('Partial Sync', msg);

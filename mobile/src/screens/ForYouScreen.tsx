@@ -33,6 +33,8 @@ import { TimeSection } from '../components/ownit';
 import type { ForYouRecommendation } from '../components/ownit';
 import type { RIERecommendation } from '../services/api';
 import { useOwnItData } from '../hooks/useOwnItData';
+import { useOutputData } from '../hooks/useOutputData';
+import { StrengthsGrowthCard } from '../components/shared/StrengthsGrowthCard';
 import { usePageConfig } from '../hooks/usePageConfig';
 import { useTheme } from '../hooks/useTheme';
 import {
@@ -85,6 +87,10 @@ export function ForYouScreen() {
     { key: 'refresh', icon: 'refresh-outline', label: 'Refresh', onPress: forceRefresh, accentColor: colors.accent2 },
     navigation,
   );
+
+  const { data: outputData } = useOutputData();
+  const strengths = outputData?.metrics?.strengths ?? [];
+  const gaps = outputData?.metrics?.gaps ?? [];
 
   const allCards = [...sportsRecs, ...studyRecs, ...updateRecs].map(toCardRec);
 
@@ -232,6 +238,13 @@ export function ForYouScreen() {
             >
               Updating...
             </Text>
+          </View>
+        )}
+
+        {/* Strengths & Growth Areas — from benchmark profile */}
+        {(strengths.length > 0 || gaps.length > 0) && (
+          <View style={{ paddingHorizontal: layout.screenMargin, marginTop: spacing.md }}>
+            <StrengthsGrowthCard strengths={strengths} gaps={gaps} />
           </View>
         )}
 
