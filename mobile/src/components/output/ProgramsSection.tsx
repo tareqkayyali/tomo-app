@@ -110,8 +110,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       setSearchQuery('');
       setSearchResults([]);
       setSearchFocused(false);
-      // Refresh to show the new program
-      onTestLogged?.();
+      // Program saved — user can tap refresh button to see it in My Picks
     } catch (e: any) {
       console.error('[ProgramsSection] Add program failed:', e);
       if (Platform.OS === 'web') window.alert('Failed to add program: ' + (e?.message || ''));
