@@ -305,6 +305,21 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       <View style={styles.headerArea}>
         <QuickAccessBar actions={quickActions} />
         <View style={styles.headerRight}>
+          {/* Refresh button — works on web + native */}
+          <Pressable
+            onPress={onRefresh}
+            style={({ pressed }) => [
+              styles.refreshBtn,
+              { backgroundColor: refreshing ? 'rgba(0,217,255,0.15)' : 'rgba(255,255,255,0.06)', opacity: pressed ? 0.6 : 1 },
+            ]}
+            disabled={refreshing}
+          >
+            {refreshing ? (
+              <ActivityIndicator size={16} color={colors.accent2} />
+            ) : (
+              <Ionicons name="sync-outline" size={18} color={colors.accent2} />
+            )}
+          </Pressable>
           <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
           <NotificationBell />
           <HeaderProfileButton
@@ -429,6 +444,10 @@ function createStyles(colors: ThemeColors) {
       paddingBottom: spacing.xs,
     },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    refreshBtn: {
+      width: 36, height: 36, borderRadius: 18,
+      alignItems: 'center', justifyContent: 'center',
+    },
 
     // Tabs (underline style is handled by OutputTabSwitcher component)
 
