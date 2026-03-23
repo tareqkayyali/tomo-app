@@ -87,6 +87,7 @@ import type {
   ChatMessage as ChatMessageType,
   SuggestionChip as SuggestionChipType,
 } from '../types';
+import * as Clipboard from 'expo-clipboard';
 
 // ---------------------------------------------------------------------------
 // Motivational Quotes — loaded from ContentBundle via useAllQuotes hook
@@ -312,6 +313,29 @@ function createStyles(colors: ThemeColors) {
       fontSize: 11,
       color: colors.error,
       marginTop: spacing.xs,
+    },
+
+    // ── Copy Button ───────────────────────────────────────────────────
+    copyRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      marginTop: 4,
+    },
+    copyBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 2,
+      paddingHorizontal: 6,
+      borderRadius: 8,
+    },
+    copyBtnPressed: {
+      opacity: 0.5,
+    },
+    copiedText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 11,
+      color: colors.accent2,
     },
 
     // ── Streaming Cursor ──────────────────────────────────────────────
@@ -633,6 +657,41 @@ function StreamingCursor() {
   );
 }
 
+const CopyButton = React.memo(function CopyButton({ text }: { text: string }) {
+  const styles = useHomeStyles();
+  const { colors } = useTheme();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await Clipboard.setStringAsync(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  }, [text]);
+
+  return (
+    <View style={styles.copyRow}>
+      <Pressable
+        onPress={handleCopy}
+        style={({ pressed }) => [styles.copyBtn, pressed && styles.copyBtnPressed]}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Copy message"
+      >
+        {copied ? (
+          <>
+            <Ionicons name="checkmark" size={14} color={colors.accent2} />
+            <Text style={styles.copiedText}>Copied!</Text>
+          </>
+        ) : (
+          <Ionicons name="copy-outline" size={14} color={colors.textInactive} />
+        )}
+      </Pressable>
+    </View>
+  );
+});
+
 const ChatBubble = React.memo(function ChatBubble({
   message,
   onChipPress,
@@ -662,15 +721,17 @@ const ChatBubble = React.memo(function ChatBubble({
 
   // User message — gray bubble, right-aligned
   if (isUser) {
+    const displayText = message.text.replace(/\s*\[drillId:[^\]]*\]/g, '');
     return (
       <View style={[styles.messageRow, styles.messageRowUser]}>
         <View style={[styles.userBubble, message.error && styles.bubbleError]}>
           <Text
             style={[styles.userBubbleText, message.error && styles.bubbleTextError]}
           >
-            {message.text.replace(/\s*\[drillId:[^\]]*\]/g, '')}
+            {displayText}
           </Text>
           {message.error && <Text style={styles.retryHint}>Tap to retry</Text>}
+          {!message.error && <CopyButton text={displayText} />}
         </View>
       </View>
     );
@@ -691,6 +752,7 @@ const ChatBubble = React.memo(function ChatBubble({
           <MarkdownMessage content={message.text} />
         ) : null}
         {isStreaming && <StreamingCursor />}
+        {!isStreaming && message.text && <CopyButton text={message.text} />}
       </View>
     </View>
   );
@@ -1739,6 +1801,23 @@ export function HomeScreen() {
                     blurOnSubmit={false}
                     textAlignVertical="center"
                     editable={!isSending}
+                    onKeyPress={(e) => {
+                      // Enter (without Shift) sends the message on web/desktop
+                      if (
+                        e.nativeEvent.key === 'Enter' &&
+                        !(e.nativeEvent as any).shiftKey
+                      ) {
+                        e.preventDefault?.();
+                        if (inputText.trim() && !isSending) {
+                          handleSend();
+                        }
+                      }
+                    }}
+                    onSubmitEditing={() => {
+                      if (inputText.trim() && !isSending) {
+                        handleSend();
+                      }
+                    }}
                   />
 
                   {isSending ? (

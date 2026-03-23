@@ -16,6 +16,9 @@ export function useVoiceInput() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef(0);
 
+  // Use a ref for stopRecording so the timer callback always has the latest reference
+  const stopRecordingRef = useRef<() => void>(() => {});
+
   const startRecording = useCallback(async () => {
     try {
       setError(null);
@@ -25,11 +28,13 @@ export function useVoiceInput() {
       const permStatus = await AudioModule.requestRecordingPermissionsAsync();
       if (!permStatus.granted) {
         setError('Microphone permission required');
+        setState('error');
+        setTimeout(() => setState('idle'), 2000);
         return;
       }
 
-      // Start recording
-      recorder.record();
+      // Start recording (await to ensure it starts properly)
+      await recorder.record();
       setState('recording');
       startTimeRef.current = Date.now();
       setDuration(0);
@@ -41,7 +46,7 @@ export function useVoiceInput() {
 
         // Auto-stop at 60 seconds
         if (elapsed >= 60) {
-          stopRecording();
+          stopRecordingRef.current();
         }
       }, 100);
 
@@ -49,8 +54,10 @@ export function useVoiceInput() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
     } catch (err: any) {
+      console.warn('[useVoiceInput] Start recording error:', err.message, err);
       setState('error');
       setError(err.message || 'Failed to start recording');
+      setTimeout(() => setState('idle'), 2000);
     }
   }, []);
 
@@ -92,6 +99,9 @@ export function useVoiceInput() {
       setTimeout(() => setState('idle'), 2000);
     }
   }, []);
+
+  // Keep ref in sync so the timer callback always calls the latest stopRecording
+  stopRecordingRef.current = stopRecording;
 
   const cancelRecording = useCallback(async () => {
     if (timerRef.current) {
