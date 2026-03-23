@@ -56,6 +56,7 @@ const navigation = [
       { name: "Brand Colors", href: "/admin/design/brand", icon: "🎨" },
       { name: "DNA Card Tiers", href: "/admin/dna-card", icon: "🃏" },
       { name: "Feature Flags", href: "/admin/feature-flags", icon: "🚩" },
+      { name: "Mastery Pillars", href: "/admin/mastery", icon: "🧬" },
     ],
   },
 ];

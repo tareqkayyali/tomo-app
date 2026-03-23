@@ -347,13 +347,14 @@ const styles = StyleSheet.create({
   },
   radarContainer: {
     alignItems: 'center',
-    marginVertical: spacing.sm,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xxl,
   },
   attributeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   attrItem: {
     width: '30%',

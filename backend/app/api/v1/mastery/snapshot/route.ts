@@ -116,10 +116,27 @@ function getCardTier(rating: number): CardTier {
  * has tested metrics those values fill the dual-layer view; when not, the
  * norm P50 still shows as a target.
  */
+interface CMSPillarMetric {
+  key: string;
+  label: string;
+  weight: number;
+}
+interface CMSPillar {
+  id: string;
+  name: string;
+  emoji: string;
+  colorTheme: string;
+  enabled: boolean;
+  priority: number;
+  athleteDescription: string;
+  metrics: CMSPillarMetric[];
+}
+
 function buildMasteryPillars(
   benchmarkResults: BenchmarkResult[],
   norms: NormRow[],
   rawTests: Array<{ testType: string; score: number; unit: string; date: string }> = [],
+  cmsPillars?: CMSPillar[] | null,
 ): MasteryPillar[] {
   // Index benchmark results by metricKey for quick lookup
   const benchmarkByKey = new Map<string, BenchmarkResult>();
@@ -139,17 +156,51 @@ function buildMasteryPillars(
     rawByType.set(t.testType, t);
   }
 
-  // Build all 7 pillars
+  // Build pillars — use CMS config if available, else hardcoded TEST_GROUPS
   const pillars: MasteryPillar[] = [];
 
-  for (const group of TEST_GROUPS) {
+  // Build CMS weight map: metricKey → weight
+  const cmsWeights = new Map<string, number>();
+  // Build CMS metric → group mapping if CMS config exists
+  const cmsGroupMap = new Map<string, string>();
+  if (cmsPillars) {
+    for (const p of cmsPillars) {
+      for (const m of p.metrics) {
+        cmsWeights.set(m.key, m.weight);
+        cmsGroupMap.set(m.key, p.id);
+      }
+    }
+  }
+
+  const pillarSources = cmsPillars
+    ? cmsPillars.filter(p => p.enabled).map(p => ({
+        groupId: p.id,
+        displayName: p.name,
+        emoji: p.emoji,
+        colorTheme: p.colorTheme,
+        priority: p.priority,
+        athleteDescription: p.athleteDescription,
+        metricKeys: p.metrics.map(m => m.key),
+      }))
+    : TEST_GROUPS.map(g => ({
+        groupId: g.groupId,
+        displayName: g.displayName,
+        emoji: g.emoji,
+        colorTheme: g.colorTheme,
+        priority: g.priority,
+        athleteDescription: g.athleteDescription,
+        metricKeys: Object.entries(TEST_GROUP_MAP)
+          .filter(([_, gid]) => gid === g.groupId)
+          .map(([key]) => key),
+      }));
+
+  for (const group of pillarSources) {
     // Collect metrics that belong to this group
     const metricsInGroup: MasteryMetric[] = [];
 
     // First: metrics from benchmark results that map to this group
     const seenKeys = new Set<string>();
-    for (const [metricKey, groupId] of Object.entries(TEST_GROUP_MAP)) {
-      if (groupId !== group.groupId) continue;
+    for (const metricKey of group.metricKeys) {
 
       const bench = benchmarkByKey.get(metricKey);
       const norm = normByKey.get(metricKey);
@@ -190,8 +241,7 @@ function buildMasteryPillars(
 
     // Also include norm-only metrics not yet seen (covers norms with no matching benchmark)
     for (const norm of norms) {
-      const groupId = TEST_GROUP_MAP[norm.metricKey];
-      if (groupId !== group.groupId) continue;
+      if (!group.metricKeys.includes(norm.metricKey)) continue;
       if (seenKeys.has(norm.metricKey)) continue;
 
       metricsInGroup.push({
@@ -274,15 +324,19 @@ function buildMasteryPillars(
       });
     }
 
-    // Compute average percentile for the pillar
+    // Compute weighted average percentile for the pillar
     const withPercentile = metricsInGroup.filter((m) => m.percentile !== null);
-    const avgPercentile =
-      withPercentile.length > 0
-        ? Math.round(
-            withPercentile.reduce((s, m) => s + (m.percentile as number), 0) /
-              withPercentile.length,
-          )
-        : null;
+    let avgPercentile: number | null = null;
+    if (withPercentile.length > 0) {
+      let weightedSum = 0;
+      let totalWeight = 0;
+      for (const m of withPercentile) {
+        const w = cmsWeights.get(m.metricKey) ?? 1.0;
+        weightedSum += (m.percentile as number) * w;
+        totalWeight += w;
+      }
+      avgPercentile = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : null;
+    }
 
     pillars.push({
       groupId: group.groupId,
@@ -461,7 +515,7 @@ export async function GET(req: NextRequest) {
   const gender = profile.gender || "male";
 
   // 2. Parallel fetches — benchmark snapshots, norms, raw test sessions, sport attributes, AND Layer 4 recs
-  const [benchmarkResult, normsResult, rawTestsResult, sportAttrsResult, masteryRecsResult] = await Promise.allSettled([
+  const [benchmarkResult, normsResult, rawTestsResult, sportAttrsResult, masteryRecsResult, cmsConfigResult] = await Promise.allSettled([
     getPlayerBenchmarkProfile(athleteId),
     getPositionNorms(sport, position, ageBand, gender, "elite"),
     db
@@ -482,6 +536,12 @@ export async function GET(req: NextRequest) {
       recTypes: ["DEVELOPMENT", "MOTIVATION", "CV_OPPORTUNITY"],
       limit: 5,
     }),
+    // CMS mastery pillar config
+    (db as any)
+      .from("ui_config")
+      .select("config_value")
+      .eq("config_key", "mastery_pillars")
+      .maybeSingle(),
   ]);
 
   const benchmarkProfile =
@@ -540,9 +600,15 @@ export async function GET(req: NextRequest) {
   }
   const recentRawTests = Array.from(latestRawByType.values());
 
-  // 3. Build mastery pillars (always 7) — merges benchmark + norms + raw tests
+  // Load CMS mastery pillar config (if saved)
+  const cmsConfig = cmsConfigResult.status === "fulfilled" && cmsConfigResult.value?.data
+    ? (cmsConfigResult.value.data as any).config_value
+    : null;
+  const cmsPillars: CMSPillar[] | null = cmsConfig?.pillars ?? null;
+
+  // 3. Build mastery pillars — merges benchmark + norms + raw tests + CMS config
   const benchmarkResults = benchmarkProfile?.results ?? [];
-  const pillars = buildMasteryPillars(benchmarkResults, norms, recentRawTests);
+  const pillars = buildMasteryPillars(benchmarkResults, norms, recentRawTests, cmsPillars);
 
   // 4. Radar profiles — player actual + benchmark (P50 target)
   const radarProfile = buildRadarFromPillars(pillars, cmsAttrColors);
