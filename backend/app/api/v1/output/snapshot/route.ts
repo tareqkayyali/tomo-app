@@ -704,9 +704,9 @@ export async function GET(req: NextRequest) {
       .from("health_data")
       .select("metric_type, value, date, created_at")
       .eq("user_id", userId)
-      .in("metric_type", ["hrv", "resting_hr", "sleep_hours"])
+      .in("metric_type", ["hrv", "resting_hr", "sleep_hours", "recovery_score", "blood_oxygen", "body_temp", "heart_rate", "calories"])
       .order("date", { ascending: false })
-      .limit(30), // fetch enough to get latest per type
+      .limit(50), // fetch enough to get latest per type across all metric types
   ]);
 
   const wearableConn = (wearableConnRes as any)?.data ?? null;
