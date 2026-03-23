@@ -364,8 +364,8 @@ export default function MasteryPillarsPage() {
                 ) : (
                   <div className="space-y-2">
                     {/* Header row */}
-                    <div className="grid grid-cols-[1fr_1fr_80px_40px] gap-2 text-xs text-muted-foreground font-medium px-1">
-                      <span>Metric Key</span>
+                    <div className="grid grid-cols-[2fr_1fr_80px_40px] gap-2 text-xs text-muted-foreground font-medium px-1">
+                      <span>Metric</span>
                       <span>Label</span>
                       <span>Weight</span>
                       <span></span>
@@ -373,7 +373,7 @@ export default function MasteryPillarsPage() {
                     {pillar.metrics.map((metric, mIdx) => (
                       <div
                         key={mIdx}
-                        className="grid grid-cols-[1fr_1fr_80px_40px] gap-2 items-center"
+                        className="grid grid-cols-[2fr_1fr_80px_40px] gap-2 items-center"
                       >
                         <Select
                           value={metric.key || "_empty"}
@@ -384,14 +384,15 @@ export default function MasteryPillarsPage() {
                             if (selected) updateMetric(pIdx, mIdx, "label", selected.label);
                           }}
                         >
-                          <SelectTrigger className="text-xs">
+                          <SelectTrigger className="text-sm h-9">
                             <SelectValue placeholder="Select metric..." />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="_empty">— Select —</SelectItem>
+                          <SelectContent className="min-w-[320px] max-h-[300px]">
+                            <SelectItem value="_empty">— Select metric —</SelectItem>
                             {availableMetrics.map((am) => (
-                              <SelectItem key={am.key} value={am.key}>
-                                {am.label} ({am.key})
+                              <SelectItem key={am.key} value={am.key} className="text-sm py-2">
+                                <span className="font-medium">{am.label}</span>
+                                <span className="text-muted-foreground ml-2 text-xs">({am.key})</span>
                               </SelectItem>
                             ))}
                           </SelectContent>
