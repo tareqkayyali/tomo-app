@@ -21,6 +21,7 @@ import { ThemeProvider, useTheme } from './src/hooks/useTheme';
 import { SportProvider, type ActiveSport } from './src/hooks/useSportContext';
 import { ContentProvider } from './src/hooks/useContentProvider';
 import { ConfigProvider } from './src/hooks/useConfigProvider';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootNavigator } from './src/navigation';
 import { AnimatedSplashScreen, ErrorBoundary } from './src/components';
 import { injectWebFonts } from './src/utils/webFonts';
@@ -103,17 +104,19 @@ function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <View style={styles.root} onLayout={onLayoutRootView}>
-        <AnimatedSplashScreen isReady={fontsLoaded}>
-          <ConfigProvider>
-            <ThemeProvider>
-              <AppContent />
-            </ThemeProvider>
-          </ConfigProvider>
-        </AnimatedSplashScreen>
-      </View>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <View style={styles.root} onLayout={onLayoutRootView}>
+          <AnimatedSplashScreen isReady={fontsLoaded}>
+            <ConfigProvider>
+              <ThemeProvider>
+                <AppContent />
+              </ThemeProvider>
+            </ConfigProvider>
+          </AnimatedSplashScreen>
+        </View>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
 
