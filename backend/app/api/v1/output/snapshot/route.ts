@@ -570,13 +570,32 @@ export async function GET(req: NextRequest) {
   }));
 
   // Build player-selected programs from catalog
+  // Use FOOTBALL_PROGRAMS directly (not getInlinePrograms which filters by position)
   const playerSelectedPrograms: any[] = [];
   if (playerSelectedIds.size > 0) {
-    const { getInlinePrograms } = await import("@/services/programs/footballPrograms");
-    const allPrograms = getInlinePrograms(profile.position, ageBand, phvRaw?.phvStage, []);
-    for (const prog of allPrograms.programs) {
-      if (playerSelectedIds.has(prog.programId)) {
-        playerSelectedPrograms.push({ ...prog, priority: 'player_selected' as any });
+    const { FOOTBALL_PROGRAMS } = await import("@/services/programs/footballPrograms");
+    for (const def of FOOTBALL_PROGRAMS) {
+      if (playerSelectedIds.has(def.id)) {
+        const prescription = def.prescriptions[ageBand] ?? def.prescriptions.SEN ?? Object.values(def.prescriptions)[0];
+        if (!prescription) continue;
+        playerSelectedPrograms.push({
+          programId: def.id,
+          name: def.name,
+          category: def.category,
+          type: def.type,
+          priority: 'player_selected' as any,
+          durationMin: def.duration_minutes,
+          durationWeeks: def.duration_weeks,
+          description: def.description,
+          impact: `You selected this program`,
+          frequency: prescription.frequency,
+          difficulty: def.difficulty,
+          tags: def.tags,
+          positionNote: '',
+          reason: 'Added by you from the program catalog',
+          prescription,
+          phvWarnings: [],
+        });
       }
     }
   }
