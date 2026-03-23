@@ -189,11 +189,14 @@ export async function POST(req: NextRequest) {
     // Touch created_at on all health_data rows written in this sync window
     // so freshness calculation sees them as "just updated"
     if (healthDataWritten > 0) {
-      await db.from("health_data")
-        .update({ created_at: new Date().toISOString() })
-        .eq("user_id", userId)
-        .gte("date", startDate.slice(0, 10))
-        .catch((e: any) => console.warn("[whoop/sync] Could not touch created_at:", e?.message));
+      try {
+        await db.from("health_data")
+          .update({ created_at: new Date().toISOString() })
+          .eq("user_id", userId)
+          .gte("date", startDate.slice(0, 10));
+      } catch (e: any) {
+        console.warn("[whoop/sync] Could not touch created_at:", e?.message);
+      }
     }
 
     await updateSyncStatus(userId, "idle").catch(e =>
