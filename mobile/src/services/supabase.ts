@@ -30,39 +30,56 @@ const SUPABASE_ANON_KEY =
  * Native: expo-secure-store (encrypted keychain/keystore).
  * Web: default localStorage (Supabase handles this when storage is undefined).
  */
-const secureStorage = {
+/**
+ * Storage adapter for Supabase auth session.
+ * Uses AsyncStorage on all platforms (no size limits).
+ * SecureStore has a 2KB limit on iOS which is too small for Supabase
+ * session objects (JWT + refresh token + user metadata = 3-5KB).
+ */
+const AsyncStorageAdapter = {
   getItem: async (key: string): Promise<string | null> => {
-    if (Platform.OS === "web") {
-      // Lazy require to avoid web bundling issues
+    try {
+      if (Platform.OS === "web") {
+        return localStorage.getItem(key);
+      }
       const AsyncStorage =
         require("@react-native-async-storage/async-storage").default;
       return AsyncStorage.getItem(key);
+    } catch {
+      return null;
     }
-    return SecureStore.getItemAsync(key);
   },
   setItem: async (key: string, value: string): Promise<void> => {
-    if (Platform.OS === "web") {
+    try {
+      if (Platform.OS === "web") {
+        localStorage.setItem(key, value);
+        return;
+      }
       const AsyncStorage =
         require("@react-native-async-storage/async-storage").default;
       await AsyncStorage.setItem(key, value);
-      return;
+    } catch {
+      // Silent fail — session won't persist but app still works
     }
-    await SecureStore.setItemAsync(key, value);
   },
   removeItem: async (key: string): Promise<void> => {
-    if (Platform.OS === "web") {
+    try {
+      if (Platform.OS === "web") {
+        localStorage.removeItem(key);
+        return;
+      }
       const AsyncStorage =
         require("@react-native-async-storage/async-storage").default;
       await AsyncStorage.removeItem(key);
-      return;
+    } catch {
+      // Silent fail
     }
-    await SecureStore.deleteItemAsync(key);
   },
 };
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: secureStorage,
+    storage: AsyncStorageAdapter,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: Platform.OS === "web", // Enable URL detection on web for OAuth
