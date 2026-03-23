@@ -353,11 +353,24 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
                 onSyncNow={async () => {
                   try {
                     const { syncWhoop } = await import('../services/api');
-                    await syncWhoop();
-                    // Wait 2s for health_data writes to complete before refreshing
-                    await new Promise(r => setTimeout(r, 2000));
+                    const result = await syncWhoop();
+                    // Wait briefly for any async writes to settle, then refresh
+                    await new Promise(r => setTimeout(r, 1500));
                     await refresh();
-                  } catch { /* sync failed — refresh will show stale state */ }
+                    // Show warning if health_data had write errors
+                    if (result?.health_data_errors > 0) {
+                      const msg = `Synced but ${result.health_data_errors} vitals failed to save. Try again.`;
+                      if (Platform.OS === 'web') window.alert(msg);
+                      else Alert.alert('Partial Sync', msg);
+                    }
+                  } catch (e: any) {
+                    const msg = e?.message || 'Could not sync WHOOP data. Please try again.';
+                    console.error('[Vitals] Sync failed:', msg);
+                    if (Platform.OS === 'web') window.alert(msg);
+                    else Alert.alert('Sync Failed', msg);
+                    // Still refresh to show latest available data
+                    await refresh();
+                  }
                 }}
               />
             )}

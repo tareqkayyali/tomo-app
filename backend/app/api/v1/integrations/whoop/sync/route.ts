@@ -32,7 +32,9 @@ export async function POST(req: NextRequest) {
   const userId = auth.user.id;
 
   try {
-    await updateSyncStatus(userId, "syncing");
+    await updateSyncStatus(userId, "syncing").catch(e =>
+      console.warn("[whoop/sync] Could not set syncing status:", e.message)
+    );
 
     // Get valid access token (auto-refreshes if needed)
     const accessToken = await getValidAccessToken(userId);
@@ -124,19 +126,26 @@ export async function POST(req: NextRequest) {
     // The event processor may not run (webhook not configured), so we
     // write here as the guaranteed path for WHOOP data visibility.
     let healthDataWritten = 0;
+    let healthDataErrors = 0;
     for (const evt of vitalEvents) {
       const p = evt.payload as Record<string, unknown>;
       const date = new Date(evt.occurred_at).toISOString().slice(0, 10);
-      const rows: Array<{ user_id: string; date: string; metric_type: string; value: number; unit: string; source: string }> = [];
+      const rows: Array<{ user_id: string; date: string; metric_type: string; value: number; unit: string; source: string; recorded_at: string }> = [];
 
-      if (p.hrv_ms) rows.push({ user_id: userId, date, metric_type: "hrv", value: p.hrv_ms as number, unit: "ms", source: "whoop" });
-      if (p.resting_hr_bpm) rows.push({ user_id: userId, date, metric_type: "resting_hr", value: p.resting_hr_bpm as number, unit: "bpm", source: "whoop" });
-      if (p.spo2_percent) rows.push({ user_id: userId, date, metric_type: "blood_oxygen", value: p.spo2_percent as number, unit: "%", source: "whoop" });
-      if (p.recovery_score) rows.push({ user_id: userId, date, metric_type: "recovery_score", value: p.recovery_score as number, unit: "%", source: "whoop" });
-      if (p.skin_temp_celsius) rows.push({ user_id: userId, date, metric_type: "body_temp", value: p.skin_temp_celsius as number, unit: "°C", source: "whoop" });
+      if (p.hrv_ms) rows.push({ user_id: userId, date, metric_type: "hrv", value: p.hrv_ms as number, unit: "ms", source: "whoop", recorded_at: evt.occurred_at });
+      if (p.resting_hr_bpm) rows.push({ user_id: userId, date, metric_type: "resting_hr", value: p.resting_hr_bpm as number, unit: "bpm", source: "whoop", recorded_at: evt.occurred_at });
+      if (p.spo2_percent) rows.push({ user_id: userId, date, metric_type: "blood_oxygen", value: p.spo2_percent as number, unit: "%", source: "whoop", recorded_at: evt.occurred_at });
+      if (p.recovery_score) rows.push({ user_id: userId, date, metric_type: "recovery_score", value: p.recovery_score as number, unit: "%", source: "whoop", recorded_at: evt.occurred_at });
+      if (p.skin_temp_celsius) rows.push({ user_id: userId, date, metric_type: "body_temp", value: p.skin_temp_celsius as number, unit: "°C", source: "whoop", recorded_at: evt.occurred_at });
 
       for (const row of rows) {
-        await db.from("health_data").upsert(row, { onConflict: "user_id,date,metric_type", ignoreDuplicates: false }).then(() => healthDataWritten++).catch(() => {});
+        const { error: writeErr } = await db.from("health_data").upsert(row, { onConflict: "user_id,date,metric_type", ignoreDuplicates: false });
+        if (writeErr) {
+          healthDataErrors++;
+          console.error(`[whoop/sync] health_data write failed (${row.metric_type}):`, writeErr.message);
+        } else {
+          healthDataWritten++;
+        }
       }
     }
 
@@ -144,10 +153,16 @@ export async function POST(req: NextRequest) {
       const p = evt.payload as Record<string, unknown>;
       const date = new Date(evt.occurred_at).toISOString().slice(0, 10);
       if (p.sleep_duration_hours) {
-        await db.from("health_data").upsert(
-          { user_id: userId, date, metric_type: "sleep_hours", value: p.sleep_duration_hours as number, unit: "hrs", source: "whoop" },
+        const { error: writeErr } = await db.from("health_data").upsert(
+          { user_id: userId, date, metric_type: "sleep_hours", value: p.sleep_duration_hours as number, unit: "hrs", source: "whoop", recorded_at: evt.occurred_at },
           { onConflict: "user_id,date,metric_type", ignoreDuplicates: false }
-        ).then(() => healthDataWritten++).catch(() => {});
+        );
+        if (writeErr) {
+          healthDataErrors++;
+          console.error(`[whoop/sync] health_data write failed (sleep_hours):`, writeErr.message);
+        } else {
+          healthDataWritten++;
+        }
       }
     }
 
@@ -161,18 +176,25 @@ export async function POST(req: NextRequest) {
       if (cycle.score.kilojoule) rows.push({ user_id: userId, date, metric_type: "calories", value: Math.round(cycle.score.kilojoule / 4.184), unit: "kcal", source: "whoop" });
 
       for (const row of rows) {
-        await db.from("health_data").upsert(row, { onConflict: "user_id,date,metric_type", ignoreDuplicates: false }).then(() => healthDataWritten++).catch((e: any) => {
-          console.error(`[whoop/sync] health_data write failed:`, e.message);
-        });
+        const { error: writeErr } = await db.from("health_data").upsert(row, { onConflict: "user_id,date,metric_type", ignoreDuplicates: false });
+        if (writeErr) {
+          healthDataErrors++;
+          console.error(`[whoop/sync] health_data write failed (cycle):`, writeErr.message);
+        } else {
+          healthDataWritten++;
+        }
       }
     }
 
-    await updateSyncStatus(userId, "idle");
+    await updateSyncStatus(userId, "idle").catch(e =>
+      console.error("[whoop/sync] Could not set idle status:", e.message)
+    );
 
     return NextResponse.json({
       synced: true,
       events_emitted: emitted,
       health_data_written: healthDataWritten,
+      health_data_errors: healthDataErrors,
       first_sync: isFirstSync,
       full_sync: needsFullSync,
       lookback_days: needsFullSync ? 30 : 7,
@@ -191,7 +213,9 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const message = (err as Error).message;
     console.error("[whoop/sync] Error:", message);
-    await updateSyncStatus(userId, "error", message);
+    await updateSyncStatus(userId, "error", message).catch(e =>
+      console.error("[whoop/sync] Could not set error status:", e.message)
+    );
 
     return NextResponse.json(
       { error: "WHOOP sync failed", details: message },

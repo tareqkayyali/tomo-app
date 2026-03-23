@@ -41,9 +41,11 @@ export function useConnectedSources(): { sources: string[]; loading: boolean } {
               : 0;
             if (Date.now() - lastSync > SYNC_INTERVAL_MS) {
               hasSynced.current = true;
-              syncWhoop().catch((e) =>
-                console.warn('[useConnectedSources] Auto-sync failed:', e)
-              );
+              syncWhoop().catch((e) => {
+                console.warn('[useConnectedSources] Auto-sync failed:', e);
+                // Reset flag so it retries on next app foreground
+                hasSynced.current = false;
+              });
             }
           }
         }

@@ -225,19 +225,42 @@ export async function getValidAccessToken(userId: string): Promise<string> {
     : 0;
   const isExpired = Date.now() > expiresAt - 5 * 60 * 1000;
 
+  // Reject __pending__ tokens (user started OAuth but never completed)
+  if (conn.access_token === "__pending__") {
+    throw new Error("WHOOP connection incomplete — user must reconnect");
+  }
+
   if (!isExpired) {
     return conn.access_token;
   }
 
   // Refresh the token
   if (!conn.refresh_token) {
+    // Mark connection as needing re-auth
+    await wearableTable()
+      .update({ sync_status: "auth_required", updated_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("provider", "whoop");
     throw new Error("WHOOP refresh token missing — user must reconnect");
   }
 
-  const tokens = await refreshWhoopTokens(conn.refresh_token);
+  let tokens;
+  try {
+    tokens = await refreshWhoopTokens(conn.refresh_token);
+  } catch (e: any) {
+    // If refresh fails with 401/invalid_grant, mark as needing re-auth
+    if (e.message?.includes("401") || e.message?.includes("invalid_grant")) {
+      await wearableTable()
+        .update({ sync_status: "auth_required", updated_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .eq("provider", "whoop");
+      throw new Error("WHOOP token expired — user must reconnect");
+    }
+    throw e;
+  }
 
-  // Update stored tokens
-  await wearableTable()
+  // Update stored tokens — check for write errors
+  const { error: updateErr } = await wearableTable()
     .update({
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
@@ -248,6 +271,10 @@ export async function getValidAccessToken(userId: string): Promise<string> {
     })
     .eq("user_id", userId)
     .eq("provider", "whoop");
+
+  if (updateErr) {
+    console.error("[whoopService] Failed to persist refreshed tokens:", updateErr.message);
+  }
 
   return tokens.access_token;
 }
