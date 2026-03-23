@@ -4,8 +4,8 @@
  * Dot color matches event type. Spine line connects events visually.
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassCard } from '../GlassCard';
 import { Badge } from '../Badge';
@@ -44,6 +44,7 @@ interface SpineTimelineProps {
   onEventSkip?: (eventId: string) => void;
   completedIds?: Set<string>;
   skippedIds?: Set<string>;
+  zoomLevel?: number; // 0.7 - 1.5, default 1.0
 }
 
 // ── Format time helper ──────────────────────────────────────────────
@@ -67,8 +68,11 @@ export function SpineTimeline({
   onEventSkip,
   completedIds = new Set(),
   skippedIds = new Set(),
+  zoomLevel = 1.0,
 }: SpineTimelineProps) {
   const { colors } = useTheme();
+  const scaledSpacing = (base: number) => Math.round(base * zoomLevel);
+  const scaledFont = (base: number) => Math.round(base * zoomLevel);
 
   if (events.length === 0) {
     return (

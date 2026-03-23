@@ -13,7 +13,14 @@ import {
   ScrollView,
   RefreshControl,
   Pressable,
+  Platform,
 } from 'react-native';
+import { PinchGestureHandler, State as GestureState } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -24,6 +31,7 @@ import { SpineTimeline } from '../../components/flow/SpineTimeline';
 import { DayLockButton } from '../../components/flow/DayLockButton';
 import { ScrollFadeOverlay } from '../../components/ScrollFadeOverlay';
 import { SuggestionsBanner } from '../../components/SuggestionsBanner';
+import { DayStrip } from './DayStrip';
 import { spacing, layout, shadows, fontFamily, borderRadius } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemeColors } from '../../theme/colors';
@@ -52,6 +60,7 @@ export interface UnifiedDayViewProps {
   onPrevDay: () => void;
   onNextDay: () => void;
   onToday: () => void;
+  onDaySelect?: (date: Date) => void;
 
   // Day lock
   isLocked?: boolean;
@@ -95,6 +104,7 @@ export function UnifiedDayView({
   onPrevDay,
   onNextDay,
   onToday,
+  onDaySelect,
   isLocked = false,
   isLockLoading = false,
   onToggleLock,
@@ -117,6 +127,30 @@ export function UnifiedDayView({
 
   const emptyCompleted = useMemo(() => new Set<string>(), []);
   const noop = () => {};
+
+  // Pinch-to-zoom for timeline
+  const scale = useSharedValue(1);
+  const baseScale = useSharedValue(1);
+  const [zoomLevel, setZoomLevel] = useState(1.0);
+
+  const onPinchEvent = useCallback((event: any) => {
+    const newScale = Math.min(1.5, Math.max(0.7, baseScale.value * event.nativeEvent.scale));
+    scale.value = newScale;
+  }, [scale, baseScale]);
+
+  const onPinchStateChange = useCallback((event: any) => {
+    if (event.nativeEvent.oldState === GestureState.ACTIVE) {
+      const finalScale = Math.min(1.5, Math.max(0.7, scale.value));
+      baseScale.value = finalScale;
+      scale.value = withSpring(finalScale, { damping: 15, stiffness: 150 });
+      setZoomLevel(Math.round(finalScale * 10) / 10);
+    }
+  }, [scale, baseScale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    transformOrigin: 'top center' as any,
+  }));
 
   const navigation = useNavigation<any>();
 
@@ -159,27 +193,25 @@ export function UnifiedDayView({
 
   return (
     <View style={{ flex: 1 }}>
-      {/* ─── Day Navigation Bar ─── */}
-      <View style={styles.dayNav}>
-        <Pressable onPress={onPrevDay} hitSlop={12} style={styles.dayNavArrow}>
-          <Ionicons name="chevron-back" size={22} color={colors.textOnDark} />
-        </Pressable>
-        <Pressable onPress={onToday} style={styles.dayNavCenter}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      {/* ─── Day Strip Navigation ─── */}
+      {onDaySelect ? (
+        <DayStrip selectedDate={selectedDay} onSelect={onDaySelect} />
+      ) : (
+        /* Fallback: arrow nav for coach/parent views without onDaySelect */
+        <View style={styles.dayNav}>
+          <Pressable onPress={onPrevDay} hitSlop={12} style={styles.dayNavArrow}>
+            <Ionicons name="chevron-back" size={22} color={colors.textOnDark} />
+          </Pressable>
+          <Pressable onPress={onToday} style={styles.dayNavCenter}>
             <Text style={[styles.dayNavLabel, isToday && { color: colors.accent1 }]}>
               {dayDisplayText}
             </Text>
-            {!isOwner && isLocked && (
-              <View style={styles.lockBadge}>
-                <Ionicons name="lock-closed" size={10} color={colors.accent} />
-              </View>
-            )}
-          </View>
-        </Pressable>
-        <Pressable onPress={onNextDay} hitSlop={12} style={styles.dayNavArrow}>
-          <Ionicons name="chevron-forward" size={22} color={colors.textOnDark} />
-        </Pressable>
-      </View>
+          </Pressable>
+          <Pressable onPress={onNextDay} hitSlop={12} style={styles.dayNavArrow}>
+            <Ionicons name="chevron-forward" size={22} color={colors.textOnDark} />
+          </Pressable>
+        </View>
+      )}
 
       <ScrollFadeOverlay />
       <ScrollView
@@ -200,28 +232,34 @@ export function UnifiedDayView({
         )}
 
 
-        {/* ─── Connected Spine Timeline ─── */}
-        <View style={styles.timelineSection}>
-          <SpineTimeline
-            events={events}
-            onEventEdit={(event) => {
-              navigation.navigate('EventEdit', {
-                eventId: event.id,
-                name: event.name,
-                type: event.type,
-                date: event.date,
-                startTime: event.startTime || '',
-                endTime: event.endTime || '',
-                notes: event.notes || '',
-                intensity: event.intensity || '',
-              });
-            }}
-            onEventComplete={onComplete}
-            onEventSkip={onSkip}
-            completedIds={completedEvents ?? emptyCompleted}
-            skippedIds={new Set()}
-          />
-        </View>
+        {/* ─── Connected Spine Timeline (pinch-to-zoom) ─── */}
+        <PinchGestureHandler
+          onGestureEvent={onPinchEvent}
+          onHandlerStateChange={onPinchStateChange}
+        >
+          <Animated.View style={[styles.timelineSection, animatedStyle]}>
+            <SpineTimeline
+              events={events}
+              onEventEdit={(event) => {
+                navigation.navigate('EventEdit', {
+                  eventId: event.id,
+                  name: event.name,
+                  type: event.type,
+                  date: event.date,
+                  startTime: event.startTime || '',
+                  endTime: event.endTime || '',
+                  notes: event.notes || '',
+                  intensity: event.intensity || '',
+                });
+              }}
+              onEventComplete={onComplete}
+              onEventSkip={onSkip}
+              completedIds={completedEvents ?? emptyCompleted}
+              skippedIds={new Set()}
+              zoomLevel={zoomLevel}
+            />
+          </Animated.View>
+        </PinchGestureHandler>
 
         {/* ─── Player-only: Exam Study Planner ─── */}
         {isOwner && upcomingExams && upcomingExams.length > 0 && (

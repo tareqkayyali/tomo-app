@@ -39,6 +39,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainTabParamList, MainStackParamList } from '../navigation/types';
 import { useSubTabRegistry } from '../hooks/useSubTabContext';
 import { usePageConfig } from '../hooks/usePageConfig';
+import { useScheduleRules } from '../hooks/useScheduleRules';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -107,6 +108,8 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
 
   const { profile, role } = useAuth();
   const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
+  const { rules } = useScheduleRules();
+  const examModeEnabled = rules?.preferences?.exam_period_active ?? false;
   const quickActions = useQuickActions(
     [
       { key: 'study', icon: 'book-outline', label: 'Study', onPress: () => navigation.navigate('StudyPlanView' as any), accentColor: colors.accent2 },
@@ -198,6 +201,14 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     const today = new Date();
     setSelectedDay(today);
     setSelectedDate(today);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [setSelectedDate]);
+
+  const handleDaySelect = useCallback((date: Date) => {
+    setSelectedDay(date);
+    setSelectedDate(date);
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
@@ -382,6 +393,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
         onPrevDay={goToPrevDay}
         onNextDay={goToNextDay}
         onToday={goToToday}
+        onDaySelect={handleDaySelect}
         isLocked={isLocked}
         isLockLoading={isLockLoading}
         onToggleLock={toggleLock}
@@ -398,7 +410,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
         hasCheckedInToday={hasCheckedInToday}
         suggestions={suggestions}
         onSuggestionResolved={handleResolved}
-        upcomingExams={upcomingExams}
+        upcomingExams={examModeEnabled ? upcomingExams : []}
         completedEvents={completedEvents}
         onComplete={handleCompleteEvent}
         onSkip={handleSkipEvent}
