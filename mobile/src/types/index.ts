@@ -291,6 +291,14 @@ export interface FeedbackData {
 export type EventSport = 'football' | 'padel' | 'general';
 
 // Calendar Event
+export interface LinkedProgram {
+  programId: string;
+  name: string;
+  category?: string;
+  linkedAt: string;
+  expiresAt: string;
+}
+
 export interface CalendarEvent {
   id: string;
   userId: string;
@@ -303,6 +311,7 @@ export interface CalendarEvent {
   intensity: IntensityLevel | null;
   notes: string;
   createdAt: string;
+  linkedPrograms?: LinkedProgram[];
 }
 
 export interface CalendarEventInput {

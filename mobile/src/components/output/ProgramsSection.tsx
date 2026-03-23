@@ -393,7 +393,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
           <View style={{ flex: 1 }}>
             <Text style={[styles.programName, { color: colors.textOnDark }]} numberOfLines={1}>{program.name}</Text>
             <Text style={[styles.programMeta, { color: colors.textMuted }]}>
-              {program.frequency} · {program.durationMin} min
+              {program.frequency} · {program.durationMin} min · {(program as any).durationWeeks || 4}wks
             </Text>
           </View>
           <Ionicons
@@ -582,6 +582,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                     programId: program.programId,
                     name: program.name,
                     durationMin: program.durationMin,
+                    durationWeeks: (program as any).durationWeeks || 4,
                     type: program.type,
                     category: program.category,
                     difficulty: program.difficulty,

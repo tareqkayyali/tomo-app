@@ -40,6 +40,7 @@ export interface AttachToTrainingSheetProps {
     type: string;
     frequency: string;
     durationMin: number;
+    durationWeeks?: number;
   } | null;
 }
 
@@ -222,7 +223,7 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
           {/* Title */}
           <Text style={[styles.title, { color: colors.textOnDark }]}>Add to Training</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={1}>
-            {program.name} ({program.durationMin} min)
+            {program.name} · {program.durationMin} min/session · {program.durationWeeks || 4} weeks
           </Text>
 
           {/* Success / Error banners */}

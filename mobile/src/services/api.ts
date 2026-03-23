@@ -2234,6 +2234,7 @@ export interface OutputSnapshot {
       type: 'physical' | 'technical';
       priority: 'mandatory' | 'high' | 'medium';
       durationMin: number;
+      durationWeeks?: number;
       description: string;
       impact: string;
       frequency: string;

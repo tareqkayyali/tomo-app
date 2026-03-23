@@ -308,6 +308,7 @@ export async function deepProgramRefresh(
           type: def.type,
           priority: aiProg.priority,
           durationMin: def.duration_minutes,
+          durationWeeks: def.duration_weeks,
           description: def.description,
           impact: aiProg.impact,
           frequency: prescription.frequency,

@@ -172,6 +172,18 @@ export function SpineTimeline({
                   </Text>
                 ) : null}
 
+                {/* Linked Programs */}
+                {event.type === 'training' && (event as any).linkedPrograms?.length > 0 && (
+                  <View style={styles.linkedProgramsRow}>
+                    {((event as any).linkedPrograms as Array<{ programId: string; name: string; category?: string }>).map((lp) => (
+                      <View key={lp.programId} style={[styles.linkedPill, { backgroundColor: colors.accent1 + '15', borderColor: colors.accent1 + '30' }]}>
+                        <Ionicons name="barbell-outline" size={10} color={colors.accent1} />
+                        <Text style={[styles.linkedPillText, { color: colors.accent1 }]} numberOfLines={1}>{lp.name}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
                 {/* Bottom row: type badge + action buttons */}
                 <View style={styles.bottomRow}>
                   <View style={[styles.typeBadge, { backgroundColor: eventColor + '20', borderColor: eventColor + '40' }]}>
@@ -299,6 +311,27 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semiBold,
     fontSize: 10,
     letterSpacing: 0.8,
+  },
+  linkedProgramsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  linkedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  linkedPillText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 10,
+    maxWidth: 120,
   },
   actionRow: {
     flexDirection: 'row',

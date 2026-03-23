@@ -36,6 +36,7 @@ export interface ProgramDef {
   description: string;
   equipment: string[];
   duration_minutes: number;
+  duration_weeks: number; // How many weeks this program runs (default 4)
   position_emphasis: string[];
   difficulty: string;
   tags: string[];
@@ -242,7 +243,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "sprint_linear_10_30", name: "Linear Sprint Development (10-30m)", category: "sprint", type: "physical",
     description: "Develops acceleration and max velocity over short distances. Progressive overload through volume and recovery manipulation.",
-    equipment: ["cones", "stopwatch"], duration_minutes: 25, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["cones", "stopwatch"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["speed", "acceleration", "power"],
     prescriptions: makePrescriptions({ sets: 6, reps: "4-6 reps", intensity: "95-100%", rpe: "8-9", rest: "2-3 min", coachingCues: ["Drive phase: 45° body angle", "Punch arms aggressively", "Triple extension through ankle-knee-hip"] }),
     phv_guidance: STANDARD_PHV,
@@ -250,7 +251,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "sprint_flying_20_40", name: "Flying Sprint (20-40m)", category: "sprint", type: "physical",
     description: "Max velocity development with a rolling start. Targets top-end speed mechanics.",
-    equipment: ["cones", "stopwatch"], duration_minutes: 25, position_emphasis: ["W", "ST", "FB"], difficulty: "advanced",
+    equipment: ["cones", "stopwatch"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["W", "ST", "FB"], difficulty: "advanced",
     tags: ["speed", "max_velocity"],
     prescriptions: makePrescriptions({ sets: 5, reps: "3-4 reps", intensity: "100%", rpe: "9", rest: "3-4 min", coachingCues: ["Upright posture at max speed", "Relaxed shoulders", "Ground contact under center of mass"] }),
     phv_guidance: STANDARD_PHV,
@@ -258,7 +259,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "sled_resisted_sprint", name: "Resisted Sled Sprint", category: "sled", type: "physical",
     description: "Develops horizontal force production through resisted sprinting. Load at 10-20% bodyweight.",
-    equipment: ["sled", "harness", "cones"], duration_minutes: 20, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["sled", "harness", "cones"], duration_minutes: 20, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["speed", "power", "acceleration"],
     prescriptions: makePrescriptions({ sets: 5, reps: "4 x 20m", intensity: "10-20% BW load", rpe: "8", rest: "3 min", coachingCues: ["Maintain forward lean", "Full extension each stride", "Don't overstride — short, powerful contacts"] }),
     phv_guidance: STANDARD_PHV,
@@ -266,7 +267,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "strength_lower_compound", name: "Lower Body Compound Strength", category: "strength", type: "physical",
     description: "Squat, deadlift, and lunge patterns for lower body maximal strength. Foundation for all athletic qualities.",
-    equipment: ["barbell", "squat_rack", "plates"], duration_minutes: 45, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["barbell", "squat_rack", "plates"], duration_minutes: 45, duration_weeks: 6, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["strength", "power", "legs"],
     prescriptions: makePrescriptions({ sets: 4, reps: "4-6", intensity: "80-85% 1RM", rpe: "7-8", rest: "2-3 min", coachingCues: ["Brace core before each rep", "Control eccentric (3-4s)", "Full depth on squats"] }),
     phv_guidance: CONTRAINDICATED_MID_PHV,
@@ -274,7 +275,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "strength_upper_push_pull", name: "Upper Body Push-Pull", category: "strength", type: "physical",
     description: "Bench press, rows, overhead press for upper body balance. Important for physicality in duels.",
-    equipment: ["barbell", "dumbbells", "bench"], duration_minutes: 40, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["barbell", "dumbbells", "bench"], duration_minutes: 40, duration_weeks: 6, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["strength", "upper_body", "physicality"],
     prescriptions: makePrescriptions({ sets: 3, reps: "6-8", intensity: "75-80% 1RM", rpe: "7", rest: "90s-2 min", coachingCues: ["Retract scapulae on presses", "Full range of motion", "Balanced push:pull ratio"] }),
     phv_guidance: CONTRAINDICATED_MID_PHV,
@@ -282,7 +283,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "strength_single_leg", name: "Single-Leg Strength Development", category: "strength", type: "physical",
     description: "Bulgarian split squats, step-ups, single-leg RDLs. Addresses bilateral deficits and improves stability.",
-    equipment: ["dumbbells", "bench", "kettlebell"], duration_minutes: 35, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["dumbbells", "bench", "kettlebell"], duration_minutes: 35, duration_weeks: 6, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["strength", "stability", "injury_prevention"],
     prescriptions: makePrescriptions({ sets: 3, reps: "8-10 each side", intensity: "moderate", rpe: "7", rest: "60-90s", coachingCues: ["Control knee tracking", "Level hips throughout", "Slow eccentric"] }),
     phv_guidance: STANDARD_PHV,
@@ -290,7 +291,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "nordic_hamstring_protocol", name: "Nordic Hamstring Protocol", category: "nordic", type: "physical",
     description: "Gold standard hamstring injury prevention. Eccentric loading to protect against sprinting injuries. FIFA 11+ recommended.",
-    equipment: ["partner_or_anchor"], duration_minutes: 15, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["partner_or_anchor"], duration_minutes: 15, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["injury_prevention", "hamstring", "eccentric"],
     prescriptions: makePrescriptions({ sets: 3, reps: "5-8", intensity: "bodyweight", rpe: "7-8", rest: "60s", coachingCues: ["Slow eccentric (3-5 seconds)", "Break at hips at bottom if needed", "Control the descent — don't just fall"] }, { U13: { reps: "3-4", sets: 2 }, U15: { reps: "4-5", sets: 2 } }),
     phv_guidance: { pre_phv: { warnings: ["Use band-assisted or partial-range only"] }, mid_phv: { warnings: ["Partial range eccentric ONLY", "Max 3 reps per set", "Stop immediately if knee/heel pain"], modifiedPrescription: { sets: 2, reps: "2-3", rpe: "4-5" } }, post_phv: { warnings: ["Progress to full range gradually over 4 weeks"] } },
@@ -298,7 +299,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "plyo_lower_body", name: "Lower Body Plyometrics", category: "plyometric", type: "physical",
     description: "Box jumps, depth jumps, bounding. Develops reactive strength and stretch-shortening cycle efficiency.",
-    equipment: ["plyo_box", "cones"], duration_minutes: 25, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["plyo_box", "cones"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["power", "explosiveness", "reactive_strength"],
     prescriptions: makePrescriptions({ sets: 4, reps: "5-6", intensity: "maximal effort", rpe: "8-9", rest: "90s-2 min", coachingCues: ["Minimize ground contact time", "Land softly — absorb through knees and hips", "Quality over quantity"] }),
     phv_guidance: { pre_phv: { warnings: ["Low-intensity only: skipping, hopping, bounding"], modifiedPrescription: { reps: "6-8", intensity: "submaximal" } }, mid_phv: { warnings: ["Reduce volume by 50%", "No depth jumps", "Bilateral landings only"], modifiedPrescription: { sets: 2, reps: "3-4", rpe: "5-6" } }, post_phv: { warnings: ["Reintroduce depth jumps gradually"] } },
@@ -306,7 +307,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "agility_cod", name: "Change of Direction (COD) Training", category: "agility", type: "physical",
     description: "Planned agility — T-test, 505, pro agility patterns. Develops deceleration and re-acceleration mechanics.",
-    equipment: ["cones", "stopwatch"], duration_minutes: 25, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["cones", "stopwatch"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["agility", "speed", "deceleration"],
     prescriptions: makePrescriptions({ sets: 4, reps: "4-5", intensity: "95-100%", rpe: "8", rest: "90s-2 min", coachingCues: ["Lower center of gravity before cut", "Plant outside foot hard", "Aggressive first step out of cut"] }),
     phv_guidance: STANDARD_PHV,
@@ -314,7 +315,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "agility_reactive", name: "Reactive Agility Training", category: "agility", type: "physical",
     description: "Unplanned agility — react to visual/auditory cues. More game-realistic than planned COD.",
-    equipment: ["cones", "partner"], duration_minutes: 25, position_emphasis: ["CB", "CDM", "CM", "FB"], difficulty: "advanced",
+    equipment: ["cones", "partner"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["CB", "CDM", "CM", "FB"], difficulty: "advanced",
     tags: ["agility", "reaction", "decision_making"],
     prescriptions: makePrescriptions({ sets: 4, reps: "5-6", intensity: "maximal", rpe: "8-9", rest: "2 min", coachingCues: ["Read the trigger early", "Pre-load position: low, balanced", "Trust first instinct"] }),
     phv_guidance: STANDARD_PHV,
@@ -322,7 +323,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "endurance_hiit", name: "High-Intensity Interval Training (HIIT)", category: "endurance", type: "physical",
     description: "Repeat sprint ability and aerobic power development. Mimics football match demands.",
-    equipment: ["cones", "heart_rate_monitor"], duration_minutes: 30, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["cones", "heart_rate_monitor"], duration_minutes: 30, duration_weeks: 6, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["endurance", "aerobic", "conditioning"],
     prescriptions: makePrescriptions({ sets: 4, reps: "4-6 intervals", intensity: "85-95% HRmax", rpe: "8", rest: "90s between intervals", frequency: "2-3x/week", coachingCues: ["30-60s work intervals", "Active recovery between sets", "Target 85-95% max heart rate"] }),
     phv_guidance: STANDARD_PHV,
@@ -330,7 +331,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "endurance_aerobic_base", name: "Aerobic Base Building", category: "endurance", type: "physical",
     description: "Low-intensity continuous running or tempo work. Builds the foundation for all other fitness qualities.",
-    equipment: ["heart_rate_monitor"], duration_minutes: 30, position_emphasis: ["ALL"], difficulty: "beginner",
+    equipment: ["heart_rate_monitor"], duration_minutes: 30, duration_weeks: 6, position_emphasis: ["ALL"], difficulty: "beginner",
     tags: ["endurance", "aerobic", "recovery"],
     prescriptions: makePrescriptions({ sets: 1, reps: "20-30 min continuous", intensity: "60-75% HRmax", rpe: "4-5", rest: "N/A", frequency: "2-3x/week", coachingCues: ["Conversational pace", "Nasal breathing if possible", "Steady rhythm"] }),
     phv_guidance: STANDARD_PHV,
@@ -338,7 +339,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "power_olympic_lifts", name: "Olympic Lifting Derivatives", category: "power", type: "physical",
     description: "Hang cleans, clean pulls, push press. Develops rate of force development for explosive actions.",
-    equipment: ["barbell", "plates", "platform"], duration_minutes: 35, position_emphasis: ["ALL"], difficulty: "advanced",
+    equipment: ["barbell", "plates", "platform"], duration_minutes: 35, duration_weeks: 6, position_emphasis: ["ALL"], difficulty: "advanced",
     tags: ["power", "explosiveness", "strength"],
     prescriptions: makePrescriptions({ sets: 4, reps: "3-5", intensity: "70-80% 1RM", rpe: "7-8", rest: "2-3 min", coachingCues: ["Triple extension: ankles, knees, hips", "Bar stays close to body", "Catch position: strong front rack"] }),
     phv_guidance: CONTRAINDICATED_MID_PHV,
@@ -346,7 +347,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "mobility_hip_ankle", name: "Hip & Ankle Mobility Protocol", category: "hip_mobility", type: "physical",
     description: "Targeted mobility work for the two joints most important for football movement quality.",
-    equipment: ["foam_roller", "band"], duration_minutes: 15, position_emphasis: ["ALL"], difficulty: "beginner",
+    equipment: ["foam_roller", "band"], duration_minutes: 15, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "beginner",
     tags: ["mobility", "injury_prevention", "recovery"],
     prescriptions: makePrescriptions({ sets: 2, reps: "30s holds or 10 reps each", intensity: "light", rpe: "3-4", rest: "30s", frequency: "3-4x/week", coachingCues: ["Breathe into the stretch", "Move through full range", "No bouncing"] }),
     phv_guidance: { pre_phv: { warnings: ["Focus on active flexibility"] }, mid_phv: { warnings: ["PRIORITY: Flexibility work is critical during growth spurt"], modifiedPrescription: { frequency: "daily" } }, post_phv: { warnings: ["Maintain mobility gained during growth phase"] } },
@@ -354,7 +355,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "acl_prevention_protocol", name: "ACL Injury Prevention Protocol", category: "acl_prevention", type: "physical",
     description: "Neuromuscular training to reduce ACL injury risk. Based on FIFA 11+ and PEP protocol research.",
-    equipment: ["cones", "balance_board"], duration_minutes: 20, position_emphasis: ["ALL"], difficulty: "beginner",
+    equipment: ["cones", "balance_board"], duration_minutes: 20, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "beginner",
     tags: ["injury_prevention", "acl", "neuromuscular"],
     prescriptions: makePrescriptions({ sets: 2, reps: "8-10 each exercise", intensity: "moderate", rpe: "5-6", rest: "30-45s", frequency: "3x/week", coachingCues: ["Knee over toe alignment", "Soft landings — never locked knees", "Single-leg balance progression"] }),
     phv_guidance: STANDARD_PHV,
@@ -362,7 +363,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "groin_copenhagen", name: "Copenhagen Adductor Protocol", category: "groin", type: "physical",
     description: "Eccentric adductor strengthening — gold standard for groin injury prevention in football.",
-    equipment: ["bench_or_partner"], duration_minutes: 10, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["bench_or_partner"], duration_minutes: 10, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["injury_prevention", "groin", "adductor"],
     prescriptions: makePrescriptions({ sets: 2, reps: "6-8 each side", intensity: "bodyweight", rpe: "6-7", rest: "45s", frequency: "2-3x/week", coachingCues: ["Slow eccentric (3s)", "Hips stacked vertically", "Start with short lever (knee) before long lever (ankle)"] }),
     phv_guidance: STANDARD_PHV,
@@ -370,7 +371,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "ankle_stability_protocol", name: "Ankle Stability & Proprioception", category: "ankle_stability", type: "physical",
     description: "Balance and proprioception work to reduce ankle sprain risk — the most common football injury.",
-    equipment: ["wobble_board", "bands"], duration_minutes: 10, position_emphasis: ["ALL"], difficulty: "beginner",
+    equipment: ["wobble_board", "bands"], duration_minutes: 10, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "beginner",
     tags: ["injury_prevention", "ankle", "balance"],
     prescriptions: makePrescriptions({ sets: 2, reps: "30s each side", intensity: "light", rpe: "4-5", rest: "15s", frequency: "3-4x/week", coachingCues: ["Eyes forward, not down", "Engage small foot muscles", "Progress: eyes closed, ball throws while balancing"] }),
     phv_guidance: STANDARD_PHV,
@@ -380,7 +381,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_passing_short", name: "Short Passing Mastery", category: "passing", type: "technical",
     description: "1-touch and 2-touch passing circuits. Develops accuracy, weight of pass, and receiving under pressure.",
-    equipment: ["footballs", "cones", "passing_wall"], duration_minutes: 25, position_emphasis: ["CM", "CAM", "CDM"], difficulty: "beginner",
+    equipment: ["footballs", "cones", "passing_wall"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["CM", "CAM", "CDM"], difficulty: "beginner",
     tags: ["passing", "technique", "first_touch"],
     prescriptions: makePrescriptions({ sets: 3, reps: "10-15 passes per drill", intensity: "technical focus", rpe: "4-5", rest: "30s", frequency: "3x/week", coachingCues: ["Lock ankle", "Strike through center of ball", "Body shape: open to receive"] }),
     phv_guidance: STANDARD_PHV,
@@ -388,7 +389,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_passing_long", name: "Long-Range Passing & Switching", category: "passing", type: "technical",
     description: "Driven passes, lofted switches, diagonal balls. Essential for centre-backs and central midfielders.",
-    equipment: ["footballs", "cones"], duration_minutes: 25, position_emphasis: ["CB", "CM", "CDM", "FB"], difficulty: "intermediate",
+    equipment: ["footballs", "cones"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["CB", "CM", "CDM", "FB"], difficulty: "intermediate",
     tags: ["passing", "technique", "vision"],
     prescriptions: makePrescriptions({ sets: 3, reps: "8-10 passes per drill", intensity: "technical focus", rpe: "5-6", rest: "30-45s", frequency: "2-3x/week", coachingCues: ["Approach angle matters", "Strike underneath for loft, through middle for driven", "Follow through toward target"] }),
     phv_guidance: STANDARD_PHV,
@@ -396,7 +397,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_shooting", name: "Finishing & Shooting", category: "shooting", type: "technical",
     description: "Shooting from various distances and angles. 1v1 finishing, volleys, and placed finishes.",
-    equipment: ["footballs", "cones", "goal"], duration_minutes: 30, position_emphasis: ["ST", "W", "CAM"], difficulty: "intermediate",
+    equipment: ["footballs", "cones", "goal"], duration_minutes: 30, duration_weeks: 6, position_emphasis: ["ST", "W", "CAM"], difficulty: "intermediate",
     tags: ["shooting", "finishing", "technique"],
     prescriptions: makePrescriptions({ sets: 4, reps: "6-8 shots per drill", intensity: "match pace", rpe: "6-7", rest: "30-45s", frequency: "3x/week", coachingCues: ["Head over ball for low drives", "Pick your spot before shooting", "Plant foot pointing at target"] }),
     phv_guidance: STANDARD_PHV,
@@ -404,7 +405,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_dribbling", name: "1v1 Dribbling & Ball Mastery", category: "dribbling", type: "technical",
     description: "Close control, skill moves, and 1v1 situations. Develops confidence on the ball in tight spaces.",
-    equipment: ["footballs", "cones"], duration_minutes: 25, position_emphasis: ["W", "CAM", "ST"], difficulty: "beginner",
+    equipment: ["footballs", "cones"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["W", "CAM", "ST"], difficulty: "beginner",
     tags: ["dribbling", "skill_moves", "1v1"],
     prescriptions: makePrescriptions({ sets: 3, reps: "5-6 attempts per drill", intensity: "progressive", rpe: "5-6", rest: "30s", frequency: "3-4x/week", coachingCues: ["Keep ball close at speed", "Use both feet", "Head up to scan defenders"] }),
     phv_guidance: STANDARD_PHV,
@@ -412,7 +413,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_first_touch", name: "First Touch & Receiving", category: "first_touch", type: "technical",
     description: "Receiving on the half-turn, cushioned control, directional first touches. The skill that separates levels.",
-    equipment: ["footballs", "cones", "passing_wall"], duration_minutes: 20, position_emphasis: ["ALL"], difficulty: "beginner",
+    equipment: ["footballs", "cones", "passing_wall"], duration_minutes: 20, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "beginner",
     tags: ["first_touch", "receiving", "technique"],
     prescriptions: makePrescriptions({ sets: 3, reps: "10-12 per drill", intensity: "technical focus", rpe: "4-5", rest: "20-30s", frequency: "4x/week", coachingCues: ["Check shoulder before receiving", "Cushion with the surface", "First touch sets up next action"] }),
     phv_guidance: STANDARD_PHV,
@@ -420,7 +421,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_crossing", name: "Crossing & Delivery", category: "crossing", type: "technical",
     description: "Early crosses, byline cut-backs, in-swinging and out-swinging deliveries. Fullback and winger essential.",
-    equipment: ["footballs", "cones", "goal"], duration_minutes: 25, position_emphasis: ["FB", "W"], difficulty: "intermediate",
+    equipment: ["footballs", "cones", "goal"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["FB", "W"], difficulty: "intermediate",
     tags: ["crossing", "delivery", "wide_play"],
     prescriptions: makePrescriptions({ sets: 3, reps: "6-8 deliveries per set", intensity: "match pace", rpe: "5-6", rest: "30-45s", frequency: "2-3x/week", coachingCues: ["Early cross: strike in stride, don't stop", "Whipped delivery: wrap foot around ball", "Target far post or cut-back zone"] }),
     phv_guidance: STANDARD_PHV,
@@ -428,7 +429,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_heading", name: "Heading Technique & Timing", category: "heading", type: "technical",
     description: "Defensive and attacking headers. Timing, body position, and neck strength.",
-    equipment: ["footballs"], duration_minutes: 15, position_emphasis: ["CB", "ST"], difficulty: "intermediate",
+    equipment: ["footballs"], duration_minutes: 15, duration_weeks: 4, position_emphasis: ["CB", "ST"], difficulty: "intermediate",
     tags: ["heading", "aerial", "defending"],
     prescriptions: makePrescriptions({ sets: 2, reps: "6-8", intensity: "moderate", rpe: "5-6", rest: "45s", frequency: "1-2x/week", coachingCues: ["Eyes open through contact", "Forehead — not top of head", "Attack the ball — don't let it hit you"] }, { U13: { sets: 1, reps: "3-4", frequency: "1x/week" }, U15: { sets: 2, reps: "4-5", frequency: "1x/week" } }),
     phv_guidance: { pre_phv: { warnings: ["Limited heading: max 10 headers per week (FA guidelines)"] }, mid_phv: { warnings: ["Restricted heading: max 10 headers per week", "Light ball recommended"], modifiedPrescription: { sets: 1, reps: "3-4" } }, post_phv: { warnings: ["Follow FA heading guidelines — controlled progression"] } },
@@ -436,7 +437,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_defending_1v1", name: "1v1 Defending", category: "defensive", type: "technical",
     description: "Jockeying, body positioning, tackle timing, and recovery runs. Defensive fundamentals.",
-    equipment: ["cones", "footballs"], duration_minutes: 25, position_emphasis: ["CB", "FB", "CDM"], difficulty: "intermediate",
+    equipment: ["cones", "footballs"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["CB", "FB", "CDM"], difficulty: "intermediate",
     tags: ["defending", "1v1", "technique"],
     prescriptions: makePrescriptions({ sets: 3, reps: "5-6 per scenario", intensity: "match pace", rpe: "7", rest: "45s", frequency: "2-3x/week", coachingCues: ["Side-on body shape", "Show attacker onto weaker foot", "Stay on toes — don't dive in"] }),
     phv_guidance: STANDARD_PHV,
@@ -444,7 +445,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_goalkeeping", name: "Goalkeeper Technical Training", category: "goalkeeping", type: "technical",
     description: "Shot stopping, distribution, crosses, 1v1s. Position-specific technical development.",
-    equipment: ["footballs", "goal", "cones"], duration_minutes: 40, position_emphasis: ["GK"], difficulty: "intermediate",
+    equipment: ["footballs", "goal", "cones"], duration_minutes: 40, duration_weeks: 6, position_emphasis: ["GK"], difficulty: "intermediate",
     tags: ["goalkeeping", "technique", "positioning"],
     prescriptions: makePrescriptions({ sets: 4, reps: "6-8 actions per drill", intensity: "match pace", rpe: "7", rest: "45-60s", frequency: "3-4x/week", coachingCues: ["Set position before each action", "Hands together, fingers spread", "Attack the ball on crosses"] }),
     phv_guidance: STANDARD_PHV,
@@ -452,7 +453,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_set_pieces", name: "Set Piece Delivery & Routines", category: "set_piece", type: "technical",
     description: "Free kicks, corners, throw-ins. Rehearsed routines and delivery quality.",
-    equipment: ["footballs", "cones", "goal", "mannequins"], duration_minutes: 20, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["footballs", "cones", "goal", "mannequins"], duration_minutes: 20, duration_weeks: 4, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["set_pieces", "dead_ball", "technique"],
     prescriptions: makePrescriptions({ sets: 2, reps: "8-10 deliveries per set", intensity: "technical focus", rpe: "5", rest: "30s", frequency: "1-2x/week", coachingCues: ["Consistent run-up", "Aim for target zones, not people", "Vary delivery: in-swing, out-swing, driven"] }),
     phv_guidance: STANDARD_PHV,
@@ -460,7 +461,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_tactical_positioning", name: "Positional Play & Shape", category: "tactical", type: "technical",
     description: "Understanding spatial relationships, defensive/attacking shape, pressing triggers, and transition moments.",
-    equipment: ["cones", "bibs", "footballs"], duration_minutes: 30, position_emphasis: ["ALL"], difficulty: "intermediate",
+    equipment: ["cones", "bibs", "footballs"], duration_minutes: 30, duration_weeks: 6, position_emphasis: ["ALL"], difficulty: "intermediate",
     tags: ["tactical", "positioning", "game_intelligence"],
     prescriptions: makePrescriptions({ sets: 3, reps: "5-7 min per activity", intensity: "moderate", rpe: "5-6", rest: "2 min between activities", frequency: "2x/week", coachingCues: ["Constant scanning — check shoulders", "Communication: talk early and clearly", "Body shape open to pitch"] }),
     phv_guidance: STANDARD_PHV,
@@ -468,7 +469,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_scanning_decision", name: "Scanning & Decision Making", category: "scanning", type: "technical",
     description: "Pre-reception scanning, option identification, and decision speed. The cognitive side of football.",
-    equipment: ["cones", "bibs", "footballs"], duration_minutes: 25, position_emphasis: ["CM", "CAM", "CDM"], difficulty: "advanced",
+    equipment: ["cones", "bibs", "footballs"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["CM", "CAM", "CDM"], difficulty: "advanced",
     tags: ["scanning", "decision_making", "game_intelligence"],
     prescriptions: makePrescriptions({ sets: 3, reps: "5-6 min per activity", intensity: "match pace", rpe: "6-7", rest: "90s", frequency: "2-3x/week", coachingCues: ["Scan before the ball arrives", "Identify 2 options minimum before receiving", "Speed of thought > speed of feet"] }),
     phv_guidance: STANDARD_PHV,
@@ -476,7 +477,7 @@ export const FOOTBALL_PROGRAMS: ProgramDef[] = [
   {
     id: "tech_combination_play", name: "Combination Play & Link-Up", category: "combination_play", type: "technical",
     description: "Wall passes, overlaps, underlaps, third-man runs. How to play together in tight spaces.",
-    equipment: ["cones", "footballs", "bibs"], duration_minutes: 25, position_emphasis: ["CM", "CAM", "W", "ST"], difficulty: "intermediate",
+    equipment: ["cones", "footballs", "bibs"], duration_minutes: 25, duration_weeks: 4, position_emphasis: ["CM", "CAM", "W", "ST"], difficulty: "intermediate",
     tags: ["combination_play", "teamwork", "passing"],
     prescriptions: makePrescriptions({ sets: 3, reps: "5-6 patterns per set", intensity: "match pace", rpe: "6", rest: "45s", frequency: "2-3x/week", coachingCues: ["Timing of run = timing of pass", "Play and move — never stand still", "Use first touch to set up the next play"] }),
     phv_guidance: STANDARD_PHV,
@@ -537,6 +538,7 @@ export interface InlineProgram {
   type: "physical" | "technical";
   priority: "mandatory" | "high" | "medium";
   durationMin: number;
+  durationWeeks: number; // How many weeks this program runs
   description: string;
   impact: string;
   frequency: string;
@@ -616,6 +618,7 @@ export function getInlinePrograms(
       type: program.type,
       priority,
       durationMin: program.duration_minutes,
+      durationWeeks: program.duration_weeks,
       description: program.description,
       impact: CATEGORY_IMPACT[cat] || `Develops your ${cat.replace(/_/g, " ")} abilities`,
       frequency: prescription.frequency,
