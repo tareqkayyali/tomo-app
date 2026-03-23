@@ -291,7 +291,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       };
     });
 
-    // Persist to backend (non-blocking)
+    // Persist to backend (non-blocking — user can manually refresh from toolbar)
     interactWithProgram(programId, action).catch((e) =>
       console.warn('[TestsScreen] Program interaction failed:', e)
     );

@@ -38,12 +38,14 @@ const PRIORITY_COLORS: Record<string, string> = {
   mandatory: colors.error,
   high: colors.warning,
   medium: colors.accent,
+  player_selected: '#00D9FF',
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
   mandatory: '🔥 Must Do',
   high: '⭐ Recommended',
   medium: '💡 Supplementary',
+  player_selected: '🎯 My Pick',
 };
 
 const PRIORITY_DESCRIPTIONS: Record<string, string> = {
@@ -108,8 +110,8 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       setSearchQuery('');
       setSearchResults([]);
       setSearchFocused(false);
-      // Delay refresh to let backend process
-      setTimeout(() => onTestLogged?.(), 800);
+      // Refresh to show the new program
+      onTestLogged?.();
     } catch (e: any) {
       console.error('[ProgramsSection] Add program failed:', e);
       if (Platform.OS === 'web') window.alert('Failed to add program: ' + (e?.message || ''));
