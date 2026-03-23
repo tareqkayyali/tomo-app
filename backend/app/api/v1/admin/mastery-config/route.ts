@@ -151,9 +151,60 @@ const DEFAULT_RADAR_AXES = [
   },
 ];
 
+// All available metrics that can be assigned to pillars
+// Derived from NORM_NAME_TO_METRIC_KEY in benchmarkService.ts
+const AVAILABLE_METRICS = [
+  { key: "sprint_5m", label: "5m Sprint" },
+  { key: "sprint_10m", label: "10m Sprint" },
+  { key: "sprint_20m", label: "20m Sprint" },
+  { key: "sprint_30m", label: "30m Sprint" },
+  { key: "sprint_40m", label: "40m Sprint" },
+  { key: "flying_20m", label: "Flying 20m Sprint" },
+  { key: "est_max_speed", label: "Max Sprint Speed" },
+  { key: "rsa_30m", label: "Repeated Sprint Avg 6x30m" },
+  { key: "cmj", label: "Standing Vertical Jump" },
+  { key: "vertical_jump", label: "Vertical Jump" },
+  { key: "broad_jump", label: "Broad Jump" },
+  { key: "sl_broad_jump_r", label: "SL Broad Jump R" },
+  { key: "sl_broad_jump_l", label: "SL Broad Jump L" },
+  { key: "seated_mb_throw", label: "Seated MB Throw" },
+  { key: "glycolytic_power", label: "Glycolytic Power" },
+  { key: "shot_speed", label: "Shot Power" },
+  { key: "kick_distance", label: "Max Kick Distance" },
+  { key: "agility_505", label: "T-Test Agility" },
+  { key: "agility_5105", label: "5-10-5 Agility" },
+  { key: "agility_505_cod", label: "5-0-5 COD" },
+  { key: "illinois_agility", label: "Illinois Agility Run" },
+  { key: "dribbling_test", label: "Slalom Dribble" },
+  { key: "reaction_time", label: "Reaction Time" },
+  { key: "arrowhead_agility", label: "Arrowhead Agility" },
+  { key: "vo2max", label: "Yo-Yo IR1 Distance" },
+  { key: "mas_running", label: "MAS Running" },
+  { key: "squat_1rm", label: "1RM Squat" },
+  { key: "bench_1rm", label: "1RM Bench Press" },
+  { key: "squat_rel", label: "Relative Squat Strength" },
+  { key: "grip_strength", label: "Grip Strength" },
+  { key: "body_fat_pct", label: "Body Fat %" },
+  { key: "passing_accuracy", label: "Passing Accuracy" },
+  { key: "shooting_accuracy", label: "Shooting Drill Score" },
+  { key: "short_pass_time", label: "Short Pass Drill Time" },
+  { key: "long_pass", label: "Long Pass Distance" },
+  { key: "pass_speed", label: "Pass Speed" },
+  { key: "cross_distance", label: "Cross Delivery Distance" },
+  { key: "header_distance", label: "Header Distance" },
+  { key: "lateral_shuffle", label: "Lateral Shuffle" },
+  { key: "backward_sprint", label: "Backward Sprint 10m" },
+  { key: "push_strength", label: "Isometric Push Strength" },
+  { key: "hrv_rmssd", label: "HRV RMSSD" },
+  { key: "nd_foot_speed", label: "Non-Dominant Foot Speed" },
+  { key: "juggling", label: "Ball Juggling Count" },
+  { key: "shuttle_run", label: "Shuttle Run" },
+];
+
 const DEFAULT_CONFIG = {
   pillars: DEFAULT_PILLARS,
   radarAxes: DEFAULT_RADAR_AXES,
+  availableMetrics: AVAILABLE_METRICS,
 };
 
 export async function GET(req: NextRequest) {
@@ -173,7 +224,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(DEFAULT_CONFIG);
     }
 
-    return NextResponse.json(data.config_value);
+    // Always include availableMetrics for dropdown population
+    const saved = data.config_value as Record<string, unknown>;
+    return NextResponse.json({ ...saved, availableMetrics: AVAILABLE_METRICS });
   } catch {
     return NextResponse.json(DEFAULT_CONFIG);
   }

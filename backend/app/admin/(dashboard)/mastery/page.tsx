@@ -48,9 +48,15 @@ interface RadarAxis {
   pillarIds: string[];
 }
 
+interface AvailableMetric {
+  key: string;
+  label: string;
+}
+
 interface MasteryConfig {
   pillars: Pillar[];
   radarAxes: RadarAxis[];
+  availableMetrics?: AvailableMetric[];
 }
 
 const COLOR_THEMES = [
@@ -67,6 +73,7 @@ const COLOR_THEMES = [
 
 export default function MasteryPillarsPage() {
   const [config, setConfig] = useState<MasteryConfig | null>(null);
+  const [availableMetrics, setAvailableMetrics] = useState<AvailableMetric[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -78,6 +85,9 @@ export default function MasteryPillarsPage() {
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.availableMetrics) {
+          setAvailableMetrics(data.availableMetrics);
+        }
         setConfig(data);
       }
     } catch {
@@ -186,6 +196,49 @@ export default function MasteryPillarsPage() {
           {saving ? "Saving..." : "Save Config"}
         </Button>
       </div>
+
+      {/* Explanatory overview */}
+      <Card className="bg-muted/30 border-dashed">
+        <CardContent className="pt-4 pb-3">
+          <h3 className="font-semibold text-sm mb-2">How Mastery Pillars Work</h3>
+          <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
+            <li><strong>7 Pillars</strong> define the athlete&apos;s physical mastery profile — each pillar groups related performance metrics</li>
+            <li><strong>Metrics</strong> are the individual tests/measurements (e.g., 10m Sprint, 1RM Squat) that feed into each pillar</li>
+            <li><strong>Weight (0.0 – 1.0)</strong> controls how much each metric impacts the pillar&apos;s average percentile — higher weight = more influence</li>
+            <li><strong>6-Axis Radar</strong> on the DNA card maps from these 7 pillars: MOB axis combines Mobility + Body Composition</li>
+            <li><strong>Disable</strong> a pillar to hide it from the player&apos;s Mastery page — disabled pillars don&apos;t affect the radar or overall rating</li>
+            <li><strong>Priority</strong> controls display order — lower number = shows first</li>
+          </ul>
+          <Separator className="my-3" />
+          <div className="grid grid-cols-3 gap-4 text-xs">
+            <div>
+              <span className="font-medium text-foreground">Radar Mapping:</span>
+              <div className="text-muted-foreground mt-1 space-y-0.5">
+                <div>🟡 PAC ← Speed &amp; Acceleration</div>
+                <div>🟠 POW ← Power &amp; Explosiveness</div>
+                <div>🔵 AGI ← Agility &amp; CoD</div>
+              </div>
+            </div>
+            <div>
+              <span className="font-medium text-foreground">&nbsp;</span>
+              <div className="text-muted-foreground mt-1 space-y-0.5">
+                <div>🔷 END ← Aerobic Engine</div>
+                <div>🔴 STR ← Strength</div>
+                <div>🟢 MOB ← Mobility + Body Comp</div>
+              </div>
+            </div>
+            <div>
+              <span className="font-medium text-foreground">Tier Thresholds:</span>
+              <div className="text-muted-foreground mt-1 space-y-0.5">
+                <div>🥉 Bronze: 0–29</div>
+                <div>🥈 Silver: 30–59</div>
+                <div>🥇 Gold: 60–84</div>
+                <div>💎 Diamond: 85+</div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="space-y-6">
         {config.pillars.map((pillar, pIdx) => (
@@ -322,14 +375,27 @@ export default function MasteryPillarsPage() {
                         key={mIdx}
                         className="grid grid-cols-[1fr_1fr_80px_40px] gap-2 items-center"
                       >
-                        <Input
-                          value={metric.key}
-                          onChange={(e) =>
-                            updateMetric(pIdx, mIdx, "key", e.target.value)
-                          }
-                          placeholder="metric_key"
-                          className="font-mono text-xs"
-                        />
+                        <Select
+                          value={metric.key || "_empty"}
+                          onValueChange={(val) => {
+                            const v = (val ?? "") as string;
+                            const selected = availableMetrics.find(m => m.key === v);
+                            updateMetric(pIdx, mIdx, "key", v === "_empty" ? "" : v);
+                            if (selected) updateMetric(pIdx, mIdx, "label", selected.label);
+                          }}
+                        >
+                          <SelectTrigger className="text-xs">
+                            <SelectValue placeholder="Select metric..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_empty">— Select —</SelectItem>
+                            {availableMetrics.map((am) => (
+                              <SelectItem key={am.key} value={am.key}>
+                                {am.label} ({am.key})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <Input
                           value={metric.label}
                           onChange={(e) =>
