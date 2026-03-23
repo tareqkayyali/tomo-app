@@ -27,8 +27,8 @@ import {
   ExamStudyPlanner,
 } from '../../components';
 import type { UpcomingExam } from '../../components';
-import { SpineTimeline } from '../../components/flow/SpineTimeline';
-import { DayLockButton } from '../../components/flow/DayLockButton';
+import { SpineTimeline } from '../../components/calendar/SpineTimeline';
+import { DayLockButton } from '../../components/calendar/DayLockButton';
 import { ScrollFadeOverlay } from '../../components/ScrollFadeOverlay';
 import { SuggestionsBanner } from '../../components/SuggestionsBanner';
 import { DayStrip } from './DayStrip';

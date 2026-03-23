@@ -432,7 +432,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                   style={styles.savedPlanCard}
                   activeOpacity={0.7}
                   onPress={() => handleNavigateToPreview(plan.blocks, undefined, plan.config, plan.id, true)}
-                  onLongPress={() => {
+                  onLongPress={async () => {
                     if (Platform.OS === 'web') {
                       if (window.confirm(`Remove "${plan.name}"?`)) {
                         await deleteStudyPlan(plan.id);

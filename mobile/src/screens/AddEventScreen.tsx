@@ -38,7 +38,7 @@ import {
   DEFAULT_CONFIG,
 } from '../services/schedulingEngine';
 import type { ScheduleEvent } from '../services/schedulingEngine';
-import { SlotPill } from '../components/flow/SlotPill';
+import { SlotPill } from '../components/calendar/SlotPill';
 import { useScheduleRules } from '../hooks/useScheduleRules';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';

@@ -142,7 +142,7 @@ export function NotificationSettingsScreen() {
     [prefs],
   );
 
-  const handleTimeChange = useCallback(() => {
+  const handleTimeChange = useCallback(async () => {
     if (!prefs) return;
 
     if (Platform.OS === 'web') {
