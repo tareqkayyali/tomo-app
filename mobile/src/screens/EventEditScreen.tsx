@@ -271,14 +271,19 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
     if (saving) return;
     setSaving(true);
     try {
-      await updateCalendarEvent(params.eventId, {
-        name: name !== params.name ? name : undefined,
-        date: date !== params.date ? date : undefined,
-        startTime: startTime !== params.startTime ? startTime : undefined,
-        endTime: endTime !== params.endTime ? endTime : undefined,
-        notes: notes !== (params.notes || '') ? notes : undefined,
-        intensity: intensity !== (params.intensity || 'medium') ? intensity : undefined,
-      });
+      // Build patch — only include changed fields
+      const patch: Record<string, string | undefined> = {};
+      if (name !== params.name) patch.name = name;
+      if (date !== params.date) patch.date = date;
+      if (startTime !== params.startTime) patch.startTime = startTime;
+      if (endTime !== params.endTime) patch.endTime = endTime;
+      if (notes !== (params.notes || '')) patch.notes = notes;
+      if (intensity !== (params.intensity || 'medium')) patch.intensity = intensity;
+
+      // Only call API if there are actual event field changes
+      if (Object.keys(patch).length > 0) {
+        await updateCalendarEvent(params.eventId, patch);
+      }
       // Also persist unlinked programs to schedule rules
       if (removedProgramIds.length > 0) {
         try {
@@ -298,8 +303,14 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       navigation.goBack();
-    } catch {
-      Alert.alert('Error', 'Could not save changes. Please try again.');
+    } catch (e: any) {
+      const msg = e?.message || 'Unknown error';
+      console.error('[EventEdit] Save failed:', msg, e);
+      if (Platform.OS === 'web') {
+        window.alert('Could not save changes: ' + msg);
+      } else {
+        Alert.alert('Error', 'Could not save changes. Please try again.');
+      }
     } finally {
       setSaving(false);
     }
