@@ -32,7 +32,8 @@ interface Props {
   activeIds?: string[];
   onToggleActive?: (programId: string) => void;
   playerSelectedIds?: string[];
-  onPlayerSelect?: (programId: string) => void;
+  playerSelectedPrograms?: ProgramCatalogItem[];
+  onPlayerSelect?: (program: ProgramCatalogItem) => void;
   onPlayerDeselect?: (programId: string) => void;
 }
 
@@ -72,7 +73,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive, playerSelectedIds = [], onPlayerSelect, onPlayerDeselect }: Props) {
+export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive, playerSelectedIds = [], playerSelectedPrograms = [], onPlayerSelect, onPlayerDeselect }: Props) {
   const { colors } = useTheme();
   const { recommendations, weeklyPlanSuggestion, weeklyStructure, playerProfile } = programs;
   const [heroExpanded, setHeroExpanded] = useState(false);
@@ -105,8 +106,8 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
     setSearchQuery('');
     setSearchResults([]);
     setSearchFocused(false);
-    // Optimistic — instantly add to local state via parent
-    onPlayerSelect?.(program.id);
+    // Optimistic — instantly add full program to local state via parent
+    onPlayerSelect?.(program);
   }, [onPlayerSelect]);
   const isAiGenerated = (programs as any).isAiGenerated === true;
   const dataStatus = (programs as any).dataStatus;
@@ -345,19 +346,41 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
                 Programs you added from the catalog
               </Text>
               {playerSelectedIds.map((psId) => {
-                // Find from snapshot recommendations first, fallback to minimal card
+                // Find from snapshot first (has full prescription data)
                 const fromSnapshot = recommendations.find(r => r.programId === psId);
                 if (fromSnapshot) {
                   return <ProgramCard key={psId} program={fromSnapshot} colors={colors} onDone={() => onPlayerDeselect?.(psId)} onDismiss={() => onPlayerDeselect?.(psId)} isActive={activeIds.includes(psId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />;
                 }
-                // Minimal card for programs not yet in snapshot
+                // Use locally stored catalog data
+                const fromCatalog = playerSelectedPrograms.find(p => p.id === psId);
+                if (fromCatalog) {
+                  const asProgramCard: any = {
+                    programId: fromCatalog.id,
+                    name: fromCatalog.name,
+                    category: fromCatalog.category,
+                    type: fromCatalog.type,
+                    priority: 'player_selected',
+                    durationMin: fromCatalog.duration_minutes,
+                    description: fromCatalog.description,
+                    impact: 'Added by you from the program catalog',
+                    frequency: '',
+                    difficulty: fromCatalog.difficulty,
+                    tags: fromCatalog.tags,
+                    positionNote: '',
+                    reason: 'You selected this program',
+                    prescription: { sets: 0, reps: '', intensity: '', rpe: '', rest: '', frequency: '', coachingCues: [] },
+                    phvWarnings: [],
+                  };
+                  return <ProgramCard key={psId} program={asProgramCard} colors={colors} onDone={() => onPlayerDeselect?.(psId)} onDismiss={() => onPlayerDeselect?.(psId)} isActive={activeIds.includes(psId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />;
+                }
+                // Last fallback — minimal card
                 return (
                   <GlassCard key={psId}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardEmoji}>📋</Text>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.programName, { color: colors.textOnDark }]} numberOfLines={1}>{psId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Text>
-                        <Text style={[styles.programMeta, { color: colors.textMuted }]}>Added by you</Text>
+                        <Text style={[styles.programMeta, { color: colors.textMuted }]}>Added by you · tap refresh for full details</Text>
                       </View>
                       <Pressable onPress={() => onPlayerDeselect?.(psId)} hitSlop={8}>
                         <Ionicons name="close-circle" size={20} color={colors.error} />

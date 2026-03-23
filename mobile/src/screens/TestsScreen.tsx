@@ -210,6 +210,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
   // ── Active + Player-Selected program IDs (loaded once on mount) ──
   const [activeIds, setActiveIds] = useState<string[]>([]);
   const [playerSelectedIds, setPlayerSelectedIds] = useState<string[]>([]);
+  const [playerSelectedPrograms, setPlayerSelectedPrograms] = useState<any[]>([]);
 
   const loadProgramInteractions = useCallback(async () => {
     try {
@@ -405,12 +406,15 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
                 activeIds={activeIds}
                 onToggleActive={handleToggleActive}
                 playerSelectedIds={playerSelectedIds}
-                onPlayerSelect={(id) => {
-                  setPlayerSelectedIds(prev => [...prev, id]);
-                  interactWithProgram(id, 'player_selected').catch(e => console.warn('[TestsScreen] Player select failed:', e));
+                playerSelectedPrograms={playerSelectedPrograms}
+                onPlayerSelect={(program: any) => {
+                  setPlayerSelectedIds(prev => [...prev, program.id]);
+                  setPlayerSelectedPrograms(prev => [...prev, program]);
+                  interactWithProgram(program.id, 'player_selected').catch(e => console.warn('[TestsScreen] Player select failed:', e));
                 }}
-                onPlayerDeselect={(id) => {
+                onPlayerDeselect={(id: string) => {
                   setPlayerSelectedIds(prev => prev.filter(x => x !== id));
+                  setPlayerSelectedPrograms(prev => prev.filter(x => x.id !== id));
                   interactWithProgram(id, 'dismissed').catch(e => console.warn('[TestsScreen] Player deselect failed:', e));
                 }}
               />
