@@ -416,6 +416,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
                 onProgramDismiss={(id) => handleProgramAction(id, 'dismissed')}
                 activeIds={activeIds}
                 onToggleActive={handleToggleActive}
+                onTestLogged={refresh}
               />
             )}
           </>

@@ -99,12 +99,18 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
   const handleAddProgram = useCallback(async (program: ProgramCatalogItem) => {
     setAddingProgram(program.id);
     try {
-      await interactWithProgram(program.id, 'player_selected');
+      const result = await interactWithProgram(program.id, 'player_selected');
+      if (result.toggled === 'off') {
+        // Was already added from previous attempt — re-add it
+        await interactWithProgram(program.id, 'player_selected');
+      }
       setSearchQuery('');
       setSearchResults([]);
       setSearchFocused(false);
-      onTestLogged?.(); // refresh to pick up new program
+      // Delay refresh to let backend process
+      setTimeout(() => onTestLogged?.(), 800);
     } catch (e: any) {
+      console.error('[ProgramsSection] Add program failed:', e);
       if (Platform.OS === 'web') window.alert('Failed to add program: ' + (e?.message || ''));
     } finally {
       setAddingProgram(null);
