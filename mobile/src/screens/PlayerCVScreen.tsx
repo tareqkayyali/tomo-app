@@ -586,7 +586,7 @@ export function PlayerCVScreen() {
           position: profile?.position ?? '',
           height_cm: snap.height_cm as number | undefined,
           weight_kg: snap.weight_kg as number | undefined,
-          date_of_birth: (profile as any)?.date_of_birth ?? '',
+          date_of_birth: (profile as any)?.dateOfBirth ?? (profile as any)?.date_of_birth ?? '',
           preferred_foot: (profile as any)?.preferred_foot ?? '',
           playing_style: (profile as any)?.playing_style ?? '',
         }}
