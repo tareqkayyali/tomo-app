@@ -45,13 +45,25 @@ function ProfileEditorModal({
   initial: { position?: string; height_cm?: number; weight_kg?: number; date_of_birth?: string; preferred_foot?: string; playing_style?: string };
 }) {
   const { colors } = useTheme();
-  const [pos, setPos] = useState(initial.position ?? '');
-  const [height, setHeight] = useState(initial.height_cm ? String(initial.height_cm) : '');
-  const [weight, setWeight] = useState(initial.weight_kg ? String(initial.weight_kg) : '');
-  const [dob, setDob] = useState(initial.date_of_birth ?? '');
-  const [foot, setFoot] = useState(initial.preferred_foot ?? '');
-  const [style, setStyle] = useState(initial.playing_style ?? '');
+  const [pos, setPos] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [dob, setDob] = useState('');
+  const [foot, setFoot] = useState('');
+  const [style, setStyle] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Reset fields from initial data whenever modal opens
+  React.useEffect(() => {
+    if (visible) {
+      setPos(initial.position ?? '');
+      setHeight(initial.height_cm ? String(initial.height_cm) : '');
+      setWeight(initial.weight_kg ? String(initial.weight_kg) : '');
+      setDob(initial.date_of_birth ?? '');
+      setFoot(initial.preferred_foot ?? '');
+      setStyle(initial.playing_style ?? '');
+    }
+  }, [visible, initial.position, initial.height_cm, initial.weight_kg, initial.date_of_birth, initial.preferred_foot, initial.playing_style]);
 
   const handleSave = async () => {
     setSaving(true);
