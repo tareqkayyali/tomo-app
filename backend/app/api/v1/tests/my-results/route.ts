@@ -177,6 +177,26 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Supersede stale CV_OPPORTUNITY recs (e.g., "Missing Key Test" for a test just logged)
+    try {
+      const { supersedeExisting } = await import("@/services/recommendations/supersedeExisting");
+      await supersedeExisting(auth.user.id, "CV_OPPORTUNITY");
+      // Re-compute CV opportunity with fresh data
+      const { computeCvOpportunityRec } = await import("@/services/recommendations/computers/cvOpportunityComputer");
+      await computeCvOpportunityRec(auth.user.id, {
+        event_id: '',
+        athlete_id: auth.user.id,
+        event_type: 'ASSESSMENT_RESULT',
+        occurred_at: new Date().toISOString(),
+        source: 'MANUAL',
+        payload: { test_type: testType },
+        created_at: new Date().toISOString(),
+        created_by: auth.user.id,
+      } as any);
+    } catch (e) {
+      console.warn('[tests/my-results] CV rec refresh failed (non-fatal):', e);
+    }
+
     return NextResponse.json(
       {
         result: {
