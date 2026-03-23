@@ -25,6 +25,7 @@ const WHOOP_REDIRECT_URI =
   "https://api.my-tomo.com/api/v1/integrations/whoop/callback";
 
 const WHOOP_SCOPES = [
+  "offline",
   "read:recovery",
   "read:sleep",
   "read:workout",
@@ -395,6 +396,8 @@ export async function storeWhoopConnection(
   const expiresAt = new Date(
     Date.now() + tokens.expires_in * 1000
   ).toISOString();
+
+  console.log(`[whoopService] storeWhoopConnection: has_access=${!!tokens.access_token}, has_refresh=${!!tokens.refresh_token}, expires_in=${tokens.expires_in}s, scopes=${tokens.scope}`);
 
   const { error } = await wearableTable().upsert(
     {
