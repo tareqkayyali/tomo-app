@@ -2628,12 +2628,29 @@ export async function getWhoopAuthorizeUrl(): Promise<string> {
 
 export async function interactWithProgram(
   programId: string,
-  action: 'done' | 'dismissed' | 'active'
+  action: 'done' | 'dismissed' | 'active' | 'player_selected'
 ): Promise<{ success: boolean; toggled?: 'on' | 'off' }> {
   return apiRequest('/api/v1/programs/interact', {
     method: 'POST',
     body: JSON.stringify({ programId, action }),
   });
+}
+
+export interface ProgramCatalogItem {
+  id: string;
+  name: string;
+  category: string;
+  type: 'physical' | 'technical';
+  description: string;
+  difficulty: string;
+  duration_minutes: number;
+  tags: string[];
+}
+
+export async function searchProgramCatalog(q?: string): Promise<{ programs: ProgramCatalogItem[] }> {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  return apiRequest<{ programs: ProgramCatalogItem[] }>(`/api/v1/programs${params.toString() ? '?' + params.toString() : ''}`);
 }
 
 export async function fetchActivePrograms(): Promise<{ programIds: string[] }> {

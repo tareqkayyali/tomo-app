@@ -525,8 +525,18 @@ export async function GET(req: NextRequest) {
   // Extract program interactions
   const programInteractions = programInteractionsRes.data;
 
+  // Only exclude done/dismissed — keep active and player_selected visible
   const excludedProgramIds = new Set(
-    (programInteractions || []).map((pi) => pi.program_id)
+    (programInteractions || [])
+      .filter((pi: any) => pi.action === 'done' || pi.action === 'dismissed')
+      .map((pi: any) => pi.program_id)
+  );
+
+  // Player-selected program IDs (to include in response)
+  const playerSelectedIds = new Set(
+    (programInteractions || [])
+      .filter((pi: any) => pi.action === 'player_selected')
+      .map((pi: any) => pi.program_id)
   );
 
   // 4. Program recommendations — AI-first, no hardcoded fallback.
@@ -559,9 +569,21 @@ export async function GET(req: NextRequest) {
     confidence: r.confidence_score,
   }));
 
+  // Build player-selected programs from catalog
+  const playerSelectedPrograms: any[] = [];
+  if (playerSelectedIds.size > 0) {
+    const { getInlinePrograms } = await import("@/services/programs/footballPrograms");
+    const allPrograms = getInlinePrograms(profile.position, ageBand, phvRaw?.phvStage, []);
+    for (const prog of allPrograms.programs) {
+      if (playerSelectedIds.has(prog.programId)) {
+        playerSelectedPrograms.push({ ...prog, priority: 'player_selected' as any });
+      }
+    }
+  }
+
   // 5. Build unified response — AI-only, no hardcoded inline fallback
   const programsSection = aiPrograms ? {
-    recommendations: [...coachProgramsAsInline, ...aiPrograms.programs]
+    recommendations: [...coachProgramsAsInline, ...playerSelectedPrograms, ...aiPrograms.programs]
       .filter((p: any) => !excludedProgramIds.has(p.programId)),
     weeklyPlanSuggestion: aiPrograms.weeklyPlanSuggestion,
     weeklyStructure: aiPrograms.weeklyStructure,
@@ -574,7 +596,7 @@ export async function GET(req: NextRequest) {
   } : {
     // No AI cache — trigger deep refresh in background, show generating state
     ...(() => { triggerDeepProgramRefreshAsync(userId); return {}; })(),
-    recommendations: [...coachProgramsAsInline]
+    recommendations: [...coachProgramsAsInline, ...playerSelectedPrograms]
       .filter((p: any) => !excludedProgramIds.has(p.programId)),
     weeklyPlanSuggestion: null,
     weeklyStructure: null,

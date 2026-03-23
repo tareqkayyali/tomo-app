@@ -6,8 +6,8 @@
  * that communicate WHY each program matters in language athletes understand.
  */
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, TextInput, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
@@ -15,7 +15,8 @@ import { spacing, fontFamily, borderRadius } from '../../theme';
 import { GlassCard } from '../GlassCard';
 import { GlowWrapper } from '../GlowWrapper';
 import { AttachToTrainingSheet } from './AddToCalendarSheet';
-import type { OutputSnapshot } from '../../services/api';
+import type { OutputSnapshot, ProgramCatalogItem } from '../../services/api';
+import { searchProgramCatalog, interactWithProgram } from '../../services/api';
 import { colors } from '../../theme/colors';
 
 interface Props {
@@ -30,6 +31,7 @@ interface Props {
   onProgramDismiss?: (programId: string) => void;
   activeIds?: string[];
   onToggleActive?: (programId: string) => void;
+  onTestLogged?: () => void; // callback to refresh after adding a program
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -66,12 +68,48 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive }: Props) {
+export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive, onTestLogged }: Props) {
   const { colors } = useTheme();
   const { recommendations, weeklyPlanSuggestion, weeklyStructure, playerProfile } = programs;
   const [heroExpanded, setHeroExpanded] = useState(false);
   const [coachGroupExpanded, setCoachGroupExpanded] = useState(true);
   const [calendarSheetProgram, setCalendarSheetProgram] = useState<any>(null);
+
+  // ── Program Search ──
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<ProgramCatalogItem[]>([]);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [addingProgram, setAddingProgram] = useState<string | null>(null);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearch = useCallback((q: string) => {
+    setSearchQuery(q);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(async () => {
+      if (!q.trim()) { setSearchResults([]); return; }
+      try {
+        const res = await searchProgramCatalog(q);
+        // Filter out already-recommended programs
+        const existingIds = new Set(recommendations.map(r => r.programId));
+        setSearchResults((res.programs || []).filter(p => !existingIds.has(p.id)).slice(0, 6));
+      } catch { setSearchResults([]); }
+    }, 250);
+  }, [recommendations]);
+
+  const handleAddProgram = useCallback(async (program: ProgramCatalogItem) => {
+    setAddingProgram(program.id);
+    try {
+      await interactWithProgram(program.id, 'player_selected');
+      setSearchQuery('');
+      setSearchResults([]);
+      setSearchFocused(false);
+      onTestLogged?.(); // refresh to pick up new program
+    } catch (e: any) {
+      if (Platform.OS === 'web') window.alert('Failed to add program: ' + (e?.message || ''));
+    } finally {
+      setAddingProgram(null);
+    }
+  }, [onTestLogged]);
   const isAiGenerated = (programs as any).isAiGenerated === true;
   const dataStatus = (programs as any).dataStatus;
   const dataNeeded: string[] = (programs as any).dataNeeded || [];
@@ -205,7 +243,76 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
         </View>
       )}
 
-      {/* Training Blueprint hero removed — programs speak for themselves */}
+      {/* ── Program Search Bar ─────────────────────────────── */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={16} color={searchFocused ? colors.accent1 : colors.textInactive} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.textOnDark }]}
+          placeholder="Search programs... (sprint, strength, agility)"
+          placeholderTextColor={colors.textMuted}
+          value={searchQuery}
+          onChangeText={handleSearch}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+        />
+        {searchQuery.length > 0 && (
+          <Pressable onPress={() => { setSearchQuery(''); setSearchResults([]); }} hitSlop={8}>
+            <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+          </Pressable>
+        )}
+      </View>
+
+      {/* Search results dropdown */}
+      {searchFocused && searchResults.length > 0 && (
+        <View style={[styles.searchDropdown, { backgroundColor: colors.backgroundElevated, borderColor: colors.border }]}>
+          {searchResults.map((prog) => (
+            <Pressable
+              key={prog.id}
+              style={({ pressed }) => [styles.searchResultRow, pressed && { opacity: 0.7 }]}
+              onPress={() => handleAddProgram(prog)}
+              disabled={addingProgram === prog.id}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.searchResultName, { color: colors.textOnDark }]} numberOfLines={1}>
+                  {CATEGORY_EMOJI[prog.category] || '📋'} {prog.name}
+                </Text>
+                <Text style={[styles.searchResultMeta, { color: colors.textMuted }]}>
+                  {prog.type} · {prog.difficulty} · {prog.duration_minutes}min
+                </Text>
+              </View>
+              {addingProgram === prog.id ? (
+                <ActivityIndicator size="small" color={colors.accent1} />
+              ) : (
+                <View style={[styles.addBadge, { backgroundColor: colors.accent1 + '18' }]}>
+                  <Ionicons name="add" size={14} color={colors.accent1} />
+                  <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.accent1 }}>Add</Text>
+                </View>
+              )}
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {/* ── Player Assigned Programs ───────────────────────────── */}
+      {recommendations.filter(r => (r as any).priority === 'player_selected').length > 0 && (
+        <View style={styles.group}>
+          <View style={styles.groupHeaderTappable}>
+            <View style={[styles.priorityDot, { backgroundColor: colors.accent2 }]} />
+            <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>🎯 My Picks</Text>
+            <View style={[styles.countBadge, { backgroundColor: colors.accent2 + '22' }]}>
+              <Text style={[styles.countBadgeText, { color: colors.accent2 }]}>
+                {recommendations.filter(r => (r as any).priority === 'player_selected').length}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+            Programs you added from the catalog
+          </Text>
+          {recommendations.filter(r => (r as any).priority === 'player_selected').map((p) => (
+            <ProgramCard key={p.programId} program={p} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} isActive={activeIds.includes(p.programId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
+          ))}
+        </View>
+      )}
 
       {/* ── Coach Assigned Programs ───────────────────────────── */}
       {coachAssigned.length > 0 && (
@@ -674,6 +781,55 @@ function RxChip({ label, value, colors }: { label: string; value: string; colors
 
 const styles = StyleSheet.create({
   container: { gap: spacing.sm },
+
+  // Search
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginBottom: spacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
+    fontSize: 14,
+    padding: 0,
+  },
+  searchDropdown: {
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
+  },
+  searchResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.compact,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  searchResultName: {
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
+  },
+  searchResultMeta: {
+    fontFamily: fontFamily.regular,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  addBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+  },
 
   // Deep refresh
   refreshBanner: {

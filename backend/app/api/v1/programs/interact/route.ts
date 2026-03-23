@@ -27,17 +27,17 @@ export async function POST(req: NextRequest) {
   if (!programId || typeof programId !== "string") {
     return NextResponse.json({ error: "programId is required" }, { status: 400 });
   }
-  if (action !== "done" && action !== "dismissed" && action !== "active") {
+  if (action !== "done" && action !== "dismissed" && action !== "active" && action !== "player_selected") {
     return NextResponse.json(
-      { error: 'action must be "done", "dismissed", or "active"' },
+      { error: 'action must be "done", "dismissed", "active", or "player_selected"' },
       { status: 400 }
     );
   }
 
   const db = supabaseAdmin() as any;
 
-  // For 'active' action, check if already active — toggle off by deleting
-  if (action === "active") {
+  // For 'active' or 'player_selected' action, check if already set — toggle off by deleting
+  if (action === "active" || action === "player_selected") {
     const { data: existing } = await db
       .from("program_interactions")
       .select("action")
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       .eq("program_id", programId)
       .maybeSingle();
 
-    if (existing?.action === "active") {
+    if (existing?.action === action) {
       // Toggle off — delete the interaction row
       const { error: deleteError } = await db
         .from("program_interactions")
@@ -86,8 +86,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Clear the AI program cache only for done/dismissed (not active)
-  if (action !== "active") {
+  // Clear the AI program cache only for done/dismissed (not active/player_selected)
+  if (action !== "active" && action !== "player_selected") {
     const { error: clearError } = await (supabaseAdmin() as any)
       .from("athlete_snapshots")
       .update({ program_recommendations: null })
