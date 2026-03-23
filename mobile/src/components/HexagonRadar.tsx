@@ -46,7 +46,7 @@ export interface RadarAttribute {
 }
 
 export interface HexagonRadarProps {
-  /** Array of exactly 6 attributes, one per hexagon vertex, in display order */
+  /** Array of attributes (3-8), one per radar vertex, in display order — dynamically adjusts shape */
   attributes: RadarAttribute[];
   /** Optional benchmark attributes for a second reference polygon (e.g. P50 norms) */
   benchmarkAttributes?: RadarAttribute[];
@@ -68,18 +68,18 @@ export interface HexagonRadarProps {
 
 // ═══ GEOMETRY HELPERS ═══
 
-/** Get vertex position for a hexagon at angle index i (0 = top, clockwise) */
-function getVertex(cx: number, cy: number, radius: number, index: number) {
-  const angle = (Math.PI / 3) * index - Math.PI / 2; // start top, go clockwise
+/** Get vertex position at angle index i (0 = top, clockwise), N = total vertices */
+function getVertex(cx: number, cy: number, radius: number, index: number, total: number = 6) {
+  const angle = (2 * Math.PI / total) * index - Math.PI / 2; // start top, go clockwise
   return {
     x: cx + radius * Math.cos(angle),
     y: cy + radius * Math.sin(angle),
   };
 }
 
-function pointsString(cx: number, cy: number, radius: number): string {
-  return Array.from({ length: 6 }, (_, i) => {
-    const v = getVertex(cx, cy, radius, i);
+function pointsString(cx: number, cy: number, radius: number, total: number = 6): string {
+  return Array.from({ length: total }, (_, i) => {
+    const v = getVertex(cx, cy, radius, i, total);
     return `${v.x},${v.y}`;
   }).join(' ');
 }
@@ -107,6 +107,7 @@ export function HexagonRadar({
   const cx = size / 2;
   const cy = size / 2;
   const maxR = size / 2 - 30; // leave room for labels
+  const numAxes = attributes.length || 6; // dynamic vertex count
 
   const progress = useRadarGrow(animate);
 
@@ -136,7 +137,7 @@ export function HexagonRadar({
     return benchmarkVertices
       .map(({ ratio, index }) => {
         const r = maxR * ratio;
-        const angle = (Math.PI / 3) * index - Math.PI / 2;
+        const angle = (2 * Math.PI / numAxes) * index - Math.PI / 2;
         const x = cx + r * Math.cos(angle);
         const y = cy + r * Math.sin(angle);
         return `${x},${y}`;
@@ -149,7 +150,7 @@ export function HexagonRadar({
     const pts = dataVertices
       .map(({ ratio, index }) => {
         const r = maxR * ratio * progress.value;
-        const angle = (Math.PI / 3) * index - Math.PI / 2;
+        const angle = (2 * Math.PI / numAxes) * index - Math.PI / 2;
         const x = cx + r * Math.cos(angle);
         const y = cy + r * Math.sin(angle);
         return `${x},${y}`;
@@ -165,7 +166,7 @@ export function HexagonRadar({
         {gridRings.map((pct) => (
           <Polygon
             key={pct}
-            points={pointsString(cx, cy, maxR * pct)}
+            points={pointsString(cx, cy, maxR * pct, numAxes)}
             fill="none"
             stroke="rgba(255, 255, 255, 0.10)"
             strokeWidth={0.5}
@@ -174,7 +175,7 @@ export function HexagonRadar({
 
         {/* Axis lines — subtle radial */}
         {attributes.map((_, i) => {
-          const v = getVertex(cx, cy, maxR, i);
+          const v = getVertex(cx, cy, maxR, i, numAxes);
           return (
             <Line
               key={i}
@@ -217,8 +218,8 @@ export function HexagonRadar({
           const next = dataVertices[(i + 1) % dataVertices.length];
           const r1 = maxR * ratio;
           const r2 = maxR * next.ratio;
-          const v1 = getVertex(cx, cy, r1, index);
-          const v2 = getVertex(cx, cy, r2, next.index);
+          const v1 = getVertex(cx, cy, r1, index, numAxes);
+          const v2 = getVertex(cx, cy, r2, next.index, numAxes);
           return (
             <Line
               key={`edge-${i}`}
@@ -236,7 +237,7 @@ export function HexagonRadar({
         {/* Vertex dots */}
         {dataVertices.map(({ attr, ratio, index }) => {
           const r = maxR * ratio;
-          const v = getVertex(cx, cy, r, index);
+          const v = getVertex(cx, cy, r, index, numAxes);
           return (
             <Circle
               key={attr.key}
@@ -254,7 +255,7 @@ export function HexagonRadar({
       {/* Attribute labels around the hexagon */}
       {attributes.map((attr, i) => {
         const labelR = maxR + 22;
-        const v = getVertex(cx, cy, labelR, i);
+        const v = getVertex(cx, cy, labelR, i, numAxes);
 
         return (
           <Pressable
