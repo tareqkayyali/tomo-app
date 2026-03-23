@@ -127,6 +127,7 @@ const NORM_NAME_TO_METRIC_KEY: Record<string, string> = {
   "Throw-In Distance": "throwin_distance",
   "Lofted Pass Hang Time": "lofted_pass",
   "T-Test Agility": "agility_505",
+  "5-10-5 Agility": "agility_5105",
   "5-0-5 COD": "agility_505_cod",
   "Illinois Agility Run": "illinois_agility",
   "Slalom Dribble 10 Cones": "dribbling_test",
@@ -156,7 +157,6 @@ const NORM_NAME_TO_METRIC_KEY: Record<string, string> = {
   "Vertical Jump": "vertical_jump",
   "SL Broad Jump R": "sl_broad_jump_r",
   "SL Broad Jump L": "sl_broad_jump_l",
-  "5-10-5 Agility": "agility_505",
 };
 
 /** Extract mean and SD for a specific age from the JSONB arrays (ages 13-23) */
