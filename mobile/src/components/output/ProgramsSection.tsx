@@ -403,6 +403,61 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
           />
         </View>
 
+        {/* Action buttons — Active / Done / Not for me (always visible below title) */}
+        {!isCoachAssigned && (onDone || onDismiss || onToggleActive) && (
+          <View
+            style={[styles.cardActions, { marginTop: spacing.sm }]}
+            onStartShouldSetResponder={() => true}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
+            {onToggleActive && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cardActionBtn,
+                  { backgroundColor: (isActive ? colors.accent : colors.textMuted) + '18', opacity: pressed ? 0.7 : 1 },
+                ]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onToggleActive(program.programId);
+                }}
+              >
+                <Ionicons name={isActive ? 'flame' : 'flame-outline'} size={16} color={isActive ? colors.accent : colors.textMuted} />
+                <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.textMuted }]}>Active</Text>
+              </Pressable>
+            )}
+            {onDone && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cardActionBtn,
+                  { backgroundColor: colors.accent + '18', opacity: pressed ? 0.7 : 1 },
+                ]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setConfirmAction('done');
+                }}
+              >
+                <Ionicons name="checkmark-circle-outline" size={16} color={colors.accent} />
+                <Text style={[styles.cardActionText, { color: colors.accent }]}>Done</Text>
+              </Pressable>
+            )}
+            {onDismiss && !hideNotForMe && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cardActionBtn,
+                  { backgroundColor: colors.textMuted + '12', opacity: pressed ? 0.7 : 1 },
+                ]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setConfirmAction('dismissed');
+                }}
+              >
+                <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
+                <Text style={[styles.cardActionText, { color: colors.textMuted }]}>Not for me</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
         {/* ── Expanded content ────────────────────────────────── */}
         {expanded && (
           <View style={styles.expandedContent}>
@@ -561,60 +616,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               <Text style={[styles.askTomoText, { color: colors.info }]}>Ask Tomo about this program</Text>
             </Pressable>
 
-            {/* Action buttons — Active / Done / Not for me */}
-            {!isCoachAssigned && (onDone || onDismiss || onToggleActive) && (
-              <View
-                style={styles.cardActions}
-                onStartShouldSetResponder={() => true}
-                onTouchEnd={(e) => e.stopPropagation()}
-              >
-                {onToggleActive && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.cardActionBtn,
-                      { backgroundColor: (isActive ? colors.accent : colors.textMuted) + '18', opacity: pressed ? 0.7 : 1 },
-                    ]}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      onToggleActive(program.programId);
-                    }}
-                  >
-                    <Ionicons name={isActive ? 'flame' : 'flame-outline'} size={16} color={isActive ? colors.accent : colors.textMuted} />
-                    <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.textMuted }]}>Active</Text>
-                  </Pressable>
-                )}
-                {onDone && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.cardActionBtn,
-                      { backgroundColor: colors.accent + '18', opacity: pressed ? 0.7 : 1 },
-                    ]}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setConfirmAction('done');
-                    }}
-                  >
-                    <Ionicons name="checkmark-circle-outline" size={16} color={colors.accent} />
-                    <Text style={[styles.cardActionText, { color: colors.accent }]}>Done</Text>
-                  </Pressable>
-                )}
-                {onDismiss && !hideNotForMe && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.cardActionBtn,
-                      { backgroundColor: colors.textMuted + '12', opacity: pressed ? 0.7 : 1 },
-                    ]}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setConfirmAction('dismissed');
-                    }}
-                  >
-                    <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
-                    <Text style={[styles.cardActionText, { color: colors.textMuted }]}>Not for me</Text>
-                  </Pressable>
-                )}
-              </View>
-            )}
+            {/* Action buttons moved above expanded content */}
           </View>
         )}
 
