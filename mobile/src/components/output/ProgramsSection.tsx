@@ -346,48 +346,33 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
                 Programs you added from the catalog
               </Text>
               {playerSelectedIds.map((psId) => {
-                // Find from snapshot first (has full prescription data)
+                // Use snapshot data if available (has full prescription), else catalog data
                 const fromSnapshot = recommendations.find(r => r.programId === psId);
-                if (fromSnapshot) {
-                  return <ProgramCard key={psId} program={fromSnapshot} colors={colors} onDone={() => onPlayerDeselect?.(psId)} onDismiss={() => onPlayerDeselect?.(psId)} isActive={activeIds.includes(psId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />;
-                }
-                // Use locally stored catalog data
                 const fromCatalog = playerSelectedPrograms.find(p => p.id === psId);
-                if (fromCatalog) {
-                  const asProgramCard: any = {
-                    programId: fromCatalog.id,
-                    name: fromCatalog.name,
-                    category: fromCatalog.category,
-                    type: fromCatalog.type,
-                    priority: 'player_selected',
-                    durationMin: fromCatalog.duration_minutes,
-                    description: fromCatalog.description,
-                    impact: 'Added by you from the program catalog',
-                    frequency: '',
-                    difficulty: fromCatalog.difficulty,
-                    tags: fromCatalog.tags,
-                    positionNote: '',
-                    reason: 'You selected this program',
-                    prescription: { sets: 0, reps: '', intensity: '', rpe: '', rest: '', frequency: '', coachingCues: [] },
-                    phvWarnings: [],
-                  };
-                  return <ProgramCard key={psId} program={asProgramCard} colors={colors} onDone={() => onPlayerDeselect?.(psId)} onDismiss={() => onPlayerDeselect?.(psId)} isActive={activeIds.includes(psId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />;
+
+                // Build the best available program card data
+                const programData: any = fromSnapshot || (fromCatalog ? {
+                  programId: fromCatalog.id,
+                  name: fromCatalog.name,
+                  category: fromCatalog.category,
+                  type: fromCatalog.type,
+                  priority: 'player_selected',
+                  durationMin: fromCatalog.duration_minutes,
+                  description: fromCatalog.description,
+                  impact: 'Added by you from the program catalog',
+                  frequency: '',
+                  difficulty: fromCatalog.difficulty,
+                  tags: fromCatalog.tags || [],
+                  positionNote: '',
+                  reason: 'You selected this program',
+                  prescription: { sets: 0, reps: '', intensity: '', rpe: '', rest: '', frequency: '', coachingCues: [] },
+                  phvWarnings: [],
+                } : null);
+
+                if (programData) {
+                  return <ProgramCard key={psId} program={programData} colors={colors} onDone={() => onPlayerDeselect?.(psId)} onDismiss={() => onPlayerDeselect?.(psId)} isActive={activeIds.includes(psId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />;
                 }
-                // Last fallback — minimal card
-                return (
-                  <GlassCard key={psId}>
-                    <View style={styles.cardHeader}>
-                      <Text style={styles.cardEmoji}>📋</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.programName, { color: colors.textOnDark }]} numberOfLines={1}>{psId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Text>
-                        <Text style={[styles.programMeta, { color: colors.textMuted }]}>Added by you · tap refresh for full details</Text>
-                      </View>
-                      <Pressable onPress={() => onPlayerDeselect?.(psId)} hitSlop={8}>
-                        <Ionicons name="close-circle" size={20} color={colors.error} />
-                      </Pressable>
-                    </View>
-                  </GlassCard>
-                );
+                return null; // Skip if no data available (shouldn't happen)
               })}
             </>
           )}
