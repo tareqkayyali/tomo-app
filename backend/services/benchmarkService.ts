@@ -339,7 +339,8 @@ export async function getPlayerBenchmarkProfile(
     .from("player_benchmark_snapshots")
     .select("*")
     .eq("user_id", userId)
-    .order("tested_at", { ascending: false });
+    .order("tested_at", { ascending: false })
+    .order("created_at", { ascending: false });
 
   if (!snapshots || snapshots.length === 0) return null;
 
