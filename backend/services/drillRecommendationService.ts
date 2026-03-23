@@ -260,13 +260,32 @@ export async function getRecommendedDrills(
   // 6. Category distribution for full sessions
   if (!options?.category) {
     const warmups = scored.filter((d) => d.drill.category === "warmup");
-    const training = scored.filter((d) => d.drill.category === "training");
+    const allTraining = scored.filter((d) => d.drill.category === "training");
     const cooldowns = scored.filter((d) => d.drill.category === "cooldown");
     const recovery = scored.filter((d) => d.drill.category === "recovery");
 
+    // When player has gaps, strongly prefer gap-targeted training drills
+    let training = allTraining;
+    if (gapAttrs.length > 0) {
+      const gapTargeted = allTraining.filter((d) => {
+        const primary = (d.drill as any).primary_attribute;
+        return primary && gapAttrs.includes(primary);
+      });
+      // Use gap-targeted if we have enough, otherwise fall back to all
+      if (gapTargeted.length >= 3) {
+        training = gapTargeted;
+        console.log('[DrillRec] Using gap-targeted training drills only:', training.map(t => t.drill.name));
+      }
+    }
+
     const session: RecommendedDrill[] = [];
-    // 1 warmup
-    if (warmups.length > 0) session.push(warmups[0]);
+    // 1 warmup (prefer gap-matching warmup/activation)
+    const gapWarmups = warmups.filter((d) => {
+      const primary = (d.drill as any).primary_attribute;
+      return primary && gapAttrs.includes(primary);
+    });
+    if (gapWarmups.length > 0) session.push(gapWarmups[0]);
+    else if (warmups.length > 0) session.push(warmups[0]);
     // Main training block
     const mainCount = Math.max(1, limit - 2);
     session.push(...training.slice(0, mainCount));
