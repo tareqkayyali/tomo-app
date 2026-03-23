@@ -617,6 +617,42 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
           </View>
         )}
 
+        {/* Confirmation bar — right below action buttons */}
+        {confirmAction && (() => {
+          const isDone = confirmAction === 'done';
+          return (
+            <View style={[styles.confirmRow, { backgroundColor: isDone ? '#2ECC7110' : colors.accent1 + '10', borderRadius: borderRadius.sm, marginTop: spacing.sm }]}>
+              <Ionicons
+                name={isDone ? 'checkmark-circle' : 'close-circle'}
+                size={18}
+                color={isDone ? colors.accent : colors.accent1}
+              />
+              <Text style={[styles.confirmLabel, { color: colors.textOnDark }]} numberOfLines={1}>
+                {isDone ? 'Mark as done?' : 'Remove this?'}
+              </Text>
+              <Pressable
+                style={({ pressed }) => [styles.confirmChip, { backgroundColor: colors.backgroundElevated, opacity: pressed ? 0.7 : 1 }]}
+                onPress={(e) => { e.stopPropagation(); setConfirmAction(null); }}
+              >
+                <Text style={[styles.confirmChipText, { color: colors.textInactive }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.confirmChip, { backgroundColor: isDone ? colors.accent : colors.accent1, opacity: pressed ? 0.8 : 1 }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  if (confirmAction === 'done' && onDone) onDone(program.programId);
+                  if (confirmAction === 'dismissed' && onDismiss) onDismiss(program.programId);
+                  setConfirmAction(null);
+                }}
+              >
+                <Text style={[styles.confirmChipText, { color: '#FFF' }]}>
+                  {isDone ? 'Done' : 'Remove'}
+                </Text>
+              </Pressable>
+            </View>
+          );
+        })()}
+
         {/* ── Expanded content ────────────────────────────────── */}
         {expanded && (
           <View style={styles.expandedContent}>
@@ -780,41 +816,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
           </View>
         )}
 
-        {/* Confirmation bar — appears at bottom of card, right where user tapped */}
-        {confirmAction && (() => {
-          const isDone = confirmAction === 'done';
-          return (
-            <View style={[styles.confirmRow, { backgroundColor: isDone ? '#2ECC7110' : colors.accent1 + '10', borderRadius: borderRadius.sm, marginTop: spacing.sm }]}>
-              <Ionicons
-                name={isDone ? 'checkmark-circle' : 'close-circle'}
-                size={18}
-                color={isDone ? colors.accent : colors.accent1}
-              />
-              <Text style={[styles.confirmLabel, { color: colors.textOnDark }]} numberOfLines={1}>
-                {isDone ? 'Mark as done?' : 'Remove this?'}
-              </Text>
-              <Pressable
-                style={({ pressed }) => [styles.confirmChip, { backgroundColor: colors.backgroundElevated, opacity: pressed ? 0.7 : 1 }]}
-                onPress={(e) => { e.stopPropagation(); setConfirmAction(null); }}
-              >
-                <Text style={[styles.confirmChipText, { color: colors.textInactive }]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.confirmChip, { backgroundColor: isDone ? colors.accent : colors.accent1, opacity: pressed ? 0.8 : 1 }]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  if (confirmAction === 'done' && onDone) onDone(program.programId);
-                  if (confirmAction === 'dismissed' && onDismiss) onDismiss(program.programId);
-                  setConfirmAction(null);
-                }}
-              >
-                <Text style={[styles.confirmChipText, { color: '#FFF' }]}>
-                  {isDone ? 'Done' : 'Remove'}
-                </Text>
-              </Pressable>
-            </View>
-          );
-        })()}
+        {/* Confirmation bar moved above expanded content */}
       </GlassCard>
     </Pressable>
   );
