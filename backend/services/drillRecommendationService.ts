@@ -185,19 +185,21 @@ export async function getRecommendedDrills(
     let score = 0;
     const reasons: string[] = [];
 
-    // Gap targeting: score based on how focused the drill is on the gap
+    // Gap targeting: primary_attribute match is strongest signal
+    const primaryAttr: string = drill.primary_attribute ?? '';
     const drillAttrs: string[] = drill.attribute_keys ?? [];
-    let gapMatchCount = 0;
-    for (const attr of drillAttrs) {
-      if (gapAttrs.includes(attr)) {
-        gapMatchCount++;
-        reasons.push(`Targets your ${attr} gap`);
-      }
+
+    // Primary attribute matches gap: +10 (highest priority)
+    if (primaryAttr && gapAttrs.includes(primaryAttr)) {
+      score += 10;
+      reasons.push(`Primary focus targets your ${primaryAttr} gap`);
     }
-    if (gapMatchCount > 0) {
-      // Pure gap drills (all attrs are gaps) get +5; mixed drills get +2
-      const purity = gapMatchCount / Math.max(drillAttrs.length, 1);
-      score += purity >= 1.0 ? 5 : 2;
+    // Secondary attribute matches gap: +2
+    for (const attr of drillAttrs) {
+      if (attr !== primaryAttr && gapAttrs.includes(attr)) {
+        score += 2;
+        reasons.push(`Also targets your ${attr} gap`);
+      }
     }
 
     // Focus attribute: +3 if matches requested focus
