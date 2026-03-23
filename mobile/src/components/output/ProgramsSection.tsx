@@ -241,11 +241,11 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       )}
 
       {/* ── Priority Groups ────────────────────────────────────── */}
-      {mandatory.length > 0 && (
-        <PriorityGroup label="mandatory" programs={mandatory} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} activeIds={activeIds} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
-      )}
       {high.length > 0 && (
         <PriorityGroup label="high" programs={high} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} activeIds={activeIds} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
+      )}
+      {mandatory.length > 0 && (
+        <PriorityGroup label="mandatory" programs={mandatory} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} activeIds={activeIds} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
       )}
       {medium.length > 0 && (
         <PriorityGroup label="medium" programs={medium} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} activeIds={activeIds} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
