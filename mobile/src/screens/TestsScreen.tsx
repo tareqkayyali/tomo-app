@@ -257,9 +257,22 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refresh();
-    setRefreshing(false);
-  }, [refresh]);
+    try {
+      // On vitals tab, also trigger Whoop sync for fresh data
+      if (activeTab === 'vitals' && isWhoopConnected) {
+        try {
+          const { syncWhoop } = await import('../services/api');
+          await syncWhoop();
+          await new Promise(r => setTimeout(r, 1500));
+        } catch (e) {
+          console.warn('[TestsScreen] Whoop sync on refresh failed:', e);
+        }
+      }
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh, activeTab, isWhoopConnected]);
 
   // ── Program interactions (done/dismiss) ─────────────────────────
   // Confirmation is handled inline by ProgramCard — this just does the action

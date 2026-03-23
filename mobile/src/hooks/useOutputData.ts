@@ -182,16 +182,26 @@ export function useOutputData(targetPlayerId?: string) {
     }
   }, [isFocused, fetchData]);
 
-  // ── Auto-refresh every 60s while screen is focused ──────────
-  const fetchRef = useRef(fetchData);
-  fetchRef.current = fetchData;
+  // ── Auto-sync Whoop on screen focus if data is stale (>15 min) ──────────
+  const lastSyncRef = useRef<number>(0);
   useEffect(() => {
     if (!isFocused || isViewingOther) return;
-    const interval = setInterval(() => {
-      fetchRef.current();
-    }, 60_000); // 60 seconds
-    return () => clearInterval(interval);
-  }, [isFocused, isViewingOther]);
+    const now = Date.now();
+    const fifteenMin = 15 * 60 * 1000;
+    if (now - lastSyncRef.current < fifteenMin) return; // Skip if synced recently
+    lastSyncRef.current = now;
+    // Background Whoop sync — don't block UI
+    (async () => {
+      try {
+        const { syncWhoop } = await import('../services/api');
+        await syncWhoop();
+        await new Promise(r => setTimeout(r, 1500));
+        await fetchData();
+      } catch {
+        // Silent — user can pull-to-refresh manually
+      }
+    })();
+  }, [isFocused, isViewingOther, fetchData]);
 
   // ── Manual refresh (pull-to-refresh) ───────────────────────────────
   const refresh = useCallback(async () => {
