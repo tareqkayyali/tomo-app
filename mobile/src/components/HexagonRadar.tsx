@@ -162,14 +162,15 @@ export function HexagonRadar({
   return (
     <View style={[s.container, { width: size, height: size }]}>
       <Svg width={size} height={size}>
-        {/* Grid rings — subtle spider web */}
+        {/* Grid rings — bold white dotted web */}
         {gridRings.map((pct) => (
           <Polygon
             key={pct}
             points={pointsString(cx, cy, maxR * pct, numAxes)}
             fill="none"
-            stroke="rgba(255, 255, 255, 0.10)"
-            strokeWidth={0.5}
+            stroke="rgba(255, 255, 255, 0.35)"
+            strokeWidth={1}
+            strokeDasharray="2,3"
           />
         ))}
 
@@ -183,8 +184,9 @@ export function HexagonRadar({
               y1={cy}
               x2={v.x}
               y2={v.y}
-              stroke="rgba(255, 255, 255, 0.10)"
-              strokeWidth={0.5}
+              stroke="rgba(255, 255, 255, 0.35)"
+              strokeWidth={1}
+              strokeDasharray="2,3"
             />
           );
         })}
