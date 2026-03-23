@@ -65,6 +65,8 @@ export interface PlayerContext {
     overallPercentile: number;
     strengths: string[];
     gaps: string[];
+    gapAttributes: string[];
+    strengthAttributes: string[];
   } | null;
   recentTestScores: { testType: string; score: number; date: string }[];
 
@@ -398,13 +400,15 @@ export async function buildPlayerContext(
     : null;
 
   // Benchmark profile from normative data (fetched in parallel above)
-  let benchmarkProfile: { overallPercentile: number; strengths: string[]; gaps: string[] } | null = null;
+  let benchmarkProfile: { overallPercentile: number; strengths: string[]; gaps: string[]; gapAttributes: string[]; strengthAttributes: string[] } | null = null;
   if (benchmarkProfileRes.status === "fulfilled" && benchmarkProfileRes.value) {
     const bp = benchmarkProfileRes.value;
     benchmarkProfile = {
       overallPercentile: bp.overallPercentile,
       strengths: bp.strengths,
       gaps: bp.gaps,
+      gapAttributes: bp.gapAttributes ?? [],
+      strengthAttributes: bp.strengthAttributes ?? [],
     };
   }
 

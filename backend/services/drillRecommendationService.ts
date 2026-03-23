@@ -175,7 +175,9 @@ export async function getRecommendedDrills(
   }
 
   // 5. Score and rank drills
-  const gaps = context.benchmarkProfile?.gaps ?? [];
+  // Use gapAttributes (attribute keys like "pace") for drill matching,
+  // NOT gaps (metric labels like "10m Sprint") which never match drill attribute_keys
+  const gapAttrs = context.benchmarkProfile?.gapAttributes ?? [];
   const position = context.position;
   const focusAttr = options?.focus;
 
@@ -186,7 +188,7 @@ export async function getRecommendedDrills(
     // Gap targeting: +2 for each matching gap attribute
     const drillAttrs: string[] = drill.attribute_keys ?? [];
     for (const attr of drillAttrs) {
-      if (gaps.includes(attr)) {
+      if (gapAttrs.includes(attr)) {
         score += 2;
         reasons.push(`Targets your ${attr} gap`);
       }

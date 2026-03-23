@@ -45,6 +45,10 @@ export interface BenchmarkProfile {
   overallPercentile: number;
   strengths: string[];
   gaps: string[];
+  /** Attribute keys (pace, power, agility...) for gap metrics — used for drill matching */
+  gapAttributes: string[];
+  /** Attribute keys for strength metrics */
+  strengthAttributes: string[];
   updatedAt: string;
 }
 
@@ -382,7 +386,7 @@ export async function getPlayerBenchmarkProfile(
   // Index norms by metric_key (translated from metric_name)
   const playerAge = getAgeFromDOB(profile.date_of_birth);
   const normsByMetric = new Map<string, {
-    metricLabel: string; unit: string; direction: string;
+    metricLabel: string; unit: string; direction: string; attributeKey: string;
     p10: number; p25: number; p50: number; p75: number; p90: number; sd: number;
   }>();
 
@@ -401,6 +405,7 @@ export async function getPlayerBenchmarkProfile(
         metricLabel: metricName,
         unit: (norm.unit as string) || "",
         direction: norm.direction as string,
+        attributeKey: (norm.attribute_key as string) || "",
         ...points,
         sd,
       });
@@ -446,14 +451,19 @@ export async function getPlayerBenchmarkProfile(
   );
 
   const sorted = [...results].sort((a, b) => b.percentile - a.percentile);
-  const strengths = sorted
-    .filter((r) => r.percentile >= 75)
-    .slice(0, 3)
-    .map((r) => r.metricLabel);
-  const gaps = sorted
-    .filter((r) => r.percentile < 40)
-    .slice(-3)
-    .map((r) => r.metricLabel);
+  const strengthResults = sorted.filter((r) => r.percentile >= 75).slice(0, 3);
+  const gapResults = sorted.filter((r) => r.percentile < 40).slice(-3);
+  const strengths = strengthResults.map((r) => r.metricLabel);
+  const gaps = gapResults.map((r) => r.metricLabel);
+
+  // Build attribute-key versions for drill recommendation matching
+  // Map metric keys back to their attribute_key from normative data
+  const gapAttributes = gapResults
+    .map((r) => normsByMetric.get(r.metricKey)?.attributeKey)
+    .filter((a): a is string => !!a);
+  const strengthAttributes = strengthResults
+    .map((r) => normsByMetric.get(r.metricKey)?.attributeKey)
+    .filter((a): a is string => !!a);
 
   return {
     userId,
@@ -464,6 +474,8 @@ export async function getPlayerBenchmarkProfile(
     overallPercentile,
     strengths,
     gaps,
+    gapAttributes: [...new Set(gapAttributes)],
+    strengthAttributes: [...new Set(strengthAttributes)],
     updatedAt: new Date().toISOString(),
   };
 }
