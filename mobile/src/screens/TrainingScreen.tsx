@@ -40,6 +40,7 @@ import type { MainTabParamList, MainStackParamList } from '../navigation/types';
 import { useSubTabRegistry } from '../hooks/useSubTabContext';
 import { usePageConfig } from '../hooks/usePageConfig';
 import { useScheduleRules } from '../hooks/useScheduleRules';
+import { useFocusEffect } from '@react-navigation/native';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -108,8 +109,11 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
 
   const { profile, role } = useAuth();
   const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
-  const { rules } = useScheduleRules();
+  const { rules, refresh: refreshRules } = useScheduleRules();
   const examModeEnabled = rules?.preferences?.exam_period_active ?? false;
+
+  // Refresh rules on screen focus (picks up unlinked programs from EventEdit)
+  useFocusEffect(useCallback(() => { refreshRules(); }, [refreshRules]));
   const quickActions = useQuickActions(
     [
       { key: 'study', icon: 'book-outline', label: 'Study', onPress: () => navigation.navigate('StudyPlanView' as any), accentColor: colors.accent2 },
