@@ -18,41 +18,46 @@ export async function POST(
   const relResult = await requireRelationship(auth.user.id, childId);
   if ("error" in relResult) return relResult.error;
 
-  const body = await req.json();
-  const { subject, examType, examDate, notes } = body;
+  try {
+    const body = await req.json();
+    const { subject, examType, examDate, notes } = body;
 
-  if (!subject || !examType || !examDate) {
+    if (!subject || !examType || !examDate) {
+      return NextResponse.json(
+        { error: "Missing required fields: subject, examType, examDate" },
+        { status: 400 }
+      );
+    }
+
+    const suggestion = await createSuggestion({
+      playerId: childId,
+      authorId: auth.user.id,
+      authorRole: "parent",
+      suggestionType: "exam_date",
+      title: `Exam: ${subject} (${examType})`,
+      payload: {
+        subject,
+        examType,
+        examDate,
+        notes: notes || null,
+      },
+      expiresAt: new Date(examDate).toISOString(),
+    });
+
+    await createNotification({
+      userId: childId,
+      type: "suggestion_received",
+      title: "Upcoming Exam",
+      body: `Your parent added an exam: ${subject} (${examType}) on ${examDate}`,
+      data: { suggestionId: suggestion.id, suggestionType: "exam_date" },
+    });
+
     return NextResponse.json(
-      { error: "Missing required fields: subject, examType, examDate" },
-      { status: 400 }
+      { suggestion },
+      { status: 201, headers: { "api-version": "v1" } }
     );
+  } catch (err) {
+    console.error('[POST /api/v1/parent/children/[id]/exam] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  const suggestion = await createSuggestion({
-    playerId: childId,
-    authorId: auth.user.id,
-    authorRole: "parent",
-    suggestionType: "exam_date",
-    title: `Exam: ${subject} (${examType})`,
-    payload: {
-      subject,
-      examType,
-      examDate,
-      notes: notes || null,
-    },
-    expiresAt: new Date(examDate).toISOString(),
-  });
-
-  await createNotification({
-    userId: childId,
-    type: "suggestion_received",
-    title: "Upcoming Exam",
-    body: `Your parent added an exam: ${subject} (${examType}) on ${examDate}`,
-    data: { suggestionId: suggestion.id, suggestionType: "exam_date" },
-  });
-
-  return NextResponse.json(
-    { suggestion },
-    { status: 201, headers: { "api-version": "v1" } }
-  );
 }

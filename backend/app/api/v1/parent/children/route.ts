@@ -8,10 +8,15 @@ export async function GET(req: NextRequest) {
   const roleCheck = await requireRole(auth.user.id, ["parent"]);
   if ("error" in roleCheck) return roleCheck.error;
 
-  const children = await getLinkedPlayers(auth.user.id, "PARENT");
+  try {
+    const children = await getLinkedPlayers(auth.user.id, "PARENT");
 
-  return NextResponse.json(
-    { children },
-    { headers: { "api-version": "v1" } }
-  );
+    return NextResponse.json(
+      { children },
+      { headers: { "api-version": "v1" } }
+    );
+  } catch (err) {
+    console.error('[GET /api/v1/parent/children] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

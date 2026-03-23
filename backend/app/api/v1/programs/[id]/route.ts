@@ -14,20 +14,26 @@ export async function GET(
   if ("error" in auth) return auth.error;
 
   const { id } = await params;
-  const db = supabaseAdmin();
 
-  const { data, error } = await (db as any)
-    .from("football_training_programs")
-    .select("*")
-    .eq("id", id)
-    .single();
+  try {
+    const db = supabaseAdmin();
 
-  if (error || !data) {
-    return NextResponse.json(
-      { error: "Program not found" },
-      { status: 404 }
-    );
+    const { data, error } = await (db as any)
+      .from("football_training_programs")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      return NextResponse.json(
+        { error: "Program not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ program: data });
+  } catch (err) {
+    console.error('[GET /api/v1/programs/[id]] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  return NextResponse.json({ program: data });
 }

@@ -327,6 +327,7 @@ export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
 
+  try {
   // Support coach/parent viewing a player's output data
   const targetPlayerId = req.nextUrl.searchParams.get("targetPlayerId");
   let userId = auth.user.id;
@@ -890,4 +891,8 @@ export async function GET(req: NextRequest) {
       "Expires": "0",
     },
   });
+  } catch (err) {
+    console.error('[GET /api/v1/output/snapshot] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

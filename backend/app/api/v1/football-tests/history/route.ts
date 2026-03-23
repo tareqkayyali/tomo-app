@@ -28,32 +28,37 @@ export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
 
-  const { searchParams } = req.nextUrl;
-  const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
-  const testType = searchParams.get("testType");
+  try {
+    const { searchParams } = req.nextUrl;
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
+    const testType = searchParams.get("testType");
 
-  const db = supabaseAdmin();
-  let query = db
-    .from("football_test_results")
-    .select("*")
-    .eq("user_id", auth.user.id)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    const db = supabaseAdmin();
+    let query = db
+      .from("football_test_results")
+      .select("*")
+      .eq("user_id", auth.user.id)
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-  if (testType) {
-    query = query.eq("test_type", testType);
+    if (testType) {
+      query = query.eq("test_type", testType);
+    }
+
+    const { data: results, error } = await query;
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const mapped = (results || []).map((r) => mapResult(r as Record<string, unknown>));
+
+    return NextResponse.json(
+      { results: mapped, count: mapped.length },
+      { headers: { "api-version": "v1" } }
+    );
+  } catch (err) {
+    console.error('[GET /api/v1/football-tests/history] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  const { data: results, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const mapped = (results || []).map((r) => mapResult(r as Record<string, unknown>));
-
-  return NextResponse.json(
-    { results: mapped, count: mapped.length },
-    { headers: { "api-version": "v1" } }
-  );
 }

@@ -501,6 +501,7 @@ export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
 
+  try {
   const requestingUserId = auth.user.id;
   const db = supabaseAdmin();
 
@@ -682,4 +683,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(snapshot, {
     headers: { "api-version": "v1", "Cache-Control": "private, no-cache" },
   });
+  } catch (err) {
+    console.error('[GET /api/v1/mastery/snapshot] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

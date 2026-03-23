@@ -18,26 +18,31 @@ const CONTENT_TABLES = [
  * Public — no auth required.
  */
 export async function GET(_req: NextRequest) {
-  const db = supabaseAdmin();
+  try {
+    const db = supabaseAdmin();
 
-  const results = await Promise.all(
-    CONTENT_TABLES.map(async (table) => {
-      const { data, error } = await db
-        .from(table)
-        .select("updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .single();
-      return [table, error ? null : data.updated_at] as const;
-    })
-  );
+    const results = await Promise.all(
+      CONTENT_TABLES.map(async (table) => {
+        const { data, error } = await db
+          .from(table)
+          .select("updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .single();
+        return [table, error ? null : data.updated_at] as const;
+      })
+    );
 
-  const manifest = Object.fromEntries(results);
+    const manifest = Object.fromEntries(results);
 
-  return NextResponse.json(manifest, {
-    headers: {
-      "Cache-Control": "public, max-age=300, s-maxage=3600",
-      "api-version": "v1",
-    },
-  });
+    return NextResponse.json(manifest, {
+      headers: {
+        "Cache-Control": "public, max-age=300, s-maxage=3600",
+        "api-version": "v1",
+      },
+    });
+  } catch (err) {
+    console.error('[GET /api/v1/content/manifest] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

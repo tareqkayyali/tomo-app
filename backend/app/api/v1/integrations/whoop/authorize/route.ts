@@ -14,23 +14,28 @@ export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
 
-  // Generate CSRF state: userId:randomHex
-  const stateToken = `${auth.user.id}:${crypto.randomBytes(16).toString("hex")}`;
+  try {
+    // Generate CSRF state: userId:randomHex
+    const stateToken = `${auth.user.id}:${crypto.randomBytes(16).toString("hex")}`;
 
-  // Store state temporarily in metadata of existing connection or a temp record
-  const db = supabaseAdmin() as any;
-  await db.from("wearable_connections").upsert(
-    {
-      user_id: auth.user.id,
-      provider: "whoop",
-      access_token: "__pending__",
-      sync_status: "idle",
-      metadata: { oauth_state: stateToken },
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,provider" }
-  );
+    // Store state temporarily in metadata of existing connection or a temp record
+    const db = supabaseAdmin() as any;
+    await db.from("wearable_connections").upsert(
+      {
+        user_id: auth.user.id,
+        provider: "whoop",
+        access_token: "__pending__",
+        sync_status: "idle",
+        metadata: { oauth_state: stateToken },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,provider" }
+    );
 
-  const authUrl = getWhoopAuthUrl(stateToken);
-  return NextResponse.json({ url: authUrl });
+    const authUrl = getWhoopAuthUrl(stateToken);
+    return NextResponse.json({ url: authUrl });
+  } catch (err) {
+    console.error('[GET /api/v1/integrations/whoop/authorize] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
