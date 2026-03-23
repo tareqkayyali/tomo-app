@@ -73,6 +73,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
   const { recommendations, weeklyPlanSuggestion, weeklyStructure, playerProfile } = programs;
   const [heroExpanded, setHeroExpanded] = useState(false);
   const [coachGroupExpanded, setCoachGroupExpanded] = useState(true);
+  const [myPicksExpanded, setMyPicksExpanded] = useState(true);
   const [calendarSheetProgram, setCalendarSheetProgram] = useState<any>(null);
 
   // ── Program Search ──
@@ -299,27 +300,6 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
         </View>
       )}
 
-      {/* ── Player Assigned Programs ───────────────────────────── */}
-      {recommendations.filter(r => (r as any).priority === 'player_selected').length > 0 && (
-        <View style={styles.group}>
-          <View style={styles.groupHeaderTappable}>
-            <View style={[styles.priorityDot, { backgroundColor: colors.accent2 }]} />
-            <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>🎯 My Picks</Text>
-            <View style={[styles.countBadge, { backgroundColor: colors.accent2 + '22' }]}>
-              <Text style={[styles.countBadgeText, { color: colors.accent2 }]}>
-                {recommendations.filter(r => (r as any).priority === 'player_selected').length}
-              </Text>
-            </View>
-          </View>
-          <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
-            Programs you added from the catalog
-          </Text>
-          {recommendations.filter(r => (r as any).priority === 'player_selected').map((p) => (
-            <ProgramCard key={p.programId} program={p} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} isActive={activeIds.includes(p.programId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
-          ))}
-        </View>
-      )}
-
       {/* ── Coach Assigned Programs ───────────────────────────── */}
       {coachAssigned.length > 0 && (
         <View style={styles.group}>
@@ -342,6 +322,36 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               </Text>
               {coachAssigned.map((p: any) => (
                 <ProgramCard key={p.programId} program={p} colors={colors} onAddToCalendar={setCalendarSheetProgram} />
+              ))}
+            </>
+          )}
+        </View>
+      )}
+
+      {/* ── Player Assigned Programs (My Picks) ─────────────── */}
+      {recommendations.filter(r => (r as any).priority === 'player_selected').length > 0 && (
+        <View style={styles.group}>
+          <Pressable onPress={() => setMyPicksExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
+            <Ionicons
+              name={myPicksExpanded ? 'chevron-down' : 'chevron-forward'}
+              size={16}
+              color={colors.textMuted}
+            />
+            <View style={[styles.priorityDot, { backgroundColor: colors.accent2 }]} />
+            <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>🎯 My Picks</Text>
+            <View style={[styles.countBadge, { backgroundColor: colors.accent2 + '22' }]}>
+              <Text style={[styles.countBadgeText, { color: colors.accent2 }]}>
+                {recommendations.filter(r => (r as any).priority === 'player_selected').length}
+              </Text>
+            </View>
+          </Pressable>
+          {myPicksExpanded && (
+            <>
+              <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+                Programs you added from the catalog
+              </Text>
+              {recommendations.filter(r => (r as any).priority === 'player_selected').map((p) => (
+                <ProgramCard key={p.programId} program={p} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} isActive={activeIds.includes(p.programId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
               ))}
             </>
           )}
