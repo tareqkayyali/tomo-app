@@ -252,28 +252,18 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
 
   const showIntensity = params.type === 'training' || params.type === 'match';
 
-  // ── Linked Programs ──
-  const linkedPrograms = (params as any).linkedPrograms ?? [];
+  // ── Linked Programs (local state — saved on Save) ──
+  const [linkedPrograms, setLinkedPrograms] = useState<Array<{ programId: string; name: string; category?: string }>>(
+    (params as any).linkedPrograms ?? []
+  );
+  const [removedProgramIds, setRemovedProgramIds] = useState<string[]>([]);
   const { rules, update: updateRules } = useScheduleRules();
 
-  const handleUnlinkProgram = useCallback(async (programId: string) => {
-    const categories = rules?.preferences?.training_categories ?? [];
-    const updated = categories.map((cat: any) => ({
-      ...cat,
-      linkedPrograms: (cat.linkedPrograms ?? []).filter(
-        (lp: any) => lp.programId !== programId
-      ),
-    }));
-    try {
-      await updateRules({ training_categories: updated });
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Navigate back to refresh
-      navigation.goBack();
-    } catch (e: any) {
-      if (Platform.OS === 'web') window.alert('Failed to unlink: ' + (e?.message || ''));
-      else Alert.alert('Error', 'Failed to unlink program.');
-    }
-  }, [rules, updateRules, navigation]);
+  const handleUnlinkProgram = useCallback((programId: string) => {
+    setLinkedPrograms(prev => prev.filter(lp => lp.programId !== programId));
+    setRemovedProgramIds(prev => [...prev, programId]);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
 
   // ── Handlers ──
 
@@ -289,6 +279,21 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
         notes: notes !== (params.notes || '') ? notes : undefined,
         intensity: intensity !== (params.intensity || 'medium') ? intensity : undefined,
       });
+      // Also persist unlinked programs to schedule rules
+      if (removedProgramIds.length > 0) {
+        try {
+          const categories = rules?.preferences?.training_categories ?? [];
+          const updatedCats = categories.map((cat: any) => ({
+            ...cat,
+            linkedPrograms: (cat.linkedPrograms ?? []).filter(
+              (lp: any) => !removedProgramIds.includes(lp.programId)
+            ),
+          }));
+          await updateRules({ training_categories: updatedCats });
+        } catch (e) {
+          console.warn('[EventEdit] Failed to persist unlinked programs:', e);
+        }
+      }
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -298,7 +303,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
     } finally {
       setSaving(false);
     }
-  }, [saving, params, name, date, startTime, endTime, notes, intensity, navigation]);
+  }, [saving, params, name, date, startTime, endTime, notes, intensity, navigation, removedProgramIds, rules, updateRules]);
 
   const handleDelete = useCallback(() => {
     if (Platform.OS !== 'web') {
