@@ -199,6 +199,44 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Update athlete_snapshot with latest Whoop vitals ──
+    // The event processor may not fire (no webhook), so write directly.
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: todayVitals } = await db
+        .from("health_data")
+        .select("metric_type, value")
+        .eq("user_id", userId)
+        .eq("date", today);
+
+      if (todayVitals && todayVitals.length > 0) {
+        const snapshotUpdate: Record<string, unknown> = { snapshot_at: new Date().toISOString() };
+        for (const v of todayVitals) {
+          if (v.metric_type === "hrv") snapshotUpdate.hrv_today_ms = v.value;
+          if (v.metric_type === "resting_hr") snapshotUpdate.resting_hr_bpm = v.value;
+          if (v.metric_type === "sleep_hours") snapshotUpdate.sleep_quality = v.value;
+        }
+        // Compute HRV baseline from last 7 days
+        const { data: recentHRV } = await db
+          .from("health_data")
+          .select("value")
+          .eq("user_id", userId)
+          .eq("metric_type", "hrv")
+          .gte("date", new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10))
+          .order("date", { ascending: false });
+        if (recentHRV && recentHRV.length > 0) {
+          const baseline = recentHRV.reduce((sum: number, r: any) => sum + r.value, 0) / recentHRV.length;
+          snapshotUpdate.hrv_baseline_ms = Math.round(baseline * 10) / 10;
+        }
+        await db.from("athlete_snapshots").upsert(
+          { athlete_id: userId, ...snapshotUpdate },
+          { onConflict: "athlete_id" }
+        );
+      }
+    } catch (e: any) {
+      console.warn("[whoop/sync] Snapshot update failed (non-fatal):", e?.message);
+    }
+
     await updateSyncStatus(userId, "idle").catch(e =>
       console.error("[whoop/sync] Could not set idle status:", e.message)
     );

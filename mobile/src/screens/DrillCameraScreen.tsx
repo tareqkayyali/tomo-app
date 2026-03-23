@@ -14,6 +14,7 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -53,7 +54,11 @@ export function DrillCameraScreen({ navigation, route }: Props) {
         setVideoUri(video.uri);
       }
     } catch {
-      Alert.alert('Error', 'Could not record video. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not record video. Please try again.');
+      } else {
+        Alert.alert('Error', 'Could not record video. Please try again.');
+      }
     } finally {
       setIsRecording(false);
     }
@@ -68,7 +73,11 @@ export function DrillCameraScreen({ navigation, route }: Props) {
 
     const sizeMB = await getFileSize(videoUri);
     if (sizeMB > 100) {
-      Alert.alert('File Too Large', 'Video must be under 100 MB.');
+      if (Platform.OS === 'web') {
+        window.alert('Video must be under 100 MB.');
+      } else {
+        Alert.alert('File Too Large', 'Video must be under 100 MB.');
+      }
       return;
     }
 
@@ -81,11 +90,20 @@ export function DrillCameraScreen({ navigation, route }: Props) {
         videoUri,
         setUploadProgress,
       );
-      Alert.alert('Saved', 'Your drill recording has been saved.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      if (Platform.OS === 'web') {
+        window.alert('Your drill recording has been saved.');
+        navigation.goBack();
+      } else {
+        Alert.alert('Saved', 'Your drill recording has been saved.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
     } catch {
-      Alert.alert('Upload Failed', 'Could not upload video. Check your connection and try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not upload video. Check your connection and try again.');
+      } else {
+        Alert.alert('Upload Failed', 'Could not upload video. Check your connection and try again.');
+      }
     } finally {
       setUploading(false);
     }

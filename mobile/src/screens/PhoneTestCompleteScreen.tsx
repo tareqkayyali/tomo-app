@@ -120,7 +120,11 @@ export function PhoneTestCompleteScreen({ navigation, route }: Props) {
       });
       setSaved(true);
     } catch {
-      Alert.alert('Error', 'Could not save results. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not save results. Please try again.');
+      } else {
+        Alert.alert('Error', 'Could not save results. Please try again.');
+      }
     } finally {
       setSaving(false);
     }

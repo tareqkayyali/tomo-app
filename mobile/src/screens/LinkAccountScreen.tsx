@@ -41,7 +41,11 @@ export function LinkAccountScreen() {
       setSuccess({ guardianId: res.guardianId, relationshipType: res.relationshipType });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Invalid or expired code';
-      Alert.alert('Error', message);
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Error', message);
+      }
     } finally {
       setLoading(false);
     }

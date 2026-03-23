@@ -21,6 +21,7 @@ import {
   Alert,
   ActivityIndicator,
   Pressable,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -148,10 +149,16 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
 
   const handleGenerate = useCallback(async () => {
     if (enabledCategories.length === 0) {
-      Alert.alert('No Categories', 'Enable at least one training category in My Rules.', [
-        { text: 'Go to Rules', onPress: onNavigateToRules },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+      if (Platform.OS === 'web') {
+        if (window.confirm('Enable at least one training category in My Rules. Go to Rules?')) {
+          onNavigateToRules();
+        }
+      } else {
+        Alert.alert('No Categories', 'Enable at least one training category in My Rules.', [
+          { text: 'Go to Rules', onPress: onNavigateToRules },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
+      }
       return;
     }
 
@@ -185,7 +192,11 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
           const msg = result.warnings.length > 0
             ? result.warnings.join('\n')
             : 'Could not generate any training blocks. Try adjusting your settings.';
-          Alert.alert('No Blocks Generated', msg);
+          if (Platform.OS === 'web') {
+            window.alert(msg);
+          } else {
+            Alert.alert('No Blocks Generated', msg);
+          }
           setIsGenerating(false);
           return;
         }
@@ -193,14 +204,20 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
         setIsGenerating(false);
 
         if (result.warnings.length > 0) {
-          Alert.alert(
-            'Some sessions could not be placed',
-            result.warnings.join('\n'),
-            [
-              { text: 'View Plan Anyway', onPress: () => handleNavigateToPreview(result.blocks, result.warnings) },
-              { text: 'Cancel', style: 'cancel' },
-            ],
-          );
+          if (Platform.OS === 'web') {
+            if (window.confirm('Some sessions could not be placed:\n' + result.warnings.join('\n') + '\n\nView Plan Anyway?')) {
+              handleNavigateToPreview(result.blocks, result.warnings);
+            }
+          } else {
+            Alert.alert(
+              'Some sessions could not be placed',
+              result.warnings.join('\n'),
+              [
+                { text: 'View Plan Anyway', onPress: () => handleNavigateToPreview(result.blocks, result.warnings) },
+                { text: 'Cancel', style: 'cancel' },
+              ],
+            );
+          }
         } else {
           handleNavigateToPreview(result.blocks);
         }
@@ -208,31 +225,45 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
 
       if (existingTrainingBlocks.length > 0) {
         setIsGenerating(false);
-        Alert.alert(
-          'Existing Training Plan',
-          `You have ${existingTrainingBlocks.length} training block${existingTrainingBlocks.length > 1 ? 's' : ''} in your calendar. Generating will replace them.`,
-          [
-            {
-              text: 'Replace & Generate',
-              style: 'destructive',
-              onPress: async () => {
-                setIsGenerating(true);
-                for (const block of existingTrainingBlocks) {
-                  try { await deleteCalendarEvent(block.id); } catch { /* skip */ }
-                }
-                await proceedWithGeneration(existingEvents.filter((e: any) => e.type !== 'training'));
+        if (Platform.OS === 'web') {
+          if (window.confirm(`You have ${existingTrainingBlocks.length} training block${existingTrainingBlocks.length > 1 ? 's' : ''} in your calendar. Generating will replace them. Replace & Generate?`)) {
+            setIsGenerating(true);
+            for (const block of existingTrainingBlocks) {
+              try { await deleteCalendarEvent(block.id); } catch { /* skip */ }
+            }
+            await proceedWithGeneration(existingEvents.filter((e: any) => e.type !== 'training'));
+          }
+        } else {
+          Alert.alert(
+            'Existing Training Plan',
+            `You have ${existingTrainingBlocks.length} training block${existingTrainingBlocks.length > 1 ? 's' : ''} in your calendar. Generating will replace them.`,
+            [
+              {
+                text: 'Replace & Generate',
+                style: 'destructive',
+                onPress: async () => {
+                  setIsGenerating(true);
+                  for (const block of existingTrainingBlocks) {
+                    try { await deleteCalendarEvent(block.id); } catch { /* skip */ }
+                  }
+                  await proceedWithGeneration(existingEvents.filter((e: any) => e.type !== 'training'));
+                },
               },
-            },
-            { text: 'Cancel', style: 'cancel' },
-          ],
-        );
+              { text: 'Cancel', style: 'cancel' },
+            ],
+          );
+        }
         return;
       }
 
       await proceedWithGeneration(existingEvents);
     } catch (err) {
       console.error('[TrainingPlan] Generation error:', err);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Something went wrong. Please try again.');
+      } else {
+        Alert.alert('Error', 'Something went wrong. Please try again.');
+      }
     } finally {
       setIsGenerating(false);
     }

@@ -299,7 +299,11 @@ export function OnboardingScreen() {
       await refreshProfile();
     } catch (err) {
       console.error('[Onboarding] submit failed:', err);
-      Alert.alert('Tomo', 'Could not save your profile. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not save your profile. Please try again.');
+      } else {
+        Alert.alert('Tomo', 'Could not save your profile. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

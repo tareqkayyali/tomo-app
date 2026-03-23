@@ -320,24 +320,33 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    Alert.alert('Delete Event', `Remove "${name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteCalendarEvent(params.eventId);
-            if (Platform.OS !== 'web') {
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Remove "${name}"?`)) {
+        try {
+          await deleteCalendarEvent(params.eventId);
+          navigation.goBack();
+        } catch {
+          window.alert('Could not delete event.');
+        }
+      }
+    } else {
+      Alert.alert('Delete Event', `Remove "${name}"?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCalendarEvent(params.eventId);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              navigation.goBack();
+            } catch {
+              Alert.alert('Error', 'Could not delete event.');
             }
-            navigation.goBack();
-          } catch {
-            Alert.alert('Error', 'Could not delete event.');
-          }
+          },
         },
-      },
-    ]);
+      ]);
+    }
   }, [name, params.eventId, navigation]);
 
   return (

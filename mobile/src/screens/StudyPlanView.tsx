@@ -21,6 +21,7 @@ import {
   Alert,
   ActivityIndicator,
   Pressable,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -258,15 +259,25 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
 
   const handleGenerate = useCallback(async () => {
     if (subjects.length === 0) {
-      Alert.alert('Missing Info', 'Add your subjects in My Rules first.', [
-        { text: 'Go to Rules', onPress: handleNavigateToRules },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+      if (Platform.OS === 'web') {
+        if (window.confirm('Add your subjects in My Rules first. Go to Rules?')) {
+          handleNavigateToRules();
+        }
+      } else {
+        Alert.alert('Missing Info', 'Add your subjects in My Rules first.', [
+          { text: 'Go to Rules', onPress: handleNavigateToRules },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
+      }
       return;
     }
 
     if (timeToMinutes(timeSlotEnd) - timeToMinutes(timeSlotStart) < sessionDuration) {
-      Alert.alert('Time Window Too Small', `The study window must be at least ${sessionDuration} minutes. Adjust in My Rules.`);
+      if (Platform.OS === 'web') {
+        window.alert(`The study window must be at least ${sessionDuration} minutes. Adjust in My Rules.`);
+      } else {
+        Alert.alert('Time Window Too Small', `The study window must be at least ${sessionDuration} minutes. Adjust in My Rules.`);
+      }
       return;
     }
 
@@ -301,7 +312,11 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
           const msg = result.warnings.length > 0
             ? result.warnings.join('\n')
             : 'Could not generate any study blocks. Try adjusting your settings.';
-          Alert.alert('No Blocks Generated', msg);
+          if (Platform.OS === 'web') {
+            window.alert(msg);
+          } else {
+            Alert.alert('No Blocks Generated', msg);
+          }
           setIsGenerating(false);
           return;
         }
@@ -314,31 +329,45 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
 
       if (existingStudyBlocks.length > 0) {
         setIsGenerating(false);
-        Alert.alert(
-          'Existing Study Plan',
-          `You have ${existingStudyBlocks.length} study block${existingStudyBlocks.length > 1 ? 's' : ''} in your calendar. Generating will replace them.`,
-          [
-            {
-              text: 'Replace & Generate',
-              style: 'destructive',
-              onPress: async () => {
-                setIsGenerating(true);
-                for (const block of existingStudyBlocks) {
-                  try { await deleteCalendarEvent(block.id); } catch { /* skip */ }
-                }
-                await proceedWithGeneration(existingEvents.filter((e: any) => e.type !== 'study_block'));
+        if (Platform.OS === 'web') {
+          if (window.confirm(`You have ${existingStudyBlocks.length} study block${existingStudyBlocks.length > 1 ? 's' : ''} in your calendar. Generating will replace them. Replace & Generate?`)) {
+            setIsGenerating(true);
+            for (const block of existingStudyBlocks) {
+              try { await deleteCalendarEvent(block.id); } catch { /* skip */ }
+            }
+            await proceedWithGeneration(existingEvents.filter((e: any) => e.type !== 'study_block'));
+          }
+        } else {
+          Alert.alert(
+            'Existing Study Plan',
+            `You have ${existingStudyBlocks.length} study block${existingStudyBlocks.length > 1 ? 's' : ''} in your calendar. Generating will replace them.`,
+            [
+              {
+                text: 'Replace & Generate',
+                style: 'destructive',
+                onPress: async () => {
+                  setIsGenerating(true);
+                  for (const block of existingStudyBlocks) {
+                    try { await deleteCalendarEvent(block.id); } catch { /* skip */ }
+                  }
+                  await proceedWithGeneration(existingEvents.filter((e: any) => e.type !== 'study_block'));
+                },
               },
-            },
-            { text: 'Cancel', style: 'cancel' },
-          ],
-        );
+              { text: 'Cancel', style: 'cancel' },
+            ],
+          );
+        }
         return;
       }
 
       await proceedWithGeneration(existingEvents);
     } catch (err) {
       console.error('[StudyPlan] Generation error:', err);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Something went wrong. Please try again.');
+      } else {
+        Alert.alert('Error', 'Something went wrong. Please try again.');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -404,17 +433,24 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                   activeOpacity={0.7}
                   onPress={() => handleNavigateToPreview(plan.blocks, undefined, plan.config, plan.id, true)}
                   onLongPress={() => {
-                    Alert.alert('Delete Plan?', `Remove "${plan.name}"?`, [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: async () => {
-                          await deleteStudyPlan(plan.id);
-                          setSavedPlans((prev) => prev.filter((p) => p.id !== plan.id));
+                    if (Platform.OS === 'web') {
+                      if (window.confirm(`Remove "${plan.name}"?`)) {
+                        await deleteStudyPlan(plan.id);
+                        setSavedPlans((prev) => prev.filter((p) => p.id !== plan.id));
+                      }
+                    } else {
+                      Alert.alert('Delete Plan?', `Remove "${plan.name}"?`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: async () => {
+                            await deleteStudyPlan(plan.id);
+                            setSavedPlans((prev) => prev.filter((p) => p.id !== plan.id));
+                          },
                         },
-                      },
-                    ]);
+                      ]);
+                    }
                   }}
                 >
                   <View style={styles.savedPlanHeader}>
@@ -425,7 +461,11 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                         try {
                           await exportStudyPlanPdf(plan);
                         } catch {
-                          Alert.alert('Export Failed', 'Could not generate PDF.');
+                          if (Platform.OS === 'web') {
+                            window.alert('Could not generate PDF.');
+                          } else {
+                            Alert.alert('Export Failed', 'Could not generate PDF.');
+                          }
                         }
                       }}
                     >

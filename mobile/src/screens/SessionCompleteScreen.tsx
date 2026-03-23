@@ -71,7 +71,11 @@ export function SessionCompleteScreen({ navigation, route }: Props) {
   const handleSave = useCallback(async () => {
     const touchNum = parseInt(touches, 10);
     if (!touches || isNaN(touchNum) || touchNum < 0) {
-      Alert.alert('Invalid Input', 'Please enter a valid number of touches.');
+      if (Platform.OS === 'web') {
+        window.alert('Please enter a valid number of touches.');
+      } else {
+        Alert.alert('Invalid Input', 'Please enter a valid number of touches.');
+      }
       return;
     }
 
@@ -79,11 +83,19 @@ export function SessionCompleteScreen({ navigation, route }: Props) {
     const avgMs = avgReaction ? parseFloat(avgReaction) : null;
 
     if (bestReaction && (bestMs === null || isNaN(bestMs) || bestMs < 0)) {
-      Alert.alert('Invalid Input', 'Best reaction time must be a positive number (ms).');
+      if (Platform.OS === 'web') {
+        window.alert('Best reaction time must be a positive number (ms).');
+      } else {
+        Alert.alert('Invalid Input', 'Best reaction time must be a positive number (ms).');
+      }
       return;
     }
     if (avgReaction && (avgMs === null || isNaN(avgMs) || avgMs < 0)) {
-      Alert.alert('Invalid Input', 'Average reaction time must be a positive number (ms).');
+      if (Platform.OS === 'web') {
+        window.alert('Average reaction time must be a positive number (ms).');
+      } else {
+        Alert.alert('Invalid Input', 'Average reaction time must be a positive number (ms).');
+      }
       return;
     }
 
@@ -102,7 +114,11 @@ export function SessionCompleteScreen({ navigation, route }: Props) {
       });
       setSaved(true);
     } catch {
-      Alert.alert('Error', 'Could not save session. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not save session. Please try again.');
+      } else {
+        Alert.alert('Error', 'Could not save session. Please try again.');
+      }
     } finally {
       setSaving(false);
     }

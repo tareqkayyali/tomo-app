@@ -19,6 +19,7 @@ import {
   Pressable,
   Vibration,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -158,17 +159,24 @@ export function DrillDetailScreen({ navigation, route }: Props) {
   }, []);
 
   const handleCancel = useCallback(() => {
-    Alert.alert('End Drill?', 'Your progress for this session will be lost.', [
-      { text: 'Continue', style: 'cancel' },
-      {
-        text: 'End',
-        style: 'destructive',
-        onPress: () => {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          navigation.goBack();
+    if (Platform.OS === 'web') {
+      if (window.confirm('Your progress for this session will be lost. End drill?')) {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        navigation.goBack();
+      }
+    } else {
+      Alert.alert('End Drill?', 'Your progress for this session will be lost.', [
+        { text: 'Continue', style: 'cancel' },
+        {
+          text: 'End',
+          style: 'destructive',
+          onPress: () => {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            navigation.goBack();
+          },
         },
-      },
-    ]);
+      ]);
+    }
   }, [navigation]);
 
   // ── Format time ─────────────────────────────────────────────────────

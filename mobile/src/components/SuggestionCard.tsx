@@ -17,6 +17,7 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -75,7 +76,11 @@ export function SuggestionCard({ suggestion, onResolved }: SuggestionCardProps) 
       onResolved?.(suggestion.id, status);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
-      Alert.alert('Error', msg);
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
     } finally {
       setLoading(null);
     }

@@ -75,7 +75,11 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
       const msg = (error as Error).message;
       console.error('[LoginScreen] login error:', msg);
       setLoginError(msg);
-      Alert.alert('Tomo', 'Login failed: ' + msg);
+      if (Platform.OS === 'web') {
+        window.alert('Login failed: ' + msg);
+      } else {
+        Alert.alert('Tomo', 'Login failed: ' + msg);
+      }
     }
   };
 

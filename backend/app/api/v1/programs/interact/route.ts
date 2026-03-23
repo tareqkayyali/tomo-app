@@ -99,6 +99,26 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Emit event to athlete data fabric (non-fatal)
+  try {
+    const { emitEventSafe } = await import("@/services/events/eventEmitter");
+    await emitEventSafe({
+      athleteId: auth.user.id,
+      eventType: "SESSION_LOG",
+      occurredAt: new Date().toISOString(),
+      source: "MANUAL",
+      payload: {
+        interaction_type: "PROGRAM_INTERACTION",
+        program_id: programId,
+        action,
+        training_load_au: 0,
+      },
+      createdBy: auth.user.id,
+    });
+  } catch (e: any) {
+    console.warn("[programs/interact] Event emit failed (non-fatal):", e?.message);
+  }
+
   return NextResponse.json({
     success: true,
     programId,

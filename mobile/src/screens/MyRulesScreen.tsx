@@ -219,7 +219,11 @@ export function MyRulesScreen({ navigation }: Props) {
         }
       } else {
         setSaveError('Save failed — check console');
-        if (Platform.OS !== 'web') Alert.alert('Save Failed', 'Could not save your rules. Please try again.');
+        if (Platform.OS === 'web') {
+          window.alert('Could not save your rules. Please try again.');
+        } else {
+          Alert.alert('Save Failed', 'Could not save your rules. Please try again.');
+        }
       }
     } catch (err) {
       console.error('[MyRules] Save threw:', err);
@@ -934,14 +938,20 @@ function SubjectPills({
         <TouchableOpacity
           key={sub}
           onPress={() => {
-            Alert.alert('Remove Subject', `Remove "${sub}"?`, [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Remove',
-                style: 'destructive',
-                onPress: () => onChange(subjects.filter((s) => s !== sub)),
-              },
-            ]);
+            if (Platform.OS === 'web') {
+              if (window.confirm(`Remove "${sub}"?`)) {
+                onChange(subjects.filter((s) => s !== sub));
+              }
+            } else {
+              Alert.alert('Remove Subject', `Remove "${sub}"?`, [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Remove',
+                  style: 'destructive',
+                  onPress: () => onChange(subjects.filter((s) => s !== sub)),
+                },
+              ]);
+            }
           }}
           style={[subjectStyles.pill, { backgroundColor: accent + '20', borderColor: accent + '40' }]}
         >

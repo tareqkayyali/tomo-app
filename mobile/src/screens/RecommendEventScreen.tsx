@@ -281,7 +281,11 @@ export function RecommendEventScreen({ navigation, route }: Props) {
 
   const handleSubmit = useCallback(async () => {
     if (!name.trim()) {
-      Alert.alert('Missing Name', 'Please enter an event name.');
+      if (Platform.OS === 'web') {
+        window.alert('Please enter an event name.');
+      } else {
+        Alert.alert('Missing Name', 'Please enter an event name.');
+      }
       return;
     }
 
@@ -309,13 +313,22 @@ export function RecommendEventScreen({ navigation, route }: Props) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      Alert.alert(
-        'Recommendation Sent',
-        `${playerName} will see your recommendation and can accept or decline it.`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
-      );
+      if (Platform.OS === 'web') {
+        window.alert(`${playerName} will see your recommendation and can accept or decline it.`);
+        navigation.goBack();
+      } else {
+        Alert.alert(
+          'Recommendation Sent',
+          `${playerName} will see your recommendation and can accept or decline it.`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }],
+        );
+      }
     } catch {
-      Alert.alert('Error', 'Could not send recommendation. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not send recommendation. Please try again.');
+      } else {
+        Alert.alert('Error', 'Could not send recommendation. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }

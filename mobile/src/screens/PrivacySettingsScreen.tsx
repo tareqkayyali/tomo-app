@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Pressable,
   Share,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, fontFamily } from '../theme';
@@ -102,10 +103,14 @@ export function PrivacySettingsScreen() {
         setSettings(res.privacySettings);
         setParentalConsentRequired(res.parentalConsentRequired);
         if (res.parentalConsentRequired) {
-          Alert.alert(
-            'Parental Consent Required',
-            'Athletes under 18 need parental consent before enabling their public passport.',
-          );
+          if (Platform.OS === 'web') {
+            window.alert('Athletes under 18 need parental consent before enabling their public passport.');
+          } else {
+            Alert.alert(
+              'Parental Consent Required',
+              'Athletes under 18 need parental consent before enabling their public passport.',
+            );
+          }
         }
       })
       .catch(() => {
@@ -136,7 +141,11 @@ export function PrivacySettingsScreen() {
         setSettings(res.privacySettings);
       } catch {
         setSettings(prev);
-        Alert.alert('Error', 'Failed to update privacy settings.');
+        if (Platform.OS === 'web') {
+          window.alert('Failed to update privacy settings.');
+        } else {
+          Alert.alert('Error', 'Failed to update privacy settings.');
+        }
       } finally {
         setIsSaving(false);
       }

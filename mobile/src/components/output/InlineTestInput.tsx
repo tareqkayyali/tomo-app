@@ -43,7 +43,11 @@ export function InlineTestInput({
   const handleSave = async () => {
     const numVal = parseFloat(value);
     if (isNaN(numVal)) {
-      Alert.alert('Invalid', 'Please enter a valid number.');
+      if (Platform.OS === 'web') {
+        window.alert('Please enter a valid number.');
+      } else {
+        Alert.alert('Invalid', 'Please enter a valid number.');
+      }
       return;
     }
 
@@ -54,7 +58,11 @@ export function InlineTestInput({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch {
-      Alert.alert('Error', 'Could not save test result.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not save test result.');
+      } else {
+        Alert.alert('Error', 'Could not save test result.');
+      }
     } finally {
       setSubmitting(false);
     }

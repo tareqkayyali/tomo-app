@@ -13,6 +13,7 @@ import {
   Alert,
   ActivityIndicator,
   Pressable,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, fontFamily } from '../theme';
@@ -144,32 +145,53 @@ export function NotificationSettingsScreen() {
   const handleTimeChange = useCallback(() => {
     if (!prefs) return;
 
-    Alert.alert(
-      'Reminder Time',
-      'Choose when to receive your daily check-in reminder:',
-      [
-        ...TIME_PRESETS.map((time) => ({
-          text: time,
-          onPress: async () => {
-            setPrefs({ ...prefs, dailyReminderTime: time });
-            try {
-              const res = await updateNotificationSettings({ dailyReminderTime: time });
-              setPrefs(res.preferences);
+    if (Platform.OS === 'web') {
+      const choice = window.prompt(
+        'Choose when to receive your daily check-in reminder:\n' +
+        TIME_PRESETS.map((t, i) => `${i + 1}. ${t}`).join('\n') +
+        '\n\nEnter a number or type a time (e.g. 08:00):',
+      );
+      if (choice) {
+        const idx = parseInt(choice, 10) - 1;
+        const selectedTime = (idx >= 0 && idx < TIME_PRESETS.length) ? TIME_PRESETS[idx] : choice.trim();
+        if (TIME_PRESETS.includes(selectedTime)) {
+          setPrefs({ ...prefs, dailyReminderTime: selectedTime });
+          try {
+            const res = await updateNotificationSettings({ dailyReminderTime: selectedTime });
+            setPrefs(res.preferences);
+          } catch {
+            setPrefs(prefs);
+          }
+        }
+      }
+    } else {
+      Alert.alert(
+        'Reminder Time',
+        'Choose when to receive your daily check-in reminder:',
+        [
+          ...TIME_PRESETS.map((time) => ({
+            text: time,
+            onPress: async () => {
+              setPrefs({ ...prefs, dailyReminderTime: time });
+              try {
+                const res = await updateNotificationSettings({ dailyReminderTime: time });
+                setPrefs(res.preferences);
 
-              // Re-schedule local notification with new time
-              if (prefs.dailyReminder) {
-                const { hour, minute } = parseTime(time);
-                await scheduleDailyReminder(hour, minute);
+                // Re-schedule local notification with new time
+                if (prefs.dailyReminder) {
+                  const { hour, minute } = parseTime(time);
+                  await scheduleDailyReminder(hour, minute);
+                }
+              } catch {
+                // Revert
+                setPrefs(prefs);
               }
-            } catch {
-              // Revert
-              setPrefs(prefs);
-            }
-          },
-        })),
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
+            },
+          })),
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+    }
   }, [prefs]);
 
   if (isLoading) {
