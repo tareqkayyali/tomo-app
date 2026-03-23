@@ -1,49 +1,68 @@
 /**
- * GET /api/v1/programs — List/filter training programs
+ * GET /api/v1/programs — List/filter training programs from hardcoded catalog
  *
  * Query params:
  *   category — filter by category (sprint, strength, etc.)
  *   type — filter by type (physical, technical)
- *   ageBand — return prescriptions for this age band
  *   position — filter by position emphasis
- *   q — search name/description
+ *   q — search name/description/tags
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { FOOTBALL_PROGRAMS } from "@/services/programs/footballPrograms";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await requireAuth(req);
+    const auth = requireAuth(req);
     if ("error" in auth) return auth.error;
 
-    const db = supabaseAdmin();
     const url = new URL(req.url);
     const category = url.searchParams.get("category");
     const type = url.searchParams.get("type");
     const position = url.searchParams.get("position");
-    const q = url.searchParams.get("q");
+    const q = url.searchParams.get("q")?.toLowerCase();
 
-    let query = (db as any)
-      .from("football_training_programs")
-      .select("id, name, category, type, description, equipment, duration_minutes, position_emphasis, difficulty, tags, prescriptions, phv_guidance")
-      .order("name");
+    let results = [...FOOTBALL_PROGRAMS];
 
-    if (category) query = query.eq("category", category);
-    if (type) query = query.eq("type", type);
-    if (position) query = query.contains("position_emphasis", [position]);
-    if (q) query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
-
-    const { data, error } = await query;
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (category) {
+      results = results.filter((p) => p.category === category);
+    }
+    if (type) {
+      results = results.filter((p) => p.type === type);
+    }
+    if (position) {
+      results = results.filter(
+        (p) => p.position_emphasis.includes("ALL") || p.position_emphasis.includes(position)
+      );
+    }
+    if (q) {
+      results = results.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
+          p.tags.some((t) => t.toLowerCase().includes(q)) ||
+          p.category.toLowerCase().includes(q)
+      );
     }
 
-    return NextResponse.json({ programs: data ?? [] });
+    const programs = results.map((p) => ({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      type: p.type,
+      description: p.description,
+      equipment: p.equipment,
+      duration_minutes: p.duration_minutes,
+      duration_weeks: p.duration_weeks,
+      position_emphasis: p.position_emphasis,
+      difficulty: p.difficulty,
+      tags: p.tags,
+    }));
+
+    return NextResponse.json({ programs });
   } catch (err: any) {
-    console.error('[programs] error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("[programs] error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
