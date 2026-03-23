@@ -1000,13 +1000,19 @@ function ExamScheduleList({
   colors: ThemeColors;
   onRequestDate: (title: string, currentDate: string | null, onSelect: (date: string) => void) => void;
 }) {
+  const [showSubjectPicker, setShowSubjectPicker] = useState(false);
+
   const addExam = () => {
-    const unscheduled = subjects.filter((s) => !entries.find((e) => e.subject === s));
-    if (unscheduled.length === 0 && subjects.length > 0) {
-      Alert.alert('All Scheduled', 'All subjects already have exam dates.');
+    if (subjects.length === 0) {
+      if (Platform.OS === 'web') window.alert('Add subjects first in the Study Subjects section above.');
+      else Alert.alert('No Subjects', 'Add subjects first in the Study Subjects section above.');
       return;
     }
-    const subject = unscheduled[0] || 'New Subject';
+    setShowSubjectPicker(true);
+  };
+
+  const handleSubjectSelected = (subject: string) => {
+    setShowSubjectPicker(false);
     onRequestDate(`${subject} exam date`, null, (date) => {
       const entry: ExamScheduleEntry = {
         id: `exam_${Date.now()}`,
@@ -1050,6 +1056,28 @@ function ExamScheduleList({
           </TouchableOpacity>
         </View>
       ))}
+      {/* Subject picker for new exam */}
+      {showSubjectPicker && (
+        <View style={[examStyles.subjectPicker, { backgroundColor: colors.backgroundElevated, borderColor: colors.border }]}>
+          <Text style={{ fontSize: 12, fontFamily: fontFamily.semiBold, color: colors.textMuted, marginBottom: 8 }}>
+            Select subject:
+          </Text>
+          {subjects.map((subj) => (
+            <TouchableOpacity
+              key={subj}
+              style={[examStyles.subjectOption, { backgroundColor: colors.cardLight }]}
+              onPress={() => handleSubjectSelected(subj)}
+            >
+              <Text style={{ fontSize: 14, fontFamily: fontFamily.medium, color: colors.textOnDark }}>{subj}</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity onPress={() => setShowSubjectPicker(false)} style={{ alignSelf: 'center', marginTop: 8 }}>
+            <Text style={{ fontSize: 12, fontFamily: fontFamily.medium, color: colors.textMuted }}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TouchableOpacity onPress={addExam} style={examStyles.addBtn}>
         <Ionicons name="add-circle-outline" size={16} color={colors.warning} />
         <Text style={[examStyles.addText, { color: colors.warning }]}>Add Exam</Text>
@@ -1065,6 +1093,20 @@ const examStyles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     marginBottom: 6,
+  },
+  subjectPicker: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  subjectOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 4,
   },
   subject: {
     fontSize: 14,
