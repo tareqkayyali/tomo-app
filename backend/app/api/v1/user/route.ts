@@ -49,6 +49,9 @@ const ALLOWED_UPDATE_FIELDS: Record<string, string> = {
   weightKg: "weight_kg",
   position: "position",
   playingStyle: "playing_style",
+  playing_style: "playing_style",
+  preferredFoot: "preferred_foot",
+  preferred_foot: "preferred_foot",
 };
 
 export async function PUT(req: NextRequest) {
@@ -93,6 +96,18 @@ export async function PUT(req: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Sync position/height/weight changes to athlete_snapshots
+    const snapshotUpdates: Record<string, unknown> = {};
+    if (updates.position) snapshotUpdates.position = updates.position;
+    if (updates.height_cm) snapshotUpdates.height_cm = updates.height_cm;
+    if (updates.weight_kg) snapshotUpdates.weight_kg = updates.weight_kg;
+    if (Object.keys(snapshotUpdates).length > 0) {
+      snapshotUpdates.snapshot_at = new Date().toISOString();
+      await db.from("athlete_snapshots")
+        .update(snapshotUpdates)
+        .eq("athlete_id", auth.user.id);
     }
 
     return NextResponse.json({ user }, { headers: { "api-version": "v1" } });

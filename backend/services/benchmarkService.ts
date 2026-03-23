@@ -243,19 +243,37 @@ export async function calculatePercentile(
     .find(([, key]) => key === metricKey)?.[0];
   if (!metricName) return null;
 
-  // Fetch from actual table schema (metric_name, means[], sds[])
-  const { data: norm } = await db()
-    .from("sport_normative_data")
-    .select("metric_name, unit, direction, means, sds, age_min, age_max")
-    .eq("sport_id", profile.sport || "football")
-    .eq("metric_name", metricName)
-    .single();
+  // Fetch position-specific norm first, fallback to 'ALL'
+  const sportId = profile.sport || "football";
+  let norm: Record<string, unknown> | null = null;
+
+  if (position !== "ALL") {
+    const { data: posNorm } = await db()
+      .from("sport_normative_data")
+      .select("metric_name, unit, direction, means, sds, age_min, age_max, position_key")
+      .eq("sport_id", sportId)
+      .eq("metric_name", metricName)
+      .eq("position_key", position)
+      .single();
+    if (posNorm) norm = posNorm as Record<string, unknown>;
+  }
+
+  if (!norm) {
+    const { data: allNorm } = await db()
+      .from("sport_normative_data")
+      .select("metric_name, unit, direction, means, sds, age_min, age_max, position_key")
+      .eq("sport_id", sportId)
+      .eq("metric_name", metricName)
+      .eq("position_key", "ALL")
+      .single();
+    if (allNorm) norm = allNorm as Record<string, unknown>;
+  }
 
   if (!norm) return null;
 
   const means = norm.means as number[];
   const sds = norm.sds as number[];
-  const { mean, sd } = extractNormForAge(means, sds, playerAge, norm.age_min || 13, norm.age_max || 23);
+  const { mean, sd } = extractNormForAge(means, sds, playerAge, (norm.age_min as number) || 13, (norm.age_max as number) || 23);
 
   const rawDir = norm.direction as string;
   const direction: "lower_better" | "higher_better" =
@@ -333,11 +351,31 @@ export async function getPlayerBenchmarkProfile(
     }
   }
 
-  // Fetch ALL normative data for this sport (actual table schema: metric_name, means[], sds[])
-  const { data: allNorms } = await db()
+  // Fetch position-specific norms first, fallback to 'ALL' for missing metrics
+  const sportId = profile.sport || "football";
+  const { data: posNorms } = position !== "ALL"
+    ? await db()
+        .from("sport_normative_data")
+        .select("metric_name, unit, direction, means, sds, age_min, age_max, attribute_key, position_key")
+        .eq("sport_id", sportId)
+        .eq("position_key", position)
+    : { data: null };
+
+  const { data: fallbackNorms } = await db()
     .from("sport_normative_data")
-    .select("metric_name, unit, direction, means, sds, age_min, age_max, attribute_key")
-    .eq("sport_id", profile.sport || "football");
+    .select("metric_name, unit, direction, means, sds, age_min, age_max, attribute_key, position_key")
+    .eq("sport_id", sportId)
+    .eq("position_key", "ALL");
+
+  // Merge: position-specific takes precedence over ALL
+  const normMap = new Map<string, Record<string, unknown>>();
+  if (fallbackNorms) {
+    for (const n of fallbackNorms as Record<string, unknown>[]) normMap.set(n.metric_name as string, n);
+  }
+  if (posNorms) {
+    for (const n of posNorms as Record<string, unknown>[]) normMap.set(n.metric_name as string, n);
+  }
+  const allNorms = Array.from(normMap.values());
 
   // Index norms by metric_key (translated from metric_name)
   const playerAge = getAgeFromDOB(profile.date_of_birth);
@@ -346,8 +384,8 @@ export async function getPlayerBenchmarkProfile(
     p10: number; p25: number; p50: number; p75: number; p90: number; sd: number;
   }>();
 
-  if (allNorms) {
-    for (const norm of allNorms as Record<string, unknown>[]) {
+  if (allNorms.length > 0) {
+    for (const norm of allNorms) {
       const metricName = norm.metric_name as string;
       const metricKey = NORM_NAME_TO_METRIC_KEY[metricName];
       if (!metricKey) continue;
@@ -456,28 +494,46 @@ export async function getMetricTrajectory(
 
 export async function getPositionNorms(
   sportId: string,
-  _position: string,
+  position: string,
   ageBand: string,
   _gender: string,
   _level: string
 ): Promise<NormRow[]> {
-  // The actual sport_normative_data table stores means/sds arrays by age,
-  // not separate rows per position/gender/level. We extract for the age band.
-  const { data } = await db()
+  const sid = sportId || "football";
+  const pos = position || "ALL";
+
+  // Fetch position-specific norms, fallback to 'ALL'
+  const { data: posData } = pos !== "ALL"
+    ? await db()
+        .from("sport_normative_data")
+        .select("metric_name, unit, direction, means, sds, age_min, age_max, position_key")
+        .eq("sport_id", sid)
+        .eq("position_key", pos)
+        .order("metric_name")
+    : { data: null };
+
+  const { data: allData } = await db()
     .from("sport_normative_data")
-    .select("metric_name, unit, direction, means, sds, age_min, age_max")
-    .eq("sport_id", sportId || "football")
+    .select("metric_name, unit, direction, means, sds, age_min, age_max, position_key")
+    .eq("sport_id", sid)
+    .eq("position_key", "ALL")
     .order("metric_name");
 
-  if (!data) return [];
+  // Merge: position-specific takes precedence
+  const normMap = new Map<string, Record<string, unknown>>();
+  if (allData) {
+    for (const n of allData as Record<string, unknown>[]) normMap.set(n.metric_name as string, n);
+  }
+  if (posData) {
+    for (const n of posData as Record<string, unknown>[]) normMap.set(n.metric_name as string, n);
+  }
 
-  // Convert ageBand to an age number for array index lookup
   const ageMap: Record<string, number> = {
     U13: 13, U15: 14, U17: 16, U19: 18, SEN: 21, SEN30: 23, VET: 23,
   };
   const age = ageMap[ageBand] ?? 18;
 
-  return (data as Record<string, unknown>[]).flatMap((row) => {
+  return Array.from(normMap.values()).flatMap((row) => {
     const metricName = row.metric_name as string;
     const metricKey = NORM_NAME_TO_METRIC_KEY[metricName];
     if (!metricKey) return [];

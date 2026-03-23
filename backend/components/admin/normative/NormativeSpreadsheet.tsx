@@ -35,9 +35,21 @@ export interface NormativeRow {
   age_max: number;
   means: number[];
   sds: number[];
+  position_key?: string;
   created_at: string;
   updated_at: string;
 }
+
+const POSITION_OPTIONS = [
+  { value: "ALL", label: "All Positions (Universal)" },
+  { value: "ST", label: "ST — Striker" },
+  { value: "CAM", label: "CAM — Attacking Mid" },
+  { value: "WM", label: "WM — Wide Mid" },
+  { value: "CM", label: "CM — Central Mid" },
+  { value: "FB", label: "FB — Full Back" },
+  { value: "CB", label: "CB — Centre Back" },
+  { value: "GK", label: "GK — Goalkeeper" },
+];
 
 interface NormativeSpreadsheetProps {
   rows: NormativeRow[];
@@ -59,6 +71,11 @@ export default function NormativeSpreadsheet({
   onDeleted,
 }: NormativeSpreadsheetProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("means");
+  const [positionFilter, setPositionFilter] = useState<string>("ALL");
+  const filteredRows = useMemo(() =>
+    rows.filter((r) => (r.position_key ?? "ALL") === positionFilter),
+    [rows, positionFilter]
+  );
   const [localData, setLocalData] = useState<Map<string, { means: number[]; sds: number[] }>>(
     () => {
       const map = new Map<string, { means: number[]; sds: number[] }>();
@@ -194,6 +211,16 @@ export default function NormativeSpreadsheet({
           </button>
         </div>
 
+        <select
+          value={positionFilter}
+          onChange={(e) => setPositionFilter(e.target.value)}
+          className="px-3 py-1.5 text-sm font-medium border rounded-md bg-background"
+        >
+          {POSITION_OPTIONS.map((p) => (
+            <option key={p.value} value={p.value}>{p.label}</option>
+          ))}
+        </select>
+
         <div className="flex-1" />
 
         {isDirty && (
@@ -208,9 +235,9 @@ export default function NormativeSpreadsheet({
       </div>
 
       {/* Spreadsheet */}
-      {rows.length === 0 ? (
+      {filteredRows.length === 0 ? (
         <div className="rounded-md border p-8 text-center text-muted-foreground">
-          No normative data found for this sport. Add a metric to get started.
+          No normative data found for {positionFilter === "ALL" ? "universal" : positionFilter} norms. {positionFilter !== "ALL" && "Position-specific norms may not be seeded yet."}
         </div>
       ) : (
         <div className="rounded-md border overflow-auto">
@@ -218,7 +245,7 @@ export default function NormativeSpreadsheet({
             <TableHeader>
               <TableRow>
                 <TableHead className="sticky left-0 bg-background z-10 min-w-[200px]">
-                  Metric
+                  Metric ({positionFilter})
                 </TableHead>
                 {AGE_COLS.map((age) => (
                   <TableHead key={age} className="text-center min-w-[80px]">
@@ -229,7 +256,7 @@ export default function NormativeSpreadsheet({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => {
+              {filteredRows.map((row) => {
                 const data = localData.get(row.id);
                 if (!data) return null;
 

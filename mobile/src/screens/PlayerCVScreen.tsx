@@ -4,10 +4,10 @@
  * Training Stats, Club History, Competitions, Development, Export.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, TextInput, Alert, Modal, SafeAreaView,
+  ActivityIndicator, TextInput, Alert, Modal, SafeAreaView, Platform, Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
@@ -15,8 +15,143 @@ import { useAuth } from '../hooks/useAuth';
 import { useCVProfile, type ClubEntry } from '../hooks/useCVProfile';
 import { useFootballProgress } from '../hooks/useFootballProgress';
 import { useAthleteSnapshot } from '../hooks/useAthleteSnapshot';
+import { updateUser } from '../services/api';
 import { fontFamily, spacing, borderRadius } from '../theme';
 import type { FootballPosition } from '../types/football';
+
+const POSITIONS = [
+  { key: 'ST', label: 'Striker' },
+  { key: 'CAM', label: 'Attacking Midfielder' },
+  { key: 'WM', label: 'Wide Midfielder' },
+  { key: 'CM', label: 'Central Midfielder' },
+  { key: 'FB', label: 'Full Back' },
+  { key: 'CB', label: 'Centre Back' },
+  { key: 'GK', label: 'Goalkeeper' },
+];
+
+const FEET = ['left', 'right', 'both'] as const;
+
+// ── Profile Editor Modal ──
+
+function ProfileEditorModal({
+  visible,
+  onClose,
+  onSave,
+  initial,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSave: (data: Record<string, any>) => void;
+  initial: { position?: string; height_cm?: number; weight_kg?: number; date_of_birth?: string; preferred_foot?: string; playing_style?: string };
+}) {
+  const { colors } = useTheme();
+  const [pos, setPos] = useState(initial.position ?? '');
+  const [height, setHeight] = useState(initial.height_cm ? String(initial.height_cm) : '');
+  const [weight, setWeight] = useState(initial.weight_kg ? String(initial.weight_kg) : '');
+  const [dob, setDob] = useState(initial.date_of_birth ?? '');
+  const [foot, setFoot] = useState(initial.preferred_foot ?? '');
+  const [style, setStyle] = useState(initial.playing_style ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const updates: Record<string, any> = {};
+    if (pos && pos !== initial.position) updates.position = pos;
+    if (height && parseFloat(height) !== initial.height_cm) updates.height_cm = parseFloat(height);
+    if (weight && parseFloat(weight) !== initial.weight_kg) updates.weight_kg = parseFloat(weight);
+    if (dob && dob !== initial.date_of_birth) updates.date_of_birth = dob;
+    if (foot && foot !== initial.preferred_foot) updates.preferred_foot = foot;
+    if (style !== (initial.playing_style ?? '')) updates.playing_style = style;
+    onSave(updates);
+    setSaving(false);
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={[ms.modalOverlay, { backgroundColor: colors.overlay }]}>
+        <View style={[ms.modalContent, { backgroundColor: colors.backgroundElevated, borderColor: colors.border }]}>
+          <Text style={[ms.modalTitle, { color: colors.textPrimary }]}>Edit Profile</Text>
+
+          <Text style={[ms.label, { color: colors.textSecondary }]}>Position</Text>
+          <View style={ms.roleRow}>
+            {POSITIONS.map((p) => (
+              <TouchableOpacity
+                key={p.key}
+                style={[ms.roleChip, { borderColor: pos === p.key ? colors.accent : colors.border, backgroundColor: pos === p.key ? colors.accent + '20' : 'transparent' }]}
+                onPress={() => setPos(p.key)}
+              >
+                <Text style={[ms.roleText, { color: pos === p.key ? colors.accent : colors.textSecondary }]}>{p.key}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={ms.yearRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[ms.label, { color: colors.textSecondary }]}>Height (cm)</Text>
+              <TextInput
+                style={[ms.input, { color: colors.textPrimary, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+                value={height} onChangeText={setHeight} keyboardType="decimal-pad" placeholder="175"
+                placeholderTextColor={colors.textDisabled}
+              />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[ms.label, { color: colors.textSecondary }]}>Weight (kg)</Text>
+              <TextInput
+                style={[ms.input, { color: colors.textPrimary, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+                value={weight} onChangeText={setWeight} keyboardType="decimal-pad" placeholder="70"
+                placeholderTextColor={colors.textDisabled}
+              />
+            </View>
+          </View>
+
+          <Text style={[ms.label, { color: colors.textSecondary }]}>Date of Birth (YYYY-MM-DD)</Text>
+          <TextInput
+            style={[ms.input, { color: colors.textPrimary, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+            value={dob} onChangeText={setDob} placeholder="2010-06-15"
+            placeholderTextColor={colors.textDisabled}
+          />
+
+          <Text style={[ms.label, { color: colors.textSecondary }]}>Preferred Foot</Text>
+          <View style={ms.roleRow}>
+            {FEET.map((f) => (
+              <TouchableOpacity
+                key={f}
+                style={[ms.roleChip, { borderColor: foot === f ? colors.accent : colors.border, backgroundColor: foot === f ? colors.accent + '20' : 'transparent' }]}
+                onPress={() => setFoot(f)}
+              >
+                <Text style={[ms.roleText, { color: foot === f ? colors.accent : colors.textSecondary }]}>
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={[ms.label, { color: colors.textSecondary }]}>Playing Style</Text>
+          <TextInput
+            style={[ms.input, { color: colors.textPrimary, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+            value={style} onChangeText={setStyle} placeholder="e.g. Creative playmaker"
+            placeholderTextColor={colors.textDisabled}
+          />
+
+          <View style={ms.modalActions}>
+            <TouchableOpacity style={[ms.modalBtn, { borderColor: colors.border }]} onPress={onClose}>
+              <Text style={{ color: colors.textSecondary, fontFamily: fontFamily.medium }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[ms.modalBtn, { backgroundColor: colors.accent }]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              <Text style={{ color: colors.textOnAccent, fontFamily: fontFamily.semiBold }}>
+                {saving ? 'Saving...' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 // ── Club Editor Modal ──
 
@@ -165,7 +300,7 @@ function Stat({ label, value, unit, color, colors }: {
 
 export function PlayerCVScreen() {
   const { colors } = useTheme();
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const uid = user?.uid ?? '';
   const age = profile?.age ?? 16;
   const position = (profile?.position ?? 'CAM') as FootballPosition;
@@ -177,6 +312,25 @@ export function PlayerCVScreen() {
 
   const [clubModalVisible, setClubModalVisible] = useState(false);
   const [editingClub, setEditingClub] = useState<ClubEntry | null>(null);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+
+  const handleProfileSave = useCallback(async (updates: Record<string, any>) => {
+    if (Object.keys(updates).length === 0) {
+      setProfileModalVisible(false);
+      return;
+    }
+    try {
+      await updateUser(updates);
+      // Refresh profile data
+      if (refreshProfile) await refreshProfile();
+      refetch?.();
+    } catch (e: any) {
+      console.error('[CV] Profile save error:', e);
+      if (Platform.OS === 'web') window.alert('Failed to save: ' + (e?.message || 'Unknown error'));
+      else Alert.alert('Error', 'Could not save profile changes.');
+    }
+    setProfileModalVisible(false);
+  }, [refetch]);
 
   if (isLoading) {
     return (
@@ -197,6 +351,12 @@ export function PlayerCVScreen() {
 
         {/* 1. HEADER */}
         <View style={[ss.headerCard, { backgroundColor: colors.backgroundElevated, borderColor: colors.border }]}>
+          <TouchableOpacity
+            style={ss.editProfileBtn}
+            onPress={() => setProfileModalVisible(true)}
+          >
+            <Ionicons name="create-outline" size={18} color={colors.accent} />
+          </TouchableOpacity>
           <View style={[ss.avatar, { borderColor: colors.accent }]}>
             <Text style={[ss.avatarText, { color: colors.accent }]}>
               {(profile?.name ?? 'P').charAt(0).toUpperCase()}
@@ -206,6 +366,12 @@ export function PlayerCVScreen() {
           <Text style={[ss.playerMeta, { color: colors.textSecondary }]}>
             {position} · Age {age}{currentClub ? ` · ${currentClub.club_name}` : ''}
           </Text>
+          {(profile as any)?.preferred_foot && (
+            <Text style={[ss.playerMeta, { color: colors.textSecondary, marginTop: 2 }]}>
+              {(profile as any).preferred_foot.charAt(0).toUpperCase() + (profile as any).preferred_foot.slice(1)} foot
+              {(profile as any)?.playing_style ? ` · ${(profile as any).playing_style}` : ''}
+            </Text>
+          )}
           {card && (
             <View style={ss.ratingRow}>
               <View style={[ss.ratingBadge, { backgroundColor: colors.accent + '20' }]}>
@@ -400,6 +566,21 @@ export function PlayerCVScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
+      {/* Profile Editor Modal */}
+      <ProfileEditorModal
+        visible={profileModalVisible}
+        onClose={() => setProfileModalVisible(false)}
+        initial={{
+          position: profile?.position ?? '',
+          height_cm: snap.height_cm as number | undefined,
+          weight_kg: snap.weight_kg as number | undefined,
+          date_of_birth: (profile as any)?.date_of_birth ?? '',
+          preferred_foot: (profile as any)?.preferred_foot ?? '',
+          playing_style: (profile as any)?.playing_style ?? '',
+        }}
+        onSave={handleProfileSave}
+      />
+
       {/* Club Editor Modal */}
       <ClubEditorModal
         visible={clubModalVisible}
@@ -427,7 +608,8 @@ const ss = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 12 },
 
-  headerCard: { borderRadius: 8, borderWidth: 1, padding: 20, alignItems: 'center' },
+  headerCard: { borderRadius: 8, borderWidth: 1, padding: 20, alignItems: 'center', position: 'relative' as const },
+  editProfileBtn: { position: 'absolute' as const, top: 12, right: 12, zIndex: 1, padding: 6 },
   avatar: { width: 72, height: 72, borderRadius: 36, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   avatarText: { fontFamily: fontFamily.bold, fontSize: 28 },
   playerName: { fontFamily: fontFamily.bold, fontSize: 22, marginBottom: 2 },
