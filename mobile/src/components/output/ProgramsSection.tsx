@@ -113,11 +113,32 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
   const dataStatus = (programs as any).dataStatus;
   const dataNeeded: string[] = (programs as any).dataNeeded || [];
 
+  // Dynamic loading messages that cycle every 3 seconds
+  const LOADING_MESSAGES = [
+    { title: 'Analyzing Your Profile', subtitle: 'Looking at your position, age, and training history...' },
+    { title: 'Finding the Best Programs', subtitle: 'Matching programs to your strengths and gaps...' },
+    { title: 'Customizing for You', subtitle: 'Adapting intensity and volume to your readiness...' },
+    { title: 'Building Your Training', subtitle: 'Creating a balanced weekly structure...' },
+    { title: 'Adding Coaching Cues', subtitle: 'Personalizing tips based on your test results...' },
+    { title: 'Almost Ready', subtitle: 'Finalizing your personalized program plan...' },
+  ];
+
+  const [loadingMsgIndex, setLoadingMsgIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (dataStatus !== 'generating' && !isDeepRefreshing) return;
+    const interval = setInterval(() => {
+      setLoadingMsgIndex(prev => (prev + 1) % LOADING_MESSAGES.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [dataStatus, isDeepRefreshing]);
+
   // Show generating banner ONLY when dataStatus is 'generating' AND no programs exist
   // If we have coach/player programs, show them with a small generating indicator
   const hasAnyPrograms = recs.length > 0 || playerSelectedPrograms.length > 0;
 
   if (dataStatus === 'generating' && !hasAnyPrograms) {
+    const loadingMsg = LOADING_MESSAGES[loadingMsgIndex];
     return (
       <GlassCard>
         <View style={styles.emptyState}>
@@ -125,10 +146,10 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
             <ActivityIndicator size={28} color={colors.accent2} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
-            Building Your Programs
+            {loadingMsg.title}
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-            Our AI is creating a personalized training program based on your profile. This takes a moment...
+            {loadingMsg.subtitle}
           </Text>
 
           {/* CTA buttons */}
@@ -224,7 +245,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
         <View style={[styles.refreshBanner, { backgroundColor: 'rgba(255, 107, 53, 0.08)' }]}>
           <ActivityIndicator size="small" color={colors.accent1} />
           <Text style={[styles.refreshText, { color: colors.accent1 }]}>
-            Personalizing your programs...
+            {LOADING_MESSAGES[loadingMsgIndex].title}...
           </Text>
         </View>
       )}
