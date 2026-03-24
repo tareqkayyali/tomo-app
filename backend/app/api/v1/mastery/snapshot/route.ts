@@ -272,7 +272,8 @@ function buildMasteryPillars(
       // Check if we already have this metric via benchmark key equivalence
       // (e.g. "10m-sprint" raw maps to "sprint_10m" benchmark key)
       const benchmarkEquivalent = rawTypeToBenchmarkKey(rawType);
-      if (benchmarkEquivalent && seenKeys.has(benchmarkEquivalent)) {
+      // Skip if benchmark OR norm exists for this metric (prevents duplicates)
+      if (benchmarkEquivalent && (seenKeys.has(benchmarkEquivalent) || normByKey.has(benchmarkEquivalent))) {
         // If there IS a benchmark metric but it has no playerValue, fill from raw
         const existing = metricsInGroup.find((m) => m.metricKey === benchmarkEquivalent);
         if (existing && existing.playerValue === null) {
@@ -324,6 +325,18 @@ function buildMasteryPillars(
         norm: normObj,
       });
     }
+
+    // Final dedup: keep only first occurrence of each metric (by label similarity)
+    const dedupedMetrics: MasteryMetric[] = [];
+    const seenLabels = new Set<string>();
+    for (const m of metricsInGroup) {
+      const normalizedLabel = m.metricLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (seenLabels.has(normalizedLabel)) continue;
+      seenLabels.add(normalizedLabel);
+      dedupedMetrics.push(m);
+    }
+    metricsInGroup.length = 0;
+    metricsInGroup.push(...dedupedMetrics);
 
     // Compute weighted average percentile for the pillar
     const withPercentile = metricsInGroup.filter((m) => m.percentile !== null);
