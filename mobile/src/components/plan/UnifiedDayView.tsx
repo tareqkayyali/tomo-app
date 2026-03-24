@@ -16,11 +16,6 @@ import {
   Platform,
 } from 'react-native';
 import { PinchGestureHandler, State as GestureState } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -128,29 +123,30 @@ export function UnifiedDayView({
   const emptyCompleted = useMemo(() => new Set<string>(), []);
   const noop = () => {};
 
-  // Pinch-to-zoom for timeline
-  const scale = useSharedValue(1);
-  const baseScale = useSharedValue(1);
+  // Zoom controls for timeline (buttons + pinch)
   const [zoomLevel, setZoomLevel] = useState(1.0);
+  const pinchRef = React.useRef<any>(null);
+  const scrollRef = React.useRef<any>(null);
 
-  const onPinchEvent = useCallback((event: any) => {
-    const newScale = Math.min(1.5, Math.max(0.7, baseScale.value * event.nativeEvent.scale));
-    scale.value = newScale;
-  }, [scale, baseScale]);
+  const zoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(1.5, Math.round((prev + 0.1) * 10) / 10));
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(0.7, Math.round((prev - 0.1) * 10) / 10));
+  }, []);
+
+  // Pinch-to-zoom (works alongside scroll via simultaneousHandlers)
+  const lastPinchScale = React.useRef(1.0);
 
   const onPinchStateChange = useCallback((event: any) => {
     if (event.nativeEvent.oldState === GestureState.ACTIVE) {
-      const finalScale = Math.min(1.5, Math.max(0.7, scale.value));
-      baseScale.value = finalScale;
-      scale.value = withSpring(finalScale, { damping: 15, stiffness: 150 });
-      setZoomLevel(Math.round(finalScale * 10) / 10);
+      const raw = lastPinchScale.current * event.nativeEvent.scale;
+      const clamped = Math.min(1.5, Math.max(0.7, raw));
+      lastPinchScale.current = clamped;
+      setZoomLevel(Math.round(clamped * 10) / 10);
     }
-  }, [scale, baseScale]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    transformOrigin: 'top center' as any,
-  }));
+  }, []);
 
   const navigation = useNavigation<any>();
 
@@ -232,12 +228,36 @@ export function UnifiedDayView({
         )}
 
 
-        {/* ─── Connected Spine Timeline (pinch-to-zoom) ─── */}
+        {/* ─── Zoom Controls ─── */}
+        {events.length > 0 && (
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 4, gap: 8 }}>
+            <TouchableOpacity
+              onPress={zoomOut}
+              style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', opacity: zoomLevel <= 0.7 ? 0.3 : 1 }}
+              disabled={zoomLevel <= 0.7}
+            >
+              <Ionicons name="remove" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+            <Text style={{ color: colors.textMuted, fontSize: 11, fontFamily: 'Poppins_500Medium', minWidth: 32, textAlign: 'center' }}>
+              {Math.round(zoomLevel * 100)}%
+            </Text>
+            <TouchableOpacity
+              onPress={zoomIn}
+              style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', opacity: zoomLevel >= 1.5 ? 0.3 : 1 }}
+              disabled={zoomLevel >= 1.5}
+            >
+              <Ionicons name="add" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ─── Connected Spine Timeline (pinch-to-zoom + buttons) ─── */}
         <PinchGestureHandler
-          onGestureEvent={onPinchEvent}
+          ref={pinchRef}
+          simultaneousHandlers={scrollRef}
           onHandlerStateChange={onPinchStateChange}
         >
-          <Animated.View style={[styles.timelineSection, animatedStyle]}>
+          <View style={styles.timelineSection}>
             <SpineTimeline
               events={events}
               onEventEdit={(event) => {
@@ -259,7 +279,7 @@ export function UnifiedDayView({
               skippedIds={new Set()}
               zoomLevel={zoomLevel}
             />
-          </Animated.View>
+          </View>
         </PinchGestureHandler>
 
         {/* ─── Player-only: Exam Study Planner ─── */}
