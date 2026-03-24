@@ -14,6 +14,7 @@ import {
   RefreshControl,
   Pressable,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import { PinchGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
