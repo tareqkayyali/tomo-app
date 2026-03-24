@@ -167,30 +167,31 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
           <View style={{ flex: 1 }}>
             <Text
               style={[styles.title, { color: colors.textOnDark }, getComponentStyle('pillar_title')]}
-              numberOfLines={1}
             >
               {pillar.displayName}
             </Text>
-            {(pillar as any).radarLabel && (
-              <Text style={[styles.radarSubLabel, { color: zoneColor }]}>
-                Radar: {(pillar as any).radarLabel}
-              </Text>
-            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+              {(pillar as any).radarLabel && (
+                <Text style={[styles.radarSubLabel, { color: zoneColor }]}>
+                  Radar: {(pillar as any).radarLabel}
+                </Text>
+              )}
+              {pillar.avgPercentile !== null && (
+                <View
+                  style={[
+                    styles.percentileBadge,
+                    { backgroundColor: zoneColor + '22', borderColor: zoneColor },
+                  ]}
+                >
+                  <Text style={[styles.percentileText, { color: zoneColor }, getComponentStyle('pillar_value')]}>
+                    {pillar.avgPercentile >= 90 ? 'Elite' : pillar.avgPercentile >= 75 ? 'Strong' : pillar.avgPercentile >= 40 ? 'Solid' : pillar.avgPercentile >= 20 ? 'Dev' : 'Needs Attention'}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
         <View style={styles.headerRight}>
-          {pillar.avgPercentile !== null && (
-            <View
-              style={[
-                styles.percentileBadge,
-                { backgroundColor: zoneColor + '22', borderColor: zoneColor },
-              ]}
-            >
-              <Text style={[styles.percentileText, { color: zoneColor }, getComponentStyle('pillar_value')]}>
-                {pillar.avgPercentile !== null && pillar.avgPercentile >= 90 ? 'Elite' : pillar.avgPercentile !== null && pillar.avgPercentile >= 75 ? 'Strong' : pillar.avgPercentile !== null && pillar.avgPercentile >= 40 ? 'Solid' : pillar.avgPercentile !== null && pillar.avgPercentile >= 20 ? 'Dev' : 'Needs Attention'}
-              </Text>
-            </View>
-          )}
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={18}
