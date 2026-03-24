@@ -15,7 +15,7 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
-// Pinch gesture removed — causes GestureHandlerRootView crash. Using zoom buttons instead.
+import { PinchGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -133,6 +133,17 @@ export function UnifiedDayView({
     setZoomLevel(prev => Math.max(0.7, Math.round((prev - 0.1) * 10) / 10));
   }, []);
 
+  // Pinch-to-zoom: update zoom level on pinch end
+  const pinchBaseRef = React.useRef(1.0);
+  const onPinchStateChange = useCallback((event: any) => {
+    if (event.nativeEvent.oldState === GestureState.ACTIVE) {
+      const raw = pinchBaseRef.current * event.nativeEvent.scale;
+      const clamped = Math.min(1.5, Math.max(0.7, raw));
+      pinchBaseRef.current = clamped;
+      setZoomLevel(Math.round(clamped * 10) / 10);
+    }
+  }, []);
+
   const navigation = useNavigation<any>();
 
   // ScrollView ref for drag-scroll coordination
@@ -236,30 +247,58 @@ export function UnifiedDayView({
           </View>
         )}
 
-        {/* ─── Connected Spine Timeline ─── */}
-        <View style={styles.timelineSection}>
-          <SpineTimeline
-            events={events}
-            onEventEdit={(event) => {
-              navigation.navigate('EventEdit', {
-                eventId: event.id,
-                name: event.name,
-                type: event.type,
-                date: event.date,
-                startTime: event.startTime || '',
-                endTime: event.endTime || '',
-                notes: event.notes || '',
-                intensity: event.intensity || '',
-                linkedPrograms: (event as any).linkedPrograms || [],
-              });
-            }}
-            onEventComplete={onComplete}
-            onEventSkip={onSkip}
-            completedIds={completedEvents ?? emptyCompleted}
-            skippedIds={new Set()}
-            zoomLevel={zoomLevel}
-          />
-        </View>
+        {/* ─── Connected Spine Timeline (pinch-to-zoom on native, buttons everywhere) ─── */}
+        {Platform.OS !== 'web' ? (
+          <PinchGestureHandler onHandlerStateChange={onPinchStateChange}>
+            <View style={styles.timelineSection}>
+              <SpineTimeline
+                events={events}
+                onEventEdit={(event) => {
+                  navigation.navigate('EventEdit', {
+                    eventId: event.id,
+                    name: event.name,
+                    type: event.type,
+                    date: event.date,
+                    startTime: event.startTime || '',
+                    endTime: event.endTime || '',
+                    notes: event.notes || '',
+                    intensity: event.intensity || '',
+                    linkedPrograms: (event as any).linkedPrograms || [],
+                  });
+                }}
+                onEventComplete={onComplete}
+                onEventSkip={onSkip}
+                completedIds={completedEvents ?? emptyCompleted}
+                skippedIds={new Set()}
+                zoomLevel={zoomLevel}
+              />
+            </View>
+          </PinchGestureHandler>
+        ) : (
+          <View style={styles.timelineSection}>
+            <SpineTimeline
+              events={events}
+              onEventEdit={(event) => {
+                navigation.navigate('EventEdit', {
+                  eventId: event.id,
+                  name: event.name,
+                  type: event.type,
+                  date: event.date,
+                  startTime: event.startTime || '',
+                  endTime: event.endTime || '',
+                  notes: event.notes || '',
+                  intensity: event.intensity || '',
+                  linkedPrograms: (event as any).linkedPrograms || [],
+                });
+              }}
+              onEventComplete={onComplete}
+              onEventSkip={onSkip}
+              completedIds={completedEvents ?? emptyCompleted}
+              skippedIds={new Set()}
+              zoomLevel={zoomLevel}
+            />
+          </View>
+        )}
 
         {/* ─── Player-only: Exam Study Planner ─── */}
         {isOwner && upcomingExams && upcomingExams.length > 0 && (
