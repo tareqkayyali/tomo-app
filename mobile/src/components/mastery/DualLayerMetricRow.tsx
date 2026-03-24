@@ -183,7 +183,7 @@ export function DualLayerMetricRow({ metric }: Props) {
       {/* Zone labels with norm values */}
       <View style={styles.zoneRow}>
         {[
-          { key: 'p10', label: 'Beginner' },
+          { key: 'p10', label: 'Needs Attention' },
           { key: 'p25', label: 'Developing' },
           { key: 'p50', label: 'Solid' },
           { key: 'p75', label: 'Strong' },
