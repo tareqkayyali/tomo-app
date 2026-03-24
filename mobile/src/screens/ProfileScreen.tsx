@@ -443,6 +443,11 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             icon="lock-closed-outline"
             label="Privacy"
             onPress={() => navigation.navigate('PrivacySettings')}
+          />
+          <MenuItem
+            icon="key-outline"
+            label="Change Password"
+            onPress={() => navigation.navigate('ChangePassword')}
             isLast
           />
         </Animated.View>

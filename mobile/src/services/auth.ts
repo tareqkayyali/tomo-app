@@ -171,6 +171,25 @@ export async function resetPassword(email: string): Promise<void> {
 }
 
 /**
+ * Change password (requires user to be signed in)
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  // Verify current password by re-signing in
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.email) throw new Error('You must be signed in to change your password.');
+
+  const { error: verifyError } = await supabase.auth.signInWithPassword({
+    email: session.user.email,
+    password: currentPassword,
+  });
+  if (verifyError) throw new Error('Current password is incorrect.');
+
+  // Update to new password
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw new Error(getAuthErrorMessage(error.message));
+}
+
+/**
  * Get current user's access token for API calls
  */
 export async function getIdToken(): Promise<string | null> {

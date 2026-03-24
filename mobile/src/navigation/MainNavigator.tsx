@@ -43,6 +43,7 @@ import { CheckinScreen } from '../screens/CheckinScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 import { PrivacySettingsScreen } from '../screens/PrivacySettingsScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { WorkoutFeedbackScreen } from '../screens/WorkoutFeedbackScreen';
 import { AddEventScreen } from '../screens/AddEventScreen';
@@ -425,6 +426,11 @@ export function MainNavigator() {
         name="PrivacySettings"
         component={PrivacySettingsScreen}
         options={{ headerShown: true, title: 'Privacy', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="History"
