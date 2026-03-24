@@ -395,7 +395,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
             {activeTab === 'programs' && (
               <ProgramsSection
                 programs={data.programs}
-                gaps={data.metrics.gaps}
+                gaps={data.metrics?.gaps || []}
                 isDeepRefreshing={isDeepRefreshing}
                 onForceRefresh={forceRefreshPrograms}
                 onNavigateCheckin={() => navigation.navigate('Checkin' as any)}

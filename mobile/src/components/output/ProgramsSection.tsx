@@ -136,7 +136,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
 
   // Show generating banner ONLY when dataStatus is 'generating' AND no programs exist
   // If we have coach/player programs, show them with a small generating indicator
-  const hasAnyPrograms = recs.length > 0 || playerSelectedPrograms.length > 0;
+  const hasAnyPrograms = recommendations.length > 0 || playerSelectedPrograms.length > 0;
 
   if (dataStatus === 'generating' && !hasAnyPrograms) {
     const loadingMsg = LOADING_MESSAGES[loadingMsgIndex];
