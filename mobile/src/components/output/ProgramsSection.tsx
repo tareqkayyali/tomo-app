@@ -73,9 +73,18 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const LOADING_MESSAGES = [
+  { title: 'Analyzing Your Profile', subtitle: 'Looking at your position, age, and training history...' },
+  { title: 'Finding the Best Programs', subtitle: 'Matching programs to your strengths and gaps...' },
+  { title: 'Customizing for You', subtitle: 'Adapting intensity and volume to your readiness...' },
+  { title: 'Building Your Training', subtitle: 'Creating a balanced weekly structure...' },
+  { title: 'Adding Coaching Cues', subtitle: 'Personalizing tips based on your test results...' },
+  { title: 'Almost Ready', subtitle: 'Finalizing your personalized program plan...' },
+];
+
 export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive, playerSelectedIds = [], playerSelectedPrograms = [], onPlayerSelect, onPlayerDeselect }: Props) {
   const { colors } = useTheme();
-  const { recommendations, weeklyPlanSuggestion, weeklyStructure, playerProfile } = programs;
+  const { recommendations = [], weeklyPlanSuggestion, weeklyStructure, playerProfile } = programs || {} as any;
   const [heroExpanded, setHeroExpanded] = useState(false);
   const [coachGroupExpanded, setCoachGroupExpanded] = useState(true);
   const [myPicksExpanded, setMyPicksExpanded] = useState(true);
@@ -112,16 +121,6 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
   const isAiGenerated = (programs as any).isAiGenerated === true;
   const dataStatus = (programs as any).dataStatus;
   const dataNeeded: string[] = (programs as any).dataNeeded || [];
-
-  // Dynamic loading messages that cycle every 3 seconds
-  const LOADING_MESSAGES = [
-    { title: 'Analyzing Your Profile', subtitle: 'Looking at your position, age, and training history...' },
-    { title: 'Finding the Best Programs', subtitle: 'Matching programs to your strengths and gaps...' },
-    { title: 'Customizing for You', subtitle: 'Adapting intensity and volume to your readiness...' },
-    { title: 'Building Your Training', subtitle: 'Creating a balanced weekly structure...' },
-    { title: 'Adding Coaching Cues', subtitle: 'Personalizing tips based on your test results...' },
-    { title: 'Almost Ready', subtitle: 'Finalizing your personalized program plan...' },
-  ];
 
   const [loadingMsgIndex, setLoadingMsgIndex] = React.useState(0);
 
