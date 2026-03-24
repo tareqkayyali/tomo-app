@@ -74,13 +74,26 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const LOADING_MESSAGES = [
-  { title: 'Analyzing Your Profile', subtitle: 'Looking at your position, age, and training history...' },
-  { title: 'Finding the Best Programs', subtitle: 'Matching programs to your strengths and gaps...' },
-  { title: 'Customizing for You', subtitle: 'Adapting intensity and volume to your readiness...' },
-  { title: 'Building Your Training', subtitle: 'Creating a balanced weekly structure...' },
-  { title: 'Adding Coaching Cues', subtitle: 'Personalizing tips based on your test results...' },
-  { title: 'Almost Ready', subtitle: 'Finalizing your personalized program plan...' },
+  { title: 'Scanning Your Profile', subtitle: 'Position, age band, growth stage...', icon: 'body-outline' as const },
+  { title: 'Reading Your Benchmarks', subtitle: 'Comparing your test results to peers...', icon: 'stats-chart-outline' as const },
+  { title: 'Checking Your Gaps', subtitle: 'Finding where you can improve fastest...', icon: 'search-outline' as const },
+  { title: 'Matching Programs', subtitle: 'Filtering 200+ drills for your needs...', icon: 'filter-outline' as const },
+  { title: 'Balancing Your Week', subtitle: 'Speed, strength, skills, recovery...', icon: 'calendar-outline' as const },
+  { title: 'Tuning Intensity', subtitle: 'Adjusting load to your readiness...', icon: 'pulse-outline' as const },
+  { title: 'Adding Coach Tips', subtitle: 'Writing cues specific to your data...', icon: 'chatbubble-ellipses-outline' as const },
+  { title: 'Final Touches', subtitle: 'Personalizing your training plan...', icon: 'sparkles-outline' as const },
+  { title: 'Optimizing Recovery', subtitle: 'Factoring in your sleep and HRV...', icon: 'moon-outline' as const },
+  { title: 'Position-Specific Drills', subtitle: 'Picking drills that match your role...', icon: 'football-outline' as const },
 ];
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive, playerSelectedIds = [], playerSelectedPrograms = [], onPlayerSelect, onPlayerDeselect }: Props) {
   const { colors } = useTheme();
@@ -124,13 +137,23 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
   const dataStatus = (programs as any).dataStatus;
   const dataNeeded: string[] = (programs as any).dataNeeded || [];
 
+  const [shuffledMsgs, setShuffledMsgs] = React.useState(() => shuffleArray(LOADING_MESSAGES));
   const [loadingMsgIndex, setLoadingMsgIndex] = React.useState(0);
 
   React.useEffect(() => {
     if (dataStatus !== 'generating' && !isDeepRefreshing) return;
+    setShuffledMsgs(shuffleArray(LOADING_MESSAGES));
+    setLoadingMsgIndex(0);
     const interval = setInterval(() => {
-      setLoadingMsgIndex(prev => (prev + 1) % LOADING_MESSAGES.length);
-    }, 3000);
+      setLoadingMsgIndex(prev => {
+        const next = prev + 1;
+        if (next >= LOADING_MESSAGES.length) {
+          setShuffledMsgs(shuffleArray(LOADING_MESSAGES));
+          return 0;
+        }
+        return next;
+      });
+    }, 2500);
     return () => clearInterval(interval);
   }, [dataStatus, isDeepRefreshing]);
 
@@ -139,12 +162,12 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
   const hasAnyPrograms = recommendations.length > 0 || playerSelectedPrograms.length > 0;
 
   if (dataStatus === 'generating' && !hasAnyPrograms) {
-    const loadingMsg = LOADING_MESSAGES[loadingMsgIndex];
+    const loadingMsg = shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0];
     return (
       <GlassCard>
         <View style={styles.emptyState}>
           <View style={[styles.emptyIconCircle, { backgroundColor: colors.accent2 + '12' }]}>
-            <ActivityIndicator size={28} color={colors.accent2} />
+            <Ionicons name={loadingMsg.icon} size={28} color={colors.accent2} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
             {loadingMsg.title}
@@ -244,9 +267,9 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       {/* ── Deep Refresh Indicator ──────────────────────────────── */}
       {isDeepRefreshing && (
         <View style={[styles.refreshBanner, { backgroundColor: 'rgba(255, 107, 53, 0.08)' }]}>
-          <ActivityIndicator size="small" color={colors.accent1} />
+          <Ionicons name={(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).icon} size={16} color={colors.accent1} />
           <Text style={[styles.refreshText, { color: colors.accent1 }]}>
-            {LOADING_MESSAGES[loadingMsgIndex].title}...
+            {(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).title}...
           </Text>
         </View>
       )}
