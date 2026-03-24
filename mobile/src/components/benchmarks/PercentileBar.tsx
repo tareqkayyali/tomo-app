@@ -88,7 +88,7 @@ export function PercentileBar({ benchmark, onShowHistory, onLogNew, onEdit, onDe
             ]}
           >
             <Text style={[styles.badgeText, { color }]}>
-              {benchmark.zone === 'elite' ? 'Elite' : benchmark.zone === 'good' ? 'Strong' : benchmark.zone === 'average' ? 'Solid' : benchmark.zone === 'developing' ? 'Developing' : 'Beginner'}
+              {benchmark.zone === 'elite' ? 'Elite' : benchmark.zone === 'good' ? 'Strong' : benchmark.zone === 'average' ? 'Solid' : benchmark.zone === 'developing' ? 'Developing' : 'Needs Attention'}
             </Text>
           </View>
         </View>
@@ -114,7 +114,7 @@ export function PercentileBar({ benchmark, onShowHistory, onLogNew, onEdit, onDe
       </View>
       <View style={styles.zones}>
         {[
-          { key: 'p10', label: 'Beginner' },
+          { key: 'p10', label: 'Needs Attention' },
           { key: 'p25', label: 'Developing' },
           { key: 'p50', label: 'Solid' },
           { key: 'p75', label: 'Strong' },
