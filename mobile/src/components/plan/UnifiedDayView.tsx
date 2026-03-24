@@ -135,7 +135,19 @@ export function UnifiedDayView({
   }, []);
 
   // Pinch-to-zoom: update zoom level on pinch end
+  const pinchRef = React.useRef<any>(null);
+  const nativeScrollRef = React.useRef<any>(null);
   const pinchBaseRef = React.useRef(1.0);
+
+  // Sync pinchBase when zoom buttons change the level
+  React.useEffect(() => {
+    pinchBaseRef.current = zoomLevel;
+  }, [zoomLevel]);
+
+  const onPinchGestureEvent = useCallback((event: any) => {
+    // Live preview not needed — we update on state change only
+  }, []);
+
   const onPinchStateChange = useCallback((event: any) => {
     if (event.nativeEvent.oldState === GestureState.ACTIVE) {
       const raw = pinchBaseRef.current * event.nativeEvent.scale;
@@ -250,7 +262,12 @@ export function UnifiedDayView({
 
         {/* ─── Connected Spine Timeline (pinch-to-zoom on native, buttons everywhere) ─── */}
         {Platform.OS !== 'web' ? (
-          <PinchGestureHandler onHandlerStateChange={onPinchStateChange}>
+          <PinchGestureHandler
+            ref={pinchRef}
+            simultaneousHandlers={scrollViewRef}
+            onGestureEvent={onPinchGestureEvent}
+            onHandlerStateChange={onPinchStateChange}
+          >
             <View style={styles.timelineSection}>
               <SpineTimeline
                 events={events}
