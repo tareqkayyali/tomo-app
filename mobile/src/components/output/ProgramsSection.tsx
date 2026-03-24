@@ -84,7 +84,9 @@ const LOADING_MESSAGES = [
 
 export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive, playerSelectedIds = [], playerSelectedPrograms = [], onPlayerSelect, onPlayerDeselect }: Props) {
   const { colors } = useTheme();
-  const { recommendations = [], weeklyPlanSuggestion, weeklyStructure, playerProfile } = programs || {} as any;
+  const safePrograms = programs || {} as any;
+  const recommendations = safePrograms.recommendations || [];
+  const { weeklyPlanSuggestion, weeklyStructure, playerProfile } = safePrograms;
   const [heroExpanded, setHeroExpanded] = useState(false);
   const [coachGroupExpanded, setCoachGroupExpanded] = useState(true);
   const [myPicksExpanded, setMyPicksExpanded] = useState(true);
@@ -105,7 +107,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       try {
         const res = await searchProgramCatalog(q);
         // Filter out already-recommended programs
-        const existingIds = new Set(recommendations.map(r => r.programId));
+        const existingIds = new Set((recommendations || []).map(r => r.programId));
         setSearchResults((res.programs || []).filter(p => !existingIds.has(p.id)).slice(0, 6));
       } catch { setSearchResults([]); }
     }, 250);
