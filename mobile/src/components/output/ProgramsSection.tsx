@@ -113,9 +113,11 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
   const dataStatus = (programs as any).dataStatus;
   const dataNeeded: string[] = (programs as any).dataNeeded || [];
 
-  // Show generating state ONLY when dataStatus is explicitly 'generating'
-  // If recommendations is empty but dataStatus is not 'generating', show empty state with retry
-  if (dataStatus === 'generating') {
+  // Show generating banner ONLY when dataStatus is 'generating' AND no programs exist
+  // If we have coach/player programs, show them with a small generating indicator
+  const hasAnyPrograms = recs.length > 0 || playerSelectedPrograms.length > 0;
+
+  if (dataStatus === 'generating' && !hasAnyPrograms) {
     return (
       <GlassCard>
         <View style={styles.emptyState}>
@@ -128,21 +130,6 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
           <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
             Our AI is creating a personalized training program based on your profile. This takes a moment...
           </Text>
-
-          {/* Data-needed hints to improve personalization */}
-          {dataNeeded.length > 0 && (
-            <View style={styles.checklistContainer}>
-              <Text style={[styles.checklistHeader, { color: colors.textInactive }]}>
-                Want better programs? Try:
-              </Text>
-              {dataNeeded.map((item, i) => (
-                <View key={i} style={styles.checklistRow}>
-                  <Ionicons name="add-circle-outline" size={14} color={colors.accent1} />
-                  <Text style={[styles.checklistText, { color: colors.textInactive }]}>{item}</Text>
-                </View>
-              ))}
-            </View>
-          )}
 
           {/* CTA buttons */}
           <View style={styles.ctaRow}>
