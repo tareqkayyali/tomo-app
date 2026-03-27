@@ -8,7 +8,6 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
-import { VoyageAIClient } from 'voyageai';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
@@ -32,7 +31,6 @@ if (!VOYAGE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const voyage = new VoyageAIClient({ apiKey: VOYAGE_KEY });
 
 // ---------------------------------------------------------------------------
 // Types
@@ -112,12 +110,14 @@ function parseKnowledgeBase(filePath: string): ParsedChunk[] {
 // ---------------------------------------------------------------------------
 
 async function embedBatch(texts: string[]): Promise<number[][]> {
-  const response = await voyage.embed({
-    model: 'voyage-3-lite',
-    input: texts,
-    inputType: 'document',
+  const response = await fetch('https://api.voyageai.com/v1/embeddings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${VOYAGE_KEY}` },
+    body: JSON.stringify({ model: 'voyage-3-lite', input: texts, input_type: 'document' }),
   });
-  return (response.data ?? []).map(d => d.embedding ?? []);
+  if (!response.ok) throw new Error(`Voyage API ${response.status}: ${await response.text()}`);
+  const data = await response.json();
+  return (data?.data ?? []).map((d: any) => d.embedding ?? []);
 }
 
 // ---------------------------------------------------------------------------

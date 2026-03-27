@@ -3,7 +3,11 @@ import OpenAI from 'openai';
 import { requireAuth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!openai) openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'not-set' });
+  return openai;
+}
 
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
@@ -42,7 +46,7 @@ export async function POST(req: NextRequest) {
       type: audioFile.type || 'audio/m4a',
     });
 
-    const transcription = await openai.audio.transcriptions.create({
+    const transcription = await getOpenAI().audio.transcriptions.create({
       model: 'whisper-1',
       file: file,
       language: 'en',
