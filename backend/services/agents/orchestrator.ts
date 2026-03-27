@@ -45,6 +45,7 @@ import { withRetry } from "@/lib/aiRetry";
 import { trackedClaudeCall, type TrackedCallMeta } from "@/lib/trackedClaudeCall";
 import { classifyIntent } from "./intentClassifier";
 import { intentHandlers } from "./intentHandlers";
+import { retrieveChatKnowledge } from "./ragChatRetriever";
 // conversationStateExtractor is called from route.ts, not here
 
 const MAX_TOOL_ITERATIONS = 5;
@@ -471,7 +472,7 @@ export async function orchestrate(
   const lowerMsg = userMessage.toLowerCase();
 
   // Build combined tools and system prompt for this request
-  const { tools, systemBlocks } = buildAgentConfig(agentTypes, context, conversationState);
+  const { tools, systemBlocks } = await buildAgentConfig(agentTypes, context, conversationState, userMessage);
 
   const anthropic = getClient();
 
@@ -900,10 +901,11 @@ function getAgentForCategory(category: string): string | null {
  * The static block contains guardrails, Gen Z rules, output format, and agent base rules.
  * The dynamic block contains player context, temporal context, schedule rules, recs, and conversation state.
  */
-function buildAgentConfig(
+async function buildAgentConfig(
   agentTypes: string[],
   context: PlayerContext,
-  conversationState?: ConversationState | null
+  conversationState?: ConversationState | null,
+  userMessage?: string
 ) {
   const toolSets: Record<string, any[]> = {
     timeline: timelineTools,
@@ -1025,6 +1027,16 @@ REC FILTERING RULES (CRITICAL — follow strictly):
 - When in doubt, show FEWER recs (1-2 max), not more`;
   }
 
+  // RAG knowledge grounding (only for advisory queries with a user message)
+  let ragContextBlock = "";
+  if (userMessage && userMessage.length > 10 && !userMessage.startsWith("[CAPSULE_RESULT]")) {
+    try {
+      ragContextBlock = await retrieveChatKnowledge(userMessage, context, agentTypes[0]);
+    } catch (e) {
+      console.warn("[RAG] Chat retrieval failed, continuing without:", e);
+    }
+  }
+
   const dynamicSuffix =
     sportContext +
     toneProfile +
@@ -1032,6 +1044,7 @@ REC FILTERING RULES (CRITICAL — follow strictly):
     temporalBlock +
     scheduleRuleBlock +
     recsBlock +
+    ragContextBlock +
     conversationContextBlock +
     (agentTypes.length > 1
       ? `\n\nYou also have access to tools from: ${agentTypes.slice(1).join(", ")} to handle this request fully.`

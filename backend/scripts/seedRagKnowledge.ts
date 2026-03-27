@@ -1,6 +1,6 @@
 /**
- * Seed script — Parse the RAG knowledge base markdown, embed each domain,
- * and upsert into rag_knowledge_chunks via Supabase.
+ * Seed script — Parse the RAG knowledge base markdown, embed each chunk
+ * using Voyage AI, and upsert into rag_knowledge_chunks via Supabase.
  *
  * Usage:  npx tsx scripts/seedRagKnowledge.ts
  */
@@ -8,8 +8,9 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
-import OpenAI from 'openai';
+import { VoyageAIClient } from 'voyageai';
 import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
 // ---------------------------------------------------------------------------
 // Environment
@@ -19,139 +20,126 @@ dotenv.config({ path: path.resolve(__dirname, '..', '.env.local') });
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const OPENAI_KEY = process.env.OPENAI_API_KEY!;
+const VOYAGE_KEY = process.env.VOYAGE_API_KEY!;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local');
   process.exit(1);
 }
-if (!OPENAI_KEY) {
-  console.error('Missing OPENAI_API_KEY in .env.local');
+if (!VOYAGE_KEY) {
+  console.error('Missing VOYAGE_API_KEY in .env.local');
   process.exit(1);
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const openai = new OpenAI({ apiKey: OPENAI_KEY });
+const voyage = new VoyageAIClient({ apiKey: VOYAGE_KEY });
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface ParsedDomain {
+interface ParsedChunk {
   title: string;
   domain: string;
   rec_types: string[];
   phv_stages: string[];
   age_groups: string[];
+  sports: string[];
   evidence_grade: string;
-  primary_source: string;
   content: string;
-  athlete_summary: string;
-  coach_summary: string;
 }
 
 // ---------------------------------------------------------------------------
-// Parser
+// Parser — new format: ## DOMAIN: Title + YAML-like metadata lines + body text
 // ---------------------------------------------------------------------------
 
-function parseKnowledgeBase(filePath: string): ParsedDomain[] {
+function parseKnowledgeBase(filePath: string): ParsedChunk[] {
   const raw = fs.readFileSync(filePath, 'utf-8');
-  const domains: ParsedDomain[] = [];
+  const chunks: ParsedChunk[] = [];
 
-  // Split on ```yaml ... ``` blocks, keeping the text before each block
-  // to extract the ## DOMAIN heading
-  const yamlBlockRegex = /## DOMAIN \d+:\s*(.+?)\n[\s\S]*?```yaml\n([\s\S]*?)```/g;
+  // Split on "---" separators and "## " headings
+  const sections = raw.split(/^---$/m).filter(s => s.trim());
 
-  let match: RegExpExecArray | null;
-  while ((match = yamlBlockRegex.exec(raw)) !== null) {
-    const title = match[1].trim();
-    const yamlBody = match[2];
+  for (const section of sections) {
+    const headingMatch = section.match(/^## (\w+): (.+)$/m);
+    if (!headingMatch) continue;
 
-    try {
-      const parsed = parseYamlBlock(yamlBody, title);
-      domains.push(parsed);
-    } catch (err) {
-      console.error(`Failed to parse domain "${title}":`, err);
-    }
+    const domain = headingMatch[1].trim();
+    const title = headingMatch[2].trim();
+
+    // Parse metadata lines (key: value format)
+    const getArray = (key: string): string[] => {
+      const re = new RegExp(`^${key}:\\s*\\[([^\\]]+)\\]`, 'm');
+      const m = section.match(re);
+      if (!m) return [];
+      return m[1].split(',').map(s => s.trim());
+    };
+
+    const getScalar = (key: string): string => {
+      const re = new RegExp(`^${key}:\\s*(.+)$`, 'm');
+      const m = section.match(re);
+      return m ? m[1].trim() : '';
+    };
+
+    // Content is everything after the metadata lines
+    const lines = section.split('\n');
+    const contentStartIdx = lines.findIndex((l, i) =>
+      i > 0 && l.trim().length > 0 && !l.startsWith('##') && !l.match(/^\w+:/)
+    );
+    const content = contentStartIdx >= 0
+      ? lines.slice(contentStartIdx).join('\n').trim()
+      : '';
+
+    if (!content) continue;
+
+    chunks.push({
+      title,
+      domain,
+      rec_types: getArray('rec_types'),
+      phv_stages: getArray('phv_stages'),
+      age_groups: getArray('age_groups'),
+      sports: getArray('sports'),
+      evidence_grade: getScalar('evidence_grade'),
+      content,
+    });
   }
 
-  return domains;
-}
-
-function parseYamlBlock(body: string, title: string): ParsedDomain {
-  const getScalar = (key: string): string => {
-    const re = new RegExp(`^${key}:\\s*(.+)$`, 'm');
-    const m = body.match(re);
-    return m ? m[1].trim().replace(/^"|"$/g, '') : '';
-  };
-
-  const getArray = (key: string): string[] => {
-    const re = new RegExp(`^${key}:\\s*\\[([^\\]]+)\\]`, 'm');
-    const m = body.match(re);
-    if (!m) return [];
-    return m[1].split(',').map((s) => s.trim());
-  };
-
-  const getMultiline = (key: string): string => {
-    const lines = body.split('\n');
-    const startIdx = lines.findIndex((l) => new RegExp(`^${key}:\\s*\\|`).test(l));
-    if (startIdx === -1) return '';
-
-    // Collect all subsequent lines that are indented (2+ spaces) or blank
-    const collected: string[] = [];
-    for (let i = startIdx + 1; i < lines.length; i++) {
-      const line = lines[i];
-      // Stop at a new top-level YAML key (non-indented, non-blank)
-      if (line.length > 0 && !line.startsWith(' ')) break;
-      collected.push(line.replace(/^ {2}/, ''));
-    }
-    return collected.join('\n').trim();
-  };
-
-  return {
-    title,
-    domain: getScalar('domain'),
-    rec_types: getArray('rec_types'),
-    phv_stages: getArray('phv_stages'),
-    age_groups: getArray('age_groups'),
-    evidence_grade: getScalar('evidence_grade'),
-    primary_source: getScalar('primary_source'),
-    content: getMultiline('content'),
-    athlete_summary: getMultiline('athlete_summary'),
-    coach_summary: getMultiline('coach_summary'),
-  };
+  return chunks;
 }
 
 // ---------------------------------------------------------------------------
-// Embedder
+// Embedder (Voyage AI)
 // ---------------------------------------------------------------------------
 
-async function embed(text: string): Promise<number[]> {
-  const res = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: text,
+async function embedBatch(texts: string[]): Promise<number[][]> {
+  const response = await voyage.embed({
+    model: 'voyage-3-lite',
+    input: texts,
+    inputType: 'document',
   });
-  return res.data[0].embedding;
+  return (response.data ?? []).map(d => d.embedding ?? []);
 }
 
 // ---------------------------------------------------------------------------
 // Upsert
 // ---------------------------------------------------------------------------
 
-async function upsertChunk(domain: ParsedDomain, embedding: number[]): Promise<void> {
-  // Bypass Supabase JS client entirely — use raw fetch to PostgREST
+async function upsertChunk(chunk: ParsedChunk, embedding: number[]): Promise<void> {
   const embeddingStr = `[${embedding.join(',')}]`;
+
   const body = {
-    domain: domain.domain,
-    title: domain.title,
-    content: domain.content,
-    athlete_summary: domain.athlete_summary,
-    coach_summary: domain.coach_summary,
-    rec_types: domain.rec_types,
-    phv_stages: domain.phv_stages,
-    age_groups: domain.age_groups,
-    evidence_grade: domain.evidence_grade,
-    primary_source: domain.primary_source,
+    chunk_id: randomUUID(),
+    domain: `${chunk.domain}: ${chunk.title}`,
+    title: chunk.title,
+    content: chunk.content,
+    athlete_summary: chunk.content.substring(0, 300),
+    coach_summary: chunk.content.substring(0, 300),
+    rec_types: chunk.rec_types,
+    phv_stages: chunk.phv_stages,
+    age_groups: chunk.age_groups,
+    sports: chunk.sports,
+    evidence_grade: chunk.evidence_grade,
+    primary_source: 'Tomo Sports Science Knowledge Base v1',
     embedding: embeddingStr,
   };
 
@@ -177,9 +165,7 @@ async function upsertChunk(domain: ParsedDomain, embedding: number[]): Promise<v
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const kbPath = path.resolve(
-    '/Users/tareqelkayyali/Desktop/Tomo/Files/tomo_rie_rag_knowledge_base.md'
-  );
+  const kbPath = path.resolve(__dirname, '..', 'knowledge', 'sports-science-base.md');
 
   if (!fs.existsSync(kbPath)) {
     console.error(`Knowledge base file not found: ${kbPath}`);
@@ -187,40 +173,54 @@ async function main() {
   }
 
   console.log('Parsing knowledge base...');
-  const domains = parseKnowledgeBase(kbPath);
-  console.log(`Found ${domains.length} domains.\n`);
+  const chunks = parseKnowledgeBase(kbPath);
+  console.log(`Found ${chunks.length} chunks.\n`);
 
-  const errors: { domain: string; error: string }[] = [];
+  if (chunks.length === 0) {
+    console.error('No chunks parsed. Check the markdown format.');
+    process.exit(1);
+  }
 
-  for (let i = 0; i < domains.length; i++) {
-    const d = domains[i];
-    const label = `${i + 1}/${domains.length}: ${d.domain}`;
+  // Embed in batches of 10
+  const BATCH_SIZE = 10;
+  const errors: { title: string; error: string }[] = [];
+
+  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+    const batch = chunks.slice(i, i + BATCH_SIZE);
+    const texts = batch.map(c => `${c.title}. ${c.content}`);
+
+    console.log(`Embedding batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(chunks.length / BATCH_SIZE)} (${batch.length} chunks)...`);
 
     try {
-      // Build embedding text: title + content + athlete_summary
-      const textToEmbed = `${d.title}. ${d.content} ${d.athlete_summary}`;
-      console.log(`Embedding domain ${label} (${textToEmbed.length} chars)...`);
+      const embeddings = await embedBatch(texts);
 
-      const embedding = await embed(textToEmbed);
-
-      console.log(`Upserting domain ${label}...`);
-      await upsertChunk(d, embedding);
-
-      console.log(`  Done: ${d.domain}\n`);
+      for (let j = 0; j < batch.length; j++) {
+        const label = `${i + j + 1}/${chunks.length}: ${batch[j].title}`;
+        try {
+          console.log(`  Upserting ${label}...`);
+          await upsertChunk(batch[j], embeddings[j]);
+        } catch (err: any) {
+          const msg = err?.message ?? String(err);
+          console.error(`  ERROR on ${label}: ${msg}`);
+          errors.push({ title: batch[j].title, error: msg });
+        }
+      }
     } catch (err: any) {
       const msg = err?.message ?? String(err);
-      console.error(`  ERROR on ${label}: ${msg}\n`);
-      errors.push({ domain: d.domain, error: msg });
+      console.error(`  BATCH ERROR: ${msg}`);
+      for (const c of batch) {
+        errors.push({ title: c.title, error: msg });
+      }
     }
   }
 
   // Summary
-  console.log('='.repeat(60));
-  console.log(`Completed: ${domains.length - errors.length}/${domains.length} domains seeded.`);
+  console.log('\n' + '='.repeat(60));
+  console.log(`Completed: ${chunks.length - errors.length}/${chunks.length} chunks seeded.`);
   if (errors.length > 0) {
     console.log(`\nFailed (${errors.length}):`);
     for (const e of errors) {
-      console.log(`  - ${e.domain}: ${e.error}`);
+      console.log(`  - ${e.title}: ${e.error}`);
     }
   }
 }

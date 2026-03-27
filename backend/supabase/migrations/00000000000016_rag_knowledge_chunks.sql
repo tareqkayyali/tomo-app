@@ -18,7 +18,7 @@ CREATE TABLE rag_knowledge_chunks (
   age_groups      TEXT[],
   sports          TEXT[] DEFAULT '{all}',
   contexts        TEXT[] DEFAULT '{}',
-  embedding       vector(1536),
+  embedding       vector(512),
   primary_source  TEXT,
   evidence_grade  TEXT,
   last_reviewed   DATE,
@@ -40,7 +40,7 @@ ALTER TABLE rag_knowledge_chunks ENABLE ROW LEVEL SECURITY;
 
 -- Vector similarity search with metadata pre-filters
 CREATE OR REPLACE FUNCTION match_knowledge_chunks(
-  query_embedding vector(1536),
+  query_embedding vector(512),
   filter_rec_types text[],
   filter_phv_stages text[],
   filter_age_groups text[],
