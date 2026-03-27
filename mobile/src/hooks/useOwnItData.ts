@@ -21,6 +21,7 @@ import {
   type AthleteSnapshot,
   type RIERecommendation,
 } from '../services/api';
+import { useRefreshListener } from './useRefreshListener';
 
 const SNAPSHOT_CACHE_KEY = 'tomo_ownit_snapshot';
 const RECS_CACHE_KEY = 'tomo_ownit_recs';
@@ -194,6 +195,10 @@ export function useOwnItData() {
   }, [fetchData, triggerDeepRefresh]);
 
   const grouped = useMemo(() => groupRecs(recs), [recs]);
+
+  // ── Listen for cross-screen refresh events (e.g. check-in from chat) ──
+  useRefreshListener('readiness', fetchData);
+  useRefreshListener('recommendations', fetchData);
 
   return {
     snapshot,

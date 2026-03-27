@@ -41,18 +41,18 @@ export function DayLockButton({ isLocked, isLoading, onToggle }: DayLockButtonPr
       <Ionicons
         name={isLocked ? 'lock-closed' : 'lock-open-outline'}
         size={12}
-        color={isLocked ? '#FFF' : colors.textSecondary}
+        color={isLocked ? colors.textOnDark : colors.textSecondary}
       />
       <Text
         style={[
           styles.pillText,
-          { color: isLocked ? '#FFF' : colors.textSecondary },
+          { color: isLocked ? colors.textOnDark : colors.textSecondary },
         ]}
       >
         {isLocked ? 'Day Locked' : 'Lock Day'}
       </Text>
       {isLocked && (
-        <Ionicons name="checkmark" size={12} color="#FFF" />
+        <Ionicons name="checkmark" size={12} color={colors.textOnDark} />
       )}
     </Pressable>
   );

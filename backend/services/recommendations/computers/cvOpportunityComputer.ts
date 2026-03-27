@@ -61,15 +61,15 @@ export async function computeCvOpportunityRec(
       + `Start with the basics: complete a phone test (jump, sprint, agility) to get your `
       + `first benchmarks, and make sure your profile info (height, weight, position) is up to date.`;
   } else if (benchmarkProfile && benchmarkProfile.gaps.length > 0) {
-    // Key position metric missing
+    // Gaps = metrics with low percentile (< 40th). These are TRAINING gaps, not missing tests.
     const topGap = benchmarkProfile.gaps[0];
     priority = 3;
-    title = `Missing Key Test: ${topGap}`;
-    bodyShort = `Your profile is missing ${topGap}. Complete this test to strengthen your CV.`;
-    bodyLong = `Your benchmark profile is missing data for ${topGap}. `
-      + `This is a key metric for ${snapshot.position ?? 'your position'} in ${snapshot.sport ?? 'your sport'}. `
-      + `Completing this assessment will give you a percentile ranking and help coaches `
-      + `evaluate your abilities. Open the Assess tab to take the test.`;
+    title = `Improve Your ${topGap}`;
+    bodyShort = `Your ${topGap} is a development area. Targeted training programs can help you level up.`;
+    bodyLong = `Your ${topGap} benchmark is below the 40th percentile for ${snapshot.position ?? 'your position'} in ${snapshot.sport ?? 'your sport'}. `
+      + `This is one of your biggest areas for improvement. Focus on specific training programs `
+      + `and drills designed to improve this metric. Consistent targeted work over 4-6 weeks `
+      + `can make a significant difference.`;
   } else if (cvCompleteness !== null) {
     // Check for milestone crossings (50% or 75%)
     // We detect this by checking if the current event pushed CV above threshold
@@ -125,12 +125,19 @@ export async function computeCvOpportunityRec(
     position: snapshot.position,
   };
 
-  // 5. Build context
+  // 5. Build context with appropriate action
+  // If gaps exist (low scores), point to programs. If CV incomplete, point to tests.
+  const hasLowScoreGaps = benchmarkProfile && benchmarkProfile.gaps.length > 0;
+  const action = hasLowScoreGaps
+    ? { type: "Test", params: { initialTab: "programs" }, label: "Browse Programs" }
+    : { type: "Test", params: { initialTab: "metrics" }, label: "Run a Test" };
+
   const context: Record<string, unknown> = {
     cv_completeness: cvCompleteness,
     mastery_scores: snapshot.mastery_scores,
     strength_benchmarks: snapshot.strength_benchmarks,
     speed_profile: snapshot.speed_profile,
+    action,
   };
 
   // 6. Supersede existing CV_OPPORTUNITY recs

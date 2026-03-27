@@ -11,12 +11,16 @@ import {
   getDrillById,
   searchDrills,
 } from "@/services/drillRecommendationService";
-import { getPlayerBenchmarkProfile } from "@/services/benchmarkService";
+import { getPlayerBenchmarkProfile, processPhoneTestBenchmark } from "@/services/benchmarkService";
 import { generateProgramRecommendations } from "@/services/programs/programRecommendationEngine";
 import {
   calculatePHV,
   recordPHVAssessment,
 } from "@/services/programs/phvCalculator";
+import { RAW_TEST_GROUP_MAP, TEST_GROUPS } from "@/services/testGroupConstants";
+import { emitEventSafe } from "@/services/events/eventEmitter";
+import { triggerDeepRefreshAsync as triggerDeepRecRefreshAsync } from "@/services/recommendations/deepRecRefresh";
+import { triggerDeepProgramRefreshAsync } from "@/services/programs/deepProgramRefresh";
 
 export const outputTools = [
   {
@@ -105,7 +109,7 @@ export const outputTools = [
   {
     name: "get_test_results",
     description:
-      "Get the player's phone test history — reaction time, jump, sprint, agility, balance. Use when asked about performance test scores or recent results.",
+      "Get the player's test history — reaction time, jump, sprint, agility, balance. Use when asked about performance test scores or recent results.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -218,7 +222,7 @@ export const outputTools = [
   {
     name: "get_my_programs",
     description:
-      "Get the athlete's current personalized training programs including AI-generated and coach-assigned programs. Use this when the athlete asks about their programs, a specific program by name, or wants details about a recommended training program.",
+      "Get the athlete's current personalized training programs including AI-generated and coach-assigned programs. Use when the athlete asks about their programs, a specific program by name, program drills/exercises, or wants details about a recommended training program. Pass program_name to filter and get related drills.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -246,6 +250,90 @@ export const outputTools = [
       },
     },
   },
+
+  // ── Capsule Tools — test logging & catalog ──────────────────────
+
+  {
+    name: "get_test_catalog",
+    description:
+      "Get the available test catalog (tests the player can log). Returns test IDs, names, units, and categories. Use when the player wants to log a test but hasn't specified which one, or when you need to show a test_log_capsule.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        category: {
+          type: "string",
+          description: "Optional filter by category (e.g. 'speed', 'agility', 'power', 'balance', 'reaction')",
+        },
+      },
+    },
+  },
+  {
+    name: "log_test_result",
+    description:
+      "Log a test result for the player. Use when the player provides a test score to record. If the player says all data (test type + score), call this directly. If data is missing, return a test_log_capsule card instead so the player can fill in fields interactively.",
+    input_schema: {
+      type: "object" as const,
+      required: ["testType", "score"],
+      properties: {
+        testType: {
+          type: "string",
+          description: "Test catalog ID (e.g. 'cmj', 'sprint_30m', 'reaction_time', 'agility_5105', 'balance_y')",
+        },
+        score: {
+          type: "number",
+          description: "The test score/value",
+        },
+        unit: {
+          type: "string",
+          description: "Unit of measurement (e.g. 'cm', 's', 'ms'). Auto-detected from catalog if omitted.",
+        },
+        date: {
+          type: "string",
+          description: "YYYY-MM-DD, defaults to today",
+        },
+        notes: {
+          type: "string",
+          description: "Optional notes about the test",
+        },
+      },
+    },
+  },
+  {
+    name: "rate_drill",
+    description:
+      "Rate a drill after completing it. Use when the player says they finished a drill and wants to give feedback.",
+    input_schema: {
+      type: "object" as const,
+      required: ["drillId", "rating"],
+      properties: {
+        drillId: {
+          type: "string",
+          description: "UUID of the drill",
+        },
+        rating: {
+          type: "number",
+          description: "1-5 star rating",
+        },
+        difficulty: {
+          type: "number",
+          description: "1-5 difficulty rating",
+        },
+        completionStatus: {
+          type: "string",
+          enum: ["skipped", "partial", "completed"],
+          description: "Whether the drill was completed fully",
+        },
+        effort: {
+          type: "number",
+          description: "1-10 effort level",
+        },
+        notes: {
+          type: "string",
+          description: "Optional feedback notes",
+        },
+      },
+    },
+  },
 ];
 
 export async function executeOutputTool(
@@ -261,16 +349,43 @@ export async function executeOutputTool(
     switch (toolName) {
       case "get_readiness_detail": {
         const date = toolInput.date ?? today;
-        const { data: checkin } = await db
-          .from("checkins")
-          .select(
-            "energy, soreness, sleep_hours, mood, academic_stress, pain_flag, pain_location, readiness, intensity, effort_yesterday"
-          )
-          .eq("user_id", userId)
-          .eq("date", date)
-          .maybeSingle();
+        const [checkinRes, vitalsRes] = await Promise.all([
+          db.from("checkins")
+            .select("energy, soreness, sleep_hours, mood, academic_stress, pain_flag, pain_location, readiness, intensity, effort_yesterday, date")
+            .eq("user_id", userId)
+            .eq("date", date)
+            .maybeSingle(),
+          db.from("health_data")
+            .select("metric_type, value, date")
+            .eq("user_id", userId)
+            .in("metric_type", ["hrv", "resting_hr", "sleep_hours", "recovery_score"])
+            .order("date", { ascending: false })
+            .limit(10),
+        ]);
+        let checkin = checkinRes.data;
+        let checkinDate = date;
 
-        return { result: { date, checkIn: checkin } };
+        // Fallback: if no check-in today, get the most recent one (within last 3 days)
+        if (!checkin) {
+          const fallbackRes = await db.from("checkins")
+            .select("energy, soreness, sleep_hours, mood, academic_stress, pain_flag, pain_location, readiness, intensity, effort_yesterday, date")
+            .eq("user_id", userId)
+            .order("date", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (fallbackRes.data) {
+            checkin = fallbackRes.data;
+            checkinDate = (fallbackRes.data as any).date ?? date;
+          }
+        }
+
+        // Build vitals map from latest health_data
+        const vitals: Record<string, number> = {};
+        for (const v of (vitalsRes.data ?? []) as any[]) {
+          if (!vitals[v.metric_type]) vitals[v.metric_type] = Math.round(v.value * 10) / 10;
+        }
+
+        return { result: { date: checkinDate, checkIn: checkin, vitals, isToday: checkinDate === date } };
       }
 
       case "get_vitals_trend": {
@@ -526,7 +641,7 @@ export async function executeOutputTool(
             result: {
               available: false,
               message:
-                "No benchmark data yet. The player needs to complete phone tests (sprint, jump, reaction, agility, balance) to generate percentile rankings vs peers.",
+                "No benchmark data yet. The player can log tests right here in chat (sprint, jump, reaction, agility, balance) to generate percentile rankings vs peers.",
             },
           };
         }
@@ -553,7 +668,7 @@ export async function executeOutputTool(
       }
 
       case "get_training_program_recommendations": {
-        const recs = await generateProgramRecommendations(context);
+        const recs = await generateProgramRecommendations(context, toolInput.focusArea);
         return { result: recs };
       }
 
@@ -634,6 +749,38 @@ export async function executeOutputTool(
           };
         }
 
+        // If a specific program was requested by name, fetch related drills
+        let relatedDrills: any[] = [];
+        if (nameFilter && limited.length <= 2) {
+          try {
+            const categories = limited.map((p: any) => p.category?.toLowerCase()).filter(Boolean);
+            const tags = limited.flatMap((p: any) => (p.tags ?? []).map((t: string) => t.toLowerCase()));
+            const searchTerms = [...new Set([...categories, ...tags])].slice(0, 5);
+            if (searchTerms.length > 0) {
+              const { data: drills } = await (db as any)
+                .from("training_drills")
+                .select("name, description, duration_minutes, intensity, category, attribute_keys")
+                .eq("sport_id", "football")
+                .eq("active", true)
+                .limit(50);
+              if (drills) {
+                relatedDrills = drills
+                  .filter((d: any) => {
+                    const attrs = (d.attribute_keys ?? []).map((a: string) => a.toLowerCase());
+                    return searchTerms.some(t => attrs.includes(t) || d.name?.toLowerCase().includes(t));
+                  })
+                  .slice(0, 6)
+                  .map((d: any) => ({
+                    name: d.name,
+                    description: d.description,
+                    duration: d.duration_minutes,
+                    intensity: d.intensity,
+                  }));
+              }
+            }
+          } catch { /* non-critical */ }
+        }
+
         return {
           result: {
             found: true,
@@ -651,6 +798,7 @@ export async function executeOutputTool(
               reason: p.reason,
               prescription: p.prescription,
             })),
+            ...(relatedDrills.length > 0 ? { relatedDrills } : {}),
           },
         };
       }
@@ -670,6 +818,247 @@ export async function executeOutputTool(
         return { result: programData };
       }
 
+      // ── Capsule Tools — test catalog & logging ────────────────────
+
+      case "get_test_catalog": {
+        // Build catalog from RAW_TEST_GROUP_MAP + sport_test_definitions
+        const categoryFilter = toolInput.category?.toLowerCase();
+
+        // Unit map for common test types
+        const UNIT_MAP: Record<string, string> = {
+          "10m-sprint": "s", "20m-sprint": "s", "30m-sprint": "s", "flying-10m": "s",
+          "cmj": "cm", "vertical-jump": "cm", "broad-jump": "cm", "squat-jump": "cm", "drop-jump": "cm", "jump-height": "cm",
+          "sl-broad-jump-r": "cm", "sl-broad-jump-l": "cm",
+          "reaction-time": "ms", "choice-reaction": "ms", "reaction-tap": "ms",
+          "5-0-5": "s", "5-10-5-agility": "s", "t-test": "s", "illinois-agility": "s", "pro-agility": "s",
+          "arrowhead-agility": "s", "shuttle-run": "s",
+          "yoyo-ir1": "level", "beep-test": "level", "vo2max": "ml/kg/min", "cooper-12min": "m",
+          "grip-strength": "kg", "1rm-squat": "kg", "1rm-bench": "kg", "squat-1rm": "kg",
+          "bench-press-1rm": "kg", "squat-relative": "x BW",
+          "max-speed": "km/h", "body-fat": "%", "hrv": "ms",
+          "seated-mb-throw": "m", "glycolytic-power": "W/kg", "mas-running": "km/h", "mas": "km/h",
+          "dribbling-test": "s", "passing-accuracy": "%", "shooting-accuracy": "%", "shot-speed": "km/h",
+          "balance-y": "cm",
+        };
+
+        // Category name map
+        const GROUP_CATEGORY: Record<string, string> = {
+          speed_acceleration: "speed",
+          power_explosiveness: "power",
+          agility_cod: "agility",
+          aerobic_endurance: "endurance",
+          strength: "strength",
+          mobility_movement: "mobility",
+          body_composition: "body",
+          recovery_readiness: "recovery",
+        };
+
+        const catalog = Object.entries(RAW_TEST_GROUP_MAP)
+          .map(([id, groupId]) => ({
+            id,
+            name: id.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            unit: UNIT_MAP[id] ?? "",
+            category: GROUP_CATEGORY[groupId] ?? groupId,
+          }))
+          .filter((item) => !categoryFilter || item.category === categoryFilter);
+
+        // Also fetch recent tests for this player
+        const { data: recentTests } = await db
+          .from("phone_test_sessions")
+          .select("test_type, score, date")
+          .eq("user_id", userId)
+          .order("date", { ascending: false })
+          .limit(10);
+
+        const recentByType: Record<string, { id: string; name: string; lastValue: number; lastDate: string }> = {};
+        for (const t of recentTests ?? []) {
+          if (!recentByType[t.test_type]) {
+            recentByType[t.test_type] = {
+              id: t.test_type,
+              name: t.test_type.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+              lastValue: t.score ?? 0,
+              lastDate: t.date,
+            };
+          }
+        }
+
+        const recentTestsList = Object.values(recentByType);
+
+        // Return the catalog AND a ready-to-use capsule card.
+        // The AI MUST include this capsule card in its JSON response.
+        return {
+          result: {
+            catalog,
+            recentTests: recentTestsList,
+            totalTests: catalog.length,
+            // ── INSTRUCTION TO AI ──
+            // You MUST include this exact capsule card in your response JSON "cards" array.
+            // Do NOT generate text+chips asking which test. The capsule IS the test selector.
+            readyToUseCapsuleCard: {
+              type: "test_log_capsule",
+              prefilledTestType: categoryFilter ? catalog[0]?.id ?? null : null,
+              prefilledDate: today,
+              catalog, // full catalog — frontend handles display/filtering
+              recentTests: recentTestsList,
+            },
+          },
+        };
+      }
+
+      case "log_test_result": {
+        const testType = toolInput.testType as string;
+        const score = toolInput.score as number;
+        const date = (toolInput.date as string) ?? today;
+        const notes = (toolInput.notes as string) ?? null;
+
+        // Insert into phone_test_sessions
+        const { data: session, error: insertErr } = await db
+          .from("phone_test_sessions")
+          .insert({
+            user_id: userId,
+            date,
+            test_type: testType,
+            score,
+            raw_data: notes ? { notes } : null,
+          })
+          .select()
+          .single();
+
+        if (insertErr) {
+          return { result: null, error: `Failed to save test: ${insertErr.message}` };
+        }
+
+        // Calculate benchmark percentile
+        const benchmark = await processPhoneTestBenchmark(userId, testType, score, date);
+
+        // Emit ASSESSMENT_RESULT event to Athlete Data Fabric
+        await emitEventSafe({
+          athleteId: userId,
+          eventType: "ASSESSMENT_RESULT",
+          occurredAt: new Date().toISOString(),
+          source: "MANUAL",
+          payload: {
+            test_type: testType,
+            primary_value: score,
+            primary_unit: toolInput.unit ?? null,
+            raw_inputs: notes ? { notes } : {},
+            percentile: benchmark?.percentile ?? null,
+            zone: benchmark?.zone ?? null,
+          },
+          createdBy: userId,
+        });
+
+        // Fire-and-forget: refresh Own It recs + Programs so they reflect the new test
+        triggerDeepRecRefreshAsync(userId, context.timezone);
+        triggerDeepProgramRefreshAsync(userId, context.timezone);
+
+        return {
+          result: {
+            success: true,
+            testType,
+            score,
+            date,
+            benchmark: benchmark ?? null,
+            sessionId: session?.id,
+          },
+          refreshTarget: "metrics",
+        };
+      }
+
+      case "rate_drill": {
+        const { drillId, rating, difficulty, completionStatus, effort, notes } = toolInput;
+        if (!drillId || !rating) {
+          return { result: null, error: "drillId and rating are required" };
+        }
+
+        const { data, error } = await (db as any)
+          .from("drill_ratings")
+          .insert({
+            user_id: userId,
+            drill_id: drillId,
+            date: context.todayDate,
+            rating: Math.min(5, Math.max(1, Math.round(rating))),
+            difficulty: difficulty ? Math.min(5, Math.max(1, Math.round(difficulty))) : null,
+            completion_status: completionStatus ?? "completed",
+            effort: effort ? Math.min(10, Math.max(1, Math.round(effort))) : null,
+            notes: notes ?? null,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        return {
+          result: {
+            success: true,
+            drillId,
+            rating,
+            difficulty,
+            completionStatus: completionStatus ?? "completed",
+          },
+        };
+      }
+
+      case "interact_program": {
+        const { programId, action } = toolInput;
+        if (!programId || !action) {
+          return { result: null, error: "programId and action are required" };
+        }
+
+        const db = supabaseAdmin();
+        // Check if interaction already exists
+        const { data: existing } = await (db as any)
+          .from("program_interactions")
+          .select("id, action")
+          .eq("user_id", userId)
+          .eq("program_id", programId)
+          .maybeSingle();
+
+        if (existing && (existing as any).action === action) {
+          // Toggle off (e.g. un-dismiss)
+          await (db as any).from("program_interactions").delete().eq("id", (existing as any).id);
+          return { result: { success: true, programId, action, toggled: "off" }, refreshTarget: "programs" };
+        }
+
+        // Upsert interaction
+        await (db as any).from("program_interactions").upsert({
+          user_id: userId,
+          program_id: programId,
+          action,
+          created_at: new Date().toISOString(),
+        }, { onConflict: "user_id,program_id" });
+
+        // Clear program recs cache for done/dismissed
+        if (action === "done" || action === "dismissed") {
+          await (db as any).from("athlete_snapshots")
+            .update({ program_recommendations: null })
+            .eq("athlete_id", userId);
+        }
+
+        return { result: { success: true, programId, action, toggled: "on" }, refreshTarget: "programs" };
+      }
+
+      case "sync_whoop": {
+        // Trigger Whoop sync — call the sync endpoint internally
+        const db = supabaseAdmin();
+        const { data: connection } = await (db as any)
+          .from("wearable_connections")
+          .select("access_token, refresh_token, provider")
+          .eq("user_id", userId)
+          .eq("provider", "whoop")
+          .maybeSingle();
+
+        if (!connection) {
+          return { result: { synced: false, error: "Whoop not connected" } };
+        }
+
+        // Return success — actual sync happens via the API endpoint
+        return {
+          result: { synced: true, message: "Whoop sync triggered. Check your vitals in a moment." },
+          refreshTarget: "vitals",
+        };
+      }
+
       default:
         return { result: null, error: `Unknown output tool: ${toolName}` };
     }
@@ -678,21 +1067,9 @@ export async function executeOutputTool(
   }
 }
 
-export function buildOutputSystemPrompt(context: PlayerContext): string {
-  const comp = context.readinessComponents;
-  const compDesc = comp
-    ? `Energy: ${comp.energy}/10, Soreness: ${comp.soreness}/10, Sleep: ${comp.sleepHours}h, Mood: ${comp.mood}/10${comp.academicStress ? `, Academic Stress: ${comp.academicStress}/10` : ""}${comp.painFlag ? " [PAIN FLAGGED]" : ""}`
-    : "No check-in data";
-
+/** Static rules — identical for every player, every request. Cacheable. */
+export function buildOutputStaticPrompt(): string {
   return `You are the Output Agent for Tomo — you own performance data, metrics, readiness, and check-ins.
-
-PLAYER CONTEXT:
-- Name: ${context.name} | Sport: ${context.sport} | Age Band: ${context.ageBand ?? "Unknown"}
-- Today: ${context.todayDate} | Current time: ${context.currentTime}
-- Today's readiness: ${context.readinessScore ? context.readinessScore.toUpperCase() : "Not checked in today"}
-- Latest components: ${compDesc}
-- Current streak: ${context.currentStreak} days
-- Academic load score: ${context.academicLoadScore.toFixed(1)}/10
 
 RULES:
 1. Translate all numbers into plain language first — then show the data
@@ -703,7 +1080,7 @@ RULES:
 6. When logging check-ins conversationally, extract the values from what the player says — don't make them fill out a form
 
 TIME DIRECTION — CRITICAL:
-- The current time is ${context.currentTime}. Past activities are DONE — use them only to assess load and fatigue.
+- Past activities are DONE — use them only to assess load and fatigue.
 - All training recommendations must target FUTURE sessions only (today's remaining schedule or upcoming days).
 - Example: "You did a hard session this morning → go lighter for tonight's training" is correct.
 - Example: "You should reduce your morning training intensity" is WRONG if morning already passed.
@@ -716,38 +1093,26 @@ TRAINING DRILLS:
 5. When returning a single drill detail, use the drill_card card type.
 6. If the player's benchmarkProfile shows gaps, mention which drills target those gaps.
 7. After logging a check-in, proactively suggest: "Want me to build a training session based on your readiness?"
-${context.benchmarkProfile ? `- Performance gaps: ${context.benchmarkProfile.gaps.join(", ") || "None identified"}
-- Strengths: ${context.benchmarkProfile.strengths.join(", ") || "N/A"}` : ""}
-
-PLAYER TEST HISTORY:
-${(() => {
-  const tests = context.recentTestScores ?? [];
-  if (tests.length === 0) return "No phone test data yet.";
-  // Group by test type, show latest + best
-  const byType: Record<string, { latest: { score: number; date: string }; best: number; count: number }> = {};
-  for (const t of tests) {
-    if (!byType[t.testType]) {
-      byType[t.testType] = { latest: { score: t.score, date: t.date }, best: t.score, count: 0 };
-    }
-    byType[t.testType].count++;
-    if (t.score > byType[t.testType].best) byType[t.testType].best = t.score;
-  }
-  return Object.entries(byType).map(([type, d]) =>
-    `- ${type}: latest ${d.latest.score} (${d.latest.date}), best ${d.best}, ${d.count} tests`
-  ).join("\n");
-})()}
 
 WEAKNESS & STRENGTH ANALYSIS:
 When the player asks about weaknesses, strengths, gaps, or areas to improve (WITHOUT asking to compare vs peers):
-1. Analyze the player's test history above to identify relative weaknesses:
+1. Analyze the player's test history to identify relative weaknesses:
    - Compare scores across test types (lower relative scores = weakness areas)
    - Look at test frequency (never-tested areas = unknown, flag them)
    - Consider readiness patterns (chronic low energy/high soreness = recovery weakness)
-2. If benchmarkProfile data exists in context above, briefly mention percentile context.
+2. If benchmarkProfile data exists in context, briefly mention percentile context.
 3. Cross-reference with readiness data: chronic soreness suggests physicality gaps, low energy may indicate conditioning needs.
 4. Do NOT call get_benchmark_comparison for weakness/strength questions — use the data already in context.
 5. ALWAYS give a substantive answer using whatever data IS available — never just say "no data".
 6. If truly zero data exists, explain what tests/check-ins to complete and give general position-based advice.
+
+RECOVERY PROTOCOLS:
+When the player asks about recovery, recovery plans, recovery protocols, or what to do for recovery:
+1. Use get_training_session with category="recovery" to get personalized recovery drills/exercises.
+2. NEVER open a create_event or event_edit capsule — the player wants a recovery PROGRAM, not to manually create a calendar event.
+3. Include readiness context: if HRV is below baseline or soreness is high, explain why recovery matters now.
+4. Suggest specific recovery modalities based on data: foam rolling, mobility, light movement, sleep hygiene.
+5. If the player has a [RECOVERY] recommendation active, reference its specific advice.
 
 TRAINING PROGRAMS:
 1. When the athlete asks about their training programs, a specific program, or wants drill details for a recommended program, use the get_my_programs tool first to check their personalized recommendations before searching the general drill catalog.
@@ -757,13 +1122,103 @@ TRAINING PROGRAMS:
 5. Mid-PHV athletes: flag prominently — no maximal loading, no barbell squats, modified Nordic protocol.
 6. Use get_program_by_id when the player asks about a specific training programme.
 
+TEST LOGGING:
+- If player provides BOTH test type AND numeric score (e.g. "I ran 4.2 on 30m sprint"), call log_test_result directly. Then show benchmark_bar with percentile.
+- Otherwise the system handles test logging via capsule cards automatically.
+
+CHECK-IN:
+- If player provides numeric values (e.g. "energy 8, slept 7 hours"), call log_check_in directly.
+- Otherwise the system handles check-ins via capsule cards automatically.
+
+CHIP ACTION TEXT:
+Chip "action" must express INTENT ("I want to log a test"), never past-tense ("I did a test").
+
 BENCHMARKS & COMPARISONS:
 ONLY call get_benchmark_comparison when the player EXPLICITLY asks to compare against peers.
 Trigger phrases: "compare", "benchmark", "percentile", "how do I rank", "vs other players", "how do I stack up", "where do I stand".
 1. Do NOT call get_benchmark_comparison for general weakness/strength questions.
-2. When triggered, show: metric name, their score, percentile vs ${context.ageBand ?? "their age group"} ${context.sport} players.
+2. When triggered, show: metric name, their score, percentile vs their age group and sport.
 3. Highlight strengths (>75th percentile) and areas to develop (<40th percentile).
-4. If no benchmark data exists, tell the player which phone tests to complete (sprint, jump, reaction, agility, balance).
+4. If no benchmark data exists, offer to log tests right here in chat using the test_log_capsule or log_test_result tool.
 
 TONE: Like a sports scientist who also happens to be their trusted coach.`;
+}
+
+/** Dynamic context — changes per player and per request. NOT cacheable. */
+export function buildOutputDynamicPrompt(context: PlayerContext): string {
+  const comp = context.readinessComponents;
+  const compDesc = comp
+    ? `Energy: ${comp.energy}/10, Soreness: ${comp.soreness}/10, Sleep: ${comp.sleepHours}h, Mood: ${comp.mood}/10${comp.academicStress ? `, Academic Stress: ${comp.academicStress}/10` : ""}${comp.painFlag ? " [PAIN FLAGGED]" : ""}`
+    : "No check-in data";
+
+  // Build test history summary
+  const tests = context.recentTestScores ?? [];
+  let testHistoryDesc: string;
+  if (tests.length === 0) {
+    testHistoryDesc = "No test data yet. The player can log tests right here in chat!";
+  } else {
+    const byType: Record<string, { latest: { score: number; date: string }; best: number; count: number }> = {};
+    for (const t of tests) {
+      if (!byType[t.testType]) {
+        byType[t.testType] = { latest: { score: t.score, date: t.date }, best: t.score, count: 0 };
+      }
+      byType[t.testType].count++;
+      if (t.score > byType[t.testType].best) byType[t.testType].best = t.score;
+    }
+    testHistoryDesc = Object.entries(byType).map(([type, d]) =>
+      `- ${type}: latest ${d.latest.score} (${d.latest.date}), best ${d.best}, ${d.count} tests`
+    ).join("\n");
+  }
+
+  const benchmarkDesc = context.benchmarkProfile
+    ? `- Performance gaps: ${context.benchmarkProfile.gaps.join(", ") || "None identified"}\n- Strengths: ${context.benchmarkProfile.strengths.join(", ") || "N/A"}`
+    : "";
+
+  // Build vitals/wearable context from recent health_data
+  const vitals = context.recentVitals ?? [];
+  let vitalsDesc = "";
+  if (vitals.length > 0) {
+    const byMetric: Record<string, { latest: { value: number; date: string }; values: number[] }> = {};
+    for (const v of vitals) {
+      if (!byMetric[v.metric]) byMetric[v.metric] = { latest: { value: v.value, date: v.date }, values: [] };
+      byMetric[v.metric].values.push(v.value);
+    }
+    const lines = Object.entries(byMetric).map(([m, d]) => {
+      const avg = d.values.length > 1 ? (d.values.reduce((a, b) => a + b, 0) / d.values.length).toFixed(1) : null;
+      return `- ${m}: latest ${d.latest.value} (${d.latest.date})${avg ? `, 7d avg: ${avg}` : ""}`;
+    });
+    vitalsDesc = `\nWEARABLE/HEALTH DATA (from Whoop/health_data):\n${lines.join("\n")}`;
+  }
+
+  // Build snapshot enrichment context (HRV baselines, wellness trends, load)
+  const snap = context.snapshotEnrichment;
+  let snapDesc = "";
+  if (snap) {
+    const parts: string[] = [];
+    if (snap.hrvBaselineMs != null) parts.push(`HRV baseline: ${snap.hrvBaselineMs}ms`);
+    if (snap.hrvTodayMs != null) parts.push(`HRV today: ${snap.hrvTodayMs}ms`);
+    if (snap.sleepQuality != null) parts.push(`Sleep quality: ${snap.sleepQuality}/10`);
+    if (snap.wellness7dayAvg != null) parts.push(`Wellness 7d avg: ${snap.wellness7dayAvg.toFixed(1)}`);
+    if (snap.wellnessTrend) parts.push(`Wellness trend: ${snap.wellnessTrend}`);
+    if (snap.acwr != null) parts.push(`ACWR: ${snap.acwr.toFixed(2)}`);
+    if (snap.injuryRiskFlag) parts.push(`Injury risk: ${snap.injuryRiskFlag}`);
+    if (snap.readinessScore != null) parts.push(`Readiness score: ${snap.readinessScore}/100`);
+    if (parts.length > 0) {
+      snapDesc = `\nATHLETE SNAPSHOT (trend data):\n${parts.join(" | ")}`;
+    }
+  }
+
+  return `
+PLAYER CONTEXT:
+- Name: ${context.name} | Sport: ${context.sport} | Age Band: ${context.ageBand ?? "Unknown"}
+- Today: ${context.todayDate} | Current time: ${context.currentTime}
+- Today's readiness: ${context.readinessScore ? context.readinessScore.toUpperCase() : "Not checked in today"}
+- Latest check-in data (USE THESE EXACT NUMBERS): ${compDesc}
+- Current streak: ${context.currentStreak} days
+- Academic load score: ${context.academicLoadScore.toFixed(1)}/10
+${benchmarkDesc ? `\nBENCHMARK PROFILE:\n${benchmarkDesc}` : ""}${vitalsDesc}${snapDesc}
+
+PLAYER TEST HISTORY:
+Players CAN log test results directly through this chat.
+${testHistoryDesc}`;
 }

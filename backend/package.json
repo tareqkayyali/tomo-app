@@ -9,7 +9,11 @@
     "lint": "eslint",
     "seed:benchmarks": "npx tsx scripts/seeds/football_benchmark_seed.ts",
     "generate:benchmark-sql": "npx tsx scripts/seeds/generate_benchmark_sql.ts",
-    "seed:programs": "npx tsx scripts/seeds/football_training_program_db.ts"
+    "seed:programs": "npx tsx scripts/seeds/football_training_program_db.ts",
+    "test:chat": "npx tsx scripts/chat-test-runner.ts",
+    "test:chat:timeline": "npx tsx scripts/chat-test-runner.ts --page Timeline",
+    "test:chat:verbose": "npx tsx scripts/chat-test-runner.ts --verbose",
+    "test:chat:prod": "npx tsx scripts/chat-test-runner.ts --prod"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -46,6 +50,7 @@
     "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "exceljs": "^4.4.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

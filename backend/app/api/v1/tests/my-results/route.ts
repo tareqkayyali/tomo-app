@@ -197,6 +197,14 @@ export async function POST(req: NextRequest) {
       console.warn('[tests/my-results] CV rec refresh failed (non-fatal):', e);
     }
 
+    // Fire-and-forget: refresh deep recs + programs so Own It reflects new test data
+    try {
+      const { triggerDeepRefreshAsync } = await import("@/services/recommendations/deepRecRefresh");
+      const { triggerDeepProgramRefreshAsync } = await import("@/services/programs/deepProgramRefresh");
+      triggerDeepRefreshAsync(auth.user.id);
+      triggerDeepProgramRefreshAsync(auth.user.id);
+    } catch (e) { console.error("[my-results] Deep refresh failed:", e); }
+
     return NextResponse.json(
       {
         result: {

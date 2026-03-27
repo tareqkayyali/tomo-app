@@ -22,6 +22,7 @@ import {
   ActivityIndicator,
   Pressable,
   Platform,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,6 +30,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useScheduleRules } from '../hooks/useScheduleRules';
+import type { ExamScheduleEntry } from '../hooks/useScheduleRules';
 import { updateUser, getCalendarEventsByRange, deleteCalendarEvent } from '../services/api';
 import { generateStudyPlan } from '../services/studyPlanGenerator';
 import { spacing, borderRadius, fontFamily } from '../theme';
@@ -75,7 +77,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { profile } = useAuth();
-  const { rules, loading, refresh } = useScheduleRules();
+  const { rules, loading, refresh, update: updateRules } = useScheduleRules();
   const navigation = useNavigation<any>();
 
   // Default navigation handlers when used as standalone screen
@@ -205,11 +207,21 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
     return defaults;
   }, [futureExams, subjects]);
 
-  const [strategy, setStrategy] = useState<StudyStrategy>(savedConfig?.strategy || 'last_exam_first');
+  const [strategy] = useState<StudyStrategy>('first_exam_first');
   const [daysPerSubject, setDaysPerSubject] = useState<Record<string, number>>(
     savedConfig?.daysPerSubject || autoDaysPerSubject,
   );
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Inline exam adding state
+  const [addingExam, setAddingExam] = useState(false);
+  const [newExamSubject, setNewExamSubject] = useState('');
+  const [newExamDate, setNewExamDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [newExamType, setNewExamType] = useState('Final');
 
   // ── Derived ────────────────────────────────────────────────────────
 
@@ -260,14 +272,11 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
   const handleGenerate = useCallback(async () => {
     if (subjects.length === 0) {
       if (Platform.OS === 'web') {
-        if (window.confirm('Add your subjects in My Rules first. Go to Rules?')) {
+        if (window.confirm('Add your subjects first using the + button above.')) {
           handleNavigateToRules();
         }
       } else {
-        Alert.alert('Missing Info', 'Add your subjects in My Rules first.', [
-          { text: 'Go to Rules', onPress: handleNavigateToRules },
-          { text: 'Cancel', style: 'cancel' },
-        ]);
+        Alert.alert('Missing Info', 'Add your subjects first using the + button above.');
       }
       return;
     }
@@ -282,6 +291,16 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
     }
 
     saveConfig(currentConfig);
+
+    if (exams.length === 0) {
+      if (Platform.OS === 'web') {
+        window.alert('Add at least one exam date to generate a study plan. Enable Exam Mode and set your exam schedule.');
+      } else {
+        Alert.alert('Missing Exams', 'Add at least one exam date to generate a study plan. Enable Exam Mode and set your exam schedule.');
+      }
+      return;
+    }
+
     setIsGenerating(true);
 
     try {
@@ -416,162 +435,364 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
       </View>
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-      {/* ─── Saved Plans ─── */}
-      {savedPlans.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Saved Plans</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedPlanRow}>
-            {savedPlans.map((plan) => {
-              const createdDate = new Date(plan.createdAt);
-              const daysAgo = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
-              const relTime = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d ago`;
-
-              return (
-                <TouchableOpacity
-                  key={plan.id}
-                  style={styles.savedPlanCard}
-                  activeOpacity={0.7}
+      {/* ─── Latest Saved Plan ─── */}
+      {savedPlans.length > 0 && (() => {
+        const plan = savedPlans[0];
+        const createdDate = new Date(plan.createdAt);
+        const daysAgo = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+        const relTime = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d ago`;
+        return (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Current Plan</Text>
+            <View style={[styles.savedPlanCard, { width: '100%' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Pressable
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}
                   onPress={() => handleNavigateToPreview(plan.blocks, undefined, plan.config, plan.id, true)}
-                  onLongPress={async () => {
-                    if (Platform.OS === 'web') {
-                      if (window.confirm(`Remove "${plan.name}"?`)) {
+                >
+                  <Ionicons name="document-text" size={16} color={colors.warning} />
+                  <Text style={styles.savedPlanName} numberOfLines={1}>{plan.name}</Text>
+                </Pressable>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={async () => {
+                      try {
+                        await exportStudyPlanPdf(plan);
+                      } catch {
+                        if (Platform.OS === 'web') {
+                          window.alert('Could not generate PDF.');
+                        } else {
+                          Alert.alert('Export Failed', 'Could not generate PDF.');
+                        }
+                      }
+                    }}
+                  >
+                    <Ionicons name="download-outline" size={18} color={colors.accent1} />
+                  </Pressable>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={async () => {
+                      const doDelete = async () => {
                         await deleteStudyPlan(plan.id);
                         setSavedPlans((prev) => prev.filter((p) => p.id !== plan.id));
+                      };
+                      if (Platform.OS === 'web') {
+                        if (window.confirm(`Delete "${plan.name}"?`)) await doDelete();
+                      } else {
+                        Alert.alert('Delete Plan?', `Remove "${plan.name}"?`, [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Delete', style: 'destructive', onPress: doDelete },
+                        ]);
                       }
-                    } else {
-                      Alert.alert('Delete Plan?', `Remove "${plan.name}"?`, [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Delete',
-                          style: 'destructive',
-                          onPress: async () => {
-                            await deleteStudyPlan(plan.id);
-                            setSavedPlans((prev) => prev.filter((p) => p.id !== plan.id));
-                          },
-                        },
-                      ]);
-                    }
-                  }}
-                >
-                  <View style={styles.savedPlanHeader}>
-                    <Ionicons name="document-text" size={16} color={colors.warning} />
-                    <TouchableOpacity
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      onPress={async () => {
-                        try {
-                          await exportStudyPlanPdf(plan);
-                        } catch {
-                          if (Platform.OS === 'web') {
-                            window.alert('Could not generate PDF.');
-                          } else {
-                            Alert.alert('Export Failed', 'Could not generate PDF.');
-                          }
-                        }
-                      }}
-                    >
-                      <Ionicons name="download-outline" size={16} color={colors.textInactive} />
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.savedPlanName} numberOfLines={1}>{plan.name}</Text>
-                  <Text style={styles.savedPlanMeta}>
-                    {plan.blockCount} blocks · {plan.examCount} exams
-                  </Text>
-                  <Text style={styles.savedPlanDate}>{relTime}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={colors.error} />
+                  </Pressable>
+                </View>
+              </View>
+              <Pressable onPress={() => handleNavigateToPreview(plan.blocks, undefined, plan.config, plan.id, true)}>
+                <Text style={styles.savedPlanMeta}>
+                  {plan.blockCount} blocks · {plan.examCount} exams · {relTime}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        );
+      })()}
 
-      {/* ─── Config summary banner (matches Training tab) ─── */}
-      <TouchableOpacity style={styles.configBanner} onPress={handleNavigateToRules} activeOpacity={0.7}>
-        <View style={styles.configBannerLeft}>
-          <Ionicons name="options-outline" size={14} color={colors.accent1} />
-          <Text style={[styles.configBannerText, { color: colors.textSecondary }]}>
-            {configSummary}
-          </Text>
+      {/* ─── Study Settings (moved from My Rules) ─── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Subjects</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {subjects.map((subj) => (
+            <Pressable
+              key={subj}
+              onLongPress={() => {
+                const updated = subjects.filter((s) => s !== subj);
+                updateRules({ study_subjects: updated });
+              }}
+              style={[styles.subjectPill, { borderColor: colors.warning + '60', backgroundColor: colors.warning + '15' }]}
+            >
+              <Text style={[styles.subjectPillText, { color: colors.warning }]}>{subj}</Text>
+            </Pressable>
+          ))}
+          <Pressable
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                const name = window.prompt('Add Subject', 'Subject name');
+                if (!name?.trim() || subjects.includes(name.trim())) return;
+                updateRules({ study_subjects: [...subjects, name.trim()] });
+              } else {
+                Alert.prompt?.('Add Subject', 'Subject name', (name: string) => {
+                  if (!name?.trim() || subjects.includes(name.trim())) return;
+                  updateRules({ study_subjects: [...subjects, name.trim()] });
+                }) ?? Alert.alert('Add Subject', 'Use the chat to add a new subject');
+              }
+            }}
+            style={[styles.subjectPill, { borderColor: colors.warning + '40', borderStyle: 'dashed' }]}
+          >
+            <Ionicons name="add" size={14} color={colors.warning} />
+            <Text style={[styles.subjectPillText, { color: colors.warning }]}>Add</Text>
+          </Pressable>
         </View>
-        <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Edit Rules</Text>
-      </TouchableOpacity>
+      </View>
 
-      {/* ─── Exam Countdown Pills (only when exam mode enabled) ─── */}
-      {!examModeEnabled ? null : futureExams.length > 0 ? (
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Session Duration</Text>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {([30, 45, 60, 90] as const).map((dur) => (
+            <Pressable
+              key={dur}
+              onPress={() => updateRules({ study_duration_min: dur })}
+              style={[
+                styles.durChip,
+                {
+                  backgroundColor: sessionDuration === dur ? colors.warning + '20' : 'transparent',
+                  borderColor: sessionDuration === dur ? colors.warning : colors.border,
+                },
+              ]}
+            >
+              <Text style={{
+                fontSize: 12,
+                fontFamily: fontFamily.semiBold,
+                color: sessionDuration === dur ? colors.warning : colors.textInactive,
+              }}>
+                {dur}m
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={styles.sectionLabel}>Exam Mode</Text>
+          <Switch
+            value={examModeEnabled}
+            onValueChange={(v) => {
+              updateRules({ exam_period_active: v });
+            }}
+            trackColor={{ false: colors.border, true: colors.warning + '80' }}
+            thumbColor={examModeEnabled ? colors.warning : colors.textInactive}
+            style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+          />
+        </View>
+      </View>
+
+      {/* ─── Exam Countdown Pills + Inline Add (only when exam mode enabled) ─── */}
+      {examModeEnabled && (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Upcoming Exams</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.examPillRow}>
-            {futureExams
-              .sort((a, b) => daysUntil(a.examDate) - daysUntil(b.examDate))
-              .map((exam) => {
-                const days = daysUntil(exam.examDate);
-                return (
-                  <View
-                    key={exam.id}
-                    style={[styles.examPill, { borderColor: 'rgba(123, 97, 255, 0.25)', backgroundColor: 'rgba(123, 97, 255, 0.10)' }]}
-                  >
-                    <Text style={[styles.examPillSubject, { color: '#FFFFFF' }]}>{exam.subject}</Text>
-                    <Text style={[styles.examPillDays, { color: days <= 7 ? colors.error : '#7B61FF' }]}>{days}d</Text>
+          {futureExams.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.examPillRow}>
+              {futureExams
+                .sort((a, b) => daysUntil(a.examDate) - daysUntil(b.examDate))
+                .map((exam) => {
+                  const days = daysUntil(exam.examDate);
+                  return (
+                    <View
+                      key={exam.id}
+                      style={[styles.examPill, { borderColor: 'rgba(123, 97, 255, 0.25)', backgroundColor: 'rgba(123, 97, 255, 0.10)', flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+                    >
+                      <Text style={[styles.examPillSubject, { color: '#FFFFFF' }]}>{exam.subject}</Text>
+                      <Text style={[styles.examPillDays, { color: days <= 7 ? colors.error : '#7B61FF' }]}>{days}d</Text>
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                        onPress={() => {
+                          const updated = (prefs?.exam_schedule ?? []).filter((e) => e.id !== exam.id);
+                          updateRules({ exam_schedule: updated });
+                        }}
+                      >
+                        <Ionicons name="close-circle" size={16} color={`${colors.error}99`} />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+            </ScrollView>
+          )}
+          {exams.length > 0 && futureExams.length === 0 && (
+            <View style={[styles.infoBanner, { backgroundColor: `${colors.textInactive}10`, marginBottom: 8 }]}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.readinessGreen} />
+              <Text style={[styles.infoBannerText, { color: colors.textSecondary }]}>All exams completed!</Text>
+            </View>
+          )}
+
+          {/* Inline add exam */}
+          {addingExam ? (
+            <View style={{
+              backgroundColor: colors.backgroundElevated,
+              borderRadius: borderRadius.md,
+              padding: spacing.md,
+              marginTop: 10,
+              gap: 14,
+              borderWidth: 1,
+              borderColor: 'rgba(123, 97, 255, 0.15)',
+            }}>
+              {/* Subject selector */}
+              <View style={{ gap: 6 }}>
+                <Text style={styles.examFormLabel}>Subject</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {subjects.map((subj) => {
+                    const isActive = newExamSubject === subj;
+                    return (
+                      <TouchableOpacity
+                        key={subj}
+                        style={{
+                          paddingVertical: 8,
+                          paddingHorizontal: 14,
+                          borderRadius: 10,
+                          borderWidth: 1,
+                          borderColor: isActive ? '#7B61FF' : colors.border,
+                          backgroundColor: isActive ? '#7B61FF20' : 'transparent',
+                        }}
+                        onPress={() => setNewExamSubject(subj)}
+                      >
+                        <Text style={{
+                          fontSize: 13,
+                          fontFamily: fontFamily.medium,
+                          color: isActive ? '#7B61FF' : colors.textSecondary,
+                        }}>{subj}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Date + Type row — side by side */}
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                {/* Date selector */}
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Text style={styles.examFormLabel}>Date</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                    <TouchableOpacity
+                      style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: `${colors.accent1}15`, alignItems: 'center', justifyContent: 'center' }}
+                      onPress={() => {
+                        const d = new Date(newExamDate);
+                        d.setDate(d.getDate() - 1);
+                        if (d > new Date()) setNewExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+                      }}
+                    >
+                      <Ionicons name="chevron-back" size={14} color={colors.accent1} />
+                    </TouchableOpacity>
+                    <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 13, color: colors.textOnDark, textAlign: 'center' }}>
+                      {(() => {
+                        const d = new Date(newExamDate + 'T12:00:00');
+                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      })()}
+                    </Text>
+                    <TouchableOpacity
+                      style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: `${colors.accent1}15`, alignItems: 'center', justifyContent: 'center' }}
+                      onPress={() => {
+                        const d = new Date(newExamDate);
+                        d.setDate(d.getDate() + 1);
+                        setNewExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+                      }}
+                    >
+                      <Ionicons name="chevron-forward" size={14} color={colors.accent1} />
+                    </TouchableOpacity>
                   </View>
-                );
-              })}
-          </ScrollView>
-        </View>
-      ) : exams.length > 0 ? (
-        <View style={styles.section}>
-          <View style={[styles.infoBanner, { backgroundColor: `${colors.textInactive}10` }]}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.readinessGreen} />
-            <Text style={[styles.infoBannerText, { color: colors.textSecondary }]}>
-              All exams completed!
-            </Text>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={[styles.infoBanner, { backgroundColor: '#E74C3C12' }]}
-            onPress={handleNavigateToRules}
-          >
-            <Ionicons name="alert-circle" size={16} color={colors.error} />
-            <Text style={[styles.infoBannerText, { color: colors.error }]}>
-              No exams scheduled
-            </Text>
-            <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Add in Rules</Text>
-          </TouchableOpacity>
+                </View>
+
+                {/* Exam type */}
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Text style={styles.examFormLabel}>Type</Text>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {['Final', 'Mid', 'Quiz'].map((t) => {
+                      const fullType = t === 'Mid' ? 'Midterm' : t;
+                      const isActive = newExamType === fullType;
+                      return (
+                        <TouchableOpacity
+                          key={t}
+                          style={{
+                            flex: 1,
+                            alignItems: 'center',
+                            paddingVertical: 8,
+                            borderRadius: 10,
+                            borderWidth: 1,
+                            borderColor: isActive ? '#7B61FF' : colors.border,
+                            backgroundColor: isActive ? '#7B61FF20' : 'transparent',
+                          }}
+                          onPress={() => setNewExamType(fullType)}
+                        >
+                          <Text style={{
+                            fontSize: 12,
+                            fontFamily: fontFamily.medium,
+                            color: isActive ? '#7B61FF' : colors.textSecondary,
+                          }}>{t}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              </View>
+
+              {/* Action buttons */}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 11,
+                    borderRadius: borderRadius.sm,
+                    backgroundColor: `${colors.textInactive}15`,
+                    alignItems: 'center',
+                  }}
+                  onPress={() => setAddingExam(false)}
+                >
+                  <Text style={{ fontFamily: fontFamily.medium, fontSize: 14, color: colors.textSecondary }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 11,
+                    borderRadius: borderRadius.sm,
+                    backgroundColor: '#7B61FF',
+                    alignItems: 'center',
+                    opacity: newExamSubject ? 1 : 0.4,
+                  }}
+                  disabled={!newExamSubject}
+                  onPress={() => {
+                    const entry: ExamScheduleEntry = {
+                      id: `exam_${Date.now()}`,
+                      subject: newExamSubject,
+                      examType: newExamType,
+                      examDate: newExamDate,
+                    };
+                    const current = prefs?.exam_schedule ?? [];
+                    updateRules({ exam_schedule: [...current, entry] });
+                    setAddingExam(false);
+                    setNewExamSubject('');
+                  }}
+                >
+                  <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 14, color: '#FFF' }}>Add Exam</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                marginTop: 10,
+                alignSelf: 'flex-start',
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderRadius: borderRadius.sm,
+                borderWidth: 1,
+                borderColor: `${colors.accent1}30`,
+                borderStyle: 'dashed',
+              }}
+              onPress={() => setAddingExam(true)}
+            >
+              <Ionicons name="add" size={14} color={colors.accent1} />
+              <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: colors.accent1 }}>Add Exam</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
-      {/* ─── Strategy (only when exam mode enabled) ─── */}
-      {examModeEnabled && <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Priority Strategy</Text>
-        <View style={styles.chipRow}>
-          <TouchableOpacity
-            style={[
-              styles.chip,
-              strategy === 'last_exam_first'
-                ? { backgroundColor: 'rgba(123, 97, 255, 0.12)', borderColor: 'rgba(123, 97, 255, 0.30)' }
-                : { backgroundColor: 'transparent', borderColor: colors.border },
-            ]}
-            onPress={() => { setStrategy('last_exam_first'); saveConfig({ ...currentConfig, strategy: 'last_exam_first' }); }}
-          >
-            <Text style={[styles.chipText, { color: strategy === 'last_exam_first' ? '#FFFFFF' : colors.textInactive }]}>
-              Closest first
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.chip,
-              strategy === 'first_exam_first'
-                ? { backgroundColor: 'rgba(123, 97, 255, 0.12)', borderColor: 'rgba(123, 97, 255, 0.30)' }
-                : { backgroundColor: 'transparent', borderColor: colors.border },
-            ]}
-            onPress={() => { setStrategy('first_exam_first'); saveConfig({ ...currentConfig, strategy: 'first_exam_first' }); }}
-          >
-            <Text style={[styles.chipText, { color: strategy === 'first_exam_first' ? '#FFFFFF' : colors.textInactive }]}>
-              Furthest first
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>}
+      {/* Strategy is always furthest-first — no UI needed */}
 
       {/* ─── Per-subject sessions/week (only subjects with future exams) ─── */}
       {examSubjects.length > 0 && (
@@ -786,6 +1007,13 @@ function createStyles(colors: ThemeColors) {
       letterSpacing: 0.5,
       marginBottom: spacing.sm,
     },
+    examFormLabel: {
+      fontSize: 11,
+      fontFamily: fontFamily.semiBold,
+      color: colors.textInactive,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.3,
+    },
 
     // Saved plans
     savedPlanRow: {
@@ -949,6 +1177,25 @@ function createStyles(colors: ThemeColors) {
     generateBtnText: {
       fontSize: 13,
       fontFamily: fontFamily.medium,
+    },
+    subjectPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      borderWidth: 1,
+    },
+    subjectPillText: {
+      fontSize: 12,
+      fontFamily: fontFamily.medium,
+    },
+    durChip: {
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 8,
+      borderWidth: 1,
     },
   });
 }

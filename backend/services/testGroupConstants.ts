@@ -65,6 +65,7 @@ export const TEST_GROUP_MAP: Record<string, string> = {
   flying_20m: "speed_acceleration",
   sprint_30m: "speed_acceleration",
   est_max_speed: "speed_acceleration",
+  max_speed: "speed_acceleration",
   // Power & Explosiveness
   cmj: "power_explosiveness",
   est_power: "power_explosiveness",
@@ -73,6 +74,9 @@ export const TEST_GROUP_MAP: Record<string, string> = {
   // Agility & CoD
   agility_505: "agility_cod",
   agility_5105: "agility_cod",
+  agility_505_cod: "agility_cod",
+  illinois_agility: "agility_cod",
+  arrowhead_agility: "agility_cod",
   dribbling_test: "agility_cod",
   reaction_time: "agility_cod",
   passing_accuracy: "agility_cod",
@@ -80,6 +84,7 @@ export const TEST_GROUP_MAP: Record<string, string> = {
   shuttle_run: "agility_cod",
   // Aerobic Engine
   vo2max: "aerobic_endurance",
+  mas_running: "aerobic_endurance",
   // Strength
   grip_strength: "strength",
   squat_rel: "strength",
@@ -91,10 +96,10 @@ export const TEST_GROUP_MAP: Record<string, string> = {
   sl_broad_jump_l: "power_explosiveness",
   seated_mb_throw: "power_explosiveness",
   glycolytic_power: "power_explosiveness",
-  // Aerobic (additional)
-  mas_running: "aerobic_endurance",
   // Body Composition
   body_fat_pct: "body_composition",
+  // Recovery & Readiness
+  hrv_rmssd: "recovery_readiness",
 };
 
 // ── Raw Test Type → Test Group Mapping ─────────────────────────────────

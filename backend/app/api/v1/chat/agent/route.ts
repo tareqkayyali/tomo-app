@@ -27,7 +27,11 @@ import { requireAuth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { logger } from "@/lib/logger";
 import { buildPlayerContext } from "@/services/agents/contextBuilder";
-import { orchestrate } from "@/services/agents/orchestrator";
+import { orchestrate, CAPSULE_DIRECT_ACTIONS } from "@/services/agents/orchestrator";
+import { executeOutputTool } from "@/services/agents/outputAgent";
+import { executeTimelineTool } from "@/services/agents/timelineAgent";
+import { executeMasteryTool } from "@/services/agents/masteryAgent";
+import type { CapsuleAction } from "@/services/agents/responseFormatter";
 import {
   preFlightCheck,
   categorizeMessage,
@@ -75,6 +79,7 @@ export async function POST(req: NextRequest) {
         preview: string;
       }>;
     };
+    capsuleAction?: CapsuleAction;
   };
 
   try {
@@ -172,6 +177,97 @@ export async function POST(req: NextRequest) {
       body.message,
       body.timezone
     );
+
+    // ── CAPSULE ACTION — direct tool execution, skip LLM ─────────
+    if (body.capsuleAction) {
+      const { toolName, toolInput, agentType } = body.capsuleAction;
+
+      // Execute the tool directly based on agent type
+      let toolResult: { result: any; refreshTarget?: string; error?: string };
+      try {
+        if (agentType === "output") {
+          toolResult = await executeOutputTool(toolName, toolInput, context);
+        } else if (agentType === "timeline") {
+          toolResult = await executeTimelineTool(toolName, toolInput, context);
+        } else if (agentType === "mastery") {
+          toolResult = await executeMasteryTool(toolName, toolInput, context);
+        } else {
+          toolResult = { result: null, error: `Unknown agent type: ${agentType}` };
+        }
+      } catch (execErr) {
+        toolResult = { result: null, error: execErr instanceof Error ? execErr.message : "Capsule action failed" };
+      }
+
+      const refreshTargets = toolResult.refreshTarget ? [toolResult.refreshTarget] : [];
+
+      // Save user message + result to session
+      if (sessionId) {
+        try {
+          const resultMessage = toolResult.error
+            ? `Action failed: ${toolResult.error}`
+            : `Action completed: ${toolName}`;
+          await saveMessage(sessionId, auth.user.id, "assistant", resultMessage, {
+            structured: null,
+            agent: agentType,
+          });
+        } catch (e) { console.error("[chat-agent] Save capsule message failed:", e); }
+      }
+
+      // Route through orchestrate with a result summary that won't re-trigger intents
+      // Prefix with [CAPSULE_RESULT] so intent matcher can skip it
+      const resultSummary = toolResult.error
+        ? `[CAPSULE_RESULT] The action "${toolName}" failed: ${toolResult.error}. Let the player know what went wrong.`
+        : `[CAPSULE_RESULT] The action "${toolName}" succeeded. Result: ${JSON.stringify(toolResult.result)}. Confirm the result to the player with a brief, encouraging response and suggest next steps.`;
+
+      const capsuleResult = await orchestrate(
+        resultSummary,
+        context,
+        undefined,
+        conversationHistory,
+        agentType,
+        agentType,
+        conversationState
+      );
+
+      if (sessionId) {
+        try {
+          await saveMessage(sessionId, auth.user.id, "assistant", capsuleResult.message, {
+            structured: capsuleResult.structured ?? null,
+            agent: capsuleResult.agentType ?? agentType,
+          });
+
+          const newConversationState = extractConversationState(
+            body.message,
+            capsuleResult.message,
+            conversationState,
+            context.todayDate,
+            context.timezone,
+            capsuleResult.structured
+          );
+
+          await updateSessionState(sessionId, {
+            activeAgent: capsuleResult.agentType ?? agentType,
+            conversationState: newConversationState,
+          });
+        } catch (e) { console.error("[chat-agent] Save capsule response failed:", e); }
+      }
+
+      return NextResponse.json(
+        {
+          message: capsuleResult.message,
+          structured: capsuleResult.structured ?? null,
+          sessionId,
+          refreshTargets: [...refreshTargets, ...(capsuleResult.refreshTargets ?? [])],
+          pendingConfirmation: null,
+          context: {
+            ageBand: context.ageBand,
+            readinessScore: context.readinessScore,
+            activeTab: context.activeTab,
+          },
+        },
+        { headers: { "api-version": "v1" } }
+      );
+    }
 
     // Orchestrate — route to agents with agent lock, execute tools, handle confirmation gates
     const result = await orchestrate(

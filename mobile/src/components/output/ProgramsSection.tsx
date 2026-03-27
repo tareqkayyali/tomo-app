@@ -186,7 +186,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
                 ]}
                 onPress={onNavigateCheckin}
               >
-                <Ionicons name="checkmark-circle-outline" size={16} color="#FFF" />
+                <Ionicons name="checkmark-circle-outline" size={16} color={colors.textOnDark} />
                 <Text style={styles.ctaButtonText}>Daily Check-in</Text>
               </Pressable>
             )}
@@ -198,7 +198,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
                 ]}
                 onPress={onForceRefresh}
               >
-                <Ionicons name="refresh-outline" size={16} color="#FFF" />
+                <Ionicons name="refresh-outline" size={16} color={colors.textOnDark} />
                 <Text style={styles.ctaButtonText}>Generate Now</Text>
               </Pressable>
             )}
@@ -230,7 +230,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               ]}
               onPress={onForceRefresh}
             >
-              <Ionicons name="sparkles-outline" size={16} color="#FFF" />
+              <Ionicons name="sparkles-outline" size={16} color={colors.textOnDark} />
               <Text style={styles.ctaButtonText}>Generate Programs</Text>
             </Pressable>
           )}
@@ -338,7 +338,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
             />
             <View style={[styles.priorityDot, { backgroundColor: colors.info }]} />
             <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>🏋️ Coach Assigned</Text>
-            <View style={[styles.countBadge, { backgroundColor: '#4A9EFF22' }]}>
+            <View style={[styles.countBadge, { backgroundColor: `${colors.info}22` }]}>
               <Text style={[styles.countBadgeText, { color: colors.info }]}>{coachAssigned.length}</Text>
             </View>
           </Pressable>
@@ -520,7 +520,7 @@ function ActiveGroup({ programs, colors, onDone, onToggleActive, onAddToCalendar
         />
         <View style={[styles.priorityDot, { backgroundColor: colors.accent }]} />
         <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>{'🔥 Active Programs'}</Text>
-        <View style={[styles.countBadge, { backgroundColor: '#2ECC7122' }]}>
+        <View style={[styles.countBadge, { backgroundColor: `${colors.success}22` }]}>
           <Text style={[styles.countBadgeText, { color: colors.accent }]}>{programs.length}</Text>
         </View>
       </Pressable>
@@ -662,7 +662,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   setConfirmAction(null);
                 }}
               >
-                <Text style={[styles.confirmChipText, { color: '#FFF' }]}>
+                <Text style={[styles.confirmChipText, { color: colors.textOnDark }]}>
                   {isDone ? 'Done' : 'Remove'}
                 </Text>
               </Pressable>

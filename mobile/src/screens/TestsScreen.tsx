@@ -292,9 +292,9 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* ── Top Row ── */}
       <View style={styles.headerArea}>
-        <QuickAccessBar actions={quickActions} />
-        <View style={styles.headerRight}>
-          {/* Refresh button — works on web + native */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <QuickAccessBar actions={quickActions} />
+          {/* Refresh button — next to Whoop/wearables icon */}
           <Pressable
             onPress={onRefresh}
             style={({ pressed }) => [
@@ -309,6 +309,8 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
               <Ionicons name="sync-outline" size={18} color={colors.accent2} />
             )}
           </Pressable>
+        </View>
+        <View style={styles.headerRight}>
           <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
           <NotificationBell />
           <HeaderProfileButton

@@ -11,17 +11,20 @@ import type { PlayerContext } from "./contextBuilder";
 import {
   timelineTools,
   executeTimelineTool,
-  buildTimelineSystemPrompt,
+  buildTimelineStaticPrompt,
+  buildTimelineDynamicPrompt,
 } from "./timelineAgent";
 import {
   outputTools,
   executeOutputTool,
-  buildOutputSystemPrompt,
+  buildOutputStaticPrompt,
+  buildOutputDynamicPrompt,
 } from "./outputAgent";
 import {
   masteryTools,
   executeMasteryTool,
-  buildMasterySystemPrompt,
+  buildMasteryStaticPrompt,
+  buildMasteryDynamicPrompt,
 } from "./masteryAgent";
 import { validateResponse, GUARDRAIL_SYSTEM_BLOCK, categorizeMessage } from "./chatGuardrails";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -39,35 +42,113 @@ import {
 import { isAffirmation, type ConversationMessage, type ConversationState } from "./sessionService";
 import { buildRuleContext } from "@/services/scheduling/scheduleRuleEngine";
 import { withRetry } from "@/lib/aiRetry";
+import { trackedClaudeCall, type TrackedCallMeta } from "@/lib/trackedClaudeCall";
+import { classifyIntent } from "./intentClassifier";
+import { intentHandlers } from "./intentHandlers";
 // conversationStateExtractor is called from route.ts, not here
 
 const MAX_TOOL_ITERATIONS = 5;
 
+// ── SPORT-POSITION CONTEXT LAYER ──────────────────────────────────
+function buildSportContextSegment(ctx: PlayerContext): string {
+  const sport = ctx.sport?.toLowerCase() ?? "";
+  const position = ctx.position ?? "unknown";
+  const phvStage = ctx.snapshotEnrichment?.phvStage ?? null;
+
+  const sportMap: Record<string, string> = {
+    football: `Sport: Association football (soccer). Position: ${position}.
+Key performance metrics: Yo-Yo IR1, 10m/30m sprint, CMJ, agility T-test. ACWR model: 7:28 rolling.
+Load framework: Training units/week, match = 1.0 AU reference. Monitor ACWR sweet spot 0.8–1.3.
+${position === "goalkeeper" ? "Position note: Lower running volume, higher explosive demand. Prioritize reaction time, diving mechanics, distribution." : ""}
+${position === "striker" || position === "forward" ? "Position note: High-intensity sprint frequency. Prioritize acceleration, finishing under fatigue, 1v1 situations." : ""}
+${position === "midfielder" ? "Position note: Highest total distance covered. Prioritize aerobic base, repeated sprint ability, passing under pressure." : ""}
+${position === "defender" || position === "centre-back" ? "Position note: High aerial duel frequency. Prioritize strength, heading technique, recovery speed." : ""}`,
+
+    padel: `Sport: Padel. Playing style: ${position}.
+Key metrics: Reaction time (BlazePods), lateral movement speed, court coverage, wrist/forearm loading.
+Load framework: Match density + training volume. Rally length and court movement patterns drive load.
+Watch for: Shoulder and wrist overuse patterns. Dominant-arm asymmetry increases oblique/shoulder injury risk.
+${position === "drive" ? "Style note: Aggressive baseline play. Monitor wrist/elbow loading from repeated drives." : ""}
+${position === "revés" || position === "backhand" ? "Style note: Higher rotational demand. Monitor core and oblique fatigue." : ""}`,
+
+    athletics: `Sport: Athletics. Event group: ${position}.
+Key metrics: Event-specific benchmarks, sprint mechanics (contact time, flight time), jump testing.
+Load framework: High-CNS cost per quality session. Monitor inter-session recovery carefully.
+${position === "sprints" ? "Event note: Maximal neuromuscular demand. 48-72h between quality sprint sessions." : ""}
+${position === "throws" ? "Event note: High power/strength demand. Monitor shoulder and back loading." : ""}
+${position === "jumps" ? "Event note: High impact loading. Monitor ankle/knee stress, especially during growth phases." : ""}`,
+
+    basketball: `Sport: Basketball. Position: ${position}.
+Key metrics: Vertical jump, agility, sprint, court coverage. ACWR for practice + game load.
+Load framework: Game count per week drives weekly load. Practice intensity varies by phase.`,
+
+    tennis: `Sport: Tennis. Playing style: ${position}.
+Key metrics: Lateral movement speed, serve velocity, rally endurance.
+Load framework: Match frequency + practice volume. Monitor shoulder/elbow loading for serve-dominant players.`,
+  };
+
+  let segment = sportMap[sport] ?? `Sport: ${ctx.sport ?? "Unknown"}. Position: ${position}.`;
+
+  // PHV safety overlay (reinforcement — deterministic gates exist elsewhere)
+  if (phvStage === "mid_phv" || phvStage === "MID") {
+    segment += `\n⚠️ MID-PHV ACTIVE: This athlete is in peak growth velocity. Loading multiplier 0.60×.
+BLOCKED movements: barbell back squat, depth/drop jumps, Olympic lifts, maximal sprint, heavy deadlift.
+If any blocked movement is discussed: acknowledge, explain growth-phase risk, offer safe alternative.`;
+  }
+
+  return segment;
+}
+
+// ── AGE-BAND COMMUNICATION PROFILE ────────────────────────────────
+function buildToneProfile(ageBand: string | null): string {
+  const band = ageBand?.toUpperCase() ?? "";
+  if (band === "U13")
+    return `COMMUNICATION PROFILE (U13):
+- Simple, warm, short sentences. No sport-science jargon.
+- Celebrate effort over outcomes. Positive framing first.
+- Parent may be reviewing — always age-appropriate language.
+- Use analogies they understand (games, school, fun challenges).`;
+
+  if (band === "U15" )
+    return `COMMUNICATION PROFILE (U15):
+- Peer-level but supportive. Start introducing data simply.
+- Acknowledge effort and emotional state before giving analytics.
+- Identity-forming age — protect confidence while being honest about gaps.
+- They want to feel like a real athlete — treat them as one.`;
+
+  if (band === "U17" )
+    return `COMMUNICATION PROFILE (U17):
+- Direct. Treat as a dedicated athlete who can handle honest feedback.
+- Data-grounded advice is expected and appreciated.
+- Balance: acknowledge pressure (exams, recruitment) before performance talk.
+- They respect coaches who are straight with them.`;
+
+  if (band === "U19" )
+    return `COMMUNICATION PROFILE (U19):
+- Professional peer. Full technical language acceptable.
+- Recruitment context is real — flag opportunities clearly.
+- Data-first is fine. Skip motivational framing unless they express doubt.
+- They want actionable specifics, not encouragement.`;
+
+  return `COMMUNICATION PROFILE (Senior):
+- Professional peer. Data-dense responses welcome.
+- Direct feedback. Skip motivational framing.
+- They manage their own career — respect their autonomy.`;
+}
+
 // ── GEN Z RESPONSE FORMATTING RULES ──────────────────────────────
 const GENZ_RESPONSE_RULES = `
-RESPONSE FORMAT — CRITICAL:
-You are talking to Gen Z athletes (13-25). They have zero patience for walls of text.
-
-Rules:
-1. BOTTOM LINE FIRST: Start with a headline (max 8 words). This is the most important info.
-2. MAX 2 SENTENCES for any explanation. If you need more, use bullet points.
-3. Use emoji anchors to break up content: ⚡ for energy, 😴 for sleep, 💪 for training, 🎯 for goals, 📅 for schedule, 🔥 for streaks, 🩹 for soreness.
-4. Prefer structured data over prose. Numbers in stat format: "Energy: 8/10 ⚡" not "Your energy level is currently at eight out of ten."
-5. End with 1-2 action suggestions, phrased as questions: "Want me to adjust your schedule?" or "Should I log that check-in?"
-6. NEVER use: "Great question!", "Absolutely!", "I'd be happy to", "Let me explain", or any filler.
-7. NEVER start with "Based on your data" or "Looking at your profile".
-8. Be direct. Be brief. Be useful.
-
-Example good response:
-"💪 Ready to push today
-Your readiness is GREEN — 8/10 energy, low soreness, 7.5h sleep.
-Today: Strength session at 4pm, then recovery.
-
-Want me to preview your workout or check for schedule clashes?"
-
-Example bad response:
-"Based on your latest check-in data, it looks like you're doing really well today! Your energy levels are at 8 out of 10, which is great, and your soreness is low. You slept about 7.5 hours last night. I'd recommend going ahead with your planned strength session at 4pm today, followed by some recovery work. Let me know if you'd like more details about anything!"
-`;
+RESPONSE FORMAT — Gen Z athletes (13-25), zero patience for walls of text:
+1. HEADLINE FIRST (max 8 words) — the bottom-line takeaway.
+2. MAX 2 SENTENCES total explanation. Use stat_grid or stat_row cards for data — NOT paragraphs.
+3. Emoji anchors: ⚡energy 😴sleep 💪training 🎯goals 📅schedule 🔥streaks 🩹soreness
+4. Stat format: "Energy: 8/10 ⚡" not prose. ALWAYS prefer structured cards over text.
+5. End with 1-2 action suggestions as questions.
+6. NO filler ("Great question!", "Absolutely!", "Based on your data").
+7. Be direct. Be brief. Be useful. Max 3 sentences of text TOTAL.
+8. For training program recommendations, ALWAYS use program_recommendation card type — never plain text. Max 5 programs. One-liner per program.
+9. STAY ON TOPIC. Only address what the player asked about. Do NOT bring in unrelated recommendations or data.
+10. When showing vitals/readiness data, USE stat_grid cards — never describe numbers in prose.`;
 
 
 let client: Anthropic | null = null;
@@ -84,6 +165,40 @@ const WRITE_ACTIONS = new Set([
   "update_event",
   "delete_event",
   "log_check_in",
+  // Capsule write actions
+  "log_test_result",
+  "update_schedule_rules",
+  "generate_training_plan",
+  "add_exam",
+  "generate_study_plan",
+]);
+
+// ── CAPSULE DIRECT ACTIONS — single-step confirmation (capsule submit = confirm) ──
+export const CAPSULE_DIRECT_ACTIONS = new Set([
+  "log_test_result",
+  "log_check_in",
+  "rate_drill",
+  "interact_program",
+  "confirm_ghost_suggestion",
+  "dismiss_ghost_suggestion",
+  "lock_day",
+  "unlock_day",
+  "sync_whoop",
+]);
+
+// ── CAPSULE GATED ACTIONS — two-step (still show ConfirmationCard) ──
+export const CAPSULE_GATED_ACTIONS = new Set([
+  "delete_test_result",
+  "edit_test_result",
+  "schedule_program",
+  "create_event",
+  "update_event",
+  "delete_event",
+  "bulk_delete_events",
+  "update_schedule_rules",
+  "generate_training_plan",
+  "add_exam",
+  "generate_study_plan",
 ]);
 
 // ── AGENT ROUTING — keyword + tab context signals ─────────────
@@ -106,9 +221,16 @@ function routeToAgents(
   // Program-specific queries → Output agent FIRST (has get_my_programs tool)
   const isProgramQuery = /program|my program|training program|program.*detail|about.*program/i.test(lower);
 
+  // Recovery/recommendation follow-ups → Output ONLY (never timeline)
+  // Prevents "Plan Recovery Protocol" from triggering event creation
+  const isRecoveryFollowUp = /recovery.*protocol|recovery.*plan|tell me more about.*rec|act on.*rec|recovery.*program|what.*should.*do.*recover/i.test(lower);
+  const isRecommendationFollowUp = /tell me more about the "|recommendation.*and what i should/i.test(lower);
+
   // Output signals — checked first so it's primary when both match
   if (
     isProgramQuery ||
+    isRecoveryFollowUp ||
+    isRecommendationFollowUp ||
     context.activeTab === "Output" ||
     /readiness|tired|energy|sleep|recovery|vitals|how (do|am) i feel|check.?in|score|metric|compare|benchmark|percentile|rank|how.*stack up|vs other|test result|how fit|sprint|jump|sore|soreness|pain|drill|exercise|workout|warm.?up|cool.?down|practice plan|training plan|what.*(should|can) i train|weakness|weak|gap|strength|area.*(improve|work|develop)|where.*(need|lack)|my best|my worst/i.test(
       lower
@@ -117,12 +239,13 @@ function routeToAgents(
     agents.add("output");
   }
 
-  // Timeline signals
+  // Timeline signals — skip if this is a recovery/recommendation follow-up
   if (
+    !isRecoveryFollowUp && !isRecommendationFollowUp && (
     context.activeTab === "Timeline" ||
     /schedule|calendar|event|exam|study|session|training|match|add|block|reschedule|today|tomorrow|week|when|plan|lock/i.test(
       lower
-    )
+    ))
   ) {
     agents.add("timeline");
   }
@@ -173,6 +296,12 @@ export interface OrchestratorResult {
 }
 
 // ── MAIN ORCHESTRATION FUNCTION ─────────────────────────────────
+/** Optional streaming callbacks — if provided, the orchestrator emits events during processing. */
+export interface StreamCallbacks {
+  onStatus?: (status: string) => void;
+  onDelta?: (text: string) => void;
+}
+
 export async function orchestrate(
   userMessage: string,
   context: PlayerContext,
@@ -184,7 +313,8 @@ export async function orchestrate(
   conversationHistory?: ConversationMessage[],
   lastAgentType?: string,
   activeAgent?: string | null,
-  conversationState?: ConversationState | null
+  conversationState?: ConversationState | null,
+  streamCallbacks?: StreamCallbacks
 ): Promise<OrchestratorResult> {
   // If player confirmed a pending write action — execute it directly
   // Supports batch: confirmedAction.actions[] may contain multiple writes
@@ -222,18 +352,54 @@ export async function orchestrate(
       logger.warn("[chat-guardrail] Response leak detected in confirmation, sanitizing");
     }
 
-    // Build date-aware follow-up chips based on the confirmed action's date
-    const actionDate = lastDate ?? confirmedAction.toolInput?.date;
-    const scheduleChip = actionDate && actionDate !== context.todayDate
-      ? { label: "See schedule", action: `What's on my schedule for ${actionDate}?` }
-      : { label: "See schedule", action: "What's on my schedule today?" };
+    // Build action-specific follow-up chips using capsule triggers
+    const confirmedToolName = confirmedAction.toolName ?? (confirmedAction as any).actions?.[0]?.toolName;
+    let followUpChips: Array<{ label: string; action: string }> = [];
+
+    switch (confirmedToolName) {
+      case "update_schedule_rules":
+        followUpChips = [
+          { label: "Plan my training", action: "plan my training week" },
+          { label: "Add an exam", action: "I want to add a new exam" },
+          { label: "View my week", action: "what's on my schedule this week?" },
+        ];
+        break;
+      case "create_event":
+        followUpChips = [
+          { label: "Add another event", action: "I want to add a training session" },
+          { label: "View today's schedule", action: "what's on my schedule today?" },
+          { label: "Check conflicts", action: "check for any schedule conflicts" },
+        ];
+        break;
+      case "generate_training_plan":
+        followUpChips = [
+          { label: "View my week", action: "what's on my schedule this week?" },
+          { label: "Check conflicts", action: "check for any schedule conflicts" },
+          { label: "Edit my rules", action: "edit my schedule rules" },
+        ];
+        break;
+      case "generate_study_plan":
+      case "add_exam":
+        followUpChips = [
+          { label: "Plan my study", action: "plan my study schedule" },
+          { label: "Edit subjects", action: "manage my study subjects" },
+          { label: "View my week", action: "what's on my schedule this week?" },
+        ];
+        break;
+      default: {
+        const actionDate = lastDate ?? confirmedAction.toolInput?.date;
+        followUpChips = [
+          actionDate && actionDate !== context.todayDate
+            ? { label: "See schedule", action: `What's on my schedule for ${actionDate}?` }
+            : { label: "See schedule", action: "what's on my schedule today?" },
+          { label: "Check readiness", action: "what's my readiness?" },
+        ];
+      }
+    }
 
     return {
       message: validation.sanitized,
-      structured: buildTextResponse(validation.sanitized, [
-        scheduleChip,
-        { label: "Check readiness", action: "How am I feeling?" },
-      ]),
+      structured: buildTextResponse(validation.sanitized, followUpChips),
       refreshTargets: [...new Set(allRefreshTargets)],
     };
   }
@@ -260,11 +426,84 @@ export async function orchestrate(
     messagePreview: userMessage.substring(0, 80),
   });
 
+  // ── Skip intent classification for capsule result messages ──────────────
+  const isCapsuleResult = userMessage.startsWith("[CAPSULE_RESULT]");
+
+  // ── INTENT CLASSIFICATION — hybrid 3-layer classifier replaces regex ─────
+  const classification = isCapsuleResult ? { intentId: "agent_fallthrough" as const, confidence: 0, classificationLayer: "skip" as const, latencyMs: 0, capsuleType: undefined, extractedParams: {}, agentType: (activeAgent ?? "timeline") as "timeline" | "output" | "mastery" } : await classifyIntent(
+    userMessage,
+    conversationState ?? null,
+    { todayDate: context.todayDate, activeTab: context.activeTab, userId: context.userId }
+  );
+
+  logger.info("[intent-classifier]", {
+    intentId: classification.intentId,
+    confidence: classification.confidence,
+    layer: classification.classificationLayer,
+    latencyMs: classification.latencyMs,
+    capsule: classification.capsuleType,
+    params: classification.extractedParams,
+  });
+
+  if (classification.intentId !== "agent_fallthrough" && classification.confidence >= 0.65) {
+    const handler = intentHandlers[classification.intentId];
+    if (handler) {
+      try {
+        const result = await handler(
+          userMessage,
+          classification.extractedParams,
+          context,
+          conversationState ?? null
+        );
+        if (result) {
+          return { ...result, agentType: result.agentType ?? classification.agentType };
+        }
+      } catch (e) {
+        logger.warn("[intent-handler] Failed, falling through to AI", {
+          intent: classification.intentId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+
+  // ── Classifier did not match or handler returned null — fall through to AI ─────
+  const lowerMsg = userMessage.toLowerCase();
+
   // Build combined tools and system prompt for this request
-  const { tools, systemPrompt } = buildAgentConfig(agentTypes, context, conversationState);
+  const { tools, systemBlocks } = buildAgentConfig(agentTypes, context, conversationState);
 
   const anthropic = getClient();
-  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
+
+  // ── HYBRID MODEL ROUTING — Haiku for simple, Sonnet for complex ──
+  const SONNET_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
+  const HAIKU_MODEL = process.env.ANTHROPIC_HAIKU_MODEL || "claude-haiku-4-5-20251001";
+
+  const isComplexIntent =
+    // Multi-agent routing → needs Sonnet's reasoning
+    agentTypes.length > 1
+    // Calendar WRITE actions with conflict detection (read-only schedule queries → Haiku)
+    || /\b(move|reschedule|cancel|delete|update|edit)\b.*\b(event|training|session|match)\b/i.test(lowerMsg)
+    // Multi-turn conversation with active date context → context continuity matters
+    || (conversationState?.referencedDates && Object.keys(conversationState.referencedDates).length > 1)
+    // Explicit planning / multi-step reasoning
+    || /\b(plan my week|optimize|analyze my|what if|how should i)\b/i.test(lowerMsg)
+    // Session generation → multi-step tool chains (but single drill detail → Haiku)
+    || /\b(session plan|build.*session|full workout|practice plan|training plan)\b/i.test(lowerMsg)
+    // Benchmark comparison → multi-step with formatting
+    || /\b(compare.*peer|how.*stack|vs other|rank.*against)\b/i.test(lowerMsg)
+    // PHV assessment → complex calculation
+    || /\b(phv|maturity offset|growth stage)\b/i.test(lowerMsg);
+
+  const model = isComplexIntent ? SONNET_MODEL : HAIKU_MODEL;
+
+  logger.info("[model-routing]", {
+    model: model === SONNET_MODEL ? "sonnet" : "haiku",
+    isComplex: isComplexIntent,
+    agents: agentTypes.length,
+    hasConvState: !!(conversationState?.referencedDates && Object.keys(conversationState.referencedDates).length > 0),
+    messagePreview: userMessage.substring(0, 50),
+  });
 
   // Build messages with conversation history
   const messages: Anthropic.MessageParam[] = [];
@@ -280,17 +519,36 @@ export async function orchestrate(
   messages.push({ role: "user", content: userMessage });
   const refreshTargets: string[] = [];
 
+  // Build telemetry metadata for tracked API calls
+  const callMeta: TrackedCallMeta = {
+    userId: context.userId,
+    sessionId: null, // populated from route.ts if available
+    agentType: agentTypes[0],
+    intentId: null,
+  };
+
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await withRetry(
-      () => anthropic.messages.create({
+      () => trackedClaudeCall(anthropic, {
         model,
         max_tokens: 4096,
-        system: systemPrompt,
+        system: systemBlocks,
         tools: tools as Anthropic.Tool[],
         messages,
-      }),
+      }, callMeta),
       '[orchestrator] Claude API'
     );
+
+    // Log prompt cache performance (kept for backward compat)
+    const usage = response.usage as any;
+    if (usage?.cache_creation_input_tokens || usage?.cache_read_input_tokens) {
+      logger.info("[prompt-cache]", {
+        cacheWrite: usage.cache_creation_input_tokens ?? 0,
+        cacheRead: usage.cache_read_input_tokens ?? 0,
+        uncached: usage.input_tokens ?? 0,
+        iteration: i,
+      });
+    }
 
     // If end_turn — extract text and return
     if (response.stop_reason === "end_turn") {
@@ -457,8 +715,26 @@ export async function orchestrate(
       // All read actions — execute them
       messages.push({ role: "assistant", content: response.content });
 
+      // Emit status events during tool execution for streaming UX
+      const toolStatusMap: Record<string, string> = {
+        get_readiness_detail: "Checking your readiness...",
+        get_today_events: "Looking at your schedule...",
+        get_week_schedule: "Loading your week...",
+        get_test_results: "Pulling your test history...",
+        get_benchmark_comparison: "Comparing your benchmarks...",
+        get_training_session: "Building your session...",
+        get_drill_detail: "Loading drill details...",
+        get_my_programs: "Checking your programs...",
+        get_training_program_recommendations: "Finding programs for you...",
+        get_consistency_score: "Calculating your streak...",
+        get_dual_load_score: "Analyzing your load...",
+        calculate_phv_stage: "Assessing maturity stage...",
+        detect_load_collision: "Checking for conflicts...",
+      };
+
       const toolResults = await Promise.all(
         toolUseBlocks.map(async (toolBlock) => {
+          streamCallbacks?.onStatus?.(toolStatusMap[toolBlock.name] ?? `Running ${toolBlock.name}...`);
           const toolResult = await executeTool(
             primaryAgent,
             toolBlock.name,
@@ -473,11 +749,56 @@ export async function orchestrate(
             content: toolResult.error
               ? `Error: ${toolResult.error}`
               : JSON.stringify(toolResult.result),
+            _toolName: toolBlock.name,
+            _rawResult: toolResult.result,
           };
         })
       );
 
-      messages.push({ role: "user", content: toolResults });
+      // ── CAPSULE INTERCEPT — short-circuit AI formatting for capsule tools ──
+      // When get_test_catalog is called, return the capsule response directly
+      // instead of letting the AI format it (AI always falls back to text+chips).
+      const catalogResult = toolResults.find((r) => (r as any)._toolName === "get_test_catalog");
+      if (catalogResult && (catalogResult as any)._rawResult?.readyToUseCapsuleCard) {
+        const capsuleCard = (catalogResult as any)._rawResult.readyToUseCapsuleCard;
+
+        // Check if the player mentioned a specific test type — pre-fill it
+        const msgLower = userMessage.toLowerCase();
+        const testHints: Record<string, string> = {
+          "sprint": "10m-sprint", "10m": "10m-sprint", "20m": "20m-sprint", "30m": "30m-sprint",
+          "cmj": "cmj", "jump": "cmj", "vertical": "vertical-jump", "broad jump": "broad-jump",
+          "agility": "5-10-5-agility", "5-10-5": "5-10-5-agility", "t-test": "t-test", "pro agility": "pro-agility",
+          "reaction": "reaction-time", "balance": "balance-y",
+          "beep": "beep-test", "yoyo": "yoyo-ir1", "vo2": "vo2max", "cooper": "cooper-12min",
+          "grip": "grip-strength", "squat": "1rm-squat", "bench": "1rm-bench",
+        };
+        for (const [hint, testId] of Object.entries(testHints)) {
+          if (msgLower.includes(hint)) {
+            // Verify this test exists in catalog
+            if (capsuleCard.catalog.some((t: any) => t.id === testId)) {
+              capsuleCard.prefilledTestType = testId;
+              break;
+            }
+          }
+        }
+
+        return {
+          message: "Log your test result",
+          structured: {
+            headline: capsuleCard.prefilledTestType
+              ? `Log your ${capsuleCard.prefilledTestType.replace(/-/g, " ")} result`
+              : "Log your test result",
+            cards: [capsuleCard],
+            chips: [],
+          },
+          refreshTargets: [],
+          agentType: primaryAgent,
+        };
+      }
+
+      // Strip internal-only fields before sending to Claude API (it rejects unknown props)
+      const cleanResults = toolResults.map(({ _toolName, _rawResult, ...rest }: any) => rest);
+      messages.push({ role: "user", content: cleanResults });
       continue;
     }
 
@@ -573,6 +894,12 @@ function getAgentForCategory(category: string): string | null {
 
 // ── HELPERS ───────────────────────────────────────────────────
 
+/**
+ * Build agent config with prompt caching support.
+ * Returns system prompt as two blocks: static (cacheable) + dynamic (per-request).
+ * The static block contains guardrails, Gen Z rules, output format, and agent base rules.
+ * The dynamic block contains player context, temporal context, schedule rules, recs, and conversation state.
+ */
 function buildAgentConfig(
   agentTypes: string[],
   context: PlayerContext,
@@ -584,14 +911,46 @@ function buildAgentConfig(
     mastery: masteryTools,
   };
 
-  const promptBuilders: Record<string, (ctx: PlayerContext) => string> = {
-    timeline: buildTimelineSystemPrompt,
-    output: buildOutputSystemPrompt,
-    mastery: buildMasterySystemPrompt,
+  // Static prompt builders — no context needed, identical across all requests
+  const staticPromptBuilders: Record<string, () => string> = {
+    timeline: buildTimelineStaticPrompt,
+    output: buildOutputStaticPrompt,
+    mastery: buildMasteryStaticPrompt,
   };
 
-  // Combine tools from all needed agents
+  // Dynamic prompt builders — per-player, per-request context
+  const dynamicPromptBuilders: Record<string, (ctx: PlayerContext) => string> = {
+    timeline: buildTimelineDynamicPrompt,
+    output: buildOutputDynamicPrompt,
+    mastery: buildMasteryDynamicPrompt,
+  };
+
+  // Combine tools from all needed agents, add cache_control to last tool
   const tools = agentTypes.flatMap((a) => toolSets[a] ?? []);
+  const toolsWithCache = tools.map((t, i) =>
+    i === tools.length - 1
+      ? { ...t, cache_control: { type: "ephemeral" as const } }
+      : t
+  );
+
+  // ── STATIC BLOCK (cacheable — same for every player using this agent combo) ──
+  const staticPrefix = [
+    GUARDRAIL_SYSTEM_BLOCK,
+    GENZ_RESPONSE_RULES,
+    OUTPUT_FORMAT_INSTRUCTION,
+    staticPromptBuilders[agentTypes[0]](),
+  ].join("\n\n");
+
+  // ── DYNAMIC BLOCK (per-request — player context, temporal, schedule, recs, conversation) ──
+
+  // Sport-position context layer (~150-250 tokens, sport-specific coaching rules)
+  const sportContext = `\n\n${buildSportContextSegment(context)}`;
+
+  // Age-band communication profile (~60-80 tokens)
+  const toneProfile = `\n\n${buildToneProfile(context.ageBand)}`;
+
+  // Agent-specific dynamic context
+  const agentDynamic = dynamicPromptBuilders[agentTypes[0]](context);
 
   // Build conversation context block from persisted state
   let conversationContextBlock = "";
@@ -645,33 +1004,53 @@ If the user message contains [drillId:UUID], extract that UUID and pass it direc
   const scheduleRuleBlock = `\n\n${buildRuleContext(context.schedulePreferences, context.activeScenario)}`;
 
   // Build Layer 4 recommendation context block (RIE — adds ~200 tokens)
+  // Group by rec_type so Claude can easily filter by topic relevance
   let recsBlock = "";
   if (context.activeRecommendations && context.activeRecommendations.length > 0) {
     const recLines = context.activeRecommendations.map((r) => {
-      const pLabel = r.priority === 1 ? "🚨 URGENT" : r.priority === 2 ? "⚡ TODAY" : r.priority === 3 ? "📋 THIS WEEK" : "ℹ️ INFO";
-      return `- [${pLabel}] ${r.recType}: ${r.title} — ${r.bodyShort} (confidence: ${r.confidence.toFixed(2)})`;
+      const pLabel = r.priority === 1 ? "🚨" : r.priority === 2 ? "⚡" : r.priority === 3 ? "📋" : "ℹ️";
+      return `- ${pLabel} [${r.recType}] ${r.title} — ${r.bodyShort}`;
     });
-    recsBlock = `\n\nCURRENT_RECOMMENDATIONS (Layer 4 — pre-computed, priority-ordered):
+    recsBlock = `\n\nACTIVE_RECOMMENDATIONS (grouped by rec_type tag):
 ${recLines.join("\n")}
-Use these recommendations to ground your responses. When the athlete asks "what should I do?" or "how am I doing?", reference relevant recs.
-P1/P2 recs should be proactively surfaced. P3/P4 are supporting context.`;
+
+REC FILTERING RULES (CRITICAL — follow strictly):
+- ONLY reference recs whose [REC_TYPE] matches the player's question topic
+- sleep/recovery question → only [RECOVERY] and [READINESS] recs
+- training/workout question → only [DEVELOPMENT] and [LOAD_WARNING] recs
+- academic/study question → only [ACADEMIC] recs
+- "what should I do?" → pick the single highest-priority rec
+- "show all recommendations" → show all
+- NEVER show a rec tagged [READINESS] when asked about recovery unless it's specifically about recovery readiness
+- When in doubt, show FEWER recs (1-2 max), not more`;
   }
 
-  // Primary agent system prompt + context about other available tools + guardrails + Gen Z rules + output format
-  const systemPrompt =
-    promptBuilders[agentTypes[0]](context) +
+  const dynamicSuffix =
+    sportContext +
+    toneProfile +
+    agentDynamic +
     temporalBlock +
     scheduleRuleBlock +
     recsBlock +
     conversationContextBlock +
     (agentTypes.length > 1
       ? `\n\nYou also have access to tools from: ${agentTypes.slice(1).join(", ")} to handle this request fully.`
-      : "") +
-    `\n\n${GUARDRAIL_SYSTEM_BLOCK}` +
-    `\n\n${GENZ_RESPONSE_RULES}` +
-    `\n\n${OUTPUT_FORMAT_INSTRUCTION}`;
+      : "");
 
-  return { tools, systemPrompt };
+  // Return as block array for Anthropic API cache_control support
+  const systemBlocks: Anthropic.TextBlockParam[] = [
+    {
+      type: "text" as const,
+      text: staticPrefix,
+      cache_control: { type: "ephemeral" as const },
+    },
+    {
+      type: "text" as const,
+      text: dynamicSuffix,
+    },
+  ];
+
+  return { tools: toolsWithCache, systemBlocks };
 }
 
 async function executeTool(
@@ -681,9 +1060,12 @@ async function executeTool(
   context: PlayerContext
 ) {
   // Route to the correct agent's executor based on tool name prefix match
-  if (timelineTools.some((t) => t.name === toolName))
+  // Capsule-only tools aren't in the Claude tool definitions but are handled by the executors
+  const capsuleTimelineTools = ["update_schedule_rules", "generate_training_plan", "add_exam", "generate_study_plan", "confirm_ghost_suggestion", "dismiss_ghost_suggestion", "lock_day", "unlock_day", "get_ghost_suggestions"];
+  const capsuleOutputTools = ["interact_program", "sync_whoop"];
+  if (timelineTools.some((t) => t.name === toolName) || capsuleTimelineTools.includes(toolName))
     return executeTimelineTool(toolName, toolInput, context);
-  if (outputTools.some((t) => t.name === toolName))
+  if (outputTools.some((t) => t.name === toolName) || capsuleOutputTools.includes(toolName))
     return executeOutputTool(toolName, toolInput, context);
   if (masteryTools.some((t) => t.name === toolName))
     return executeMasteryTool(toolName, toolInput, context);

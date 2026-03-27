@@ -64,7 +64,7 @@ export const VoicePulse = React.memo(function VoicePulse({ duration, onStop, onC
       <View style={styles.center}>
         <Pressable onPress={onStop}>
           <Animated.View style={[styles.pulseCircle, { backgroundColor: colors.accent1 }, pulseStyle]}>
-            <Ionicons name="stop" size={18} color="#FFF" />
+            <Ionicons name="stop" size={18} color={colors.textOnDark} />
           </Animated.View>
         </Pressable>
         <Text style={[styles.timer, { color: colors.textOnDark }]}>{timeStr}</Text>

@@ -25,27 +25,8 @@ function resolveApiBaseUrl(): string {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
-  // Always use production API unless a local backend is explicitly running
-  // For local dev: set EXPO_PUBLIC_API_URL=http://localhost:3000 in .env
-  if (!__DEV__) {
-    return PRODUCTION_API_URL;
-  }
-
-  // In dev on web (browser), try local backend
-  if (Platform.OS === 'web') {
-    const debuggerHost =
-      Constants.expoConfig?.hostUri ??
-      Constants.manifest2?.extra?.expoGo?.debuggerHost;
-
-    if (debuggerHost) {
-      const host = debuggerHost.split(":")[0];
-      return `http://${host}:3000`;
-    }
-    return "http://localhost:3000";
-  }
-
-  // On mobile (Expo Go / dev client), always use production API
-  // Local backend isn't reachable from physical devices without extra setup
+  // Always use production API in all environments (web + mobile, dev + prod).
+  // For local backend testing: set EXPO_PUBLIC_API_URL=http://localhost:3000
   return PRODUCTION_API_URL;
 }
 

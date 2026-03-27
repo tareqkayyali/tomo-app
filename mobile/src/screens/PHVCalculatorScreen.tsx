@@ -38,6 +38,7 @@ import type { ThemeColors } from '../theme/colors';
 import type { MainStackParamList } from '../navigation/types';
 import {
   calculatePHV,
+  calculateAgeDecimal,
   validatePHVInputs,
   type PHVResult,
   type Sex,
@@ -113,12 +114,29 @@ export function PHVCalculatorScreen() {
     }
     return new Date(2008, 0, 1);
   });
+
+  // ── Measurement Date (Test Date) — defaults to today ──────────
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [measurementDate, setMeasurementDate] = useState(todayStr);
+  const [showMeasurementDatePicker, setShowMeasurementDatePicker] = useState(false);
+  const [measurementDateObj, setMeasurementDateObj] = useState<Date>(new Date());
+
+  const onMeasurementDateChange = useCallback((event: any, selectedDate?: Date) => {
+    setShowMeasurementDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setMeasurementDateObj(selectedDate);
+      setMeasurementDate(selectedDate.toISOString().split('T')[0]);
+    }
+  }, []);
+
   const [result, setResult] = useState<PHVResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState('');
 
-  // Age from profile DOB or age field
-  const ageDecimal = profile?.age ?? null;
+  // ── Age calculated from DOB and measurement date (not today) ──
+  const ageDecimal = dob
+    ? Math.round(calculateAgeDecimal(dob, measurementDate) * 100) / 100
+    : (profile?.age ?? null);
 
   // ── Fetch PHV measurements on mount AND on focus (returning from save) ──
   const loadPHVData = useCallback(async () => {
@@ -227,6 +245,7 @@ export function PHVCalculatorScreen() {
           date_of_birth: dob,
           sex: sex,
           age_decimal: ageDecimal,
+          assessment_date: measurementDate,
         }),
       });
       // Refresh auth profile so DOB/gender are available instantly next time
@@ -254,7 +273,7 @@ export function PHVCalculatorScreen() {
       setSavedMessage('❌ Failed to save. Please try again.');
       setSaving(false);
     }
-  }, [result, user, standingHeight, sittingHeight, weight, dob, sex, navigation]);
+  }, [result, user, standingHeight, sittingHeight, weight, dob, sex, ageDecimal, measurementDate, navigation]);
 
   const handleRecalculate = useCallback(() => {
     setResult(null);
@@ -383,8 +402,76 @@ export function PHVCalculatorScreen() {
                 )}
               </>
             )}
-            {ageDecimal != null && (
-              <Text style={[styles.readOnlyValue, { marginTop: 4 }]}>Age: {ageDecimal} years</Text>
+            {/* Age shown under measurement date instead */}
+          </View>
+
+          {/* Measurement Date */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.fieldLabel}>Measurement Date</Text>
+            {Platform.OS === 'web' ? (
+              <Pressable
+                onPress={() => {
+                  const input = document.getElementById('phv-measurement-date-input') as HTMLInputElement;
+                  if (input) input.showPicker?.();
+                }}
+                style={[styles.datePickerButton, { backgroundColor: colors.inputBackground }]}
+              >
+                <Ionicons name="calendar-outline" size={18} color={colors.accent2} />
+                <Text style={[styles.datePickerText, { color: measurementDate ? colors.textOnDark : colors.textMuted }]}>
+                  {measurementDate === todayStr ? `Today (${measurementDate})` : measurementDate}
+                </Text>
+                <input
+                  id="phv-measurement-date-input"
+                  type="date"
+                  value={measurementDate}
+                  max={new Date().toISOString().split('T')[0]}
+                  min="2020-01-01"
+                  onChange={(e: any) => {
+                    const val = e.target.value;
+                    if (val) {
+                      setMeasurementDate(val);
+                      setMeasurementDateObj(new Date(val));
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    opacity: 0,
+                    width: '100%',
+                    height: '100%',
+                    top: 0,
+                    left: 0,
+                    cursor: 'pointer',
+                  } as any}
+                />
+              </Pressable>
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => setShowMeasurementDatePicker(true)}
+                  style={[styles.datePickerButton, { backgroundColor: colors.inputBackground }]}
+                >
+                  <Ionicons name="calendar-outline" size={18} color={colors.accent2} />
+                  <Text style={[styles.datePickerText, { color: measurementDate ? colors.textOnDark : colors.textMuted }]}>
+                    {measurementDate === todayStr ? `Today (${measurementDate})` : measurementDate}
+                  </Text>
+                </Pressable>
+                {showMeasurementDatePicker && (
+                  <DateTimePicker
+                    value={measurementDateObj}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={onMeasurementDateChange}
+                    maximumDate={new Date()}
+                    minimumDate={new Date(2020, 0, 1)}
+                    themeVariant="dark"
+                  />
+                )}
+              </>
+            )}
+            {ageDecimal != null && dob && (
+              <Text style={[styles.readOnlyValue, { marginTop: 4 }]}>
+                Age at measurement: {ageDecimal} years
+              </Text>
             )}
           </View>
 

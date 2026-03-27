@@ -760,6 +760,8 @@ export interface TrainingCategoryConfig {
   daysPerWeek: number;
   sessionDuration: number;
   preferredTime: 'morning' | 'afternoon' | 'evening';
+  fixedStartTime?: string;
+  fixedEndTime?: string;
   linkedPrograms?: { programId: string; name: string; category?: string }[];
 }
 

@@ -17,7 +17,15 @@ export type CardType =
   | 'confirm_card'
   | 'session_plan'
   | 'drill_card'
-  | 'schedule_preview';
+  | 'schedule_preview'
+  // Capsule card types — interactive cards with inline inputs
+  | 'test_log_capsule'
+  | 'checkin_capsule'
+  | 'program_action_capsule'
+  | 'cv_edit_capsule'
+  | 'navigation_capsule'
+  | 'quick_action_capsule'
+  | 'week_schedule';
 
 export interface StatRow {
   type: 'stat_row';
@@ -39,6 +47,17 @@ export interface ScheduleList {
   type: 'schedule_list';
   date: string;
   items: ScheduleItem[];
+}
+
+export interface WeekDaySchedule {
+  dayLabel: string;
+  items: ScheduleItem[];
+}
+
+export interface WeekSchedule {
+  type: 'week_schedule';
+  summary: string;
+  days: WeekDaySchedule[];
 }
 
 export interface ZoneLevel {
@@ -85,6 +104,29 @@ export interface CoachNote {
   type: 'coach_note';
   note: string;
   source?: string;
+}
+
+export interface ProgramRecommendationItem {
+  programId: string;
+  name: string;
+  category: string;
+  priority: 'mandatory' | 'high' | 'medium';
+  weeklyFrequency: number;
+  durationMin: number;
+  startingPoint?: string;
+  positionNote?: string;
+}
+
+export interface ProgramRecommendationCard {
+  type: 'program_recommendation';
+  programs: ProgramRecommendationItem[];
+  weeklyPlanSuggestion: string;
+  playerProfile: {
+    name: string;
+    position: string;
+    ageBand: string;
+    phvStage: string;
+  };
 }
 
 export interface StatGridItem {
@@ -164,6 +206,357 @@ export interface SchedulePreviewCard {
   confirmPayload: string;
 }
 
+// ── Capsule Card Types — interactive inline forms ────────────────
+
+export interface CapsuleCatalogItem {
+  id: string;
+  name: string;
+  unit: string;
+  category: string;
+}
+
+export interface TestLogCapsule {
+  type: 'test_log_capsule';
+  prefilledTestType?: string;
+  prefilledDate?: string;
+  catalog: CapsuleCatalogItem[];
+  recentTests?: Array<{ id: string; name: string; lastValue: number; lastDate: string }>;
+}
+
+export interface CheckinCapsule {
+  type: 'checkin_capsule';
+  prefilledDate: string;
+  lastCheckinDate?: string;
+}
+
+export interface ExamCapsule {
+  type: 'exam_capsule';
+  existingExams: Array<{ id: string; subject: string; examType: string; examDate: string }>;
+  studySubjects?: string[];
+}
+
+export interface SubjectCapsule {
+  type: 'subject_capsule';
+  currentSubjects: string[];
+}
+
+export interface TrainingCategoryCapsule {
+  type: 'training_category_capsule';
+  currentCategories: Array<{
+    id: string;
+    label: string;
+    enabled: boolean;
+    daysPerWeek: number;
+    sessionDuration: number;
+    preferredTime: string;
+  }>;
+}
+
+export interface ProgramActionCapsule {
+  type: 'program_action_capsule';
+  programId: string;
+  programName: string;
+  frequency: string;
+  duration: string;
+  priority: 'high' | 'medium' | 'low';
+  currentStatus?: 'active' | 'done' | 'dismissed' | null;
+  availableActions: Array<'done' | 'dismissed' | 'active' | 'player_selected' | 'schedule' | 'details' | 'add_to_training'>;
+}
+
+export interface CVEditCapsuleField {
+  field: string;
+  label: string;
+  inputType: 'selector' | 'number' | 'text' | 'date';
+  options?: string[];
+  currentValue: string | number | null;
+  unit?: string;
+}
+
+export interface CVEditCapsule {
+  type: 'cv_edit_capsule';
+  fields: CVEditCapsuleField[];
+}
+
+export interface NavigationCapsule {
+  type: 'navigation_capsule';
+  icon: string;
+  target: string;
+  label: string;
+  description: string;
+  deepLink: {
+    tabName: string;
+    params?: Record<string, any>;
+  };
+}
+
+export interface QuickActionCapsuleAction {
+  label: string;
+  toolName: string;
+  toolInput: Record<string, any>;
+  agentType: string;
+  style: 'primary' | 'secondary' | 'destructive';
+}
+
+export interface QuickActionCapsule {
+  type: 'quick_action_capsule';
+  icon: string;
+  headline: string;
+  description?: string;
+  actions: QuickActionCapsuleAction[];
+}
+
+export interface EventEditCapsule {
+  type: 'event_edit_capsule';
+  mode: 'create' | 'update' | 'delete';
+  /** Pre-filled values from natural language parsing */
+  prefilledTitle?: string;
+  prefilledEventType?: 'training' | 'match' | 'study' | 'exam' | 'recovery' | 'other';
+  prefilledDate?: string;
+  prefilledStartTime?: string;
+  prefilledEndTime?: string;
+  prefilledIntensity?: 'REST' | 'LIGHT' | 'MODERATE' | 'HARD';
+  prefilledCategory?: string;
+  prefilledDuration?: number; // minutes
+  /** Player's custom training categories from schedule preferences */
+  trainingCategories?: Array<{ id: string; label: string; icon?: string }>;
+  /** For update/delete: existing events to pick from */
+  existingEvents?: Array<{
+    id: string;
+    title: string;
+    eventType: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    intensity?: string;
+  }>;
+  /** For update: the event being edited */
+  selectedEventId?: string;
+}
+
+export interface DrillRatingCapsule {
+  type: 'drill_rating_capsule';
+  drillId: string;
+  drillName: string;
+  category?: string;
+  completedAt?: string;
+}
+
+export interface ScheduleRulesCapsule {
+  type: 'schedule_rules_capsule';
+  /** Current scenario */
+  scenario: 'normal' | 'league_active' | 'exam_period' | 'league_and_exam';
+  /** Current values for pre-filling */
+  current: {
+    schoolDays: number[];
+    schoolStart: string;
+    schoolEnd: string;
+    sleepStart: string;
+    sleepEnd: string;
+    leagueIsActive: boolean;
+    examPeriodActive: boolean;
+    bufferDefaultMin: number;
+    bufferPostMatchMin: number;
+    bufferPostHighIntensityMin: number;
+    studyDays: number[];
+    studyStart: string;
+    studyDurationMin: number;
+  };
+}
+
+export interface TrainingScheduleCapsule {
+  type: 'training_schedule_capsule';
+  /** Player's training categories with current config */
+  categories: Array<{
+    id: string;
+    label: string;
+    icon?: string;
+    enabled: boolean;
+    mode: 'fixed_days' | 'days_per_week';
+    fixedDays: number[];
+    daysPerWeek: number;
+    sessionDuration: number;
+    preferredTime: string;
+  }>;
+  /** Default plan duration in weeks */
+  defaultWeeks: number;
+}
+
+export interface StudyScheduleCapsule {
+  type: 'study_schedule_capsule';
+  /** Current exams with countdown */
+  exams: Array<{
+    id: string;
+    subject: string;
+    examType: string;
+    examDate: string;
+    daysUntil: number;
+  }>;
+  /** Available study subjects */
+  studySubjects: string[];
+  /** Current config */
+  preExamStudyWeeks: number;
+  daysPerSubject: number;
+  examPeriodActive: boolean;
+  /** Existing study plan info */
+  hasStudyPlan?: boolean;
+  studyPlanBlockCount?: number;
+  studyPlanDateRange?: string;
+}
+
+export interface PHVCalculatorCapsule {
+  type: 'phv_calculator_capsule';
+  /** Pre-filled from profile */
+  sex?: 'male' | 'female';
+  dob?: string;
+  standingHeightCm?: number;
+  sittingHeightCm?: number;
+  weightKg?: number;
+  /** Previous result if exists */
+  previousOffset?: number;
+  previousStage?: string;
+}
+
+export interface StrengthsGapsCapsule {
+  type: 'strengths_gaps_capsule';
+  overallPercentile: number;
+  strengths: Array<{ metric: string; percentile: number; value: number; unit: string }>;
+  gaps: Array<{ metric: string; percentile: number; value: number; unit: string }>;
+  totalMetrics: number;
+}
+
+export interface PadelShotCapsule {
+  type: 'padel_shot_capsule';
+  shotTypes: string[];
+}
+
+export interface BlazePodsCapsule {
+  type: 'blazepods_capsule';
+  drillTypes: string[];
+}
+
+export interface NotificationSettingsCapsule {
+  type: 'notification_settings_capsule';
+  current: {
+    dailyReminder: boolean;
+    dailyReminderTime: string;
+    streakReminders: boolean;
+    milestoneAlerts: boolean;
+    redDayGuidance: boolean;
+    weeklySummary: boolean;
+  };
+}
+
+export interface ProgramInteractCapsule {
+  type: 'program_interact_capsule';
+  programs: Array<{
+    programId: string;
+    name: string;
+    category: string;
+    status: 'recommended' | 'active' | 'done' | 'dismissed';
+    description?: string;
+  }>;
+}
+
+export interface GhostSuggestionCapsule {
+  type: 'ghost_suggestion_capsule';
+  suggestions: Array<{
+    patternKey: string;
+    name: string;
+    eventType: string;
+    date: string;
+    startTime: string | null;
+    endTime: string | null;
+    confidence: number;
+    patternDescription: string;
+  }>;
+}
+
+export interface DayLockCapsule {
+  type: 'day_lock_capsule';
+  date: string;
+  locked: boolean;
+}
+
+export interface WhoopSyncCapsule {
+  type: 'whoop_sync_capsule';
+  connected: boolean;
+  lastSyncAt?: string;
+  /** Result after sync */
+  syncResult?: {
+    recoveries: number;
+    sleeps: number;
+    workouts: number;
+  };
+}
+
+export interface LeaderboardCapsule {
+  type: 'leaderboard_capsule';
+  boardType: 'global' | 'archetype' | 'streaks';
+  entries: Array<{
+    rank: number;
+    name: string;
+    sport: string;
+    totalPoints: number;
+    currentStreak: number;
+    isCurrentUser: boolean;
+  }>;
+  userRank: number | null;
+}
+
+export interface BulkTimelineEditCapsule {
+  type: 'bulk_timeline_edit_capsule';
+  events: Array<{
+    id: string;
+    title: string;
+    eventType: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    intensity?: string;
+  }>;
+  groupedEvents: Array<{
+    key: string;
+    title: string;
+    eventType: string;
+    timeSlot: string;
+    count: number;
+    eventIds: string[];
+  }>;
+}
+
+export interface ConflictResolutionCapsule {
+  type: 'conflict_resolution_capsule';
+  conflicts: Array<{
+    date: string;
+    issue: string;
+    severity: 'warning' | 'danger';
+    events: Array<{
+      id: string;
+      title: string;
+      eventType: string;
+      localStart: string;
+      localEnd: string;
+      intensity?: string;
+    }>;
+    /** Suggested resolution actions */
+    suggestions: Array<{
+      label: string;
+      action: string; // chat message to send
+    }>;
+  }>;
+  daysChecked: number;
+  totalEvents: number;
+}
+
+// ── Capsule Action — sent from frontend on capsule submit ────────
+
+export interface CapsuleAction {
+  type: string;
+  toolName: string;
+  toolInput: Record<string, any>;
+  agentType: string;
+}
+
 export type VisualCard =
   | StatRow
   | StatGrid
@@ -176,7 +569,34 @@ export type VisualCard =
   | ConfirmCard
   | SessionPlan
   | DrillCard
-  | SchedulePreviewCard;
+  | SchedulePreviewCard
+  | TestLogCapsule
+  | CheckinCapsule
+  | ProgramActionCapsule
+  | CVEditCapsule
+  | NavigationCapsule
+  | QuickActionCapsule
+  | EventEditCapsule
+  | DrillRatingCapsule
+  | ScheduleRulesCapsule
+  | TrainingScheduleCapsule
+  | StudyScheduleCapsule
+  | ConflictResolutionCapsule
+  | ExamCapsule
+  | SubjectCapsule
+  | TrainingCategoryCapsule
+  | PHVCalculatorCapsule
+  | StrengthsGapsCapsule
+  | PadelShotCapsule
+  | BlazePodsCapsule
+  | NotificationSettingsCapsule
+  | ProgramInteractCapsule
+  | GhostSuggestionCapsule
+  | DayLockCapsule
+  | WhoopSyncCapsule
+  | LeaderboardCapsule
+  | BulkTimelineEditCapsule
+  | ProgramRecommendationCard;
 
 // ── Action Chips ─────────────────────────────────────────────────
 

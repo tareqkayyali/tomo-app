@@ -16,9 +16,10 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, View, Pressable, Image, Text, PanResponder } from 'react-native';
+import { Platform, StyleSheet, View, Pressable, Image, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -66,6 +67,7 @@ import { FavoritesScreen } from '../screens/FavoritesScreen';
 import PHVCalculatorScreen from '../screens/PHVCalculatorScreen';
 import { StudyPlanView } from '../screens/StudyPlanView';
 import { TrainingPlanView } from '../screens/TrainingPlanView';
+import { BulkEditEventsScreen } from '../screens/BulkEditEventsScreen';
 
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
@@ -80,7 +82,7 @@ import { layout, spacing, borderRadius } from '../theme';
 import { useTheme } from '../hooks/useTheme';
 import { colors } from '../theme/colors';
 
-const Tab = createBottomTabNavigator<MainTabParamList>();
+const Tab = createMaterialTopTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
 // ── Tab icon mapping ────────────────────────────────────────────────
@@ -181,26 +183,66 @@ function CenterChatButton({
   );
 }
 
+// ── Custom Bottom Tab Bar (for Material Top Tabs) ─────────────────
+
+function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
+  const { colors } = useTheme();
+  const { pendingDrillNotifs } = useNotifications();
+
+  return (
+    <View style={[styles.tabBar, { backgroundColor: colors.navBackground, borderTopColor: colors.border }]}>
+      {state.routes.map((route, index) => {
+        const isFocused = state.index === index;
+        const tabName = route.name as TabName;
+
+        const onPress = () => {
+          if (!isFocused) {
+            navigation.navigate(route.name);
+          }
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+        };
+
+        if (tabName === 'Chat') {
+          return (
+            <CenterChatButton
+              key={tabName}
+              onPress={onPress}
+              focused={isFocused}
+            />
+          );
+        }
+
+        return (
+          <Pressable key={tabName} onPress={onPress} style={styles.tabBarItem}>
+            <AnimatedTabIcon
+              focused={isFocused}
+              color={isFocused ? colors.accent1 : colors.textInactive}
+              iconName={TAB_ICONS[tabName]}
+            />
+            <Text style={[styles.tabLabel, { color: isFocused ? colors.accent1 : colors.textInactive }]}>
+              {TAB_LABELS[tabName]}
+            </Text>
+            {tabName === 'ForYou' && pendingDrillNotifs.length > 0 && (
+              <View style={[styles.tabBadge, { backgroundColor: colors.accent1 }]}>
+                <Text style={styles.tabBadgeText}>{pendingDrillNotifs.length}</Text>
+              </View>
+            )}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 // ── Tab Navigator ───────────────────────────────────────────────────
 
 const TAB_ORDER = ['Plan', 'Test', 'Chat', 'Progress', 'ForYou'] as const;
 
 function TabNavigator() {
   const { colors } = useTheme();
-  const { pendingDrillNotifs } = useNotifications();
-  const subTabs = useSubTabs();
   const [activeTab, setActiveTab] = useState<string>('Chat');
-  const [initialTab, setInitialTab] = useState<string | null>(null);
-  const navigationRef = useRef<any>(null);
-  const activeTabRef = useRef(activeTab);
-  const subTabsRef = useRef(subTabs);
-  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
-  useEffect(() => { subTabsRef.current = subTabs; }, [subTabs]);
-
-  // Always open on Chat (Tomo AI) when user logs in
-  useEffect(() => {
-    setInitialTab('Chat');
-  }, []);
 
   useEffect(() => {
     if (activeTab) {
@@ -208,146 +250,32 @@ function TabNavigator() {
     }
   }, [activeTab]);
 
-  // ── Swipe between tabs + sub-tabs ──────────────────────────
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        // Only respond to horizontal swipes (not vertical scroll)
-        return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < Math.abs(gestureState.dx) * 0.5;
-      },
-      onPanResponderRelease: (_evt, gestureState) => {
-        const SWIPE_THRESHOLD = 60;
-        if (Math.abs(gestureState.dx) < SWIPE_THRESHOLD) return;
-
-        const currentTab = activeTabRef.current;
-        const currentIdx = TAB_ORDER.indexOf(currentTab as typeof TAB_ORDER[number]);
-        if (currentIdx === -1) return;
-
-        const swipeLeft = gestureState.dx < 0;
-        const controller = subTabsRef.current.get(currentTab);
-
-        // Try sub-tab navigation first
-        if (controller) {
-          if (swipeLeft && controller.activeIndex < controller.tabs.length - 1) {
-            controller.setTab(controller.activeIndex + 1);
-            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            return;
-          }
-          if (!swipeLeft && controller.activeIndex > 0) {
-            controller.setTab(controller.activeIndex - 1);
-            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            return;
-          }
-        }
-
-        // Sub-tab exhausted (or none) → switch main tab
-        const nextIdx = swipeLeft
-          ? Math.min(currentIdx + 1, TAB_ORDER.length - 1)
-          : Math.max(currentIdx - 1, 0);
-
-        if (nextIdx !== currentIdx && navigationRef.current) {
-          const nextTab = TAB_ORDER[nextIdx];
-
-          // When entering a tab with sub-tabs, start at first (swipe left) or last (swipe right)
-          const nextController = subTabsRef.current.get(nextTab);
-          if (nextController) {
-            const targetIdx = swipeLeft ? 0 : nextController.tabs.length - 1;
-            nextController.setTab(targetIdx);
-          }
-
-          // Pass initialTab param for screens with sub-tabs (handles first-mount case
-          // where the controller doesn't exist yet)
-          const subTabMap: Record<string, string[]> = {
-            Plan: ['dayflow', 'studyplan', 'trainingplan'],
-            Test: ['vitals', 'metrics', 'programs'],
-          };
-          const subTabs = subTabMap[nextTab];
-          if (subTabs) {
-            const initialTab = swipeLeft ? subTabs[0] : subTabs[subTabs.length - 1];
-            navigationRef.current.navigate(nextTab, { initialTab });
-          } else {
-            navigationRef.current.navigate(nextTab);
-          }
-          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      },
-    })
-  ).current;
-
-  const handleTabPress = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  }, []);
-
-  // Wait for initial tab to be resolved from storage before rendering
-  if (!initialTab) return null;
-
   return (
-    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-      <Tab.Navigator
-        initialRouteName={(initialTab || 'Chat') as keyof MainTabParamList}
-        screenListeners={({ navigation }) => ({
-          focus: () => {
-            navigationRef.current = navigation;
-          },
-          state: (e) => {
-            navigationRef.current = navigation;
-            const state = (e as any).data?.state;
-            if (state) {
-              const currentRoute = state.routes[state.index];
-              setActiveTab(currentRoute.name);
-            }
-          },
-          tabPress: () => handleTabPress(),
-        })}
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarIcon: ({ focused, color }) => {
-            if (route.name === 'Chat') {
-              return null; // Custom center button handles this
-            }
-            return (
-              <AnimatedTabIcon
-                focused={focused}
-                color={color}
-                iconName={TAB_ICONS[route.name]}
-              />
-            );
-          },
-          tabBarButton: route.name === 'Chat'
-            ? (props) => (
-                <CenterChatButton
-                  onPress={() => props.onPress?.({} as any)}
-                  focused={activeTab === 'Chat'}
-                />
-              )
-            : undefined,
-          tabBarLabel: TAB_LABELS[route.name],
-          tabBarActiveTintColor: colors.accent1,
-          tabBarInactiveTintColor: colors.textInactive,
-          tabBarShowLabel: true,
-          tabBarLabelStyle: styles.tabLabel,
-          tabBarStyle: [styles.tabBar, {
-            backgroundColor: colors.navBackground,
-            borderTopColor: colors.border,
-          }],
-        })}
-      >
-        <Tab.Screen name="Plan" component={TrainingScreen} />
-        <Tab.Screen name="Test" component={TestsScreen} />
-        <Tab.Screen name="Chat" component={HomeScreen} />
-        <Tab.Screen name="Progress" component={ProgressScreen} />
-        <Tab.Screen
-          name="ForYou"
-          component={ForYouScreen}
-          options={pendingDrillNotifs.length > 0 ? {
-            tabBarBadge: pendingDrillNotifs.length,
-            tabBarBadgeStyle: { backgroundColor: colors.accent, fontSize: 10, fontWeight: '700' },
-          } : undefined}
-        />
-      </Tab.Navigator>
-    </View>
+    <Tab.Navigator
+      initialRouteName="Chat"
+      tabBarPosition="bottom"
+      tabBar={(props) => <CustomBottomTabBar {...props} />}
+      screenListeners={{
+        state: (e) => {
+          const state = (e as any).data?.state;
+          if (state) {
+            setActiveTab(state.routes[state.index].name);
+          }
+        },
+      }}
+      screenOptions={{
+        swipeEnabled: true,
+        animationEnabled: true,
+        lazy: true,
+        lazyPreloadDistance: 1,
+      }}
+    >
+      <Tab.Screen name="Plan" component={TrainingScreen} />
+      <Tab.Screen name="Test" component={TestsScreen} />
+      <Tab.Screen name="Chat" component={HomeScreen} />
+      <Tab.Screen name="Progress" component={ProgressScreen} />
+      <Tab.Screen name="ForYou" component={ForYouScreen} />
+    </Tab.Navigator>
   );
 }
 
@@ -536,7 +464,7 @@ export function MainNavigator() {
       <Stack.Screen
         name="StudyPlanPreview"
         component={StudyPlanPreviewScreen}
-        options={{ headerShown: true, title: 'Study Plan Preview', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       {/* Multi-role screens */}
       <Stack.Screen
@@ -564,6 +492,11 @@ export function MainNavigator() {
         component={TrainingPlanView}
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="BulkEditEvents"
+        component={BulkEditEventsScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
     </NotificationsProvider>
     </SubTabProvider>
@@ -574,16 +507,41 @@ export function MainNavigator() {
 
 const styles = StyleSheet.create({
   tabBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
     borderTopWidth: 0.5,
     height: layout.navHeight,
     paddingTop: 6,
     elevation: 0,
     shadowOpacity: 0,
   },
+  tabBarItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
   tabLabel: {
     fontSize: 11,
     fontWeight: '500',
     marginTop: 2,
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: 0,
+    right: '25%',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  tabBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
   },
 
   // ── Center Chat Button (Tomo Logo) ───────────────────────────────

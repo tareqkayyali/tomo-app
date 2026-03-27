@@ -9,47 +9,22 @@
  */
 
 import { useMemo } from 'react';
-import { useFavorites } from './useFavorites';
 import type { QuickAction } from '../components/QuickAccessBar';
 
 /**
- * @param pageSpecific — A single action, array of actions, or null (Tomo Chat has 2 chat-specific icons)
- * @param navigation — React Navigation object for navigating to favorites + favorite targets
+ * @param pageSpecific — A single action, array of actions, or null
+ * @param _navigation — Kept for API compatibility (unused after favorites removal)
  */
 export function useQuickActions(
   pageSpecific: QuickAction | QuickAction[] | null,
-  navigation: any,
+  _navigation: any,
 ): QuickAction[] {
-  const { selectedOptions } = useFavorites();
-
   return useMemo(() => {
-    // 1. Page-specific icon(s)
+    // Only page-specific icons — favorites feature removed
     const pageActions: QuickAction[] = pageSpecific
       ? Array.isArray(pageSpecific) ? pageSpecific : [pageSpecific]
       : [];
 
-    // 2. User-selected favorites (0-2)
-    const favoriteActions: QuickAction[] = selectedOptions.map((opt) => ({
-      key: opt.key,
-      icon: opt.icon,
-      label: opt.label,
-      onPress: () => {
-        if (opt.route) {
-          navigation.navigate(opt.route);
-        } else if (opt.tabRoute) {
-          navigation.navigate(opt.tabRoute.tab, opt.tabRoute.params);
-        }
-      },
-    }));
-
-    // 3. "More" button → opens FavoritesScreen
-    const moreAction: QuickAction = {
-      key: 'more',
-      icon: 'ellipsis-horizontal',
-      label: 'More',
-      onPress: () => navigation.navigate('Favorites'),
-    };
-
-    return [...pageActions, ...favoriteActions, moreAction];
-  }, [pageSpecific, selectedOptions, navigation]);
+    return pageActions;
+  }, [pageSpecific]);
 }

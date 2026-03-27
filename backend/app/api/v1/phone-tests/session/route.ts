@@ -72,6 +72,14 @@ export async function POST(req: NextRequest) {
       createdBy: auth.user.id,
     });
 
+    // Fire-and-forget: refresh deep recs + programs so Own It reflects new test data
+    try {
+      const { triggerDeepRefreshAsync } = await import("@/services/recommendations/deepRecRefresh");
+      const { triggerDeepProgramRefreshAsync } = await import("@/services/programs/deepProgramRefresh");
+      triggerDeepRefreshAsync(auth.user.id);
+      triggerDeepProgramRefreshAsync(auth.user.id);
+    } catch (e) { console.error("[phone-tests] Deep refresh failed:", e); }
+
     return NextResponse.json(
       { session, benchmark: benchmark ?? null },
       { status: 201, headers: { "api-version": "v1" } }

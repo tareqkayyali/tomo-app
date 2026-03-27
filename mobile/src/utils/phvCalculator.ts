@@ -38,10 +38,16 @@ export type PHVCategory =
   | 'post-phv-recent'
   | 'post-phv-stable';
 
-export function calculateAgeDecimal(dateOfBirth: string): number {
+/**
+ * Calculate decimal age from DOB.
+ * @param dateOfBirth — ISO date string (YYYY-MM-DD)
+ * @param asOfDate — optional: calculate age as of this date instead of today.
+ *                   Use this when measurements were taken on a past date.
+ */
+export function calculateAgeDecimal(dateOfBirth: string, asOfDate?: string): number {
   const dob = new Date(dateOfBirth);
-  const now = new Date();
-  const diffMs = now.getTime() - dob.getTime();
+  const reference = asOfDate ? new Date(asOfDate) : new Date();
+  const diffMs = reference.getTime() - dob.getTime();
   return diffMs / (365.25 * 24 * 60 * 60 * 1000);
 }
 

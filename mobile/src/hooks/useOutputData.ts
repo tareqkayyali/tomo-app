@@ -20,6 +20,7 @@ import {
   type OutputSnapshot,
 } from '../services/api';
 import { useAuth } from './useAuth';
+import { useRefreshListener } from './useRefreshListener';
 
 const CACHE_KEY_PREFIX = '@tomo_output_snapshot_v3_'; // v3: per-user cache
 
@@ -178,6 +179,10 @@ export function useOutputData(targetPlayerId?: string) {
   const forceRefreshPrograms = useCallback(async () => {
     await triggerDeepRefresh(true);
   }, [triggerDeepRefresh]);
+
+  // ── Listen for cross-screen refresh events (e.g. test logged in chat) ──
+  useRefreshListener('metrics', fetchData);
+  useRefreshListener('programs', fetchData);
 
   return {
     data,

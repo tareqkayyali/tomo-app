@@ -25,6 +25,7 @@ import { useScheduleRules } from '../hooks/useScheduleRules';
 import { createCalendarEvent, getCalendarEventsByRange, deleteCalendarEvent } from '../services/api';
 import { spacing, borderRadius, fontFamily } from '../theme';
 import type { ThemeColors } from '../theme/colors';
+import { GradientButton } from '../components/GradientButton';
 import type { StudyBlock, TrainingBlock, CalendarEventInput, StudyPlanConfig } from '../types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
@@ -179,7 +180,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
-  const updateBlock = useCallback((id: string, patch: Partial<PreviewBlock>, keepOpen = false) => {
+  const updateBlock = useCallback((id: string, patch: Partial<PreviewBlock>, keepOpen = true) => {
     setBlocks((prev) =>
       prev.map((b) => {
         if (b.id !== id) return b;
@@ -339,7 +340,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      navigation.navigate('MainTabs' as any);
+      navigation.navigate('MainTabs' as any, { screen: 'Plan' });
     }
   }, [blocks, navigation, planType, examDates, rules?.preferences, config, isEdit]);
 
@@ -526,45 +527,83 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                       </View>
                     </View>
 
-                    {/* Time picker */}
+                    {/* Start time */}
                     <View style={styles.editRow}>
-                      <Text style={styles.editLabel}>Time</Text>
+                      <Text style={styles.editLabel}>Start</Text>
                       <View style={styles.editChips}>
                         <TouchableOpacity
                           style={styles.editChip}
                           onPress={() => {
                             const idx = TIME_OPTIONS.indexOf(block.startTime);
                             if (idx > 0) {
-                              const diff = timeToMin(block.endTime) - timeToMin(block.startTime);
+                              const dur = timeToMin(block.endTime) - timeToMin(block.startTime);
                               const newStart = TIME_OPTIONS[idx - 1];
-                              const newEnd = minToTime(timeToMin(newStart) + diff);
-                              updateBlock(block.id, { startTime: newStart, endTime: newEnd });
+                              updateBlock(block.id, { startTime: newStart, endTime: minToTime(timeToMin(newStart) + dur) });
                             }
                           }}
                         >
                           <Ionicons name="chevron-back" size={14} color={colors.textOnDark} />
-                          <Text style={styles.editChipText}>Earlier</Text>
                         </TouchableOpacity>
                         <Text style={[styles.editValue, { color: colors.textOnDark }]}>
-                          {block.startTime} – {block.endTime}
+                          {block.startTime}
                         </Text>
                         <TouchableOpacity
                           style={styles.editChip}
                           onPress={() => {
                             const idx = TIME_OPTIONS.indexOf(block.startTime);
                             if (idx < TIME_OPTIONS.length - 1) {
-                              const diff = timeToMin(block.endTime) - timeToMin(block.startTime);
+                              const dur = timeToMin(block.endTime) - timeToMin(block.startTime);
                               const newStart = TIME_OPTIONS[idx + 1];
-                              const newEnd = minToTime(timeToMin(newStart) + diff);
-                              updateBlock(block.id, { startTime: newStart, endTime: newEnd });
+                              updateBlock(block.id, { startTime: newStart, endTime: minToTime(timeToMin(newStart) + dur) });
                             }
                           }}
                         >
-                          <Text style={styles.editChipText}>Later</Text>
                           <Ionicons name="chevron-forward" size={14} color={colors.textOnDark} />
                         </TouchableOpacity>
                       </View>
                     </View>
+
+                    {/* Duration pills */}
+                    <View style={styles.editRow}>
+                      <Text style={styles.editLabel}>Dur</Text>
+                      <View style={styles.editChips}>
+                        {[30, 45, 60, 75, 90, 120].map((dur) => {
+                          const currentDur = timeToMin(block.endTime) - timeToMin(block.startTime);
+                          const isActive = currentDur === dur;
+                          return (
+                            <TouchableOpacity
+                              key={dur}
+                              style={[
+                                styles.editChip,
+                                isActive && { backgroundColor: colors.accent1, borderColor: colors.accent1 },
+                              ]}
+                              onPress={() => {
+                                updateBlock(block.id, { endTime: minToTime(timeToMin(block.startTime) + dur) });
+                              }}
+                            >
+                              <Text style={[styles.editChipText, isActive && { color: '#FFF' }]}>
+                                {dur}m
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    {/* Done button */}
+                    <TouchableOpacity
+                      style={{
+                        alignSelf: 'center',
+                        marginTop: 8,
+                        paddingVertical: 8,
+                        paddingHorizontal: 24,
+                        borderRadius: 20,
+                        backgroundColor: colors.accent1,
+                      }}
+                      onPress={() => setEditingId(null)}
+                    >
+                      <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 13, color: '#FFF' }}>Done</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -585,37 +624,21 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
       {blocks.length > 0 && (
         <View style={[styles.bottomBar, { borderTopColor: colors.border }]}>
           {isViewOnly ? (
-            <TouchableOpacity
-              style={[styles.bookBtn, { backgroundColor: accentColor, opacity: saving ? 0.6 : 1 }]}
+            <GradientButton
+              title="Export PDF"
+              icon="document-text"
               onPress={handleExportPdf}
               disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <>
-                  <Ionicons name="document-text" size={18} color="#FFF" />
-                  <Text style={styles.bookBtnText}>Export PDF</Text>
-                </>
-              )}
-            </TouchableOpacity>
+              loading={saving}
+            />
           ) : (
-            <TouchableOpacity
-              style={[styles.bookBtn, { backgroundColor: accentColor, opacity: saving ? 0.6 : 1 }]}
+            <GradientButton
+              title={isEdit ? `Update Calendar (${blocks.length})` : `Book All (${blocks.length})`}
+              icon={isEdit ? 'refresh' : 'calendar'}
               onPress={handleBookAll}
               disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <>
-                  <Ionicons name={isEdit ? 'refresh' : 'calendar'} size={18} color="#FFF" />
-                  <Text style={styles.bookBtnText}>
-                    {isEdit ? `Update Calendar (${blocks.length})` : `Book All (${blocks.length})`}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+              loading={saving}
+            />
           )}
         </View>
       )}

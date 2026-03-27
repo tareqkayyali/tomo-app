@@ -89,6 +89,7 @@ export type MainStackParamList = {
   // Plan views (standalone screens)
   StudyPlanView: undefined;
   TrainingPlanView: undefined;
+  BulkEditEvents: undefined;
   // Multi-role screens
   Notifications: undefined;
   LinkAccount: undefined;

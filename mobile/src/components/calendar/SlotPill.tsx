@@ -7,6 +7,7 @@ import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { fontFamily, borderRadius } from '../../theme';
+import { colors } from '../../theme/colors';
 import type { ThemeColors } from '../../theme/colors';
 import { format12h, minutesToTime } from '../../services/schedulingEngine';
 
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
   bestText: {
     fontSize: 9,
     fontFamily: fontFamily.bold,
-    color: '#FFF',
+    color: colors.textOnDark,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

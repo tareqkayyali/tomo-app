@@ -22,6 +22,8 @@ import {
   ActivityIndicator,
   Pressable,
   Platform,
+  Switch,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -55,7 +57,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { profile } = useAuth();
-  const { rules, loading, refresh } = useScheduleRules();
+  const { rules, loading, refresh, update } = useScheduleRules();
   const navigation = useNavigation<any>();
 
   const handleNavigateToPreview = onNavigateToPreview ?? ((blocks: TrainingBlock[], warnings?: string[]) => {
@@ -90,6 +92,8 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
         daysPerWeek: rc.daysPerWeek,
         sessionDuration: rc.sessionDuration,
         preferredTime: rc.preferredTime,
+        fixedStartTime: rc.fixedStartTime,
+        fixedEndTime: rc.fixedEndTime,
         linkedPrograms: rc.linkedPrograms,
       }));
     }
@@ -269,6 +273,23 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
     }
   }, [categories, enabledCategories, planWeeks, saveConfig, handleNavigateToPreview, handleNavigateToRules, schoolSchedule, rules?.effectiveRules]);
 
+  const addCategory = useCallback((name: string) => {
+    const newCat: TrainingCategoryRule = {
+      id: name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now(),
+      label: name,
+      icon: 'add-circle-outline',
+      color: '#00D9FF',
+      enabled: true,
+      mode: 'days_per_week' as const,
+      fixedDays: [],
+      daysPerWeek: 2,
+      sessionDuration: 60,
+      preferredTime: 'afternoon',
+    };
+    const cats = [...(rules?.preferences?.training_categories ?? []), newCat];
+    update({ training_categories: cats });
+  }, [rules?.preferences?.training_categories, update]);
+
   // ── Loading state (prevents empty-state flash) ─────────────────────
 
   if (loading) {
@@ -312,17 +333,6 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
       </View>
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-      {/* ─── Config summary banner (matches Study tab) ─── */}
-      <TouchableOpacity style={styles.configBanner} onPress={handleNavigateToRules} activeOpacity={0.7}>
-        <View style={styles.configBannerLeft}>
-          <Ionicons name="options-outline" size={14} color={colors.accent1} />
-          <Text style={[styles.configBannerText, { color: colors.textSecondary }]}>
-            {configSummary}
-          </Text>
-        </View>
-        <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Edit Rules</Text>
-      </TouchableOpacity>
-
       {/* ─── Plan duration stepper ─── */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Plan Duration</Text>
@@ -352,49 +362,56 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
         </View>
       </View>
 
-      {/* ─── Category summary cards (read-only) ─── */}
+      {/* ─── Editable Training Categories ─── */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Training Categories</Text>
-        {categories.map((cat) => {
-          const daysLabel = cat.mode === 'fixed_days'
-            ? cat.fixedDays.map((d) => DAY_ABBR[d]).join(', ')
-            : `${cat.daysPerWeek}x/wk`;
+        {categories.map((cat) => (
+          <TrainingCategoryCardInline
+            key={cat.id}
+            category={cat}
+            onUpdate={(updated) => {
+              const cats = (rules?.preferences?.training_categories ?? []).map((c: TrainingCategoryRule) =>
+                c.id === updated.id ? updated : c,
+              );
+              update({ training_categories: cats });
+            }}
+            colors={colors}
+          />
+        ))}
+        <TouchableOpacity
+          style={styles.addCategoryBtn}
+          onPress={() => {
+            // Simple prompt for new category
+            if (Platform.OS === 'web') {
+              const name = window.prompt('Add Training Category', 'e.g. Swimming, Yoga');
+              if (!name?.trim()) return;
+              addCategory(name.trim());
+            } else {
+              Alert.prompt?.('Add Category', 'e.g. Swimming, Yoga', (name: string) => {
+                if (!name?.trim()) return;
+                addCategory(name.trim());
+              }) ?? Alert.alert('Add Category', 'Use the chat to add a new training category');
+            }
+          }}
+        >
+          <Ionicons name="add-circle-outline" size={18} color={colors.accent1} />
+          <Text style={[styles.addCategoryText, { color: colors.accent1 }]}>Add Category</Text>
+        </TouchableOpacity>
+      </View>
 
-          return (
-            <View
-              key={cat.id}
-              style={[
-                styles.categoryCard,
-                {
-                  borderColor: cat.enabled ? `${cat.color}40` : colors.border,
-                  opacity: cat.enabled ? 1 : 0.45,
-                },
-              ]}
-            >
-              <View style={styles.cardRow}>
-                <View style={[styles.catIcon, { backgroundColor: `${cat.color}20` }]}>
-                  <Ionicons name={cat.icon as any} size={16} color={cat.color} />
-                </View>
-                <View style={styles.catInfo}>
-                  <Text style={styles.catLabel}>{cat.label}</Text>
-                  <Text style={[styles.catMeta, { color: colors.textInactive }]}>
-                    {daysLabel} · {cat.sessionDuration}m · {cat.preferredTime}
-                  </Text>
-                  {cat.linkedPrograms && cat.linkedPrograms.length > 0 && (
-                    <Text style={[styles.catMeta, { color: colors.info, marginTop: 2 }]} numberOfLines={2}>
-                      📋 {cat.linkedPrograms.map(p => p.name).join(', ')}
-                    </Text>
-                  )}
-                </View>
-                {cat.enabled ? (
-                  <View style={[styles.statusDot, { backgroundColor: cat.color }]} />
-                ) : (
-                  <Text style={[styles.disabledLabel, { color: colors.textInactive }]}>Off</Text>
-                )}
-              </View>
-            </View>
-          );
-        })}
+      {/* ─── League Season toggle ─── */}
+      <View style={[styles.section, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="trophy-outline" size={16} color={colors.accent1} />
+          <Text style={styles.sectionLabel}>League Season</Text>
+        </View>
+        <Switch
+          value={rules?.preferences?.league_is_active ?? false}
+          onValueChange={(v) => update({ league_is_active: v })}
+          trackColor={{ false: colors.border, true: colors.accent1 + '80' }}
+          thumbColor={rules?.preferences?.league_is_active ? colors.accent1 : colors.textInactive}
+          style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
+        />
       </View>
 
       {/* ─── Block Estimate ─── */}
@@ -430,6 +447,254 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
     </SafeAreaView>
   );
 }
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+function addDuration(startTime: string, durationMin: number): string {
+  const [h, m] = startTime.split(':').map(Number);
+  const total = h * 60 + m + durationMin;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+// ── Time Stepper Mini (±30 min) ─────────────────────────────────────
+
+function stepTime(hhmm: string, delta: number): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  let total = h * 60 + m + delta;
+  if (total < 0) total = 0;
+  if (total > 23 * 60 + 30) total = 23 * 60 + 30;
+  const newH = Math.floor(total / 60);
+  const newM = total % 60;
+  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+}
+
+function TimeStepperMini({ value, onChange, color, colors }: {
+  value: string;
+  onChange: (v: string) => void;
+  color: string;
+  colors: ThemeColors;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <Pressable
+        onPress={() => onChange(stepTime(value, -30))}
+        style={[inlineStyles.stepper, { borderColor: colors.border, width: 22, height: 22, borderRadius: 11 }]}
+      >
+        <Ionicons name="remove" size={10} color={colors.textInactive} />
+      </Pressable>
+      <Text style={{ fontSize: 13, fontFamily: fontFamily.semiBold, color, minWidth: 40, textAlign: 'center' }}>
+        {value || '--:--'}
+      </Text>
+      <Pressable
+        onPress={() => onChange(stepTime(value, 30))}
+        style={[inlineStyles.stepper, { borderColor: colors.border, width: 22, height: 22, borderRadius: 11 }]}
+      >
+        <Ionicons name="add" size={10} color={colors.textInactive} />
+      </Pressable>
+    </View>
+  );
+}
+
+// ── Inline Training Category Card (matches MyRules design) ──────────
+
+const INLINE_DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const INLINE_DURATIONS = [60, 75, 90, 120];
+
+function TrainingCategoryCardInline({
+  category: cat,
+  onUpdate,
+  colors,
+}: {
+  category: TrainingCategoryRule;
+  onUpdate: (cat: TrainingCategoryRule) => void;
+  colors: ThemeColors;
+}) {
+  return (
+    <View style={[inlineStyles.card, { backgroundColor: colors.cardLight, borderLeftColor: cat.color }]}>
+      <View style={inlineStyles.headerRow}>
+        <View style={[inlineStyles.iconCircle, { backgroundColor: cat.color + '20' }]}>
+          <Ionicons name={(cat.icon || 'add-circle-outline') as any} size={16} color={cat.color} />
+        </View>
+        <Text style={[inlineStyles.label, { color: colors.textOnDark }]}>{cat.label}</Text>
+        <Switch
+          value={cat.enabled}
+          onValueChange={(v) => onUpdate({ ...cat, enabled: v })}
+          trackColor={{ false: colors.border, true: cat.color + '80' }}
+          thumbColor={cat.enabled ? cat.color : colors.textInactive}
+          style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+        />
+      </View>
+
+      {cat.enabled && (
+        <View style={inlineStyles.details}>
+          {/* Mode toggle */}
+          <View style={inlineStyles.modeRow}>
+            <Pressable
+              onPress={() => onUpdate({ ...cat, mode: 'fixed_days' })}
+              style={[
+                inlineStyles.modeChip,
+                {
+                  backgroundColor: cat.mode === 'fixed_days' ? cat.color + '20' : 'transparent',
+                  borderColor: cat.mode === 'fixed_days' ? cat.color : colors.border,
+                },
+              ]}
+            >
+              <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: cat.mode === 'fixed_days' ? cat.color : colors.textInactive }}>
+                Fixed Days
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => onUpdate({ ...cat, mode: 'days_per_week' })}
+              style={[
+                inlineStyles.modeChip,
+                {
+                  backgroundColor: cat.mode === 'days_per_week' ? cat.color + '20' : 'transparent',
+                  borderColor: cat.mode === 'days_per_week' ? cat.color : colors.border,
+                },
+              ]}
+            >
+              <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: cat.mode === 'days_per_week' ? cat.color : colors.textInactive }}>
+                X per Week
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Days selection */}
+          {cat.mode === 'fixed_days' ? (
+            <View style={{ flexDirection: 'row', gap: 4, marginTop: 8 }}>
+              {INLINE_DAY_LABELS.map((label, i) => {
+                const sel = cat.fixedDays.includes(i);
+                return (
+                  <Pressable
+                    key={i}
+                    onPress={() => {
+                      const days = sel
+                        ? cat.fixedDays.filter((d) => d !== i)
+                        : [...cat.fixedDays, i].sort();
+                      onUpdate({ ...cat, fixedDays: days });
+                    }}
+                    style={[
+                      inlineStyles.dayDot,
+                      {
+                        backgroundColor: sel ? cat.color + '30' : 'transparent',
+                        borderColor: sel ? cat.color : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 10, fontFamily: fontFamily.semiBold, color: sel ? cat.color : colors.textInactive }}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <Pressable
+                onPress={() => onUpdate({ ...cat, daysPerWeek: Math.max(1, cat.daysPerWeek - 1) })}
+                style={[inlineStyles.stepper, { borderColor: colors.border }]}
+              >
+                <Ionicons name="remove" size={14} color={colors.textInactive} />
+              </Pressable>
+              <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: cat.color }}>
+                {cat.daysPerWeek}x
+              </Text>
+              <Pressable
+                onPress={() => onUpdate({ ...cat, daysPerWeek: Math.min(7, cat.daysPerWeek + 1) })}
+                style={[inlineStyles.stepper, { borderColor: colors.border }]}
+              >
+                <Ionicons name="add" size={14} color={colors.textInactive} />
+              </Pressable>
+              <Text style={{ fontSize: 11, color: colors.textInactive, fontFamily: fontFamily.regular }}>
+                per week
+              </Text>
+            </View>
+          )}
+
+          {/* Duration chips */}
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
+            {INLINE_DURATIONS.map((dur) => (
+              <Pressable
+                key={dur}
+                onPress={() => onUpdate({ ...cat, sessionDuration: dur })}
+                style={[
+                  inlineStyles.durChip,
+                  {
+                    backgroundColor: cat.sessionDuration === dur ? cat.color + '20' : 'transparent',
+                    borderColor: cat.sessionDuration === dur ? cat.color : colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontFamily: fontFamily.semiBold,
+                    color: cat.sessionDuration === dur ? cat.color : colors.textInactive,
+                  }}
+                >
+                  {dur}m
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Fixed time (optional — when time is known) */}
+          <View style={{ marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.textInactive }}>
+                Fixed Time
+              </Text>
+              <Switch
+                value={!!cat.fixedStartTime}
+                onValueChange={(v) => {
+                  if (!v) {
+                    onUpdate({ ...cat, fixedStartTime: '', fixedEndTime: '' });
+                  } else {
+                    const defaults: Record<string, string> = {
+                      morning: '08:00', afternoon: '15:00', evening: '18:00',
+                    };
+                    const s = defaults[cat.preferredTime] || '18:00';
+                    onUpdate({ ...cat, fixedStartTime: s, fixedEndTime: addDuration(s, cat.sessionDuration) });
+                  }
+                }}
+                trackColor={{ false: colors.border, true: cat.color + '80' }}
+                thumbColor={cat.fixedStartTime ? cat.color : colors.textInactive}
+                style={{ transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }] }}
+              />
+            </View>
+            {cat.fixedStartTime && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                <Text style={{ fontSize: 11, color: colors.textInactive }}>Starts at</Text>
+                <TimeStepperMini
+                  value={cat.fixedStartTime}
+                  onChange={(t) => onUpdate({ ...cat, fixedStartTime: t, fixedEndTime: addDuration(t, cat.sessionDuration) })}
+                  color={cat.color}
+                  colors={colors}
+                />
+                <Text style={{ fontSize: 11, color: colors.textInactive }}>
+                  → {addDuration(cat.fixedStartTime, cat.sessionDuration)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const inlineStyles = StyleSheet.create({
+  card: { borderRadius: 14, padding: 14, marginBottom: 10, borderLeftWidth: 3 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconCircle: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  label: { flex: 1, fontSize: 15, fontFamily: fontFamily.semiBold },
+  details: { marginTop: 10, paddingLeft: 40 },
+  modeRow: { flexDirection: 'row', gap: 8 },
+  modeChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
+  dayDot: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
+  stepper: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  durChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+});
 
 // ── Styles ───────────────────────────────────────────────────────────
 
@@ -631,6 +896,21 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 12,
     },
     generateBtnText: {
+      fontSize: 13,
+      fontFamily: fontFamily.medium,
+    },
+    addCategoryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: `${colors.accent1}30`,
+      borderStyle: 'dashed',
+    },
+    addCategoryText: {
       fontSize: 13,
       fontFamily: fontFamily.medium,
     },

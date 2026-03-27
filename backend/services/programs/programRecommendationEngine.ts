@@ -89,7 +89,8 @@ const TECHNICAL_CATEGORIES = [
 // ── Main Engine ─────────────────────────────────────────────────────────
 
 export async function generateProgramRecommendations(
-  context: PlayerContext
+  context: PlayerContext,
+  focusArea?: string
 ): Promise<ProgramRecommendationSet> {
   const db = supabaseAdmin();
 
@@ -301,7 +302,7 @@ export async function generateProgramRecommendations(
     matrix
   );
 
-  return {
+  const result: ProgramRecommendationSet = {
     mandatory,
     highPriority,
     technical,
@@ -315,6 +316,32 @@ export async function generateProgramRecommendations(
       phvDetails: phv,
     },
   };
+
+  // Filter by focusArea if specified
+  if (focusArea) {
+    const area = focusArea.toLowerCase().replace(/\s+/g, "_");
+    if (area === "injury_prevention" || area === "injury") {
+      result.mandatory = [];
+      result.highPriority = [];
+      result.technical = [];
+    } else if (area === "technical") {
+      result.mandatory = [];
+      result.highPriority = [];
+      result.injuryPrevention = [];
+    } else {
+      // For sprint, strength, agility, endurance — filter to programs matching the focus
+      const matchesFocus = (rec: ProgramRecommendation) =>
+        rec.name.toLowerCase().includes(area) ||
+        rec.reason.toLowerCase().includes(area) ||
+        (rec as any).program?.primary_attribute?.toLowerCase().includes(area);
+      result.mandatory = result.mandatory.filter(matchesFocus);
+      result.highPriority = result.highPriority.filter(matchesFocus);
+      result.technical = [];
+      result.injuryPrevention = [];
+    }
+  }
+
+  return result;
 }
 
 // ── Weekly Plan Builder ─────────────────────────────────────────────────

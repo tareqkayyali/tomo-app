@@ -24,7 +24,17 @@ export type CardType =
   | "drill_card"
   | "schedule_preview"
   | "program_recommendation"
-  | "phv_assessment";
+  | "phv_assessment"
+  // Capsule card types — interactive cards with inline inputs
+  | "test_log_capsule"
+  | "checkin_capsule"
+  | "program_action_capsule"
+  | "cv_edit_capsule"
+  | "navigation_capsule"
+  | "quick_action_capsule"
+  | "event_edit_capsule"
+  | "drill_rating_capsule"
+  | "bulk_timeline_edit_capsule";
 
 export interface StatRow {
   type: "stat_row";
@@ -206,6 +216,133 @@ export interface PHVAssessmentCard {
   trainingImplication: string;
 }
 
+// ── Capsule Card Types — interactive cards with inline inputs ────
+
+export interface CapsuleCatalogItem {
+  id: string;
+  name: string;
+  unit: string;
+  category: string;
+}
+
+export interface TestLogCapsule {
+  type: "test_log_capsule";
+  prefilledTestType?: string;
+  prefilledDate?: string;
+  catalog: CapsuleCatalogItem[];
+  recentTests?: Array<{ id: string; name: string; lastValue: number; lastDate: string }>;
+}
+
+export interface CheckinCapsule {
+  type: "checkin_capsule";
+  prefilledDate: string;
+  lastCheckinDate?: string;
+}
+
+export interface CapsuleProgramAction {
+  programId: string;
+  programName: string;
+  frequency: string;
+  duration: string;
+  priority: "high" | "medium" | "low";
+  currentStatus?: "active" | "done" | "dismissed" | null;
+  availableActions: Array<"done" | "dismissed" | "active" | "player_selected" | "schedule" | "details" | "add_to_training">;
+}
+
+export interface ProgramActionCapsule {
+  type: "program_action_capsule";
+  programId: string;
+  programName: string;
+  frequency: string;
+  duration: string;
+  priority: "high" | "medium" | "low";
+  currentStatus?: "active" | "done" | "dismissed" | null;
+  availableActions: Array<"done" | "dismissed" | "active" | "player_selected" | "schedule" | "details" | "add_to_training">;
+}
+
+export interface CVEditCapsuleField {
+  field: string;
+  label: string;
+  inputType: "selector" | "number" | "text" | "date";
+  options?: string[];
+  currentValue: string | number | null;
+  unit?: string;
+}
+
+export interface CVEditCapsule {
+  type: "cv_edit_capsule";
+  fields: CVEditCapsuleField[];
+}
+
+export interface NavigationCapsule {
+  type: "navigation_capsule";
+  icon: string;
+  target: string;
+  label: string;
+  description: string;
+  deepLink: {
+    tabName: string;
+    params?: Record<string, any>;
+  };
+}
+
+export interface QuickActionCapsuleAction {
+  label: string;
+  toolName: string;
+  toolInput: Record<string, any>;
+  agentType: string;
+  style: "primary" | "secondary" | "destructive";
+}
+
+export interface QuickActionCapsule {
+  type: "quick_action_capsule";
+  icon: string;
+  headline: string;
+  description?: string;
+  actions: QuickActionCapsuleAction[];
+}
+
+export interface EventEditCapsule {
+  type: "event_edit_capsule";
+  mode: "create" | "update" | "delete";
+  prefilledTitle?: string;
+  prefilledEventType?: "training" | "match" | "study" | "exam" | "recovery" | "other";
+  prefilledDate?: string;
+  prefilledStartTime?: string;
+  prefilledEndTime?: string;
+  prefilledIntensity?: "REST" | "LIGHT" | "MODERATE" | "HARD";
+  prefilledCategory?: string;
+  prefilledDuration?: number;
+  trainingCategories?: Array<{ id: string; label: string; icon?: string }>;
+  existingEvents?: Array<{
+    id: string;
+    title: string;
+    eventType: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    intensity?: string;
+  }>;
+  selectedEventId?: string;
+}
+
+export interface DrillRatingCapsule {
+  type: "drill_rating_capsule";
+  drillId: string;
+  drillName: string;
+  category?: string;
+  completedAt?: string;
+}
+
+// ── Capsule Action Payload — sent from frontend on capsule submit ──
+
+export interface CapsuleAction {
+  type: string;
+  toolName: string;
+  toolInput: Record<string, any>;
+  agentType: string;
+}
+
 export type VisualCard =
   | StatRow
   | StatGrid
@@ -220,7 +357,122 @@ export type VisualCard =
   | DrillCard
   | SchedulePreviewCard
   | ProgramRecommendationCard
-  | PHVAssessmentCard;
+  | PHVAssessmentCard
+  | TestLogCapsule
+  | CheckinCapsule
+  | ProgramActionCapsule
+  | CVEditCapsule
+  | NavigationCapsule
+  | QuickActionCapsule
+  | EventEditCapsule
+  | DrillRatingCapsule
+  | ScheduleRulesCapsule
+  | TrainingScheduleCapsule
+  | StudyScheduleCapsule
+  | ConflictResolutionCapsule
+  | PHVCalculatorCapsule
+  | StrengthsGapsCapsule
+  | PadelShotCapsule
+  | BlazePodsCapsule
+  | NotificationSettingsCapsule
+  | ProgramInteractCapsule
+  | GhostSuggestionCapsule
+  | DayLockCapsule
+  | WhoopSyncCapsule
+  | LeaderboardCapsule
+  | ExamCapsule
+  | SubjectCapsule
+  | TrainingCategoryCapsule
+  | BulkTimelineEditCapsule;
+
+export interface ExamCapsule { type: "exam_capsule"; existingExams: Array<{ id: string; subject: string; examType: string; examDate: string }>; studySubjects?: string[]; }
+export interface SubjectCapsule { type: "subject_capsule"; currentSubjects: string[]; }
+export interface TrainingCategoryCapsule { type: "training_category_capsule"; currentCategories: Array<Record<string, any>>; }
+export interface BulkTimelineEditCapsule {
+  type: "bulk_timeline_edit_capsule";
+  events: Array<{ id: string; title: string; eventType: string; date: string; startTime: string; endTime: string; intensity?: string }>;
+  groupedEvents: Array<{ key: string; title: string; eventType: string; timeSlot: string; count: number; eventIds: string[] }>;
+}
+
+export interface PHVCalculatorCapsule { type: "phv_calculator_capsule"; sex?: string; dob?: string; standingHeightCm?: number; sittingHeightCm?: number; weightKg?: number; previousOffset?: number; previousStage?: string; }
+export interface StrengthsGapsCapsule { type: "strengths_gaps_capsule"; overallPercentile: number; strengths: Array<Record<string, any>>; gaps: Array<Record<string, any>>; totalMetrics: number; }
+export interface PadelShotCapsule { type: "padel_shot_capsule"; shotTypes: string[]; }
+export interface BlazePodsCapsule { type: "blazepods_capsule"; drillTypes: string[]; }
+export interface NotificationSettingsCapsule { type: "notification_settings_capsule"; current: Record<string, any>; }
+
+export interface ProgramInteractCapsule {
+  type: "program_interact_capsule";
+  programs: Array<Record<string, any>>;
+}
+
+export interface GhostSuggestionCapsule {
+  type: "ghost_suggestion_capsule";
+  suggestions: Array<Record<string, any>>;
+}
+
+export interface DayLockCapsule {
+  type: "day_lock_capsule";
+  date: string;
+  locked: boolean;
+}
+
+export interface WhoopSyncCapsule {
+  type: "whoop_sync_capsule";
+  connected: boolean;
+  lastSyncAt?: string;
+  syncResult?: Record<string, any>;
+}
+
+export interface LeaderboardCapsule {
+  type: "leaderboard_capsule";
+  boardType: string;
+  entries: Array<Record<string, any>>;
+  userRank: number | null;
+}
+
+export interface ScheduleRulesCapsule {
+  type: "schedule_rules_capsule";
+  scenario: string;
+  current: Record<string, any>;
+}
+
+export interface TrainingScheduleCapsule {
+  type: "training_schedule_capsule";
+  categories: Array<Record<string, any>>;
+  defaultWeeks: number;
+}
+
+export interface StudyScheduleCapsule {
+  type: "study_schedule_capsule";
+  exams: Array<Record<string, any>>;
+  studySubjects: string[];
+  preExamStudyWeeks: number;
+  daysPerSubject: number;
+  examPeriodActive: boolean;
+  hasStudyPlan?: boolean;
+  studyPlanBlockCount?: number;
+  studyPlanDateRange?: string;
+}
+
+export interface ConflictResolutionCapsule {
+  type: "conflict_resolution_capsule";
+  conflicts: Array<{
+    date: string;
+    issue: string;
+    severity: "warning" | "danger";
+    events: Array<{
+      id: string;
+      title: string;
+      eventType: string;
+      localStart: string;
+      localEnd: string;
+      intensity?: string;
+    }>;
+    suggestions: Array<{ label: string; action: string }>;
+  }>;
+  daysChecked: number;
+  totalEvents: number;
+}
 
 // ── Action Chips ─────────────────────────────────────────────────
 
@@ -497,77 +749,30 @@ export function buildTextResponse(
  */
 export const OUTPUT_FORMAT_INSTRUCTION = `
 OUTPUT FORMAT — MANDATORY:
-You MUST return your response as a JSON block wrapped in \`\`\`json ... \`\`\` markers.
-The JSON must match this schema exactly:
+Return JSON in \`\`\`json markers. Schema:
+{ "headline": "Max 8 words", "cards": [VisualCard...], "chips": [{ "label": "text", "action": "message" }] }
 
-{
-  "headline": "Max 8 words — the bottom-line takeaway",
-  "cards": [
-    // Array of visual cards. Use the right card type for the data:
-    //
-    // stat_grid — Horizontal pill row for readiness/metrics overview:
-    //   { "type": "stat_grid", "items": [{ "label": "Energy", "value": 8, "unit": "/10", "highlight": false }] }
-    //
-    // stat_row — Single stat with optional trend arrow:
-    //   { "type": "stat_row", "label": "Sprint", "value": "4.2", "unit": "sec", "trend": "up", "emoji": "🏃" }
-    //
-    // schedule_list — Timeline of events:
-    //   { "type": "schedule_list", "date": "Today", "items": [{ "time": "15:00", "title": "Speed & Power", "type": "training", "clash": false }] }
-    //   Item types: "training" | "match" | "study" | "rest" | "exam" | "other"
-    //
-    // zone_stack — Color-coded priority/readiness zones:
-    //   { "type": "zone_stack", "current": "yellow", "levels": [{ "zone": "red", "label": "Exam days", "detail": "No training" }] }
-    //
-    // clash_list — Schedule conflicts with fixes:
-    //   { "type": "clash_list", "clashes": [{ "event1": "Math Study", "event2": "Training", "time": "15:45", "fix": "Move Math to 16:30" }] }
-    //
-    // benchmark_bar — Performance percentile bar:
-    //   { "type": "benchmark_bar", "metric": "Sprint", "value": 4.2, "percentile": 78, "unit": "sec", "ageBand": "U17" }
-    //
-    // text_card — Short text block (max 2 sentences):
-    //   { "type": "text_card", "headline": "", "body": "Your one-liner advice here.", "emoji": "🎯" }
-    //
-    // coach_note — Highlighted coaching insight:
-    //   { "type": "coach_note", "note": "The advice text" }
-    //
-    // confirm_card — Action confirmation (only when proposing changes):
-    //   { "type": "confirm_card", "headline": "Make these changes?", "body": "Details of what will change.", "confirmLabel": "Yes, update ✓", "cancelLabel": "Edit" }
-    //
-    // session_plan — Personalized training session with ordered drills:
-    //   { "type": "session_plan", "title": "Speed & Agility Session", "totalDuration": 45, "readiness": "Green",
-    //     "items": [{ "drillId": "uuid", "name": "Dynamic Stretches", "category": "warmup", "duration": 10, "intensity": "light", "attributeKeys": ["pace"], "reason": "Targets your pace gap" }] }
-    //
-    // drill_card — Individual drill detail with instructions and equipment:
-    //   { "type": "drill_card", "drillId": "uuid", "name": "Cone Weave Sprint", "description": "...", "category": "training",
-    //     "duration": 15, "intensity": "moderate", "equipment": ["cones", "football"], "instructions": ["Step 1...", "Step 2..."], "tags": ["speed", "agility"], "progressionCount": 3 }
-    //
-    // program_recommendation — Multi-week training program recommendations:
-    //   { "type": "program_recommendation",
-    //     "programs": [{ "programId": "sprint_linear_10_30", "name": "Linear Sprint", "category": "sprint", "priority": "mandatory", "weeklyFrequency": 2, "durationMin": 25, "startingPoint": "3x4 at 95%", "positionNote": "Mandatory for W position" }],
-    //     "weeklyPlanSuggestion": "Suggested weekly plan text...",
-    //     "playerProfile": { "name": "Player", "position": "W", "ageBand": "U17", "phvStage": "post_phv" } }
-    //
-    // phv_assessment — PHV maturity assessment result:
-    //   { "type": "phv_assessment", "phvStage": "mid_phv", "maturityOffset": -0.3, "loadingMultiplier": 0.6,
-    //     "trainingPriorities": ["Flexibility...", "Core stability..."], "safetyWarnings": ["No maximal loading..."],
-    //     "trainingImplication": "Mid-PHV: Critical growth phase..." }
-  ],
-  "chips": [
-    // 1-3 follow-up action suggestions:
-    { "label": "Button text", "action": "Message to send when tapped" }
-  ]
-}
+CARD TYPES (use the right one):
+- stat_grid: { type, items: [{ label, value, unit, highlight? }] } — for 3+ metrics (readiness, load)
+- stat_row: { type, label, value, unit, trend?, emoji? } — single stat
+- schedule_list: { type, date?, items: [{ time, title, type, clash? }] } — calendar view
+- zone_stack: { type, current, levels: [{ zone, label, detail }] } — exam/load zones
+- clash_list: { type, clashes: [{ event1, event2, time, fix }] } — conflicts
+- benchmark_bar: { type, metric, value, percentile, unit, ageBand } — percentile bar
+- text_card: { type, headline, body, emoji? } — brief advice (max 2 sentences)
+- coach_note: { type, note } — coaching insight
+- session_plan: { type, title, totalDuration, readiness, items: [{ drillId, name, category, duration, intensity, attributeKeys?, reason? }] }
+- drill_card: { type, drillId, name, description, category, duration, intensity, equipment, instructions, tags }
+- program_recommendation: { type, programs: [{ programId, name, category, priority, weeklyFrequency, durationMin, startingPoint?, positionNote? }], weeklyPlanSuggestion, playerProfile }
+- phv_assessment: { type, phvStage, maturityOffset, loadingMultiplier, trainingPriorities, safetyWarnings, trainingImplication }
+- test_log_capsule: call get_test_catalog, copy readyToUseCapsuleCard into cards array
+- checkin_capsule: { type, prefilledDate, lastCheckinDate? }
 
 RULES:
-- ALWAYS return valid JSON inside \`\`\`json markers. No text before or after the JSON block.
-- Use stat_grid (NOT multiple stat_rows) when showing 3+ metrics side by side (readiness, check-in breakdown).
-- Use schedule_list for any day/week schedule view. Mark clashes with "clash": true.
-- Use zone_stack for exam week / load zone displays.
-- Use text_card for brief advice or explanations (max 2 sentences in body).
-- Use confirm_card when you're proposing schedule changes the user needs to approve.
-- Include 1-3 chips as follow-up actions. Phrase as questions or short commands.
-- The headline is the MOST IMPORTANT part — it's what Gen Z reads first.
-- Keep text_card bodies under 2 sentences. If more detail is needed, use multiple cards.
-- Use session_plan when returning a training session or workout plan with multiple drills.
-- Use drill_card when showing detailed information about a single drill.
+- Valid JSON in \`\`\`json markers only. No text outside.
+- stat_grid for 3+ metrics, NOT multiple stat_rows.
+- Headline is most important — Gen Z reads it first.
+- text_card body: max 2 sentences.
+- 1-3 chips as follow-up actions.
+- Chip action text = intent ("Log my sprint") never past-tense ("I did a sprint").
 `;

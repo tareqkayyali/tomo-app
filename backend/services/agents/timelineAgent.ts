@@ -26,6 +26,14 @@ function getNextWeekday(todayStr: string, targetDow: number): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const totalMin = h * 60 + (m ?? 0) + minutes;
+  const newH = Math.min(Math.floor(totalMin / 60), 23);
+  const newM = totalMin % 60;
+  return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
+}
+
 // ── TOOL DEFINITIONS (passed to Claude API) ──────────────────
 
 export const timelineTools = [
@@ -247,7 +255,20 @@ export async function executeTimelineTool(
           createdBy: userId,
         }).catch((err) => console.error('[CalendarBridge] chat bridge error:', err));
 
-        return { result: { created: data }, refreshTarget: "calendar" };
+        return {
+          result: {
+            created: data,
+            // Include local times for display — avoids AI showing UTC
+            localDate: toolInput.date,
+            localStartTime: toolInput.startTime,
+            localEndTime: toolInput.endTime,
+            title: toolInput.title,
+            eventType: toolInput.event_type,
+            intensity: toolInput.intensity ?? null,
+            estimatedLoadAU: estimatedLoad,
+          },
+          refreshTarget: "calendar",
+        };
       }
 
       case "update_event": {
@@ -350,6 +371,55 @@ export async function executeTimelineTool(
         };
       }
 
+      case "bulk_delete_events": {
+        const eventIds = toolInput.eventIds as string[];
+        if (!Array.isArray(eventIds) || eventIds.length === 0) {
+          return { result: null, error: "No events selected for deletion." };
+        }
+
+        // Fetch all target events (verify ownership)
+        const { data: targets } = await db
+          .from("calendar_events")
+          .select("id, title, event_type, start_at, end_at, intensity, estimated_load_au")
+          .eq("user_id", userId)
+          .in("id", eventIds);
+
+        const validIds = (targets ?? []).map((t: any) => t.id);
+        if (validIds.length === 0) {
+          return { result: null, error: "No matching events found." };
+        }
+
+        // Bulk delete
+        const { error: delErr } = await db
+          .from("calendar_events")
+          .delete()
+          .eq("user_id", userId)
+          .in("id", validIds);
+
+        if (delErr) throw delErr;
+
+        // Bridge each deletion to event stream (fire-and-forget)
+        for (const t of targets ?? []) {
+          const dt = t as any;
+          bridgeCalendarToEventStream({
+            athleteId: userId,
+            calendarEvent: {
+              id: dt.id, title: dt.title ?? '', event_type: dt.event_type,
+              start_at: dt.start_at, end_at: dt.end_at,
+              intensity: dt.intensity ?? null,
+              estimated_load_au: dt.estimated_load_au ?? null,
+            },
+            action: 'DELETED',
+            createdBy: userId,
+          }).catch((err) => console.error('[CalendarBridge] bulk delete error:', err));
+        }
+
+        return {
+          result: { deleted: validIds.length, skipped: eventIds.length - validIds.length },
+          refreshTarget: "calendar",
+        };
+      }
+
       case "detect_load_collision": {
         const days = toolInput.dateRange ?? 7;
         const endDate = new Date(Date.now() + days * 86400000)
@@ -359,50 +429,66 @@ export async function executeTimelineTool(
 
         const { data: events } = await db
           .from("calendar_events")
-          .select("start_at, event_type, intensity, title")
+          .select("id, start_at, end_at, event_type, intensity, title")
           .eq("user_id", userId)
           .gte("start_at", collisionStart)
           .lte("start_at", collisionEnd);
 
-        // Group by date and detect issues
+        // Group by local date and detect issues
         const byDate: Record<string, any[]> = {};
         for (const event of events ?? []) {
-          const eventDate = event.start_at.split("T")[0];
-          if (!byDate[eventDate]) byDate[eventDate] = [];
-          byDate[eventDate].push(event);
+          const localDate = new Date(event.start_at).toLocaleDateString("en-CA", { timeZone: context.timezone });
+          const localStart = new Date(event.start_at).toLocaleString("en-GB", { timeZone: context.timezone, hour: "2-digit", minute: "2-digit", hour12: false });
+          const localEnd = event.end_at ? new Date(event.end_at).toLocaleString("en-GB", { timeZone: context.timezone, hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+          if (!byDate[localDate]) byDate[localDate] = [];
+          byDate[localDate].push({ ...event, localDate, localStart, localEnd });
         }
 
-        const collisions: {
-          date: string;
-          issue: string;
-          events: string[];
-        }[] = [];
+        const collisions: any[] = [];
         for (const [date, dayEvents] of Object.entries(byDate)) {
-          const hasHighIntensityTraining = dayEvents.some(
-            (e) =>
-              (e.event_type === "training" || e.event_type === "match") &&
-              (e.intensity === "HARD" || e.intensity === "MODERATE")
+          const hasHighIntensity = dayEvents.some(
+            (e: any) => (e.event_type === "training" || e.event_type === "match") && (e.intensity === "HARD" || e.intensity === "MODERATE")
           );
-          const hasExam = dayEvents.some((e) => e.event_type === "exam");
-          const trainingCount = dayEvents.filter(
-            (e) => e.event_type === "training" || e.event_type === "match"
-          ).length;
+          const hasExam = dayEvents.some((e: any) => e.event_type === "exam");
+          const trainings = dayEvents.filter((e: any) => e.event_type === "training" || e.event_type === "match");
 
-          if (hasHighIntensityTraining && hasExam) {
+          if (hasHighIntensity && hasExam) {
+            const clashingEvents = dayEvents.filter((e: any) =>
+              e.event_type === "exam" || ((e.event_type === "training" || e.event_type === "match") && (e.intensity === "HARD" || e.intensity === "MODERATE"))
+            );
+            const trainingEvent = clashingEvents.find((e: any) => e.event_type === "training" || e.event_type === "match");
+            const examEvent = clashingEvents.find((e: any) => e.event_type === "exam");
             collisions.push({
               date,
-              issue:
-                "High intensity training + exam on same day — cognitive and physical overload risk",
-              events: dayEvents.map((e) => e.title),
+              issue: "High intensity training + exam on same day — cognitive and physical overload risk",
+              severity: "danger",
+              events: clashingEvents.map((e: any) => ({
+                id: e.id, title: e.title, eventType: e.event_type, localStart: e.localStart, localEnd: e.localEnd, intensity: e.intensity,
+              })),
+              suggestions: [
+                ...(trainingEvent ? [
+                  { label: `Lower ${trainingEvent.title}`, action: `Change the intensity of "${trainingEvent.title}" at ${trainingEvent.localStart} on ${date} to LIGHT` },
+                  { label: `Move ${trainingEvent.title}`, action: `Move "${trainingEvent.title}" currently at ${trainingEvent.localStart} on ${date} to the next available day. Check my calendar for ${date} first.` },
+                ] : []),
+              ],
             });
           }
-          if (trainingCount >= 2) {
+          if (trainings.length >= 2) {
+            // Pick the second training as the one to move (keep the first)
+            const sortedTrainings = [...trainings].sort((a: any, b: any) => a.localStart.localeCompare(b.localStart));
+            const keepEvent = sortedTrainings[0];
+            const moveEvent = sortedTrainings[sortedTrainings.length - 1];
             collisions.push({
               date,
-              issue: "Double training day — monitor recovery carefully",
-              events: dayEvents
-                .filter((e) => e.event_type === "training")
-                .map((e) => e.title),
+              issue: `Double training day — ${trainings.length} sessions back-to-back`,
+              severity: "warning",
+              events: trainings.map((e: any) => ({
+                id: e.id, title: e.title, eventType: e.event_type, localStart: e.localStart, localEnd: e.localEnd, intensity: e.intensity,
+              })),
+              suggestions: [
+                { label: `Move ${moveEvent.title}`, action: `Move "${moveEvent.title}" currently at ${moveEvent.localStart} on ${date} to the next available day. Check my calendar for ${date} first.` },
+                { label: `Lower ${moveEvent.title}`, action: `Change the intensity of "${moveEvent.title}" at ${moveEvent.localStart} on ${date} to LIGHT` },
+              ],
             });
           }
         }
@@ -416,6 +502,343 @@ export async function executeTimelineTool(
         };
       }
 
+      case "get_ghost_suggestions": {
+        // Fetch ghost suggestions for the next 7 days
+        const { data: events } = await db
+          .from("calendar_events")
+          .select("title, event_type, start_at, end_at")
+          .eq("user_id", userId)
+          .gte("start_at", new Date(Date.now() - 28 * 86400000).toISOString())
+          .lte("start_at", new Date().toISOString())
+          .order("start_at", { ascending: true });
+
+        // Simple pattern detection: group by day of week + title
+        const patterns: Record<string, { count: number; name: string; type: string; times: string[] }> = {};
+        for (const e of events ?? []) {
+          const d = new Date(e.start_at);
+          const dow = d.getDay();
+          const key = `${dow}_${e.title}`;
+          if (!patterns[key]) patterns[key] = { count: 0, name: e.title, type: e.event_type, times: [] };
+          patterns[key].count++;
+          const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: context.timezone });
+          patterns[key].times.push(time);
+        }
+
+        // Find next 7 days occurrences for patterns with >=2 occurrences
+        const suggestions: any[] = [];
+        const todayDate = new Date();
+        for (let i = 1; i <= 7; i++) {
+          const futureDate = new Date(todayDate.getTime() + i * 86400000);
+          const dow = futureDate.getDay();
+          const dateStr = futureDate.toISOString().split("T")[0];
+          for (const [key, pattern] of Object.entries(patterns)) {
+            if (key.startsWith(`${dow}_`) && pattern.count >= 2) {
+              const mostCommonTime = pattern.times.sort((a, b) =>
+                pattern.times.filter(t => t === a).length - pattern.times.filter(t => t === b).length
+              ).pop() ?? null;
+              suggestions.push({
+                suggestion: {
+                  patternKey: key,
+                  name: pattern.name,
+                  type: pattern.type,
+                  startTime: mostCommonTime,
+                  endTime: null,
+                  confidence: Math.min(pattern.count / 4, 1),
+                  patternDescription: `${pattern.count} out of 4 weeks`,
+                },
+                date: dateStr,
+              });
+            }
+          }
+        }
+
+        return { result: { suggestions } };
+      }
+
+      case "confirm_ghost_suggestion": {
+        const startAt = toolInput.startTime
+          ? toTimezoneISO(toolInput.date, `${toolInput.startTime}:00`, context.timezone)
+          : toTimezoneISO(toolInput.date, "09:00:00", context.timezone);
+        const endTime = toolInput.endTime ?? (toolInput.startTime ? addMinutesToTime(toolInput.startTime, 60) : "10:00");
+        const endAt = toTimezoneISO(toolInput.date, `${endTime}:00`, context.timezone);
+
+        const { data, error } = await db
+          .from("calendar_events")
+          .insert({
+            user_id: userId,
+            title: toolInput.name,
+            event_type: toolInput.eventType ?? "training",
+            start_at: startAt,
+            end_at: endAt,
+            notes: "Auto-confirmed from pattern suggestion",
+          } as any)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return { result: { confirmed: true, event: data }, refreshTarget: "calendar" };
+      }
+
+      case "dismiss_ghost_suggestion": {
+        // Client-side tracking — no server table needed
+        return { result: { dismissed: true, patternKey: toolInput.patternKey } };
+      }
+
+      case "lock_day": {
+        const { error } = await (db as any)
+          .from("day_locks")
+          .upsert({ user_id: userId, date: toolInput.date, locked_at: new Date().toISOString() }, { onConflict: "user_id,date" });
+        if (error) throw error;
+        return { result: { locked: true, date: toolInput.date }, refreshTarget: "calendar" };
+      }
+
+      case "unlock_day": {
+        await (db as any)
+          .from("day_locks")
+          .delete()
+          .eq("user_id", userId)
+          .eq("date", toolInput.date);
+        return { result: { locked: false, date: toolInput.date }, refreshTarget: "calendar" };
+      }
+
+      case "update_schedule_rules": {
+        // Update schedule preferences — accepts any valid field from the schema
+        const { error } = await db
+          .from("player_schedule_preferences")
+          .upsert({ user_id: userId, ...toolInput, updated_at: new Date().toISOString() } as any, { onConflict: "user_id" });
+        if (error) throw error;
+        return { result: { updated: true, fields: Object.keys(toolInput) }, refreshTarget: "rules" };
+      }
+
+      case "generate_training_plan": {
+        const planWeeks = toolInput.planWeeks ?? 2;
+        const categories = toolInput.categories ?? [];
+        const tz = context.timezone || "UTC";
+
+        // 1. Save updated categories to preferences
+        if (categories.length > 0) {
+          const { data: currentPrefs } = await db
+            .from("player_schedule_preferences")
+            .select("training_categories")
+            .eq("user_id", userId)
+            .single();
+
+          const existingCats = Array.isArray((currentPrefs as any)?.training_categories)
+            ? (currentPrefs as any).training_categories : [];
+
+          const updatedCats = existingCats.map((existing: any) => {
+            const updated = categories.find((c: any) => c.id === existing.id);
+            return updated ? { ...existing, ...updated, enabled: true } : existing;
+          });
+
+          await db
+            .from("player_schedule_preferences")
+            .upsert({ user_id: userId, training_categories: updatedCats, updated_at: new Date().toISOString() } as any, { onConflict: "user_id" });
+        }
+
+        // 2. Fetch existing events to detect duplicates (same title + same date)
+        const planEndDate = new Date(`${context.todayDate}T12:00:00`);
+        planEndDate.setDate(planEndDate.getDate() + 1 + planWeeks * 7);
+        const planEndStr = planEndDate.toISOString();
+
+        const { data: existingEvents } = await db
+          .from("calendar_events")
+          .select("title, start_at")
+          .eq("user_id", userId)
+          .gte("start_at", new Date(`${context.todayDate}T00:00:00Z`).toISOString())
+          .lte("start_at", planEndStr);
+
+        // Build a set of "title|YYYY-MM-DD" for fast duplicate lookup
+        const existingKeys = new Set<string>();
+        for (const evt of existingEvents ?? []) {
+          const dateKey = new Date(evt.start_at).toISOString().slice(0, 10);
+          existingKeys.add(`${evt.title}|${dateKey}`);
+        }
+
+        const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        let createdCount = 0;
+        let skippedCount = 0;
+        const createdSummary: string[] = [];
+
+        for (const cat of categories) {
+          if (!cat.label) continue;
+          const sessionsPerWeek = cat.mode === "fixed_days" && cat.fixedDays?.length
+            ? cat.fixedDays.length
+            : (cat.daysPerWeek ?? 3);
+          const duration = cat.sessionDuration ?? 90;
+
+          // Determine which days to schedule
+          let scheduleDays: number[] = [];
+          if (cat.mode === "fixed_days" && cat.fixedDays?.length) {
+            scheduleDays = cat.fixedDays;
+          } else {
+            // Spread evenly across the week
+            const spacing = Math.floor(7 / sessionsPerWeek);
+            for (let i = 0; i < sessionsPerWeek; i++) {
+              scheduleDays.push((1 + i * spacing) % 7); // start from Monday
+            }
+          }
+
+          // Determine time
+          let startTime = cat.fixedStartTime || "";
+          let endTime = cat.fixedEndTime || "";
+          if (!startTime) {
+            const timeDefaults: Record<string, [string, string]> = {
+              morning: ["08:00", ""],
+              afternoon: ["15:00", ""],
+              evening: ["18:00", ""],
+            };
+            const [s] = timeDefaults[cat.preferredTime] || ["18:00", ""];
+            startTime = s;
+          }
+          if (!endTime) {
+            const [h, m] = startTime.split(":").map(Number);
+            const totalMin = h * 60 + m + duration;
+            endTime = `${String(Math.floor(totalMin / 60) % 24).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
+          }
+
+          // Create events for each week
+          for (let week = 0; week < planWeeks; week++) {
+            for (const dayOfWeek of scheduleDays) {
+              // Use context.todayDate (YYYY-MM-DD) for reliable date math
+              const baseDate = new Date(`${context.todayDate}T12:00:00`);
+              baseDate.setDate(baseDate.getDate() + 1 + week * 7); // start tomorrow + week offset
+              const currentDow = baseDate.getDay();
+              let daysUntil = dayOfWeek - currentDow;
+              if (daysUntil < 0) daysUntil += 7;
+              baseDate.setDate(baseDate.getDate() + daysUntil);
+
+              const dateStr = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, "0")}-${String(baseDate.getDate()).padStart(2, "0")}`;
+
+              // Skip if duplicate (same title + same date already exists)
+              const dupKey = `${cat.label}|${dateStr}`;
+              if (existingKeys.has(dupKey)) {
+                skippedCount++;
+                continue;
+              }
+
+              // Use toTimezoneISO for proper timezone conversion (same as create_event)
+              const startAtUtc = toTimezoneISO(dateStr, `${startTime}:00`, tz);
+              const endAtUtc = toTimezoneISO(dateStr, `${endTime}:00`, tz);
+
+              const durationMin = (new Date(endAtUtc).getTime() - new Date(startAtUtc).getTime()) / 60000;
+
+              const { error: insertErr } = await db
+                .from("calendar_events")
+                .insert({
+                  user_id: userId,
+                  title: cat.label,
+                  event_type: "training",
+                  start_at: startAtUtc,
+                  end_at: endAtUtc,
+                  intensity: durationMin >= 90 ? "HARD" : durationMin >= 60 ? "MODERATE" : "LIGHT",
+                  notes: "Auto-generated from training plan",
+                  estimated_load_au: durationMin >= 90 ? 7 : durationMin >= 60 ? 5 : 3,
+                });
+
+              if (!insertErr) createdCount++;
+            }
+          }
+
+          createdSummary.push(`${cat.label}: ${scheduleDays.map((d: number) => DAY_NAMES[d]).join(", ")} (${startTime}–${endTime})`);
+        }
+
+        console.log("[generate-training-plan]", JSON.stringify({
+          userId,
+          planWeeks,
+          categoriesCount: categories.length,
+          eventsCreated: createdCount,
+          skipped: skippedCount,
+          schedule: createdSummary,
+          todayDate: context.todayDate,
+          tz,
+        }));
+
+        const skippedNote = skippedCount > 0 ? ` (${skippedCount} skipped — already exist)` : "";
+        return {
+          result: {
+            success: true,
+            planWeeks,
+            eventsCreated: createdCount,
+            skippedCount,
+            schedule: createdSummary,
+            message: createdCount > 0
+              ? `Created ${createdCount} training blocks across ${planWeeks} weeks${skippedNote}. Check your Timeline!`
+              : skippedCount > 0
+                ? `All ${skippedCount} blocks already exist in your calendar — no duplicates added.`
+                : `No blocks created — make sure you have categories enabled with days selected.`,
+          },
+          refreshTarget: "calendar",
+        };
+      }
+
+      case "add_exam": {
+        const { subject, examType, examDate } = toolInput;
+        if (!subject || !examDate) {
+          return { result: null, error: "Subject and exam date are required" };
+        }
+
+        // Load current exam schedule, append new exam
+        const { data: prefs } = await db
+          .from("player_schedule_preferences")
+          .select("exam_schedule")
+          .eq("user_id", userId)
+          .single();
+
+        const existingExams = Array.isArray((prefs as any)?.exam_schedule)
+          ? (prefs as any).exam_schedule : [];
+
+        const newExam = {
+          id: `exam_${Date.now()}`,
+          subject,
+          examType: examType ?? "final",
+          examDate,
+        };
+
+        const updatedExams = [...existingExams, newExam];
+
+        const { error } = await db
+          .from("player_schedule_preferences")
+          .upsert({
+            user_id: userId,
+            exam_schedule: updatedExams,
+            updated_at: new Date().toISOString(),
+          } as any, { onConflict: "user_id" });
+
+        if (error) throw error;
+
+        return {
+          result: { success: true, exam: newExam, totalExams: updatedExams.length },
+          refreshTarget: "rules",
+        };
+      }
+
+      case "generate_study_plan": {
+        const preExamWeeks = toolInput.preExamStudyWeeks ?? 3;
+        const daysPerSub = toolInput.daysPerSubject ?? 3;
+
+        // Save updated study config
+        await db
+          .from("player_schedule_preferences")
+          .upsert({
+            user_id: userId,
+            pre_exam_study_weeks: preExamWeeks,
+            days_per_subject: daysPerSub,
+            exam_period_active: true,
+            updated_at: new Date().toISOString(),
+          } as any, { onConflict: "user_id" });
+
+        return {
+          result: {
+            success: true,
+            preExamStudyWeeks: preExamWeeks,
+            daysPerSubject: daysPerSub,
+            message: `Study plan configured: ${preExamWeeks} weeks prep, ${daysPerSub} days per subject. Exam period activated.`,
+          },
+          refreshTarget: "calendar",
+        };
+      }
+
       default:
         return { result: null, error: `Unknown timeline tool: ${toolName}` };
     }
@@ -426,8 +849,61 @@ export async function executeTimelineTool(
 
 // ── SYSTEM PROMPT ─────────────────────────────────────────────
 
-export function buildTimelineSystemPrompt(context: PlayerContext): string {
-  // Calculate tomorrow's date in the player's timezone
+/** Static rules — identical for every player, every request. Cacheable. */
+export function buildTimelineStaticPrompt(): string {
+  return `You are the Timeline Agent for Tomo, an athlete development platform. You manage the player's calendar, schedule, and dual-load intelligence.
+
+RULES:
+1. For create/update/delete: ALWAYS call the tool directly with the correct parameters. The system will automatically show the player a confirmation card before executing. Do NOT describe the event in text and ask the player to confirm — that breaks the confirmation flow. Just call the tool(s).
+2. When creating MULTIPLE events (e.g. "add 2 sessions on Tuesday and Thursday"), call create_event MULTIPLE TIMES in the same response — one tool call per event. The system will batch them into a single confirmation card.
+3. If readiness is RED, suggest lower intensity training and flag it
+4. Proactively run detect_load_collision after adding new events
+5. Speak like a smart, direct coach — not a customer service bot
+6. Keep responses concise — athletes don't read walls of text
+7. Always confirm successful actions: "Done — added X to your calendar for Thursday ✓"
+
+EVENT CREATION — CRITICAL (read carefully):
+- USE THE PLAYER'S EXACT WORDS for event titles. If they say "club training", the title is "Club Training" — NOT "Speed & Power Training", NOT "Recovery Session", NOT any creative name.
+- NEVER rename, split, or reinterpret what the player asked for. "Add 2 club sessions" = 2 events both titled "Club Training" (or whatever they said), same type, same duration.
+- If the player says "Monday and Wednesday", you MUST create TWO separate create_event calls — one for Monday's date, one for Wednesday's date. NEVER put both on the same day.
+- If the player says "6-8pm", use startTime "18:00" and endTime "20:00". NEVER change the times they specified.
+- If the player says "3 gym sessions", create 3 events — not 1 gym + 1 recovery + 1 other.
+- Only add intensity/notes if the player mentioned them. Default to "MODERATE" for training if not specified.
+
+CONVERSATION CONTEXT — CRITICAL:
+- When the conversation was discussing a SPECIFIC DAY (e.g. "tomorrow", "Monday", "March 15"), ALL follow-up messages refer to THAT day unless the user explicitly switches.
+- If the user asked about tomorrow's schedule and then says "cancel the 15:30 training", they mean TOMORROW's 15:30 training — NOT today's.
+- ALWAYS use get_today_events with the correct date parameter from conversation context. Do NOT default to today when the context is about another day.
+
+TIMEZONE — CRITICAL:
+- Event tool results include "local_start" and "local_end" fields — ALWAYS use these for display, NOT "start_at" or "end_at" (which are UTC).
+- When showing times to the player, use the local_start/local_end values (e.g. "13:00" not "10:00+00:00").
+
+TIME DIRECTION — CRITICAL:
+- Any event with a local_start BEFORE now ON TODAY'S DATE is in the PAST.
+- NEVER delete, modify, recommend changes to, or reschedule PAST events. They already happened.
+- NEVER show past events with action chips or suggest cancelling them. Past events are read-only load data.
+- All actions (create, update, delete) must target FUTURE events and time slots only.
+- When showing today's schedule, clearly mark past events as "✓ Done" and only offer actions on future events.
+- Events on future dates (tomorrow, next week) are always actionable regardless of their time.
+
+AVAILABLE CAPSULE ACTIONS (the player can do ALL of these through chat):
+When the player asks "what can I do?", "help with my timeline", "manage my calendar", or similar — tell them about these capabilities:
+1. ADD EVENTS — "Add a training session tomorrow at 5pm" → interactive event form with type, category, duration, intensity
+2. EDIT/DELETE EVENTS — "Cancel tonight's gym" or "Move my training to 6pm" → event picker + edit form
+3. EDIT SCHEDULE RULES — "Edit my rules" or "Change school hours" → full rules editor (school days, sleep, league toggle, exam period, buffers)
+4. PLAN TRAINING WEEK — "Plan my training" or "Fill my week" → training category manager with sessions/week, duration, preferred time + plan generator
+5. STUDY SCHEDULE — "Plan my study" or "Add an exam" → exam planner with countdown, subject picker, study plan generator
+6. VIEW SCHEDULE — "What's on today?" or "Show my week" → schedule display with load analysis
+7. CHECK CONFLICTS — "Any conflicts?" → load collision detection across your week
+
+IMPORTANT: When the player asks about timeline capabilities, ALWAYS list these specific actions with example phrases. NEVER say "timeline management tools are not available" — they ARE available through the capsule system.
+
+TONE: Confident, direct, warm. Think "smart coach", not "AI assistant".`;
+}
+
+/** Dynamic context — changes per player and per request. NOT cacheable. */
+export function buildTimelineDynamicPrompt(context: PlayerContext): string {
   const todayDate = new Date(`${context.todayDate}T12:00:00`);
   const tomorrowDate = new Date(todayDate.getTime() + 86400000);
   const tomorrow = tomorrowDate.toISOString().split("T")[0];
@@ -449,60 +925,26 @@ export function buildTimelineSystemPrompt(context: PlayerContext): string {
           .map((e) => `${e.title} on ${e.start_at.split("T")[0]}`)
           .join(", ");
 
-  return `You are the Timeline Agent for Tomo, an athlete development platform. You manage ${context.name}'s calendar, schedule, and dual-load intelligence.
+  const acwrWarning = (context.snapshotEnrichment?.projectedACWR ?? 0) > 1.5
+    ? '\n⚠️ WARNING: Projected ACWR > 1.5 — high injury risk if all scheduled sessions are completed at planned intensity. Consider reducing load or swapping a HARD session to LIGHT.'
+    : '';
 
+  return `
 PLAYER CONTEXT:
 - Name: ${context.name}
 - Sport: ${context.sport} | Age Band: ${context.ageBand ?? "Unknown"}
 - Today: ${context.todayDate} (${new Date(`${context.todayDate}T12:00:00`).toLocaleDateString("en-US", { timeZone: context.timezone, weekday: "long" })})
 - Tomorrow: ${tomorrow}
 - Current time: ${context.currentTime}
+- Timezone: ${context.timezone}
 - Today's events: ${eventsDesc}
 - Upcoming exams in 14 days: ${examsDesc}
 - Readiness today: ${context.readinessScore ? context.readinessScore.toUpperCase() : "Not checked in yet"}
 - Academic load score: ${context.academicLoadScore.toFixed(1)}/10
 - ACWR: ${context.snapshotEnrichment?.acwr ?? 'N/A'} (${context.snapshotEnrichment?.injuryRiskFlag ?? 'N/A'})
-- Projected ACWR (if all scheduled sessions complete): ${context.snapshotEnrichment?.projectedACWR ?? 'N/A'}
+- Projected ACWR: ${context.snapshotEnrichment?.projectedACWR ?? 'N/A'}
 - Athletic load (7d): ${context.snapshotEnrichment?.athleticLoad7day ?? 'N/A'} AU | Academic load (7d): ${context.snapshotEnrichment?.academicLoad7day ?? 'N/A'} AU
-- Dual load index: ${context.snapshotEnrichment?.dualLoadIndex ?? 'N/A'}/100${(context.snapshotEnrichment?.projectedACWR ?? 0) > 1.5 ? '\n⚠️ WARNING: Projected ACWR > 1.5 — high injury risk if all scheduled sessions are completed at planned intensity. Consider reducing load or swapping a HARD session to LIGHT.' : ''}
-
-RULES:
-1. For create/update/delete: ALWAYS call the tool directly with the correct parameters. The system will automatically show the player a confirmation card before executing. Do NOT describe the event in text and ask the player to confirm — that breaks the confirmation flow. Just call the tool(s).
-2. When creating MULTIPLE events (e.g. "add 2 sessions on Tuesday and Thursday"), call create_event MULTIPLE TIMES in the same response — one tool call per event. The system will batch them into a single confirmation card.
-3. If readiness is RED, suggest lower intensity training and flag it
-4. Proactively run detect_load_collision after adding new events
-5. Speak like a smart, direct coach — not a customer service bot
-6. Keep responses concise — athletes don't read walls of text
-7. Always confirm successful actions: "Done — added X to your calendar for Thursday ✓"
-
-EVENT CREATION — CRITICAL (read carefully):
-- USE THE PLAYER'S EXACT WORDS for event titles. If they say "club training", the title is "Club Training" — NOT "Speed & Power Training", NOT "Recovery Session", NOT any creative name.
-- NEVER rename, split, or reinterpret what the player asked for. "Add 2 club sessions" = 2 events both titled "Club Training" (or whatever they said), same type, same duration.
-- If the player says "Monday and Wednesday", you MUST create TWO separate create_event calls — one for Monday's date, one for Wednesday's date. NEVER put both on the same day.
-- If the player says "6-8pm", use startTime "18:00" and endTime "20:00". NEVER change the times they specified.
-- If the player says "3 gym sessions", create 3 events — not 1 gym + 1 recovery + 1 other.
-- Only add intensity/notes if the player mentioned them. Default to "MODERATE" for training if not specified.
-- When creating multiple events for different days, calculate the correct YYYY-MM-DD for each day name relative to today (${context.todayDate}).
-- Day name to date mapping: Monday=${getNextWeekday(context.todayDate, 1)}, Tuesday=${getNextWeekday(context.todayDate, 2)}, Wednesday=${getNextWeekday(context.todayDate, 3)}, Thursday=${getNextWeekday(context.todayDate, 4)}, Friday=${getNextWeekday(context.todayDate, 5)}, Saturday=${getNextWeekday(context.todayDate, 6)}, Sunday=${getNextWeekday(context.todayDate, 0)}.
-
-CONVERSATION CONTEXT — CRITICAL:
-- When the conversation was discussing a SPECIFIC DAY (e.g. "tomorrow", "Monday", "March 15"), ALL follow-up messages refer to THAT day unless the user explicitly switches.
-- If the user asked about tomorrow's schedule and then says "cancel the 15:30 training", they mean TOMORROW's 15:30 training — NOT today's.
-- ALWAYS use get_today_events with the correct date parameter from conversation context. Do NOT default to today when the context is about another day.
-- When the user says "tomorrow", use date ${tomorrow}. When they say "today", use date ${context.todayDate}.
-
-TIMEZONE — CRITICAL:
-- The player's timezone is ${context.timezone}. Current local time: ${context.currentTime}.
-- Event tool results include "local_start" and "local_end" fields — ALWAYS use these for display, NOT "start_at" or "end_at" (which are UTC).
-- When showing times to the player, use the local_start/local_end values (e.g. "13:00" not "10:00+00:00").
-
-TIME DIRECTION — CRITICAL:
-- The current time is ${context.currentTime}. Any event with a local_start BEFORE now ON TODAY'S DATE is in the PAST.
-- NEVER delete, modify, recommend changes to, or reschedule PAST events. They already happened.
-- NEVER show past events with action chips or suggest cancelling them. Past events are read-only load data.
-- All actions (create, update, delete) must target FUTURE events and time slots only.
-- When showing today's schedule, clearly mark past events as "✓ Done" and only offer actions on future events.
-- Events on future dates (tomorrow, next week) are always actionable regardless of their time.
-
-TONE: Confident, direct, warm. Think "smart coach", not "AI assistant".`;
+- Dual load index: ${context.snapshotEnrichment?.dualLoadIndex ?? 'N/A'}/100${acwrWarning}
+- Day name to date mapping: Monday=${getNextWeekday(context.todayDate, 1)}, Tuesday=${getNextWeekday(context.todayDate, 2)}, Wednesday=${getNextWeekday(context.todayDate, 3)}, Thursday=${getNextWeekday(context.todayDate, 4)}, Friday=${getNextWeekday(context.todayDate, 5)}, Saturday=${getNextWeekday(context.todayDate, 6)}, Sunday=${getNextWeekday(context.todayDate, 0)}
+- When the user says "tomorrow", use date ${tomorrow}. When they say "today", use date ${context.todayDate}.`;
 }

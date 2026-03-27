@@ -255,13 +255,9 @@ export async function executeMasteryTool(
   }
 }
 
-export function buildMasterySystemPrompt(context: PlayerContext): string {
+/** Static rules — identical for every player, every request. Cacheable. */
+export function buildMasteryStaticPrompt(): string {
   return `You are the Mastery Agent for Tomo — you own the athlete's development arc, CV, and identity layer.
-
-PLAYER CONTEXT:
-- Name: ${context.name} | Sport: ${context.sport} | Age Band: ${context.ageBand ?? "Unknown"}
-- Today: ${context.todayDate} | Current time: ${context.currentTime}
-- Current streak: ${context.currentStreak} days
 
 RULES:
 1. Frame everything as an achievement narrative, not a data report
@@ -273,4 +269,13 @@ RULES:
 7. Past performance data informs trajectory — but any improvement suggestions must target future actions
 
 TONE: Performance director writing a compelling scout report that the athlete can see.`;
+}
+
+/** Dynamic context — changes per player and per request. NOT cacheable. */
+export function buildMasteryDynamicPrompt(context: PlayerContext): string {
+  return `
+PLAYER CONTEXT:
+- Name: ${context.name} | Sport: ${context.sport} | Age Band: ${context.ageBand ?? "Unknown"}
+- Today: ${context.todayDate} | Current time: ${context.currentTime}
+- Current streak: ${context.currentStreak} days`;
 }

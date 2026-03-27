@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
@@ -17,6 +17,7 @@ import type {
   StatRow,
   StatGrid,
   ScheduleList,
+  WeekSchedule,
   ZoneStack,
   ClashList,
   BenchmarkBar,
@@ -28,8 +29,11 @@ import type {
   SchedulePreviewCard,
   SchedulePreviewEvent,
   ActionChip,
+  CapsuleAction,
+  ProgramRecommendationCard,
 } from '../../types/chat';
 import { colors } from '../../theme/colors';
+import { CapsuleRenderer, isCapsuleCard } from './capsules/CapsuleRenderer';
 
 // ── Style Factory ────────────────────────────────────────────────
 
@@ -122,6 +126,30 @@ function createStyles(colors: ThemeColors) {
     },
     scheduleClash: {
       color: colors.error,
+    },
+
+    // Week Schedule
+    weekScheduleCard: {
+      backgroundColor: colors.cardLight,
+      borderRadius: borderRadius.md,
+      padding: 12,
+      gap: 4,
+    },
+    weekScheduleSummary: {
+      fontFamily: fontFamily.medium,
+      fontSize: 13,
+      color: colors.textInactive,
+      marginBottom: 8,
+      lineHeight: 20,
+    },
+    weekScheduleDayHeader: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 13,
+      color: colors.accent2 ?? colors.textOnDark,
+      marginTop: 10,
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
     },
 
     // Zone Stack
@@ -241,19 +269,20 @@ function createStyles(colors: ThemeColors) {
       color: colors.textOnDark,
     },
 
-    // Stat Grid (horizontal pills)
+    // Stat Grid (horizontal scroll on mobile, wrap on wide screens)
     statGrid: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexWrap: 'nowrap',
       gap: 6,
+      overflow: 'visible' as any,
     },
     statGridItem: {
-      flex: 1,
-      minWidth: 70,
+      minWidth: 130,
+      maxWidth: 200,
       backgroundColor: colors.cardLight,
       borderRadius: borderRadius.md,
       paddingVertical: 10,
-      paddingHorizontal: 8,
+      paddingHorizontal: 10,
       alignItems: 'center',
       gap: 2,
     },
@@ -695,27 +724,30 @@ function StatGridCard({
   styles: ReturnType<typeof createStyles>;
 }) {
   return (
-    <View style={styles.statGrid}>
-      {card.items.map((item, i) => (
-        <View
-          key={i}
-          style={[
-            styles.statGridItem,
-            item.highlight && styles.statGridItemHighlight,
-          ]}
-        >
-          <Text
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }} contentContainerStyle={{ paddingHorizontal: 4 }}>
+      <View style={styles.statGrid}>
+        {card.items.map((item, i) => (
+          <View
+            key={i}
             style={[
-              styles.statGridValue,
-              item.highlight && styles.statGridValueHighlight,
+              styles.statGridItem,
+              item.highlight && styles.statGridItemHighlight,
             ]}
           >
-            {item.value}{item.unit ?? ''}
-          </Text>
-          <Text style={styles.statGridLabel}>{item.label}</Text>
-        </View>
-      ))}
-    </View>
+            <Text
+              style={[
+                styles.statGridValue,
+                item.highlight && styles.statGridValueHighlight,
+              ]}
+              numberOfLines={3}
+            >
+              {item.value}{item.unit ?? ''}
+            </Text>
+            <Text style={styles.statGridLabel} numberOfLines={2}>{item.label}</Text>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -784,6 +816,49 @@ function ScheduleListCard({
           </View>
         );
       })}
+    </View>
+  );
+}
+
+function WeekScheduleCard({
+  card,
+  styles,
+}: {
+  card: WeekSchedule;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  return (
+    <View style={styles.weekScheduleCard}>
+      {card.summary ? (
+        <Text style={styles.weekScheduleSummary}>{card.summary}</Text>
+      ) : null}
+      {card.days.map((day, di) => (
+        <View key={di}>
+          <Text style={styles.weekScheduleDayHeader}>{day.dayLabel}</Text>
+          {day.items.map((item, i) => {
+            const badgeColor = SCHEDULE_COLORS[item.type] || SCHEDULE_COLORS.other;
+            return (
+              <View key={i} style={styles.scheduleItem}>
+                <Text style={styles.scheduleTime}>{item.time}</Text>
+                <Text style={styles.scheduleTitle}>{item.title}</Text>
+                <View
+                  style={[
+                    styles.scheduleTypeBadge,
+                    {
+                      borderColor: badgeColor,
+                      backgroundColor: `${badgeColor}15`,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.scheduleTypeBadgeText, { color: badgeColor }]}>
+                    {BADGE_LABELS[item.type] || item.type}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }
@@ -873,6 +948,84 @@ function BenchmarkBarCard({
       <Text style={styles.benchmarkFooter}>
         {card.percentile}th percentile · {card.ageBand}
       </Text>
+    </View>
+  );
+}
+
+// ── Program Recommendation Card ─────────────────────────────────
+
+const PRIORITY_EMOJI: Record<string, string> = { mandatory: '🔴', high: '🟠', medium: '🟡' };
+const CATEGORY_EMOJI: Record<string, string> = {
+  speed: '⚡', sprint: '⚡', agility: '🔀', strength: '💪', power: '💥',
+  endurance: '🫀', technical: '⚽', injury_prevention: '🩹', mobility: '🧘',
+  nordic: '🩹', acl_prevention: '🩹', recovery: '💚',
+};
+
+function ProgramRecommendationCardComponent({
+  card,
+  styles,
+  colors,
+}: {
+  card: ProgramRecommendationCard;
+  styles: ReturnType<typeof createStyles>;
+  colors: ThemeColors;
+}) {
+  return (
+    <View style={{ gap: 8 }}>
+      {card.programs.slice(0, 5).map((p, i) => {
+        const emoji = CATEGORY_EMOJI[p.category?.toLowerCase()] ?? '📋';
+        const priorityDot = PRIORITY_EMOJI[p.priority] ?? '';
+        return (
+          <View
+            key={p.programId || i}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              backgroundColor: `${colors.accent1}10`,
+              borderRadius: 12,
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+            }}
+          >
+            <Text style={{ fontSize: 20 }}>{emoji}</Text>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text
+                style={{
+                  fontFamily: fontFamily.semiBold,
+                  fontSize: 14,
+                  color: colors.textOnDark,
+                }}
+                numberOfLines={1}
+              >
+                {priorityDot} {p.name}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fontFamily.regular,
+                  fontSize: 12,
+                  color: colors.textMuted,
+                }}
+                numberOfLines={1}
+              >
+                {p.weeklyFrequency}x/wk · {p.durationMin}min{p.positionNote ? ` · ${p.positionNote}` : ''}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+      {card.weeklyPlanSuggestion ? (
+        <Text
+          style={{
+            fontFamily: fontFamily.regular,
+            fontSize: 12,
+            color: colors.textMuted,
+            marginTop: 4,
+          }}
+        >
+          {card.weeklyPlanSuggestion}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -1316,6 +1469,7 @@ function RenderCard({
   onConfirm,
   onCancel,
   onChipPress,
+  onCapsuleSubmit,
 }: {
   card: VisualCard;
   styles: ReturnType<typeof createStyles>;
@@ -1323,7 +1477,13 @@ function RenderCard({
   onConfirm?: () => void;
   onCancel?: () => void;
   onChipPress?: (action: string) => void;
+  onCapsuleSubmit?: (action: CapsuleAction) => void;
 }) {
+  // Route capsule card types to CapsuleRenderer
+  if (isCapsuleCard(card.type) && onCapsuleSubmit) {
+    return <CapsuleRenderer card={card} onSubmit={onCapsuleSubmit} />;
+  }
+
   switch (card.type) {
     case 'stat_row':
       return <StatRowCard card={card} styles={styles} />;
@@ -1331,12 +1491,16 @@ function RenderCard({
       return <StatGridCard card={card} styles={styles} />;
     case 'schedule_list':
       return <ScheduleListCard card={card} styles={styles} />;
+    case 'week_schedule':
+      return <WeekScheduleCard card={card} styles={styles} />;
     case 'zone_stack':
       return <ZoneStackCard card={card} styles={styles} />;
     case 'clash_list':
       return <ClashListCard card={card} styles={styles} />;
     case 'benchmark_bar':
       return <BenchmarkBarCard card={card} styles={styles} />;
+    case 'program_recommendation':
+      return <ProgramRecommendationCardComponent card={card as ProgramRecommendationCard} styles={styles} colors={colors} />;
     case 'text_card':
       return <TextCardComponent card={card} styles={styles} />;
     case 'coach_note':
@@ -1357,8 +1521,19 @@ function RenderCard({
           onConfirm={onConfirm}
         />
       );
-    default:
+    default: {
+      // Fallback: render unhandled card types as text card if they have a body/headline
+      const fallback = card as any;
+      if (fallback.headline || fallback.body) {
+        return (
+          <TextCardComponent
+            card={{ type: 'text_card', headline: fallback.headline ?? fallback.type, body: fallback.body ?? '', emoji: fallback.emoji }}
+            styles={styles}
+          />
+        );
+      }
       return null;
+    }
   }
 }
 
@@ -1369,6 +1544,7 @@ interface ResponseRendererProps {
   onChipPress?: (action: string) => void;
   onConfirm?: () => void;
   onCancel?: () => void;
+  onCapsuleSubmit?: (action: CapsuleAction) => void;
 }
 
 export function ResponseRenderer({
@@ -1376,6 +1552,7 @@ export function ResponseRenderer({
   onChipPress,
   onConfirm,
   onCancel,
+  onCapsuleSubmit,
 }: ResponseRendererProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -1395,6 +1572,7 @@ export function ResponseRenderer({
           onConfirm={onConfirm}
           onCancel={onCancel}
           onChipPress={onChipPress}
+          onCapsuleSubmit={onCapsuleSubmit}
         />
       ))}
 

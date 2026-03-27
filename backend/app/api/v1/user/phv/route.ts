@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       date_of_birth,
       sex,
       age_decimal,
+      assessment_date, // Optional: date measurements were taken (defaults to today)
     } = body;
 
     if (maturity_offset == null) {
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
       gender: sex,
       maturity_offset,
       phv_stage: simpleStage,
-      assessment_date: new Date().toISOString().split('T')[0],
+      assessment_date: assessment_date || new Date().toISOString().split('T')[0],
     });
     if (assessmentErr) {
       console.error('[PHV Save] player_phv_assessments insert failed:', assessmentErr);

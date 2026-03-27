@@ -6,6 +6,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
+import { useRefreshListener } from './useRefreshListener';
 import {
   getToday,
   getCheckins,
@@ -219,6 +220,9 @@ export function useCalendarData(): CalendarData {
     },
     [],
   );
+
+  // ── Listen for cross-screen refresh events (e.g. event created in chat) ──
+  useRefreshListener('calendar', refresh);
 
   return {
     selectedDate,

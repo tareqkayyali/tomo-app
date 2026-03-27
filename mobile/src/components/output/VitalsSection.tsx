@@ -178,6 +178,9 @@ function VitalCard({ metric, colors }: { metric: any; colors: any }) {
           <Text style={[styles.cardTimeAgo, { color: freshnessColor }]}>
             {metric.freshness === 'no_data' ? 'No data' : metric.timeAgo}
           </Text>
+          {metric.syncTimeAgo && metric.syncTimeAgo !== metric.timeAgo ? (
+            <Text style={[styles.cardBaseline, { color: colors.textMuted }]}> · Synced {metric.syncTimeAgo}</Text>
+          ) : null}
           {baselineText ? (
             <Text style={[styles.cardBaseline, { color: colors.textMuted }]}> · {baselineText}</Text>
           ) : null}

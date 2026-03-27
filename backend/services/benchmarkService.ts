@@ -76,11 +76,60 @@ export interface NormRow {
 // ── Phone Test to Metric Mapping ────────────────────────────────────
 
 export const PHONE_TEST_TO_METRIC: Record<string, string> = {
+  // Legacy short names (from original phone test types)
   jump: "cmj",
   sprint: "sprint_10m",
   reaction: "reaction_time",
   agility: "agility_505",
   balance: "hrv_rmssd",
+  // ── Full catalog — capsule test types (kebab-case from test_log_capsule) ──
+  // IMPORTANT: These MUST map to metric keys that exist in NORM_NAME_TO_METRIC_KEY
+  // (reverse lookup). If the key doesn't exist there, calculatePercentile returns null.
+  // Speed & Acceleration
+  "10m-sprint": "sprint_10m",
+  "20m-sprint": "sprint_20m",
+  "30m-sprint": "sprint_30m",
+  "flying-10m": "flying_20m",
+  "max-speed": "est_max_speed",        // norms: "Max Sprint Speed" → est_max_speed
+  // Power & Explosiveness
+  "cmj": "cmj",
+  "vertical-jump": "cmj",
+  "squat-jump": "cmj",
+  "drop-jump": "cmj",
+  "broad-jump": "broad_jump",
+  "jump-height": "cmj",
+  "sl-broad-jump-r": "sl_broad_jump_r",
+  "sl-broad-jump-l": "sl_broad_jump_l",
+  "seated-mb-throw": "seated_mb_throw",
+  "glycolytic-power": "glycolytic_power",
+  // Agility & CoD
+  "5-10-5-agility": "agility_5105",
+  "5-0-5": "agility_505",
+  "pro-agility": "agility_5105",
+  "t-test": "agility_505",
+  "illinois-agility": "illinois_agility",
+  "arrowhead-agility": "arrowhead_agility",
+  "reaction-time": "reaction_time",
+  "choice-reaction": "reaction_time",
+  "reaction-tap": "reaction_time",
+  "balance-y": "hrv_rmssd",
+  // Aerobic Engine
+  "beep-test": "vo2max",
+  "yoyo-ir1": "vo2max",
+  "cooper-12min": "vo2max",
+  "vo2max": "vo2max",
+  "mas-running": "mas_running",
+  "mas": "mas_running",
+  // Strength
+  "grip-strength": "grip_strength",
+  "1rm-squat": "squat_1rm",
+  "squat-1rm": "squat_1rm",
+  "squat-relative": "squat_rel",
+  "1rm-bench": "bench_1rm",
+  "bench-press-1rm": "bench_1rm",
+  // Body Composition & Recovery
+  "body-fat": "body_fat_pct",
+  "hrv": "hrv_rmssd",
 };
 
 // ── Coaching Messages ───────────────────────────────────────────────

@@ -371,7 +371,7 @@ function createStyles(colors: ThemeColors) {
       width: 18,
       height: 18,
       borderRadius: 9,
-      backgroundColor: '#2ED57322',
+      backgroundColor: `${colors.success}22`,
       alignItems: 'center',
       justifyContent: 'center',
     },

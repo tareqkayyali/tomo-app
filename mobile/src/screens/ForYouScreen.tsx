@@ -10,13 +10,12 @@
  * Deep Refresh: POST /api/v1/recommendations/refresh (Claude analysis, 10-30s)
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -65,6 +64,29 @@ function toCardRec(r: RIERecommendation): ForYouRecommendation {
   };
 }
 
+// ── Dynamic loading messages — matches My Programs pattern ──
+const OWN_IT_LOADING_MESSAGES = [
+  { title: 'Reading Your Readiness', subtitle: 'Sleep, energy, soreness, mood...', icon: 'pulse-outline' as const },
+  { title: 'Analyzing Training Load', subtitle: 'Checking acute vs chronic workload...', icon: 'barbell-outline' as const },
+  { title: 'Scanning Recovery Data', subtitle: 'HRV, sleep quality, rest days...', icon: 'moon-outline' as const },
+  { title: 'Checking Benchmarks', subtitle: 'Comparing your results to peers...', icon: 'stats-chart-outline' as const },
+  { title: 'Reviewing Your Schedule', subtitle: 'Upcoming matches, exams, training...', icon: 'calendar-outline' as const },
+  { title: 'Spotting Development Gaps', subtitle: 'Finding areas to improve fastest...', icon: 'search-outline' as const },
+  { title: 'Building Recommendations', subtitle: 'Personalizing advice to your data...', icon: 'sparkles-outline' as const },
+  { title: 'Prioritizing Actions', subtitle: 'What matters most right now...', icon: 'flash-outline' as const },
+  { title: 'Factoring Growth Stage', subtitle: 'Adjusting for your maturity phase...', icon: 'trending-up-outline' as const },
+  { title: 'Final Personalization', subtitle: 'Tailoring everything to you...', icon: 'person-outline' as const },
+];
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export function ForYouScreen() {
   const { colors } = useTheme();
   const pageConfig = usePageConfig('own_it');
@@ -91,6 +113,27 @@ export function ForYouScreen() {
   const { data: outputData } = useOutputData();
   const strengths = outputData?.metrics?.strengths ?? [];
   const gaps = outputData?.metrics?.gaps ?? [];
+
+  // ── Dynamic loading message rotation (2.5s interval, reshuffles each cycle) ──
+  const [shuffledMsgs, setShuffledMsgs] = useState(() => shuffleArray(OWN_IT_LOADING_MESSAGES));
+  const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
+
+  useEffect(() => {
+    if (!isDeepRefreshing) return;
+    setShuffledMsgs(shuffleArray(OWN_IT_LOADING_MESSAGES));
+    setLoadingMsgIndex(0);
+    const interval = setInterval(() => {
+      setLoadingMsgIndex(prev => {
+        const next = prev + 1;
+        if (next >= OWN_IT_LOADING_MESSAGES.length) {
+          setShuffledMsgs(shuffleArray(OWN_IT_LOADING_MESSAGES));
+          return 0;
+        }
+        return next;
+      });
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [isDeepRefreshing]);
 
   const allCards = [...sportsRecs, ...studyRecs, ...updateRecs].map(toCardRec);
 
@@ -159,39 +202,55 @@ export function ForYouScreen() {
           <ErrorState message={error} onRetry={onRefresh} />
         )}
 
-        {/* Deep Refresh Loading — analyzing data */}
-        {isDeepRefreshing && !hasAnyRecs && !isLoading && (
-          <View
-            style={{
-              alignItems: 'center',
-              paddingVertical: spacing.xxl,
-              gap: spacing.md,
-            }}
-          >
-            <ActivityIndicator size="large" color={colors.accent1} />
-            <Text
+        {/* Deep Refresh Loading — dynamic rotating messages */}
+        {isDeepRefreshing && !hasAnyRecs && !isLoading && (() => {
+          const loadingMsg = shuffledMsgs[loadingMsgIndex] || OWN_IT_LOADING_MESSAGES[0];
+          return (
+            <View
               style={{
-                fontFamily: fontFamily.medium,
-                fontSize: 14,
-                color: colors.textMuted,
-                textAlign: 'center',
+                alignItems: 'center',
+                paddingVertical: spacing.xxl,
+                gap: spacing.sm,
               }}
             >
-              Analyzing your data...
-            </Text>
-            <Text
-              style={{
-                fontFamily: fontFamily.regular,
-                fontSize: 12,
-                color: colors.textMuted,
-                textAlign: 'center',
-                paddingHorizontal: spacing.xxl,
-              }}
-            >
-              Building personalized recommendations from your training, health, and academic data.
-            </Text>
-          </View>
-        )}
+              <View
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 32,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: colors.accent2 + '12',
+                  marginBottom: spacing.xs,
+                }}
+              >
+                <Ionicons name={loadingMsg.icon} size={28} color={colors.accent2} />
+              </View>
+              <Text
+                style={{
+                  fontFamily: fontFamily.semiBold,
+                  fontSize: 16,
+                  color: colors.textOnDark,
+                  textAlign: 'center',
+                }}
+              >
+                {loadingMsg.title}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fontFamily.regular,
+                  fontSize: 13,
+                  color: colors.textMuted,
+                  textAlign: 'center',
+                  paddingHorizontal: spacing.lg,
+                  lineHeight: 19,
+                }}
+              >
+                {loadingMsg.subtitle}
+              </Text>
+            </View>
+          );
+        })()}
 
         {/* Refresh Error */}
         {refreshError && !isDeepRefreshing && !hasAnyRecs && (
@@ -217,29 +276,36 @@ export function ForYouScreen() {
           </View>
         )}
 
-        {/* Subtle updating indicator when recs exist but refresh is running */}
-        {isDeepRefreshing && hasAnyRecs && (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: spacing.sm,
-              paddingVertical: spacing.sm,
-            }}
-          >
-            <ActivityIndicator size="small" color={colors.accent2} />
-            <Text
+        {/* Subtle updating banner when recs exist but refresh is running */}
+        {isDeepRefreshing && hasAnyRecs && (() => {
+          const bannerMsg = shuffledMsgs[loadingMsgIndex] || OWN_IT_LOADING_MESSAGES[0];
+          return (
+            <View
               style={{
-                fontFamily: fontFamily.medium,
-                fontSize: 11,
-                color: colors.textMuted,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                borderRadius: 12,
+                paddingVertical: 10,
+                paddingHorizontal: spacing.md,
+                marginHorizontal: layout.screenMargin,
+                backgroundColor: 'rgba(0, 217, 255, 0.08)',
               }}
             >
-              Updating...
-            </Text>
-          </View>
-        )}
+              <Ionicons name={bannerMsg.icon} size={16} color={colors.accent2} />
+              <Text
+                style={{
+                  fontFamily: fontFamily.medium,
+                  fontSize: 13,
+                  color: colors.accent2,
+                }}
+              >
+                {bannerMsg.title}...
+              </Text>
+            </View>
+          );
+        })()}
 
         {/* Strengths & Growth Areas — from benchmark profile */}
         {(strengths.length > 0 || gaps.length > 0) && (

@@ -664,6 +664,88 @@ export async function streamChatMessage(
 }
 
 /**
+ * Stream agent chat — SSE endpoint with status events during tool execution.
+ * Sends: status (tool execution), done (final result), error.
+ * Use this for real-time UX; falls back to non-streaming /chat/agent if SSE fails.
+ */
+export async function streamAgentMessage(
+  payload: {
+    message: string;
+    sessionId?: string;
+    activeTab?: string;
+    timezone?: string;
+    confirmedAction?: any;
+    capsuleAction?: any;
+  },
+  onStatus: (status: string) => void,
+  onDone: (data: any) => void,
+  onError: (error: string) => void,
+): Promise<void> {
+  const token = await getIdToken();
+  if (!token) {
+    onError('Not authenticated');
+    return;
+  }
+
+  return new Promise<void>((resolve) => {
+    const xhr = new XMLHttpRequest();
+    const url = `${API_BASE_URL}/api/v1/chat/agent-stream`;
+
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    let lastIndex = 0;
+    let resolved = false;
+
+    const finish = () => {
+      if (!resolved) {
+        resolved = true;
+        resolve();
+      }
+    };
+
+    xhr.onprogress = () => {
+      const newData = xhr.responseText.substring(lastIndex);
+      lastIndex = xhr.responseText.length;
+
+      const lines = newData.split('\n');
+      let currentEventType = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEventType = line.substring(7).trim();
+          continue;
+        }
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.substring(6));
+          switch (currentEventType) {
+            case 'status':
+              if (data.status) onStatus(data.status);
+              break;
+            case 'done':
+              onDone(data);
+              break;
+            case 'error':
+              onError(data.error || 'Stream error');
+              break;
+          }
+          currentEventType = '';
+        } catch {
+          // Ignore parse errors on partial chunks
+        }
+      }
+    };
+
+    xhr.onloadend = () => finish();
+    xhr.onerror = () => { onError('Network error'); finish(); };
+    xhr.ontimeout = () => { onError('Request timed out'); finish(); };
+    xhr.timeout = 60000;
+    xhr.send(JSON.stringify(payload));
+  });
+}
+
+/**
  * Get recent chat messages
  */
 export async function getChatMessages(
@@ -708,6 +790,12 @@ export interface AgentChatRequest {
       agentType: string;
       preview: string;
     }>;
+  };
+  capsuleAction?: {
+    type: string;
+    toolName: string;
+    toolInput: Record<string, any>;
+    agentType: string;
   };
 }
 

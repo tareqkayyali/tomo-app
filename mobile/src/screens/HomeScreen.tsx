@@ -60,19 +60,20 @@ import {
 } from '../services/api';
 import type { AgentChatResponse } from '../services/api';
 import { ResponseRenderer } from '../components/chat/ResponseRenderer';
-import type { TomoResponse, ChatSession as ServerChatSession } from '../types/chat';
+import type { TomoResponse, ChatSession as ServerChatSession, CapsuleAction } from '../types/chat';
 import { useAuth } from '../hooks/useAuth';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { QuickAccessBar } from '../components/QuickAccessBar';
-import { useFavorites } from '../hooks/useFavorites';
+// useFavorites removed — favorites feature deprecated
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { useAllQuotes } from '../hooks/useContentHelpers';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { VoicePulse } from '../components/chat/VoicePulse';
 import type { Quote } from '../hooks/useContentHelpers';
 import { track } from '../services/analytics';
+import { emitRefresh } from '../utils/refreshBus';
 import {
   getSavedChats,
   saveChat,
@@ -191,6 +192,29 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
+      gap: 8,
+    },
+    loadingIconWrap: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: `${colors.accent2}12`,
+      marginBottom: 4,
+    },
+    loadingTitle: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 15,
+      color: colors.textOnDark,
+      textAlign: 'center',
+    },
+    loadingSubtitle: {
+      fontFamily: fontFamily.regular,
+      fontSize: 12,
+      color: colors.textMuted,
+      textAlign: 'center',
+      paddingHorizontal: spacing.xxl,
     },
 
     // ── Motivational Quote ─────────────────────────────────────────────
@@ -261,6 +285,23 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.medium,
       fontSize: 14,
       color: colors.textOnDark,
+    },
+    capsuleChip: {
+      backgroundColor: 'rgba(0, 217, 255, 0.08)',
+      paddingVertical: 10,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.full,
+      borderWidth: 1,
+      borderColor: 'rgba(0, 217, 255, 0.2)',
+    },
+    capsuleChipPressed: {
+      opacity: 0.7,
+      backgroundColor: 'rgba(0, 217, 255, 0.15)',
+    },
+    capsuleChipText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 13,
+      color: colors.accent2,
     },
 
     // ── Chat Messages (ChatGPT-style) ───────────────────────────────
@@ -634,6 +675,91 @@ const SuggestionChip = React.memo(function SuggestionChip({
   );
 });
 
+// ── Capsule quick-action pool for empty chat screen ─────────────────
+const CAPSULE_ACTIONS = [
+  { label: 'Log a test', message: 'I want to log a new test' },
+  { label: 'Check in', message: 'check in' },
+  { label: 'Add event', message: 'I want to add a training session' },
+  { label: 'My strengths', message: 'what are my strengths and gaps?' },
+  { label: 'Leaderboard', message: 'show me the leaderboard' },
+  { label: 'My rules', message: 'edit my schedule rules' },
+  { label: 'Plan training', message: 'plan my training week' },
+  { label: 'Plan study', message: 'plan my study schedule' },
+  { label: 'Check conflicts', message: 'check for any schedule conflicts' },
+  { label: 'My programs', message: 'my programs' },
+  { label: 'Growth stage', message: 'calculate my growth stage' },
+  { label: 'Notifications', message: 'notification settings' },
+  { label: 'My readiness', message: "what's my readiness?" },
+  { label: 'My streak', message: 'my streak' },
+  { label: 'Edit CV', message: 'edit my CV profile' },
+  { label: 'My timeline', message: 'help me manage my timeline' },
+];
+
+function pickRandom<T>(arr: T[], count: number): T[] {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+const RandomCapsuleChips = React.memo(function RandomCapsuleChips({
+  onPress,
+}: {
+  onPress: (message: string) => void;
+}) {
+  const styles = useHomeStyles();
+  const [picks] = useState(() => pickRandom(CAPSULE_ACTIONS, 3));
+
+  return (
+    <View style={styles.chipsContainer}>
+      {picks.map((item, i) => (
+        <Pressable
+          key={`${item.label}-${i}`}
+          onPress={() => onPress(item.message)}
+          style={({ pressed }) => [
+            styles.capsuleChip,
+            pressed && styles.capsuleChipPressed,
+          ]}
+        >
+          <Text style={styles.capsuleChipText}>{item.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+});
+
+// ── Chat Loading Screen (dynamic rotating messages) ─────────────────
+const CHAT_LOADING_MESSAGES = [
+  { title: 'Starting Tomo', subtitle: 'Your AI coach is warming up...', icon: 'sparkles-outline' as const },
+  { title: 'Loading Conversations', subtitle: 'Pulling your recent chats...', icon: 'chatbubbles-outline' as const },
+  { title: 'Checking Your Status', subtitle: 'Readiness, streak, schedule...', icon: 'pulse-outline' as const },
+  { title: 'Syncing Data', subtitle: 'Tests, training, recovery...', icon: 'sync-outline' as const },
+  { title: 'Almost Ready', subtitle: 'Setting up your command center...', icon: 'rocket-outline' as const },
+];
+
+const ChatLoadingScreen = React.memo(function ChatLoadingScreen() {
+  const { colors } = useTheme();
+  const styles = useHomeStyles();
+  const [msgIndex, setMsgIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setMsgIndex((prev) => (prev + 1) % CHAT_LOADING_MESSAGES.length);
+    }, 1800);
+    return () => clearInterval(interval);
+  }, []);
+
+  const msg = CHAT_LOADING_MESSAGES[msgIndex];
+
+  return (
+    <View style={styles.loadingContainer}>
+      <View style={styles.loadingIconWrap}>
+        <Ionicons name={msg.icon} size={26} color={colors.accent2} />
+      </View>
+      <Text style={styles.loadingTitle}>{msg.title}</Text>
+      <Text style={styles.loadingSubtitle}>{msg.subtitle}</Text>
+    </View>
+  );
+});
+
 /** Blinking cursor for streaming messages */
 function StreamingCursor() {
   const styles = useHomeStyles();
@@ -697,11 +823,13 @@ const ChatBubble = React.memo(function ChatBubble({
   onChipPress,
   onConfirm,
   onCancel,
+  onCapsuleSubmit,
 }: {
   message: DisplayMessage;
   onChipPress?: (action: string) => void;
   onConfirm?: () => void;
   onCancel?: () => void;
+  onCapsuleSubmit?: (action: CapsuleAction) => void;
 }) {
   const styles = useHomeStyles();
   const isUser = message.role === 'user';
@@ -747,6 +875,7 @@ const ChatBubble = React.memo(function ChatBubble({
             onChipPress={onChipPress}
             onConfirm={onConfirm}
             onCancel={onCancel}
+            onCapsuleSubmit={onCapsuleSubmit}
           />
         ) : message.text ? (
           <MarkdownMessage content={message.text} />
@@ -1044,7 +1173,7 @@ export function HomeScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
-  const { selectedOptions: favoriteOptions } = useFavorites();
+  // favorites removed
   // sportConfig removed — no mock data sync needed
   const allQuotes = useAllQuotes();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -1288,7 +1417,7 @@ export function HomeScreen() {
   }, []);
 
   const handleSend = useCallback(
-    async (text?: string, confirmedAction?: AgentChatResponse['pendingConfirmation']) => {
+    async (text?: string, confirmedAction?: AgentChatResponse['pendingConfirmation'], capsuleAction?: CapsuleAction) => {
       const content = (text ?? inputText).trim();
       if (!content || isSending) return;
 
@@ -1332,6 +1461,7 @@ export function HomeScreen() {
                   actions: confirmedAction.actions,
                 }
               : undefined,
+            capsuleAction: capsuleAction ?? undefined,
           },
           abortController.signal,
         );
@@ -1429,6 +1559,13 @@ export function HomeScreen() {
           });
         }
 
+        // Emit refresh events so other screens update (e.g. My Metrics after test log)
+        if (agentResponse.refreshTargets?.length) {
+          for (const target of agentResponse.refreshTargets) {
+            emitRefresh(target);
+          }
+        }
+
         track('chat_message_sent', { sport: undefined });
         scrollToBottom();
 
@@ -1497,6 +1634,41 @@ export function HomeScreen() {
     await setActiveChatId(newChat.id);
     setShowSavedChats(false);
   }, []);
+
+  // ── Capsule submit handler ──────────────────────────────────────
+  const handleCapsuleSubmit = useCallback((capsuleAction: CapsuleAction) => {
+    // Build a preview message from the capsule action
+    const previewParts: string[] = [];
+    if (capsuleAction.toolName === 'log_test_result') {
+      const { testType, score, unit } = capsuleAction.toolInput;
+      previewParts.push(`Log ${score}${unit ? unit : ''} for ${(testType as string).replace(/-/g, ' ')}`);
+    } else if (capsuleAction.toolName === 'log_check_in') {
+      previewParts.push('Check-in submitted');
+    } else if (capsuleAction.toolName === 'get_program_details') {
+      const name = capsuleAction.toolInput.programName ?? 'program';
+      previewParts.push(`Show me the drills for ${name}`);
+    } else if (capsuleAction.toolName === 'interact_program') {
+      const name = capsuleAction.toolInput.programName ?? 'program';
+      const action = capsuleAction.toolInput.action;
+      if (action === 'player_selected' || action === 'active') {
+        previewParts.push(`Add ${name} to my training`);
+      } else if (action === 'done') {
+        previewParts.push(`Mark ${name} as done`);
+      } else if (action === 'dismissed') {
+        previewParts.push(`Dismiss ${name}`);
+      } else {
+        previewParts.push(`${name} — ${action}`);
+      }
+    } else if (capsuleAction.toolName === 'create_event') {
+      const title = capsuleAction.toolInput.title ?? 'event';
+      previewParts.push(`Add ${title} to calendar`);
+    } else {
+      // Generic fallback — humanize tool name
+      previewParts.push(capsuleAction.toolName.replace(/_/g, ' '));
+    }
+    const previewText = previewParts.join(' ');
+    handleSend(previewText, undefined, capsuleAction);
+  }, [handleSend]);
 
   // ── Confirmation gate handlers ──────────────────────────────────
   const handleConfirmAction = useCallback(() => {
@@ -1597,9 +1769,7 @@ export function HomeScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent1} />
-        </View>
+        <ChatLoadingScreen />
       </SafeAreaView>
     );
   }
@@ -1623,16 +1793,6 @@ export function HomeScreen() {
           <QuickAccessBar actions={[
             { key: 'saved', icon: 'chatbubbles-outline', label: 'Saved Chats', onPress: () => setShowSavedChats(true) },
             { key: 'new', icon: 'create-outline', label: 'New Chat', onPress: handleNewChat },
-            ...favoriteOptions.map((opt) => ({
-              key: opt.key,
-              icon: opt.icon,
-              label: opt.label,
-              onPress: () => {
-                if (opt.route) navigation.navigate(opt.route);
-                else if (opt.tabRoute) navigation.navigate(opt.tabRoute.tab, opt.tabRoute.params);
-              },
-            })),
-            { key: 'more', icon: 'ellipsis-horizontal', label: 'More', onPress: () => navigation.navigate('Favorites') },
           ]} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
@@ -1668,15 +1828,7 @@ export function HomeScreen() {
                 {pageConfig?.metadata?.emptyStates?.['chat_subtitle'] || 'Ask about training, recovery, nutrition, or how you\'re feeling.'}
               </Text>
             </View>
-            <View style={styles.chipsContainer}>
-              {chips.map((chip, i) => (
-                <SuggestionChip
-                  key={`${chip.label}-${i}`}
-                  chip={chip}
-                  onPress={handleChipPress}
-                />
-              ))}
-            </View>
+            <RandomCapsuleChips onPress={handleChipPress} />
           </Pressable>
         ) : !showSavedChats ? (
           <>
@@ -1708,6 +1860,7 @@ export function HomeScreen() {
                     onChipPress={handleChipPress}
                     onConfirm={confirmHandler}
                     onCancel={cancelHandler}
+                    onCapsuleSubmit={handleCapsuleSubmit}
                   />
                 );
 
@@ -1795,7 +1948,7 @@ export function HomeScreen() {
                     style={styles.textInput}
                     value={inputText}
                     onChangeText={setInputText}
-                    placeholder={pageConfig?.metadata?.emptyStates?.['input_placeholder'] || "Ask anything"}
+                    placeholder={pageConfig?.metadata?.emptyStates?.['input_placeholder'] || "Ask Tomo"}
                     placeholderTextColor={colors.textInactive}
                     multiline
                     blurOnSubmit={false}
@@ -1850,8 +2003,8 @@ export function HomeScreen() {
                         color={colors.accent1}
                       />
                     </Pressable>
-                  ) : Platform.OS !== 'web' ? (
-                    /* ─── Mic Button (mobile only, when input empty) ─── */
+                  ) : (
+                    /* ─── Mic Button (all platforms, when input empty) ─── */
                     <Pressable
                       onPress={startRecording}
                       style={({ pressed }) => [
@@ -1866,24 +2019,6 @@ export function HomeScreen() {
                         name="mic-outline"
                         size={26}
                         color={colors.accent1}
-                      />
-                    </Pressable>
-                  ) : (
-                    <Pressable
-                      onPress={() => handleSend()}
-                      style={({ pressed }) => [
-                        styles.sendButton,
-                        pressed && styles.sendButtonPressed,
-                      ]}
-                      hitSlop={8}
-                      disabled
-                      accessibilityRole="button"
-                      accessibilityLabel="Send message"
-                    >
-                      <Ionicons
-                        name="arrow-up-circle"
-                        size={28}
-                        color={colors.textInactive}
                       />
                     </Pressable>
                   )}

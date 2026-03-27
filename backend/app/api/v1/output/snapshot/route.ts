@@ -781,7 +781,9 @@ export async function GET(req: NextRequest) {
 
   const realTimeMetrics = realTimeMetricDefs.map((def) => {
     const latest = latestByType.get(def.metric);
-    const recordedAt = latest?.created_at ?? null;
+    const dataDate = latest?.date ?? null;
+    const syncedAt = latest?.created_at ?? null;
+    const recordedAt = dataDate ?? syncedAt;
     const value = latest ? Math.round(latest.value * 10) / 10 : null;
 
     // Age-band percentile context
@@ -795,9 +797,12 @@ export async function GET(req: NextRequest) {
     return {
       ...def,
       value,
+      dataDate,
       lastRecordedAt: recordedAt,
       freshness: computeFreshness(recordedAt),
       timeAgo: timeAgoLabel(recordedAt),
+      syncedAt,
+      syncTimeAgo: syncedAt ? timeAgoLabel(syncedAt) : null,
       percentile: pResult?.percentile ?? null,
       zone: pResult?.zone ?? null,
       zoneLabel: pResult?.zoneLabel ?? null,

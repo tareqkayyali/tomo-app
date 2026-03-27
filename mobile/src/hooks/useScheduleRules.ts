@@ -38,6 +38,8 @@ export interface TrainingCategoryRule {
   daysPerWeek: number;
   sessionDuration: number;
   preferredTime: 'morning' | 'afternoon' | 'evening';
+  fixedStartTime?: string; // "HH:MM" when time is known
+  fixedEndTime?: string;   // "HH:MM" when time is known
   linkedPrograms?: LinkedProgram[];
 }
 
