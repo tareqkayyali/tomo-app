@@ -46,6 +46,7 @@ import { trackedClaudeCall, type TrackedCallMeta } from "@/lib/trackedClaudeCall
 import { classifyIntent } from "./intentClassifier";
 import { intentHandlers } from "./intentHandlers";
 import { retrieveChatKnowledge } from "./ragChatRetriever";
+import { loadAthleteMemory } from "./longitudinalMemory";
 // conversationStateExtractor is called from route.ts, not here
 
 const MAX_TOOL_ITERATIONS = 5;
@@ -945,6 +946,14 @@ async function buildAgentConfig(
 
   // ── DYNAMIC BLOCK (per-request — player context, temporal, schedule, recs, conversation) ──
 
+  // Cross-session athlete memory (~100-280 tokens, loaded from DB)
+  let athleteMemoryBlock = "";
+  try {
+    athleteMemoryBlock = await loadAthleteMemory(context.userId);
+  } catch (e) {
+    console.warn("[Memory] Failed to load, continuing without:", e);
+  }
+
   // Sport-position context layer (~150-250 tokens, sport-specific coaching rules)
   const sportContext = `\n\n${buildSportContextSegment(context)}`;
 
@@ -1038,6 +1047,7 @@ REC FILTERING RULES (CRITICAL — follow strictly):
   }
 
   const dynamicSuffix =
+    athleteMemoryBlock +
     sportContext +
     toneProfile +
     agentDynamic +

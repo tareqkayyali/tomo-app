@@ -265,3 +265,91 @@ sports: [football, padel, athletics, basketball, tennis]
 evidence_grade: B
 
 Physical recovery without mental recovery is incomplete. Psychological load sources: competition pressure, selection anxiety, academic stress, social media comparison, coach conflict. Signs of mental fatigue: decreased motivation, irritability, difficulty concentrating, increased perceived effort for same physical tasks. Recovery strategies: (1) Structured downtime (no sport-related content for set periods), (2) Mindfulness/breathing exercises (5-10min daily reduces cortisol by 20%), (3) Social connection outside sport context, (4) Sleep hygiene as priority. Youth athletes under 16 are particularly vulnerable to burnout from over-scheduling — ensure 1-2 completely free days per week.
+
+---
+
+## DEVELOPMENT: Football Position-Specific Training — Striker
+rec_types: [DEVELOPMENT]
+phv_stages: [POST]
+age_groups: [U15, U17, U19, ADULT]
+sports: [football]
+evidence_grade: B+
+
+Striker-specific development priorities: (1) Acceleration — 10m sprint is the most critical metric. First-step explosiveness from standing, turning, and receiving positions. Train with resisted sprints, sled pulls (10-15% BW), and 5m fly-in sprints. (2) Vertical power — CMJ >45cm target for elite U19. Box jumps, depth jumps (post-PHV only), single-leg hops. (3) Finishing under fatigue — practice shooting drills in the final 15min of sessions when glycolytic fatigue is highest. (4) Movement in the box — agility ladder + reaction drills mimicking defender pressure. Weekly structure: 2x speed/power, 1x finishing-specific, maintain Yo-Yo IR1 base. Key metrics to track: 10m sprint, CMJ, shooting accuracy under fatigue.
+
+---
+
+## DEVELOPMENT: Football Position-Specific Training — Midfielder (CAM/CM)
+rec_types: [DEVELOPMENT]
+phv_stages: [POST]
+age_groups: [U15, U17, U19, ADULT]
+sports: [football]
+evidence_grade: B+
+
+Central midfielder development priorities: (1) Aerobic capacity — Yo-Yo IR1 is THE metric. Target >2,200m for elite U19. Build with interval running (4x4min at 90-95% HRmax, 3min recovery), small-sided games (4v4, 5v5). (2) Repeat sprint ability — 6x30m with 20s recovery, fatigue index <5%. (3) Change of direction — 5-10-5 agility, T-test. Midfielders cover 10-13km/match with frequent direction changes. (4) Decision-making under pressure — cognitive-motor dual tasks, rondo variations with time constraints. (5) Ball retention — technical work under moderate physical fatigue. Weekly: 2x aerobic capacity, 1x RSA/agility, 2x technical-tactical. CAM specifically: add creative passing under pressure drills, final-third decision speed.
+
+---
+
+## DEVELOPMENT: Football Position-Specific Training — Centre-Back
+rec_types: [DEVELOPMENT]
+phv_stages: [POST]
+age_groups: [U15, U17, U19, ADULT]
+sports: [football]
+evidence_grade: B+
+
+Centre-back development priorities: (1) Sprint acceleration over 5-10m — defensive recovery requires explosive first 3 steps. (2) Aerial power — CMJ + heading accuracy. Neck strengthening (isometric holds, band resisted). (3) 1v1 defending body position — lateral shuffle speed, backpedal mechanics, hip rotation drills. (4) Long distribution — passing accuracy over 30-40m under pressure. (5) Reading the game — video analysis sessions (2x/week, 15min each). Physical profile: height is advantageous but not essential if speed and positioning compensate. Key metrics: 5m sprint, CMJ, pro-agility shuttle. Lower Yo-Yo IR1 requirement than midfielders (>1,800m acceptable) but must maintain sprint capacity throughout 90min.
+
+---
+
+## DEVELOPMENT: Football Position-Specific Training — Goalkeeper
+rec_types: [DEVELOPMENT]
+phv_stages: [POST]
+age_groups: [U15, U17, U19, ADULT]
+sports: [football]
+evidence_grade: B
+
+Goalkeeper-specific development: (1) Reaction time — visual processing speed is the #1 differentiator. Train with reaction ball drills, light boards, dual-task catching. Target <250ms reaction time. (2) Explosive lateral movement — lateral bound distance, single-leg power. Plyometric ladder work, lateral box jumps. (3) Distribution — both feet kicking accuracy, throw distance and accuracy. (4) Height and reach — tracked but not trainable (genetic). (5) Shot-stopping positioning — angle play drills, set-piece positioning. (6) Communication — organizing the defensive line (practice with game-speed scenarios). Physical: GKs need different training periodization — less aerobic volume, more explosive power + flexibility. Stretching priority: hip flexors, groin, shoulders. Key metrics: reaction time, lateral bound, CMJ, kick distance.
+
+---
+
+## DEVELOPMENT: Padel Position-Specific Training
+rec_types: [DEVELOPMENT]
+phv_stages: [POST]
+age_groups: [U15, U17, U19, ADULT]
+sports: [padel]
+evidence_grade: B
+
+Padel-specific development: (1) Lateral movement — court is 10m wide, constant side-to-side. Train with lateral shuffle drills, split-step timing, deceleration mechanics. (2) Wrist and forearm strength — padel generates significant wrist loading. Wrist curls, pronation/supination, rice bucket exercises. Monitor for overuse especially in dominant arm. (3) Shoulder stability — overhead smash and bandeja load the rotator cuff. External rotation strengthening (band work), scapular stability exercises. (4) Glass wall play — reaction drills off the wall, trajectory reading. (5) Explosive first step — from split-step position, 2-3m burst to the ball. Injury watch: shoulder impingement (most common padel injury), wrist tendinopathy, ankle sprains from lateral movement. Asymmetry monitoring: compare dominant vs non-dominant grip strength quarterly.
+
+---
+
+## DEVELOPMENT: Athletics Sprint Event Training
+rec_types: [DEVELOPMENT]
+phv_stages: [POST]
+age_groups: [U15, U17, U19, ADULT]
+sports: [athletics]
+evidence_grade: A
+
+Sprint event training (100m/200m/400m): (1) Phase model — acceleration (0-30m), max velocity (30-60m), speed maintenance (60-100m). Each requires specific training. (2) Block starts — 3x/week during competition prep, focus on first-step mechanics and drive phase angle. (3) Max velocity — flying sprints (30m fly-in), wicket runs for stride frequency. CNS-intensive, requires 48-72hrs recovery. (4) Speed endurance — 150m-300m reps at 90-95% with full recovery (8-12min). Critical for 200m/400m. (5) Strength underpinning — squat:BW ratio >1.8x correlates with elite sprint performance. Posterior chain emphasis (RDL, Nordic curls, hip thrusts). (6) CNS management — max 2 high-CNS sessions/week. Monitor bar velocity in squats as fatigue indicator. Key metrics: 10m (acceleration), 30m (transition), flying 20m (max velocity), 60m (competition predictor).
+
+---
+
+## DEVELOPMENT: Basketball Position Training
+rec_types: [DEVELOPMENT]
+phv_stages: [POST]
+age_groups: [U15, U17, U19, ADULT]
+sports: [basketball]
+evidence_grade: B
+
+Basketball development by role: Guards — ball handling under pressure, court vision, pull-up shooting off dribble, lateral quickness (pro-agility <4.2s). Forwards — post moves, mid-range shooting, rebounding positioning, vertical jump (CMJ >50cm target). Centers — rim protection timing, screen-and-roll mechanics, hook shots both hands. All positions: (1) Vertical power — CMJ and approach jump. Depth jumps, trap bar jumps, single-leg box jumps. (2) Lateral agility — defensive slides, closeout drills, lane agility test. (3) Repeat jump ability — 10 max jumps in 30s, measure average vs peak. (4) Conditioning — intermittent with short bursts (17s sprint/17s rest protocol). (5) Ankle stability — single-leg balance, BOSU drills (ankle sprains are #1 basketball injury). Key metrics: CMJ, lane agility, 3/4 court sprint, Yo-Yo IR1.
+
+---
+
+## DEVELOPMENT: Tennis Physical Development
+rec_types: [DEVELOPMENT]
+phv_stages: [POST]
+age_groups: [U15, U17, U19, ADULT]
+sports: [tennis]
+evidence_grade: B
+
+Tennis-specific physical development: (1) Rotational power — medicine ball throws (standing, kneeling, seated), cable rotations. Serves and forehands generate 500-1500 rpm. (2) Lateral movement — 70% of movement in tennis is lateral. Split-step + first-step drills, lateral bound distance. (3) Shoulder health — internal/external rotation balance (ER:IR ratio should be >0.66). Sleeper stretches, prone Y-T-W exercises. Dominant shoulder often develops significant asymmetry. (4) Grip and forearm endurance — matches can last 2-5 hours. Farmer walks, dead hangs, rice bucket. (5) Aerobic base — tennis is 60-70% aerobic despite appearing anaerobic. Interval training mimicking point structure (10-20s work, 20-25s rest). (6) Heat tolerance — many tournaments in hot conditions. Progressive heat acclimatization over 10-14 days. Key metrics: lateral bound, 5m sprint, overhead med ball throw, Yo-Yo IR1.

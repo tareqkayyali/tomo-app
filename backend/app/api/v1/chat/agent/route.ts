@@ -49,6 +49,7 @@ import {
   type ConversationState,
 } from "@/services/agents/sessionService";
 import { extractConversationState } from "@/services/agents/conversationStateExtractor";
+import { updateAthleteMemory } from "@/services/agents/longitudinalMemory";
 
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
@@ -314,6 +315,17 @@ export async function POST(req: NextRequest) {
           activeAgent: result.agentType ?? activeAgent,
           conversationState: newConversationState,
         });
+
+        // Fire-and-forget: update longitudinal memory if conversation is substantial
+        // conversationHistory includes all previous messages + current user message
+        const fullHistory = [
+          ...conversationHistory,
+          { role: "user" as const, content: body.message },
+          { role: "assistant" as const, content: result.message },
+        ];
+        updateAthleteMemory(auth.user.id, fullHistory).catch((e) =>
+          console.warn("[Memory] Background update failed:", e)
+        );
       } catch (saveErr) {
         console.warn("[chat] Failed to save response:", saveErr instanceof Error ? saveErr.message : saveErr);
       }
