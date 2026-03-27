@@ -172,10 +172,20 @@ buildExactMatchMap();
 // Prefix patterns that should always go to full AI (conversational follow-ups)
 const FALLTHROUGH_PREFIXES = [
   /^tell me more about/i,
-  /^explain the .* recommendation/i,
-  /^what should i do about/i,
+  /^explain (the|my|this)/i,
+  /^what should i do (about|based|today|with)/i,
   /^act on/i,
   /^how do i/i,
+  /^help me understand/i,
+  /^what does .* mean/i,
+  /^can you (recommend|suggest|advise|help|explain)/i,
+  /^my .* (recommendation|rec) says/i,
+  /^my readiness .* says/i,
+  /recommendation.*says/i,
+  /reported pain|address pain|pain report|injury|injured/i,
+  /program.*(drills?|exercises?|sessions?|details?|explain)/i,
+  /drills? (for|in|from) my/i,
+  /what.*(drills?|exercises?) .*(in|for|from)/i,
 ];
 
 function tryExactMatch(message: string): ClassificationResult | null {
@@ -221,6 +231,14 @@ const CLASSIFIER_SYSTEM_PROMPT = `You classify user messages for a sports coachi
 INTENTS:
 ${buildClassifierIntentList()}
 agent_fallthrough: None of the above / needs full AI conversation or reasoning
+
+CRITICAL RULES:
+- If the user asks about a SPECIFIC program by name (e.g. "explain my First Touch program drills"), classify as agent_fallthrough — NOT show_programs.
+- If the user references a SPECIFIC recommendation by name or quotes it, classify as agent_fallthrough — NOT qa_readiness or recommendations.
+- If the user mentions pain, injury, or soreness in context of "what should I do", classify as agent_fallthrough — NOT qa_readiness.
+- "show_programs" is ONLY for listing all programs (e.g. "my programs", "what programs do I have").
+- "qa_readiness" is ONLY for checking vitals/scores (e.g. "how am I", "my readiness"). NOT for asking what to do about readiness signals.
+- When in doubt, use agent_fallthrough with confidence 0.6.
 
 Return JSON only: {"intent":"<id>","confidence":<0.0-1.0>,"params":{}}
 Extract params if mentioned: testType, date, eventType, targetTab, boardType.

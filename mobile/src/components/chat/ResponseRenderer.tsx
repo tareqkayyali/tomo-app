@@ -726,7 +726,7 @@ function StatGridCard({
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }} contentContainerStyle={{ paddingHorizontal: 4 }}>
       <View style={styles.statGrid}>
-        {card.items.map((item, i) => (
+        {(Array.isArray(card.items) ? card.items : []).map((item, i) => (
           <View
             key={i}
             style={[
@@ -779,7 +779,7 @@ function ScheduleListCard({
   return (
     <View style={styles.scheduleCard}>
       <Text style={styles.scheduleDate}>{card.date}</Text>
-      {card.items.map((item, i) => {
+      {(Array.isArray(card.items) ? card.items : []).map((item, i) => {
         const badgeColor = SCHEDULE_COLORS[item.type] || SCHEDULE_COLORS.other;
         return (
           <View
@@ -832,10 +832,10 @@ function WeekScheduleCard({
       {card.summary ? (
         <Text style={styles.weekScheduleSummary}>{card.summary}</Text>
       ) : null}
-      {card.days.map((day, di) => (
+      {(Array.isArray(card.days) ? card.days : []).map((day, di) => (
         <View key={di}>
           <Text style={styles.weekScheduleDayHeader}>{day.dayLabel}</Text>
-          {day.items.map((item, i) => {
+          {(Array.isArray(day.items) ? day.items : []).map((item, i) => {
             const badgeColor = SCHEDULE_COLORS[item.type] || SCHEDULE_COLORS.other;
             return (
               <View key={i} style={styles.scheduleItem}>
@@ -878,7 +878,7 @@ function ZoneStackCard({
 }) {
   return (
     <View style={styles.zoneCard}>
-      {card.levels.map((level, i) => {
+      {(Array.isArray(card.levels) ? card.levels : []).map((level, i) => {
         const isActive = level.zone === card.current;
         const color = ZONE_COLORS[level.zone];
         return (
@@ -909,7 +909,7 @@ function ClashListCard({
 }) {
   return (
     <View style={styles.clashCard}>
-      {card.clashes.map((clash, i) => (
+      {(Array.isArray(card.clashes) ? card.clashes : []).map((clash, i) => (
         <View key={i} style={styles.clashItem}>
           <Text style={styles.clashEvents}>
             {clash.event1} × {clash.event2}
@@ -972,7 +972,7 @@ function ProgramRecommendationCardComponent({
 }) {
   return (
     <View style={{ gap: 8 }}>
-      {card.programs.slice(0, 5).map((p, i) => {
+      {(Array.isArray(card.programs) ? card.programs : []).slice(0, 5).map((p, i) => {
         const emoji = CATEGORY_EMOJI[p.category?.toLowerCase()] ?? '📋';
         const priorityDot = PRIORITY_EMOJI[p.priority] ?? '';
         return (
@@ -1155,7 +1155,7 @@ function SessionPlanCard({
         </View>
       </View>
 
-      {card.items.map((item, i) => {
+      {(Array.isArray(card.items) ? card.items : []).map((item, i) => {
         const catColor = CATEGORY_COLORS[item.category] || colors.accent;
         const intColors = INTENSITY_COLORS[item.intensity] || INTENSITY_COLORS.moderate;
         return (
@@ -1235,7 +1235,7 @@ function DrillCardComponent({
         <View style={styles.drillCardMetaPill}>
           <Text style={styles.drillCardMetaText}>⏱ {card.duration}min</Text>
         </View>
-        {card.equipment.map((eq, i) => (
+        {(Array.isArray(card.equipment) ? card.equipment : []).map((eq, i) => (
           <View key={i} style={styles.drillCardMetaPill}>
             <Text style={styles.drillCardMetaText}>{eq}</Text>
           </View>
@@ -1250,21 +1250,23 @@ function DrillCardComponent({
       </View>
 
       {/* Instructions */}
-      {card.instructions && card.instructions.length > 0 ? (
+      {Array.isArray(card.instructions) && card.instructions.length > 0 ? (
         <View style={{ gap: 2 }}>
           {card.instructions.map((step, i) => (
             <View key={i} style={styles.drillCardInstructionRow}>
               <Text style={styles.drillCardStepNum}>{i + 1}.</Text>
-              <Text style={styles.drillCardStepText}>{step}</Text>
+              <Text style={styles.drillCardStepText}>{typeof step === 'string' ? step : String(step)}</Text>
             </View>
           ))}
         </View>
+      ) : typeof card.instructions === 'string' && card.instructions.length > 0 ? (
+        <Text style={styles.drillCardStepText}>{card.instructions}</Text>
       ) : null}
 
       {/* Tags */}
       {card.tags && card.tags.length > 0 ? (
         <View style={styles.drillCardTagsRow}>
-          {card.tags.map((tag, i) => (
+          {(Array.isArray(card.tags) ? card.tags : []).map((tag, i) => (
             <View key={i} style={styles.drillCardTag}>
               <Text style={styles.drillCardTagText}>{tag}</Text>
             </View>
@@ -1372,7 +1374,7 @@ function SchedulePreviewCardComponent({
                   </Text>
 
                   {/* Violations */}
-                  {evt.violations.map((v, vi) => (
+                  {(Array.isArray(evt.violations) ? evt.violations : []).map((v, vi) => (
                     <View key={vi} style={styles.schedulePreviewViolation}>
                       <Text style={{ fontSize: 11 }}>
                         {VIOLATION_ICONS[v.type] || '⚠️'}
@@ -1394,7 +1396,7 @@ function SchedulePreviewCardComponent({
                   {/* Alternative time chips */}
                   {evt.alternatives.length > 0 && (
                     <View style={styles.schedulePreviewAltsRow}>
-                      {evt.alternatives.map((alt, ai) => (
+                      {(Array.isArray(evt.alternatives) ? evt.alternatives : []).map((alt, ai) => (
                         <Pressable
                           key={ai}
                           style={({ pressed }) => [
@@ -1563,7 +1565,7 @@ export function ResponseRenderer({
         <Text style={styles.headline}>{response.headline}</Text>
       ) : null}
 
-      {response.cards.map((card, i) => (
+      {(Array.isArray(response.cards) ? response.cards : []).map((card, i) => (
         <RenderCard
           key={i}
           card={card}

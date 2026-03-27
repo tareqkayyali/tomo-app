@@ -117,7 +117,7 @@ function AskTomoButton({ prompt, colors }: { prompt: string; colors: any }) {
           screen: 'MainTabs',
           params: {
             screen: 'Chat',
-            params: { prefillMessage: prompt, newSession: true },
+            params: { prefillMessage: prompt },
           },
         });
       }}

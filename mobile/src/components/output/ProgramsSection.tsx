@@ -819,7 +819,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   screen: 'MainTabs',
                   params: {
                     screen: 'Chat',
-                    params: { prefillMessage: prompt, newSession: true },
+                    params: { prefillMessage: prompt },
                   },
                 });
               }}

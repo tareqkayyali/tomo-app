@@ -596,7 +596,8 @@ export type VisualCard =
   | WhoopSyncCapsule
   | LeaderboardCapsule
   | BulkTimelineEditCapsule
-  | ProgramRecommendationCard;
+  | ProgramRecommendationCard
+  | WeekSchedule;
 
 // ── Action Chips ─────────────────────────────────────────────────
 
