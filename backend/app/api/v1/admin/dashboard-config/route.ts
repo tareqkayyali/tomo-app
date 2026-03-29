@@ -51,6 +51,16 @@ const DEFAULT_CONFIG = {
       emptyValue: "0",
       sortOrder: 4,
     },
+    {
+      id: "hrv",
+      label: "HRV",
+      emoji: "\u2764\uFE0F",
+      dataSource: "metricPercentiles.hrv_rmssd",
+      format: "metric_zone_percentile",
+      enabled: false,
+      emptyValue: "\u2014",
+      sortOrder: 5,
+    },
   ],
   todaySection: {
     enabled: true,
@@ -194,6 +204,16 @@ const DATA_SOURCES = [
   { group: "Profile", field: "streak", label: "Current Streak" },
   { group: "Profile", field: "age", label: "Age" },
   { group: "Benchmark", field: "benchmarkSummary.overallPercentile", label: "Overall Percentile" },
+  // Metric percentiles — zone-based coloring (use format: metric_zone_percentile or metric_zone_value)
+  { group: "Metric Norms", field: "metricPercentiles.hrv_rmssd", label: "HRV (RMSSD) — zone + percentile" },
+  { group: "Metric Norms", field: "metricPercentiles.cmj", label: "CMJ Height — zone + percentile" },
+  { group: "Metric Norms", field: "metricPercentiles.sprint_30m", label: "30m Sprint — zone + percentile" },
+  { group: "Metric Norms", field: "metricPercentiles.sprint_10m", label: "10m Sprint — zone + percentile" },
+  { group: "Metric Norms", field: "metricPercentiles.vo2max", label: "VO2max — zone + percentile" },
+  { group: "Metric Norms", field: "metricPercentiles.yoyo_ir1", label: "Yo-Yo IR1 — zone + percentile" },
+  { group: "Metric Norms", field: "metricPercentiles.agility_505", label: "5-0-5 COD — zone + percentile" },
+  { group: "Metric Norms", field: "metricPercentiles.agility_ttest", label: "T-Test Agility — zone + percentile" },
+  { group: "Metric Norms", field: "metricPercentiles.squat_1rm", label: "Squat 1RM — zone + percentile" },
 ];
 
 const CHIP_CONDITIONS = [
@@ -213,7 +233,10 @@ const FORMAT_OPTIONS = [
   { value: "hours", label: "Hours (e.g. 7.5h)" },
   { value: "percent", label: "Percentage (%)" },
   { value: "text", label: "Text (as-is)" },
-  { value: "readiness_color", label: "Readiness Color (\uD83D\uDFE2\uD83D\uDFE1\uD83D\uDD34)" },
+  { value: "readiness_color", label: "Readiness Color (🟢🟡🔴)" },
+  { value: "metric_zone_percentile", label: "Metric Zone — show percentile (e.g. p68), color by zone" },
+  { value: "metric_zone_value", label: "Metric Zone — show raw value, color by zone" },
+  { value: "metric_zone_label", label: "Metric Zone — show zone label (Elite / Good / Avg), color by zone" },
 ];
 
 const EMOJI_OPTIONS = [

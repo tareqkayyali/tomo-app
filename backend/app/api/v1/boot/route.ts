@@ -150,6 +150,17 @@ export async function GET(request: NextRequest) {
           }
         : null,
 
+      // Per-metric percentiles for status pill zone-based coloring
+      // Shape: { [metricKey]: { percentile, zone, value } }
+      metricPercentiles: benchmarkProfile?.results
+        ? Object.fromEntries(
+            benchmarkProfile.results.map((r: any) => [
+              r.metricKey,
+              { percentile: r.percentile, zone: r.zone, value: r.value },
+            ])
+          )
+        : {},
+
       upcomingExams: upcomingExams.map((e: any) => ({
         title: e.title,
         date: e.start_at,

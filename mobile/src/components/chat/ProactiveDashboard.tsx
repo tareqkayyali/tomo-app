@@ -44,6 +44,7 @@ const DEFAULT_CONFIG: DashboardConfig = {
     { id: 'sleep', label: 'Sleep', emoji: '😴', dataSource: 'latestCheckin.sleepHours', format: 'hours', enabled: true, emptyValue: '—', sortOrder: 2 },
     { id: 'acwr', label: 'ACWR', emoji: '📊', dataSource: 'snapshot.acwr', format: 'decimal1', enabled: true, emptyValue: '—', colorRules: { green: '>= 0.8', yellow: '< 0.8', red: '> 1.3' }, sortOrder: 3 },
     { id: 'streak', label: 'Streak', emoji: '🔥', dataSource: 'streak', format: 'number', enabled: true, emptyValue: '0', sortOrder: 4 },
+    { id: 'hrv', label: 'HRV', emoji: '❤️', dataSource: 'metricPercentiles.hrv_rmssd', format: 'metric_zone_percentile', enabled: false, emptyValue: '—', sortOrder: 5 },
   ],
   todaySection: { enabled: true, maxEvents: 3, showEventTime: true, showRestDayMessage: true, restDayMessage: 'Rest day — recovery focus' },
   flags: [
@@ -128,9 +129,48 @@ function formatValue(value: any, format: string, emptyValue: string): string {
     case 'hours': return `${Number(value)}h`;
     case 'percent': return `${Math.round(Number(value))}%`;
     case 'readiness_color': return getReadinessEmoji(String(value));
+    // Metric zone formats — value is { percentile, zone, value }
+    case 'metric_zone_percentile':
+      if (isMetricZoneObject(value)) return `p${Math.round(value.percentile)}`;
+      return emptyValue;
+    case 'metric_zone_value':
+      if (isMetricZoneObject(value)) return String(Math.round(value.value));
+      return emptyValue;
+    case 'metric_zone_label':
+      if (isMetricZoneObject(value)) return getZoneLabel(value.zone);
+      return emptyValue;
     case 'text':
     default: return String(value);
   }
+}
+
+// ── Zone-based color helpers (normative percentile zones) ─────────────
+
+function getZoneColor(zone: string): string {
+  switch (zone?.toLowerCase()) {
+    case 'elite':      return '#00D9FF'; // Tomo Teal — top tier
+    case 'good':       return '#30D158'; // Green — above average
+    case 'average':    return '#F39C12'; // Yellow — average
+    case 'developing': return '#FF6B35'; // Orange — below average
+    case 'below':      return '#E74C3C'; // Red — needs attention
+    default:           return '#888';
+  }
+}
+
+function getZoneLabel(zone: string): string {
+  switch (zone?.toLowerCase()) {
+    case 'elite':      return 'Elite';
+    case 'good':       return 'Good';
+    case 'average':    return 'Avg';
+    case 'developing': return 'Dev';
+    case 'below':      return 'Low';
+    default:           return zone ?? '—';
+  }
+}
+
+/** Returns true if the raw value is a metric zone object { percentile, zone, value } */
+function isMetricZoneObject(val: any): val is { percentile: number; zone: string; value: number } {
+  return val != null && typeof val === 'object' && 'zone' in val && 'percentile' in val;
 }
 
 function getReadinessEmoji(readiness: string): string {
@@ -168,7 +208,11 @@ function evaluateColorRule(value: any, rule: string): boolean {
   return false;
 }
 
-function getPillColor(value: any, colorRules?: DashboardPillConfig['colorRules']): string | undefined {
+function getPillColor(value: any, format: string, colorRules?: DashboardPillConfig['colorRules']): string | undefined {
+  // Zone-based coloring for metric percentile formats
+  if (format.startsWith('metric_zone_') && isMetricZoneObject(value)) {
+    return getZoneColor(value.zone);
+  }
   if (!colorRules || value == null) return undefined;
   if (colorRules.red && evaluateColorRule(value, colorRules.red)) return '#E74C3C';
   if (colorRules.yellow && evaluateColorRule(value, colorRules.yellow)) return '#F39C12';
@@ -251,10 +295,12 @@ export const ProactiveDashboard = React.memo(function ProactiveDashboard({
           emoji = getReadinessEmoji(String(rawValue));
         }
 
-        // Color from rules or readiness
+        // Color from zone (metric norms), explicit rules, or readiness
         let color: string | undefined;
-        if (pill.colorRules) {
-          color = getPillColor(rawValue, pill.colorRules);
+        if (pill.format.startsWith('metric_zone_')) {
+          color = getPillColor(rawValue, pill.format, pill.colorRules);
+        } else if (pill.colorRules) {
+          color = getPillColor(rawValue, pill.format, pill.colorRules);
         } else if (pill.format === 'readiness_color' && rawValue) {
           color = getReadinessColor(String(rawValue));
         }

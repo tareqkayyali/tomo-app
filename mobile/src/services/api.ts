@@ -154,6 +154,8 @@ export interface BootData {
     topStrength: string | null;
     topGap: string | null;
   } | null;
+  /** Per-metric percentile snapshots — keyed by metricKey (e.g. "hrv_rmssd", "cmj", "sprint_30m") */
+  metricPercentiles: Record<string, { percentile: number; zone: string; value: number }>;
   upcomingExams: { title: string; date: string }[];
   fetchedAt: string;
 }
