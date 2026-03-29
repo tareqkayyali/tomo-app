@@ -415,7 +415,7 @@ async function handleWhoopSync(
     const db = supabaseAdmin();
     const { data: connection } = await (db as any).from("wearable_connections").select("provider, last_sync_at").eq("user_id", context.userId).eq("provider", "whoop").maybeSingle();
     const connected = !!connection;
-    const lastSyncAt = (connection as any)?.last_sync_at ? new Date((connection as any).last_sync_at).toLocaleString() : undefined;
+    const lastSyncAt = (connection as any)?.last_sync_at ? new Date((connection as any).last_sync_at).toLocaleString("en-GB", { timeZone: context.timezone, hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short", hour12: false }) : undefined;
 
     return {
       message: connected ? "Whoop ready to sync" : "Whoop not connected",
@@ -1116,6 +1116,154 @@ async function handleBulkEditEvents(
   return null;
 }
 
+// ── Journal Pre-Session Handler ──
+async function handleJournalPre(
+  _message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  try {
+    const db = supabaseAdmin();
+    const today = context.todayDate;
+    const tomorrow = new Date(new Date(today).getTime() + 24 * 3600 * 1000).toISOString().split('T')[0];
+
+    // Fetch today + tomorrow training/match/recovery events
+    const { data: events } = await db
+      .from('calendar_events')
+      .select('id, title, event_type, start_at, end_at')
+      .eq('user_id', context.userId)
+      .gte('start_at', `${today}T00:00:00Z`)
+      .lte('start_at', `${tomorrow}T23:59:59Z`)
+      .in('event_type', ['training', 'match', 'recovery'])
+      .order('start_at', { ascending: true });
+
+    if (!events || events.length === 0) {
+      return {
+        message: "No training sessions found today or tomorrow. Add a session to your Timeline first, then set your target.",
+        structured: buildTextResponse("No training sessions found today or tomorrow. Add a session to your Timeline first, then set your target."),
+        refreshTargets: [],
+        agentType: "output",
+      };
+    }
+
+    // Check which already have journals
+    const eventIds = events.map(e => e.id);
+    const { data: journals } = await (db as any)
+      .from('training_journals')
+      .select('calendar_event_id, journal_state, pre_target')
+      .eq('user_id', context.userId)
+      .in('calendar_event_id', eventIds);
+
+    const journalMap = new Map<string, any>((journals ?? []).map((j: any) => [j.calendar_event_id, j]));
+
+    // Build list of events with journal state
+    const todaysTrainings = events.map(e => {
+      const j: any = journalMap.get(e.id);
+      const variantMap: Record<string, string> = { training: 'standard', match: 'match', recovery: 'recovery' };
+      return {
+        eventId: e.id,
+        name: e.title,
+        eventType: e.event_type,
+        startTime: e.start_at,
+        journalState: j?.journal_state ?? 'empty',
+        journalVariant: variantMap[e.event_type] ?? 'standard',
+        hasPreJournal: j?.journal_state === 'pre_set' || j?.journal_state === 'complete',
+      };
+    });
+
+    // Auto-select first event that needs a pre-journal
+    const autoSelect = todaysTrainings.find(t => !t.hasPreJournal) ?? todaysTrainings[0];
+
+    return {
+      message: "Set your training target",
+      structured: {
+        headline: "Set your training target",
+        cards: [{
+          type: "training_journal_pre_capsule" as const,
+          calendar_event_id: autoSelect.eventId,
+          event_name: autoSelect.name,
+          event_time: new Date(autoSelect.startTime).toLocaleTimeString('en-GB', { timeZone: context.timezone, hour: '2-digit', minute: '2-digit', hour12: false }),
+          event_category: autoSelect.eventType,
+          journal_variant: autoSelect.journalVariant,
+          todays_trainings: todaysTrainings,
+        }],
+        chips: [
+          { label: "View timeline", action: "what's on my schedule today?" },
+        ],
+      },
+      refreshTargets: [],
+      agentType: "output",
+    };
+  } catch (e) {
+    logger.warn("[intent-handler] journal_pre failed", { error: e });
+    return null;
+  }
+}
+
+// ── Journal Post-Session Handler ──
+async function handleJournalPost(
+  _message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  try {
+    const db = supabaseAdmin();
+    const today = context.todayDate;
+    const yesterday = new Date(new Date(today).getTime() - 24 * 3600 * 1000).toISOString().split('T')[0];
+
+    // Fetch today + yesterday events that have pre_set journals (need reflection)
+    const { data: journals } = await (db as any)
+      .from('training_journals')
+      .select('id, calendar_event_id, training_name, training_category, pre_target, journal_state, journal_variant, event_date')
+      .eq('user_id', context.userId)
+      .in('journal_state', ['pre_set', 'empty'])
+      .gte('event_date', yesterday)
+      .lte('event_date', today)
+      .order('event_date', { ascending: false });
+
+    if (!journals || journals.length === 0) {
+      // No pending reflections — check if there are any events at all
+      return {
+        message: "No pending reflections right now. Set a target before your next session, and I'll remind you to reflect afterward.",
+        structured: buildTextResponse("No pending reflections right now. Set a target before your next session, and I'll remind you to reflect afterward."),
+        refreshTargets: [],
+        agentType: "output",
+      };
+    }
+
+    // Auto-select the most recent one needing reflection (prefer pre_set over empty)
+    const preSetJournals = journals.filter((j: any) => j.journal_state === 'pre_set');
+    const autoSelect = preSetJournals[0] ?? journals[0];
+
+    return {
+      message: "Log your reflection",
+      structured: {
+        headline: "Log your reflection",
+        cards: [{
+          type: "training_journal_post_capsule" as const,
+          calendar_event_id: autoSelect.calendar_event_id,
+          journal_id: autoSelect.id,
+          event_name: autoSelect.training_name,
+          event_date: autoSelect.event_date,
+          journal_variant: autoSelect.journal_variant,
+          pre_target: autoSelect.pre_target ?? null,
+          pending_journals: journals.map((j: any) => ({
+            journalId: j.id,
+            eventId: j.calendar_event_id,
+            name: j.training_name,
+            date: j.event_date,
+            state: j.journal_state,
+          })),
+        }],
+        chips: [
+          { label: "View timeline", action: "what's on my schedule today?" },
+        ],
+      },
+      refreshTargets: [],
+      agentType: "output",
+    };
+  } catch (e) {
+    logger.warn("[intent-handler] journal_post failed", { error: e });
+    return null;
+  }
+}
+
 // ── HANDLER REGISTRY ──────────────────────────────────────
 
 export const intentHandlers: Record<string, IntentHandler> = {
@@ -1156,4 +1304,7 @@ export const intentHandlers: Record<string, IntentHandler> = {
   qa_week_schedule: handleQaWeekSchedule,
   qa_test_history: handleQaTestHistory,
   bulk_edit_events: handleBulkEditEvents,
+  // Journal
+  journal_pre: handleJournalPre,
+  journal_post: handleJournalPost,
 };

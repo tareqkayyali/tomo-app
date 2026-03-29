@@ -56,6 +56,30 @@ export async function writeSnapshot(athleteId: string, event: AthleteEvent): Pro
     case 'COMPETITION_RESULT':
       update.last_session_at = event.occurred_at;
       break;
+
+    case 'JOURNAL_PRE_SESSION':
+    case 'JOURNAL_POST_SESSION': {
+      const journalPayload = event.payload as Record<string, unknown>;
+      if (journalPayload.computed_journal_completeness_7d !== undefined) {
+        (update as any).journal_completeness_7d = journalPayload.computed_journal_completeness_7d;
+      }
+      if (journalPayload.computed_journal_streak_days !== undefined) {
+        (update as any).journal_streak_days = journalPayload.computed_journal_streak_days;
+      }
+      if (journalPayload.computed_target_achievement_rate_30d !== undefined) {
+        (update as any).target_achievement_rate_30d = journalPayload.computed_target_achievement_rate_30d;
+      }
+      if (journalPayload.computed_pending_pre_count !== undefined) {
+        (update as any).pending_pre_journal_count = journalPayload.computed_pending_pre_count;
+      }
+      if (journalPayload.computed_pending_post_count !== undefined) {
+        (update as any).pending_post_journal_count = journalPayload.computed_pending_post_count;
+      }
+      if (journalPayload.computed_last_journal_at) {
+        (update as any).last_journal_at = journalPayload.computed_last_journal_at;
+      }
+      break;
+    }
   }
 
   // Ensure the snapshot row exists (first event for a new athlete)

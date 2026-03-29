@@ -38,6 +38,7 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
+import { emitRefresh } from '../utils/refreshBus';
 import { spacing, borderRadius, shadows, fontFamily } from '../theme';
 import { getArchetypeProfile } from '../services/archetypeProfile';
 import { submitCheckin } from '../services/api';
@@ -361,6 +362,8 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
       const response: CheckinResponse = await submitCheckin(payload);
       setIsComplete(true);
       track('checkin_complete', { readiness: response.plan?.readinessLevel, sport: profile?.sport });
+      emitRefresh('readiness');
+      emitRefresh('recommendations');
 
       const newlyUnlocked = response.gamification?.milestones?.newlyUnlocked;
       if (newlyUnlocked && newlyUnlocked.length > 0) {

@@ -157,6 +157,8 @@ export async function POST(req: NextRequest) {
       mood: parsed.data.mood,
       effort_yesterday: parsed.data.effortYesterday,
       academic_stress: parsed.data.academicStress || null,
+      computed_readiness_level: plan.readiness,
+      computed_readiness_score: null, // Handler will compute the actual score
     },
     createdBy: auth.user.id,
   });

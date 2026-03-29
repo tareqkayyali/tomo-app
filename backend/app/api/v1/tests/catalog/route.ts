@@ -47,10 +47,10 @@ const TEST_CATALOG: TestCatalogItem[] = [
   { id: "seated-mb-throw", name: "Seated MB Throw", category: "Power", unit: "cm", emoji: "💪", description: "Seated medicine ball throw for distance", direction: "higher", tags: ["throw", "medicine ball", "power", "upper body", "seated"] },
 
   // Agility
-  { id: "t-test", name: "Agility T-Test", category: "Agility", unit: "sec", emoji: "🔀", description: "Forward/lateral/backward T-shaped run", direction: "lower", tags: ["agility", "change of direction", "t-test"] },
-  { id: "5-0-5", name: "5-0-5 Agility", category: "Agility", unit: "sec", emoji: "🔀", description: "5m sprint, turn, 5m sprint back", direction: "lower", tags: ["agility", "change of direction", "505"] },
-  { id: "illinois-agility", name: "Illinois Agility", category: "Agility", unit: "sec", emoji: "🔀", description: "Illinois course agility run", direction: "lower", tags: ["agility", "illinois", "running"] },
-  { id: "pro-agility", name: "Pro Agility (5-10-5)", category: "Agility", unit: "sec", emoji: "🔀", description: "NFL combine style shuttle", direction: "lower", tags: ["agility", "shuttle", "nfl"] },
+  { id: "5-0-5", name: "5-0-5 Agility", category: "Agility", unit: "sec", emoji: "🔀", description: "5m sprint, 180° turn, 5m sprint back", direction: "lower", tags: ["agility", "change of direction", "505", "cod"] },
+  { id: "t-test", name: "T-Test Agility", category: "Agility", unit: "sec", emoji: "🔀", description: "Forward, lateral, backward T-shaped agility run", direction: "lower", tags: ["agility", "change of direction", "t-test", "lateral"] },
+  { id: "5-10-5-agility", name: "5-10-5 Agility", category: "Agility", unit: "sec", emoji: "🔀", description: "5yd–10yd–5yd lateral shuttle run (Pro Agility)", direction: "lower", tags: ["agility", "shuttle", "5-10-5", "pro agility", "change of direction"] },
+  { id: "illinois-agility", name: "Illinois Agility", category: "Agility", unit: "sec", emoji: "🔀", description: "Weaving cone course with sprints and turns", direction: "lower", tags: ["agility", "illinois", "running", "cones"] },
   { id: "arrowhead-agility", name: "Arrowhead Agility", category: "Agility", unit: "sec", emoji: "🔀", description: "Multi-directional arrowhead course", direction: "lower", tags: ["agility", "arrowhead", "change of direction"] },
 
   // Endurance / Aerobic

@@ -28,6 +28,14 @@ const SORENESS_OPTIONS = [
   { value: 10, emoji: '🤕' },
 ];
 
+const MOOD_OPTIONS = [
+  { value: 2, emoji: '😞' },
+  { value: 4, emoji: '😕' },
+  { value: 6, emoji: '😊' },
+  { value: 8, emoji: '😄' },
+  { value: 10, emoji: '🤩' },
+];
+
 const SLEEP_OPTIONS = [
   { id: '4', label: '<5h' },
   { id: '5.5', label: '5-6h' },
@@ -44,12 +52,13 @@ interface CheckinCapsuleProps {
 export function CheckinCapsuleComponent({ card, onSubmit }: CheckinCapsuleProps) {
   const [energy, setEnergy] = useState<number | undefined>();
   const [soreness, setSoreness] = useState<number | undefined>();
+  const [mood, setMood] = useState<number | undefined>();
   const [sleepHours, setSleepHours] = useState<string>('');
   const [painFlag, setPainFlag] = useState(false);
   const [painLocation, setPainLocation] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = energy !== undefined && soreness !== undefined && sleepHours !== '';
+  const canSubmit = energy !== undefined && soreness !== undefined && mood !== undefined && sleepHours !== '';
 
   const handleSubmit = () => {
     if (!canSubmit || submitting) return;
@@ -61,6 +70,7 @@ export function CheckinCapsuleComponent({ card, onSubmit }: CheckinCapsuleProps)
       toolInput: {
         energy,
         soreness,
+        mood,
         sleepHours: parseFloat(sleepHours),
         painFlag,
         ...(painFlag && painLocation ? { painLocation } : {}),
@@ -104,6 +114,13 @@ export function CheckinCapsuleComponent({ card, onSubmit }: CheckinCapsuleProps)
         options={SORENESS_OPTIONS}
         selected={soreness}
         onSelect={setSoreness}
+      />
+
+      <EmojiScale
+        label="Mood 😊"
+        options={MOOD_OPTIONS}
+        selected={mood}
+        onSelect={setMood}
       />
 
       <View style={styles.painRow}>

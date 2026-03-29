@@ -18,7 +18,8 @@ export type RecType =
   | 'ACADEMIC'
   | 'CV_OPPORTUNITY'
   | 'TRIANGLE_ALERT'
-  | 'MOTIVATION';
+  | 'MOTIVATION'
+  | 'JOURNAL_NUDGE';
 
 export type RecStatus =
   | 'PENDING'
@@ -47,6 +48,7 @@ export interface Recommendation {
   confidence_score: number;
   evidence_basis: Record<string, unknown>;
   trigger_event_id: string | null;
+  parent_rec_id: string | null;
   context: Record<string, unknown>;
   visible_to_athlete: boolean;
   visible_to_coach: boolean;
@@ -71,6 +73,7 @@ export interface RecommendationInsert {
   confidence_score: number;
   evidence_basis: Record<string, unknown>;
   trigger_event_id?: string | null;
+  parent_rec_id?: string | null;
   context: Record<string, unknown>;
   visible_to_athlete?: boolean;
   visible_to_coach?: boolean;

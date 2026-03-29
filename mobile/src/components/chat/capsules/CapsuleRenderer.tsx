@@ -30,6 +30,8 @@ import { ExamCapsuleComponent } from './ExamCapsule';
 import { SubjectCapsuleComponent } from './SubjectCapsule';
 import { TrainingCategoryCapsuleComponent } from './TrainingCategoryCapsule';
 import { BulkTimelineEditCapsuleComponent } from './BulkTimelineEditCapsule';
+import { TrainingJournalPreCapsuleComponent } from './TrainingJournalPreCapsule';
+import { TrainingJournalPostCapsuleComponent } from './TrainingJournalPostCapsule';
 
 interface CapsuleRendererProps {
   card: VisualCard;
@@ -91,6 +93,10 @@ export function CapsuleRenderer({ card, onSubmit, onNavigate }: CapsuleRendererP
       return <TrainingCategoryCapsuleComponent card={card} onSubmit={onSubmit} />;
     case 'bulk_timeline_edit_capsule':
       return <BulkTimelineEditCapsuleComponent card={card} onSubmit={onSubmit} />;
+    case 'training_journal_pre_capsule':
+      return <TrainingJournalPreCapsuleComponent card={card} onSubmit={onSubmit} />;
+    case 'training_journal_post_capsule':
+      return <TrainingJournalPostCapsuleComponent card={card} onSubmit={onSubmit} />;
     default:
       return null;
   }
@@ -124,5 +130,7 @@ export function isCapsuleCard(type: string): boolean {
     'subject_capsule',
     'training_category_capsule',
     'bulk_timeline_edit_capsule',
+    'training_journal_pre_capsule',
+    'training_journal_post_capsule',
   ].includes(type);
 }

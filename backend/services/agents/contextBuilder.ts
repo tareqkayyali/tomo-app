@@ -52,8 +52,9 @@ export interface PlayerContext {
     painFlag: boolean;
   } | null;
 
-  // Academic
+  // Academic & Upcoming
   upcomingExams: CalendarEvent[];
+  upcomingEvents: CalendarEvent[]; // next 7 days, all types (study blocks, training, etc.)
   academicLoadScore: number; // 0-10 derived from exam density
 
   // Health
@@ -153,6 +154,14 @@ export interface SnapshotEnrichment {
   readinessRag: string | null;
   readinessScore: number | null;          // 0-100 (more granular than Green/Yellow/Red)
   lastCheckinAt: string | null;           // ISO timestamp of last checkin
+
+  // Journal
+  journalCompleteness7d: number | null;   // 0–1 ratio
+  journalStreakDays: number;
+  targetAchievementRate30d: number | null; // 0–1 ratio
+  lastJournalAt: string | null;
+  pendingPreJournalCount: number;
+  pendingPostJournalCount: number;
 }
 
 export interface CalendarEvent {
@@ -210,6 +219,7 @@ export async function buildPlayerContext(
     projectedLoadRes,
     recsRes,
     benchmarkProfileRes,
+    upcomingEventsRes,
   ] = await Promise.allSettled([
     (db as any)
       .from("users")
@@ -275,6 +285,14 @@ export async function buildPlayerContext(
     getRecommendations(userId, { role: "ATHLETE", limit: 5 }),
     // Benchmark profile from normative data (moved into parallel block)
     getPlayerBenchmarkProfile(userId),
+    // Upcoming events (next 7 days, all types) — for study block visibility in recs
+    db
+      .from("calendar_events")
+      .select("id, title, event_type, start_at, end_at, notes, intensity")
+      .eq("user_id", userId)
+      .gte("start_at", dayEndISO)
+      .lte("start_at", in7DaysEndISO)
+      .order("start_at"),
   ]);
 
   const profile =
@@ -312,6 +330,10 @@ export async function buildPlayerContext(
     (sum: number, r: any) => sum + (r.estimated_load_au ?? 0),
     0,
   );
+
+  // Upcoming events (next 7 days, all types — for study block visibility)
+  const upcomingEvents =
+    upcomingEventsRes.status === "fulfilled" ? (upcomingEventsRes.value.data ?? []) : [];
 
   // Layer 4 recs — map to lightweight ActiveRecommendation[]
   const rawRecs: Recommendation[] =
@@ -353,6 +375,13 @@ export async function buildPlayerContext(
         readinessRag: (snapshot.readiness_rag as string) ?? null,
         readinessScore: (snapshot.readiness_score as number) ?? null,
         lastCheckinAt: (snapshot.last_checkin_at as string) ?? null,
+        // Journal
+        journalCompleteness7d: (snapshot as any).journal_completeness_7d ?? null,
+        journalStreakDays: (snapshot as any).journal_streak_days ?? 0,
+        targetAchievementRate30d: (snapshot as any).target_achievement_rate_30d ?? null,
+        lastJournalAt: (snapshot as any).last_journal_at ?? null,
+        pendingPreJournalCount: (snapshot as any).pending_pre_journal_count ?? 0,
+        pendingPostJournalCount: (snapshot as any).pending_post_journal_count ?? 0,
         projectedLoad7day: projectedLoadSum > 0 ? projectedLoadSum : null,
         projectedACWR: (() => {
           const currentCTL = (snapshot.ctl_28day as number) ?? 0;
@@ -480,6 +509,7 @@ export async function buildPlayerContext(
     readinessScore: latestCheckin?.readiness ?? null,
     readinessComponents,
     upcomingExams: exams,
+    upcomingEvents, // next 7 days, all event types (for study block visibility)
     academicLoadScore,
     recentVitals: vitals.map((v: any) => ({
       metric: v.metric_type,
@@ -510,9 +540,19 @@ export async function buildPlayerContext(
  */
 export function getTimezoneOffsetMs(tz: string, date: Date = new Date()): number {
   try {
-    const utcStr = date.toLocaleString("en-US", { timeZone: "UTC" });
-    const tzStr = date.toLocaleString("en-US", { timeZone: tz });
-    return new Date(tzStr).getTime() - new Date(utcStr).getTime();
+    // Use formatToParts for reliable cross-runtime offset calculation
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    }).formatToParts(date);
+    const p: Record<string, string> = {};
+    for (const part of parts) {
+      if (part.type !== 'literal') p[part.type] = part.value;
+    }
+    const tzDateStr = `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}Z`;
+    return new Date(tzDateStr).getTime() - date.getTime();
   } catch {
     return 0; // fallback to UTC if timezone is invalid
   }
@@ -528,9 +568,37 @@ export function toTimezoneISO(
   time: string,
   tz: string
 ): string {
-  const offsetMs = getTimezoneOffsetMs(tz);
-  const naive = new Date(`${date}T${time}+00:00`);
-  return new Date(naive.getTime() - offsetMs).toISOString();
+  // Use formatToParts approach (same as calendarHelpers.localToUtc)
+  // — reliable across all runtimes (Vercel, Node, browser)
+  try {
+    const timeParts = time.split(':');
+    const normTime = timeParts.length >= 3
+      ? `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}`
+      : `${timeParts[0]}:${timeParts[1]}:00`;
+
+    const refDate = new Date(`${date}T12:00:00Z`);
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    }).formatToParts(refDate);
+
+    const p: Record<string, string> = {};
+    for (const part of parts) {
+      if (part.type !== 'literal') p[part.type] = part.value;
+    }
+
+    const tzDateStr = `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}Z`;
+    const offsetMs = new Date(tzDateStr).getTime() - refDate.getTime();
+    const naive = new Date(`${date}T${normTime}Z`);
+    return new Date(naive.getTime() - offsetMs).toISOString();
+  } catch {
+    // Fallback to old method
+    const offsetMs = getTimezoneOffsetMs(tz);
+    const naive = new Date(`${date}T${time}+00:00`);
+    return new Date(naive.getTime() - offsetMs).toISOString();
+  }
 }
 
 /**

@@ -220,15 +220,28 @@ export async function POST(req: NextRequest) {
         ? `[CAPSULE_RESULT] The action "${toolName}" failed: ${toolResult.error}. Let the player know what went wrong.`
         : `[CAPSULE_RESULT] The action "${toolName}" succeeded. Result: ${JSON.stringify(toolResult.result)}. Confirm the result to the player with a brief, encouraging response and suggest next steps.`;
 
-      const capsuleResult = await orchestrate(
-        resultSummary,
-        context,
-        undefined,
-        conversationHistory,
-        agentType,
-        agentType,
-        conversationState
-      );
+      // Try AI-powered response, fall back to deterministic if Claude is unavailable
+      let capsuleResult: { message: string; structured?: any; agentType?: string; refreshTargets?: string[] };
+      try {
+        capsuleResult = await orchestrate(
+          resultSummary,
+          context,
+          undefined,
+          conversationHistory,
+          agentType,
+          agentType,
+          conversationState
+        );
+      } catch (orchErr) {
+        console.warn("[chat-agent] Orchestrate failed for capsule, using deterministic fallback:", orchErr);
+        // Deterministic fallback — no AI needed
+        if (toolResult.error) {
+          capsuleResult = { message: `❌ ${toolResult.error}`, agentType };
+        } else {
+          const friendlyName = toolName.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+          capsuleResult = { message: `✅ ${friendlyName} — done!`, agentType };
+        }
+      }
 
       if (sessionId) {
         try {

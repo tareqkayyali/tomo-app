@@ -30,8 +30,11 @@ import {
   fontFamily,
 } from '../theme';
 import { useTheme } from '../hooks/useTheme';
+import { emitRefresh } from '../utils/refreshBus';
 import type { ThemeColors } from '../theme/colors';
-import { updateCalendarEvent, deleteCalendarEvent } from '../services/api';
+import { updateCalendarEvent, deleteCalendarEvent, getJournalForEvent, searchPrograms } from '../services/api';
+import type { JournalEntry, ProgramSearchResult } from '../services/api';
+import { JournalSheet } from '../components/journal/JournalSheet';
 import { useScheduleRules } from '../hooks/useScheduleRules';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -252,18 +255,61 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
 
   const showIntensity = params.type === 'training' || params.type === 'match';
 
+  // ── Journal ──
+  const [journal, setJournal] = useState<JournalEntry | null>(null);
+  const [journalSheetOpen, setJournalSheetOpen] = useState(false);
+  const isJournalEligible = ['training', 'match', 'recovery'].includes(params.type);
+
+  useEffect(() => {
+    if (!isJournalEligible) return;
+    getJournalForEvent(params.eventId).then(({ journal: j }) => setJournal(j)).catch(() => {});
+  }, [params.eventId, isJournalEligible]);
+
   // ── Linked Programs (local state — saved on Save) ──
   const [linkedPrograms, setLinkedPrograms] = useState<Array<{ programId: string; name: string; category?: string }>>(
     (params as any).linkedPrograms ?? []
   );
   const [removedProgramIds, setRemovedProgramIds] = useState<string[]>([]);
+  const [addedPrograms, setAddedPrograms] = useState<Array<{ programId: string; name: string; category?: string }>>([]);
+  const [showProgramSearch, setShowProgramSearch] = useState(false);
+  const [programSearchQuery, setProgramSearchQuery] = useState('');
+  const [programSearchResults, setProgramSearchResults] = useState<ProgramSearchResult[]>([]);
+  const [programSearchLoading, setProgramSearchLoading] = useState(false);
   const { rules, update: updateRules } = useScheduleRules();
 
   const handleUnlinkProgram = useCallback((programId: string) => {
     setLinkedPrograms(prev => prev.filter(lp => lp.programId !== programId));
+    setAddedPrograms(prev => prev.filter(p => p.programId !== programId));
     setRemovedProgramIds(prev => [...prev, programId]);
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
+
+  const handleLinkProgram = useCallback((program: ProgramSearchResult) => {
+    const alreadyLinked = linkedPrograms.some(lp => lp.programId === program.id)
+      || addedPrograms.some(p => p.programId === program.id);
+    if (alreadyLinked) return;
+
+    const newLink = { programId: program.id, name: program.name, category: program.category };
+    setLinkedPrograms(prev => [...prev, { ...newLink, linkedAt: new Date().toISOString(), expiresAt: '' }]);
+    setAddedPrograms(prev => [...prev, newLink]);
+    setShowProgramSearch(false);
+    setProgramSearchQuery('');
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [linkedPrograms, addedPrograms]);
+
+  // Debounced program search
+  useEffect(() => {
+    if (!showProgramSearch) return;
+    const timer = setTimeout(async () => {
+      setProgramSearchLoading(true);
+      try {
+        const { programs } = await searchPrograms(programSearchQuery || undefined);
+        setProgramSearchResults(programs ?? []);
+      } catch { setProgramSearchResults([]); }
+      finally { setProgramSearchLoading(false); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [programSearchQuery, showProgramSearch]);
 
   // ── Handlers ──
 
@@ -299,9 +345,49 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
           console.warn('[EventEdit] Failed to persist unlinked programs:', e);
         }
       }
+      // Persist newly linked programs to matching training category
+      if (addedPrograms.length > 0) {
+        try {
+          const categories = rules?.preferences?.training_categories ?? [];
+          const eventTitle = (name || params.name).toLowerCase();
+
+          // Find matching category: by label first, then first enabled training category
+          let matchIndex = categories.findIndex((cat: any) =>
+            cat.label.toLowerCase() === eventTitle
+          );
+          if (matchIndex === -1) {
+            // Fallback: first enabled category
+            matchIndex = categories.findIndex((cat: any) => cat.enabled);
+          }
+
+          if (matchIndex >= 0) {
+            const updatedCats = categories.map((cat: any, idx: number) => {
+              if (idx !== matchIndex) return cat;
+              const existingIds = new Set((cat.linkedPrograms ?? []).map((lp: any) => lp.programId));
+              const newLinks = addedPrograms
+                .filter(p => !existingIds.has(p.programId))
+                .map(p => ({
+                  programId: p.programId,
+                  name: p.name,
+                  category: p.category,
+                  linkedAt: new Date().toISOString(),
+                  expiresAt: '',
+                }));
+              return {
+                ...cat,
+                linkedPrograms: [...(cat.linkedPrograms ?? []), ...newLinks],
+              };
+            });
+            await updateRules({ training_categories: updatedCats });
+          }
+        } catch (e) {
+          console.warn('[EventEdit] Failed to persist linked programs:', e);
+        }
+      }
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
+      emitRefresh('calendar');
       navigation.goBack();
     } catch (e: any) {
       const msg = e?.message || 'Unknown error';
@@ -314,7 +400,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
     } finally {
       setSaving(false);
     }
-  }, [saving, params, name, date, startTime, endTime, notes, intensity, navigation, removedProgramIds, rules, updateRules]);
+  }, [saving, params, name, date, startTime, endTime, notes, intensity, navigation, removedProgramIds, addedPrograms, rules, updateRules]);
 
   const handleDelete = useCallback(async () => {
     if (Platform.OS !== 'web') {
@@ -324,6 +410,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
       if (window.confirm(`Remove "${name}"?`)) {
         try {
           await deleteCalendarEvent(params.eventId);
+          emitRefresh('calendar');
           navigation.goBack();
         } catch {
           window.alert('Could not delete event.');
@@ -338,6 +425,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
           onPress: async () => {
             try {
               await deleteCalendarEvent(params.eventId);
+              emitRefresh('calendar');
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               navigation.goBack();
             } catch {
@@ -504,10 +592,10 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
           </View>
 
           {/* ═══ Linked Programs ═══ */}
-          {params.type === 'training' && linkedPrograms.length > 0 && (
+          {params.type === 'training' && (
             <View style={styles.group}>
               <Text style={styles.groupLabel}>Linked Programs</Text>
-              {linkedPrograms.map((lp: any) => (
+              {linkedPrograms.length > 0 && linkedPrograms.map((lp: any) => (
                 <View key={lp.programId} style={[styles.linkedProgramRow, { backgroundColor: colors.glass }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.linkedProgramName, { color: colors.textOnDark }]}>{lp.name}</Text>
@@ -535,6 +623,61 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
                   </Pressable>
                 </View>
               ))}
+              <Pressable
+                onPress={() => setShowProgramSearch(true)}
+                style={({ pressed }) => [
+                  { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, opacity: pressed ? 0.6 : 1 },
+                ]}
+              >
+                <Ionicons name="add-circle-outline" size={18} color={colors.accent2} />
+                <Text style={{ fontFamily: fontFamily.medium, fontSize: 14, color: colors.accent2 }}>
+                  Link Program
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* ═══ Journal ═══ */}
+          {isJournalEligible && (
+            <View style={styles.group}>
+              <Text style={styles.groupLabel}>Training Journal</Text>
+              {journal?.pre_target ? (
+                <View style={{ gap: 8 }}>
+                  <View style={{ backgroundColor: colors.glass, borderRadius: borderRadius.sm, padding: spacing.sm }}>
+                    <Text style={{ fontFamily: fontFamily.medium, fontSize: 12, color: colors.textMuted, marginBottom: 2 }}>Target</Text>
+                    <Text style={{ fontFamily: fontFamily.regular, fontSize: 14, color: colors.textOnDark }}>{journal.pre_target}</Text>
+                  </View>
+                  {journal?.post_reflection && (
+                    <View style={{ backgroundColor: colors.glass, borderRadius: borderRadius.sm, padding: spacing.sm }}>
+                      <Text style={{ fontFamily: fontFamily.medium, fontSize: 12, color: colors.textMuted, marginBottom: 2 }}>
+                        Reflection — {journal.post_outcome === 'hit_it' ? 'Hit it' : journal.post_outcome === 'exceeded' ? 'Exceeded' : 'Fell short'}
+                      </Text>
+                      <Text style={{ fontFamily: fontFamily.regular, fontSize: 14, color: colors.textOnDark }}>{journal.post_reflection}</Text>
+                    </View>
+                  )}
+                  {journal?.ai_insight && (
+                    <View style={{ flexDirection: 'row', gap: 6, backgroundColor: colors.accent2 + '10', borderRadius: borderRadius.sm, padding: spacing.sm }}>
+                      <Ionicons name="sparkles-outline" size={14} color={colors.accent2} />
+                      <Text style={{ fontFamily: fontFamily.regular, fontSize: 13, color: colors.textMuted, flex: 1 }}>{journal.ai_insight}</Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <Text style={{ fontFamily: fontFamily.regular, fontSize: 13, color: colors.textMuted }}>
+                  No journal entry yet.
+                </Text>
+              )}
+              <Pressable
+                onPress={() => setJournalSheetOpen(true)}
+                style={({ pressed }) => [
+                  { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, opacity: pressed ? 0.6 : 1 },
+                ]}
+              >
+                <Ionicons name="book-outline" size={16} color={colors.accent2} />
+                <Text style={{ fontFamily: fontFamily.medium, fontSize: 14, color: colors.accent2 }}>
+                  {journal?.pre_target ? 'Edit Journal' : 'Add Journal Entry'}
+                </Text>
+              </Pressable>
             </View>
           )}
 
@@ -607,6 +750,108 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
           </Pressable>
         </Modal>
       </KeyboardAvoidingView>
+
+      {/* Program Search Modal */}
+      <Modal visible={showProgramSearch} transparent animationType="slide">
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }} onPress={() => setShowProgramSearch(false)}>
+          <Pressable
+            style={{ backgroundColor: colors.backgroundElevated, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingTop: 8, paddingBottom: 32, paddingHorizontal: spacing.lg, maxHeight: '65%' }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* Handle bar */}
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.textMuted + '40', alignSelf: 'center', marginBottom: 12 }} />
+
+            <Text style={{ fontFamily: fontFamily.bold, fontSize: 16, color: colors.textOnDark, marginBottom: 12 }}>
+              Link a Program
+            </Text>
+
+            {/* Search input */}
+            <TextInput
+              style={{
+                backgroundColor: colors.inputBackground,
+                borderRadius: borderRadius.sm,
+                padding: spacing.sm,
+                color: colors.textPrimary,
+                fontFamily: fontFamily.regular,
+                fontSize: 14,
+                marginBottom: 12,
+              }}
+              placeholder="Search programs..."
+              placeholderTextColor={colors.textInactive}
+              value={programSearchQuery}
+              onChangeText={setProgramSearchQuery}
+              autoFocus
+            />
+
+            {/* Results */}
+            <FlatList
+              data={programSearchResults}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => {
+                const alreadyLinked = linkedPrograms.some(lp => lp.programId === item.id);
+                return (
+                  <Pressable
+                    onPress={() => !alreadyLinked && handleLinkProgram(item)}
+                    style={({ pressed }) => [{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 10,
+                      paddingHorizontal: 8,
+                      borderRadius: borderRadius.sm,
+                      backgroundColor: pressed && !alreadyLinked ? colors.glass : 'transparent',
+                      opacity: alreadyLinked ? 0.4 : 1,
+                    }]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fontFamily.medium, fontSize: 14, color: colors.textOnDark }}>
+                        {item.name}
+                      </Text>
+                      <Text style={{ fontFamily: fontFamily.regular, fontSize: 12, color: colors.textMuted }}>
+                        {item.category}{item.duration_weeks ? ` · ${item.duration_weeks}w` : ''}
+                      </Text>
+                    </View>
+                    {alreadyLinked ? (
+                      <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+                    ) : (
+                      <Ionicons name="add-circle-outline" size={20} color={colors.accent2} />
+                    )}
+                  </Pressable>
+                );
+              }}
+              ListEmptyComponent={
+                <Text style={{ fontFamily: fontFamily.regular, fontSize: 13, color: colors.textMuted, textAlign: 'center', paddingVertical: 20 }}>
+                  {programSearchLoading ? 'Searching...' : 'No programs found'}
+                </Text>
+              }
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Journal Sheet */}
+      {isJournalEligible && (
+        <JournalSheet
+          visible={journalSheetOpen}
+          event={{
+            id: params.eventId,
+            userId: '',
+            name: params.name,
+            type: params.type as any,
+            sport: 'general' as any,
+            date: params.date,
+            startTime: params.startTime,
+            endTime: params.endTime,
+            intensity: (params.intensity || null) as any,
+            notes: params.notes || '',
+            createdAt: '',
+          }}
+          onClose={() => {
+            setJournalSheetOpen(false);
+            // Reload journal data
+            getJournalForEvent(params.eventId).then(({ journal: j }) => setJournal(j)).catch(() => {});
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

@@ -614,6 +614,7 @@ export async function executeTimelineTool(
         const planWeeks = toolInput.planWeeks ?? 2;
         const categories = toolInput.categories ?? [];
         const tz = context.timezone || "UTC";
+        console.log(`[TZ-DEBUG] generate_training_plan: tz="${tz}", context.timezone="${context.timezone}"`);
 
         // 1. Save updated categories to preferences
         if (categories.length > 0) {
@@ -720,6 +721,7 @@ export async function executeTimelineTool(
               // Use toTimezoneISO for proper timezone conversion (same as create_event)
               const startAtUtc = toTimezoneISO(dateStr, `${startTime}:00`, tz);
               const endAtUtc = toTimezoneISO(dateStr, `${endTime}:00`, tz);
+              console.log(`[TZ-DEBUG] plan event: local=${startTime}-${endTime} tz=${tz} → UTC start=${startAtUtc} end=${endAtUtc}`);
 
               const durationMin = (new Date(endAtUtc).getTime() - new Date(startAtUtc).getTime()) / 60000;
 
@@ -861,6 +863,12 @@ RULES:
 5. Speak like a smart, direct coach — not a customer service bot
 6. Keep responses concise — athletes don't read walls of text
 7. Always confirm successful actions: "Done — added X to your calendar for Thursday ✓"
+
+CARD TYPE RULES — CRITICAL:
+- ALWAYS use schedule_list card to display schedule/calendar data (today, tomorrow, week, what's on, training windows, free slots). NEVER describe events in a text_card body.
+- NEVER put schedule data as text like "**School**: 08:00–15:00" in a text_card — use schedule_list items instead.
+- schedule_list item types: "training" | "match" | "recovery" | "study" | "exam" | "personal" | "sleep"
+- For free training windows: include them as schedule_list items with type "training" and a note in the title like "Free window — light training"
 
 EVENT CREATION — CRITICAL (read carefully):
 - USE THE PLAYER'S EXACT WORDS for event titles. If they say "club training", the title is "Club Training" — NOT "Speed & Power Training", NOT "Recovery Session", NOT any creative name.

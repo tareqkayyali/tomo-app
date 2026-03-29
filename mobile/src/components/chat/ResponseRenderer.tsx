@@ -1030,6 +1030,17 @@ function ProgramRecommendationCardComponent({
   );
 }
 
+/** Strip markdown syntax from plain-text card bodies (safety net for AI formatting leaks). */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold** → bold
+    .replace(/\*(.+?)\*/g, '$1')        // *italic* → italic
+    .replace(/`(.+?)`/g, '$1')          // `code` → code
+    .replace(/^#+\s+/gm, '')            // # headers
+    .replace(/^[-*]\s+/gm, '• ')        // unordered list items → bullet
+    .replace(/^\d+\.\s+/gm, '• ');      // numbered list items → bullet
+}
+
 function TextCardComponent({
   card,
   styles,
@@ -1045,7 +1056,7 @@ function TextCardComponent({
           {card.headline}
         </Text>
       ) : null}
-      <Text style={styles.textCardBody}>{card.body}</Text>
+      <Text style={styles.textCardBody}>{stripMarkdown(card.body)}</Text>
     </View>
   );
 }

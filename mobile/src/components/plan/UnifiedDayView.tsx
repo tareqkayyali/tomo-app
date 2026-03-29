@@ -79,6 +79,7 @@ export interface UnifiedDayViewProps {
   onDelete?: (id: string) => Promise<boolean> | void;
   onUpdate?: (id: string, patch: { startTime?: string; endTime?: string }) => Promise<boolean>;
   onCheckinPress?: () => void;
+  onJournalPress?: (event: CalendarEvent) => void;
 
 }
 
@@ -117,6 +118,7 @@ export function UnifiedDayView({
   onDelete,
   onUpdate,
   onCheckinPress,
+  onJournalPress,
 }: UnifiedDayViewProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -284,6 +286,7 @@ export function UnifiedDayView({
                     linkedPrograms: (event as any).linkedPrograms || [],
                   });
                 }}
+                onJournalPress={onJournalPress}
                 onEventComplete={onComplete}
                 onEventSkip={onSkip}
                 completedIds={completedEvents ?? emptyCompleted}
@@ -309,6 +312,7 @@ export function UnifiedDayView({
                   linkedPrograms: (event as any).linkedPrograms || [],
                 });
               }}
+              onJournalPress={onJournalPress}
               onEventComplete={onComplete}
               onEventSkip={onSkip}
               completedIds={completedEvents ?? emptyCompleted}

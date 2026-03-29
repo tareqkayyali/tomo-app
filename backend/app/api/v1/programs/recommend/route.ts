@@ -59,6 +59,7 @@ export async function GET(req: NextRequest) {
     readinessScore: null,
     readinessComponents: null,
     upcomingExams: [],
+    upcomingEvents: [],
     academicLoadScore: 0,
     recentVitals: [],
     currentStreak: profile.current_streak ?? 0,

@@ -25,7 +25,9 @@ export type CardType =
   | 'cv_edit_capsule'
   | 'navigation_capsule'
   | 'quick_action_capsule'
-  | 'week_schedule';
+  | 'week_schedule'
+  | 'training_journal_pre_capsule'
+  | 'training_journal_post_capsule';
 
 export interface StatRow {
   type: 'stat_row';
@@ -548,6 +550,45 @@ export interface ConflictResolutionCapsule {
   totalEvents: number;
 }
 
+// ── Training Journal Capsules ────────────────────────────────────
+
+export interface TrainingJournalPreCapsule {
+  type: 'training_journal_pre_capsule';
+  calendar_event_id: string;
+  event_name: string;
+  event_time: string;
+  event_category: string;
+  journal_variant: 'standard' | 'recovery' | 'match';
+  existing_target?: string;
+  existing_cue?: string;
+  todays_trainings?: Array<{
+    eventId: string;
+    name: string;
+    eventType: string;
+    startTime: string;
+    journalState: string;
+    journalVariant: string;
+    hasPreJournal: boolean;
+  }>;
+}
+
+export interface TrainingJournalPostCapsule {
+  type: 'training_journal_post_capsule';
+  calendar_event_id: string;
+  journal_id: string;
+  event_name: string;
+  event_date: string;
+  journal_variant: 'standard' | 'recovery' | 'match';
+  pre_target: string | null;
+  pending_journals?: Array<{
+    journalId: string;
+    eventId: string;
+    name: string;
+    date: string;
+    state: string;
+  }>;
+}
+
 // ── Capsule Action — sent from frontend on capsule submit ────────
 
 export interface CapsuleAction {
@@ -596,6 +637,8 @@ export type VisualCard =
   | WhoopSyncCapsule
   | LeaderboardCapsule
   | BulkTimelineEditCapsule
+  | TrainingJournalPreCapsule
+  | TrainingJournalPostCapsule
   | ProgramRecommendationCard
   | WeekSchedule;
 

@@ -334,6 +334,81 @@ export const outputTools = [
       },
     },
   },
+  // ── Journal Tools ──
+  {
+    name: "get_today_training_for_journal",
+    description: "Get today's training/match/recovery events for pre-session journaling",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
+  {
+    name: "get_pending_post_journal",
+    description: "Get training events that need post-session reflection",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
+  {
+    name: "save_journal_pre",
+    description: "Save a pre-session training target",
+    input_schema: {
+      type: "object" as const,
+      required: ["calendar_event_id", "pre_target"],
+      properties: {
+        calendar_event_id: {
+          type: "string",
+          description: "Calendar event ID",
+        },
+        pre_target: {
+          type: "string",
+          description: "What the athlete wants to achieve",
+        },
+        pre_mental_cue: {
+          type: "string",
+          description: "Optional one-word mental cue",
+        },
+        pre_focus_tag: {
+          type: "string",
+          enum: ["strength", "speed", "technique", "tactical", "fitness"],
+          description: "Optional focus area",
+        },
+      },
+    },
+  },
+  {
+    name: "save_journal_post",
+    description: "Save a post-session training reflection",
+    input_schema: {
+      type: "object" as const,
+      required: ["journal_id", "post_outcome", "post_reflection"],
+      properties: {
+        journal_id: {
+          type: "string",
+          description: "Journal ID (from pre-session)",
+        },
+        post_outcome: {
+          type: "string",
+          enum: ["fell_short", "hit_it", "exceeded"],
+          description: "Did the athlete hit their target?",
+        },
+        post_reflection: {
+          type: "string",
+          description: "What happened during the session",
+        },
+        post_next_focus: {
+          type: "string",
+          description: "Optional — what to work on next",
+        },
+        post_body_feel: {
+          type: "number",
+          description: "Optional body feel 1-10",
+        },
+      },
+    },
+  },
 ];
 
 export async function executeOutputTool(
@@ -535,6 +610,31 @@ export async function executeOutputTool(
           .single();
 
         if (error) throw error;
+
+        // Emit WELLNESS_CHECKIN event to Athlete Data Fabric
+        // This updates athlete_snapshots.last_checkin_at + readiness fields
+        await emitEventSafe({
+          athleteId: userId,
+          eventType: "WELLNESS_CHECKIN",
+          occurredAt: new Date().toISOString(),
+          source: "MANUAL",
+          payload: {
+            energy,
+            soreness,
+            sleep_hours: sleepHours,
+            mood,
+            academic_stress: toolInput.academicStress ?? null,
+            pain_flag: toolInput.painFlag ?? false,
+            pain_location: toolInput.painLocation ?? null,
+            computed_readiness_level: readiness,
+            computed_readiness_score: Math.round(avg * 10),
+          },
+          createdBy: userId,
+        });
+
+        // Fire-and-forget: refresh Own It recs so stale "Check In" rec gets superseded
+        triggerDeepRecRefreshAsync(userId, context.timezone);
+
         return {
           result: { checkIn: data, saved: true },
           refreshTarget: "readiness",
@@ -1056,6 +1156,105 @@ export async function executeOutputTool(
         return {
           result: { synced: true, message: "Whoop sync triggered. Check your vitals in a moment." },
           refreshTarget: "vitals",
+        };
+      }
+
+      // ── Journal Tools ──
+
+      case "get_today_training_for_journal": {
+        // Handled by intentHandler — this is a fallback if AI agent calls it
+        const { data: events } = await db
+          .from('calendar_events')
+          .select('id, title, event_type, start_at')
+          .eq('user_id', userId)
+          .gte('start_at', `${today}T00:00:00Z`)
+          .lte('start_at', `${today}T23:59:59Z`)
+          .in('event_type', ['training', 'match', 'recovery'])
+          .order('start_at', { ascending: true });
+
+        return { result: { events: events ?? [], date: today } };
+      }
+
+      case "get_pending_post_journal": {
+        const yesterday = new Date(new Date(today).getTime() - 24 * 3600 * 1000).toISOString().split('T')[0];
+        const { data: journals } = await (db as any)
+          .from('training_journals')
+          .select('id, calendar_event_id, training_name, pre_target, journal_state, journal_variant, event_date')
+          .eq('user_id', userId)
+          .in('journal_state', ['pre_set', 'empty'])
+          .gte('event_date', yesterday)
+          .lte('event_date', today);
+
+        return { result: { pendingJournals: journals ?? [] } };
+      }
+
+      case "save_journal_pre": {
+        const { setPreSessionTarget } = await import('@/services/journal/journalService');
+        const journal = await setPreSessionTarget(userId, {
+          calendar_event_id: toolInput.calendar_event_id,
+          pre_target: toolInput.pre_target,
+          pre_mental_cue: toolInput.pre_mental_cue,
+          pre_focus_tag: toolInput.pre_focus_tag,
+        });
+
+        // Emit event
+        const { emitEventSafe } = await import('@/services/events/eventEmitter');
+        const { EVENT_TYPES, SOURCE_TYPES } = await import('@/services/events/constants');
+        await emitEventSafe({
+          athleteId: userId,
+          eventType: EVENT_TYPES.JOURNAL_PRE_SESSION,
+          source: SOURCE_TYPES.MANUAL,
+          payload: {
+            calendar_event_id: journal.calendar_event_id,
+            journal_id: journal.id,
+            training_category: journal.training_category,
+            training_name: journal.training_name,
+            pre_target: journal.pre_target,
+            event_date: journal.event_date,
+            journal_variant: journal.journal_variant,
+          },
+          createdBy: userId,
+        });
+
+        return {
+          result: { success: true, journalId: journal.id, journalState: 'pre_set', message: 'Target set. Good luck.' },
+          refreshTarget: "calendar",
+        };
+      }
+
+      case "save_journal_post": {
+        const { setPostSessionReflection } = await import('@/services/journal/journalService');
+        const journal = await setPostSessionReflection(userId, {
+          journal_id: toolInput.journal_id,
+          post_outcome: toolInput.post_outcome,
+          post_reflection: toolInput.post_reflection,
+          post_next_focus: toolInput.post_next_focus,
+          post_body_feel: toolInput.post_body_feel,
+        });
+
+        // Emit event
+        const { emitEventSafe: emitSafe } = await import('@/services/events/eventEmitter');
+        const { EVENT_TYPES: ET, SOURCE_TYPES: ST } = await import('@/services/events/constants');
+        await emitSafe({
+          athleteId: userId,
+          eventType: ET.JOURNAL_POST_SESSION,
+          source: ST.MANUAL,
+          payload: {
+            calendar_event_id: journal.calendar_event_id,
+            journal_id: journal.id,
+            training_category: journal.training_category,
+            training_name: journal.training_name,
+            post_outcome: journal.post_outcome,
+            post_reflection: journal.post_reflection,
+            event_date: journal.event_date,
+            journal_variant: journal.journal_variant,
+          },
+          createdBy: userId,
+        });
+
+        return {
+          result: { success: true, journalId: journal.id, journalState: 'complete', message: 'Reflection saved. Nice work.' },
+          refreshTarget: "calendar",
         };
       }
 

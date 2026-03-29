@@ -53,8 +53,10 @@ const DEFAULT_PILLARS = [
     athleteDescription:
       "How quickly you stop, turn, and re-accelerate. The harder you are to defend against.",
     metrics: [
-      { key: "agility_505", label: "T-Test Agility", weight: 1.0 },
+      { key: "agility_505", label: "5-0-5 Agility", weight: 1.0 },
+      { key: "agility_ttest", label: "T-Test Agility", weight: 1.0 },
       { key: "agility_5105", label: "5-10-5 Agility", weight: 1.0 },
+      { key: "illinois_agility", label: "Illinois Agility", weight: 0.8 },
       { key: "dribbling_test", label: "Dribbling Test", weight: 0.8 },
       { key: "reaction_time", label: "Reaction Time", weight: 0.6 },
     ],
@@ -171,9 +173,9 @@ const AVAILABLE_METRICS = [
   { key: "glycolytic_power", label: "Glycolytic Power" },
   { key: "shot_speed", label: "Shot Power" },
   { key: "kick_distance", label: "Max Kick Distance" },
-  { key: "agility_505", label: "T-Test Agility" },
+  { key: "agility_505", label: "5-0-5 Agility" },
+  { key: "agility_ttest", label: "T-Test Agility" },
   { key: "agility_5105", label: "5-10-5 Agility" },
-  { key: "agility_505_cod", label: "5-0-5 COD" },
   { key: "illinois_agility", label: "Illinois Agility Run" },
   { key: "dribbling_test", label: "Slalom Dribble" },
   { key: "reaction_time", label: "Reaction Time" },

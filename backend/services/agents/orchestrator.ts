@@ -52,7 +52,7 @@ import { loadAthleteMemory } from "./longitudinalMemory";
 const MAX_TOOL_ITERATIONS = 5;
 
 // ── SPORT-POSITION CONTEXT LAYER ──────────────────────────────────
-function buildSportContextSegment(ctx: PlayerContext): string {
+export function buildSportContextSegment(ctx: PlayerContext): string {
   const sport = ctx.sport?.toLowerCase() ?? "";
   const position = ctx.position ?? "unknown";
   const phvStage = ctx.snapshotEnrichment?.phvStage ?? null;
@@ -102,7 +102,7 @@ If any blocked movement is discussed: acknowledge, explain growth-phase risk, of
 }
 
 // ── AGE-BAND COMMUNICATION PROFILE ────────────────────────────────
-function buildToneProfile(ageBand: string | null): string {
+export function buildToneProfile(ageBand: string | null): string {
   const band = ageBand?.toUpperCase() ?? "";
   if (band === "U13")
     return `COMMUNICATION PROFILE (U13):

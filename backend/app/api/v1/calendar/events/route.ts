@@ -7,6 +7,7 @@ import {
   toDbEventType,
   localToUtc,
 } from "@/lib/calendarHelpers";
+import { attachJournalState } from "@/lib/calendarJournalHelper";
 import {
   validateEvent,
   autoPosition,
@@ -275,9 +276,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      const events = (rows || []).map((r) =>
+      const mappedEvents = (rows || []).map((r) =>
         mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
       );
+      const events = await attachJournalState(mappedEvents, auth.user.id);
 
       return NextResponse.json(
         paginatedResponse(events, count ?? 0, params),
@@ -297,9 +299,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const events = (rows || []).map((r) =>
+    const mappedEvents = (rows || []).map((r) =>
       mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
     );
+    const events = await attachJournalState(mappedEvents, auth.user.id);
 
     return NextResponse.json(
       { events },
@@ -326,9 +329,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      const events = (rows || []).map((r) =>
+      const mappedEvents = (rows || []).map((r) =>
         mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
       );
+      const events = await attachJournalState(mappedEvents, auth.user.id);
 
       return NextResponse.json(
         paginatedResponse(events, count ?? 0, params),
@@ -348,9 +352,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const events = (rows || []).map((r) =>
+    const mappedEvents = (rows || []).map((r) =>
       mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
     );
+    const events = await attachJournalState(mappedEvents, auth.user.id);
 
     return NextResponse.json(
       { events },

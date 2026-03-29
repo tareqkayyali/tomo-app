@@ -240,15 +240,17 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
 
     // 1) Create study/training block events
     const blockPromises = blocks.map(async (block) => {
-      const eventData: CalendarEventInput = {
+      const eventData: CalendarEventInput & { gapMinutes?: number } = {
         name: planType === 'training' ? block.title : `${block.title} Study`,
         type: block.eventType,
         date: block.date,
         startTime: block.startTime,
         endTime: block.endTime,
         notes: block.notes,
+        // Skip conflict repositioning for plan-generated events — times are pre-validated
+        gapMinutes: 0,
       };
-      return createCalendarEvent(eventData);
+      return createCalendarEvent(eventData as CalendarEventInput);
     });
 
     // 2) Create exam events covering full school hours

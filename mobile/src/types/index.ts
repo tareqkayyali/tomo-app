@@ -299,6 +299,9 @@ export interface LinkedProgram {
   expiresAt: string;
 }
 
+// Journal state for training/match/recovery events
+export type JournalState = 'empty' | 'pre_set' | 'complete';
+
 export interface CalendarEvent {
   id: string;
   userId: string;
@@ -312,6 +315,10 @@ export interface CalendarEvent {
   notes: string;
   createdAt: string;
   linkedPrograms?: LinkedProgram[];
+  // Journal fields (only for training/match/recovery events)
+  journalState?: JournalState | null;
+  preTarget?: string | null;
+  postOutcome?: string | null;
 }
 
 export interface CalendarEventInput {

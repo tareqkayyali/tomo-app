@@ -48,6 +48,8 @@ export type EventPayload =
   | CompetitionResultPayload
   | ClubViewPayload
   | CvExportedPayload
+  | JournalPreSessionPayload
+  | JournalPostSessionPayload
   | Record<string, unknown>;    // fallback for extensibility
 
 // ---------------------------------------------------------------------------
@@ -240,6 +242,41 @@ export interface CvExportedPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Journal Payloads
+// ---------------------------------------------------------------------------
+
+export interface JournalPreSessionPayload {
+  calendar_event_id: string;
+  journal_id: string;
+  training_category: string;
+  training_name: string;
+  pre_target: string;
+  pre_mental_cue?: string;
+  pre_focus_tag?: string;
+  event_date: string;              // YYYY-MM-DD
+  journal_variant: 'standard' | 'recovery' | 'match';
+}
+
+export interface JournalPostSessionPayload {
+  calendar_event_id: string;
+  journal_id: string;
+  training_category: string;
+  training_name: string;
+  post_outcome: 'fell_short' | 'hit_it' | 'exceeded';
+  post_reflection: string;
+  post_next_focus?: string;
+  post_body_feel?: number;          // 1–10
+  event_date: string;
+  journal_variant: 'standard' | 'recovery' | 'match';
+  // Computed by handler
+  computed_journal_completeness_7d?: number;
+  computed_journal_streak_days?: number;
+  computed_target_achievement_rate_30d?: number;
+  computed_pending_pre_count?: number;
+  computed_pending_post_count?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Layer 2: Athlete Snapshot
 // ---------------------------------------------------------------------------
 
@@ -291,6 +328,14 @@ export interface AthleteSnapshot {
   wellness_7day_avg: number | null;
   wellness_trend: 'IMPROVING' | 'STABLE' | 'DECLINING' | null;
   triangle_rag: 'GREEN' | 'AMBER' | 'RED' | null;
+
+  // Journal
+  journal_completeness_7d: number | null;
+  journal_streak_days: number;
+  target_achievement_rate_30d: number | null;
+  last_journal_at: string | null;
+  pending_pre_journal_count: number;
+  pending_post_journal_count: number;
 
   // Meta
   last_event_id: string | null;

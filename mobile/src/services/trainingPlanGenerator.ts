@@ -176,7 +176,10 @@ export function generateTrainingPlan(
       continue;
     }
 
-    const preferredStart = preferredTimeToMin(category.preferredTime);
+    // Use fixedStartTime if set (e.g. "20:00"), otherwise fall back to preferredTime bucket
+    const preferredStart = (category as any).fixedStartTime
+      ? timeToMinutes((category as any).fixedStartTime)
+      : preferredTimeToMin(category.preferredTime);
     let totalPlaced = 0;
     let totalFailed = 0;
 
@@ -186,17 +189,33 @@ export function generateTrainingPlan(
 
       const dayEvents = getDayEvents(dateStr);
 
-      // Use scheduling engine to find conflict-free slot
-      const slot = autoPosition(
-        category.sessionDuration,
-        preferredStart,
-        dayEvents,
-        sConfig,
-      );
+      // If fixedStartTime is set, place exactly there (user chose this time explicitly)
+      // Otherwise use scheduling engine to find the best conflict-free slot
+      const hasFixedTime = !!(category as any).fixedStartTime;
+      let startTime: string;
+      let endTime: string;
 
-      if (slot) {
-        const startTime = minutesToTime(slot.startMin);
-        const endTime = minutesToTime(slot.endMin);
+      if (hasFixedTime) {
+        startTime = (category as any).fixedStartTime;
+        const [h, m] = startTime.split(':').map(Number);
+        const endMin = h * 60 + m + category.sessionDuration;
+        endTime = minutesToTime(endMin);
+      } else {
+        const slot = autoPosition(
+          category.sessionDuration,
+          preferredStart,
+          dayEvents,
+          sConfig,
+        );
+        if (!slot) {
+          totalFailed++;
+          continue;
+        }
+        startTime = minutesToTime(slot.startMin);
+        endTime = minutesToTime(slot.endMin);
+      }
+
+      if (startTime) {
 
         blocks.push({
           id: `tp_${++blockId}`,

@@ -181,8 +181,20 @@ async function main() {
     process.exit(1);
   }
 
-  // Embed in batches of 10
-  const BATCH_SIZE = 10;
+  // Clear ALL existing chunks first to avoid duplicate conflicts
+  console.log('Clearing existing chunks...');
+  const { error: deleteError } = await supabase
+    .from('rag_knowledge_chunks')
+    .delete()
+    .neq('chunk_id', '00000000-0000-0000-0000-000000000000');
+  if (deleteError) {
+    console.error('Failed to clear existing chunks:', deleteError.message);
+  } else {
+    console.log('Existing chunks cleared.\n');
+  }
+
+  // Embed in batches of 3 (respect free-tier 3 RPM limit)
+  const BATCH_SIZE = 3;
   const errors: { title: string; error: string }[] = [];
 
   for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
@@ -211,6 +223,12 @@ async function main() {
       for (const c of batch) {
         errors.push({ title: c.title, error: msg });
       }
+    }
+
+    // Rate limit: wait 21 seconds between batches (3 RPM = 1 request per 20s)
+    if (i + BATCH_SIZE < chunks.length) {
+      console.log('  Waiting 21s for rate limit...');
+      await new Promise(r => setTimeout(r, 21000));
     }
   }
 

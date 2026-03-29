@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { Json } from '@/types/database';
 import { VALID_EVENT_TYPES, VALID_SOURCES } from './constants';
 import type { EmitEventParams, AthleteEvent } from './types';
+import { processEvent } from './eventProcessor';
 
 /**
  * Insert an immutable event into the athlete_events stream.
@@ -64,7 +65,19 @@ export async function emitEvent(params: EmitEventParams): Promise<AthleteEvent> 
     throw new Error(`emitEvent: ${error.message}`);
   }
 
-  return data as AthleteEvent;
+  const event = data as AthleteEvent;
+
+  // Process the event inline — updates snapshot (Layer 2), triggers recs (Layer 4),
+  // and program refresh (Layer 5). This replaces the Supabase Database Webhook
+  // which requires external configuration.
+  try {
+    await processEvent(event);
+  } catch (processErr) {
+    console.error('[EventEmitter] Inline processEvent failed (non-fatal):', (processErr as Error).message);
+    // Don't throw — the event was written successfully, processing is best-effort
+  }
+
+  return event;
 }
 
 /**

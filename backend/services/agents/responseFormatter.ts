@@ -383,7 +383,9 @@ export type VisualCard =
   | ExamCapsule
   | SubjectCapsule
   | TrainingCategoryCapsule
-  | BulkTimelineEditCapsule;
+  | BulkTimelineEditCapsule
+  | TrainingJournalPreCapsule
+  | TrainingJournalPostCapsule;
 
 export interface ExamCapsule { type: "exam_capsule"; existingExams: Array<{ id: string; subject: string; examType: string; examDate: string }>; studySubjects?: string[]; }
 export interface SubjectCapsule { type: "subject_capsule"; currentSubjects: string[]; }
@@ -421,6 +423,29 @@ export interface WhoopSyncCapsule {
   connected: boolean;
   lastSyncAt?: string;
   syncResult?: Record<string, any>;
+}
+
+export interface TrainingJournalPreCapsule {
+  type: "training_journal_pre_capsule";
+  calendar_event_id: string;
+  event_name: string;
+  event_time: string;
+  event_category: string;
+  journal_variant: string;
+  existing_target?: string;
+  existing_cue?: string;
+  todays_trainings?: Array<Record<string, any>>;
+}
+
+export interface TrainingJournalPostCapsule {
+  type: "training_journal_post_capsule";
+  calendar_event_id: string;
+  journal_id: string;
+  event_name: string;
+  event_date: string;
+  journal_variant: string;
+  pre_target: string | null;
+  pending_journals?: Array<Record<string, any>>;
 }
 
 export interface LeaderboardCapsule {
@@ -755,12 +780,12 @@ Return JSON in \`\`\`json markers. Schema:
 CARD TYPES (use the right one):
 - stat_grid: { type, items: [{ label, value, unit, highlight? }] } — for 3+ metrics (readiness, load)
 - stat_row: { type, label, value, unit, trend?, emoji? } — single stat
-- schedule_list: { type, date?, items: [{ time, title, type, clash? }] } — calendar view
+- schedule_list: { type, date?, items: [{ time, title, type, clash? }] } — FOR ALL schedule/calendar queries: today, tomorrow, this week, what's on, training windows. ALWAYS use this, never describe events in text_card.
 - zone_stack: { type, current, levels: [{ zone, label, detail }] } — exam/load zones
 - clash_list: { type, clashes: [{ event1, event2, time, fix }] } — conflicts
 - benchmark_bar: { type, metric, value, percentile, unit, ageBand } — percentile bar
-- text_card: { type, headline, body, emoji? } — brief advice (max 2 sentences)
-- coach_note: { type, note } — coaching insight
+- text_card: { type, headline, body, emoji? } — brief advice only (max 2 sentences, NO lists, NO schedule data)
+- coach_note: { type, note } — single coaching insight sentence
 - session_plan: { type, title, totalDuration, readiness, items: [{ drillId, name, category, duration, intensity, attributeKeys?, reason? }] }
 - drill_card: { type, drillId, name, description, category, duration, intensity, equipment, instructions, tags }
 - program_recommendation: { type, programs: [{ programId, name, category, priority, weeklyFrequency, durationMin, startingPoint?, positionNote? }], weeklyPlanSuggestion, playerProfile }
@@ -769,10 +794,12 @@ CARD TYPES (use the right one):
 - checkin_capsule: { type, prefilledDate, lastCheckinDate? }
 
 RULES:
-- Valid JSON in \`\`\`json markers only. No text outside.
+- Valid JSON in \`\`\`json markers only. No text outside the \`\`\`json block.
+- NEVER use markdown syntax (**bold**, *italic*, # headers, numbered/bulleted lists) inside any card field value. Plain text only.
 - stat_grid for 3+ metrics, NOT multiple stat_rows.
+- schedule_list for ANY calendar/schedule display — NEVER dump schedule data into a text_card body.
+- text_card body: plain prose only, max 2 sentences, no lists, no colons introducing event sequences.
 - Headline is most important — Gen Z reads it first.
-- text_card body: max 2 sentences.
 - 1-3 chips as follow-up actions.
 - Chip action text = intent ("Log my sprint") never past-tense ("I did a sprint").
 `;

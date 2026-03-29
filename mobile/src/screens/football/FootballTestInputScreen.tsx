@@ -349,9 +349,21 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
     } catch {}
 
     // 2. Persist full result to Supabase (fire-and-forget)
+    // Resolve agility sub-type so backend maps to correct metric key
+    let resolvedTestType = testId;
+    if (testId === 'agility') {
+      const agilityType = String(numInputs.agilityType || 'illinois');
+      const AGILITY_TYPE_TO_BACKEND: Record<string, string> = {
+        'illinois': 'illinois-agility',
+        '5-0-5': '5-0-5',
+        '5-10-5': '5-10-5-agility',
+        'ttest': 't-test',
+      };
+      resolvedTestType = AGILITY_TYPE_TO_BACKEND[agilityType] || 'illinois-agility';
+    }
     try {
       saveFootballTestResult({
-        testType: testId,
+        testType: resolvedTestType,
         primaryValue: resultData.primaryValue,
         primaryUnit: resultData.primaryUnit,
         primaryLabel: resultData.primaryLabel,

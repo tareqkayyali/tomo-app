@@ -17,6 +17,7 @@ import { computeAcademicRec } from './computers/academicComputer';
 import { computeCvOpportunityRec } from './computers/cvOpportunityComputer';
 import { computeTriangleAlertRec } from './computers/triangleAlertComputer';
 import { computeMotivationRec } from './computers/motivationComputer';
+import { computeJournalNudgeRec } from './computers/journalNudgeComputer';
 import type { AthleteEvent } from '../events/types';
 import type { RecType } from './types';
 
@@ -73,6 +74,9 @@ async function computeRecommendation(
       break;
     case 'MOTIVATION':
       await computeMotivationRec(athleteId, event);
+      break;
+    case 'JOURNAL_NUDGE':
+      await computeJournalNudgeRec(athleteId, event);
       break;
     default:
       console.warn(`[RIE] Unknown rec type: ${recType}`);

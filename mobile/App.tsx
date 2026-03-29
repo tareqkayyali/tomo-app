@@ -21,6 +21,7 @@ import { ThemeProvider, useTheme } from './src/hooks/useTheme';
 import { SportProvider, type ActiveSport } from './src/hooks/useSportContext';
 import { ContentProvider } from './src/hooks/useContentProvider';
 import { ConfigProvider } from './src/hooks/useConfigProvider';
+import { BootProvider } from './src/hooks/useBootData';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootNavigator } from './src/navigation';
 import { AnimatedSplashScreen, ErrorBoundary } from './src/components';
@@ -59,10 +60,12 @@ function AppContent() {
   return (
     <ContentProvider>
       <AuthProvider>
-        <SportWrapper>
-          <StatusBar style={isDark ? 'light' : 'dark'} />
-          <RootNavigator />
-        </SportWrapper>
+        <BootProvider>
+          <SportWrapper>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+            <RootNavigator />
+          </SportWrapper>
+        </BootProvider>
       </AuthProvider>
     </ContentProvider>
   );

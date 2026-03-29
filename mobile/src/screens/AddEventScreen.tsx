@@ -30,6 +30,7 @@ import {
   fontFamily,
 } from '../theme';
 import { useTheme } from '../hooks/useTheme';
+import { emitRefresh } from '../utils/refreshBus';
 import type { ThemeColors } from '../theme/colors';
 import { createCalendarEvent, getCalendarEventsByDate } from '../services/api';
 import {
@@ -346,6 +347,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
         notes: autoNotes || undefined,
       });
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      emitRefresh('calendar');
       navigation.goBack();
     } catch {
       if (Platform.OS === 'web') {

@@ -18,11 +18,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { buildPlayerContext, type PlayerContext } from '@/services/agents/contextBuilder';
-import { supersedeExisting } from './supersedeExisting';
+import { smartSupersede } from './supersedeExisting';
 import { REC_EXPIRY_HOURS } from './constants';
 import { getRecommendationConfig } from './recommendationConfig';
 import type { RecType, RecPriority, RecommendationInsert } from './types';
 import { withRetry } from '@/lib/aiRetry';
+import { retrieveKnowledgeChunks, type KnowledgeChunk } from './rag/ragRetriever';
+import { loadAthleteMemory } from '@/services/agents/longitudinalMemory';
+import { buildSportContextSegment, buildToneProfile } from '@/services/agents/orchestrator';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -220,16 +223,87 @@ export async function deepRecRefresh(
   }
 
   try {
-    // 1. Build full PlayerContext (10 parallel data fetches)
+    // 1. Build full PlayerContext (12 parallel data fetches)
     const ctx = await buildPlayerContext(athleteId, 'OwnIt', '', timezone);
 
-    // 2. Format context into a Claude-readable prompt
-    const userPrompt = buildDeepRecPrompt(ctx);
+    // ── Phase 3: Deterministic fast-paths ($0 — skip Claude for predictable recs) ──
+    const fastPathRecs = buildFastPathRecs(ctx, athleteId);
+    if (fastPathRecs.length > 0) {
+      console.log(`[DeepRecRefresh] ${athleteId}: ${fastPathRecs.length} fast-path recs generated ($0)`);
+    }
 
-    // 3. Call Claude
+    // ── Phase 1: RAG retrieval — inject sports science knowledge into prompt ──
+    let ragSection = '';
+    let retrievedChunkIds: string[] = [];
+    try {
+      const se = ctx.snapshotEnrichment;
+      // Determine which rec types are most relevant based on athlete state
+      const ragRecTypes: RecType[] = [];
+      if (se?.readinessRag === 'RED' || se?.readinessRag === 'AMBER') ragRecTypes.push('READINESS');
+      if (se?.acwr != null && se.acwr > 1.2) ragRecTypes.push('LOAD_WARNING');
+      if (se?.phvStage === 'CIRCA') ragRecTypes.push('DEVELOPMENT');
+      if (ctx.upcomingExams.length > 0) ragRecTypes.push('ACADEMIC');
+      if (ragRecTypes.length === 0) ragRecTypes.push('DEVELOPMENT'); // default
+
+      // Retrieve chunks for the most relevant rec type
+      const chunks = await retrieveKnowledgeChunks({
+        rec_type: ragRecTypes[0],
+        phv_stage: (se?.phvStage as string) || 'POST',
+        age_group: mapAgeBandToGroup(ctx.ageBand),
+        acwr: se?.acwr as number | undefined,
+        hrv_delta_pct: se?.hrvTodayMs && se?.hrvBaselineMs
+          ? ((se.hrvTodayMs as number) - (se.hrvBaselineMs as number)) / (se.hrvBaselineMs as number) * 100
+          : undefined,
+        dual_load_index: se?.dualLoadIndex as number | undefined,
+        sport: ctx.sport,
+        top_k: 3,
+      });
+
+      if (chunks.length > 0) {
+        retrievedChunkIds = chunks.map(c => c.chunk_id);
+        ragSection = formatRagSection(chunks);
+        console.log(`[DeepRecRefresh] RAG: ${chunks.length} chunks retrieved for ${ragRecTypes[0]} (IDs: ${retrievedChunkIds.join(', ')})`);
+      }
+    } catch (ragErr) {
+      console.warn('[DeepRecRefresh] RAG retrieval failed (graceful fallback):', ragErr);
+      // Continue without RAG — baseline behavior preserved
+    }
+
+    // ── Phase 2: Athlete longitudinal memory ──
+    let memorySection = '';
+    try {
+      memorySection = await loadAthleteMemory(athleteId);
+    } catch (memErr) {
+      console.warn('[DeepRecRefresh] Memory load failed (graceful fallback):', memErr);
+    }
+
+    // ── Phase 3 (Gap 3): Engagement feedback — inject acted/dismissed rates ──
+    let engagementSection = '';
+    try {
+      engagementSection = await buildEngagementContext(athleteId);
+    } catch (engErr) {
+      console.warn('[DeepRecRefresh] Engagement context failed (graceful fallback):', engErr);
+    }
+
+    // 2. Format context into a Claude-readable prompt (with RAG + memory + engagement)
+    // ── Gap 6: Sport/position context + age-band tone (reused from chat orchestrator) ──
+    const sportContextSection = `\n\n--- SPORT & POSITION CONTEXT ---\n${buildSportContextSegment(ctx)}`;
+    const toneSection = `\n\n--- ${buildToneProfile(ctx.ageBand)}`;
+
+    const userPrompt = buildDeepRecPrompt(ctx) + sportContextSection + toneSection + ragSection + memorySection + engagementSection;
+
+    // 3. Call Claude — route to Sonnet for high-stakes scenarios (Gap 4)
+    const needsSonnet = shouldUseSonnet(ctx);
+    const model = needsSonnet
+      ? (process.env.ANTHROPIC_REC_SONNET_MODEL || 'claude-sonnet-4-20250514')
+      : (process.env.ANTHROPIC_REC_MODEL || 'claude-haiku-4-5-20251001');
+    if (needsSonnet) {
+      console.log(`[DeepRecRefresh] ${athleteId}: routing to Sonnet (high-stakes context detected)`);
+    }
+
     const response = await withRetry(
       () => getClient().messages.create({
-        model: process.env.ANTHROPIC_REC_MODEL || 'claude-haiku-4-5-20251001',
+        model,
         max_tokens: 4500,
         temperature: 0.5,
         system: DEEP_REC_SYSTEM_PROMPT,
@@ -260,21 +334,31 @@ export async function deepRecRefresh(
     }
     console.log(`[DeepRecRefresh] ${athleteId}: ${recs.length} recs — P1:${priorityCounts[1]} P2:${priorityCounts[2]} P3:${priorityCounts[3]} P4:${priorityCounts[4]}`);
 
-    // 5. Supersede ALL existing DEEP_REFRESH recs before inserting new batch
+    // ── Post-processing: PHV safety filter (Gap 7) ──
+    const phvStage = ctx.snapshotEnrichment?.phvStage as string | undefined;
+    const safeRecs = filterPHVRecs(recs, phvStage);
+    if (safeRecs.length < recs.length) {
+      console.warn(`[DeepRecRefresh] PHV filter removed ${recs.length - safeRecs.length} contraindicated recs for ${athleteId} (stage: ${phvStage})`);
+    }
+
+    // ── Post-processing: Deterministic confidence scores (Gap 8) ──
+    for (const rec of safeRecs) {
+      rec.confidence_score = calculateDeterministicConfidence(rec.rec_type as RecType, ctx);
+    }
+
+    // 5. Smart supersede — only replace resolved/expired/regenerated recs (Gap 1)
     const db = supabaseAdmin();
     const validRecTypes: RecType[] = [
       'READINESS', 'LOAD_WARNING', 'RECOVERY', 'DEVELOPMENT',
       'ACADEMIC', 'CV_OPPORTUNITY', 'TRIANGLE_ALERT', 'MOTIVATION',
     ];
 
-    // Supersede all existing deep refresh recs at once (not per-type)
-    for (const recType of validRecTypes) {
-      await supersedeExisting(athleteId, recType);
-    }
+    const newRecTypes = safeRecs.map(r => r.rec_type).filter(t => validRecTypes.includes(t as RecType)) as RecType[];
+    const { parentIds } = await smartSupersede(athleteId, newRecTypes, ctx);
 
     let inserted = 0;
 
-    for (const rec of recs) {
+    for (const rec of safeRecs) {
       // Validate rec_type
       if (!validRecTypes.includes(rec.rec_type)) {
         console.warn(`[DeepRecRefresh] Invalid rec_type: ${rec.rec_type}, skipping`);
@@ -323,11 +407,13 @@ export async function deepRecRefresh(
         confidence_score: Math.max(0, Math.min(1, rec.confidence_score ?? 0.80)),
         evidence_basis: rec.evidence_basis || {},
         trigger_event_id: null, // Deep refresh is not event-triggered
+        parent_rec_id: parentIds[rec.rec_type] ?? null, // Link to superseded rec for continuity
         context: contextSnapshot,
         visible_to_athlete: true,
         visible_to_coach: rec.visible_to_coach !== false,
         visible_to_parent: rec.visible_to_parent !== false,
         expires_at: expiresAt,
+        retrieved_chunk_ids: retrievedChunkIds.length > 0 ? retrievedChunkIds : undefined,
       };
 
       const { error } = await (db as any)
@@ -342,7 +428,7 @@ export async function deepRecRefresh(
     }
 
     // Ensure at least one P3 (Tomorrow) rec exists — inject deterministic fallback
-    const hasP3 = recs.some(r => r.priority >= 3);
+    const hasP3 = safeRecs.some(r => r.priority >= 3);
 
     if (!hasP3) {
       const fallbacks: RecommendationInsert[] = [];
@@ -381,7 +467,18 @@ export async function deepRecRefresh(
       }
     }
 
+    // Insert fast-path recs (generated without Claude)
+    for (const fpRec of fastPathRecs) {
+      // Only insert if Claude didn't already generate a rec of the same type
+      const alreadyHasType = safeRecs.some(r => r.rec_type === fpRec.rec_type);
+      if (!alreadyHasType) {
+        const { error } = await (db as any).from('athlete_recommendations').insert(fpRec);
+        if (!error) inserted++;
+      }
+    }
+
     const elapsed = Date.now() - startTime;
+    console.log(`[DeepRecRefresh] ${athleteId}: completed in ${elapsed}ms — ${inserted} recs total (${fastPathRecs.length} fast-path, ${retrievedChunkIds.length} RAG chunks, ${memorySection ? 'memory loaded' : 'no memory'})`);
     return { count: inserted };
   } catch (err) {
     const elapsed = Date.now() - startTime;
@@ -525,6 +622,23 @@ Active scenario: ${ctx.activeScenario}`);
 ${ctx.upcomingExams.map(e => `${e.title} — ${new Date(e.start_at).toLocaleDateString('en-US', { timeZone: ctx.timezone, month: 'short', day: 'numeric' })}`).join('\n')}`);
   }
 
+  // Upcoming events (next 7 days — includes study blocks, training, matches, etc.)
+  if (ctx.upcomingEvents && ctx.upcomingEvents.length > 0) {
+    const studyBlocks = ctx.upcomingEvents.filter((e: any) => e.event_type === 'study' || e.event_type === 'study_block');
+    const otherEvents = ctx.upcomingEvents.filter((e: any) => e.event_type !== 'study' && e.event_type !== 'study_block');
+
+    const lines: string[] = [];
+    if (studyBlocks.length > 0) {
+      lines.push(`Study blocks scheduled: ${studyBlocks.map((e: any) => `${e.title} — ${new Date(e.start_at).toLocaleDateString('en-US', { timeZone: ctx.timezone, weekday: 'short', month: 'short', day: 'numeric' })}`).join(', ')}`);
+    } else {
+      lines.push('Study blocks scheduled: NONE in the next 7 days');
+    }
+    if (otherEvents.length > 0) {
+      lines.push(`Other events: ${otherEvents.map((e: any) => `${e.title} (${e.event_type}) — ${new Date(e.start_at).toLocaleDateString('en-US', { timeZone: ctx.timezone, weekday: 'short', month: 'short', day: 'numeric' })}`).join(', ')}`);
+    }
+    sections.push(`--- UPCOMING SCHEDULE (next 7 days) ---\n${lines.join('\n')}`);
+  }
+
   // Data completeness assessment
   const available: string[] = [];
   const missing: string[] = [];
@@ -581,4 +695,263 @@ rec_type, priority, title, body_short, body_long, confidence_score, evidence_bas
 Where action = { type: string, params?: object, label: string } using EXACTLY the route names from the action map.`);
 
   return sections.join('\n\n');
+}
+
+// ---------------------------------------------------------------------------
+// RAG helpers
+// ---------------------------------------------------------------------------
+
+function mapAgeBandToGroup(ageBand: string | null): string {
+  if (!ageBand) return 'ADULT';
+  if (ageBand === 'U13' || ageBand === 'U15') return 'U15';
+  if (ageBand === 'U17') return 'U17';
+  if (ageBand === 'U19') return 'U19';
+  return 'ADULT';
+}
+
+// ---------------------------------------------------------------------------
+// Gap 3: Engagement feedback — 30-day acted/dismissed rates per rec type
+// ---------------------------------------------------------------------------
+
+async function buildEngagementContext(athleteId: string): Promise<string> {
+  const db = supabaseAdmin();
+
+  const { data: engagement } = await (db as any)
+    .from('athlete_recommendations')
+    .select('rec_type, status')
+    .eq('athlete_id', athleteId)
+    .in('status', ['ACTED', 'DISMISSED', 'EXPIRED', 'SUPERSEDED'])
+    .gte('created_at', new Date(Date.now() - 30 * 24 * 3600000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (!engagement || engagement.length === 0) return '';
+
+  const byType: Record<string, { acted: number; dismissed: number; total: number }> = {};
+
+  for (const row of engagement) {
+    if (!byType[row.rec_type]) byType[row.rec_type] = { acted: 0, dismissed: 0, total: 0 };
+    byType[row.rec_type].total++;
+    if (row.status === 'ACTED') byType[row.rec_type].acted++;
+    if (row.status === 'DISMISSED') byType[row.rec_type].dismissed++;
+  }
+
+  const lines = Object.entries(byType).map(([type, stats]) => {
+    const actedPct = stats.total > 0 ? Math.round((stats.acted / stats.total) * 100) : 0;
+    return `${type}: ${actedPct}% acted (${stats.acted}/${stats.total} last 30d)`;
+  });
+
+  if (lines.length === 0) return '';
+
+  return `\n\n--- ENGAGEMENT HISTORY (last 30 days) ---
+${lines.join('\n')}
+NOTE: Deprioritise rec types with <20% acted rate. Increase priority for types with >60% acted rate. The athlete responds to what they find useful.`;
+}
+
+function formatRagSection(chunks: KnowledgeChunk[]): string {
+  if (chunks.length === 0) return '';
+
+  const formatted = chunks.map((c, i) => {
+    return `[${i + 1}] ${c.title} (${c.evidence_grade})
+${c.athlete_summary}
+Source: ${c.primary_source}`;
+  }).join('\n\n');
+
+  return `\n\n--- SPORTS SCIENCE KNOWLEDGE (use to ground your recommendations) ---
+The following evidence-based knowledge is relevant to this athlete's current state.
+Reference specific findings when writing body_long. Do NOT copy verbatim — paraphrase and adapt to the athlete's context.
+
+${formatted}`;
+}
+
+// ---------------------------------------------------------------------------
+// Deterministic fast-path recs (Phase 3 — $0, no Claude)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Gap 7: PHV output validation — regex gate for contraindicated movements
+// ---------------------------------------------------------------------------
+
+const PHV_CONTRAINDICATED_PATTERNS = [
+  /depth.?jump|drop.?jump/i,
+  /barbell.?(back.?)?squat/i,
+  /power.?clean|hang.?clean|snatch/i,
+  /bounding|plyometric.*high.?impact/i,
+  /maximal.?sprint|100%.?effort|all.?out/i,
+  /1\s?rm|one.?rep.?max/i,
+  /heavy.?deadlift/i,
+  /max.?load|maximal.?load/i,
+];
+
+// ---------------------------------------------------------------------------
+// Gap 4: Haiku/Sonnet model routing — use Sonnet for high-stakes scenarios
+// ---------------------------------------------------------------------------
+
+function shouldUseSonnet(ctx: PlayerContext): boolean {
+  const se = ctx.snapshotEnrichment;
+
+  // 1. ACWR in danger zone (>1.3) — load management advice is safety-critical
+  if ((se?.acwr as number) > 1.3) return true;
+
+  // 2. Readiness is RED — recovery guidance must be nuanced
+  if (se?.readinessRag === 'RED' || ctx.readinessScore === 'Red') return true;
+
+  // 3. Mid-PHV — training recommendations need extra care
+  if (se?.phvStage === 'CIRCA' || se?.phvStage === 'mid_phv') return true;
+
+  // 4. Injury risk flagged
+  if (se?.injuryRiskFlag === 'RED' || se?.injuryRiskFlag === 'AMBER') return true;
+
+  // 5. Dual load collision (>70) — academic + athletic stress
+  if ((se?.dualLoadIndex as number) > 70) return true;
+
+  // 6. Wellness declining
+  if (se?.wellnessTrend === 'DECLINING') return true;
+
+  // Default: Haiku is sufficient
+  return false;
+}
+
+function filterPHVRecs(recs: DeepRecOutput[], phvStage?: string): DeepRecOutput[] {
+  if (phvStage !== 'CIRCA' && phvStage !== 'mid_phv') return recs;
+
+  return recs.filter(rec => {
+    const text = `${rec.title} ${rec.body_short} ${rec.body_long ?? ''}`;
+    const violation = PHV_CONTRAINDICATED_PATTERNS.find(p => p.test(text));
+    if (violation) {
+      console.warn(`[DeepRecRefresh] PHV VIOLATION filtered — rec "${rec.title}" matched pattern: ${violation.source}`);
+      return false; // drop the rec entirely
+    }
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Gap 8: Deterministic confidence scores — replace AI self-estimation
+// ---------------------------------------------------------------------------
+
+function calculateDeterministicConfidence(recType: RecType, ctx: PlayerContext): number {
+  const se = ctx.snapshotEnrichment;
+
+  switch (recType) {
+    case 'LOAD_WARNING': {
+      const acwr = (se?.acwr as number) ?? 0;
+      if (acwr >= 1.5) return 1.0;
+      if (acwr >= 1.4) return 0.85;
+      if (acwr >= 1.3) return 0.65;
+      return 0.40;
+    }
+    case 'RECOVERY': {
+      const wellness = (se?.wellness7dayAvg as number) ?? 5;
+      return wellness < 4 ? 0.95 : wellness < 6 ? 0.70 : 0.45;
+    }
+    case 'ACADEMIC': {
+      const dl = (se?.dualLoadIndex as number) ?? 0;
+      return dl > 75 ? 0.90 : dl > 65 ? 0.70 : 0.40;
+    }
+    case 'READINESS': {
+      const score = (se?.readinessScore as number) ?? 50;
+      return score < 40 ? 0.90 : score < 60 ? 0.70 : 0.40;
+    }
+    case 'MOTIVATION': {
+      return 0.50; // Moderate confidence — engagement data needed for better scoring
+    }
+    case 'DEVELOPMENT': {
+      // Higher confidence if benchmark data exists
+      return ctx.benchmarkProfile ? 0.75 : 0.50;
+    }
+    case 'CV_OPPORTUNITY': {
+      const cv = (se?.cvCompleteness as number) ?? 50;
+      return cv < 30 ? 0.85 : cv < 60 ? 0.65 : 0.45;
+    }
+    case 'TRIANGLE_ALERT': {
+      return 0.80; // Triangle alerts are always actionable
+    }
+    default:
+      return 0.60;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Deterministic fast-path recs (Phase 3 — $0, no Claude)
+// ---------------------------------------------------------------------------
+
+function buildFastPathRecs(ctx: PlayerContext, athleteId: string): RecommendationInsert[] {
+  const recs: RecommendationInsert[] = [];
+  const se = ctx.snapshotEnrichment;
+  const now = new Date().toISOString();
+  const baseContext: Record<string, unknown> = {
+    source: 'FAST_PATH',
+    generated_at: now,
+    calendar_date: ctx.todayDate,
+  };
+
+  // Check if checkin is stale (>24h)
+  const lastCheckinAt = se?.lastCheckinAt as string | null | undefined;
+  const checkinAgeHours = lastCheckinAt
+    ? (Date.now() - new Date(lastCheckinAt).getTime()) / 3600000
+    : null;
+  const isStaleCheckin = checkinAgeHours == null || checkinAgeHours > 24;
+
+  // Fast-path 1: No fresh checkin → deterministic "Check In" rec
+  if (isStaleCheckin) {
+    recs.push({
+      athlete_id: athleteId,
+      rec_type: 'READINESS',
+      priority: 1,
+      title: 'Check In to Unlock Your Day',
+      body_short: 'Your daily check-in powers your readiness score, training recs, and load management.',
+      body_long: `Your last check-in was ${checkinAgeHours != null ? `${Math.round(checkinAgeHours)} hours ago` : 'never completed'}. Without fresh data, Tomo can't assess your readiness or recommend the right training intensity. A quick 30-second check-in unlocks personalized guidance for today.`,
+      confidence_score: 0.95,
+      evidence_basis: { readiness_rag: null, contributing_factors: ['stale_checkin'] },
+      trigger_event_id: null,
+      context: { ...baseContext, action: { type: 'Checkin', label: 'Check In' } },
+      visible_to_athlete: true,
+      visible_to_coach: true,
+      visible_to_parent: false,
+      expires_at: new Date(Date.now() + 12 * 3600000).toISOString(),
+    });
+  }
+
+  // Fast-path 2: Readiness RED → deterministic rest rec
+  if (!isStaleCheckin && (se?.readinessRag === 'RED' || ctx.readinessScore === 'Red')) {
+    recs.push({
+      athlete_id: athleteId,
+      rec_type: 'RECOVERY',
+      priority: 1,
+      title: 'Recovery Day — Protect Your Body',
+      body_short: 'Your readiness is RED. Prioritize rest, hydration, and light movement today.',
+      body_long: 'Your body is signaling it needs recovery. Skip high-intensity work today and focus on sleep quality, hydration (2-3L water), and gentle mobility. Research shows that training through red readiness increases injury risk by 3-5x and delays adaptation.',
+      confidence_score: 0.95,
+      evidence_basis: { readiness_rag: 'RED', soreness: ctx.readinessComponents?.soreness, sleep_quality: se?.sleepQuality, contributing_factors: ['red_readiness'] },
+      trigger_event_id: null,
+      context: { ...baseContext, readiness_rag: 'RED', action: { type: 'AddEvent', params: { initialType: 'recovery' }, label: 'Schedule Recovery' } },
+      visible_to_athlete: true,
+      visible_to_coach: true,
+      visible_to_parent: true,
+      expires_at: new Date(Date.now() + 12 * 3600000).toISOString(),
+    });
+  }
+
+  // Fast-path 3: ACWR critically high
+  if (se?.acwr != null && (se.acwr as number) > 1.5) {
+    recs.push({
+      athlete_id: athleteId,
+      rec_type: 'LOAD_WARNING',
+      priority: 1,
+      title: 'Critical Load — Reduce Intensity',
+      body_short: `Your ACWR is ${(se.acwr as number).toFixed(1)} — well above the 1.3 safe threshold. Injury risk is significantly elevated.`,
+      body_long: `Your acute training load has spiked relative to your chronic load (ACWR ${(se.acwr as number).toFixed(2)}). Sports science research consistently shows injury risk increases 2-4x when ACWR exceeds 1.5. Scale back to 60-70% intensity for the next 2-3 sessions to let your chronic load catch up.`,
+      confidence_score: 0.95,
+      evidence_basis: { acwr: se.acwr, atl_7day: se.atl7day, ctl_28day: se.ctl28day, contributing_factors: ['acwr_spike'] },
+      trigger_event_id: null,
+      context: { ...baseContext, acwr: se.acwr, action: { type: 'MyRules', label: 'Adjust Schedule' } },
+      visible_to_athlete: true,
+      visible_to_coach: true,
+      visible_to_parent: true,
+      expires_at: new Date(Date.now() + 24 * 3600000).toISOString(),
+    });
+  }
+
+  return recs;
 }

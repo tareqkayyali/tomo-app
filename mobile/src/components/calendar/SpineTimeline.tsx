@@ -36,12 +36,16 @@ const TYPE_EMOJIS: Record<string, string> = {
 
 // ── Props ────────────────────────────────────────────────────────────
 
+// Journal-eligible event types
+const JOURNAL_TYPES = new Set(['training', 'match', 'recovery']);
+
 interface SpineTimelineProps {
   events: CalendarEvent[];
   onEventPress?: (event: CalendarEvent) => void;
   onEventEdit?: (event: CalendarEvent) => void;
   onEventComplete?: (eventId: string) => void;
   onEventSkip?: (eventId: string) => void;
+  onJournalPress?: (event: CalendarEvent) => void;
   completedIds?: Set<string>;
   skippedIds?: Set<string>;
   zoomLevel?: number; // 0.7 - 1.5, default 1.0
@@ -66,6 +70,7 @@ export function SpineTimeline({
   onEventEdit,
   onEventComplete,
   onEventSkip,
+  onJournalPress,
   completedIds = new Set(),
   skippedIds = new Set(),
   zoomLevel = 1.0,
@@ -160,10 +165,51 @@ export function SpineTimeline({
                   {formatTime(event.startTime)} — {formatTime(event.endTime)}
                 </Text>
 
-                {/* Title */}
-                <Text style={[styles.eventTitle, { color: colors.textOnDark }]} numberOfLines={1}>
-                  {event.name}
-                </Text>
+                {/* Title + Journal badge */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={[styles.eventTitle, { color: colors.textOnDark, flex: 1 }]} numberOfLines={1}>
+                    {event.name}
+                  </Text>
+                  {JOURNAL_TYPES.has(event.type) && (
+                    <Pressable
+                      onPress={(e) => { e.stopPropagation(); onJournalPress?.(event); }}
+                      hitSlop={8}
+                      style={[
+                        styles.journalBadge,
+                        {
+                          backgroundColor: event.journalState === 'complete' ? '#30D158' + '20'
+                            : event.journalState === 'pre_set' ? colors.accent2 + '20'
+                            : colors.textMuted + '15',
+                          borderColor: event.journalState === 'complete' ? '#30D158' + '40'
+                            : event.journalState === 'pre_set' ? colors.accent2 + '40'
+                            : colors.textMuted + '30',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={event.journalState === 'complete' ? 'book' : 'book-outline'}
+                        size={12}
+                        color={
+                          event.journalState === 'complete' ? '#30D158'
+                            : event.journalState === 'pre_set' ? colors.accent2
+                            : colors.textMuted
+                        }
+                      />
+                      <Text style={[
+                        styles.journalBadgeText,
+                        {
+                          color: event.journalState === 'complete' ? '#30D158'
+                            : event.journalState === 'pre_set' ? colors.accent2
+                            : colors.textMuted,
+                        },
+                      ]}>
+                        {event.journalState === 'complete' ? 'Logged'
+                          : event.journalState === 'pre_set' ? 'Reflect'
+                          : 'Set target'}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
 
                 {/* Notes / description */}
                 {event.notes ? (
@@ -345,6 +391,19 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 11,
     marginLeft: 'auto',
+  },
+  journalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  journalBadgeText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
   },
 
   // Empty state

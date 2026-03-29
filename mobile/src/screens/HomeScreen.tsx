@@ -66,6 +66,8 @@ import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { QuickAccessBar } from '../components/QuickAccessBar';
+import { ProactiveDashboard } from '../components/chat/ProactiveDashboard';
+import { useBootData } from '../hooks/useBootData';
 // useFavorites removed — favorites feature deprecated
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { useAllQuotes } from '../hooks/useContentHelpers';
@@ -1173,6 +1175,7 @@ export function HomeScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
+  const { bootData } = useBootData();
   // favorites removed
   // sportConfig removed — no mock data sync needed
   const allQuotes = useAllQuotes();
@@ -1820,15 +1823,22 @@ export function HomeScreen() {
         {/* ─── Chat Area ───────────────────────────────────────────── */}
         {!showSavedChats && isEmpty ? (
           <Pressable style={styles.emptyContainer} onPress={Keyboard.dismiss}>
-            <View style={styles.emptyCenter}>
-              {/* ── Motivational Quote ──────────────────────────────── */}
-              <QuoteCard quote={currentQuote} />
-
-              <Text style={styles.emptySubtitle}>
-                {pageConfig?.metadata?.emptyStates?.['chat_subtitle'] || 'Ask about training, recovery, nutrition, or how you\'re feeling.'}
-              </Text>
-            </View>
-            <RandomCapsuleChips onPress={handleChipPress} />
+            {bootData ? (
+              <View style={styles.emptyCenter}>
+                <ProactiveDashboard bootData={bootData} onChipPress={handleChipPress} />
+              </View>
+            ) : (
+              <>
+                <View style={styles.emptyCenter}>
+                  {/* ── Motivational Quote (fallback when boot data unavailable) ── */}
+                  <QuoteCard quote={currentQuote} />
+                  <Text style={styles.emptySubtitle}>
+                    {pageConfig?.metadata?.emptyStates?.['chat_subtitle'] || 'Ask about training, recovery, nutrition, or how you\'re feeling.'}
+                  </Text>
+                </View>
+                <RandomCapsuleChips onPress={handleChipPress} />
+              </>
+            )}
           </Pressable>
         ) : !showSavedChats ? (
           <>

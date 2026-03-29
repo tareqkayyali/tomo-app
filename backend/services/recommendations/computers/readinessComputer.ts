@@ -181,6 +181,22 @@ export async function computeReadinessRec(
   // 7. Supersede existing READINESS recs
   await supersedeExisting(athleteId, 'READINESS');
 
+  // 7b. Dedup guard — skip if an identical rec was just created (race condition from parallel events)
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const { data: recentDup } = await (db as any)
+    .from('athlete_recommendations')
+    .select('rec_id')
+    .eq('athlete_id', athleteId)
+    .eq('rec_type', 'READINESS')
+    .eq('status', 'PENDING')
+    .eq('title', title)
+    .gte('created_at', fiveMinAgo)
+    .limit(1);
+  if (recentDup && recentDup.length > 0) {
+    console.log(`[RIE/Readiness] Dedup: skipping "${title}" for ${athleteId} (recent duplicate exists)`);
+    return;
+  }
+
   // 8. Insert new recommendation
   const expiryHours = REC_EXPIRY_HOURS.READINESS ?? 24;
   const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000).toISOString();

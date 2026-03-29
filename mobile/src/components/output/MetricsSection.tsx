@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react';
+import { emitRefresh } from '../../utils/refreshBus';
 import {
   View,
   Text,
@@ -45,6 +46,10 @@ const METRIC_TO_CATALOG: Record<string, string> = {
   cmj: 'cmj',
   broad_jump: 'broad-jump',
   agility_505: '5-0-5',
+  agility_ttest: 't-test',
+  agility_5105: '5-10-5-agility',
+  illinois_agility: 'illinois-agility',
+  arrowhead_agility: 'arrowhead-agility',
   vo2max: 'yoyo-ir1',
   reaction_time: 'reaction-time',
   squat_rel: '1rm-squat',
@@ -156,6 +161,8 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPendingTest(null);
       setPendingValue('');
+      emitRefresh('metrics');
+      emitRefresh('recommendations');
       // Small delay to let the event processor + benchmark write complete before re-fetching
       await new Promise(r => setTimeout(r, 800));
       onTestLogged?.();
@@ -425,6 +432,8 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
     try {
       await deleteTestResult(metricKey);
       console.log(`[MetricsSection] Deleted ${metricLabel}`);
+      emitRefresh('metrics');
+      emitRefresh('recommendations');
       await new Promise(r => setTimeout(r, 500));
       onTestLogged?.();
     } catch (e: any) {

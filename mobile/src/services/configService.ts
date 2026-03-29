@@ -86,7 +86,58 @@ export interface ConfigBundle {
   pages: PageConfigRow[];
   flags: FeatureFlagRow[];
   component_styles: ComponentStyles;
+  proactive_dashboard: DashboardConfig | null;
   fetched_at: string;
+}
+
+// ═══ PROACTIVE DASHBOARD CONFIG (CMS-managed) ═══
+
+export interface DashboardConfig {
+  greeting: { enabled: boolean; showEmoji: boolean; customPrefix?: string };
+  pills: DashboardPillConfig[];
+  todaySection: {
+    enabled: boolean;
+    maxEvents: number;
+    showEventTime: boolean;
+    showRestDayMessage: boolean;
+    restDayMessage: string;
+  };
+  flags: DashboardFlagConfig[];
+  chips: DashboardChipConfig[];
+  newUserMessage: string;
+}
+
+export interface DashboardPillConfig {
+  id: string;
+  label: string;
+  emoji: string;
+  dataSource: string;
+  format: string;
+  enabled: boolean;
+  emptyValue: string;
+  colorRules?: { green?: string; yellow?: string; red?: string };
+  tapAction?: string;
+  tapHint?: string;
+  sortOrder: number;
+}
+
+export interface DashboardFlagConfig {
+  id: string;
+  condition: string;
+  icon: string;
+  message: string;
+  color: string;
+  priority: number;
+  enabled: boolean;
+}
+
+export interface DashboardChipConfig {
+  id: string;
+  label: string;
+  message: string;
+  condition?: string;
+  priority: number;
+  enabled: boolean;
 }
 
 // ═══ FETCH HELPERS ═══

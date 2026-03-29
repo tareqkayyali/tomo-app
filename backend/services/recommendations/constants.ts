@@ -48,6 +48,10 @@ export const EVENT_TO_REC_TYPES: Partial<Record<string, RecType[]>> = {
   // Injury — no recs (handled by readiness/load via snapshot flags)
   [EVENT_TYPES.INJURY_FLAG]: [],
   [EVENT_TYPES.INJURY_CLEARED]: [],
+
+  // Journal — nudge + motivation
+  [EVENT_TYPES.JOURNAL_PRE_SESSION]: ['JOURNAL_NUDGE'],
+  [EVENT_TYPES.JOURNAL_POST_SESSION]: ['JOURNAL_NUDGE', 'MOTIVATION'],
 };
 
 // ---------------------------------------------------------------------------
@@ -64,6 +68,7 @@ export const REC_EXPIRY_HOURS: Partial<Record<RecType, number>> = {
   CV_OPPORTUNITY: 336,    // CV opportunities persist 14 days
   TRIANGLE_ALERT: 72,     // Triangle alerts persist 3 days
   MOTIVATION: 48,         // Motivation recs persist 48 hours
+  JOURNAL_NUDGE: 4,       // Journal nudges are time-sensitive (4 hours)
 };
 
 // ---------------------------------------------------------------------------

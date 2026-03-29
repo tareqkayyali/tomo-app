@@ -73,6 +73,7 @@ export const TEST_GROUP_MAP: Record<string, string> = {
   shot_speed: "power_explosiveness",
   // Agility & CoD
   agility_505: "agility_cod",
+  agility_ttest: "agility_cod",
   agility_5105: "agility_cod",
   agility_505_cod: "agility_cod",
   illinois_agility: "agility_cod",

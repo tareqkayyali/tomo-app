@@ -187,14 +187,25 @@ function addMinutes(timeStr: string, minutes: number): string {
 
 /**
  * Convert local date + time in a timezone to ISO string.
- * Simple implementation — for production, use contextBuilder's toTimezoneISO.
+ * Uses formatToParts for reliable cross-runtime conversion.
  */
 function localToIso(date: string, time: string, tz: string): string {
   try {
-    const utcStr = new Date().toLocaleString("en-US", { timeZone: "UTC" });
-    const tzStr = new Date().toLocaleString("en-US", { timeZone: tz });
-    const offsetMs = new Date(tzStr).getTime() - new Date(utcStr).getTime();
-    const naive = new Date(`${date}T${time}:00+00:00`);
+    const normTime = time.includes(':') && time.split(':').length < 3 ? `${time}:00` : time;
+    const refDate = new Date(`${date}T12:00:00Z`);
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    }).formatToParts(refDate);
+    const p: Record<string, string> = {};
+    for (const part of parts) {
+      if (part.type !== 'literal') p[part.type] = part.value;
+    }
+    const tzDateStr = `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}Z`;
+    const offsetMs = new Date(tzDateStr).getTime() - refDate.getTime();
+    const naive = new Date(`${date}T${normTime}Z`);
     return new Date(naive.getTime() - offsetMs).toISOString();
   } catch {
     return `${date}T${time}:00Z`;

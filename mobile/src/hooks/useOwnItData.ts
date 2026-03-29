@@ -22,11 +22,12 @@ import {
   type RIERecommendation,
 } from '../services/api';
 import { useRefreshListener } from './useRefreshListener';
+import { useBootData } from './useBootData';
 
 const SNAPSHOT_CACHE_KEY = 'tomo_ownit_snapshot';
 const RECS_CACHE_KEY = 'tomo_ownit_recs';
 
-const SPORTS_TYPES = ['READINESS', 'LOAD_WARNING', 'RECOVERY', 'DEVELOPMENT', 'MOTIVATION'];
+const SPORTS_TYPES = ['READINESS', 'LOAD_WARNING', 'RECOVERY', 'DEVELOPMENT', 'MOTIVATION', 'JOURNAL_NUDGE'];
 const STUDY_TYPES = ['ACADEMIC'];
 const UPDATE_TYPES = ['CV_OPPORTUNITY', 'TRIANGLE_ALERT'];
 
@@ -52,6 +53,7 @@ function groupRecs(recs: RIERecommendation[]) {
 
 export function useOwnItData() {
   const isFocused = useIsFocused();
+  const { bootData } = useBootData();
   const [snapshot, setSnapshot] = useState<AthleteSnapshot | null>(null);
   const [recs, setRecs] = useState<RIERecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -151,9 +153,18 @@ export function useOwnItData() {
   }, [triggerDeepRefresh]);
 
   // Load cache on mount, then fetch, then deep refresh
+  // Seed from boot data if available and fresh (< 60s old) to eliminate loading flash
   useEffect(() => {
     let isMounted = true;
     (async () => {
+      // Try boot data first (already fetched during splash screen)
+      const bootFresh = bootData?.fetchedAt
+        && (Date.now() - new Date(bootData.fetchedAt).getTime()) < 60_000;
+      if (bootFresh && bootData?.snapshot && !snapshot) {
+        setSnapshot(bootData.snapshot as any);
+        setIsLoading(false);
+      }
+
       try {
         const [cachedSnap, cachedRecs] = await Promise.all([
           AsyncStorage.getItem(SNAPSHOT_CACHE_KEY),
@@ -169,13 +180,16 @@ export function useOwnItData() {
       // Fetch current data from DB
       await fetchData();
       if (!isMounted) return;
-      // Then trigger deep refresh (Claude analysis) — force on initial mount
-      triggerDeepRefresh(true);
+      // Only trigger deep refresh if recs are empty or stale
+      // Trust the event pipeline — it pre-computes recs on data changes
+      // This saves ~50% in API costs vs force=true on every mount
+      triggerDeepRefresh(false); // respects backend staleness check (24h)
     })();
     return () => { isMounted = false; };
   }, []);
 
-  // Refresh on screen focus (after initial load) — with 5-minute cooldown on deep refresh
+  // Refresh on screen focus (after initial load) — always re-fetch from DB,
+  // only deep refresh if cooldown expired (and backend will check staleness)
   useEffect(() => {
     if (isFocused && hasFetchedOnce) {
       fetchData();
@@ -183,7 +197,7 @@ export function useOwnItData() {
       const DEEP_REFRESH_COOLDOWN = 300_000; // 5 minutes
       if (now - lastDeepRefreshRef.current >= DEEP_REFRESH_COOLDOWN) {
         lastDeepRefreshRef.current = now;
-        triggerDeepRefresh(true);
+        triggerDeepRefresh(false); // respect backend staleness — don't force
       }
     }
   }, [isFocused, hasFetchedOnce, fetchData, triggerDeepRefresh]);
@@ -197,7 +211,15 @@ export function useOwnItData() {
   const grouped = useMemo(() => groupRecs(recs), [recs]);
 
   // ── Listen for cross-screen refresh events (e.g. check-in from chat) ──
-  useRefreshListener('readiness', fetchData);
+  // On readiness change: re-fetch recs AND force deep refresh (bypass cooldown)
+  const handleReadinessRefresh = useCallback(() => {
+    fetchData();
+    // Bypass the 5-minute cooldown — checkin changed readiness, recs are now stale
+    lastDeepRefreshRef.current = 0;
+    triggerDeepRefresh(true);
+  }, [fetchData, triggerDeepRefresh]);
+
+  useRefreshListener('readiness', handleReadinessRefresh);
   useRefreshListener('recommendations', fetchData);
 
   return {

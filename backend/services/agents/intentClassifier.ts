@@ -156,6 +156,17 @@ function buildExactMatchMap(): void {
     { text: "view today's schedule", intentId: "qa_today_schedule" },
     // Notifications
     { text: "notification settings", intentId: "notification_settings" },
+    // Journal
+    { text: "journal", intentId: "journal_pre" },
+    { text: "training journal", intentId: "journal_pre" },
+    { text: "set my target", intentId: "journal_pre" },
+    { text: "set my focus", intentId: "journal_pre" },
+    { text: "write journal", intentId: "journal_pre" },
+    { text: "reflect on training", intentId: "journal_post" },
+    { text: "how was my session", intentId: "journal_post" },
+    { text: "training reflection", intentId: "journal_post" },
+    { text: "session review", intentId: "journal_post" },
+    { text: "log my reflection", intentId: "journal_post" },
   ];
 
   for (const chip of chipActions) {

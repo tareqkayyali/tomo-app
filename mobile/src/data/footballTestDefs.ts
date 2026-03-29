@@ -81,6 +81,7 @@ export function normalCDF(z: number): number {
 const AGILITY_METRIC_MAP: Record<string, string> = {
   illinois: 'Illinois Agility Run',
   '5-0-5': '5-0-5 COD',
+  '5-10-5': '5-10-5 Agility',
   ttest: 'T-Test Agility',
 };
 
@@ -208,7 +209,7 @@ export const FOOTBALL_TEST_DEFS: FootballTestDef[] = [
     icon: 'git-branch-outline',
     color: colors.info,
     attribute: 'dribbling',
-    description: 'Change of direction speed — choose Illinois, 5-0-5, or T-Test.',
+    description: 'Change of direction speed — choose Illinois, 5-0-5, 5-10-5, or T-Test.',
     researchNote: 'Agility is neural and peaks earlier than power-based traits (Research Section 6.3). COD ability separates elite from sub-elite youth players.',
     inputs: [
       {
@@ -216,6 +217,7 @@ export const FOOTBALL_TEST_DEFS: FootballTestDef[] = [
         options: [
           { label: 'Illinois', value: 'illinois' },
           { label: '5-0-5', value: '5-0-5' },
+          { label: '5-10-5', value: '5-10-5' },
           { label: 'T-Test', value: 'ttest' },
         ],
       },

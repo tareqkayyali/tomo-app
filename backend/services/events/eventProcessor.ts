@@ -17,6 +17,7 @@ import { handleStakeholderEvent } from './handlers/stakeholderHandler';
 import { handleInjuryEvent } from './handlers/injuryHandler';
 import { handleCompetitionResult } from './handlers/competitionHandler';
 import { handleDrillCompleted } from './handlers/drillHandler';
+import { handleJournalPreSession, handleJournalPostSession } from './handlers/journalHandler';
 import { writeSnapshot } from './snapshot/snapshotWriter';
 import { logger } from '@/lib/logger';
 import { triggerRecommendationComputation } from '../recommendations/recommendationDispatcher';
@@ -105,6 +106,15 @@ export async function processEvent(event: AthleteEvent): Promise<void> {
       // Competition results — updates mastery + CV
       case EVENT_TYPES.COMPETITION_RESULT:
         await handleCompetitionResult(event);
+        break;
+
+      // Journal events
+      case EVENT_TYPES.JOURNAL_PRE_SESSION:
+        await handleJournalPreSession(event);
+        break;
+
+      case EVENT_TYPES.JOURNAL_POST_SESSION:
+        await handleJournalPostSession(event);
         break;
 
       // Passive events — logged in event stream, snapshot meta update only

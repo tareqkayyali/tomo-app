@@ -30,7 +30,7 @@ export async function readSnapshot(
 
   if (error || !data) return null;
 
-  return filterSnapshotByRole(data as AthleteSnapshot, role);
+  return filterSnapshotByRole(data as unknown as AthleteSnapshot, role);
 }
 
 /**

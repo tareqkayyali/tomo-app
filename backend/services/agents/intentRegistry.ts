@@ -462,6 +462,31 @@ export const INTENT_REGISTRY: IntentDefinition[] = [
     toolName: "get_test_results",
     toolInput: {},
   },
+  // ── Journal ──
+  {
+    id: "journal_pre",
+    capsuleType: "training_journal_pre_capsule",
+    agentType: "output",
+    description: "Athlete wants to set a target or goal before an upcoming training session",
+    examples: [
+      "set my training target", "set my target", "set my focus",
+      "log my goal for today", "what am I working on today",
+      "before training", "set my intention", "pre-training",
+    ],
+    toolName: "get_today_training_for_journal",
+  },
+  {
+    id: "journal_post",
+    capsuleType: "training_journal_post_capsule",
+    agentType: "output",
+    description: "Athlete wants to reflect on or log how a training session went",
+    examples: [
+      "log how training went", "reflect on my session", "how did training go",
+      "session review", "training reflection", "post-training",
+      "how was my session", "what did I learn today",
+    ],
+    toolName: "get_pending_post_journal",
+  },
 ];
 
 // Build lookup maps for fast access

@@ -116,6 +116,58 @@ export async function apiRequest<T>(
 }
 
 // ============================================
+// Boot — Pre-fetch athlete state during app loading
+// ============================================
+
+export interface BootData {
+  name: string;
+  sport: string;
+  position: string | null;
+  isStudent: boolean;
+  age: number | null;
+  streak: number;
+  snapshot: Record<string, any> | null;
+  todayEvents: {
+    id: string;
+    title: string;
+    type: string;
+    startAt: string;
+    endAt: string | null;
+    intensity: number | null;
+  }[];
+  latestCheckin: {
+    readiness: string;
+    energy: number;
+    soreness: number;
+    sleepHours: number;
+    mood: number;
+    date: string;
+  } | null;
+  activeRecs: {
+    type: string;
+    priority: number;
+    title: string;
+    bodyShort: string | null;
+  }[];
+  benchmarkSummary: {
+    overallPercentile: number;
+    topStrength: string | null;
+    topGap: string | null;
+  } | null;
+  upcomingExams: { title: string; date: string }[];
+  fetchedAt: string;
+}
+
+/**
+ * Fetch boot data during app loading screen.
+ * Returns athlete snapshot + today's events + checkin + recs + benchmarks.
+ */
+export async function getBootData(): Promise<BootData> {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return apiRequest<BootData>(`/api/v1/boot?tz=${encodeURIComponent(tz)}`);
+}
+
+// ============================================
 // Check-in & Plan APIs
 // ============================================
 
@@ -433,6 +485,93 @@ export async function updateCalendarEvent(
     method: 'PATCH',
     body: JSON.stringify({ ...patch, timezone: getUserTimezone() }),
   });
+}
+
+// ============================================
+// Program Search API
+// ============================================
+
+export interface ProgramSearchResult {
+  id: string;
+  name: string;
+  category: string;
+  type: string;
+  duration_weeks?: number;
+  difficulty?: string;
+  description?: string;
+}
+
+export async function searchPrograms(
+  query?: string,
+  category?: string,
+): Promise<{ programs: ProgramSearchResult[] }> {
+  const params = new URLSearchParams();
+  if (query) params.set('q', query);
+  if (category) params.set('category', category);
+  const qs = params.toString();
+  return apiRequest(`/api/v1/programs${qs ? '?' + qs : ''}`);
+}
+
+// ============================================
+// Training Journal APIs
+// ============================================
+
+export interface JournalEntry {
+  id: string;
+  user_id: string;
+  calendar_event_id: string;
+  event_date: string;
+  training_category: string;
+  training_name: string;
+  pre_target: string | null;
+  pre_mental_cue: string | null;
+  pre_focus_tag: string | null;
+  pre_set_at: string | null;
+  post_outcome: 'fell_short' | 'hit_it' | 'exceeded' | null;
+  post_reflection: string | null;
+  post_next_focus: string | null;
+  post_body_feel: number | null;
+  post_set_at: string | null;
+  journal_variant: 'standard' | 'recovery' | 'match';
+  ai_insight: string | null;
+  journal_state: 'empty' | 'pre_set' | 'complete';
+  locked_at: string | null;
+}
+
+export async function saveJournalPreSession(input: {
+  calendar_event_id: string;
+  pre_target: string;
+  pre_mental_cue?: string;
+  pre_focus_tag?: string;
+}): Promise<{ journal_id: string; journal_state: string; message: string }> {
+  return apiRequest('/api/v1/journal/pre-session', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function saveJournalPostSession(input: {
+  journal_id: string;
+  post_outcome: 'fell_short' | 'hit_it' | 'exceeded';
+  post_reflection: string;
+  post_next_focus?: string;
+  post_body_feel?: number;
+}): Promise<{ journal_id: string; journal_state: string; ai_insight: string | null; message: string }> {
+  return apiRequest('/api/v1/journal/post-session', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getJournalForEvent(calendarEventId: string): Promise<{ journal: JournalEntry | null }> {
+  return apiRequest(`/api/v1/journal/${calendarEventId}`);
+}
+
+export async function getJournalHistory(
+  limit: number = 20,
+  offset: number = 0,
+): Promise<{ journals: JournalEntry[]; total: number }> {
+  return apiRequest(`/api/v1/journal?limit=${limit}&offset=${offset}`);
 }
 
 // ============================================

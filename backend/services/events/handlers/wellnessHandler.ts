@@ -35,13 +35,16 @@ export async function handleWellnessCheckin(event: AthleteEvent): Promise<void> 
   // 2. Compute a numeric score (0–100) from the readiness components
   const score = computeReadinessScore(payload, readinessResult.readiness);
 
-  // 3. Enrich the event payload with computed values (for audit trail)
+  // 3. Enrich the event payload with computed values (for audit trail + snapshot writer)
   const db = supabaseAdmin();
   const enrichedPayload = {
     ...payload,
     computed_readiness_level: readinessResult.readiness,
     computed_readiness_score: score,
   };
+
+  // Mutate the in-memory event so writeSnapshot() sees the computed values
+  (event as any).payload = enrichedPayload;
 
   await db
     .from('athlete_events')

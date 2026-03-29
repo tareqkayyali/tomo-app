@@ -99,7 +99,8 @@ export function BulkEditEventsScreen() {
       const today = new Date();
       const start = today.toISOString().slice(0, 10);
       const end = new Date(today.getTime() + 28 * 86400000).toISOString().slice(0, 10);
-      const resp = await apiRequest(`/api/v1/calendar/events?startDate=${start}&endDate=${end}`);
+      const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
+      const resp = await apiRequest(`/api/v1/calendar/events?startDate=${start}&endDate=${end}&tz=${tz}`);
       const data = resp?.events ?? resp;
       setEvents(Array.isArray(data) ? data : data?.events ?? []);
     } catch (e) {

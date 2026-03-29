@@ -41,6 +41,8 @@ import { useSubTabRegistry } from '../hooks/useSubTabContext';
 import { usePageConfig } from '../hooks/usePageConfig';
 import { useScheduleRules } from '../hooks/useScheduleRules';
 import { useFocusEffect } from '@react-navigation/native';
+import { JournalSheet } from '../components/journal/JournalSheet';
+import type { CalendarEvent } from '../types';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -195,6 +197,9 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   useEffect(() => {
     calendar.setViewMode('day');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Journal sheet state ───
+  const [journalEvent, setJournalEvent] = useState<CalendarEvent | null>(null);
 
   // ─── Selected day (for day navigation) ───
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
@@ -407,7 +412,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
       <UnifiedDayView
         role="player"
         isOwner={true}
-        events={dayEvents}
+        events={dayEvents as CalendarEvent[]}
         selectedDay={selectedDay}
         dayLabel={dayLabel}
         isToday={isToday}
@@ -442,6 +447,14 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
         onDelete={(eventId) => handleDeleteEvent(eventId)}
         onUpdate={(eventId, patch) => handleUpdateEvent(eventId, patch)}
         onCheckinPress={() => navigation.navigate('Checkin')}
+        onJournalPress={(event) => setJournalEvent(event)}
+      />
+
+      {/* ─── Journal Sheet ─── */}
+      <JournalSheet
+        visible={journalEvent !== null}
+        event={journalEvent}
+        onClose={() => setJournalEvent(null)}
       />
     </SafeAreaView>
   );
