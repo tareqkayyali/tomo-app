@@ -308,7 +308,7 @@ export async function savePushToken(
 ): Promise<void> {
   const db = notifDb();
 
-  await db.from("player_push_tokens").upsert(
+  const { error } = await db.from("player_push_tokens").upsert(
     {
       user_id: userId,
       expo_push_token: expoPushToken,
@@ -317,6 +317,12 @@ export async function savePushToken(
     },
     { onConflict: "user_id" }
   );
+
+  if (error) {
+    console.error(`[savePushToken] Failed to save push token for user ${userId}:`, error.message);
+    throw error;
+  }
+  console.log(`[savePushToken] Saved push token for user ${userId}, platform=${platform}`);
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
