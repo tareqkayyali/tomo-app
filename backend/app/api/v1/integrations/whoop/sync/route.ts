@@ -186,17 +186,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Touch created_at on all health_data rows written in this sync window
-    // so freshness calculation sees them as "just updated"
-    if (healthDataWritten > 0) {
-      try {
-        await db.from("health_data")
-          .update({ created_at: new Date().toISOString() })
-          .eq("user_id", userId)
-          .gte("date", startDate.slice(0, 10));
-      } catch (e: any) {
-        console.warn("[whoop/sync] Could not touch created_at:", e?.message);
-      }
+    // Always touch created_at on all health_data rows in the sync window —
+    // even if 0 new rows written (same data, or Whoop returned no new records).
+    // This ensures the freshness calculation knows we *just checked* Whoop,
+    // so the staleness dot turns green/aging after a successful sync.
+    try {
+      await db.from("health_data")
+        .update({ created_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .gte("date", startDate.slice(0, 10));
+    } catch (e: any) {
+      console.warn("[whoop/sync] Could not touch created_at:", e?.message);
     }
 
     // ── Update athlete_snapshot with latest Whoop vitals ──

@@ -144,7 +144,9 @@ const VITAL_GROUP_MAP: Record<string, string> = {
   // Recovery & Readiness
   hrv: "recovery_readiness",
   hrv_rmssd: "recovery_readiness",
-  resting_heart_rate: "recovery_readiness",
+  resting_hr: "recovery_readiness",         // stored as "resting_hr" by whoopService
+  resting_heart_rate: "recovery_readiness", // legacy alias
+  recovery_score: "recovery_readiness",     // whoop recovery score (0-100%)
   // Sleep
   sleep_hours: "sleep",
   sleep_total: "sleep",
@@ -155,7 +157,8 @@ const VITAL_GROUP_MAP: Record<string, string> = {
   heart_rate: "cardio_load",
   avg_heart_rate: "cardio_load",
   vo2max: "cardio_load",
-  active_calories: "cardio_load",
+  calories: "cardio_load",       // stored as "calories" by whoopService (from kilojoules)
+  active_calories: "cardio_load", // legacy alias
   // Activity & Movement
   steps: "activity_movement",
   exercise_minutes: "activity_movement",
@@ -169,6 +172,7 @@ const VITAL_GROUP_MAP: Record<string, string> = {
   respiratory_rate: "respiratory_oxygen",
   blood_oxygen: "respiratory_oxygen",
   spo2: "respiratory_oxygen",
+  body_temp: "respiratory_oxygen", // whoop skin temp (closest group)
   // Mental Load
   stress: "mental_load",
   mood: "mental_load",
@@ -784,6 +788,17 @@ export async function GET(req: NextRequest) {
     const dataDate = latest?.date ?? null;
     const syncedAt = latest?.created_at ?? null;
     const recordedAt = dataDate ?? syncedAt;
+
+    // Use the most recent of (syncedAt, dataDate) to compute freshness.
+    // syncedAt is touched on every sync (even when data is unchanged), so after
+    // a successful sync the freshness dot turns green/aging immediately.
+    // dataDate (YYYY-MM-DD from Whoop) is used for the human-readable "timeAgo"
+    // label so users still know when the biological data was captured.
+    const freshnessBasis =
+      syncedAt && (!dataDate || syncedAt > new Date(dataDate).toISOString())
+        ? syncedAt
+        : recordedAt;
+
     const value = latest ? Math.round(latest.value * 10) / 10 : null;
 
     // Age-band percentile context
@@ -799,7 +814,7 @@ export async function GET(req: NextRequest) {
       value,
       dataDate,
       lastRecordedAt: recordedAt,
-      freshness: computeFreshness(recordedAt),
+      freshness: computeFreshness(freshnessBasis),
       timeAgo: timeAgoLabel(recordedAt),
       syncedAt,
       syncTimeAgo: syncedAt ? timeAgoLabel(syncedAt) : null,
