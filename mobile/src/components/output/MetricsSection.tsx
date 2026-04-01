@@ -163,6 +163,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
       setPendingValue('');
       emitRefresh('metrics');
       emitRefresh('recommendations');
+      emitRefresh('notifications');
       // Small delay to let the event processor + benchmark write complete before re-fetching
       await new Promise(r => setTimeout(r, 800));
       onTestLogged?.();
@@ -434,6 +435,7 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
       console.log(`[MetricsSection] Deleted ${metricLabel}`);
       emitRefresh('metrics');
       emitRefresh('recommendations');
+      emitRefresh('notifications');
       await new Promise(r => setTimeout(r, 500));
       onTestLogged?.();
     } catch (e: any) {

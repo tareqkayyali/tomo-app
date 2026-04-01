@@ -1,7 +1,7 @@
 /**
  * NotificationBell — Header icon with unread count badge.
  *
- * Shows combined unread count (legacy + notification center).
+ * Shows unread count from the notification center.
  * Pulses when any P1 critical notification is unread.
  */
 
@@ -15,6 +15,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  cancelAnimation,
 } from 'react-native-reanimated';
 
 import { useTheme } from '../hooks/useTheme';
@@ -26,9 +27,9 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 export function NotificationBell() {
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
-  const { unreadCount, centerUnreadCount, hasCriticalUnread } = useNotifications();
+  const { centerUnreadCount, hasCriticalUnread } = useNotifications();
 
-  const totalUnread = unreadCount + centerUnreadCount;
+  const totalUnread = centerUnreadCount;
 
   // Pulse animation for critical notifications
   const pulseScale = useSharedValue(1);
@@ -40,12 +41,14 @@ export function NotificationBell() {
           withTiming(1.3, { duration: 400 }),
           withTiming(1.0, { duration: 400 }),
         ),
-        -1, // infinite repeat
+        -1,
         false,
       );
     } else {
+      cancelAnimation(pulseScale);
       pulseScale.value = withTiming(1, { duration: 200 });
     }
+    return () => cancelAnimation(pulseScale);
   }, [hasCriticalUnread]);
 
   const pulseStyle = useAnimatedStyle(() => ({
@@ -56,9 +59,9 @@ export function NotificationBell() {
     <Pressable
       onPress={() => {
         try {
-          navigation.navigate('Notifications');
-        } catch {
-          // Screen not registered yet
+          navigation.navigate('Notifications' as never);
+        } catch (err) {
+          console.warn('[NotificationBell] Navigation failed:', err);
         }
       }}
       style={({ pressed }) => [styles.wrap, { opacity: pressed ? 0.7 : 1 }]}
@@ -68,7 +71,7 @@ export function NotificationBell() {
         <AnimatedView
           style={[
             styles.badge,
-            { backgroundColor: hasCriticalUnread ? colors.error : colors.error },
+            { backgroundColor: colors.error },
             hasCriticalUnread ? pulseStyle : undefined,
           ]}
         >

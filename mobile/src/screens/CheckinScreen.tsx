@@ -364,6 +364,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
       track('checkin_complete', { readiness: response.plan?.readinessLevel, sport: profile?.sport });
       emitRefresh('readiness');
       emitRefresh('recommendations');
+      emitRefresh('notifications');
 
       const newlyUnlocked = response.gamification?.milestones?.newlyUnlocked;
       if (newlyUnlocked && newlyUnlocked.length > 0) {

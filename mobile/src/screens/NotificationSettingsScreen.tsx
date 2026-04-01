@@ -103,7 +103,9 @@ export function NotificationSettingsScreen() {
 
   useEffect(() => {
     loadPrefs();
-    registerForPushNotifications().catch(() => {});
+    registerForPushNotifications().catch((err) => {
+      console.warn('[NotificationSettings] Push registration failed:', err);
+    });
   }, []);
 
   async function loadPrefs() {
@@ -127,8 +129,15 @@ export function NotificationSettingsScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
-    } catch {
+    } catch (err) {
+      console.warn('[NotificationSettings] Save failed:', err);
       setPrefs(prefs); // revert
+      if (Platform.OS === 'web') {
+        window.alert('Could not save preference. Please try again.');
+      } else {
+        const { Alert } = require('react-native');
+        Alert.alert('Error', 'Could not save preference. Please try again.');
+      }
     }
   }, [prefs]);
 

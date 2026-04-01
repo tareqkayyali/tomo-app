@@ -17,6 +17,7 @@ import {
   Pressable,
   RefreshControl,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
@@ -90,6 +91,7 @@ async function fetchCenterNotifications(options: {
   notifications: NotificationData[];
   unread_count: number;
   by_category: Record<string, number>;
+  by_category_total?: Record<string, number>;
 }> {
   const params = new URLSearchParams({ source: 'center' });
   if (options.category && options.category !== 'all') params.set('category', options.category);
@@ -131,26 +133,48 @@ export function NotificationCenterScreen() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
 
-  const fetchData = useCallback(async (category?: CategoryFilter) => {
+  const PAGE_SIZE = 50;
+
+  const fetchData = useCallback(async (category?: CategoryFilter, append = false) => {
     try {
+      setFetchError(null);
+      const offset = append ? notifications.length : 0;
       const result = await fetchCenterNotifications({
         category: category ?? selectedCategory,
-        limit: 50,
+        limit: PAGE_SIZE,
+        offset,
       });
-      setNotifications(result.notifications);
+      if (append) {
+        setNotifications((prev) => [...prev, ...result.notifications]);
+      } else {
+        setNotifications(result.notifications);
+      }
       setByCat(result.by_category_total ?? result.by_category ?? {});
       setUnreadCount(result.unread_count);
+      setHasMore(result.notifications.length >= PAGE_SIZE);
     } catch (err) {
       console.error('[notification-center] Fetch failed:', err);
+      if (!append) setFetchError('Could not load notifications. Pull to retry.');
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, notifications.length]);
 
   useEffect(() => {
     setLoading(true);
+    setHasMore(true);
     fetchData().finally(() => setLoading(false));
   }, [selectedCategory]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    await fetchData(undefined, true);
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, fetchData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -289,8 +313,16 @@ export function NotificationCenterScreen() {
         </View>
       )}
 
+      {/* Error State */}
+      {fetchError && !loading && (
+        <View style={styles.emptyContainer}>
+          <SmartIcon name="cloud-offline-outline" size={48} color={colors.error} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{fetchError}</Text>
+        </View>
+      )}
+
       {/* Empty State */}
-      {isEmpty && (
+      {isEmpty && !fetchError && (
         <View style={styles.emptyContainer}>
           <SmartIcon name={emptyState.icon} size={48} color={colors.textDisabled} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -332,19 +364,26 @@ export function NotificationCenterScreen() {
               tintColor={colors.accent}
             />
           }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3}
           stickySectionHeadersEnabled
           contentContainerStyle={styles.listContent}
           ListFooterComponent={
-            <Pressable
-              style={styles.settingsLink}
-              onPress={() => (navigation as any).navigate('NotificationSettings')}
-            >
-              <SmartIcon name="settings-outline" size={16} color={colors.textSecondary} />
-              <Text style={[styles.settingsText, { color: colors.textSecondary }]}>
-                Notification preferences
-              </Text>
-              <SmartIcon name="chevron-forward" size={14} color={colors.textDisabled} />
-            </Pressable>
+            <View>
+              {loadingMore && (
+                <ActivityIndicator size="small" color={colors.accent} style={{ paddingVertical: spacing.md }} />
+              )}
+              <Pressable
+                style={styles.settingsLink}
+                onPress={() => (navigation as any).navigate('NotificationSettings')}
+              >
+                <SmartIcon name="settings-outline" size={16} color={colors.textSecondary} />
+                <Text style={[styles.settingsText, { color: colors.textSecondary }]}>
+                  Notification preferences
+                </Text>
+                <SmartIcon name="chevron-forward" size={14} color={colors.textDisabled} />
+              </Pressable>
+            </View>
           }
         />
       )}

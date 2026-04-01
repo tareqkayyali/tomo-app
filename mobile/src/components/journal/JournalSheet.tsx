@@ -142,6 +142,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
         ...(mentalCue.trim() ? { pre_mental_cue: mentalCue.trim() } : {}),
       });
       emitRefresh('calendar');
+      emitRefresh('notifications');
       onClose();
     } catch (err) {
       if (Platform.OS === 'web') {
@@ -163,6 +164,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
         ...(bodyFeel ? { post_body_feel: parseInt(bodyFeel) } : {}),
       });
       emitRefresh('calendar');
+      emitRefresh('notifications');
       onClose();
     } catch (err) {
       if (Platform.OS === 'web') {

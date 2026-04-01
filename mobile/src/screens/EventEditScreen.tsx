@@ -389,6 +389,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       emitRefresh('calendar');
+      emitRefresh('notifications');
       navigation.goBack();
     } catch (e: any) {
       const msg = e?.message || 'Unknown error';
@@ -412,6 +413,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
         try {
           await deleteCalendarEvent(params.eventId);
           emitRefresh('calendar');
+          emitRefresh('notifications');
           navigation.goBack();
         } catch {
           window.alert('Could not delete event.');
@@ -427,6 +429,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
             try {
               await deleteCalendarEvent(params.eventId);
               emitRefresh('calendar');
+              emitRefresh('notifications');
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               navigation.goBack();
             } catch {

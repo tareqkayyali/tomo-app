@@ -349,6 +349,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
       });
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       emitRefresh('calendar');
+      emitRefresh('notifications');
       navigation.goBack();
     } catch {
       if (Platform.OS === 'web') {
