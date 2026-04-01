@@ -1,0 +1,59 @@
+{
+  "_meta": {
+    "generated": "2026-03-31",
+    "decision": "User chose Kalam (display) + Architects Daughter (note) + Poppins (body)",
+    "rationale": "Kalam: neat pen-like handwriting, mature coach feel. Architects Daughter: structured drafting notes for subtitles. Poppins: clean geometric sans for body text."
+  },
+
+  "fontFamily": {
+    "display": "Kalam_700Bold",
+    "displayMedium": "Kalam_400Regular",
+    "note": "ArchitectsDaughter_400Regular",
+    "light": "Poppins_300Light",
+    "regular": "Poppins_400Regular",
+    "medium": "Poppins_500Medium",
+    "semiBold": "Poppins_600SemiBold",
+    "bold": "Poppins_700Bold"
+  },
+
+  "useFontsImports": {
+    "kalam": ["Kalam_300Light", "Kalam_400Regular", "Kalam_700Bold"],
+    "architectsDaughter": ["ArchitectsDaughter_400Regular"],
+    "poppins": ["Poppins_300Light", "Poppins_400Regular", "Poppins_500Medium", "Poppins_600SemiBold", "Poppins_700Bold"]
+  },
+
+  "typography": {
+    "coachGreeting": {
+      "fontFamily": "Kalam_700Bold",
+      "fontSize": 28,
+      "lineHeight": 34
+    },
+    "coachNote": {
+      "fontFamily": "ArchitectsDaughter_400Regular",
+      "fontSize": 15,
+      "lineHeight": 22
+    },
+    "pillarScore": {
+      "fontFamily": "Kalam_700Bold",
+      "fontSize": 22
+    },
+    "sectionTitle": {
+      "fontFamily": "Kalam_700Bold",
+      "fontSize": 22
+    },
+    "pillarSubtitle": {
+      "fontFamily": "ArchitectsDaughter_400Regular",
+      "fontSize": 12,
+      "lineHeight": 16
+    },
+    "coachSignature": {
+      "fontFamily": "Kalam_400Regular",
+      "fontSize": 13
+    },
+    "tabLabel": {
+      "fontFamily": "ArchitectsDaughter_400Regular",
+      "fontSize": 10,
+      "letterSpacing": 0.3
+    }
+  }
+}

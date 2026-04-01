@@ -6,14 +6,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Platform, Text } from 'react-native';
+import { useFonts } from 'expo-font';
 import {
-  useFonts,
-  Poppins_300Light,
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-} from '@expo-google-fonts/poppins';
+  Montserrat_300Light,
+  Montserrat_400Regular,
+  Montserrat_400Regular_Italic,
+  Montserrat_500Medium,
+  Montserrat_600SemiBold,
+  Montserrat_700Bold,
+} from '@expo-google-fonts/montserrat';
+import {
+  MontserratAlternates_500Medium,
+  MontserratAlternates_600SemiBold,
+  MontserratAlternates_700Bold,
+} from '@expo-google-fonts/montserrat-alternates';
 import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
@@ -25,6 +31,7 @@ import { BootProvider } from './src/hooks/useBootData';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootNavigator } from './src/navigation';
 import { AnimatedSplashScreen, ErrorBoundary } from './src/components';
+import { AppAtmosphere } from './src/components/tomo-ui';
 import { injectWebFonts } from './src/utils/webFonts';
 import { initSentry, wrapWithSentry } from './src/services/sentry';
 
@@ -63,7 +70,9 @@ function AppContent() {
         <BootProvider>
           <SportWrapper>
             <StatusBar style={isDark ? 'light' : 'dark'} />
-            <RootNavigator />
+            <AppAtmosphere intensity="none">
+              <RootNavigator />
+            </AppAtmosphere>
           </SportWrapper>
         </BootProvider>
       </AuthProvider>
@@ -82,11 +91,15 @@ function App() {
       ? {} // No-op on web — CSS handles all fonts
       : {
           ...Ionicons.font,
-          Poppins_300Light,
-          Poppins_400Regular,
-          Poppins_500Medium,
-          Poppins_600SemiBold,
-          Poppins_700Bold,
+          Montserrat_300Light,
+          Montserrat_400Regular,
+          Montserrat_400Regular_Italic,
+          Montserrat_500Medium,
+          Montserrat_600SemiBold,
+          Montserrat_700Bold,
+          MontserratAlternates_500Medium,
+          MontserratAlternates_600SemiBold,
+          MontserratAlternates_700Bold,
         },
   );
 

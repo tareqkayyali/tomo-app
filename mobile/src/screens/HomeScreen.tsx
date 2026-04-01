@@ -91,6 +91,7 @@ import type {
   SuggestionChip as SuggestionChipType,
 } from '../types';
 import * as Clipboard from 'expo-clipboard';
+import { TomoLoader, CHAT_LOADER_MESSAGES } from '../components/TomoLoader';
 
 // ---------------------------------------------------------------------------
 // Motivational Quotes — loaded from ContentBundle via useAllQuotes hook
@@ -182,11 +183,11 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 18,
     },
     wordmark: {
-      fontFamily: fontFamily.medium,
-      fontSize: 15,
-      lineHeight: 20,
-      color: colors.textPrimary,
-      letterSpacing: 3,
+      fontFamily: fontFamily.display,
+      fontSize: 18,
+      lineHeight: 24,
+      color: colors.electricGreen,
+      letterSpacing: 2,
     },
 
     // ── Loading ───────────────────────────────────────────────────────
@@ -284,7 +285,7 @@ function createStyles(colors: ThemeColors) {
       opacity: 0.7,
     },
     chipText: {
-      fontFamily: fontFamily.medium,
+      fontFamily: fontFamily.note,
       fontSize: 14,
       color: colors.textOnDark,
     },
@@ -728,36 +729,12 @@ const RandomCapsuleChips = React.memo(function RandomCapsuleChips({
   );
 });
 
-// ── Chat Loading Screen (dynamic rotating messages) ─────────────────
-const CHAT_LOADING_MESSAGES = [
-  { title: 'Starting Tomo', subtitle: 'Your AI coach is warming up...', icon: 'sparkles-outline' as const },
-  { title: 'Loading Conversations', subtitle: 'Pulling your recent chats...', icon: 'chatbubbles-outline' as const },
-  { title: 'Checking Your Status', subtitle: 'Readiness, streak, schedule...', icon: 'pulse-outline' as const },
-  { title: 'Syncing Data', subtitle: 'Tests, training, recovery...', icon: 'sync-outline' as const },
-  { title: 'Almost Ready', subtitle: 'Setting up your command center...', icon: 'rocket-outline' as const },
-];
-
+// ── Chat Loading Screen — delegates to shared TomoLoader ─────────────
 const ChatLoadingScreen = React.memo(function ChatLoadingScreen() {
-  const { colors } = useTheme();
   const styles = useHomeStyles();
-  const [msgIndex, setMsgIndex] = React.useState(0);
-
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      setMsgIndex((prev) => (prev + 1) % CHAT_LOADING_MESSAGES.length);
-    }, 1800);
-    return () => clearInterval(interval);
-  }, []);
-
-  const msg = CHAT_LOADING_MESSAGES[msgIndex];
-
   return (
     <View style={styles.loadingContainer}>
-      <View style={styles.loadingIconWrap}>
-        <Ionicons name={msg.icon} size={26} color={colors.accent2} />
-      </View>
-      <Text style={styles.loadingTitle}>{msg.title}</Text>
-      <Text style={styles.loadingSubtitle}>{msg.subtitle}</Text>
+      <TomoLoader messages={CHAT_LOADER_MESSAGES} />
     </View>
   );
 });
@@ -1249,23 +1226,18 @@ export function HomeScreen() {
   // ── Load history + chips + today data + saved chats on mount ───────
   const loadData = useCallback(async () => {
     try {
-      const [chipsRes, todayRes, saved, activeId, sessionsRes] = await Promise.allSettled([
+      // Core data — blocks the loading screen
+      const [chipsRes, todayRes, saved, activeId] = await Promise.allSettled([
         getChatSuggestions(),
         getToday(),
         getSavedChats(),
         getActiveChatId(),
-        listChatSessions(),
       ]);
       if (chipsRes.status === 'fulfilled') {
         setChips(chipsRes.value.suggestions);
       }
       if (todayRes.status === 'fulfilled') {
         setTodayData(todayRes.value);
-      }
-
-      // Load server sessions
-      if (sessionsRes.status === 'fulfilled') {
-        setServerSessions(sessionsRes.value);
       }
 
       // Restore saved chats
@@ -1294,6 +1266,11 @@ export function HomeScreen() {
     } finally {
       setIsLoading(false);
     }
+
+    // Sessions sidebar — non-blocking, loads after chat is visible
+    listChatSessions()
+      .then(setServerSessions)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1825,7 +1802,7 @@ export function HomeScreen() {
           <Pressable style={styles.emptyContainer} onPress={Keyboard.dismiss}>
             {bootData ? (
               <View style={styles.emptyCenter}>
-                <ProactiveDashboard bootData={bootData} onChipPress={handleChipPress} />
+                <ProactiveDashboard bootData={bootData} onChipPress={handleChipPress} onViewNotifications={() => navigation.navigate('Notifications' as any)} />
               </View>
             ) : (
               <>

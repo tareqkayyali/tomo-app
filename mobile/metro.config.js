@@ -21,4 +21,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return context.resolveRequest(context, moduleName, platform);
 };
 
+// Add .riv to asset extensions so Metro bundles Rive animation files
+config.resolver.assetExts = [...(config.resolver.assetExts || []), 'riv'];
+
 module.exports = config;

@@ -18,31 +18,55 @@ import { Platform } from 'react-native';
  * Google Fonts CDN URLs for Poppins — stable, versioned endpoints.
  * These map Expo's font name convention to the correct weight.
  */
-const POPPINS_FONTS = [
+const MONTSERRAT_FONTS = [
   {
-    family: 'Poppins_300Light',
+    family: 'Montserrat_300Light',
     weight: 300,
-    url: 'https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLDz8V1s.ttf',
+    url: 'https://fonts.gstatic.com/s/montserrat/v29/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCtr6Ew-.ttf',
   },
   {
-    family: 'Poppins_400Regular',
+    family: 'Montserrat_400Regular',
     weight: 400,
-    url: 'https://fonts.gstatic.com/s/poppins/v24/pxiEyp8kv8JHgFVrFJA.ttf',
+    url: 'https://fonts.gstatic.com/s/montserrat/v29/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCu170w-.ttf',
   },
   {
-    family: 'Poppins_500Medium',
+    family: 'Montserrat_400Regular_Italic',
+    weight: 400,
+    url: 'https://fonts.gstatic.com/s/montserrat/v29/JTUFjIg1_i6t8kCHKm459Wx7xQYXK0vOoz6jq6R9aX8.ttf',
+    style: 'italic',
+  },
+  {
+    family: 'Montserrat_500Medium',
     weight: 500,
-    url: 'https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLGT9V1s.ttf',
+    url: 'https://fonts.gstatic.com/s/montserrat/v29/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCvr70w-.ttf',
   },
   {
-    family: 'Poppins_600SemiBold',
+    family: 'Montserrat_600SemiBold',
     weight: 600,
-    url: 'https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLEj6V1s.ttf',
+    url: 'https://fonts.gstatic.com/s/montserrat/v29/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCsE6Ew-.ttf',
   },
   {
-    family: 'Poppins_700Bold',
+    family: 'Montserrat_700Bold',
     weight: 700,
-    url: 'https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLCz7V1s.ttf',
+    url: 'https://fonts.gstatic.com/s/montserrat/v29/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCu96Ew-.ttf',
+  },
+];
+
+const MONTSERRAT_ALT_FONTS = [
+  {
+    family: 'MontserratAlternates_500Medium',
+    weight: 500,
+    url: 'https://fonts.gstatic.com/s/montserratalternates/v17/mFTiWacfw6zH4dthXcyms1lPpC8I_b0juU0xGITFCAY.ttf',
+  },
+  {
+    family: 'MontserratAlternates_600SemiBold',
+    weight: 600,
+    url: 'https://fonts.gstatic.com/s/montserratalternates/v17/mFTiWacfw6zH4dthXcyms1lPpC8I_b0juU0xNIPFCAY.ttf',
+  },
+  {
+    family: 'MontserratAlternates_700Bold',
+    weight: 700,
+    url: 'https://fonts.gstatic.com/s/montserratalternates/v17/mFTiWacfw6zH4dthXcyms1lPpC8I_b0juU0xUILFCAY.ttf',
   },
 ];
 
@@ -86,21 +110,22 @@ export function injectWebFonts(): void {
   preloadIonicons.crossOrigin = 'anonymous';
   document.head.appendChild(preloadIonicons);
 
-  // Build @font-face rules for Poppins
-  const poppinsCss = POPPINS_FONTS.map(
-    (f) => `
+  // Build @font-face rules for all font families
+  const allFonts = [...MONTSERRAT_FONTS, ...MONTSERRAT_ALT_FONTS];
+  const fontFaceCss = allFonts.map(
+    (f: any) => `
 @font-face {
   font-family: '${f.family}';
-  font-style: normal;
+  font-style: ${f.style || 'normal'};
   font-weight: ${f.weight};
   font-display: swap;
   src: url('${f.url}') format('truetype');
 }`,
   ).join('\n');
 
-  // Full CSS: Poppins + Ionicons + global smoothing
+  // Full CSS: Montserrat + Montserrat Alternates + Ionicons + global smoothing
   const globalCss = `
-${poppinsCss}
+${fontFaceCss}
 
 /* Ionicons icon font — required for @expo/vector-icons on web */
 @font-face {

@@ -139,4 +139,57 @@ export const shadows: Record<string, ViewStyle> = {
     shadowRadius: 8,
     elevation: 4,
   },
+  /** Orange brand glow for coach CTA buttons */
+  glowBrand: {
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+};
+
+// ─── Atmosphere Tokens ("Coach in Your Pocket") ──────────────────────
+export const atmosphere = {
+  /** SVG grain noise overlay settings */
+  grain: {
+    opacity: 0.025,
+    frequency: 0.65,
+  },
+  /** Sketch-style corner bracket marks on cards */
+  sketchCorner: {
+    size: 16,
+    strokeWidth: 1.5,
+    inset: 8,
+  },
+};
+
+// ─── Animation Tokens ────────────────────────────────────────────────
+export const animation = {
+  /** Duration presets (ms) */
+  duration: {
+    fast: 150,
+    normal: 250,
+    slow: 400,
+    entrance: 600,
+  },
+  /** Stagger delay between sequential items (ms) */
+  stagger: {
+    default: 80,
+    fast: 50,
+  },
+  /** Spring physics presets for Reanimated */
+  spring: {
+    /** Snappy interactive feedback (buttons, cards) */
+    snappy: { damping: 15, stiffness: 150 },
+    /** Gentle entrance animations */
+    gentle: { damping: 20, stiffness: 100 },
+    /** Bouncy celebration / milestone */
+    bouncy: { damping: 10, stiffness: 180 },
+  },
+  /** Press feedback scale values */
+  press: {
+    card: 0.98,
+    button: 0.96,
+  },
 };

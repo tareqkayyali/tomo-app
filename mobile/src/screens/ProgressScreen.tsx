@@ -16,13 +16,13 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useIsFocused } from '@react-navigation/native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  FadeIn,
 } from 'react-native-reanimated';
 import { SkeletonCard, ErrorState } from '../components';
 import { QuickAccessBar, type QuickAction } from '../components/QuickAccessBar';
@@ -34,13 +34,16 @@ import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import { MasteryContent } from '../components/mastery/MasteryContent';
 import { useMasteryData } from '../hooks/useMasteryData';
+import { useAthleteSnapshot } from '../hooks/useAthleteSnapshot';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { useSportContext } from '../hooks/useSportContext';
 import {
   spacing,
   fontFamily,
   layout,
   borderRadius,
+  animation,
 } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -48,6 +51,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainTabParamList, MainStackParamList } from '../navigation/types';
 import { usePageConfig } from '../hooks/usePageConfig';
+import { CoachNote, TomoButton } from '../components/tomo-ui';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -116,6 +120,22 @@ export function ProgressScreen({
     error: masteryError,
     refresh,
   } = useMasteryData(targetPlayerId);
+
+  // Athlete snapshot for readiness score (coach note)
+  const { snapshot } = useAthleteSnapshot(targetPlayerId);
+  const readinessScore = snapshot?.readiness_score ?? 75;
+
+  // Sport context for position label
+  const sportCtx = useSportContext();
+  const playerName = profile?.name?.split(' ')[0] || 'Athlete';
+
+  // Dynamic coach message based on readiness
+  const coachMessage = useMemo(() => {
+    if (readinessScore >= 80) return `Your sleep was solid and yesterday's load was moderate. Push hard today — your body can take it.`;
+    if (readinessScore >= 60) return `You're in a good place. Moderate intensity today — save the big efforts for later this week.`;
+    if (readinessScore >= 40) return `Your body needs a lighter session today. Focus on technique and mobility work.`;
+    return `Recovery is just as important as training. Rest up, stretch, and come back stronger tomorrow.`;
+  }, [readinessScore]);
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -237,6 +257,33 @@ export function ProgressScreen({
             />
           )}
           <Animated.View style={contentFade}>
+            {/* ── Coach Greeting ── */}
+            {!isExternalView && (
+              <Animated.View
+                entering={FadeIn.delay(animation.stagger.default).duration(animation.duration.normal)}
+                style={styles.coachGreeting}
+              >
+                <Text style={styles.greetingText}>
+                  Hey <Text style={styles.greetingName}>{playerName}</Text>,
+                </Text>
+                <Text style={styles.greetingSubtitle}>
+                  here's your mastery playbook
+                </Text>
+              </Animated.View>
+            )}
+
+            {/* ── Coach Readiness Note ── */}
+            {!isExternalView && (
+              <View style={styles.coachNoteWrap}>
+                <CoachNote
+                  readinessScore={readinessScore}
+                  coachMessage={coachMessage}
+                  enterIndex={1}
+                />
+              </View>
+            )}
+
+            {/* ── Mastery Content (DNA Card + Pillars) ── */}
             {masteryData && (
               <MasteryContent
                 data={masteryData}
@@ -284,6 +331,30 @@ function createStyles(colors: ThemeColors) {
     scrollContent: {
       paddingTop: spacing.lg,
       paddingBottom: layout.navHeight + spacing.xl,
+    },
+    // ── Coach Greeting ("Coach in Your Pocket") ──
+    coachGreeting: {
+      paddingHorizontal: layout.screenMargin,
+      marginBottom: spacing.md,
+    },
+    greetingText: {
+      fontFamily: fontFamily.display,
+      fontSize: 28,
+      lineHeight: 34,
+      color: colors.textPrimary,
+    },
+    greetingName: {
+      color: colors.electricGreen,
+    },
+    greetingSubtitle: {
+      fontFamily: fontFamily.note,
+      fontSize: 15,
+      color: colors.chalkDim,
+      marginTop: 2,
+    },
+    coachNoteWrap: {
+      paddingHorizontal: layout.screenMargin,
+      marginBottom: spacing.lg,
     },
   });
 }

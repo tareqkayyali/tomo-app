@@ -16,11 +16,15 @@ import {
   Text,
   ScrollView,
   RefreshControl,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { SkeletonCard, ErrorState } from '../components';
+import { TomoIcon } from '../components/tomo-ui';
+import { animation } from '../theme/spacing';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
@@ -40,7 +44,12 @@ import {
   spacing,
   fontFamily,
   layout,
+  borderRadius,
 } from '../theme';
+import { useNotifications } from '../hooks/useNotifications';
+import { useAuth } from '../hooks/useAuth';
+import { apiRequest } from '../services/api';
+import type { NotificationData } from '../components/notifications/NotificationCard';
 
 // ── Map RIE rec → RecCard shape ──────────────────────────────────────
 function toCardRec(r: RIERecommendation): ForYouRecommendation {
@@ -78,6 +87,144 @@ const OWN_IT_LOADING_MESSAGES = [
   { title: 'Final Personalization', subtitle: 'Tailoring everything to you...', icon: 'person-outline' as const },
 ];
 
+// ── Category display config (matches NotificationCard) ───────────────
+const CAT_CONFIG: Record<string, { color: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  critical: { color: '#E74C3C', icon: 'flash' },
+  training: { color: '#F4501E', icon: 'calendar' },
+  coaching: { color: '#2ECC71', icon: 'star' },
+  academic: { color: '#3498DB', icon: 'book' },
+  triangle: { color: '#8E44AD', icon: 'diamond' },
+  cv:       { color: '#F39C12', icon: 'person-circle' },
+  system:   { color: '#888888', icon: 'information-circle' },
+};
+
+function timeAgoShort(dateStr: string): string {
+  const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; refreshKey?: number }) {
+  const { colors } = useTheme();
+  const { centerUnreadCount } = useNotifications();
+  const { profile } = useAuth();
+  const [items, setItems] = React.useState<NotificationData[]>([]);
+
+  React.useEffect(() => {
+    if (!profile) return;
+    apiRequest<{ notifications: NotificationData[] }>('/api/v1/notifications?source=center&limit=20')
+      .then((res) => {
+        const now = Date.now();
+        // Time-sensitive types: show only within N minutes of creation
+        // BEDTIME_REMINDER fires 30 min before bedtime — 30 min window drops it exactly at bedtime
+        const FRESH_WINDOW_MS: Record<string, number> = {
+          BEDTIME_REMINDER: 30 * 60 * 1000,
+          PRE_MATCH_SLEEP_IMPORTANCE: 30 * 60 * 1000,
+          SESSION_STARTING_SOON: 35 * 60 * 1000,
+        };
+        const filtered = (res.notifications ?? [])
+          .filter(n => {
+            // Only show active notifications (not acted-on or dismissed)
+            if (!['unread', 'read'].includes(n.status)) return false;
+            // Drop notifications that have passed their expiry
+            if (n.expires_at && new Date(n.expires_at).getTime() <= now) return false;
+            // Time-sensitive types: drop if past their relevance window
+            const freshWindow = FRESH_WINDOW_MS[n.type];
+            if (freshWindow !== undefined) {
+              const age = now - new Date(n.created_at).getTime();
+              if (age > freshWindow) return false;
+            }
+            // Drop notifications older than 48h with no expiry (general cleanup)
+            const age = now - new Date(n.created_at).getTime();
+            if (!n.expires_at && age > 48 * 3600 * 1000) return false;
+            return true;
+          })
+          .sort((a, b) => {
+            if (a.priority !== b.priority) return a.priority - b.priority;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          })
+          .slice(0, 3);
+        setItems(filtered);
+      })
+      .catch((err) => console.warn('[LatestNotificationsCard] fetch error:', err));
+  }, [profile?.id, refreshKey]);
+
+  if (items.length === 0) return null;
+
+  // Sort: critical first, then by created_at desc
+  const sorted = [...items].sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
+  return (
+    <Pressable
+      onPress={() => navigation.navigate('Notifications')}
+      style={({ pressed }) => ({
+        marginHorizontal: layout.screenMargin,
+        marginTop: spacing.md,
+        borderRadius: borderRadius.lg,
+        backgroundColor: '#1B191E',
+        borderWidth: 1,
+        borderColor: sorted[0]?.category === 'critical' ? '#E74C3C40' : 'rgba(255,255,255,0.07)',
+        borderLeftWidth: 3,
+        borderLeftColor: CAT_CONFIG[sorted[0]?.category]?.color ?? colors.accent1,
+        padding: spacing.md,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      {/* Header row */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <Ionicons name="notifications-outline" size={14} color={colors.textSecondary} />
+          <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 12, color: colors.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            Notifications
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {centerUnreadCount > 0 && (
+            <View style={{ backgroundColor: colors.accent1, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
+              <Text style={{ fontFamily: fontFamily.bold, fontSize: 11, color: '#fff' }}>{centerUnreadCount > 99 ? '99+' : centerUnreadCount}</Text>
+            </View>
+          )}
+          <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+        </View>
+      </View>
+
+      {/* Notification rows */}
+      {sorted.map((n, i) => {
+        const cat = CAT_CONFIG[n.category] ?? CAT_CONFIG.system;
+        return (
+          <View
+            key={n.id}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+              paddingVertical: spacing.xs,
+              borderTopWidth: i > 0 ? 1 : 0,
+              borderTopColor: 'rgba(255,255,255,0.05)',
+            }}
+          >
+            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: cat.color + '20', justifyContent: 'center', alignItems: 'center' }}>
+              <Ionicons name={cat.icon} size={13} color={cat.color} />
+            </View>
+            <Text style={{ flex: 1, fontFamily: fontFamily.medium, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>
+              {n.title}
+            </Text>
+            <Text style={{ fontFamily: fontFamily.regular, fontSize: 11, color: colors.textSecondary }}>
+              {timeAgoShort(n.created_at)}
+            </Text>
+          </View>
+        );
+      })}
+    </Pressable>
+  );
+}
+
 function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -110,9 +257,17 @@ export function ForYouScreen() {
     navigation,
   );
 
+  const { profile } = useAuth();
+  const playerName = profile?.name?.split(' ')[0] || 'Athlete';
   const { data: outputData } = useOutputData();
   const strengths = outputData?.metrics?.strengths ?? [];
   const gaps = outputData?.metrics?.gaps ?? [];
+
+  // ── Notification refresh counter — increments on each page refresh ──
+  const [notifRefreshKey, setNotifRefreshKey] = useState(0);
+  useEffect(() => {
+    if (!refreshing) setNotifRefreshKey(k => k + 1);
+  }, [refreshing]);
 
   // ── Dynamic loading message rotation (2.5s interval, reshuffles each cycle) ──
   const [shuffledMsgs, setShuffledMsgs] = useState(() => shuffleArray(OWN_IT_LOADING_MESSAGES));
@@ -187,6 +342,19 @@ export function ForYouScreen() {
         }
       >
         <ScrollFadeOverlay />
+
+        {/* ── Coach Greeting ── */}
+        <Animated.View
+          entering={FadeIn.delay(animation.stagger.default).duration(animation.duration.normal)}
+          style={{ paddingHorizontal: layout.screenMargin, marginTop: spacing.md, marginBottom: spacing.md }}
+        >
+          <Text style={{ fontFamily: fontFamily.display, fontSize: 28, lineHeight: 34, color: colors.textPrimary }}>
+            Hey <Text style={{ color: colors.electricGreen }}>{playerName}</Text>,
+          </Text>
+          <Text style={{ fontFamily: fontFamily.note, fontSize: 15, color: colors.chalkDim, marginTop: 2 }}>
+            here's what matters today
+          </Text>
+        </Animated.View>
 
         {/* Loading State */}
         {isLoading && !hasAnyContent && (
@@ -306,6 +474,9 @@ export function ForYouScreen() {
             </View>
           );
         })()}
+
+        {/* Latest Notifications Card */}
+        <LatestNotificationsCard navigation={navigation} refreshKey={notifRefreshKey} />
 
         {/* Strengths & Growth Areas — from benchmark profile */}
         {(strengths.length > 0 || gaps.length > 0) && (

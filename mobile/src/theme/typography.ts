@@ -26,15 +26,30 @@ import { TextStyle } from 'react-native';
 import { darkColors, type ThemeColors } from './colors';
 
 /**
- * Font family constants — loaded in App.tsx via @expo-google-fonts/poppins
+ * Font family constants — loaded in App.tsx via @expo-google-fonts/*
  * React Native requires exact font names matching the loaded font assets.
+ *
+ * 3-font system ("Coach in Your Pocket" direction):
+ *   display + note = handwritten personality (Kalam + Architects Daughter)
+ *   light..bold    = clean body text (Poppins)
  */
 export const fontFamily = {
-  light: 'Poppins_300Light',
-  regular: 'Poppins_400Regular',
-  medium: 'Poppins_500Medium',
-  semiBold: 'Poppins_600SemiBold',
-  bold: 'Poppins_700Bold',
+  /** Montserrat Alternates 700 — clean geometric display for greetings, scores, section titles */
+  display: 'MontserratAlternates_700Bold',
+  /** Montserrat Alternates 500 — lighter display for signatures, labels */
+  displayMedium: 'MontserratAlternates_500Medium',
+  /** Montserrat Alternates 600 — semi-bold display variant */
+  displaySemiBold: 'MontserratAlternates_600SemiBold',
+  /** @deprecated Use displayMedium instead */
+  displayRegular: 'MontserratAlternates_500Medium',
+  /** Montserrat Italic — coach notes and subtitles (replaces handwritten note font) */
+  note: 'Montserrat_400Regular_Italic',
+  /** Montserrat body weights */
+  light: 'Montserrat_300Light',
+  regular: 'Montserrat_400Regular',
+  medium: 'Montserrat_500Medium',
+  semiBold: 'Montserrat_600SemiBold',
+  bold: 'Montserrat_700Bold',
 } as const;
 
 /**
@@ -271,6 +286,61 @@ export function createTypography(colors: ThemeColors): Record<string, TextStyle>
       lineHeight: 17,
       color: colors.textInactive,
       letterSpacing: letterSpacing.body,
+    },
+
+    // ─── Coach UI Styles ("Coach in Your Pocket") ──────────────────
+    /** "Hey Tareq," — warm handwritten greeting */
+    coachGreeting: {
+      fontFamily: fontFamily.display,
+      fontSize: 28,
+      lineHeight: 34,
+      color: colors.textPrimary,
+    },
+    /** Coach readiness message, recommendation notes */
+    coachNote: {
+      fontFamily: fontFamily.note,
+      fontSize: 15,
+      lineHeight: 22,
+      color: colors.textPrimary,
+    },
+    /** "— Tomo" signoff */
+    coachSignature: {
+      fontFamily: fontFamily.displayRegular,
+      fontSize: 13,
+      lineHeight: 18,
+      color: colors.accent1,
+    },
+    /** "Your 7 Pillars" section headers */
+    sectionTitle: {
+      fontFamily: fontFamily.display,
+      fontSize: 22,
+      lineHeight: 28,
+      color: colors.textPrimary,
+    },
+    /** Pillar score numbers (82, 71, etc.) */
+    pillarScore: {
+      fontFamily: fontFamily.display,
+      fontSize: 22,
+      color: colors.textPrimary,
+    },
+    /** Pillar subtitles ("Keep your engine running") */
+    pillarSubtitle: {
+      fontFamily: fontFamily.note,
+      fontSize: 12,
+      lineHeight: 16,
+      color: colors.textSecondary,
+    },
+    /** Tab bar labels */
+    tabLabel: {
+      fontFamily: fontFamily.note,
+      fontSize: 10,
+      letterSpacing: 0.3,
+    },
+    /** Readiness status text ("Good to go") */
+    readinessStatus: {
+      fontFamily: fontFamily.display,
+      fontSize: 20,
+      lineHeight: 26,
     },
 
     // ─── Legacy aliases (backward compat) ──────────────────────────

@@ -141,6 +141,51 @@ export type ThemeColors = {
   shotAverage: string;
   shotDeveloping: string;
   streakBadgeBg: string;
+
+  // ─── Coach UI Tokens (Phase 1 — "Coach in Your Pocket") ────────
+  /** Warm chalk-toned text palette for coach personality */
+  chalk: string;
+  chalkDim: string;
+  chalkFaint: string;
+  chalkGhost: string;
+  /** Warm surface variants */
+  surfaceWarm: string;
+  cardWarm: string;
+  borderWarm: string;
+  /** Coach note component */
+  coachNoteBackground: string;
+  coachNoteBorder: string;
+  coachSignature: string;
+  /** Sketch corner marks */
+  sketchMark: string;
+  /** v0 Electric Green — bright active/readiness color */
+  electricGreen: string;
+  electricGreenMuted: string;
+  electricGreenDim: string;
+  /** Tomo brand orange (primary brand CTA, distinct from green accent) */
+  tomoOrange: string;
+  tomoOrangeDim: string;
+  tomoOrangeGlow: string;
+  /** Tomo brand teal (secondary brand) */
+  tomoTeal: string;
+  tomoTealDim: string;
+  /** Pillar accent colors */
+  pillarEndurance: string;
+  pillarEnduranceBg: string;
+  pillarStrength: string;
+  pillarStrengthBg: string;
+  pillarPower: string;
+  pillarPowerBg: string;
+  pillarSpeed: string;
+  pillarSpeedBg: string;
+  pillarAgility: string;
+  pillarAgilityBg: string;
+  pillarFlexibility: string;
+  pillarFlexibilityBg: string;
+  pillarMental: string;
+  pillarMentalBg: string;
+  /** Brand gradient (orange → teal, for CTAs) */
+  gradientBrand: [string, string];
 };
 
 // ─── Dark Colors (Brand Kit — primary context) ──────────────────────
@@ -163,7 +208,7 @@ export const darkColors: ThemeColors = {
   // Borders & Surfaces
   border: '#2D2D2D',
   borderLight: 'rgba(255, 255, 255, 0.06)',
-  surface: '#1A1A1A',
+  surface: '#141414',
   inputBackground: 'rgba(255, 255, 255, 0.06)',
 
   // Semantic (Brand Kit)
@@ -270,6 +315,43 @@ export const darkColors: ThemeColors = {
   shotAverage: '#F39C12',
   shotDeveloping: '#3498DB',
   streakBadgeBg: 'rgba(46, 204, 113, 0.15)',
+
+  // ─── Coach UI Tokens ────────────────────────────────────────────
+  chalk: '#F5F0E8',
+  chalkDim: 'rgba(245,240,232,0.5)',
+  chalkFaint: 'rgba(245,240,232,0.15)',
+  chalkGhost: 'rgba(245,240,232,0.06)',
+  surfaceWarm: '#1C1917',
+  cardWarm: '#1C1917',
+  borderWarm: '#2A2520',
+  /** v0 Electric Green — bright active/readiness color */
+  electricGreen: '#00F280',
+  electricGreenMuted: '#00D870',
+  electricGreenDim: 'rgba(0,242,128,0.12)',
+  coachNoteBackground: 'rgba(245,240,232,0.06)',
+  coachNoteBorder: 'rgba(255,122,69,0.25)',
+  coachSignature: '#FF7A45',
+  sketchMark: 'rgba(245,240,232,0.15)',
+  tomoOrange: '#FF7A45',
+  tomoOrangeDim: 'rgba(255,122,69,0.15)',
+  tomoOrangeGlow: 'rgba(255,122,69,0.08)',
+  tomoTeal: '#00D9FF',
+  tomoTealDim: 'rgba(0,217,255,0.12)',
+  pillarEndurance: '#30D158',
+  pillarEnduranceBg: 'rgba(48,209,88,0.10)',
+  pillarStrength: '#FF6B35',
+  pillarStrengthBg: 'rgba(255,107,53,0.10)',
+  pillarPower: '#E74C3C',
+  pillarPowerBg: 'rgba(231,76,60,0.10)',
+  pillarSpeed: '#00D9FF',
+  pillarSpeedBg: 'rgba(0,217,255,0.10)',
+  pillarAgility: '#F39C12',
+  pillarAgilityBg: 'rgba(243,156,18,0.10)',
+  pillarFlexibility: '#9B59B6',
+  pillarFlexibilityBg: 'rgba(155,89,182,0.10)',
+  pillarMental: '#F5F0E8',
+  pillarMentalBg: 'rgba(245,240,232,0.06)',
+  gradientBrand: ['#FF6B35', '#FF8C50'],
 };
 
 // ─── Light Colors (Brand Kit) ────────────────────────────────────────
@@ -399,6 +481,42 @@ export const lightColors: ThemeColors = {
   shotAverage: '#F39C12',
   shotDeveloping: '#3498DB',
   streakBadgeBg: 'rgba(46, 204, 113, 0.10)',
+
+  // ─── Coach UI Tokens (light mode) ──────────────────────────────
+  electricGreen: '#00C968',
+  electricGreenMuted: '#00B45E',
+  electricGreenDim: 'rgba(0,201,104,0.12)',
+  chalk: '#2C2A28',
+  chalkDim: 'rgba(44,42,40,0.5)',
+  chalkFaint: 'rgba(44,42,40,0.15)',
+  chalkGhost: 'rgba(44,42,40,0.06)',
+  surfaceWarm: '#F0EBE3',
+  cardWarm: '#F0EBE3',
+  borderWarm: '#D6CFC4',
+  coachNoteBackground: 'rgba(44,42,40,0.04)',
+  coachNoteBorder: 'rgba(255,107,53,0.30)',
+  coachSignature: '#E05A2B',
+  sketchMark: 'rgba(44,42,40,0.12)',
+  tomoOrange: '#FF6B35',
+  tomoOrangeDim: 'rgba(255,107,53,0.12)',
+  tomoOrangeGlow: 'rgba(255,107,53,0.06)',
+  tomoTeal: '#0891B2',
+  tomoTealDim: 'rgba(8,145,178,0.10)',
+  pillarEndurance: '#1EA83F',
+  pillarEnduranceBg: 'rgba(30,168,63,0.10)',
+  pillarStrength: '#E05A2B',
+  pillarStrengthBg: 'rgba(224,90,43,0.10)',
+  pillarPower: '#C0392B',
+  pillarPowerBg: 'rgba(192,57,43,0.10)',
+  pillarSpeed: '#0891B2',
+  pillarSpeedBg: 'rgba(8,145,178,0.10)',
+  pillarAgility: '#D68910',
+  pillarAgilityBg: 'rgba(214,137,16,0.10)',
+  pillarFlexibility: '#7D3C98',
+  pillarFlexibilityBg: 'rgba(125,60,152,0.10)',
+  pillarMental: '#2C2A28',
+  pillarMentalBg: 'rgba(44,42,40,0.06)',
+  gradientBrand: ['#FF6B35', '#FF8C50'],
 };
 
 // ─── Default export (dark) ──────────────────────────────────────────
@@ -449,4 +567,15 @@ export const dnaAttributeColors: Record<string, string> = {
   stamina: colors.dnaStamina,
   agility: colors.dnaAgility,
   tactics: colors.dnaTactics,
+};
+
+// ─── Pillar Colors (Coach in Your Pocket) ──────────────────────────
+export const pillarColors: Record<string, { accent: string; bg: string }> = {
+  endurance: { accent: colors.pillarEndurance, bg: colors.pillarEnduranceBg },
+  strength: { accent: colors.pillarStrength, bg: colors.pillarStrengthBg },
+  power: { accent: colors.pillarPower, bg: colors.pillarPowerBg },
+  speed: { accent: colors.pillarSpeed, bg: colors.pillarSpeedBg },
+  agility: { accent: colors.pillarAgility, bg: colors.pillarAgilityBg },
+  flexibility: { accent: colors.pillarFlexibility, bg: colors.pillarFlexibilityBg },
+  mental: { accent: colors.pillarMental, bg: colors.pillarMentalBg },
 };

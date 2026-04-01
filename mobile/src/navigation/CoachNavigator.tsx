@@ -17,6 +17,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { TomoIcon } from '../components/tomo-ui';
 
 // Screens — Tabs
 import { CoachPlayersScreen } from '../screens/coach/CoachPlayersScreen';
@@ -31,6 +32,8 @@ import { RecommendEventScreen } from '../screens/RecommendEventScreen';
 
 // Screens — Shared
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { NotificationCenterScreen } from '../screens/NotificationCenterScreen';
+import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
@@ -99,8 +102,8 @@ function CoachTabNavigator() {
       }}
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ color, size }) => (
-          <Ionicons name={TAB_ICONS[route.name]} size={layout.navIconSize} color={color} />
+        tabBarIcon: ({ color, focused }) => (
+          <TomoIcon name={route.name === 'Players' ? 'Users' : 'UserCircle'} size={layout.navIconSize} color={color} weight={focused ? 'fill' : 'regular'} />
         ),
         tabBarLabel: TAB_LABELS[route.name],
         tabBarActiveTintColor: colors.accent1,
@@ -221,6 +224,16 @@ export function CoachNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{ headerShown: true, title: 'Profile', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationCenterScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{ headerShown: true, title: 'Notification Settings', ...stackHeaderOptions }}
       />
     </Stack.Navigator>
   );

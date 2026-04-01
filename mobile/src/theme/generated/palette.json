@@ -1,0 +1,125 @@
+{
+  "_meta": {
+    "generated": "2026-03-31",
+    "tool": "Programmatic shade generation from Tomo brand colors",
+    "method": "HSL interpolation with perceptual adjustments"
+  },
+
+  "orange": {
+    "_base": "#FF6B35",
+    "50":  "#FFF3ED",
+    "100": "#FFE2D1",
+    "200": "#FFC4A3",
+    "300": "#FFA06A",
+    "400": "#FF8550",
+    "500": "#FF6B35",
+    "600": "#F4501E",
+    "700": "#CC3D14",
+    "800": "#A33117",
+    "900": "#832B17",
+    "950": "#47130A"
+  },
+
+  "teal": {
+    "_base": "#00D9FF",
+    "50":  "#ECFEFF",
+    "100": "#CFFAFE",
+    "200": "#A5F3FC",
+    "300": "#67E8F9",
+    "400": "#22D3EE",
+    "500": "#00D9FF",
+    "600": "#00B4D8",
+    "700": "#0891B2",
+    "800": "#0E7490",
+    "900": "#155E75",
+    "950": "#083344"
+  },
+
+  "green": {
+    "_base": "#30D158",
+    "50":  "#EEFBF0",
+    "100": "#D7F5DC",
+    "200": "#B1EABD",
+    "300": "#7CDB90",
+    "400": "#4FCA6A",
+    "500": "#30D158",
+    "600": "#1EA83F",
+    "700": "#1B8535",
+    "800": "#1A692D",
+    "900": "#175627",
+    "950": "#073013"
+  },
+
+  "surfaces": {
+    "background":       "#0D0C0E",
+    "backgroundWarm":   "#0F0D0B",
+    "card":             "#161418",
+    "cardWarm":         "#1C1917",
+    "elevated":         "#1E1B1F",
+    "border":           "#2D2D2D",
+    "borderSubtle":     "#1F1F1F",
+    "borderWarm":       "#2A2520"
+  },
+
+  "text": {
+    "primary":   "#FFFFFF",
+    "chalk":     "#F5F0E8",
+    "secondary": "#B0B0B0",
+    "disabled":  "#6B6B6B",
+    "chalkDim":  "rgba(245,240,232,0.5)",
+    "chalkFaint":"rgba(245,240,232,0.15)",
+    "chalkGhost":"rgba(245,240,232,0.06)"
+  },
+
+  "pillars": {
+    "endurance": {
+      "accent": "#30D158",
+      "bg": "rgba(48,209,88,0.10)",
+      "glow": "rgba(48,209,88,0.30)"
+    },
+    "strength": {
+      "accent": "#FF6B35",
+      "bg": "rgba(255,107,53,0.10)",
+      "glow": "rgba(255,107,53,0.30)"
+    },
+    "power": {
+      "accent": "#E74C3C",
+      "bg": "rgba(231,76,60,0.10)",
+      "glow": "rgba(231,76,60,0.30)"
+    },
+    "speed": {
+      "accent": "#00D9FF",
+      "bg": "rgba(0,217,255,0.10)",
+      "glow": "rgba(0,217,255,0.30)"
+    },
+    "agility": {
+      "accent": "#F39C12",
+      "bg": "rgba(243,156,18,0.10)",
+      "glow": "rgba(243,156,18,0.30)"
+    },
+    "flexibility": {
+      "accent": "#9B59B6",
+      "bg": "rgba(155,89,182,0.10)",
+      "glow": "rgba(155,89,182,0.30)"
+    },
+    "mental": {
+      "accent": "#F5F0E8",
+      "bg": "rgba(245,240,232,0.06)",
+      "glow": "rgba(245,240,232,0.15)"
+    }
+  },
+
+  "coach": {
+    "noteBackground": "rgba(245,240,232,0.06)",
+    "noteBorder": "rgba(255,107,53,0.25)",
+    "signature": "#FF6B35",
+    "sketchMark": "rgba(245,240,232,0.15)",
+    "greetingHighlight": "#FF6B35"
+  },
+
+  "readiness": {
+    "high":   { "color": "#30D158", "bg": "rgba(48,209,88,0.12)",  "label": "Good to go" },
+    "medium": { "color": "#F39C12", "bg": "rgba(243,156,18,0.12)", "label": "Take it steady" },
+    "low":    { "color": "#E74C3C", "bg": "rgba(231,76,60,0.12)",  "label": "Recovery day" }
+  }
+}

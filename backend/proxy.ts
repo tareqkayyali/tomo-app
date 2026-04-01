@@ -8,6 +8,7 @@ const ALLOWED_ORIGINS = [
   "https://api.my-tomo.com",
   "http://localhost:3000",
   "http://localhost:8081",
+  "http://localhost:8082",
   "http://localhost:19006",
 ];
 
@@ -74,6 +75,11 @@ export async function proxy(req: NextRequest) {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
   }
 
+  // CV share links are public (scouts view without auth)
+  if (pathname.startsWith("/api/v1/cv/share/")) {
+    return addCorsHeaders(NextResponse.next({ request: req }), origin);
+  }
+
   // Cron endpoints use their own CRON_SECRET auth (bypass Supabase token check)
   if (pathname === "/api/v1/suggestions/expire") {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
@@ -84,8 +90,8 @@ export async function proxy(req: NextRequest) {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
   }
 
-  // Calendar bridge cron uses CRON_SECRET auth (bypass Supabase token check)
-  if (pathname === "/api/v1/events/bridge-calendar") {
+  // Cron + test endpoints (bypass Supabase token check)
+  if (pathname === "/api/v1/events/bridge-calendar" || pathname === "/api/v1/notifications/triggers" || pathname === "/api/v1/notifications/test-push" || pathname === "/api/v1/notifications/simulate" || pathname === "/api/v1/notifications/clear-all") {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
   }
 

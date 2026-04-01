@@ -59,7 +59,7 @@ import { ShotSessionScreen } from '../screens/ShotSessionScreen';
 import { PadelRatingScreen } from '../screens/PadelRatingScreen';
 import { FootballSkillDetailScreen, FootballRatingScreen, FootballTestInputScreen } from '../screens/football';
 import { PlayerCVScreen } from '../screens/PlayerCVScreen';
-import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { NotificationCenterScreen } from '../screens/NotificationCenterScreen';
 import { LinkAccountScreen } from '../screens/LinkAccountScreen';
 import { StudyPlanPreviewScreen } from '../screens/StudyPlanPreviewScreen';
 import { MyRulesScreen } from '../screens/MyRulesScreen';
@@ -72,6 +72,8 @@ import { BulkEditEventsScreen } from '../screens/BulkEditEventsScreen';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
+import { TomoIcon } from '../components/tomo-ui';
+import { fontFamily } from '../theme/typography';
 import { useAuth } from '../hooks/useAuth';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { NotificationsProvider, useNotifications } from '../hooks/useNotifications';
@@ -89,12 +91,21 @@ const Stack = createNativeStackNavigator<MainStackParamList>();
 
 type TabName = keyof MainTabParamList;
 
-const TAB_ICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
+const TAB_ICONS_IONICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
   Plan: 'calendar-outline',
   Test: 'flash-outline',
   Chat: 'chatbubble-outline',
   Progress: 'bar-chart-outline',
   ForYou: 'star-outline',
+};
+
+/** Phosphor icon names for the Coach in Your Pocket tab bar */
+const TAB_ICONS: Record<TabName, string> = {
+  Plan: 'timeline',
+  Test: 'output',
+  Chat: 'tomo',
+  Progress: 'mastery',
+  ForYou: 'ownit',
 };
 
 const TAB_LABELS: Record<TabName, string> = {
@@ -119,12 +130,12 @@ function AnimatedTabIcon({
 }: {
   focused: boolean;
   color: string;
-  iconName: keyof typeof Ionicons.glyphMap;
+  iconName: string;
 }) {
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    scale.value = withSpring(focused ? 1.1 : 1, {
+    scale.value = withSpring(focused ? 1.12 : 1, {
       damping: 15,
       stiffness: 150,
     });
@@ -136,7 +147,12 @@ function AnimatedTabIcon({
 
   return (
     <Animated.View style={animatedStyle}>
-      <Ionicons name={iconName} size={layout.navIconSize} color={color} />
+      <TomoIcon
+        name={iconName}
+        size={layout.navIconSize}
+        color={color}
+        weight={focused ? 'fill' : 'regular'}
+      />
     </Animated.View>
   );
 }
@@ -218,10 +234,10 @@ function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
           <Pressable key={tabName} onPress={onPress} style={styles.tabBarItem}>
             <AnimatedTabIcon
               focused={isFocused}
-              color={isFocused ? colors.accent1 : colors.textInactive}
+              color={isFocused ? colors.electricGreen : colors.chalkFaint}
               iconName={TAB_ICONS[tabName]}
             />
-            <Text style={[styles.tabLabel, { color: isFocused ? colors.accent1 : colors.textInactive }]}>
+            <Text style={[styles.tabLabel, { color: isFocused ? colors.electricGreen : colors.chalkFaint }]}>
               {TAB_LABELS[tabName]}
             </Text>
             {tabName === 'ForYou' && pendingDrillNotifs.length > 0 && (
@@ -469,8 +485,8 @@ export function MainNavigator() {
       {/* Multi-role screens */}
       <Stack.Screen
         name="Notifications"
-        component={NotificationsScreen}
-        options={{ headerShown: true, title: 'Notifications', ...stackHeaderOptions }}
+        component={NotificationCenterScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="LinkAccount"
@@ -523,8 +539,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tabLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontFamily: fontFamily.medium,
+    fontSize: 10,
+    letterSpacing: 0.3,
     marginTop: 2,
   },
   tabBadge: {

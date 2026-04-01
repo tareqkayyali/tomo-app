@@ -16,10 +16,12 @@ import { GlassCard } from '../GlassCard';
 import { Badge } from '../Badge';
 import { GradientButton } from '../GradientButton';
 import { MasteryPillarCard } from './MasteryPillarCard';
+import { PillarCard, TomoButton } from '../tomo-ui';
 import { useTheme } from '../../hooks/useTheme';
 import { useSpringEntrance } from '../../hooks/useAnimations';
 import { fontFamily } from '../../theme/typography';
 import { spacing, borderRadius, layout } from '../../theme/spacing';
+import { pillarColors } from '../../theme/colors';
 import type { MasterySnapshot, MasteryPillar } from '../../services/api';
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -42,6 +44,37 @@ function radarToAttributes(
 function mapSport(sport: string): 'football' | 'padel' {
   if (sport === 'padel') return 'padel';
   return 'football'; // default for all other sports
+}
+
+// ── Pillar icon + subtitle mapping (Coach in Your Pocket) ────────────
+
+const PILLAR_ICON_MAP: Record<string, string> = {
+  endurance: 'endurance',
+  strength: 'strength',
+  power: 'power',
+  speed: 'speed',
+  agility: 'agility',
+  flexibility: 'flexibility',
+  mental: 'mental',
+};
+
+const PILLAR_SUBTITLE_MAP: Record<string, string> = {
+  endurance: 'Keep your engine running',
+  strength: 'Build your foundation',
+  power: 'Explosive when it counts',
+  speed: 'Leave them in the dust',
+  agility: 'Quick feet, sharp turns',
+  flexibility: 'Move freely, recover fast',
+  mental: 'Stay locked in',
+};
+
+/** Map pillar groupId to a colors key */
+function getPillarColorKey(groupId: string): string {
+  const lower = groupId.toLowerCase();
+  for (const key of Object.keys(pillarColors)) {
+    if (lower.includes(key)) return key;
+  }
+  return 'endurance'; // fallback
 }
 
 // ── Animated Pillar Wrapper ──────────────────────────────────────────
@@ -154,19 +187,39 @@ export function MasteryContent({
         )}
       </View>
 
-      {/* ── Section 2: 7 Mastery Pillar Cards ── */}
+      {/* ── Section 2: 7 Mastery Pillar Cards (Coach in Your Pocket) ── */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.textOnDark }]}>
-          Your Mastery Pillars
-        </Text>
-        <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
+        <View style={styles.sectionTitleWrap}>
+          <Text style={[styles.sectionTitle, { color: colors.chalk }]}>
+            Your 7 Pillars
+          </Text>
+          <View style={[styles.sectionUnderline, { backgroundColor: colors.electricGreen }]} />
+        </View>
+        <Text style={[styles.sectionSubtitle, { color: colors.chalkDim }]}>
           {data.hasTestData
-            ? 'Your performance vs players your age — tap to explore'
-            : 'What players your age are measured on — complete tests to see your scores'}
+            ? 'Your performance vs players your age'
+            : 'Complete tests to see your scores'}
         </Text>
-        {data.pillars.map((pillar, i) => (
-          <AnimatedPillar key={pillar.groupId} pillar={pillar} index={i} />
-        ))}
+        {data.pillars.map((pillar, i) => {
+          const colorKey = getPillarColorKey(pillar.groupId);
+          const pColors = pillarColors[colorKey] || pillarColors.endurance;
+          const iconName = PILLAR_ICON_MAP[colorKey] || 'endurance';
+          const subtitle = PILLAR_SUBTITLE_MAP[colorKey] || pillar.athleteDescription;
+          const score = pillar.avgPercentile != null ? Math.round(pillar.avgPercentile) : 0;
+
+          return (
+            <PillarCard
+              key={pillar.groupId}
+              name={pillar.displayName}
+              score={score}
+              subtitle={subtitle}
+              icon={iconName}
+              accentColor={pColors.accent}
+              accentBg={pColors.bg}
+              enterIndex={i + 3}
+            />
+          );
+        })}
       </View>
 
       {/* Strengths & Growth Areas removed — shown in Own It page */}
@@ -226,9 +279,9 @@ export function MasteryContent({
             </View>
 
             {onRecordTests && (
-              <GradientButton
-                title="Record Your Tests"
-                icon="stats-chart-outline"
+              <TomoButton
+                label="Record Your Tests"
+                icon="add"
                 onPress={onRecordTests}
               />
             )}
@@ -246,16 +299,26 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.xl,
   },
+  sectionTitleWrap: {
+    position: 'relative' as const,
+    alignSelf: 'flex-start' as const,
+  },
   sectionTitle: {
-    fontSize: 18,
-    fontFamily: fontFamily.semiBold,
-    letterSpacing: -0.36,
+    fontSize: 22,
+    fontFamily: fontFamily.display,
+    lineHeight: 28,
+  },
+  sectionUnderline: {
+    height: 3,
+    borderRadius: 2,
+    marginTop: 2,
+    transform: [{ rotate: '-0.3deg' }],
   },
   sectionSubtitle: {
     fontSize: 13,
-    fontFamily: fontFamily.regular,
+    fontFamily: fontFamily.note,
     lineHeight: 18,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
   // DNACard overlay
