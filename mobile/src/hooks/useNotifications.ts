@@ -13,12 +13,20 @@ import {
   getPlayerNotifications,
   markAllPlayerNotificationsRead,
   registerPushToken,
+  apiRequest,
 } from '../services/api';
+import { supabase } from '../services/supabase';
+import { onRefresh } from '../utils/refreshBus';
 import type { PlayerNotification } from '../types/programme';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface NotificationsContextValue {
   notifications: PlayerNotification[];
   unreadCount: number;
+  /** Unread count from the new notification center */
+  centerUnreadCount: number;
+  /** Has any P1 critical notification unread */
+  hasCriticalUnread: boolean;
   loading: boolean;
   refresh: () => Promise<void>;
   markRead: (id: string) => void;
@@ -33,6 +41,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const { profile } = useAuth();
   const [notifications, setNotifications] = useState<PlayerNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [centerUnreadCount, setCenterUnreadCount] = useState(0);
+  const [hasCriticalUnread, setHasCriticalUnread] = useState(false);
   const [loading, setLoading] = useState(false);
   const mounted = useRef(true);
 
@@ -40,10 +50,17 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     if (!profile) return;
     setLoading(true);
     try {
-      const res = await getPlayerNotifications();
+      const [res, centerRes] = await Promise.all([
+        getPlayerNotifications(),
+        apiRequest<{ total: number; by_category: Record<string, number> }>(
+          '/api/v1/notifications/unread-count'
+        ).catch(() => ({ total: 0, by_category: {} })),
+      ]);
       if (mounted.current) {
         setNotifications(res.notifications ?? []);
         setUnreadCount(res.unreadCount ?? 0);
+        setCenterUnreadCount(centerRes.total);
+        setHasCriticalUnread((centerRes.by_category?.critical ?? 0) > 0);
       }
     } catch (err) {
       console.error('[notifications] Fetch failed:', err);
@@ -74,18 +91,24 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     const registerToken = async () => {
       try {
         const Device = await import('expo-device');
+        console.log('[push] isDevice:', Device.isDevice);
         if (!Device.isDevice) return;
 
         const Notifications = await import('expo-notifications');
         const { status } = await Notifications.requestPermissionsAsync();
+        console.log('[push] permission status:', status);
         if (status !== 'granted') return;
 
-        const token = (await Notifications.getExpoPushTokenAsync()).data;
-        if (token) {
-          await registerPushToken(token, Platform.OS);
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: '7cd0fd4e-b7fa-4bd0-8eb5-b15808e224cc',
+        });
+        console.log('[push] token:', tokenData.data);
+        if (tokenData.data) {
+          await registerPushToken(tokenData.data, Platform.OS);
+          console.log('[push] token registered on backend');
         }
-      } catch {
-        // Push token registration is best-effort
+      } catch (err) {
+        console.error('[push] registration failed:', err);
       }
     };
 
@@ -100,6 +123,44 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       mounted.current = false;
     };
   }, [profile, refresh]);
+
+  // Subscribe to refreshBus 'notifications' target
+  useEffect(() => {
+    const unsub = onRefresh('notifications', () => {
+      if (profile) refresh();
+    });
+    return unsub;
+  }, [profile, refresh]);
+
+  // Supabase Realtime: instant badge updates on new athlete_notifications
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const channel = supabase
+      .channel(`notif-center:${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'athlete_notifications',
+          filter: `athlete_id=eq.${profile.id}`,
+        },
+        () => {
+          // New notification arrived — refresh counts
+          if (mounted.current) refresh();
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      channel.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [profile?.id, refresh]);
 
   // Refresh on app foreground
   useEffect(() => {
@@ -168,6 +229,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       value: {
         notifications,
         unreadCount,
+        centerUnreadCount,
+        hasCriticalUnread,
         loading,
         refresh,
         markRead,
@@ -186,6 +249,8 @@ export function useNotifications() {
     return {
       notifications: [] as PlayerNotification[],
       unreadCount: 0,
+      centerUnreadCount: 0,
+      hasCriticalUnread: false,
       loading: false,
       refresh: async () => {},
       markRead: (_id: string) => {},

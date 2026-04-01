@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { RecCard } from './RecCard';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily } from '../../theme';
@@ -65,7 +66,7 @@ export function TimeSection({
               justifyContent: 'center',
             }}
           >
-            <Ionicons name={icon} size={16} color={color} />
+            <SmartIcon name={icon} size={16} color={color} />
           </View>
           <Text
             style={{
@@ -93,7 +94,7 @@ export function TimeSection({
           </View>
         </View>
 
-        <Ionicons
+        <SmartIcon
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={18}
           color={colors.textMuted}

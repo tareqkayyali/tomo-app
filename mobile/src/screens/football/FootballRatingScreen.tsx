@@ -22,7 +22,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { GlassCard } from '../../components';
@@ -188,7 +188,7 @@ function ContributionBar({
         </Text>
       </View>
       {isStrong && (
-        <Ionicons name="arrow-up" size={12} color={colors.accent} style={contribStyles.arrow} />
+        <SmartIcon name="arrow-up" size={12} color={colors.accent} style={contribStyles.arrow} />
       )}
     </View>
   );
@@ -504,7 +504,7 @@ export function FootballRatingScreen({ navigation }: Props) {
           {/* Growth since joining */}
           {growthSinceJoining > 0 && (
             <View style={s.heroGrowthRow}>
-              <Ionicons name="trending-up" size={14} color={colors.accent} />
+              <SmartIcon name="trending-up" size={14} color={colors.accent} />
               <Text style={s.heroGrowthText}>
                 +{growthSinceJoining} rating points this month
               </Text>
@@ -592,7 +592,7 @@ export function FootballRatingScreen({ navigation }: Props) {
 
           {/* Summary insight */}
           <View style={s.insightBox}>
-            <Ionicons name="bulb-outline" size={16} color={colors.accent2} />
+            <SmartIcon name="bulb-outline" size={16} color={colors.accent2} />
             <Text style={s.insightText}>
               {sortedContributions[0].weight >= 0.25
                 ? `As a ${positionLabel}, ${sortedContributions[0].attrFullName} has the biggest impact on your rating (${(sortedContributions[0].weight * 100).toFixed(0)}% weight).`
@@ -625,7 +625,7 @@ export function FootballRatingScreen({ navigation }: Props) {
           {/* Alternative suggestion */}
           {bestAlternative && bestAlternative.overall > card.overallRating && (
             <View style={s.altSuggestion}>
-              <Ionicons name="compass-outline" size={16} color={colors.accent2} />
+              <SmartIcon name="compass-outline" size={16} color={colors.accent2} />
               <Text style={s.altSuggestionText}>
                 Your attributes also suit{' '}
                 <Text style={s.altSuggestionHighlight}>
@@ -638,7 +638,7 @@ export function FootballRatingScreen({ navigation }: Props) {
 
           {bestAlternative && bestAlternative.overall <= card.overallRating && (
             <View style={s.altSuggestion}>
-              <Ionicons name="checkmark-circle-outline" size={16} color={colors.accent} />
+              <SmartIcon name="checkmark-circle-outline" size={16} color={colors.accent} />
               <Text style={s.altSuggestionText}>
                 {positionLabel} is your strongest position fit — great match for your attributes!
               </Text>
@@ -681,7 +681,7 @@ export function FootballRatingScreen({ navigation }: Props) {
 
               {/* Motivational callout */}
               <View style={s.projCallout}>
-                <Ionicons name="rocket-outline" size={18} color={colors.accent1} />
+                <SmartIcon name="rocket-outline" size={18} color={colors.accent1} />
                 <Text style={s.projCalloutText}>
                   At your current pace, you could reach{' '}
                   <Text style={{ fontFamily: fontFamily.bold, color: colors.accent1 }}>
@@ -698,7 +698,7 @@ export function FootballRatingScreen({ navigation }: Props) {
             </View>
           ) : (
             <View style={s.projEmpty}>
-              <Ionicons name="analytics-outline" size={32} color={colors.textMuted} />
+              <SmartIcon name="analytics-outline" size={32} color={colors.textMuted} />
               <Text style={s.projEmptyText}>
                 Keep training to build your improvement trend. We need a few more sessions to project your trajectory.
               </Text>

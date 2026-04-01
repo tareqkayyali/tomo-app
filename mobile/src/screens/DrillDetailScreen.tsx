@@ -22,7 +22,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   colors,
@@ -195,7 +195,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
         >
           {/* Header */}
           <View style={[styles.iconCircle, { backgroundColor: drill.color + '18' }]}>
-            <Ionicons name={drill.icon as any} size={40} color={drill.color} />
+            <SmartIcon name={drill.icon as any} size={40} color={drill.color} />
           </View>
           <Text style={styles.drillTitle}>{drill.name}</Text>
           <Text style={styles.drillMeta}>
@@ -223,7 +223,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <Ionicons name="play" size={24} color={colors.textPrimary} />
+              <SmartIcon name="play" size={24} color={colors.textPrimary} />
               <Text style={styles.startButtonText}>Start Drill</Text>
             </LinearGradient>
           </Pressable>
@@ -238,7 +238,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
             }
             style={styles.recordButtonWrap}
           >
-            <Ionicons name="videocam-outline" size={20} color={colors.accent1} />
+            <SmartIcon name="videocam-outline" size={20} color={colors.accent1} />
             <Text style={styles.recordButtonLabel}>Record Yourself</Text>
           </Pressable>
         </ScrollView>
@@ -270,7 +270,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
         <Text style={styles.phaseHint}>Tap pods as they light up!</Text>
 
         <Pressable style={styles.cancelBtn} onPress={handleCancel}>
-          <Ionicons name="stop-circle-outline" size={20} color={colors.textInactive} />
+          <SmartIcon name="stop-circle-outline" size={20} color={colors.textInactive} />
           <Text style={styles.cancelText}>End Drill</Text>
         </Pressable>
       </View>
@@ -280,7 +280,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
   if (phase === 'rest') {
     return (
       <View style={styles.fullCenter}>
-        <Ionicons name="pause-circle-outline" size={48} color={colors.textInactive} />
+        <SmartIcon name="pause-circle-outline" size={48} color={colors.textInactive} />
         <Text style={styles.restLabel}>Rest</Text>
         <Text style={styles.bigTimer}>{fmt(restLeft)}</Text>
         <Text style={styles.phaseHint}>
@@ -297,7 +297,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
   // phase === 'done'
   return (
     <View style={styles.fullCenter}>
-      <Ionicons name="checkmark-circle" size={64} color={colors.accent} />
+      <SmartIcon name="checkmark-circle" size={64} color={colors.accent} />
       <Text style={styles.doneText}>Complete!</Text>
     </View>
   );

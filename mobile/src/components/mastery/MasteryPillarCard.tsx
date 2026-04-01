@@ -15,7 +15,7 @@ import {
   UIManager,
   StyleSheet,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { GlassCard } from '../GlassCard';
 import { DualLayerMetricRow } from './DualLayerMetricRow';
 import { useTheme } from '../../hooks/useTheme';
@@ -192,7 +192,7 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <Ionicons
+          <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={18}
             color={colors.textMuted}
@@ -244,7 +244,7 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
       {/* No-data overlay hint */}
       {!hasData && !expanded && pillar.metrics.length > 0 && (
         <View style={styles.noDataHint}>
-          <Ionicons
+          <SmartIcon
             name="flask-outline"
             size={14}
             color={colors.accent1}

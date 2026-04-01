@@ -21,6 +21,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { colors, spacing, borderRadius, typography } from '../theme';
 
 /* ── Inject global CSS to override browser autofill on web ────────── */
@@ -90,7 +91,7 @@ export function Input({
         ]}
       >
         {iconLeft && (
-          <Ionicons
+          <SmartIcon
             name={iconLeft}
             size={20}
             color="rgba(255,255,255,0.4)"
@@ -111,7 +112,7 @@ export function Input({
         />
         {iconRight && (
           <Pressable onPress={onPressRight} hitSlop={8}>
-            <Ionicons
+            <SmartIcon
               name={iconRight}
               size={20}
               color="rgba(255,255,255,0.4)"

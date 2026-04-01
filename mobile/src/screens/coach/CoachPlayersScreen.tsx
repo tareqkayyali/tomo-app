@@ -18,7 +18,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -142,7 +142,7 @@ export function CoachPlayersScreen() {
                     </View>
                   )}
                   <View style={styles.streakRow}>
-                    <Ionicons name="flame" size={13} color={colors.accent1} />
+                    <SmartIcon name="flame" size={13} color={colors.accent1} />
                     <Text style={[styles.streakText, { color: colors.textMuted }]}>
                       {item.currentStreak || 0}
                     </Text>
@@ -155,7 +155,7 @@ export function CoachPlayersScreen() {
                 <Text style={[styles.lastActive, { color: colors.textInactive }]}>
                   {formatRelativeTime(item.lastSessionAt ?? undefined)}
                 </Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.textInactive} />
+                <SmartIcon name="chevron-forward" size={18} color={colors.textInactive} />
               </View>
             </View>
           </GlassCard>
@@ -200,7 +200,7 @@ export function CoachPlayersScreen() {
           <GlassCard>
             <View style={styles.emptyContent}>
               <View style={[styles.emptyIcon, { backgroundColor: colors.accent1 + '15' }]}>
-                <Ionicons name="people-outline" size={48} color={colors.accent1} />
+                <SmartIcon name="people-outline" size={48} color={colors.accent1} />
               </View>
               <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
                 No players yet
@@ -212,7 +212,7 @@ export function CoachPlayersScreen() {
                 onPress={() => navigation.navigate('CoachInvite')}
                 style={[styles.emptyButton, { backgroundColor: colors.accent1 }]}
               >
-                <Ionicons name="person-add-outline" size={16} color={colors.textPrimary} />
+                <SmartIcon name="person-add-outline" size={16} color={colors.textPrimary} />
                 <Text style={styles.emptyButtonText}>Generate Invite Code</Text>
               </Pressable>
             </View>

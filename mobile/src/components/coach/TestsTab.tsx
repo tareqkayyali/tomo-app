@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 
 import { useOutputData } from '../../hooks/useOutputData';
 import { useTheme } from '../../hooks/useTheme';
@@ -48,7 +48,7 @@ export function TestsTab({ playerId, playerName, navigation }: Props) {
       >
         <GlassCard>
           <View style={styles.emptyContent}>
-            <Ionicons name="alert-circle-outline" size={40} color={colors.textMuted} />
+            <SmartIcon name="alert-circle-outline" size={40} color={colors.textMuted} />
             <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
               Could not load metrics
             </Text>
@@ -70,7 +70,7 @@ export function TestsTab({ playerId, playerName, navigation }: Props) {
     >
       {/* Coach context banner */}
       <View style={[styles.contextBanner, { backgroundColor: colors.accent2 + '10' }]}>
-        <Ionicons name="eye-outline" size={14} color={colors.accent2} />
+        <SmartIcon name="eye-outline" size={14} color={colors.accent2} />
         <Text style={[styles.contextText, { color: colors.accent2 }]}>
           Viewing {playerName.split(' ')[0]}'s metrics · You can log new tests
         </Text>

@@ -14,7 +14,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import { useSpringEntrance } from '../../hooks/useAnimations';
 import {
   getAttributePercentile,
@@ -115,7 +115,7 @@ export function FootballAttributeDetailSheet({
         </View>
         {onClose && (
           <Pressable onPress={onClose} hitSlop={12}>
-            <Ionicons name="close-circle" size={22} color={colors.textInactive} />
+            <SmartIcon name="close-circle" size={22} color={colors.textInactive} />
           </Pressable>
         )}
       </View>
@@ -123,7 +123,7 @@ export function FootballAttributeDetailSheet({
       {/* Trend -- growth-oriented language */}
       {data.trend !== 0 && (
         <View style={s.trendRow}>
-          <Ionicons
+          <SmartIcon
             name={data.trend > 0 ? 'trending-up' : 'trending-down'}
             size={16}
             color={data.trend > 0 ? colors.accent : attrColor}
@@ -143,7 +143,7 @@ export function FootballAttributeDetailSheet({
 
       {/* Percentile context */}
       <View style={s.percentileRow}>
-        <Ionicons name="stats-chart" size={14} color={colors.accent2} />
+        <SmartIcon name="stats-chart" size={14} color={colors.accent2} />
         <Text style={s.percentileText}>
           Top {Math.max(1, 100 - percentile)}% for {age}-year-old {positionLabel}s
         </Text>
@@ -204,7 +204,7 @@ export function FootballAttributeDetailSheet({
         <Text style={s.sourcesTitle}>Completed Tests</Text>
         {data.sources.map((src) => (
           <View key={src} style={s.sourceItem}>
-            <Ionicons name="checkmark-circle" size={14} color={attrColor} />
+            <SmartIcon name="checkmark-circle" size={14} color={attrColor} />
             <Text style={s.sourceText}>{src}</Text>
           </View>
         ))}
@@ -213,7 +213,7 @@ export function FootballAttributeDetailSheet({
       {/* How to improve */}
       <View style={s.tipContainer}>
         <View style={s.tipHeader}>
-          <Ionicons name="bulb-outline" size={16} color={colors.accent2} />
+          <SmartIcon name="bulb-outline" size={16} color={colors.accent2} />
           <Text style={s.tipTitle}>How to Improve</Text>
         </View>
         <Text style={s.tipText}>{IMPROVEMENT_TIPS[attribute]}</Text>

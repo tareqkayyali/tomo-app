@@ -17,6 +17,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { spacing, borderRadius, fontFamily } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
@@ -44,7 +45,7 @@ function ToggleRow({ icon, label, subtitle, value, onValueChange, disabled }: To
     <View style={[styles.toggleRow, disabled && styles.toggleRowDisabled]}>
       <View style={styles.toggleInfo}>
         <View style={styles.toggleIconWrap}>
-          <Ionicons
+          <SmartIcon
             name={icon}
             size={20}
             color={disabled ? colors.textMuted : value ? colors.accent1 : colors.textInactive}
@@ -181,7 +182,7 @@ export function PrivacySettingsScreen() {
         {/* Parental consent warning */}
         {parentalConsentRequired && (
           <View style={styles.warningCard}>
-            <Ionicons name="warning-outline" size={20} color={colors.warning} />
+            <SmartIcon name="warning-outline" size={20} color={colors.warning} />
             <Text style={styles.warningText}>
               Parental consent is required for athletes under 18 to enable their public passport.
             </Text>
@@ -206,7 +207,7 @@ export function PrivacySettingsScreen() {
             style={({ pressed }) => [styles.shareCard, pressed && { opacity: 0.7 }]}
             onPress={handleShare}
           >
-            <Ionicons name="share-outline" size={20} color={colors.accent1} />
+            <SmartIcon name="share-outline" size={20} color={colors.accent1} />
             <Text style={styles.shareText}>Share Passport Link</Text>
           </Pressable>
         )}

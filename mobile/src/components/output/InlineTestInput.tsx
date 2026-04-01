@@ -16,7 +16,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -105,7 +105,7 @@ export function InlineTestInput({
           {submitting ? (
             <ActivityIndicator color="#FFF" size="small" />
           ) : (
-            <Ionicons name="checkmark" size={18} color="#FFF" />
+            <SmartIcon name="checkmark" size={18} color="#FFF" />
           )}
         </Pressable>
 
@@ -115,7 +115,7 @@ export function InlineTestInput({
           onPress={onCancel}
           disabled={submitting}
         >
-          <Ionicons name="close" size={18} color={colors.textMuted} />
+          <SmartIcon name="close" size={18} color={colors.textMuted} />
         </Pressable>
       </View>
     </View>

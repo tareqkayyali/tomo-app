@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { RecCard } from './RecCard';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily } from '../../theme';
@@ -59,7 +60,7 @@ export function RecSection({
             justifyContent: 'center',
           }}
         >
-          <Ionicons name={icon} size={16} color={color} />
+          <SmartIcon name={icon} size={16} color={color} />
         </View>
         <Text
           style={{

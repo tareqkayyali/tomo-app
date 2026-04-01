@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { GlassCard } from './GlassCard';
 import { GradientButton } from './GradientButton';
 import { useTheme } from '../hooks/useTheme';
@@ -45,7 +45,7 @@ export function EmptyProgressState({ sport, onLogSession, onTakeTest }: EmptyPro
     <GlassCard style={s.card}>
       {/* Sport Icon */}
       <View style={s.iconContainer}>
-        <Ionicons name={config.icon} size={48} color={colors.accent1} />
+        <SmartIcon name={config.icon} size={48} color={colors.accent1} />
       </View>
 
       {/* Headline */}

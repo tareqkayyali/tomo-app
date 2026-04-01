@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 
 import { useOutputData } from '../../hooks/useOutputData';
 import { useTheme } from '../../hooks/useTheme';
@@ -47,7 +47,7 @@ export function ProgrammesTab({ playerId, playerName }: Props) {
       >
         <GlassCard>
           <View style={styles.emptyContent}>
-            <Ionicons name="alert-circle-outline" size={40} color={colors.textMuted} />
+            <SmartIcon name="alert-circle-outline" size={40} color={colors.textMuted} />
             <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
               Could not load programs
             </Text>
@@ -68,7 +68,7 @@ export function ProgrammesTab({ playerId, playerName }: Props) {
     >
       {/* Coach context banner */}
       <View style={[styles.contextBanner, { backgroundColor: colors.accent1 + '10' }]}>
-        <Ionicons name="eye-outline" size={14} color={colors.accent1} />
+        <SmartIcon name="eye-outline" size={14} color={colors.accent1} />
         <Text style={[styles.contextText, { color: colors.accent1 }]}>
           Viewing {playerName.split(' ')[0]}'s training programs
         </Text>

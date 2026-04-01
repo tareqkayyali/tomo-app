@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../SmartIcon';
 import { colors } from '../../../theme/colors';
 import { spacing, borderRadius, fontFamily } from '../../../theme';
 import type { BulkTimelineEditCapsule as BulkTimelineEditType, CapsuleAction } from '../../../types/chat';
@@ -130,7 +130,7 @@ export function BulkTimelineEditCapsuleComponent({ card, onSubmit }: Props) {
 
           return (
             <Pressable key={group.key} style={styles.groupRow} onPress={() => toggleGroup(group)}>
-              <Ionicons
+              <SmartIcon
                 name={allSelected ? 'checkbox' : someSelected ? 'remove-circle-outline' : 'square-outline'}
                 size={20}
                 color={allSelected ? colors.accent1 : colors.textInactive}

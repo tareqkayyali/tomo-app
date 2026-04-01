@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { borderRadius, fontFamily, spacing } from '../../theme';
 import { colors } from '../../theme/colors';
@@ -38,7 +38,7 @@ export function DayLockButton({ isLocked, isLoading, onToggle }: DayLockButtonPr
         { opacity: pressed ? 0.8 : 1 },
       ]}
     >
-      <Ionicons
+      <SmartIcon
         name={isLocked ? 'lock-closed' : 'lock-open-outline'}
         size={12}
         color={isLocked ? colors.textOnDark : colors.textSecondary}
@@ -52,7 +52,7 @@ export function DayLockButton({ isLocked, isLoading, onToggle }: DayLockButtonPr
         {isLocked ? 'Day Locked' : 'Lock Day'}
       </Text>
       {isLocked && (
-        <Ionicons name="checkmark" size={12} color={colors.textOnDark} />
+        <SmartIcon name="checkmark" size={12} color={colors.textOnDark} />
       )}
     </Pressable>
   );

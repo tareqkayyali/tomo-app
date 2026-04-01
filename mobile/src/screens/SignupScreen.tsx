@@ -16,6 +16,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Input } from '../components';
 import {
@@ -197,7 +198,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
 
           {signupError !== '' && (
             <View style={styles.errorBanner}>
-              <Ionicons name="alert-circle" size={18} color={colors.error} />
+              <SmartIcon name="alert-circle" size={18} color={colors.error} />
               <Text style={styles.errorBannerText}>{signupError}</Text>
             </View>
           )}
@@ -211,7 +212,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                   onPress={() => handleSocialAuth('apple')}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="logo-apple" size={20} color={colors.background} />
+                  <SmartIcon name="logo-apple" size={20} color={colors.background} />
                   <Text style={styles.socialButtonText}>Continue with Apple</Text>
                 </TouchableOpacity>
 
@@ -220,7 +221,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                   onPress={() => handleSocialAuth('google')}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="logo-google" size={18} color={colors.background} />
+                  <SmartIcon name="logo-google" size={18} color={colors.background} />
                   <Text style={styles.socialButtonText}>Continue with Google</Text>
                 </TouchableOpacity>
               </View>
@@ -267,7 +268,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                 activeOpacity={0.7}
               >
                 <Text style={styles.subtleBtnText}>Next</Text>
-                <Ionicons name="arrow-forward" size={16} color={colors.accent1} />
+                <SmartIcon name="arrow-forward" size={16} color={colors.accent1} />
               </TouchableOpacity>
             </View>
           ) : (
@@ -284,7 +285,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                       selectedRole === r.value && styles.roleChipSelected,
                     ]}
                   >
-                    <Ionicons
+                    <SmartIcon
                       name={r.icon}
                       size={22}
                       color={selectedRole === r.value ? colors.accent1 : colors.textInactive}
@@ -342,7 +343,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                           sport === s.value && styles.sportChipSelected,
                         ]}
                       >
-                        <Ionicons
+                        <SmartIcon
                           name={s.icon}
                           size={18}
                           color={sport === s.value ? colors.accent1 : colors.textInactive}
@@ -368,7 +369,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                   onPress={() => setStep(1)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="arrow-back" size={16} color={colors.textInactive} />
+                  <SmartIcon name="arrow-back" size={16} color={colors.textInactive} />
                   <Text style={[styles.subtleBtnText, { color: colors.textInactive }]}>Back</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -377,7 +378,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                   activeOpacity={0.7}
                   disabled={isLoading}
                 >
-                  <Ionicons name="person-add-outline" size={16} color={colors.accent2} />
+                  <SmartIcon name="person-add-outline" size={16} color={colors.accent2} />
                   <Text style={[styles.subtleBtnText, { color: colors.accent2 }]}>
                     {isLoading ? 'Creating...' : 'Create Account'}
                   </Text>

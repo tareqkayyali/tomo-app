@@ -15,7 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -88,7 +88,7 @@ export function CoachInviteScreen() {
               <ActivityIndicator color={colors.textOnDark} />
             ) : (
               <>
-                <Ionicons name="key-outline" size={20} color={colors.textOnDark} />
+                <SmartIcon name="key-outline" size={20} color={colors.textOnDark} />
                 <Text style={[styles.generateButtonText, { color: colors.textOnDark }]}>Generate Code</Text>
               </>
             )}
@@ -112,7 +112,7 @@ export function CoachInviteScreen() {
                   { backgroundColor: colors.surfaceElevated, opacity: pressed ? 0.8 : 1 },
                 ]}
               >
-                <Ionicons name="copy-outline" size={20} color={colors.accent1} />
+                <SmartIcon name="copy-outline" size={20} color={colors.accent1} />
                 <Text style={[styles.actionButtonText, { color: colors.textOnDark }]}>Copy</Text>
               </Pressable>
 
@@ -123,7 +123,7 @@ export function CoachInviteScreen() {
                   { backgroundColor: colors.accent1, opacity: pressed ? 0.8 : 1 },
                 ]}
               >
-                <Ionicons name="share-outline" size={20} color={colors.textOnDark} />
+                <SmartIcon name="share-outline" size={20} color={colors.textOnDark} />
                 <Text style={[styles.actionButtonText, { color: colors.textOnDark }]}>Share</Text>
               </Pressable>
             </View>

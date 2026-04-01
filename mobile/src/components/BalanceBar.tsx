@@ -10,7 +10,7 @@
 
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
@@ -58,13 +58,13 @@ export function BalanceBar({
         </View>
         <View style={styles.legendRow}>
           <View style={styles.legendItem}>
-            <Ionicons name="flash" size={10} color={colors.accent1} />
+            <SmartIcon name="flash" size={10} color={colors.accent1} />
             <Text style={[styles.legendText, { color: colors.accent1 }]}>
               Training {trainPct}%
             </Text>
           </View>
           <View style={styles.legendItem}>
-            <Ionicons name="book" size={10} color={ACADEMIC_PURPLE} />
+            <SmartIcon name="book" size={10} color={ACADEMIC_PURPLE} />
             <Text style={[styles.legendText, { color: ACADEMIC_PURPLE }]}>
               Academic {acadPct}%
             </Text>

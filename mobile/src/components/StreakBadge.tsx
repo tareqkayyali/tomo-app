@@ -12,7 +12,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { spacing, borderRadius, fontFamily } from '../theme';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
@@ -58,7 +58,7 @@ export function StreakBadge({
   return (
     <View style={[styles.container, styles[size]]}>
       <Animated.View style={flameAnimStyle}>
-        <Ionicons name="flame" size={FLAME_SIZES[size]} color={getStreakColor()} />
+        <SmartIcon name="flame" size={FLAME_SIZES[size]} color={getStreakColor()} />
       </Animated.View>
       <View style={styles.content}>
         <Text style={[styles.streak, styles[`${size}Streak`], { color: getStreakColor() }]}>

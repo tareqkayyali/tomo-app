@@ -16,7 +16,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -224,14 +224,14 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
             <GlassCard style={styles.focusCard}>
               <View style={styles.focusHeader}>
                 <View style={styles.focusIconWrap}>
-                  <Ionicons name="fitness-outline" size={20} color={colors.accent1} />
+                  <SmartIcon name="fitness-outline" size={20} color={colors.accent1} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.focusLabel}>Today's Focus</Text>
                   <Text style={styles.focusTitle}>{focusTitle}</Text>
                   <Text style={styles.focusImpact}>{projectedImpact} to your Elite Score projected</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textInactive} />
+                <SmartIcon name="chevron-forward" size={20} color={colors.textInactive} />
               </View>
 
               <GradientButton
@@ -281,9 +281,9 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
         style={styles.messageBar}
         onPress={() => navigation.navigate('FullChat')}
       >
-        <Ionicons name="chatbubble-outline" size={18} color={colors.textInactive} />
+        <SmartIcon name="chatbubble-outline" size={18} color={colors.textInactive} />
         <Text style={styles.messageBarText}>Message Tomo...</Text>
-        <Ionicons name="send" size={18} color={colors.accent1} />
+        <SmartIcon name="send" size={18} color={colors.accent1} />
       </Pressable>
     </SafeAreaView>
   );

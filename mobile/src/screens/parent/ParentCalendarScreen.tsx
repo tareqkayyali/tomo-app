@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -222,7 +222,7 @@ export function ParentCalendarScreen({ navigation }: Props) {
 
           {/* Pending overlay card */}
           <View style={[styles.pendingCard, { backgroundColor: colors.surface }]}>
-            <Ionicons name="lock-closed-outline" size={40} color={colors.textInactive} />
+            <SmartIcon name="lock-closed-outline" size={40} color={colors.textInactive} />
             <Text style={[styles.pendingTitle, { color: colors.textOnDark }]}>
               Waiting for confirmation
             </Text>
@@ -307,13 +307,13 @@ export function ParentCalendarScreen({ navigation }: Props) {
         {/* Month header */}
         <View style={styles.monthHeader}>
           <TouchableOpacity onPress={goToPreviousMonth} hitSlop={12}>
-            <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
+            <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
           </TouchableOpacity>
           <Text style={[styles.monthTitle, { color: colors.textOnDark }]}>
             {MONTHS[viewMonth]} {viewYear}
           </Text>
           <TouchableOpacity onPress={goToNextMonth} hitSlop={12}>
-            <Ionicons name="chevron-forward" size={24} color={colors.textOnDark} />
+            <SmartIcon name="chevron-forward" size={24} color={colors.textOnDark} />
           </TouchableOpacity>
         </View>
 

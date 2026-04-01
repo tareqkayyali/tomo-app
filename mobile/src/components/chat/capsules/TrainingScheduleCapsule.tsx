@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Switch, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../SmartIcon';
 
 function capsuleAddDuration(startTime: string, durationMin: number): string {
   const [h, m] = startTime.split(':').map(Number);
@@ -111,7 +111,7 @@ export function TrainingScheduleCapsuleComponent({ card, onSubmit }: Props) {
             {/* Header: icon + label + toggle */}
             <View style={styles.catHeader}>
               <View style={[styles.iconCircle, { backgroundColor: accent + '20' }]}>
-                <Ionicons name={(cat.icon || 'add-circle-outline') as any} size={16} color={accent} />
+                <SmartIcon name={(cat.icon || 'add-circle-outline') as any} size={16} color={accent} />
               </View>
               <Text style={styles.catLabel}>{cat.label}</Text>
               <Switch
@@ -201,7 +201,7 @@ export function TrainingScheduleCapsuleComponent({ card, onSubmit }: Props) {
                       onPress={() => updateCategory(cat.id, { daysPerWeek: Math.max(1, cat.daysPerWeek - 1) })}
                       style={[styles.stepperBtn, { borderColor: themeColors.border }]}
                     >
-                      <Ionicons name="remove" size={14} color={themeColors.textInactive} />
+                      <SmartIcon name="remove" size={14} color={themeColors.textInactive} />
                     </Pressable>
                     <Text style={[styles.stepperValue, { color: accent }]}>
                       {cat.daysPerWeek}x
@@ -210,7 +210,7 @@ export function TrainingScheduleCapsuleComponent({ card, onSubmit }: Props) {
                       onPress={() => updateCategory(cat.id, { daysPerWeek: Math.min(7, cat.daysPerWeek + 1) })}
                       style={[styles.stepperBtn, { borderColor: themeColors.border }]}
                     >
-                      <Ionicons name="add" size={14} color={themeColors.textInactive} />
+                      <SmartIcon name="add" size={14} color={themeColors.textInactive} />
                     </Pressable>
                     <Text style={styles.perWeekLabel}>per week</Text>
                   </View>
@@ -267,7 +267,7 @@ export function TrainingScheduleCapsuleComponent({ card, onSubmit }: Props) {
                       updateCategory(cat.id, { fixedStartTime: t, fixedEndTime: capsuleAddDuration(t, cat.sessionDuration) });
                     }}
                       style={[styles.stepperBtn, { borderColor: themeColors.border, width: 22, height: 22, borderRadius: 11 }]}>
-                      <Ionicons name="remove" size={10} color={themeColors.textInactive} />
+                      <SmartIcon name="remove" size={10} color={themeColors.textInactive} />
                     </Pressable>
                     <Text style={{ fontSize: 13, fontFamily: fontFamily.semiBold, color: accent, minWidth: 40, textAlign: 'center' }}>
                       {(cat as any).fixedStartTime}
@@ -277,7 +277,7 @@ export function TrainingScheduleCapsuleComponent({ card, onSubmit }: Props) {
                       updateCategory(cat.id, { fixedStartTime: t, fixedEndTime: capsuleAddDuration(t, cat.sessionDuration) });
                     }}
                       style={[styles.stepperBtn, { borderColor: themeColors.border, width: 22, height: 22, borderRadius: 11 }]}>
-                      <Ionicons name="add" size={10} color={themeColors.textInactive} />
+                      <SmartIcon name="add" size={10} color={themeColors.textInactive} />
                     </Pressable>
                     <Text style={{ fontSize: 11, color: themeColors.textInactive }}>
                       → {capsuleAddDuration((cat as any).fixedStartTime, cat.sessionDuration)}

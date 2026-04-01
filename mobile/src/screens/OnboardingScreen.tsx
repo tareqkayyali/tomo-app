@@ -28,6 +28,7 @@ import Animated, {
   SlideInLeft,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Button, Input } from '../components';
 import {
@@ -323,7 +324,7 @@ export function OnboardingScreen() {
         return (
           <View style={styles_s.centeredContent}>
             <View style={styles_s.introIcon}>
-              <Ionicons name="body-outline" size={48} color={colors.accent1} />
+              <SmartIcon name="body-outline" size={48} color={colors.accent1} />
             </View>
             <Text style={styles_s.introTitle}>
               Let's build your{'\n'}athletic profile
@@ -355,13 +356,13 @@ export function OnboardingScreen() {
                   onPress={() => toggleSport(sp.key)}
                 >
                   <View style={[styles_s.sportIconBox, { backgroundColor: `${sp.color}20` }]}>
-                    <Ionicons name={sp.icon} size={28} color={sp.color} />
+                    <SmartIcon name={sp.icon} size={28} color={sp.color} />
                   </View>
                   <Text style={[styles_s.sportCardLabel, selected && { color: sp.color }]}>
                     {sp.label}
                   </Text>
                   {selected && (
-                    <Ionicons name="checkmark-circle" size={22} color={sp.color} />
+                    <SmartIcon name="checkmark-circle" size={22} color={sp.color} />
                   )}
                 </TouchableOpacity>
               );
@@ -374,7 +375,7 @@ export function OnboardingScreen() {
         return (
           <View style={styles_s.centeredContent}>
             <View style={[styles_s.introIcon, { backgroundColor: 'rgba(0, 217, 255, 0.12)' }]}>
-              <Ionicons name="trophy-outline" size={48} color={colors.accent2} />
+              <SmartIcon name="trophy-outline" size={48} color={colors.accent2} />
             </View>
             <Text style={styles_s.introTitle}>
               Multi-sport athlete!
@@ -458,7 +459,7 @@ export function OnboardingScreen() {
                   </Text>
                 </View>
                 {footballExperience === e.value && (
-                  <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
+                  <SmartIcon name="checkmark-circle" size={20} color={colors.textPrimary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -474,7 +475,7 @@ export function OnboardingScreen() {
                 ]}
                 onPress={() => setFootballCompetition(c.value)}
               >
-                <Ionicons
+                <SmartIcon
                   name={c.icon}
                   size={22}
                   color={footballCompetition === c.value ? colors.textPrimary : colors.textInactive}
@@ -488,7 +489,7 @@ export function OnboardingScreen() {
                   {c.label}
                 </Text>
                 {footballCompetition === c.value && (
-                  <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
+                  <SmartIcon name="checkmark-circle" size={20} color={colors.textPrimary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -534,7 +535,7 @@ export function OnboardingScreen() {
               onPress={() => setShowDobPicker(true)}
               style={[styles_s.dobPickerButton, { backgroundColor: colors.inputBackground }]}
             >
-              <Ionicons name="calendar-outline" size={18} color={colors.accent2} />
+              <SmartIcon name="calendar-outline" size={18} color={colors.accent2} />
               <Text style={[styles_s.dobPickerText, { color: dobSelected ? colors.textOnDark : colors.textMuted }]}>
                 {dobSelected
                   ? dobDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -587,7 +588,7 @@ export function OnboardingScreen() {
                 {FB_SELF_ASSESS_ATTRS.map((attr) => (
                   <View key={attr.key} style={styles_s.assessRow}>
                     <View style={styles_s.assessLabel}>
-                      <Ionicons name={attr.icon} size={16} color={colors.accent1} />
+                      <SmartIcon name={attr.icon} size={16} color={colors.accent1} />
                       <Text style={styles_s.assessLabelText}>{attr.label}</Text>
                     </View>
                     <View style={styles_s.assessButtons}>
@@ -629,7 +630,7 @@ export function OnboardingScreen() {
                 ]}
                 onPress={() => setPrimaryGoal(g.value)}
               >
-                <Ionicons
+                <SmartIcon
                   name={g.icon as keyof typeof Ionicons.glyphMap}
                   size={22}
                   color={primaryGoal === g.value ? colors.textPrimary : colors.textInactive}
@@ -643,7 +644,7 @@ export function OnboardingScreen() {
                   {g.label}
                 </Text>
                 {primaryGoal === g.value && (
-                  <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
+                  <SmartIcon name="checkmark-circle" size={20} color={colors.textPrimary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -733,13 +734,13 @@ export function OnboardingScreen() {
               onPress={() => { setEducationType('school'); setEducationYear(0); }}
             >
               <View style={[styles_s.sportIconBox, { backgroundColor: `${colors.accent1}20` }]}>
-                <Ionicons name="school-outline" size={28} color={colors.accent1} />
+                <SmartIcon name="school-outline" size={28} color={colors.accent1} />
               </View>
               <Text style={[styles_s.sportCardLabel, educationType === 'school' && { color: colors.accent1 }]}>
                 School
               </Text>
               {educationType === 'school' && (
-                <Ionicons name="checkmark-circle" size={22} color={colors.accent1} />
+                <SmartIcon name="checkmark-circle" size={22} color={colors.accent1} />
               )}
             </TouchableOpacity>
 
@@ -751,13 +752,13 @@ export function OnboardingScreen() {
               onPress={() => { setEducationType('university'); setEducationYear(0); }}
             >
               <View style={[styles_s.sportIconBox, { backgroundColor: `${colors.accent2}20` }]}>
-                <Ionicons name="library-outline" size={28} color={colors.accent2} />
+                <SmartIcon name="library-outline" size={28} color={colors.accent2} />
               </View>
               <Text style={[styles_s.sportCardLabel, educationType === 'university' && { color: colors.accent2 }]}>
                 University
               </Text>
               {educationType === 'university' && (
-                <Ionicons name="checkmark-circle" size={22} color={colors.accent2} />
+                <SmartIcon name="checkmark-circle" size={22} color={colors.accent2} />
               )}
             </TouchableOpacity>
 
@@ -831,7 +832,7 @@ export function OnboardingScreen() {
         return (
           <View style={styles_s.centeredContent}>
             <View style={styles_s.completeIcon}>
-              <Ionicons name="checkmark-circle" size={56} color={colors.readinessGreen} />
+              <SmartIcon name="checkmark-circle" size={56} color={colors.readinessGreen} />
             </View>
             <Text style={styles_s.introTitle}>Your profile is ready!</Text>
             <Text style={styles_s.introSubtitle}>

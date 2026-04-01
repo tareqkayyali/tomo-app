@@ -21,7 +21,7 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -229,13 +229,13 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
           {/* Success / Error banners */}
           {success && (
             <View style={[styles.banner, { backgroundColor: '#2ECC7118' }]}>
-              <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
+              <SmartIcon name="checkmark-circle" size={18} color={colors.accent} />
               <Text style={[styles.bannerText, { color: colors.accent }]}>{success}</Text>
             </View>
           )}
           {error && (
             <View style={[styles.banner, { backgroundColor: '#FF453A18' }]}>
-              <Ionicons name="alert-circle" size={18} color={colors.error} />
+              <SmartIcon name="alert-circle" size={18} color={colors.error} />
               <Text style={[styles.bannerText, { color: colors.error }]}>{error}</Text>
             </View>
           )}
@@ -255,7 +255,7 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
                   {/* Category rows */}
                   {categories.filter((c) => c.enabled).length === 0 ? (
                     <View style={styles.emptyBlock}>
-                      <Ionicons name="barbell-outline" size={28} color={colors.textMuted} />
+                      <SmartIcon name="barbell-outline" size={28} color={colors.textMuted} />
                       <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                         No training categories set up yet
                       </Text>
@@ -286,7 +286,7 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
                           ]}
                         >
                           <View style={[styles.categoryIcon, { backgroundColor: cat.color + '22' }]}>
-                            <Ionicons name={cat.icon as any} size={20} color={cat.color} />
+                            <SmartIcon name={cat.icon as any} size={20} color={cat.color} />
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.categoryName, { color: colors.textOnDark }]}>
@@ -300,9 +300,9 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
                             </Text>
                           </View>
                           {isLinked ? (
-                            <Ionicons name="checkmark-circle" size={22} color={colors.accent1} />
+                            <SmartIcon name="checkmark-circle" size={22} color={colors.accent1} />
                           ) : (
-                            <Ionicons name="add-circle-outline" size={22} color={colors.textMuted} />
+                            <SmartIcon name="add-circle-outline" size={22} color={colors.textMuted} />
                           )}
                         </Pressable>
                       );
@@ -317,7 +317,7 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
                       { backgroundColor: colors.glass, opacity: pressed ? 0.7 : 1 },
                     ]}
                   >
-                    <Ionicons name="add" size={20} color={colors.accent2} />
+                    <SmartIcon name="add" size={20} color={colors.accent2} />
                     <Text style={[styles.createNewText, { color: colors.accent2 }]}>
                       Create New Category
                     </Text>
@@ -364,7 +364,7 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
                         <ActivityIndicator size="small" color="#FFF" />
                       ) : (
                         <>
-                          <Ionicons name="checkmark" size={18} color="#FFF" />
+                          <SmartIcon name="checkmark" size={18} color="#FFF" />
                           <Text style={styles.confirmBtnText}>Create & Link</Text>
                         </>
                       )}

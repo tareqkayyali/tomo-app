@@ -10,7 +10,7 @@ import {
   View, Text, TextInput, Pressable, Modal, ScrollView,
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import { emitRefresh } from '../../utils/refreshBus';
@@ -195,12 +195,12 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
 
             {/* Header */}
             <View style={ms.headerRow}>
-              <Ionicons name="book-outline" size={20} color={colors.accent2} />
+              <SmartIcon name="book-outline" size={20} color={colors.accent2} />
               <Text style={[ms.headerTitle, { color: colors.textOnDark }]}>
                 {event.name}
               </Text>
               <Pressable onPress={onClose} hitSlop={12}>
-                <Ionicons name="close" size={22} color={colors.textMuted} />
+                <SmartIcon name="close" size={22} color={colors.textMuted} />
               </Pressable>
             </View>
 
@@ -342,7 +342,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                     {/* AI insight */}
                     {journal?.ai_insight && (
                       <View style={[ms.insightBox, { backgroundColor: colors.accent2 + '10' }]}>
-                        <Ionicons name="sparkles-outline" size={14} color={colors.accent2} />
+                        <SmartIcon name="sparkles-outline" size={14} color={colors.accent2} />
                         <Text style={[ms.insightText, { color: colors.textSecondary }]}>{journal.ai_insight}</Text>
                       </View>
                     )}

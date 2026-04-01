@@ -20,6 +20,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 
 import { useTheme } from '../hooks/useTheme';
 import { resolveSuggestion } from '../services/api';
@@ -96,7 +97,7 @@ export function SuggestionCard({ suggestion, onResolved }: SuggestionCardProps) 
       {/* Header */}
       <View style={styles.header}>
         <View style={[styles.iconWrap, { backgroundColor: meta.accentColor + '22' }]}>
-          <Ionicons name={meta.icon} size={18} color={meta.accentColor} />
+          <SmartIcon name={meta.icon} size={18} color={meta.accentColor} />
         </View>
         <View style={styles.headerText}>
           <Text style={[styles.typeLabel, { color: meta.accentColor }]}>{meta.label}</Text>
@@ -131,7 +132,7 @@ export function SuggestionCard({ suggestion, onResolved }: SuggestionCardProps) 
             <ActivityIndicator size="small" color="#FFF" />
           ) : (
             <>
-              <Ionicons name="checkmark" size={16} color="#FFF" />
+              <SmartIcon name="checkmark" size={16} color="#FFF" />
               <Text style={styles.actionText}>Accept</Text>
             </>
           )}
@@ -150,7 +151,7 @@ export function SuggestionCard({ suggestion, onResolved }: SuggestionCardProps) 
             <ActivityIndicator size="small" color={colors.textSecondary} />
           ) : (
             <>
-              <Ionicons name="close" size={16} color={colors.textSecondary} />
+              <SmartIcon name="close" size={16} color={colors.textSecondary} />
               <Text style={[styles.actionText, { color: colors.textSecondary }]}>Decline</Text>
             </>
           )}

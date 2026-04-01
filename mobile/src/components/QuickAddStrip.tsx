@@ -10,6 +10,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
 import { spacing, fontFamily, borderRadius } from '../theme';
@@ -46,7 +47,7 @@ export function QuickAddStrip({ onAdd }: QuickAddStripProps) {
           activeOpacity={0.7}
         >
           <View style={[styles.iconCircle, { backgroundColor: `${action.color}20` }]}>
-            <Ionicons name={action.icon} size={18} color={action.color} />
+            <SmartIcon name={action.icon} size={18} color={action.color} />
           </View>
           <Text style={styles.label}>{action.label}</Text>
         </TouchableOpacity>

@@ -10,6 +10,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
 import { spacing, fontFamily, borderRadius } from '../theme';
@@ -76,7 +77,7 @@ export function WeekSummaryStrip({
       >
         {stats.map((stat) => (
           <View key={stat.label} style={styles.card}>
-            <Ionicons name={stat.icon} size={16} color={stat.color} />
+            <SmartIcon name={stat.icon} size={16} color={stat.color} />
             <Text style={styles.value}>{stat.value}</Text>
             <Text style={styles.label}>{stat.label}</Text>
           </View>

@@ -22,7 +22,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Input } from '../components';
 import {
@@ -113,7 +113,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
           <View style={styles.heroSection}>
             {/* Wifi icon */}
             <View style={styles.wifiIcon}>
-              <Ionicons name="wifi" size={28} color={colors.accent1} />
+              <SmartIcon name="wifi" size={28} color={colors.accent1} />
             </View>
 
             {/* Brand name */}
@@ -123,15 +123,15 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
             {/* Value props */}
             <View style={styles.valueProps}>
               <View style={styles.valuePill}>
-                <Ionicons name="flash" size={12} color={colors.accent1} />
+                <SmartIcon name="flash" size={12} color={colors.accent1} />
                 <Text style={styles.valuePillText}>Smart Training</Text>
               </View>
               <View style={styles.valuePill}>
-                <Ionicons name="trending-up" size={12} color={colors.accent2} />
+                <SmartIcon name="trending-up" size={12} color={colors.accent2} />
                 <Text style={styles.valuePillText}>Track Progress</Text>
               </View>
               <View style={styles.valuePill}>
-                <Ionicons name="body" size={12} color={colors.readinessGreen} />
+                <SmartIcon name="body" size={12} color={colors.readinessGreen} />
                 <Text style={styles.valuePillText}>Recovery</Text>
               </View>
             </View>
@@ -146,7 +146,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
                 onPress={() => handleSocialAuth('apple')}
                 activeOpacity={0.8}
               >
-                <Ionicons name="logo-apple" size={20} color={colors.textPrimary} />
+                <SmartIcon name="logo-apple" size={20} color={colors.textPrimary} />
                 <Text style={styles.socialBtnText}>Apple</Text>
               </TouchableOpacity>
 
@@ -155,7 +155,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
                 onPress={() => handleSocialAuth('google')}
                 activeOpacity={0.8}
               >
-                <Ionicons name="logo-google" size={18} color={colors.textPrimary} />
+                <SmartIcon name="logo-google" size={18} color={colors.textPrimary} />
                 <Text style={styles.socialBtnText}>Google</Text>
               </TouchableOpacity>
             </View>
@@ -167,14 +167,14 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
                 onPress={() => setShowEmailForm(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="mail-outline" size={16} color={colors.textInactive} />
+                <SmartIcon name="mail-outline" size={16} color={colors.textInactive} />
                 <Text style={styles.emailToggleText}>Sign in with email</Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.emailForm}>
                 {loginError !== '' && (
                   <View style={styles.errorBanner}>
-                    <Ionicons name="alert-circle" size={16} color={colors.error} />
+                    <SmartIcon name="alert-circle" size={16} color={colors.error} />
                     <Text style={styles.errorBannerText}>{loginError}</Text>
                   </View>
                 )}
@@ -212,7 +212,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
                   activeOpacity={0.7}
                   disabled={isLoading}
                 >
-                  <Ionicons name="log-in-outline" size={16} color={colors.accent1} />
+                  <SmartIcon name="log-in-outline" size={16} color={colors.accent1} />
                   <Text style={[styles.signInBtnText, { color: colors.accent1 }]}>
                     {isLoading ? 'Signing in...' : 'Sign In'}
                   </Text>
@@ -233,9 +233,9 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
               onPress={() => navigation.navigate('Signup')}
               activeOpacity={0.7}
             >
-              <Ionicons name="person-add-outline" size={16} color={colors.accent2} />
+              <SmartIcon name="person-add-outline" size={16} color={colors.accent2} />
               <Text style={styles.getStartedText}>Create Account</Text>
-              <Ionicons name="arrow-forward" size={16} color={colors.accent2} />
+              <SmartIcon name="arrow-forward" size={16} color={colors.accent2} />
             </TouchableOpacity>
           </View>
 

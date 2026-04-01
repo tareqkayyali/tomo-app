@@ -12,7 +12,7 @@
 import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { GlassCard, GradientButton } from '../../components';
@@ -70,7 +70,7 @@ export function FootballTestsContent({ navigation }: FootballTestsContentProps) 
       <Animated.View style={fadeIn0}>
         <GlassCard style={styles.contextCard}>
           <View style={styles.contextHeader}>
-            <Ionicons name="football-outline" size={18} color={colors.accent1} />
+            <SmartIcon name="football-outline" size={18} color={colors.accent1} />
             <Text style={styles.contextTitle}>Football Physical Tests</Text>
           </View>
           <Text style={styles.contextDesc}>
@@ -119,7 +119,7 @@ function FootballTestCard({
       <GlassCard style={styles.testCard}>
         <View style={styles.testTop}>
           <View style={[styles.testIconBox, { backgroundColor: testDef.color + '18' }]}>
-            <Ionicons name={testDef.icon as any} size={24} color={testDef.color} />
+            <SmartIcon name={testDef.icon as any} size={24} color={testDef.color} />
           </View>
           <View style={{ flex: 1 }}>
             <View style={styles.testNameRow}>

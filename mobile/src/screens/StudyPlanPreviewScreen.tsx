@@ -19,7 +19,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { useTheme } from '../hooks/useTheme';
 import { useScheduleRules } from '../hooks/useScheduleRules';
 import { createCalendarEvent, getCalendarEventsByRange, deleteCalendarEvent } from '../services/api';
@@ -142,7 +142,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
         date: b.date,
         startTime: b.startTime,
         endTime: b.endTime,
-        color: '#F39C12',
+        color: colors.warning,
         icon: 'book-outline',
         eventType: 'study_block' as const,
         notes: `For ${b.examType} on ${b.examDate}`,
@@ -386,14 +386,14 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
     }
   }, [blocks, rules?.preferences, config]);
 
-  const accentColor = planType === 'training' ? colors.accent1 : '#F39C12';
+  const accentColor = planType === 'training' ? colors.accent1 : colors.warning;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.textOnDark} />
+          <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {planType === 'training' ? 'Training Plan' : 'Study Plan'}
@@ -408,7 +408,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
         {warnings.length > 0 && (
           <View style={styles.warningBanner}>
             <View style={styles.warningHeader}>
-              <Ionicons name="warning-outline" size={18} color="#F59E0B" />
+              <SmartIcon name="warning-outline" size={18} color="#F59E0B" />
               <Text style={styles.warningTitle}>Some sessions could not be placed</Text>
             </View>
             {warnings.map((w, i) => (
@@ -426,7 +426,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
             {dayExams.length > 0 && (
               <View style={styles.examMarker}>
                 <View style={styles.examMarkerDot} />
-                <Ionicons name="school" size={14} color="#E74C3C" />
+                <SmartIcon name="school" size={14} color={colors.error} />
                 <Text style={styles.examMarkerText}>
                   {dayExams.join(', ')} exam{dayExams.length > 1 ? 's' : ''}
                 </Text>
@@ -452,13 +452,13 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                       onPress={() => setEditingId(editingId === block.id ? null : block.id)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Ionicons name="pencil" size={18} color={colors.textInactive} />
+                      <SmartIcon name="pencil" size={18} color={colors.textInactive} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => removeBlock(block.id)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Ionicons name="close-circle" size={20} color="#E74C3C" />
+                      <SmartIcon name="close-circle" size={20} color={colors.error} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -482,7 +482,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                                 key={subj}
                                 style={[
                                   styles.editChip,
-                                  isActive && { backgroundColor: '#F39C12', borderColor: '#F39C12' },
+                                  isActive && { backgroundColor: colors.warning, borderColor: colors.warning },
                                 ]}
                                 onPress={() => {
                                   if (!isActive) {
@@ -513,7 +513,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                           style={styles.editChip}
                           onPress={() => updateBlock(block.id, { date: shiftDate(block.date, -1) })}
                         >
-                          <Ionicons name="chevron-back" size={14} color={colors.textOnDark} />
+                          <SmartIcon name="chevron-back" size={14} color={colors.textOnDark} />
                           <Text style={styles.editChipText}>-1d</Text>
                         </TouchableOpacity>
                         <Text style={[styles.editValue, { color: colors.textOnDark }]}>
@@ -524,7 +524,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                           onPress={() => updateBlock(block.id, { date: shiftDate(block.date, 1) })}
                         >
                           <Text style={styles.editChipText}>+1d</Text>
-                          <Ionicons name="chevron-forward" size={14} color={colors.textOnDark} />
+                          <SmartIcon name="chevron-forward" size={14} color={colors.textOnDark} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -544,7 +544,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                             }
                           }}
                         >
-                          <Ionicons name="chevron-back" size={14} color={colors.textOnDark} />
+                          <SmartIcon name="chevron-back" size={14} color={colors.textOnDark} />
                         </TouchableOpacity>
                         <Text style={[styles.editValue, { color: colors.textOnDark }]}>
                           {block.startTime}
@@ -560,7 +560,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                             }
                           }}
                         >
-                          <Ionicons name="chevron-forward" size={14} color={colors.textOnDark} />
+                          <SmartIcon name="chevron-forward" size={14} color={colors.textOnDark} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -755,12 +755,12 @@ function createStyles(colors: ThemeColors) {
       width: 6,
       height: 6,
       borderRadius: 3,
-      backgroundColor: '#E74C3C',
+      backgroundColor: colors.error,
     },
     examMarkerText: {
       fontSize: 13,
       fontFamily: fontFamily.semiBold,
-      color: '#E74C3C',
+      color: colors.error,
     },
 
     // Block cards

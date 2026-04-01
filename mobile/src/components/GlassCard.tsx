@@ -1,6 +1,6 @@
 /**
- * GlassCard — Dark integrated card with subtle glass border
- * Replaces all white cards. Seamless with background.
+ * GlassCard — Clean dark card with v0 surface styling.
+ * Uses colors.surface (#141414) + colors.chalkGhost border.
  */
 
 import React from 'react';
@@ -20,10 +20,10 @@ export function GlassCard({ children, style, noPadding }: GlassCardProps) {
     <View
       style={[
         {
-          backgroundColor: colors.glass,
+          backgroundColor: colors.surface,
           borderRadius: borderRadius.lg,
           borderWidth: 1,
-          borderColor: colors.glassBorder,
+          borderColor: colors.chalkGhost,
           padding: spacing.lg,
         },
         noPadding && { padding: 0 },

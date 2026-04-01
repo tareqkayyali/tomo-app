@@ -18,6 +18,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
@@ -322,7 +323,7 @@ function ActionCTA({
           <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 12, color: colors.accent1 }}>
             {action.label}
           </Text>
-          <Ionicons name="arrow-forward" size={14} color={colors.accent1} />
+          <SmartIcon name="arrow-forward" size={14} color={colors.accent1} />
         </Pressable>
       )}
 
@@ -352,7 +353,7 @@ function ActionCTA({
           marginTop: spacing.xs,
         }}
       >
-        <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.info} />
+        <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.info} />
         <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: colors.info }}>
           Ask Tomo about this
         </Text>
@@ -386,7 +387,7 @@ function P1Card({
           {/* Top row: icon + type badge + science badge + expiry + priority badge */}
           <View style={s.topRow}>
             <View style={s.typeRow}>
-              <Ionicons name={config.icon} size={20} color={config.color} />
+              <SmartIcon name={config.icon} size={20} color={config.color} />
               <Badge label={config.label} variant={config.badgeVariant} size="small" />
               {hasRag && <Badge label="Research-backed" variant="outline" size="small" icon="library-outline" />}
             </View>
@@ -407,7 +408,7 @@ function P1Card({
             style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
           >
             <Text style={[s.p1Title, { flex: 1, marginBottom: 0 }]}>{rec.title}</Text>
-            <Ionicons
+            <SmartIcon
               name={expanded ? 'chevron-up' : 'chevron-down'}
               size={18}
               color={colors.textMuted}
@@ -499,10 +500,10 @@ function P2Card({
           style={s.topRow}
         >
           <View style={[s.typeRow, { flex: 1 }]}>
-            <Ionicons name={config.icon} size={18} color={config.color} />
+            <SmartIcon name={config.icon} size={18} color={config.color} />
             <Text style={s.p2Title} numberOfLines={2}>{rec.title}</Text>
           </View>
-          <Ionicons
+          <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
             color={colors.textMuted}
@@ -579,9 +580,9 @@ function P3Card({
         {/* Top row: icon + title + badges */}
         <View style={[s.topRow, { marginBottom: spacing.xs }]}>
           <View style={[s.typeRow, { flex: 1 }]}>
-            <Ionicons name={config.icon} size={16} color={config.color} />
+            <SmartIcon name={config.icon} size={16} color={config.color} />
             <Text style={s.p3Title} numberOfLines={2}>{rec.title}</Text>
-            {hasRag && <Ionicons name="library-outline" size={12} color={colors.textMuted} style={{ marginLeft: 4 }} />}
+            {hasRag && <SmartIcon name="library-outline" size={12} color={colors.textMuted} style={{ marginLeft: 4 }} />}
           </View>
           {expiry && (
             <Text style={[s.expiryText, { color: expiryColor(rec.expiresAt, colors) }]}>

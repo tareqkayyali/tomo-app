@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../SmartIcon';
 import { colors } from '../../../theme/colors';
 import { spacing, borderRadius, fontFamily } from '../../../theme';
 import type { StudyScheduleCapsule as StudyScheduleCapsuleType, CapsuleAction } from '../../../types/chat';
@@ -41,7 +41,7 @@ export function StudyScheduleCapsuleComponent({ card, onSubmit }: Props) {
         {/* Existing study plan info */}
         {card.hasStudyPlan && (
           <View style={styles.planBanner}>
-            <Ionicons name="calendar-outline" size={16} color="#30D158" />
+            <SmartIcon name="calendar-outline" size={16} color="#30D158" />
             <View style={{ flex: 1 }}>
               <Text style={styles.planBannerTitle}>
                 Active study plan · {card.studyPlanBlockCount} sessions
@@ -128,7 +128,7 @@ export function StudyScheduleCapsuleComponent({ card, onSubmit }: Props) {
 
       {card.hasStudyPlan && (
         <View style={styles.planBanner}>
-          <Ionicons name="information-circle-outline" size={16} color={colors.warning} />
+          <SmartIcon name="information-circle-outline" size={16} color={colors.warning} />
           <Text style={[styles.planBannerTitle, { color: colors.warning }]}>
             This will replace your current {card.studyPlanBlockCount}-session plan
           </Text>

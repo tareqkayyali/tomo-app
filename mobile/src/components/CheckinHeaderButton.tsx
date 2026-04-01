@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { GlowWrapper } from './GlowWrapper';
 import { useTheme } from '../hooks/useTheme';
 import { fontFamily } from '../theme';
@@ -63,7 +63,7 @@ export function CheckinHeaderButton({ needsCheckin, isStale = false, checkinAgeH
         pressed && styles.pressed,
       ]}
     >
-      <Ionicons name={iconName} size={22} color={iconColor} />
+      <SmartIcon name={iconName} size={22} color={iconColor} />
       {/* Badge dot */}
       {badgeColor && <View style={[styles.badge, { backgroundColor: badgeColor }]} />}
     </Pressable>

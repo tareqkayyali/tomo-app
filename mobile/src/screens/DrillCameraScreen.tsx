@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { colors, spacing, fontFamily, borderRadius } from '../theme';
 import { uploadDrillVideo, getFileSize } from '../services/storage';
 import { useAuth } from '../hooks/useAuth';
@@ -130,7 +130,7 @@ export function DrillCameraScreen({ navigation, route }: Props) {
   if (!permission.granted) {
     return (
       <SafeAreaView style={styles.center} edges={['top']}>
-        <Ionicons name="camera-outline" size={64} color={colors.textInactive} />
+        <SmartIcon name="camera-outline" size={64} color={colors.textInactive} />
         <Text style={styles.permTitle}>Camera Access Required</Text>
         <Text style={styles.permSub}>
           Tomo needs camera access to record your training drills so you can review your form.
@@ -149,7 +149,7 @@ export function DrillCameraScreen({ navigation, route }: Props) {
   if (videoUri) {
     return (
       <SafeAreaView style={styles.center} edges={['top']}>
-        <Ionicons name="videocam" size={64} color={colors.accent1} />
+        <SmartIcon name="videocam" size={64} color={colors.accent1} />
         <Text style={styles.reviewTitle}>Recording Complete</Text>
         <Text style={styles.reviewSub}>{drillName}</Text>
 
@@ -168,11 +168,11 @@ export function DrillCameraScreen({ navigation, route }: Props) {
         ) : (
           <View style={styles.reviewActions}>
             <Pressable style={styles.saveButton} onPress={handleSaveVideo}>
-              <Ionicons name="cloud-upload-outline" size={22} color={colors.textPrimary} />
+              <SmartIcon name="cloud-upload-outline" size={22} color={colors.textPrimary} />
               <Text style={styles.saveButtonText}>Save Recording</Text>
             </Pressable>
             <Pressable style={styles.retakeButton} onPress={handleDiscard}>
-              <Ionicons name="refresh-outline" size={20} color={colors.accent1} />
+              <SmartIcon name="refresh-outline" size={20} color={colors.accent1} />
               <Text style={styles.retakeText}>Retake</Text>
             </Pressable>
             <Pressable onPress={() => navigation.goBack()} style={styles.skipButton}>
@@ -196,11 +196,11 @@ export function DrillCameraScreen({ navigation, route }: Props) {
         {/* Top overlay */}
         <SafeAreaView style={styles.topOverlay} edges={['top']}>
           <Pressable onPress={() => navigation.goBack()} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color={colors.textPrimary} />
+            <SmartIcon name="close" size={28} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.drillLabel}>{drillName}</Text>
           <Pressable onPress={toggleFacing} style={styles.flipButton}>
-            <Ionicons name="camera-reverse-outline" size={24} color={colors.textPrimary} />
+            <SmartIcon name="camera-reverse-outline" size={24} color={colors.textPrimary} />
           </Pressable>
         </SafeAreaView>
 

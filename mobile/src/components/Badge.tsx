@@ -21,6 +21,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { colors, spacing, borderRadius, typography } from '../theme';
 import { useComponentStyle } from '../hooks/useComponentStyle';
 
@@ -101,7 +102,7 @@ export function Badge({
   const content = (
     <>
       {icon && (
-        <Ionicons
+        <SmartIcon
           name={icon}
           size={iconSize}
           color={config.text}

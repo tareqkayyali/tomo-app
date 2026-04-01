@@ -14,7 +14,7 @@ import {
   Pressable,
   TextInput,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import {
   colors,
@@ -58,7 +58,7 @@ export default function ChangePasswordScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.successContainer}>
-          <Ionicons name="checkmark-circle" size={64} color="#30D158" />
+          <SmartIcon name="checkmark-circle" size={64} color="#30D158" />
           <Text style={styles.successTitle}>Password Changed</Text>
           <Text style={styles.successSub}>Redirecting back...</Text>
         </View>
@@ -75,7 +75,7 @@ export default function ChangePasswordScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.textOnDark} />
+            <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
           </Pressable>
           <Text style={styles.headerTitle}>Change Password</Text>
           <View style={{ width: 40 }} />
@@ -95,7 +95,7 @@ export default function ChangePasswordScreen() {
               autoCapitalize="none"
             />
             <Pressable onPress={() => setShowCurrent(!showCurrent)} style={styles.eyeBtn}>
-              <Ionicons name={showCurrent ? 'eye-off' : 'eye'} size={20} color={colors.textMuted} />
+              <SmartIcon name={showCurrent ? 'eye-off' : 'eye'} size={20} color={colors.textMuted} />
             </Pressable>
           </View>
 
@@ -112,7 +112,7 @@ export default function ChangePasswordScreen() {
               autoCapitalize="none"
             />
             <Pressable onPress={() => setShowNew(!showNew)} style={styles.eyeBtn}>
-              <Ionicons name={showNew ? 'eye-off' : 'eye'} size={20} color={colors.textMuted} />
+              <SmartIcon name={showNew ? 'eye-off' : 'eye'} size={20} color={colors.textMuted} />
             </Pressable>
           </View>
 
@@ -143,7 +143,7 @@ export default function ChangePasswordScreen() {
           {/* Error */}
           {!!error && (
             <View style={styles.errorBanner}>
-              <Ionicons name="alert-circle" size={18} color="#E74C3C" />
+              <SmartIcon name="alert-circle" size={18} color="#E74C3C" />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}

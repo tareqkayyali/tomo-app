@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import {
   spacing,
@@ -450,11 +451,11 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
             hitSlop={12}
             style={styles.headerBack}
           >
-            <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
+            <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
           </Pressable>
           <Text style={styles.headerTitle}>Edit Event</Text>
           <Pressable onPress={handleDelete} hitSlop={12}>
-            <Ionicons name="trash-outline" size={22} color={colors.error} />
+            <SmartIcon name="trash-outline" size={22} color={colors.error} />
           </Pressable>
         </View>
 
@@ -466,7 +467,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
         >
           {/* ═══ Type Badge (non-editable) ═══ */}
           <View style={[styles.typeBadge, { backgroundColor: typeConf.color + '20' }]}>
-            <Ionicons name={typeConf.icon} size={16} color={typeConf.color} />
+            <SmartIcon name={typeConf.icon} size={16} color={typeConf.color} />
             <Text style={[styles.typeBadgeText, { color: typeConf.color }]}>
               {typeConf.label}
             </Text>
@@ -493,12 +494,12 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
               onPress={() => setShowDatePicker(true)}
             >
               <View style={styles.settingIconRow}>
-                <Ionicons name="calendar-outline" size={18} color={colors.accent1} />
+                <SmartIcon name="calendar-outline" size={18} color={colors.accent1} />
                 <Text style={styles.settingLabel}>Date</Text>
               </View>
               <View style={styles.settingValueWrap}>
                 <Text style={styles.settingValue}>{formatDateDisplay(date)}</Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.textInactive} />
+                <SmartIcon name="chevron-forward" size={16} color={colors.textInactive} />
               </View>
             </Pressable>
 
@@ -510,12 +511,12 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
               onPress={() => setShowStartPicker(true)}
             >
               <View style={styles.settingIconRow}>
-                <Ionicons name="time-outline" size={18} color={colors.accent1} />
+                <SmartIcon name="time-outline" size={18} color={colors.accent1} />
                 <Text style={styles.settingLabel}>Starts</Text>
               </View>
               <View style={styles.settingValueWrap}>
                 <Text style={styles.settingValue}>{formatTime12h(startTime)}</Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.textInactive} />
+                <SmartIcon name="chevron-forward" size={16} color={colors.textInactive} />
               </View>
             </Pressable>
 
@@ -527,7 +528,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
               onPress={() => setShowEndPicker(true)}
             >
               <View style={styles.settingIconRow}>
-                <Ionicons name="time-outline" size={18} color={colors.accent2} />
+                <SmartIcon name="time-outline" size={18} color={colors.accent2} />
                 <Text style={styles.settingLabel}>Ends</Text>
               </View>
               <View style={styles.settingValueWrap}>
@@ -535,7 +536,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
                 {durationLabel ? (
                   <Text style={styles.durationLabel}>{durationLabel}</Text>
                 ) : null}
-                <Ionicons name="chevron-forward" size={16} color={colors.textInactive} />
+                <SmartIcon name="chevron-forward" size={16} color={colors.textInactive} />
               </View>
             </Pressable>
           </View>
@@ -619,7 +620,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
                     hitSlop={8}
                     style={({ pressed }) => [{ opacity: pressed ? 0.5 : 1 }]}
                   >
-                    <Ionicons name="close-circle" size={22} color={colors.error} />
+                    <SmartIcon name="close-circle" size={22} color={colors.error} />
                   </Pressable>
                 </View>
               ))}
@@ -629,7 +630,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
                   { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, opacity: pressed ? 0.6 : 1 },
                 ]}
               >
-                <Ionicons name="add-circle-outline" size={18} color={colors.accent2} />
+                <SmartIcon name="add-circle-outline" size={18} color={colors.accent2} />
                 <Text style={{ fontFamily: fontFamily.medium, fontSize: 14, color: colors.accent2 }}>
                   Link Program
                 </Text>
@@ -657,7 +658,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
                   )}
                   {journal?.ai_insight && (
                     <View style={{ flexDirection: 'row', gap: 6, backgroundColor: colors.accent2 + '10', borderRadius: borderRadius.sm, padding: spacing.sm }}>
-                      <Ionicons name="sparkles-outline" size={14} color={colors.accent2} />
+                      <SmartIcon name="sparkles-outline" size={14} color={colors.accent2} />
                       <Text style={{ fontFamily: fontFamily.regular, fontSize: 13, color: colors.textMuted, flex: 1 }}>{journal.ai_insight}</Text>
                     </View>
                   )}
@@ -673,7 +674,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
                   { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, opacity: pressed ? 0.6 : 1 },
                 ]}
               >
-                <Ionicons name="book-outline" size={16} color={colors.accent2} />
+                <SmartIcon name="book-outline" size={16} color={colors.accent2} />
                 <Text style={{ fontFamily: fontFamily.medium, fontSize: 14, color: colors.accent2 }}>
                   {journal?.pre_target ? 'Edit Journal' : 'Add Journal Entry'}
                 </Text>
@@ -741,7 +742,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
                     </Text>
                     <Text style={ms.dateOptionValue}>{item.value}</Text>
                     {item.value === date && (
-                      <Ionicons name="checkmark" size={18} color={colors.accent1} />
+                      <SmartIcon name="checkmark" size={18} color={colors.accent1} />
                     )}
                   </Pressable>
                 )}
@@ -811,9 +812,9 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
                       </Text>
                     </View>
                     {alreadyLinked ? (
-                      <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+                      <SmartIcon name="checkmark-circle" size={20} color={colors.accent} />
                     ) : (
-                      <Ionicons name="add-circle-outline" size={20} color={colors.accent2} />
+                      <SmartIcon name="add-circle-outline" size={20} color={colors.accent2} />
                     )}
                   </Pressable>
                 );

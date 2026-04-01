@@ -18,7 +18,7 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -296,7 +296,7 @@ export function PHVCalculatorScreen() {
             (navigation as any).navigate('MainTabs');
           }
         }} style={styles.backButton} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
+          <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Calculate Your Growth Stage</Text>
@@ -349,7 +349,7 @@ export function PHVCalculatorScreen() {
                 }}
                 style={[styles.datePickerButton, { backgroundColor: colors.inputBackground }]}
               >
-                <Ionicons name="calendar-outline" size={18} color={colors.accent1} />
+                <SmartIcon name="calendar-outline" size={18} color={colors.accent1} />
                 <Text style={[styles.datePickerText, { color: dob ? colors.textOnDark : colors.textMuted }]}>
                   {dob || 'Select your date of birth'}
                 </Text>
@@ -384,7 +384,7 @@ export function PHVCalculatorScreen() {
                   onPress={() => setShowDatePicker(true)}
                   style={[styles.datePickerButton, { backgroundColor: colors.inputBackground }]}
                 >
-                  <Ionicons name="calendar-outline" size={18} color={colors.accent1} />
+                  <SmartIcon name="calendar-outline" size={18} color={colors.accent1} />
                   <Text style={[styles.datePickerText, { color: dob ? colors.textOnDark : colors.textMuted }]}>
                     {dob || 'Select your date of birth'}
                   </Text>
@@ -416,7 +416,7 @@ export function PHVCalculatorScreen() {
                 }}
                 style={[styles.datePickerButton, { backgroundColor: colors.inputBackground }]}
               >
-                <Ionicons name="calendar-outline" size={18} color={colors.accent2} />
+                <SmartIcon name="calendar-outline" size={18} color={colors.accent2} />
                 <Text style={[styles.datePickerText, { color: measurementDate ? colors.textOnDark : colors.textMuted }]}>
                   {measurementDate === todayStr ? `Today (${measurementDate})` : measurementDate}
                 </Text>
@@ -450,7 +450,7 @@ export function PHVCalculatorScreen() {
                   onPress={() => setShowMeasurementDatePicker(true)}
                   style={[styles.datePickerButton, { backgroundColor: colors.inputBackground }]}
                 >
-                  <Ionicons name="calendar-outline" size={18} color={colors.accent2} />
+                  <SmartIcon name="calendar-outline" size={18} color={colors.accent2} />
                   <Text style={[styles.datePickerText, { color: measurementDate ? colors.textOnDark : colors.textMuted }]}>
                     {measurementDate === todayStr ? `Today (${measurementDate})` : measurementDate}
                   </Text>
@@ -591,8 +591,8 @@ export function PHVCalculatorScreen() {
                     }}
                     disabled={saving}
                   >
-                    <Ionicons name="checkmark-circle-outline" size={18} color="#00D9FF" />
-                    <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 15, color: '#00D9FF' }}>
+                    <SmartIcon name="checkmark-circle-outline" size={18} color={colors.accent2} />
+                    <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 15, color: colors.accent2 }}>
                       {saving ? 'Saving...' : 'Save & Continue'}
                     </Text>
                   </Pressable>

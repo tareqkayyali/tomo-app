@@ -13,7 +13,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, LayoutAnimation, Platform } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 
 import { DNACard } from '../../components/DNACard';
 import type { CardAttribute, CardTier } from '../../components/DNACard';
@@ -272,7 +272,7 @@ export function FootballProgressContent({
 
                   {/* Trend arrow */}
                   {trend !== 0 && (
-                    <Ionicons
+                    <SmartIcon
                       name={trend > 0 ? 'caret-up' : 'caret-down'}
                       size={12}
                       color={trend > 0 ? colors.accent : colors.warning}
@@ -280,7 +280,7 @@ export function FootballProgressContent({
                     />
                   )}
 
-                  <Ionicons
+                  <SmartIcon
                     name={isSelected ? 'chevron-up' : 'chevron-down'}
                     size={14}
                     color={colors.textInactive}

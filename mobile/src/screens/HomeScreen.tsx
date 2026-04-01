@@ -29,7 +29,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -631,7 +631,7 @@ function createStyles(colors: ThemeColors) {
     confirmBtnConfirmText: {
       fontFamily: fontFamily.medium,
       fontSize: 13,
-      color: '#00D9FF',
+      color: colors.accent2,
     },
     batchActionRow: {
       flexDirection: 'row',
@@ -786,11 +786,11 @@ const CopyButton = React.memo(function CopyButton({ text }: { text: string }) {
       >
         {copied ? (
           <>
-            <Ionicons name="checkmark" size={14} color={colors.accent2} />
+            <SmartIcon name="checkmark" size={14} color={colors.accent2} />
             <Text style={styles.copiedText}>Copied!</Text>
           </>
         ) : (
-          <Ionicons name="copy-outline" size={14} color={colors.textInactive} />
+          <SmartIcon name="copy-outline" size={14} color={colors.textInactive} />
         )}
       </Pressable>
     </View>
@@ -955,7 +955,7 @@ const ConfirmationCard = React.memo(function ConfirmationCard({
   return (
     <View style={styles.confirmCard}>
       <View style={styles.confirmHeader}>
-        <Ionicons name="shield-checkmark-outline" size={18} color={colors.accent1} />
+        <SmartIcon name="shield-checkmark-outline" size={18} color={colors.accent1} />
         <Text style={styles.confirmTitle}>
           {isBatch ? `Confirm ${actions.length} Actions` : 'Confirm Action'}
         </Text>
@@ -988,14 +988,14 @@ const ConfirmationCard = React.memo(function ConfirmationCard({
               onPress={onCancel}
               style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnCancel, pressed && { opacity: 0.7 }]}
             >
-              <Ionicons name="close-outline" size={16} color={colors.textInactive} />
+              <SmartIcon name="close-outline" size={16} color={colors.textInactive} />
               <Text style={styles.confirmBtnCancelText}>Cancel All</Text>
             </Pressable>
             <Pressable
               onPress={onConfirm}
               style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnConfirm, pressed && { opacity: 0.7 }]}
             >
-              <Ionicons name="checkmark-circle-outline" size={16} color="#00D9FF" />
+              <SmartIcon name="checkmark-circle-outline" size={16} color={colors.accent2} />
               <Text style={styles.confirmBtnConfirmText}>Confirm All ({actions.length})</Text>
             </Pressable>
           </View>
@@ -1008,14 +1008,14 @@ const ConfirmationCard = React.memo(function ConfirmationCard({
               onPress={onCancel}
               style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnCancel, pressed && { opacity: 0.7 }]}
             >
-              <Ionicons name="close-outline" size={16} color={colors.textInactive} />
+              <SmartIcon name="close-outline" size={16} color={colors.textInactive} />
               <Text style={styles.confirmBtnCancelText}>Cancel</Text>
             </Pressable>
             <Pressable
               onPress={onConfirm}
               style={({ pressed }) => [styles.confirmBtn, styles.confirmBtnConfirm, pressed && { opacity: 0.7 }]}
             >
-              <Ionicons name="checkmark-circle-outline" size={16} color="#00D9FF" />
+              <SmartIcon name="checkmark-circle-outline" size={16} color={colors.accent2} />
               <Text style={styles.confirmBtnConfirmText}>Confirm</Text>
             </Pressable>
           </View>
@@ -1069,12 +1069,12 @@ function SavedChatsList({
       <View style={styles.savedHeader}>
         <Text style={styles.savedTitle}>Saved Chats</Text>
         <Pressable onPress={onClose} hitSlop={12}>
-          <Ionicons name="close" size={24} color={colors.textOnDark} />
+          <SmartIcon name="close" size={24} color={colors.textOnDark} />
         </Pressable>
       </View>
       {chats.length === 0 ? (
         <View style={styles.savedEmpty}>
-          <Ionicons name="chatbubbles-outline" size={40} color={colors.textInactive} />
+          <SmartIcon name="chatbubbles-outline" size={40} color={colors.textInactive} />
           <Text style={styles.savedEmptyText}>No saved chats yet</Text>
           <Text style={styles.savedEmptyHint}>
             Start a conversation and it will appear here.
@@ -1116,7 +1116,7 @@ function SavedChatsList({
                     hitSlop={12}
                     style={styles.savedDeleteBtn}
                   >
-                    <Ionicons name="trash-outline" size={16} color={colors.textInactive} />
+                    <SmartIcon name="trash-outline" size={16} color={colors.textInactive} />
                   </Pressable>
                 )}
                 {isActive && (
@@ -1893,7 +1893,7 @@ export function HomeScreen() {
                   setShowScrollDown(false);
                 }}
               >
-                <Ionicons name="chevron-down" size={20} color={colors.textOnDark} />
+                <SmartIcon name="chevron-down" size={20} color={colors.textOnDark} />
               </Pressable>
             )}
           </>
@@ -1984,7 +1984,7 @@ export function HomeScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Send message"
                     >
-                      <Ionicons
+                      <SmartIcon
                         name="arrow-up-circle"
                         size={28}
                         color={colors.accent1}
@@ -2002,7 +2002,7 @@ export function HomeScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Voice input"
                     >
-                      <Ionicons
+                      <SmartIcon
                         name="mic-outline"
                         size={26}
                         color={colors.accent1}

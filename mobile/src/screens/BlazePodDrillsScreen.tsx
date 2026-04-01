@@ -13,7 +13,7 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { Card } from '../components';
 import { useBlazePodDrills, type BlazePodDrill } from '../hooks/useContentHelpers';
 import {
@@ -63,7 +63,7 @@ export function BlazePodDrillsScreen({ navigation }: BlazePodDrillsScreenProps) 
             <Card variant="rounded" style={styles.drillCard}>
               <View style={styles.drillRow}>
                 <View style={[styles.iconCircle, { backgroundColor: drill.color + '18' }]}>
-                  <Ionicons name={drill.icon as any} size={28} color={drill.color} />
+                  <SmartIcon name={drill.icon as any} size={28} color={drill.color} />
                 </View>
                 <View style={styles.drillInfo}>
                   <Text style={styles.drillName}>{drill.name}</Text>
@@ -76,7 +76,7 @@ export function BlazePodDrillsScreen({ navigation }: BlazePodDrillsScreenProps) 
                     {drill.description}
                   </Text>
                 </View>
-                <Ionicons
+                <SmartIcon
                   name="chevron-forward"
                   size={20}
                   color={colors.textMuted}
@@ -88,7 +88,7 @@ export function BlazePodDrillsScreen({ navigation }: BlazePodDrillsScreenProps) 
 
         {/* Info banner */}
         <View style={styles.infoBanner}>
-          <Ionicons name="information-circle-outline" size={18} color={colors.textInactive} />
+          <SmartIcon name="information-circle-outline" size={18} color={colors.textInactive} />
           <Text style={styles.infoText}>
             Set up your BlazePod pods as described, then use the built-in timers to track your session manually.
           </Text>

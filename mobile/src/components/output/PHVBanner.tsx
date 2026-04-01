@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { GlassCard } from '../GlassCard';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -87,7 +87,7 @@ export function PHVBanner({ phvOffset, phvStage, ltadStage, onCalculatePress }: 
         <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={onCalculatePress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <View style={styles.recalcRow}>
-            <Ionicons name="refresh-outline" size={14} color={colors.textMuted} />
+            <SmartIcon name="refresh-outline" size={14} color={colors.textMuted} />
             <Text style={[styles.recalcText, { color: colors.textMuted }]}>Recalculate</Text>
           </View>
         </TouchableOpacity>

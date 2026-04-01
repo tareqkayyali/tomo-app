@@ -8,6 +8,7 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { useTheme } from '../hooks/useTheme';
 import { spacing } from '../theme';
 
@@ -44,7 +45,7 @@ export function QuickAccessBar({ actions }: QuickAccessBarProps) {
             pressed && styles.pressed,
           ]}
         >
-          <Ionicons
+          <SmartIcon
             name={action.icon}
             size={18}
             color={action.accentColor || colors.textOnDark}

@@ -1,13 +1,13 @@
 /**
  * Button Component
- * Tomo Design System — matches UI Aesthetic Features doc
+ * Tomo Design System — v0 glossy style for primary/gradient variants.
  *
  * Variants:
- *   primary  — orange→teal gradient fill, white text, shadow, 12px radius
- *   secondary — transparent, #2ECC71 border, orange text
- *   outline  — transparent, subtle white border (dark-bg friendly)
- *   ghost    — no background, orange text only
- *   gradient — orange→teal gradient (same as primary)
+ *   primary  — Electric Green glossy gradient, dark text
+ *   gradient — Same as primary (alias)
+ *   secondary — transparent, green border, green text
+ *   outline  — transparent, subtle border
+ *   ghost    — no background, green text only
  *   icon     — 44px circle tap target, icon only
  */
 
@@ -34,6 +34,7 @@ import { spacing, borderRadius, shadows, layout, fontFamily } from '../theme';
 import { useTheme } from '../hooks/useTheme';
 import { useComponentStyle } from '../hooks/useComponentStyle';
 import type { ThemeColors } from '../theme/colors';
+import { SmartIcon } from './SmartIcon';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'gradient' | 'icon';
 type ButtonSize = 'small' | 'medium' | 'large';
@@ -75,7 +76,7 @@ export function Button({
   }));
 
   const onPressIn = () => {
-    scale.value = withTiming(0.96, { duration: 100 });
+    scale.value = withTiming(0.98, { duration: 100 });
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
@@ -98,9 +99,9 @@ export function Button({
           hitSlop={8}
         >
           {loading ? (
-            <ActivityIndicator color={colors.accent1} size="small" />
+            <ActivityIndicator color={colors.electricGreen} size="small" />
           ) : icon ? (
-            <Ionicons name={icon} size={resolvedIconSize} color={colors.accent1} />
+            <SmartIcon name={icon} size={resolvedIconSize} color={colors.electricGreen} />
           ) : null}
         </Pressable>
       </Animated.View>
@@ -108,17 +109,9 @@ export function Button({
   }
 
   // ── Resolve text color per variant ──────────────────────────────
-  // Gradient/primary always use white text (on colored background)
-  const textColor =
-    variant === 'outline' || variant === 'ghost' || variant === 'secondary'
-      ? colors.accent1
-      : colors.textOnAccent;
-
-  const loaderColor =
-    variant === 'primary' || variant === 'gradient'
-      ? colors.textOnAccent
-      : colors.accent1;
-
+  const isGlossy = variant === 'primary' || variant === 'gradient';
+  const textColor = isGlossy ? '#0A0A0A' : colors.electricGreen;
+  const loaderColor = isGlossy ? '#0A0A0A' : colors.electricGreen;
   const resolvedIcon = iconSize ?? (size === 'small' ? 16 : 18);
 
   const content = (
@@ -128,11 +121,10 @@ export function Button({
       ) : (
         <>
           {icon && (
-            <Ionicons
+            <SmartIcon
               name={icon}
               size={resolvedIcon}
               color={textColor}
-              style={title ? styles.iconGap : undefined}
             />
           )}
           {title ? (
@@ -153,42 +145,36 @@ export function Button({
     </View>
   );
 
-  // ── Gradient / Primary variant ──────────────────────────────────
-  if ((variant === 'gradient' || variant === 'primary') && !isDisabled) {
+  // ── Gradient / Primary variant — v0 glossy style ──────────────
+  if (isGlossy) {
     return (
-      <Animated.View style={[animatedStyle, style]}>
+      <Animated.View style={[animatedStyle, isDisabled && styles.disabled, style]}>
         <Pressable
           onPress={onPress}
           onPressIn={onPressIn}
           onPressOut={onPressOut}
           disabled={isDisabled}
         >
-          <LinearGradient
-            colors={colors.gradientOrangeCyan}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.base, sizeStyles[size], styles.primaryShadow]}
-          >
+          <View style={[styles.glossyWrap, sizeStyles[size]]}>
+            {/* Base gradient */}
+            <LinearGradient
+              colors={[colors.electricGreen, colors.electricGreenMuted]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[StyleSheet.absoluteFillObject, { borderRadius: borderRadius.lg }]}
+            />
+            {/* Glass shine overlay */}
+            <LinearGradient
+              colors={['rgba(255,255,255,0.35)', 'rgba(255,255,255,0.1)', 'transparent']}
+              locations={[0, 0.3, 0.6]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={[StyleSheet.absoluteFillObject, { borderRadius: borderRadius.lg }]}
+            />
+            {/* Inner border highlight */}
+            <View style={styles.innerBorder} />
             {content}
-          </LinearGradient>
-        </Pressable>
-      </Animated.View>
-    );
-  }
-
-  // ── Disabled gradient/primary fallback ─────────────────────────
-  if ((variant === 'gradient' || variant === 'primary') && isDisabled) {
-    return (
-      <Animated.View style={[animatedStyle, styles.disabled, style]}>
-        <Pressable disabled>
-          <LinearGradient
-            colors={colors.gradientOrangeCyan}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.base, sizeStyles[size], styles.primaryShadow]}
-          >
-            {content}
-          </LinearGradient>
+          </View>
         </Pressable>
       </Animated.View>
     );
@@ -221,21 +207,37 @@ const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: borderRadius.md, // 12px
+    borderRadius: borderRadius.lg,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.sm,
+    zIndex: 1,
   },
-  iconGap: {
-    marginRight: spacing.sm,
+  glossyWrap: {
+    borderRadius: borderRadius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  primaryShadow: {
-    ...shadows.md,
+  innerBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+    borderLeftColor: 'rgba(255,255,255,0.2)',
+    borderRightColor: 'rgba(255,255,255,0.2)',
+    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   iconButton: {
-    width: layout.tapTarget,  // 44px
+    width: layout.tapTarget,
     height: layout.tapTarget,
     borderRadius: layout.tapTarget / 2,
     alignItems: 'center',
@@ -246,8 +248,9 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   text: {
-    fontFamily: fontFamily.semiBold,
-    letterSpacing: 0.2,
+    fontFamily: fontFamily.bold,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
 });
 
@@ -256,12 +259,12 @@ function createVariantStyles(colors: ThemeColors) {
     secondary: {
       backgroundColor: 'transparent',
       borderWidth: 1.5,
-      borderColor: colors.accent1,
+      borderColor: colors.electricGreen,
     },
     outline: {
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: colors.borderLight,
+      borderColor: colors.chalkGhost,
     },
     ghost: {
       backgroundColor: 'transparent',
@@ -278,12 +281,12 @@ const sizeStyles = StyleSheet.create({
   medium: {
     paddingVertical: spacing.compact,
     paddingHorizontal: spacing.lg,
-    minHeight: 48,
+    minHeight: 44,
   },
   large: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    minHeight: 56,
+    minHeight: 52,
   },
 });
 

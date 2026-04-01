@@ -8,7 +8,7 @@ import Animated, {
   FadeIn,
   FadeOut,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemeColors } from '../../theme/colors';
@@ -62,7 +62,7 @@ export function CalendarHeader({ selectedDate, viewMode, onPrev, onNext, onToday
       <View style={styles.navRow}>
         {showArrows ? (
           <Pressable onPress={onPrev} style={styles.arrowBtn} hitSlop={12} accessibilityRole="button" accessibilityLabel="Previous">
-            <Ionicons name="chevron-back" size={22} color={colors.textOnDark} />
+            <SmartIcon name="chevron-back" size={22} color={colors.textOnDark} />
           </Pressable>
         ) : (
           <View style={styles.arrowPlaceholder} />
@@ -81,7 +81,7 @@ export function CalendarHeader({ selectedDate, viewMode, onPrev, onNext, onToday
 
         {showArrows ? (
           <Pressable onPress={onNext} style={styles.arrowBtn} hitSlop={12} accessibilityRole="button" accessibilityLabel="Next">
-            <Ionicons name="chevron-forward" size={22} color={colors.textOnDark} />
+            <SmartIcon name="chevron-forward" size={22} color={colors.textOnDark} />
           </Pressable>
         ) : (
           <View style={styles.arrowPlaceholder} />

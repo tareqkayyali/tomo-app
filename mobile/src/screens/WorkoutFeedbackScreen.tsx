@@ -13,7 +13,7 @@ import {
   Pressable,
   TextInput,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { Button, Card, GradientCard, Slider } from '../components';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { submitFeedback } from '../services/api';
@@ -60,7 +60,7 @@ export function WorkoutFeedbackScreen({ navigation }: { navigation: { goBack: ()
       <SafeAreaView style={styles.container}>
         <View style={styles.successContainer}>
           <GradientCard style={styles.successCard}>
-            <Ionicons name="checkmark-circle" size={64} color="rgba(255,255,255,0.9)" />
+            <SmartIcon name="checkmark-circle" size={64} color="rgba(255,255,255,0.9)" />
             <Text style={styles.successTitle}>Feedback Submitted!</Text>
             <Text style={styles.successPoints}>+{pointsEarned} points earned</Text>
           </GradientCard>
@@ -80,7 +80,7 @@ export function WorkoutFeedbackScreen({ navigation }: { navigation: { goBack: ()
               onPress={() => setDidWorkout(true)}
               style={[styles.toggleOption, didWorkout && styles.toggleYes]}
             >
-              <Ionicons
+              <SmartIcon
                 name="checkmark-circle"
                 size={20}
                 color={didWorkout ? colors.textOnDark : colors.textMuted}
@@ -93,7 +93,7 @@ export function WorkoutFeedbackScreen({ navigation }: { navigation: { goBack: ()
               onPress={() => setDidWorkout(false)}
               style={[styles.toggleOption, !didWorkout && styles.toggleNo]}
             >
-              <Ionicons
+              <SmartIcon
                 name="close-circle"
                 size={20}
                 color={!didWorkout ? colors.textOnDark : colors.textMuted}
@@ -160,7 +160,7 @@ export function WorkoutFeedbackScreen({ navigation }: { navigation: { goBack: ()
 
         {error !== '' && (
           <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={18} color={colors.error} />
+            <SmartIcon name="alert-circle" size={18} color={colors.error} />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}

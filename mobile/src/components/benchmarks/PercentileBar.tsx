@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import type { BenchmarkResult } from '../../types/benchmarks';
 import { useTheme } from '../../hooks/useTheme';
 import { colors as themeColors } from '../../theme/colors';
@@ -48,17 +48,17 @@ export function PercentileBar({ benchmark, onShowHistory, onLogNew, onEdit, onDe
         <View style={styles.headerRight}>
           {onShowHistory && (
             <Pressable onPress={() => onShowHistory(benchmark.metricKey)} hitSlop={8} style={styles.actionIcon}>
-              <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+              <SmartIcon name="time-outline" size={16} color={colors.textMuted} />
             </Pressable>
           )}
           {onLogNew && (
             <Pressable onPress={() => onLogNew(benchmark.metricKey, benchmark.metricLabel, benchmark.unit)} hitSlop={8} style={styles.actionIcon}>
-              <Ionicons name="add-circle-outline" size={16} color={colors.accent1} />
+              <SmartIcon name="add-circle-outline" size={16} color={colors.accent1} />
             </Pressable>
           )}
           {onEdit && (
             <Pressable onPress={() => onEdit(benchmark.metricKey, benchmark.metricLabel, benchmark.unit, benchmark.value)} hitSlop={8} style={styles.actionIcon}>
-              <Ionicons name="create-outline" size={15} color={colors.textMuted} />
+              <SmartIcon name="create-outline" size={15} color={colors.textMuted} />
             </Pressable>
           )}
           {onDelete && (
@@ -78,7 +78,7 @@ export function PercentileBar({ benchmark, onShowHistory, onLogNew, onEdit, onDe
               hitSlop={8}
               style={styles.actionIcon}
             >
-              <Ionicons name="trash-outline" size={15} color={colors.error} />
+              <SmartIcon name="trash-outline" size={15} color={colors.error} />
             </Pressable>
           )}
           <View

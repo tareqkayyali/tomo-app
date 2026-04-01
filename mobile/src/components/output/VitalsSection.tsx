@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -94,7 +94,7 @@ export function VitalsSection({ vitals, isWhoopConnected = false, onSyncNow }: P
       {!hasVitalData && !staleBanner?.show && realTimeMetrics.length === 0 && (
         <GlassCard>
           <View style={styles.emptyState}>
-            <Ionicons name="watch-outline" size={40} color={colors.textMuted} />
+            <SmartIcon name="watch-outline" size={40} color={colors.textMuted} />
             <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Vitals Yet</Text>
             <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
               Connect a wearable in Settings to start tracking your body data.
@@ -123,7 +123,7 @@ function AskTomoButton({ prompt, colors }: { prompt: string; colors: any }) {
       }}
       style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
     >
-      <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.info} />
+      <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.info} />
       <Text style={[styles.askTomoText, { color: colors.info }]}>Ask Tomo about this</Text>
     </Pressable>
   );
@@ -166,7 +166,7 @@ function VitalCard({ metric, colors }: { metric: any; colors: any }) {
               </Text>
             </View>
           )}
-          <Ionicons
+          <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
             color={colors.textMuted}
@@ -219,7 +219,7 @@ function StoryCard({ story, colors }: { story: VitalStoryBlock; colors: any }) {
           </View>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
           <Text style={[styles.statusLabel, { color: statusColor }]}>{statusLabel}</Text>
-          <Ionicons
+          <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
             color={colors.textMuted}
@@ -279,7 +279,7 @@ function VitalGroupCard({ group, phv, colors }: {
           {group.ragStatus !== 'none' && (
             <View style={[styles.statusDot, { backgroundColor: ragColor }]} />
           )}
-          <Ionicons
+          <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
             color={colors.textMuted}

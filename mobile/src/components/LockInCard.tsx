@@ -15,7 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../hooks/useTheme';
@@ -53,7 +53,7 @@ export function LockInCard() {
   if (locked) {
     return (
       <View style={[styles.pill, styles.lockedPill]}>
-        <Ionicons name="checkmark-circle" size={13} color={colors.readinessGreen} />
+        <SmartIcon name="checkmark-circle" size={13} color={colors.readinessGreen} />
         <Text style={[styles.pillText, { color: colors.readinessGreen }]}>Locked In 🔥</Text>
       </View>
     );
@@ -67,7 +67,7 @@ export function LockInCard() {
         end={{ x: 1, y: 0 }}
         style={styles.pill}
       >
-        <Ionicons name="lock-closed" size={11} color={colors.textOnAccent} />
+        <SmartIcon name="lock-closed" size={11} color={colors.textOnAccent} />
         <Text style={[styles.pillText, { color: colors.textOnAccent }]}>Lock In</Text>
       </LinearGradient>
     </Pressable>

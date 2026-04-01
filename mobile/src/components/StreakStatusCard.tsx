@@ -18,7 +18,7 @@ import Animated, {
   withDelay,
   Easing,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { colors, spacing, borderRadius, typography, shadows, fontFamily } from '../theme';
 
 // ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ export function StreakStatusCard({ currentStreak, freezeTokens }: StreakStatusCa
       <View style={styles.topRow}>
         <View style={styles.streakSection}>
           <Animated.View style={[styles.streakNumberRow, streakAnimStyle]}>
-            <Ionicons
+            <SmartIcon
               name="flame-outline"
               size={22}
               color={currentStreak > 0 ? colors.accent2 : colors.textMuted}
@@ -182,7 +182,7 @@ export function StreakStatusCard({ currentStreak, freezeTokens }: StreakStatusCa
         <Text style={styles.freezeLabel}>Freeze tokens</Text>
         <View style={styles.freezeIcons}>
           {Array.from({ length: MAX_FREEZE }).map((_, i) => (
-            <Ionicons
+            <SmartIcon
               key={i}
               name={i < clampedFreeze ? 'snow' : 'snow-outline'}
               size={18}

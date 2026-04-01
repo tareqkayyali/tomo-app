@@ -16,7 +16,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { colors, spacing, borderRadius, typography, shadows, fontFamily } from '../theme';
 import { getArchetypeProfile } from '../services/archetypeProfile';
 import type { ReadinessLevel, Archetype } from '../types';
@@ -145,7 +145,7 @@ export function PlanHeader({ readinessCategory, archetype }: PlanHeaderProps) {
           <View
             style={[styles.badge, { backgroundColor: readiness.bgColor }]}
           >
-            <Ionicons
+            <SmartIcon
               name={readiness.icon}
               size={16}
               color={readiness.color}

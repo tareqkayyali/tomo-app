@@ -22,7 +22,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -160,7 +160,7 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
       >
         {/* Context banner */}
         <View style={[styles.contextBanner, { backgroundColor: colors.accent1 + '10' }]}>
-          <Ionicons name="barbell-outline" size={14} color={colors.accent1} />
+          <SmartIcon name="barbell-outline" size={14} color={colors.accent1} />
           <Text style={[styles.contextText, { color: colors.accent1 }]}>
             Creating program for {playerName}
           </Text>
@@ -305,7 +305,7 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
               onPress={addDrill}
               style={[styles.addDrillBtn, { backgroundColor: colors.accent1 + '18' }]}
             >
-              <Ionicons name="add" size={16} color={colors.accent1} />
+              <SmartIcon name="add" size={16} color={colors.accent1} />
               <Text style={[styles.addDrillText, { color: colors.accent1 }]}>Add Drill</Text>
             </Pressable>
           </View>
@@ -322,7 +322,7 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
                 <View style={styles.drillHeaderRow}>
                   <Text style={[styles.drillNumber, { color: colors.accent1 }]}>#{index + 1}</Text>
                   <Pressable onPress={() => removeDrill(drill.id)} hitSlop={8}>
-                    <Ionicons name="close-circle" size={18} color={colors.error} />
+                    <SmartIcon name="close-circle" size={18} color={colors.error} />
                   </Pressable>
                 </View>
                 <TextInput
@@ -420,7 +420,7 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
             <ActivityIndicator size="small" color={colors.textPrimary} />
           ) : (
             <>
-              <Ionicons name="checkmark-circle-outline" size={20} color={colors.textPrimary} />
+              <SmartIcon name="checkmark-circle-outline" size={20} color={colors.textPrimary} />
               <Text style={styles.saveButtonText}>Assign to {playerName.split(' ')[0]}</Text>
             </>
           )}

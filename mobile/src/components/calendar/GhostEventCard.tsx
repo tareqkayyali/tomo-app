@@ -15,7 +15,7 @@ import Animated, {
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { GlassCard } from '../GlassCard';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, borderRadius, fontFamily } from '../../theme';
@@ -107,7 +107,7 @@ export function GhostEventCard({
           <View style={styles.body}>
             {/* Suggested label */}
             <View style={styles.labelRow}>
-              <Ionicons
+              <SmartIcon
                 name="sparkles-outline"
                 size={12}
                 color={colors.accent2}

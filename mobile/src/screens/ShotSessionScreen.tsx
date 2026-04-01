@@ -15,7 +15,7 @@ import {
   Alert,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { useSpringEntrance } from '../hooks/useAnimations';
 import { ShotSelector } from '../components/ShotSelector';
 import { SubMetricSlider } from '../components/SubMetricSlider';
@@ -280,7 +280,7 @@ export function ShotSessionScreen({ navigation }: Props) {
     <View style={[styles.screen, styles.successContainer]}>
       <Animated.View style={[entrance, styles.successContent]}>
         <View style={styles.successIcon}>
-          <Ionicons name="checkmark-circle" size={64} color={colors.accent} />
+          <SmartIcon name="checkmark-circle" size={64} color={colors.accent} />
         </View>
         <Text style={styles.successTitle}>Session Logged!</Text>
         <Text style={styles.successSubtitle}>
@@ -329,7 +329,7 @@ function TypeChip({
       <View
         style={[styles.typeChip, active && styles.typeChipActive]}
       >
-        <Ionicons
+        <SmartIcon
           name={icon as any}
           size={16}
           color={active ? colors.textPrimary : colors.textInactive}

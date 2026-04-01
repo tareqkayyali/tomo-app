@@ -24,6 +24,7 @@ import {
 import type { TextStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import * as ImagePicker from 'expo-image-picker';
 import { GlowWrapper, SkeletonCard, SkeletonCircle, SkeletonLine } from '../components';
 import { uploadProfilePhoto } from '../services/storage';
@@ -102,10 +103,10 @@ function MenuItem({
       ]}
     >
       <View style={styles.menuIconWrap}>
-        <Ionicons name={icon} size={20} color={colors.textOnDark} />
+        <SmartIcon name={icon} size={20} color={colors.textOnDark} />
       </View>
       <Text style={styles.menuLabel}>{label}</Text>
-      <Ionicons name="chevron-forward" size={18} color={colors.textInactive} />
+      <SmartIcon name="chevron-forward" size={18} color={colors.textInactive} />
     </Pressable>
   );
 }
@@ -316,7 +317,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
               </View>
             </GlowWrapper>
             <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={14} color={colors.textPrimary} />
+              <SmartIcon name="camera" size={14} color={colors.textPrimary} />
             </View>
           </Pressable>
 
@@ -330,81 +331,6 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             <Text style={styles.email} numberOfLines={1}>{user.email}</Text>
           )}
         </Animated.View>
-
-        {/* ═══════════════════════════════════════════════════════════
-            Stat Cards — Level + Points (side by side)
-           ═══════════════════════════════════════════════════════════ */}
-        <Animated.View style={[styles.statsRow, fadeIn1]}>
-          <View style={styles.statCard}>
-            <Ionicons name="shield-outline" size={22} color={colors.accent1} />
-            <Text style={styles.statValue}>{level}</Text>
-            <Text style={styles.statLabel}>Level</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="star-outline" size={22} color={colors.accent1} />
-            <Text style={styles.statValue}>
-              {totalPoints.toLocaleString('en-US')}
-            </Text>
-            <Text style={styles.statLabel}>Points</Text>
-          </View>
-        </Animated.View>
-
-        {/* ═══════════════════════════════════════════════════════════
-            Sport Rating Card — shows active sport's rating
-           ═══════════════════════════════════════════════════════════ */}
-        {activeSport === 'padel' && shotRatings && (() => {
-          const mastery = shotRatings.overallShotMastery;
-          const padelLevel = getPadelLevel(mastery);
-          return (
-            <Animated.View style={fadeIn1}>
-              <Pressable
-                onPress={() => navigation.navigate('PadelRating')}
-                style={({ pressed }) => [
-                  styles.padelCard,
-                  pressed && { opacity: 0.85 },
-                ]}
-              >
-                <View style={[styles.padelTierDot, { backgroundColor: colors.accent1 }]} />
-                <View style={styles.padelCardInfo}>
-                  <Text style={styles.padelRatingNum}>{mastery}</Text>
-                  <Text style={styles.padelLevelText}>{padelLevel}</Text>
-                </View>
-                <View style={styles.padelTierBadge}>
-                  <Text style={[styles.padelTierText, { color: colors.accent1 }]}>
-                    Shot Mastery
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textInactive} />
-              </Pressable>
-            </Animated.View>
-          );
-        })()}
-        {activeSport === 'football' && footballCard && (() => {
-          const fbLevel = getFootballRatingLevel(footballCard.footballRating);
-          return (
-            <Animated.View style={fadeIn1}>
-              <Pressable
-                onPress={() => navigation.navigate('FootballRating')}
-                style={({ pressed }) => [
-                  styles.padelCard,
-                  pressed && { opacity: 0.85 },
-                ]}
-              >
-                <View style={[styles.padelTierDot, { backgroundColor: fbLevel.color }]} />
-                <View style={styles.padelCardInfo}>
-                  <Text style={styles.padelRatingNum}>{footballCard.overallRating}</Text>
-                  <Text style={styles.padelLevelText}>{footballCard.footballLevel}</Text>
-                </View>
-                <View style={styles.padelTierBadge}>
-                  <Text style={[styles.padelTierText, { color: fbLevel.color }]}>
-                    {fbLevel.name} {footballCard.footballRating}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textInactive} />
-              </Pressable>
-            </Animated.View>
-          );
-        })()}
 
         {/* ═══════════════════════════════════════════════════════════
             Menu Items
@@ -463,7 +389,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
               pressed && { opacity: 0.7 },
             ]}
           >
-            <Ionicons name="log-out-outline" size={20} color={colors.logout} />
+            <SmartIcon name="log-out-outline" size={20} color={colors.logout} />
             <Text style={styles.logoutText}>Sign Out</Text>
           </Pressable>
         </Animated.View>

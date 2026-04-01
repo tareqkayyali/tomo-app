@@ -10,7 +10,7 @@
 
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
@@ -68,7 +68,7 @@ export function RecentTestsScroll({ results, onTestPress }: RecentTestsScrollPro
             </View>
             {result.trend && (
               <View style={styles.trendRow}>
-                <Ionicons
+                <SmartIcon
                   name={
                     result.trend === 'up'
                       ? 'trending-up'

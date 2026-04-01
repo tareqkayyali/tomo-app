@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../components';
 import {
@@ -127,7 +128,7 @@ export function SessionCompleteScreen({ navigation, route }: Props) {
   if (saved) {
     return (
       <View style={styles.successCenter}>
-        <Ionicons name="checkmark-circle" size={80} color={colors.accent} />
+        <SmartIcon name="checkmark-circle" size={80} color={colors.accent} />
         <Text style={styles.successTitle}>Session Saved!</Text>
         <Text style={styles.successSub}>{drillName}</Text>
         <Text style={styles.successMeta}>
@@ -163,11 +164,11 @@ export function SessionCompleteScreen({ navigation, route }: Props) {
             <Text style={styles.summaryTitle}>{drillName}</Text>
             <View style={styles.summaryRow}>
               <View style={styles.summaryItem}>
-                <Ionicons name="layers-outline" size={18} color={colors.accent1} />
+                <SmartIcon name="layers-outline" size={18} color={colors.accent1} />
                 <Text style={styles.summaryVal}>{sets} sets</Text>
               </View>
               <View style={styles.summaryItem}>
-                <Ionicons name="timer-outline" size={18} color={colors.accent2} />
+                <SmartIcon name="timer-outline" size={18} color={colors.accent2} />
                 <Text style={styles.summaryVal}>{fmtDuration}</Text>
               </View>
             </View>
@@ -250,7 +251,7 @@ export function SessionCompleteScreen({ navigation, route }: Props) {
               end={{ x: 1, y: 0 }}
               style={[styles.saveButton, saving && { opacity: 0.6 }]}
             >
-              <Ionicons name="save-outline" size={20} color={colors.textPrimary} />
+              <SmartIcon name="save-outline" size={20} color={colors.textPrimary} />
               <Text style={styles.saveText}>
                 {saving ? 'Saving...' : 'Save Session'}
               </Text>
@@ -293,7 +294,7 @@ function MetricInput({
         {required && <Text style={{ color: colors.accent1 }}> *</Text>}
       </Text>
       <View style={styles.inputRow}>
-        <Ionicons name={icon} size={18} color={colors.textInactive} />
+        <SmartIcon name={icon} size={18} color={colors.textInactive} />
         <TextInput
           style={styles.metricInput}
           value={value}

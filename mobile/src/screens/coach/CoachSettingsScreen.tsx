@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -60,7 +61,7 @@ export function CoachSettingsScreen() {
       ]}
     >
       <View style={styles.menuItemLeft}>
-        <Ionicons name={icon} size={20} color={colors.accent1} />
+        <SmartIcon name={icon} size={20} color={colors.accent1} />
         <Text style={[styles.menuItemLabel, { color: colors.textOnDark }]}>{label}</Text>
       </View>
       <View style={styles.menuItemRight}>
@@ -68,7 +69,7 @@ export function CoachSettingsScreen() {
           <Text style={[styles.menuItemValue, { color: colors.textInactive }]}>{value}</Text>
         )}
         {onPress && (
-          <Ionicons name="chevron-forward" size={18} color={colors.textInactive} />
+          <SmartIcon name="chevron-forward" size={18} color={colors.textInactive} />
         )}
       </View>
     </Pressable>
@@ -132,7 +133,7 @@ export function CoachSettingsScreen() {
             { opacity: pressed ? 0.7 : 1 },
           ]}
         >
-          <Ionicons name="log-out-outline" size={20} color={colors.error} />
+          <SmartIcon name="log-out-outline" size={20} color={colors.error} />
           <Text style={[styles.logoutText, { color: colors.error }]}>Logout</Text>
         </Pressable>
       </ScrollView>

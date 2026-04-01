@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { SkeletonCard, ErrorState } from '../components';
@@ -179,7 +180,7 @@ function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; 
       {/* Header row */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-          <Ionicons name="notifications-outline" size={14} color={colors.textSecondary} />
+          <SmartIcon name="notifications-outline" size={14} color={colors.textSecondary} />
           <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 12, color: colors.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase' }}>
             Notifications
           </Text>
@@ -190,7 +191,7 @@ function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; 
               <Text style={{ fontFamily: fontFamily.bold, fontSize: 11, color: '#fff' }}>{centerUnreadCount > 99 ? '99+' : centerUnreadCount}</Text>
             </View>
           )}
-          <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+          <SmartIcon name="chevron-forward" size={14} color={colors.textSecondary} />
         </View>
       </View>
 
@@ -210,7 +211,7 @@ function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; 
             }}
           >
             <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: cat.color + '20', justifyContent: 'center', alignItems: 'center' }}>
-              <Ionicons name={cat.icon} size={13} color={cat.color} />
+              <SmartIcon name={cat.icon} size={13} color={cat.color} />
             </View>
             <Text style={{ flex: 1, fontFamily: fontFamily.medium, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>
               {n.title}
@@ -253,7 +254,7 @@ export function ForYouScreen() {
     refreshError,
   } = useOwnItData();
   const quickActions = useQuickActions(
-    { key: 'refresh', icon: 'refresh-outline', label: 'Refresh', onPress: forceRefresh, accentColor: colors.accent2 },
+    { key: 'refresh', icon: 'refresh-outline', label: 'Refresh', onPress: forceRefresh, accentColor: '#00D9FF' },
     navigation,
   );
 
@@ -388,11 +389,11 @@ export function ForYouScreen() {
                   borderRadius: 32,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: colors.accent2 + '12',
+                  backgroundColor: '#00D9FF' + '12',
                   marginBottom: spacing.xs,
                 }}
               >
-                <Ionicons name={loadingMsg.icon} size={28} color={colors.accent2} />
+                <SmartIcon name={loadingMsg.icon} size={28} color={'#00D9FF'} />
               </View>
               <Text
                 style={{
@@ -430,7 +431,7 @@ export function ForYouScreen() {
               gap: spacing.sm,
             }}
           >
-            <Ionicons name="warning-outline" size={32} color={colors.textMuted} />
+            <SmartIcon name="warning-outline" size={32} color={colors.textMuted} />
             <Text
               style={{
                 fontFamily: fontFamily.medium,
@@ -461,12 +462,12 @@ export function ForYouScreen() {
                 backgroundColor: 'rgba(0, 217, 255, 0.08)',
               }}
             >
-              <Ionicons name={bannerMsg.icon} size={16} color={colors.accent2} />
+              <SmartIcon name={bannerMsg.icon} size={16} color={'#00D9FF'} />
               <Text
                 style={{
                   fontFamily: fontFamily.medium,
                   fontSize: 13,
-                  color: colors.accent2,
+                  color: '#00D9FF',
                 }}
               >
                 {bannerMsg.title}...
@@ -503,7 +504,7 @@ export function ForYouScreen() {
             <TimeSection
               title="Tomorrow"
               icon="calendar-outline"
-              color={colors.accent2}
+              color={'#00D9FF'}
               recs={tomorrowCards}
               defaultExpanded={true}
               indexOffset={todayCards.length}
@@ -521,7 +522,7 @@ export function ForYouScreen() {
               paddingHorizontal: spacing.xxl,
             }}
           >
-            <Ionicons name="star-outline" size={48} color={colors.textMuted} />
+            <SmartIcon name="star-outline" size={48} color={colors.textMuted} />
             <Text
               style={{
                 fontFamily: fontFamily.semiBold,

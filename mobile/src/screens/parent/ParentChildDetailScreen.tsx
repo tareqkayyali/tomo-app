@@ -16,7 +16,7 @@ import {
   Platform,
   PanResponder,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -172,7 +172,7 @@ export function ParentChildDetailScreen({ route, navigation }: Props) {
             <View style={{ flex: 1 }}>
               <Text style={[styles.childName, { color: colors.textOnDark }]}>{childName}</Text>
               <View style={styles.headerMeta}>
-                <Ionicons name="football-outline" size={14} color={colors.accent1} />
+                <SmartIcon name="football-outline" size={14} color={colors.accent1} />
                 <Text style={[styles.headerMetaText, { color: colors.textMuted }]}>Player</Text>
                 {isLive && (
                   <View style={[styles.liveBadge, { backgroundColor: colors.success + '33' }]}>
@@ -190,14 +190,14 @@ export function ParentChildDetailScreen({ route, navigation }: Props) {
                 onPress={() => navigation.navigate('ParentAddExam', { childId, childName })}
                 style={[styles.actionBtn, { backgroundColor: colors.warning + '18' }]}
               >
-                <Ionicons name="school-outline" size={14} color={colors.warning} />
+                <SmartIcon name="school-outline" size={14} color={colors.warning} />
                 <Text style={[styles.actionBtnText, { color: colors.warning }]}>Exam</Text>
               </Pressable>
               <Pressable
                 onPress={() => navigation.navigate('ParentAddStudy', { childId, childName })}
                 style={[styles.actionBtn, { backgroundColor: colors.accent2 + '18' }]}
               >
-                <Ionicons name="book-outline" size={14} color={colors.accent2} />
+                <SmartIcon name="book-outline" size={14} color={colors.accent2} />
                 <Text style={[styles.actionBtnText, { color: colors.accent2 }]}>Study</Text>
               </Pressable>
             </View>

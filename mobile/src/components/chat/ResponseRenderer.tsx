@@ -7,7 +7,7 @@
 
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 import { useTheme } from '../../hooks/useTheme';
@@ -1072,7 +1072,7 @@ function CoachNoteCard({
 }) {
   return (
     <View style={styles.coachNote}>
-      <Ionicons name="megaphone-outline" size={16} color={colors.accent1} />
+      <SmartIcon name="megaphone-outline" size={16} color={colors.accent1} />
       <Text style={styles.coachNoteText}>{card.note}</Text>
     </View>
   );

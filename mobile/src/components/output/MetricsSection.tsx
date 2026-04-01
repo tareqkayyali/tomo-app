@@ -15,7 +15,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -207,7 +207,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
           styles.searchBar,
           { backgroundColor: colors.inputBackground || colors.backgroundElevated },
         ]}>
-          <Ionicons name="search" size={18} color={searchFocused ? colors.accent1 : colors.textInactive} />
+          <SmartIcon name="search" size={18} color={searchFocused ? colors.accent1 : colors.textInactive} />
           <TextInput
             style={[styles.searchInput, { color: colors.textOnDark }]}
             placeholder="Search tests... (sprint, jump, strength)"
@@ -219,7 +219,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
           />
           {searchQuery !== '' && (
             <Pressable onPress={() => { handleSearch(''); setSearchFocused(false); }}>
-              <Ionicons name="close-circle" size={18} color={colors.textInactive} />
+              <SmartIcon name="close-circle" size={18} color={colors.textInactive} />
             </Pressable>
           )}
         </View>
@@ -246,7 +246,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
                       {item.category} · {item.unit}
                     </Text>
                   </View>
-                  <Ionicons name="add-circle" size={22} color={colors.accent1} />
+                  <SmartIcon name="add-circle" size={22} color={colors.accent1} />
                 </Pressable>
               ))
             )}
@@ -269,7 +269,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
               </Text>
             </View>
             <Pressable onPress={() => setPendingTest(null)} hitSlop={8}>
-              <Ionicons name="close" size={20} color={colors.textMuted} />
+              <SmartIcon name="close" size={20} color={colors.textMuted} />
             </Pressable>
           </View>
           <View style={styles.pendingInputRow}>
@@ -296,7 +296,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
               {submitting ? (
                 <ActivityIndicator color="#FFF" size="small" />
               ) : (
-                <Ionicons name="checkmark" size={20} color="#FFF" />
+                <SmartIcon name="checkmark" size={20} color="#FFF" />
               )}
             </Pressable>
           </View>
@@ -325,7 +325,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
                         </Text>
                         {(t as any).coachName && (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#4A9EFF18', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 9999 }}>
-                            <Ionicons name="person-circle-outline" size={10} color={colors.info} />
+                            <SmartIcon name="person-circle-outline" size={10} color={colors.info} />
                             <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.info }}>
                               Coach {(t as any).coachName}
                             </Text>
@@ -349,7 +349,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
       {metrics.categories.length === 0 && rawTestGroups.length === 0 && recentTests.length === 0 && (
         <GlassCard>
           <View style={styles.emptyState}>
-            <Ionicons name="analytics-outline" size={40} color={colors.textMuted} />
+            <SmartIcon name="analytics-outline" size={40} color={colors.textMuted} />
             <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Test Data Yet</Text>
             <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
               Search above and log your first test to see your football DNA.
@@ -460,7 +460,7 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
               P{category.categoryAvgPercentile} · {zoneLabel}
             </Text>
           </View>
-          <Ionicons
+          <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
             color={colors.textMuted}
@@ -570,7 +570,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
               {group.tests.length} test{group.tests.length !== 1 ? 's' : ''}
             </Text>
           </View>
-          <Ionicons
+          <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
             color={colors.textMuted}
@@ -595,7 +595,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
                       <Text style={[styles.rawExpandedName, { color: colors.textOnDark }]}>{t.displayName}</Text>
                       {(t as any).coachName && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#4A9EFF18', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 9999 }}>
-                          <Ionicons name="person-circle-outline" size={10} color={colors.info} />
+                          <SmartIcon name="person-circle-outline" size={10} color={colors.info} />
                           <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.info }}>
                             Coach {(t as any).coachName}
                           </Text>
@@ -617,7 +617,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
                       hitSlop={8}
                       style={styles.rawActionBtn}
                     >
-                      <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+                      <SmartIcon name="time-outline" size={16} color={colors.textMuted} />
                     </Pressable>
                     <Pressable
                       onPress={() => {
@@ -630,7 +630,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
                       hitSlop={8}
                       style={styles.rawActionBtn}
                     >
-                      <Ionicons name="add-circle-outline" size={16} color={colors.accent1} />
+                      <SmartIcon name="add-circle-outline" size={16} color={colors.accent1} />
                     </Pressable>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
@@ -673,7 +673,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
             ))}
             {/* Hint to get benchmarks */}
             <View style={[styles.benchmarkHint, { backgroundColor: colors.accent1 + '10' }]}>
-              <Ionicons name="bulb-outline" size={14} color={colors.accent1} />
+              <SmartIcon name="bulb-outline" size={14} color={colors.accent1} />
               <Text style={[styles.benchmarkHintText, { color: colors.accent1 }]}>
                 Log more tests to unlock percentile rankings
               </Text>

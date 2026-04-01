@@ -7,7 +7,7 @@
  * Fully deterministic, $0 AI cost.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -16,8 +16,12 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { useConfig } from '../../hooks/useConfigProvider';
+import { useAuth } from '../../hooks/useAuth';
+import { useNotifications } from '../../hooks/useNotifications';
+import { apiRequest } from '../../services/api';
 import type { ThemeColors } from '../../theme/colors';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { BootData } from '../../services/api';
@@ -33,6 +37,7 @@ import type {
 interface ProactiveDashboardProps {
   bootData: BootData;
   onChipPress: (message: string) => void;
+  onViewNotifications?: () => void;
 }
 
 // ── Default config (matches original hardcoded behavior) ───────────────
@@ -255,11 +260,165 @@ function getEventTypeIcon(type: string): keyof typeof Ionicons.glyphMap {
   }
 }
 
+// ── Notification helpers ───────────────────────────────────────────────
+
+interface NotifItem {
+  id: string;
+  title: string;
+  category: string;
+  priority: number;
+  created_at: string;
+}
+
+const NOTIF_CAT_CONFIG: Record<string, { color: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  critical:  { color: '#E74C3C', icon: 'alert-circle-outline' },
+  training:  { color: '#FF6B35', icon: 'barbell-outline' },
+  coaching:  { color: '#7B61FF', icon: 'person-outline' },
+  academic:  { color: '#F39C12', icon: 'school-outline' },
+  triangle:  { color: '#00D9FF', icon: 'triangle-outline' },
+  cv:        { color: '#30D158', icon: 'document-text-outline' },
+  system:    { color: '#888',    icon: 'notifications-outline' },
+};
+
+function timeAgoShort(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+// Map calendar event type → notification category
+function eventTypeToNotifCategory(eventType: string): string | null {
+  switch (eventType) {
+    case 'training':
+    case 'match':
+    case 'competition':
+    case 'gym':
+    case 'recovery':
+      return 'training';
+    case 'study':
+    case 'exam':
+    case 'school':
+    case 'school_hours':
+    case 'academic':
+      return 'academic';
+    case 'personal_dev':
+      return 'cv';
+    default:
+      return null;
+  }
+}
+
+function LatestNotificationsSection({ onViewAll, upcomingEventType }: { onViewAll?: () => void; upcomingEventType?: string }) {
+  const { colors } = useTheme();
+  const { profile } = useAuth();
+  const { centerUnreadCount } = useNotifications();
+  const [items, setItems] = useState<NotifItem[]>([]);
+
+  useEffect(() => {
+    if (!profile) return;
+    apiRequest<{ notifications: NotifItem[] }>('/api/v1/notifications?source=center&limit=30')
+      .then((res) => {
+        // Look back 24h so early-morning sessions still see yesterday's notifications
+        const since = Date.now() - 24 * 3600 * 1000;
+        const recent = (res.notifications ?? [])
+          .filter(n => new Date(n.created_at).getTime() >= since);
+
+        // Try to find one matching the upcoming activity's category (highest priority match)
+        const targetCategory = upcomingEventType ? eventTypeToNotifCategory(upcomingEventType) : null;
+        const categoryMatch = targetCategory
+          ? [...recent]
+              .filter(n => n.category === targetCategory)
+              .sort((a, b) => {
+                if (a.priority !== b.priority) return a.priority - b.priority;
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              })[0] ?? null
+          : null;
+
+        // Fallback: show LATEST notification (most recent, regardless of priority)
+        const latestFallback = [...recent]
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] ?? null;
+
+        const result = categoryMatch ?? latestFallback;
+        setItems(result ? [result] : []);
+      })
+      .catch((err) => console.warn('[ProactiveDashboard] notif fetch:', err));
+  }, [profile?.id, upcomingEventType]);
+
+  if (items.length === 0) return null;
+
+  const sorted = items;
+
+  return (
+    <Pressable
+      onPress={onViewAll}
+      style={({ pressed }) => ({
+        marginTop: spacing.sm,
+        borderRadius: 12,
+        backgroundColor: colors.inputBackground,
+        borderWidth: 1,
+        borderColor: centerUnreadCount > 0 ? 'rgba(255,107,53,0.25)' : 'rgba(255,255,255,0.06)',
+        overflow: 'hidden',
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      {/* Header */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <SmartIcon name="notifications-outline" size={13} color={colors.textMuted} />
+          <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 11, color: colors.textMuted, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+            Notifications
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {centerUnreadCount > 0 && (
+            <View style={{ backgroundColor: '#FF6B35', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 }}>
+              <Text style={{ fontFamily: fontFamily.bold, fontSize: 10, color: '#fff' }}>{centerUnreadCount > 99 ? '99+' : centerUnreadCount}</Text>
+            </View>
+          )}
+          <SmartIcon name="chevron-forward" size={12} color={colors.textMuted} />
+        </View>
+      </View>
+
+      {/* Rows */}
+      {sorted.map((n, i) => {
+        const cat = NOTIF_CAT_CONFIG[n.category] ?? NOTIF_CAT_CONFIG.system;
+        return (
+          <View
+            key={n.id}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+              paddingHorizontal: spacing.md,
+              paddingVertical: 7,
+              borderTopWidth: 1,
+              borderTopColor: 'rgba(255,255,255,0.05)',
+            }}
+          >
+            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: cat.color + '20', justifyContent: 'center', alignItems: 'center' }}>
+              <SmartIcon name={cat.icon} size={12} color={cat.color} />
+            </View>
+            <Text style={{ flex: 1, fontFamily: fontFamily.medium, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>
+              {n.title}
+            </Text>
+            <Text style={{ fontFamily: fontFamily.regular, fontSize: 11, color: colors.textMuted }}>
+              {timeAgoShort(n.created_at)}
+            </Text>
+          </View>
+        );
+      })}
+    </Pressable>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────
 
 export const ProactiveDashboard = React.memo(function ProactiveDashboard({
   bootData,
   onChipPress,
+  onViewNotifications,
 }: ProactiveDashboardProps) {
   const { colors } = useTheme();
   const { config: appConfig } = useConfig();
@@ -334,17 +493,48 @@ export const ProactiveDashboard = React.memo(function ProactiveDashboard({
       .slice(0, 3);
   }, [bootData, dashConfig.chips]);
 
-  // ── Today items ──
+  // ── Today items — smart: current (cross-day) + next upcoming ──
   const todayConfig = dashConfig.todaySection;
   const todayItems = useMemo(() => {
     if (!todayConfig.enabled) return [];
-    return bootData.todayEvents.slice(0, todayConfig.maxEvents).map(e => ({
+    const now = Date.now();
+
+    // currentActiveEvent comes from boot API cross-day query (handles sleep from prev night)
+    const active = bootData.currentActiveEvent ?? null;
+
+    // Today's events sorted ascending
+    const sorted = [...bootData.todayEvents].sort(
+      (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()
+    );
+
+    // Next upcoming event today (startAt > now)
+    const nextToday = sorted.find(e => new Date(e.startAt).getTime() > now) ?? null;
+
+    let displayEvents: { id: string; title: string; type: string; startAt: string; endAt: string | null; isCurrent: boolean; isTomorrow: boolean }[] = [];
+
+    if (active) {
+      displayEvents.push({ ...active, isCurrent: true, isTomorrow: false });
+      if (nextToday) {
+        displayEvents.push({ ...nextToday, intensity: nextToday.intensity, isCurrent: false, isTomorrow: false });
+      } else if (bootData.tomorrowFirstEvent) {
+        displayEvents.push({ ...bootData.tomorrowFirstEvent, isCurrent: false, isTomorrow: true });
+      }
+    } else if (nextToday) {
+      displayEvents.push({ ...nextToday, intensity: nextToday.intensity, isCurrent: false, isTomorrow: false });
+    } else if (bootData.tomorrowFirstEvent) {
+      displayEvents.push({ ...bootData.tomorrowFirstEvent, isCurrent: false, isTomorrow: true });
+    }
+
+    return displayEvents.map(e => ({
       icon: getEventTypeIcon(e.type) as string,
       text: e.title,
+      type: e.type,
       time: todayConfig.showEventTime ? formatEventTime(e.startAt) : undefined,
+      isCurrent: e.isCurrent,
+      isTomorrow: e.isTomorrow,
     }));
-  }, [bootData.todayEvents, todayConfig]);
-  const hasMoreEvents = bootData.todayEvents.length > todayConfig.maxEvents;
+  }, [bootData.currentActiveEvent, bootData.todayEvents, bootData.tomorrowFirstEvent, todayConfig]);
+  const hasMoreEvents = false;
 
   // ── Greeting ──
   const greeting = dashConfig.greeting.enabled
@@ -415,23 +605,34 @@ export const ProactiveDashboard = React.memo(function ProactiveDashboard({
       {todayConfig.enabled && (
         <View style={styles.todaySection}>
           <Text style={styles.todaySectionTitle}>
-            <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />{' '}
-            Today
+            <SmartIcon name="calendar-outline" size={14} color={colors.textMuted} />{' '}
+            {todayItems.some(i => i.isTomorrow) ? 'Up Next' : 'Today'}
           </Text>
           {todayItems.length > 0 ? (
             <>
               {todayItems.map((item, i) => (
                 <View key={i} style={styles.todayItem}>
-                  <Ionicons name={item.icon as any} size={14} color={colors.accent2} />
+                  <SmartIcon
+                    name={item.icon as any}
+                    size={14}
+                    color={item.isCurrent ? colors.accent1 : '#00D9FF'}
+                  />
                   <Text style={styles.todayItemText} numberOfLines={1}>{item.text}</Text>
-                  {item.time && <Text style={styles.todayItemTime}>{item.time}</Text>}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    {item.isCurrent && (
+                      <View style={{ backgroundColor: '#FF6B3520', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
+                        <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 10, color: colors.accent1 }}>NOW</Text>
+                      </View>
+                    )}
+                    {item.isTomorrow && (
+                      <Text style={{ fontFamily: fontFamily.regular, fontSize: 11, color: colors.textMuted }}>tmrw</Text>
+                    )}
+                    {item.time && !item.isCurrent && (
+                      <Text style={styles.todayItemTime}>{item.time}</Text>
+                    )}
+                  </View>
                 </View>
               ))}
-              {hasMoreEvents && (
-                <Text style={styles.moreEvents}>
-                  +{bootData.todayEvents.length - todayConfig.maxEvents} more
-                </Text>
-              )}
             </>
           ) : todayConfig.showRestDayMessage ? (
             <Text style={styles.restDay}>{todayConfig.restDayMessage}</Text>
@@ -440,12 +641,18 @@ export const ProactiveDashboard = React.memo(function ProactiveDashboard({
           {/* Flag */}
           {activeFlag && (
             <View style={[styles.flagRow, { borderLeftColor: activeFlag.color }]}>
-              <Ionicons name={activeFlag.icon as any} size={14} color={activeFlag.color} />
+              <SmartIcon name={activeFlag.icon as any} size={14} color={activeFlag.color} />
               <Text style={[styles.flagText, { color: activeFlag.color }]}>{activeFlag.message}</Text>
             </View>
           )}
         </View>
       )}
+
+      {/* Latest Notifications — matched to upcoming activity */}
+      <LatestNotificationsSection
+        onViewAll={onViewNotifications}
+        upcomingEventType={(todayItems.find(i => !i.isCurrent) ?? todayItems[0])?.type}
+      />
 
       {/* Smart Chips */}
       {resolvedChips.length > 0 && (
@@ -522,7 +729,7 @@ function createStyles(colors: ThemeColors) {
     pillHint: {
       fontFamily: fontFamily.regular,
       fontSize: 9,
-      color: colors.accent2,
+      color: '#00D9FF',
       marginTop: 1,
     },
     todaySection: { gap: 6 },
@@ -597,7 +804,7 @@ function createStyles(colors: ThemeColors) {
     chipText: {
       fontFamily: fontFamily.medium,
       fontSize: 13,
-      color: colors.accent2,
+      color: '#00D9FF',
     },
   });
 }

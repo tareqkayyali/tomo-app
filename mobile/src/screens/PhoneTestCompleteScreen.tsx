@@ -19,7 +19,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../components';
 import {
@@ -134,7 +134,7 @@ export function PhoneTestCompleteScreen({ navigation, route }: Props) {
   if (saved) {
     return (
       <View style={styles.successCenter}>
-        <Ionicons name="checkmark-circle" size={80} color={colors.accent} />
+        <SmartIcon name="checkmark-circle" size={80} color={colors.accent} />
         <Text style={styles.successTitle}>Results Saved!</Text>
         <Text style={styles.successSub}>{testName}</Text>
         <Text style={styles.successScore}>
@@ -235,7 +235,7 @@ export function PhoneTestCompleteScreen({ navigation, route }: Props) {
               end={{ x: 1, y: 0 }}
               style={[styles.saveButton, saving && { opacity: 0.6 }]}
             >
-              <Ionicons name="save-outline" size={20} color={colors.textPrimary} />
+              <SmartIcon name="save-outline" size={20} color={colors.textPrimary} />
               <Text style={styles.saveText}>
                 {saving ? 'Saving...' : 'Save Results'}
               </Text>

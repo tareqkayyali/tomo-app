@@ -6,7 +6,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
 import { useSpringEntrance, useBarFill } from '../hooks/useAnimations';
 import { getShotRatingColor } from '../services/padelCalculations';
@@ -162,7 +162,7 @@ export function ShotDetailScreen({ route }: Props) {
           <View style={styles.heroMeta}>
             {data.trend !== 0 && (
               <View style={styles.trendBadge}>
-                <Ionicons
+                <SmartIcon
                   name={data.trend > 0 ? 'trending-up' : 'trending-down'}
                   size={14}
                   color={data.trend > 0 ? colors.accent : colors.textSecondary}
@@ -222,7 +222,7 @@ export function ShotDetailScreen({ route }: Props) {
       <Animated.View style={entrance3}>
         <GlassCard style={{ ...styles.sectionCard, ...styles.tipCard }}>
           <View style={styles.tipHeader}>
-            <Ionicons name="bulb" size={18} color={colors.accent1} />
+            <SmartIcon name="bulb" size={18} color={colors.accent1} />
             <Text style={styles.tipTitle}>Coach Tip</Text>
           </View>
           <Text style={styles.tipText}>{coachTip}</Text>

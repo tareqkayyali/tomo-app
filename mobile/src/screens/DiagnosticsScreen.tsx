@@ -15,7 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { colors, spacing, fontFamily, layout, borderRadius } from '../theme';
 import { API_BASE_URL, healthCheck } from '../services/api';
 import { getIdToken, getCurrentUser } from '../services/auth';
@@ -87,7 +87,7 @@ export function DiagnosticsScreen() {
               <ActivityIndicator size="small" color={colors.accent1} />
             ) : (
               <>
-                <Ionicons name="pulse-outline" size={18} color={colors.accent1} />
+                <SmartIcon name="pulse-outline" size={18} color={colors.accent1} />
                 <Text style={styles.buttonText}>Ping /health</Text>
               </>
             )}
@@ -110,7 +110,7 @@ export function DiagnosticsScreen() {
               <ActivityIndicator size="small" color={colors.accent1} />
             ) : (
               <>
-                <Ionicons name="key-outline" size={18} color={colors.accent1} />
+                <SmartIcon name="key-outline" size={18} color={colors.accent1} />
                 <Text style={styles.buttonText}>Check Token</Text>
               </>
             )}

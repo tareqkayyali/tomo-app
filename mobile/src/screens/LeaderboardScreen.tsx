@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated from 'react-native-reanimated';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { GlowWrapper, SkeletonCard, ErrorState, EmptyState } from '../components';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import {
@@ -401,7 +402,7 @@ function PodiumSlot({
   const avatar = (
     <View style={[styles.podiumSlot, isFirst && styles.podiumSlotFirst]}>
       {/* Medal */}
-      <Ionicons
+      <SmartIcon
         name="medal"
         size={isFirst ? 26 : 20}
         color={medalColors[rank]}
@@ -576,7 +577,7 @@ export function LeaderboardScreen() {
                   <View style={styles.ghostRow}>
                     <Text style={styles.ghostRank}>--</Text>
                     <View style={[styles.avatar, styles.ghostAvatar]}>
-                      <Ionicons name="person-outline" size={16} color={colors.textInactive} />
+                      <SmartIcon name="person-outline" size={16} color={colors.textInactive} />
                     </View>
                     <View style={styles.entryInfo}>
                       <Text style={styles.ghostName} numberOfLines={1}>
@@ -632,7 +633,7 @@ export function LeaderboardScreen() {
                 </Text>
                 {entry.archetype && (
                   <View style={styles.archetypeTag}>
-                    <Ionicons
+                    <SmartIcon
                       name={archetypeIcon}
                       size={12}
                       color={avatarColor}

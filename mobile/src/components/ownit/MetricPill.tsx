@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 
@@ -34,7 +35,7 @@ export function MetricPill({ label, value, color, icon }: MetricPillProps) {
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
         {icon && (
-          <Ionicons name={icon} size={10} color={colors.textMuted} />
+          <SmartIcon name={icon} size={10} color={colors.textMuted} />
         )}
         <Text
           style={{

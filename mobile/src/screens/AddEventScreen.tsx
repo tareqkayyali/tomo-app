@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import {
   spacing,
@@ -410,7 +411,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                     }}
                     style={[styles.chip, active && styles.chipActive]}
                   >
-                    <Ionicons
+                    <SmartIcon
                       name={t.icon}
                       size={15}
                       color={active ? colors.textPrimary : colors.textMuted}
@@ -460,7 +461,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
               <Text style={styles.settingLabel}>Date</Text>
               <View style={styles.settingValueWrap}>
                 <Text style={styles.settingValue}>{formatDateDisplay(date)}</Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.textInactive} />
+                <SmartIcon name="chevron-forward" size={16} color={colors.textInactive} />
               </View>
             </Pressable>
 
@@ -476,7 +477,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                 <Text style={[styles.settingValue, !startTime && styles.settingPlaceholder]}>
                   {startTime ? formatTime12h(startTime) : 'None'}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.textInactive} />
+                <SmartIcon name="chevron-forward" size={16} color={colors.textInactive} />
               </View>
             </Pressable>
 
@@ -492,7 +493,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                 <Text style={[styles.settingValue, !duration && styles.settingPlaceholder]}>
                   {duration ? DURATION_OPTIONS.find(d => d.value === duration)?.label || `${duration} min` : 'None'}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.textInactive} />
+                <SmartIcon name="chevron-forward" size={16} color={colors.textInactive} />
               </View>
             </Pressable>
           </View>
@@ -545,7 +546,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                       {item.label}
                     </Text>
                     {item.value === duration && (
-                      <Ionicons name="checkmark" size={18} color={colors.accent1} />
+                      <SmartIcon name="checkmark" size={18} color={colors.accent1} />
                     )}
                   </Pressable>
                 )}
@@ -578,7 +579,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                     </Text>
                     <Text style={ms.dateOptionValue}>{item.value}</Text>
                     {item.value === date && (
-                      <Ionicons name="checkmark" size={18} color={colors.accent1} />
+                      <SmartIcon name="checkmark" size={18} color={colors.accent1} />
                     )}
                   </Pressable>
                 )}

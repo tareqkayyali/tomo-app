@@ -8,6 +8,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { Button } from './Button';
 import { colors, spacing, typography, fontFamily } from '../theme';
 
@@ -40,7 +41,7 @@ export function EmptyState({
   return (
     <View style={[styles.container, style]}>
       <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={56} color={iconColor} />
+        <SmartIcon name={icon} size={56} color={iconColor} />
       </View>
       <Text style={styles.title}>{title}</Text>
       {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}

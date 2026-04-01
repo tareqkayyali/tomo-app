@@ -14,7 +14,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassCard } from '../components';
 import {
@@ -100,7 +100,7 @@ export function PhoneTestsListScreen({ navigation }: Props) {
             <GlassCard style={styles.card}>
               <View style={styles.cardHeader}>
                 <View style={[styles.iconCircle, { backgroundColor: test.color + '22' }]}>
-                  <Ionicons name={test.icon as any} size={24} color={test.color} />
+                  <SmartIcon name={test.icon as any} size={24} color={test.color} />
                 </View>
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardTitle}>{test.name}</Text>
@@ -112,7 +112,7 @@ export function PhoneTestsListScreen({ navigation }: Props) {
 
               {lastResults[test.id] && (
                 <View style={styles.lastResult}>
-                  <Ionicons name="trophy-outline" size={14} color={colors.accent2} />
+                  <SmartIcon name="trophy-outline" size={14} color={colors.accent2} />
                   <Text style={styles.lastResultText}>Last: {lastResults[test.id]}</Text>
                 </View>
               )}
@@ -127,7 +127,7 @@ export function PhoneTestsListScreen({ navigation }: Props) {
                   end={{ x: 1, y: 0 }}
                   style={styles.testButton}
                 >
-                  <Ionicons name="play" size={16} color={colors.textPrimary} />
+                  <SmartIcon name="play" size={16} color={colors.textPrimary} />
                   <Text style={styles.testButtonText}>Start Test</Text>
                 </LinearGradient>
               </Pressable>

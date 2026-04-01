@@ -23,7 +23,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 
 import { useTheme } from '../../hooks/useTheme';
 import {
@@ -207,7 +207,7 @@ function ProgrammeList({
           onPress={() => setShowCreate(true)}
           style={[styles.createBtn, { backgroundColor: colors.accent1 }]}
         >
-          <Ionicons name="add" size={18} color={colors.textOnDark} />
+          <SmartIcon name="add" size={18} color={colors.textOnDark} />
           <Text style={[styles.createBtnText, { color: colors.textOnDark }]}>New</Text>
         </Pressable>
       </View>
@@ -218,7 +218,7 @@ function ProgrammeList({
         </View>
       ) : programmes.length === 0 ? (
         <View style={styles.centered}>
-          <Ionicons name="barbell-outline" size={48} color={colors.textInactive} />
+          <SmartIcon name="barbell-outline" size={48} color={colors.textInactive} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             No programmes yet
           </Text>
@@ -520,7 +520,7 @@ function ProgrammeEditor({
       {/* ── Header ─────────────────────────────────────── */}
       <View style={styles.editorHeader}>
         <Pressable onPress={onBack} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={colors.textOnDark} />
+          <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
         </Pressable>
         <View style={styles.editorHeaderCenter}>
           <Text style={[styles.editorTitle, { color: colors.textOnDark }]} numberOfLines={1}>
@@ -568,7 +568,7 @@ function ProgrammeEditor({
             <ActivityIndicator size="small" color={colors.textOnDark} />
           ) : (
             <>
-              <Ionicons
+              <SmartIcon
                 name={programme.status === 'published' ? 'checkmark-circle' : 'send'}
                 size={14}
                 color={programme.status === 'published' ? colors.success : colors.textOnDark}
@@ -671,7 +671,7 @@ function ProgrammeEditor({
       <ScrollView style={styles.drillList} contentContainerStyle={styles.drillListContent}>
         {drillsForWeekDay.length === 0 ? (
           <View style={styles.emptyDay}>
-            <Ionicons name="calendar-outline" size={32} color={colors.textInactive} />
+            <SmartIcon name="calendar-outline" size={32} color={colors.textInactive} />
             <Text style={[styles.emptyDayText, { color: colors.textInactive }]}>
               No drills on {DAYS[selectedDay]} · Week {selectedWeek}
             </Text>
@@ -704,7 +704,7 @@ function ProgrammeEditor({
                       {isDeleting ? (
                         <ActivityIndicator size="small" color={colors.textInactive} />
                       ) : (
-                        <Ionicons name="trash-outline" size={16} color={colors.error} />
+                        <SmartIcon name="trash-outline" size={16} color={colors.error} />
                       )}
                     </Pressable>
                   </View>
@@ -735,7 +735,7 @@ function ProgrammeEditor({
                     )}
                     {drill.progression !== 'none' && (
                       <View style={[styles.progressionBadge, { backgroundColor: colors.surface }]}>
-                        <Ionicons name="trending-up" size={10} color={colors.textSecondary} />
+                        <SmartIcon name="trending-up" size={10} color={colors.textSecondary} />
                         <Text style={[styles.progressionText, { color: colors.textSecondary }]}>
                           {drill.progression.replace('_', ' ')}
                         </Text>
@@ -763,7 +763,7 @@ function ProgrammeEditor({
               { borderColor: colors.accent1, opacity: pressed ? 0.7 : 1 },
             ]}
           >
-            <Ionicons name="add-circle-outline" size={20} color={colors.accent1} />
+            <SmartIcon name="add-circle-outline" size={20} color={colors.accent1} />
             <Text style={[styles.addDrillText, { color: colors.accent1 }]}>Add Drill</Text>
           </Pressable>
         )}
@@ -916,7 +916,7 @@ function DrillPicker({
             {selectedDrill ? 'Set Prescription' : 'Choose Drill'}
           </Text>
           <Pressable onPress={onClose} hitSlop={12}>
-            <Ionicons name="close" size={24} color={colors.textSecondary} />
+            <SmartIcon name="close" size={24} color={colors.textSecondary} />
           </Pressable>
         </View>
 
@@ -924,7 +924,7 @@ function DrillPicker({
           /* ── Search + Results ─────────────────────────── */
           <>
             <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Ionicons name="search" size={18} color={colors.textInactive} />
+              <SmartIcon name="search" size={18} color={colors.textInactive} />
               <TextInput
                 style={[styles.searchInput, { color: colors.textOnDark }]}
                 placeholder="Search drills..."
@@ -962,7 +962,7 @@ function DrillPicker({
                           {item.difficulty_level ? ` · ${item.difficulty_level}` : ''}
                         </Text>
                       </View>
-                      <Ionicons name="chevron-forward" size={16} color={colors.textInactive} />
+                      <SmartIcon name="chevron-forward" size={16} color={colors.textInactive} />
                     </Pressable>
                   );
                 }}
@@ -1058,7 +1058,7 @@ function DrillPicker({
               onPress={() => setIsMandatory(!isMandatory)}
               style={styles.toggleRow}
             >
-              <Ionicons
+              <SmartIcon
                 name={isMandatory ? 'checkbox' : 'square-outline'}
                 size={22}
                 color={isMandatory ? colors.accent1 : colors.textInactive}

@@ -21,7 +21,7 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import {
@@ -294,7 +294,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             (navigation as any).navigate('MainTabs');
           }
         }} hitSlop={12} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
+          <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
         </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 32 }} />
@@ -337,7 +337,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                     {w.emoji ? (
                       <Text style={{ fontSize: 22 }}>{w.emoji}</Text>
                     ) : (
-                      <Ionicons name={w.icon as any} size={22} color="#FFF" />
+                      <SmartIcon name={w.icon as any} size={22} color="#FFF" />
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
@@ -366,12 +366,12 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                       <ActivityIndicator size="small" color={colors.accent1} />
                     ) : isConnected ? (
                       <>
-                        <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
+                        <SmartIcon name="checkmark-circle" size={16} color={colors.accent} />
                         <Text style={[styles.statusText, { color: colors.accent }]}>Connected</Text>
                       </>
                     ) : (
                       <>
-                        <Ionicons name="link-outline" size={16} color={colors.accent1} />
+                        <SmartIcon name="link-outline" size={16} color={colors.accent1} />
                         <Text style={[styles.statusText, { color: colors.accent1 }]}>Connect</Text>
                       </>
                     )}
@@ -393,7 +393,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                       {syncing ? (
                         <ActivityIndicator size="small" color={colors.accent2} />
                       ) : (
-                        <Ionicons name="sync-outline" size={16} color={colors.accent2} />
+                        <SmartIcon name="sync-outline" size={16} color={colors.accent2} />
                       )}
                       <Text style={[styles.syncButtonText, { color: colors.accent2 }]}>
                         {syncing ? 'Syncing...' : 'Sync Now'}
@@ -408,7 +408,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                       onPress={handleDisconnectWhoop}
                       disabled={whoopLoading}
                     >
-                      <Ionicons name="unlink-outline" size={16} color={colors.error} />
+                      <SmartIcon name="unlink-outline" size={16} color={colors.error} />
                       <Text style={[styles.syncButtonText, { color: colors.error }]}>
                         Disconnect
                       </Text>
@@ -446,8 +446,8 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
               pressed && { opacity: 0.7 },
             ]}
           >
-            <Ionicons name="analytics-outline" size={16} color="#00D9FF" />
-            <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: '#00D9FF' }}>
+            <SmartIcon name="analytics-outline" size={16} color={colors.accent2} />
+            <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: colors.accent2 }}>
               Go to Output
             </Text>
           </Pressable>
@@ -472,7 +472,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             onPress={() => navigation.navigate('PHVCalculator')}
           >
             <View style={[styles.wearableIcon, { backgroundColor: '#3498DB20' }]}>
-              <Ionicons name="resize-outline" size={22} color={colors.info} />
+              <SmartIcon name="resize-outline" size={22} color={colors.info} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.wearableName, { color: colors.textOnDark }]}>
@@ -482,7 +482,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                 Calculate your maturity offset & training stage
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <SmartIcon name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
         </View>
 

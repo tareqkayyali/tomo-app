@@ -12,7 +12,7 @@ import Animated, {
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { colors, spacing, borderRadius, fontFamily } from '../../theme';
 import { getEventTypeColor, getSportDotColor, getSportLabel } from '../../utils/calendarHelpers';
 import type { CalendarEvent } from '../../types';
@@ -144,7 +144,7 @@ export function EventCard({ event, onDelete, compact = false, linkedPrograms = [
 
           {event.startTime && (
             <View style={styles.timeRow}>
-              <Ionicons name="time-outline" size={13} color={colors.textInactive} />
+              <SmartIcon name="time-outline" size={13} color={colors.textInactive} />
               <Text style={styles.timeText}>
                 {event.startTime}
                 {event.endTime ? ` – ${event.endTime}` : ''}
@@ -159,7 +159,7 @@ export function EventCard({ event, onDelete, compact = false, linkedPrograms = [
           {/* Linked programs from training categories */}
           {linkedPrograms.length > 0 && (
             <View style={styles.linkedProgramsRow}>
-              <Ionicons name="barbell-outline" size={12} color={colors.accent2} />
+              <SmartIcon name="barbell-outline" size={12} color={colors.accent2} />
               <Text style={styles.linkedProgramsText} numberOfLines={expanded ? undefined : 1}>
                 {linkedPrograms.map((lp) => lp.name).join(', ')}
               </Text>
@@ -168,7 +168,7 @@ export function EventCard({ event, onDelete, compact = false, linkedPrograms = [
 
           {expanded && onDelete && (
             <Pressable onPress={handleDelete} style={styles.deleteBtn}>
-              <Ionicons name="trash-outline" size={16} color={colors.error} />
+              <SmartIcon name="trash-outline" size={16} color={colors.error} />
               <Text style={styles.deleteText}>Delete</Text>
             </Pressable>
           )}

@@ -25,8 +25,9 @@ import {
   Switch,
   TextInput,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TomoLoader, PLAN_LOADER_MESSAGES } from '../components/TomoLoader';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
@@ -278,7 +279,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
       id: name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now(),
       label: name,
       icon: 'add-circle-outline',
-      color: '#00D9FF',
+      color: colors.accent2,
       enabled: true,
       mode: 'days_per_week' as const,
       fixedDays: [],
@@ -295,7 +296,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={colors.accent1} />
+        <TomoLoader messages={PLAN_LOADER_MESSAGES} />
       </View>
     );
   }
@@ -306,14 +307,14 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
     return (
       <ScrollView contentContainerStyle={styles.emptyContainer}>
         <View style={styles.emptyIcon}>
-          <Ionicons name="barbell-outline" size={32} color={colors.accent1} />
+          <SmartIcon name="barbell-outline" size={32} color={colors.accent1} />
         </View>
         <Text style={styles.emptyTitle}>No training categories</Text>
         <Text style={styles.emptySubtitle}>
           Set up your training schedule in My Rules to generate a plan.
         </Text>
         <TouchableOpacity style={[styles.rulesBtn, { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D`, borderWidth: 1 }]} onPress={handleNavigateToRules}>
-          <Ionicons name="options-outline" size={16} color={colors.accent1} />
+          <SmartIcon name="options-outline" size={16} color={colors.accent1} />
           <Text style={[styles.rulesBtnText, { color: colors.accent1 }]}>Go to Rules</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -327,7 +328,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
       {/* Back header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 }}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
+          <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
         </Pressable>
         <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 18, color: colors.textOnDark, flex: 1 }}>Training Plan</Text>
       </View>
@@ -345,7 +346,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
             }}
             style={[styles.stepperBtn, { borderColor: colors.border }]}
           >
-            <Ionicons name="remove" size={14} color={colors.textOnDark} />
+            <SmartIcon name="remove" size={14} color={colors.textOnDark} />
           </TouchableOpacity>
           <Text style={styles.durationValue}>{planWeeks}</Text>
           <TouchableOpacity
@@ -356,7 +357,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
             }}
             style={[styles.stepperBtn, { borderColor: colors.border }]}
           >
-            <Ionicons name="add" size={14} color={colors.textOnDark} />
+            <SmartIcon name="add" size={14} color={colors.textOnDark} />
           </TouchableOpacity>
           <Text style={[styles.durationUnit, { color: colors.textSecondary }]}>weeks</Text>
         </View>
@@ -394,7 +395,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
             }
           }}
         >
-          <Ionicons name="add-circle-outline" size={18} color={colors.accent1} />
+          <SmartIcon name="add-circle-outline" size={18} color={colors.accent1} />
           <Text style={[styles.addCategoryText, { color: colors.accent1 }]}>Add Category</Text>
         </TouchableOpacity>
       </View>
@@ -402,7 +403,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
       {/* ─── League Season toggle ─── */}
       <View style={[styles.section, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Ionicons name="trophy-outline" size={16} color={colors.accent1} />
+          <SmartIcon name="trophy-outline" size={16} color={colors.accent1} />
           <Text style={styles.sectionLabel}>League Season</Text>
         </View>
         <Switch
@@ -417,7 +418,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
       {/* ─── Block Estimate ─── */}
       {blockEstimate > 0 && (
         <View style={styles.estimateRow}>
-          <Ionicons name="layers-outline" size={16} color={colors.accent1} />
+          <SmartIcon name="layers-outline" size={16} color={colors.accent1} />
           <Text style={styles.estimateText}>~{blockEstimate} training blocks</Text>
         </View>
       )}
@@ -437,7 +438,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
         {isGenerating ? (
           <ActivityIndicator size="small" color={colors.accent1} />
         ) : (
-          <Ionicons name="sparkles" size={16} color={colors.accent1} />
+          <SmartIcon name="sparkles" size={16} color={colors.accent1} />
         )}
         <Text style={[styles.generateBtnText, { color: colors.accent1 }]}>
           {isGenerating ? 'Checking calendar...' : 'Generate Training Plan'}
@@ -480,7 +481,7 @@ function TimeStepperMini({ value, onChange, color, colors }: {
         onPress={() => onChange(stepTime(value, -30))}
         style={[inlineStyles.stepper, { borderColor: colors.border, width: 22, height: 22, borderRadius: 11 }]}
       >
-        <Ionicons name="remove" size={10} color={colors.textInactive} />
+        <SmartIcon name="remove" size={10} color={colors.textInactive} />
       </Pressable>
       <Text style={{ fontSize: 13, fontFamily: fontFamily.semiBold, color, minWidth: 40, textAlign: 'center' }}>
         {value || '--:--'}
@@ -489,7 +490,7 @@ function TimeStepperMini({ value, onChange, color, colors }: {
         onPress={() => onChange(stepTime(value, 30))}
         style={[inlineStyles.stepper, { borderColor: colors.border, width: 22, height: 22, borderRadius: 11 }]}
       >
-        <Ionicons name="add" size={10} color={colors.textInactive} />
+        <SmartIcon name="add" size={10} color={colors.textInactive} />
       </Pressable>
     </View>
   );
@@ -513,7 +514,7 @@ function TrainingCategoryCardInline({
     <View style={[inlineStyles.card, { backgroundColor: colors.cardLight, borderLeftColor: cat.color }]}>
       <View style={inlineStyles.headerRow}>
         <View style={[inlineStyles.iconCircle, { backgroundColor: cat.color + '20' }]}>
-          <Ionicons name={(cat.icon || 'add-circle-outline') as any} size={16} color={cat.color} />
+          <SmartIcon name={(cat.icon || 'add-circle-outline') as any} size={16} color={cat.color} />
         </View>
         <Text style={[inlineStyles.label, { color: colors.textOnDark }]}>{cat.label}</Text>
         <Switch
@@ -594,7 +595,7 @@ function TrainingCategoryCardInline({
                 onPress={() => onUpdate({ ...cat, daysPerWeek: Math.max(1, cat.daysPerWeek - 1) })}
                 style={[inlineStyles.stepper, { borderColor: colors.border }]}
               >
-                <Ionicons name="remove" size={14} color={colors.textInactive} />
+                <SmartIcon name="remove" size={14} color={colors.textInactive} />
               </Pressable>
               <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: cat.color }}>
                 {cat.daysPerWeek}x
@@ -603,7 +604,7 @@ function TrainingCategoryCardInline({
                 onPress={() => onUpdate({ ...cat, daysPerWeek: Math.min(7, cat.daysPerWeek + 1) })}
                 style={[inlineStyles.stepper, { borderColor: colors.border }]}
               >
-                <Ionicons name="add" size={14} color={colors.textInactive} />
+                <SmartIcon name="add" size={14} color={colors.textInactive} />
               </Pressable>
               <Text style={{ fontSize: 11, color: colors.textInactive, fontFamily: fontFamily.regular }}>
                 per week

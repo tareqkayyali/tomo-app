@@ -15,6 +15,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -225,7 +226,7 @@ export function NotificationsScreen() {
         ]}
       >
         <View style={[styles.iconWrap, { backgroundColor: meta.color + '22' }]}>
-          <Ionicons name={meta.icon} size={20} color={meta.color} />
+          <SmartIcon name={meta.icon} size={20} color={meta.color} />
         </View>
         <View style={styles.cardContent}>
           <Text
@@ -254,14 +255,14 @@ export function NotificationsScreen() {
                     onPress={() => handleRespondToLink(item, 'accept')}
                     style={[styles.linkBtn, styles.linkBtnAccept]}
                   >
-                    <Ionicons name="checkmark" size={14} color={colors.textPrimary} />
+                    <SmartIcon name="checkmark" size={14} color={colors.textPrimary} />
                     <Text style={styles.linkBtnText}>Accept</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => handleRespondToLink(item, 'decline')}
                     style={[styles.linkBtn, styles.linkBtnDecline]}
                   >
-                    <Ionicons name="close" size={14} color={colors.textPrimary} />
+                    <SmartIcon name="close" size={14} color={colors.textPrimary} />
                     <Text style={styles.linkBtnText}>Decline</Text>
                   </Pressable>
                 </>
@@ -290,7 +291,7 @@ export function NotificationsScreen() {
               <Text style={[styles.navHintText, { color: colors.accent1 }]}>
                 {getNavHint(item.type, item.data)}
               </Text>
-              <Ionicons name="chevron-forward" size={12} color={colors.accent1} />
+              <SmartIcon name="chevron-forward" size={12} color={colors.accent1} />
             </View>
           )}
 
@@ -333,7 +334,7 @@ export function NotificationsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Ionicons name="notifications-off-outline" size={48} color={colors.textInactive} />
+            <SmartIcon name="notifications-off-outline" size={48} color={colors.textInactive} />
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               No notifications yet
             </Text>

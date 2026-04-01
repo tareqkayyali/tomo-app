@@ -11,7 +11,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { colors, spacing, borderRadius, typography, fontFamily } from '../theme';
 import { getReadinessMessage } from '../services/readinessScore';
 import type { ReadinessLevel, Archetype } from '../types';
@@ -75,7 +75,7 @@ export function ReadinessBadge({
           animatedStyle,
         ]}
       >
-        <Ionicons name={config.icon} size={ICON_SIZES[size]} color={config.color} />
+        <SmartIcon name={config.icon} size={ICON_SIZES[size]} color={config.color} />
         {showLabel && (
           <Text style={[styles.label, styles[`${size}Label`], { color: config.color }]}>
             {config.label}

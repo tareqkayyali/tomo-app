@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import { TomoIcon } from '../components/tomo-ui';
 
@@ -162,7 +163,7 @@ function CoachBackButton() {
       }}
       hitSlop={8}
     >
-      <Ionicons name="chevron-back" size={22} color={colors.accent1} />
+      <SmartIcon name="chevron-back" size={22} color={colors.accent1} />
     </Pressable>
   );
 }

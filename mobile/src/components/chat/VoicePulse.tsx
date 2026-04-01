@@ -8,7 +8,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { fontFamily, spacing } from '../../theme';
 
@@ -57,14 +57,14 @@ export const VoicePulse = React.memo(function VoicePulse({ duration, onStop, onC
         onPress={onCancel}
         style={({ pressed }) => [styles.cancelBtn, { opacity: pressed ? 0.5 : 0.7 }]}
       >
-        <Ionicons name="close" size={20} color={colors.textInactive} />
+        <SmartIcon name="close" size={20} color={colors.textInactive} />
       </Pressable>
 
       {/* Pulse + timer */}
       <View style={styles.center}>
         <Pressable onPress={onStop}>
           <Animated.View style={[styles.pulseCircle, { backgroundColor: colors.accent1 }, pulseStyle]}>
-            <Ionicons name="stop" size={18} color={colors.textOnDark} />
+            <SmartIcon name="stop" size={18} color={colors.textOnDark} />
           </Animated.View>
         </Pressable>
         <Text style={[styles.timer, { color: colors.textOnDark }]}>{timeStr}</Text>

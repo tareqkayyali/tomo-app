@@ -18,7 +18,7 @@ import Animated, {
   withDelay,
   Easing,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography, shadows, fontFamily } from '../theme';
 import { getArchetypeProfile } from '../services/archetypeProfile';
@@ -170,7 +170,7 @@ export function ReturnLoopWidget({
         {/* Row 1: Streak headline + freeze tokens */}
         <View style={styles.topRow}>
           <Animated.View style={[styles.headlineRow, streakAnimStyle]}>
-            <Ionicons
+            <SmartIcon
               name={currentStreak > 0 ? 'flame' : 'flame-outline'}
               size={22}
               color={colors.textOnDark}
@@ -180,7 +180,7 @@ export function ReturnLoopWidget({
 
           <View style={styles.freezeRow}>
             {Array.from({ length: MAX_FREEZE }).map((_, i) => (
-              <Ionicons
+              <SmartIcon
                 key={i}
                 name={i < clampedFreeze ? 'snow' : 'snow-outline'}
                 size={16}

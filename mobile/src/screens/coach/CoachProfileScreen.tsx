@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -103,12 +104,12 @@ export function CoachProfileScreen() {
         {/* Stats Row */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: colors.glass }]}>
-            <Ionicons name="people-outline" size={20} color={colors.accent1} />
+            <SmartIcon name="people-outline" size={20} color={colors.accent1} />
             <Text style={[styles.statValue, { color: colors.textOnDark }]}>{playerCount}</Text>
             <Text style={[styles.statLabel, { color: colors.textMuted }]}>Players</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.glass }]}>
-            <Ionicons name="barbell-outline" size={20} color={colors.accent2} />
+            <SmartIcon name="barbell-outline" size={20} color={colors.accent2} />
             <Text style={[styles.statValue, { color: colors.textOnDark }]}>0</Text>
             <Text style={[styles.statLabel, { color: colors.textMuted }]}>Programmes</Text>
           </View>
@@ -159,7 +160,7 @@ export function CoachProfileScreen() {
         <Pressable onPress={handleLogout} style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
           <GlassCard>
             <View style={styles.logoutRow}>
-              <Ionicons name="log-out-outline" size={20} color={colors.error} />
+              <SmartIcon name="log-out-outline" size={20} color={colors.error} />
               <Text style={styles.logoutText}>Log Out</Text>
             </View>
           </GlassCard>
@@ -187,10 +188,10 @@ function SettingsRow({
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.settingsRow, { opacity: pressed ? 0.8 : 1 }]}>
       <View style={[styles.settingsIcon, { backgroundColor: color + '18' }]}>
-        <Ionicons name={icon} size={18} color={color} />
+        <SmartIcon name={icon} size={18} color={color} />
       </View>
       <Text style={[styles.settingsLabel, { color: textColor }]}>{label}</Text>
-      <Ionicons name="chevron-forward" size={16} color={chevronColor} />
+      <SmartIcon name="chevron-forward" size={16} color={chevronColor} />
     </Pressable>
   );
 }

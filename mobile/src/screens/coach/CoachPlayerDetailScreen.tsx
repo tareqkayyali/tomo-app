@@ -15,7 +15,7 @@ import {
   Platform,
   PanResponder,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -209,13 +209,13 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
                 onPress={() => navigation.navigate('CoachAddProgram', { playerId, playerName })}
                 style={[styles.actionBtn, { backgroundColor: colors.accent2 + '22' }]}
               >
-                <Ionicons name="barbell-outline" size={16} color={colors.accent2} />
+                <SmartIcon name="barbell-outline" size={16} color={colors.accent2} />
               </Pressable>
               <Pressable
                 onPress={() => navigation.navigate('CoachTestInput', { playerId, playerName })}
                 style={[styles.actionBtn, { backgroundColor: colors.accent1 }]}
               >
-                <Ionicons name="flash-outline" size={16} color={colors.textPrimary} />
+                <SmartIcon name="flash-outline" size={16} color={colors.textPrimary} />
               </Pressable>
             </View>
           </View>

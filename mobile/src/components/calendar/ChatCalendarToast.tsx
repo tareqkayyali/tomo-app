@@ -11,7 +11,7 @@ import Animated, {
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, borderRadius, fontFamily, shadows } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
@@ -65,7 +65,7 @@ export function ChatCalendarToast({
   return (
     <Animated.View style={[styles.container, animatedStyle]}>
       <Pressable onPress={dismiss} style={styles.inner}>
-        <Ionicons
+        <SmartIcon
           name="calendar"
           size={20}
           color={colors.accent1}

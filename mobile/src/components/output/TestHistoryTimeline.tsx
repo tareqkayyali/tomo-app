@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import type { MyTestResult } from '../../services/api';
@@ -63,7 +63,7 @@ export function TestHistoryTimeline({
         </Text>
         {onClose && (
           <Pressable onPress={onClose} hitSlop={8}>
-            <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+            <SmartIcon name="close-circle" size={16} color={colors.textMuted} />
           </Pressable>
         )}
       </View>

@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { GlassCard } from '../GlassCard';
 import { GlowWrapper } from '../GlowWrapper';
 import { MetricPill } from './MetricPill';
@@ -92,7 +93,7 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
                     backgroundColor: colors.textDisabled + '10',
                   }}
                 >
-                  <Ionicons name="time-outline" size={28} color={colors.textDisabled} />
+                  <SmartIcon name="time-outline" size={28} color={colors.textDisabled} />
                 </View>
                 <Text
                   style={{
@@ -162,7 +163,7 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
                   marginTop: spacing.xs,
                 }}
               >
-                <Ionicons
+                <SmartIcon
                   name={trendIcon(snapshot.wellness_trend)}
                   size={14}
                   color={trendColor(snapshot.wellness_trend, colors)}

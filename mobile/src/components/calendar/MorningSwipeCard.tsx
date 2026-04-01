@@ -24,7 +24,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, borderRadius } from '../../theme';
@@ -185,7 +185,7 @@ export function MorningSwipeCard({
     return (
       <Animated.View style={[styles.confirmedContainer, containerAnimStyle]}>
         <Animated.View style={[styles.confirmedBadge, confirmedBadgeStyle]}>
-          <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+          <SmartIcon name="checkmark-circle" size={20} color={colors.success} />
           <Text style={styles.confirmedText}>Confirmed</Text>
           {planningStreak > 0 && (
             <Text style={styles.confirmedStreak}>
@@ -214,7 +214,7 @@ export function MorningSwipeCard({
 
         {/* Top row — greeting */}
         <View style={styles.topRow}>
-          <Ionicons
+          <SmartIcon
             name="sunny-outline"
             size={20}
             color={colors.accent1}
@@ -234,7 +234,7 @@ export function MorningSwipeCard({
               { backgroundColor: intensityConfig.bgColor },
             ]}
           >
-            <Ionicons
+            <SmartIcon
               name={intensityConfig.icon as any}
               size={14}
               color={intensityConfig.color}
@@ -250,7 +250,7 @@ export function MorningSwipeCard({
         {/* Swipe affordance */}
         <Animated.View style={[styles.swipeRow, swipeTrackStyle]}>
           <Animated.View style={chevronAnimStyle}>
-            <Ionicons
+            <SmartIcon
               name="chevron-forward"
               size={20}
               color={colors.accent1}

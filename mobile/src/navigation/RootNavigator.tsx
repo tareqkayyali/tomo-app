@@ -14,7 +14,8 @@
  */
 
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { TomoLoader } from '../components/TomoLoader';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthNavigator } from './AuthNavigator';
@@ -59,6 +60,7 @@ const linking: any = {
           AddEvent: 'add-event',
           Settings: 'settings',
           Profile: 'profile',
+          PlayerCV: 'cv',
         },
       },
     },
@@ -74,7 +76,7 @@ export function RootNavigator() {
   if (isLoading && !isPreviewMode) {
     return (
       <View style={[styles.loading, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.accent1} />
+        <TomoLoader />
       </View>
     );
   }

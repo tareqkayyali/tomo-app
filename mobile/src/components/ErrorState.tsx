@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { Button } from './Button';
 import { spacing, borderRadius } from '../theme';
 import { useTheme } from '../hooks/useTheme';
@@ -27,7 +27,7 @@ export function ErrorState({
   if (compact) {
     return (
       <View style={styles.compactContainer}>
-        <Ionicons name="alert-circle" size={20} color={colors.warning} />
+        <SmartIcon name="alert-circle" size={20} color={colors.warning} />
         <Text style={styles.compactMessage}>{message}</Text>
         {onRetry && (
           <Button title="Retry" onPress={onRetry} variant="ghost" size="small" />
@@ -38,7 +38,7 @@ export function ErrorState({
 
   return (
     <View style={styles.container}>
-      <Ionicons name="cloud-offline-outline" size={48} color={colors.textMuted} />
+      <SmartIcon name="cloud-offline-outline" size={48} color={colors.textMuted} />
       <Text style={styles.message}>{message}</Text>
       {onRetry && (
         <Button

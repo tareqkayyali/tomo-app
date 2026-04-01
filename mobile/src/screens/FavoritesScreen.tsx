@@ -14,7 +14,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../hooks/useTheme';
@@ -69,7 +69,7 @@ export function FavoritesScreen() {
           hitSlop={12}
           style={styles.backBtn}
         >
-          <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
+          <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
         </Pressable>
         <Text style={styles.title}>Favorites</Text>
         <View style={{ width: 36 }} />
@@ -113,7 +113,7 @@ export function FavoritesScreen() {
                   },
                 ]}
               >
-                <Ionicons
+                <SmartIcon
                   name={option.icon}
                   size={18}
                   color={isSelected ? colors.accent1 : colors.textOnDark}
@@ -140,7 +140,7 @@ export function FavoritesScreen() {
                 ]}
               >
                 {isSelected && (
-                  <Ionicons name="checkmark" size={14} color={colors.textPrimary} />
+                  <SmartIcon name="checkmark" size={14} color={colors.textPrimary} />
                 )}
               </View>
             </Pressable>

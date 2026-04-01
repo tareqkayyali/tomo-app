@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Pressable, View, Text, StyleSheet, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import { fontFamily } from '../theme';
 import { useTheme } from '../hooks/useTheme';
@@ -43,7 +43,7 @@ export function HeaderProfileButton({ photoUrl, initial, onPress }: HeaderProfil
         </View>
       ) : (
         <View style={[styles.iconCircle, { backgroundColor: colors.glass }]}>
-          <Ionicons name="person-outline" size={18} color={colors.textOnDark} />
+          <SmartIcon name="person-outline" size={18} color={colors.textOnDark} />
         </View>
       )}
     </Pressable>

@@ -11,7 +11,7 @@
 
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
@@ -57,7 +57,7 @@ export function ExamStudyPlanner({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="school" size={16} color={ACADEMIC_PURPLE} />
+          <SmartIcon name="school" size={16} color={ACADEMIC_PURPLE} />
           <Text style={styles.headerTitle}>EXAM MODE</Text>
         </View>
         <View style={styles.examBadge}>
@@ -110,7 +110,7 @@ export function ExamStudyPlanner({
                 </Text>
               </View>
               <View style={styles.addBtn}>
-                <Ionicons name="add-circle" size={24} color={ACADEMIC_PURPLE} />
+                <SmartIcon name="add-circle" size={24} color={ACADEMIC_PURPLE} />
               </View>
             </TouchableOpacity>
           ))}

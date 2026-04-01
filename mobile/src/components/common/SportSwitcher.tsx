@@ -35,6 +35,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { useSportContext, type ActiveSport } from '../../hooks/useSportContext';
 import { fontFamily, spacing } from '../../theme';
@@ -173,12 +174,12 @@ function Segment({ sport, isActive, onPress }: SegmentProps) {
             end={{ x: 1, y: 1 }}
             style={styles.segmentActive}
           >
-            <Ionicons name={meta.icon} size={14} color={themeColors.textOnAccent} />
+            <SmartIcon name={meta.icon} size={14} color={themeColors.textOnAccent} />
             <Text style={[styles.segmentTextActive, { color: themeColors.textOnAccent }]}>{meta.label}</Text>
           </LinearGradient>
         ) : (
           <View style={styles.segmentInactive}>
-            <Ionicons name={meta.icon} size={14} color={themeColors.textInactive} />
+            <SmartIcon name={meta.icon} size={14} color={themeColors.textInactive} />
             <Text style={[styles.segmentTextInactive, { color: themeColors.textInactive }]}>
               {meta.label}
             </Text>

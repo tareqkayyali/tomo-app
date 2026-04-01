@@ -16,7 +16,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -97,7 +97,7 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.successContainer}>
           <View style={[styles.successIcon, { backgroundColor: colors.success + '22' }]}>
-            <Ionicons name="checkmark-circle" size={64} color={colors.success} />
+            <SmartIcon name="checkmark-circle" size={64} color={colors.success} />
           </View>
           <Text style={[styles.successTitle, { color: colors.textOnDark }]}>Study Block Added</Text>
           <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>

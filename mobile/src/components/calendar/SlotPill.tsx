@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import * as Haptics from 'expo-haptics';
 import { fontFamily, borderRadius } from '../../theme';
 import { colors } from '../../theme/colors';
@@ -62,7 +62,7 @@ export function SlotPill({
       ]}
     >
       {isBest && (
-        <Ionicons name="sparkles" size={12} color={colors.accent1} />
+        <SmartIcon name="sparkles" size={12} color={colors.accent1} />
       )}
       <Text
         style={[

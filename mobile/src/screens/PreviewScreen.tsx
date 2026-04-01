@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { useTheme } from '../hooks/useTheme';
 import { fontFamily, spacing, borderRadius } from '../theme';
 
@@ -41,10 +41,10 @@ export function PreviewScreen() {
         </View>
         <View style={ss.headerRight}>
           <View style={[ss.iconBtn, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
-            <Ionicons name="notifications-outline" size={18} color={colors.textOnDark} />
+            <SmartIcon name="notifications-outline" size={18} color={colors.textOnDark} />
           </View>
           <View style={[ss.iconBtn, { backgroundColor: colors.accent1 + '22', borderColor: colors.accent1 }]}>
-            <Ionicons name="person" size={18} color={colors.accent1} />
+            <SmartIcon name="person" size={18} color={colors.accent1} />
           </View>
         </View>
       </View>
@@ -102,7 +102,7 @@ export function PreviewScreen() {
           {/* AI Insight card */}
           <View style={[ss.glassCard, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
             <View style={ss.insightHeader}>
-              <Ionicons name="sparkles" size={16} color={colors.accent2} />
+              <SmartIcon name="sparkles" size={16} color={colors.accent2} />
               <Text style={[ss.insightTitle, { color: colors.accent2 }]}>AI Insight</Text>
             </View>
             <Text style={[ss.insightBody, { color: colors.textOnDark }]}>
@@ -143,7 +143,7 @@ export function PreviewScreen() {
             {[
               { label: '10m Sprint', pct: 78, zone: 'Good', zoneColor: '#2ECC71' },
               { label: 'CMJ Height', pct: 62, zone: 'Average', zoneColor: '#3498DB' },
-              { label: 'Agility T-Test', pct: 45, zone: 'Developing', zoneColor: '#F39C12' },
+              { label: 'Agility T-Test', pct: 45, zone: 'Developing', zoneColor: colors.warning },
               { label: 'Yo-Yo IR1', pct: 88, zone: 'Elite', zoneColor: '#27AE60' },
             ].map((m) => (
               <View key={m.label} style={ss.benchRow}>
@@ -273,10 +273,10 @@ export function PreviewScreen() {
             <Text style={[ss.cardLabel, { color: colors.textMuted }]}>Mastery Pillars</Text>
             {[
               { emoji: '⚡', name: 'Speed & Power', pct: 75, badge: 'Strength', badgeColor: '#2ECC71' },
-              { emoji: '🎯', name: 'Technical Skill', pct: 68, badge: 'Growth', badgeColor: '#F39C12' },
+              { emoji: '🎯', name: 'Technical Skill', pct: 68, badge: 'Growth', badgeColor: colors.warning },
               { emoji: '🧠', name: 'Game Intelligence', pct: 72, badge: 'Strength', badgeColor: '#2ECC71' },
               { emoji: '💪', name: 'Physical Resilience', pct: 80, badge: 'Strength', badgeColor: '#2ECC71' },
-              { emoji: '🔋', name: 'Endurance', pct: 55, badge: 'Growth', badgeColor: '#F39C12' },
+              { emoji: '🔋', name: 'Endurance', pct: 55, badge: 'Growth', badgeColor: colors.warning },
             ].map((p) => (
               <View key={p.name} style={ss.pillarRow}>
                 <Text style={ss.pillarEmoji}>{p.emoji}</Text>
@@ -309,14 +309,14 @@ export function PreviewScreen() {
           {/* Recommendation cards */}
           {[
             { type: 'READINESS', title: 'Rest Day Recommended', body: 'Your ACWR is 1.4 and climbing. Take a light day to avoid overtraining.', color: '#2ECC71', priority: 'P1', icon: 'shield-checkmark' as const },
-            { type: 'LOAD_WARNING', title: 'Training Load Spike', body: 'Acute load 15% above chronic baseline. Reduce intensity in next session.', color: '#F39C12', priority: 'P2', icon: 'warning' as const },
+            { type: 'LOAD_WARNING', title: 'Training Load Spike', body: 'Acute load 15% above chronic baseline. Reduce intensity in next session.', color: colors.warning, priority: 'P2', icon: 'warning' as const },
             { type: 'DEVELOPMENT', title: 'Sprint PB Opportunity', body: 'Your 10m time has improved 8% this month. Test again this week.', color: colors.accent2, priority: 'P3', icon: 'trending-up' as const },
             { type: 'ACADEMIC', title: 'Exam in 5 Days', body: 'Math exam Friday. Study blocks auto-scheduled around training.', color: colors.accent2, priority: 'P3', icon: 'school' as const },
             { type: 'CV_OPPORTUNITY', title: 'Club Scout Viewed Profile', body: 'Arsenal Academy viewed your CV 2 hours ago.', color: '#3498DB', priority: 'P2', icon: 'eye' as const },
           ].map((r) => (
             <View key={r.title} style={[ss.recCard, { backgroundColor: colors.backgroundElevated, borderLeftColor: r.color, borderLeftWidth: 3 }]}>
               <View style={ss.recHeader}>
-                <Ionicons name={r.icon} size={18} color={r.color} />
+                <SmartIcon name={r.icon} size={18} color={r.color} />
                 <Text style={[ss.recType, { color: r.color }]}>{r.type.replace(/_/g, ' ')}</Text>
                 <View style={[ss.priorityBadge, { backgroundColor: r.color + '22' }]}>
                   <Text style={[ss.priorityText, { color: r.color }]}>{r.priority}</Text>
@@ -448,10 +448,10 @@ export function PreviewScreen() {
           <View key={t.label} style={ss.tabBarItem}>
             {t.active ? (
               <LinearGradient colors={[colors.accent1, colors.accent2]} style={ss.centerTab}>
-                <Ionicons name={t.icon} size={20} color="#FFF" />
+                <SmartIcon name={t.icon} size={20} color="#FFF" />
               </LinearGradient>
             ) : (
-              <Ionicons name={t.icon} size={22} color={colors.textInactive} />
+              <SmartIcon name={t.icon} size={22} color={colors.textInactive} />
             )}
             <Text style={[ss.tabBarLabel, { color: t.active ? colors.accent1 : colors.textInactive }]}>{t.label}</Text>
           </View>

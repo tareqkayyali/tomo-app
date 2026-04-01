@@ -8,7 +8,7 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, TextInput, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -41,7 +41,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   mandatory: colors.error,
   high: colors.warning,
   medium: colors.accent,
-  player_selected: '#00D9FF',
+  player_selected: colors.accent2,
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -167,7 +167,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       <GlassCard>
         <View style={styles.emptyState}>
           <View style={[styles.emptyIconCircle, { backgroundColor: colors.accent2 + '12' }]}>
-            <Ionicons name={loadingMsg.icon} size={28} color={colors.accent2} />
+            <SmartIcon name={loadingMsg.icon} size={28} color={colors.accent2} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
             {loadingMsg.title}
@@ -186,7 +186,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
                 ]}
                 onPress={onNavigateCheckin}
               >
-                <Ionicons name="checkmark-circle-outline" size={16} color={colors.textOnDark} />
+                <SmartIcon name="checkmark-circle-outline" size={16} color={colors.textOnDark} />
                 <Text style={styles.ctaButtonText}>Daily Check-in</Text>
               </Pressable>
             )}
@@ -198,7 +198,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
                 ]}
                 onPress={onForceRefresh}
               >
-                <Ionicons name="refresh-outline" size={16} color={colors.textOnDark} />
+                <SmartIcon name="refresh-outline" size={16} color={colors.textOnDark} />
                 <Text style={styles.ctaButtonText}>Generate Now</Text>
               </Pressable>
             )}
@@ -214,7 +214,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       <GlassCard>
         <View style={styles.emptyState}>
           <View style={[styles.emptyIconCircle, { backgroundColor: colors.accent1 + '12' }]}>
-            <Ionicons name="barbell-outline" size={28} color={colors.accent1} />
+            <SmartIcon name="barbell-outline" size={28} color={colors.accent1} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
             No Programs Yet
@@ -230,7 +230,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               ]}
               onPress={onForceRefresh}
             >
-              <Ionicons name="sparkles-outline" size={16} color={colors.textOnDark} />
+              <SmartIcon name="sparkles-outline" size={16} color={colors.textOnDark} />
               <Text style={styles.ctaButtonText}>Generate Programs</Text>
             </Pressable>
           )}
@@ -267,7 +267,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       {/* ── Deep Refresh Indicator ──────────────────────────────── */}
       {isDeepRefreshing && (
         <View style={[styles.refreshBanner, { backgroundColor: 'rgba(255, 107, 53, 0.08)' }]}>
-          <Ionicons name={(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).icon} size={16} color={colors.accent1} />
+          <SmartIcon name={(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).icon} size={16} color={colors.accent1} />
           <Text style={[styles.refreshText, { color: colors.accent1 }]}>
             {(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).title}...
           </Text>
@@ -276,7 +276,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
 
       {/* ── Program Search Bar ─────────────────────────────── */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={16} color={searchFocused ? colors.accent1 : colors.textInactive} />
+        <SmartIcon name="search" size={16} color={searchFocused ? colors.accent1 : colors.textInactive} />
         <TextInput
           style={[styles.searchInput, { color: colors.textOnDark }]}
           placeholder="Search programs... (sprint, strength, agility)"
@@ -288,7 +288,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
         />
         {searchQuery.length > 0 && (
           <Pressable onPress={() => { setSearchQuery(''); setSearchResults([]); }} hitSlop={8}>
-            <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+            <SmartIcon name="close-circle" size={16} color={colors.textMuted} />
           </Pressable>
         )}
       </View>
@@ -313,12 +313,12 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               </View>
               {playerSelectedIds.includes(prog.id) ? (
                 <View style={[styles.addBadge, { backgroundColor: colors.accent + '18' }]}>
-                  <Ionicons name="checkmark" size={14} color={colors.accent} />
+                  <SmartIcon name="checkmark" size={14} color={colors.accent} />
                   <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.accent }}>Added</Text>
                 </View>
               ) : (
                 <View style={[styles.addBadge, { backgroundColor: colors.accent1 + '18' }]}>
-                  <Ionicons name="add" size={14} color={colors.accent1} />
+                  <SmartIcon name="add" size={14} color={colors.accent1} />
                   <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.accent1 }}>Add</Text>
                 </View>
               )}
@@ -331,7 +331,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       {coachAssigned.length > 0 && (
         <View style={styles.group}>
           <Pressable onPress={() => setCoachGroupExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
-            <Ionicons
+            <SmartIcon
               name={coachGroupExpanded ? 'chevron-down' : 'chevron-forward'}
               size={16}
               color={colors.textMuted}
@@ -359,7 +359,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       {playerSelectedIds.length > 0 && (
         <View style={styles.group}>
           <Pressable onPress={() => setMyPicksExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
-            <Ionicons
+            <SmartIcon
               name={myPicksExpanded ? 'chevron-down' : 'chevron-forward'}
               size={16}
               color={colors.textMuted}
@@ -463,7 +463,7 @@ function PriorityGroup({ label, programs, colors, onDone, onDismiss, activeIds =
   return (
     <View style={styles.group}>
       <Pressable onPress={() => setExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
-        <Ionicons
+        <SmartIcon
           name={expanded ? 'chevron-down' : 'chevron-forward'}
           size={16}
           color={colors.textMuted}
@@ -489,7 +489,7 @@ function PriorityGroup({ label, programs, colors, onDone, onDismiss, activeIds =
                 <Text style={[styles.showMoreText, { color: colors.accent1 }]}>
                   Show {programs.length - 5} more
                 </Text>
-                <Ionicons name="chevron-down" size={14} color={colors.accent1} />
+                <SmartIcon name="chevron-down" size={14} color={colors.accent1} />
               </View>
             </Pressable>
           )}
@@ -513,7 +513,7 @@ function ActiveGroup({ programs, colors, onDone, onToggleActive, onAddToCalendar
   return (
     <View style={styles.group}>
       <Pressable onPress={() => setExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
-        <Ionicons
+        <SmartIcon
           name={expanded ? 'chevron-down' : 'chevron-forward'}
           size={16}
           color={colors.textMuted}
@@ -572,7 +572,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               {program.frequency} · {program.durationMin} min · {(program as any).durationWeeks || 4}wks
             </Text>
           </View>
-          <Ionicons
+          <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
             color={colors.textMuted}
@@ -597,7 +597,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   onToggleActive(program.programId);
                 }}
               >
-                <Ionicons name={isActive ? 'flame' : 'flame-outline'} size={16} color={isActive ? colors.accent : colors.textMuted} />
+                <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={16} color={isActive ? colors.accent : colors.textMuted} />
                 <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.textMuted }]}>Active</Text>
               </Pressable>
             )}
@@ -612,7 +612,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   setConfirmAction('done');
                 }}
               >
-                <Ionicons name="checkmark-circle-outline" size={16} color={colors.accent} />
+                <SmartIcon name="checkmark-circle-outline" size={16} color={colors.accent} />
                 <Text style={[styles.cardActionText, { color: colors.accent }]}>Done</Text>
               </Pressable>
             )}
@@ -627,7 +627,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   setConfirmAction('dismissed');
                 }}
               >
-                <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
+                <SmartIcon name="close-circle-outline" size={16} color={colors.textMuted} />
                 <Text style={[styles.cardActionText, { color: colors.textMuted }]}>Not for me</Text>
               </Pressable>
             )}
@@ -639,7 +639,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
           const isDone = confirmAction === 'done';
           return (
             <View style={[styles.confirmRow, { backgroundColor: isDone ? '#2ECC7110' : colors.accent1 + '10', borderRadius: borderRadius.sm, marginTop: spacing.sm }]}>
-              <Ionicons
+              <SmartIcon
                 name={isDone ? 'checkmark-circle' : 'close-circle'}
                 size={18}
                 color={isDone ? colors.accent : colors.accent1}
@@ -676,7 +676,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             {/* Coach badge */}
             {isCoachAssigned && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="person-circle-outline" size={14} color={colors.info} />
+                <SmartIcon name="person-circle-outline" size={14} color={colors.info} />
                 <Text style={{ fontSize: 11, fontFamily: fontFamily.semiBold, color: colors.info }}>
                   Assigned by Coach {(program as any).coachName || ''}
                 </Text>
@@ -697,7 +697,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
 
             {/* Impact statement */}
             <View style={[styles.impactBanner, { backgroundColor: priorityColor + '10' }]}>
-              <Ionicons name="flash" size={14} color={priorityColor} />
+              <SmartIcon name="flash" size={14} color={priorityColor} />
               <Text style={[styles.impactText, { color: priorityColor }]}>
                 {program.impact}
               </Text>
@@ -706,7 +706,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             {/* Position note */}
             {program.positionNote ? (
               <View style={[styles.positionBadge, { backgroundColor: colors.accent1 + '12' }]}>
-                <Ionicons name="football-outline" size={12} color={colors.accent1} />
+                <SmartIcon name="football-outline" size={12} color={colors.accent1} />
                 <Text style={[styles.positionBadgeText, { color: colors.accent1 }]}>{program.positionNote}</Text>
               </View>
             ) : null}
@@ -714,7 +714,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             {/* PHV Warnings */}
             {program.phvWarnings.length > 0 && (
               <View style={[styles.warningBadge, { backgroundColor: '#FF453A15' }]}>
-                <Ionicons name="warning-outline" size={12} color={colors.error} />
+                <SmartIcon name="warning-outline" size={12} color={colors.error} />
                 <Text style={styles.warningText}>{program.phvWarnings[0]}</Text>
               </View>
             )}
@@ -737,7 +737,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             {program.reason && (
               <View style={[styles.reasonBlock, { backgroundColor: colors.glass }]}>
                 <View style={styles.reasonHeader}>
-                  <Ionicons name="bulb-outline" size={14} color={colors.accent1} />
+                  <SmartIcon name="bulb-outline" size={14} color={colors.accent1} />
                   <Text style={[styles.reasonLabel, { color: colors.accent1 }]}>Why this program</Text>
                 </View>
                 <Text style={[styles.reasonText, { color: colors.textOnDark }]}>{program.reason}</Text>
@@ -747,7 +747,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             {/* Position note expanded */}
             {program.positionNote ? (
               <View style={styles.positionExpandedRow}>
-                <Ionicons name="football-outline" size={14} color={colors.accent1} />
+                <SmartIcon name="football-outline" size={14} color={colors.accent1} />
                 <Text style={[styles.positionExpandedText, { color: colors.textMuted }]}>{program.positionNote}</Text>
               </View>
             ) : null}
@@ -805,7 +805,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                 }}
                 style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
               >
-                <Ionicons name="barbell-outline" size={16} color={colors.info} />
+                <SmartIcon name="barbell-outline" size={16} color={colors.info} />
                 <Text style={[styles.askTomoText, { color: colors.info }]}>Add to Training</Text>
               </Pressable>
             )}
@@ -825,7 +825,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               }}
               style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
             >
-              <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.info} />
+              <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.info} />
               <Text style={[styles.askTomoText, { color: colors.info }]}>Ask Tomo about this program</Text>
             </Pressable>
 

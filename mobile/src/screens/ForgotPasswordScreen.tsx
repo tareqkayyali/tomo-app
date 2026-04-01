@@ -13,7 +13,7 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, Input } from '../components';
 import {
@@ -64,7 +64,7 @@ export function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) 
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
           <View style={styles.successIcon}>
-            <Ionicons name="mail-outline" size={48} color={colors.accent1} />
+            <SmartIcon name="mail-outline" size={48} color={colors.accent1} />
           </View>
           <Text style={styles.successTitle}>Check your email</Text>
           <Text style={styles.successSubtitle}>
@@ -96,7 +96,7 @@ export function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) 
             style={styles.backButton}
             hitSlop={12}
           >
-            <Ionicons name="arrow-back" size={24} color={colors.textOnDark} />
+            <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
           </Pressable>
 
           <View style={styles.header}>
@@ -109,7 +109,7 @@ export function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) 
           <View style={styles.form}>
             {error !== '' && (
               <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={18} color={colors.error} />
+                <SmartIcon name="alert-circle" size={18} color={colors.error} />
                 <Text style={styles.errorBannerText}>{error}</Text>
               </View>
             )}

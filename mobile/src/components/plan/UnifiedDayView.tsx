@@ -17,7 +17,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { PinchGestureHandler, State as GestureState } from 'react-native-gesture-handler';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import {
   ExamStudyPlanner,
@@ -207,7 +207,7 @@ export function UnifiedDayView({
         /* Fallback: arrow nav for coach/parent views without onDaySelect */
         <View style={styles.dayNav}>
           <Pressable onPress={onPrevDay} hitSlop={12} style={styles.dayNavArrow}>
-            <Ionicons name="chevron-back" size={22} color={colors.textOnDark} />
+            <SmartIcon name="chevron-back" size={22} color={colors.textOnDark} />
           </Pressable>
           <Pressable onPress={onToday} style={styles.dayNavCenter}>
             <Text style={[styles.dayNavLabel, isToday && { color: colors.accent1 }]}>
@@ -215,7 +215,7 @@ export function UnifiedDayView({
             </Text>
           </Pressable>
           <Pressable onPress={onNextDay} hitSlop={12} style={styles.dayNavArrow}>
-            <Ionicons name="chevron-forward" size={22} color={colors.textOnDark} />
+            <SmartIcon name="chevron-forward" size={22} color={colors.textOnDark} />
           </Pressable>
         </View>
       )}
@@ -247,7 +247,7 @@ export function UnifiedDayView({
               style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', opacity: zoomLevel <= 0.7 ? 0.3 : 1 }}
               disabled={zoomLevel <= 0.7}
             >
-              <Ionicons name="remove" size={16} color={colors.textMuted} />
+              <SmartIcon name="remove" size={16} color={colors.textMuted} />
             </TouchableOpacity>
             <Text style={{ color: colors.textMuted, fontSize: 11, fontFamily: 'Poppins_500Medium', minWidth: 32, textAlign: 'center' }}>
               {Math.round(zoomLevel * 100)}%
@@ -257,7 +257,7 @@ export function UnifiedDayView({
               style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', opacity: zoomLevel >= 1.5 ? 0.3 : 1 }}
               disabled={zoomLevel >= 1.5}
             >
-              <Ionicons name="add" size={16} color={colors.textMuted} />
+              <SmartIcon name="add" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         )}

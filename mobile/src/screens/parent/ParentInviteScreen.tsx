@@ -16,7 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -85,7 +85,7 @@ export function ParentInviteScreen({ navigation }: Props) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
         <View style={[styles.iconWrap, { backgroundColor: colors.accent1 + '22' }]}>
-          <Ionicons name="mail-outline" size={48} color={colors.accent1} />
+          <SmartIcon name="mail-outline" size={48} color={colors.accent1} />
         </View>
 
         <Text style={[styles.title, { color: colors.textOnDark }]}>Invite Code</Text>
@@ -103,7 +103,7 @@ export function ParentInviteScreen({ navigation }: Props) {
               <ActivityIndicator color={colors.textOnDark} />
             ) : (
               <>
-                <Ionicons name="key-outline" size={20} color={colors.textOnDark} />
+                <SmartIcon name="key-outline" size={20} color={colors.textOnDark} />
                 <Text style={[styles.generateText, { color: colors.textOnDark }]}>Generate Code</Text>
               </>
             )}
@@ -127,7 +127,7 @@ export function ParentInviteScreen({ navigation }: Props) {
                 style={[styles.actionButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={handleCopy}
               >
-                <Ionicons
+                <SmartIcon
                   name={copied ? 'checkmark-circle' : 'copy-outline'}
                   size={20}
                   color={copied ? colors.success : colors.textOnDark}
@@ -141,7 +141,7 @@ export function ParentInviteScreen({ navigation }: Props) {
                 style={[styles.actionButton, { backgroundColor: colors.accent1 }]}
                 onPress={handleShare}
               >
-                <Ionicons name="share-outline" size={20} color={colors.textOnDark} />
+                <SmartIcon name="share-outline" size={20} color={colors.textOnDark} />
                 <Text style={[styles.actionText, { color: colors.textOnDark }]}>Share</Text>
               </TouchableOpacity>
             </View>

@@ -13,7 +13,7 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { Card, ReadinessBadge, SkeletonCard, ErrorState, EmptyState } from '../components';
 import { colors, spacing, typography, borderRadius, fontFamily } from '../theme';
 import { getCheckins } from '../services/api';
@@ -126,15 +126,15 @@ export function HistoryScreen() {
                       )}
                       <View style={styles.checkinSummary}>
                         <View style={styles.checkinMini}>
-                          <Ionicons name="sunny-outline" size={14} color={colors.textMuted} />
+                          <SmartIcon name="sunny-outline" size={14} color={colors.textMuted} />
                           <Text style={styles.checkinMiniText}>{checkin.energy}</Text>
                         </View>
                         <View style={styles.checkinMini}>
-                          <Ionicons name="moon-outline" size={14} color={colors.textMuted} />
+                          <SmartIcon name="moon-outline" size={14} color={colors.textMuted} />
                           <Text style={styles.checkinMiniText}>{checkin.sleepHours}h</Text>
                         </View>
                       </View>
-                      <Ionicons
+                      <SmartIcon
                         name={isExpanded ? 'chevron-up' : 'chevron-down'}
                         size={16}
                         color={colors.textMuted}

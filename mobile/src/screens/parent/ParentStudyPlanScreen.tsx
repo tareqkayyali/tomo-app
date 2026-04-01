@@ -18,7 +18,7 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -219,7 +219,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.emptyCenter}>
-          <Ionicons name="lock-closed-outline" size={40} color={colors.textInactive} />
+          <SmartIcon name="lock-closed-outline" size={40} color={colors.textInactive} />
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No children linked</Text>
           <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
             Link your child first to view their study plans.
@@ -268,7 +268,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
         {/* Missing data state */}
         {!profileLoading && hasMissingData && selectedChild && (
           <View style={styles.emptyCenter}>
-            <Ionicons name="school-outline" size={48} color={colors.textInactive} />
+            <SmartIcon name="school-outline" size={48} color={colors.textInactive} />
             <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>{missingDataMessage}</Text>
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               {selectedChild.name} needs to add this info in their profile.
@@ -282,7 +282,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
                 <ActivityIndicator size="small" color={colors.textOnDark} />
               ) : (
                 <>
-                  <Ionicons name="notifications-outline" size={18} color={colors.textOnDark} />
+                  <SmartIcon name="notifications-outline" size={18} color={colors.textOnDark} />
                   <Text style={[styles.notifyBtnText, { color: colors.textOnDark }]}>Notify {selectedChild.name.split(' ')[0]}</Text>
                 </>
               )}
@@ -301,7 +301,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
 
               {/* Subjects */}
               <View style={styles.summaryRow}>
-                <Ionicons name="book-outline" size={16} color={colors.accent1} />
+                <SmartIcon name="book-outline" size={16} color={colors.accent1} />
                 <View style={styles.summaryChips}>
                   {studyProfile.studySubjects.map((s) => (
                     <View key={s} style={[styles.readOnlyChip, { backgroundColor: colors.surface }]}>
@@ -313,7 +313,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
 
               {/* Exams */}
               <View style={styles.summaryRow}>
-                <Ionicons name="document-text-outline" size={16} color={colors.error} />
+                <SmartIcon name="document-text-outline" size={16} color={colors.error} />
                 <View style={{ flex: 1, gap: 4 }}>
                   {studyProfile.examSchedule.map((e) => (
                     <Text key={e.id} style={[styles.examLine, { color: colors.textSecondary }]}>
@@ -326,7 +326,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
               {/* Training */}
               {studyProfile.trainingPreferences && (
                 <View style={styles.summaryRow}>
-                  <Ionicons name="barbell-outline" size={16} color={colors.accent1} />
+                  <SmartIcon name="barbell-outline" size={16} color={colors.accent1} />
                   <Text style={[styles.examLine, { color: colors.textSecondary }]}>
                     Gym: {studyProfile.trainingPreferences.gymSessionsPerWeek || 0}x/wk
                     {(studyProfile.trainingPreferences.gymFixedDays?.length ?? 0) > 0 &&
@@ -342,7 +342,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
               {/* Generator config summary */}
               {studyProfile.studyPlanConfig && Object.keys(studyProfile.studyPlanConfig).length > 0 && (
                 <View style={styles.summaryRow}>
-                  <Ionicons name="settings-outline" size={16} color={colors.textInactive} />
+                  <SmartIcon name="settings-outline" size={16} color={colors.textInactive} />
                   <Text style={[styles.examLine, { color: colors.textInactive }]}>
                     {(studyProfile.studyPlanConfig as any).sessionDuration || 45}min sessions
                     {' · '}
@@ -383,7 +383,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
                 style={[styles.actionBtn, { backgroundColor: colors.accent1 }]}
                 onPress={() => setShowSuggestForm(true)}
               >
-                <Ionicons name="bulb-outline" size={18} color={colors.textOnDark} />
+                <SmartIcon name="bulb-outline" size={18} color={colors.textOnDark} />
                 <Text style={[styles.actionBtnText, { color: colors.textOnDark }]}>Suggest Changes</Text>
               </TouchableOpacity>
             </View>
@@ -421,7 +421,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
                       <ActivityIndicator size="small" color={colors.textOnDark} />
                     ) : (
                       <>
-                        <Ionicons name="paper-plane" size={16} color={colors.textOnDark} />
+                        <SmartIcon name="paper-plane" size={16} color={colors.textOnDark} />
                         <Text style={{ color: colors.textOnDark, fontSize: 14, fontFamily: fontFamily.semiBold }}>Send</Text>
                       </>
                     )}

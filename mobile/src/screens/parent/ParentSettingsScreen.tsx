@@ -13,7 +13,7 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -77,7 +77,7 @@ export function ParentSettingsScreen({ navigation }: Props) {
               {profile?.displayRole || 'Parent'}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          <SmartIcon name="chevron-forward" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
 
         {/* Actions */}
@@ -87,7 +87,7 @@ export function ParentSettingsScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('ParentInvite')}
           >
             <View style={[styles.settingsIconWrap, { backgroundColor: colors.accent1 + '22' }]}>
-              <Ionicons name="key-outline" size={20} color={colors.accent1} />
+              <SmartIcon name="key-outline" size={20} color={colors.accent1} />
             </View>
             <View style={styles.settingsRowContent}>
               <Text style={[styles.settingsRowTitle, { color: colors.textOnDark }]}>
@@ -97,14 +97,14 @@ export function ParentSettingsScreen({ navigation }: Props) {
                 Link your child's account
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            <SmartIcon name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           <View style={styles.settingsRow}>
             <View style={[styles.settingsIconWrap, { backgroundColor: colors.success + '22' }]}>
-              <Ionicons name="people-outline" size={20} color={colors.success} />
+              <SmartIcon name="people-outline" size={20} color={colors.success} />
             </View>
             <View style={styles.settingsRowContent}>
               <Text style={[styles.settingsRowTitle, { color: colors.textOnDark }]}>
@@ -123,7 +123,7 @@ export function ParentSettingsScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Profile' as any)}
           >
             <View style={[styles.settingsIconWrap, { backgroundColor: colors.accent2 + '22' }]}>
-              <Ionicons name="create-outline" size={20} color={colors.accent2} />
+              <SmartIcon name="create-outline" size={20} color={colors.accent2} />
             </View>
             <View style={styles.settingsRowContent}>
               <Text style={[styles.settingsRowTitle, { color: colors.textOnDark }]}>
@@ -133,7 +133,7 @@ export function ParentSettingsScreen({ navigation }: Props) {
                 Update your information
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            <SmartIcon name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -142,7 +142,7 @@ export function ParentSettingsScreen({ navigation }: Props) {
           style={[styles.logoutButton, { backgroundColor: colors.error + '22' }]}
           onPress={handleLogout}
         >
-          <Ionicons name="log-out-outline" size={20} color={colors.error} />
+          <SmartIcon name="log-out-outline" size={20} color={colors.error} />
           <Text style={[styles.logoutText, { color: colors.error }]}>Log Out</Text>
         </TouchableOpacity>
       </ScrollView>

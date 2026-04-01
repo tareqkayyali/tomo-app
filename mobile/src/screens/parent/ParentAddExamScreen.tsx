@@ -16,7 +16,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -104,7 +104,7 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.successContainer}>
           <View style={[styles.successIcon, { backgroundColor: colors.error + '22' }]}>
-            <Ionicons name="document-text" size={64} color={colors.error} />
+            <SmartIcon name="document-text" size={64} color={colors.error} />
           </View>
           <Text style={[styles.successTitle, { color: colors.textOnDark }]}>Exam Added</Text>
           <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>

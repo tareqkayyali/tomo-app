@@ -9,7 +9,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../../SmartIcon';
 import { colors } from '../../../../theme/colors';
 import { spacing, borderRadius, fontFamily } from '../../../../theme';
 
@@ -100,7 +100,7 @@ export function CapsuleExamForm({ subjects, existingExams, onAdd, onCancel }: Ca
                 if (d > new Date()) setExamDate(toDateStr(d));
               }}
             >
-              <Ionicons name="chevron-back" size={14} color={colors.accent1} />
+              <SmartIcon name="chevron-back" size={14} color={colors.accent1} />
             </Pressable>
             <Text style={styles.dateText}>{formatShortDate(examDate)}</Text>
             <Pressable
@@ -111,7 +111,7 @@ export function CapsuleExamForm({ subjects, existingExams, onAdd, onCancel }: Ca
                 setExamDate(toDateStr(d));
               }}
             >
-              <Ionicons name="chevron-forward" size={14} color={colors.accent1} />
+              <SmartIcon name="chevron-forward" size={14} color={colors.accent1} />
             </Pressable>
           </View>
         </View>

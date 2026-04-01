@@ -6,7 +6,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { GlassCard } from '../GlassCard';
 import { Badge } from '../Badge';
 import { useTheme } from '../../hooks/useTheme';
@@ -84,7 +84,7 @@ export function SpineTimeline({
       <View style={styles.emptyContainer}>
         <View style={[styles.emptySpine, { backgroundColor: colors.border }]} />
         <View style={styles.emptyContent}>
-          <Ionicons name="calendar-outline" size={40} color={colors.textMuted} />
+          <SmartIcon name="calendar-outline" size={40} color={colors.textMuted} />
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Events Today</Text>
           <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
             Tap + to add training, study, or recovery sessions
@@ -177,20 +177,20 @@ export function SpineTimeline({
                       style={[
                         styles.journalBadge,
                         {
-                          backgroundColor: event.journalState === 'complete' ? '#30D158' + '20'
+                          backgroundColor: event.journalState === 'complete' ? colors.readinessGreen + '20'
                             : event.journalState === 'pre_set' ? colors.accent2 + '20'
                             : colors.textMuted + '15',
-                          borderColor: event.journalState === 'complete' ? '#30D158' + '40'
+                          borderColor: event.journalState === 'complete' ? colors.readinessGreen + '40'
                             : event.journalState === 'pre_set' ? colors.accent2 + '40'
                             : colors.textMuted + '30',
                         },
                       ]}
                     >
-                      <Ionicons
+                      <SmartIcon
                         name={event.journalState === 'complete' ? 'book' : 'book-outline'}
                         size={12}
                         color={
-                          event.journalState === 'complete' ? '#30D158'
+                          event.journalState === 'complete' ? colors.readinessGreen
                             : event.journalState === 'pre_set' ? colors.accent2
                             : colors.textMuted
                         }
@@ -198,7 +198,7 @@ export function SpineTimeline({
                       <Text style={[
                         styles.journalBadgeText,
                         {
-                          color: event.journalState === 'complete' ? '#30D158'
+                          color: event.journalState === 'complete' ? colors.readinessGreen
                             : event.journalState === 'pre_set' ? colors.accent2
                             : colors.textMuted,
                         },
@@ -223,7 +223,7 @@ export function SpineTimeline({
                   <View style={styles.linkedProgramsRow}>
                     {((event as any).linkedPrograms as Array<{ programId: string; name: string; category?: string }>).map((lp) => (
                       <View key={lp.programId} style={[styles.linkedPill, { backgroundColor: colors.accent1 + '15', borderColor: colors.accent1 + '30' }]}>
-                        <Ionicons name="barbell-outline" size={10} color={colors.accent1} />
+                        <SmartIcon name="barbell-outline" size={10} color={colors.accent1} />
                         <Text style={[styles.linkedPillText, { color: colors.accent1 }]} numberOfLines={1}>{lp.name}</Text>
                       </View>
                     ))}
@@ -246,7 +246,7 @@ export function SpineTimeline({
                         hitSlop={8}
                         style={styles.actionBtn}
                       >
-                        <Ionicons name="create-outline" size={18} color={colors.accent2} />
+                        <SmartIcon name="create-outline" size={18} color={colors.accent2} />
                       </Pressable>
                     )}
                     {!isDone && onEventComplete && (
@@ -255,7 +255,7 @@ export function SpineTimeline({
                         hitSlop={8}
                         style={styles.actionBtn}
                       >
-                        <Ionicons name="checkmark-circle-outline" size={18} color={colors.accent} />
+                        <SmartIcon name="checkmark-circle-outline" size={18} color={colors.accent} />
                       </Pressable>
                     )}
                     {!isDone && onEventSkip && (
@@ -264,7 +264,7 @@ export function SpineTimeline({
                         hitSlop={8}
                         style={styles.actionBtn}
                       >
-                        <Ionicons name="close-circle-outline" size={18} color={colors.textMuted} />
+                        <SmartIcon name="close-circle-outline" size={18} color={colors.textMuted} />
                       </Pressable>
                     )}
                   </View>

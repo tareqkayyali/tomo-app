@@ -17,7 +17,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Svg, { Path, Circle as SvgCircle, Polyline } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSpringEntrance, useBarFill } from '../../hooks/useAnimations';
 import { useTheme } from '../../hooks/useTheme';
@@ -305,7 +305,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
   if (!skillData || !config) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
-        <Ionicons name="analytics-outline" size={48} color={colors.textMuted} />
+        <SmartIcon name="analytics-outline" size={48} color={colors.textMuted} />
         <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 16, color: colors.textOnDark, textAlign: 'center', marginTop: 16 }}>
           Skill Detail Coming Soon
         </Text>
@@ -355,7 +355,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
           <View style={s.heroHeader}>
             <View style={s.heroLeft}>
               {config.icon && (
-                <Ionicons name={config.icon as any} size={24} color={tier.color} />
+                <SmartIcon name={config.icon as any} size={24} color={tier.color} />
               )}
               <View>
                 <Text style={s.heroName}>{config.name}</Text>
@@ -378,7 +378,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
           <View style={s.heroMeta}>
             {skillData.trend !== 0 && (
               <View style={s.trendBadge}>
-                <Ionicons
+                <SmartIcon
                   name={skillData.trend > 0 ? 'trending-up' : 'trending-down'}
                   size={14}
                   color={skillData.trend > 0 ? colors.accent : colors.accent2}
@@ -401,7 +401,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
           {/* Mastery experience (Bandura) */}
           {totalImprovement > 0 && (
             <View style={s.masteryBadge}>
-              <Ionicons name="arrow-up-circle" size={14} color={colors.accent} />
+              <SmartIcon name="arrow-up-circle" size={14} color={colors.accent} />
               <Text style={s.masteryText}>
                 You've improved {config.name} by {totalImprovement} points since you started tracking
               </Text>
@@ -429,7 +429,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
           {/* Growth edge callout */}
           <View style={s.growthEdge}>
             <View style={s.growthEdgeHeader}>
-              <Ionicons name="sparkles" size={14} color={colors.info} />
+              <SmartIcon name="sparkles" size={14} color={colors.info} />
               <Text style={s.growthEdgeTitle}>Your Growth Edge</Text>
             </View>
             <Text style={s.growthEdgeText}>
@@ -477,7 +477,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
       <Animated.View style={entrance3}>
         <GlassCard style={s.tipCard}>
           <View style={s.tipHeader}>
-            <Ionicons name="bulb" size={18} color={colors.accent1} />
+            <SmartIcon name="bulb" size={18} color={colors.accent1} />
             <Text style={s.tipTitle}>How to Improve</Text>
           </View>
 
@@ -490,7 +490,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
 
           {/* Drill placeholder */}
           <View style={s.drillPlaceholder}>
-            <Ionicons name="football-outline" size={16} color={colors.textInactive} />
+            <SmartIcon name="football-outline" size={16} color={colors.textInactive} />
             <Text style={s.drillPlaceholderText}>
               Targeted drills coming soon
             </Text>
@@ -509,10 +509,10 @@ export function FootballSkillDetailScreen({ route }: Props) {
             style={s.researchHeader}
           >
             <View style={s.researchHeaderLeft}>
-              <Ionicons name="school-outline" size={16} color={colors.accent2} />
+              <SmartIcon name="school-outline" size={16} color={colors.accent2} />
               <Text style={s.researchHeaderText}>Research Context</Text>
             </View>
-            <Ionicons
+            <SmartIcon
               name={researchExpanded ? 'chevron-up' : 'chevron-down'}
               size={16}
               color={colors.textInactive}

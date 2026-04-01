@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import {
   spacing,
@@ -352,7 +353,7 @@ export function RecommendEventScreen({ navigation, route }: Props) {
         >
           {/* Banner */}
           <View style={styles.banner}>
-            <Ionicons name="paper-plane-outline" size={18} color={colors.accent1} />
+            <SmartIcon name="paper-plane-outline" size={18} color={colors.accent1} />
             <Text style={[styles.bannerText, { color: colors.textOnDark }]}>
               Recommending for {playerName.split(' ')[0]}
             </Text>
@@ -383,7 +384,7 @@ export function RecommendEventScreen({ navigation, route }: Props) {
                     eventType === et.key && { backgroundColor: colors.accent1 },
                   ]}
                 >
-                  <Ionicons
+                  <SmartIcon
                     name={et.icon}
                     size={16}
                     color={eventType === et.key ? colors.textPrimary : colors.textMuted}
@@ -415,7 +416,7 @@ export function RecommendEventScreen({ navigation, route }: Props) {
                       sport === s.key && { backgroundColor: s.color + '33', borderColor: s.color },
                     ]}
                   >
-                    <Ionicons
+                    <SmartIcon
                       name={s.icon}
                       size={16}
                       color={sport === s.key ? s.color : colors.textMuted}
@@ -438,7 +439,7 @@ export function RecommendEventScreen({ navigation, route }: Props) {
           <View style={styles.section}>
             <Text style={styles.label}>Date</Text>
             <Pressable onPress={() => setShowDatePicker(true)} style={styles.pickerButton}>
-              <Ionicons name="calendar-outline" size={18} color={colors.textMuted} />
+              <SmartIcon name="calendar-outline" size={18} color={colors.textMuted} />
               <Text style={styles.pickerButtonText}>
                 {formatDateDisplay(date)}
               </Text>
@@ -449,7 +450,7 @@ export function RecommendEventScreen({ navigation, route }: Props) {
           <View style={styles.section}>
             <Text style={styles.label}>Start Time</Text>
             <Pressable onPress={() => setShowStartTimePicker(true)} style={styles.pickerButton}>
-              <Ionicons name="time-outline" size={18} color={colors.textMuted} />
+              <SmartIcon name="time-outline" size={18} color={colors.textMuted} />
               <Text style={styles.pickerButtonText}>
                 {startTime ? formatTime12h(startTime) : 'Select time'}
               </Text>
@@ -460,7 +461,7 @@ export function RecommendEventScreen({ navigation, route }: Props) {
           <View style={styles.section}>
             <Text style={styles.label}>Duration</Text>
             <Pressable onPress={() => setShowDurationPicker(true)} style={styles.pickerButton}>
-              <Ionicons name="hourglass-outline" size={18} color={colors.textMuted} />
+              <SmartIcon name="hourglass-outline" size={18} color={colors.textMuted} />
               <Text style={styles.pickerButtonText}>
                 {duration
                   ? DURATION_OPTIONS.find((d) => d.value === duration)?.label || `${duration} min`
@@ -520,7 +521,7 @@ export function RecommendEventScreen({ navigation, route }: Props) {
               { backgroundColor: colors.accent1, opacity: pressed || submitting ? 0.7 : 1 },
             ]}
           >
-            <Ionicons name="paper-plane" size={18} color={colors.textPrimary} />
+            <SmartIcon name="paper-plane" size={18} color={colors.textPrimary} />
             <Text style={styles.submitText}>
               {submitting ? 'Sending…' : 'Send Recommendation'}
             </Text>

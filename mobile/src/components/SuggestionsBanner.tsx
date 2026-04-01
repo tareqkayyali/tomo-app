@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 
 import { useTheme } from '../hooks/useTheme';
 import { SuggestionCard } from './SuggestionCard';
@@ -39,7 +39,7 @@ export function SuggestionsBanner({ suggestions, onResolved }: SuggestionsBanner
             Pending Suggestions
           </Text>
         </View>
-        <Ionicons
+        <SmartIcon
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={18}
           color={colors.textSecondary}

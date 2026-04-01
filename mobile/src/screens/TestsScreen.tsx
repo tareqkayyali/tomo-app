@@ -22,7 +22,8 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
+import { TomoLoader, OUTPUT_LOADER_MESSAGES } from '../components/TomoLoader';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
@@ -181,7 +182,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       icon: isWhoopConnected ? 'watch' : 'watch-outline',
       label: isWhoopConnected ? 'Connected' : 'Wearables',
       onPress: () => navigation.navigate('Settings' as any),
-      accentColor: isWhoopConnected ? '#30D158' : '#E74C3C',
+      accentColor: isWhoopConnected ? colors.readinessGreen : colors.error,
     },
     navigation,
   );
@@ -306,7 +307,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
             {refreshing ? (
               <ActivityIndicator size={16} color={colors.accent2} />
             ) : (
-              <Ionicons name="sync-outline" size={18} color={colors.accent2} />
+              <SmartIcon name="sync-outline" size={18} color={colors.accent2} />
             )}
           </Pressable>
         </View>
@@ -353,11 +354,11 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       >
         {loading && !data ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color={colors.accent1} />
+            <TomoLoader messages={OUTPUT_LOADER_MESSAGES} />
           </View>
         ) : error && !data ? (
           <View style={styles.centered}>
-            <Ionicons name="cloud-offline-outline" size={40} color={colors.textMuted} />
+            <SmartIcon name="cloud-offline-outline" size={40} color={colors.textMuted} />
             <Text style={[styles.errorText, { color: colors.textMuted }]}>{error}</Text>
             <Pressable style={[styles.retryBtn, { backgroundColor: colors.accent1 }]} onPress={refresh}>
               <Text style={styles.retryText}>Retry</Text>

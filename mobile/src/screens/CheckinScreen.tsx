@@ -35,7 +35,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import { emitRefresh } from '../utils/refreshBus';
@@ -435,7 +435,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
             backgroundColor: colors.backgroundElevated,
             ...shadows.lg,
           }, checkStyle]}>
-            <Ionicons name="checkmark" size={48} color={accentColor} />
+            <SmartIcon name="checkmark" size={48} color={accentColor} />
           </Animated.View>
 
           <Animated.Text
@@ -475,7 +475,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
               marginTop: spacing.lg,
               gap: spacing.sm,
             }, badgeStyle]}>
-              <Ionicons name="trophy" size={22} color={colors.accent1} />
+              <SmartIcon name="trophy" size={22} color={colors.accent1} />
               <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 14, color: colors.accent1 }}>
                 {milestoneReward}
               </Text>
@@ -493,7 +493,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
               marginTop: spacing.lg,
               gap: spacing.sm,
             }, badgeStyle]}>
-              <Ionicons name="shield-checkmark" size={22} color={colors.accent1} />
+              <SmartIcon name="shield-checkmark" size={22} color={colors.accent1} />
               <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 14, color: colors.accent1 }}>
                 {getArchetypeProfile(newArchetype).name} Archetype Unlocked!
               </Text>
@@ -512,7 +512,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
                 marginTop: spacing.lg,
               }}
             >
-              <Ionicons name="alert-circle" size={16} color={colors.readinessYellow} />
+              <SmartIcon name="alert-circle" size={16} color={colors.readinessYellow} />
               <Text style={{
                 fontFamily: fontFamily.regular,
                 fontSize: 13,
@@ -563,7 +563,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
           }}
           accessibilityLabel="Go back"
         >
-          <Ionicons name={stepIndex === 0 ? 'close' : 'arrow-back'} size={20} color={colors.textInactive} />
+          <SmartIcon name={stepIndex === 0 ? 'close' : 'arrow-back'} size={20} color={colors.textInactive} />
         </Pressable>
 
         {/* Dot progress (Stories-style) */}
@@ -706,7 +706,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
               }}>
                 {isSubmitting ? 'Submitting...' : 'Get My Plan'}
               </Text>
-              {!isSubmitting && <Ionicons name="flash" size={20} color={colors.textPrimary} />}
+              {!isSubmitting && <SmartIcon name="flash" size={20} color={colors.textPrimary} />}
             </LinearGradient>
           </Pressable>
         </View>
@@ -918,7 +918,7 @@ function PainToggle({
             borderRadius: borderRadius.sm,
             gap: spacing.xs,
           }}>
-            <Ionicons name="alert-circle" size={14} color={colors.readinessRed} />
+            <SmartIcon name="alert-circle" size={14} color={colors.readinessRed} />
             <Text style={{
               fontFamily: fontFamily.regular,
               fontSize: 12,

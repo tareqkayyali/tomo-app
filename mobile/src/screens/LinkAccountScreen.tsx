@@ -15,7 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
@@ -56,7 +56,7 @@ export function LinkAccountScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.inner}>
           <View style={[styles.successIcon, { backgroundColor: '#2ED57322' }]}>
-            <Ionicons name="checkmark-circle" size={48} color={colors.accent} />
+            <SmartIcon name="checkmark-circle" size={48} color={colors.accent} />
           </View>
           <Text style={[styles.title, { color: colors.textOnDark }]}>Linked!</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
@@ -83,7 +83,7 @@ export function LinkAccountScreen() {
         style={styles.inner}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Ionicons name="link-outline" size={48} color={colors.accent1} style={styles.icon} />
+        <SmartIcon name="link-outline" size={48} color={colors.accent1} style={styles.icon} />
         <Text style={[styles.title, { color: colors.textOnDark }]}>Link Account</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>
           Enter the 6-character invite code from your coach or parent to link your accounts.

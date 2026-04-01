@@ -27,6 +27,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { HexagonRadar, type RadarAttribute } from './HexagonRadar';
 import { useScaleOnPress, useSpringEntrance } from '../hooks/useAnimations';
 import { useDNATierConfig } from '../hooks/useUIConfig';
@@ -196,7 +197,7 @@ export function DNACard({
 
               {/* Tier badge */}
               <View style={styles.tierBadge}>
-                <Ionicons
+                <SmartIcon
                   name={tierIcon}
                   size={14}
                   color={tierVisual.text}
@@ -262,7 +263,7 @@ export function DNACard({
                   <Text style={[styles.attrScore, getComponentStyle('dna_card_attribute_score')]}>{attr.value}</Text>
                   {trend !== 0 && (
                     <View style={styles.trendRow}>
-                      <Ionicons
+                      <SmartIcon
                         name={trend > 0 ? 'caret-up' : 'caret-down'}
                         size={10}
                         color={trend > 0 ? colors.accent : colors.textSecondary}

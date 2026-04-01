@@ -18,7 +18,7 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -160,7 +160,7 @@ export function ParentExamScreen(props: Props) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={40} color={colors.textInactive} />
+          <SmartIcon name="lock-closed-outline" size={40} color={colors.textInactive} />
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
             Waiting for confirmation
           </Text>
@@ -241,7 +241,7 @@ export function ParentExamScreen(props: Props) {
           </Text>
           {upcomingExams.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: colors.surfaceElevated }]}>
-              <Ionicons name="school-outline" size={32} color={colors.textInactive} />
+              <SmartIcon name="school-outline" size={32} color={colors.textInactive} />
               <Text style={[styles.emptyCardText, { color: colors.textInactive }]}>
                 No exams scheduled yet
               </Text>
@@ -342,7 +342,7 @@ export function ParentExamScreen(props: Props) {
             { backgroundColor: colors.accent1, opacity: pressed ? 0.85 : 1 },
           ]}
         >
-          <Ionicons name="add" size={28} color={colors.textOnDark} />
+          <SmartIcon name="add" size={28} color={colors.textOnDark} />
         </Pressable>
       )}
     </SafeAreaView>

@@ -19,7 +19,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import * as Haptics from 'expo-haptics';
 import { useBarFill, useSpringEntrance } from '../hooks/useAnimations';
 import { fontFamily, borderRadius, spacing } from '../theme';
@@ -220,7 +220,7 @@ export function SkillRatingBar({
         <View style={styles.labelRow}>
           <View style={styles.nameRow}>
             {skill.icon && (
-              <Ionicons name={skill.icon as any} size={16} color={skillColor} />
+              <SmartIcon name={skill.icon as any} size={16} color={skillColor} />
             )}
             <Text style={styles.name}>{skill.name}</Text>
             <View style={[styles.levelBadge, { backgroundColor: `${label.color}20` }]}>
@@ -231,7 +231,7 @@ export function SkillRatingBar({
             <Text style={[styles.rating, { color: skillColor }]}>{skill.overall}</Text>
             {trend !== 0 && (
               <View style={styles.trendRow}>
-                <Ionicons
+                <SmartIcon
                   name={trend > 0 ? 'caret-up' : 'caret-down'}
                   size={10}
                   color={trend > 0 ? colors.accent : colors.textSecondary}
@@ -265,7 +265,7 @@ export function SkillRatingBar({
           <Text style={styles.expandHint}>
             {expanded ? 'Tap to collapse' : 'Tap to see breakdown'}
           </Text>
-          <Ionicons
+          <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={14}
             color={colors.textInactive}

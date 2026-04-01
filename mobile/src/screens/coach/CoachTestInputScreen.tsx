@@ -18,7 +18,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -189,7 +189,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
     >
       {/* Context banner */}
       <View style={[styles.contextBanner, { backgroundColor: colors.accent1 + '10' }]}>
-        <Ionicons name="flash-outline" size={14} color={colors.accent1} />
+        <SmartIcon name="flash-outline" size={14} color={colors.accent1} />
         <Text style={[styles.contextText, { color: colors.accent1 }]}>
           Logging tests for {playerName}
         </Text>
@@ -198,10 +198,10 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
       {/* Success banner */}
       {successMsg && (
         <View style={[styles.successBanner, { backgroundColor: colors.success + '18' }]}>
-          <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+          <SmartIcon name="checkmark-circle" size={18} color={colors.success} />
           <Text style={[styles.successText, { color: colors.success }]} numberOfLines={2}>{successMsg}</Text>
           <Pressable onPress={() => setSuccessMsg(null)} hitSlop={8}>
-            <Ionicons name="close" size={16} color={colors.success} />
+            <SmartIcon name="close" size={16} color={colors.success} />
           </Pressable>
         </View>
       )}
@@ -231,7 +231,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
                 />
                 <Text style={[styles.queueUnit, { color: colors.textMuted }]}>{q.test.unit}</Text>
                 <Pressable onPress={() => removeFromQueue(q.test.id)} hitSlop={8}>
-                  <Ionicons name="close-circle" size={18} color={colors.error} />
+                  <SmartIcon name="close-circle" size={18} color={colors.error} />
                 </Pressable>
               </View>
             );
@@ -248,7 +248,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
               <ActivityIndicator size="small" color={colors.textPrimary} />
             ) : (
               <>
-                <Ionicons name="checkmark-circle-outline" size={18} color={colors.textPrimary} />
+                <SmartIcon name="checkmark-circle-outline" size={18} color={colors.textPrimary} />
                 <Text style={styles.submitButtonText}>
                   Submit {queue.filter(q => q.value).length} Test{queue.filter(q => q.value).length !== 1 ? 's' : ''} for {firstName}
                 </Text>
@@ -261,7 +261,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
       {/* Search */}
       <GlassCard>
         <View style={styles.searchRow}>
-          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+          <SmartIcon name="search-outline" size={18} color={colors.textMuted} />
           <TextInput
             value={searchQuery}
             onChangeText={handleSearch}
@@ -272,7 +272,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
           />
           {searchQuery.length > 0 && (
             <Pressable onPress={() => handleSearch('')} hitSlop={8}>
-              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+              <SmartIcon name="close-circle" size={16} color={colors.textMuted} />
             </Pressable>
           )}
         </View>
@@ -309,7 +309,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
         <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: spacing.xl }} />
       ) : filteredTests.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="search-outline" size={32} color={colors.textInactive} />
+          <SmartIcon name="search-outline" size={32} color={colors.textInactive} />
           <Text style={[styles.emptyText, { color: colors.textMuted }]}>
             {searchQuery ? `No tests matching "${searchQuery}"` : 'No tests in this category'}
           </Text>
@@ -338,14 +338,14 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
                       <Text style={[styles.testCatText, { color: catColor }]}>{test.category}</Text>
                     </View>
                     <Text style={[styles.testUnit, { color: colors.textMuted }]}>{test.unit}</Text>
-                    <Ionicons
+                    <SmartIcon
                       name={test.direction === 'higher' ? 'arrow-up' : 'arrow-down'}
                       size={10}
                       color={colors.textInactive}
                     />
                   </View>
                 </View>
-                <Ionicons name="add-circle-outline" size={22} color={colors.accent1} />
+                <SmartIcon name="add-circle-outline" size={22} color={colors.accent1} />
               </Pressable>
             );
           })}

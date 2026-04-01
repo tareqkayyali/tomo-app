@@ -19,7 +19,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { useBarFill, usePulse, useSpringEntrance } from '../hooks/useAnimations';
 import { fontFamily, borderRadius, spacing } from '../theme';
 import { useTheme } from '../hooks/useTheme';
@@ -219,7 +219,7 @@ export function RatingPathway({
                 {/* Show player's marker */}
                 {isCurrentLevel && (
                   <View style={[s.youAreHere, { backgroundColor: `${levelColor}26` }]}>
-                    <Ionicons name="location" size={14} color={levelColor} />
+                    <SmartIcon name="location" size={14} color={levelColor} />
                     <Text style={[s.youAreHereText, { color: levelColor }]}>
                       YOU ARE HERE
                     </Text>
@@ -233,7 +233,7 @@ export function RatingPathway({
                   )
                   .map((m) => (
                     <View key={m.name} style={s.milestone}>
-                      <Ionicons name="star" size={10} color={colors.tierGold} />
+                      <SmartIcon name="star" size={10} color={colors.tierGold} />
                       <Text style={s.milestoneName}>{m.name}</Text>
                       <Text style={s.milestoneRating}>{m.rating}</Text>
                     </View>

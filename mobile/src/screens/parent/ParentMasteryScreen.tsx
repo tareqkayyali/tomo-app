@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -66,7 +66,7 @@ export function ParentMasteryScreen({ navigation }: Props) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={40} color={colors.textInactive} />
+          <SmartIcon name="lock-closed-outline" size={40} color={colors.textInactive} />
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
             Waiting for confirmation
           </Text>

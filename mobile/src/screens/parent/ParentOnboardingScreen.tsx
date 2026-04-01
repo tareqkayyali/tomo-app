@@ -17,7 +17,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import Animated, { SlideInRight, SlideInLeft } from 'react-native-reanimated';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -147,7 +147,7 @@ export function ParentOnboardingScreen() {
           {step === 'welcome' && (
             <Animated.View entering={enterAnimation} style={styles.stepContainer}>
               <View style={[styles.iconCircle, { backgroundColor: colors.accent1 + '22' }]}>
-                <Ionicons name="people-outline" size={48} color={colors.accent1} />
+                <SmartIcon name="people-outline" size={48} color={colors.accent1} />
               </View>
 
               <Text style={[styles.title, { color: colors.textOnDark }]}>
@@ -175,7 +175,7 @@ export function ParentOnboardingScreen() {
             <Animated.View entering={enterAnimation} style={styles.stepContainer}>
               {/* Back button */}
               <Pressable onPress={goBackToWelcome} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={24} color={colors.textOnDark} />
+                <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
               </Pressable>
 
               <Text style={[styles.title, { color: colors.textOnDark }]}>
@@ -231,7 +231,7 @@ export function ParentOnboardingScreen() {
           {step === 'email' && success && (
             <Animated.View entering={SlideInRight.duration(300)} style={styles.stepContainer}>
               <View style={[styles.iconCircle, { backgroundColor: colors.success + '22' }]}>
-                <Ionicons name="checkmark-circle" size={48} color={colors.success} />
+                <SmartIcon name="checkmark-circle" size={48} color={colors.success} />
               </View>
 
               <Text style={[styles.title, { color: colors.textOnDark }]}>

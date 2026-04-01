@@ -17,6 +17,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { TomoIcon } from '../components/tomo-ui';
 
 import { ParentChildrenScreen } from '../screens/parent/ParentChildrenScreen';
@@ -155,7 +156,7 @@ function ParentBackButton() {
       }}
       hitSlop={8}
     >
-      <Ionicons name="chevron-back" size={22} color={colors.accent1} />
+      <SmartIcon name="chevron-back" size={22} color={colors.accent1} />
     </Pressable>
   );
 }

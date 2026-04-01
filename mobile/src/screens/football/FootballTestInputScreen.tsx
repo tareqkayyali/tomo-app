@@ -29,7 +29,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -412,7 +412,7 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
         >
           {/* Primary Result */}
           <View style={styles.resultHero}>
-            <Ionicons name={testDef.icon as any} size={36} color={testDef.color} />
+            <SmartIcon name={testDef.icon as any} size={36} color={testDef.color} />
             <Text style={styles.resultTitle}>{testDef.name}</Text>
             <View style={styles.resultValueRow}>
               <Text style={styles.resultValue}>{resultData.primaryValue}</Text>
@@ -424,7 +424,7 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
           {/* New PB Badge */}
           {resultData.isNewPB && (
             <View style={styles.pbBadge}>
-              <Ionicons name="trophy" size={16} color={colors.warning} />
+              <SmartIcon name="trophy" size={16} color={colors.warning} />
               <Text style={styles.pbBadgeText}>New Personal Best!</Text>
             </View>
           )}
@@ -508,7 +508,7 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
         {/* Header */}
         <View style={styles.inputHeader}>
           <View style={[styles.inputIconBox, { backgroundColor: testDef.color + '18' }]}>
-            <Ionicons name={testDef.icon as any} size={32} color={testDef.color} />
+            <SmartIcon name={testDef.icon as any} size={32} color={testDef.color} />
           </View>
           <Text style={styles.inputTitle}>{testDef.name}</Text>
           <Text style={styles.inputDesc}>{testDef.description}</Text>
@@ -516,9 +516,9 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
 
         {/* Research Note Toggle */}
         <Pressable onPress={toggleResearchNote} style={styles.researchToggle}>
-          <Ionicons name="information-circle-outline" size={16} color={colors.textInactive} />
+          <SmartIcon name="information-circle-outline" size={16} color={colors.textInactive} />
           <Text style={styles.researchToggleText}>Research context</Text>
-          <Ionicons
+          <SmartIcon
             name={showResearchNote ? 'chevron-up' : 'chevron-down'}
             size={14}
             color={colors.textInactive}

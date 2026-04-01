@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { useScaleOnPress } from '../hooks/useAnimations';
 import { useSportContext } from '../hooks/useSportContext';
 import { colors, fontFamily, borderRadius, spacing } from '../theme';
@@ -41,7 +41,7 @@ function ShotChip({
           isSelected && styles.chipSelected,
         ]}
       >
-        <Ionicons
+        <SmartIcon
           name={(def?.icon ?? 'help-outline') as any}
           size={16}
           color={isSelected ? colors.textPrimary : colors.textInactive}

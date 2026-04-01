@@ -26,7 +26,7 @@ import {
   Modal,
   KeyboardAvoidingView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeIn,
@@ -260,12 +260,12 @@ export function MyRulesScreen({ navigation }: Props) {
       {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.textOnDark} />
+          <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Rules</Text>
         {showSaved && (
           <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.savedBadge}>
-            <Ionicons name="checkmark" size={12} color="#FFF" />
+            <SmartIcon name="checkmark" size={12} color="#FFF" />
             <Text style={styles.savedText}>Saved!</Text>
           </Animated.View>
         )}
@@ -286,7 +286,7 @@ export function MyRulesScreen({ navigation }: Props) {
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
                 <>
-                  <Ionicons name="checkmark" size={16} color="#FFF" />
+                  <SmartIcon name="checkmark" size={16} color="#FFF" />
                   <Text style={styles.saveBtnText}>Save</Text>
                 </>
               )}
@@ -397,7 +397,7 @@ export function MyRulesScreen({ navigation }: Props) {
       {/* ── Scenario Banner ── */}
       <View style={[styles.scenarioBanner, { borderTopColor: colors.border }]}>
         <View style={styles.scenarioInner}>
-          <Ionicons
+          <SmartIcon
             name={(SCENARIO_DISPLAY[scenario]?.icon ?? 'help-circle') as any}
             size={16}
             color={SCENARIO_DISPLAY[scenario]?.color ?? colors.textInactive}
@@ -465,10 +465,10 @@ function SectionHeader({
   return (
     <TouchableOpacity style={sectionStyles.header} onPress={onToggle} activeOpacity={0.7}>
       <View style={[sectionStyles.iconCircle, { backgroundColor: color + '20' }]}>
-        <Ionicons name={icon as any} size={16} color={color} />
+        <SmartIcon name={icon as any} size={16} color={color} />
       </View>
       <Text style={[sectionStyles.title, { color }]}>{title}</Text>
-      <Ionicons
+      <SmartIcon
         name={open ? 'chevron-up' : 'chevron-down'}
         size={18}
         color={color}
@@ -516,7 +516,7 @@ function SettingRow({
   return (
     <View style={rowStyles.container}>
       <View style={rowStyles.labelRow}>
-        <Ionicons name={icon as any} size={14} color={colors.textInactive} />
+        <SmartIcon name={icon as any} size={14} color={colors.textInactive} />
         <Text style={[rowStyles.label, { color: colors.textSecondary }]}>{label}</Text>
       </View>
       <View style={rowStyles.content}>{children}</View>
@@ -637,7 +637,7 @@ function TimeChip({
         style={[timeStyles.stepBtn, { backgroundColor: colors.cardLight }]}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       >
-        <Ionicons name="chevron-back" size={14} color={colors.textInactive} />
+        <SmartIcon name="chevron-back" size={14} color={colors.textInactive} />
       </TouchableOpacity>
       <View style={[timeStyles.chip, { backgroundColor: colors.cardLight }]}>
         <Text style={[timeStyles.chipValue, { color: colors.textOnDark }]}>{value}</Text>
@@ -647,7 +647,7 @@ function TimeChip({
         style={[timeStyles.stepBtn, { backgroundColor: colors.cardLight }]}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       >
-        <Ionicons name="chevron-forward" size={14} color={colors.textInactive} />
+        <SmartIcon name="chevron-forward" size={14} color={colors.textInactive} />
       </TouchableOpacity>
     </View>
   );
@@ -795,11 +795,11 @@ function SubjectPills({
           style={[subjectStyles.pill, { backgroundColor: accent + '20', borderColor: accent + '40' }]}
         >
           <Text style={[subjectStyles.pillText, { color: accent }]}>{sub}</Text>
-          <Ionicons name="close-circle" size={14} color={accent + '80'} style={{ marginLeft: 4 }} />
+          <SmartIcon name="close-circle" size={14} color={accent + '80'} style={{ marginLeft: 4 }} />
         </TouchableOpacity>
       ))}
       <TouchableOpacity onPress={onRequestAdd} style={[subjectStyles.addPill, { borderColor: colors.border }]}>
-        <Ionicons name="add" size={14} color={colors.textInactive} />
+        <SmartIcon name="add" size={14} color={colors.textInactive} />
         <Text style={[subjectStyles.addText, { color: colors.textInactive }]}>Add</Text>
       </TouchableOpacity>
     </View>
@@ -876,7 +876,7 @@ function ExamScheduleList({
   return (
     <View style={{ marginTop: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
-        <Ionicons name="calendar-outline" size={14} color={colors.textInactive} />
+        <SmartIcon name="calendar-outline" size={14} color={colors.textInactive} />
         <Text style={{ fontSize: 12, fontFamily: fontFamily.medium, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 }}>
           Exam Dates
         </Text>
@@ -893,7 +893,7 @@ function ExamScheduleList({
           >
             <Text style={[examStyles.subject, { color: colors.textOnDark }]}>{entry.subject}</Text>
             <View style={examStyles.dateRow}>
-              <Ionicons name="calendar-outline" size={12} color={colors.warning} />
+              <SmartIcon name="calendar-outline" size={12} color={colors.warning} />
               <Text style={[examStyles.date, { color: colors.warning }]}>{entry.examDate}</Text>
             </View>
           </TouchableOpacity>
@@ -901,7 +901,7 @@ function ExamScheduleList({
             onPress={() => onChange(entries.filter((e) => e.id !== entry.id))}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close-circle" size={20} color={colors.error} />
+            <SmartIcon name="close-circle" size={20} color={colors.error} />
           </TouchableOpacity>
         </View>
       ))}
@@ -918,7 +918,7 @@ function ExamScheduleList({
               onPress={() => handleSubjectSelected(subj)}
             >
               <Text style={{ fontSize: 14, fontFamily: fontFamily.medium, color: colors.textOnDark }}>{subj}</Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+              <SmartIcon name="chevron-forward" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           ))}
           <TouchableOpacity onPress={() => setShowSubjectPicker(false)} style={{ alignSelf: 'center', marginTop: 8 }}>
@@ -928,7 +928,7 @@ function ExamScheduleList({
       )}
 
       <TouchableOpacity onPress={addExam} style={examStyles.addBtn}>
-        <Ionicons name="add-circle-outline" size={16} color={colors.warning} />
+        <SmartIcon name="add-circle-outline" size={16} color={colors.warning} />
         <Text style={[examStyles.addText, { color: colors.warning }]}>Add Exam</Text>
       </TouchableOpacity>
     </View>
@@ -1192,13 +1192,13 @@ function DatePickerModal({
           {/* Month/Year nav */}
           <View style={dpStyles.monthNav}>
             <TouchableOpacity onPress={prevMonth} style={dpStyles.navBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="chevron-back" size={20} color={colors.textOnDark} />
+              <SmartIcon name="chevron-back" size={20} color={colors.textOnDark} />
             </TouchableOpacity>
             <Text style={[dpStyles.monthLabel, { color: colors.textOnDark }]}>
               {MONTHS[viewMonth]} {viewYear}
             </Text>
             <TouchableOpacity onPress={nextMonth} style={dpStyles.navBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="chevron-forward" size={20} color={colors.textOnDark} />
+              <SmartIcon name="chevron-forward" size={20} color={colors.textOnDark} />
             </TouchableOpacity>
           </View>
 
@@ -1358,7 +1358,7 @@ function TrainingCategoryCard({
     <View style={[catStyles.card, { backgroundColor: colors.cardLight, borderLeftColor: cat.color }]}>
       <View style={catStyles.headerRow}>
         <View style={[catStyles.iconCircle, { backgroundColor: cat.color + '20' }]}>
-          <Ionicons name={cat.icon as any} size={16} color={cat.color} />
+          <SmartIcon name={cat.icon as any} size={16} color={cat.color} />
         </View>
         <Text style={[catStyles.label, { color: colors.textOnDark }]}>{cat.label}</Text>
         <Switch
@@ -1439,7 +1439,7 @@ function TrainingCategoryCard({
                 onPress={() => onUpdate({ ...cat, daysPerWeek: Math.max(1, cat.daysPerWeek - 1) })}
                 style={[catStyles.stepper, { borderColor: colors.border }]}
               >
-                <Ionicons name="remove" size={14} color={colors.textInactive} />
+                <SmartIcon name="remove" size={14} color={colors.textInactive} />
               </TouchableOpacity>
               <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: cat.color }}>
                 {cat.daysPerWeek}x
@@ -1448,7 +1448,7 @@ function TrainingCategoryCard({
                 onPress={() => onUpdate({ ...cat, daysPerWeek: Math.min(7, cat.daysPerWeek + 1) })}
                 style={[catStyles.stepper, { borderColor: colors.border }]}
               >
-                <Ionicons name="add" size={14} color={colors.textInactive} />
+                <SmartIcon name="add" size={14} color={colors.textInactive} />
               </TouchableOpacity>
               <Text style={{ fontSize: 11, color: colors.textInactive, fontFamily: fontFamily.regular }}>
                 per week

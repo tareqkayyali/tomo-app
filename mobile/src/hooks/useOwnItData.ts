@@ -31,12 +31,28 @@ const SPORTS_TYPES = ['READINESS', 'LOAD_WARNING', 'RECOVERY', 'DEVELOPMENT', 'M
 const STUDY_TYPES = ['ACADEMIC'];
 const UPDATE_TYPES = ['CV_OPPORTUNITY', 'TRIANGLE_ALERT'];
 
+function deduplicateRecs(recs: RIERecommendation[]): RIERecommendation[] {
+  // Deduplicate by (recType + title) — keep the most recent one per key
+  const seen = new Map<string, RIERecommendation>();
+  for (const r of recs) {
+    const key = `${r.recType}::${r.title}`;
+    const existing = seen.get(key);
+    if (!existing || (r.createdAt && existing.createdAt && r.createdAt > existing.createdAt)) {
+      seen.set(key, r);
+    }
+  }
+  return Array.from(seen.values());
+}
+
 function groupRecs(recs: RIERecommendation[]) {
+  // Deduplicate before grouping — prevents duplicate cards
+  const unique = deduplicateRecs(recs);
+
   const sports: RIERecommendation[] = [];
   const study: RIERecommendation[] = [];
   const updates: RIERecommendation[] = [];
 
-  for (const r of recs) {
+  for (const r of unique) {
     if (SPORTS_TYPES.includes(r.recType)) sports.push(r);
     else if (STUDY_TYPES.includes(r.recType)) study.push(r);
     else if (UPDATE_TYPES.includes(r.recType)) updates.push(r);

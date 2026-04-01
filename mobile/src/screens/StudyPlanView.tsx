@@ -24,9 +24,10 @@ import {
   Platform,
   Switch,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { TomoLoader, PLAN_LOADER_MESSAGES } from '../components/TomoLoader';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useScheduleRules } from '../hooks/useScheduleRules';
@@ -397,7 +398,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={colors.accent1} />
+        <TomoLoader messages={PLAN_LOADER_MESSAGES} />
       </View>
     );
   }
@@ -408,14 +409,14 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
     return (
       <ScrollView contentContainerStyle={styles.emptyContainer}>
         <View style={styles.emptyIcon}>
-          <Ionicons name="school-outline" size={32} color={colors.accent1} />
+          <SmartIcon name="school-outline" size={32} color={colors.accent1} />
         </View>
         <Text style={styles.emptyTitle}>No subjects added yet</Text>
         <Text style={styles.emptySubtitle}>
           Add your subjects in My Rules to start planning your study sessions.
         </Text>
         <TouchableOpacity style={[styles.rulesBtn, { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D`, borderWidth: 1 }]} onPress={handleNavigateToRules}>
-          <Ionicons name="options-outline" size={16} color={colors.accent1} />
+          <SmartIcon name="options-outline" size={16} color={colors.accent1} />
           <Text style={[styles.rulesBtnText, { color: colors.accent1 }]}>Go to Rules</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -429,7 +430,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
       {/* Back header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 }}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
+          <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
         </Pressable>
         <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 18, color: colors.textOnDark, flex: 1 }}>Study Plan</Text>
       </View>
@@ -450,7 +451,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}
                   onPress={() => handleNavigateToPreview(plan.blocks, undefined, plan.config, plan.id, true)}
                 >
-                  <Ionicons name="document-text" size={16} color={colors.warning} />
+                  <SmartIcon name="document-text" size={16} color={colors.warning} />
                   <Text style={styles.savedPlanName} numberOfLines={1}>{plan.name}</Text>
                 </Pressable>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -468,7 +469,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                       }
                     }}
                   >
-                    <Ionicons name="download-outline" size={18} color={colors.accent1} />
+                    <SmartIcon name="download-outline" size={18} color={colors.accent1} />
                   </Pressable>
                   <Pressable
                     hitSlop={8}
@@ -487,7 +488,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                       }
                     }}
                   >
-                    <Ionicons name="trash-outline" size={18} color={colors.error} />
+                    <SmartIcon name="trash-outline" size={18} color={colors.error} />
                   </Pressable>
                 </View>
               </View>
@@ -532,7 +533,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             }}
             style={[styles.subjectPill, { borderColor: colors.warning + '40', borderStyle: 'dashed' }]}
           >
-            <Ionicons name="add" size={14} color={colors.warning} />
+            <SmartIcon name="add" size={14} color={colors.warning} />
             <Text style={[styles.subjectPillText, { color: colors.warning }]}>Add</Text>
           </Pressable>
         </View>
@@ -596,7 +597,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                       style={[styles.examPill, { borderColor: 'rgba(123, 97, 255, 0.25)', backgroundColor: 'rgba(123, 97, 255, 0.10)', flexDirection: 'row', alignItems: 'center', gap: 6 }]}
                     >
                       <Text style={[styles.examPillSubject, { color: '#FFFFFF' }]}>{exam.subject}</Text>
-                      <Text style={[styles.examPillDays, { color: days <= 7 ? colors.error : '#7B61FF' }]}>{days}d</Text>
+                      <Text style={[styles.examPillDays, { color: days <= 7 ? colors.error : colors.eventMatch }]}>{days}d</Text>
                       <TouchableOpacity
                         hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
                         onPress={() => {
@@ -604,7 +605,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                           updateRules({ exam_schedule: updated });
                         }}
                       >
-                        <Ionicons name="close-circle" size={16} color={`${colors.error}99`} />
+                        <SmartIcon name="close-circle" size={16} color={`${colors.error}99`} />
                       </TouchableOpacity>
                     </View>
                   );
@@ -613,7 +614,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
           )}
           {exams.length > 0 && futureExams.length === 0 && (
             <View style={[styles.infoBanner, { backgroundColor: `${colors.textInactive}10`, marginBottom: 8 }]}>
-              <Ionicons name="checkmark-circle" size={16} color={colors.readinessGreen} />
+              <SmartIcon name="checkmark-circle" size={16} color={colors.readinessGreen} />
               <Text style={[styles.infoBannerText, { color: colors.textSecondary }]}>All exams completed!</Text>
             </View>
           )}
@@ -643,7 +644,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                           paddingHorizontal: 14,
                           borderRadius: 10,
                           borderWidth: 1,
-                          borderColor: isActive ? '#7B61FF' : colors.border,
+                          borderColor: isActive ? colors.eventMatch : colors.border,
                           backgroundColor: isActive ? '#7B61FF20' : 'transparent',
                         }}
                         onPress={() => setNewExamSubject(subj)}
@@ -651,7 +652,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                         <Text style={{
                           fontSize: 13,
                           fontFamily: fontFamily.medium,
-                          color: isActive ? '#7B61FF' : colors.textSecondary,
+                          color: isActive ? colors.eventMatch : colors.textSecondary,
                         }}>{subj}</Text>
                       </TouchableOpacity>
                     );
@@ -673,7 +674,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                         if (d > new Date()) setNewExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
                       }}
                     >
-                      <Ionicons name="chevron-back" size={14} color={colors.accent1} />
+                      <SmartIcon name="chevron-back" size={14} color={colors.accent1} />
                     </TouchableOpacity>
                     <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 13, color: colors.textOnDark, textAlign: 'center' }}>
                       {(() => {
@@ -689,7 +690,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                         setNewExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
                       }}
                     >
-                      <Ionicons name="chevron-forward" size={14} color={colors.accent1} />
+                      <SmartIcon name="chevron-forward" size={14} color={colors.accent1} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -710,7 +711,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                             paddingVertical: 8,
                             borderRadius: 10,
                             borderWidth: 1,
-                            borderColor: isActive ? '#7B61FF' : colors.border,
+                            borderColor: isActive ? colors.eventMatch : colors.border,
                             backgroundColor: isActive ? '#7B61FF20' : 'transparent',
                           }}
                           onPress={() => setNewExamType(fullType)}
@@ -718,7 +719,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                           <Text style={{
                             fontSize: 12,
                             fontFamily: fontFamily.medium,
-                            color: isActive ? '#7B61FF' : colors.textSecondary,
+                            color: isActive ? colors.eventMatch : colors.textSecondary,
                           }}>{t}</Text>
                         </TouchableOpacity>
                       );
@@ -746,7 +747,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                     flex: 1,
                     paddingVertical: 11,
                     borderRadius: borderRadius.sm,
-                    backgroundColor: '#7B61FF',
+                    backgroundColor: colors.eventMatch,
                     alignItems: 'center',
                     opacity: newExamSubject ? 1 : 0.4,
                   }}
@@ -785,7 +786,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
               }}
               onPress={() => setAddingExam(true)}
             >
-              <Ionicons name="add" size={14} color={colors.accent1} />
+              <SmartIcon name="add" size={14} color={colors.accent1} />
               <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: colors.accent1 }}>Add Exam</Text>
             </TouchableOpacity>
           )}
@@ -806,7 +807,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
               <View style={{ flex: 1 }}>
                 <Text style={styles.subjectName}>{subj}</Text>
                 {exam && (
-                  <Text style={[styles.blockMeta, { color: daysLeft <= 7 ? colors.error : '#7B61FF' }]}>
+                  <Text style={[styles.blockMeta, { color: daysLeft <= 7 ? colors.error : colors.eventMatch }]}>
                     Exam in {daysLeft}d
                   </Text>
                 )}
@@ -816,14 +817,14 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                   onPress={() => setSubjectDays(subj, (daysPerSubject[subj] || 2) - 1)}
                   style={[styles.stepperBtn, { borderColor: colors.border }]}
                 >
-                  <Ionicons name="remove" size={14} color={colors.textOnDark} />
+                  <SmartIcon name="remove" size={14} color={colors.textOnDark} />
                 </TouchableOpacity>
                 <Text style={styles.miniStepperVal}>{daysPerSubject[subj] || 2}</Text>
                 <TouchableOpacity
                   onPress={() => setSubjectDays(subj, (daysPerSubject[subj] || 2) + 1)}
                   style={[styles.stepperBtn, { borderColor: colors.border }]}
                 >
-                  <Ionicons name="add" size={14} color={colors.textOnDark} />
+                  <SmartIcon name="add" size={14} color={colors.textOnDark} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -835,7 +836,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
       {/* ─── Block Estimate ─── */}
       {blockEstimate > 0 && (
         <View style={styles.estimateRow}>
-          <Ionicons name="layers-outline" size={16} color={colors.accent1} />
+          <SmartIcon name="layers-outline" size={16} color={colors.accent1} />
           <Text style={styles.estimateText}>~{blockEstimate} study blocks</Text>
         </View>
       )}
@@ -855,7 +856,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                 style={[styles.infoBanner, { backgroundColor: '#F39C1212', marginBottom: spacing.sm }]}
                 onPress={handleNavigateToRules}
               >
-                <Ionicons name="warning-outline" size={16} color={colors.warning} />
+                <SmartIcon name="warning-outline" size={16} color={colors.warning} />
                 <Text style={[styles.infoBannerText, { color: colors.warning }]}>{reason}</Text>
                 {subjects.length === 0 && (
                   <Text style={[styles.configBannerEdit, { color: colors.accent1 }]}>Fix in Rules</Text>
@@ -873,7 +874,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="pencil" size={16} color={colors.warning} />
+                <SmartIcon name="pencil" size={16} color={colors.warning} />
                 <Text style={[styles.generateBtnText, { color: colors.warning }]}>Edit Study Plan</Text>
               </TouchableOpacity>
             )}
@@ -893,7 +894,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
               {isGenerating ? (
                 <ActivityIndicator size="small" color={colors.accent1} />
               ) : (
-                <Ionicons name="sparkles" size={16} color={colors.accent1} />
+                <SmartIcon name="sparkles" size={16} color={colors.accent1} />
               )}
               <Text style={[styles.generateBtnText, { color: colors.accent1 }]}>
                 {isGenerating ? 'Generating plan...' : hasExistingPlan ? 'Regenerate New Plan' : 'Generate Study Plan'}

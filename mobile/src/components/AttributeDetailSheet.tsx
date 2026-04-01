@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from './SmartIcon';
 import { useSpringEntrance, useBarFill } from '../hooks/useAnimations';
 import { useSportContext } from '../hooks/useSportContext';
 import { fontFamily, borderRadius, spacing } from '../theme';
@@ -81,7 +81,7 @@ export function AttributeDetailSheet({
         </View>
         {onClose && (
           <Pressable onPress={onClose} hitSlop={12}>
-            <Ionicons name="close-circle" size={22} color={colors.textInactive} />
+            <SmartIcon name="close-circle" size={22} color={colors.textInactive} />
           </Pressable>
         )}
       </View>
@@ -89,7 +89,7 @@ export function AttributeDetailSheet({
       {/* Trend */}
       {data.trend !== 0 && (
         <View style={s.trendRow}>
-          <Ionicons
+          <SmartIcon
             name={data.trend > 0 ? 'trending-up' : 'trending-down'}
             size={16}
             color={data.trend > 0 ? colors.accent : colors.textSecondary}
@@ -139,7 +139,7 @@ export function AttributeDetailSheet({
         <Text style={s.sourcesTitle}>Sources</Text>
         {data.sources.map((src) => (
           <View key={src} style={s.sourceItem}>
-            <Ionicons name="checkmark-circle" size={14} color={attrColor} />
+            <SmartIcon name="checkmark-circle" size={14} color={attrColor} />
             <Text style={s.sourceText}>{src}</Text>
           </View>
         ))}

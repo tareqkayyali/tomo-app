@@ -8,7 +8,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -54,7 +54,7 @@ export function FocusCard({
       {/* ── Items or Empty State ──────────────────────────────────────── */}
       {isEmpty ? (
         <View style={styles.emptyContainer}>
-          <Ionicons
+          <SmartIcon
             name="calendar-outline"
             size={48}
             color={colors.textMuted}
@@ -72,7 +72,7 @@ export function FocusCard({
               end={{ x: 1, y: 0 }}
               style={styles.addButtonGradient}
             >
-              <Ionicons name="add" size={18} color={colors.textPrimary} />
+              <SmartIcon name="add" size={18} color={colors.textPrimary} />
               <Text style={styles.addButtonText}>Add Event</Text>
             </LinearGradient>
           </Pressable>
@@ -117,7 +117,7 @@ export function FocusCard({
       {/* ── Footer link ──────────────────────────────────────────────── */}
       <Pressable onPress={onSeeFullCalendar} style={styles.footerLink}>
         <Text style={styles.footerText}>See Full Calendar</Text>
-        <Ionicons
+        <SmartIcon
           name="chevron-forward"
           size={14}
           color={colors.accent2}

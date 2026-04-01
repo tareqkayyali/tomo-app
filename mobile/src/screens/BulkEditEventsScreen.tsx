@@ -8,7 +8,7 @@ import {
   View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SmartIcon } from '../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../theme';
@@ -215,7 +215,7 @@ export function BulkEditEventsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          <SmartIcon name="arrow-back" size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Bulk Edit Events</Text>
         <View style={styles.headerActions}>
@@ -246,7 +246,7 @@ export function BulkEditEventsScreen() {
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <Ionicons name="trash-outline" size={16} color="#fff" />
+                <SmartIcon name="trash-outline" size={16} color="#fff" />
                 <Text style={styles.deleteButtonText}>Delete</Text>
               </>
             )}
@@ -266,7 +266,7 @@ export function BulkEditEventsScreen() {
               {/* Group header — tap to select/deselect all in group */}
               <Pressable style={styles.groupHeader} onPress={() => toggleGroup(group)}>
                 <View style={styles.groupCheckbox}>
-                  <Ionicons
+                  <SmartIcon
                     name={allSelected ? 'checkbox' : someSelected ? 'remove-circle-outline' : 'square-outline'}
                     size={22}
                     color={allSelected ? colors.accent1 : colors.textInactive}
@@ -294,7 +294,7 @@ export function BulkEditEventsScreen() {
                     const isSelected = selectedIds.has(evt.id);
                     return (
                       <Pressable key={evt.id} style={styles.eventRow} onPress={() => toggleSingle(evt.id)}>
-                        <Ionicons
+                        <SmartIcon
                           name={isSelected ? 'checkbox' : 'square-outline'}
                           size={18}
                           color={isSelected ? colors.accent1 : colors.textInactive}
@@ -319,7 +319,7 @@ export function BulkEditEventsScreen() {
         )}
         {!loading && eventGroups.length === 0 && (
           <View style={styles.empty}>
-            <Ionicons name="calendar-outline" size={48} color={colors.textInactive} />
+            <SmartIcon name="calendar-outline" size={48} color={colors.textInactive} />
             <Text style={[styles.emptyText, { color: colors.textInactive }]}>No events to edit</Text>
           </View>
         )}
