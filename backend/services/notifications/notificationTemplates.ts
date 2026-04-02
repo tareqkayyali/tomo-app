@@ -71,6 +71,7 @@ export type GroupUpdateBehavior = 'replace_body' | 'increment_count' | 'extend_e
 
 export interface ExpiryConfig {
   ttl_hours?: number;
+  ttl_minutes?: number;
   expires_at_field?: string; // e.g. 'session_start_time', 'midnight_same_day'
   resolve_condition?: string; // human-readable, enforced in expiryResolver
   inherits_from?: string;
@@ -133,7 +134,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     secondary_action: { label: 'I understand', deep_link: '', resolves: true },
     group_key_pattern: '{athlete_id}',
     group_update_behavior: 'replace_body',
-    expiry: { ttl_hours: 168, resolve_condition: 'acwr < 1.3' },
+    expiry: { ttl_hours: 48, resolve_condition: 'acwr < 1.3' },
     can_dismiss: false,
   },
 
@@ -150,7 +151,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     primary_action: { label: 'View modified session', deep_link: 'tomo://timeline?date=today' },
     group_key_pattern: '{athlete_id}_injury',
     group_update_behavior: 'replace_body',
-    expiry: { ttl_hours: 168, resolve_condition: 'injury_risk_flag = false' },
+    expiry: { ttl_hours: 48, resolve_condition: 'injury_risk_flag = false' },
     can_dismiss: false,
   },
 
@@ -173,7 +174,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     type: 'JOURNAL_PRE_SESSION',
     category: 'training',
     priority: 2,
-    title: 'Set your target \u2014 {session_name} in {N} min',
+    title: 'Set your target \u2014 {session_name} at {time}',
     body: 'Setting a specific target before you walk in sharpens focus. Takes 30 seconds.',
     chips: [
       { label: 'Today {time}', style: 'orange' },
@@ -203,7 +204,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     type: 'SESSION_STARTING_SOON',
     category: 'training',
     priority: 2,
-    title: '{session_name} starts in 30 minutes',
+    title: '{session_name} at {time}',
     body: 'No target set yet. Quick check-in before you start?',
     chips: [{ label: 'Starting at {time}', style: 'orange' }],
     primary_action: { label: 'Check in + set target', deep_link: 'tomo://chat?intent=journal_pre&event_id={event_id}' },
@@ -263,7 +264,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     chips: [{ label: 'Bedtime {bedtime}', style: 'blue' }],
     primary_action: { label: 'Got it', deep_link: '', resolves: true },
     group_key_pattern: '{athlete_id}_bedtime_{date}',
-    expiry: { ttl_hours: 2 },
+    expiry: { expires_at_field: 'bedtime_expiry' },
     can_dismiss: true,
   },
 

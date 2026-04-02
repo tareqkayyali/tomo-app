@@ -77,6 +77,23 @@ export async function handleAssessmentResult(event: AthleteEvent): Promise<void>
 
   // Recompute CV — assessments affect speed/strength/mastery completeness
   await recomputeCv(event.athlete_id);
+
+  // Flag CV statement as stale if it was previously approved
+  // (new test data may warrant regeneration)
+  try {
+    const { data: cvProfile } = await (db as any)
+      .from('cv_profiles')
+      .select('statement_status')
+      .eq('athlete_id', event.athlete_id)
+      .single();
+
+    if (cvProfile?.statement_status === 'approved') {
+      await (db as any)
+        .from('cv_profiles')
+        .update({ statement_status: 'needs_update', updated_at: new Date().toISOString() })
+        .eq('athlete_id', event.athlete_id);
+    }
+  } catch { /* cv_profiles may not exist yet — graceful */ }
 }
 
 /**

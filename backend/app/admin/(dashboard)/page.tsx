@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -10,9 +10,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatsCards } from "@/components/admin/dashboard/StatsCards";
+import { toast } from "sonner";
 import type { DashboardStats } from "@/services/admin/dashboardService";
 
 function DashboardSkeleton() {
@@ -52,6 +54,47 @@ function formatCategory(cat: string): string {
   return cat
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function QuickActions() {
+  const [acwrLoading, setAcwrLoading] = useState(false);
+  const [acwrResult, setAcwrResult] = useState<string | null>(null);
+
+  const handleRecomputeACWR = useCallback(async () => {
+    setAcwrLoading(true);
+    setAcwrResult(null);
+    try {
+      const res = await fetch("/api/v1/admin/recompute-acwr", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setAcwrResult(`Done — ${data.count} athletes recomputed`);
+      toast.success(`ACWR recomputed for ${data.count} athletes`);
+    } catch (err) {
+      setAcwrResult(`Error: ${err}`);
+      toast.error("Failed to recompute ACWR");
+    }
+    setAcwrLoading(false);
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Quick Actions</CardTitle>
+        <CardDescription>System maintenance and data recomputation</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <Button onClick={handleRecomputeACWR} disabled={acwrLoading} variant="outline">
+            {acwrLoading ? "Recomputing..." : "Recompute ACWR (all athletes)"}
+          </Button>
+          {acwrResult && <span className="text-sm text-muted-foreground">{acwrResult}</span>}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function AdminDashboard() {
@@ -96,6 +139,9 @@ export default function AdminDashboard() {
           Manage all content that powers the Tomo athlete platform.
         </p>
       </div>
+
+      {/* Quick Actions */}
+      <QuickActions />
 
       {/* Stats Cards */}
       <StatsCards stats={stats} />

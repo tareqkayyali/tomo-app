@@ -499,7 +499,17 @@ export async function executeOutputTool(
         const date = toolInput.date ?? today;
         const [dayStart, dayEnd] = getDayBoundsISO(date, context.timezone);
 
-        // Get training events for day
+        // Read pre-computed load metrics from snapshot enrichment
+        const se = context.snapshotEnrichment;
+        const acwr = se?.acwr ?? null;
+        const atl7day = se?.atl7day ?? null;
+        const ctl28day = se?.ctl28day ?? null;
+        const athleticLoad7day = se?.athleticLoad7day ?? null;
+        const academicLoad7day = se?.academicLoad7day ?? null;
+        const dualLoadIndex = se?.dualLoadIndex ?? null;
+        const injuryRiskFlag = se?.injuryRiskFlag ?? null;
+
+        // Get today's events for context
         const { data: trainingEvents } = await db
           .from("calendar_events")
           .select("event_type, intensity, title")
@@ -508,7 +518,6 @@ export async function executeOutputTool(
           .lte("start_at", dayEnd)
           .in("event_type", ["training", "match"]);
 
-        // Get study/exam events
         const { data: studyEvents } = await db
           .from("calendar_events")
           .select("event_type, title")
@@ -517,46 +526,22 @@ export async function executeOutputTool(
           .lte("start_at", dayEnd)
           .in("event_type", ["study", "exam"]);
 
-        // Athletic load: map intensity to numeric score
-        const intensityMap: Record<string, number> = {
-          REST: 2,
-          LIGHT: 4,
-          MODERATE: 6,
-          HARD: 9,
-        };
-        const athleticLoad =
-          trainingEvents && trainingEvents.length > 0
-            ? trainingEvents.reduce(
-                (s, e) => s + (intensityMap[e.intensity ?? ""] ?? 5),
-                0
-              ) / trainingEvents.length
-            : 0;
-
-        // Academic load: exam = 3 pts, study block = 1 pt, max 10
-        const academicLoad = Math.min(
-          10,
-          (studyEvents ?? []).reduce(
-            (s, e) => s + (e.event_type === "exam" ? 3 : 1),
-            0
-          )
-        );
-
-        const totalLoad = (athleticLoad + academicLoad) / 2;
+        // Determine load zone from ACWR
         const loadZone =
-          totalLoad >= 8
-            ? "overload"
-            : totalLoad >= 6
-              ? "high"
-              : totalLoad >= 4
-                ? "moderate"
-                : "low";
+          acwr != null
+            ? acwr > 1.5 ? "danger" : acwr > 1.3 ? "high" : acwr < 0.8 ? "low" : "optimal"
+            : "unknown";
 
         return {
           result: {
             date,
-            athleticLoad: Math.round(athleticLoad * 10) / 10,
-            academicLoad: Math.round(academicLoad * 10) / 10,
-            totalLoad: Math.round(totalLoad * 10) / 10,
+            acwr: acwr != null ? Math.round(acwr * 100) / 100 : null,
+            atl7day: atl7day != null ? Math.round(atl7day) : null,
+            ctl28day: ctl28day != null ? Math.round(ctl28day) : null,
+            athleticLoad7day: athleticLoad7day != null ? Math.round(athleticLoad7day) : null,
+            academicLoad7day: academicLoad7day != null ? Math.round(academicLoad7day) : null,
+            dualLoadIndex: dualLoadIndex != null ? Math.round(dualLoadIndex) : null,
+            injuryRiskFlag,
             loadZone,
             trainingEvents: trainingEvents?.map((e) => e.title) ?? [],
             studyEvents: studyEvents?.map((e) => e.title) ?? [],
@@ -1255,6 +1240,34 @@ export async function executeOutputTool(
         return {
           result: { success: true, journalId: journal.id, journalState: 'complete', message: 'Reflection saved. Nice work.' },
           refreshTarget: "calendar",
+        };
+      }
+
+      case "update_notification_settings": {
+        // Map capsule fields to DB columns
+        const updates: Record<string, unknown> = {
+          athlete_id: userId,
+          updated_at: new Date().toISOString(),
+        };
+        if (toolInput.dailyReminderTime && /^\d{2}:\d{2}$/.test(toolInput.dailyReminderTime)) {
+          updates.daily_reminder_time = toolInput.dailyReminderTime;
+        }
+        if (typeof toolInput.streakReminders === "boolean") {
+          updates.push_training = toolInput.streakReminders;
+        }
+        if (typeof toolInput.milestoneAlerts === "boolean") {
+          updates.push_coaching = toolInput.milestoneAlerts;
+        }
+        const { error: prefErr } = await (db as any)
+          .from("athlete_notification_preferences")
+          .upsert(updates, { onConflict: "athlete_id" });
+        if (prefErr) return { result: null, error: prefErr.message };
+        return {
+          result: {
+            success: true,
+            dailyReminderTime: toolInput.dailyReminderTime,
+            message: `Daily reminder set to ${toolInput.dailyReminderTime ?? 'unchanged'}.`,
+          },
         };
       }
 

@@ -50,4 +50,20 @@ export async function handleCompetitionResult(event: AthleteEvent): Promise<void
 
   // Competitions boost CV completeness
   await recomputeCv(event.athlete_id);
+
+  // Flag CV statement as stale if previously approved (new competition data)
+  try {
+    const { data: cvProfile } = await (db as any)
+      .from('cv_profiles')
+      .select('statement_status')
+      .eq('athlete_id', event.athlete_id)
+      .single();
+
+    if (cvProfile?.statement_status === 'approved') {
+      await (db as any)
+        .from('cv_profiles')
+        .update({ statement_status: 'needs_update', updated_at: new Date().toISOString() })
+        .eq('athlete_id', event.athlete_id);
+    }
+  } catch { /* cv_profiles may not exist yet — graceful */ }
 }

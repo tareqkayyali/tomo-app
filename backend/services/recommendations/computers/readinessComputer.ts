@@ -45,7 +45,19 @@ export async function computeReadinessRec(
     return;
   }
 
-  // 2. Get PHV growth stage (may be null for adults or un-assessed athletes)
+  // 2. Check if athlete has training/match scheduled today
+  const todayStr = new Date().toISOString().split('T')[0];
+  const { data: todayTraining } = await db
+    .from('calendar_events')
+    .select('id')
+    .eq('user_id', athleteId)
+    .in('event_type', ['training', 'match', 'gym'])
+    .gte('start_at', `${todayStr}T00:00:00`)
+    .lte('start_at', `${todayStr}T23:59:59`)
+    .limit(1);
+  const hasTrainingToday = (todayTraining?.length ?? 0) > 0;
+
+  // 4. Get PHV growth stage (may be null for adults or un-assessed athletes)
   const phv = await getPlayerPHVStage(athleteId);
 
   // 3. Determine confidence based on data freshness
@@ -64,32 +76,47 @@ export async function computeReadinessRec(
 
   if (rag === 'RED' && isMidPhv) {
     priority = 1;
-    title = 'Rest Day — Growth Phase';
-    bodyShort = 'Your body is recovering and growing. Take a full rest day today.';
-    bodyLong = `Your readiness is low and you're in a rapid growth phase. `
-      + `During this time your body needs extra recovery. Skip any high-intensity training today. `
-      + `Light stretching or a walk is fine. Your loading has been adjusted by ${Math.round((1 - loadingMultiplier) * 100)}%.`;
+    title = hasTrainingToday ? 'Rest Day — Growth Phase' : 'Recovery Day — Growth Phase';
+    bodyShort = hasTrainingToday
+      ? 'Your body is recovering and growing. Take a full rest day today.'
+      : 'Good call resting today. Your body is in a growth phase — prioritise sleep and nutrition.';
+    bodyLong = hasTrainingToday
+      ? `Your readiness is low and you're in a rapid growth phase. During this time your body needs extra recovery. Skip any high-intensity training today. Light stretching or a walk is fine. Your loading has been adjusted by ${Math.round((1 - loadingMultiplier) * 100)}%.`
+      : `You have no training today — perfect timing. Your readiness is low and you're in a growth phase. Use today to sleep well, eat well, and let your body repair. Your loading multiplier is currently ${Math.round(loadingMultiplier * 100)}%.`;
   } else if (rag === 'RED') {
     priority = 1;
-    title = 'Rest Day Recommended';
-    bodyShort = 'Your body needs recovery today. Take it easy and focus on rest.';
-    bodyLong = `Your readiness score indicates fatigue or stress. `
-      + `A rest day will help you bounce back stronger. `
-      + `Focus on sleep, hydration, and light movement if anything.`;
+    title = hasTrainingToday ? 'Rest Day Recommended' : 'Good Day to Rest';
+    bodyShort = hasTrainingToday
+      ? 'Your body needs recovery today. Take it easy and focus on rest.'
+      : 'No training today — your body will thank you. Focus on sleep and hydration.';
+    bodyLong = hasTrainingToday
+      ? `Your readiness score indicates fatigue or stress. A rest day will help you bounce back stronger. Focus on sleep, hydration, and light movement if anything.`
+      : `Your readiness is low but you have no training scheduled — that's a good thing. Use today for full recovery: prioritise 8–9 hours of sleep, stay hydrated, and avoid any extra stress.`;
   } else if (rag === 'AMBER' && acwr !== null && acwr > 1.3) {
-    priority = 1;
-    title = 'High Load + Low Readiness';
-    bodyShort = 'Your training load is high and readiness is below normal. Reduce intensity today.';
-    bodyLong = `Your ACWR is ${acwr?.toFixed(2)} (above 1.3) and your readiness is amber. `
-      + `This compound risk increases injury likelihood. `
-      + `Cap today at light intensity and monitor how you feel.`;
+    if (hasTrainingToday) {
+      priority = 1;
+      title = 'High Load + Low Readiness';
+      bodyShort = 'Your training load is high and readiness is below normal. Reduce intensity today.';
+      bodyLong = `Your ACWR is ${acwr?.toFixed(2)} (above 1.3) and your readiness is amber. `
+        + `This compound risk increases injury likelihood. `
+        + `Cap today at light intensity and monitor how you feel.`;
+    } else {
+      priority = 2;
+      title = 'Rest Day Helping You Recover';
+      bodyShort = `Your load has been high (ACWR ${acwr?.toFixed(2)}) — today's rest is exactly what you need.`;
+      bodyLong = `Your ACWR is ${acwr?.toFixed(2)} and readiness is amber, but you have no training today. `
+        + `This is good — your body gets a chance to recover. Focus on sleep, nutrition, and light movement. `
+        + `You should be in better shape for your next session.`;
+    }
   } else if (rag === 'AMBER') {
     priority = 2;
-    title = 'Light Session Suggested';
-    bodyShort = 'You\'re not at your best today. Keep training light to moderate.';
-    bodyLong = `Your readiness is amber — not bad, but not great either. `
-      + `A lighter session will help you maintain consistency without overdoing it. `
-      + `Consider technical work or recovery-focused training.`;
+    title = hasTrainingToday ? 'Light Session Suggested' : 'Moderate Day — Stay Active';
+    bodyShort = hasTrainingToday
+      ? 'You\'re not at your best today. Keep training light to moderate.'
+      : 'No training today — some light movement like a walk will keep you feeling good.';
+    bodyLong = hasTrainingToday
+      ? `Your readiness is amber — not bad, but not great either. A lighter session will help you maintain consistency without overdoing it. Consider technical work or recovery-focused training.`
+      : `Your readiness is amber and you have no training today. Consider a short walk or some light stretching to keep blood flowing without adding load.`;
   } else if (rag === 'GREEN' && isMidPhv) {
     priority = 2;
     title = 'Ready but Modified';
@@ -100,10 +127,13 @@ export async function computeReadinessRec(
   } else {
     // GREEN (default)
     priority = 3;
-    title = 'Ready for High Intensity';
-    bodyShort = 'You\'re in great shape today. Go for it!';
-    bodyLong = `Your readiness is green and your load is manageable. `
-      + `This is a great day for high-intensity work, speed sessions, or competitive play.`;
+    title = hasTrainingToday ? 'Ready for High Intensity' : 'Ready — Rest Day Well Spent';
+    bodyShort = hasTrainingToday
+      ? 'You\'re in great shape today. Go for it!'
+      : 'Your body is in great shape. Enjoy your rest day — you\'ll be ready to push hard next session.';
+    bodyLong = hasTrainingToday
+      ? `Your readiness is green and your load is manageable. This is a great day for high-intensity work, speed sessions, or competitive play.`
+      : `Your readiness is green and load is under control. No training today — use it to stay fresh. You're in a good position heading into your next session.`;
   }
 
   // 5a. RAG augmentation (async, with fallback to static strings)

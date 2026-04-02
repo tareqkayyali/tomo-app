@@ -1151,7 +1151,7 @@ function formatConfirmationResult(
       `Done — added "${toolInput.title}" to your calendar for ${toolInput.date} at ${toolInput.startTime}–${toolInput.endTime} ✓`,
     update_event: () => `Updated ✓`,
     delete_event: () =>
-      `Removed "${toolInput.eventTitle}" from your calendar ✓`,
+      `Removed "${result?.actualTitle ?? toolInput.eventTitle}" from your calendar ✓`,
     log_check_in: () =>
       `Check-in saved ✓ Your readiness is ${result?.checkIn?.readiness ?? "processing"}.`,
   };

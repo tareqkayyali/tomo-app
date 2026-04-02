@@ -22,6 +22,8 @@ import { writeSnapshot } from './snapshot/snapshotWriter';
 import { logger } from '@/lib/logger';
 import { triggerRecommendationComputation } from '../recommendations/recommendationDispatcher';
 import { triggerDeepProgramRefreshAsync, isDeepProgramStale } from '../programs/deepProgramRefresh';
+import { processDataEvent } from '../notifications/notificationTriggers';
+import { triggerSnapshotNotifications } from '../notifications/scheduledTriggers';
 import type { AthleteEvent } from './types';
 
 /** Event types that should trigger a program recommendation refresh */
@@ -132,6 +134,18 @@ export async function processEvent(event: AthleteEvent): Promise<void> {
 
     // ── Always write updated snapshot ──
     await writeSnapshot(athlete_id, event);
+
+    // ── Notification Center triggers (fire-and-forget, reads updated snapshot) ──
+    processDataEvent(event as any).catch(err =>
+      logger.error('Notification trigger failed', { event_type, event_id, athlete_id, error: (err as Error).message })
+    );
+
+    // ── Snapshot-based notifications (DUAL_LOAD_SPIKE, EXAM_APPROACHING) ──
+    if ([EVENT_TYPES.WELLNESS_CHECKIN, EVENT_TYPES.ACADEMIC_EVENT, EVENT_TYPES.STUDY_SESSION_LOG, EVENT_TYPES.SESSION_LOG].includes(event_type as any)) {
+      triggerSnapshotNotifications(athlete_id).catch(err =>
+        logger.error('Snapshot notification trigger failed', { event_type, athlete_id, error: (err as Error).message })
+      );
+    }
 
     // ── Layer 4: Recommendation Intelligence Engine (fire-and-forget) ──
     triggerRecommendationComputation(event).catch(err =>

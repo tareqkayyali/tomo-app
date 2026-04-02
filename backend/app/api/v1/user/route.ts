@@ -52,6 +52,20 @@ const ALLOWED_UPDATE_FIELDS: Record<string, string> = {
   playing_style: "playing_style",
   preferredFoot: "preferred_foot",
   preferred_foot: "preferred_foot",
+  // CV-related profile fields
+  nationality: "nationality",
+  passport_country: "passport_country",
+  passportCountry: "passport_country",
+  secondary_positions: "secondary_positions",
+  secondaryPositions: "secondary_positions",
+  avatar_url: "avatar_url",
+  avatarUrl: "avatar_url",
+  parent_guardian_name: "parent_guardian_name",
+  parentGuardianName: "parent_guardian_name",
+  parent_guardian_email: "parent_guardian_email",
+  parentGuardianEmail: "parent_guardian_email",
+  parent_guardian_phone: "parent_guardian_phone",
+  parentGuardianPhone: "parent_guardian_phone",
 };
 
 export async function PUT(req: NextRequest) {

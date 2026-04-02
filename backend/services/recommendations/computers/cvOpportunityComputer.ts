@@ -9,6 +9,12 @@
  *   Key position metric missing          → P3 "Missing Key Test: {metric}"
  *   cv_completeness crossed 50/75        → P4 "CV Milestone: {pct}% Complete"
  *   Good metric stale >90 days           → P3 "Retest {metric} — Keep It Fresh"
+ *   No video link on CV                  → P3 "Add a highlight video"
+ *   No career entry                      → P3 "Add your club history"
+ *   No coach reference                   → P4 "Add a coach reference"
+ *   COMPETITION_RESULT logged            → P4 "Update match stats on your CV"
+ *   MILESTONE_HIT                        → P4 "Add this achievement to your CV"
+ *   Statement needs regeneration         → P4 "Your CV statement is outdated"
  *   Otherwise                            → No rec
  *
  * Confidence: 0.8 (fact-based, profile data)
@@ -107,6 +113,84 @@ export async function computeCvOpportunityRec(
         + `Athletic profiles are most valuable when they reflect your current abilities. `
         + `Retesting regularly shows progression and keeps your data relevant for coaches. `
         + `Schedule a retest this week!`;
+    }
+  }
+
+  // ── New CV-specific prompts (Phase 5) ──────────────────────────────────
+
+  // Check manual CV sections for completeness prompts
+  if (!priority) {
+    const cvSections = await getCVSectionCounts(athleteId, db);
+
+    // No video — scouts' #1 priority
+    if (cvSections.media === 0 && (cvCompleteness ?? 0) >= 25) {
+      priority = 3;
+      title = 'Add a Highlight Video';
+      bodyShort = 'CVs with video get 4x more scout views. Add your highlight reel.';
+      bodyLong = 'Scouts and recruiters consistently rank highlight video as the most important '
+        + 'element of a player CV. Even a short 2-3 minute compilation can make a big difference. '
+        + 'Film your best moments in training or matches, upload to YouTube, and add the link to your CV.';
+    }
+    // No career history
+    else if (cvSections.career === 0 && (cvCompleteness ?? 0) >= 15) {
+      priority = 3;
+      title = 'Add Your Club History';
+      bodyShort = 'Your CV is missing career history. Add your current and past clubs.';
+      bodyLong = 'Scouts want to see your playing journey — which clubs you\'ve been at, '
+        + 'what level, and for how long. Even if you\'ve only been at one academy, adding it '
+        + 'shows structured development. Include match stats if you have them.';
+    }
+    // No references
+    else if (cvSections.references === 0 && (cvCompleteness ?? 0) >= 40) {
+      priority = 4;
+      title = 'Add a Coach Reference';
+      bodyShort = 'A coach reference adds credibility. Ask your coach if they\'d be a reference.';
+      bodyLong = 'Having at least one coach reference on your CV adds significant credibility. '
+        + 'Scouts trust third-party endorsements. Ask your current coach or academy director '
+        + 'if they\'d be willing to be listed as a reference, and add their details to your CV.';
+    }
+  }
+
+  // Event-specific CV prompts
+  if (!priority && event.event_type === 'COMPETITION_RESULT') {
+    const payload = event.payload as Record<string, unknown>;
+    const opponent = payload?.opponent as string | undefined;
+    priority = 4;
+    title = 'Update Your Match Stats';
+    bodyShort = `You just played${opponent ? ` vs ${opponent}` : ''}. Add your stats to your CV.`;
+    bodyLong = 'You logged a competition result — great! To make your CV stronger, '
+      + 'go to your career history and update your appearances, goals, and assists. '
+      + 'Scouts look at match stats to evaluate consistency and impact.';
+  }
+
+  if (!priority && event.event_type === 'MILESTONE_HIT') {
+    const payload = event.payload as Record<string, unknown>;
+    const milestoneTitle = payload?.title as string | undefined;
+    if (milestoneTitle) {
+      priority = 4;
+      title = 'New Achievement Unlocked';
+      bodyShort = `You earned "${milestoneTitle}". Add it to your CV awards section.`;
+      bodyLong = `Congratulations on "${milestoneTitle}"! This shows commitment and progress. `
+        + 'Add this to the Awards & Character section of your CV. Scouts appreciate '
+        + 'seeing consistent achievement patterns — it demonstrates coachability and drive.';
+    }
+  }
+
+  // Statement regeneration check
+  if (!priority) {
+    const { data: cvProfile } = await (db as any)
+      .from('cv_profiles')
+      .select('statement_status, statement_last_generated')
+      .eq('athlete_id', athleteId)
+      .maybeSingle();
+
+    if (cvProfile?.statement_status === 'needs_update') {
+      priority = 4;
+      title = 'Update Your CV Statement';
+      bodyShort = 'Your data has changed. Regenerate your personal statement to reflect your latest achievements.';
+      bodyLong = 'Your CV personal statement was generated before your latest improvements. '
+        + 'Regenerating it will include your new benchmarks, training milestones, and career updates. '
+        + 'Open your CV and tap "Regenerate" on your personal statement.';
     }
   }
 
@@ -228,4 +312,25 @@ async function findStaleMetric(
   }
 
   return null;
+}
+
+/** Count manual CV sections for completeness prompts */
+async function getCVSectionCounts(
+  athleteId: string,
+  db: ReturnType<typeof supabaseAdmin>
+): Promise<{ career: number; media: number; references: number; academic: number; traits: number }> {
+  const [careerRes, mediaRes, refsRes, academicRes, traitsRes] = await Promise.all([
+    (db as any).from('cv_career_entries').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId),
+    (db as any).from('cv_media_links').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId),
+    (db as any).from('cv_references').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId),
+    (db as any).from('cv_academic_entries').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId),
+    (db as any).from('cv_character_traits').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId),
+  ]);
+  return {
+    career: careerRes.count ?? 0,
+    media: mediaRes.count ?? 0,
+    references: refsRes.count ?? 0,
+    academic: academicRes.count ?? 0,
+    traits: traitsRes.count ?? 0,
+  };
 }

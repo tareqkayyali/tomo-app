@@ -366,7 +366,7 @@ export async function executeTimelineTool(
         }
 
         return {
-          result: { deleted: true, eventId: toolInput.eventId },
+          result: { deleted: true, eventId: toolInput.eventId, actualTitle: delTarget?.title ?? toolInput.eventTitle },
           refreshTarget: "calendar",
         };
       }

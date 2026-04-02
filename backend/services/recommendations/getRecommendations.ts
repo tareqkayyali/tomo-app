@@ -73,43 +73,12 @@ export async function getRecommendations(
 
   const recs = (data ?? []) as unknown as Recommendation[];
 
-  // Filter out READINESS-based recs that were generated from stale checkin data.
-  // Check if the rec's context has a last_checkin_at that's >24h old, or if
-  // the rec itself is older than 24h and is a readiness-dependent type.
-  const READINESS_DEPENDENT_TYPES = ['READINESS', 'LOAD_WARNING', 'RECOVERY'];
-  const STALE_HOURS = 24;
-
-  // Fetch latest checkin timestamp from snapshot to compare
-  const { data: snap } = await (db as any)
-    .from('athlete_snapshots')
-    .select('last_checkin_at')
-    .eq('athlete_id', athleteId)
-    .maybeSingle();
-
-  const lastCheckinAt = snap?.last_checkin_at as string | null;
-  const checkinAgeHours = lastCheckinAt
-    ? (Date.now() - new Date(lastCheckinAt).getTime()) / 3600000
-    : null;
-  const hasStaleCheckin = checkinAgeHours == null || checkinAgeHours > STALE_HOURS;
-
-  // Filter out recs generated for a different calendar day
-  const today = new Date().toISOString().slice(0, 10);
-
+  // Filter out recs whose expires_at has passed (belt-and-suspenders on top of DB status).
+  // The event pipeline marks recs EXPIRED in the DB, but this catches any race window.
+  const now = Date.now();
   const filtered = recs.filter((r) => {
-    const ctx = r.context as Record<string, unknown> | null;
-
-    // Filter stale readiness-dependent recs — only for TODAY recs (P1-P2)
-    // P3/P4 planning recs should survive even with stale checkin data
-    if (hasStaleCheckin && READINESS_DEPENDENT_TYPES.includes(r.rec_type) && r.priority <= 2) {
-      const action = ctx?.action as any;
-      if (action?.type === 'Checkin') return true; // Keep "Check In" recs
-      return false;
-    }
-
-    // Note: calendar staleness is handled by batch supersede in deepRecRefresh.
-    // Each refresh supersedes ALL old recs before inserting new ones, so
-    // only the latest batch survives. No need for date-based filtering here.
-
+    const expiresAt = (r as any).expires_at as string | null;
+    if (expiresAt && new Date(expiresAt).getTime() < now) return false;
     return true;
   });
 

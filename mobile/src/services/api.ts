@@ -157,6 +157,22 @@ export interface BootData {
   /** Per-metric percentile snapshots — keyed by metricKey (e.g. "hrv_rmssd", "cmj", "sprint_30m") */
   metricPercentiles: Record<string, { percentile: number; zone: string; value: number }>;
   upcomingExams: { title: string; date: string }[];
+  currentActiveEvent: {
+    id: string;
+    title: string;
+    type: string;
+    startAt: string;
+    endAt: string | null;
+    intensity: number | null;
+  } | null;
+  tomorrowFirstEvent: {
+    id: string;
+    title: string;
+    type: string;
+    startAt: string;
+    endAt: string | null;
+    intensity: number | null;
+  } | null;
   fetchedAt: string;
 }
 

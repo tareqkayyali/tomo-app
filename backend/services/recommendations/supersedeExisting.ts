@@ -99,7 +99,12 @@ export async function smartSupersede(
     const isBeingRegenerated = newRecTypes.includes(rec.rec_type);
     const isResolved = isConditionResolved(rec.rec_type, rec.evidence_basis ?? {}, ctx);
 
-    if (isExpired || isBeingRegenerated || isResolved) {
+    // P1/P2 urgent recs are protected — only supersede if expired or condition resolved.
+    // Deep refresh regeneration alone is not enough; we don't want to wipe urgent signals.
+    const isUrgent = rec.priority <= 2;
+    const shouldSupersede = isExpired || isResolved || (isBeingRegenerated && !isUrgent);
+
+    if (shouldSupersede) {
       toSupersede.push(rec.rec_id);
       // Track the most recent rec of each type as parent for continuity
       if (!parentIds[rec.rec_type]) {

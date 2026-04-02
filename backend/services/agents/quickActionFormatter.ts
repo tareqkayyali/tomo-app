@@ -117,18 +117,32 @@ function formatDualLoad(result: any): FormattedResponse {
   const dual = result.dualLoadIndex ?? "N/A";
   const risk = result.injuryRiskFlag ?? "N/A";
 
+  // ACWR zone description
+  const acwrNum = typeof acwr === "number" ? acwr : null;
+  const acwrZone = acwrNum != null
+    ? acwrNum > 1.5 ? "Danger zone — high injury risk" : acwrNum > 1.3 ? "Elevated — reduce intensity" : acwrNum >= 0.8 ? "Sweet spot — optimal loading" : "Undertraining — increase load gradually"
+    : "";
+
   return {
     headline: `📊 Load: ACWR ${acwr}`,
-    cards: [{
-      type: "stat_grid",
-      items: [
-        { label: "ACWR", value: acwr, unit: "" },
-        { label: "Athletic (7d)", value: athletic, unit: "AU" },
-        { label: "Academic (7d)", value: academic, unit: "AU" },
-        { label: "Dual Index", value: dual, unit: "/100" },
-        { label: "Risk", value: risk, unit: "" },
-      ],
-    }],
+    cards: [
+      {
+        type: "stat_grid",
+        items: [
+          { label: "ACWR", value: acwr, unit: "" },
+          { label: "Athletic (7d)", value: athletic, unit: "AU" },
+          { label: "Academic (7d)", value: academic, unit: "AU" },
+          { label: "Dual Index", value: dual, unit: "/100" },
+          { label: "Risk", value: risk, unit: "" },
+        ],
+      },
+      {
+        type: "text_card",
+        emoji: "📖",
+        headline: "What do these mean?",
+        body: `ACWR (Acute:Chronic Workload Ratio) compares your last 7 days of training load to your last 28 days. ${acwrZone ? acwrZone + ". " : ""}The safe zone is 0.8–1.3.\n\nAU (Arbitrary Units) measures total training stress — combining session duration, intensity, and type. Higher AU = more load on your body.\n\nDual Index combines athletic + academic load to flag weeks where both are high.`,
+      },
+    ],
     chips: [
       { label: "View schedule", action: "Show my schedule today" },
     ],

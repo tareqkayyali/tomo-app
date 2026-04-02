@@ -416,14 +416,36 @@ export async function deepRecRefresh(
         retrieved_chunk_ids: retrievedChunkIds.length > 0 ? retrievedChunkIds : undefined,
       };
 
-      const { error } = await (db as any)
+      const { data: insertedRec, error } = await (db as any)
         .from('athlete_recommendations')
-        .insert(insert);
+        .insert(insert)
+        .select('id')
+        .single();
 
       if (error) {
         console.error(`[DeepRecRefresh] Insert failed for ${rec.rec_type}:`, error.message);
       } else {
         inserted++;
+
+        // Fire notification for P1/P2 recs (fire-and-forget)
+        if (priority <= 2 && insertedRec?.id) {
+          import('../notifications/notificationEngine').then(({ createNotification }) => {
+            createNotification({
+              athleteId,
+              type: 'NEW_RECOMMENDATION',
+              vars: {
+                rec_title: rec.title.slice(0, 100),
+                rec_body_short: rec.body_short.slice(0, 150),
+                priority,
+                rec_type: rec.rec_type,
+                rec_id: insertedRec.id,
+                expires_at: expiresAt,
+              },
+              sourceRef: { type: 'recommendation', id: insertedRec.id },
+              expiresAt,
+            });
+          }).catch(() => {});
+        }
       }
     }
 

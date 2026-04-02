@@ -7,6 +7,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { AthleteEvent, AcademicEventPayload, StudySessionLogPayload } from '../types';
+import { recomputeACWR } from '../computations/acwrComputation';
 import { recomputeDualLoad } from '../computations/dualLoadComputation';
 
 /**
@@ -32,7 +33,7 @@ export async function handleAcademicEvent(event: AthleteEvent): Promise<void> {
         .select('academic_load_au, session_count')
         .eq('athlete_id', event.athlete_id)
         .eq('load_date', loadDate)
-        .single();
+        .maybeSingle();
 
       if (existing && existing.session_count === 0) {
         await db
@@ -47,7 +48,7 @@ export async function handleAcademicEvent(event: AthleteEvent): Promise<void> {
         .select('academic_load_au')
         .eq('athlete_id', event.athlete_id)
         .eq('load_date', loadDate)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         await db
@@ -68,7 +69,8 @@ export async function handleAcademicEvent(event: AthleteEvent): Promise<void> {
       }
     }
 
-    // Recompute dual load with projected data
+    // Recompute ACWR (now includes weighted academic load) + dual load
+    await recomputeACWR(event.athlete_id);
     await recomputeDualLoad(event.athlete_id);
     return;
   }
@@ -92,7 +94,7 @@ export async function handleAcademicEvent(event: AthleteEvent): Promise<void> {
     .select('academic_load_au')
     .eq('athlete_id', event.athlete_id)
     .eq('load_date', loadDate)
-    .single();
+    .maybeSingle();
 
   if (existing) {
     await db
@@ -114,6 +116,7 @@ export async function handleAcademicEvent(event: AthleteEvent): Promise<void> {
       });
   }
 
-  // Recompute dual load index (academic + athletic combined) — also updates academic_load_7day
+  // Recompute ACWR (now includes weighted academic load) + dual load index
+  await recomputeACWR(event.athlete_id);
   await recomputeDualLoad(event.athlete_id);
 }

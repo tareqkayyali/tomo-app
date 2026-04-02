@@ -57,6 +57,7 @@ const METRIC_CONFIG: Record<string, { label: string; emoji: string; unit: string
   heart_rate: { label: "Heart Rate", emoji: "❤️", unit: "bpm", color: "#FF3B30", direction: "lower_better" },
   hrv: { label: "HRV", emoji: "💓", unit: "ms", color: "#AF52DE", direction: "higher_better" },
   resting_hr: { label: "Resting HR", emoji: "💗", unit: "bpm", color: "#FF6B6B", direction: "lower_better" },
+  recovery_score: { label: "Recovery Score", emoji: "🔋", unit: "%", color: "#30D158", direction: "higher_better" },
   steps: { label: "Steps", emoji: "👣", unit: "steps", color: "#30D158", direction: "higher_better" },
   calories: { label: "Active Cal", emoji: "🔥", unit: "kcal", color: "#FF9500", direction: "higher_better" },
   blood_oxygen: { label: "SpO₂", emoji: "🫁", unit: "%", color: "#00D9FF", direction: "higher_better" },

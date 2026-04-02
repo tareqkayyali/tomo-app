@@ -603,14 +603,32 @@ async function handleBlazepods(): Promise<OrchestratorResult | null> {
   };
 }
 
-async function handleNotificationSettings(): Promise<OrchestratorResult | null> {
+async function handleNotificationSettings(
+  _message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const db = supabaseAdmin() as any;
+  const { data: prefs } = await db
+    .from("athlete_notification_preferences")
+    .select("daily_reminder_time, push_training, push_coaching")
+    .eq("athlete_id", context.userId)
+    .maybeSingle();
+
+  const dailyReminderTime = prefs?.daily_reminder_time ?? "07:00";
+
   return {
     message: "Notification settings",
     structured: {
       headline: "🔔 Notification Settings",
       cards: [{
         type: "notification_settings_capsule" as const,
-        current: { dailyReminder: true, dailyReminderTime: "07:00", streakReminders: true, milestoneAlerts: true, redDayGuidance: true, weeklySummary: true },
+        current: {
+          dailyReminder: true,
+          dailyReminderTime: dailyReminderTime,
+          streakReminders: prefs?.push_training ?? true,
+          milestoneAlerts: prefs?.push_coaching ?? true,
+          redDayGuidance: true,
+          weeklySummary: true,
+        },
       }],
       chips: [],
     },

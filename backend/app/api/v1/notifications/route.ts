@@ -1,28 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import {
-  listNotifications,
+  getNotifications,
   getUnreadCount,
+} from "@/services/notifications/notificationEngine";
+import {
+  listNotifications,
+  getUnreadCount as getLegacyUnreadCount,
 } from "@/services/notificationService";
 import { parsePagination, paginatedResponse, hasPaginationParams } from "@/lib/pagination";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+
+const HEADERS = { "api-version": "v1" };
 
 /**
  * GET /api/v1/notifications
- * List notifications for the authenticated user.
- * Query params: ?limit=50
- * Opt-in pagination: ?page=1&limit=20 returns paginated response format.
+ *
+ * Query params:
+ *   ?source=center   → reads from athlete_notifications (new notification center)
+ *   ?status=unread    → filter by status (center only)
+ *   ?category=training → filter by category (center only)
+ *   ?limit=30&offset=0 → pagination (center only)
+ *   ?page=1&limit=20  → legacy paginated format
+ *
+ * Default (no source param): legacy notifications table for backward compat.
  */
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
 
+  const { searchParams } = new URL(req.url);
+  const source = searchParams.get("source");
+
+  // ─── New notification center ───
+  if (source === "center") {
+    try {
+      const result = await getNotifications(auth.user.id, {
+        status: searchParams.get("status") ?? undefined,
+        category: searchParams.get("category") ?? undefined,
+        limit: parseInt(searchParams.get("limit") ?? "30", 10) || 30,
+        offset: parseInt(searchParams.get("offset") ?? "0", 10) || 0,
+      });
+
+      return NextResponse.json(result, { headers: HEADERS });
+    } catch (err: any) {
+      return NextResponse.json(
+        { error: err.message || "Failed to fetch notifications" },
+        { status: 500 }
+      );
+    }
+  }
+
+  // ─── Legacy path (existing behavior) ───
   const paginate = hasPaginationParams(req);
 
   if (paginate) {
-    // Paginated path — query Supabase directly with range + count
     const params = parsePagination(req, 50, 200);
     try {
+      const { supabaseAdmin } = await import("@/lib/supabase/admin");
       const db = supabaseAdmin() as any;
       const [{ data, error, count }, unreadCount] = await Promise.all([
         db
@@ -31,7 +65,7 @@ export async function GET(req: NextRequest) {
           .eq("user_id", auth.user.id)
           .order("created_at", { ascending: false })
           .range(params.offset, params.offset + params.limit - 1),
-        getUnreadCount(auth.user.id),
+        getLegacyUnreadCount(auth.user.id),
       ]);
 
       if (error) {
@@ -43,7 +77,7 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json(
         { ...paginatedResponse(data || [], count ?? 0, params), unreadCount },
-        { headers: { "api-version": "v1" } }
+        { headers: HEADERS }
       );
     } catch (err: any) {
       return NextResponse.json(
@@ -53,8 +87,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Non-paginated path — existing behavior
-  const { searchParams } = new URL(req.url);
   const limit = Math.min(
     parseInt(searchParams.get("limit") || "50", 10) || 50,
     200
@@ -63,12 +95,12 @@ export async function GET(req: NextRequest) {
   try {
     const [notifications, unreadCount] = await Promise.all([
       listNotifications(auth.user.id, limit),
-      getUnreadCount(auth.user.id),
+      getLegacyUnreadCount(auth.user.id),
     ]);
 
     return NextResponse.json(
       { notifications, unreadCount },
-      { headers: { "api-version": "v1" } }
+      { headers: HEADERS }
     );
   } catch (err: any) {
     return NextResponse.json(

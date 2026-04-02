@@ -17,6 +17,7 @@ import { emitEventSafe } from './eventEmitter';
 import { EVENT_TYPES, SOURCE_TYPES } from './constants';
 import type { EventType } from './constants';
 import { estimateLoad } from './computations/loadEstimator';
+import { checkStudyTrainingConflict } from '../notifications/scheduledTriggers';
 
 // ---------------------------------------------------------------------------
 // Calendar type → Layer 1 event type mapping
@@ -131,6 +132,16 @@ export async function bridgeCalendarToEventStream(params: {
         bridged: true,
       },
     });
+
+    // Check for study/training conflicts (fire-and-forget)
+    checkStudyTrainingConflict(athleteId, {
+      id: calendarEvent.id,
+      event_type: calendarEvent.event_type,
+      start_at: calendarEvent.start_at,
+      end_at: calendarEvent.end_at,
+      title: calendarEvent.title,
+    }).catch(() => {});
+
     return;
   }
 

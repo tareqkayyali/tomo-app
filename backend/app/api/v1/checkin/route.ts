@@ -30,12 +30,21 @@ export async function POST(req: NextRequest) {
   const today = new Date().toISOString().slice(0, 10);
 
   // 2. Idempotency check (one per day)
-  const { data: existing } = await db
+  // Use maybeSingle() so a query error doesn't bypass the duplicate check
+  const { data: existing, error: existingError } = await db
     .from("checkins")
     .select("id")
     .eq("user_id", auth.user.id)
     .eq("date", today)
-    .single();
+    .maybeSingle();
+
+  if (existingError) {
+    console.error("[checkin] Idempotency check failed:", existingError.message);
+    return NextResponse.json(
+      { error: "Failed to verify checkin status. Please try again." },
+      { status: 500 }
+    );
+  }
 
   if (existing) {
     return NextResponse.json(

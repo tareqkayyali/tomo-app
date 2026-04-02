@@ -2,7 +2,7 @@
  * CV Completeness Computation — scores how "complete" an athlete's profile is.
  *
  * Pure function (no DB): takes a snapshot, returns 0-100 score.
- * DB wrapper: reads snapshot, computes, writes cv_completeness back.
+ * DB wrapper: reads snapshot, computes, writes cv_completeness + new CV fields back.
  *
  * Scoring breakdown (100 total):
  *   Profile basics (sport, position, height, weight, dob): 15 pts
@@ -19,6 +19,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { AthleteSnapshot } from '../types';
+import { computeCoachabilityIndex } from '../../cv/coachabilityIndex';
 
 // ── Pure computation ──────────────────────────────────────────────────
 
@@ -74,25 +75,50 @@ export function computeCvCompleteness(snapshot: Partial<AthleteSnapshot>): numbe
 // ── DB wrapper ────────────────────────────────────────────────────────
 
 /**
- * Recompute and persist cv_completeness for an athlete.
+ * Recompute and persist cv_completeness + coachability fields for an athlete.
  * Called after events that change profile completeness (assessments, sessions, etc.)
  */
 export async function recomputeCv(athleteId: string): Promise<number> {
   const db = supabaseAdmin();
 
-  const { data: snapshot } = await db
-    .from('athlete_snapshots')
-    .select('*')
-    .eq('athlete_id', athleteId)
-    .single();
+  const [{ data: snapshot }, { data: journals }, { data: careerCount }] = await Promise.all([
+    db.from('athlete_snapshots').select('*').eq('athlete_id', athleteId).single(),
+    (db as any).from('training_journals').select('post_outcome, journal_state')
+      .eq('athlete_id', athleteId).eq('journal_state', 'complete').limit(100),
+    (db as any).from('cv_career_entries').select('id', { count: 'exact', head: true })
+      .eq('athlete_id', athleteId),
+  ]);
 
   if (!snapshot) return 0;
 
   const cvScore = computeCvCompleteness(snapshot as unknown as Partial<AthleteSnapshot>);
 
+  // Compute coachability index from journals + snapshot
+  const coachability = computeCoachabilityIndex(
+    snapshot as any,
+    (journals ?? []) as any[]
+  );
+
+  // Compute training_age_months from training_age_weeks
+  const trainingAgeMonths = Math.round((snapshot.training_age_weeks ?? 0) / 4.33);
+
+  // Update snapshot with all CV-related computed fields
+  const updates: Record<string, unknown> = {
+    cv_completeness: cvScore,
+    training_age_months: trainingAgeMonths,
+    career_entry_count: careerCount ?? 0,
+  };
+
+  if (coachability) {
+    updates.coachability_index = coachability.score;
+    updates.coachability_target_rate = coachability.components.target_achievement_rate;
+    updates.coachability_adaptation = coachability.components.adaptation_velocity;
+    updates.coachability_responsiveness = coachability.components.coach_responsiveness;
+  }
+
   await db
     .from('athlete_snapshots')
-    .update({ cv_completeness: cvScore })
+    .update(updates)
     .eq('athlete_id', athleteId);
 
   return cvScore;
