@@ -7,31 +7,13 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, borderRadius, fontFamily } from '../../theme';
-
-type NotificationCategory =
-  | 'all'
-  | 'critical'
-  | 'training'
-  | 'coaching'
-  | 'academic'
-  | 'triangle'
-  | 'cv';
+import { FILTER_CATEGORIES, type CategoryFilter } from './constants';
 
 interface CategoryFilterBarProps {
-  selected: NotificationCategory;
+  selected: CategoryFilter;
   counts: Record<string, number>;
-  onSelect: (category: NotificationCategory) => void;
+  onSelect: (category: CategoryFilter) => void;
 }
-
-const CATEGORIES: { key: NotificationCategory; label: string; color: string }[] = [
-  { key: 'all', label: 'All', color: '#2ECC71' },
-  { key: 'critical', label: 'Critical', color: '#E74C3C' },
-  { key: 'training', label: 'Training', color: '#F4501E' },
-  { key: 'coaching', label: 'Coaching', color: '#2ECC71' },
-  { key: 'academic', label: 'Academic', color: '#3498DB' },
-  { key: 'triangle', label: 'Triangle', color: '#8E44AD' },
-  { key: 'cv', label: 'CV', color: '#F39C12' },
-];
 
 export function CategoryFilterBar({ selected, counts, onSelect }: CategoryFilterBarProps) {
   const { colors } = useTheme();
@@ -43,7 +25,7 @@ export function CategoryFilterBar({ selected, counts, onSelect }: CategoryFilter
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {CATEGORIES.map(({ key, label, color }) => {
+        {FILTER_CATEGORIES.map(({ key, label, color }) => {
           const isActive = selected === key;
           const count = key === 'all'
             ? Object.values(counts).reduce((a, b) => a + b, 0)

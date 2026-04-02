@@ -10,7 +10,9 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { updateUser } from './api';
+import { registerPushToken } from './api';
+
+const EXPO_PROJECT_ID = '7cd0fd4e-b7fa-4bd0-8eb5-b15808e224cc';
 
 // ---------------------------------------------------------------------------
 // Configure foreground notification handling
@@ -54,24 +56,39 @@ export async function registerForPushNotifications(): Promise<string | null> {
       return null;
     }
 
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: EXPO_PROJECT_ID,
+    });
     const token = tokenData.data;
 
-    // Store token on backend
-    await updateUser({ fcmToken: token } as Partial<import('../types').User>);
+    // Store token in player_push_tokens table (matches pushDelivery.ts reads)
+    await registerPushToken(token, Platform.OS);
 
-    // Android notification channel
+    // Android notification channels — one per notification category
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'tomo',
-        importance: Notifications.AndroidImportance.HIGH,
-        sound: 'default',
-      });
+      const channels: Array<{ id: string; name: string; importance: number; sound: string | null }> = [
+        { id: 'tomo-critical', name: 'Critical Alerts', importance: Notifications.AndroidImportance.MAX, sound: 'default' },
+        { id: 'tomo-training', name: 'Training', importance: Notifications.AndroidImportance.HIGH, sound: 'default' },
+        { id: 'tomo-academic', name: 'Academic', importance: Notifications.AndroidImportance.HIGH, sound: 'default' },
+        { id: 'tomo-coaching', name: 'Coaching', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
+        { id: 'tomo-triangle', name: 'Coach & Parent', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
+        { id: 'tomo-cv', name: 'CV Updates', importance: Notifications.AndroidImportance.LOW, sound: null },
+        { id: 'tomo-system', name: 'System', importance: Notifications.AndroidImportance.LOW, sound: null },
+      ];
+      await Promise.all(
+        channels.map((ch) =>
+          Notifications.setNotificationChannelAsync(ch.id, {
+            name: ch.name,
+            importance: ch.importance,
+            sound: ch.sound,
+          })
+        )
+      );
     }
 
     return token;
-  } catch {
-    // Silently fail — push not available (e.g. Expo Go without project ID)
+  } catch (err) {
+    console.warn('[notifications] Push registration not available:', err);
     return null;
   }
 }

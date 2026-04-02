@@ -60,10 +60,11 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         setNotifications(res.notifications ?? []);
         setUnreadCount(res.unreadCount ?? 0);
         setCenterUnreadCount(centerRes.total);
-        setHasCriticalUnread((centerRes.by_category?.critical ?? 0) > 0);
+        const byCat = centerRes.by_category as Record<string, number> | undefined;
+        setHasCriticalUnread((byCat?.critical ?? 0) > 0);
       }
     } catch (err) {
-      console.error('[notifications] Fetch failed:', err);
+      console.warn('[useNotifications] Fetch failed:', err);
     } finally {
       if (mounted.current) setLoading(false);
     }
@@ -80,7 +81,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       setUnreadCount(0);
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch (err) {
-      console.error('[notifications] Mark all read failed:', err);
+      console.warn('[useNotifications] Mark all read failed:', err);
     }
   }, []);
 
@@ -179,8 +180,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         sub = Notifications.addNotificationReceivedListener(() => {
           refresh();
         });
-      } catch {
-        // expo-notifications may not be available
+      } catch (err) {
+        console.warn('[useNotifications] expo-notifications not available:', err);
       }
     };
     setup();
@@ -201,18 +202,15 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           if (!data) return;
 
           if (data.screen) {
-            // Navigate to a named screen (e.g. "Checkin", "DrillDetail")
             navigation.navigate(data.screen, data.params ?? undefined);
           } else if (data.url) {
-            // Let the deep-linking handler process the URL
             Linking.openURL(data.url);
           }
 
-          // Refresh notifications list after tap
           refresh();
         });
-      } catch {
-        // expo-notifications may not be available
+      } catch (err) {
+        console.warn('[useNotifications] expo-notifications tap handler not available:', err);
       }
     };
     setup();

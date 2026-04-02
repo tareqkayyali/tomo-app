@@ -21,26 +21,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../SmartIcon';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
-import { GlowWrapper, type GlowPreset } from '../GlowWrapper';
+import { GlowWrapper } from '../GlowWrapper';
 import { Badge } from '../Badge';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemeColors } from '../../theme/colors';
 import { spacing, borderRadius, fontFamily } from '../../theme';
+import {
+  CATEGORY_CONFIG,
+  getChipColor,
+  getAnimationDelay,
+  type NotificationCategory,
+  type CategoryConfig,
+} from './constants';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
-type NotificationCategory =
-  | 'critical'
-  | 'training'
-  | 'coaching'
-  | 'academic'
-  | 'triangle'
-  | 'cv'
-  | 'system';
-
 interface Chip {
   label: string;
-  style: 'red' | 'green' | 'amber' | 'blue' | 'orange' | 'purple';
+  style: string;
 }
 
 interface Action {
@@ -74,35 +72,7 @@ interface NotificationCardProps {
   onPress: (n: NotificationData) => void;
 }
 
-// ─── Category Config ──────────────────────────────────────────────────
-
-interface CategoryConfig {
-  color: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  glow: GlowPreset;
-  badgeVariant: 'chip' | 'success' | 'warning' | 'error' | 'info' | 'outline';
-  tintBg: string; // subtle category-tinted card background
-}
-
-const CATEGORY_CONFIG: Record<NotificationCategory, CategoryConfig> = {
-  critical: { color: '#E74C3C', icon: 'flash', label: 'Critical', glow: 'orange', badgeVariant: 'error', tintBg: 'rgba(231, 76, 60, 0.08)' },
-  training: { color: '#F4501E', icon: 'calendar', label: 'Training', glow: 'orange', badgeVariant: 'warning', tintBg: 'rgba(244, 80, 30, 0.06)' },
-  coaching: { color: '#2ECC71', icon: 'star', label: 'Coaching', glow: 'cyan', badgeVariant: 'success', tintBg: 'rgba(46, 204, 113, 0.06)' },
-  academic: { color: '#3498DB', icon: 'book', label: 'Academic', glow: 'cyan', badgeVariant: 'info', tintBg: 'rgba(52, 152, 219, 0.06)' },
-  triangle: { color: '#8E44AD', icon: 'diamond', label: 'Triangle', glow: 'subtle', badgeVariant: 'chip', tintBg: 'rgba(142, 68, 173, 0.06)' },
-  cv: { color: '#F39C12', icon: 'person-circle', label: 'CV', glow: 'subtle', badgeVariant: 'warning', tintBg: 'rgba(243, 156, 18, 0.06)' },
-  system: { color: '#888888', icon: 'information-circle', label: 'System', glow: 'none', badgeVariant: 'chip', tintBg: 'rgba(136, 136, 136, 0.04)' },
-};
-
-const CHIP_COLORS: Record<string, { bg: string; text: string }> = {
-  red: { bg: 'rgba(231, 76, 60, 0.18)', text: '#E74C3C' },
-  green: { bg: 'rgba(46, 204, 113, 0.18)', text: '#2ECC71' },
-  amber: { bg: 'rgba(243, 156, 18, 0.18)', text: '#F39C12' },
-  blue: { bg: 'rgba(52, 152, 219, 0.18)', text: '#3498DB' },
-  orange: { bg: 'rgba(244, 80, 30, 0.18)', text: '#F4501E' },
-  purple: { bg: 'rgba(142, 68, 173, 0.18)', text: '#8E44AD' },
-};
+// CATEGORY_CONFIG, getChipColor, getAnimationDelay imported from ./constants
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -177,7 +147,7 @@ export function NotificationCard({
   // ── P1: Critical Hero Card with Glow ──
   if (n.priority === 1) {
     return (
-      <Animated.View entering={FadeInDown.delay(index * 80).duration(350).springify()}>
+      <Animated.View entering={FadeInDown.delay(getAnimationDelay(index)).duration(350).springify()}>
         <GlowWrapper glow={config.glow} breathing style={{ marginBottom: spacing.md, marginHorizontal: spacing.lg }}>
           <CardShell config={config} isUnread={isUnread} isDone={isDone}
             style={{ backgroundColor: '#231A1A', borderColor: config.color + '60' }}>
@@ -226,7 +196,7 @@ export function NotificationCard({
   // ── P2: Today Card (expanded by default) ──
   if (n.priority === 2) {
     return (
-      <Animated.View entering={FadeInDown.delay(index * 80).duration(350).springify()}>
+      <Animated.View entering={FadeInDown.delay(getAnimationDelay(index)).duration(350).springify()}>
         <CardShell config={config} isUnread={isUnread} isDone={isDone}
           style={{ marginBottom: spacing.sm, marginHorizontal: spacing.lg }}>
           {/* Header */}
@@ -264,7 +234,7 @@ export function NotificationCard({
   // ── P3: This Week Card ──
   if (n.priority === 3) {
     return (
-      <Animated.View entering={FadeInDown.delay(index * 80).duration(350).springify()}>
+      <Animated.View entering={FadeInDown.delay(getAnimationDelay(index)).duration(350).springify()}>
         <CardShell config={config} isUnread={isUnread} isDone={isDone}
           style={{ marginBottom: spacing.sm, marginHorizontal: spacing.lg }}>
           <Pressable onPress={() => { setExpanded(!expanded); onPress(n); }} hitSlop={8}>
@@ -301,7 +271,7 @@ export function NotificationCard({
 
   // ── P4: Info Chip ──
   return (
-    <Animated.View entering={FadeInDown.delay(index * 80).duration(350).springify()}>
+    <Animated.View entering={FadeInDown.delay(getAnimationDelay(index)).duration(350).springify()}>
       <CardShell config={config} isUnread={isUnread} isDone={isDone}
         style={{ marginBottom: spacing.xs, marginHorizontal: spacing.lg, padding: spacing.compact }}>
         <Pressable
@@ -337,7 +307,7 @@ function ChipRow({ chips }: { chips: Chip[] }) {
   return (
     <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm, flexWrap: 'wrap' }}>
       {chips.map((chip, i) => {
-        const cc = CHIP_COLORS[chip.style] ?? CHIP_COLORS.amber;
+        const cc = getChipColor(chip.style);
         return (
           <View key={i} style={{
             paddingHorizontal: 10, paddingVertical: 4,
@@ -374,7 +344,9 @@ function AskTomoButton({
               screen: 'MainTabs',
               params: { screen: 'Chat', params: { prefillMessage: prefill } },
             });
-          } catch { /* Silent fallback for non-Main navigators */ }
+          } catch (err) {
+            console.warn('[NotificationCard] Ask Tomo navigation failed:', err);
+          }
         }}
         style={s.askTomoBtn}
       >

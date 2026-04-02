@@ -32,17 +32,7 @@ import { TomoLoader, NOTIFICATIONS_LOADER_MESSAGES } from '../components/TomoLoa
 import { type NotificationData } from '../components/notifications/NotificationCard';
 import { SwipeableNotificationCard } from '../components/notifications/SwipeableNotificationCard';
 import { CategoryFilterBar } from '../components/notifications/CategoryFilterBar';
-
-// ─── Types ────────────────────────────────────────────────────────────
-
-type CategoryFilter =
-  | 'all'
-  | 'critical'
-  | 'training'
-  | 'coaching'
-  | 'academic'
-  | 'triangle'
-  | 'cv';
+import { type CategoryFilter } from '../components/notifications/constants';
 
 interface Section {
   title: string;

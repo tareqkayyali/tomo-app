@@ -88,8 +88,8 @@ export function NotificationsScreen() {
     try {
       const res = await getNotifications(100);
       setNotifications(res.notifications || []);
-    } catch {
-      // silent
+    } catch (err) {
+      console.warn('[NotificationsScreen] Fetch failed:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -113,8 +113,8 @@ export function NotificationsScreen() {
         setNotifications((prev) =>
           prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
         );
-      } catch {
-        // silent
+      } catch (err) {
+        console.warn('[NotificationsScreen] Mark read failed:', err);
       }
     }
 
@@ -168,8 +168,8 @@ export function NotificationsScreen() {
     try {
       await markAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch {
-      // silent
+    } catch (err) {
+      console.warn('[NotificationsScreen] Mark all read failed:', err);
     }
   }, []);
 
@@ -188,8 +188,8 @@ export function NotificationsScreen() {
           prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
         );
       }
-    } catch {
-      // silent — could show error toast
+    } catch (err) {
+      console.warn('[NotificationsScreen] Parent link response failed:', err);
     } finally {
       setRespondingId(null);
     }
