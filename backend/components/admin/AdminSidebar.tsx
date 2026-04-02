@@ -46,9 +46,27 @@ const navigation = [
     ],
   },
   {
+    label: "Player CV",
+    items: [
+      { name: "CV Overview", href: "/admin/cv", icon: "📄" },
+      { name: "CV Athletes", href: "/admin/cv/athletes", icon: "👤" },
+      { name: "CV Settings", href: "/admin/cv/settings", icon: "⚙️" },
+    ],
+  },
+  {
     label: "AI & Recommendations",
     items: [
       { name: "Recommendation Engine", href: "/admin/recommendation-engine", icon: "🤖" },
+    ],
+  },
+  {
+    label: "Notifications",
+    items: [
+      { name: "Dashboard", href: "/admin/notifications", icon: "🔔" },
+      { name: "Templates", href: "/admin/notifications/templates", icon: "📋" },
+      { name: "Scheduled Jobs", href: "/admin/notifications/scheduled", icon: "⏰" },
+      { name: "Push Delivery", href: "/admin/notifications/push", icon: "📱" },
+      { name: "Management", href: "/admin/notifications/management", icon: "⚙️" },
     ],
   },
   {

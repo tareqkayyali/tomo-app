@@ -51,3 +51,12 @@ export { schedulePush, deliverQueuedPushes } from './pushDelivery';
 
 // Expiry resolver
 export { resolveByConditions, resolvePassedExams, runConditionExpiryCheck } from './expiryResolver';
+
+// Admin config service
+export {
+  getAllConfigs,
+  isTypeEnabled,
+  getAdminPriorityOverride,
+  isTypePushEnabled,
+  upsertConfig,
+} from './notificationConfigService';

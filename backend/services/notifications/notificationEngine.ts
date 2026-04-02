@@ -23,6 +23,7 @@ import {
 } from './notificationTemplates';
 import { adjustPriorityByContext } from './contextEngine';
 import { schedulePush } from './pushDelivery';
+import { isTypeEnabled } from './notificationConfigService';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -67,6 +68,11 @@ export async function createNotification(
   const template = NOTIFICATION_TEMPLATES[type];
   if (!template) {
     console.error(`[notif-engine] Unknown notification type: ${type}`);
+    return null;
+  }
+
+  // Admin global disable check — blocks creation entirely for disabled types
+  if (!(await isTypeEnabled(type))) {
     return null;
   }
 
@@ -131,7 +137,7 @@ export async function createNotification(
   if (data?.id) {
     const deepLink = resolvedPrimaryAction?.deep_link ?? '';
     schedulePush(
-      athleteId, data.id, template.category, resolvedTitle, resolvedBody, deepLink
+      athleteId, data.id, template.category, type, resolvedTitle, resolvedBody, deepLink
     ).catch((err) => {
       console.error(`[notif-engine] schedulePush threw for notif ${data.id}:`, err);
     });

@@ -12,6 +12,7 @@
 import { readSnapshot } from '../events/snapshot/snapshotReader';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { NotificationType, NotificationCategory } from './notificationTemplates';
+import { getAdminPriorityOverride } from './notificationConfigService';
 
 const db = () => supabaseAdmin() as any;
 
@@ -32,6 +33,14 @@ export async function adjustPriorityByContext(
 ): Promise<ContextAdjustment> {
   let priority = defaultPriority;
   let suppress = false;
+
+  // Admin priority override — replaces template default, context adjusts on top
+  try {
+    const adminOverride = await getAdminPriorityOverride(type);
+    if (adminOverride !== null) priority = adminOverride;
+  } catch {
+    // Config lookup failure should never block notification creation
+  }
 
   try {
     const snapshot = await readSnapshot(athleteId);

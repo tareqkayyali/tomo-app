@@ -9,7 +9,8 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import type { NotificationCategory } from './notificationTemplates';
+import type { NotificationCategory, NotificationType } from './notificationTemplates';
+import { isTypePushEnabled } from './notificationConfigService';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -54,13 +55,24 @@ export async function schedulePush(
   athleteId: string,
   notificationId: string,
   category: NotificationCategory,
+  type: NotificationType,
   title: string,
   body: string,
   deepLink?: string,
 ): Promise<PushResult> {
   const dbClient = db();
 
-  console.log(`[pushDelivery] schedulePush called for ${athleteId}, category=${category}, notif=${notificationId}`);
+  console.log(`[pushDelivery] schedulePush called for ${athleteId}, type=${type}, category=${category}, notif=${notificationId}`);
+
+  // Admin push toggle check — blocks push if admin disabled for this type
+  try {
+    if (!(await isTypePushEnabled(type))) {
+      console.log(`[pushDelivery] BLOCKED: admin_push_disabled (${type})`);
+      return { sent: false, queued: false, reason: 'admin_push_disabled' };
+    }
+  } catch {
+    // Config lookup failure should not block push delivery
+  }
 
   // 1. Get athlete preferences
   const { data: prefs } = await dbClient
@@ -110,9 +122,17 @@ export async function schedulePush(
   }
 
   // 4. Check quiet hours (night + school hours)
+  // Fetch athlete timezone for accurate local-time comparison
+  const { data: schedPrefs } = await dbClient
+    .from('player_schedule_preferences')
+    .select('timezone')
+    .eq('user_id', athleteId)
+    .maybeSingle();
+  const athleteTimezone = (schedPrefs as any)?.timezone ?? 'Asia/Riyadh';
+
   const bypassQuietHours = QUIET_HOURS_BYPASS.has(category);
-  const inQuiet = isInQuietHours(preferences.quiet_hours_start, preferences.quiet_hours_end);
-  console.log(`[pushDelivery] quietHours: in=${inQuiet}, bypass=${bypassQuietHours}, range=${preferences.quiet_hours_start}-${preferences.quiet_hours_end}`);
+  const inQuiet = isInQuietHours(preferences.quiet_hours_start, preferences.quiet_hours_end, athleteTimezone);
+  console.log(`[pushDelivery] quietHours: in=${inQuiet}, bypass=${bypassQuietHours}, range=${preferences.quiet_hours_start}-${preferences.quiet_hours_end}, tz=${athleteTimezone}`);
 
   if (!bypassQuietHours && inQuiet) {
     await dbClient
@@ -207,10 +227,18 @@ export async function deliverQueuedPushes(): Promise<number> {
       .eq('athlete_id', notif.athlete_id)
       .single();
 
-    const qhStart = prefs?.quiet_hours_start ?? '23:00';
-    const qhEnd = prefs?.quiet_hours_end ?? '07:00';
+    // Fetch timezone from schedule preferences (separate table — no migration needed)
+    const { data: schedPref } = await dbClient
+      .from('player_schedule_preferences')
+      .select('timezone')
+      .eq('user_id', notif.athlete_id)
+      .maybeSingle();
 
-    if (isInQuietHours(qhStart, qhEnd)) continue; // Still in quiet hours
+    const qhStart = prefs?.quiet_hours_start ?? '22:00';
+    const qhEnd = prefs?.quiet_hours_end ?? '07:00';
+    const qhTz = (schedPref as any)?.timezone ?? 'Asia/Riyadh';
+
+    if (isInQuietHours(qhStart, qhEnd, qhTz)) continue; // Still in quiet hours
 
     // Get push token
     const { data: tokenRow } = await dbClient
@@ -255,9 +283,11 @@ export async function deliverQueuedPushes(): Promise<number> {
 
 // ─── Internal ────────────────────────────────────────────────────────
 
-function isInQuietHours(startStr: string, endStr: string): boolean {
+function isInQuietHours(startStr: string, endStr: string, timezone = 'Asia/Riyadh'): boolean {
   const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  // Use athlete's local time — server runs UTC so getHours() would be wrong
+  const localNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+  const currentMinutes = localNow.getHours() * 60 + localNow.getMinutes();
 
   const [sh, sm] = startStr.split(':').map(Number);
   const [eh, em] = endStr.split(':').map(Number);
