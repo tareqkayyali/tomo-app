@@ -2,7 +2,11 @@
  * useNotifications — Context-based notification state with push token registration.
  *
  * NotificationsProvider wraps the navigation tree.
- * useNotifications() returns notifications, unreadCount, refresh, markAllRead.
+ * useNotifications() returns centerUnreadCount (new system), hasCriticalUnread,
+ * and pendingDrillNotifs (legacy — coach drill assignments not yet migrated).
+ *
+ * Badge uses centerUnreadCount ONLY (legacy unreadCount is retained internally
+ * for pendingDrillNotifs but NOT exposed to the bell).
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';

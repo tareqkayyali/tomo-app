@@ -20,7 +20,71 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification, resolveByType } from './notificationEngine';
 
+// Cast to `any` — notification tables (migration 025) not yet in generated Supabase types.
+// Run `npx supabase gen types typescript --local` after migration to remove.
 const db = () => supabaseAdmin() as any;
+
+// ─── Timing Constants (minutes unless stated) ────────────────────────
+
+/** Pre-session journal nudge: fires when session is this many minutes away (lower bound) */
+const PRE_SESSION_WINDOW_MIN = 45;
+/** Pre-session journal nudge: fires when session is this many minutes away (upper bound) */
+const PRE_SESSION_WINDOW_MAX = 75;
+
+/** Session starting soon: fires when session is this many minutes away (lower bound) */
+const STARTING_SOON_WINDOW_MIN = 25;
+/** Session starting soon: fires when session is this many minutes away (upper bound) */
+const STARTING_SOON_WINDOW_MAX = 35;
+
+/** Post-session journal nudge: fires when session ended this many minutes ago (lower bound) */
+const POST_SESSION_WINDOW_MIN = 40;
+/** Post-session journal nudge: fires when session ended this many minutes ago (upper bound) */
+const POST_SESSION_WINDOW_MAX = 50;
+
+/** Minimum streak length to trigger streak-at-risk */
+const STREAK_AT_RISK_MIN_DAYS = 5;
+
+/** ACWR threshold above which rest day reminders fire */
+const REST_DAY_ACWR_THRESHOLD = 1.2;
+
+/** Dual load index above which DUAL_LOAD_SPIKE fires */
+const DUAL_LOAD_SPIKE_THRESHOLD = 72;
+/** Dual load index below which DUAL_LOAD_SPIKE resolves */
+const DUAL_LOAD_RESOLVE_THRESHOLD = 65;
+
+/** How far ahead to scan for approaching exams (days) */
+const EXAM_LOOKAHEAD_DAYS = 7;
+
+/** Smart check-in: window size in minutes for daily_reminder_time match */
+const CHECKIN_REMINDER_WINDOW_MIN = 25;
+/** Smart check-in: minutes after school_end before nudge fires (lower) */
+const AFTER_SCHOOL_DELAY_MIN = 15;
+/** Smart check-in: minutes after school_end before nudge stops (upper) */
+const AFTER_SCHOOL_DELAY_MAX = 120;
+/** Smart check-in: weekend window start (minutes from midnight, 11:00 AM) */
+const WEEKEND_WINDOW_START = 660;
+/** Smart check-in: weekend window end (minutes from midnight, 1:00 PM) */
+const WEEKEND_WINDOW_END = 780;
+
+/** Bedtime reminder: minutes before bedtime to fire (lower) */
+const BEDTIME_WINDOW_MIN = 15;
+/** Bedtime reminder: minutes before bedtime to fire (upper) */
+const BEDTIME_WINDOW_MAX = 45;
+
+const DEFAULT_TIMEZONE = 'Asia/Riyadh';
+
+/** Minimal shape for player_schedule_preferences rows used in triggers */
+interface SchedulePrefs {
+  timezone?: string;
+  school_days?: number[];
+  school_end?: string;
+  sleep_start?: string;
+}
+
+/** Minimal shape for athlete_notification_preferences rows */
+interface NotifPrefs {
+  daily_reminder_time?: string;
+}
 
 // ─── Session-Based Triggers (run every 15 min) ───────────────────────
 
@@ -40,9 +104,9 @@ export async function triggerSessionNotifications(): Promise<{
 
   const dbClient = db();
 
-  // ── JOURNAL_PRE_SESSION: sessions starting in 45-75 min, no journal ──
-  const preStart = new Date(now.getTime() + 45 * 60000).toISOString();
-  const preEnd = new Date(now.getTime() + 75 * 60000).toISOString();
+  // ── JOURNAL_PRE_SESSION: sessions starting in PRE_SESSION_WINDOW_MIN-MAX min, no journal ──
+  const preStart = new Date(now.getTime() + PRE_SESSION_WINDOW_MIN * 60000).toISOString();
+  const preEnd = new Date(now.getTime() + PRE_SESSION_WINDOW_MAX * 60000).toISOString();
 
   const { data: upcomingSessions } = await dbClient
     .from('calendar_events')
@@ -61,16 +125,21 @@ export async function triggerSessionNotifications(): Promise<{
         .maybeSingle();
 
       if (!journal || journal.state === 'empty') {
+        const { data: prefs } = await dbClient
+          .from('player_schedule_preferences')
+          .select('timezone')
+          .eq('user_id', session.user_id)
+          .maybeSingle();
+        const timezone = (prefs as SchedulePrefs | null)?.timezone ?? DEFAULT_TIMEZONE;
+
         const startTime = new Date(session.start_at);
-        const minutesUntil = Math.round((startTime.getTime() - now.getTime()) / 60000);
-        const timeStr = startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const timeStr = startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });
 
         await createNotification({
           athleteId: session.user_id,
           type: 'JOURNAL_PRE_SESSION',
           vars: {
             session_name: session.title || session.event_type,
-            N: minutesUntil,
             time: timeStr,
             category: session.event_type,
             event_id: session.id,
@@ -83,9 +152,9 @@ export async function triggerSessionNotifications(): Promise<{
     }
   }
 
-  // ── SESSION_STARTING_SOON: sessions starting in 25-35 min ──
-  const soonStart = new Date(now.getTime() + 25 * 60000).toISOString();
-  const soonEnd = new Date(now.getTime() + 35 * 60000).toISOString();
+  // ── SESSION_STARTING_SOON: sessions starting in STARTING_SOON_WINDOW min ──
+  const soonStart = new Date(now.getTime() + STARTING_SOON_WINDOW_MIN * 60000).toISOString();
+  const soonEnd = new Date(now.getTime() + STARTING_SOON_WINDOW_MAX * 60000).toISOString();
 
   const { data: soonSessions } = await dbClient
     .from('calendar_events')
@@ -104,7 +173,14 @@ export async function triggerSessionNotifications(): Promise<{
         .maybeSingle();
 
       if (!journal || journal.state === 'empty') {
-        const timeStr = new Date(session.start_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const { data: prefs } = await dbClient
+          .from('player_schedule_preferences')
+          .select('timezone')
+          .eq('user_id', session.user_id)
+          .maybeSingle();
+        const timezone = (prefs as SchedulePrefs | null)?.timezone ?? DEFAULT_TIMEZONE;
+
+        const timeStr = new Date(session.start_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });
         await createNotification({
           athleteId: session.user_id,
           type: 'SESSION_STARTING_SOON',
@@ -121,9 +197,9 @@ export async function triggerSessionNotifications(): Promise<{
     }
   }
 
-  // ── JOURNAL_POST_SESSION: sessions ended 40-50 min ago, no post-journal ──
-  const postStart = new Date(now.getTime() - 50 * 60000).toISOString();
-  const postEnd = new Date(now.getTime() - 40 * 60000).toISOString();
+  // ── JOURNAL_POST_SESSION: sessions ended POST_SESSION_WINDOW min ago ──
+  const postStart = new Date(now.getTime() - POST_SESSION_WINDOW_MAX * 60000).toISOString();
+  const postEnd = new Date(now.getTime() - POST_SESSION_WINDOW_MIN * 60000).toISOString();
 
   const { data: recentSessions } = await dbClient
     .from('calendar_events')
@@ -179,7 +255,7 @@ export async function triggerStreakAtRisk(): Promise<number> {
   const { data: athletes } = await dbClient
     .from('athlete_snapshots')
     .select('athlete_id, streak_days, last_checkin_at')
-    .gte('streak_days', 5);
+    .gte('streak_days', STREAK_AT_RISK_MIN_DAYS);
 
   if (!athletes) return 0;
 
@@ -216,7 +292,7 @@ export async function triggerRestDayReminder(): Promise<number> {
   const { data: athletes } = await dbClient
     .from('athlete_snapshots')
     .select('athlete_id, acwr')
-    .gt('acwr', 1.2);
+    .gt('acwr', REST_DAY_ACWR_THRESHOLD);
 
   if (!athletes) return 0;
 
@@ -271,20 +347,20 @@ export async function triggerSnapshotNotifications(
 
   // ── DUAL_LOAD_SPIKE: dual_load_index > 72 ──
   const dualLoad = snapshot.dual_load_index ?? 0;
-  if (dualLoad > 72) {
+  if (dualLoad > DUAL_LOAD_SPIKE_THRESHOLD) {
     await createNotification({
       athleteId,
       type: 'DUAL_LOAD_SPIKE',
       vars: { dual_load: dualLoad },
     });
-  } else if (dualLoad < 65) {
+  } else if (dualLoad < DUAL_LOAD_RESOLVE_THRESHOLD) {
     // Resolve existing DUAL_LOAD_SPIKE
     await resolveByType(athleteId, 'DUAL_LOAD_SPIKE');
   }
 
   // ── EXAM_APPROACHING: exams within 7 days ──
   const today = new Date();
-  const in7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const in7Days = new Date(today.getTime() + EXAM_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000);
 
   const { data: exams } = await dbClient
     .from('calendar_events')
@@ -327,9 +403,6 @@ export async function triggerSnapshotNotifications(
 export async function triggerSmartCheckinReminder(): Promise<number> {
   const dbClient = db();
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
 
   // Get all athletes with snapshots
   const { data: athletes } = await dbClient
@@ -341,7 +414,28 @@ export async function triggerSmartCheckinReminder(): Promise<number> {
   let count = 0;
 
   for (const athlete of athletes) {
-    // Check if already checked in today
+    // Get schedule preferences (includes timezone)
+    const { data: prefs } = await dbClient
+      .from('player_schedule_preferences')
+      .select('school_days, school_end, timezone')
+      .eq('user_id', athlete.athlete_id)
+      .maybeSingle();
+
+    // Get notification preferences (daily_reminder_time)
+    const { data: notifPrefs } = await dbClient
+      .from('athlete_notification_preferences')
+      .select('daily_reminder_time')
+      .eq('athlete_id', athlete.athlete_id)
+      .maybeSingle();
+
+    // Use athlete's local timezone for all time calculations
+    const timezone = (prefs as SchedulePrefs | null)?.timezone ?? DEFAULT_TIMEZONE;
+    const localNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    const currentMinutes = localNow.getHours() * 60 + localNow.getMinutes();
+    const dayOfWeek = localNow.getDay(); // local day of week
+    const today = localNow.toISOString().split('T')[0]; // local date (YYYY-MM-DD)
+
+    // Check if already checked in today (local date)
     const { data: checkin } = await dbClient
       .from('checkins')
       .select('id')
@@ -351,38 +445,43 @@ export async function triggerSmartCheckinReminder(): Promise<number> {
 
     if (checkin) continue; // Already checked in
 
-    // Get schedule preferences
-    const { data: prefs } = await dbClient
-      .from('player_schedule_preferences')
-      .select('school_days, school_end')
-      .eq('user_id', athlete.athlete_id)
-      .maybeSingle();
-
-    const schoolDays: number[] = prefs?.school_days ?? [0, 1, 2, 3, 4]; // Sun-Thu default
-    const schoolEnd = prefs?.school_end ?? '15:00';
-    const [seh, sem] = schoolEnd.split(':').map(Number);
-    const schoolEndMinutes = seh * 60 + (sem || 0);
-
-    const isSchoolDay = schoolDays.includes(dayOfWeek);
-
     let shouldFire = false;
     let context = '';
     let dayType = '';
 
-    if (isSchoolDay) {
-      // Fire 15-60 min after school ends
-      const minutesAfterSchool = currentMinutes - schoolEndMinutes;
-      if (minutesAfterSchool >= 15 && minutesAfterSchool <= 60) {
+    // Priority 1: use daily_reminder_time if set (user-configured fixed time)
+    const rawReminderTime = (notifPrefs as NotifPrefs | null)?.daily_reminder_time as string | null | undefined;
+    if (rawReminderTime && /^\d{2}:\d{2}/.test(rawReminderTime)) {
+      const [rh, rm] = rawReminderTime.split(':').map(Number);
+      const reminderMinutes = rh * 60 + (rm || 0);
+      // Fire within a 25-min window starting at the set time (covers 2 cron ticks)
+      if (currentMinutes >= reminderMinutes && currentMinutes <= reminderMinutes + CHECKIN_REMINDER_WINDOW_MIN) {
         shouldFire = true;
-        context = "School's done for the day";
-        dayType = 'After school';
+        context = 'Daily check-in time';
+        dayType = 'Daily reminder';
       }
     } else {
-      // Weekend: fire between 11:00-11:45
-      if (currentMinutes >= 660 && currentMinutes <= 705) {
-        shouldFire = true;
-        context = 'Weekend morning \u2014 great time for a quick check-in';
-        dayType = 'Weekend';
+      // Fallback: fire 15-120 min after school ends (dedup prevents duplicate sends)
+      const schoolDays: number[] = prefs?.school_days ?? [0, 1, 2, 3, 4]; // Sun-Thu default
+      const schoolEnd = prefs?.school_end ?? '15:00';
+      const [seh, sem] = schoolEnd.split(':').map(Number);
+      const schoolEndMinutes = seh * 60 + (sem || 0);
+      const isSchoolDay = schoolDays.includes(dayOfWeek);
+
+      if (isSchoolDay) {
+        const minutesAfterSchool = currentMinutes - schoolEndMinutes;
+        if (minutesAfterSchool >= AFTER_SCHOOL_DELAY_MIN && minutesAfterSchool <= AFTER_SCHOOL_DELAY_MAX) {
+          shouldFire = true;
+          context = "School's done for the day";
+          dayType = 'After school';
+        }
+      } else {
+        // Weekend: fire between 11:00-13:00
+        if (currentMinutes >= WEEKEND_WINDOW_START && currentMinutes <= WEEKEND_WINDOW_END) {
+          shouldFire = true;
+          context = 'Weekend morning \u2014 great time for a quick check-in';
+          dayType = 'Weekend';
+        }
       }
     }
 
@@ -407,29 +506,32 @@ export async function triggerSmartCheckinReminder(): Promise<number> {
 
 /**
  * BEDTIME_REMINDER: Athletes whose bedtime is within the next 30 min.
- * Run every 15 min during evening hours (19:00-23:00).
+ * Run every 15 min during a wide UTC window (15:00-23:00 UTC = covers UTC-1 to UTC+8 bedtime zones).
+ * Uses per-athlete timezone from player_schedule_preferences for accurate local time comparison.
  */
 export async function triggerBedtimeReminder(): Promise<number> {
   const dbClient = db();
   const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  // Default bedtime: 22:00 (1320 minutes)
+  // Default bedtime: 22:00, default timezone: UTC+3 (Asia/Riyadh)
   const DEFAULT_BEDTIME_MINUTES = 22 * 60;
 
-  // Get athletes with schedule preferences (for custom bedtime)
+  // Get athletes with schedule preferences (for custom bedtime + timezone)
   const { data: prefs } = await dbClient
     .from('player_schedule_preferences')
-    .select('user_id, sleep_start');
+    .select('user_id, sleep_start, timezone');
 
-  // Build lookup of athlete → bedtime in minutes
-  const bedtimeMap = new Map<string, number>();
+  // Build lookup: athlete → { bedtimeMinutes, timezone }
+  const prefMap = new Map<string, { bedtimeMinutes: number; timezone: string }>();
   if (prefs) {
     for (const pref of prefs) {
+      const tz = pref.timezone || DEFAULT_TIMEZONE;
+      let bedtimeMinutes = DEFAULT_BEDTIME_MINUTES;
       if (pref.sleep_start) {
         const [h, m] = pref.sleep_start.split(':').map(Number);
-        bedtimeMap.set(pref.user_id, h * 60 + (m || 0));
+        bedtimeMinutes = h * 60 + (m || 0);
       }
+      prefMap.set(pref.user_id, { bedtimeMinutes, timezone: tz });
     }
   }
 
@@ -441,20 +543,37 @@ export async function triggerBedtimeReminder(): Promise<number> {
   if (!athletes) return 0;
 
   let count = 0;
-  const today = now.toISOString().split('T')[0];
 
   for (const athlete of athletes) {
-    const bedtimeMinutes = bedtimeMap.get(athlete.athlete_id) ?? DEFAULT_BEDTIME_MINUTES;
-    const minutesUntilBedtime = bedtimeMinutes - currentMinutes;
+    const athletePrefs = prefMap.get(athlete.athlete_id) ?? { bedtimeMinutes: DEFAULT_BEDTIME_MINUTES, timezone: DEFAULT_TIMEZONE };
+    const { bedtimeMinutes, timezone } = athletePrefs;
+
+    // Compute local time for this athlete's timezone
+    const localStr = now.toLocaleString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false });
+    const [localH, localM] = localStr.split(':').map(Number);
+    const localCurrentMinutes = localH * 60 + (localM || 0);
+
+    const minutesUntilBedtime = bedtimeMinutes - localCurrentMinutes;
 
     // Notify 15-45 min before bedtime (captures one 15-min cron window)
-    if (minutesUntilBedtime >= 15 && minutesUntilBedtime <= 45) {
-      const bedtimeStr = `${Math.floor(bedtimeMinutes / 60).toString().padStart(2, '0')}:${(bedtimeMinutes % 60).toString().padStart(2, '0')}`;
+    if (minutesUntilBedtime >= BEDTIME_WINDOW_MIN && minutesUntilBedtime <= BEDTIME_WINDOW_MAX) {
+      const bedtimeH = Math.floor(bedtimeMinutes / 60);
+      const bedtimeM = bedtimeMinutes % 60;
+      const bedtimeStr = `${String(bedtimeH).padStart(2, '0')}:${String(bedtimeM).padStart(2, '0')}`;
+      const today = now.toLocaleDateString('en-CA', { timeZone: timezone });
+
+      // Compute the exact UTC ISO when bedtime occurs in the athlete's local timezone
+      // localNow has local time components mapped to UTC milliseconds
+      const localNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+      const utcOffsetMs = now.getTime() - localNow.getTime();
+      localNow.setHours(bedtimeH, bedtimeM, 0, 0);
+      const bedtimeExpiry = new Date(localNow.getTime() + utcOffsetMs).toISOString();
 
       // Check if match tomorrow — if so, use PRE_MATCH_SLEEP_IMPORTANCE instead
       const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      const tomorrowStart = tomorrow.toISOString().split('T')[0] + 'T00:00:00.000Z';
-      const tomorrowEnd = tomorrow.toISOString().split('T')[0] + 'T23:59:59.999Z';
+      const tomorrowDate = tomorrow.toLocaleDateString('en-CA', { timeZone: timezone });
+      const tomorrowStart = tomorrowDate + 'T00:00:00.000Z';
+      const tomorrowEnd = tomorrowDate + 'T23:59:59.999Z';
 
       const { data: matchTomorrow } = await dbClient
         .from('calendar_events')
@@ -480,16 +599,18 @@ export async function triggerBedtimeReminder(): Promise<number> {
             target_hours: '9',
             cutoff: cutoffStr,
             date: today,
+            bedtime_expiry: bedtimeExpiry,
           },
         });
       } else {
-        // Regular bedtime reminder
+        // Regular bedtime reminder — expires exactly at bedtime
         await createNotification({
           athleteId: athlete.athlete_id,
           type: 'BEDTIME_REMINDER',
           vars: {
             bedtime: bedtimeStr,
             date: today,
+            bedtime_expiry: bedtimeExpiry,
           },
         });
       }

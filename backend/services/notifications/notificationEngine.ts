@@ -9,7 +9,8 @@
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
-// DB helper — casts to `any` for tables not yet in generated types
+// Cast to `any` — notification tables (migration 025) not yet in generated Supabase types.
+// Run `npx supabase gen types typescript --local` after migration to remove.
 const notifDb = () => supabaseAdmin() as any;
 import {
   NOTIFICATION_TEMPLATES,
@@ -295,6 +296,68 @@ export async function markAllRead(
 }
 
 /**
+ * Mark all notifications whose expires_at has passed as 'expired'.
+ * Must run every cron cycle — this is the only thing that cleans up stale notifications
+ * and unblocks dedup so new ones can be created for the same group keys.
+ *
+ * @returns Number of notifications expired
+ */
+export async function expireByTTL(): Promise<number> {
+  const db = notifDb();
+  const now = new Date();
+  const nowISO = now.toISOString();
+  let total = 0;
+
+  // 1. Expire notifications whose explicit expires_at has passed
+  const { data: expiredData, error } = await db
+    .from('athlete_notifications')
+    .update({
+      status: 'expired',
+      resolved_at: nowISO,
+      updated_at: nowISO,
+    })
+    .in('status', ['unread', 'read'])
+    .not('expires_at', 'is', null)
+    .lt('expires_at', nowISO)
+    .select('id');
+
+  if (error) {
+    console.error('[notif-engine] expireByTTL failed:', error.message);
+  } else {
+    total += expiredData?.length ?? 0;
+  }
+
+  // 2. Expire time-sensitive types past their max age (catches legacy rows with wrong/null expires_at)
+  const TIME_SENSITIVE = [
+    { type: 'BEDTIME_REMINDER', maxAgeMs: 60 * 60 * 1000 },
+    { type: 'PRE_MATCH_SLEEP_IMPORTANCE', maxAgeMs: 60 * 60 * 1000 },
+    { type: 'SESSION_STARTING_SOON', maxAgeMs: 40 * 60 * 1000 },
+    { type: 'CHECKIN_REMINDER', maxAgeMs: 90 * 60 * 1000 },
+    // Condition-based critical types: max 48h regardless of expires_at
+    // If the condition cleared, runConditionExpiryCheck resolves sooner.
+    // If the condition is still active, a fresh notification fires on the next event.
+    { type: 'LOAD_WARNING_SPIKE', maxAgeMs: 48 * 60 * 60 * 1000 },
+    { type: 'INJURY_RISK_FLAG', maxAgeMs: 48 * 60 * 60 * 1000 },
+    { type: 'WELLNESS_CRITICAL', maxAgeMs: 48 * 60 * 60 * 1000 },
+    { type: 'DUAL_LOAD_SPIKE', maxAgeMs: 48 * 60 * 60 * 1000 },
+  ];
+
+  for (const { type, maxAgeMs } of TIME_SENSITIVE) {
+    const cutoff = new Date(now.getTime() - maxAgeMs).toISOString();
+    const { data: tsData } = await db
+      .from('athlete_notifications')
+      .update({ status: 'expired', resolved_at: nowISO, updated_at: nowISO })
+      .in('status', ['unread', 'read'])
+      .eq('type', type)
+      .lt('created_at', cutoff)
+      .select('id');
+    total += tsData?.length ?? 0;
+  }
+
+  return total;
+}
+
+/**
  * Get notifications for an athlete with optional filters.
  */
 export async function getNotifications(
@@ -314,12 +377,14 @@ export async function getNotifications(
   const db = notifDb();
   const { status, category, limit = 30, offset = 0 } = options;
 
-  // Fetch notifications
+  // Fetch notifications — exclude expired status AND expired by time (before expireByTTL runs)
+  const nowISO = new Date().toISOString();
   let query = db
     .from('athlete_notifications')
     .select('*')
     .eq('athlete_id', athleteId)
     .not('status', 'eq', 'expired')
+    .or(`expires_at.is.null,expires_at.gt.${nowISO}`)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -334,9 +399,12 @@ export async function getNotifications(
   }
 
   // Fetch counts by category (both unread and total active)
+  // Exclude time-expired rows the same way the main query does
   const [{ data: unreadData }, { data: totalData }] = await Promise.all([
-    db.from('athlete_notifications').select('category').eq('athlete_id', athleteId).eq('status', 'unread'),
-    db.from('athlete_notifications').select('category').eq('athlete_id', athleteId).in('status', ['unread', 'read', 'acted']),
+    db.from('athlete_notifications').select('category').eq('athlete_id', athleteId).eq('status', 'unread')
+      .or(`expires_at.is.null,expires_at.gt.${nowISO}`),
+    db.from('athlete_notifications').select('category').eq('athlete_id', athleteId).in('status', ['unread', 'read', 'acted'])
+      .or(`expires_at.is.null,expires_at.gt.${nowISO}`),
   ]);
 
   const by_category: Record<string, number> = {};
@@ -484,6 +552,10 @@ function resolveExpiry(
   vars: Record<string, string | number>,
 ): string | null {
   const config = template.expiry;
+
+  if (config.ttl_minutes) {
+    return new Date(Date.now() + config.ttl_minutes * 60 * 1000).toISOString();
+  }
 
   if (config.ttl_hours) {
     return new Date(Date.now() + config.ttl_hours * 60 * 60 * 1000).toISOString();

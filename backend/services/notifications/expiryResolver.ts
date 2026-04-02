@@ -17,6 +17,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { resolveByType } from './notificationEngine';
 import type { NotificationType } from './notificationTemplates';
 
+// Cast to `any` — notification tables (migration 025) not yet in generated Supabase types.
 const db = () => supabaseAdmin() as any;
 
 interface ConditionCheck {
@@ -118,6 +119,30 @@ export async function resolvePassedExams(): Promise<number> {
     .lt('expires_at', now)
     .select('id');
 
+  return data?.length ?? 0;
+}
+
+/**
+ * Clean up old dismissal log entries.
+ * Keeps only the last 30 days of data — older entries are irrelevant
+ * since the fatigue guard only looks back 7 days.
+ *
+ * @returns Number of rows deleted
+ */
+export async function cleanDismissalLog(): Promise<number> {
+  const dbClient = db();
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await dbClient
+    .from('notification_dismissal_log')
+    .delete()
+    .lt('dismissed_at', thirtyDaysAgo)
+    .select('id');
+
+  if (error) {
+    console.error('[expiry-resolver] cleanDismissalLog failed:', error.message);
+    return 0;
+  }
   return data?.length ?? 0;
 }
 
