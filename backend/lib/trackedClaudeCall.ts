@@ -38,21 +38,47 @@ export interface TrackedCallMeta {
   classificationLayer?: string | null;
 }
 
+export interface CallTelemetry {
+  model: string;
+  costUsd: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  latencyMs: number;
+}
+
+export interface TrackedClaudeResponse {
+  message: Anthropic.Message;
+  telemetry: CallTelemetry;
+}
+
 /**
  * Call Claude API with automatic usage tracking.
- * Logs are fire-and-forget — never delays the response.
+ * Returns both the Claude response AND telemetry data.
+ * Telemetry is also logged fire-and-forget to api_usage_log — never delays the response.
  */
 export async function trackedClaudeCall(
   client: Anthropic,
   params: Anthropic.MessageCreateParamsNonStreaming,
   meta: TrackedCallMeta
-): Promise<Anthropic.Message> {
+): Promise<TrackedClaudeResponse> {
   const start = Date.now();
   const response = await client.messages.create(params);
   const latencyMs = Date.now() - start;
 
   const usage = response.usage;
   const cost = calculateCost(usage, params.model);
+
+  const telemetry: CallTelemetry = {
+    model: params.model,
+    costUsd: cost,
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
+    cacheReadTokens: (usage as any).cache_read_input_tokens ?? 0,
+    cacheWriteTokens: (usage as any).cache_creation_input_tokens ?? 0,
+    latencyMs,
+  };
 
   // Fire-and-forget telemetry insert (table may not exist yet — graceful fail)
   try {
@@ -65,8 +91,8 @@ export async function trackedClaudeCall(
         model: params.model,
         input_tokens: usage.input_tokens,
         output_tokens: usage.output_tokens,
-        cache_write_tokens: (usage as any).cache_creation_input_tokens ?? 0,
-        cache_read_tokens: (usage as any).cache_read_input_tokens ?? 0,
+        cache_write_tokens: telemetry.cacheWriteTokens,
+        cache_read_tokens: telemetry.cacheReadTokens,
         estimated_cost_usd: cost,
         latency_ms: latencyMs,
         classification_layer: meta.classificationLayer ?? null,
@@ -83,13 +109,13 @@ export async function trackedClaudeCall(
     intent: meta.intentId,
     inputTokens: usage.input_tokens,
     outputTokens: usage.output_tokens,
-    cacheRead: (usage as any).cache_read_input_tokens ?? 0,
-    cacheWrite: (usage as any).cache_creation_input_tokens ?? 0,
+    cacheRead: telemetry.cacheReadTokens,
+    cacheWrite: telemetry.cacheWriteTokens,
     costUSD: cost.toFixed(6),
     latencyMs,
   });
 
-  return response;
+  return { message: response, telemetry };
 }
 
 /**

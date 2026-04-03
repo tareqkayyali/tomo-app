@@ -32,6 +32,7 @@ import { TrainingCategoryCapsuleComponent } from './TrainingCategoryCapsule';
 import { BulkTimelineEditCapsuleComponent } from './BulkTimelineEditCapsule';
 import { TrainingJournalPreCapsuleComponent } from './TrainingJournalPreCapsule';
 import { TrainingJournalPostCapsuleComponent } from './TrainingJournalPostCapsule';
+import { RegularStudyCapsuleComponent } from './RegularStudyCapsule';
 
 interface CapsuleRendererProps {
   card: VisualCard;
@@ -61,6 +62,8 @@ export function CapsuleRenderer({ card, onSubmit, onNavigate }: CapsuleRendererP
       return <TrainingScheduleCapsuleComponent card={card} onSubmit={onSubmit} />;
     case 'study_schedule_capsule':
       return <StudyScheduleCapsuleComponent card={card} onSubmit={onSubmit} />;
+    case 'regular_study_capsule':
+      return <RegularStudyCapsuleComponent card={card} onSubmit={onSubmit} />;
     case 'conflict_resolution_capsule':
       return <ConflictResolutionCapsuleComponent card={card} onAction={(msg) => {
         onSubmit({ type: 'conflict_resolution_capsule', toolName: '__send_message__', toolInput: { message: msg }, agentType: 'timeline' });
@@ -132,5 +135,6 @@ export function isCapsuleCard(type: string): boolean {
     'bulk_timeline_edit_capsule',
     'training_journal_pre_capsule',
     'training_journal_post_capsule',
+    'regular_study_capsule',
   ].includes(type);
 }

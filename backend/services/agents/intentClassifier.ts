@@ -108,9 +108,15 @@ function buildExactMatchMap(): void {
     { text: "plan my training", intentId: "plan_training" },
     { text: "plan my training week", intentId: "plan_training" },
     { text: "give me a training plan", intentId: "plan_training" },
-    // Study plan
+    // Study plan (exam-driven)
     { text: "plan my study", intentId: "plan_study" },
     { text: "plan my study schedule", intentId: "plan_study" },
+    // Regular study (weekly routine)
+    { text: "plan my regular study", intentId: "plan_regular_study" },
+    { text: "schedule my weekly studies", intentId: "plan_regular_study" },
+    { text: "set up study routine", intentId: "plan_regular_study" },
+    { text: "regular study schedule", intentId: "plan_regular_study" },
+    { text: "weekly study plan", intentId: "plan_regular_study" },
     // Events
     { text: "I want to add a training session", intentId: "create_event" },
     { text: "add event", intentId: "create_event" },

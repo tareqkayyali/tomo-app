@@ -26,7 +26,7 @@ import {
   buildMasteryStaticPrompt,
   buildMasteryDynamicPrompt,
 } from "./masteryAgent";
-import { validateResponse, GUARDRAIL_SYSTEM_BLOCK, categorizeMessage } from "./chatGuardrails";
+import { validateResponse, GUARDRAIL_SYSTEM_BLOCK, categorizeMessage, enforcePHVSafety } from "./chatGuardrails";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { getDayBoundsISO, toTimezoneISO } from "./contextBuilder";
@@ -173,6 +173,7 @@ const WRITE_ACTIONS = new Set([
   "generate_training_plan",
   "add_exam",
   "generate_study_plan",
+  "generate_regular_study_plan",
 ]);
 
 // ── CAPSULE DIRECT ACTIONS — single-step confirmation (capsule submit = confirm) ──
@@ -186,6 +187,7 @@ export const CAPSULE_DIRECT_ACTIONS = new Set([
   "lock_day",
   "unlock_day",
   "sync_whoop",
+  "generate_regular_study_plan",
 ]);
 
 // ── CAPSULE GATED ACTIONS — two-step (still show ConfirmationCard) ──
@@ -284,6 +286,21 @@ export interface PendingWriteAction {
   preview: string;
 }
 
+export interface EvalMetadata {
+  classifierLayer: string;
+  intentId: string;
+  confidence: number;
+  agentRouted: string;
+  modelUsed: string;
+  costUsd: number;
+  latencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  capsuleType: string | null;
+  cardTypes: string[];
+  phvSafetyFlagged?: boolean;
+}
+
 export interface OrchestratorResult {
   message: string;
   structured?: TomoResponse | null;
@@ -295,6 +312,8 @@ export interface OrchestratorResult {
   };
   agentType?: string;
   error?: string;
+  /** Optional eval/debug metadata — only populated for observability, never needed by frontend */
+  _eval?: EvalMetadata;
 }
 
 // ── MAIN ORCHESTRATION FUNCTION ─────────────────────────────────
@@ -388,6 +407,13 @@ export async function orchestrate(
           { label: "View my week", action: "what's on my schedule this week?" },
         ];
         break;
+      case "generate_regular_study_plan":
+        followUpChips = [
+          { label: "View my week", action: "what's on my schedule this week?" },
+          { label: "Regular study plan", action: "plan my regular study" },
+          { label: "Edit subjects", action: "manage my study subjects" },
+        ];
+        break;
       default: {
         const actionDate = lastDate ?? confirmedAction.toolInput?.date;
         followUpChips = [
@@ -458,7 +484,23 @@ export async function orchestrate(
           conversationState ?? null
         );
         if (result) {
-          return { ...result, agentType: result.agentType ?? classification.agentType };
+          return {
+            ...result,
+            agentType: result.agentType ?? classification.agentType,
+            _eval: {
+              classifierLayer: classification.classificationLayer,
+              intentId: classification.intentId,
+              confidence: classification.confidence,
+              agentRouted: classification.agentType,
+              modelUsed: "fast_path",
+              costUsd: 0,
+              latencyMs: classification.latencyMs,
+              inputTokens: 0,
+              outputTokens: 0,
+              capsuleType: classification.capsuleType ?? null,
+              cardTypes: (result.structured?.cards ?? []).map((c: any) => c.type),
+            },
+          };
         }
       } catch (e) {
         logger.warn("[intent-handler] Failed, falling through to AI", {
@@ -524,13 +566,20 @@ export async function orchestrate(
   // Build telemetry metadata for tracked API calls
   const callMeta: TrackedCallMeta = {
     userId: context.userId,
-    sessionId: null, // populated from route.ts if available
+    sessionId: null,
     agentType: agentTypes[0],
-    intentId: null,
+    intentId: classification.intentId,
+    classificationLayer: classification.classificationLayer,
   };
 
+  // Accumulate telemetry across tool iterations for _eval
+  let totalCostUsd = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let totalLatencyMs = 0;
+
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-    const response = await withRetry(
+    const { message: response, telemetry: iterTelemetry } = await withRetry(
       () => trackedClaudeCall(anthropic, {
         model,
         max_tokens: 4096,
@@ -540,6 +589,12 @@ export async function orchestrate(
       }, callMeta),
       '[orchestrator] Claude API'
     );
+
+    // Accumulate telemetry across iterations
+    totalCostUsd += iterTelemetry.costUsd;
+    totalInputTokens += iterTelemetry.inputTokens;
+    totalOutputTokens += iterTelemetry.outputTokens;
+    totalLatencyMs += iterTelemetry.latencyMs;
 
     // Log prompt cache performance (kept for backward compat)
     const usage = response.usage as any;
@@ -591,15 +646,40 @@ export async function orchestrate(
 
       // When structured JSON is parsed, extract a clean short message
       // instead of sending raw JSON text to the frontend
-      const cleanMessage = structured
+      let cleanMessage = structured
         ? extractCleanMessage(structured)
         : validation.sanitized;
+
+      // PHV code-level safety filter — append warning if contraindicated exercises detected
+      const phvCheck = enforcePHVSafety(cleanMessage, context.snapshotEnrichment?.phvStage);
+      if (phvCheck.flagged) {
+        cleanMessage = phvCheck.sanitized;
+        logger.warn("[PHV-SAFETY] Contraindicated exercise in response", {
+          userId: context.userId,
+          phvStage: context.snapshotEnrichment?.phvStage,
+          flaggedTerms: phvCheck.flaggedTerms,
+        });
+      }
 
       return {
         message: cleanMessage,
         structured: structured ?? buildTextResponse(validation.sanitized),
         refreshTargets,
         agentType: primaryAgent,
+        _eval: {
+          classifierLayer: classification.classificationLayer,
+          intentId: classification.intentId,
+          confidence: classification.confidence,
+          agentRouted: agentTypes.length > 1 ? "multi" : primaryAgent,
+          modelUsed: model === SONNET_MODEL ? "sonnet" : "haiku",
+          costUsd: totalCostUsd,
+          latencyMs: totalLatencyMs,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          capsuleType: null,
+          cardTypes: (structured?.cards ?? []).map((c: any) => c.type),
+          phvSafetyFlagged: phvCheck.flagged,
+        },
       };
     }
 
@@ -710,6 +790,19 @@ export async function orchestrate(
           pendingConfirmation: {
             ...actions[0],
             actions: actions.length > 1 ? actions : undefined,
+          },
+          _eval: {
+            classifierLayer: classification.classificationLayer,
+            intentId: classification.intentId,
+            confidence: classification.confidence,
+            agentRouted: agentTypes.length > 1 ? "multi" : primaryAgent,
+            modelUsed: model === SONNET_MODEL ? "sonnet" : "haiku",
+            costUsd: totalCostUsd,
+            latencyMs: totalLatencyMs,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            capsuleType: null,
+            cardTypes: (structured?.cards ?? []).map((c: any) => c.type),
           },
         };
       }
@@ -1084,7 +1177,7 @@ async function executeTool(
 ) {
   // Route to the correct agent's executor based on tool name prefix match
   // Capsule-only tools aren't in the Claude tool definitions but are handled by the executors
-  const capsuleTimelineTools = ["update_schedule_rules", "generate_training_plan", "add_exam", "generate_study_plan", "confirm_ghost_suggestion", "dismiss_ghost_suggestion", "lock_day", "unlock_day", "get_ghost_suggestions"];
+  const capsuleTimelineTools = ["update_schedule_rules", "generate_training_plan", "add_exam", "generate_study_plan", "generate_regular_study_plan", "confirm_ghost_suggestion", "dismiss_ghost_suggestion", "lock_day", "unlock_day", "get_ghost_suggestions"];
   const capsuleOutputTools = ["interact_program", "sync_whoop"];
   if (timelineTools.some((t) => t.name === toolName) || capsuleTimelineTools.includes(toolName))
     return executeTimelineTool(toolName, toolInput, context);

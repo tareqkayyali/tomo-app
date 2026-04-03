@@ -8,6 +8,8 @@ import type { PlayerContext } from "./contextBuilder";
 import { getDayBoundsISO, toTimezoneISO } from "./contextBuilder";
 import { estimateTotalLoad } from "@/services/events/computations/loadEstimator";
 import { bridgeCalendarToEventStream } from "@/services/events/calendarBridge";
+import { findAvailableSlots, configFromEffectiveRules, minutesToTime, type ScheduleEvent } from "@/services/schedulingEngine";
+import { getEffectiveRules } from "@/services/scheduling/scheduleRuleEngine";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -836,6 +838,172 @@ export async function executeTimelineTool(
             preExamStudyWeeks: preExamWeeks,
             daysPerSubject: daysPerSub,
             message: `Study plan configured: ${preExamWeeks} weeks prep, ${daysPerSub} days per subject. Exam period activated.`,
+          },
+          refreshTarget: "calendar",
+        };
+      }
+
+      case "generate_regular_study_plan": {
+        const subjects: string[] = toolInput.subjects ?? [];
+        const days: number[] = toolInput.days ?? [];
+        const sessionDurationMin: number = toolInput.sessionDurationMin ?? 60;
+        const planWeeks: number = toolInput.planWeeks ?? 4;
+        const tz = context.timezone || "UTC";
+
+        if (subjects.length === 0 || days.length === 0) {
+          return { result: null, error: "At least one subject and one day are required" };
+        }
+
+        // 1. Save config to preferences
+        await db
+          .from("player_schedule_preferences")
+          .upsert({
+            user_id: userId,
+            regular_study_config: { subjects, days, sessionDurationMin, planWeeks },
+            updated_at: new Date().toISOString(),
+          } as any, { onConflict: "user_id" });
+
+        // 2. Fetch player schedule preferences for rule engine
+        const { data: prefs } = await db.from("player_schedule_preferences")
+          .select("*")
+          .eq("user_id", userId)
+          .single();
+
+        // 3. Build scheduling config from effective rules
+        const effectiveRules = getEffectiveRules(prefs as any ?? {});
+        const schoolSchedule = (prefs as any)?.school_hours
+          ? { days: (prefs as any).school_hours.days ?? [], startTime: (prefs as any).school_hours.startTime ?? "08:00", endTime: (prefs as any).school_hours.endTime ?? "15:00" }
+          : null;
+        const schedConfig = configFromEffectiveRules(effectiveRules, schoolSchedule);
+
+        // 4. Fetch existing events for duplicate detection
+        const planEndDate = new Date(`${context.todayDate}T12:00:00`);
+        planEndDate.setDate(planEndDate.getDate() + 1 + planWeeks * 7);
+
+        const { data: existingEvents } = await db
+          .from("calendar_events")
+          .select("id, title, start_at, end_at, event_type, intensity")
+          .eq("user_id", userId)
+          .gte("start_at", new Date(`${context.todayDate}T00:00:00Z`).toISOString())
+          .lte("start_at", planEndDate.toISOString());
+
+        const existingKeys = new Set<string>();
+        for (const evt of existingEvents ?? []) {
+          const dateKey = new Date(evt.start_at).toISOString().slice(0, 10);
+          existingKeys.add(`${evt.title}|${dateKey}`);
+        }
+
+        const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        let createdCount = 0;
+        let skippedCount = 0;
+        const warnings: string[] = [];
+        const createdSummary: string[] = [];
+        let subjectIdx = 0;
+
+        // 5. For each week, for each selected day, find best slot & create event
+        for (let week = 0; week < planWeeks; week++) {
+          for (const dayOfWeek of days) {
+            // Calculate target date
+            const baseDate = new Date(`${context.todayDate}T12:00:00`);
+            baseDate.setDate(baseDate.getDate() + 1 + week * 7);
+            const currentDow = baseDate.getDay();
+            let daysUntil = dayOfWeek - currentDow;
+            if (daysUntil < 0) daysUntil += 7;
+            baseDate.setDate(baseDate.getDate() + daysUntil);
+
+            const dateStr = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, "0")}-${String(baseDate.getDate()).padStart(2, "0")}`;
+
+            // Round-robin subject assignment
+            const subject = subjects[subjectIdx % subjects.length];
+            subjectIdx++;
+
+            const title = `Study: ${subject}`;
+
+            // Skip if duplicate
+            if (existingKeys.has(`${title}|${dateStr}`)) {
+              skippedCount++;
+              continue;
+            }
+
+            // Build events list for this day (for slot finding)
+            const dayEvents: ScheduleEvent[] = (existingEvents ?? [])
+              .filter(e => new Date(e.start_at).toISOString().slice(0, 10) === dateStr)
+              .filter(e => e.end_at != null)
+              .map(e => {
+                const startLocal = new Date(e.start_at);
+                const endLocal = new Date(e.end_at!);
+                const sh = String(startLocal.getUTCHours()).padStart(2, "0");
+                const sm = String(startLocal.getUTCMinutes()).padStart(2, "0");
+                const eh = String(endLocal.getUTCHours()).padStart(2, "0");
+                const em = String(endLocal.getUTCMinutes()).padStart(2, "0");
+                return {
+                  id: e.id,
+                  name: e.title,
+                  startTime: `${sh}:${sm}`,
+                  endTime: `${eh}:${em}`,
+                  type: e.event_type,
+                  intensity: e.intensity ?? undefined,
+                };
+              });
+
+            // Find available slot
+            const slots = findAvailableSlots(dayEvents, sessionDurationMin, schedConfig, dayOfWeek);
+
+            if (slots.length === 0) {
+              warnings.push(`No available ${sessionDurationMin}min slot on ${DAY_NAMES[dayOfWeek]} ${dateStr}`);
+              continue;
+            }
+
+            const bestSlot = slots[0];
+            const startTime = minutesToTime(bestSlot.startMin);
+            const endTime = minutesToTime(bestSlot.endMin);
+
+            // Convert to UTC
+            const startAtUtc = toTimezoneISO(dateStr, `${startTime}:00`, tz);
+            const endAtUtc = toTimezoneISO(dateStr, `${endTime}:00`, tz);
+            const durationMin = (new Date(endAtUtc).getTime() - new Date(startAtUtc).getTime()) / 60000;
+
+            const { error: insertErr } = await db
+              .from("calendar_events")
+              .insert({
+                user_id: userId,
+                title,
+                event_type: "study",
+                start_at: startAtUtc,
+                end_at: endAtUtc,
+                intensity: null,
+                notes: "regular_study",
+                estimated_load_au: Math.round((durationMin / 60) * 10),
+              });
+
+            if (!insertErr) createdCount++;
+          }
+        }
+
+        createdSummary.push(
+          `${subjects.join(", ")} on ${days.map(d => DAY_NAMES[d]).join(", ")} (${sessionDurationMin}min)`
+        );
+
+        console.log("[generate-regular-study-plan]", JSON.stringify({
+          userId, planWeeks, subjects, days, sessionDurationMin,
+          eventsCreated: createdCount, skipped: skippedCount, warnings,
+        }));
+
+        const skippedNote = skippedCount > 0 ? ` (${skippedCount} skipped — already exist)` : "";
+        const warningNote = warnings.length > 0 ? `\n⚠️ ${warnings.join("; ")}` : "";
+        return {
+          result: {
+            success: true,
+            planWeeks,
+            eventsCreated: createdCount,
+            skippedCount,
+            schedule: createdSummary,
+            warnings,
+            message: createdCount > 0
+              ? `Created ${createdCount} study sessions across ${planWeeks} weeks${skippedNote}. Check your Timeline!${warningNote}`
+              : skippedCount > 0
+                ? `All ${skippedCount} sessions already exist — no duplicates added.`
+                : `No sessions created${warningNote}`,
           },
           refreshTarget: "calendar",
         };

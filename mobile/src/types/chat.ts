@@ -589,6 +589,19 @@ export interface TrainingJournalPostCapsule {
   }>;
 }
 
+export interface RegularStudyCapsule {
+  type: 'regular_study_capsule';
+  studySubjects: string[];
+  currentConfig: {
+    subjects: string[];
+    days: number[];          // 0=Sun..6=Sat
+    sessionDurationMin: number;
+    planWeeks: number;
+  } | null;
+  hasExistingPlan: boolean;
+  existingSessionCount?: number;
+}
+
 // ── Capsule Action — sent from frontend on capsule submit ────────
 
 export interface CapsuleAction {
@@ -639,6 +652,7 @@ export type VisualCard =
   | BulkTimelineEditCapsule
   | TrainingJournalPreCapsule
   | TrainingJournalPostCapsule
+  | RegularStudyCapsule
   | ProgramRecommendationCard
   | WeekSchedule;
 

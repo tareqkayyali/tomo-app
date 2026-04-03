@@ -204,6 +204,7 @@ export async function POST(req: NextRequest) {
         }
 
         // ── Send final result ──
+        const debugMode = req.headers.get("x-tomo-debug") === "true";
         send("done", {
           message: result.message,
           structured: result.structured ?? null,
@@ -215,6 +216,7 @@ export async function POST(req: NextRequest) {
             readinessScore: context.readinessScore,
             activeTab: context.activeTab,
           },
+          ...(debugMode && result._eval ? { _eval: result._eval } : {}),
         });
 
         controller.close();

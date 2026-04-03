@@ -954,6 +954,7 @@ async function handlePlanStudy(
         }],
         chips: [
           { label: "Add an exam", action: "I want to add a new exam" },
+          { label: "Regular study routine", action: "plan my regular study" },
           { label: "Edit subjects", action: "manage my study subjects" },
           { label: "Edit my rules", action: "edit my schedule rules" },
         ],
@@ -963,6 +964,59 @@ async function handlePlanStudy(
     };
   } catch (e) {
     logger.warn("[intent-handler] plan_study failed", { error: e });
+  }
+  return null;
+}
+
+// ── Regular Study Handler ──
+async function handlePlanRegularStudy(
+  _message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  try {
+    const db = supabaseAdmin();
+    const { data: prefs } = await db.from("player_schedule_preferences")
+      .select("study_subjects, regular_study_config")
+      .eq("user_id", context.userId).single();
+    const p = prefs as any;
+    const studySubjects: string[] = Array.isArray(p?.study_subjects) ? p.study_subjects : [];
+    const currentConfig = p?.regular_study_config ?? null;
+
+    // Count existing regular study events in next 4 weeks
+    let existingSessionCount = 0;
+    try {
+      const today = new Date();
+      const futureISO = new Date(today.getTime() + 28 * 86400000).toISOString();
+      const { count } = await db.from("calendar_events")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", context.userId)
+        .eq("event_type", "study")
+        .eq("notes", "regular_study")
+        .gte("start_at", today.toISOString())
+        .lte("start_at", futureISO);
+      existingSessionCount = count ?? 0;
+    } catch { /* non-critical */ }
+
+    return {
+      message: "Your regular study routine",
+      structured: {
+        headline: "📖 Regular Study Schedule",
+        cards: [{
+          type: "regular_study_capsule" as any,
+          studySubjects,
+          currentConfig,
+          hasExistingPlan: existingSessionCount > 0,
+          existingSessionCount,
+        }],
+        chips: [
+          { label: "Exam study plan", action: "plan my study schedule" },
+          { label: "Edit subjects", action: "manage my study subjects" },
+        ],
+      },
+      refreshTargets: [],
+      agentType: "timeline",
+    };
+  } catch (e) {
+    logger.warn("[intent-handler] plan_regular_study failed", { error: e });
   }
   return null;
 }
@@ -1296,6 +1350,7 @@ export const intentHandlers: Record<string, IntentHandler> = {
   schedule_rules: handleScheduleRules,
   plan_training: handlePlanTraining,
   plan_study: handlePlanStudy,
+  plan_regular_study: handlePlanRegularStudy,
   add_exam: handleAddExam,
   manage_subjects: handleManageSubjects,
   training_categories: handleTrainingCategories,

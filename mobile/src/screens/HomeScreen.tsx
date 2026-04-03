@@ -1642,6 +1642,9 @@ export function HomeScreen() {
     } else if (capsuleAction.toolName === 'create_event') {
       const title = capsuleAction.toolInput.title ?? 'event';
       previewParts.push(`Add ${title} to calendar`);
+    } else if (capsuleAction.toolName === 'generate_regular_study_plan') {
+      const { subjects, planWeeks } = capsuleAction.toolInput;
+      previewParts.push(`Generate ${planWeeks ?? 4}-week regular study plan for ${Array.isArray(subjects) ? subjects.join(', ') : 'subjects'}`);
     } else {
       // Generic fallback — humanize tool name
       previewParts.push(capsuleAction.toolName.replace(/_/g, ' '));

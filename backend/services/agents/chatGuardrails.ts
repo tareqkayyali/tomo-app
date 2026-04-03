@@ -224,6 +224,54 @@ export function validateResponse(response: string): {
   return { safe: true, sanitized: response };
 }
 
+// ── LAYER 4: PHV POST-RESPONSE SAFETY FILTER ──────────────────────
+// Code-level enforcement for Mid-PHV athletes. Catches contraindicated exercises
+// even if Claude's prompt instructions are bypassed. Appends a visible safety
+// warning rather than censoring — educates rather than silently strips.
+
+const PHV_CONTRAINDICATED_PATTERNS: RegExp[] = [
+  /\bbarbell\s*(back\s*)?squats?\b/i,
+  /\bdepth\s*jumps?\b/i,
+  /\bdrop\s*jumps?\b/i,
+  /\bolympic\s*lifts?\b/i,
+  /\b(clean\s*and\s*jerk|snatch|power\s*clean)\b/i,
+  /\bmaximal\s*sprint/i,
+  /\bheavy\s*deadlifts?\b/i,
+  /\bloaded\s*plyometric/i,
+  /\bbox\s*jumps?\s*(high|max|above\s*\d{2})/i,
+];
+
+const PHV_SAFE_REPLACEMENT =
+  "\n\n\u26a0\ufe0f *Some exercises mentioned may not be suitable for your current growth stage. " +
+  "Your loading multiplier is 0.60\u00d7 \u2014 stick to bodyweight movements, goblet squats, Romanian deadlifts (light), " +
+  "and submaximal sprints. Ask me for safe alternatives!*";
+
+export function enforcePHVSafety(
+  response: string,
+  phvStage: string | null | undefined
+): { flagged: boolean; sanitized: string; flaggedTerms: string[] } {
+  // Only enforce for mid-PHV athletes
+  if (!phvStage || !["mid_phv", "MID", "circa"].includes(phvStage)) {
+    return { flagged: false, sanitized: response, flaggedTerms: [] };
+  }
+
+  const flaggedTerms: string[] = [];
+  for (const pattern of PHV_CONTRAINDICATED_PATTERNS) {
+    const match = response.match(pattern);
+    if (match) flaggedTerms.push(match[0]);
+  }
+
+  if (flaggedTerms.length === 0) {
+    return { flagged: false, sanitized: response, flaggedTerms: [] };
+  }
+
+  return {
+    flagged: true,
+    sanitized: response + PHV_SAFE_REPLACEMENT,
+    flaggedTerms,
+  };
+}
+
 // ── OPTIONAL: TOPIC CATEGORIZER ──────────────────────────────────
 // Tags messages for analytics — does NOT block anything.
 

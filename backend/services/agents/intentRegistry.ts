@@ -154,6 +154,17 @@ export const INTENT_REGISTRY: IntentDefinition[] = [
       "study schedule", "plan study schedule", "plan my study schedule",
     ],
   },
+  {
+    id: "plan_regular_study",
+    capsuleType: "regular_study_capsule",
+    agentType: "timeline",
+    description: "Set up a recurring weekly study routine (not exam-driven)",
+    examples: [
+      "plan my regular study", "schedule my weekly studies", "set up study routine",
+      "regular study schedule", "weekly study plan", "study every week",
+      "schedule study time", "set my study days",
+    ],
+  },
 
   // ── EXAMS ──
   {

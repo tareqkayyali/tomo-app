@@ -149,7 +149,7 @@ Notable achievements: ${currentCareer?.achievements?.join("; ") ?? "none entered
 Coachability index: ${cv.performance.coachability ? `${cv.performance.coachability.score}/5.0 (${cv.performance.coachability.label.split("—")[0].trim()})` : "not computed yet"}`;
 
   try {
-    const response = await trackedClaudeCall(
+    const { message: response } = await trackedClaudeCall(
       getClient(),
       { model: SONNET, max_tokens: 150, messages: [{ role: "user", content: prompt }] },
       { userId: athleteId, agentType: "cv_generation", intentId: "club_statement" }
@@ -196,7 +196,7 @@ Coachability: ${cv.performance.coachability ? `${cv.performance.coachability.sco
 Character traits: ${cv.character_traits.map(t => t.title).join(", ") || "none entered"}`;
 
   try {
-    const response = await trackedClaudeCall(
+    const { message: response } = await trackedClaudeCall(
       getClient(),
       { model: SONNET, max_tokens: 200, messages: [{ role: "user", content: prompt }] },
       { userId: athleteId, agentType: "cv_generation", intentId: "uni_statement" }
@@ -231,7 +231,7 @@ Latest: ${dataPoints[dataPoints.length - 1]?.value ?? "?"} (${dataPoints[dataPoi
 Other trends: ${cv.trajectory.metric_trends.slice(1).map(t => `${t.metric_label}: ${t.total_improvement_pct ?? 0}%`).join("; ") || "none"}`;
 
   try {
-    const response = await trackedClaudeCall(
+    const { message: response } = await trackedClaudeCall(
       getClient(),
       { model: HAIKU, max_tokens: 80, messages: [{ role: "user", content: prompt }] },
       { userId: athleteId, agentType: "cv_generation", intentId: "trajectory_narrative" }
@@ -259,7 +259,7 @@ Platform average exam training rate: 71%
 Academic load (7-day): ${cv.dual_role.academic_load_7day ?? "not available"}`;
 
   try {
-    const response = await trackedClaudeCall(
+    const { message: response } = await trackedClaudeCall(
       getClient(),
       { model: SONNET, max_tokens: 120, messages: [{ role: "user", content: prompt }] },
       { userId: athleteId, agentType: "cv_generation", intentId: "dual_role_narrative" }

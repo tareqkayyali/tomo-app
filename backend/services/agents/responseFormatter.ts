@@ -385,7 +385,16 @@ export type VisualCard =
   | TrainingCategoryCapsule
   | BulkTimelineEditCapsule
   | TrainingJournalPreCapsule
-  | TrainingJournalPostCapsule;
+  | TrainingJournalPostCapsule
+  | RegularStudyCapsule;
+
+export interface RegularStudyCapsule {
+  type: "regular_study_capsule";
+  studySubjects: string[];
+  currentConfig: { subjects: string[]; days: number[]; sessionDurationMin: number; planWeeks: number } | null;
+  hasExistingPlan: boolean;
+  existingSessionCount?: number;
+}
 
 export interface ExamCapsule { type: "exam_capsule"; existingExams: Array<{ id: string; subject: string; examType: string; examDate: string }>; studySubjects?: string[]; }
 export interface SubjectCapsule { type: "subject_capsule"; currentSubjects: string[]; }
