@@ -97,38 +97,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 // Local scheduled notifications
 // ---------------------------------------------------------------------------
 
-const DAILY_REMINDER_ID = 'tomo-daily-reminder';
 const STREAK_AT_RISK_ID = 'tomo-streak-at-risk';
-
-/**
- * Schedule a daily local notification at the specified time.
- * Replaces any existing daily reminder.
- */
-export async function scheduleDailyReminder(hour: number, minute: number): Promise<void> {
-  // Cancel existing first
-  await cancelDailyReminder();
-
-  await Notifications.scheduleNotificationAsync({
-    identifier: DAILY_REMINDER_ID,
-    content: {
-      title: 'Time to Check In',
-      body: 'Ready for your daily check-in? It takes just 15 seconds.',
-      sound: 'default',
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour,
-      minute,
-    },
-  });
-}
-
-/**
- * Cancel the daily reminder notification.
- */
-export async function cancelDailyReminder(): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(DAILY_REMINDER_ID);
-}
 
 /**
  * Schedule a streak-at-risk local notification for 8 PM today.
@@ -175,10 +144,3 @@ export async function cancelAllNotifications(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
-/**
- * Parse a time string "HH:mm" into { hour, minute }.
- */
-export function parseTime(timeStr: string): { hour: number; minute: number } {
-  const [h, m] = timeStr.split(':').map(Number);
-  return { hour: h, minute: m };
-}

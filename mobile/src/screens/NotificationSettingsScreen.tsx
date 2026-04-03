@@ -3,7 +3,6 @@
  *
  * Category-based push toggles (7 categories), quiet hours picker,
  * daily push cap slider. Persisted to athlete_notification_preferences.
- * Also retains local notification controls (daily reminder, streak risk).
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -13,7 +12,6 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
-  ActivityIndicator,
   Pressable,
   Platform,
   Alert,
@@ -27,9 +25,6 @@ import { useTheme } from '../hooks/useTheme';
 import { apiRequest } from '../services/api';
 import {
   registerForPushNotifications,
-  scheduleDailyReminder,
-  cancelDailyReminder,
-  parseTime,
 } from '../services/notifications';
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -85,10 +80,6 @@ const WAKE_HOUR_OPTIONS = [
   '06:00', '07:00', '08:00', '09:00',
 ];
 
-const TIME_PRESETS = [
-  '06:00', '06:30', '07:00', '07:30',
-  '08:00', '08:30', '09:00',
-];
 
 // ─── Component ────────────────────────────────────────────────────────
 
@@ -97,8 +88,6 @@ export function NotificationSettingsScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [prefs, setPrefs] = useState<CenterPrefs>(DEFAULT_PREFS);
-  const [dailyReminder, setDailyReminder] = useState(true);
-  const [dailyReminderTime, setDailyReminderTime] = useState('07:00');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -176,37 +165,6 @@ export function NotificationSettingsScreen() {
       ]);
     }
   }, [savePrefs]);
-
-  const handleDailyReminderTime = useCallback(() => {
-    if (Platform.OS === 'web') {
-      const choice = window.prompt(
-        'Daily reminder time:\n' + TIME_PRESETS.map((t, i) => `${i + 1}. ${t}`).join('\n'),
-      );
-      if (choice) {
-        const idx = parseInt(choice, 10) - 1;
-        const time = idx >= 0 && idx < TIME_PRESETS.length ? TIME_PRESETS[idx] : choice.trim();
-        setDailyReminderTime(time);
-        if (dailyReminder) {
-          const { hour, minute } = parseTime(time);
-          scheduleDailyReminder(hour, minute).catch(() => {});
-        }
-      }
-    } else {
-      Alert.alert('Reminder Time', 'Choose when to receive your daily check-in reminder:', [
-        ...TIME_PRESETS.map((t) => ({
-          text: t,
-          onPress: async () => {
-            setDailyReminderTime(t);
-            if (dailyReminder) {
-              const { hour, minute } = parseTime(t);
-              await scheduleDailyReminder(hour, minute);
-            }
-          },
-        })),
-        { text: 'Cancel', style: 'cancel' as const },
-      ]);
-    }
-  }, [dailyReminder]);
 
   if (isLoading) {
     return (
@@ -307,45 +265,6 @@ export function NotificationSettingsScreen() {
           </View>
         </View>
 
-        {/* Local Notifications */}
-        <Text style={styles.sectionTitle}>Local Reminders</Text>
-        <View style={styles.card}>
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleInfo}>
-              <View style={[styles.toggleIconWrap, { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
-                <SmartIcon name="alarm-outline" size={18} color={dailyReminder ? colors.accent : colors.textDisabled} />
-              </View>
-              <View style={styles.toggleTextCol}>
-                <Text style={styles.toggleLabel}>Daily Check-in Reminder</Text>
-                <Text style={styles.toggleSubtitle}>{dailyReminder ? `Every day at ${dailyReminderTime}` : 'Off'}</Text>
-              </View>
-            </View>
-            <Switch
-              value={dailyReminder}
-              onValueChange={async (val) => {
-                setDailyReminder(val);
-                if (val) {
-                  const { hour, minute } = parseTime(dailyReminderTime);
-                  await scheduleDailyReminder(hour, minute);
-                } else {
-                  await cancelDailyReminder();
-                }
-              }}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-          {dailyReminder && (
-            <Pressable onPress={handleDailyReminderTime} style={styles.timeRow}>
-              <Text style={[styles.settingLabel, { fontSize: 12 }]}>Reminder Time</Text>
-              <View style={styles.timeBadge}>
-                <Text style={[styles.timeValue, { color: colors.accent }]}>{dailyReminderTime}</Text>
-                <SmartIcon name="chevron-forward" size={14} color={colors.textDisabled} />
-              </View>
-            </Pressable>
-          )}
-        </View>
-
         <Text style={styles.footnote}>
           In-app notifications always appear regardless of push settings.
         </Text>
@@ -412,11 +331,6 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: spacing.compact, paddingVertical: spacing.xs, gap: spacing.xs,
     },
     timeValue: { fontFamily: fontFamily.medium, fontSize: 14 },
-
-    timeRow: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingVertical: spacing.sm, paddingLeft: 46,
-    },
 
     quietNote: {
       fontFamily: fontFamily.regular, fontSize: 10, color: colors.textDisabled,
