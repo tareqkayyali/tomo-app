@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 const ALLOWED_ORIGINS = [
   "https://app.my-tomo.com",
   "https://api.my-tomo.com",
+  "https://tomo-app.replit.app",
   "http://localhost:3000",
   "http://localhost:8081",
   "http://localhost:8082",
@@ -19,7 +20,7 @@ function getCorsHeaders(origin: string | null) {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
     "Access-Control-Allow-Headers":
-      "Content-Type, Authorization, x-user-id, x-user-email, api-version, x-timezone",
+      "Content-Type, Authorization, x-user-id, x-user-email, api-version, x-timezone, x-tomo-debug",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
   };
