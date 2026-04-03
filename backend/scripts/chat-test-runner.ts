@@ -2,11 +2,14 @@
  * Chat Test Runner — Automated E2E conversation testing for Tomo AI Chat.
  *
  * Usage:
- *   npx tsx scripts/chat-test-runner.ts                    # local (uses .env.local)
- *   npx tsx scripts/chat-test-runner.ts --prod             # production (uses .env.local.production)
- *   npx tsx scripts/chat-test-runner.ts --page Timeline    # filter by page
- *   npx tsx scripts/chat-test-runner.ts --verbose          # show full responses
- *   npx tsx scripts/chat-test-runner.ts --prod --verbose   # production + verbose
+ *   npx tsx scripts/chat-test-runner.ts                          # legacy mode (all scenarios)
+ *   npx tsx scripts/chat-test-runner.ts --prod                   # production
+ *   npx tsx scripts/chat-test-runner.ts --page Timeline          # filter by page
+ *   npx tsx scripts/chat-test-runner.ts --verbose                # show full responses
+ *   npx tsx scripts/chat-test-runner.ts --eval                   # eval mode (6-dim scoring + markdown report)
+ *   npx tsx scripts/chat-test-runner.ts --eval --suite s4        # eval: PHV safety suite only
+ *   npx tsx scripts/chat-test-runner.ts --eval --suite s1,s2,s3  # eval: quick smoke
+ *   npx tsx scripts/chat-test-runner.ts --eval --halt-on-safety  # halt on S4 failures
  */
 
 import dotenv from "dotenv";
@@ -31,15 +34,20 @@ if (IS_PROD) {
 import { createClient } from "@supabase/supabase-js";
 import ExcelJS from "exceljs";
 import { randomUUID } from "crypto";
-import { allScenarios } from "./chat-test-scenarios";
-import type { TestConfig, ScenarioResult, TurnResult } from "./chat-test-types";
+import { allScenarios, evalSuites } from "./chat-test-scenarios";
+import type { TestConfig, ScenarioResult, TurnResult, TestScenario } from "./chat-test-types";
 import { executeTurn } from "./chat-test-helpers";
+import { scoreTurn, isCriticalPass } from "./chat-test-scorer";
+import { buildSuiteReports, generateMarkdownReport, writeMarkdownReport } from "./chat-test-report-md";
 
 const BASE_URL = IS_PROD
   ? (getArg("base-url") ?? "https://api.my-tomo.com")
   : (getArg("base-url") ?? "http://localhost:3000");
 const PAGE_FILTER = getArg("page");
 const VERBOSE = hasFlag("verbose");
+const EVAL_MODE = hasFlag("eval");
+const SUITE_FILTER = getArg("suite");
+const HALT_ON_SAFETY = hasFlag("halt-on-safety");
 
 // ── AUTH ─────────────────────────────────────────────────
 async function getAuthToken(): Promise<string> {
@@ -50,7 +58,7 @@ async function getAuthToken(): Promise<string> {
 
   if (!email || !password) {
     console.error("ERROR: Provide credentials via --email/--password args or TEST_USER_EMAIL/TEST_USER_PASSWORD in .env.local");
-    console.error("Example: npx tsx scripts/chat-test-runner.ts --prod --email you@example.com --password yourpass");
+    console.error("Example: npx tsx scripts/chat-test-runner.ts --email you@example.com --password yourpass");
     process.exit(1);
   }
 
@@ -67,7 +75,7 @@ async function getAuthToken(): Promise<string> {
 }
 
 // ── EXCEL REPORT ─────────────────────────────────────────
-async function generateReport(results: ScenarioResult[], filename: string) {
+async function generateExcelReport(results: ScenarioResult[], filename: string) {
   const wb = new ExcelJS.Workbook();
 
   // ── Results Sheet ──
@@ -89,7 +97,6 @@ async function generateReport(results: ScenarioResult[], filename: string) {
     { header: "Notes", key: "notes", width: 15 },
   ];
 
-  // Header styling
   ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
   ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2B579A" } };
   ws.views = [{ state: "frozen", ySplit: 1, xSplit: 0 }];
@@ -113,7 +120,6 @@ async function generateReport(results: ScenarioResult[], filename: string) {
         notes: turn.notes,
       });
 
-      // Color pass/fail
       const resultCell = row.getCell("result");
       if (turn.pass) {
         resultCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF27AE60" } };
@@ -172,7 +178,9 @@ async function generateReport(results: ScenarioResult[], filename: string) {
 async function main() {
   console.log("=== Tomo AI Chat E2E Test Runner ===\n");
   console.log(`Target: ${BASE_URL}`);
-  console.log(`Filter: ${PAGE_FILTER ?? "all pages"}`);
+  console.log(`Mode: ${EVAL_MODE ? "EVAL (6-dim scoring)" : "Legacy"}`);
+  if (SUITE_FILTER) console.log(`Suite filter: ${SUITE_FILTER}`);
+  if (PAGE_FILTER) console.log(`Page filter: ${PAGE_FILTER}`);
   console.log(`Verbose: ${VERBOSE}\n`);
 
   const token = await getAuthToken();
@@ -182,14 +190,37 @@ async function main() {
     authToken: token,
     timezone: "Asia/Riyadh",
     verbose: VERBOSE,
+    evalMode: EVAL_MODE,
   };
 
-  // Filter scenarios
-  let scenarios = allScenarios;
+  // Select scenarios based on mode
+  let scenarios: TestScenario[];
+
+  if (EVAL_MODE && SUITE_FILTER) {
+    // Eval mode with suite filter
+    const suiteIds = SUITE_FILTER.split(",").map((s) => s.trim());
+    scenarios = [];
+    for (const id of suiteIds) {
+      const suite = evalSuites[id];
+      if (!suite) {
+        console.error(`Unknown suite "${id}". Available: ${Object.keys(evalSuites).join(", ")}`);
+        process.exit(1);
+      }
+      scenarios.push(...suite);
+    }
+  } else if (EVAL_MODE) {
+    // Eval mode: all eval suites
+    scenarios = Object.values(evalSuites).flat();
+  } else {
+    // Legacy mode: all scenarios (backward compat)
+    scenarios = allScenarios;
+  }
+
+  // Page filter (works in both modes)
   if (PAGE_FILTER) {
-    scenarios = scenarios.filter((s) => s.page.toLowerCase() === PAGE_FILTER.toLowerCase());
+    scenarios = scenarios.filter((s) => s.page.toLowerCase().includes(PAGE_FILTER.toLowerCase()));
     if (scenarios.length === 0) {
-      console.error(`No scenarios found for page "${PAGE_FILTER}". Available: Timeline, Output, Mastery, Cross-Page`);
+      console.error(`No scenarios found for filter "${PAGE_FILTER}".`);
       process.exit(1);
     }
   }
@@ -199,6 +230,7 @@ async function main() {
   const results: ScenarioResult[] = [];
   let testNum = 0;
   const totalTests = scenarios.reduce((s, sc) => s + sc.turns.length, 0);
+  let s4Failed = false;
 
   for (const scenario of scenarios) {
     const sessionId = randomUUID();
@@ -210,18 +242,58 @@ async function main() {
       testNum++;
       const turn = scenario.turns[i];
       const result = await executeTurn(config, turn, sessionId, prevResponse, i);
+
+      // Eval mode: run 6-dimension scorer
+      if (EVAL_MODE && turn.evalExpected) {
+        const { scores, failureReasons } = scoreTurn(turn, result);
+        result.dimensionScores = scores;
+        result.evalFailureReasons = failureReasons;
+
+        // Override pass/fail: in eval mode, critical dimensions determine pass
+        const criticalPass = isCriticalPass(scores, turn.tags ?? []);
+        if (!criticalPass) {
+          result.pass = false;
+          if (!result.error) result.error = failureReasons.join("; ");
+          else result.error += "; " + failureReasons.join("; ");
+        }
+      }
+
       turnResults.push(result);
       prevResponse = result.rawResponse ?? null;
 
-      const icon = result.pass ? "✅" : "❌";
+      // Console output
+      const icon = result.pass ? "\u2705" : "\u274c";
       const costLabel = result.costTier === "capsule" ? "$0" : result.costTier;
+      const evalCost = result.evalMetadata?.costUsd != null
+        ? ` $${result.evalMetadata.costUsd.toFixed(5)}`
+        : "";
+      const evalLayer = result.evalMetadata?.classifierLayer
+        ? ` [L${result.evalMetadata.classifierLayer === "exact_match" ? "1" : result.evalMetadata.classifierLayer === "haiku" ? "2" : "3"}]`
+        : "";
       console.log(
-        `  [${testNum}/${totalTests}] ${scenario.page} > ${scenario.name} (turn ${i + 1}) ... ${icon} ${result.pass ? "PASS" : "FAIL"} (${result.responseTimeMs}ms, ${costLabel})${result.error ? ` — ${result.error}` : ""}`
+        `  [${testNum}/${totalTests}] ${scenario.page} > ${scenario.name} (turn ${i + 1}) ... ${icon} ${result.pass ? "PASS" : "FAIL"} (${result.responseTimeMs}ms, ${costLabel}${evalCost}${evalLayer})${result.error ? ` \u2014 ${result.error}` : ""}`
       );
 
-      if (VERBOSE && result.rawResponse) {
-        console.log(`    Cards: ${JSON.stringify(result.rawResponse?.structured?.cards?.map((c: any) => c.type) ?? [])}`);
-        console.log(`    Chips: ${JSON.stringify(result.rawResponse?.structured?.chips?.map((c: any) => c.label) ?? [])}`);
+      if (VERBOSE) {
+        if (result.rawResponse) {
+          console.log(`    Cards: ${JSON.stringify(result.rawResponse?.structured?.cards?.map((c: any) => c.type) ?? [])}`);
+          console.log(`    Chips: ${JSON.stringify(result.rawResponse?.structured?.chips?.map((c: any) => c.label) ?? [])}`);
+        }
+        if (result.evalMetadata) {
+          console.log(`    _eval: intent=${result.evalMetadata.intentId} agent=${result.evalMetadata.agentRouted} model=${result.evalMetadata.modelUsed} confidence=${result.evalMetadata.confidence?.toFixed(2)}`);
+        }
+        if (result.dimensionScores) {
+          const s = result.dimensionScores;
+          console.log(`    Scores: R=${s.routing} S=${s.safety} Rel=${s.relevance} F=${s.format} C=${s.cost} T=${s.tone}`);
+        }
+      }
+
+      // Halt on S4 safety failure
+      if (scenario.suite === "s4" && !result.pass) {
+        s4Failed = true;
+        if (HALT_ON_SAFETY) {
+          console.log("\n\ud83d\udea8 CRITICAL: PHV safety failure detected. Halting run (--halt-on-safety).\n");
+        }
       }
     }
 
@@ -233,7 +305,13 @@ async function main() {
       turns: turnResults,
       overallPass: allPass,
       totalTimeMs: scenarioTime,
+      suite: scenario.suite,
     });
+
+    if (HALT_ON_SAFETY && s4Failed) break;
+
+    // Rate limit between scenarios (200ms)
+    await new Promise((r) => setTimeout(r, 200));
   }
 
   // Summary
@@ -244,11 +322,35 @@ async function main() {
   console.log("\n=== SUMMARY ===");
   console.log(`Total: ${allTurns.length} | Pass: ${passed} | Fail: ${failed} | Rate: ${Math.round((passed / allTurns.length) * 100)}%`);
 
-  // Generate Excel
+  if (EVAL_MODE) {
+    // Cost summary from _eval
+    const totalCost = allTurns.reduce((s, t) => s + (t.evalMetadata?.costUsd ?? 0), 0);
+    console.log(`Total API Cost: $${totalCost.toFixed(5)}`);
+
+    // Suite breakdown
+    const suiteReports = buildSuiteReports(results);
+    console.log("\nSuite Breakdown:");
+    for (const sr of suiteReports) {
+      const icon = sr.passRate === 1.0 ? "\u2705" : sr.passRate >= 0.8 ? "\u26a0\ufe0f" : "\u274c";
+      console.log(`  ${icon} ${sr.suiteId}: ${sr.passed}/${sr.totalScenarios} (${(sr.passRate * 100).toFixed(0)}%) | ${sr.avgLatencyMs.toFixed(0)}ms avg | $${sr.totalCostUsd.toFixed(5)}`);
+    }
+
+    // Generate markdown report
+    const mdContent = generateMarkdownReport(suiteReports, BASE_URL);
+    const mdPath = writeMarkdownReport(mdContent, "scripts/reports");
+    console.log(`\nMarkdown Report: ./${mdPath}`);
+  }
+
+  // Generate Excel report (always)
   const timestamp = new Date().toISOString().replace(/:/g, "-").slice(0, 19);
-  const filename = `scripts/chat-test-report-${timestamp}.xlsx`;
-  await generateReport(results, filename);
-  console.log(`Report: ./${filename}`);
+  const xlsxFilename = `scripts/chat-test-report-${timestamp}.xlsx`;
+  await generateExcelReport(results, xlsxFilename);
+  console.log(`Excel Report: ./${xlsxFilename}`);
+
+  if (s4Failed) {
+    console.log("\n\ud83d\udea8 WARNING: PHV Safety suite (S4) has failures. Review immediately.");
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

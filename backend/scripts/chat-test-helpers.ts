@@ -2,7 +2,7 @@
  * Chat Test Helpers — HTTP client, validators, chip follower.
  */
 
-import type { TestConfig, ConversationTurn, TurnResult } from "./chat-test-types";
+import type { TestConfig, ConversationTurn, TurnResult, EvalMetadata } from "./chat-test-types";
 
 /** Send a single turn to the chat API and validate the response. */
 export async function executeTurn(
@@ -48,6 +48,14 @@ export async function executeTurn(
   if (turn.capsuleAction) body.capsuleAction = turn.capsuleAction;
   if (turn.confirmedAction) body.confirmedAction = turn.confirmedAction;
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${config.authToken}`,
+  };
+
+  // Always send debug header to get _eval metadata
+  headers["x-tomo-debug"] = "true";
+
   const start = performance.now();
   let status = 0;
   let data: any = {};
@@ -55,10 +63,7 @@ export async function executeTurn(
   try {
     const res = await fetch(`${config.baseUrl}/api/v1/chat/agent`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.authToken}`,
-      },
+      headers,
       body: JSON.stringify(body),
     });
     status = res.status;
@@ -87,6 +92,9 @@ export async function executeTurn(
   const hasConfirmation = !!data.pendingConfirmation;
   const hasRefreshTargets = (data.refreshTargets?.length ?? 0) > 0;
 
+  // Extract _eval metadata (available when x-tomo-debug header sent)
+  const evalMetadata: EvalMetadata | null = data._eval ?? null;
+
   // Validate
   const errors: string[] = [];
   if (status !== 200) errors.push(`HTTP ${status}`);
@@ -113,11 +121,19 @@ export async function executeTurn(
     if (!found) errors.push(`Expected chip "${turn.expectChipLabel}" not found in [${chipLabels.join(", ")}]`);
   }
 
-  // Cost tier heuristic
+  // Cost tier: prefer _eval metadata, fallback to latency heuristic
   let costTier: TurnResult["costTier"] = "unknown";
-  if (elapsed < 800) costTier = "capsule";
-  else if (elapsed < 3000) costTier = "haiku";
-  else costTier = "sonnet";
+  if (evalMetadata) {
+    const m = evalMetadata.modelUsed?.toLowerCase() ?? "";
+    if (m === "fast_path" || m === "exact_match" || evalMetadata.costUsd === 0) costTier = "capsule";
+    else if (m.includes("haiku")) costTier = "haiku";
+    else if (m.includes("sonnet")) costTier = "sonnet";
+    else costTier = elapsed < 800 ? "capsule" : elapsed < 3000 ? "haiku" : "sonnet";
+  } else {
+    if (elapsed < 800) costTier = "capsule";
+    else if (elapsed < 3000) costTier = "haiku";
+    else costTier = "sonnet";
+  }
 
   return {
     turnIndex,
@@ -133,7 +149,7 @@ export async function executeTurn(
     hasConfirmation,
     hasRefreshTargets,
     chipLabels,
-    // Always capture raw response for chip follow-up logic; verbose adds extra logging
     rawResponse: data,
+    evalMetadata,
   };
 }

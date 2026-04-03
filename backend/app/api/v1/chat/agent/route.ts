@@ -344,6 +344,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const debugMode = req.headers.get("x-tomo-debug") === "true";
     return NextResponse.json(
       {
         message: result.message,
@@ -356,6 +357,7 @@ export async function POST(req: NextRequest) {
           readinessScore: context.readinessScore,
           activeTab: context.activeTab,
         },
+        ...(debugMode && result._eval ? { _eval: result._eval } : {}),
       },
       { headers: { "api-version": "v1" } }
     );
