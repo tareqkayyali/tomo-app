@@ -20,24 +20,21 @@ const PRODUCTION_API_URL =
  * - Dev (physical device via Expo): extract host IP from Expo manifest
  */
 function resolveApiBaseUrl(): string {
-  // Allow forcing production API via env var (useful for testing prod from Expo Go)
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-
   // On web: if frontend is served from the same origin as the backend (e.g., Replit),
   // use the current origin so API calls go to the same host automatically.
+  // This MUST run before the env var check since env vars are baked at build time.
   if (Platform.OS === "web" && typeof window !== "undefined") {
     const origin = window.location.origin;
-    // Only use same-origin for non-localhost production deployments
-    // (localhost still uses EXPO_PUBLIC_API_URL or PRODUCTION_API_URL)
     if (origin && !origin.includes("localhost")) {
       return origin;
     }
   }
 
-  // Always use production API in all environments (web + mobile, dev + prod).
-  // For local backend testing: set EXPO_PUBLIC_API_URL=http://localhost:3000
+  // Allow forcing API URL via env var (useful for local testing)
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
   return PRODUCTION_API_URL;
 }
 
