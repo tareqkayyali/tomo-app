@@ -6,7 +6,7 @@
 export interface IntentDefinition {
   id: string;
   capsuleType: string | null;
-  agentType: "timeline" | "output" | "mastery";
+  agentType: "timeline" | "output" | "mastery" | "settings";
   description: string;
   examples: string[];
   requiredParams?: string[];
@@ -472,6 +472,228 @@ export const INTENT_REGISTRY: IntentDefinition[] = [
     ],
     toolName: "get_test_results",
     toolInput: {},
+  },
+  // ── Cross-Feature Commands (CFS) ──
+  {
+    id: "injury_mode",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Full injury mode — log injury + get modified session in one turn",
+    examples: [
+      "I hurt my knee", "I injured my ankle", "my shoulder hurts",
+      "I pulled my hamstring", "I can't train, my back hurts",
+      "I tweaked my calf", "pain in my shin",
+    ],
+  },
+  {
+    id: "load_reduce",
+    capsuleType: null,
+    agentType: "output",
+    description: "Reduce training load for the week — recovery focus mode",
+    examples: [
+      "take it easy this week", "reduce my load", "recovery week",
+      "go light this week", "I need a deload", "lower my intensity",
+    ],
+  },
+  {
+    id: "exam_setup",
+    capsuleType: null,
+    agentType: "timeline",
+    description: "Set up exam week — analyze dual load, check conflicts, offer study plan",
+    examples: [
+      "exam mode", "I have exams this week", "exam week setup",
+      "big exam coming up", "finals week", "exam prep mode",
+    ],
+  },
+  {
+    id: "full_reset",
+    capsuleType: null,
+    agentType: "timeline",
+    description: "Clear all athlete-created events from the week and start fresh",
+    examples: [
+      "clear my week", "delete everything I planned", "start fresh",
+      "wipe my schedule", "remove all my events", "clean slate",
+    ],
+  },
+  {
+    id: "today_briefing",
+    capsuleType: null,
+    agentType: "output",
+    description: "Full daily briefing — schedule + readiness + load + goals + pending journals",
+    examples: [
+      "what do I need to do today", "give me everything for today",
+      "daily briefing", "today's briefing", "morning update",
+      "what's happening today", "brief me",
+    ],
+  },
+  // ── Settings & Profile Agent Intents ──
+  {
+    id: "set_goal",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Set a new performance goal with target, unit, and deadline",
+    examples: ["set a goal", "I want to reach 40cm CMJ", "create a new goal", "target 12 seconds for 100m"],
+  },
+  {
+    id: "view_goals",
+    capsuleType: null,
+    agentType: "settings",
+    description: "View active performance goals with progress",
+    examples: ["my goals", "show my goals", "how close am I to my goal", "goal progress"],
+  },
+  {
+    id: "update_goal",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Update progress on an existing goal",
+    examples: ["update my goal", "I hit 38cm on my jump goal", "log goal progress"],
+  },
+  {
+    id: "log_injury",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Log an injury or pain point with location and severity",
+    examples: ["I'm injured", "I hurt my knee", "log an injury", "I have pain in my ankle", "flag an injury"],
+  },
+  {
+    id: "injury_status",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Check current injury status or view injury history",
+    examples: ["my injuries", "injury status", "am I cleared", "injury history", "any active injuries"],
+  },
+  {
+    id: "log_nutrition",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Log a meal or nutrition entry",
+    examples: ["log food", "I ate pasta", "log my lunch", "record what I ate", "log a meal"],
+  },
+  {
+    id: "view_nutrition",
+    capsuleType: null,
+    agentType: "settings",
+    description: "View today's nutrition log",
+    examples: ["what did I eat", "my nutrition", "today's meals", "show my food log"],
+  },
+  {
+    id: "log_sleep",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Log sleep hours manually (without wearable)",
+    examples: ["log my sleep", "I slept 7 hours", "record last night's sleep", "log sleep"],
+  },
+  {
+    id: "update_profile",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Update profile fields like sport, position, height, weight",
+    examples: ["update my height", "change my weight", "update my position", "change my sport"],
+  },
+  {
+    id: "view_profile",
+    capsuleType: null,
+    agentType: "settings",
+    description: "View current profile information",
+    examples: ["my profile", "show my profile", "my info", "what's my height"],
+  },
+  {
+    id: "app_settings",
+    capsuleType: null,
+    agentType: "settings",
+    description: "View or navigate to app settings (units, language, theme)",
+    examples: ["my settings", "app settings", "change to imperial", "what units am I using"],
+  },
+  {
+    id: "notification_config",
+    capsuleType: null,
+    agentType: "settings",
+    description: "View or manage notification preferences",
+    examples: ["notification settings", "turn off notifications", "enable streak notifications", "my notification preferences"],
+  },
+  {
+    id: "view_notifications",
+    capsuleType: null,
+    agentType: "settings",
+    description: "View recent notifications",
+    examples: ["show my notifications", "any new notifications", "what's new", "my updates"],
+  },
+  {
+    id: "clear_notifications",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Mark all notifications as read or clear them",
+    examples: ["mark all as read", "clear all notifications", "dismiss notifications"],
+  },
+  {
+    id: "wearable_status",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Check wearable connection status",
+    examples: ["my wearable", "whoop status", "is my whoop connected", "my devices"],
+  },
+  {
+    id: "connect_wearable",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Navigate to connect a wearable device",
+    examples: ["connect wearable", "connect my whoop", "pair my device", "add a wearable"],
+  },
+  {
+    id: "view_sleep_data",
+    capsuleType: null,
+    agentType: "settings",
+    description: "View sleep history and trends",
+    examples: ["sleep data", "my sleep history", "sleep trends", "how am I sleeping"],
+  },
+  {
+    id: "view_journal_history",
+    capsuleType: null,
+    agentType: "settings",
+    description: "View past training journal entries",
+    examples: ["my journals", "journal history", "past reflections", "old journals"],
+  },
+  {
+    id: "browse_drills",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Browse the full drill library with search and filters",
+    examples: ["browse drills", "drill library", "show me exercises", "search for drills"],
+  },
+  {
+    id: "view_test_history",
+    capsuleType: null,
+    agentType: "settings",
+    description: "View full test result history",
+    examples: ["test history", "all my tests", "past test results"],
+  },
+  {
+    id: "submit_feedback",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Submit app feedback, bug report, or feature request",
+    examples: ["give feedback", "report a bug", "suggest a feature", "app feedback"],
+  },
+  {
+    id: "refresh_recommendations",
+    capsuleType: null,
+    agentType: "settings",
+    description: "Trigger a refresh of personalized recommendations",
+    examples: ["refresh my recommendations", "update my suggestions", "recalculate my recs"],
+  },
+  // ── Update Event ──
+  {
+    id: "update_event",
+    capsuleType: "event_edit_capsule",
+    agentType: "timeline",
+    description: "Edit, reschedule, or modify an existing calendar event",
+    examples: [
+      "edit my session", "move training to 5pm", "reschedule my match",
+      "change my gym time", "update tomorrow's event", "change the time of my training",
+      "move my session", "change my event", "modify my training",
+      "shift my gym to 6pm", "push my session to later",
+    ],
+    contextBoosts: ["currentTopic:scheduling"],
   },
   // ── Journal ──
   {

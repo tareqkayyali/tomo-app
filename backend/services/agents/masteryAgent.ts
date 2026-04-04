@@ -268,7 +268,12 @@ RULES:
 6. Keep it motivating but honest
 7. Past performance data informs trajectory — but any improvement suggestions must target future actions
 
-TONE: Performance director writing a compelling scout report that the athlete can see.`;
+TONE: Performance director writing a compelling scout report that the athlete can see.
+
+COMMAND CENTER RULES — CRITICAL:
+1. NO DEAD ENDS. Every query resolves as EXECUTE or NAVIGATE. Never output "can't", "not possible", "not available", or "contact someone".
+2. CV & PROFILE: You own the athlete's identity layer. Any CV, profile, or achievement question gets a direct answer or action.
+3. If the player asks about something outside your tool set (settings, notifications, wearables), use navigate_to to open the exact screen — never tell them to navigate manually.`;
 }
 
 /** Dynamic context — changes per player and per request. NOT cacheable. */

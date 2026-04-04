@@ -806,12 +806,14 @@ const ChatBubble = React.memo(function ChatBubble({
   onConfirm,
   onCancel,
   onCapsuleSubmit,
+  onNavigate,
 }: {
   message: DisplayMessage;
   onChipPress?: (action: string) => void;
   onConfirm?: () => void;
   onCancel?: () => void;
   onCapsuleSubmit?: (action: CapsuleAction) => void;
+  onNavigate?: (deepLink: { tabName: string; params?: Record<string, any>; screen?: string }) => void;
 }) {
   const styles = useHomeStyles();
   const isUser = message.role === 'user';
@@ -858,6 +860,7 @@ const ChatBubble = React.memo(function ChatBubble({
             onConfirm={onConfirm}
             onCancel={onCancel}
             onCapsuleSubmit={onCapsuleSubmit}
+            onNavigate={onNavigate}
           />
         ) : message.text ? (
           <MarkdownMessage content={message.text} />
@@ -1657,6 +1660,30 @@ export function HomeScreen() {
   );
 
   // ── Chip press ─────────────────────────────────────────────────────
+  // ── Deep navigation handler ─────────────────────────────────────
+  const handleDeepNavigate = useCallback(
+    (deepLink: { tabName: string; params?: Record<string, any>; screen?: string }) => {
+      try {
+        if (deepLink.screen) {
+          // Navigate to specific sub-screen within a tab
+          navigation.navigate(deepLink.screen, deepLink.params ?? {});
+        } else if (deepLink.tabName) {
+          // Navigate to main tab
+          const parent = navigation.getParent?.();
+          if (parent) {
+            parent.navigate(deepLink.tabName, deepLink.params ?? {});
+          } else {
+            navigation.navigate(deepLink.tabName, deepLink.params ?? {});
+          }
+        }
+      } catch (e) {
+        // Fallback: try direct navigation
+        navigation.navigate(deepLink.screen ?? deepLink.tabName, deepLink.params ?? {});
+      }
+    },
+    [navigation],
+  );
+
   const handleChipPress = useCallback(
     (message: string) => {
       // Strip [drillId:...] brackets from display — keep them in the API call for tool routing
@@ -1914,6 +1941,7 @@ export function HomeScreen() {
                     onConfirm={confirmHandler}
                     onCancel={cancelHandler}
                     onCapsuleSubmit={handleCapsuleSubmit}
+                    onNavigate={handleDeepNavigate}
                   />
                 );
 

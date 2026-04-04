@@ -6,6 +6,7 @@
 import { executeTimelineTool } from "./timelineAgent";
 import { executeOutputTool } from "./outputAgent";
 import { executeMasteryTool } from "./masteryAgent";
+import { executeSettingsTool } from "./settingsAgent";
 import type { PlayerContext, ActiveRecommendation } from "./contextBuilder";
 import type { ConversationState } from "./sessionService";
 import type { OrchestratorResult } from "./orchestrator";
@@ -84,60 +85,60 @@ async function handleCheckIn(
 
 // ── Navigation Handler ──
 async function handleNavigate(
-  message: string, params: Record<string, any>, context: PlayerContext
+  message: string, params: Record<string, any>, _context: PlayerContext
 ): Promise<OrchestratorResult | null> {
-  const lowerMsg = message.toLowerCase();
-  const navMap: Record<string, { tabName: string; icon: string; label: string; description: string }> = {
-    "timeline":   { tabName: "Timeline", icon: "📅", label: "Timeline", description: "Your calendar and daily schedule" },
-    "calendar":   { tabName: "Timeline", icon: "📅", label: "Timeline", description: "Your calendar and daily schedule" },
-    "schedule":   { tabName: "Timeline", icon: "📅", label: "Timeline", description: "Your calendar and daily schedule" },
-    "output":     { tabName: "Output", icon: "📊", label: "Output", description: "Vitals, metrics, and programs" },
-    "vitals":     { tabName: "Output", icon: "📊", label: "My Vitals", description: "Readiness, sleep, and energy trends" },
-    "metrics":    { tabName: "Output", icon: "📊", label: "My Metrics", description: "Test scores and benchmarks" },
-    "programs":   { tabName: "Output", icon: "📊", label: "My Programs", description: "Training programs and recommendations" },
-    "tests":      { tabName: "Output", icon: "📊", label: "My Metrics", description: "Test scores and benchmarks" },
-    "mastery":    { tabName: "Mastery", icon: "🧬", label: "Mastery", description: "DNA card, pillars, and streaks" },
-    "progress":   { tabName: "Mastery", icon: "🧬", label: "Mastery", description: "DNA card, pillars, and streaks" },
-    "dna":        { tabName: "Mastery", icon: "🧬", label: "Mastery", description: "Your DNA card and identity" },
-    "own it":     { tabName: "OwnIt", icon: "🎯", label: "Own It", description: "Personalized recommendations and focus" },
-    "for you":    { tabName: "OwnIt", icon: "🎯", label: "Own It", description: "Personalized recommendations and focus" },
-    "recommendations": { tabName: "OwnIt", icon: "🎯", label: "Own It", description: "Personalized recommendations and focus" },
-    "chat":       { tabName: "Home", icon: "💬", label: "Tomo Chat", description: "AI command center" },
-  };
+  const { resolveNavigation, resolveNavigationFromMessage } = await import("./deepNavigationEngine");
+  type AppScreen = import("./deepNavigationEngine").AppScreen;
 
-  // If classifier extracted targetTab, use it
+  // If classifier extracted targetTab, map to deep nav
   if (params.targetTab) {
-    const tabMap: Record<string, typeof navMap[string]> = {
-      Timeline: navMap["timeline"],
-      Output: navMap["output"],
-      Mastery: navMap["mastery"],
-      OwnIt: navMap["own it"],
-      Home: navMap["chat"],
+    const tabScreenMap: Record<string, AppScreen> = {
+      Timeline: "TimelineScreen",
+      Output: "OutputScreen",
+      Mastery: "MasteryScreen",
+      OwnIt: "OwnItScreen",
+      Home: "HomeScreen",
     };
-    const nav = tabMap[params.targetTab];
-    if (nav) {
+    const screen = tabScreenMap[params.targetTab];
+    if (screen) {
+      const card = resolveNavigation({ screen });
       return {
-        message: `Opening ${nav.label}`,
-        structured: {
-          headline: `Opening ${nav.label}`,
-          cards: [{ type: "navigation_capsule" as const, icon: nav.icon, target: nav.tabName, label: nav.label, description: nav.description, deepLink: { tabName: nav.tabName } }],
-          chips: [],
-        },
+        message: `Opening ${card.label}`,
+        structured: { headline: `Opening ${card.label}`, cards: [card], chips: [] },
         refreshTargets: [],
         agentType: "output",
       };
     }
   }
 
-  for (const [keyword, nav] of Object.entries(navMap)) {
+  // Try deep navigation engine for specific screens (settings, CV, drills, etc.)
+  const deepNav = resolveNavigationFromMessage(message);
+  if (deepNav) {
+    const card = resolveNavigation(deepNav);
+    return {
+      message: `Opening ${card.label}`,
+      structured: { headline: `Opening ${card.label}`, cards: [card], chips: [] },
+      refreshTargets: [],
+      agentType: "output",
+    };
+  }
+
+  // Legacy fallback: keyword → main tab mapping
+  const lowerMsg = message.toLowerCase();
+  const legacyMap: Record<string, AppScreen> = {
+    "timeline": "TimelineScreen", "calendar": "TimelineScreen", "schedule": "TimelineScreen",
+    "output": "OutputScreen", "vitals": "OutputScreen", "metrics": "OutputScreen",
+    "programs": "OutputScreen", "tests": "OutputScreen",
+    "mastery": "MasteryScreen", "progress": "MasteryScreen", "dna": "MasteryScreen",
+    "own it": "OwnItScreen", "for you": "OwnItScreen",
+    "chat": "HomeScreen",
+  };
+  for (const [keyword, screen] of Object.entries(legacyMap)) {
     if (lowerMsg.includes(keyword)) {
+      const card = resolveNavigation({ screen });
       return {
-        message: `Opening ${nav.label}`,
-        structured: {
-          headline: `Opening ${nav.label}`,
-          cards: [{ type: "navigation_capsule" as const, icon: nav.icon, target: nav.tabName, label: nav.label, description: nav.description, deepLink: { tabName: nav.tabName } }],
-          chips: [],
-        },
+        message: `Opening ${card.label}`,
+        structured: { headline: `Opening ${card.label}`, cards: [card], chips: [] },
         refreshTargets: [],
         agentType: "output",
       };
@@ -795,6 +796,53 @@ async function handleDeleteEvent(
   return null;
 }
 
+async function handleUpdateEvent(
+  message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const { parseEventHints } = await import("./eventHintParser");
+  const hints = parseEventHints(message.toLowerCase(), context);
+  const targetDate = hints.date || context.todayDate;
+
+  try {
+    const result = await executeTimelineTool("get_today_events", { date: targetDate }, context);
+    const events = Array.isArray(result.result) ? result.result : result.result?.events ?? [];
+    const futureEvents = events.filter((e: any) => {
+      const eventTime = e.local_start ?? e.startTime ?? "";
+      return targetDate > context.todayDate || eventTime > (context.currentTime ?? "00:00");
+    });
+
+    return {
+      message: "Edit event",
+      structured: {
+        headline: "Edit which event?",
+        cards: [{
+          type: "event_edit_capsule" as const, mode: "update" as const,
+          prefilledDate: targetDate,
+          prefilledStartTime: hints.startTime,
+          prefilledEndTime: hints.endTime,
+          prefilledTitle: hints.title,
+          prefilledEventType: hints.eventType,
+          prefilledIntensity: hints.intensity,
+          existingEvents: futureEvents.map((e: any) => ({
+            id: e.id, title: e.title ?? e.name ?? "Event",
+            eventType: e.event_type ?? e.eventType ?? "training",
+            date: targetDate, startTime: e.local_start ?? e.startTime ?? "",
+            endTime: e.local_end ?? e.endTime ?? "",
+            intensity: e.intensity ?? undefined,
+            category: e.category ?? undefined,
+          })),
+        }],
+        chips: [],
+      },
+      refreshTargets: [],
+      agentType: "timeline",
+    };
+  } catch (e) {
+    logger.warn("[intent-handler] update_event failed", { error: e });
+  }
+  return null;
+}
+
 async function handleEditCv(
   _message: string, _params: Record<string, any>, context: PlayerContext
 ): Promise<OrchestratorResult | null> {
@@ -1360,6 +1408,271 @@ async function handleJournalPost(
   }
 }
 
+// ── Cross-Feature Sequencer Handlers ───────────────────────
+
+async function handleInjuryMode(
+  message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const { executeInjuryMode } = await import("./crossFeatureSequencer");
+  return executeInjuryMode(message, context);
+}
+
+async function handleLoadReduce(
+  message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const { executeLoadReduce } = await import("./crossFeatureSequencer");
+  return executeLoadReduce(message, context);
+}
+
+async function handleExamSetup(
+  message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const { executeExamSetup } = await import("./crossFeatureSequencer");
+  return executeExamSetup(message, context);
+}
+
+async function handleFullReset(
+  message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const { executeFullReset } = await import("./crossFeatureSequencer");
+  return executeFullReset(message, context);
+}
+
+async function handleTodayBriefing(
+  message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const { executeTodayBriefing } = await import("./crossFeatureSequencer");
+  return executeTodayBriefing(message, context);
+}
+
+// ── Settings & Profile Agent Handlers ──────────────────────
+
+async function handleSettingsQuickAction(
+  toolName: string,
+  toolInput: Record<string, any>,
+  headline: string,
+  context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  try {
+    const result = await executeSettingsTool(toolName, toolInput, context);
+    if (result.result) {
+      return {
+        message: headline,
+        structured: buildTextResponse(JSON.stringify(result.result)),
+        refreshTargets: result.refreshTarget ? [result.refreshTarget] : [],
+        agentType: "settings",
+      };
+    }
+  } catch (e) {
+    logger.warn("[intent-handler] Settings quick action failed", { tool: toolName, error: e });
+  }
+  return null;
+}
+
+async function handleSetGoal(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  // Fall through to AI agent to extract goal details conversationally
+  return null;
+}
+
+async function handleViewGoals(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  return handleSettingsQuickAction("get_active_goals", {}, "Your goals", context);
+}
+
+async function handleUpdateGoal(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  // Fall through to AI to extract which goal and new value
+  return null;
+}
+
+async function handleLogInjury(
+  message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  // Fall through to AI to extract injury details conversationally
+  // The AI will ask about location and severity
+  return null;
+}
+
+async function handleInjuryStatus(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  return handleSettingsQuickAction("get_injury_log", {}, "Your injury log", context);
+}
+
+async function handleLogNutrition(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  // Fall through to AI to extract meal details
+  return null;
+}
+
+async function handleViewNutrition(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  return handleSettingsQuickAction("get_nutrition_log", {}, "Today's nutrition", context);
+}
+
+async function handleLogSleep(
+  message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  // Try to extract hours from message (e.g., "I slept 7 hours")
+  const hoursMatch = message.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b/i);
+  if (hoursMatch) {
+    const hours = parseFloat(hoursMatch[1]);
+    const result = await executeSettingsTool("log_sleep_manual", { hours }, context);
+    if (result.result) {
+      return {
+        message: `Logged ${hours}h sleep`,
+        structured: buildTextResponse(`Logged ${hours} hours of sleep for tonight.`),
+        refreshTargets: result.refreshTarget ? [result.refreshTarget] : [],
+        agentType: "settings",
+      };
+    }
+  }
+  // Fall through to AI to ask for hours
+  return null;
+}
+
+async function handleUpdateProfile(
+  _msg: string, _params: Record<string, any>, _context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  // Fall through to AI to determine which field to update
+  return null;
+}
+
+async function handleViewProfile(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  return handleSettingsQuickAction("get_profile_summary", {}, "Your profile", context);
+}
+
+async function handleAppSettings(
+  message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const { resolveNavigation } = await import("./deepNavigationEngine");
+  const card = resolveNavigation({ screen: "AppSettingsScreen" });
+  return {
+    message: "Opening your settings",
+    structured: { headline: "App Settings", cards: [card], chips: [] },
+    refreshTargets: [],
+    agentType: "settings",
+  };
+}
+
+async function handleNotificationConfig(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  return handleSettingsQuickAction("get_notification_settings", {}, "Your notification settings", context);
+}
+
+async function handleViewNotifications(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  return handleSettingsQuickAction("get_notifications", { limit: 10 }, "Your notifications", context);
+}
+
+async function handleClearNotifications(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const result = await executeSettingsTool("mark_notifications_read", {}, context);
+  if (result.result) {
+    return {
+      message: "All notifications marked as read",
+      structured: buildTextResponse("All notifications marked as read ✓"),
+      refreshTargets: ["notifications"],
+      agentType: "settings",
+    };
+  }
+  return null;
+}
+
+async function handleWearableStatus(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  return handleSettingsQuickAction("get_wearable_connections", {}, "Your wearable", context);
+}
+
+async function handleConnectWearable(
+  _msg: string, _params: Record<string, any>, _context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const { resolveNavigation } = await import("./deepNavigationEngine");
+  const card = resolveNavigation({ screen: "WearableSettingsScreen" });
+  return {
+    message: "Opening wearable settings",
+    structured: { headline: "Connect Wearable", cards: [card], chips: [] },
+    refreshTargets: [],
+    agentType: "settings",
+  };
+}
+
+async function handleViewSleepData(
+  _msg: string, _params: Record<string, any>, _context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const { resolveNavigation } = await import("./deepNavigationEngine");
+  const card = resolveNavigation({ screen: "SleepDetailScreen", params: { range: "7d" } });
+  return {
+    message: "Opening sleep data",
+    structured: { headline: "Sleep Data", cards: [card], chips: [] },
+    refreshTargets: [],
+    agentType: "settings",
+  };
+}
+
+async function handleViewJournalHistory(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  return handleSettingsQuickAction("get_journal_history", { limit: 10 }, "Your training journal", context);
+}
+
+async function handleBrowseDrills(
+  message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  // Extract category if mentioned
+  const lower = message.toLowerCase();
+  const categories = ["speed", "strength", "agility", "endurance", "recovery", "mobility"];
+  const category = categories.find(c => lower.includes(c));
+  return handleSettingsQuickAction("get_drill_library", category ? { category } : {}, "Drill Library", context);
+}
+
+async function handleViewTestHistory(
+  _msg: string, _params: Record<string, any>, _context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const { resolveNavigation } = await import("./deepNavigationEngine");
+  const card = resolveNavigation({ screen: "TestHistoryScreen" });
+  return {
+    message: "Opening test history",
+    structured: { headline: "Test History", cards: [card], chips: [] },
+    refreshTargets: [],
+    agentType: "settings",
+  };
+}
+
+async function handleSubmitFeedback(
+  _msg: string, _params: Record<string, any>, _context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  // Fall through to AI to collect feedback details
+  return null;
+}
+
+async function handleRefreshRecommendations(
+  _msg: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  const result = await executeSettingsTool("refresh_recommendations", {}, context);
+  if (result.result) {
+    return {
+      message: "Refreshing your recommendations",
+      structured: buildTextResponse("Refreshing your personalized recommendations. This may take a moment."),
+      refreshTargets: ["recommendations"],
+      agentType: "settings",
+    };
+  }
+  return null;
+}
+
 // ── HANDLER REGISTRY ──────────────────────────────────────
 
 export const intentHandlers: Record<string, IntentHandler> = {
@@ -1369,6 +1682,7 @@ export const intentHandlers: Record<string, IntentHandler> = {
   show_programs: handleShowPrograms,
   manage_programs: handleManagePrograms,
   create_event: handleCreateEvent,
+  update_event: handleUpdateEvent,
   delete_event: handleDeleteEvent,
   edit_cv: handleEditCv,
   schedule_rules: handleScheduleRules,
@@ -1404,4 +1718,33 @@ export const intentHandlers: Record<string, IntentHandler> = {
   // Journal
   journal_pre: handleJournalPre,
   journal_post: handleJournalPost,
+  // Cross-Feature Sequencer
+  injury_mode: handleInjuryMode,
+  load_reduce: handleLoadReduce,
+  exam_setup: handleExamSetup,
+  full_reset: handleFullReset,
+  today_briefing: handleTodayBriefing,
+  // Settings & Profile Agent
+  set_goal: handleSetGoal,
+  view_goals: handleViewGoals,
+  update_goal: handleUpdateGoal,
+  log_injury: handleLogInjury,
+  injury_status: handleInjuryStatus,
+  log_nutrition: handleLogNutrition,
+  view_nutrition: handleViewNutrition,
+  log_sleep: handleLogSleep,
+  update_profile: handleUpdateProfile,
+  view_profile: handleViewProfile,
+  app_settings: handleAppSettings,
+  notification_config: handleNotificationConfig,
+  view_notifications: handleViewNotifications,
+  clear_notifications: handleClearNotifications,
+  wearable_status: handleWearableStatus,
+  connect_wearable: handleConnectWearable,
+  view_sleep_data: handleViewSleepData,
+  view_journal_history: handleViewJournalHistory,
+  browse_drills: handleBrowseDrills,
+  view_test_history: handleViewTestHistory,
+  submit_feedback: handleSubmitFeedback,
+  refresh_recommendations: handleRefreshRecommendations,
 };

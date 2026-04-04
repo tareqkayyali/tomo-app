@@ -654,7 +654,50 @@ export type VisualCard =
   | TrainingJournalPostCapsule
   | RegularStudyCapsule
   | ProgramRecommendationCard
-  | WeekSchedule;
+  | WeekSchedule
+  | InjuryCard
+  | GoalCard
+  | DailyBriefingCard;
+
+// ── Injury Card ─────────────────────────────────────────────────
+export interface InjuryCard {
+  type: 'injury_card';
+  location: string;
+  severity: 1 | 2 | 3;
+  severityLabel: string;
+  loggedAt?: string;
+  recoveryTip?: string;
+  autoAdjustedSession?: boolean;
+}
+
+// ── Goal Card ───────────────────────────────────────────────────
+export interface GoalCard {
+  type: 'goal_card';
+  title: string;
+  targetValue?: number;
+  targetUnit?: string;
+  currentValue?: number;
+  progressPct: number;
+  deadline?: string;
+  daysRemaining?: number | null;
+  trend?: 'on_track' | 'behind' | 'achieved';
+}
+
+// ── Daily Briefing Card ─────────────────────────────────────────
+export interface DailyBriefingCard {
+  type: 'daily_briefing_card';
+  date: string;
+  readinessColor: string;
+  readinessScore?: number;
+  acwr?: number;
+  loadZone?: string;
+  eventCount: number;
+  trainingCount: number;
+  matchCount: number;
+  urgentGoals?: Array<{ title: string; progressPct: number; daysRemaining: number }>;
+  pendingJournalCount?: number;
+  briefingSummary: string;
+}
 
 // ── Action Chips ─────────────────────────────────────────────────
 

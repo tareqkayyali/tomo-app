@@ -433,3 +433,43 @@ export function categorizeMessage(message: string): TomoTopicCategory {
 
   return "off_topic";
 }
+
+// ── NDEP — No Dead End Policy ────────────────────────────────────
+// Strips dead-end phrases from AI responses that tell the player
+// to do something manually when the chat can handle it.
+
+const DEAD_END_PATTERNS: Array<{ pattern: RegExp; replacement: string }> = [
+  {
+    pattern: /can'?t edit (the |your )?calendar[^.]*(?:\.|$)/gi,
+    replacement: "I can help you edit your calendar. Just tell me what you'd like to change.",
+  },
+  {
+    pattern: /contact (your |the )?coach directly[^.]*(?:\.|$)/gi,
+    replacement: "",
+  },
+  {
+    pattern: /(?:you(?:'ll| will) need to|you should|please) (?:go to|navigate to|open) (?:the )?settings[^.]*(?:\.|$)/gi,
+    replacement: "I can take you there directly.",
+  },
+  {
+    pattern: /(?:I |i )(?:can'?t|cannot|am not able to|don'?t have access to)[^.]*(?:\.|$)/gi,
+    replacement: "",
+  },
+  {
+    pattern: /(?:this |that )(?:feature |action |option )?is not (?:available|supported|possible)[^.]*(?:\.|$)/gi,
+    replacement: "",
+  },
+  {
+    pattern: /(?:you(?:'ll| will) need to|you should) do (?:this|that|it) (?:manually|yourself)[^.]*(?:\.|$)/gi,
+    replacement: "",
+  },
+];
+
+export function enforceNoDeadEnds(response: string): string {
+  let result = response;
+  for (const { pattern, replacement } of DEAD_END_PATTERNS) {
+    result = result.replace(pattern, replacement);
+  }
+  // Clean up double spaces and leading/trailing whitespace
+  return result.replace(/\s{2,}/g, " ").trim();
+}

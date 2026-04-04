@@ -15,7 +15,7 @@ import type { ConversationState } from "./sessionService";
 export interface ClassificationResult {
   intentId: string;
   capsuleType: string | null;
-  agentType: "timeline" | "output" | "mastery";
+  agentType: "timeline" | "output" | "mastery" | "settings";
   confidence: number;
   extractedParams: Record<string, any>;
   classificationLayer: "exact_match" | "haiku" | "fallthrough";
@@ -162,6 +162,95 @@ function buildExactMatchMap(): void {
     { text: "view today's schedule", intentId: "qa_today_schedule" },
     // Notifications
     { text: "notification settings", intentId: "notification_settings" },
+    // ── Cross-Feature Commands ──
+    { text: "daily briefing", intentId: "today_briefing" },
+    { text: "morning update", intentId: "today_briefing" },
+    { text: "brief me", intentId: "today_briefing" },
+    { text: "what do i need to do today", intentId: "today_briefing" },
+    { text: "give me everything for today", intentId: "today_briefing" },
+    { text: "today's briefing", intentId: "today_briefing" },
+    { text: "reduce my load", intentId: "load_reduce" },
+    { text: "recovery week", intentId: "load_reduce" },
+    { text: "take it easy this week", intentId: "load_reduce" },
+    { text: "go light this week", intentId: "load_reduce" },
+    { text: "i need a deload", intentId: "load_reduce" },
+    { text: "exam mode", intentId: "exam_setup" },
+    { text: "exam week setup", intentId: "exam_setup" },
+    { text: "finals week", intentId: "exam_setup" },
+    { text: "clear my week", intentId: "full_reset" },
+    { text: "start fresh", intentId: "full_reset" },
+    { text: "wipe my schedule", intentId: "full_reset" },
+    { text: "clean slate", intentId: "full_reset" },
+    // ── Settings & Profile Agent ──
+    // Goals
+    { text: "my goals", intentId: "view_goals" },
+    { text: "show my goals", intentId: "view_goals" },
+    { text: "set a goal", intentId: "set_goal" },
+    { text: "create a goal", intentId: "set_goal" },
+    { text: "update my goal", intentId: "update_goal" },
+    // Injury
+    { text: "i'm injured", intentId: "log_injury" },
+    { text: "log injury", intentId: "log_injury" },
+    { text: "log an injury", intentId: "log_injury" },
+    { text: "flag an injury", intentId: "log_injury" },
+    { text: "my injuries", intentId: "injury_status" },
+    { text: "injury status", intentId: "injury_status" },
+    { text: "injury history", intentId: "injury_status" },
+    // Nutrition
+    { text: "log food", intentId: "log_nutrition" },
+    { text: "log a meal", intentId: "log_nutrition" },
+    { text: "log my lunch", intentId: "log_nutrition" },
+    { text: "what did i eat", intentId: "view_nutrition" },
+    { text: "my nutrition", intentId: "view_nutrition" },
+    // Sleep
+    { text: "log sleep", intentId: "log_sleep" },
+    { text: "log my sleep", intentId: "log_sleep" },
+    { text: "sleep data", intentId: "view_sleep_data" },
+    { text: "my sleep history", intentId: "view_sleep_data" },
+    // Profile
+    { text: "my profile", intentId: "view_profile" },
+    { text: "show my profile", intentId: "view_profile" },
+    { text: "update my height", intentId: "update_profile" },
+    { text: "change my weight", intentId: "update_profile" },
+    { text: "change my sport", intentId: "update_profile" },
+    { text: "update my position", intentId: "update_profile" },
+    // Settings
+    { text: "my settings", intentId: "app_settings" },
+    { text: "app settings", intentId: "app_settings" },
+    // Notifications
+    { text: "show my notifications", intentId: "view_notifications" },
+    { text: "any new notifications", intentId: "view_notifications" },
+    { text: "what's new", intentId: "view_notifications" },
+    { text: "mark all as read", intentId: "clear_notifications" },
+    { text: "clear all notifications", intentId: "clear_notifications" },
+    // Wearable
+    { text: "my wearable", intentId: "wearable_status" },
+    { text: "whoop status", intentId: "wearable_status" },
+    { text: "connect wearable", intentId: "connect_wearable" },
+    { text: "connect my whoop", intentId: "connect_wearable" },
+    // Navigation
+    { text: "browse drills", intentId: "browse_drills" },
+    { text: "drill library", intentId: "browse_drills" },
+    { text: "my journals", intentId: "view_journal_history" },
+    { text: "journal history", intentId: "view_journal_history" },
+    { text: "test history", intentId: "view_test_history" },
+    // Feedback & Recommendations
+    { text: "give feedback", intentId: "submit_feedback" },
+    { text: "report a bug", intentId: "submit_feedback" },
+    { text: "suggest a feature", intentId: "submit_feedback" },
+    { text: "refresh my recommendations", intentId: "refresh_recommendations" },
+    // Update/Edit events
+    { text: "edit my session", intentId: "update_event" },
+    { text: "edit my event", intentId: "update_event" },
+    { text: "reschedule my training", intentId: "update_event" },
+    { text: "reschedule my session", intentId: "update_event" },
+    { text: "reschedule my match", intentId: "update_event" },
+    { text: "move my training", intentId: "update_event" },
+    { text: "move my session", intentId: "update_event" },
+    { text: "change my session time", intentId: "update_event" },
+    { text: "change my gym time", intentId: "update_event" },
+    { text: "modify my training", intentId: "update_event" },
+    { text: "update my event", intentId: "update_event" },
     // Journal
     { text: "journal", intentId: "journal_pre" },
     { text: "training journal", intentId: "journal_pre" },

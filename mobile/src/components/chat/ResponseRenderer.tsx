@@ -31,9 +31,15 @@ import type {
   ActionChip,
   CapsuleAction,
   ProgramRecommendationCard,
+  InjuryCard,
+  GoalCard,
+  DailyBriefingCard,
 } from '../../types/chat';
 import { colors } from '../../theme/colors';
 import { CapsuleRenderer, isCapsuleCard } from './capsules/CapsuleRenderer';
+import { InjuryCardComponent } from './cards/InjuryCardComponent';
+import { GoalCardComponent } from './cards/GoalCardComponent';
+import { DailyBriefingCardComponent } from './cards/DailyBriefingCardComponent';
 
 // ── Style Factory ────────────────────────────────────────────────
 
@@ -1483,6 +1489,7 @@ function RenderCard({
   onCancel,
   onChipPress,
   onCapsuleSubmit,
+  onNavigate,
 }: {
   card: VisualCard;
   styles: ReturnType<typeof createStyles>;
@@ -1491,10 +1498,11 @@ function RenderCard({
   onCancel?: () => void;
   onChipPress?: (action: string) => void;
   onCapsuleSubmit?: (action: CapsuleAction) => void;
+  onNavigate?: (deepLink: { tabName: string; params?: Record<string, any>; screen?: string; highlight?: string; autoOpen?: string }) => void;
 }) {
   // Route capsule card types to CapsuleRenderer
   if (isCapsuleCard(card.type) && onCapsuleSubmit) {
-    return <CapsuleRenderer card={card} onSubmit={onCapsuleSubmit} />;
+    return <CapsuleRenderer card={card} onSubmit={onCapsuleSubmit} onNavigate={onNavigate} />;
   }
 
   switch (card.type) {
@@ -1516,6 +1524,12 @@ function RenderCard({
       return <ProgramRecommendationCardComponent card={card as ProgramRecommendationCard} styles={styles} colors={colors} />;
     case 'text_card':
       return <TextCardComponent card={card} styles={styles} />;
+    case 'injury_card':
+      return <InjuryCardComponent card={card as InjuryCard} />;
+    case 'goal_card':
+      return <GoalCardComponent card={card as GoalCard} />;
+    case 'daily_briefing_card':
+      return <DailyBriefingCardComponent card={card as DailyBriefingCard} />;
     case 'coach_note':
       return <CoachNoteCard card={card} styles={styles} colors={colors} />;
     case 'confirm_card':
@@ -1558,6 +1572,7 @@ interface ResponseRendererProps {
   onConfirm?: () => void;
   onCancel?: () => void;
   onCapsuleSubmit?: (action: CapsuleAction) => void;
+  onNavigate?: (deepLink: { tabName: string; params?: Record<string, any>; screen?: string; highlight?: string; autoOpen?: string }) => void;
 }
 
 export function ResponseRenderer({
@@ -1566,6 +1581,7 @@ export function ResponseRenderer({
   onConfirm,
   onCancel,
   onCapsuleSubmit,
+  onNavigate,
 }: ResponseRendererProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -1586,6 +1602,7 @@ export function ResponseRenderer({
           onCancel={onCancel}
           onChipPress={onChipPress}
           onCapsuleSubmit={onCapsuleSubmit}
+          onNavigate={onNavigate}
         />
       ))}
 

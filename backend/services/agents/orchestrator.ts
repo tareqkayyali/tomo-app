@@ -26,7 +26,13 @@ import {
   buildMasteryStaticPrompt,
   buildMasteryDynamicPrompt,
 } from "./masteryAgent";
-import { validateResponse, GUARDRAIL_SYSTEM_BLOCK, categorizeMessage, enforcePHVSafety, buildPHVSystemPromptBlock } from "./chatGuardrails";
+import {
+  settingsTools,
+  executeSettingsTool,
+  buildSettingsStaticPrompt,
+  buildSettingsDynamicPrompt,
+} from "./settingsAgent";
+import { validateResponse, GUARDRAIL_SYSTEM_BLOCK, categorizeMessage, enforcePHVSafety, buildPHVSystemPromptBlock, enforceNoDeadEnds } from "./chatGuardrails";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { getDayBoundsISO, toTimezoneISO } from "./contextBuilder";
@@ -199,6 +205,11 @@ const WRITE_ACTIONS = new Set([
   "add_exam",
   "generate_study_plan",
   "generate_regular_study_plan",
+  // Settings agent write actions
+  "update_profile_field",
+  "set_goal",
+  "log_injury",
+  "update_cv_visibility",
 ]);
 
 // ── CAPSULE DIRECT ACTIONS — single-step confirmation (capsule submit = confirm) ──
@@ -213,6 +224,17 @@ export const CAPSULE_DIRECT_ACTIONS = new Set([
   "unlock_day",
   "sync_whoop",
   "generate_regular_study_plan",
+  // Settings agent direct actions
+  "update_goal_progress",
+  "complete_goal",
+  "update_injury_status",
+  "log_nutrition",
+  "log_sleep_manual",
+  "update_notification_pref",
+  "mark_notifications_read",
+  "update_app_setting",
+  "submit_feedback",
+  "refresh_recommendations",
 ]);
 
 // ── CAPSULE GATED ACTIONS — two-step (still show ConfirmationCard) ──
@@ -231,7 +253,7 @@ export const CAPSULE_GATED_ACTIONS = new Set([
 ]);
 
 // ── AGENT TIEBREAKER — when multiple agents match, pick the best one ──
-type AgentType = "timeline" | "output" | "mastery";
+type AgentType = "timeline" | "output" | "mastery" | "settings";
 
 const TIEBREAKER_RULES: { pattern: RegExp; winner: AgentType }[] = [
   // Output wins for data/readiness/training queries
@@ -271,14 +293,14 @@ function routeToAgents(
 ): AgentType[] {
   // Affirmation continuity: keep same agent when user says "yes", "do it", etc.
   if (isAffirmation(message) && lastAgentType) {
-    const valid = ["timeline", "output", "mastery"];
+    const valid = ["timeline", "output", "mastery", "settings"];
     if (valid.includes(lastAgentType)) {
-      return [lastAgentType as "timeline" | "output" | "mastery"];
+      return [lastAgentType as AgentType];
     }
   }
 
   const lower = message.toLowerCase();
-  const agents = new Set<"timeline" | "output" | "mastery">();
+  const agents = new Set<AgentType>();
 
   // Program-specific queries → Output agent FIRST (has get_my_programs tool)
   const isProgramQuery = /program|my program|training program|program.*detail|about.*program/i.test(lower);
@@ -305,7 +327,7 @@ function routeToAgents(
   if (
     !isRecoveryFollowUp && !isRecommendationFollowUp && (
     context.activeTab === "Timeline" ||
-    /schedule|calendar|event|exam|study|session|training|match|add|block|reschedule|today|tomorrow|week|when|plan|lock/i.test(
+    /schedule|calendar|event|exam|study|session|training|match|add|block|reschedule|edit.*event|move.*session|change.*time|modify.*training|update.*event|today|tomorrow|week|when|plan|lock/i.test(
       lower
     ))
   ) {
@@ -320,6 +342,19 @@ function routeToAgents(
     )
   ) {
     agents.add("mastery");
+  }
+
+  // Settings agent signals — goals, injury, nutrition, sleep, settings, wearable, notifications
+  if (
+    /\b(goal|set a goal|my goals?|injur|pain|hurt|sore|i('m| am) injured)\b/i.test(lower) ||
+    /\b(nutrition|food|meal|ate|eat|calorie|log (my )?sleep|slept|sleep hours)\b/i.test(lower) ||
+    /\b(settings|units|imperial|metric|language|theme|preference)\b/i.test(lower) ||
+    /\b(wearable|whoop|connect.*device|integration)\b/i.test(lower) ||
+    /\b(notification|push notification|notification settings)\b/i.test(lower) ||
+    /\b(feedback|report.*bug|suggest.*feature)\b/i.test(lower) ||
+    /\b(browse drills?|drill library|journal history|my journals?)\b/i.test(lower)
+  ) {
+    agents.add("settings");
   }
 
   // Default: route by active tab if no clear signal
@@ -488,14 +523,14 @@ export async function orchestrate(
   }
 
   // Route to appropriate agent(s) — with agent lock for conversation stability
-  let agentTypes: ("timeline" | "output" | "mastery")[];
+  let agentTypes: AgentType[];
 
   // Program queries always break agent lock — they need the Output agent's get_my_programs tool
   const forceOutputRoute = /program|my program|training program|about.*program/i.test(userMessage.toLowerCase());
 
   if (activeAgent && !forceOutputRoute && !detectTopicShift(userMessage, activeAgent)) {
     // Agent lock: stay with current agent unless explicit topic shift or program query
-    agentTypes = [activeAgent as "timeline" | "output" | "mastery"];
+    agentTypes = [activeAgent as AgentType];
   } else {
     agentTypes = routeToAgents(userMessage, context, lastAgentType);
   }
@@ -709,6 +744,10 @@ export async function orchestrate(
           flaggedTerms: phvCheck.flaggedTerms,
         });
       }
+
+      // ── NDEP — No Dead End Policy ──
+      // Intercept dead-end phrases in AI responses and replace with actionable alternatives
+      cleanMessage = enforceNoDeadEnds(cleanMessage);
 
       return {
         message: cleanMessage,
@@ -972,7 +1011,7 @@ export async function orchestrate(
       .join("\n");
 
     if (fallbackText) {
-      return { message: fallbackText, refreshTargets };
+      return { message: enforceNoDeadEnds(fallbackText), refreshTargets };
     }
     break;
   }
@@ -1073,6 +1112,7 @@ async function buildAgentConfig(
     timeline: timelineTools,
     output: outputTools,
     mastery: masteryTools,
+    settings: settingsTools,
   };
 
   // Static prompt builders — no context needed, identical across all requests
@@ -1080,6 +1120,7 @@ async function buildAgentConfig(
     timeline: buildTimelineStaticPrompt,
     output: buildOutputStaticPrompt,
     mastery: buildMasteryStaticPrompt,
+    settings: buildSettingsStaticPrompt,
   };
 
   // Dynamic prompt builders — per-player, per-request context
@@ -1087,6 +1128,7 @@ async function buildAgentConfig(
     timeline: buildTimelineDynamicPrompt,
     output: buildOutputDynamicPrompt,
     mastery: buildMasteryDynamicPrompt,
+    settings: buildSettingsDynamicPrompt,
   };
 
   // Combine tools from all needed agents, add cache_control to last tool
@@ -1289,6 +1331,8 @@ async function executeTool(
     return executeOutputTool(toolName, toolInput, context);
   if (masteryTools.some((t) => t.name === toolName))
     return executeMasteryTool(toolName, toolInput, context);
+  if (settingsTools.some((t) => t.name === toolName))
+    return executeSettingsTool(toolName, toolInput, context);
   return { result: null, error: "Unknown tool" };
 }
 
