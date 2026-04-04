@@ -84,9 +84,7 @@ export function DrillNotificationCard({ notification, onActed, colors }: Props) 
       .join(', ');
     const chatPrompt = `My coach ${data.coachName} assigned me these drills: ${drillNames}. Can you explain what each drill involves and how I should approach them?`;
 
-    navigation.navigate('FullChat', {
-      preloadMessage: chatPrompt,
-    });
+    (navigation as any).navigate('Chat', { prefillMessage: chatPrompt, autoSend: true });
   };
 
   return (

@@ -335,7 +335,7 @@ function ActionCTA({
             screen: 'MainTabs',
             params: {
               screen: 'Chat',
-              params: { prefillMessage: prompt },
+              params: { prefillMessage: prompt, autoSend: true },
             },
           });
         }}

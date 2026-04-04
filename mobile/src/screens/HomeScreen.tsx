@@ -1186,20 +1186,30 @@ export function HomeScreen() {
     }
   }, [transcript]);
 
-  // Handle prefillMessage from navigation (e.g. "Ask Tomo" from ProgramCard)
+  // Handle prefillMessage from navigation (e.g. "Ask Tomo" from ProgramCard, Mastery buttons)
   useEffect(() => {
     if (route.params?.prefillMessage) {
       const msg = route.params.prefillMessage;
+      const shouldAutoSend = route.params?.autoSend;
+      // Clear the params so it doesn't re-trigger
+      navigation.setParams({ prefillMessage: undefined, newSession: undefined, autoSend: undefined });
       // Start a fresh session if requested (avoids agent lock from previous conversation)
       if (route.params?.newSession) {
         handleNewChat().then(() => {
-          setInputText(msg);
+          if (shouldAutoSend) {
+            // Small delay to ensure state is settled before sending
+            setTimeout(() => handleSend(msg), 150);
+          } else {
+            setInputText(msg);
+          }
+        });
+      } else if (shouldAutoSend) {
+        handleNewChat().then(() => {
+          setTimeout(() => handleSend(msg), 150);
         });
       } else {
         setInputText(msg);
       }
-      // Clear the params so it doesn't re-trigger
-      navigation.setParams({ prefillMessage: undefined, newSession: undefined });
     }
   }, [route.params?.prefillMessage]);
 

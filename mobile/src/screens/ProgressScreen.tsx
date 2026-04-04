@@ -174,7 +174,7 @@ export function ProgressScreen({
   // Navigate to AI Chat with pre-filled prompt
   const askTomo = useCallback((prompt: string) => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('FullChat', { preloadMessage: prompt });
+    (navigation as any).navigate('Chat', { prefillMessage: prompt, autoSend: true });
   }, [navigation]);
 
   // Content fade-in (skip focus check for external/embedded views)

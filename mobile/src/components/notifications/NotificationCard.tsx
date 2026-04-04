@@ -342,7 +342,7 @@ function AskTomoButton({
           try {
             navigation.navigate('Main', {
               screen: 'MainTabs',
-              params: { screen: 'Chat', params: { prefillMessage: prefill } },
+              params: { screen: 'Chat', params: { prefillMessage: prefill, autoSend: true } },
             });
           } catch (err) {
             console.warn('[NotificationCard] Ask Tomo navigation failed:', err);

@@ -16,7 +16,7 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
   Plan: undefined;
   Test: { initialTab?: 'vitals' | 'metrics' | 'programs' } | undefined;
-  Chat: { prefillMessage?: string } | undefined;
+  Chat: { prefillMessage?: string; autoSend?: boolean } | undefined;
   Progress: undefined;
   ForYou: undefined;
 };
@@ -111,6 +111,8 @@ export type CoachStackParamList = {
   CoachInvite: undefined;
   RecommendEvent: { playerId: string; playerName: string; allowedTypes: string[] };
   Profile: undefined;
+  Notifications: undefined;
+  NotificationSettings: undefined;
 };
 
 // ── Parent Navigation ────────────────────────────────────────────────────
@@ -129,6 +131,8 @@ export type ParentStackParamList = {
   ParentInvite: undefined;
   RecommendEvent: { playerId: string; playerName: string; allowedTypes: string[] };
   Profile: undefined;
+  Notifications: undefined;
+  NotificationSettings: undefined;
 };
 
 // ── Root ─────────────────────────────────────────────────────────────────
