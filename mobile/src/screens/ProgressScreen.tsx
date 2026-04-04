@@ -1,7 +1,7 @@
 /**
- * Progress Screen — Sport-agnostic mastery view.
+ * Progress Screen — Performance analytics dashboard.
  *
- * DNACard hero + 7 mastery pillar cards with dual-layer benchmarks.
+ * Dashboard layout: Radar + Metric Grid + 7 Pillars + Trajectories + Achievements.
  * QuickAccessBar in header. Pull-to-refresh, loading skeleton, error state.
  * Supports coach/parent read-only via targetPlayerId.
  */
@@ -34,6 +34,9 @@ import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import { MasteryContent } from '../components/mastery/MasteryContent';
 import { useMasteryData } from '../hooks/useMasteryData';
+import { useMasteryTrajectory } from '../hooks/useMasteryTrajectory';
+import { useMasteryAchievements } from '../hooks/useMasteryAchievements';
+import { useMomentum } from '../hooks/useMomentum';
 import { useAthleteSnapshot } from '../hooks/useAthleteSnapshot';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -114,6 +117,7 @@ export function ProgressScreen({
   const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const isFocused = useIsFocused();
 
+  // Primary data
   const {
     data: masteryData,
     loading: isLoading,
@@ -121,9 +125,26 @@ export function ProgressScreen({
     refresh,
   } = useMasteryData(targetPlayerId);
 
-  // Athlete snapshot for readiness score (coach note)
+  // Athlete snapshot for readiness score + TIS
   const { snapshot } = useAthleteSnapshot(targetPlayerId);
   const readinessScore = snapshot?.readiness_score ?? 75;
+  const tisScore = (snapshot as any)?.tomo_intelligence_score ?? null;
+
+  // Secondary data (loads independently — won't block primary render)
+  const {
+    data: trajectoryData,
+    refresh: refreshTrajectory,
+  } = useMasteryTrajectory(6, targetPlayerId);
+
+  const {
+    data: achievementsData,
+    refresh: refreshAchievements,
+  } = useMasteryAchievements(20, targetPlayerId);
+
+  const {
+    data: momentumData,
+    refresh: refreshMomentum,
+  } = useMomentum(30, targetPlayerId);
 
   // Sport context for position label
   const sportCtx = useSportContext();
@@ -141,9 +162,20 @@ export function ProgressScreen({
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refresh();
+    await Promise.all([
+      refresh(),
+      refreshTrajectory(),
+      refreshAchievements(),
+      refreshMomentum(),
+    ]);
     setRefreshing(false);
-  }, [refresh]);
+  }, [refresh, refreshTrajectory, refreshAchievements, refreshMomentum]);
+
+  // Navigate to AI Chat with pre-filled prompt
+  const askTomo = useCallback((prompt: string) => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('FullChat', { preloadMessage: prompt });
+  }, [navigation]);
 
   // Content fade-in (skip focus check for external/embedded views)
   const isExternalView = !!targetPlayerId;
@@ -151,7 +183,6 @@ export function ProgressScreen({
   const contentFade = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
   useEffect(() => {
     if (isExternalView) {
-      // External views (coach/parent) — always visible, no focus gating
       if (!isLoading) {
         contentOpacity.value = withTiming(1, { duration: 400 });
       }
@@ -231,10 +262,8 @@ export function ProgressScreen({
 
   return (
     <Wrapper {...wrapperProps as any}>
-      {/* ── Header (hidden for external/embedded views) ── */}
       {!isExternalView && renderHeader()}
 
-      {/* ── Content ── */}
       <View style={{ flex: 1 }}>
         <ScrollFadeOverlay />
         <ScrollView
@@ -283,41 +312,20 @@ export function ProgressScreen({
               </View>
             )}
 
-            {/* ── Tomo Intelligence Score ── */}
-            {snapshot?.tomo_intelligence_score != null && (
-              <View style={styles.tisCard}>
-                <View style={styles.tisHeader}>
-                  <Text style={[styles.tisLabel, { color: colors.textMuted }]}>TOMO INTELLIGENCE</Text>
-                  <Text style={[styles.tisScore, { color: colors.accent1 }]}>
-                    {Math.round(snapshot.tomo_intelligence_score)}
-                  </Text>
-                </View>
-                <View style={styles.tisPills}>
-                  {([
-                    ['Engage', colors.accent1],
-                    ['Perform', '#30D158'],
-                    ['Wellbeing', '#00D9FF'],
-                    ['Balance', '#F39C12'],
-                  ] as const).map(([label, color]) => (
-                    <View key={label} style={[styles.tisPill, { borderColor: color + '40' }]}>
-                      <View style={[styles.tisDot, { backgroundColor: color }]} />
-                      <Text style={[styles.tisPillText, { color: colors.textSecondary }]}>{label}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* ── Mastery Content (DNA Card + Pillars) ── */}
+            {/* ── Dashboard + Pillars + Trajectories + Achievements ── */}
             {masteryData && (
               <MasteryContent
                 data={masteryData}
+                tisScore={tisScore}
+                momentum={momentumData}
+                trajectoryData={trajectoryData}
+                achievements={achievementsData}
                 onRecordTests={goToMyMetrics}
                 onAttributeTap={(key) => {
-                  // Future: navigate to attribute detail
                   if (Platform.OS !== 'web')
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
+                onAskTomo={askTomo}
               />
             )}
           </Animated.View>
@@ -357,7 +365,6 @@ function createStyles(colors: ThemeColors) {
       paddingTop: spacing.lg,
       paddingBottom: layout.navHeight + spacing.xl,
     },
-    // ── Coach Greeting ("Coach in Your Pocket") ──
     coachGreeting: {
       paddingHorizontal: layout.screenMargin,
       marginBottom: spacing.md,
@@ -380,50 +387,6 @@ function createStyles(colors: ThemeColors) {
     coachNoteWrap: {
       paddingHorizontal: layout.screenMargin,
       marginBottom: spacing.lg,
-    },
-    tisCard: {
-      marginHorizontal: layout.screenMargin,
-      marginBottom: spacing.lg,
-      backgroundColor: colors.backgroundElevated,
-      borderRadius: borderRadius.lg,
-      padding: spacing.md,
-    },
-    tisHeader: {
-      flexDirection: 'row' as const,
-      justifyContent: 'space-between' as const,
-      alignItems: 'center' as const,
-      marginBottom: spacing.sm,
-    },
-    tisLabel: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 12,
-      letterSpacing: 1,
-    },
-    tisScore: {
-      fontFamily: fontFamily.bold,
-      fontSize: 28,
-    },
-    tisPills: {
-      flexDirection: 'row' as const,
-      gap: spacing.xs,
-    },
-    tisPill: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      borderWidth: 1,
-      borderRadius: borderRadius.sm,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      gap: 4,
-    },
-    tisDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-    },
-    tisPillText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 11,
     },
   });
 }

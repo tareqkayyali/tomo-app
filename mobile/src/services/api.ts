@@ -2914,6 +2914,117 @@ export async function getMasterySnapshot(
 }
 
 // ============================================
+// Mastery — Trajectory
+// ============================================
+
+export interface TrajectoryPoint {
+  date: string;
+  score: number;
+}
+
+export interface TestTrajectory {
+  testType: string;
+  data: TrajectoryPoint[];
+  improvement: number | null;
+  improvementPct: number | null;
+  totalTests: number;
+  bestScore: number;
+  bestDate: string;
+  latestScore: number;
+  latestDate: string;
+}
+
+export interface TrajectoryResponse {
+  trajectories: Record<string, TestTrajectory>;
+  months: number;
+}
+
+export async function getMasteryTrajectory(
+  months = 6,
+  targetPlayerId?: string,
+): Promise<TrajectoryResponse> {
+  const params = new URLSearchParams({ months: String(months) });
+  if (targetPlayerId) params.set('targetPlayerId', targetPlayerId);
+  return apiRequest<TrajectoryResponse>(`/api/v1/mastery/trajectory?${params}`);
+}
+
+// ============================================
+// Mastery — Achievements
+// ============================================
+
+export interface MasteryMilestone {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  achieved_at: string;
+}
+
+export interface PersonalBest {
+  score: number;
+  date: string;
+}
+
+export interface NextMilestone {
+  name: string;
+  target: number;
+  progress: number;
+  type: 'streak' | 'tests' | 'points';
+}
+
+export interface AchievementsResponse {
+  milestones: MasteryMilestone[];
+  personalBests: Record<string, PersonalBest>;
+  nextMilestone: NextMilestone | null;
+  stats: {
+    currentStreak: number;
+    longestStreak: number;
+    totalPoints: number;
+    totalMilestones: number;
+    totalTests: number;
+  };
+}
+
+export async function getMasteryAchievements(
+  limit = 20,
+  targetPlayerId?: string,
+): Promise<AchievementsResponse> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (targetPlayerId) params.set('targetPlayerId', targetPlayerId);
+  return apiRequest<AchievementsResponse>(`/api/v1/mastery/achievements?${params}`);
+}
+
+// ============================================
+// Mastery — Momentum
+// ============================================
+
+export interface StreakTier {
+  label: string;
+  emoji: string;
+}
+
+export interface MomentumResponse {
+  consistencyScore: number;
+  checkinRate: number;
+  completionRate: number;
+  streakDays: number;
+  streakTier: StreakTier;
+  ratingDelta: number;
+  velocityLabel: string;
+  tisScore: number | null;
+  tisDelta: number | null;
+}
+
+export async function getMomentum(
+  days = 30,
+  targetPlayerId?: string,
+): Promise<MomentumResponse> {
+  const params = new URLSearchParams({ days: String(days) });
+  if (targetPlayerId) params.set('targetPlayerId', targetPlayerId);
+  return apiRequest<MomentumResponse>(`/api/v1/mastery/momentum?${params}`);
+}
+
+// ============================================
 // Integrations (Wearable connections)
 // ============================================
 

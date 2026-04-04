@@ -52,7 +52,7 @@ export type MainStackParamList = {
     sets: number;
     durationSeconds: number;
   };
-  FullChat: undefined;
+  FullChat: { preloadMessage?: string } | undefined;
   // Padel-specific screens
   ShotDetail: { shotType: string };
   ShotSession: undefined;

@@ -33,6 +33,10 @@ export interface ProgressRingProps {
   showPercentage?: boolean;
   /** Color variant */
   variant?: RingVariant;
+  /** Override center value text (e.g., raw score instead of percentage) */
+  valueOverride?: string | number;
+  /** Override ring stroke color (takes precedence over variant) */
+  ringColor?: string;
 }
 
 const ProgressRing: React.FC<ProgressRingProps> = memo(({
@@ -43,6 +47,8 @@ const ProgressRing: React.FC<ProgressRingProps> = memo(({
   sublabel,
   showPercentage = true,
   variant = 'default',
+  valueOverride,
+  ringColor,
 }) => {
   const { colors } = useTheme();
   const animatedProgress = useSharedValue(0);
@@ -88,7 +94,7 @@ const ProgressRing: React.FC<ProgressRingProps> = memo(({
           cx={center}
           cy={center}
           r={radius}
-          stroke={variantColor}
+          stroke={ringColor ?? variantColor}
           strokeWidth={strokeWidth}
           fill="none"
           strokeLinecap="round"
@@ -101,7 +107,7 @@ const ProgressRing: React.FC<ProgressRingProps> = memo(({
       <View style={styles.centerText}>
         {showPercentage && (
           <Text style={[styles.percentage, { color: colors.textPrimary }]}>
-            {Math.round(progress)}%
+            {valueOverride != null ? valueOverride : `${Math.round(progress)}%`}
           </Text>
         )}
         {label && (
