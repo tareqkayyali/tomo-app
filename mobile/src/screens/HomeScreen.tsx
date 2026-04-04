@@ -853,15 +853,21 @@ const ChatBubble = React.memo(function ChatBubble({
   return (
     <View style={[styles.messageRow, styles.messageRowAi]}>
       <View style={styles.aiMessageContainer}>
-        {message.structured && !isStreaming ? (
-          <ResponseRenderer
-            response={message.structured}
-            onChipPress={onChipPress}
-            onConfirm={onConfirm}
-            onCancel={onCancel}
-            onCapsuleSubmit={onCapsuleSubmit}
-            onNavigate={onNavigate}
-          />
+        {message.structured && !isStreaming && ((message.structured.cards?.length ?? 0) > 0 || (message.structured.chips?.length ?? 0) > 0) ? (
+          <>
+            <ResponseRenderer
+              response={message.structured}
+              onChipPress={onChipPress}
+              onConfirm={onConfirm}
+              onCancel={onCancel}
+              onCapsuleSubmit={onCapsuleSubmit}
+              onNavigate={onNavigate}
+            />
+            {/* Show text above cards if both exist */}
+            {message.text && !message.structured.headline && (
+              <MarkdownMessage content={message.text} />
+            )}
+          </>
         ) : message.text ? (
           <MarkdownMessage content={message.text} />
         ) : null}
