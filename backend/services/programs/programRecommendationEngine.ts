@@ -151,13 +151,35 @@ export async function generateProgramRecommendations(
 
   // ── 3. Filter programs by position applicability ────────────────────
 
+  // Map colloquial focus terms to program category names
+  const FOCUS_CATEGORY_MAP: Record<string, string[]> = {
+    sprint: ["sprint", "sled", "speed", "acceleration"],
+    speed: ["sprint", "sled", "speed", "acceleration"],
+    agility: ["agility", "change_of_direction", "cod"],
+    strength: ["strength", "power", "plyometric"],
+    endurance: ["endurance", "conditioning", "fitness"],
+    technical: TECHNICAL_CATEGORIES,
+    injury_prevention: INJURY_PREVENTION_CATEGORIES,
+  };
+
+  const focusCategories = focusArea
+    ? new Set(FOCUS_CATEGORY_MAP[focusArea.toLowerCase()] ?? [focusArea.toLowerCase()])
+    : null;
+
   const applicablePrograms = allPrograms.filter((p: any) => {
     const emphasis: string[] = p.position_emphasis ?? [];
-    return (
+    const positionMatch =
       emphasis.length === 0 ||
       emphasis.includes("ALL") ||
-      emphasis.includes(position)
-    );
+      emphasis.includes(position);
+    if (!positionMatch) return false;
+
+    // When focusArea is specified, only include programs matching that focus
+    if (focusCategories) {
+      const cat = (p.category ?? "").toLowerCase();
+      return focusCategories.has(cat);
+    }
+    return true;
   });
 
   // ── 4. Get prescriptions for age band ───────────────────────────────

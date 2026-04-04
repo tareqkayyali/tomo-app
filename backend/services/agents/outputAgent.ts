@@ -139,7 +139,7 @@ export const outputTools = [
         focus: {
           type: "string",
           description:
-            "Attribute to focus on: pace, shooting, passing, dribbling, defending, physicality. Leave empty for balanced.",
+            "Attribute to focus on. IMPORTANT: Map the user's words to these exact values — speed/acceleration/sprint → 'pace', agility/change of direction → 'agility', shooting/finishing → 'shooting', passing → 'passing', dribbling/ball control → 'dribbling', defending/tackling → 'defending', strength/power → 'physicality'. ALWAYS set this when the user mentions a specific skill.",
         },
         limit: {
           type: "number",
@@ -185,7 +185,7 @@ export const outputTools = [
         focusArea: {
           type: "string",
           description:
-            "Optional focus area: sprint, strength, agility, endurance, technical, injury_prevention. Leave empty for full recommendation.",
+            "Focus area for program selection. IMPORTANT: Map the user's words — speed/acceleration/pace → 'sprint', power/explosive → 'strength', change of direction → 'agility', cardio/stamina → 'endurance', passing/dribbling/shooting → 'technical', injury/prehab → 'injury_prevention'. ALWAYS set this when the user asks for a specific type of training.",
         },
       },
     },

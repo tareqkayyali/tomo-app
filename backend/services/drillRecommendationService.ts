@@ -210,9 +210,9 @@ export async function getRecommendedDrills(
       }
     }
 
-    // Focus attribute: +3 if matches requested focus
-    if (focusAttr && drillAttrs.includes(focusAttr)) {
-      score += 3;
+    // Focus attribute: +15 if matches explicitly requested focus (overrides gaps)
+    if (focusAttr && (primaryAttr === focusAttr || drillAttrs.includes(focusAttr))) {
+      score += 15;
       reasons.push(`Matches your ${focusAttr} focus`);
     }
 
@@ -264,14 +264,24 @@ export async function getRecommendedDrills(
     const cooldowns = scored.filter((d) => d.drill.category === "cooldown");
     const recovery = scored.filter((d) => d.drill.category === "recovery");
 
-    // When player has gaps, strongly prefer gap-targeted training drills
+    // When explicit focus is set, prefer focus-targeted drills over gap-targeted
     let training = allTraining;
-    if (gapAttrs.length > 0) {
+    if (focusAttr) {
+      const focusTargeted = allTraining.filter((d) => {
+        const primary = (d.drill as any).primary_attribute;
+        const attrs: string[] = (d.drill as any).attribute_keys ?? [];
+        return primary === focusAttr || attrs.includes(focusAttr);
+      });
+      if (focusTargeted.length >= 2) {
+        training = focusTargeted;
+        console.log('[DrillRec] Using focus-targeted training drills:', training.map(t => t.drill.name));
+      }
+    } else if (gapAttrs.length > 0) {
+      // Fallback: gap-targeted when no explicit focus
       const gapTargeted = allTraining.filter((d) => {
         const primary = (d.drill as any).primary_attribute;
         return primary && gapAttrs.includes(primary);
       });
-      // Use gap-targeted if we have enough, otherwise fall back to all
       if (gapTargeted.length >= 2) {
         training = gapTargeted;
         console.log('[DrillRec] Using gap-targeted training drills only:', training.map(t => t.drill.name));
