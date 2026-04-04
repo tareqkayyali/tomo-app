@@ -7,6 +7,7 @@ const ALLOWED_ORIGINS = [
   "https://app.my-tomo.com",
   "https://api.my-tomo.com",
   "https://tomo-app.replit.app",
+  "https://tomo-app-production.up.railway.app",
   "http://localhost:3000",
   "http://localhost:8081",
   "http://localhost:8082",
