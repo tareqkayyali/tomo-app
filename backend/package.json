@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p ${PORT:-3000}",
     "lint": "eslint",
     "seed:benchmarks": "npx tsx scripts/seeds/football_benchmark_seed.ts",
     "generate:benchmark-sql": "npx tsx scripts/seeds/generate_benchmark_sql.ts",
