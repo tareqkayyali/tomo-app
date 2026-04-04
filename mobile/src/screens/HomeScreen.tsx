@@ -1539,10 +1539,18 @@ export function HomeScreen() {
                     confirmAction: response.pendingConfirmation ?? undefined,
                   };
 
-                  // Replace streaming placeholder with final message
-                  setMessages((prev) =>
-                    prev.map((m) => (m.id === streamMsgId ? { ...aiMsg } : m)),
-                  );
+                  // Replace streaming placeholder (or typing indicator) with final message
+                  if (!streamingStarted) {
+                    // No deltas arrived — swap typing indicator for final message
+                    setMessages((prev) => [
+                      ...prev.filter((m) => m.id !== TYPING_MSG.id),
+                      aiMsg,
+                    ]);
+                  } else {
+                    setMessages((prev) =>
+                      prev.map((m) => (m.id === streamMsgId ? { ...aiMsg } : m)),
+                    );
+                  }
 
                   // Emit refresh events
                   if (response.refreshTargets?.length) {
