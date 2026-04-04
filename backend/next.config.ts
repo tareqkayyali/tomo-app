@@ -15,7 +15,9 @@ const nextConfig: NextConfig = {
       afterFiles: [],
       // fallback: runs AFTER all pages and public files — SPA catch-all
       // If no Next.js page or public file matches, serve the Expo index.html
+      // NOTE: /about is served from public/about/index.html (static file takes priority over fallback)
       fallback: [
+        { source: "/about", destination: "/about/index.html" },
         { source: "/:path*", destination: "/webapp/index.html" },
       ],
     };
