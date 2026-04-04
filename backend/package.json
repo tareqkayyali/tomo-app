@@ -1,6 +1,7 @@
 {
   "name": "backend",
   "version": "0.1.0",
+  "description": "Next.js backend service — requires VOYAGE_API_KEY for embeddings",
   "private": true,
   "scripts": {
     "dev": "next dev",
