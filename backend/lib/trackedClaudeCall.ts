@@ -142,8 +142,39 @@ export async function trackedClaudeCallStreaming(
     stream: true,
   });
 
-  // Forward text deltas to callback
+  // Forward text deltas to callback — suppress JSON blocks so the UI
+  // doesn't render raw structured data during streaming.  The final parsed
+  // TomoResponse is delivered via the "done" SSE event instead.
+  let jsonDepth = 0;
+  let inJsonFence = false;
+  let accumulated = "";
+
   stream.on("text", (text) => {
+    accumulated += text;
+
+    // Once inside a fenced or bare JSON block, suppress all further deltas
+    if (inJsonFence || jsonDepth > 0) {
+      // Keep tracking brace depth so we stay suppressed
+      for (const ch of text) {
+        if (ch === "{") jsonDepth++;
+        else if (ch === "}") jsonDepth = Math.max(0, jsonDepth - 1);
+      }
+      return;
+    }
+
+    // Detect ```json fence opening
+    if (accumulated.includes("```json")) {
+      inJsonFence = true;
+      return;
+    }
+
+    // Detect bare JSON start — Claude sometimes outputs just `{...}`
+    for (const ch of text) {
+      if (ch === "{") jsonDepth++;
+      else if (ch === "}") jsonDepth = Math.max(0, jsonDepth - 1);
+    }
+    if (jsonDepth > 0) return; // entered JSON block, suppress
+
     callbacks?.onDelta?.(text);
   });
 
