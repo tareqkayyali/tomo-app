@@ -361,6 +361,12 @@ function createStyles(colors: ThemeColors) {
       color: colors.error,
       marginTop: spacing.xs,
     },
+    statusText: {
+      fontFamily: fontFamily.regular,
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginTop: spacing.xs,
+    },
 
     // ── Copy Button ───────────────────────────────────────────────────
     copyRow: {
@@ -820,12 +826,15 @@ const ChatBubble = React.memo(function ChatBubble({
   const isTyping = message.role === 'typing';
   const isStreaming = message.role === 'streaming';
 
-  // Typing indicator — small pill with bounce dots
+  // Typing indicator — small pill with bounce dots + optional status text
   if (isTyping) {
     return (
       <View style={[styles.messageRow, styles.messageRowAi]}>
         <View style={styles.typingBubble}>
           <TypingDots />
+          {message.statusText ? (
+            <Text style={styles.statusText}>{message.statusText}</Text>
+          ) : null}
         </View>
       </View>
     );
@@ -871,6 +880,9 @@ const ChatBubble = React.memo(function ChatBubble({
         ) : message.text ? (
           <MarkdownMessage content={message.text} />
         ) : null}
+        {isStreaming && !message.text && message.statusText && (
+          <Text style={styles.statusText}>{message.statusText}</Text>
+        )}
         {isStreaming && <StreamingCursor />}
         {!isStreaming && message.text && <CopyButton text={message.text} />}
       </View>
@@ -1517,13 +1529,15 @@ export function HomeScreen() {
                   if (deltaCount % 5 === 0) scrollToBottom();
                 },
                 onStatus: (status) => {
-                  // Update streaming message with status subtitle
+                  // Update BOTH typing indicator and streaming message with status text
+                  // Before first delta: typing indicator is visible, update its statusText
+                  // After first delta: streaming message is visible, update that instead
                   setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === streamMsgId
-                        ? { ...m, statusText: status }
-                        : m,
-                    ),
+                    prev.map((m) => {
+                      if (m.id === TYPING_MSG.id) return { ...m, statusText: status };
+                      if (m.id === streamMsgId) return { ...m, statusText: status };
+                      return m;
+                    }),
                   );
                 },
                 onDone: (response) => {
