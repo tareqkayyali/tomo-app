@@ -283,6 +283,31 @@ export function ProgressScreen({
               </View>
             )}
 
+            {/* ── Tomo Intelligence Score ── */}
+            {snapshot?.tomo_intelligence_score != null && (
+              <View style={styles.tisCard}>
+                <View style={styles.tisHeader}>
+                  <Text style={[styles.tisLabel, { color: colors.textMuted }]}>TOMO INTELLIGENCE</Text>
+                  <Text style={[styles.tisScore, { color: colors.accent1 }]}>
+                    {Math.round(snapshot.tomo_intelligence_score)}
+                  </Text>
+                </View>
+                <View style={styles.tisPills}>
+                  {([
+                    ['Engage', colors.accent1],
+                    ['Perform', '#30D158'],
+                    ['Wellbeing', '#00D9FF'],
+                    ['Balance', '#F39C12'],
+                  ] as const).map(([label, color]) => (
+                    <View key={label} style={[styles.tisPill, { borderColor: color + '40' }]}>
+                      <View style={[styles.tisDot, { backgroundColor: color }]} />
+                      <Text style={[styles.tisPillText, { color: colors.textSecondary }]}>{label}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {/* ── Mastery Content (DNA Card + Pillars) ── */}
             {masteryData && (
               <MasteryContent
@@ -355,6 +380,50 @@ function createStyles(colors: ThemeColors) {
     coachNoteWrap: {
       paddingHorizontal: layout.screenMargin,
       marginBottom: spacing.lg,
+    },
+    tisCard: {
+      marginHorizontal: layout.screenMargin,
+      marginBottom: spacing.lg,
+      backgroundColor: colors.backgroundElevated,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+    },
+    tisHeader: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
+      marginBottom: spacing.sm,
+    },
+    tisLabel: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 12,
+      letterSpacing: 1,
+    },
+    tisScore: {
+      fontFamily: fontFamily.bold,
+      fontSize: 28,
+    },
+    tisPills: {
+      flexDirection: 'row' as const,
+      gap: spacing.xs,
+    },
+    tisPill: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      borderWidth: 1,
+      borderRadius: borderRadius.sm,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+      gap: 4,
+    },
+    tisDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    tisPillText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 11,
     },
   });
 }

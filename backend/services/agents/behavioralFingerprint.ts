@@ -129,6 +129,26 @@ export async function computeBehavioralFingerprint(
 }
 
 /**
+ * Compute and persist the behavioral fingerprint to the DB.
+ */
+export async function persistBehavioralFingerprint(athleteId: string): Promise<BehavioralFingerprint> {
+  const fp = await computeBehavioralFingerprint(athleteId);
+  const db = supabaseAdmin();
+  await (db as any)
+    .from("athlete_behavioral_fingerprint")
+    .upsert({
+      athlete_id: athleteId,
+      compliance_rate: fp.complianceRate,
+      session_consistency: fp.sessionConsistency,
+      recovery_response: fp.recoveryResponse,
+      academic_athletic_balance: fp.academicAthleticBalance,
+      coaching_approach: fp.coachingApproach,
+      computed_at: fp.computedAt,
+    }, { onConflict: "athlete_id" });
+  return fp;
+}
+
+/**
  * Build a system prompt block from the behavioral fingerprint.
  * Returns empty string if fingerprint is unavailable.
  */

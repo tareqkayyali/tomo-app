@@ -174,6 +174,8 @@ export interface BootData {
     endAt: string | null;
     intensity: number | null;
   } | null;
+  tomoIntelligenceScore: number | null;
+  adaptationCoefficient: number | null;
   fetchedAt: string;
 }
 
@@ -2680,6 +2682,9 @@ export interface AthleteSnapshot {
   wellness_7day_avg: number | null;
   wellness_trend: string | null;
   triangle_rag: string | null;
+  // Intelligence
+  tomo_intelligence_score: number | null;
+  adaptation_coefficient: number | null;
   // Meta
   last_event_id: string | null;
   last_session_at: string | null;

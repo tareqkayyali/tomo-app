@@ -49,7 +49,7 @@ import {
   isAffirmation,
   type ConversationState,
 } from "@/services/agents/sessionService";
-import { extractConversationState } from "@/services/agents/conversationStateExtractor";
+import { extractConversationState, resolveEntityReference } from "@/services/agents/conversationStateExtractor";
 import { updateAthleteMemory } from "@/services/agents/longitudinalMemory";
 
 /** Format a Server-Sent Event */
@@ -289,6 +289,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── Entity Resolution — resolve pronouns ("that drill", "it") to entities ──
+    let enrichedMessage = body.message;
+    if (conversationState?.entityGraph) {
+      const resolved = resolveEntityReference(body.message, conversationState.entityGraph);
+      if (resolved) {
+        enrichedMessage = `${body.message} [context: "${resolved.type}" refers to "${resolved.value}"${resolved.id ? ` (id: ${resolved.id})` : ''}]`;
+      }
+    }
+
     // Detect SSE streaming request
     const wantsStream = req.nextUrl.searchParams.get("stream") === "true";
 
@@ -357,7 +366,7 @@ export async function POST(req: NextRequest) {
             };
 
             const result = await orchestrate(
-              body.message,
+              enrichedMessage,
               context,
               body.confirmedAction,
               conversationHistory,
@@ -407,7 +416,7 @@ export async function POST(req: NextRequest) {
 
     // ── NON-STREAMING PATH — unchanged JSON response ───────────────
     const result = await orchestrate(
-      body.message,
+      enrichedMessage,
       context,
       body.confirmedAction,
       conversationHistory,

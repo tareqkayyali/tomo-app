@@ -131,3 +131,16 @@ export async function computeTomoIntelligenceScore(
     computedAt: new Date().toISOString(),
   };
 }
+
+/**
+ * Compute and persist the TIS to athlete_snapshots.
+ */
+export async function persistTomoIntelligenceScore(athleteId: string): Promise<TomoIntelligenceScoreResult> {
+  const result = await computeTomoIntelligenceScore(athleteId);
+  const db = supabaseAdmin();
+  await (db as any)
+    .from("athlete_snapshots")
+    .update({ tomo_intelligence_score: result.score })
+    .eq("athlete_id", athleteId);
+  return result;
+}

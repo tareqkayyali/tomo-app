@@ -7,6 +7,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { Recommendation, GetRecommendationsOptions } from './types';
+import { filterDecayedRecs } from './recDecayEngine';
 
 /**
  * Fetch recommendations for an athlete with role-based visibility.
@@ -81,6 +82,16 @@ export async function getRecommendations(
     if (expiresAt && new Date(expiresAt).getTime() < now) return false;
     return true;
   });
+
+  // Apply recommendation decay — filter out stale/contradicted recs
+  try {
+    const validIds = await filterDecayedRecs(athleteId);
+    if (validIds.length > 0) {
+      return filtered.filter((r) => validIds.includes((r as any).rec_id));
+    }
+  } catch {
+    // Graceful fallback — return unfiltered if decay engine fails
+  }
 
   return filtered;
 }

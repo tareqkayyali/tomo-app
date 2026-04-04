@@ -301,6 +301,9 @@ export async function GET(request: NextRequest) {
         hasCriticalUnread: (notifSummary.by_category?.critical ?? 0) > 0,
       },
 
+      tomoIntelligenceScore: (snapshot as any)?.tomo_intelligence_score ?? null,
+      adaptationCoefficient: (snapshot as any)?.adaptation_coefficient ?? null,
+
       fetchedAt: new Date().toISOString(),
     };
 

@@ -57,6 +57,7 @@ const navigation = [
     label: "AI & Recommendations",
     items: [
       { name: "Recommendation Engine", href: "/admin/recommendation-engine", icon: "🤖" },
+      { name: "Intelligence Scores", href: "/admin/intelligence", icon: "🧠" },
     ],
   },
   {
