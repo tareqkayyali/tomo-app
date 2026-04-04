@@ -55,6 +55,27 @@ import { computeTriangleState, buildTrianglePromptBlock } from "./triangleIntell
 
 const MAX_TOOL_ITERATIONS = 5;
 
+// ── FOCUS AUTO-DETECTION — server-side fallback when Claude omits focus ──
+// Maps colloquial user keywords to the taxonomy used by drill/program engines.
+function detectFocusFromMessage(message: string): { drillFocus: string; programFocus: string } | null {
+  const msg = message.toLowerCase();
+  const patterns: { keywords: RegExp; drillFocus: string; programFocus: string }[] = [
+    { keywords: /\b(speed|sprint|acceleration|fast|explosive start|10m|20m|30m|flying)\b/, drillFocus: "pace", programFocus: "sprint" },
+    { keywords: /\b(agility|change of direction|cod|t-test|5-10-5|illinois|arrowhead|lateral)\b/, drillFocus: "agility", programFocus: "agility" },
+    { keywords: /\b(strength|strong|power|explosive|lift|squat|deadlift|olympic)\b/, drillFocus: "physicality", programFocus: "strength" },
+    { keywords: /\b(endurance|stamina|cardio|aerobic|hiit|fitness|conditioning|yo-yo)\b/, drillFocus: "endurance", programFocus: "endurance" },
+    { keywords: /\b(shooting|finishing|strike|goal scor)\b/, drillFocus: "shooting", programFocus: "technical" },
+    { keywords: /\b(passing|pass|distribution|playmaking)\b/, drillFocus: "passing", programFocus: "technical" },
+    { keywords: /\b(dribbling|dribble|ball control|1v1 attack|skill move)\b/, drillFocus: "dribbling", programFocus: "technical" },
+    { keywords: /\b(defending|tackling|marking|defensive)\b/, drillFocus: "defending", programFocus: "technical" },
+    { keywords: /\b(injury|prehab|prevention|rehab|recovery|nordic|acl)\b/, drillFocus: "physicality", programFocus: "injury_prevention" },
+  ];
+  for (const p of patterns) {
+    if (p.keywords.test(msg)) return { drillFocus: p.drillFocus, programFocus: p.programFocus };
+  }
+  return null;
+}
+
 // ── SPORT-POSITION CONTEXT LAYER ──────────────────────────────────
 export function buildSportContextSegment(ctx: PlayerContext): string {
   const sport = ctx.sport?.toLowerCase() ?? "";
@@ -858,10 +879,29 @@ export async function orchestrate(
       const toolResults = await Promise.all(
         toolUseBlocks.map(async (toolBlock) => {
           streamCallbacks?.onStatus?.(toolStatusMap[toolBlock.name] ?? `Running ${toolBlock.name}...`);
+
+          // ── Auto-inject focus from user message when Claude omits it ──
+          const toolInput = toolBlock.input as Record<string, any>;
+          if (
+            (toolBlock.name === "get_training_program_recommendations" && !toolInput.focusArea) ||
+            (toolBlock.name === "get_training_session" && !toolInput.focus)
+          ) {
+            const detected = detectFocusFromMessage(userMessage);
+            if (detected) {
+              if (toolBlock.name === "get_training_program_recommendations") {
+                toolInput.focusArea = detected.programFocus;
+                logger.info("[focus-inject] Auto-set focusArea from user message", { focusArea: detected.programFocus });
+              } else {
+                toolInput.focus = detected.drillFocus;
+                logger.info("[focus-inject] Auto-set focus from user message", { focus: detected.drillFocus });
+              }
+            }
+          }
+
           const toolResult = await executeTool(
             primaryAgent,
             toolBlock.name,
-            toolBlock.input as Record<string, any>,
+            toolInput,
             context
           );
           if (toolResult.refreshTarget)

@@ -192,36 +192,59 @@ async function handleQaTestHistory(_m: string, _p: Record<string, any>, ctx: Pla
   return handleQuickAction("get_test_results", {}, executeOutputTool, "Your test history", "output", ctx);
 }
 
+// ── Focus Auto-Detection for intent handlers ──
+function detectProgramFocus(message: string): string | undefined {
+  const msg = message.toLowerCase();
+  const patterns: { keywords: RegExp; focus: string }[] = [
+    { keywords: /\b(speed|sprint|acceleration|fast|explosive start|10m|20m|30m|flying)\b/, focus: "sprint" },
+    { keywords: /\b(agility|change of direction|cod|t-test|5-10-5|illinois|arrowhead|lateral)\b/, focus: "agility" },
+    { keywords: /\b(strength|strong|power|explosive|lift|squat|deadlift|olympic)\b/, focus: "strength" },
+    { keywords: /\b(endurance|stamina|cardio|aerobic|hiit|fitness|conditioning|yo-yo)\b/, focus: "endurance" },
+    { keywords: /\b(injury|prehab|prevention|rehab|nordic|acl)\b/, focus: "injury_prevention" },
+  ];
+  for (const p of patterns) {
+    if (p.keywords.test(msg)) return p.focus;
+  }
+  return undefined;
+}
+
 // ── Show Programs Handler ──
 async function handleShowPrograms(
   _message: string, _params: Record<string, any>, context: PlayerContext
 ): Promise<OrchestratorResult | null> {
   try {
-    const result = await executeOutputTool("get_my_programs", {}, context);
-    if (result.result?.programs && result.result.programs.length > 0) {
-      const programCards = result.result.programs.slice(0, 5).map((p: any) => ({
-        type: "program_action_capsule" as const,
-        programId: p.id ?? p.programId ?? "",
-        programName: p.name ?? p.programName ?? "Training Program",
-        frequency: (p.frequency && p.frequency !== "undefined" && p.frequency !== "null") ? p.frequency : (p.sessionsPerWeek ? `${p.sessionsPerWeek}x/week` : "3x/week"),
-        duration: p.duration ?? (p.durationWeeks ? `${p.durationWeeks} weeks` : "6 weeks"),
-        priority: (p.priority === 1 ? "high" : p.priority === 2 ? "medium" : "low") as "high" | "medium" | "low",
-        currentStatus: p.status ?? null,
-        availableActions: p.status === "active"
-          ? ["done" as const, "dismissed" as const]
-          : ["details" as const, "add_to_training" as const],
-      }));
+    // Detect specific focus from user message (e.g., "speed drills" → sprint)
+    const focusArea = detectProgramFocus(_message);
 
-      return {
-        message: "Your programs",
-        structured: { headline: "Your programs", cards: programCards, chips: [{ label: "Recommend more", action: "What programs do you recommend for me?" }] },
-        refreshTargets: [],
-        agentType: "output",
-      };
+    // If user asks for specific type, skip showing generic active programs
+    // and go straight to focused recommendations
+    if (!focusArea) {
+      const result = await executeOutputTool("get_my_programs", {}, context);
+      if (result.result?.programs && result.result.programs.length > 0) {
+        const programCards = result.result.programs.slice(0, 5).map((p: any) => ({
+          type: "program_action_capsule" as const,
+          programId: p.id ?? p.programId ?? "",
+          programName: p.name ?? p.programName ?? "Training Program",
+          frequency: (p.frequency && p.frequency !== "undefined" && p.frequency !== "null") ? p.frequency : (p.sessionsPerWeek ? `${p.sessionsPerWeek}x/week` : "3x/week"),
+          duration: p.duration ?? (p.durationWeeks ? `${p.durationWeeks} weeks` : "6 weeks"),
+          priority: (p.priority === 1 ? "high" : p.priority === 2 ? "medium" : "low") as "high" | "medium" | "low",
+          currentStatus: p.status ?? null,
+          availableActions: p.status === "active"
+            ? ["done" as const, "dismissed" as const]
+            : ["details" as const, "add_to_training" as const],
+        }));
+
+        return {
+          message: "Your programs",
+          structured: { headline: "Your programs", cards: programCards, chips: [{ label: "Recommend more", action: "What programs do you recommend for me?" }] },
+          refreshTargets: [],
+          agentType: "output",
+        };
+      }
     }
 
-    // No active programs — show recommendations
-    const recResult = await executeOutputTool("get_training_program_recommendations", {}, context);
+    // Show recommendations — with focus filter when detected
+    const recResult = await executeOutputTool("get_training_program_recommendations", { focusArea }, context);
     const recs = recResult.result?.programs ?? recResult.result?.recommendations ?? [];
     if (recs.length > 0) {
       const recCards = recs.slice(0, 5).map((p: any) => ({
@@ -235,10 +258,11 @@ async function handleShowPrograms(
         availableActions: ["details" as const, "add_to_training" as const],
       }));
 
+      const focusLabel = focusArea ? focusArea.charAt(0).toUpperCase() + focusArea.slice(1) : null;
       return {
-        message: "Recommended programs for you",
+        message: focusLabel ? `${focusLabel} programs for you` : "Recommended programs for you",
         structured: {
-          headline: "🏋️ Recommended Programs",
+          headline: focusLabel ? `⚡ ${focusLabel} Programs` : "🏋️ Recommended Programs",
           cards: recCards,
           chips: [
             { label: "Build me a session", action: "Build me a training session for today" },
