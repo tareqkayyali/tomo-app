@@ -510,7 +510,7 @@ export const ProactiveDashboard = React.memo(function ProactiveDashboard({
     // Next upcoming event today (startAt > now)
     const nextToday = sorted.find(e => new Date(e.startAt).getTime() > now) ?? null;
 
-    let displayEvents: { id: string; title: string; type: string; startAt: string; endAt: string | null; isCurrent: boolean; isTomorrow: boolean }[] = [];
+    let displayEvents: { id: string; title: string; type: string; startAt: string; endAt: string | null; intensity?: number | null; isCurrent: boolean; isTomorrow: boolean }[] = [];
 
     if (active) {
       displayEvents.push({ ...active, isCurrent: true, isTomorrow: false });

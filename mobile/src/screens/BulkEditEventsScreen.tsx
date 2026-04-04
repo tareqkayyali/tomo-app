@@ -12,7 +12,6 @@ import { SmartIcon } from '../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../theme';
-import { useAuth } from '../hooks/useAuth';
 import { emitRefresh } from '../utils/refreshBus';
 import { apiRequest } from '../services/api';
 
@@ -85,7 +84,6 @@ function resolveBadge(eventType: string, title: string): { label: string; color:
 export function BulkEditEventsScreen() {
   const navigation = useNavigation();
   const { colors } = useTheme();
-  const { token } = useAuth();
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,9 +98,9 @@ export function BulkEditEventsScreen() {
       const start = today.toISOString().slice(0, 10);
       const end = new Date(today.getTime() + 28 * 86400000).toISOString().slice(0, 10);
       const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
-      const resp = await apiRequest(`/api/v1/calendar/events?startDate=${start}&endDate=${end}&tz=${tz}`);
-      const data = resp?.events ?? resp;
-      setEvents(Array.isArray(data) ? data : data?.events ?? []);
+      const resp = await apiRequest(`/api/v1/calendar/events?startDate=${start}&endDate=${end}&tz=${tz}`) as Record<string, unknown>;
+      const data = (resp?.events as CalendarEvent[]) ?? resp;
+      setEvents(Array.isArray(data) ? data : []);
     } catch (e) {
       console.warn('[bulk-edit] Failed to load events', e);
     } finally {
@@ -208,7 +206,7 @@ export function BulkEditEventsScreen() {
         ]
       );
     }
-  }, [selectedIds, token, fetchEvents]);
+  }, [selectedIds, fetchEvents]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>

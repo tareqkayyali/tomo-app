@@ -573,7 +573,7 @@ export function PlayerCVScreen() {
           reader.readAsDataURL(blob);
         });
       } else {
-        const b64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+        const b64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
         base64 = `data:image/jpeg;base64,${b64}`;
       }
 

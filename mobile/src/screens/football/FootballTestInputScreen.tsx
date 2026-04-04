@@ -352,7 +352,7 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
     // Resolve agility sub-type so backend maps to correct metric key
     let resolvedTestType = testId;
     if (testId === 'agility') {
-      const agilityType = String(numInputs.agilityType || 'illinois');
+      const agilityType = String(inputs.agilityType || 'illinois');
       const AGILITY_TYPE_TO_BACKEND: Record<string, string> = {
         'illinois': 'illinois-agility',
         '5-0-5': '5-0-5',

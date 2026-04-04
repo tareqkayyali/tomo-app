@@ -83,6 +83,7 @@ export interface User {
   isStudent?: boolean;
   schoolHours?: number | null;
   examPeriods?: string | null;
+  schoolSchedule?: SchoolSchedule;
   primaryGoal?: PrimaryGoal | null;
   selfSelectedArchetype?: Archetype | null;
   healthKitConnected?: boolean;

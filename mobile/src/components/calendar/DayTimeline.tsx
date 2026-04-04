@@ -47,7 +47,7 @@ interface Props {
 function getLinkedProgramsForEvent(
   event: CalendarEvent,
   categories: TrainingCategoryRule[],
-): { programId: string; name: string; category: string }[] {
+): { programId: string; name: string; category?: string }[] {
   if (event.type !== 'training') return [];
   // Match by event name containing category label, or category label containing event name
   const eventNameLower = event.name.toLowerCase();

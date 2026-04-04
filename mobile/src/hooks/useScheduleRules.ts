@@ -24,7 +24,7 @@ export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export interface LinkedProgram {
   programId: string;
   name: string;
-  category: string;
+  category?: string;
 }
 
 export interface TrainingCategoryRule {

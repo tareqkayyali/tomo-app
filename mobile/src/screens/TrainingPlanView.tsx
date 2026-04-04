@@ -156,11 +156,11 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
     if (enabledCategories.length === 0) {
       if (Platform.OS === 'web') {
         if (window.confirm('Enable at least one training category in My Rules. Go to Rules?')) {
-          onNavigateToRules();
+          handleNavigateToRules();
         }
       } else {
         Alert.alert('No Categories', 'Enable at least one training category in My Rules.', [
-          { text: 'Go to Rules', onPress: onNavigateToRules },
+          { text: 'Go to Rules', onPress: handleNavigateToRules },
           { text: 'Cancel', style: 'cancel' },
         ]);
       }

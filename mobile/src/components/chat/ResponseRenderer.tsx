@@ -1270,8 +1270,8 @@ function DrillCardComponent({
             </View>
           ))}
         </View>
-      ) : typeof card.instructions === 'string' && card.instructions.length > 0 ? (
-        <Text style={styles.drillCardStepText}>{card.instructions}</Text>
+      ) : typeof card.instructions === 'string' && (card.instructions as string).length > 0 ? (
+        <Text style={styles.drillCardStepText}>{card.instructions as string}</Text>
       ) : null}
 
       {/* Tags */}
