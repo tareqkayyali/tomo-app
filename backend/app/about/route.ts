@@ -1,3 +1,4 @@
+// Serves the static About Tomo page from public/about/index.html
 import { NextResponse } from "next/server";
 import { readFileSync } from "fs";
 import { join } from "path";
