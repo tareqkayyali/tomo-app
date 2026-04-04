@@ -43,6 +43,7 @@ export interface PlayerContext {
 
   // Readiness (from latest checkin)
   readinessScore: string | null; // 'Green' | 'Yellow' | 'Red'
+  checkinDate: string | null; // YYYY-MM-DD of latest checkin
   readinessComponents: {
     energy: number;
     soreness: number;
@@ -507,6 +508,7 @@ export async function buildPlayerContext(
     currentTime, // HH:MM in player's local timezone
     todayEvents,
     readinessScore: latestCheckin?.readiness ?? null,
+    checkinDate: latestCheckin?.date ?? null,
     readinessComponents,
     upcomingExams: exams,
     upcomingEvents, // next 7 days, all event types (for study block visibility)

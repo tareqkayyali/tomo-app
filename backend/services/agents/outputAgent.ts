@@ -1424,7 +1424,7 @@ export function buildOutputDynamicPrompt(context: PlayerContext): string {
 PLAYER CONTEXT:
 - Name: ${context.name} | Sport: ${context.sport} | Age Band: ${context.ageBand ?? "Unknown"}
 - Today: ${context.todayDate} | Current time: ${context.currentTime}
-- Today's readiness: ${context.readinessScore ? context.readinessScore.toUpperCase() : "Not checked in today"}
+- Readiness: ${context.readinessScore ? `${context.readinessScore.toUpperCase()} (from ${context.checkinDate ?? "unknown date"}${context.checkinDate && context.checkinDate !== context.todayDate ? " — STALE, not today's data. Encourage the player to check in today." : ""})` : "Not checked in today. Encourage the player to check in!"}
 - Latest check-in data (USE THESE EXACT NUMBERS): ${compDesc}
 - Current streak: ${context.currentStreak} days
 - Academic load score: ${context.academicLoadScore.toFixed(1)}/10
