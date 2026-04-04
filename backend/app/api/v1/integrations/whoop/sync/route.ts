@@ -220,8 +220,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      console.log("[whoop/sync] Latest vitals for snapshot:", JSON.stringify(Object.fromEntries(latestByType)));
-
       if (latestByType.size > 0) {
         const snapshotUpdate: Record<string, unknown> = { snapshot_at: new Date().toISOString() };
         if (latestByType.has("hrv")) snapshotUpdate.hrv_today_ms = latestByType.get("hrv");
@@ -239,21 +237,13 @@ export async function POST(req: NextRequest) {
           const baseline = recentHRV.reduce((sum: number, r: any) => sum + r.value, 0) / recentHRV.length;
           snapshotUpdate.hrv_baseline_ms = Math.round(baseline * 10) / 10;
         }
-        console.log("[whoop/sync] Snapshot update payload:", JSON.stringify(snapshotUpdate));
-        const { error: upsertErr } = await db.from("athlete_snapshots").upsert(
+        await db.from("athlete_snapshots").upsert(
           { athlete_id: userId, ...snapshotUpdate },
           { onConflict: "athlete_id" }
         );
-        if (upsertErr) {
-          console.error("[whoop/sync] Snapshot upsert FAILED:", upsertErr.message);
-        } else {
-          console.log("[whoop/sync] Snapshot upsert SUCCESS");
-        }
-      } else {
-        console.warn("[whoop/sync] No vitals found in health_data — skipping snapshot update");
       }
     } catch (e: any) {
-      console.error("[whoop/sync] Snapshot update FAILED:", e?.message);
+      console.warn("[whoop/sync] Snapshot update failed (non-fatal):", e?.message);
     }
 
     await updateSyncStatus(userId, "idle").catch(e =>
