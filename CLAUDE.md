@@ -3,7 +3,7 @@
 ## Project Structure
 ```
 tomo-app/
-├── backend/          # Next.js 16 API (Vercel)
+├── backend/          # Next.js 16 API (Railway)
 │   ├── app/api/      # API routes (versioned under /v1/)
 │   ├── services/     # Business logic (TypeScript)
 │   ├── templates/    # Sport workout templates
@@ -59,11 +59,22 @@ Always activate these two skills at the start of every Tomo session:
 1. **athlete-performance-director** — Elite performance director lens for all training, readiness, periodization, and sports science decisions
 2. **genz-ux-designer** — Senior UI/UX designer lens for all product design, screen flows, and user experience decisions targeting Gen Z athletes (13–25)
 
-## Environment Variables
+## Deployment (Railway)
+- **Host**: Railway auto-deploys from GitHub on `git push origin main`
+- **Root directory**: `backend` (set in Railway service settings)
+- **Port**: 8080 (Railway's `$PORT` — custom domain must route to 8080)
+- **Production URL**: `https://app.my-tomo.com`
+- **Railway URL**: `https://5qakhaec.up.railway.app`
+- **DNS**: `app` CNAME → `5qakhaec.up.railway.app` (managed via onlydomains.com)
+- **Frontend**: Expo web export in `backend/public/webapp/`, rebuild with `./scripts/deploy-frontend.sh`
+- **Deploy**: Just `git push origin main` — no manual steps needed
+
+## Environment Variables (set in Railway dashboard)
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon key
 - `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (server-only)
 - `ANTHROPIC_API_KEY` — Claude API key (for AI features)
+- `VOYAGE_API_KEY` — Voyage AI key (for RAG embeddings)
 - `GEMINI_API_KEY` — Gemini fallback key
 
 ## Core Guidelines
