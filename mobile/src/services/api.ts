@@ -1034,7 +1034,10 @@ export async function sendAgentChatMessage(
 
 /**
  * SSE streaming chat — sends a message and streams back deltas in real-time.
- * Falls back to non-streaming sendAgentChatMessage on any error.
+ *
+ * Uses XMLHttpRequest for React Native compatibility (fetch doesn't support
+ * ReadableStream on mobile). XHR fires onprogress with partial responseText,
+ * allowing us to parse SSE events incrementally.
  */
 export async function sendAgentChatMessageStreaming(
   payload: AgentChatRequest,
@@ -1054,44 +1057,33 @@ export async function sendAgentChatMessageStreaming(
 
   const url = `${API_BASE_URL}/api/v1/chat/agent?stream=true`;
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    });
+  return new Promise<void>((resolve) => {
+    const xhr = new XMLHttpRequest();
+    let processedLength = 0;
+    let currentEvent = '';
+    let settled = false;
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({ error: 'Stream request failed' }));
-      callbacks.onError(new Error(data.error || `HTTP ${response.status}`));
-      return;
+    const settle = () => {
+      if (!settled) { settled = true; resolve(); }
+    };
+
+    // Handle abort
+    if (signal) {
+      if (signal.aborted) { settle(); return; }
+      signal.addEventListener('abort', () => { xhr.abort(); settle(); });
     }
 
-    const reader = response.body?.getReader();
-    if (!reader) {
-      callbacks.onError(new Error('No response body for streaming'));
-      return;
-    }
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('Accept', 'text/event-stream');
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
-    const decoder = new TextDecoder();
-    let buffer = '';
+    // Process partial SSE data as it arrives
+    xhr.onprogress = () => {
+      const newText = xhr.responseText.substring(processedLength);
+      processedLength = xhr.responseText.length;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      // Parse SSE events from buffer
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? ''; // Keep incomplete line in buffer
-
-      let currentEvent = '';
+      const lines = newText.split('\n');
       for (const line of lines) {
         if (line.startsWith('event: ')) {
           currentEvent = line.slice(7).trim();
@@ -1107,17 +1099,35 @@ export async function sendAgentChatMessageStreaming(
             } else if (currentEvent === 'error') {
               callbacks.onError(new Error(data.error));
             }
-          } catch { /* ignore malformed SSE data */ }
-          currentEvent = '';
-        } else if (line === '') {
+          } catch { /* ignore malformed SSE line */ }
           currentEvent = '';
         }
       }
-    }
-  } catch (err) {
-    if (signal?.aborted) return;
-    callbacks.onError(err instanceof Error ? err : new Error('Stream connection failed'));
-  }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 400) {
+        try {
+          const errData = JSON.parse(xhr.responseText);
+          callbacks.onError(new Error(errData.error || `HTTP ${xhr.status}`));
+        } catch {
+          callbacks.onError(new Error(`HTTP ${xhr.status}`));
+        }
+      }
+      settle();
+    };
+
+    xhr.onerror = () => {
+      if (!signal?.aborted) {
+        callbacks.onError(new Error('Stream connection failed'));
+      }
+      settle();
+    };
+
+    xhr.onabort = () => settle();
+
+    xhr.send(JSON.stringify(payload));
+  });
 }
 
 /**

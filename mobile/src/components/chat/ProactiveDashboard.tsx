@@ -49,7 +49,7 @@ const DEFAULT_CONFIG: DashboardConfig = {
     { id: 'sleep', label: 'Sleep', emoji: '😴', dataSource: 'latestCheckin.sleepHours', format: 'hours', enabled: true, emptyValue: '—', sortOrder: 2 },
     { id: 'acwr', label: 'ACWR', emoji: '📊', dataSource: 'snapshot.acwr', format: 'decimal1', enabled: true, emptyValue: '—', colorRules: { green: '>= 0.8', yellow: '< 0.8', red: '> 1.3' }, sortOrder: 3 },
     { id: 'streak', label: 'Streak', emoji: '🔥', dataSource: 'streak', format: 'number', enabled: true, emptyValue: '0', sortOrder: 4 },
-    { id: 'hrv', label: 'HRV', emoji: '❤️', dataSource: 'metricPercentiles.hrv_rmssd', format: 'metric_zone_percentile', enabled: false, emptyValue: '—', sortOrder: 5 },
+    { id: 'hrv', label: 'HRV', emoji: '❤️', dataSource: 'snapshot.hrv_today_ms', format: 'decimal1', enabled: true, emptyValue: '—', sortOrder: 5 },
   ],
   todaySection: { enabled: true, maxEvents: 3, showEventTime: true, showRestDayMessage: true, restDayMessage: 'Rest day — recovery focus' },
   flags: [
