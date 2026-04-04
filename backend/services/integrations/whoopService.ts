@@ -22,7 +22,11 @@ const WHOOP_CLIENT_ID = process.env.WHOOP_CLIENT_ID || "";
 const WHOOP_CLIENT_SECRET = process.env.WHOOP_CLIENT_SECRET || "";
 const WHOOP_REDIRECT_URI =
   process.env.WHOOP_REDIRECT_URI ||
-  "https://api.my-tomo.com/api/v1/integrations/whoop/callback";
+  "https://app.my-tomo.com/api/v1/integrations/whoop/callback";
+
+if (!WHOOP_CLIENT_ID) {
+  console.warn("[whoopService] WARNING: WHOOP_CLIENT_ID is not set!");
+}
 
 const WHOOP_SCOPES = [
   "offline",

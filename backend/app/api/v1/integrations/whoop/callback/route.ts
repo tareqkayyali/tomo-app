@@ -9,15 +9,11 @@ import {
 const WEB_APP_URL = "https://app.my-tomo.com";
 
 /** Build redirect URL — use web URL for browser, deep link for native */
-function buildRedirect(params: string, req: NextRequest): string {
-  const ua = req.headers.get("user-agent") ?? "";
-  // If the authorize request came from the web app, redirect back to web
-  // Native apps would use a custom scheme handled separately
-  const isWeb = !ua.includes("Expo") && !ua.includes("React-Native");
-  if (isWeb) {
-    return `${WEB_APP_URL}/settings?${params}`;
+function buildRedirect(params: string, platform: string): string {
+  if (platform === "native") {
+    return `tomo://settings?${params}`;
   }
-  return `tomo://settings?${params}`;
+  return `${WEB_APP_URL}/settings?${params}`;
 }
 
 /**
@@ -35,25 +31,37 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
+  // Extract platform from state early (format: userId:platform:randomHex)
+  // Default to "web" for error redirects before state is parsed
+  let platform = "web";
+
   // Handle WHOOP authorization errors
   if (error) {
     console.error("[whoop/callback] Authorization denied:", error);
-    return NextResponse.redirect(buildRedirect("whoop=error&reason=denied", req));
+    return NextResponse.redirect(buildRedirect("whoop=error&reason=denied", platform));
   }
 
   if (!code || !state) {
     console.error("[whoop/callback] Missing code or state");
-    return NextResponse.redirect(buildRedirect("whoop=error&reason=missing_params", req));
+    return NextResponse.redirect(buildRedirect("whoop=error&reason=missing_params", platform));
   }
 
-  // Extract userId from state (format: userId:randomHex)
-  const colonIdx = state.indexOf(":");
-  if (colonIdx === -1) {
-    console.error("[whoop/callback] Invalid state format");
-    return NextResponse.redirect(buildRedirect("whoop=error&reason=invalid_state", req));
+  // Extract userId and platform from state (format: userId:platform:randomHex)
+  const parts = state.split(":");
+  if (parts.length < 3) {
+    // Backwards compat: old format userId:randomHex
+    if (parts.length === 2) {
+      // old format — treat as web
+    } else {
+      console.error("[whoop/callback] Invalid state format");
+      return NextResponse.redirect(buildRedirect("whoop=error&reason=invalid_state", platform));
+    }
   }
 
-  const userId = state.substring(0, colonIdx);
+  const userId = parts[0];
+  if (parts.length >= 3) {
+    platform = parts[1]; // "native" or "web"
+  }
 
   // Verify state matches what we stored
   const db = supabaseAdmin() as any;
@@ -71,7 +79,7 @@ export async function GET(req: NextRequest) {
 
   if (storedState !== state) {
     console.error("[whoop/callback] State mismatch — possible CSRF");
-    return NextResponse.redirect(buildRedirect("whoop=error&reason=state_mismatch", req));
+    return NextResponse.redirect(buildRedirect("whoop=error&reason=state_mismatch", platform));
   }
 
   try {
@@ -90,9 +98,9 @@ export async function GET(req: NextRequest) {
     // Store the connection
     await storeWhoopConnection(userId, tokens, externalUserId);
 
-    return NextResponse.redirect(buildRedirect("whoop=connected", req));
+    return NextResponse.redirect(buildRedirect("whoop=connected", platform));
   } catch (err) {
     console.error("[whoop/callback] Token exchange failed:", err);
-    return NextResponse.redirect(buildRedirect("whoop=error&reason=token_exchange", req));
+    return NextResponse.redirect(buildRedirect("whoop=error&reason=token_exchange", platform));
   }
 }

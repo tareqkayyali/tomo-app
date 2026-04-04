@@ -3,6 +3,7 @@
  * Handles all backend API calls
  */
 
+import { Platform } from 'react-native';
 import { getIdToken } from './auth';
 import { API_BASE_URL, REQUEST_TIMEOUT, MAX_RETRIES, INITIAL_RETRY_DELAY } from './apiConfig';
 import type {
@@ -2863,7 +2864,8 @@ export async function disconnectWhoop(): Promise<{ disconnected: boolean }> {
  * The backend creates a CSRF state token and returns the WHOOP OAuth URL.
  */
 export async function getWhoopAuthorizeUrl(): Promise<string> {
-  const data = await apiRequest<{ url: string }>('/api/v1/integrations/whoop/authorize');
+  const platform = Platform.OS === 'web' ? 'web' : 'native';
+  const data = await apiRequest<{ url: string }>(`/api/v1/integrations/whoop/authorize?platform=${platform}`);
   return data.url;
 }
 

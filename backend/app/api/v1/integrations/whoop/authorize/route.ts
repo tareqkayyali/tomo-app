@@ -15,8 +15,9 @@ export async function GET(req: NextRequest) {
   if ("error" in auth) return auth.error;
 
   try {
-    // Generate CSRF state: userId:randomHex
-    const stateToken = `${auth.user.id}:${crypto.randomBytes(16).toString("hex")}`;
+    // Generate CSRF state: userId:platform:randomHex
+    const platform = new URL(req.url).searchParams.get("platform") || "web";
+    const stateToken = `${auth.user.id}:${platform}:${crypto.randomBytes(16).toString("hex")}`;
 
     // Store state temporarily in metadata of existing connection or a temp record
     const db = supabaseAdmin() as any;
