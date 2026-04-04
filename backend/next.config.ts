@@ -11,7 +11,6 @@ const nextConfig: NextConfig = {
         { source: "/assets/:path*", destination: "/webapp/assets/:path*" },
         { source: "/fonts/:path*", destination: "/webapp/fonts/:path*" },
         { source: "/metadata.json", destination: "/webapp/metadata.json" },
-        { source: "/about", destination: "/about/index.html" },
       ],
       afterFiles: [],
       // fallback: runs AFTER all pages and public files — SPA catch-all
