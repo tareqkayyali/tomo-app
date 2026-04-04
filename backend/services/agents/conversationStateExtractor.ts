@@ -9,7 +9,7 @@
  *   - Current topic and action context (for agent lock stability)
  */
 
-import type { ConversationState } from "./sessionService";
+import type { ConversationState, ConversationEntity, EntityType } from "./sessionService";
 
 // ── Day-of-week mapping ──────────────────────────────────────────
 
@@ -70,6 +70,33 @@ export function extractConversationState(
     ...drills,
   };
 
+  // Build entity graph — tracks entities across turns for pronoun resolution
+  const prevGraph = previousState?.entityGraph;
+  const turnCount = (prevGraph?.turnCount ?? 0) + 1;
+  const prevEntities = prevGraph?.entities ?? [];
+  const lastMentioned: Partial<Record<EntityType, string>> = { ...(prevGraph?.lastMentioned ?? {}) };
+
+  // Add new entities from this turn
+  const newEntities: ConversationEntity[] = [];
+
+  for (const [label, dateStr] of Object.entries(referencedDates)) {
+    newEntities.push({ type: "date", value: label, id: dateStr, turnIndex: turnCount });
+    lastMentioned.date = label;
+  }
+  for (const name of eventNames) {
+    newEntities.push({ type: "event", value: name, turnIndex: turnCount });
+    lastMentioned.event = name;
+  }
+  for (const [name, id] of Object.entries(drills)) {
+    if (name !== id) { // skip self-keyed
+      newEntities.push({ type: "drill", value: name, id, turnIndex: turnCount });
+      lastMentioned.drill = name;
+    }
+  }
+
+  // Keep last 30 entities (sliding window)
+  const allEntities = [...prevEntities, ...newEntities].slice(-30);
+
   return {
     currentTopic: topic || previousState?.currentTopic || null,
     referencedDates: mergedDates,
@@ -78,7 +105,52 @@ export function extractConversationState(
     referencedDrills: mergedDrills,
     lastActionContext: actionContext || previousState?.lastActionContext || null,
     extractedAt: new Date().toISOString(),
+    entityGraph: {
+      entities: allEntities,
+      lastMentioned,
+      turnCount,
+    },
   };
+}
+
+/**
+ * Resolve a pronoun or indirect reference to an entity.
+ * "it", "that one", "the drill" → last mentioned entity of that type.
+ */
+export function resolveEntityReference(
+  message: string,
+  entityGraph?: ConversationState["entityGraph"]
+): { type: EntityType; value: string; id?: string } | null {
+  if (!entityGraph || entityGraph.entities.length === 0) return null;
+
+  const lower = message.toLowerCase();
+
+  // Direct type references: "that drill", "the event", "that date"
+  const typeHints: { pattern: RegExp; type: EntityType }[] = [
+    { pattern: /\b(that|the|this)\s+(drill|exercise)\b/i, type: "drill" },
+    { pattern: /\b(that|the|this)\s+(event|session|training|match)\b/i, type: "event" },
+    { pattern: /\b(that|the|this)\s+(date|day)\b/i, type: "date" },
+    { pattern: /\b(that|the|this)\s+(program|plan)\b/i, type: "program" },
+  ];
+
+  for (const { pattern, type } of typeHints) {
+    if (pattern.test(lower)) {
+      const lastName = entityGraph.lastMentioned[type];
+      if (lastName) {
+        const entity = entityGraph.entities.findLast((e) => e.type === type && e.value === lastName);
+        if (entity) return entity;
+      }
+    }
+  }
+
+  // Generic pronouns: "it", "that one", "the one"
+  if (/\b(it|that one|the one|that|this)\b/i.test(lower)) {
+    // Return the most recently mentioned entity
+    const last = entityGraph.entities[entityGraph.entities.length - 1];
+    if (last) return last;
+  }
+
+  return null;
 }
 
 /**

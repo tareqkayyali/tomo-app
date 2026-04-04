@@ -229,22 +229,115 @@ export function validateResponse(response: string): {
 // even if Claude's prompt instructions are bypassed. Appends a visible safety
 // warning rather than censoring — educates rather than silently strips.
 
-const PHV_CONTRAINDICATED_PATTERNS: RegExp[] = [
-  /\bbarbell\s*(back\s*)?squats?\b/i,
-  /\bdepth\s*jumps?\b/i,
-  /\bdrop\s*jumps?\b/i,
-  /\bolympic\s*lifts?\b/i,
-  /\b(clean\s*and\s*jerk|snatch|power\s*clean)\b/i,
-  /\bmaximal\s*sprint/i,
-  /\bheavy\s*deadlifts?\b/i,
-  /\bloaded\s*plyometric/i,
-  /\bbox\s*jumps?\s*(high|max|above\s*\d{2})/i,
+interface PHVSafeAlternative {
+  pattern: RegExp;
+  blocked: string;
+  alternative: string;
+  why: string;
+  mechanism: string;
+  progression: string;
+  citation: string;
+}
+
+const PHV_SAFE_ALTERNATIVES: PHVSafeAlternative[] = [
+  {
+    pattern: /\bbarbell\s*(back\s*)?squats?\b/i,
+    blocked: "Barbell back squat",
+    alternative: "Goblet squat (bodyweight or light KB, 3x10)",
+    why: "Axial spinal loading during mid-PHV compresses lumbar growth plates at peak vulnerability",
+    mechanism: "L1-L5 vertebral endplates are cartilaginous and not yet ossified — compressive load risks Scheuermann's disease",
+    progression: "Safe to reintroduce at reduced intensity ~18 months post-PHV peak",
+    citation: "Lloyd & Oliver, JSCR 2012",
+  },
+  {
+    pattern: /\bdepth\s*jumps?\b/i,
+    blocked: "Depth jumps",
+    alternative: "Low box step-downs (20-30cm, 3x8 each leg)",
+    why: "High eccentric ground reaction forces at the knee exceed growth plate tolerance during mid-PHV",
+    mechanism: "Proximal tibial and distal femoral growth plates absorb 4-7x bodyweight on landing — risking apophyseal avulsion",
+    progression: "Safe when growth velocity drops below 4cm/year",
+    citation: "Myer et al., BJSM 2011",
+  },
+  {
+    pattern: /\bdrop\s*jumps?\b/i,
+    blocked: "Drop jumps",
+    alternative: "Pogo hops (low amplitude, 3x10)",
+    why: "Rapid eccentric-concentric coupling at high impact loads stresses growth plates beyond safe threshold",
+    mechanism: "Similar mechanism to depth jumps — calcaneal and tibial apophyses at risk",
+    progression: "Safe when growth velocity drops below 4cm/year",
+    citation: "Myer et al., BJSM 2011",
+  },
+  {
+    pattern: /\bolympic\s*lifts?\b/i,
+    blocked: "Olympic lifts",
+    alternative: "Dumbbell hang pull (light, 3x8) or kettlebell swing",
+    why: "Complex loaded movements with high spinal compression and catch impact exceed mid-PHV structural tolerance",
+    mechanism: "Vertebral endplates + wrist/elbow growth plates under combined axial and shear loading",
+    progression: "Introduce technique-only (PVC pipe) now; add load post-PHV",
+    citation: "Faigenbaum & Myer, JSCR 2010",
+  },
+  {
+    pattern: /\b(clean\s*and\s*jerk|snatch|power\s*clean)\b/i,
+    blocked: "Clean & jerk / Snatch / Power clean",
+    alternative: "Medicine ball throws or dumbbell hang pull (light)",
+    why: "High-velocity loaded movements create peak spinal compression during the catch phase",
+    mechanism: "Vertebral endplates + wrist growth plates under combined axial and shear loading",
+    progression: "Introduce technique-only now; add load post-PHV",
+    citation: "Faigenbaum & Myer, JSCR 2010",
+  },
+  {
+    pattern: /\bmaximal\s*sprint/i,
+    blocked: "Maximal sprinting",
+    alternative: "Submaximal sprints (85% effort, 3x30m)",
+    why: "Peak muscle force during maximal sprints can cause apophyseal avulsion at hamstring and hip flexor insertions",
+    mechanism: "Ischial tuberosity and ASIS apophyses are vulnerable during rapid lengthening under max force",
+    progression: "Gradual return to 90-95% effort as growth velocity declines",
+    citation: "Read et al., Sports Med 2016",
+  },
+  {
+    pattern: /\bheavy\s*deadlifts?\b/i,
+    blocked: "Heavy deadlifts",
+    alternative: "Romanian deadlift (light dumbbell, 3x10)",
+    why: "Heavy axial loading through the spine stresses lumbar growth plates during peak growth",
+    mechanism: "L4-L5 endplates under compressive load — same mechanism as heavy squats",
+    progression: "Light trap-bar deadlift OK at PHV offset +1 year",
+    citation: "Lloyd & Oliver, JSCR 2012",
+  },
+  {
+    pattern: /\bloaded\s*plyometric/i,
+    blocked: "Loaded plyometrics",
+    alternative: "Bodyweight plyometrics (box jumps <30cm, 2x6)",
+    why: "Adding external load to plyometric movements multiplies ground reaction forces beyond growth plate tolerance",
+    mechanism: "Tibial and calcaneal growth plates under compressive + shear stress",
+    progression: "Light weighted vest OK post-PHV",
+    citation: "Myer et al., BJSM 2011",
+  },
+  {
+    pattern: /\bbox\s*jumps?\s*(high|max|above\s*\d{2})/i,
+    blocked: "High box jumps",
+    alternative: "Low box jumps (20-30cm max, focus on landing mechanics)",
+    why: "Height increases landing impact force exponentially — growth plates cannot absorb the load",
+    mechanism: "Calcaneal apophysis (Sever's) and proximal tibia at risk from repeated high-impact landings",
+    progression: "Increase box height 5cm at a time post-PHV, monitoring for pain",
+    citation: "Myer et al., BJSM 2011",
+  },
 ];
 
-const PHV_SAFE_REPLACEMENT =
-  "\n\n\u26a0\ufe0f *Some exercises mentioned may not be suitable for your current growth stage. " +
-  "Your loading multiplier is 0.60\u00d7 \u2014 stick to bodyweight movements, goblet squats, Romanian deadlifts (light), " +
-  "and submaximal sprints. Ask me for safe alternatives!*";
+/**
+ * Build a PHV-specific coaching explanation for flagged exercises.
+ * Returns a rich educational block, not just a generic warning.
+ */
+function buildPHVExplanation(flaggedAlternatives: PHVSafeAlternative[]): string {
+  const lines = flaggedAlternatives.map((alt) =>
+    `**${alt.blocked}** → Try: *${alt.alternative}*\n` +
+    `Why: ${alt.why} (${alt.citation})\n` +
+    `Safe return: ${alt.progression}`
+  );
+
+  return `\n\n⚠️ **Growth Stage Safety — some exercises need modification:**\n\n` +
+    lines.join("\n\n") +
+    `\n\n*Your loading multiplier is 0.60× during mid-PHV. These alternatives build the same movement patterns safely.*`;
+}
 
 export function enforcePHVSafety(
   response: string,
@@ -256,9 +349,14 @@ export function enforcePHVSafety(
   }
 
   const flaggedTerms: string[] = [];
-  for (const pattern of PHV_CONTRAINDICATED_PATTERNS) {
-    const match = response.match(pattern);
-    if (match) flaggedTerms.push(match[0]);
+  const flaggedAlternatives: PHVSafeAlternative[] = [];
+
+  for (const alt of PHV_SAFE_ALTERNATIVES) {
+    const match = response.match(alt.pattern);
+    if (match) {
+      flaggedTerms.push(match[0]);
+      flaggedAlternatives.push(alt);
+    }
   }
 
   if (flaggedTerms.length === 0) {
@@ -267,9 +365,29 @@ export function enforcePHVSafety(
 
   return {
     flagged: true,
-    sanitized: response + PHV_SAFE_REPLACEMENT,
+    sanitized: response + buildPHVExplanation(flaggedAlternatives),
     flaggedTerms,
   };
+}
+
+/**
+ * Static PHV knowledge block for injection into the system prompt.
+ * Cacheable — zero per-request cost. Gives Claude proactive context
+ * to suggest safe alternatives BEFORE the post-filter catches anything.
+ */
+export function buildPHVSystemPromptBlock(phvStage: string | null | undefined): string {
+  if (!phvStage || !["mid_phv", "MID", "circa"].includes(phvStage)) return "";
+
+  const contraindicated = PHV_SAFE_ALTERNATIVES.map(
+    (a) => `- ${a.blocked} → ${a.alternative} (${a.why})`
+  ).join("\n");
+
+  return `\n\nPHV SAFETY — ATHLETE IS MID-PHV (loading multiplier 0.60×):
+CONTRAINDICATED exercises and their safe alternatives:
+${contraindicated}
+
+ALWAYS proactively suggest the safe alternative. Never prescribe a contraindicated exercise.
+When asked about any contraindicated exercise, explain WHY it's not suitable right now and WHEN they can safely return to it.`;
 }
 
 // ── OPTIONAL: TOPIC CATEGORIZER ──────────────────────────────────

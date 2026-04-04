@@ -38,6 +38,7 @@ export function buildSuiteReports(results: ScenarioResult[]): SuiteReport[] {
       format: { pass: 0, fail: 0 },
       cost: { pass: 0, fail: 0 },
       tone: { pass: 0, fail: 0 },
+      latency: { pass: 0, fail: 0 },
     };
 
     for (const t of allTurns) {
@@ -128,8 +129,8 @@ export function generateMarkdownReport(
   if (scoredSuites.length > 0) {
     md.push("## Dimension Scores");
     md.push("");
-    md.push("| Suite | Routing | Safety | Relevance | Format | Cost | Tone |");
-    md.push("|-------|---------|--------|-----------|--------|------|------|");
+    md.push("| Suite | Routing | Safety | Relevance | Format | Cost | Tone | Latency |");
+    md.push("|-------|---------|--------|-----------|--------|------|------|---------|");
     for (const suite of scoredSuites) {
       const d = suite.dimensionBreakdown;
       const fmt = (dim: { pass: number; fail: number }) => {
@@ -137,7 +138,7 @@ export function generateMarkdownReport(
         return total > 0 ? `${dim.pass}/${total}` : "-";
       };
       md.push(
-        `| ${suite.suiteId} | ${fmt(d.routing)} | ${fmt(d.safety)} | ${fmt(d.relevance)} | ${fmt(d.format)} | ${fmt(d.cost)} | ${fmt(d.tone)} |`
+        `| ${suite.suiteId} | ${fmt(d.routing)} | ${fmt(d.safety)} | ${fmt(d.relevance)} | ${fmt(d.format)} | ${fmt(d.cost)} | ${fmt(d.tone)} | ${fmt(d.latency)} |`
       );
     }
     md.push("");
@@ -179,7 +180,7 @@ export function generateMarkdownReport(
         md.push(`**Model:** ${failure.evalMetadata?.modelUsed ?? "?"} | **Latency:** ${failure.responseTimeMs}ms | **Cost:** $${(failure.evalMetadata?.costUsd ?? 0).toFixed(6)}`);
         if (failure.dimensionScores) {
           const s = failure.dimensionScores;
-          md.push(`**Scores:** Routing=${s.routing} Safety=${s.safety} Relevance=${s.relevance} Format=${s.format} Cost=${s.cost} Tone=${s.tone}`);
+          md.push(`**Scores:** Routing=${s.routing} Safety=${s.safety} Relevance=${s.relevance} Format=${s.format} Cost=${s.cost} Tone=${s.tone} Latency=${s.latency}`);
         }
         md.push("");
       }

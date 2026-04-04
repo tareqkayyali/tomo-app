@@ -77,9 +77,56 @@ function mapAgeGroup(ageBand: string | null): string {
   return 'ADULT';
 }
 
+// ── State-Aware Reranking ───────────────────────────────────────────
+
+function rerankChunks(chunks: KnowledgeChunk[], context: PlayerContext): KnowledgeChunk[] {
+  if (chunks.length <= 1) return chunks;
+
+  const dli = context.snapshotEnrichment?.dualLoadIndex ?? 0;
+  const phvStage = mapPhvStage(context);
+  const sport = (context.sport ?? '').toLowerCase();
+  const position = (context.position ?? '').toLowerCase();
+
+  return chunks
+    .map((chunk) => {
+      let boost = 1.0;
+      const content = (chunk.content + ' ' + (chunk.title ?? '')).toLowerCase();
+
+      // DLI boost: high dual-load → boost load/recovery knowledge
+      if (dli > 60 && /load|recovery|rest|overtraining|fatigue/i.test(content)) {
+        boost *= 1.3;
+      }
+
+      // PHV boost: mid-PHV → boost growth/development knowledge
+      if (phvStage === 'CIRCA' && /growth|maturation|phv|adolescen|youth/i.test(content)) {
+        boost *= 1.5;
+      }
+
+      // Sport/position boost: match athlete's sport context
+      if (sport && content.includes(sport)) {
+        boost *= 1.2;
+      }
+      if (position && content.includes(position)) {
+        boost *= 1.15;
+      }
+
+      // Recency boost: newer chunks weighted slightly higher (if available via extended query)
+      if ((chunk as any).created_at) {
+        const ageMs = Date.now() - new Date((chunk as any).created_at).getTime();
+        const ageDays = ageMs / 86400000;
+        const recencyFactor = Math.max(0, 1 - ageDays / 365); // linear decay over 1 year
+        boost *= 1.0 + 0.1 * recencyFactor;
+      }
+
+      return { chunk, score: chunk.similarity * boost };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map((r) => r.chunk);
+}
+
 // ── Format Knowledge Chunks for Prompt ──────────────────────────────
 
-const MAX_RAG_TOKENS = 400; // ~400 tokens ≈ ~1600 chars
+const MAX_RAG_TOKENS = 600; // increased from 400 to accommodate richer context
 
 function formatChunksForPrompt(chunks: KnowledgeChunk[]): string {
   if (chunks.length === 0) return '';
@@ -129,20 +176,23 @@ export async function retrieveChatKnowledge(
         age_group: ageGroup,
         sport: context.sport ?? undefined,
         specific_concern: message.substring(0, 200), // truncate long messages
-        top_k: 2,
+        top_k: 4, // fetch more candidates for reranking (was 2)
       });
       allChunks.push(...chunks);
     }
 
-    // Deduplicate by chunk_id and sort by similarity
+    // Deduplicate by chunk_id
     const seen = new Set<string>();
     const unique = allChunks.filter(c => {
       if (seen.has(c.chunk_id)) return false;
       seen.add(c.chunk_id);
       return true;
-    }).sort((a, b) => b.similarity - a.similarity);
+    });
 
-    return formatChunksForPrompt(unique);
+    // State-aware reranking: boost by DLI, PHV, sport/position, recency
+    const reranked = rerankChunks(unique, context);
+
+    return formatChunksForPrompt(reranked);
   } catch (err) {
     console.warn('[RAG/Chat] Retrieval failed, continuing without knowledge context:',
       err instanceof Error ? err.message : err);

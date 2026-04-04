@@ -114,11 +114,12 @@ export interface DimensionScores {
   format: 0 | 1;
   cost: 0 | 1;
   tone: 0 | 1;
+  latency: 0 | 1;
 }
 
 export interface EvalExpectations {
-  /** Expected classifier layer: 1=exact_match, 2=haiku, 3=fallthrough */
-  classifierLayer?: number;
+  /** Expected classifier layer: 1=exact_match, 2=haiku, 3=fallthrough. Array = any of these layers accepted. */
+  classifierLayer?: number | number[];
   /** Expected intent ID from registry */
   intentId?: string;
   /** Expected agent: "output" | "timeline" | "mastery" | "multi" */

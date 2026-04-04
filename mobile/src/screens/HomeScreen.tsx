@@ -28,7 +28,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
 import Animated, {
   useSharedValue,
@@ -51,6 +51,7 @@ import { MarkdownMessage } from '../components/MarkdownMessage';
 import {
   sendChatMessage,
   sendAgentChatMessage,
+  sendAgentChatMessageStreaming,
   getChatSuggestions,
   getToday,
   listChatSessions,
@@ -132,6 +133,8 @@ interface DisplayMessage {
   text: string;
   structured?: TomoResponse | null;
   error?: boolean;
+  /** Streaming status text (e.g. "Checking your readiness...") */
+  statusText?: string;
   /** Attached confirmation data for confirm_card buttons */
   confirmAction?: AgentChatResponse['pendingConfirmation'];
 }
@@ -1277,6 +1280,21 @@ export function HomeScreen() {
     loadData();
   }, [loadData]);
 
+  // Re-warm suggestions + today data when screen re-focuses (stale after 60s)
+  const lastWarmRef = useRef(Date.now());
+  useFocusEffect(
+    useCallback(() => {
+      const elapsed = Date.now() - lastWarmRef.current;
+      if (elapsed > 60_000) {
+        lastWarmRef.current = Date.now();
+        Promise.allSettled([getChatSuggestions(), getToday()]).then(([chipsRes, todayRes]) => {
+          if (chipsRes.status === 'fulfilled') setChips(chipsRes.value.suggestions);
+          if (todayRes.status === 'fulfilled') setTodayData(todayRes.value);
+        });
+      }
+    }, [])
+  );
+
   const userId = profile?.uid || profile?.id || '';
 
   // ── Pick quote (changes on every new chat) ─────────────────────────
@@ -1426,123 +1444,145 @@ export function HomeScreen() {
       abortRef.current = abortController;
 
       try {
-        // Route through the agent endpoint with session
-        const agentResponse = await sendAgentChatMessage(
-          {
-            message: content,
-            sessionId: sessionIdRef.current ?? undefined,
-            activeTab: 'Chat',
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            confirmedAction: confirmedAction
-              ? {
-                  toolName: confirmedAction.toolName,
-                  toolInput: confirmedAction.toolInput,
-                  agentType: confirmedAction.agentType,
-                  actions: confirmedAction.actions,
-                }
-              : undefined,
-            capsuleAction: capsuleAction ?? undefined,
-          },
-          abortController.signal,
-        );
-
-        // Capture session ID from response
-        if (agentResponse.sessionId && agentResponse.sessionId !== sessionIdRef.current) {
-          setSessionId(agentResponse.sessionId);
-        }
-
-        // If cancelled while awaiting, bail out
-        if (abortController.signal.aborted) return;
-
-        // Remove typing indicator
-        setMessages((prev) => prev.filter((m) => m.id !== TYPING_MSG.id));
-
-        // Handle pending confirmation from agent
-        if (agentResponse.pendingConfirmation) {
-          setPendingConfirmation(agentResponse.pendingConfirmation);
-        }
-
-        // Build AI response message with structured data + confirmation action
-        const aiMsg: DisplayMessage = {
-          id: `ai-${Date.now()}`,
-          role: 'ai' as const,
-          text: agentResponse.message,
-          structured: agentResponse.structured ?? null,
-          confirmAction: agentResponse.pendingConfirmation ?? undefined,
+        const chatPayload = {
+          message: content,
+          sessionId: sessionIdRef.current ?? undefined,
+          activeTab: 'Chat' as const,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          confirmedAction: confirmedAction
+            ? {
+                toolName: confirmedAction.toolName,
+                toolInput: confirmedAction.toolInput,
+                agentType: confirmedAction.agentType,
+                actions: confirmedAction.actions,
+              }
+            : undefined,
+          capsuleAction: capsuleAction ?? undefined,
         };
 
-        // If structured data is present, skip typewriter and show cards immediately
-        if (agentResponse.structured) {
-          setMessages((prev) => [...prev, aiMsg]);
-          scrollToBottom();
-        } else {
-          // Character-by-character typewriter (ChatGPT-style) for plain text
-          const fullText = agentResponse.message;
-          const totalChars = fullText.length;
-          const TICK_MS = 16; // 60fps aligned
-          const TARGET_MS = 5000; // aim for ~5s total display
-          const charsPerTick = Math.max(1, Math.ceil(totalChars / (TARGET_MS / TICK_MS)));
-          let charIndex = 0;
-          let tickCount = 0;
+        // ── Try SSE streaming first, fall back to non-streaming ──
+        let streamingSucceeded = false;
+        const streamingTextRef = { current: '' };
+        const streamMsgId = TYPEWRITER_AI_ID;
 
-          // Add streaming message (empty initially)
-          setMessages((prev) => [
-            ...prev,
-            { id: TYPEWRITER_AI_ID, role: 'streaming' as const, text: '' },
-          ]);
-          scrollToBottom();
+        try {
+          await new Promise<void>((resolve, reject) => {
+            // Add streaming placeholder (remove typing indicator)
+            setMessages((prev) => [
+              ...prev.filter((m) => m.id !== TYPING_MSG.id),
+              { id: streamMsgId, role: 'streaming' as const, text: '' },
+            ]);
+            scrollToBottom();
 
-          await new Promise<void>((resolve) => {
-            typewriterRef.current = setInterval(() => {
-              // If cancelled during typewriter, finalize partial text
-              if (abortController.signal.aborted) {
-                if (typewriterRef.current) clearInterval(typewriterRef.current);
-                typewriterRef.current = null;
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === TYPEWRITER_AI_ID
-                      ? { ...m, role: 'ai' as const }
-                      : m,
-                  ),
-                );
-                resolve();
-                return;
-              }
+            let deltaCount = 0;
 
-              charIndex = Math.min(charIndex + charsPerTick, totalChars);
-              tickCount++;
+            sendAgentChatMessageStreaming(
+              chatPayload,
+              {
+                onDelta: (text) => {
+                  streamingTextRef.current += text;
+                  deltaCount++;
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === streamMsgId
+                        ? { ...m, text: streamingTextRef.current }
+                        : m,
+                    ),
+                  );
+                  // Throttle scroll
+                  if (deltaCount % 5 === 0) scrollToBottom();
+                },
+                onStatus: (status) => {
+                  // Update streaming message with status subtitle
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === streamMsgId
+                        ? { ...m, statusText: status }
+                        : m,
+                    ),
+                  );
+                },
+                onDone: (response) => {
+                  streamingSucceeded = true;
 
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === TYPEWRITER_AI_ID
-                    ? { ...m, text: fullText.slice(0, charIndex) }
-                    : m,
-                ),
-              );
+                  // Capture session ID
+                  if (response.sessionId && response.sessionId !== sessionIdRef.current) {
+                    setSessionId(response.sessionId);
+                  }
 
-              // Throttle scroll to every ~10 ticks
-              if (tickCount % 10 === 0) scrollToBottom();
+                  // Handle pending confirmation
+                  if (response.pendingConfirmation) {
+                    setPendingConfirmation(response.pendingConfirmation);
+                  }
 
-              if (charIndex >= totalChars) {
-                if (typewriterRef.current) clearInterval(typewriterRef.current);
-                typewriterRef.current = null;
+                  // Build final AI message
+                  const aiMsg: DisplayMessage = {
+                    id: `ai-${Date.now()}`,
+                    role: 'ai' as const,
+                    text: response.message,
+                    structured: response.structured ?? null,
+                    confirmAction: response.pendingConfirmation ?? undefined,
+                  };
 
-                // Finalize as AI message
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === TYPEWRITER_AI_ID ? { ...aiMsg } : m,
-                  ),
-                );
-                resolve();
-              }
-            }, TICK_MS);
+                  // Replace streaming placeholder with final message
+                  setMessages((prev) =>
+                    prev.map((m) => (m.id === streamMsgId ? { ...aiMsg } : m)),
+                  );
+
+                  // Emit refresh events
+                  if (response.refreshTargets?.length) {
+                    for (const target of response.refreshTargets) {
+                      emitRefresh(target);
+                    }
+                  }
+
+                  resolve();
+                },
+                onError: (err) => reject(err),
+              },
+              abortController.signal,
+            );
           });
-        }
+        } catch (streamErr) {
+          // Streaming failed — clean up streaming placeholder
+          setMessages((prev) => prev.filter((m) => m.id !== streamMsgId));
 
-        // Emit refresh events so other screens update (e.g. My Metrics after test log)
-        if (agentResponse.refreshTargets?.length) {
-          for (const target of agentResponse.refreshTargets) {
-            emitRefresh(target);
+          if (abortController.signal.aborted) throw streamErr;
+
+          // Fall back to non-streaming request
+          if (!streamingSucceeded) {
+            setMessages((prev) => [...prev, TYPING_MSG]);
+
+            const agentResponse = await sendAgentChatMessage(
+              chatPayload,
+              abortController.signal,
+            );
+
+            if (agentResponse.sessionId && agentResponse.sessionId !== sessionIdRef.current) {
+              setSessionId(agentResponse.sessionId);
+            }
+            if (abortController.signal.aborted) return;
+            setMessages((prev) => prev.filter((m) => m.id !== TYPING_MSG.id));
+
+            if (agentResponse.pendingConfirmation) {
+              setPendingConfirmation(agentResponse.pendingConfirmation);
+            }
+
+            const aiMsg: DisplayMessage = {
+              id: `ai-${Date.now()}`,
+              role: 'ai' as const,
+              text: agentResponse.message,
+              structured: agentResponse.structured ?? null,
+              confirmAction: agentResponse.pendingConfirmation ?? undefined,
+            };
+
+            setMessages((prev) => [...prev, aiMsg]);
+
+            if (agentResponse.refreshTargets?.length) {
+              for (const target of agentResponse.refreshTargets) {
+                emitRefresh(target);
+              }
+            }
           }
         }
 

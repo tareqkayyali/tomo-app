@@ -51,9 +51,10 @@ export function scoreTurn(
   const format = scoreFormat(exp, turn, result, failureReasons);
   const cost = scoreCost(exp, meta, result, failureReasons);
   const tone = scoreTone(tags, result, failureReasons);
+  const latency = scoreLatency(exp, result, failureReasons);
 
   return {
-    scores: { routing, safety, relevance, format, cost, tone },
+    scores: { routing, safety, relevance, format, cost, tone, latency },
     failureReasons,
   };
 }
@@ -73,9 +74,10 @@ function scoreRouting(
   }
 
   if (exp.classifierLayer !== undefined) {
-    const expectedLayers = LAYER_MAP[exp.classifierLayer] ?? [];
+    const layerValues = Array.isArray(exp.classifierLayer) ? exp.classifierLayer : [exp.classifierLayer];
+    const expectedLayers = layerValues.flatMap(l => LAYER_MAP[l] ?? []);
     if (!expectedLayers.includes(meta.classifierLayer)) {
-      reasons.push(`Routing: expected layer ${exp.classifierLayer} (${expectedLayers.join("|")}), got "${meta.classifierLayer}"`);
+      reasons.push(`Routing: expected layer ${JSON.stringify(exp.classifierLayer)} (${expectedLayers.join("|")}), got "${meta.classifierLayer}"`);
       return 0;
     }
   }
@@ -97,7 +99,9 @@ function scoreRouting(
     const normalizedActual = actualModel.includes("sonnet") ? "sonnet"
       : actualModel.includes("haiku") ? "haiku"
       : actualModel;
-    if (normalizedActual !== expectedModel) {
+    // fast_path is always more efficient than any model — accept it when sonnet or haiku expected
+    const isAcceptableFastPath = normalizedActual === "fast_path" && (expectedModel === "sonnet" || expectedModel === "haiku");
+    if (normalizedActual !== expectedModel && !isAcceptableFastPath) {
       reasons.push(`Routing: expected model "${expectedModel}", got "${normalizedActual}" (raw: "${meta.modelUsed}")`);
       return 0;
     }
@@ -224,11 +228,19 @@ function scoreCost(
     return 0;
   }
 
-  if (exp.maxLatencyMs !== undefined && result.responseTimeMs > exp.maxLatencyMs) {
-    reasons.push(`Cost: ${result.responseTimeMs}ms exceeds max ${exp.maxLatencyMs}ms`);
+  return 1;
+}
+
+function scoreLatency(
+  exp: EvalExpectations | undefined,
+  result: TurnResult,
+  reasons: string[]
+): 0 | 1 {
+  if (!exp?.maxLatencyMs) return 1;
+  if (result.responseTimeMs > exp.maxLatencyMs) {
+    reasons.push(`Latency: ${result.responseTimeMs}ms exceeds max ${exp.maxLatencyMs}ms`);
     return 0;
   }
-
   return 1;
 }
 

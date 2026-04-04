@@ -33,6 +33,15 @@ export interface ChatSession {
   updated_at: string;
 }
 
+export type EntityType = "date" | "event" | "drill" | "metric" | "program";
+
+export interface ConversationEntity {
+  type: EntityType;
+  value: string;       // display name or date string
+  id?: string;         // UUID for events/drills, date string for dates
+  turnIndex: number;   // which turn this was mentioned in
+}
+
 export interface ConversationState {
   currentTopic: string | null;
   referencedDates: Record<string, string>;
@@ -42,6 +51,13 @@ export interface ConversationState {
   referencedDrills: Record<string, string>;
   lastActionContext: string | null;
   extractedAt: string;
+  /** Entity graph — tracks entities across turns for pronoun resolution */
+  entityGraph?: {
+    entities: ConversationEntity[];
+    /** Last mentioned entity per type — for "it", "that one" resolution */
+    lastMentioned: Partial<Record<EntityType, string>>;
+    turnCount: number;
+  };
 }
 
 export interface ChatMessage {
@@ -215,24 +231,111 @@ export async function loadSessionHistory(
     }
   }
 
+  // Enrich all messages
+  const enriched = messages.map((msg) => ({
+    role: msg.role,
+    content: msg.role === "assistant" && msg.structured
+      ? enrichContentWithStructured(msg.content, msg.structured)
+      : msg.content,
+  }));
+
+  // Check total token count
+  const totalMsgTokens = enriched.reduce((s, m) => s + Math.ceil(m.content.length / CHARS_PER_TOKEN), 0);
+
+  if (totalMsgTokens <= TOKEN_BUDGET) {
+    // Everything fits — no compression needed
+    return { messages: enriched, lastAgentType };
+  }
+
+  // ── Progressive Semantic Compression ─────────────────────
+  // Keep the last KEEP_RECENT_TURNS verbatim, compress everything before into a summary.
+  const KEEP_RECENT_TURNS = 6; // 3 exchanges (user+assistant pairs)
+  const recentMessages = enriched.slice(-KEEP_RECENT_TURNS);
+  const olderMessages = enriched.slice(0, -KEEP_RECENT_TURNS);
+
+  if (olderMessages.length > 0) {
+    // Deterministic compression — extract key facts from older messages (no LLM call)
+    const summary = compressMessagesToSummary(olderMessages);
+    const summaryMsg: ConversationMessage = {
+      role: "assistant",
+      content: `[Session summary of earlier turns]: ${summary}`,
+    };
+
+    // Token-trim the recent messages against remaining budget
+    const summaryTokens = Math.ceil(summaryMsg.content.length / CHARS_PER_TOKEN);
+    const remainingBudget = TOKEN_BUDGET - summaryTokens;
+    let recentTokens = 0;
+    const finalRecent: ConversationMessage[] = [];
+
+    for (let i = recentMessages.length - 1; i >= 0; i--) {
+      const tokenCount = Math.ceil(recentMessages[i].content.length / CHARS_PER_TOKEN);
+      if (recentTokens + tokenCount > remainingBudget) break;
+      recentTokens += tokenCount;
+      finalRecent.unshift(recentMessages[i]);
+    }
+
+    return { messages: [summaryMsg, ...finalRecent], lastAgentType };
+  }
+
+  // Fallback: simple backward walk trimming (original behavior)
   let totalTokens = 0;
   const trimmed: ConversationMessage[] = [];
-
-  // Walk backwards, accumulating until budget hit
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    // Enrich assistant messages with structured data so the AI retains context
-    // of what it proposed (e.g. specific sessions in a schedule_list)
-    const content = msg.role === "assistant" && msg.structured
-      ? enrichContentWithStructured(msg.content, msg.structured)
-      : msg.content;
-    const tokenCount = Math.ceil(content.length / CHARS_PER_TOKEN);
+  for (let i = enriched.length - 1; i >= 0; i--) {
+    const tokenCount = Math.ceil(enriched[i].content.length / CHARS_PER_TOKEN);
     if (totalTokens + tokenCount > TOKEN_BUDGET) break;
     totalTokens += tokenCount;
-    trimmed.unshift({ role: msg.role, content });
+    trimmed.unshift(enriched[i]);
   }
 
   return { messages: trimmed, lastAgentType };
+}
+
+/**
+ * Deterministic compression of older messages into a summary string.
+ * Extracts key facts (topics, actions, entities) without LLM cost.
+ */
+function compressMessagesToSummary(messages: ConversationMessage[]): string {
+  const facts: string[] = [];
+  const topics = new Set<string>();
+  const actions = new Set<string>();
+
+  for (const msg of messages) {
+    const lower = msg.content.toLowerCase();
+
+    // Detect topics
+    if (/readiness|energy|sleep|recovery/i.test(lower)) topics.add("readiness");
+    if (/schedule|calendar|event/i.test(lower)) topics.add("scheduling");
+    if (/training|session|workout|drill/i.test(lower)) topics.add("training");
+    if (/benchmark|compare|percentile/i.test(lower)) topics.add("benchmarks");
+    if (/phv|growth/i.test(lower)) topics.add("PHV safety");
+    if (/exam|study|academic/i.test(lower)) topics.add("academics");
+    if (/program|plan/i.test(lower)) topics.add("programs");
+
+    // Detect actions taken
+    if (/added|created|booked|scheduled/i.test(lower)) actions.add("created events");
+    if (/deleted|removed|cancelled/i.test(lower)) actions.add("removed events");
+    if (/check-in|logged/i.test(lower)) actions.add("logged check-in");
+    if (/session plan|drills/i.test(lower)) actions.add("generated session");
+
+    // Extract key data points from assistant messages
+    if (msg.role === "assistant") {
+      // Readiness scores
+      const readinessMatch = msg.content.match(/readiness.*?(\d+)/i);
+      if (readinessMatch) facts.push(`Readiness: ${readinessMatch[1]}`);
+
+      // Event names
+      const eventMatch = msg.content.match(/(?:Added|Created|Scheduled)\s+"([^"]+)"/i);
+      if (eventMatch) facts.push(`Event: ${eventMatch[1]}`);
+    }
+  }
+
+  const parts: string[] = [];
+  if (topics.size > 0) parts.push(`Topics discussed: ${[...topics].join(", ")}`);
+  if (actions.size > 0) parts.push(`Actions taken: ${[...actions].join(", ")}`);
+  if (facts.length > 0) parts.push(`Key data: ${facts.slice(0, 5).join("; ")}`);
+  parts.push(`(${messages.length} messages compressed)`);
+
+  return parts.join(". ");
 }
 
 /**

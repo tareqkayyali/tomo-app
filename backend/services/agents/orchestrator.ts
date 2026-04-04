@@ -26,7 +26,7 @@ import {
   buildMasteryStaticPrompt,
   buildMasteryDynamicPrompt,
 } from "./masteryAgent";
-import { validateResponse, GUARDRAIL_SYSTEM_BLOCK, categorizeMessage, enforcePHVSafety } from "./chatGuardrails";
+import { validateResponse, GUARDRAIL_SYSTEM_BLOCK, categorizeMessage, enforcePHVSafety, buildPHVSystemPromptBlock } from "./chatGuardrails";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { getDayBoundsISO, toTimezoneISO } from "./contextBuilder";
@@ -42,11 +42,15 @@ import {
 import { isAffirmation, type ConversationMessage, type ConversationState } from "./sessionService";
 import { buildRuleContext } from "@/services/scheduling/scheduleRuleEngine";
 import { withRetry } from "@/lib/aiRetry";
-import { trackedClaudeCall, type TrackedCallMeta } from "@/lib/trackedClaudeCall";
+import { trackedClaudeCall, trackedClaudeCallStreaming, type TrackedCallMeta, type StreamCallbacks } from "@/lib/trackedClaudeCall";
 import { classifyIntent } from "./intentClassifier";
 import { intentHandlers } from "./intentHandlers";
 import { retrieveChatKnowledge } from "./ragChatRetriever";
 import { loadAthleteMemory } from "./longitudinalMemory";
+import { getDualLoadAdaptation, type DualLoadAdaptation } from "./dualLoadEngine";
+import { computeBehavioralFingerprint, buildBehavioralPromptBlock } from "./behavioralFingerprint";
+import { scoreDecisionStakes } from "./decisionStakesRouter";
+import { computeTriangleState, buildTrianglePromptBlock } from "./triangleIntelligence";
 // conversationStateExtractor is called from route.ts, not here
 
 const MAX_TOOL_ITERATIONS = 5;
@@ -205,12 +209,45 @@ export const CAPSULE_GATED_ACTIONS = new Set([
   "generate_study_plan",
 ]);
 
+// ── AGENT TIEBREAKER — when multiple agents match, pick the best one ──
+type AgentType = "timeline" | "output" | "mastery";
+
+const TIEBREAKER_RULES: { pattern: RegExp; winner: AgentType }[] = [
+  // Output wins for data/readiness/training queries
+  { pattern: /generat.*session|build.*session|create.*session|today.?s.*session/i, winner: "output" },
+  { pattern: /readiness|how.*recover|energy|sleep.*score|vitals|hrv/i, winner: "output" },
+  { pattern: /load|overload|acwr|training.*volume|intensity/i, winner: "output" },
+  { pattern: /drill|exercise|workout|warm.?up/i, winner: "output" },
+  { pattern: /benchmark|percentile|compare.*other|vs.*age|how.*stack/i, winner: "output" },
+  { pattern: /sprint.*time|test.*result|score|metric/i, winner: "output" },
+  // Mastery wins for trajectory/achievement queries
+  { pattern: /trajectory|trend.*over|progress.*over.*time|long.?term/i, winner: "mastery" },
+  { pattern: /achievement|milestone|personal.*record|pr\b|streak/i, winner: "mastery" },
+  { pattern: /cv|profile|recruit|scout/i, winner: "mastery" },
+  // Timeline wins for scheduling/calendar queries
+  { pattern: /schedule.*conflict|clash|overlap|double.?book/i, winner: "timeline" },
+  { pattern: /add.*event|create.*event|delete.*event|move.*event|reschedule/i, winner: "timeline" },
+  { pattern: /what.?s.*on.*calendar|what.*this week|plan.*week/i, winner: "timeline" },
+];
+
+function resolveAgentTiebreaker(agents: AgentType[], message: string): AgentType[] {
+  if (agents.length <= 1) return agents;
+  const lower = message.toLowerCase();
+  for (const rule of TIEBREAKER_RULES) {
+    if (rule.pattern.test(lower) && agents.includes(rule.winner)) {
+      // Move winner to front, keep others for multi-agent tool access
+      return [rule.winner, ...agents.filter((a) => a !== rule.winner)];
+    }
+  }
+  return agents; // No tiebreaker matched — keep original order
+}
+
 // ── AGENT ROUTING — keyword + tab context signals ─────────────
 function routeToAgents(
   message: string,
   context: PlayerContext,
   lastAgentType?: string
-): ("timeline" | "output" | "mastery")[] {
+): AgentType[] {
   // Affirmation continuity: keep same agent when user says "yes", "do it", etc.
   if (isAffirmation(message) && lastAgentType) {
     const valid = ["timeline", "output", "mastery"];
@@ -266,7 +303,7 @@ function routeToAgents(
 
   // Default: route by active tab if no clear signal
   if (agents.size === 0) {
-    const tabMap: Record<string, "timeline" | "output" | "mastery"> = {
+    const tabMap: Record<string, AgentType> = {
       Timeline: "timeline",
       Output: "output",
       Mastery: "mastery",
@@ -276,7 +313,8 @@ function routeToAgents(
     else agents.add("output"); // global fallback
   }
 
-  return Array.from(agents);
+  // Apply tiebreaker when multiple agents match
+  return resolveAgentTiebreaker(Array.from(agents), message);
 }
 
 export interface PendingWriteAction {
@@ -317,11 +355,7 @@ export interface OrchestratorResult {
 }
 
 // ── MAIN ORCHESTRATION FUNCTION ─────────────────────────────────
-/** Optional streaming callbacks — if provided, the orchestrator emits events during processing. */
-export interface StreamCallbacks {
-  onStatus?: (status: string) => void;
-  onDelta?: (text: string) => void;
-}
+// StreamCallbacks is imported from trackedClaudeCall.ts
 
 export async function orchestrate(
   userMessage: string,
@@ -523,27 +557,14 @@ export async function orchestrate(
   const SONNET_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
   const HAIKU_MODEL = process.env.ANTHROPIC_HAIKU_MODEL || "claude-haiku-4-5-20251001";
 
-  const isComplexIntent =
-    // Multi-agent routing → needs Sonnet's reasoning
-    agentTypes.length > 1
-    // Calendar WRITE actions with conflict detection (read-only schedule queries → Haiku)
-    || /\b(move|reschedule|cancel|delete|update|edit)\b.*\b(event|training|session|match)\b/i.test(lowerMsg)
-    // Multi-turn conversation with active date context → context continuity matters
-    || (conversationState?.referencedDates && Object.keys(conversationState.referencedDates).length > 1)
-    // Explicit planning / multi-step reasoning
-    || /\b(plan my week|optimize|analyze my|what if|how should i)\b/i.test(lowerMsg)
-    // Session generation → multi-step tool chains (but single drill detail → Haiku)
-    || /\b(session plan|build.*session|full workout|practice plan|training plan)\b/i.test(lowerMsg)
-    // Benchmark comparison → multi-step with formatting
-    || /\b(compare.*peer|how.*stack|vs other|rank.*against)\b/i.test(lowerMsg)
-    // PHV assessment → complex calculation
-    || /\b(phv|maturity offset|growth stage)\b/i.test(lowerMsg);
-
-  const model = isComplexIntent ? SONNET_MODEL : HAIKU_MODEL;
+  // Decision-Stakes Model Router — weighted scoring replaces boolean isComplexIntent
+  const stakes = scoreDecisionStakes(userMessage, context, agentTypes.length, conversationState);
+  const model = stakes.model === "sonnet" ? SONNET_MODEL : HAIKU_MODEL;
 
   logger.info("[model-routing]", {
-    model: model === SONNET_MODEL ? "sonnet" : "haiku",
-    isComplex: isComplexIntent,
+    model: stakes.model,
+    stakesScore: stakes.score,
+    reasons: stakes.reasons.join(", "),
     agents: agentTypes.length,
     hasConvState: !!(conversationState?.referencedDates && Object.keys(conversationState.referencedDates).length > 0),
     messagePreview: userMessage.substring(0, 50),
@@ -579,14 +600,21 @@ export async function orchestrate(
   let totalLatencyMs = 0;
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    const apiParams = {
+      model,
+      max_tokens: 4096,
+      system: systemBlocks,
+      tools: tools as Anthropic.Tool[],
+      messages,
+    };
+
+    // Use streaming when callbacks are provided — only forward text deltas
+    // on the final iteration (tool_use iterations don't produce user-facing text)
+    const useStreaming = !!streamCallbacks?.onDelta;
     const { message: response, telemetry: iterTelemetry } = await withRetry(
-      () => trackedClaudeCall(anthropic, {
-        model,
-        max_tokens: 4096,
-        system: systemBlocks,
-        tools: tools as Anthropic.Tool[],
-        messages,
-      }, callMeta),
+      () => useStreaming
+        ? trackedClaudeCallStreaming(anthropic, apiParams, callMeta, streamCallbacks)
+        : trackedClaudeCall(anthropic, apiParams, callMeta),
       '[orchestrator] Claude API'
     );
 
@@ -1050,6 +1078,38 @@ async function buildAgentConfig(
   // Sport-position context layer (~150-250 tokens, sport-specific coaching rules)
   const sportContext = `\n\n${buildSportContextSegment(context)}`;
 
+  // PHV safety context — static, cacheable (~200 tokens for mid-PHV, 0 otherwise)
+  const phvBlock = buildPHVSystemPromptBlock(context.snapshotEnrichment?.phvStage);
+
+  // Dual-load context — deterministic, ~50 tokens
+  let dualLoadBlock = "";
+  try {
+    const dla = await getDualLoadAdaptation(context.userId, context.timezone);
+    if (dla && dla.dli > 0) {
+      const severity = dla.dli >= 80 ? "CRITICAL" : dla.dli >= 65 ? "HIGH" : dla.dli >= 40 ? "MODERATE" : "LOW";
+      dualLoadBlock = `\n\nDUAL-LOAD CONTEXT:
+DLI: ${dla.dli}/100 (${severity}) | Period: ${dla.period.toUpperCase()} | Intensity Modifier: ${dla.intensityModifier.toFixed(2)}x
+Athletic load (7d): ${dla.athleticLoad7day} AU | Academic load (7d): ${dla.academicLoad7day} AU${dla.examProximityFlag ? "\n⚠️ Exam within 7 days — protect cognitive energy." : ""}
+Recommendation: ${dla.recommendation}`;
+    }
+  } catch (e) {
+    // Graceful fallback — continue without DLI context
+  }
+
+  // Behavioral fingerprint (~50 tokens)
+  let behavioralBlock = "";
+  try {
+    const fp = await computeBehavioralFingerprint(context.userId);
+    behavioralBlock = buildBehavioralPromptBlock(fp);
+  } catch { /* graceful fallback */ }
+
+  // Triangle Intelligence (~60 tokens)
+  let triangleBlock = "";
+  try {
+    const tri = await computeTriangleState(context.userId);
+    triangleBlock = buildTrianglePromptBlock(tri);
+  } catch { /* graceful fallback */ }
+
   // Age-band communication profile (~60-80 tokens)
   const toneProfile = `\n\n${buildToneProfile(context.ageBand)}`;
 
@@ -1142,6 +1202,10 @@ REC FILTERING RULES (CRITICAL — follow strictly):
   const dynamicSuffix =
     athleteMemoryBlock +
     sportContext +
+    phvBlock +
+    dualLoadBlock +
+    behavioralBlock +
+    triangleBlock +
     toneProfile +
     agentDynamic +
     temporalBlock +

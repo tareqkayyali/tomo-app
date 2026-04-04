@@ -22,7 +22,7 @@ function calculateCost(
 ): number {
   const p = PRICING[model] ?? PRICING.default;
   const inputTokens = usage.input_tokens - (usage.cache_read_input_tokens ?? 0) - (usage.cache_creation_input_tokens ?? 0);
-  return (
+  return Math.max(0,
     (inputTokens / 1_000_000) * p.input +
     (usage.output_tokens / 1_000_000) * p.output +
     ((usage.cache_read_input_tokens ?? 0) / 1_000_000) * p.cacheRead +
@@ -51,6 +51,12 @@ export interface CallTelemetry {
 export interface TrackedClaudeResponse {
   message: Anthropic.Message;
   telemetry: CallTelemetry;
+}
+
+/** Streaming callbacks — emits events during Claude API streaming. */
+export interface StreamCallbacks {
+  onDelta?: (text: string) => void;
+  onStatus?: (status: string) => void;
 }
 
 /**
@@ -116,6 +122,90 @@ export async function trackedClaudeCall(
   });
 
   return { message: response, telemetry };
+}
+
+/**
+ * Call Claude API with streaming + automatic usage tracking.
+ * Streams text deltas via callbacks while accumulating telemetry.
+ * Returns the final message + telemetry after the stream completes.
+ */
+export async function trackedClaudeCallStreaming(
+  client: Anthropic,
+  params: Omit<Anthropic.MessageCreateParamsNonStreaming, "stream">,
+  meta: TrackedCallMeta,
+  callbacks?: StreamCallbacks
+): Promise<TrackedClaudeResponse> {
+  const start = Date.now();
+
+  const stream = client.messages.stream({
+    ...params,
+    stream: true,
+  });
+
+  // Forward text deltas to callback
+  stream.on("text", (text) => {
+    callbacks?.onDelta?.(text);
+  });
+
+  // Forward tool_use start events as status
+  stream.on("contentBlock", (block) => {
+    if (block.type === "tool_use") {
+      callbacks?.onStatus?.(`Using ${block.name}...`);
+    }
+  });
+
+  // Wait for stream to complete and get the final message with usage
+  const finalMessage = await stream.finalMessage();
+  const latencyMs = Date.now() - start;
+
+  const usage = finalMessage.usage;
+  const cost = calculateCost(usage, params.model);
+
+  const telemetry: CallTelemetry = {
+    model: params.model,
+    costUsd: cost,
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
+    cacheReadTokens: (usage as any).cache_read_input_tokens ?? 0,
+    cacheWriteTokens: (usage as any).cache_creation_input_tokens ?? 0,
+    latencyMs,
+  };
+
+  // Fire-and-forget telemetry insert (same as non-streaming)
+  try {
+    (supabaseAdmin() as any)
+      .from("api_usage_log")
+      .insert({
+        user_id: meta.userId,
+        session_id: meta.sessionId ?? null,
+        agent_type: meta.agentType,
+        model: params.model,
+        input_tokens: usage.input_tokens,
+        output_tokens: usage.output_tokens,
+        cache_write_tokens: telemetry.cacheWriteTokens,
+        cache_read_tokens: telemetry.cacheReadTokens,
+        estimated_cost_usd: cost,
+        latency_ms: latencyMs,
+        classification_layer: meta.classificationLayer ?? null,
+        intent_id: meta.intentId ?? null,
+      })
+      .then(() => {})
+      .catch(() => {});
+  } catch { /* noop */ }
+
+  logger.info("[API-COST-STREAM]", {
+    model: params.model,
+    agent: meta.agentType,
+    intent: meta.intentId,
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
+    cacheRead: telemetry.cacheReadTokens,
+    cacheWrite: telemetry.cacheWriteTokens,
+    costUSD: cost.toFixed(6),
+    latencyMs,
+  });
+
+  return { message: finalMessage, telemetry };
 }
 
 /**

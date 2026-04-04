@@ -32,6 +32,7 @@ import { executeOutputTool } from "@/services/agents/outputAgent";
 import { executeTimelineTool } from "@/services/agents/timelineAgent";
 import { executeMasteryTool } from "@/services/agents/masteryAgent";
 import type { CapsuleAction } from "@/services/agents/responseFormatter";
+import type { StreamCallbacks } from "@/lib/trackedClaudeCall";
 import {
   preFlightCheck,
   categorizeMessage,
@@ -50,6 +51,11 @@ import {
 } from "@/services/agents/sessionService";
 import { extractConversationState } from "@/services/agents/conversationStateExtractor";
 import { updateAthleteMemory } from "@/services/agents/longitudinalMemory";
+
+/** Format a Server-Sent Event */
+function formatSSE(event: string, data: any): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
 
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
@@ -283,19 +289,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Orchestrate — route to agents with agent lock, execute tools, handle confirmation gates
-    const result = await orchestrate(
-      body.message,
-      context,
-      body.confirmedAction,
-      conversationHistory,
-      lastAgentType,
-      activeAgent,
-      conversationState
-    );
+    // Detect SSE streaming request
+    const wantsStream = req.nextUrl.searchParams.get("stream") === "true";
 
-    // Save assistant response + update session state (best-effort)
-    if (sessionId) {
+    // ── Helper: save result to session after orchestration completes ──
+    const saveResultToSession = async (result: Awaited<ReturnType<typeof orchestrate>>) => {
+      if (!sessionId) return;
       try {
         await saveMessage(sessionId, auth.user.id, "assistant", result.message, {
           structured: result.structured ?? null,
@@ -312,8 +311,6 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Extract conversation state from this exchange (Layer 4)
-        // Pass structured response so drill IDs from session plans are captured
         const newConversationState = extractConversationState(
           body.message,
           result.message,
@@ -323,14 +320,11 @@ export async function POST(req: NextRequest) {
           result.structured
         );
 
-        // Persist agent lock + conversation state
         await updateSessionState(sessionId, {
           activeAgent: result.agentType ?? activeAgent,
           conversationState: newConversationState,
         });
 
-        // Fire-and-forget: update longitudinal memory if conversation is substantial
-        // conversationHistory includes all previous messages + current user message
         const fullHistory = [
           ...conversationHistory,
           { role: "user" as const, content: body.message },
@@ -342,7 +336,87 @@ export async function POST(req: NextRequest) {
       } catch (saveErr) {
         console.warn("[chat] Failed to save response:", saveErr instanceof Error ? saveErr.message : saveErr);
       }
+    };
+
+    // ── STREAMING PATH — SSE response ──────────────────────────────
+    if (wantsStream) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            // Emit initial status while context is ready
+            controller.enqueue(encoder.encode(formatSSE("status", { status: "Thinking..." })));
+
+            const streamCallbacks: StreamCallbacks = {
+              onDelta: (text) => {
+                controller.enqueue(encoder.encode(formatSSE("delta", { text })));
+              },
+              onStatus: (status) => {
+                controller.enqueue(encoder.encode(formatSSE("status", { status })));
+              },
+            };
+
+            const result = await orchestrate(
+              body.message,
+              context,
+              body.confirmedAction,
+              conversationHistory,
+              lastAgentType,
+              activeAgent,
+              conversationState,
+              streamCallbacks
+            );
+
+            // Save to session (fire-and-forget within stream)
+            saveResultToSession(result).catch(() => {});
+
+            // Send final structured result
+            const debugMode = req.headers.get("x-tomo-debug") === "true";
+            controller.enqueue(encoder.encode(formatSSE("done", {
+              message: result.message,
+              structured: result.structured ?? null,
+              sessionId,
+              refreshTargets: result.refreshTargets,
+              pendingConfirmation: result.pendingConfirmation ?? null,
+              context: {
+                ageBand: context.ageBand,
+                readinessScore: context.readinessScore,
+                activeTab: context.activeTab,
+              },
+              ...(debugMode && result._eval ? { _eval: result._eval } : {}),
+            })));
+
+            controller.close();
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : "Stream error";
+            controller.enqueue(encoder.encode(formatSSE("error", { error: errorMessage })));
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+          "api-version": "v1",
+        },
+      });
     }
+
+    // ── NON-STREAMING PATH — unchanged JSON response ───────────────
+    const result = await orchestrate(
+      body.message,
+      context,
+      body.confirmedAction,
+      conversationHistory,
+      lastAgentType,
+      activeAgent,
+      conversationState
+    );
+
+    await saveResultToSession(result);
 
     const debugMode = req.headers.get("x-tomo-debug") === "true";
     return NextResponse.json(

@@ -284,7 +284,7 @@ async function main() {
         }
         if (result.dimensionScores) {
           const s = result.dimensionScores;
-          console.log(`    Scores: R=${s.routing} S=${s.safety} Rel=${s.relevance} F=${s.format} C=${s.cost} T=${s.tone}`);
+          console.log(`    Scores: R=${s.routing} S=${s.safety} Rel=${s.relevance} F=${s.format} C=${s.cost} T=${s.tone} L=${s.latency}`);
         }
       }
 

@@ -1033,6 +1033,94 @@ export async function sendAgentChatMessage(
 }
 
 /**
+ * SSE streaming chat — sends a message and streams back deltas in real-time.
+ * Falls back to non-streaming sendAgentChatMessage on any error.
+ */
+export async function sendAgentChatMessageStreaming(
+  payload: AgentChatRequest,
+  callbacks: {
+    onDelta: (text: string) => void;
+    onStatus: (status: string) => void;
+    onDone: (response: AgentChatResponse) => void;
+    onError: (error: Error) => void;
+  },
+  signal?: AbortSignal,
+): Promise<void> {
+  const token = await getIdToken();
+  if (!token) {
+    callbacks.onError(new Error('Not authenticated'));
+    return;
+  }
+
+  const url = `${API_BASE_URL}/api/v1/chat/agent?stream=true`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: 'Stream request failed' }));
+      callbacks.onError(new Error(data.error || `HTTP ${response.status}`));
+      return;
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      callbacks.onError(new Error('No response body for streaming'));
+      return;
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse SSE events from buffer
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? ''; // Keep incomplete line in buffer
+
+      let currentEvent = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7).trim();
+        } else if (line.startsWith('data: ') && currentEvent) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (currentEvent === 'delta') {
+              callbacks.onDelta(data.text);
+            } else if (currentEvent === 'status') {
+              callbacks.onStatus(data.status);
+            } else if (currentEvent === 'done') {
+              callbacks.onDone(data as AgentChatResponse);
+            } else if (currentEvent === 'error') {
+              callbacks.onError(new Error(data.error));
+            }
+          } catch { /* ignore malformed SSE data */ }
+          currentEvent = '';
+        } else if (line === '') {
+          currentEvent = '';
+        }
+      }
+    }
+  } catch (err) {
+    if (signal?.aborted) return;
+    callbacks.onError(err instanceof Error ? err : new Error('Stream connection failed'));
+  }
+}
+
+/**
  * Transcribe audio to text using Whisper via the backend.
  * Accepts a local file URI (e.g. from expo-av recording).
  */
