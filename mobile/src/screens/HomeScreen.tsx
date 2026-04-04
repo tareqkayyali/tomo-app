@@ -365,7 +365,12 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.regular,
       fontSize: 13,
       color: colors.textSecondary,
-      marginTop: spacing.xs,
+    },
+    typingStatusWrap: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.xs,
+      paddingVertical: spacing.xs,
     },
 
     // ── Copy Button ───────────────────────────────────────────────────
@@ -826,15 +831,13 @@ const ChatBubble = React.memo(function ChatBubble({
   const isTyping = message.role === 'typing';
   const isStreaming = message.role === 'streaming';
 
-  // Typing indicator — small pill with bounce dots + optional status text
+  // Typing indicator — status text only (no dots), with green streaming cursor
   if (isTyping) {
     return (
       <View style={[styles.messageRow, styles.messageRowAi]}>
-        <View style={styles.typingBubble}>
-          <TypingDots />
-          {message.statusText ? (
-            <Text style={styles.statusText}>{message.statusText}</Text>
-          ) : null}
+        <View style={styles.typingStatusWrap}>
+          <Text style={styles.statusText}>{message.statusText || 'Thinking...'}</Text>
+          <StreamingCursor />
         </View>
       </View>
     );
@@ -853,6 +856,18 @@ const ChatBubble = React.memo(function ChatBubble({
           </Text>
           {message.error && <Text style={styles.retryHint}>Tap to retry</Text>}
           {!message.error && <CopyButton text={displayText} />}
+        </View>
+      </View>
+    );
+  }
+
+  // Streaming state with no text yet — show status text + cursor only (no gray box)
+  if (isStreaming && !message.text) {
+    return (
+      <View style={[styles.messageRow, styles.messageRowAi]}>
+        <View style={styles.typingStatusWrap}>
+          <Text style={styles.statusText}>{message.statusText || 'Processing...'}</Text>
+          <StreamingCursor />
         </View>
       </View>
     );
@@ -880,9 +895,6 @@ const ChatBubble = React.memo(function ChatBubble({
         ) : message.text ? (
           <MarkdownMessage content={message.text} />
         ) : null}
-        {isStreaming && !message.text && message.statusText && (
-          <Text style={styles.statusText}>{message.statusText}</Text>
-        )}
         {isStreaming && <StreamingCursor />}
         {!isStreaming && message.text && <CopyButton text={message.text} />}
       </View>
