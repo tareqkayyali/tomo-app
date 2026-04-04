@@ -815,7 +815,7 @@ export async function GET(req: NextRequest) {
       dataDate,
       lastRecordedAt: recordedAt,
       freshness: computeFreshness(freshnessBasis),
-      timeAgo: timeAgoLabel(recordedAt),
+      timeAgo: timeAgoLabel(syncedAt ?? recordedAt),
       syncedAt,
       syncTimeAgo: syncedAt ? timeAgoLabel(syncedAt) : null,
       percentile: pResult?.percentile ?? null,

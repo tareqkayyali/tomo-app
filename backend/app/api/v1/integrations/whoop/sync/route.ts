@@ -200,22 +200,31 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Update athlete_snapshot with latest Whoop vitals ──
-    // The event processor may not fire (no webhook), so write directly.
+    // Query latest per metric type (ORDER BY date DESC) instead of filtering
+    // by server UTC "today" — avoids timezone mismatch where Whoop data date
+    // differs from server date, causing the snapshot to never update.
     try {
-      const today = new Date().toISOString().slice(0, 10);
-      const { data: todayVitals } = await db
+      const { data: latestVitals } = await db
         .from("health_data")
         .select("metric_type, value")
         .eq("user_id", userId)
-        .eq("date", today);
+        .in("metric_type", ["hrv", "resting_hr", "sleep_hours"])
+        .order("date", { ascending: false })
+        .limit(20);
 
-      if (todayVitals && todayVitals.length > 0) {
-        const snapshotUpdate: Record<string, unknown> = { snapshot_at: new Date().toISOString() };
-        for (const v of todayVitals) {
-          if (v.metric_type === "hrv") snapshotUpdate.hrv_today_ms = v.value;
-          if (v.metric_type === "resting_hr") snapshotUpdate.resting_hr_bpm = v.value;
-          if (v.metric_type === "sleep_hours") snapshotUpdate.sleep_quality = v.value;
+      // Deduplicate: take first (latest) per metric_type
+      const latestByType = new Map<string, number>();
+      for (const v of (latestVitals ?? [])) {
+        if (!latestByType.has(v.metric_type)) {
+          latestByType.set(v.metric_type, v.value);
         }
+      }
+
+      if (latestByType.size > 0) {
+        const snapshotUpdate: Record<string, unknown> = { snapshot_at: new Date().toISOString() };
+        if (latestByType.has("hrv")) snapshotUpdate.hrv_today_ms = latestByType.get("hrv");
+        if (latestByType.has("resting_hr")) snapshotUpdate.resting_hr_bpm = latestByType.get("resting_hr");
+        if (latestByType.has("sleep_hours")) snapshotUpdate.sleep_quality = latestByType.get("sleep_hours");
         // Compute HRV baseline from last 7 days
         const { data: recentHRV } = await db
           .from("health_data")
