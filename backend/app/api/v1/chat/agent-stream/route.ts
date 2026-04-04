@@ -20,6 +20,7 @@ import { orchestrate, CAPSULE_DIRECT_ACTIONS } from "@/services/agents/orchestra
 import { executeOutputTool } from "@/services/agents/outputAgent";
 import { executeTimelineTool } from "@/services/agents/timelineAgent";
 import { executeMasteryTool } from "@/services/agents/masteryAgent";
+import { executeSettingsTool } from "@/services/agents/settingsAgent";
 import type { CapsuleAction } from "@/services/agents/responseFormatter";
 import { preFlightCheck } from "@/services/agents/chatGuardrails";
 import {
@@ -133,6 +134,7 @@ export async function POST(req: NextRequest) {
             output: executeOutputTool,
             timeline: executeTimelineTool,
             mastery: executeMasteryTool,
+            settings: executeSettingsTool,
           };
           const executor = executors[ca.agentType];
           if (executor) {

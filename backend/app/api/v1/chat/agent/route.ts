@@ -31,6 +31,7 @@ import { orchestrate, CAPSULE_DIRECT_ACTIONS } from "@/services/agents/orchestra
 import { executeOutputTool } from "@/services/agents/outputAgent";
 import { executeTimelineTool } from "@/services/agents/timelineAgent";
 import { executeMasteryTool } from "@/services/agents/masteryAgent";
+import { executeSettingsTool } from "@/services/agents/settingsAgent";
 import type { CapsuleAction } from "@/services/agents/responseFormatter";
 import type { StreamCallbacks } from "@/lib/trackedClaudeCall";
 import {
@@ -198,6 +199,8 @@ export async function POST(req: NextRequest) {
           toolResult = await executeTimelineTool(toolName, toolInput, context);
         } else if (agentType === "mastery") {
           toolResult = await executeMasteryTool(toolName, toolInput, context);
+        } else if (agentType === "settings") {
+          toolResult = await executeSettingsTool(toolName, toolInput, context);
         } else {
           toolResult = { result: null, error: `Unknown agent type: ${agentType}` };
         }

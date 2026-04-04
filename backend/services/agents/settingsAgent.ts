@@ -243,7 +243,7 @@ export const settingsTools = [
       required: ["screen"],
       properties: {
         screen: { type: "string", description: "Target screen name (e.g. 'ProfileScreen', 'CVPreviewScreen')" },
-        params: { type: "object", description: "Optional pre-fill parameters for the screen" },
+        params: { type: "string", description: "Optional JSON-encoded pre-fill parameters for the screen" },
         highlight: { type: "string", description: "Optional element ID to highlight on arrival" },
       },
     },
