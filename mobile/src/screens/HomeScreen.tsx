@@ -1477,13 +1477,8 @@ export function HomeScreen() {
 
         try {
           await new Promise<void>((resolve, reject) => {
-            // Add streaming placeholder (remove typing indicator)
-            setMessages((prev) => [
-              ...prev.filter((m) => m.id !== TYPING_MSG.id),
-              { id: streamMsgId, role: 'streaming' as const, text: '' },
-            ]);
-            scrollToBottom();
-
+            // Keep typing indicator visible until first delta arrives
+            let streamingStarted = false;
             let deltaCount = 0;
 
             sendAgentChatMessageStreaming(
@@ -1492,13 +1487,23 @@ export function HomeScreen() {
                 onDelta: (text) => {
                   streamingTextRef.current += text;
                   deltaCount++;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === streamMsgId
-                        ? { ...m, text: streamingTextRef.current }
-                        : m,
-                    ),
-                  );
+
+                  if (!streamingStarted) {
+                    // First delta: swap typing indicator for streaming message with text
+                    streamingStarted = true;
+                    setMessages((prev) => [
+                      ...prev.filter((m) => m.id !== TYPING_MSG.id),
+                      { id: streamMsgId, role: 'streaming' as const, text: streamingTextRef.current },
+                    ]);
+                  } else {
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === streamMsgId
+                          ? { ...m, text: streamingTextRef.current }
+                          : m,
+                      ),
+                    );
+                  }
                   // Throttle scroll
                   if (deltaCount % 5 === 0) scrollToBottom();
                 },
