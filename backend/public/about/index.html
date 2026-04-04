@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About Tomo — Wellness Coaching for Young Athletes</title>
+  <meta name="description" content="Tomo is the AI-powered wellness coach for young athletes ages 13-23. Daily check-ins, readiness scoring, and sport-specific training plans." />
+  <meta name="theme-color" content="#0D0D12" />
+  <meta property="og:title" content="About Tomo" />
+  <meta property="og:description" content="AI-powered wellness coaching for young athletes. Check in daily, know your readiness, train smarter." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0D0D12;
+      --surface: #15151D;
+      --surface-elevated: #1C1C28;
+      --primary: #FF6B35;
+      --primary-dark: #E05A28;
+      --secondary: #00D9FF;
+      --text-primary: #FFFFFF;
+      --text-secondary: #B0B0B8;
+      --text-muted: #6E6E73;
+      --border: rgba(255,255,255,0.08);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --green: #34C759;
+      --yellow: #FFD60A;
+      --red: #FF453A;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Nav ─────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13,13,18,0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .nav-btn {
+      display: inline-block;
+      padding: 10px 24px;
+      background: var(--primary);
+      color: #fff;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.875rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover { background: var(--primary-dark); }
+
+    /* ── Hero ────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 80px 0 60px;
+      text-align: center;
+    }
+    .hero-blob {
+      position: absolute;
+      border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+      filter: blur(80px);
+      opacity: 0.15;
+      pointer-events: none;
+    }
+    .hero-blob-1 {
+      width: 500px; height: 500px;
+      top: -100px; right: -100px;
+      background: var(--primary);
+    }
+    .hero-blob-2 {
+      width: 400px; height: 400px;
+      bottom: -80px; left: -80px;
+      background: var(--secondary);
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 32px;
+      position: relative;
+    }
+    .cta-btn {
+      display: inline-block;
+      padding: 14px 40px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+    .cta-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(255,107,53,0.3);
+    }
+
+    /* ── Section base ───────────────────────────────── */
+    section { padding: 64px 0; }
+    .section-title {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .section-sub {
+      text-align: center;
+      color: var(--text-secondary);
+      max-width: 640px;
+      margin: 0 auto 48px;
+      font-size: 1rem;
+    }
+
+    /* ── What is Tomo ───────────────────────────────── */
+    .about-text {
+      max-width: 720px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .about-text p {
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      font-size: 1.05rem;
+    }
+
+    /* ── How It Works (3 cards) ──────────────────────── */
+    .features {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px 24px;
+      text-align: center;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255,255,255,0.15);
+    }
+    .feature-icon {
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+    }
+    .feature-card h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    /* ── Readiness Colors ───────────────────────────── */
+    .readiness-row {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 32px;
+      flex-wrap: wrap;
+    }
+    .readiness-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .readiness-chip.green  { background: rgba(52,199,89,0.15); color: var(--green); }
+    .readiness-chip.yellow { background: rgba(255,214,10,0.15); color: var(--yellow); }
+    .readiness-chip.red    { background: rgba(255,69,58,0.15); color: var(--red); }
+    .readiness-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .green .readiness-dot  { background: var(--green); }
+    .yellow .readiness-dot { background: var(--yellow); }
+    .red .readiness-dot    { background: var(--red); }
+
+    /* ── Sports ──────────────────────────────────────── */
+    .sports-grid {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .sport-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .sport-icon {
+      width: 72px; height: 72px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .sport-icon:hover {
+      transform: scale(1.1);
+      border-color: var(--primary);
+    }
+    .sport-item span:last-child {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    /* ── Safety ──────────────────────────────────────── */
+    .safety-box {
+      max-width: 720px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      text-align: center;
+    }
+    .safety-box h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .safety-box p {
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+    .safety-box .disclaimer {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* ── Footer ──────────────────────────────────────── */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    footer p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    footer a {
+      color: var(--primary);
+      font-weight: 500;
+    }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Responsive ──────────────────────────────────── */
+    @media (min-width: 768px) {
+      .features { grid-template-columns: repeat(3, 1fr); }
+      .hero { padding: 120px 0 80px; }
+      section { padding: 80px 0; }
+    }
+
+    @media (min-width: 1024px) {
+      .hero { padding: 140px 0 100px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <div class="container nav-inner">
+      <div class="logo">tomo</div>
+      <a href="/" class="nav-btn">Launch App</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="hero-blob hero-blob-1"></div>
+    <div class="hero-blob hero-blob-2"></div>
+    <div class="container">
+      <h1>Your Wellness Coach<br/>for <span>Every Game Day</span></h1>
+      <p>Tomo helps young athletes train smarter by tracking how they feel and adapting their plan — so they peak when it matters most.</p>
+      <a href="/" class="cta-btn">Get Started</a>
+    </div>
+  </header>
+
+  <!-- What is Tomo -->
+  <section>
+    <div class="container">
+      <h2 class="section-title">What is Tomo?</h2>
+      <div class="about-text">
+        <p>Tomo is an AI-powered wellness and performance app built for young athletes ages 13 to 23. Whether you play football, basketball, tennis, or padel, Tomo meets you where you are.</p>
+        <p>Every day, a quick 15-second check-in captures how you feel — energy, soreness, sleep, mood. Tomo turns that into a readiness score that tells you whether to push hard, go light, or rest.</p>
+        <p>Your training plan adapts in real time. No more guessing. No more overtraining. Just smart, safe coaching that keeps you on the pitch and off the bench.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section style="background: var(--surface);">
+    <div class="container">
+      <h2 class="section-title">How It Works</h2>
+      <p class="section-sub">Three simple steps to train at your best, every single day.</p>
+      <div class="features">
+        <div class="feature-card">
+          <div class="feature-icon">&#9997;&#65039;</div>
+          <h3>Check In Daily</h3>
+          <p>A quick tap on energy, soreness, sleep, and mood. Takes under 15 seconds — no typing required.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#127919;</div>
+          <h3>Know Your Readiness</h3>
+          <p>Tomo calculates your readiness as Green, Yellow, or Red — so you always know if today is a push day or a recovery day.</p>
+          <div class="readiness-row">
+            <div class="readiness-chip green"><div class="readiness-dot"></div> Push</div>
+            <div class="readiness-chip yellow"><div class="readiness-dot"></div> Moderate</div>
+            <div class="readiness-chip red"><div class="readiness-dot"></div> Rest</div>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128170;</div>
+          <h3>Train Smarter</h3>
+          <p>Get sport-specific training plans that adapt to how you actually feel — not how a generic program assumes you feel.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sports Supported -->
+  <section>
+    <div class="container">
+      <h2 class="section-title">Sports We Support</h2>
+      <p class="section-sub">Position-specific coaching and training for the sports you love.</p>
+      <div class="sports-grid">
+        <div class="sport-item">
+          <div class="sport-icon">&#9917;</div>
+          <span>Football</span>
+        </div>
+        <div class="sport-item">
+          <div class="sport-icon">&#127936;</div>
+          <span>Basketball</span>
+        </div>
+        <div class="sport-item">
+          <div class="sport-icon">&#127934;</div>
+          <span>Tennis</span>
+        </div>
+        <div class="sport-item">
+          <div class="sport-icon">&#127955;</div>
+          <span>Padel</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Safety First -->
+  <section>
+    <div class="container">
+      <div class="safety-box">
+        <h3>Safety Always Comes First</h3>
+        <p>Tomo will never tell you to push through pain. If something hurts, the recommendation is always rest and recovery. Your long-term health matters more than any single training session.</p>
+        <p class="disclaimer">Tomo is not medical advice. Always consult a healthcare professional for injuries or health concerns.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 Tomo. Built for young athletes. &mdash; <a href="/">Open the App</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>
