@@ -861,8 +861,8 @@ const ChatBubble = React.memo(function ChatBubble({
     );
   }
 
-  // Streaming state with no text yet — show status text + cursor only (no gray box)
-  if (isStreaming && !message.text?.trim()) {
+  // Streaming — show status text + cursor only (never render MarkdownMessage during streaming)
+  if (isStreaming) {
     return (
       <View style={[styles.messageRow, styles.messageRowAi]}>
         <View style={styles.typingStatusWrap}>
@@ -882,7 +882,7 @@ const ChatBubble = React.memo(function ChatBubble({
   return (
     <View style={[styles.messageRow, styles.messageRowAi]}>
       <View style={styles.aiMessageContainer}>
-        {message.structured && !isStreaming && ((message.structured.cards?.length ?? 0) > 0 || (message.structured.chips?.length ?? 0) > 0) ? (
+        {message.structured && ((message.structured.cards?.length ?? 0) > 0 || (message.structured.chips?.length ?? 0) > 0) ? (
           <>
             <ResponseRenderer
               response={message.structured}
@@ -900,8 +900,7 @@ const ChatBubble = React.memo(function ChatBubble({
         ) : message.text ? (
           <MarkdownMessage content={message.text} />
         ) : null}
-        {isStreaming && <StreamingCursor />}
-        {!isStreaming && message.text && <CopyButton text={message.text} />}
+        {message.text && <CopyButton text={message.text} />}
       </View>
     </View>
   );
