@@ -5,7 +5,6 @@ import { createClient } from "@supabase/supabase-js";
 // Allowed web origins for CORS
 const ALLOWED_ORIGINS = [
   "https://app.my-tomo.com",
-  "https://api.my-tomo.com",
   "https://5qakhaec.up.railway.app",
   "http://localhost:3000",
   "http://localhost:8081",

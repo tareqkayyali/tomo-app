@@ -862,7 +862,7 @@ const ChatBubble = React.memo(function ChatBubble({
   }
 
   // Streaming state with no text yet — show status text + cursor only (no gray box)
-  if (isStreaming && !message.text) {
+  if (isStreaming && !message.text?.trim()) {
     return (
       <View style={[styles.messageRow, styles.messageRowAi]}>
         <View style={styles.typingStatusWrap}>
@@ -872,6 +872,11 @@ const ChatBubble = React.memo(function ChatBubble({
       </View>
     );
   }
+
+  // No content to render — skip empty container
+  const hasText = !!message.text?.trim();
+  const hasCards = message.structured && ((message.structured.cards?.length ?? 0) > 0 || (message.structured.chips?.length ?? 0) > 0);
+  if (!hasText && !hasCards) return null;
 
   // AI message — structured card or markdown fallback
   return (
