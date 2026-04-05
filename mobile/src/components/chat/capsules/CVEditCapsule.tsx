@@ -45,9 +45,9 @@ export function CVEditCapsuleComponent({ card, onSubmit }: CVEditCapsuleProps) {
 
     onSubmit({
       type: 'cv_edit_capsule',
-      toolName: 'update_user_profile',
-      toolInput: changes,
-      agentType: 'mastery',
+      toolName: 'update_profile_batch',
+      toolInput: { updates: changes },
+      agentType: 'settings',
     });
   };
 

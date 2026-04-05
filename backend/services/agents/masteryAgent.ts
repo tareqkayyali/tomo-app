@@ -61,6 +61,54 @@ export const masteryTools = [
       },
     },
   },
+  {
+    name: "list_career_history",
+    description:
+      "List the player's club/career history — current club, past clubs, academies, national teams. Use when asked about club history, current club, or career entries.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
+  {
+    name: "add_career_entry",
+    description:
+      "Add a new career entry (club, academy, national team, trial, camp). Use when player says 'add my club', 'I play for X', 'add academy'.",
+    input_schema: {
+      type: "object" as const,
+      required: ["club_name"],
+      properties: {
+        club_name: { type: "string", description: "Name of the club/academy/team" },
+        entry_type: { type: "string", description: "club | academy | national_team | trial | camp | showcase. Default: club" },
+        league_level: { type: "string", description: "League or division level" },
+        country: { type: "string", description: "Country of the club" },
+        position: { type: "string", description: "Position played at this club" },
+        started_month: { type: "string", description: "Start month in YYYY-MM format" },
+        ended_month: { type: "string", description: "End month in YYYY-MM format, omit if current" },
+        is_current: { type: "boolean", description: "Whether this is the current club. Default: true" },
+      },
+    },
+  },
+  {
+    name: "update_career_entry",
+    description:
+      "Update an existing career entry by ID. Use when player wants to edit club details.",
+    input_schema: {
+      type: "object" as const,
+      required: ["entry_id"],
+      properties: {
+        entry_id: { type: "string", description: "UUID of the career entry to update" },
+        club_name: { type: "string" },
+        entry_type: { type: "string" },
+        league_level: { type: "string" },
+        country: { type: "string" },
+        position: { type: "string" },
+        started_month: { type: "string" },
+        ended_month: { type: "string" },
+        is_current: { type: "boolean" },
+      },
+    },
+  },
 ];
 
 export async function executeMasteryTool(
@@ -141,7 +189,7 @@ export async function executeMasteryTool(
       }
 
       case "get_cv_summary": {
-        const [milestonesRes, testsRes, userRes, plansRes] =
+        const [milestonesRes, testsRes, userRes, plansRes, careerRes] =
           await Promise.all([
             db
               .from("milestones")
@@ -169,12 +217,19 @@ export async function executeMasteryTool(
               .eq("status", "completed")
               .order("date", { ascending: false })
               .limit(90),
+            (db as any)
+              .from("cv_career_entries")
+              .select("entry_type, club_name, league_level, country, position, started_month, ended_month, is_current")
+              .eq("athlete_id", userId)
+              .order("display_order", { ascending: true }),
           ]);
 
         const user = userRes.data;
         const milestones = milestonesRes.data ?? [];
         const tests = testsRes.data ?? [];
         const completedPlans = plansRes.data ?? [];
+        const careerEntries = careerRes.data ?? [];
+        const currentClub = careerEntries.find((e: any) => e.is_current) ?? null;
 
         // Best scores per test type
         const bestByType: Record<string, { score: number; date: string }> = {};
@@ -192,6 +247,8 @@ export async function executeMasteryTool(
               sport: user?.sport ?? context.sport,
               ageBand: context.ageBand,
             },
+            currentClub: currentClub ? { name: currentClub.club_name, league: currentClub.league_level, country: currentClub.country, position: currentClub.position } : null,
+            careerHistory: careerEntries,
             milestones,
             personalBests: bestByType,
             consistency: {
@@ -245,6 +302,74 @@ export async function executeMasteryTool(
             consistencyScore,
           },
         };
+      }
+
+      case "list_career_history": {
+        const { data: entries } = await (db as any)
+          .from("cv_career_entries")
+          .select("id, entry_type, club_name, league_level, country, position, started_month, ended_month, is_current, appearances, goals, assists")
+          .eq("athlete_id", userId)
+          .order("display_order", { ascending: true });
+        const careerEntries = entries ?? [];
+        const currentClub = careerEntries.find((e: any) => e.is_current);
+        return {
+          result: {
+            currentClub: currentClub ?? null,
+            entries: careerEntries,
+            totalEntries: careerEntries.length,
+          },
+        };
+      }
+
+      case "add_career_entry": {
+        const isCurrent = toolInput.is_current !== false; // default true
+        // If marking as current, unset existing current entries
+        if (isCurrent) {
+          await (db as any)
+            .from("cv_career_entries")
+            .update({ is_current: false })
+            .eq("athlete_id", userId)
+            .eq("is_current", true);
+        }
+        const { data: entry, error: insertErr } = await (db as any)
+          .from("cv_career_entries")
+          .insert({
+            athlete_id: userId,
+            club_name: toolInput.club_name,
+            entry_type: toolInput.entry_type ?? "club",
+            league_level: toolInput.league_level ?? null,
+            country: toolInput.country ?? null,
+            position: toolInput.position ?? context.position ?? null,
+            started_month: toolInput.started_month ?? null,
+            ended_month: toolInput.ended_month ?? null,
+            is_current: isCurrent,
+          })
+          .select()
+          .single();
+        if (insertErr) return { result: null, error: insertErr.message };
+        return { result: { added: entry }, refreshTarget: "profile" };
+      }
+
+      case "update_career_entry": {
+        const { entry_id, ...updates } = toolInput;
+        // If marking as current, unset existing current entries
+        if (updates.is_current) {
+          await (db as any)
+            .from("cv_career_entries")
+            .update({ is_current: false })
+            .eq("athlete_id", userId)
+            .eq("is_current", true)
+            .neq("id", entry_id);
+        }
+        const { data: updated, error: updateErr } = await (db as any)
+          .from("cv_career_entries")
+          .update(updates)
+          .eq("id", entry_id)
+          .eq("athlete_id", userId)
+          .select()
+          .single();
+        if (updateErr) return { result: null, error: updateErr.message };
+        return { result: { updated }, refreshTarget: "profile" };
       }
 
       default:

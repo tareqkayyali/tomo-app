@@ -117,6 +117,19 @@ export const INTENT_REGISTRY: IntentDefinition[] = [
     ],
   },
 
+  {
+    id: "edit_club",
+    capsuleType: "club_edit_capsule",
+    agentType: "mastery",
+    description: "Add, edit, or view club/career history entries on the player CV",
+    examples: [
+      "update my club", "add my current club", "update my CV with my current club",
+      "edit club history", "add career entry", "I play for", "my club is",
+      "change my club", "add academy", "edit my career", "which club am I at",
+      "update current club", "add a new club to my CV",
+    ],
+  },
+
   // ── SCHEDULE RULES ──
   {
     id: "schedule_rules",

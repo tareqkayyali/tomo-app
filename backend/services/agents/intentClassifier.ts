@@ -138,6 +138,12 @@ function buildExactMatchMap(): void {
     { text: "edit my profile", intentId: "edit_cv" },
     { text: "edit my CV profile", intentId: "edit_cv" },
     { text: "edit my cv profile", intentId: "edit_cv" },
+    // Club / Career
+    { text: "update my club", intentId: "edit_club" },
+    { text: "add my current club", intentId: "edit_club" },
+    { text: "edit club history", intentId: "edit_club" },
+    { text: "add a club", intentId: "edit_club" },
+    { text: "change my club", intentId: "edit_club" },
     // Bulk edit
     { text: "bulk edit my events", intentId: "bulk_edit_events" },
     { text: "bulk edit events", intentId: "bulk_edit_events" },

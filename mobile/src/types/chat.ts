@@ -23,6 +23,7 @@ export type CardType =
   | 'checkin_capsule'
   | 'program_action_capsule'
   | 'cv_edit_capsule'
+  | 'club_edit_capsule'
   | 'navigation_capsule'
   | 'quick_action_capsule'
   | 'week_schedule'
@@ -277,6 +278,27 @@ export interface CVEditCapsuleField {
 export interface CVEditCapsule {
   type: 'cv_edit_capsule';
   fields: CVEditCapsuleField[];
+}
+
+export interface ClubEditCapsuleEntry {
+  id: string;
+  entry_type: string;
+  club_name: string;
+  league_level: string | null;
+  country: string | null;
+  position: string | null;
+  started_month: string | null;
+  ended_month: string | null;
+  is_current: boolean;
+  appearances: number | null;
+  goals: number | null;
+  assists: number | null;
+}
+
+export interface ClubEditCapsule {
+  type: 'club_edit_capsule';
+  existingEntries: ClubEditCapsuleEntry[];
+  currentClub: ClubEditCapsuleEntry | null;
 }
 
 export interface NavigationCapsule {
@@ -628,6 +650,7 @@ export type VisualCard =
   | CheckinCapsule
   | ProgramActionCapsule
   | CVEditCapsule
+  | ClubEditCapsule
   | NavigationCapsule
   | QuickActionCapsule
   | EventEditCapsule

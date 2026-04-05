@@ -11,6 +11,7 @@ import { NavigationCapsuleComponent } from './NavigationCapsule';
 import { ProgramActionCapsuleComponent } from './ProgramActionCapsule';
 import { EventEditCapsuleComponent } from './EventEditCapsule';
 import { CVEditCapsuleComponent } from './CVEditCapsule';
+import { ClubEditCapsuleComponent } from './ClubEditCapsule';
 import { DrillRatingCapsuleComponent } from './DrillRatingCapsule';
 import { ScheduleRulesCapsuleComponent } from './ScheduleRulesCapsule';
 import { TrainingScheduleCapsuleComponent } from './TrainingScheduleCapsule';
@@ -54,6 +55,8 @@ export function CapsuleRenderer({ card, onSubmit, onNavigate }: CapsuleRendererP
       return <EventEditCapsuleComponent card={card} onSubmit={onSubmit} />;
     case 'cv_edit_capsule':
       return <CVEditCapsuleComponent card={card} onSubmit={onSubmit} />;
+    case 'club_edit_capsule':
+      return <ClubEditCapsuleComponent card={card} onSubmit={onSubmit} />;
     case 'drill_rating_capsule':
       return <DrillRatingCapsuleComponent card={card} onSubmit={onSubmit} />;
     case 'schedule_rules_capsule':
@@ -112,6 +115,7 @@ export function isCapsuleCard(type: string): boolean {
     'checkin_capsule',
     'program_action_capsule',
     'cv_edit_capsule',
+    'club_edit_capsule',
     'navigation_capsule',
     'event_edit_capsule',
     'drill_rating_capsule',

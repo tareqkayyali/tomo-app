@@ -117,6 +117,18 @@ export const settingsTools = [
     },
   },
   {
+    name: "update_profile_batch",
+    description:
+      "Batch-update multiple profile fields at once. Used by the CV edit capsule. Accepts an object of field→value pairs.",
+    input_schema: {
+      type: "object" as const,
+      required: ["updates"],
+      properties: {
+        updates: { type: "object", description: "Map of field name to new value, e.g. { height_cm: 180, weight_kg: 75 }" },
+      },
+    },
+  },
+  {
     name: "set_goal",
     description:
       "Create a new performance goal with target value, unit, and deadline. Use when player says 'set a goal', 'I want to reach X by Y'.",
@@ -518,6 +530,34 @@ export async function executeSettingsTool(
           return { result: null, error: `Unknown profile field: ${field}` };
         }
         return { result: { updated: field, newValue: value }, refreshTarget: "profile" };
+      }
+
+      case "update_profile_batch": {
+        const updates = toolInput.updates as Record<string, any>;
+        const snapshotFields = ["position", "height_cm", "weight_kg", "preferred_foot", "playing_style", "gender", "sitting_height_cm", "date_of_birth"];
+        const userFields = ["sport", "name"];
+
+        const snapshotUpdates: Record<string, any> = {};
+        const userUpdates: Record<string, any> = {};
+
+        for (const [field, value] of Object.entries(updates)) {
+          if (snapshotFields.includes(field)) {
+            snapshotUpdates[field] = value;
+          } else if (userFields.includes(field)) {
+            userUpdates[field] = value;
+          }
+        }
+
+        const promises: PromiseLike<any>[] = [];
+        if (Object.keys(snapshotUpdates).length > 0) {
+          promises.push(db.from("athlete_snapshots").update(snapshotUpdates).eq("athlete_id", userId));
+        }
+        if (Object.keys(userUpdates).length > 0) {
+          promises.push(db.from("users").update(userUpdates).eq("id", userId));
+        }
+        await Promise.all(promises);
+
+        return { result: { updated: Object.keys(updates) }, refreshTarget: "profile" };
       }
 
       case "set_goal": {

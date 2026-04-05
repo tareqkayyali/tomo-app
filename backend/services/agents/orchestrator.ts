@@ -205,6 +205,9 @@ const WRITE_ACTIONS = new Set([
   "add_exam",
   "generate_study_plan",
   "generate_regular_study_plan",
+  // Mastery agent career write actions
+  "add_career_entry",
+  "update_career_entry",
   // Settings agent write actions
   "update_profile_field",
   "set_goal",
@@ -224,7 +227,11 @@ export const CAPSULE_DIRECT_ACTIONS = new Set([
   "unlock_day",
   "sync_whoop",
   "generate_regular_study_plan",
+  // Mastery agent career direct actions
+  "add_career_entry",
+  "update_career_entry",
   // Settings agent direct actions
+  "update_profile_batch",
   "update_goal_progress",
   "complete_goal",
   "update_injury_status",

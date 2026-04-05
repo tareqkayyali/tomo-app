@@ -877,6 +877,45 @@ async function handleEditCv(
   return null;
 }
 
+async function handleEditClub(
+  _message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  try {
+    const db = supabaseAdmin();
+    const { data: entries } = await (db as any)
+      .from("cv_career_entries")
+      .select("id, entry_type, club_name, league_level, country, position, started_month, ended_month, is_current, appearances, goals, assists")
+      .eq("athlete_id", context.userId)
+      .order("display_order", { ascending: true });
+
+    const existing = entries ?? [];
+    const currentClub = existing.find((e: any) => e.is_current);
+
+    return {
+      message: currentClub
+        ? `Your current club is **${currentClub.club_name}**. You can edit it or add a new entry below.`
+        : "You don't have a current club set. Add one below.",
+      structured: {
+        headline: "Club & Career History",
+        cards: [{
+          type: "club_edit_capsule" as const,
+          existingEntries: existing,
+          currentClub: currentClub ?? null,
+        }],
+        chips: [
+          { label: "Edit my profile", action: "edit my profile" },
+          { label: "View my CV", action: "show my CV summary" },
+        ],
+      },
+      refreshTargets: [],
+      agentType: "mastery",
+    };
+  } catch (e) {
+    logger.warn("[intent-handler] edit_club failed", { error: e });
+  }
+  return null;
+}
+
 async function handleExamSchedule(
   message: string, _params: Record<string, any>, context: PlayerContext
 ): Promise<OrchestratorResult | null> {
@@ -1685,6 +1724,7 @@ export const intentHandlers: Record<string, IntentHandler> = {
   update_event: handleUpdateEvent,
   delete_event: handleDeleteEvent,
   edit_cv: handleEditCv,
+  edit_club: handleEditClub,
   schedule_rules: handleScheduleRules,
   plan_training: handlePlanTraining,
   plan_study: handlePlanStudy,
