@@ -101,13 +101,13 @@ const TAB_ICONS_IONICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
   ForYou: 'star-outline',
 };
 
-/** Phosphor icon names for the Coach in Your Pocket tab bar */
+/** Circle Grammar icon names for the tab bar (resolves via ARC_ICON_MAP) */
 const TAB_ICONS: Record<TabName, string> = {
   Plan: 'timeline',
-  Test: 'output',
+  Test: 'train',
   Chat: 'tomo',
-  Progress: 'mastery',
-  ForYou: 'ownit',
+  Progress: 'trend',
+  ForYou: 'readiness',
 };
 
 const TAB_LABELS: Record<TabName, string> = {
