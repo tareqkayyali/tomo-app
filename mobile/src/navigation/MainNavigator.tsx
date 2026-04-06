@@ -191,8 +191,30 @@ function CenterChatButton({
     >
       <View style={[
         styles.centerButton,
-        { backgroundColor: focused ? colors.accent : colors.accentDark },
+        { backgroundColor: colors.accent },
       ]}>
+        {/* Base gradient: sage green → darker sage */}
+        <LinearGradient
+          colors={[colors.accentLight, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { borderRadius: 15 }]}
+        />
+        {/* Glass shine overlay */}
+        <LinearGradient
+          colors={['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.08)', 'transparent']}
+          locations={[0, 0.35, 0.65]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { borderRadius: 15 }]}
+        />
+        {/* Inner border highlight */}
+        <View style={{
+          ...StyleSheet.absoluteFillObject,
+          borderRadius: 15,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.15)',
+        }} />
         <TomoCompanionIcon size={30} color={colors.textPrimary} />
       </View>
       <Text style={[styles.tabLabel, { color: focused ? colors.accent : colors.textSecondary, marginTop: 4 }]}>

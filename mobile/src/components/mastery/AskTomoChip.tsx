@@ -1,11 +1,12 @@
 /**
  * AskTomoChip — Standardized AI entry point button.
  * Used across all screens (Mastery, Vitals, Programs, Notifications).
- * Style: app background color, cream text, subtle cream border, rounded pill.
+ * Style: Glossy sage green pill matching the Chat tab button.
  */
 
 import React, { memo, useCallback } from 'react';
-import { StyleSheet, Text, Pressable, Platform } from 'react-native';
+import { StyleSheet, Text, Pressable, Platform, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
@@ -33,13 +34,26 @@ const AskTomoChip: React.FC<AskTomoChipProps> = memo(({ label, prompt, onPress }
       onPress={handlePress}
       style={({ pressed }) => [
         styles.chip,
-        {
-          backgroundColor: colors.background,
-          borderColor: colors.creamMuted,
-          opacity: pressed ? 0.7 : 1,
-        },
+        pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
       ]}
     >
+      {/* Base gradient: sage green */}
+      <LinearGradient
+        colors={[colors.accentLight, colors.accent]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, { borderRadius: borderRadius.full }]}
+      />
+      {/* Glass shine overlay */}
+      <LinearGradient
+        colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.06)', 'transparent']}
+        locations={[0, 0.35, 0.65]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, { borderRadius: borderRadius.full }]}
+      />
+      {/* Inner border highlight */}
+      <View style={styles.innerBorder} />
       <SmartIcon name="chatbubble-ellipses-outline" size={14} color={colors.textPrimary} />
       <Text style={[styles.text, { color: colors.textPrimary }]}>
         {label || 'Ask Tomo about this'}
@@ -58,9 +72,20 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
+    borderRadius: borderRadius.full,
     marginTop: spacing.compact,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  innerBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   text: {
     fontFamily: fontFamily.medium,
