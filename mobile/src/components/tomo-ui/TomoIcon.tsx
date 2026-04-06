@@ -7,6 +7,7 @@
 import React, { memo } from 'react';
 import * as PhosphorIcons from 'phosphor-react-native';
 import { useTheme } from '../../hooks/useTheme';
+import { ARC_ICON_MAP } from '../icons/ArcIcons';
 
 /** Phosphor icon weight (stroke style) */
 type IconWeight = 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
@@ -92,14 +93,17 @@ const TomoIcon: React.FC<TomoIconProps> = memo(({
   const { colors } = useTheme();
   const iconColor = color ?? colors.chalk;
 
-  // Resolve Tomo semantic name → Phosphor component name
-  const phosphorName = TOMO_ICON_MAP[name] ?? name;
+  // Priority 1: ARC custom SVG icon (13 sport-metaphor icons)
+  const ArcComponent = ARC_ICON_MAP[name];
+  if (ArcComponent) {
+    return <ArcComponent size={size} color={iconColor} />;
+  }
 
-  // Look up the Phosphor component
+  // Priority 2: Phosphor icon via semantic map or direct name
+  const phosphorName = TOMO_ICON_MAP[name] ?? name;
   const IconComponent = (PhosphorIcons as Record<string, React.ComponentType<any>>)[phosphorName];
 
   if (!IconComponent) {
-    // Fallback: render nothing rather than crash
     if (__DEV__) {
       console.warn(`[TomoIcon] Unknown icon: "${name}" (resolved to "${phosphorName}")`);
     }

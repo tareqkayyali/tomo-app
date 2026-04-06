@@ -37,13 +37,13 @@ const MILESTONES = [
 ];
 
 function getStreakTier(streak: number): { label: string; emoji: string } {
-  if (streak >= 90) return { label: 'Legend', emoji: '👑' };
-  if (streak >= 60) return { label: 'Veteran', emoji: '⭐' };
-  if (streak >= 30) return { label: 'Dedicated', emoji: '🏆' };
-  if (streak >= 14) return { label: 'Consistent', emoji: '💪' };
-  if (streak >= 7) return { label: 'Building', emoji: '🔥' };
-  if (streak >= 1) return { label: 'Started', emoji: '🌱' };
-  return { label: 'New', emoji: '👋' };
+  if (streak >= 90) return { label: 'Legend', emoji: '' };
+  if (streak >= 60) return { label: 'Veteran', emoji: '' };
+  if (streak >= 30) return { label: 'Dedicated', emoji: '' };
+  if (streak >= 14) return { label: 'Consistent', emoji: '' };
+  if (streak >= 7) return { label: 'Building', emoji: '' };
+  if (streak >= 1) return { label: 'Started', emoji: '' };
+  return { label: 'New', emoji: '' };
 }
 
 function getNextMilestoneInfo(
@@ -144,30 +144,30 @@ console.log('\ngetStreakTier — boundary values');
 
 (() => {
   assert(getStreakTier(0).label === 'New', 'streak 0 → New');
-  assert(getStreakTier(0).emoji === '👋', 'streak 0 emoji');
+  assert(getStreakTier(0).emoji === '', 'streak 0 emoji');
 
   assert(getStreakTier(1).label === 'Started', 'streak 1 → Started');
-  assert(getStreakTier(1).emoji === '🌱', 'streak 1 emoji');
+  assert(getStreakTier(1).emoji === '', 'streak 1 emoji');
 
   assert(getStreakTier(6).label === 'Started', 'streak 6 → Started');
   assert(getStreakTier(7).label === 'Building', 'streak 7 → Building');
-  assert(getStreakTier(7).emoji === '🔥', 'streak 7 emoji');
+  assert(getStreakTier(7).emoji === '', 'streak 7 emoji');
 
   assert(getStreakTier(13).label === 'Building', 'streak 13 → Building');
   assert(getStreakTier(14).label === 'Consistent', 'streak 14 → Consistent');
-  assert(getStreakTier(14).emoji === '💪', 'streak 14 emoji');
+  assert(getStreakTier(14).emoji === '', 'streak 14 emoji');
 
   assert(getStreakTier(29).label === 'Consistent', 'streak 29 → Consistent');
   assert(getStreakTier(30).label === 'Dedicated', 'streak 30 → Dedicated');
-  assert(getStreakTier(30).emoji === '🏆', 'streak 30 emoji');
+  assert(getStreakTier(30).emoji === '', 'streak 30 emoji');
 
   assert(getStreakTier(59).label === 'Dedicated', 'streak 59 → Dedicated');
   assert(getStreakTier(60).label === 'Veteran', 'streak 60 → Veteran');
-  assert(getStreakTier(60).emoji === '⭐', 'streak 60 emoji');
+  assert(getStreakTier(60).emoji === '', 'streak 60 emoji');
 
   assert(getStreakTier(89).label === 'Veteran', 'streak 89 → Veteran');
   assert(getStreakTier(90).label === 'Legend', 'streak 90 → Legend');
-  assert(getStreakTier(90).emoji === '👑', 'streak 90 emoji');
+  assert(getStreakTier(90).emoji === '', 'streak 90 emoji');
 
   assert(getStreakTier(365).label === 'Legend', 'streak 365 → Legend');
 })();

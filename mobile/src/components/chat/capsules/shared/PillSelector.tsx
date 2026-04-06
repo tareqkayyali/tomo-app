@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   },
   pillSelected: {
     borderColor: colors.accent1,
-    backgroundColor: `rgba(255, 107, 53, 0.12)`,
+    backgroundColor: `rgba(122, 155, 118, 0.12)`,
   },
   pillPressed: {
     opacity: 0.7,

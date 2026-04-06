@@ -102,7 +102,7 @@ function RatingHistoryChart({
   return (
     <View>
       <Svg width={width} height={height}>
-        <Path d={areaD} fill="rgba(48, 209, 88, 0.1)" />
+        <Path d={areaD} fill="rgba(122, 155, 118, 0.1)" />
         <Path d={pathD} stroke={colors.accent} strokeWidth={2.5} fill="none" />
         {points.map((p, i) => (
           <SvgCircle
@@ -219,7 +219,7 @@ const contribStyles = StyleSheet.create({
     flex: 1,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.creamMuted,
     overflow: 'hidden',
     marginHorizontal: 8,
   },
@@ -265,7 +265,7 @@ function PositionFitRow({
 }) {
   const pct = maxOverall > 0 ? (overall / maxOverall) * 100 : 0;
   return (
-    <View style={[fitStyles.row, isCurrent && { backgroundColor: 'rgba(48, 209, 88, 0.08)', borderRadius: 8 }]}>
+    <View style={[fitStyles.row, isCurrent && { backgroundColor: colors.accentSubtle, borderRadius: 8 }]}>
       <View style={fitStyles.posWrap}>
         <Text style={[fitStyles.posLabel, { color: isCurrent ? colors.accent : colors.textOnDark }]}>
           {position}
@@ -317,7 +317,7 @@ const fitStyles = StyleSheet.create({
     flex: 1,
     height: 10,
     borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.creamMuted,
     overflow: 'hidden',
     marginHorizontal: 8,
   },
@@ -332,7 +332,7 @@ const fitStyles = StyleSheet.create({
     textAlign: 'right',
   },
   currentBadge: {
-    backgroundColor: 'rgba(48, 209, 88, 0.15)',
+    backgroundColor: colors.accentSoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -750,7 +750,7 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: 10,
       paddingVertical: 3,
       borderRadius: 8,
-      backgroundColor: 'rgba(255, 215, 0, 0.12)',
+      backgroundColor: colors.secondarySubtle,
     },
     heroBadgeText: {
       fontFamily: fontFamily.bold,
@@ -762,7 +762,7 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: 10,
       paddingVertical: 3,
       borderRadius: 8,
-      backgroundColor: 'rgba(0, 217, 255, 0.12)',
+      backgroundColor: colors.accentMuted,
     },
     heroPositionText: {
       fontFamily: fontFamily.bold,
@@ -859,7 +859,7 @@ function createStyles(colors: ThemeColors) {
       marginTop: 12,
       padding: 10,
       borderRadius: borderRadius.md,
-      backgroundColor: 'rgba(0, 217, 255, 0.08)',
+      backgroundColor: colors.accentSubtle,
     },
     insightText: {
       flex: 1,
@@ -877,7 +877,7 @@ function createStyles(colors: ThemeColors) {
       marginTop: 12,
       padding: 10,
       borderRadius: borderRadius.md,
-      backgroundColor: 'rgba(0, 217, 255, 0.08)',
+      backgroundColor: colors.accentSubtle,
     },
     altSuggestionText: {
       flex: 1,
@@ -924,7 +924,7 @@ function createStyles(colors: ThemeColors) {
       gap: 8,
       padding: 12,
       borderRadius: borderRadius.md,
-      backgroundColor: 'rgba(255, 107, 53, 0.08)',
+      backgroundColor: colors.accentSubtle,
     },
     projCalloutText: {
       flex: 1,

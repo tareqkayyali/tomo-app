@@ -14,12 +14,12 @@ interface Props {
 export function StrengthsGapsCapsuleComponent({ card }: Props) {
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>📊 Your Performance Profile</Text>
+      <Text style={styles.heading}>Your Performance Profile</Text>
 
       {/* Overall */}
       <View style={styles.overallRow}>
         <Text style={styles.overallLabel}>Overall Percentile</Text>
-        <Text style={[styles.overallValue, { color: card.overallPercentile >= 60 ? colors.success : card.overallPercentile >= 40 ? colors.warning : '#E74C3C' }]}>
+        <Text style={[styles.overallValue, { color: card.overallPercentile >= 60 ? colors.success : card.overallPercentile >= 40 ? colors.warning : colors.textSecondary }]}>
           P{Math.round(card.overallPercentile)}
         </Text>
       </View>
@@ -27,7 +27,7 @@ export function StrengthsGapsCapsuleComponent({ card }: Props) {
       {/* Strengths */}
       {card.strengths.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💪 Strengths</Text>
+          <Text style={styles.sectionTitle}>Strengths</Text>
           {card.strengths.map((s, i) => (
             <View key={i} style={styles.metricRow}>
               <Text style={styles.metricName}>{s.metric}</Text>
@@ -41,12 +41,12 @@ export function StrengthsGapsCapsuleComponent({ card }: Props) {
       {/* Gaps */}
       {card.gaps.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🎯 Areas to Develop</Text>
+          <Text style={styles.sectionTitle}>Areas to Develop</Text>
           {card.gaps.map((g, i) => (
             <View key={i} style={styles.metricRow}>
               <Text style={styles.metricName}>{g.metric}</Text>
               <Text style={styles.metricValue}>{g.value} {g.unit}</Text>
-              <Text style={[styles.percentile, { color: '#E74C3C' }]}>P{g.percentile}</Text>
+              <Text style={[styles.percentile, { color: colors.textSecondary }]}>P{g.percentile}</Text>
             </View>
           ))}
         </View>

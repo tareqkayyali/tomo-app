@@ -8,22 +8,16 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Platform, Text } from 'react-native';
 import { useFonts } from 'expo-font';
 import {
-  Montserrat_300Light,
-  Montserrat_400Regular,
-  Montserrat_400Regular_Italic,
-  Montserrat_500Medium,
-  Montserrat_600SemiBold,
-  Montserrat_700Bold,
-} from '@expo-google-fonts/montserrat';
-import {
-  MontserratAlternates_500Medium,
-  MontserratAlternates_600SemiBold,
-  MontserratAlternates_700Bold,
-} from '@expo-google-fonts/montserrat-alternates';
+  Poppins_300Light,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+} from '@expo-google-fonts/poppins';
 import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
-import { ThemeProvider, useTheme } from './src/hooks/useTheme';
+import { ThemeProvider } from './src/hooks/useTheme';
 import { SportProvider, type ActiveSport } from './src/hooks/useSportContext';
 import { ContentProvider } from './src/hooks/useContentProvider';
 import { ConfigProvider } from './src/hooks/useConfigProvider';
@@ -63,13 +57,12 @@ function SportWrapper({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  const { isDark } = useTheme();
   return (
     <ContentProvider>
       <AuthProvider>
         <BootProvider>
           <SportWrapper>
-            <StatusBar style={isDark ? 'light' : 'dark'} />
+            <StatusBar style="light" />
             <AppAtmosphere intensity="none">
               <RootNavigator />
             </AppAtmosphere>
@@ -91,15 +84,11 @@ function App() {
       ? {} // No-op on web — CSS handles all fonts
       : {
           ...Ionicons.font,
-          Montserrat_300Light,
-          Montserrat_400Regular,
-          Montserrat_400Regular_Italic,
-          Montserrat_500Medium,
-          Montserrat_600SemiBold,
-          Montserrat_700Bold,
-          MontserratAlternates_500Medium,
-          MontserratAlternates_600SemiBold,
-          MontserratAlternates_700Bold,
+          Poppins_300Light,
+          Poppins_400Regular,
+          Poppins_500Medium,
+          Poppins_600SemiBold,
+          Poppins_700Bold,
         },
   );
 
@@ -116,7 +105,7 @@ function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#12141F' }}>
       <ErrorBoundary>
         <View style={styles.root} onLayout={onLayoutRootView}>
           <AnimatedSplashScreen isReady={fontsLoaded}>
@@ -171,12 +160,13 @@ function AppLoadingScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: '#12141F',
   },
   loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0D0C0E',
+    backgroundColor: '#12141F',
     gap: 8,
   },
   loadingIconWrap: {
@@ -185,21 +175,21 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 217, 255, 0.1)',
+    backgroundColor: 'rgba(122, 155, 118, 0.1)',
     marginBottom: 4,
   },
   loadingTitle: {
     fontFamily: Platform.OS === 'web' ? 'Poppins, sans-serif' : undefined,
     fontWeight: '600',
     fontSize: 16,
-    color: '#F5F5F5',
+    color: '#F5F3ED',
     textAlign: 'center',
   },
   loadingSubtitle: {
     fontFamily: Platform.OS === 'web' ? 'Poppins, sans-serif' : undefined,
     fontWeight: '400',
     fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(245,243,237,0.5)',
     textAlign: 'center',
     paddingHorizontal: 40,
   },

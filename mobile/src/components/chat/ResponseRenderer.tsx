@@ -144,7 +144,7 @@ function createStyles(colors: ThemeColors) {
     weekScheduleSummary: {
       fontFamily: fontFamily.medium,
       fontSize: 13,
-      color: colors.textInactive,
+      color: colors.textBody,
       marginBottom: 8,
       lineHeight: 20,
     },
@@ -246,7 +246,7 @@ function createStyles(colors: ThemeColors) {
     benchmarkBarBg: {
       height: 6,
       borderRadius: 3,
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      backgroundColor: colors.creamMuted,
     },
     benchmarkBarFill: {
       height: 6,
@@ -272,7 +272,7 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.regular,
       fontSize: 14,
       lineHeight: 20,
-      color: colors.textOnDark,
+      color: colors.textBody,
     },
 
     // Stat Grid (horizontal scroll on mobile, wrap on wide screens)
@@ -331,10 +331,10 @@ function createStyles(colors: ThemeColors) {
 
     // Confirm Card
     confirmCard: {
-      backgroundColor: 'rgba(255, 107, 53, 0.06)',
+      backgroundColor: colors.accentSubtle,
       borderRadius: borderRadius.md,
       borderWidth: 1,
-      borderColor: 'rgba(255, 107, 53, 0.15)',
+      borderColor: colors.accentSoft,
       padding: 14,
       gap: 8,
     },
@@ -347,7 +347,7 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.regular,
       fontSize: 14,
       lineHeight: 20,
-      color: colors.textOnDark,
+      color: colors.textBody,
     },
     confirmButtons: {
       flexDirection: 'row',
@@ -383,7 +383,7 @@ function createStyles(colors: ThemeColors) {
     coachNote: {
       flexDirection: 'row',
       gap: 8,
-      backgroundColor: 'rgba(255, 107, 53, 0.06)',
+      backgroundColor: colors.accentSubtle,
       borderRadius: borderRadius.md,
       borderLeftWidth: 3,
       borderLeftColor: colors.accent1,
@@ -524,7 +524,7 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.regular,
       fontSize: 13,
       lineHeight: 19,
-      color: colors.textInactive,
+      color: colors.textBody,
     },
     drillCardMetaRow: {
       flexDirection: 'row',
@@ -532,7 +532,7 @@ function createStyles(colors: ThemeColors) {
       gap: 6,
     },
     drillCardMetaPill: {
-      backgroundColor: 'rgba(255, 255, 255, 0.06)',
+      backgroundColor: colors.creamSubtle,
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: 6,
@@ -566,7 +566,7 @@ function createStyles(colors: ThemeColors) {
       gap: 4,
     },
     drillCardTag: {
-      backgroundColor: 'rgba(255, 107, 53, 0.1)',
+      backgroundColor: colors.accentMuted,
       paddingHorizontal: 8,
       paddingVertical: 3,
       borderRadius: 10,
@@ -682,7 +682,7 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.semiBold,
       fontSize: 10,
       color: colors.accent1,
-      backgroundColor: 'rgba(255, 107, 53, 0.1)',
+      backgroundColor: colors.accentMuted,
       paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: 8,
@@ -704,7 +704,7 @@ function StatRowCard({ card, styles }: { card: StatRow; styles: ReturnType<typeo
   return (
     <View style={styles.statRow}>
       <View style={styles.statLeft}>
-        {card.emoji ? <Text style={styles.statEmoji}>{card.emoji}</Text> : null}
+        {card.emoji && card.emoji.trim() ? <Text style={styles.statEmoji}>{card.emoji}</Text> : null}
         <Text style={styles.statLabel}>{card.label}</Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
@@ -805,7 +805,7 @@ function ScheduleListCard({
                 {
                   borderColor: item.clash ? colors.accent : badgeColor,
                   backgroundColor: item.clash
-                    ? 'rgba(255, 107, 53, 0.12)'
+                    ? colors.accentMuted
                     : `${badgeColor}15`,
                 },
               ]}
@@ -816,7 +816,7 @@ function ScheduleListCard({
                   { color: item.clash ? colors.accent : badgeColor },
                 ]}
               >
-                {item.clash ? '⚡ Clash' : BADGE_LABELS[item.type] || item.type}
+                {item.clash ? 'Clash' : BADGE_LABELS[item.type] || item.type}
               </Text>
             </View>
           </View>
@@ -960,11 +960,11 @@ function BenchmarkBarCard({
 
 // ── Program Recommendation Card ─────────────────────────────────
 
-const PRIORITY_EMOJI: Record<string, string> = { mandatory: '🔴', high: '🟠', medium: '🟡' };
+const PRIORITY_EMOJI: Record<string, string> = { mandatory: '', high: '', medium: '' };
 const CATEGORY_EMOJI: Record<string, string> = {
-  speed: '⚡', sprint: '⚡', agility: '🔀', strength: '💪', power: '💥',
-  endurance: '🫀', technical: '⚽', injury_prevention: '🩹', mobility: '🧘',
-  nordic: '🩹', acl_prevention: '🩹', recovery: '💚',
+  speed: '', sprint: '', agility: '', strength: '', power: '',
+  endurance: '', technical: '', injury_prevention: '', mobility: '',
+  nordic: '', acl_prevention: '', recovery: '',
 };
 
 function ProgramRecommendationCardComponent({
@@ -979,7 +979,7 @@ function ProgramRecommendationCardComponent({
   return (
     <View style={{ gap: 8 }}>
       {(Array.isArray(card.programs) ? card.programs : []).slice(0, 5).map((p, i) => {
-        const emoji = CATEGORY_EMOJI[p.category?.toLowerCase()] ?? '📋';
+        const emoji = CATEGORY_EMOJI[p.category?.toLowerCase()] ?? '';
         const priorityDot = PRIORITY_EMOJI[p.priority] ?? '';
         return (
           <View
@@ -994,7 +994,7 @@ function ProgramRecommendationCardComponent({
               paddingHorizontal: 12,
             }}
           >
-            <Text style={{ fontSize: 20 }}>{emoji}</Text>
+            {emoji ? <Text style={{ fontSize: 20 }}>{emoji}</Text> : null}
             <View style={{ flex: 1, gap: 2 }}>
               <Text
                 style={{
@@ -1058,7 +1058,7 @@ function TextCardComponent({
     <View style={styles.textCard}>
       {card.headline ? (
         <Text style={styles.textCardHeadline}>
-          {card.emoji ? `${card.emoji} ` : ''}
+          {card.emoji && card.emoji.trim() ? `${card.emoji} ` : ''}
           {card.headline}
         </Text>
       ) : null}
@@ -1131,7 +1131,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const INTENSITY_COLORS: Record<string, { bg: string; text: string }> = {
   light: { bg: 'rgba(74, 222, 128, 0.15)', text: colors.accent },
-  moderate: { bg: 'rgba(255, 107, 53, 0.15)', text: colors.accent },
+  moderate: { bg: colors.accentSoft, text: colors.accent },
   hard: { bg: 'rgba(248, 113, 113, 0.15)', text: colors.error },
 };
 
@@ -1250,7 +1250,7 @@ function DrillCardComponent({
       {/* Meta pills: duration, equipment */}
       <View style={styles.drillCardMetaRow}>
         <View style={styles.drillCardMetaPill}>
-          <Text style={styles.drillCardMetaText}>⏱ {card.duration}min</Text>
+          <Text style={styles.drillCardMetaText}>{card.duration}min</Text>
         </View>
         {(Array.isArray(card.equipment) ? card.equipment : []).map((eq, i) => (
           <View key={i} style={styles.drillCardMetaPill}>
@@ -1260,7 +1260,7 @@ function DrillCardComponent({
         {card.progressionCount > 0 ? (
           <View style={styles.drillCardMetaPill}>
             <Text style={styles.drillCardMetaText}>
-              📈 {card.progressionCount} progressions
+              {card.progressionCount} progressions
             </Text>
           </View>
         ) : null}
@@ -1308,12 +1308,12 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
 };
 
 const VIOLATION_ICONS: Record<string, string> = {
-  overlap: '🔴',
-  gap: '🟡',
-  intensity_cap: '⛔',
-  outside_bounds: '🚫',
-  exam_day_restriction: '📚',
-  max_sessions: '⚠️',
+  overlap: '',
+  gap: '',
+  intensity_cap: '',
+  outside_bounds: '',
+  exam_day_restriction: '',
+  max_sessions: '',
 };
 
 function SchedulePreviewCardComponent({
@@ -1394,7 +1394,7 @@ function SchedulePreviewCardComponent({
                   {(Array.isArray(evt.violations) ? evt.violations : []).map((v, vi) => (
                     <View key={vi} style={styles.schedulePreviewViolation}>
                       <Text style={{ fontSize: 11 }}>
-                        {VIOLATION_ICONS[v.type] || '⚠️'}
+                        {VIOLATION_ICONS[v.type] || ''}
                       </Text>
                       <Text
                         style={[
@@ -1443,7 +1443,7 @@ function SchedulePreviewCardComponent({
                       {
                         backgroundColor:
                           INTENSITY_COLORS[evt.intensity.toLowerCase()]?.bg ||
-                          'rgba(255,255,255,0.06)',
+                          colors.creamSubtle,
                         color:
                           INTENSITY_COLORS[evt.intensity.toLowerCase()]?.text ||
                           colors.textInactive,
@@ -1554,7 +1554,7 @@ function RenderCard({
       if (fallback.headline || fallback.body) {
         return (
           <TextCardComponent
-            card={{ type: 'text_card', headline: fallback.headline ?? fallback.type, body: fallback.body ?? '', emoji: fallback.emoji }}
+            card={{ type: 'text_card', headline: fallback.headline ?? fallback.type, body: fallback.body ?? '', emoji: '' }}
             styles={styles}
           />
         );

@@ -409,7 +409,7 @@ function createStyles(colors: ThemeColors) {
       borderRadius: borderRadius.lg,
       overflow: 'hidden',
       borderWidth: 1,
-      borderColor: '#A855F733',
+      borderColor: colors.secondaryMuted,
     },
     aiCardGradient: {
       padding: spacing.md,

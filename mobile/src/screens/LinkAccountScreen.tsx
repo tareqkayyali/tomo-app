@@ -55,7 +55,7 @@ export function LinkAccountScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.inner}>
-          <View style={[styles.successIcon, { backgroundColor: '#2ED57322' }]}>
+          <View style={[styles.successIcon, { backgroundColor: colors.accentMuted }]}>
             <SmartIcon name="checkmark-circle" size={48} color={colors.accent} />
           </View>
           <Text style={[styles.title, { color: colors.textOnDark }]}>Linked!</Text>

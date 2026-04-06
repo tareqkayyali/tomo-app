@@ -27,8 +27,8 @@ const SHOT_TYPES = [
 ];
 
 const SESSION_TYPES = [
-  { id: 'training', label: '🏋️ Training' },
-  { id: 'match', label: '🏆 Match' },
+  { id: 'training', label: 'Training' },
+  { id: 'match', label: 'Match' },
 ];
 
 export function PadelShotCapsuleComponent({ card, onSubmit }: Props) {
@@ -51,7 +51,7 @@ export function PadelShotCapsuleComponent({ card, onSubmit }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>🎾 Log Padel Session</Text>
+      <Text style={styles.heading}>Log Padel Session</Text>
       <PillSelector options={SHOT_TYPES} selected={shotType} onSelect={setShotType} label="Shot Type" />
       <CapsuleNumberInput label="Rating (0-100)" value={overall} onChange={setOverall} placeholder="75" />
       <PillSelector options={SESSION_TYPES} selected={sessionType} onSelect={setSessionType} label="Session Type" />

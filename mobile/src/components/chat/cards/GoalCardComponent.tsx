@@ -14,9 +14,9 @@ interface GoalCardProps {
 
 function getTrendColor(trend?: string): string {
   switch (trend) {
-    case 'on_track': return colors.readinessGreen ?? '#30D158';
-    case 'behind': return colors.readinessYellow ?? '#F39C12';
-    case 'achieved': return colors.accent2 ?? '#00D9FF';
+    case 'on_track': return colors.readinessGreen ?? colors.accent;
+    case 'behind': return colors.readinessYellow ?? colors.textSecondary;
+    case 'achieved': return colors.accent2 ?? colors.accent;
     default: return colors.textSecondary;
   }
 }
@@ -38,7 +38,7 @@ export function GoalCardComponent({ card }: GoalCardProps) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.icon}>{isAchieved ? '🏆' : '🎯'}</Text>
+        <Text style={styles.icon}>{isAchieved ? '' : ''}</Text>
         <View style={styles.headerText}>
           <Text style={styles.title}>{card.title}</Text>
           {card.trend && (
@@ -57,7 +57,7 @@ export function GoalCardComponent({ card }: GoalCardProps) {
             styles.progressFill,
             {
               width: `${progressWidth}%`,
-              backgroundColor: isAchieved ? (colors.accent2 ?? '#00D9FF') : (colors.accent1 ?? '#FF6B35'),
+              backgroundColor: isAchieved ? (colors.accent2 ?? colors.accent) : (colors.accent1 ?? colors.accent),
             },
           ]}
         />
@@ -116,11 +116,11 @@ const styles = StyleSheet.create({
   percentage: {
     fontFamily: fontFamily.bold,
     fontSize: 20,
-    color: colors.accent1 ?? '#FF6B35',
+    color: colors.accent1 ?? colors.accent,
   },
   progressTrack: {
     height: 6,
-    backgroundColor: (colors as any).backgroundTertiary ?? '#252328',
+    backgroundColor: (colors as any).backgroundTertiary ?? colors.surface,
     borderRadius: 3,
     overflow: 'hidden',
   },

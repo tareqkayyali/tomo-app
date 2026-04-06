@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(245, 243, 237, 0.25)',
     marginVertical: spacing.md,
   },
   microcopy: {

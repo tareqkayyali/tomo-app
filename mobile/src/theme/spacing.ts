@@ -59,22 +59,22 @@ export const layout = {
 
 // ─── Border Radius (Brand Kit: 8px cards, 12px buttons) ────────────
 export const borderRadius = {
-  /** 8px — standard cards (Brand Kit default) */
-  sm: 8,
+  /** 12px — standard cards (Tomo 友) */
+  sm: 12,
   /** 12px — buttons */
   md: 12,
-  /** 16px — large cards */
-  lg: 16,
-  /** 20px — chat bubbles */
-  chat: 20,
-  /** 24px — input pills */
-  xl: 24,
-  /** @deprecated Use sm (8) instead */
-  blobMin: 8,
-  /** @deprecated Use sm (8) instead */
-  blobMid: 8,
-  /** @deprecated Use sm (8) instead */
-  blobMax: 8,
+  /** 12px — large cards */
+  lg: 12,
+  /** 12px — chat bubbles */
+  chat: 12,
+  /** 12px — inputs */
+  xl: 12,
+  /** @deprecated Tomo 友: uniform 12px */
+  blobMin: 12,
+  /** @deprecated Tomo 友: uniform 12px */
+  blobMid: 12,
+  /** @deprecated Tomo 友: uniform 12px */
+  blobMax: 12,
   /** 9999px — full circle / pill shape */
   full: 9999,
 };
@@ -141,7 +141,7 @@ export const shadows: Record<string, ViewStyle> = {
   },
   /** Orange brand glow for coach CTA buttons */
   glowBrand: {
-    shadowColor: '#FF6B35',
+    shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 16,

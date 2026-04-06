@@ -54,7 +54,7 @@ type Props = {
 const SCREEN = Dimensions.get('window');
 const TARGET_SIZE = 70;
 const TOTAL_TARGETS = 15;
-const TARGET_COLORS = ['#FF6B35', '#7B61FF', '#00D9FF', '#30D158'];
+const TARGET_COLORS = [colors.accent, colors.textSecondary, colors.accentLight, colors.accentDark];
 
 // Safe area for target placement
 const PADDING_H = 40;
@@ -231,7 +231,7 @@ export function ReactionTestScreen({ navigation }: Props) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
-          <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,107,53,0.15)' }]}>
+          <View style={[styles.iconCircle, { backgroundColor: colors.accentSoft }]}>
             <SmartIcon name="hand-left-outline" size={40} color={colors.accent1} />
           </View>
           <Text style={styles.title}>Reaction Speed</Text>
@@ -260,7 +260,7 @@ export function ReactionTestScreen({ navigation }: Props) {
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <SmartIcon name="play" size={22} color="#FFFFFF" />
+              <SmartIcon name="play" size={22} color="#F5F3ED" />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -327,7 +327,7 @@ export function ReactionTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <SmartIcon name="checkmark-circle" size={80} color="#30D158" />
+            <SmartIcon name="checkmark-circle" size={80} color="#7A9B76" />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   startText: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   backWrap: {
     paddingVertical: spacing.md,
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.creamMuted,
     overflow: 'hidden',
   },
   progressFill: {
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 32,
-    color: '#30D158',
+    color: colors.accent,
     marginTop: spacing.md,
   },
 });

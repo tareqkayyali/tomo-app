@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   errorBox: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.creamSubtle,
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,

@@ -15,6 +15,8 @@ import type { OutputSnapshot, VitalGroup, VitalMetric } from '../../services/api
 import { getRagColor, getTrendIcon, getTrendColor, getGroupThemeColor, getZoneBadgeColor, getZoneBadgeBg, getBaselineText, getStoryStatusColor } from './outputTypes';
 import type { VitalStoryBlock } from '../../services/api';
 
+import { colors } from '../../theme/colors';
+
 interface Props {
   vitals: OutputSnapshot['vitals'];
   isWhoopConnected?: boolean;
@@ -23,10 +25,10 @@ interface Props {
 
 // Freshness colors
 const FRESHNESS_COLORS: Record<string, string> = {
-  fresh: '#30D158',
-  aging: '#F39C12',
-  stale: '#E74C3C',
-  no_data: '#6B6B6B',
+  fresh: colors.accent,
+  aging: colors.textSecondary,
+  stale: colors.textSecondary,
+  no_data: colors.textSecondary,
 };
 
 // ── Metric title builder ──────────────────────────────────────────────
@@ -121,10 +123,10 @@ function AskTomoButton({ prompt, colors }: { prompt: string; colors: any }) {
           },
         });
       }}
-      style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
+      style={[styles.askTomoButton, { backgroundColor: colors.background, borderColor: colors.creamMuted, borderWidth: 1, borderRadius: 12 }]}
     >
-      <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.info} />
-      <Text style={[styles.askTomoText, { color: colors.info }]}>Ask Tomo about this</Text>
+      <SmartIcon name="chatbubble-ellipses-outline" size={14} color={colors.textPrimary} />
+      <Text style={[styles.askTomoText, { color: colors.textPrimary }]}>Ask Tomo about this</Text>
     </Pressable>
   );
 }
@@ -150,7 +152,7 @@ function VitalCard({ metric, colors }: { metric: any; colors: any }) {
       <GlassCard>
         {/* Header — always visible */}
         <View style={[styles.cardHeader, isStale && { opacity: 0.6 }]}>
-          <Text style={styles.cardEmoji}>{metric.emoji}</Text>
+          {metric.emoji ? <Text style={styles.cardEmoji}>{metric.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
             <Text style={[styles.cardTitle, { color: colors.textOnDark }]} numberOfLines={1}>
               {title}
@@ -189,7 +191,7 @@ function VitalCard({ metric, colors }: { metric: any; colors: any }) {
         {/* Expanded content */}
         {expanded && (
           <View style={styles.expandedBody}>
-            <Text style={[styles.cardContext, { color: colors.textMuted }]}>{context}</Text>
+            <Text style={[styles.cardContext, { color: colors.textBody }]}>{context}</Text>
             <AskTomoButton
               prompt={`My ${metric.label} is ${metric.value != null ? metric.value : 'unavailable'}${metric.unit}${metric.zoneLabel ? ` (${metric.zoneLabel})` : ''}. ${baselineText || ''} What does this mean for my training today?`}
               colors={colors}
@@ -213,7 +215,7 @@ function StoryCard({ story, colors }: { story: VitalStoryBlock; colors: any }) {
       <GlassCard>
         {/* Header */}
         <View style={styles.cardHeader}>
-          <Text style={styles.cardEmoji}>{story.emoji}</Text>
+          {story.emoji ? <Text style={styles.cardEmoji}>{story.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
             <Text style={[styles.cardTitle, { color: colors.textOnDark }]}>{story.title}</Text>
           </View>
@@ -236,7 +238,7 @@ function StoryCard({ story, colors }: { story: VitalStoryBlock; colors: any }) {
         {/* Expanded content */}
         {expanded && (
           <View style={styles.expandedBody}>
-            <Text style={[styles.cardContext, { color: colors.textMuted }]}>{story.narrative}</Text>
+            <Text style={[styles.cardContext, { color: colors.textBody }]}>{story.narrative}</Text>
             <View style={styles.pillRow}>
               {story.contributingMetrics.map((m) => (
                 <View key={m} style={[styles.metricPill, { backgroundColor: colors.glass }]}>
@@ -272,7 +274,7 @@ function VitalGroupCard({ group, phv, colors }: {
       <GlassCard>
         {/* Header */}
         <View style={styles.cardHeader}>
-          <Text style={styles.cardEmoji}>{group.emoji}</Text>
+          {group.emoji ? <Text style={styles.cardEmoji}>{group.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
             <Text style={[styles.cardTitle, { color: colors.textOnDark }]}>{group.displayName}</Text>
           </View>
@@ -306,7 +308,7 @@ function VitalGroupCard({ group, phv, colors }: {
         {/* Expanded: full metric list + description + Ask Tomo */}
         {expanded && (
           <View style={styles.expandedBody}>
-            <Text style={[styles.cardContext, { color: colors.textMuted }]}>
+            <Text style={[styles.cardContext, { color: colors.textBody }]}>
               {group.athleteDescription}
             </Text>
 
@@ -317,7 +319,7 @@ function VitalGroupCard({ group, phv, colors }: {
             {/* PHV/LTAD inside Body & Growth */}
             {phv && (
               <View style={[styles.phvBanner, { backgroundColor: colors.accent + '15', borderColor: colors.accent + '33' }]}>
-                <Text style={styles.phvEmoji}>{phv.ltad.emoji}</Text>
+                {phv.ltad.emoji ? <Text style={styles.phvEmoji}>{phv.ltad.emoji}</Text> : null}
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.phvTitle, { color: colors.textOnDark }]}>
                     {phv.ltad.stageName}
@@ -364,7 +366,7 @@ function MetricRow({ metric, themeColor, colors }: {
   const trendColor = getTrendColor(metric.trend);
   return (
     <View style={styles.metricRow}>
-      <Text style={styles.metricRowEmoji}>{metric.emoji}</Text>
+      {metric.emoji ? <Text style={styles.metricRowEmoji}>{metric.emoji}</Text> : null}
       <View style={{ flex: 1 }}>
         <View style={styles.metricLabelRow}>
           <Text style={[styles.metricLabel, { color: colors.textOnDark }]}>{metric.label}</Text>

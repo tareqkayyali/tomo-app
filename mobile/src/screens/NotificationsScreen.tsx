@@ -274,7 +274,7 @@ export function NotificationsScreen() {
           {isParentLink && resolved && (
             <View style={[
               styles.resolvedBadge,
-              { backgroundColor: resolved === 'accepted' ? '#2ED57322' : '#E74C3C22' },
+              { backgroundColor: resolved === 'accepted' ? colors.accentMuted : colors.secondarySubtle },
             ]}>
               <Text style={[
                 styles.resolvedText,

@@ -5,6 +5,7 @@
 
 import type { Ionicons } from '@expo/vector-icons';
 import type { GlowPreset } from '../GlowWrapper';
+import { colors } from '../../theme/colors';
 
 // ─── Category Types ──────────────────────────────────────────────────
 
@@ -29,26 +30,26 @@ export interface CategoryConfig {
 }
 
 export const CATEGORY_CONFIG: Record<NotificationCategory, CategoryConfig> = {
-  critical: { color: '#E74C3C', icon: 'flash', label: 'Critical', glow: 'orange', badgeVariant: 'error', tintBg: 'rgba(231, 76, 60, 0.08)' },
-  training: { color: '#F4501E', icon: 'calendar', label: 'Training', glow: 'orange', badgeVariant: 'warning', tintBg: 'rgba(244, 80, 30, 0.06)' },
-  coaching: { color: '#2ECC71', icon: 'star', label: 'Coaching', glow: 'cyan', badgeVariant: 'success', tintBg: 'rgba(46, 204, 113, 0.06)' },
-  academic: { color: '#3498DB', icon: 'book', label: 'Academic', glow: 'cyan', badgeVariant: 'info', tintBg: 'rgba(52, 152, 219, 0.06)' },
-  triangle: { color: '#8E44AD', icon: 'diamond', label: 'Triangle', glow: 'subtle', badgeVariant: 'chip', tintBg: 'rgba(142, 68, 173, 0.06)' },
-  cv:       { color: '#F39C12', icon: 'person-circle', label: 'CV', glow: 'subtle', badgeVariant: 'warning', tintBg: 'rgba(243, 156, 18, 0.06)' },
-  system:   { color: '#888888', icon: 'information-circle', label: 'System', glow: 'none', badgeVariant: 'chip', tintBg: 'rgba(136, 136, 136, 0.04)' },
+  critical: { color: colors.textSecondary, icon: 'flash', label: 'Critical', glow: 'orange', badgeVariant: 'error', tintBg: colors.secondarySubtle },
+  training: { color: colors.accent, icon: 'calendar', label: 'Training', glow: 'orange', badgeVariant: 'warning', tintBg: colors.accentSubtle },
+  coaching: { color: colors.accent, icon: 'star', label: 'Coaching', glow: 'cyan', badgeVariant: 'success', tintBg: colors.accentSubtle },
+  academic: { color: colors.textSecondary, icon: 'book', label: 'Academic', glow: 'cyan', badgeVariant: 'info', tintBg: colors.secondarySubtle },
+  triangle: { color: colors.textSecondary, icon: 'diamond', label: 'Triangle', glow: 'subtle', badgeVariant: 'chip', tintBg: colors.secondarySubtle },
+  cv:       { color: colors.textSecondary, icon: 'person-circle', label: 'CV', glow: 'subtle', badgeVariant: 'warning', tintBg: colors.secondarySubtle },
+  system:   { color: colors.textSecondary, icon: 'information-circle', label: 'System', glow: 'none', badgeVariant: 'chip', tintBg: colors.secondarySubtle },
 };
 
 // ─── Chip Colors ─────────────────────────────────────────────────────
 
 export const CHIP_COLORS: Record<string, { bg: string; text: string }> = {
-  red:    { bg: 'rgba(231, 76, 60, 0.18)', text: '#E74C3C' },
-  green:  { bg: 'rgba(46, 204, 113, 0.18)', text: '#2ECC71' },
-  amber:  { bg: 'rgba(243, 156, 18, 0.18)', text: '#F39C12' },
-  blue:   { bg: 'rgba(52, 152, 219, 0.18)', text: '#3498DB' },
-  orange: { bg: 'rgba(244, 80, 30, 0.18)', text: '#F4501E' },
-  purple: { bg: 'rgba(142, 68, 173, 0.18)', text: '#8E44AD' },
-  gray:   { bg: 'rgba(136, 136, 136, 0.18)', text: '#888888' },
-  teal:   { bg: 'rgba(0, 217, 255, 0.18)', text: '#00D9FF' },
+  red:    { bg: colors.secondaryMuted, text: colors.textSecondary },
+  green:  { bg: colors.secondaryMuted, text: colors.accent },
+  amber:  { bg: colors.secondaryMuted, text: colors.textSecondary },
+  blue:   { bg: colors.secondaryMuted, text: colors.textSecondary },
+  orange: { bg: colors.secondaryMuted, text: colors.accent },
+  purple: { bg: colors.secondaryMuted, text: colors.textSecondary },
+  gray:   { bg: colors.secondaryMuted, text: colors.textSecondary },
+  teal:   { bg: colors.secondaryMuted, text: colors.accent },
 };
 
 /** Safe chip color lookup — falls back to amber for unknown styles */
@@ -62,7 +63,7 @@ export function getChipColor(style: string): { bg: string; text: string } {
 export type CategoryFilter = 'all' | 'critical' | 'training' | 'coaching' | 'academic' | 'triangle' | 'cv';
 
 export const FILTER_CATEGORIES: { key: CategoryFilter; label: string; color: string }[] = [
-  { key: 'all',      label: 'All',      color: '#2ECC71' },
+  { key: 'all',      label: 'All',      color: colors.accent },
   { key: 'critical', label: 'Critical', color: CATEGORY_CONFIG.critical.color },
   { key: 'training', label: 'Training', color: CATEGORY_CONFIG.training.color },
   { key: 'coaching', label: 'Coaching', color: CATEGORY_CONFIG.coaching.color },

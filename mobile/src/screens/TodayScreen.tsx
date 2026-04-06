@@ -153,7 +153,7 @@ export function TodayScreen({ navigation }: TodayScreenProps) {
         {needsCheckin ? (
           <Animated.View style={fadeIn1}>
           <GradientCard style={styles.checkinPrompt}>
-            <SmartIcon name="checkmark-circle-outline" size={40} color="rgba(255,255,255,0.9)" />
+            <SmartIcon name="checkmark-circle-outline" size={40} color="rgba(245,243,237,0.9)" />
             <Text style={styles.checkinTitle}>Ready for your check-in?</Text>
             <Text style={styles.checkinSubtitle}>
               Quick 10-second check to get your personalized plan
@@ -262,7 +262,7 @@ export function TodayScreen({ navigation }: TodayScreenProps) {
         ) : (
           <Animated.View style={fadeIn1}>
           <GradientCard style={styles.welcomeCard}>
-            <SmartIcon name="hand-right-outline" size={48} color="rgba(255,255,255,0.9)" />
+            <SmartIcon name="hand-right-outline" size={48} color="rgba(245,243,237,0.9)" />
             <Text style={styles.welcomeTitle}>Welcome to Tomo!</Text>
             <Text style={styles.welcomeText}>
               Start your daily check-in to get personalized training recommendations.
@@ -342,13 +342,13 @@ const styles = StyleSheet.create({
   },
   checkinSubtitle: {
     ...typography.body,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(245,243,237,0.8)',
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
   checkinButton: {
     minWidth: 200,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderColor: colors.textMuted,
   },
   welcomeCard: {
     alignItems: 'center',
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     ...typography.body,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(245,243,237,0.8)',
     textAlign: 'center',
     marginBottom: spacing.lg,
   },

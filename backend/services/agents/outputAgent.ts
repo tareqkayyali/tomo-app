@@ -119,7 +119,7 @@ export const outputTools = [
         },
         testType: {
           type: "string",
-          description: "Filter by test type if specified",
+          description: "Filter by exact test catalog ID (kebab-case). Examples: 10m-sprint, 20m-sprint, cmj, reaction-time, agility-505. Check the PLAYER TEST HISTORY section for available test types.",
         },
       },
     },
@@ -628,18 +628,44 @@ export async function executeOutputTool(
 
       case "get_test_results": {
         const limit = toolInput.limit ?? 10;
-        let query = db
+
+        // Query both test tables (phone_test_sessions + football_test_results)
+        let phoneQuery = db
           .from("phone_test_sessions")
           .select("test_type, score, date, raw_data")
           .eq("user_id", userId)
           .order("date", { ascending: false })
           .limit(limit);
+        let footballQuery = db
+          .from("football_test_results")
+          .select("test_type, primary_value, date, raw_inputs")
+          .eq("user_id", userId)
+          .order("date", { ascending: false })
+          .limit(limit);
 
-        if (toolInput.testType)
-          query = query.eq("test_type", toolInput.testType);
+        if (toolInput.testType) {
+          phoneQuery = phoneQuery.eq("test_type", toolInput.testType);
+          footballQuery = footballQuery.eq("test_type", toolInput.testType);
+        }
 
-        const { data } = await query;
-        return { result: { results: data ?? [] } };
+        const [phoneRes, footballRes] = await Promise.all([phoneQuery, footballQuery]);
+        const phoneData = (phoneRes.data ?? []).map((r: any) => ({
+          test_type: r.test_type, score: r.score, date: r.date, raw_data: r.raw_data,
+        }));
+        const footballData = (footballRes.data ?? []).map((r: any) => ({
+          test_type: r.test_type, score: r.primary_value, date: r.date, raw_data: r.raw_inputs,
+        }));
+        // Merge, deduplicate by test_type+date, sort by date desc
+        const mergedMap = new Map<string, any>();
+        for (const t of [...phoneData, ...footballData]) {
+          const key = `${t.test_type}_${t.date}`;
+          if (!mergedMap.has(key)) mergedMap.set(key, t);
+        }
+        const merged = [...mergedMap.values()]
+          .sort((a, b) => (b.date > a.date ? 1 : -1))
+          .slice(0, limit);
+
+        return { result: { results: merged } };
       }
 
       case "get_training_session": {

@@ -300,7 +300,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
             onPress={onRefresh}
             style={({ pressed }) => [
               styles.refreshBtn,
-              { backgroundColor: refreshing ? 'rgba(0,217,255,0.15)' : 'rgba(255,255,255,0.06)', opacity: pressed ? 0.6 : 1 },
+              { backgroundColor: refreshing ? colors.accentSoft : colors.creamSubtle, opacity: pressed ? 0.6 : 1 },
             ]}
             disabled={refreshing}
           >
@@ -481,7 +481,7 @@ function createStyles(colors: ThemeColors) {
     retryText: {
       fontFamily: fontFamily.semiBold,
       fontSize: 14,
-      color: '#FFF',
+      color: colors.textPrimary,
     },
   });
 }

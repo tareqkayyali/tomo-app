@@ -215,6 +215,7 @@ export async function buildPlayerContext(
     vitalsRes,
     examsRes,
     benchmarkRes,
+    footballTestsRes,
     schedPrefsRes,
     snapshotRes,
     projectedLoadRes,
@@ -267,6 +268,12 @@ export async function buildPlayerContext(
       .eq("user_id", userId)
       .order("date", { ascending: false })
       .limit(20),
+    db
+      .from("football_test_results")
+      .select("test_type, primary_value, date")
+      .eq("user_id", userId)
+      .order("date", { ascending: false })
+      .limit(20),
     (db as any)
       .from("player_schedule_preferences")
       .select("*")
@@ -308,10 +315,27 @@ export async function buildPlayerContext(
     vitalsRes.status === "fulfilled" ? (vitalsRes.value.data ?? []) : [];
   const exams =
     examsRes.status === "fulfilled" ? (examsRes.value.data ?? []) : [];
-  const testResults =
+  const phoneTests =
     benchmarkRes.status === "fulfilled"
       ? (benchmarkRes.value.data ?? [])
       : [];
+  const footballTests =
+    footballTestsRes.status === "fulfilled"
+      ? ((footballTestsRes.value as any).data ?? []).map((t: any) => ({
+          test_type: t.test_type,
+          score: t.primary_value,
+          date: t.date,
+        }))
+      : [];
+  // Merge both test sources, deduplicate by test_type+date, sort by date desc
+  const mergedMap = new Map<string, any>();
+  for (const t of [...phoneTests, ...footballTests]) {
+    const key = `${t.test_type}_${t.date}`;
+    if (!mergedMap.has(key)) mergedMap.set(key, t);
+  }
+  const testResults = [...mergedMap.values()]
+    .sort((a: any, b: any) => (b.date > a.date ? 1 : -1))
+    .slice(0, 20);
   const schedPrefsRow =
     schedPrefsRes.status === "fulfilled" ? schedPrefsRes.value.data : null;
   const schedulePreferences: PlayerSchedulePreferences = {

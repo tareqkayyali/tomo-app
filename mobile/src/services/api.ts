@@ -6,6 +6,7 @@
 import { Platform } from 'react-native';
 import { getIdToken } from './auth';
 import { API_BASE_URL, REQUEST_TIMEOUT, MAX_RETRIES, INITIAL_RETRY_DELAY } from './apiConfig';
+import { stripEmoji } from '../utils/stripEmoji';
 import type {
   CheckinData,
   CheckinResponse,
@@ -57,6 +58,30 @@ function isRetryableError(error: unknown): boolean {
 /**
  * Make authenticated API request with timeout and retry logic
  */
+/**
+ * Recursively strip ALL emoji from API responses.
+ * - Fields named 'emoji' → blanked to ''
+ * - ALL string values → emoji characters stripped (event names like "😴 Sleep" → "Sleep")
+ * Tomo 友: no emoji in UI — backend/CMS may send them but we never render them.
+ */
+function stripEmojiFields(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') return stripEmoji(obj);
+  if (Array.isArray(obj)) return obj.map(stripEmojiFields);
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      if (key === 'emoji' && typeof value === 'string') {
+        result[key] = '';
+      } else {
+        result[key] = stripEmojiFields(value);
+      }
+    }
+    return result;
+  }
+  return obj;
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -98,7 +123,7 @@ export async function apiRequest<T>(
         throw new Error(errMsg);
       }
 
-      return data as T;
+      return stripEmojiFields(data) as T;
     } catch (error) {
       clearTimeout(timeoutId);
       lastError = error;

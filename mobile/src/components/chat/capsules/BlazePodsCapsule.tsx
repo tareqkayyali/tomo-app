@@ -46,7 +46,7 @@ export function BlazePodsCapsuleComponent({ card, onSubmit }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>⚡ Log BlazePods Session</Text>
+      <Text style={styles.heading}>Log BlazePods Session</Text>
       <PillSelector options={DRILL_TYPES} selected={drillType} onSelect={setDrillType} label="Drill Type" />
       <CapsuleNumberInput label="Avg Reaction (ms)" value={avgReaction} onChange={setAvgReaction} placeholder="350" />
       <CapsuleNumberInput label="Best Reaction (ms)" value={bestReaction} onChange={setBestReaction} placeholder="280" />

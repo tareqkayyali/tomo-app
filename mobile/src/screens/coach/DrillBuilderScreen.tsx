@@ -37,6 +37,8 @@ import {
 } from '../../services/api';
 import { spacing, borderRadius, layout, shadows, fontFamily } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
+import { colors } from '../../theme/colors';
+
 import type {
   CoachProgramme,
   ProgrammeDrill,
@@ -1227,7 +1229,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: layout.screenMargin,
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: colors.creamSoft,
   },
   dayTab: {
     flex: 1,

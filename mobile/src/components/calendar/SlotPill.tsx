@@ -51,12 +51,12 @@ export function SlotPill({
             ? colors.accent1 + '20'
             : isBest
             ? colors.accent1 + '14'
-            : 'rgba(255,255,255,0.06)',
+            : colors.creamSubtle,
           borderColor: selected
             ? colors.accent1
             : isBest
             ? colors.accent1 + '50'
-            : 'rgba(255,255,255,0.08)',
+            : colors.creamMuted,
           opacity: pressed ? 0.7 : 1,
         },
       ]}

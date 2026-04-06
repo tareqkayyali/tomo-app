@@ -52,6 +52,8 @@ import { useAuth } from '../hooks/useAuth';
 import { apiRequest } from '../services/api';
 import type { NotificationData } from '../components/notifications/NotificationCard';
 
+import { colors } from '../theme/colors';
+
 // ── Map RIE rec → RecCard shape ──────────────────────────────────────
 function toCardRec(r: RIERecommendation): ForYouRecommendation {
   // Extract action from context (stored by deepRecRefresh)
@@ -90,13 +92,13 @@ const OWN_IT_LOADING_MESSAGES = [
 
 // ── Category display config (matches NotificationCard) ───────────────
 const CAT_CONFIG: Record<string, { color: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  critical: { color: '#E74C3C', icon: 'flash' },
-  training: { color: '#F4501E', icon: 'calendar' },
-  coaching: { color: '#2ECC71', icon: 'star' },
-  academic: { color: '#3498DB', icon: 'book' },
-  triangle: { color: '#8E44AD', icon: 'diamond' },
-  cv:       { color: '#F39C12', icon: 'person-circle' },
-  system:   { color: '#888888', icon: 'information-circle' },
+  critical: { color: colors.textSecondary, icon: 'flash' },
+  training: { color: colors.accent, icon: 'calendar' },
+  coaching: { color: colors.accent, icon: 'star' },
+  academic: { color: colors.textSecondary, icon: 'book' },
+  triangle: { color: colors.textSecondary, icon: 'diamond' },
+  cv:       { color: colors.textSecondary, icon: 'person-circle' },
+  system:   { color: colors.textSecondary, icon: 'information-circle' },
 };
 
 function timeAgoShort(dateStr: string): string {
@@ -168,9 +170,9 @@ function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; 
         marginHorizontal: layout.screenMargin,
         marginTop: spacing.md,
         borderRadius: borderRadius.lg,
-        backgroundColor: '#1B191E',
+        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: sorted[0]?.category === 'critical' ? '#E74C3C40' : 'rgba(255,255,255,0.07)',
+        borderColor: sorted[0]?.category === 'critical' ? colors.secondaryMuted : 'rgba(245,243,237,0.07)',
         borderLeftWidth: 3,
         borderLeftColor: CAT_CONFIG[sorted[0]?.category]?.color ?? colors.accent1,
         padding: spacing.md,
@@ -188,7 +190,7 @@ function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           {centerUnreadCount > 0 && (
             <View style={{ backgroundColor: colors.accent1, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
-              <Text style={{ fontFamily: fontFamily.bold, fontSize: 11, color: '#fff' }}>{centerUnreadCount > 99 ? '99+' : centerUnreadCount}</Text>
+              <Text style={{ fontFamily: fontFamily.bold, fontSize: 11, color: colors.textPrimary }}>{centerUnreadCount > 99 ? '99+' : centerUnreadCount}</Text>
             </View>
           )}
           <SmartIcon name="chevron-forward" size={14} color={colors.textSecondary} />
@@ -207,7 +209,7 @@ function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; 
               gap: spacing.sm,
               paddingVertical: spacing.xs,
               borderTopWidth: i > 0 ? 1 : 0,
-              borderTopColor: 'rgba(255,255,255,0.05)',
+              borderTopColor: 'rgba(245,243,237,0.05)',
             }}
           >
             <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: cat.color + '20', justifyContent: 'center', alignItems: 'center' }}>
@@ -254,7 +256,7 @@ export function ForYouScreen() {
     refreshError,
   } = useOwnItData();
   const quickActions = useQuickActions(
-    { key: 'refresh', icon: 'refresh-outline', label: 'Refresh', onPress: forceRefresh, accentColor: '#00D9FF' },
+    { key: 'refresh', icon: 'refresh-outline', label: 'Refresh', onPress: forceRefresh, accentColor: colors.accent },
     navigation,
   );
 
@@ -389,11 +391,11 @@ export function ForYouScreen() {
                   borderRadius: 32,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: '#00D9FF' + '12',
+                  backgroundColor: colors.accent + '12',
                   marginBottom: spacing.xs,
                 }}
               >
-                <SmartIcon name={loadingMsg.icon} size={28} color={'#00D9FF'} />
+                <SmartIcon name={loadingMsg.icon} size={28} color={colors.accent} />
               </View>
               <Text
                 style={{
@@ -459,15 +461,15 @@ export function ForYouScreen() {
                 paddingVertical: 10,
                 paddingHorizontal: spacing.md,
                 marginHorizontal: layout.screenMargin,
-                backgroundColor: 'rgba(0, 217, 255, 0.08)',
+                backgroundColor: colors.accentSubtle,
               }}
             >
-              <SmartIcon name={bannerMsg.icon} size={16} color={'#00D9FF'} />
+              <SmartIcon name={bannerMsg.icon} size={16} color={colors.accent} />
               <Text
                 style={{
                   fontFamily: fontFamily.medium,
                   fontSize: 13,
-                  color: '#00D9FF',
+                  color: colors.accent,
                 }}
               >
                 {bannerMsg.title}...
@@ -504,7 +506,7 @@ export function ForYouScreen() {
             <TimeSection
               title="Tomorrow"
               icon="calendar-outline"
-              color={'#00D9FF'}
+              color={colors.accent}
               recs={tomorrowCards}
               defaultExpanded={true}
               indexOffset={todayCards.length}

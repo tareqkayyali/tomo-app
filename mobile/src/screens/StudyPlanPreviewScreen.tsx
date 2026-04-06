@@ -117,7 +117,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
             ? b.linkedPrograms.map(p => p.name).join(', ')
             : '';
           const notes = programNames
-            ? `${b.categoryLabel}\n📋 Programs: ${programNames}`
+            ? `${b.categoryLabel}\nPrograms: ${programNames}`
             : b.categoryLabel;
           return {
             id: b.id,
@@ -408,7 +408,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
         {warnings.length > 0 && (
           <View style={styles.warningBanner}>
             <View style={styles.warningHeader}>
-              <SmartIcon name="warning-outline" size={18} color="#F59E0B" />
+              <SmartIcon name="warning-outline" size={18} color="#5A6B7C" />
               <Text style={styles.warningTitle}>Some sessions could not be placed</Text>
             </View>
             {warnings.map((w, i) => (
@@ -493,7 +493,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                                 <Text
                                   style={[
                                     styles.editChipText,
-                                    isActive && { color: '#FFF' },
+                                    isActive && { color: colors.textPrimary },
                                   ]}
                                 >
                                   {subj}
@@ -583,7 +583,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                                 updateBlock(block.id, { endTime: minToTime(timeToMin(block.startTime) + dur) });
                               }}
                             >
-                              <Text style={[styles.editChipText, isActive && { color: '#FFF' }]}>
+                              <Text style={[styles.editChipText, isActive && { color: colors.textPrimary }]}>
                                 {dur}m
                               </Text>
                             </TouchableOpacity>
@@ -604,7 +604,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
                       }}
                       onPress={() => setEditingId(null)}
                     >
-                      <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 13, color: '#FFF' }}>Done</Text>
+                      <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 13, color: colors.textPrimary }}>Done</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -690,7 +690,7 @@ function createStyles(colors: ThemeColors) {
       borderRadius: borderRadius.full,
     },
     countBadgeText: {
-      color: '#FFF',
+      color: colors.textPrimary,
       fontSize: 14,
       fontFamily: fontFamily.bold,
     },
@@ -701,9 +701,9 @@ function createStyles(colors: ThemeColors) {
 
     // Warnings
     warningBanner: {
-      backgroundColor: '#F59E0B18',
+      backgroundColor: colors.secondarySubtle,
       borderLeftWidth: 3,
-      borderLeftColor: '#F59E0B',
+      borderLeftColor: colors.textSecondary,
       borderRadius: borderRadius.md,
       padding: spacing.md,
       marginBottom: spacing.md,
@@ -717,7 +717,7 @@ function createStyles(colors: ThemeColors) {
     warningTitle: {
       fontSize: 13,
       fontFamily: fontFamily.bold,
-      color: '#F59E0B',
+      color: colors.textSecondary,
     },
     warningText: {
       fontSize: 12,
@@ -747,9 +747,9 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: 12,
       marginBottom: 8,
       borderRadius: 10,
-      backgroundColor: '#E74C3C12',
+      backgroundColor: colors.secondarySubtle,
       borderWidth: 1,
-      borderColor: '#E74C3C30',
+      borderColor: colors.secondaryMuted,
     },
     examMarkerDot: {
       width: 6,
@@ -889,7 +889,7 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 14,
     },
     bookBtnText: {
-      color: '#FFF',
+      color: colors.textPrimary,
       fontSize: 16,
       fontFamily: fontFamily.bold,
     },

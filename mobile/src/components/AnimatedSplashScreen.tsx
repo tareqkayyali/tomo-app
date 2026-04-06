@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     width: GLOW_SIZE,
     height: GLOW_SIZE,
     borderRadius: GLOW_SIZE / 2,
-    backgroundColor: 'rgba(255, 107, 53, 0.15)',   // Tomo Orange glow
+    backgroundColor: colors.accentSoft,   // Tomo Orange glow
     shadowColor: colors.accent1,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,

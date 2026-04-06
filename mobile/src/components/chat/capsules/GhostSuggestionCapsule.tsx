@@ -16,7 +16,7 @@ export function GhostSuggestionCapsuleComponent({ card, onSubmit }: Props) {
   if (card.suggestions.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.heading}>👻 No Suggestions</Text>
+        <Text style={styles.heading}>No Suggestions</Text>
         <Text style={styles.subtext}>No recurring patterns detected yet. Keep training consistently and suggestions will appear.</Text>
       </View>
     );
@@ -24,7 +24,7 @@ export function GhostSuggestionCapsuleComponent({ card, onSubmit }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>👻 Smart Suggestions</Text>
+      <Text style={styles.heading}>Smart Suggestions</Text>
       <Text style={styles.subtext}>Based on your training patterns</Text>
 
       {card.suggestions.map((s, i) => (

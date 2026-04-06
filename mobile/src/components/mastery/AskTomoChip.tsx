@@ -1,12 +1,13 @@
 /**
- * AskTomoChip — Pervasive AI entry point pill button.
- * Used at every Mastery section to send contextual prompts to Tomo AI Chat.
+ * AskTomoChip — Standardized AI entry point button.
+ * Used across all screens (Mastery, Vitals, Programs, Notifications).
+ * Style: app background color, cream text, subtle cream border, rounded pill.
  */
 
 import React, { memo, useCallback } from 'react';
 import { StyleSheet, Text, Pressable, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { fontFamily } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -33,15 +34,15 @@ const AskTomoChip: React.FC<AskTomoChipProps> = memo(({ label, prompt, onPress }
       style={({ pressed }) => [
         styles.chip,
         {
-          backgroundColor: pressed ? `${colors.accent}14` : `${colors.accent}14`,
-          borderColor: `${colors.accent}33`,
-          opacity: pressed ? 0.8 : 1,
+          backgroundColor: colors.background,
+          borderColor: colors.creamMuted,
+          opacity: pressed ? 0.7 : 1,
         },
       ]}
     >
-      <Ionicons name="chatbubble-outline" size={14} color={colors.accent} />
-      <Text style={[styles.text, { color: colors.accent }]}>
-        {label || 'Ask Tomo'}
+      <SmartIcon name="chatbubble-ellipses-outline" size={14} color={colors.textPrimary} />
+      <Text style={[styles.text, { color: colors.textPrimary }]}>
+        {label || 'Ask Tomo about this'}
       </Text>
     </Pressable>
   );
@@ -53,17 +54,17 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: borderRadius.full,
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     marginTop: spacing.compact,
   },
   text: {
     fontFamily: fontFamily.medium,
-    fontSize: 12,
+    fontSize: 13,
   },
 });
 

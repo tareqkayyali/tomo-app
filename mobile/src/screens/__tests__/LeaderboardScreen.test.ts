@@ -45,9 +45,9 @@ const TAB_CONFIG: TabConfig[] = [
 
 function getRankDisplay(rank: number): { icon: string; color: string } | null {
   switch (rank) {
-    case 1: return { icon: 'medal', color: '#FFD700' };
-    case 2: return { icon: 'medal', color: '#C0C0C0' };
-    case 3: return { icon: 'medal', color: '#CD7F32' };
+    case 1: return { icon: 'medal', color: '#7A9B76' };
+    case 2: return { icon: 'medal', color: '#7A9B76' };
+    case 3: return { icon: 'medal', color: '#7A9B76' };
     default: return null;
   }
 }
@@ -129,17 +129,17 @@ console.log('\ngetRankDisplay — top 3');
   const gold = getRankDisplay(1);
   assert(gold !== null, 'rank 1 → not null');
   assert(gold!.icon === 'medal', 'rank 1 icon is medal');
-  assert(gold!.color === '#FFD700', 'rank 1 is gold');
+  assert(gold!.color === '#7A9B76', 'rank 1 is gold');
 
   const silver = getRankDisplay(2);
   assert(silver !== null, 'rank 2 → not null');
   assert(silver!.icon === 'medal', 'rank 2 icon is medal');
-  assert(silver!.color === '#C0C0C0', 'rank 2 is silver');
+  assert(silver!.color === '#7A9B76', 'rank 2 is silver');
 
   const bronze = getRankDisplay(3);
   assert(bronze !== null, 'rank 3 → not null');
   assert(bronze!.icon === 'medal', 'rank 3 icon is medal');
-  assert(bronze!.color === '#CD7F32', 'rank 3 is bronze');
+  assert(bronze!.color === '#7A9B76', 'rank 3 is bronze');
 })();
 
 // ---------------------------------------------------------------------------
@@ -162,9 +162,9 @@ console.log('\ngetRankDisplay — rank > 3');
 console.log('\ngetRankDisplay — unique colors');
 
 (() => {
-  const colors = [1, 2, 3].map(r => getRankDisplay(r)!.color);
-  const unique = new Set(colors);
-  assert(unique.size === 3, 'gold, silver, bronze have unique colors');
+  const clrs = [1, 2, 3].map(r => getRankDisplay(r)!.color);
+  // All tiers now share sage green in the 4-color palette
+  assert(clrs.every(c => c === '#7A9B76'), 'all medal colors are sage green');
 })();
 
 // ---------------------------------------------------------------------------
@@ -177,9 +177,9 @@ console.log('\ngetRankDisplay — medal color values');
   const silver = getRankDisplay(2)!;
   const bronze = getRankDisplay(3)!;
   // Gold (#FFD700) should have the highest red component
-  assert(gold.color === '#FFD700', 'gold is #FFD700');
-  assert(silver.color === '#C0C0C0', 'silver is #C0C0C0');
-  assert(bronze.color === '#CD7F32', 'bronze is #CD7F32');
+  assert(gold.color === '#7A9B76', 'gold is #FFD700');
+  assert(silver.color === '#7A9B76', 'silver is #C0C0C0');
+  assert(bronze.color === '#7A9B76', 'bronze is #CD7F32');
 })();
 
 // ---------------------------------------------------------------------------
@@ -188,10 +188,10 @@ console.log('\ngetRankDisplay — medal color values');
 console.log('\ngetAvatarColor — archetypes');
 
 (() => {
-  assert(getAvatarColor('phoenix') === '#FF6B6B', 'phoenix → #FF6B6B');
-  assert(getAvatarColor('titan') === '#4C6EF5', 'titan → #4C6EF5');
-  assert(getAvatarColor('blade') === '#12B886', 'blade → #12B886');
-  assert(getAvatarColor('surge') === '#FFD43B', 'surge → #FFD43B');
+  assert(getAvatarColor('phoenix') === '#E74C3C', 'phoenix → error');
+  assert(getAvatarColor('titan') === '#5A6B7C', 'titan → info');
+  assert(getAvatarColor('blade') === '#7A9B76', 'blade → accent');
+  assert(getAvatarColor('surge') === '#F39C12', 'surge → warning');
 })();
 
 // ---------------------------------------------------------------------------
@@ -200,7 +200,7 @@ console.log('\ngetAvatarColor — archetypes');
 console.log('\ngetAvatarColor — fallback');
 
 (() => {
-  const defaultColor = '#4A90A4';
+  const defaultColor = '#5A6B7C';
   assert(getAvatarColor(null) === defaultColor, 'null → default');
   assert(getAvatarColor(undefined) === defaultColor, 'undefined → default');
   assert(getAvatarColor('unknown') === defaultColor, 'unknown → default');

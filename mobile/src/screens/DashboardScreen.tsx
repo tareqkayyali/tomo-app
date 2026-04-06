@@ -206,7 +206,7 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
               {/* Score Arc Visual */}
               <View style={styles.scoreCircle}>
                 <LinearGradient
-                  colors={['rgba(255,107,53,0.15)', 'rgba(0,217,255,0.10)']}
+                  colors={[colors.accentSoft, colors.accentMuted]}
                   style={styles.scoreGlow}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   readinessBarTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.creamMuted,
     overflow: 'hidden',
   },
   readinessBarFill: {

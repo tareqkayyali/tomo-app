@@ -88,7 +88,7 @@ export function TrainingCategoryCapsuleComponent({ card, onSubmit }: Props) {
           <TextInput
             style={{ color: colors.textOnDark, fontFamily: 'Poppins', fontSize: 14, flex: 1 }}
             placeholder="e.g. Speed, Strength, Recovery..."
-            placeholderTextColor="rgba(255,255,255,0.3)"
+            placeholderTextColor="rgba(245,243,237,0.3)"
             value={categoryName}
             onChangeText={setCategoryName}
           />
@@ -109,9 +109,9 @@ const styles = StyleSheet.create({
   heading: { fontFamily: fontFamily.semiBold, fontSize: 15, color: colors.textPrimary },
   label: { fontFamily: fontFamily.semiBold, fontSize: 12, color: colors.textInactive },
   inputRow: { gap: 4 },
-  textInputWrap: { backgroundColor: colors.inputBackground, borderRadius: borderRadius.lg, paddingHorizontal: spacing.compact, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  textInputWrap: { backgroundColor: colors.inputBackground, borderRadius: borderRadius.lg, paddingHorizontal: spacing.compact, paddingVertical: 8, borderWidth: 1, borderColor: colors.creamMuted },
   existingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  existingPill: { flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: 'rgba(255, 107, 53, 0.1)', paddingVertical: 4, paddingHorizontal: 10, borderRadius: borderRadius.full, borderWidth: 1, borderColor: 'rgba(255, 107, 53, 0.25)' },
+  existingPill: { flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: colors.accentMuted, paddingVertical: 4, paddingHorizontal: 10, borderRadius: borderRadius.full, borderWidth: 1, borderColor: colors.accentBorder },
   disabledPill: { opacity: 0.4 },
   existingText: { fontFamily: fontFamily.medium, fontSize: 12, color: colors.accent1 },
   existingMeta: { fontFamily: fontFamily.regular, fontSize: 10, color: colors.textInactive },

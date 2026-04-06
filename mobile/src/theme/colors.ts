@@ -1,15 +1,14 @@
 /**
- * TOMO Color Palette v6 — Brand Kit Aligned
+ * TOMO Color Palette v7 — Japanese 4-Color (Kon/Kinari/Moegi/Blue-Gray)
  *
- * Source: tomo_brand_kit.pdf (2026)
- * Dark mode is primary. Single green accent.
+ * 1. #1A1D2E — Deep indigo (Kon 紺) — ALL backgrounds
+ * 2. #F5F3ED — Warm cream (Kinari 生成) — ALL text
+ * 3. #7A9B76 — Moegi sage green (萌黄) — ALL accents
+ * 4. #5A6B7C — Muted blue-gray — ALL secondary/inactive
  *
- * Core:     Black #0A0A0A · Dark #1A1A1A · Green #2ECC71 · White #FFFFFF
- * Extended: Green Dark #27AE60 · Green Light #58D68D · Charcoal #2D2D2D
- *           Gray #B0B0B0 · Gray Dark #6B6B6B · Gray Light #F5F5F5
- * Semantic: Success #2ECC71 · Warning #F39C12 · Error #E74C3C · Info #3498DB
- *
- * Color Ratio: Dark surfaces 70% · Neutral text 20% · Green accent 10%
+ * Surface variants: #252938 (cards), #2A2F42 (elevated/inputs)
+ * Sage variants: #5F7F5B (pressed), #9AB896 (light)
+ * Borders: rgba(245,243,237,0.08) ONLY
  */
 
 // ─── ThemeColors type ────────────────────────────────────────────────
@@ -23,17 +22,31 @@ export type ThemeColors = {
   accentLight: string;        // Highlights, progress bars
 
   // Text
-  textPrimary: string;        // Primary text (white on dark)
-  textSecondary: string;      // Secondary text, placeholders
-  textDisabled: string;       // Disabled states, captions
-  textOnAccent: string;       // Text on accent-colored buttons (white)
+  textPrimary: string;        // Titles, headings — bright cream
+  textBody: string;           // Expanded card body text — readable mid-cream
+  textSecondary: string;      // Timestamps, subtitles — muted blue-gray
+  textDisabled: string;       // Disabled states
+  textOnAccent: string;       // Text on accent-colored buttons
   textLink: string;           // Tappable text links
 
   // Borders & Surfaces
-  border: string;             // Charcoal #2D2D2D
+  border: string;             // Default border (8% cream)
   borderLight: string;        // Subtle separator
-  surface: string;            // Card background (= backgroundElevated)
+  surface: string;            // Card background
   inputBackground: string;    // Input fields
+
+  // --- Tomo 友 Semantic Opacity Tokens ---
+  // Use these instead of hardcoding rgba() values
+  accentSubtle: string;       // Sage 8% — subtle accent bg (chips, hints)
+  accentMuted: string;        // Sage 12% — muted accent bg (selected states)
+  accentSoft: string;         // Sage 15% — soft accent bg (badges, pills)
+  accentBorder: string;       // Sage 30% — accent border
+  secondarySubtle: string;    // Blue-gray 12% — secondary bg
+  secondaryMuted: string;     // Blue-gray 18% — secondary active bg
+  creamSubtle: string;        // Cream 6% — ghost bg
+  creamMuted: string;         // Cream 8% — border (default)
+  creamSoft: string;          // Cream 10% — slightly visible bg
+  creamOverlay: string;       // Cream 20% — overlay/highlight
 
   // Semantic
   success: string;
@@ -191,57 +204,70 @@ export type ThemeColors = {
 // ─── Dark Colors (Brand Kit — primary context) ──────────────────────
 
 export const darkColors: ThemeColors = {
-  // Core (Brand Kit)
-  background: '#0A0A0A',
-  backgroundElevated: '#1A1A1A',
-  accent: '#2ECC71',
-  accentDark: '#27AE60',
-  accentLight: '#58D68D',
+  // Core (Tomo 友 — Navy + Sage)
+  background: '#12141F',
+  backgroundElevated: '#292D3A',
+  accent: '#7A9B76',
+  accentDark: '#5F7F5B',
+  accentLight: '#9AB896',
 
-  // Text
-  textPrimary: '#FFFFFF',
-  textSecondary: '#B0B0B0',
-  textDisabled: '#6B6B6B',
-  textOnAccent: '#FFFFFF',
-  textLink: '#2ECC71',
+  // Text (warm off-white hierarchy)
+  textPrimary: '#F5F3ED',        // Titles, card headings — bright
+  textBody: '#C8C4BA',           // Card body/detail text — readable mid-cream
+  textSecondary: '#5A6B7C',      // Timestamps, subtitles — muted blue-gray
+  textDisabled: 'rgba(245,243,237,0.15)',
+  textOnAccent: '#F5F3ED',
+  textLink: '#7A9B76',
 
   // Borders & Surfaces
-  border: '#2D2D2D',
-  borderLight: 'rgba(255, 255, 255, 0.06)',
-  surface: '#141414',
-  inputBackground: 'rgba(255, 255, 255, 0.06)',
+  border: 'rgba(245,243,237,0.08)',
+  borderLight: 'rgba(245,243,237,0.04)',
+  surface: '#232632',
+  inputBackground: '#292D3A',
 
-  // Semantic (Brand Kit)
-  success: '#2ECC71',
+  // --- Tomo 友 Semantic Opacity Tokens ---
+  accentSubtle: 'rgba(122,155,118,0.08)',
+  accentMuted: 'rgba(122,155,118,0.12)',
+  accentSoft: 'rgba(122,155,118,0.15)',
+  accentBorder: 'rgba(122,155,118,0.30)',
+  secondarySubtle: 'rgba(90,107,124,0.12)',
+  secondaryMuted: 'rgba(90,107,124,0.18)',
+  creamSubtle: 'rgba(245,243,237,0.06)',
+  creamMuted: 'rgba(245,243,237,0.08)',
+  creamSoft: 'rgba(245,243,237,0.10)',
+  creamOverlay: 'rgba(245,243,237,0.20)',
+
+  // Semantic
+  success: '#7A9B76',
   warning: '#F39C12',
   error: '#E74C3C',
-  info: '#3498DB',
+  info: '#5A6B7C',
 
   // Readiness
-  readinessGreen: '#2ECC71',
-  readinessYellow: '#F39C12',
-  readinessRed: '#E74C3C',
-  readinessGreenBg: 'rgba(46, 204, 113, 0.15)',
-  readinessYellowBg: 'rgba(243, 156, 18, 0.15)',
-  readinessRedBg: 'rgba(231, 76, 60, 0.15)',
+  readinessGreen: '#7A9B76',
+  readinessYellow: '#5A6B7C',
+  readinessRed: '#5A6B7C',
+  readinessGreenBg: 'rgba(122, 155, 118, 0.15)',
+  readinessYellowBg: 'rgba(90, 107, 124, 0.15)',
+  readinessRedBg: 'rgba(90, 107, 124, 0.15)',
 
   // Intensity
-  intensityRest: '#B0B0B0',
-  intensityRestBg: 'rgba(176, 176, 176, 0.15)',
-  intensityLight: '#58D68D',
-  intensityLightBg: 'rgba(88, 214, 141, 0.15)',
-  intensityModerate: '#F39C12',
-  intensityModerateBg: 'rgba(243, 156, 18, 0.15)',
-  intensityHard: '#E74C3C',
-  intensityHardBg: 'rgba(231, 76, 60, 0.15)',
+  intensityRest: '#5A6B7C',
+  intensityRestBg: 'rgba(90, 107, 124, 0.15)',
+  intensityLight: '#7A9B76',
+  intensityLightBg: 'rgba(122, 155, 118, 0.15)',
+  intensityModerate: '#5A6B7C',
+  intensityModerateBg: 'rgba(90, 107, 124, 0.15)',
+  intensityHard: '#5A6B7C',
+  intensityHardBg: 'rgba(90, 107, 124, 0.15)',
 
   // Calendar Events
-  eventTraining: '#2ECC71',
-  eventMatch: '#3498DB',
-  eventRecovery: '#27AE60',
-  eventStudyBlock: '#F39C12',
-  eventExam: '#E74C3C',
-  eventOther: '#6B6B6B',
+  eventTraining: '#7A9B76',
+  eventMatch: '#7A9B76',
+  eventRecovery: '#5A6B7C',
+  eventStudyBlock: '#5A6B7C',
+  eventExam: '#5A6B7C',
+  eventOther: '#5A6B7C',
 
   // Overlay & Shadow
   overlay: 'rgba(0, 0, 0, 0.6)',
@@ -250,273 +276,115 @@ export const darkColors: ThemeColors = {
   shadowDark: 'rgba(0, 0, 0, 0.50)',
 
   // Skeleton
-  skeletonBase: '#1A1A1A',
-  skeletonHighlight: '#2D2D2D',
+  skeletonBase: '#232632',
+  skeletonHighlight: '#323850',
 
   // Ghost Calendar
-  ghostBorder: 'rgba(255, 255, 255, 0.15)',
-  ghostBackground: 'rgba(255, 255, 255, 0.03)',
-  ghostText: 'rgba(255, 255, 255, 0.5)',
+  ghostBorder: 'rgba(245, 243, 237, 0.15)',
+  ghostBackground: 'rgba(245, 243, 237, 0.03)',
+  ghostText: 'rgba(245, 243, 237, 0.5)',
 
   // ─── Backward Compatibility Aliases ─────────────────────────────
-  accent1: '#2ECC71',            // was orange → now green
-  accent2: '#2ECC71',            // was teal → now green
-  accent1Dark: '#27AE60',
-  accent1Light: '#58D68D',
-  accent2Dark: '#27AE60',
-  accent2Light: '#58D68D',
-  textHeader: '#FFFFFF',
-  textOnDark: '#FFFFFF',
-  textOnLight: '#FFFFFF',
-  textInactive: '#B0B0B0',
-  textMuted: '#6B6B6B',
-  cardLight: '#1A1A1A',
-  cardMuted: 'rgba(26, 26, 26, 0.60)',
-  divider: '#2D2D2D',
-  borderAccent: 'rgba(46, 204, 113, 0.30)',
-  glowOrange: 'rgba(46, 204, 113, 0.20)',  // green glow now
-  glowCyan: 'rgba(46, 204, 113, 0.15)',    // green glow now
-  glass: '#1A1A1A',              // solid surface, no glass
-  glassBorder: '#2D2D2D',
-  glassHighlight: 'rgba(255, 255, 255, 0.06)',
-  surfaceElevated: '#1A1A1A',
-  chipBackground: 'rgba(255, 255, 255, 0.08)',
-  chipText: '#2ECC71',
-  navBackground: '#0A0A0A',
-  gradientOrangeCyan: ['#2ECC71', '#27AE60'],  // green gradient
-  gradientOrange: ['#2ECC71', '#58D68D'],
-  gradientCyan: ['#27AE60', '#2ECC71'],
-  gradientDark: ['#0A0A0A', '#1A1A1A'],
-  gradientGlass: ['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)'],
-  pastelTerracotta: '#1A2A1A',
-  pastelPeach: '#1A2A1A',
-  logout: '#E74C3C',
-  archetypePhoenix: '#2ECC71',
-  archetypeTitan: '#3498DB',
-  archetypeBlade: '#58D68D',
-  archetypeSurge: '#27AE60',
-  tierBronze: '#CD7F32',
-  tierBronzeDark: '#8B5E3C',
-  tierSilver: '#C0C0C0',
-  tierSilverDark: '#808080',
-  tierGold: '#FFD700',
-  tierGoldDark: '#CCB000',
-  tierDiamond: '#B9F2FF',
-  tierDiamondDark: '#87D4E8',
-  tierDiamondBorder: '#B9F2FF',
-  dnaPower: '#2ECC71',
-  dnaReflexes: '#3498DB',
-  dnaControl: '#27AE60',
-  dnaStamina: '#58D68D',
-  dnaAgility: '#F39C12',
-  dnaTactics: '#3498DB',
-  shotExcellent: '#2ECC71',
-  shotGood: '#58D68D',
-  shotAverage: '#F39C12',
-  shotDeveloping: '#3498DB',
-  streakBadgeBg: 'rgba(46, 204, 113, 0.15)',
+  accent1: '#7A9B76',
+  accent2: '#7A9B76',
+  accent1Dark: '#5F7F5B',
+  accent1Light: '#9AB896',
+  accent2Dark: '#5F7F5B',
+  accent2Light: '#9AB896',
+  textHeader: '#F5F3ED',
+  textOnDark: '#F5F3ED',
+  textOnLight: '#F5F3ED',
+  textInactive: '#5A6B7C',
+  textMuted: 'rgba(245,243,237,0.5)',
+  cardLight: '#232632',
+  cardMuted: 'rgba(37, 41, 56, 0.60)',
+  divider: 'rgba(245,243,237,0.08)',
+  borderAccent: 'rgba(122, 155, 118, 0.30)',
+  glowOrange: 'rgba(122, 155, 118, 0.20)',
+  glowCyan: 'rgba(122, 155, 118, 0.15)',
+  glass: '#232632',
+  glassBorder: 'rgba(245,243,237,0.08)',
+  glassHighlight: 'rgba(245,243,237,0.04)',
+  surfaceElevated: '#232632',
+  chipBackground: 'rgba(245,243,237,0.06)',
+  chipText: '#7A9B76',
+  navBackground: '#12141F',
+  gradientOrangeCyan: ['#7A9B76', '#5F7F5B'],
+  gradientOrange: ['#7A9B76', '#9AB896'],
+  gradientCyan: ['#5F7F5B', '#7A9B76'],
+  gradientDark: ['#12141F', '#232632'],
+  gradientGlass: ['rgba(245,243,237,0.04)', 'rgba(245,243,237,0.01)'],
+  pastelTerracotta: '#232632',
+  pastelPeach: '#232632',
+  logout: '#5A6B7C',
+  archetypePhoenix: '#7A9B76',
+  archetypeTitan: '#5A6B7C',
+  archetypeBlade: '#7A9B76',
+  archetypeSurge: '#7A9B76',
+  tierBronze: '#7A9B76',
+  tierBronzeDark: '#5A6B7C',
+  tierSilver: '#7A9B76',
+  tierSilverDark: '#5A6B7C',
+  tierGold: '#7A9B76',
+  tierGoldDark: '#5A6B7C',
+  tierDiamond: '#7A9B76',
+  tierDiamondDark: '#5A6B7C',
+  tierDiamondBorder: '#7A9B76',
+  dnaPower: '#7A9B76',
+  dnaReflexes: '#5A6B7C',
+  dnaControl: '#7A9B76',
+  dnaStamina: '#7A9B76',
+  dnaAgility: '#5A6B7C',
+  dnaTactics: '#5A6B7C',
+  shotExcellent: '#7A9B76',
+  shotGood: '#7A9B76',
+  shotAverage: '#5A6B7C',
+  shotDeveloping: '#5A6B7C',
+  streakBadgeBg: 'rgba(122, 155, 118, 0.15)',
 
   // ─── Coach UI Tokens ────────────────────────────────────────────
-  chalk: '#F5F0E8',
-  chalkDim: 'rgba(245,240,232,0.5)',
-  chalkFaint: 'rgba(245,240,232,0.15)',
-  chalkGhost: 'rgba(245,240,232,0.06)',
-  surfaceWarm: '#1C1917',
-  cardWarm: '#1C1917',
-  borderWarm: '#2A2520',
-  /** v0 Electric Green — bright active/readiness color */
-  electricGreen: '#00F280',
-  electricGreenMuted: '#00D870',
-  electricGreenDim: 'rgba(0,242,128,0.12)',
-  coachNoteBackground: 'rgba(245,240,232,0.06)',
-  coachNoteBorder: 'rgba(255,122,69,0.25)',
-  coachSignature: '#FF7A45',
-  sketchMark: 'rgba(245,240,232,0.15)',
-  tomoOrange: '#FF7A45',
-  tomoOrangeDim: 'rgba(255,122,69,0.15)',
-  tomoOrangeGlow: 'rgba(255,122,69,0.08)',
-  tomoTeal: '#00D9FF',
-  tomoTealDim: 'rgba(0,217,255,0.12)',
-  pillarEndurance: '#30D158',
-  pillarEnduranceBg: 'rgba(48,209,88,0.10)',
-  pillarStrength: '#FF6B35',
-  pillarStrengthBg: 'rgba(255,107,53,0.10)',
-  pillarPower: '#E74C3C',
-  pillarPowerBg: 'rgba(231,76,60,0.10)',
-  pillarSpeed: '#00D9FF',
-  pillarSpeedBg: 'rgba(0,217,255,0.10)',
-  pillarAgility: '#F39C12',
-  pillarAgilityBg: 'rgba(243,156,18,0.10)',
-  pillarFlexibility: '#9B59B6',
-  pillarFlexibilityBg: 'rgba(155,89,182,0.10)',
-  pillarMental: '#F5F0E8',
-  pillarMentalBg: 'rgba(245,240,232,0.06)',
-  gradientBrand: ['#FF6B35', '#FF8C50'],
+  chalk: '#F5F3ED',
+  chalkDim: 'rgba(245,243,237,0.5)',
+  chalkFaint: 'rgba(245,243,237,0.15)',
+  chalkGhost: 'rgba(245,243,237,0.06)',
+  surfaceWarm: '#232632',
+  cardWarm: '#232632',
+  borderWarm: 'rgba(245,243,237,0.08)',
+  /** Sage green — Tomo 友 primary accent */
+  electricGreen: '#7A9B76',
+  electricGreenMuted: '#5F7F5B',
+  electricGreenDim: 'rgba(122,155,118,0.12)',
+  coachNoteBackground: 'rgba(245,243,237,0.04)',
+  coachNoteBorder: 'rgba(122,155,118,0.25)',
+  coachSignature: '#7A9B76',
+  sketchMark: 'rgba(245,243,237,0.10)',
+  tomoOrange: '#7A9B76',
+  tomoOrangeDim: 'rgba(122,155,118,0.15)',
+  tomoOrangeGlow: 'rgba(122,155,118,0.08)',
+  tomoTeal: '#7A9B76',
+  tomoTealDim: 'rgba(122,155,118,0.12)',
+  pillarEndurance: '#7A9B76',
+  pillarEnduranceBg: 'rgba(122,155,118,0.10)',
+  pillarStrength: '#7A9B76',
+  pillarStrengthBg: 'rgba(122,155,118,0.10)',
+  pillarPower: '#7A9B76',
+  pillarPowerBg: 'rgba(122,155,118,0.10)',
+  pillarSpeed: '#7A9B76',
+  pillarSpeedBg: 'rgba(122,155,118,0.10)',
+  pillarAgility: '#7A9B76',
+  pillarAgilityBg: 'rgba(122,155,118,0.10)',
+  pillarFlexibility: '#7A9B76',
+  pillarFlexibilityBg: 'rgba(122,155,118,0.10)',
+  pillarMental: '#F5F3ED',
+  pillarMentalBg: 'rgba(245,243,237,0.06)',
+  gradientBrand: ['#7A9B76', '#5F7F5B'],
 };
 
 // ─── Light Colors (Brand Kit) ────────────────────────────────────────
 
 export const lightColors: ThemeColors = {
-  // Core
-  background: '#F5F5F5',
-  backgroundElevated: '#FFFFFF',
-  accent: '#2ECC71',
-  accentDark: '#27AE60',
-  accentLight: '#58D68D',
-
-  // Text
-  textPrimary: '#0A0A0A',
-  textSecondary: '#6B6B6B',
-  textDisabled: '#B0B0B0',
-  textOnAccent: '#FFFFFF',
-  textLink: '#2ECC71',
-
-  // Borders & Surfaces
-  border: '#E0E0E0',
-  borderLight: 'rgba(0, 0, 0, 0.06)',
-  surface: '#FFFFFF',
-  inputBackground: 'rgba(0, 0, 0, 0.04)',
-
-  // Semantic
-  success: '#2ECC71',
-  warning: '#F39C12',
-  error: '#E74C3C',
-  info: '#3498DB',
-
-  // Readiness
-  readinessGreen: '#2ECC71',
-  readinessYellow: '#F39C12',
-  readinessRed: '#E74C3C',
-  readinessGreenBg: 'rgba(46, 204, 113, 0.12)',
-  readinessYellowBg: 'rgba(243, 156, 18, 0.12)',
-  readinessRedBg: 'rgba(231, 76, 60, 0.12)',
-
-  // Intensity
-  intensityRest: '#B0B0B0',
-  intensityRestBg: 'rgba(176, 176, 176, 0.10)',
-  intensityLight: '#58D68D',
-  intensityLightBg: 'rgba(88, 214, 141, 0.10)',
-  intensityModerate: '#F39C12',
-  intensityModerateBg: 'rgba(243, 156, 18, 0.10)',
-  intensityHard: '#E74C3C',
-  intensityHardBg: 'rgba(231, 76, 60, 0.10)',
-
-  // Calendar Events
-  eventTraining: '#2ECC71',
-  eventMatch: '#3498DB',
-  eventRecovery: '#27AE60',
-  eventStudyBlock: '#F39C12',
-  eventExam: '#E74C3C',
-  eventOther: '#B0B0B0',
-
-  // Overlay & Shadow
-  overlay: 'rgba(0, 0, 0, 0.4)',
-  overlayLight: 'rgba(0, 0, 0, 0.2)',
-  shadow: 'rgba(0, 0, 0, 0.10)',
-  shadowDark: 'rgba(0, 0, 0, 0.20)',
-
-  // Skeleton
-  skeletonBase: 'rgba(0, 0, 0, 0.04)',
-  skeletonHighlight: 'rgba(0, 0, 0, 0.08)',
-
-  // Ghost Calendar
-  ghostBorder: 'rgba(0, 0, 0, 0.12)',
-  ghostBackground: 'rgba(0, 0, 0, 0.02)',
-  ghostText: 'rgba(0, 0, 0, 0.4)',
-
-  // ─── Backward Compatibility Aliases ─────────────────────────────
-  accent1: '#2ECC71',
-  accent2: '#2ECC71',
-  accent1Dark: '#27AE60',
-  accent1Light: '#58D68D',
-  accent2Dark: '#27AE60',
-  accent2Light: '#58D68D',
-  textHeader: '#0A0A0A',
-  textOnDark: '#0A0A0A',
-  textOnLight: '#0A0A0A',
-  textInactive: '#B0B0B0',
-  textMuted: '#6B6B6B',
-  cardLight: 'rgba(0, 0, 0, 0.04)',
-  cardMuted: 'rgba(0, 0, 0, 0.02)',
-  divider: '#E0E0E0',
-  borderAccent: 'rgba(46, 204, 113, 0.30)',
-  glowOrange: 'rgba(46, 204, 113, 0.12)',
-  glowCyan: 'rgba(46, 204, 113, 0.10)',
-  glass: '#FFFFFF',
-  glassBorder: '#E0E0E0',
-  glassHighlight: 'rgba(0, 0, 0, 0.06)',
-  surfaceElevated: '#FFFFFF',
-  chipBackground: 'rgba(0, 0, 0, 0.05)',
-  chipText: '#2ECC71',
-  navBackground: '#F5F5F5',
-  gradientOrangeCyan: ['#2ECC71', '#27AE60'],
-  gradientOrange: ['#2ECC71', '#58D68D'],
-  gradientCyan: ['#27AE60', '#2ECC71'],
-  gradientDark: ['#F5F5F5', '#FFFFFF'],
-  gradientGlass: ['rgba(0,0,0,0.04)', 'rgba(0,0,0,0.01)'],
-  pastelTerracotta: '#E8F5E9',
-  pastelPeach: '#E8F5E9',
-  logout: '#E74C3C',
-  archetypePhoenix: '#2ECC71',
-  archetypeTitan: '#3498DB',
-  archetypeBlade: '#58D68D',
-  archetypeSurge: '#27AE60',
-  tierBronze: '#CD7F32',
-  tierBronzeDark: '#8B5E3C',
-  tierSilver: '#C0C0C0',
-  tierSilverDark: '#808080',
-  tierGold: '#FFD700',
-  tierGoldDark: '#CCB000',
-  tierDiamond: '#B9F2FF',
-  tierDiamondDark: '#87D4E8',
-  tierDiamondBorder: '#B9F2FF',
-  dnaPower: '#2ECC71',
-  dnaReflexes: '#3498DB',
-  dnaControl: '#27AE60',
-  dnaStamina: '#58D68D',
-  dnaAgility: '#F39C12',
-  dnaTactics: '#3498DB',
-  shotExcellent: '#2ECC71',
-  shotGood: '#58D68D',
-  shotAverage: '#F39C12',
-  shotDeveloping: '#3498DB',
-  streakBadgeBg: 'rgba(46, 204, 113, 0.10)',
-
-  // ─── Coach UI Tokens (light mode) ──────────────────────────────
-  electricGreen: '#00C968',
-  electricGreenMuted: '#00B45E',
-  electricGreenDim: 'rgba(0,201,104,0.12)',
-  chalk: '#2C2A28',
-  chalkDim: 'rgba(44,42,40,0.5)',
-  chalkFaint: 'rgba(44,42,40,0.15)',
-  chalkGhost: 'rgba(44,42,40,0.06)',
-  surfaceWarm: '#F0EBE3',
-  cardWarm: '#F0EBE3',
-  borderWarm: '#D6CFC4',
-  coachNoteBackground: 'rgba(44,42,40,0.04)',
-  coachNoteBorder: 'rgba(255,107,53,0.30)',
-  coachSignature: '#E05A2B',
-  sketchMark: 'rgba(44,42,40,0.12)',
-  tomoOrange: '#FF6B35',
-  tomoOrangeDim: 'rgba(255,107,53,0.12)',
-  tomoOrangeGlow: 'rgba(255,107,53,0.06)',
-  tomoTeal: '#0891B2',
-  tomoTealDim: 'rgba(8,145,178,0.10)',
-  pillarEndurance: '#1EA83F',
-  pillarEnduranceBg: 'rgba(30,168,63,0.10)',
-  pillarStrength: '#E05A2B',
-  pillarStrengthBg: 'rgba(224,90,43,0.10)',
-  pillarPower: '#C0392B',
-  pillarPowerBg: 'rgba(192,57,43,0.10)',
-  pillarSpeed: '#0891B2',
-  pillarSpeedBg: 'rgba(8,145,178,0.10)',
-  pillarAgility: '#D68910',
-  pillarAgilityBg: 'rgba(214,137,16,0.10)',
-  pillarFlexibility: '#7D3C98',
-  pillarFlexibilityBg: 'rgba(125,60,152,0.10)',
-  pillarMental: '#2C2A28',
-  pillarMentalBg: 'rgba(44,42,40,0.06)',
-  gradientBrand: ['#FF6B35', '#FF8C50'],
+  // Light mode mirrors dark — dark-only app
+  ...darkColors,
 };
 
 // ─── Default export (dark) ──────────────────────────────────────────

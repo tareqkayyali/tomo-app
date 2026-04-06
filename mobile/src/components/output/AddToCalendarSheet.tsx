@@ -28,6 +28,8 @@ import { spacing, fontFamily, borderRadius } from '../../theme';
 import { useScheduleRules } from '../../hooks/useScheduleRules';
 import type { TrainingCategoryRule, LinkedProgram } from '../../hooks/useScheduleRules';
 
+import { colors } from '../../theme/colors';
+
 // ── Props ─────────────────────────────────────────────────────────
 
 export interface AttachToTrainingSheetProps {
@@ -228,13 +230,13 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
 
           {/* Success / Error banners */}
           {success && (
-            <View style={[styles.banner, { backgroundColor: '#2ECC7118' }]}>
+            <View style={[styles.banner, { backgroundColor: colors.accentSoft }]}>
               <SmartIcon name="checkmark-circle" size={18} color={colors.accent} />
               <Text style={[styles.bannerText, { color: colors.accent }]}>{success}</Text>
             </View>
           )}
           {error && (
-            <View style={[styles.banner, { backgroundColor: '#FF453A18' }]}>
+            <View style={[styles.banner, { backgroundColor: colors.secondarySubtle }]}>
               <SmartIcon name="alert-circle" size={18} color={colors.error} />
               <Text style={[styles.bannerText, { color: colors.error }]}>{error}</Text>
             </View>
@@ -331,7 +333,7 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
                   </Text>
 
                   <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Category Name</Text>
-                  <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground || 'rgba(255,255,255,0.06)' }]}>
+                  <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground || colors.creamSubtle }]}>
                     <TextInput
                       value={newCategoryName}
                       onChangeText={setNewCategoryName}
@@ -361,10 +363,10 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
                       ]}
                     >
                       {saving ? (
-                        <ActivityIndicator size="small" color="#FFF" />
+                        <ActivityIndicator size="small" color="#F5F3ED" />
                       ) : (
                         <>
-                          <SmartIcon name="checkmark" size={18} color="#FFF" />
+                          <SmartIcon name="checkmark" size={18} color="#F5F3ED" />
                           <Text style={styles.confirmBtnText}>Create & Link</Text>
                         </>
                       )}
@@ -551,6 +553,6 @@ const styles = StyleSheet.create({
   confirmBtnText: {
     fontFamily: fontFamily.semiBold,
     fontSize: 14,
-    color: '#FFF',
+    color: colors.textPrimary,
   },
 });

@@ -58,7 +58,7 @@ export function NotificationSettingsCapsuleComponent({ card, onSubmit }: Props) 
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>🔔 Notification Settings</Text>
+      <Text style={styles.heading}>Notification Settings</Text>
       <CapsuleToggle label="Daily Reminder" description="Morning check-in nudge" value={dailyReminder} onChange={setDailyReminder} />
       {dailyReminder && (
         <PillSelector options={REMINDER_TIMES} selected={reminderTime} onSelect={setReminderTime} label="Reminder Time" />

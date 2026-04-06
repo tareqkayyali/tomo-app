@@ -87,7 +87,7 @@ export function RegularStudyCapsuleComponent({ card, onSubmit }: Props) {
         <Text style={styles.heading}>Regular Study Schedule</Text>
 
         <View style={styles.planBanner}>
-          <SmartIcon name="book-outline" size={16} color="#30D158" />
+          <SmartIcon name="book-outline" size={16} color="#7A9B76" />
           <View style={{ flex: 1 }}>
             <Text style={styles.planBannerTitle}>
               Active · {card.existingSessionCount} sessions scheduled
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   pillSelected: {
     borderColor: colors.accent1,
-    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    backgroundColor: colors.accentMuted,
   },
   pillText: {
     fontFamily: fontFamily.medium,
@@ -230,12 +230,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.sm,
     borderWidth: 1,
-    borderColor: '#30D15830',
+    borderColor: colors.accentBorder,
   },
   planBannerTitle: {
     fontFamily: fontFamily.medium,
     fontSize: 13,
-    color: '#30D158',
+    color: colors.accent,
   },
   planBannerSub: {
     fontFamily: fontFamily.regular,

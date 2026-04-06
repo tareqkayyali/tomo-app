@@ -30,7 +30,7 @@ export function PlanningStreakBadge({ streak }: PlanningStreakBadgeProps) {
   return (
     <View style={[styles.pill, hasGlow && styles.glow]}>
       <Text style={styles.text}>
-        {'\uD83D\uDD25'} {streak} {label}
+        {streak} {label}
       </Text>
     </View>
   );

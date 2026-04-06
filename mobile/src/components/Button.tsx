@@ -36,6 +36,8 @@ import { useComponentStyle } from '../hooks/useComponentStyle';
 import type { ThemeColors } from '../theme/colors';
 import { SmartIcon } from './SmartIcon';
 
+import { colors } from '../theme/colors';
+
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'gradient' | 'icon';
 type ButtonSize = 'small' | 'medium' | 'large';
 
@@ -110,8 +112,8 @@ export function Button({
 
   // ── Resolve text color per variant ──────────────────────────────
   const isGlossy = variant === 'primary' || variant === 'gradient';
-  const textColor = isGlossy ? '#0A0A0A' : colors.electricGreen;
-  const loaderColor = isGlossy ? '#0A0A0A' : colors.electricGreen;
+  const textColor = isGlossy ? colors.background : colors.electricGreen;
+  const loaderColor = isGlossy ? colors.background : colors.electricGreen;
   const resolvedIcon = iconSize ?? (size === 'small' ? 16 : 18);
 
   const content = (
@@ -165,7 +167,7 @@ export function Button({
             />
             {/* Glass shine overlay */}
             <LinearGradient
-              colors={['rgba(255,255,255,0.35)', 'rgba(255,255,255,0.1)', 'transparent']}
+              colors={['rgba(245,243,237,0.35)', colors.creamSoft, 'transparent']}
               locations={[0, 0.3, 0.6]}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
@@ -231,9 +233,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-    borderLeftColor: 'rgba(255,255,255,0.2)',
-    borderRightColor: 'rgba(255,255,255,0.2)',
+    borderTopColor: colors.creamOverlay,
+    borderLeftColor: colors.creamOverlay,
+    borderRightColor: colors.creamOverlay,
     borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   iconButton: {

@@ -16,6 +16,8 @@ import { getIntensityConfig } from '../../utils/calendarHelpers';
 import type { CalendarEvent } from '../../types';
 import type { ThemeColors } from '../../theme/colors';
 
+import { colors } from '../../theme/colors';
+
 interface Props {
   events: CalendarEvent[];
   completedEventIds: Set<string>;
@@ -29,29 +31,29 @@ interface Props {
 // ─── Color + emoji mapping by event type (matches prototype) ────────────────
 
 const TYPE_COLORS: Record<string, string> = {
-  training: '#FF6B35',
-  match: '#FF6B35',
-  study_block: '#6366F1',
-  exam: '#E74C3C',
-  recovery: '#00D9FF',
-  other: '#666666',
+  training: colors.accent,
+  match: colors.accent,
+  study_block: colors.textSecondary,
+  exam: colors.textSecondary,
+  recovery: colors.textSecondary,
+  other: colors.textSecondary,
 };
 
 const TYPE_EMOJIS: Record<string, string> = {
-  training: '⚡',
-  match: '⚽',
-  study_block: '📚',
-  exam: '📝',
-  recovery: '🧘',
-  other: '📋',
+  training: '',
+  match: '',
+  study_block: '',
+  exam: '',
+  recovery: '',
+  other: '',
 };
 
 function getTypeColor(type: string): string {
-  return TYPE_COLORS[type] ?? '#666666';
+  return TYPE_COLORS[type] ?? colors.textSecondary;
 }
 
 function getTypeEmoji(type: string): string {
-  return TYPE_EMOJIS[type] ?? '📋';
+  return TYPE_EMOJIS[type] ?? '';
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -184,7 +186,7 @@ function TimelineEvent({
                 ]}
                 numberOfLines={1}
               >
-                {emoji} {event.name}
+                {emoji ? `${emoji} ` : ''}{event.name}
               </Text>
             </View>
             {isCurrent && !isCompleted && (
@@ -194,7 +196,7 @@ function TimelineEvent({
             )}
             {isCompleted && !readOnly && (
               <Pressable onPress={handleUndo} style={styles.undoBtn}>
-                <SmartIcon name="arrow-undo" size={14} color="#FFFFFF" />
+                <SmartIcon name="arrow-undo" size={14} color="#F5F3ED" />
                 <Text style={styles.undoText}>UNDO</Text>
               </Pressable>
             )}
@@ -217,8 +219,8 @@ function TimelineEvent({
 
           {/* Auto-scheduled note for study blocks */}
           {event.type === 'study_block' && event.notes && event.notes.toLowerCase().includes('auto') && (
-            <Text style={[styles.autoNote, { color: '#6366F1' }]}>
-              📝 Exam prep — Tomo auto-scheduled
+            <Text style={[styles.autoNote, { color: colors.textSecondary }]}>
+              Exam prep — Tomo auto-scheduled
             </Text>
           )}
 
@@ -359,7 +361,7 @@ function createStyles(colors: ThemeColors) {
       textDecorationLine: 'line-through',
     },
     nowBadge: {
-      backgroundColor: '#FF6B35',
+      backgroundColor: colors.accent,
       paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: borderRadius.full,
@@ -367,7 +369,7 @@ function createStyles(colors: ThemeColors) {
     nowText: {
       fontFamily: fontFamily.bold,
       fontSize: 10,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
       letterSpacing: 1,
     },
     eventMeta: {
@@ -417,7 +419,7 @@ function createStyles(colors: ThemeColors) {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       gap: 4,
-      backgroundColor: '#00D9FF',
+      backgroundColor: colors.accent,
       paddingHorizontal: 14,
       paddingVertical: 6,
       borderRadius: 999,
@@ -425,7 +427,7 @@ function createStyles(colors: ThemeColors) {
     undoText: {
       fontFamily: fontFamily.bold,
       fontSize: 12,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
       letterSpacing: 0.5,
     },
     emptyContainer: {

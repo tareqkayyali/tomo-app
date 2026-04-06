@@ -14,17 +14,17 @@ interface DailyBriefingCardProps {
 }
 
 const READINESS_COLORS: Record<string, string> = {
-  GREEN: colors.readinessGreen ?? '#30D158',
-  YELLOW: colors.readinessYellow ?? '#F39C12',
-  RED: colors.readinessRed ?? '#E74C3C',
+  GREEN: colors.readinessGreen ?? colors.accent,
+  YELLOW: colors.readinessYellow ?? colors.textSecondary,
+  RED: colors.readinessRed ?? colors.textSecondary,
   UNKNOWN: colors.textSecondary,
 };
 
 const READINESS_EMOJI: Record<string, string> = {
-  GREEN: '🟢',
-  YELLOW: '🟡',
-  RED: '🔴',
-  UNKNOWN: '⚪',
+  GREEN: '',
+  YELLOW: '',
+  RED: '',
+  UNKNOWN: '',
 };
 
 export function DailyBriefingCardComponent({ card }: DailyBriefingCardProps) {
@@ -37,7 +37,7 @@ export function DailyBriefingCardComponent({ card }: DailyBriefingCardProps) {
         <Text style={styles.dateText}>{card.date}</Text>
         <View style={[styles.readinessPill, { backgroundColor: readinessColor + '22' }]}>
           <Text style={styles.readinessEmoji}>
-            {READINESS_EMOJI[card.readinessColor] ?? '⚪'}
+            {READINESS_EMOJI[card.readinessColor] ?? ''}
           </Text>
           <Text style={[styles.readinessText, { color: readinessColor }]}>
             {card.readinessColor}
@@ -80,7 +80,7 @@ export function DailyBriefingCardComponent({ card }: DailyBriefingCardProps) {
         <View style={styles.goalsSection}>
           {card.urgentGoals.map((goal, i) => (
             <View key={i} style={styles.goalRow}>
-              <Text style={styles.goalIcon}>🎯</Text>
+              <Text style={styles.goalIcon}></Text>
               <Text style={styles.goalText} numberOfLines={1}>
                 {goal.title}
               </Text>
@@ -95,7 +95,7 @@ export function DailyBriefingCardComponent({ card }: DailyBriefingCardProps) {
       {card.pendingJournalCount != null && card.pendingJournalCount > 0 && (
         <View style={styles.journalBadge}>
           <Text style={styles.journalText}>
-            📓 {card.pendingJournalCount} session{card.pendingJournalCount > 1 ? 's' : ''} waiting for reflection
+            {card.pendingJournalCount} session{card.pendingJournalCount > 1 ? 's' : ''} waiting for reflection
           </Text>
         </View>
       )}
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   summary: {
     fontFamily: fontFamily.regular,
     fontSize: 14,
-    color: colors.textPrimary,
+    color: colors.textBody,
     lineHeight: 20,
   },
   goalsSection: {
@@ -175,12 +175,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fontFamily.regular,
     fontSize: 13,
-    color: colors.textSecondary,
+    color: colors.textBody,
   },
   goalProgress: {
     fontFamily: fontFamily.semiBold,
     fontSize: 13,
-    color: colors.accent1 ?? '#FF6B35',
+    color: colors.accent1 ?? colors.accent,
   },
   goalDays: {
     fontFamily: fontFamily.regular,
@@ -188,13 +188,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   journalBadge: {
-    backgroundColor: (colors as any).backgroundTertiary ?? '#252328',
+    backgroundColor: (colors as any).backgroundTertiary ?? colors.surface,
     borderRadius: borderRadius.md,
     padding: spacing.sm,
   },
   journalText: {
     fontFamily: fontFamily.regular,
     fontSize: 13,
-    color: colors.textSecondary,
+    color: colors.textBody,
   },
 });

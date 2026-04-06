@@ -32,7 +32,7 @@ export function CapsuleSubmitButton({ title, onPress, disabled, loading, variant
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={isDanger ? '#fff' : isPrimary ? '#fff' : colors.accent2} />
+        <ActivityIndicator size="small" color={isDanger ? colors.textPrimary : isPrimary ? colors.textPrimary : colors.accent2} />
       ) : (
         <Text style={[
           styles.buttonText,
@@ -56,14 +56,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   buttonPrimary: {
-    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    backgroundColor: colors.accentSoft,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 53, 0.3)',
+    borderColor: colors.accentBorder,
   },
   buttonSubtle: {
-    backgroundColor: 'rgba(0, 217, 255, 0.08)',
+    backgroundColor: colors.accentSubtle,
     borderWidth: 1,
-    borderColor: 'rgba(0, 217, 255, 0.2)',
+    borderColor: colors.accentBorder,
   },
   buttonDisabled: {
     opacity: 0.4,
@@ -85,11 +85,11 @@ const styles = StyleSheet.create({
     color: colors.textInactive,
   },
   buttonDanger: {
-    backgroundColor: 'rgba(231, 76, 60, 0.15)',
+    backgroundColor: colors.secondarySubtle,
     borderWidth: 1,
-    borderColor: 'rgba(231, 76, 60, 0.3)',
+    borderColor: colors.secondaryMuted,
   },
   textDanger: {
-    color: '#E74C3C',
+    color: colors.textSecondary,
   },
 });

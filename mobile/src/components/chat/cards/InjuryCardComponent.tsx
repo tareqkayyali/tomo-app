@@ -13,15 +13,15 @@ interface InjuryCardProps {
 }
 
 const SEVERITY_COLORS = {
-  1: colors.readinessGreen ?? '#30D158',
-  2: colors.readinessYellow ?? '#F39C12',
-  3: colors.readinessRed ?? '#E74C3C',
+  1: colors.readinessGreen ?? colors.accent,
+  2: colors.readinessYellow ?? colors.textSecondary,
+  3: colors.readinessRed ?? colors.textSecondary,
 };
 
 const SEVERITY_ICONS = {
-  1: '🟡',
-  2: '🟠',
-  3: '🔴',
+  1: '',
+  2: '',
+  3: '',
 };
 
 export function InjuryCardComponent({ card }: InjuryCardProps) {
@@ -96,15 +96,15 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     fontSize: 14,
-    color: colors.accent2 ?? '#00D9FF',
+    color: colors.accent2 ?? colors.accent,
   },
   statusText: {
     fontFamily: fontFamily.regular,
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.textBody,
   },
   tipContainer: {
-    backgroundColor: (colors as any).backgroundTertiary ?? '#252328',
+    backgroundColor: (colors as any).backgroundTertiary ?? colors.surface,
     borderRadius: borderRadius.md,
     padding: spacing.sm,
     marginTop: spacing.xs,

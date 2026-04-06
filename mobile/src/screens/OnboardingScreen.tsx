@@ -374,7 +374,7 @@ export function OnboardingScreen() {
       case 'multiSportMessage':
         return (
           <View style={styles_s.centeredContent}>
-            <View style={[styles_s.introIcon, { backgroundColor: 'rgba(0, 217, 255, 0.12)' }]}>
+            <View style={[styles_s.introIcon, { backgroundColor: colors.accentMuted }]}>
               <SmartIcon name="trophy-outline" size={48} color={colors.accent2} />
             </View>
             <Text style={styles_s.introTitle}>
@@ -1011,7 +1011,7 @@ const styles_s = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    backgroundColor: colors.accentMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xl,
@@ -1194,7 +1194,7 @@ const styles_s = StyleSheet.create({
     marginTop: 2,
   },
   expDescActive: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(245, 243, 237, 0.7)',
   },
 
   // ── Self-Assessment ────────────────────────────────────────────────

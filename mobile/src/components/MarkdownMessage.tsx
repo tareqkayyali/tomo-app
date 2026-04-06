@@ -188,7 +188,7 @@ function createMarkdownStyles(colors: ThemeColors) {
 
     // ── Blockquote ──────────────────────────────────────────────────
     blockquote: {
-      backgroundColor: 'rgba(255, 107, 53, 0.06)',
+      backgroundColor: colors.accentSubtle,
       borderLeftWidth: 3,
       borderLeftColor: colors.accent1,
       paddingLeft: 12,

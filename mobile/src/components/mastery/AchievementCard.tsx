@@ -14,12 +14,12 @@ interface AchievementCardProps {
 }
 
 const TYPE_EMOJI: Record<string, string> = {
-  streak: '\uD83D\uDD25',
-  pr: '\uD83C\uDFC6',
-  consistency: '\uD83D\uDCAA',
-  goal: '\u2B50',
-  milestone: '\uD83C\uDF1F',
-  plan_completed: '\u2705',
+  streak: '',
+  pr: '',
+  consistency: '',
+  goal: '',
+  milestone: '',
+  plan_completed: '',
 };
 
 function formatDate(dateStr: string): string {
@@ -33,11 +33,11 @@ function formatDate(dateStr: string): string {
 
 const AchievementCard: React.FC<AchievementCardProps> = memo(({ milestone }) => {
   const { colors } = useTheme();
-  const emoji = TYPE_EMOJI[milestone.type] ?? '\uD83C\uDFC5';
+  const emoji = TYPE_EMOJI[milestone.type] ?? '';
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: `${colors.accent}33` }]}>
-      <Text style={styles.emoji}>{emoji}</Text>
+      {emoji ? <Text style={styles.emoji}>{emoji}</Text> : null}
       <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={2}>
         {milestone.title}
       </Text>

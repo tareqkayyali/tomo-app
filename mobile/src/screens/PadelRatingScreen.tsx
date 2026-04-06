@@ -19,6 +19,8 @@ import type { ThemeColors } from '../theme/colors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
 
+import { colors } from '../theme/colors';
+
 type Props = NativeStackScreenProps<MainStackParamList, 'PadelRating'>;
 
 function RatingHistoryChart({
@@ -60,7 +62,7 @@ function RatingHistoryChart({
   return (
     <View>
       <Svg width={width} height={height}>
-        <Path d={areaD} fill="rgba(255, 107, 53, 0.1)" />
+        <Path d={areaD} fill="rgba(122, 155, 118, 0.1)" />
         <Path d={pathD} stroke={colors.accent1} strokeWidth={2.5} fill="none" />
         {points.map((p, i) => (
           <SvgCircle
@@ -218,7 +220,7 @@ function createStyles(c: ThemeColors) {
       marginBottom: spacing.md,
     },
     milestoneCard: {
-      borderColor: 'rgba(255, 215, 0, 0.2)',
+      borderColor: colors.secondaryMuted,
     },
     milestoneLabel: {
       fontFamily: fontFamily.semiBold,

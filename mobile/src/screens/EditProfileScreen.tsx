@@ -354,9 +354,9 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                 <SmartIcon
                   name="school-outline"
                   size={16}
-                  color={eduType === 'school' ? '#FFF' : colors.textOnLight}
+                  color={eduType === 'school' ? colors.textPrimary : colors.textOnLight}
                 />
-                <Text style={{ color: eduType === 'school' ? '#FFF' : colors.textOnLight, fontSize: 13, fontWeight: '600' }}>
+                <Text style={{ color: eduType === 'school' ? colors.textPrimary : colors.textOnLight, fontSize: 13, fontWeight: '600' }}>
                   School
                 </Text>
               </TouchableOpacity>
@@ -373,9 +373,9 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                 <SmartIcon
                   name="library-outline"
                   size={16}
-                  color={eduType === 'university' ? '#FFF' : colors.textOnLight}
+                  color={eduType === 'university' ? colors.textPrimary : colors.textOnLight}
                 />
-                <Text style={{ color: eduType === 'university' ? '#FFF' : colors.textOnLight, fontSize: 13, fontWeight: '600' }}>
+                <Text style={{ color: eduType === 'university' ? colors.textPrimary : colors.textOnLight, fontSize: 13, fontWeight: '600' }}>
                   University
                 </Text>
               </TouchableOpacity>
@@ -400,7 +400,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                     ]}
                     onPress={() => toggleDay(schoolDays, setSchoolDays, idx)}
                   >
-                    <Text style={{ color: selected ? '#FFF' : colors.textOnLight, fontSize: 12, fontWeight: '600' }}>
+                    <Text style={{ color: selected ? colors.textPrimary : colors.textOnLight, fontSize: 12, fontWeight: '600' }}>
                       {label}
                     </Text>
                   </TouchableOpacity>
@@ -426,7 +426,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                       ]}
                       onPress={() => setSchoolStart(t)}
                     >
-                      <Text style={{ color: schoolStart === t ? '#FFF' : colors.textOnLight, fontSize: 13 }}>
+                      <Text style={{ color: schoolStart === t ? colors.textPrimary : colors.textOnLight, fontSize: 13 }}>
                         {t}
                       </Text>
                     </TouchableOpacity>
@@ -450,7 +450,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                       ]}
                       onPress={() => setSchoolEnd(t)}
                     >
-                      <Text style={{ color: schoolEnd === t ? '#FFF' : colors.textOnLight, fontSize: 13 }}>
+                      <Text style={{ color: schoolEnd === t ? colors.textPrimary : colors.textOnLight, fontSize: 13 }}>
                         {t}
                       </Text>
                     </TouchableOpacity>
@@ -473,7 +473,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                     ]}
                     onPress={() => toggleSubject(subj)}
                   >
-                    <Text style={[styles.chipText, { color: selected ? '#FFFFFF' : colors.textOnLight }]}>
+                    <Text style={[styles.chipText, { color: selected ? colors.textPrimary : colors.textOnLight }]}>
                       {subj}
                     </Text>
                   </TouchableOpacity>
@@ -487,8 +487,8 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                     style={[styles.chip, { backgroundColor: colors.accent1, borderColor: colors.accent1 }]}
                     onPress={() => toggleSubject(subj)}
                   >
-                    <Text style={[styles.chipText, { color: '#FFFFFF' }]}>{subj}</Text>
-                    <SmartIcon name="close" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                    <Text style={[styles.chipText, { color: colors.textPrimary }]}>{subj}</Text>
+                    <SmartIcon name="close" size={14} color="#F5F3ED" style={{ marginLeft: 4 }} />
                   </TouchableOpacity>
                 ))}
               <TouchableOpacity
@@ -565,7 +565,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                       ]}
                       onPress={() => setNewExamSubject(subj)}
                     >
-                      <Text style={{ color: newExamSubject === subj ? '#FFF' : colors.textOnLight, fontSize: 13 }}>{subj}</Text>
+                      <Text style={{ color: newExamSubject === subj ? colors.textPrimary : colors.textOnLight, fontSize: 13 }}>{subj}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -581,7 +581,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                       ]}
                       onPress={() => setNewExamType(type)}
                     >
-                      <Text style={{ color: newExamType === type ? '#FFF' : colors.textOnLight, fontSize: 13 }}>{type}</Text>
+                      <Text style={{ color: newExamType === type ? colors.textPrimary : colors.textOnLight, fontSize: 13 }}>{type}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -597,7 +597,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                       ]}
                       onPress={() => setNewExamDate(d.value)}
                     >
-                      <Text style={{ color: newExamDate === d.value ? '#FFF' : colors.textOnLight, fontSize: 13 }}>{d.label}</Text>
+                      <Text style={{ color: newExamDate === d.value ? colors.textPrimary : colors.textOnLight, fontSize: 13 }}>{d.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -607,8 +607,8 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                     <Text style={{ color: colors.textInactive, fontSize: 14 }}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={addExam} style={[styles.confirmBtn, { backgroundColor: colors.accent1 }]}>
-                    <SmartIcon name="checkmark" size={18} color="#FFF" />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '600' }}>Add</Text>
+                    <SmartIcon name="checkmark" size={18} color="#F5F3ED" />
+                    <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>Add</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -683,7 +683,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                         <SmartIcon
                           name={item.icon as any}
                           size={18}
-                          color={selected ? '#FFF' : colors.textOnLight}
+                          color={selected ? colors.textPrimary : colors.textOnLight}
                         />
                       </TouchableOpacity>
                     );
@@ -725,7 +725,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                         ]}
                         onPress={() => toggleDay(newTrainingDays, setNewTrainingDays, idx)}
                       >
-                        <Text style={{ color: selected ? '#FFF' : colors.textOnLight, fontSize: 12, fontWeight: '600' }}>
+                        <Text style={{ color: selected ? colors.textPrimary : colors.textOnLight, fontSize: 12, fontWeight: '600' }}>
                           {label}
                         </Text>
                       </TouchableOpacity>
@@ -738,8 +738,8 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                     <Text style={{ color: colors.textInactive, fontSize: 14 }}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={addTrainingType} style={[styles.confirmBtn, { backgroundColor: colors.accent1 }]}>
-                    <SmartIcon name="checkmark" size={18} color="#FFF" />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '600' }}>Add</Text>
+                    <SmartIcon name="checkmark" size={18} color="#F5F3ED" />
+                    <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>Add</Text>
                   </TouchableOpacity>
                 </View>
               </View>

@@ -13,6 +13,8 @@ import { SmartIcon } from '../components/SmartIcon';
 import { useTheme } from '../hooks/useTheme';
 import { fontFamily, spacing, borderRadius } from '../theme';
 
+import { colors } from '../theme/colors';
+
 // ── Section Header ──
 
 function SectionTitle({ icon, label, colors }: { icon: string; label: string; colors: any }) {
@@ -62,7 +64,7 @@ export function PreviewScreen() {
 
         {/* ═══ TIMELINE TAB ═══ */}
         {(activeTab === 0 || activeTab === 1) && <>
-          <SectionTitle icon="📅" label="Timeline" colors={colors} />
+          <SectionTitle icon="" label="Timeline" colors={colors} />
 
           {/* Calendar day strip */}
           <View style={[ss.card, { backgroundColor: colors.backgroundElevated }]}>
@@ -70,9 +72,9 @@ export function PreviewScreen() {
             <View style={ss.dayStrip}>
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => (
                 <View key={d} style={[ss.dayCell, i === 2 && { backgroundColor: colors.accent1, borderRadius: 12 }]}>
-                  <Text style={[ss.dayName, { color: i === 2 ? '#FFF' : colors.textMuted }]}>{d}</Text>
-                  <Text style={[ss.dayNum, { color: i === 2 ? '#FFF' : colors.textOnDark }]}>{18 + i}</Text>
-                  {i === 2 && <View style={[ss.dayDot, { backgroundColor: '#FFF' }]} />}
+                  <Text style={[ss.dayName, { color: i === 2 ? colors.textPrimary : colors.textMuted }]}>{d}</Text>
+                  <Text style={[ss.dayNum, { color: i === 2 ? colors.textPrimary : colors.textOnDark }]}>{18 + i}</Text>
+                  {i === 2 && <View style={[ss.dayDot, { backgroundColor: colors.textPrimary }]} />}
                   {i === 4 && <View style={[ss.dayDot, { backgroundColor: colors.accent1 }]} />}
                 </View>
               ))}
@@ -113,7 +115,7 @@ export function PreviewScreen() {
 
         {/* ═══ OUTPUT TAB ═══ */}
         {(activeTab === 0 || activeTab === 2) && <>
-          <SectionTitle icon="⚡" label="Output" colors={colors} />
+          <SectionTitle icon="" label="Output" colors={colors} />
 
           {/* Readiness hero */}
           <View style={[ss.card, { backgroundColor: colors.backgroundElevated, alignItems: 'center' }]}>
@@ -141,10 +143,10 @@ export function PreviewScreen() {
           <View style={[ss.card, { backgroundColor: colors.backgroundElevated }]}>
             <Text style={[ss.cardLabel, { color: colors.textMuted }]}>Benchmarks</Text>
             {[
-              { label: '10m Sprint', pct: 78, zone: 'Good', zoneColor: '#2ECC71' },
-              { label: 'CMJ Height', pct: 62, zone: 'Average', zoneColor: '#3498DB' },
+              { label: '10m Sprint', pct: 78, zone: 'Good', zoneColor: colors.accent },
+              { label: 'CMJ Height', pct: 62, zone: 'Average', zoneColor: colors.textSecondary },
               { label: 'Agility T-Test', pct: 45, zone: 'Developing', zoneColor: colors.warning },
-              { label: 'Yo-Yo IR1', pct: 88, zone: 'Elite', zoneColor: '#27AE60' },
+              { label: 'Yo-Yo IR1', pct: 88, zone: 'Elite', zoneColor: colors.accent },
             ].map((m) => (
               <View key={m.label} style={ss.benchRow}>
                 <View style={ss.benchHeader}>
@@ -165,9 +167,9 @@ export function PreviewScreen() {
           <View style={[ss.card, { backgroundColor: colors.backgroundElevated }]}>
             <Text style={[ss.cardLabel, { color: colors.textMuted }]}>Programs</Text>
             {[
-              { name: 'Nordic Hamstring Protocol', cat: 'Injury Prevention', freq: '3x/week', priority: 'mandatory', priorityColor: '#FF453A' },
-              { name: 'Sprint Development', cat: 'Speed', freq: '2x/week', priority: 'recommended', priorityColor: '#FF9500' },
-              { name: 'ACL Prevention', cat: 'Injury Prevention', freq: '2x/week', priority: 'supplementary', priorityColor: '#2ECC71' },
+              { name: 'Nordic Hamstring Protocol', cat: 'Injury Prevention', freq: '3x/week', priority: 'mandatory', priorityColor: colors.textSecondary },
+              { name: 'Sprint Development', cat: 'Speed', freq: '2x/week', priority: 'recommended', priorityColor: colors.textSecondary },
+              { name: 'ACL Prevention', cat: 'Injury Prevention', freq: '2x/week', priority: 'supplementary', priorityColor: colors.accent },
             ].map((p) => (
               <View key={p.name} style={[ss.progCard, { borderLeftColor: p.priorityColor, borderLeftWidth: 3 }]}>
                 <View style={ss.progHeader}>
@@ -184,7 +186,7 @@ export function PreviewScreen() {
 
         {/* ═══ TOMO CHAT TAB ═══ */}
         {(activeTab === 0 || activeTab === 3) && <>
-          <SectionTitle icon="💬" label="Tomo Chat" colors={colors} />
+          <SectionTitle icon="" label="Tomo Chat" colors={colors} />
 
           <View style={[ss.card, { backgroundColor: colors.backgroundElevated }]}>
             <Text style={[ss.cardLabel, { color: colors.textMuted }]}>Conversation</Text>
@@ -237,7 +239,7 @@ export function PreviewScreen() {
 
         {/* ═══ MASTERY TAB ═══ */}
         {(activeTab === 0 || activeTab === 4) && <>
-          <SectionTitle icon="🏆" label="Mastery" colors={colors} />
+          <SectionTitle icon="" label="Mastery" colors={colors} />
 
           {/* DNA Card mock */}
           <LinearGradient colors={[colors.accent1, colors.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={ss.dnaCard}>
@@ -272,14 +274,14 @@ export function PreviewScreen() {
           <View style={[ss.card, { backgroundColor: colors.backgroundElevated }]}>
             <Text style={[ss.cardLabel, { color: colors.textMuted }]}>Mastery Pillars</Text>
             {[
-              { emoji: '⚡', name: 'Speed & Power', pct: 75, badge: 'Strength', badgeColor: '#2ECC71' },
-              { emoji: '🎯', name: 'Technical Skill', pct: 68, badge: 'Growth', badgeColor: colors.warning },
-              { emoji: '🧠', name: 'Game Intelligence', pct: 72, badge: 'Strength', badgeColor: '#2ECC71' },
-              { emoji: '💪', name: 'Physical Resilience', pct: 80, badge: 'Strength', badgeColor: '#2ECC71' },
-              { emoji: '🔋', name: 'Endurance', pct: 55, badge: 'Growth', badgeColor: colors.warning },
+              { emoji: '', name: 'Speed & Power', pct: 75, badge: 'Strength', badgeColor: colors.accent },
+              { emoji: '', name: 'Technical Skill', pct: 68, badge: 'Growth', badgeColor: colors.warning },
+              { emoji: '', name: 'Game Intelligence', pct: 72, badge: 'Strength', badgeColor: colors.accent },
+              { emoji: '', name: 'Physical Resilience', pct: 80, badge: 'Strength', badgeColor: colors.accent },
+              { emoji: '', name: 'Endurance', pct: 55, badge: 'Growth', badgeColor: colors.warning },
             ].map((p) => (
               <View key={p.name} style={ss.pillarRow}>
-                <Text style={ss.pillarEmoji}>{p.emoji}</Text>
+                {p.emoji ? <Text style={ss.pillarEmoji}>{p.emoji}</Text> : null}
                 <View style={{ flex: 1 }}>
                   <View style={ss.pillarHeader}>
                     <Text style={[ss.pillarName, { color: colors.textOnDark }]}>{p.name}</Text>
@@ -298,21 +300,21 @@ export function PreviewScreen() {
           {/* Streak */}
           <View style={[ss.card, { backgroundColor: colors.backgroundElevated, alignItems: 'center' }]}>
             <Text style={[ss.streakNum, { color: colors.accent1 }]}>12</Text>
-            <Text style={[ss.streakLabel, { color: colors.textMuted }]}>DAY STREAK 🔥</Text>
+            <Text style={[ss.streakLabel, { color: colors.textMuted }]}>DAY STREAK</Text>
           </View>
         </>}
 
         {/* ═══ OWN IT TAB ═══ */}
         {(activeTab === 0 || activeTab === 5) && <>
-          <SectionTitle icon="⭐" label="Own It" colors={colors} />
+          <SectionTitle icon="" label="Own It" colors={colors} />
 
           {/* Recommendation cards */}
           {[
-            { type: 'READINESS', title: 'Rest Day Recommended', body: 'Your ACWR is 1.4 and climbing. Take a light day to avoid overtraining.', color: '#2ECC71', priority: 'P1', icon: 'shield-checkmark' as const },
+            { type: 'READINESS', title: 'Rest Day Recommended', body: 'Your ACWR is 1.4 and climbing. Take a light day to avoid overtraining.', color: colors.accent, priority: 'P1', icon: 'shield-checkmark' as const },
             { type: 'LOAD_WARNING', title: 'Training Load Spike', body: 'Acute load 15% above chronic baseline. Reduce intensity in next session.', color: colors.warning, priority: 'P2', icon: 'warning' as const },
             { type: 'DEVELOPMENT', title: 'Sprint PB Opportunity', body: 'Your 10m time has improved 8% this month. Test again this week.', color: colors.accent2, priority: 'P3', icon: 'trending-up' as const },
             { type: 'ACADEMIC', title: 'Exam in 5 Days', body: 'Math exam Friday. Study blocks auto-scheduled around training.', color: colors.accent2, priority: 'P3', icon: 'school' as const },
-            { type: 'CV_OPPORTUNITY', title: 'Club Scout Viewed Profile', body: 'Arsenal Academy viewed your CV 2 hours ago.', color: '#3498DB', priority: 'P2', icon: 'eye' as const },
+            { type: 'CV_OPPORTUNITY', title: 'Club Scout Viewed Profile', body: 'Arsenal Academy viewed your CV 2 hours ago.', color: colors.textSecondary, priority: 'P2', icon: 'eye' as const },
           ].map((r) => (
             <View key={r.title} style={[ss.recCard, { backgroundColor: colors.backgroundElevated, borderLeftColor: r.color, borderLeftWidth: 3 }]}>
               <View style={ss.recHeader}>
@@ -349,7 +351,7 @@ export function PreviewScreen() {
 
         {/* ═══ SHARED COMPONENTS ═══ */}
         {activeTab === 0 && <>
-          <SectionTitle icon="🎨" label="Shared Components" colors={colors} />
+          <SectionTitle icon="" label="Shared Components" colors={colors} />
 
           {/* Gradient button */}
           <LinearGradient colors={[colors.accent1, colors.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={ss.gradBtn}>
@@ -448,7 +450,7 @@ export function PreviewScreen() {
           <View key={t.label} style={ss.tabBarItem}>
             {t.active ? (
               <LinearGradient colors={[colors.accent1, colors.accent2]} style={ss.centerTab}>
-                <SmartIcon name={t.icon} size={20} color="#FFF" />
+                <SmartIcon name={t.icon} size={20} color="#F5F3ED" />
               </LinearGradient>
             ) : (
               <SmartIcon name={t.icon} size={22} color={colors.textInactive} />
@@ -471,7 +473,7 @@ const ss = StyleSheet.create({
   headerRight: { flexDirection: 'row', gap: 8 },
   iconBtn: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
 
-  tabRow: { maxHeight: 36, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  tabRow: { maxHeight: 36, borderBottomWidth: 1, borderBottomColor: colors.creamSubtle },
   tabRowContent: { paddingHorizontal: 12, gap: 0 },
   tab: { paddingHorizontal: 12, paddingVertical: 8 },
   tabText: { fontFamily: fontFamily.medium, fontSize: 12 },
@@ -522,7 +524,7 @@ const ss = StyleSheet.create({
   zoneText: { fontFamily: fontFamily.semiBold, fontSize: 10 },
   barTrack: { height: 6, borderRadius: 3, overflow: 'hidden', position: 'relative' },
   barFill: { height: '100%', borderRadius: 3 },
-  normMarker: { position: 'absolute', top: -1, width: 2, height: 8, backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: 1 },
+  normMarker: { position: 'absolute', top: -1, width: 2, height: 8, backgroundColor: colors.textMuted, borderRadius: 1 },
 
   // Programs
   progCard: { paddingVertical: 8, paddingLeft: 10, borderRadius: 8, marginBottom: 6 },
@@ -548,24 +550,24 @@ const ss = StyleSheet.create({
   confirmBody: { fontFamily: fontFamily.regular, fontSize: 13, marginBottom: 10 },
   confirmActions: { flexDirection: 'row', gap: 8 },
   confirmBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
-  confirmBtnText: { fontFamily: fontFamily.semiBold, fontSize: 12, color: '#FFF' },
+  confirmBtnText: { fontFamily: fontFamily.semiBold, fontSize: 12, color: colors.textPrimary },
   confirmBtnOutline: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
   confirmBtnOutlineText: { fontFamily: fontFamily.medium, fontSize: 12 },
 
   // DNA Card
   dnaCard: { borderRadius: 24, padding: 16, minHeight: 200 },
   dnaTop: { flexDirection: 'row', justifyContent: 'space-between' },
-  dnaOvr: { fontFamily: fontFamily.semiBold, fontSize: 11, color: 'rgba(255,255,255,0.7)', letterSpacing: 2 },
-  dnaScore: { fontFamily: fontFamily.bold, fontSize: 48, color: '#FFF' },
+  dnaOvr: { fontFamily: fontFamily.semiBold, fontSize: 11, color: 'rgba(245,243,237,0.7)', letterSpacing: 2 },
+  dnaScore: { fontFamily: fontFamily.bold, fontSize: 48, color: colors.textPrimary },
   dnaBadges: { alignItems: 'flex-end', gap: 4 },
-  dnaTierBadge: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
-  dnaTierText: { fontFamily: fontFamily.bold, fontSize: 11, color: '#FFF', letterSpacing: 1 },
+  dnaTierBadge: { backgroundColor: colors.creamOverlay, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
+  dnaTierText: { fontFamily: fontFamily.bold, fontSize: 11, color: colors.textPrimary, letterSpacing: 1 },
   dnaPosBadge: { backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
-  dnaPosText: { fontFamily: fontFamily.bold, fontSize: 12, color: '#FFF', letterSpacing: 1 },
+  dnaPosText: { fontFamily: fontFamily.bold, fontSize: 12, color: colors.textPrimary, letterSpacing: 1 },
   radarMock: { height: 120, position: 'relative', marginTop: 4 },
   radarLabel: { position: 'absolute', alignItems: 'center' },
-  radarAttr: { fontFamily: fontFamily.bold, fontSize: 9, color: 'rgba(255,255,255,0.8)', letterSpacing: 0.5 },
-  radarVal: { fontFamily: fontFamily.semiBold, fontSize: 12, color: '#FFF' },
+  radarAttr: { fontFamily: fontFamily.bold, fontSize: 9, color: 'rgba(245,243,237,0.8)', letterSpacing: 0.5 },
+  radarVal: { fontFamily: fontFamily.semiBold, fontSize: 12, color: colors.textPrimary },
 
   // Pillars
   pillarRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
@@ -599,7 +601,7 @@ const ss = StyleSheet.create({
 
   // Gradient button
   gradBtn: { borderRadius: 20, paddingVertical: 14, alignItems: 'center' },
-  gradBtnText: { fontFamily: fontFamily.semiBold, fontSize: 15, color: '#FFF', letterSpacing: 0.5 },
+  gradBtnText: { fontFamily: fontFamily.semiBold, fontSize: 15, color: colors.textPrimary, letterSpacing: 0.5 },
 
   // Tab bar
   tabBar: { flexDirection: 'row', borderTopWidth: 1, paddingVertical: 6, paddingBottom: 16 },

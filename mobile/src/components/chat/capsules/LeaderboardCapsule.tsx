@@ -12,12 +12,12 @@ interface Props {
   card: LeaderboardCapsuleType;
 }
 
-const RANK_MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+const RANK_MEDALS: Record<number, string> = { 1: '', 2: '', 3: '' };
 
 export function LeaderboardCapsuleComponent({ card }: Props) {
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>🏆 Leaderboard</Text>
+      <Text style={styles.heading}>Leaderboard</Text>
 
       {card.userRank && (
         <Text style={styles.yourRank}>Your rank: #{card.userRank}</Text>
@@ -37,7 +37,7 @@ export function LeaderboardCapsuleComponent({ card }: Props) {
             </View>
             <View style={styles.scoreCol}>
               <Text style={styles.points}>{entry.totalPoints.toLocaleString()}</Text>
-              <Text style={styles.streak}>🔥 {entry.currentStreak}d</Text>
+              <Text style={styles.streak}>{entry.currentStreak}d</Text>
             </View>
           </View>
         ))}
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   yourRank: { fontFamily: fontFamily.bold, fontSize: 14, color: colors.accent1 },
   list: { maxHeight: 350 },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.glassBorder, gap: spacing.sm },
-  highlightRow: { backgroundColor: 'rgba(255, 107, 53, 0.08)', borderRadius: borderRadius.sm, marginHorizontal: -4, paddingHorizontal: 4 },
+  highlightRow: { backgroundColor: colors.accentSubtle, borderRadius: borderRadius.sm, marginHorizontal: -4, paddingHorizontal: 4 },
   rank: { fontFamily: fontFamily.bold, fontSize: 16, width: 36, textAlign: 'center', color: colors.textPrimary },
   nameCol: { flex: 1 },
   name: { fontFamily: fontFamily.medium, fontSize: 14, color: colors.textPrimary },

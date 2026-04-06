@@ -52,11 +52,11 @@ type Nav = NativeStackNavigationProp<MainStackParamList>;
 // ── Category display helpers ──────────────────────────────────────────
 
 const CATEGORY_DISPLAY: Record<string, { label: string; color: string; emoji: string }> = {
-  'pre-phv-early': { label: 'Pre-PHV (Early)', color: colors.info, emoji: '\u{1F331}' },
-  'pre-phv-approaching': { label: 'Pre-PHV (Approaching)', color: colors.info, emoji: '\u{1F4C8}' },
-  'at-phv': { label: 'At PHV', color: colors.accent, emoji: '\u{26A1}' },
-  'post-phv-recent': { label: 'Post-PHV (Recent)', color: colors.accent, emoji: '\u{1F4AA}' },
-  'post-phv-stable': { label: 'Post-PHV (Stable)', color: colors.accent, emoji: '\u{1F3AF}' },
+  'pre-phv-early': { label: 'Pre-PHV (Early)', color: colors.info, emoji: '' },
+  'pre-phv-approaching': { label: 'Pre-PHV (Approaching)', color: colors.info, emoji: '' },
+  'at-phv': { label: 'At PHV', color: colors.accent, emoji: '' },
+  'post-phv-recent': { label: 'Post-PHV (Recent)', color: colors.accent, emoji: '' },
+  'post-phv-stable': { label: 'Post-PHV (Stable)', color: colors.accent, emoji: '' },
 };
 
 export function PHVCalculatorScreen() {
@@ -259,7 +259,7 @@ export function PHVCalculatorScreen() {
         if (snapshotKeys.length > 0) await AsyncStorage.multiRemove(snapshotKeys);
       } catch {}
 
-      setSavedMessage('✅ Growth stage saved!');
+      setSavedMessage('Growth stage saved!');
       setTimeout(() => {
         if (Platform.OS === 'web' && window.history.length > 1) {
           window.history.back();
@@ -270,7 +270,7 @@ export function PHVCalculatorScreen() {
         }
       }, 1200);
     } catch (e) {
-      setSavedMessage('❌ Failed to save. Please try again.');
+      setSavedMessage('Failed to save. Please try again.');
       setSaving(false);
     }
   }, [result, user, standingHeight, sittingHeight, weight, dob, sex, ageDecimal, measurementDate, navigation]);
@@ -538,7 +538,7 @@ export function PHVCalculatorScreen() {
           {result && categoryInfo && (
             <GlassCard style={styles.resultCard}>
               <View style={styles.resultHeader}>
-                <Text style={styles.resultEmoji}>{categoryInfo.emoji}</Text>
+                {categoryInfo.emoji ? <Text style={styles.resultEmoji}>{categoryInfo.emoji}</Text> : null}
                 <Text style={[styles.resultCategory, { color: categoryInfo.color }]}>{categoryInfo.label}</Text>
               </View>
 
@@ -568,7 +568,7 @@ export function PHVCalculatorScreen() {
               <Text style={styles.trainabilityNote}>{result.trainabilityNote}</Text>
 
               {savedMessage ? (
-                <Text style={[styles.savedMessage, { color: savedMessage.startsWith('✅') ? colors.accent : colors.error }]}>
+                <Text style={[styles.savedMessage, { color: savedMessage.startsWith('Growth') ? colors.accent : colors.error }]}>
                   {savedMessage}
                 </Text>
               ) : (
@@ -584,8 +584,8 @@ export function PHVCalculatorScreen() {
                       paddingHorizontal: 24,
                       borderRadius: 12,
                       marginTop: spacing.lg,
-                      backgroundColor: 'rgba(0, 217, 255, 0.12)',
-                      borderColor: 'rgba(0, 217, 255, 0.3)',
+                      backgroundColor: colors.accentMuted,
+                      borderColor: colors.accentBorder,
                       borderWidth: 1,
                       opacity: saving ? 0.5 : 1,
                     }}

@@ -13,6 +13,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { SmartIcon } from '../SmartIcon';
 import { NotificationCard, type NotificationData } from './NotificationCard';
 import { spacing } from '../../theme';
+import { colors } from '../../theme/colors';
 
 interface SwipeableNotificationCardProps {
   notification: NotificationData;
@@ -51,7 +52,7 @@ export function SwipeableNotificationCard({
 
       return (
         <Animated.View style={[styles.swipeAction, styles.dismissAction, { transform: [{ translateX }] }]}>
-          <SmartIcon name="close-circle" size={22} color="#FFFFFF" />
+          <SmartIcon name="close-circle" size={22} color="#F5F3ED" />
           <Text style={styles.swipeText}>Dismiss</Text>
         </Animated.View>
       );
@@ -70,7 +71,7 @@ export function SwipeableNotificationCard({
 
       return (
         <Animated.View style={[styles.swipeAction, styles.readAction, { transform: [{ translateX }] }]}>
-          <SmartIcon name="checkmark-circle" size={22} color="#FFFFFF" />
+          <SmartIcon name="checkmark-circle" size={22} color="#F5F3ED" />
           <Text style={styles.swipeText}>Read</Text>
         </Animated.View>
       );
@@ -125,19 +126,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   dismissAction: {
-    backgroundColor: '#E74C3C',
+    backgroundColor: colors.textSecondary,
     borderTopRightRadius: 8,
     borderBottomRightRadius: 8,
     marginRight: spacing.lg,
   },
   readAction: {
-    backgroundColor: '#2ECC71',
+    backgroundColor: colors.accent,
     borderTopLeftRadius: 8,
     borderBottomLeftRadius: 8,
     marginLeft: spacing.lg,
   },
   swipeText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 10,
     fontWeight: '600',
     marginTop: 2,

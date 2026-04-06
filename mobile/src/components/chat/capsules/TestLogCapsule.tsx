@@ -13,14 +13,14 @@ import { CapsuleSubmitButton } from './shared/CapsuleSubmitButton';
 
 // Category definitions matching mastery pillars
 const CATEGORIES = [
-  { id: 'all', label: 'All', emoji: '📋' },
-  { id: 'speed', label: 'Speed', emoji: '⚡' },
-  { id: 'power', label: 'Power', emoji: '💥' },
-  { id: 'agility', label: 'Agility', emoji: '🔀' },
-  { id: 'endurance', label: 'Endurance', emoji: '🫁' },
-  { id: 'strength', label: 'Strength', emoji: '💪' },
-  { id: 'mobility', label: 'Mobility', emoji: '🧘' },
-  { id: 'body', label: 'Body', emoji: '📐' },
+  { id: 'all', label: 'All', emoji: '' },
+  { id: 'speed', label: 'Speed', emoji: '' },
+  { id: 'power', label: 'Power', emoji: '' },
+  { id: 'agility', label: 'Agility', emoji: '' },
+  { id: 'endurance', label: 'Endurance', emoji: '' },
+  { id: 'strength', label: 'Strength', emoji: '' },
+  { id: 'mobility', label: 'Mobility', emoji: '' },
+  { id: 'body', label: 'Body', emoji: '' },
 ];
 
 interface TestLogCapsuleProps {
@@ -40,7 +40,7 @@ export function TestLogCapsuleComponent({ card, onSubmit }: TestLogCapsuleProps)
   const [searchQuery, setSearchQuery] = useState('');
 
   const selectedTestInfo = useMemo(
-    () => card.catalog.find((t) => t.id === selectedTest),
+    () => (card.catalog ?? []).find((t) => t.id === selectedTest),
     [selectedTest, card.catalog]
   );
 
@@ -51,7 +51,7 @@ export function TestLogCapsuleComponent({ card, onSubmit }: TestLogCapsuleProps)
 
   // Filtered catalog by category + search
   const filteredCatalog = useMemo(() => {
-    let items = card.catalog;
+    let items = card.catalog ?? [];
     if (activeCategory !== 'all') {
       items = items.filter((t) => t.category === activeCategory);
     }
@@ -64,7 +64,7 @@ export function TestLogCapsuleComponent({ card, onSubmit }: TestLogCapsuleProps)
 
   // Categories that actually have tests
   const availableCategories = useMemo(() => {
-    const catSet = new Set(card.catalog.map((t) => t.category));
+    const catSet = new Set((card.catalog ?? []).map((t) => t.category));
     return CATEGORIES.filter((c) => c.id === 'all' || catSet.has(c.id));
   }, [card.catalog]);
 
@@ -94,7 +94,7 @@ export function TestLogCapsuleComponent({ card, onSubmit }: TestLogCapsuleProps)
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>📊 Log Test Result</Text>
+      <Text style={styles.title}>Log Test Result</Text>
 
       {/* Tier 1: Recent tests quick-access */}
       {recentPills.length > 0 && (
@@ -130,7 +130,7 @@ export function TestLogCapsuleComponent({ card, onSubmit }: TestLogCapsuleProps)
       {/* Show "Browse all" if no recent tests */}
       {recentPills.length === 0 && !showFullCatalog && (
         <Pressable onPress={() => setShowFullCatalog(true)} style={styles.browseButton}>
-          <Text style={styles.browseButtonText}>Browse all {card.catalog.length} tests</Text>
+          <Text style={styles.browseButtonText}>Browse all {(card.catalog ?? []).length} tests</Text>
         </Pressable>
       )}
 
@@ -165,7 +165,7 @@ export function TestLogCapsuleComponent({ card, onSubmit }: TestLogCapsuleProps)
                   style={[styles.categoryTab, isActive && styles.categoryTabActive]}
                 >
                   <Text style={[styles.categoryTabText, isActive && styles.categoryTabTextActive]}>
-                    {cat.emoji} {cat.label}
+                    {cat.emoji ? `${cat.emoji} ` : ''}{cat.label}
                   </Text>
                 </Pressable>
               );
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   pillSelected: {
     borderColor: colors.accent1,
-    backgroundColor: `rgba(255, 107, 53, 0.12)`,
+    backgroundColor: `rgba(122, 155, 118, 0.12)`,
   },
   pillText: {
     fontFamily: fontFamily.medium,
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   },
   categoryTabActive: {
     borderColor: colors.accent1,
-    backgroundColor: `rgba(255, 107, 53, 0.12)`,
+    backgroundColor: `rgba(122, 155, 118, 0.12)`,
   },
   categoryTabText: {
     fontFamily: fontFamily.medium,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   selectedBanner: {
-    backgroundColor: `rgba(255, 107, 53, 0.08)`,
+    backgroundColor: colors.accentSubtle,
     borderRadius: borderRadius.sm,
     paddingVertical: 6,
     paddingHorizontal: 10,

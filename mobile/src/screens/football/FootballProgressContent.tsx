@@ -211,22 +211,22 @@ export function FootballProgressContent({
       <Animated.View style={entrance1}>
         <View style={s.weekRow}>
           <View style={s.weekCard}>
-            <Text style={s.weekEmoji}>{'\u26A1'}</Text>
+            <Text style={s.weekEmoji}>{''}</Text>
             <Text style={s.weekValue}>{weekTests}</Text>
             <Text style={s.weekLabel}>Tests</Text>
           </View>
           <View style={s.weekCard}>
-            <Text style={s.weekEmoji}>{'\uD83D\uDD25'}</Text>
+            <Text style={s.weekEmoji}>{''}</Text>
             <Text style={s.weekValue}>{streak}</Text>
             <Text style={s.weekLabel}>Streak</Text>
           </View>
           <View style={s.weekCard}>
-            <Text style={s.weekEmoji}>{'\u2B50'}</Text>
+            <Text style={s.weekEmoji}>{''}</Text>
             <Text style={s.weekValue}>{totalPoints >= 1000 ? `${(totalPoints / 1000).toFixed(1)}k` : totalPoints}</Text>
             <Text style={s.weekLabel}>Points</Text>
           </View>
           <View style={s.weekCard}>
-            <Text style={s.weekEmoji}>{'\uD83C\uDFC6'}</Text>
+            <Text style={s.weekEmoji}>{''}</Text>
             <Text style={s.weekValue}>{card.footballLevel.split(' ')[0]}</Text>
             <Text style={s.weekLabel}>Rank</Text>
           </View>

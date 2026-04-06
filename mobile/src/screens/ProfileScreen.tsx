@@ -538,7 +538,7 @@ function createStyles(colors: ThemeColors, typography: Record<string, TextStyle>
       marginTop: 1,
     },
     padelTierBadge: {
-      backgroundColor: 'rgba(255,255,255,0.06)',
+      backgroundColor: colors.creamSubtle,
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: 10,
@@ -566,13 +566,13 @@ function createStyles(colors: ThemeColors, typography: Record<string, TextStyle>
       borderBottomColor: colors.border,
     },
     menuItemPressed: {
-      backgroundColor: 'rgba(255,255,255,0.04)',
+      backgroundColor: colors.borderLight,
     },
     menuIconWrap: {
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: 'rgba(255,255,255,0.06)',
+      backgroundColor: colors.creamSubtle,
       justifyContent: 'center',
       alignItems: 'center',
       marginRight: spacing.md,

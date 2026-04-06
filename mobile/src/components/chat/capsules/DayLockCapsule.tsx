@@ -26,7 +26,7 @@ export function DayLockCapsuleComponent({ card, onSubmit }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>
-        {card.locked ? '🔒 Day Locked' : '🔓 Day Unlocked'}
+        {card.locked ? 'Day Locked' : 'Day Unlocked'}
       </Text>
       <Text style={styles.date}>{formatDate(card.date)}</Text>
       <Text style={styles.description}>
@@ -35,7 +35,7 @@ export function DayLockCapsuleComponent({ card, onSubmit }: Props) {
           : 'This day is open for scheduling. Lock it to prevent changes.'}
       </Text>
       <CapsuleSubmitButton
-        title={card.locked ? '🔓 Unlock Day' : '🔒 Lock Day'}
+        title={card.locked ? 'Unlock Day' : 'Lock Day'}
         onPress={handleToggle}
       />
     </View>

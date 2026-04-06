@@ -16,7 +16,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { TomoLoader } from '../components/TomoLoader';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
@@ -99,8 +99,22 @@ export function RootNavigator() {
     }
   };
 
+  // Tomo 友 navigation theme — navy background everywhere
+  const tomoNavTheme = {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      background: colors.background,
+      card: colors.background,
+      border: colors.creamMuted,
+      text: colors.textPrimary,
+      primary: colors.accent,
+    },
+  };
+
   return (
     <NavigationContainer
+      theme={tomoNavTheme}
       linking={linking}
       onStateChange={(state) => {
         const name = getActiveRouteName(state);
@@ -111,6 +125,7 @@ export function RootNavigator() {
         screenOptions={{
           headerShown: false,
           animation: 'fade',
+          contentStyle: { backgroundColor: colors.background },
         }}
       >
         {showAuth ? (

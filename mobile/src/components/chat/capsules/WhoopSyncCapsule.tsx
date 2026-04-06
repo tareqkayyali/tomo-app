@@ -29,7 +29,7 @@ export function WhoopSyncCapsuleComponent({ card, onSubmit }: Props) {
   if (card.syncResult) {
     return (
       <View style={styles.container}>
-        <Text style={styles.heading}>✅ Whoop Synced</Text>
+        <Text style={styles.heading}>Whoop Synced</Text>
         <View style={styles.statsRow}>
           <View style={styles.stat}>
             <Text style={styles.statValue}>{card.syncResult.recoveries}</Text>

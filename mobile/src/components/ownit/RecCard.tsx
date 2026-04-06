@@ -103,10 +103,10 @@ function getRecTypeConfig(colors: { accent: string; warning: string; info: strin
 }
 
 const PRIORITY_LABELS: Record<number, string> = {
-  1: '🚨 URGENT',
-  2: '⚡ TODAY',
-  3: '📋 THIS WEEK',
-  4: 'ℹ️ INFO',
+  1: 'URGENT',
+  2: 'TODAY',
+  3: 'THIS WEEK',
+  4: 'INFO',
 };
 
 // ── Evidence Pills Helper ──────────────────────────────────────────
@@ -183,7 +183,7 @@ function getEvidencePills(
     }
     case 'MOTIVATION': {
       const streak = evidence.streak_days as number | null;
-      if (streak != null) pills.push({ label: 'Streak', value: `${streak}🔥`, color: tc.accent, icon: 'flame-outline' });
+      if (streak != null) pills.push({ label: 'Streak', value: `${streak}`, color: tc.accent, icon: 'flame-outline' });
       const sessions = evidence.sessions_total as number | null;
       if (sessions != null) pills.push({ label: 'Sessions', value: `${sessions}`, color: tc.info, icon: 'fitness-outline' });
       break;
@@ -344,8 +344,8 @@ function ActionCTA({
           alignItems: 'center',
           justifyContent: 'center',
           gap: 8,
-          backgroundColor: 'rgba(0, 217, 255, 0.12)',
-          borderColor: 'rgba(0, 217, 255, 0.30)',
+          backgroundColor: colors.background,
+          borderColor: colors.creamMuted,
           borderWidth: 1,
           paddingVertical: 10,
           paddingHorizontal: 16,
@@ -353,8 +353,8 @@ function ActionCTA({
           marginTop: spacing.xs,
         }}
       >
-        <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.info} />
-        <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: colors.info }}>
+        <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.textPrimary} />
+        <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: colors.textPrimary }}>
           Ask Tomo about this
         </Text>
       </Pressable>
@@ -685,7 +685,7 @@ function createStyles(colors: ThemeColors) {
     bodyLong: {
       fontFamily: fontFamily.regular,
       fontSize: 13,
-      color: colors.textInactive,
+      color: colors.textBody,
       lineHeight: 20,
       marginTop: spacing.xs,
     },
@@ -726,7 +726,7 @@ function createStyles(colors: ThemeColors) {
     p1Body: {
       fontFamily: fontFamily.regular,
       fontSize: 14,
-      color: colors.textInactive,
+      color: colors.textBody,
       lineHeight: 22,
     },
     confidenceTrack: {
@@ -750,7 +750,7 @@ function createStyles(colors: ThemeColors) {
     p2Body: {
       fontFamily: fontFamily.regular,
       fontSize: 13,
-      color: colors.textInactive,
+      color: colors.textBody,
       lineHeight: 20,
     },
 
@@ -763,7 +763,7 @@ function createStyles(colors: ThemeColors) {
     p3Body: {
       fontFamily: fontFamily.regular,
       fontSize: 12,
-      color: colors.textInactive,
+      color: colors.textBody,
       lineHeight: 18,
       marginTop: spacing.xs,
     },
@@ -778,7 +778,7 @@ function createStyles(colors: ThemeColors) {
     p4Body: {
       fontFamily: fontFamily.regular,
       fontSize: 11,
-      color: colors.textInactive,
+      color: colors.textBody,
       lineHeight: 16,
     },
   });

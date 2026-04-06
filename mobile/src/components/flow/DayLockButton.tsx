@@ -11,6 +11,8 @@ import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { borderRadius, fontFamily, spacing } from '../../theme';
 
+import { colors } from '../../theme/colors';
+
 interface DayLockButtonProps {
   isLocked: boolean;
   isLoading?: boolean;
@@ -40,18 +42,18 @@ export function DayLockButton({ isLocked, isLoading, onToggle }: DayLockButtonPr
       <SmartIcon
         name={isLocked ? 'lock-closed' : 'lock-open-outline'}
         size={12}
-        color={isLocked ? '#FFF' : colors.textSecondary}
+        color={isLocked ? colors.textPrimary : colors.textSecondary}
       />
       <Text
         style={[
           styles.pillText,
-          { color: isLocked ? '#FFF' : colors.textSecondary },
+          { color: isLocked ? colors.textPrimary : colors.textSecondary },
         ]}
       >
         {isLocked ? 'Day Locked' : 'Lock Day'}
       </Text>
       {isLocked && (
-        <SmartIcon name="checkmark" size={12} color="#FFF" />
+        <SmartIcon name="checkmark" size={12} color="#F5F3ED" />
       )}
     </Pressable>
   );
@@ -67,7 +69,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
   },
   pillLocked: {
-    backgroundColor: '#2ED573',
+    backgroundColor: colors.accent,
   },
   pillUnlocked: {
     borderWidth: 1,

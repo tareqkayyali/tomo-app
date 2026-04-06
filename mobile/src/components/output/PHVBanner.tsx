@@ -77,18 +77,18 @@ export function PHVBanner({ phvOffset, phvStage, ltadStage, onCalculatePress }: 
   return (
     <GlassCard style={styles.container} noPadding>
       <View style={styles.row}>
-        <Text style={[styles.emoji]}>📏</Text>
-        <Text style={[styles.offsetValue, { color }]}>
+        <SmartIcon name="resize-outline" size={16} color={colors.textOnDark} style={{ marginRight: spacing.xs }} />
+        <Text style={[styles.offsetValue, { color: colors.textOnDark }]}>
           {phvOffset > 0 ? '+' : ''}{phvOffset} yrs
         </Text>
-        <View style={[styles.badge, { backgroundColor: color + '20' }]}>
-          <Text style={[styles.badgeText, { color }]}>{ltadStage || label}</Text>
+        <View style={[styles.badge, { backgroundColor: colors.creamMuted }]}>
+          <Text style={[styles.badgeText, { color: colors.textOnDark }]}>{ltadStage || label}</Text>
         </View>
         <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={onCalculatePress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <View style={styles.recalcRow}>
-            <SmartIcon name="refresh-outline" size={14} color={colors.textMuted} />
-            <Text style={[styles.recalcText, { color: colors.textMuted }]}>Recalculate</Text>
+            <SmartIcon name="refresh-outline" size={14} color={colors.textOnDark} />
+            <Text style={[styles.recalcText, { color: colors.textOnDark }]}>Recalculate</Text>
           </View>
         </TouchableOpacity>
       </View>

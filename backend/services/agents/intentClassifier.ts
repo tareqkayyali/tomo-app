@@ -350,6 +350,8 @@ CRITICAL RULES:
 - If the user mentions pain, injury, or soreness in context of "what should I do", classify as agent_fallthrough — NOT qa_readiness.
 - "show_programs" is ONLY for listing all programs (e.g. "my programs", "what programs do I have").
 - "qa_readiness" is ONLY for checking vitals/scores (e.g. "how am I", "my readiness"). NOT for asking what to do about readiness signals.
+- "leaderboard" is ONLY for gamification rankings (points, streaks). If the user mentions age, peers, position, percentile, or "compare" in a performance context, classify as benchmark_comparison — NOT leaderboard.
+- "log_test" is ONLY for when the user explicitly wants to LOG/RECORD a NEW test result. Words like "analyze", "progress", "trajectory", "history", "show", "how did", "trend", "improve" mean the user wants to VIEW/ANALYZE existing data — classify as agent_fallthrough, NOT log_test.
 - When in doubt, use agent_fallthrough with confidence 0.6.
 
 Return JSON only: {"intent":"<id>","confidence":<0.0-1.0>,"params":{}}
@@ -504,6 +506,28 @@ export async function classifyIntent(
       messagePreview: message.substring(0, 60),
     });
     return exactResult;
+  }
+
+  // Layer 1.5: Deterministic analysis guard — messages asking to ANALYZE/VIEW test data
+  // must never be classified as log_test. Force fallthrough so the full AI agent handles it.
+  const lower = message.toLowerCase();
+  if (/\b(analyz|progress|trajectory|history|trend|improv|how did|show my|compare)\b/i.test(lower)
+      && /\b(sprint|jump|agility|test|score|time)\b/i.test(lower)) {
+    const guard: ClassificationResult = {
+      intentId: "agent_fallthrough",
+      capsuleType: null,
+      agentType: "output",
+      confidence: 0.8,
+      extractedParams: {},
+      classificationLayer: "fallthrough",
+      latencyMs: Date.now() - start,
+    };
+    logger.info("[intent-classifier]", {
+      layer: "analysis_guard",
+      messagePreview: message.substring(0, 60),
+      latencyMs: guard.latencyMs,
+    });
+    return guard;
   }
 
   // Layer 2: Haiku classifier

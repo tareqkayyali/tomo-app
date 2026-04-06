@@ -9,6 +9,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import { FILTER_CATEGORIES, type CategoryFilter } from './constants';
 
+import { colors } from '../../theme/colors';
+
 interface CategoryFilterBarProps {
   selected: CategoryFilter;
   counts: Record<string, number>;
@@ -67,7 +69,7 @@ const styles = StyleSheet.create({
   container: {
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: 'rgba(245,243,237,0.05)',
   },
   scroll: {
     paddingHorizontal: spacing.lg,
@@ -97,6 +99,6 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: 9,
     fontFamily: fontFamily.bold,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
 });

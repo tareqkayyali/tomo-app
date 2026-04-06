@@ -118,7 +118,7 @@ export function DayStrip({ selectedDate, onSelect }: DayStripProps) {
           ]}>
             <Text style={[
               styles.dayNum,
-              { color: isSelected ? '#FFFFFF' : colors.textOnDark },
+              { color: isSelected ? colors.textPrimary : colors.textOnDark },
               isSelected && { fontFamily: fontFamily.bold },
             ]}>
               {item.dayNum}

@@ -60,7 +60,7 @@ export function CapsuleExamForm({ subjects, existingExams, onAdd, onCancel }: Ca
             return (
               <View key={e.id} style={styles.examPill}>
                 <Text style={styles.examPillSubject}>{e.subject}</Text>
-                <Text style={[styles.examPillDays, days <= 7 && { color: '#E74C3C' }]}>{days}d</Text>
+                <Text style={[styles.examPillDays, days <= 7 && { color: colors.textSecondary }]}>{days}d</Text>
               </View>
             );
           })}
@@ -168,8 +168,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(123, 97, 255, 0.25)',
     backgroundColor: 'rgba(123, 97, 255, 0.10)',
   },
-  examPillSubject: { fontFamily: fontFamily.medium, fontSize: 12, color: '#FFF' },
-  examPillDays: { fontFamily: fontFamily.semiBold, fontSize: 11, color: '#7B61FF' },
+  examPillSubject: { fontFamily: fontFamily.medium, fontSize: 12, color: colors.textPrimary },
+  examPillDays: { fontFamily: fontFamily.semiBold, fontSize: 11, color: colors.textSecondary },
 
   fieldGroup: { gap: 6 },
   fieldLabel: {
@@ -189,15 +189,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   subjectChipActive: {
-    borderColor: '#7B61FF',
-    backgroundColor: '#7B61FF20',
+    borderColor: colors.textSecondary,
+    backgroundColor: colors.secondarySubtle,
   },
   subjectChipText: {
     fontSize: 13,
     fontFamily: fontFamily.medium,
     color: colors.textSecondary,
   },
-  subjectChipTextActive: { color: '#7B61FF' },
+  subjectChipTextActive: { color: colors.textSecondary },
 
   dateTypeRow: { flexDirection: 'row', gap: 12 },
   datePickerRow: {
@@ -232,15 +232,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   typeChipActive: {
-    borderColor: '#7B61FF',
-    backgroundColor: '#7B61FF20',
+    borderColor: colors.textSecondary,
+    backgroundColor: colors.secondarySubtle,
   },
   typeChipText: {
     fontSize: 12,
     fontFamily: fontFamily.medium,
     color: colors.textSecondary,
   },
-  typeChipTextActive: { color: '#7B61FF' },
+  typeChipTextActive: { color: colors.textSecondary },
 
   buttonRow: { flexDirection: 'row', gap: 10 },
   cancelBtn: {
@@ -255,8 +255,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 11,
     borderRadius: borderRadius.sm,
-    backgroundColor: '#7B61FF',
+    backgroundColor: colors.textSecondary,
     alignItems: 'center',
   },
-  addBtnText: { fontFamily: fontFamily.semiBold, fontSize: 14, color: '#FFF' },
+  addBtnText: { fontFamily: fontFamily.semiBold, fontSize: 14, color: colors.textPrimary },
 });

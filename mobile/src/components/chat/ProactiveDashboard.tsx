@@ -25,6 +25,8 @@ import { apiRequest } from '../../services/api';
 import type { ThemeColors } from '../../theme/colors';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { BootData } from '../../services/api';
+import { colors } from '../../theme/colors';
+
 import type {
   DashboardConfig,
   DashboardPillConfig,
@@ -45,18 +47,18 @@ interface ProactiveDashboardProps {
 const DEFAULT_CONFIG: DashboardConfig = {
   greeting: { enabled: true, showEmoji: true },
   pills: [
-    { id: 'readiness', label: 'Ready', emoji: '🟢', dataSource: 'latestCheckin.readiness', format: 'readiness_color', enabled: true, emptyValue: '?', tapAction: 'check in', tapHint: 'Tap to check in', sortOrder: 1 },
-    { id: 'sleep', label: 'Sleep', emoji: '😴', dataSource: 'latestCheckin.sleepHours', format: 'hours', enabled: true, emptyValue: '—', sortOrder: 2 },
-    { id: 'acwr', label: 'ACWR', emoji: '📊', dataSource: 'snapshot.acwr', format: 'decimal1', enabled: true, emptyValue: '—', colorRules: { green: '>= 0.8', yellow: '< 0.8', red: '> 1.3' }, sortOrder: 3 },
-    { id: 'streak', label: 'Streak', emoji: '🔥', dataSource: 'streak', format: 'number', enabled: true, emptyValue: '0', sortOrder: 4 },
-    { id: 'hrv', label: 'HRV', emoji: '❤️', dataSource: 'snapshot.hrv_today_ms', format: 'decimal1', enabled: true, emptyValue: '—', sortOrder: 5 },
+    { id: 'readiness', label: 'Ready', emoji: '', dataSource: 'latestCheckin.readiness', format: 'readiness_color', enabled: true, emptyValue: '?', tapAction: 'check in', tapHint: 'Tap to check in', sortOrder: 1 },
+    { id: 'sleep', label: 'Sleep', emoji: '', dataSource: 'latestCheckin.sleepHours', format: 'hours', enabled: true, emptyValue: '—', sortOrder: 2 },
+    { id: 'acwr', label: 'ACWR', emoji: '', dataSource: 'snapshot.acwr', format: 'decimal1', enabled: true, emptyValue: '—', colorRules: { green: '>= 0.8', yellow: '< 0.8', red: '> 1.3' }, sortOrder: 3 },
+    { id: 'streak', label: 'Streak', emoji: '', dataSource: 'streak', format: 'number', enabled: true, emptyValue: '0', sortOrder: 4 },
+    { id: 'hrv', label: 'HRV', emoji: '', dataSource: 'snapshot.hrv_today_ms', format: 'decimal1', enabled: true, emptyValue: '—', sortOrder: 5 },
   ],
   todaySection: { enabled: true, maxEvents: 3, showEventTime: true, showRestDayMessage: true, restDayMessage: 'Rest day — recovery focus' },
   flags: [
-    { id: 'exam', condition: 'hasExamSoon', icon: 'alert-circle', message: 'Exam coming up — pace your load', color: '#F39C12', priority: 1, enabled: true },
-    { id: 'injury', condition: 'snapshot.injury_risk_flag == RED', icon: 'alert-circle', message: 'Injury risk elevated — prioritize recovery', color: '#E74C3C', priority: 2, enabled: true },
-    { id: 'highLoad', condition: 'snapshot.acwr > 1.3', icon: 'trending-up', message: 'Training load is high — manage intensity', color: '#F39C12', priority: 3, enabled: true },
-    { id: 'dualLoad', condition: 'snapshot.dual_load_index > 65', icon: 'warning', message: 'Academic + athletic load elevated', color: '#F39C12', priority: 4, enabled: true },
+    { id: 'exam', condition: 'hasExamSoon', icon: 'alert-circle', message: 'Exam coming up — pace your load', color: colors.textSecondary, priority: 1, enabled: true },
+    { id: 'injury', condition: 'snapshot.injury_risk_flag == RED', icon: 'alert-circle', message: 'Injury risk elevated — prioritize recovery', color: colors.textSecondary, priority: 2, enabled: true },
+    { id: 'highLoad', condition: 'snapshot.acwr > 1.3', icon: 'trending-up', message: 'Training load is high — manage intensity', color: colors.textSecondary, priority: 3, enabled: true },
+    { id: 'dualLoad', condition: 'snapshot.dual_load_index > 65', icon: 'warning', message: 'Academic + athletic load elevated', color: colors.textSecondary, priority: 4, enabled: true },
   ],
   chips: [
     { id: 'checkin', label: 'Check in', message: 'check in', condition: '!hasCheckinToday', priority: 1, enabled: true },
@@ -153,12 +155,12 @@ function formatValue(value: any, format: string, emptyValue: string): string {
 
 function getZoneColor(zone: string): string {
   switch (zone?.toLowerCase()) {
-    case 'elite':      return '#00D9FF'; // Tomo Teal — top tier
-    case 'good':       return '#30D158'; // Green — above average
-    case 'average':    return '#F39C12'; // Yellow — average
-    case 'developing': return '#FF6B35'; // Orange — below average
-    case 'below':      return '#E74C3C'; // Red — needs attention
-    default:           return '#888';
+    case 'elite':      return colors.accent; // Sage — top tier
+    case 'good':       return colors.accentLight; // Light sage — above average
+    case 'average':    return colors.textSecondary; // Yellow — average
+    case 'developing': return colors.textSecondary; // Blue-gray — below average
+    case 'below':      return colors.textSecondary; // Red — needs attention
+    default:           return colors.textSecondary;
   }
 }
 
@@ -179,19 +181,15 @@ function isMetricZoneObject(val: any): val is { percentile: number; zone: string
 }
 
 function getReadinessEmoji(readiness: string): string {
-  const lower = readiness.toLowerCase();
-  if (lower === 'green' || lower === 'good') return '🟢';
-  if (lower === 'yellow' || lower === 'moderate') return '🟡';
-  if (lower === 'red' || lower === 'poor') return '🔴';
-  return '❓';
+  return '';
 }
 
 function getReadinessColor(readiness: string): string {
   const lower = readiness.toLowerCase();
-  if (lower === 'green' || lower === 'good') return '#30D158';
-  if (lower === 'yellow' || lower === 'moderate') return '#F39C12';
-  if (lower === 'red' || lower === 'poor') return '#E74C3C';
-  return '#888';
+  if (lower === 'green' || lower === 'good') return colors.accent;
+  if (lower === 'yellow' || lower === 'moderate') return colors.textSecondary;
+  if (lower === 'red' || lower === 'poor') return colors.textSecondary;
+  return colors.textSecondary;
 }
 
 function evaluateColorRule(value: any, rule: string): boolean {
@@ -219,9 +217,9 @@ function getPillColor(value: any, format: string, colorRules?: DashboardPillConf
     return getZoneColor(value.zone);
   }
   if (!colorRules || value == null) return undefined;
-  if (colorRules.red && evaluateColorRule(value, colorRules.red)) return '#E74C3C';
-  if (colorRules.yellow && evaluateColorRule(value, colorRules.yellow)) return '#F39C12';
-  if (colorRules.green && evaluateColorRule(value, colorRules.green)) return '#30D158';
+  if (colorRules.red && evaluateColorRule(value, colorRules.red)) return colors.textSecondary;
+  if (colorRules.yellow && evaluateColorRule(value, colorRules.yellow)) return colors.textSecondary;
+  if (colorRules.green && evaluateColorRule(value, colorRules.green)) return colors.accent;
   return undefined;
 }
 
@@ -271,13 +269,13 @@ interface NotifItem {
 }
 
 const NOTIF_CAT_CONFIG: Record<string, { color: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  critical:  { color: '#E74C3C', icon: 'alert-circle-outline' },
-  training:  { color: '#FF6B35', icon: 'barbell-outline' },
-  coaching:  { color: '#7B61FF', icon: 'person-outline' },
-  academic:  { color: '#F39C12', icon: 'school-outline' },
-  triangle:  { color: '#00D9FF', icon: 'triangle-outline' },
-  cv:        { color: '#30D158', icon: 'document-text-outline' },
-  system:    { color: '#888',    icon: 'notifications-outline' },
+  critical:  { color: colors.textSecondary, icon: 'alert-circle-outline' },
+  training:  { color: colors.accent, icon: 'barbell-outline' },
+  coaching:  { color: colors.textSecondary, icon: 'person-outline' },
+  academic:  { color: colors.textSecondary, icon: 'school-outline' },
+  triangle:  { color: colors.accent, icon: 'triangle-outline' },
+  cv:        { color: colors.accentLight, icon: 'document-text-outline' },
+  system:    { color: colors.textSecondary, icon: 'notifications-outline' },
 };
 
 function timeAgoShort(iso: string): string {
@@ -358,7 +356,7 @@ function LatestNotificationsSection({ onViewAll, upcomingEventType }: { onViewAl
         borderRadius: 12,
         backgroundColor: colors.inputBackground,
         borderWidth: 1,
-        borderColor: centerUnreadCount > 0 ? 'rgba(255,107,53,0.25)' : 'rgba(255,255,255,0.06)',
+        borderColor: centerUnreadCount > 0 ? colors.accentBorder : colors.creamSubtle,
         overflow: 'hidden',
         opacity: pressed ? 0.85 : 1,
       })}
@@ -373,8 +371,8 @@ function LatestNotificationsSection({ onViewAll, upcomingEventType }: { onViewAl
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           {centerUnreadCount > 0 && (
-            <View style={{ backgroundColor: '#FF6B35', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 }}>
-              <Text style={{ fontFamily: fontFamily.bold, fontSize: 10, color: '#fff' }}>{centerUnreadCount > 99 ? '99+' : centerUnreadCount}</Text>
+            <View style={{ backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 }}>
+              <Text style={{ fontFamily: fontFamily.bold, fontSize: 10, color: colors.textPrimary }}>{centerUnreadCount > 99 ? '99+' : centerUnreadCount}</Text>
             </View>
           )}
           <SmartIcon name="chevron-forward" size={12} color={colors.textMuted} />
@@ -394,7 +392,7 @@ function LatestNotificationsSection({ onViewAll, upcomingEventType }: { onViewAl
               paddingHorizontal: spacing.md,
               paddingVertical: 7,
               borderTopWidth: 1,
-              borderTopColor: 'rgba(255,255,255,0.05)',
+              borderTopColor: 'rgba(245,243,237,0.05)',
             }}
           >
             <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: cat.color + '20', justifyContent: 'center', alignItems: 'center' }}>
@@ -547,7 +545,7 @@ export const ProactiveDashboard = React.memo(function ProactiveDashboard({
   if (isNewUser) {
     return (
       <Animated.View style={[styles.container, animStyle]}>
-        <Text style={styles.greeting}>Welcome to Tomo, {bootData.name.split(' ')[0]} 👋</Text>
+        <Text style={styles.greeting}>Welcome to Tomo, {bootData.name.split(' ')[0]}</Text>
         <Text style={styles.newUserText}>
           {dashConfig.newUserMessage}
         </Text>
@@ -575,7 +573,7 @@ export const ProactiveDashboard = React.memo(function ProactiveDashboard({
       {/* Greeting */}
       {greeting && (
         <Text style={styles.greeting}>
-          {greeting}{dashConfig.greeting.showEmoji ? ' 👋' : ''}
+          {greeting}{dashConfig.greeting.showEmoji ? '' : ''}
         </Text>
       )}
 
@@ -588,7 +586,7 @@ export const ProactiveDashboard = React.memo(function ProactiveDashboard({
               onPress={pill.showTap && pill.tapAction ? () => onChipPress(pill.tapAction!) : undefined}
               style={[styles.pill, pill.showTap && styles.pillTappable]}
             >
-              <Text style={styles.pillEmoji}>{pill.emoji}</Text>
+              {pill.emoji ? <Text style={styles.pillEmoji}>{pill.emoji}</Text> : null}
               <Text style={[styles.pillValue, pill.color ? { color: pill.color } : null]}>
                 {pill.displayValue}
               </Text>
@@ -615,12 +613,12 @@ export const ProactiveDashboard = React.memo(function ProactiveDashboard({
                   <SmartIcon
                     name={item.icon as any}
                     size={14}
-                    color={item.isCurrent ? colors.accent1 : '#00D9FF'}
+                    color={item.isCurrent ? colors.accent1 : colors.accent}
                   />
                   <Text style={styles.todayItemText} numberOfLines={1}>{item.text}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     {item.isCurrent && (
-                      <View style={{ backgroundColor: '#FF6B3520', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
+                      <View style={{ backgroundColor: colors.accentMuted, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
                         <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 10, color: colors.accent1 }}>NOW</Text>
                       </View>
                     )}
@@ -692,7 +690,7 @@ function createStyles(colors: ThemeColors) {
     newUserText: {
       fontFamily: fontFamily.regular,
       fontSize: 14,
-      color: colors.textMuted,
+      color: colors.textBody,
       lineHeight: 20,
     },
     pillsRow: {
@@ -710,7 +708,7 @@ function createStyles(colors: ThemeColors) {
     },
     pillTappable: {
       borderWidth: 1,
-      borderColor: 'rgba(0, 217, 255, 0.3)',
+      borderColor: colors.accentBorder,
       borderStyle: 'dashed',
     },
     pillEmoji: { fontSize: 18 },
@@ -729,7 +727,7 @@ function createStyles(colors: ThemeColors) {
     pillHint: {
       fontFamily: fontFamily.regular,
       fontSize: 9,
-      color: '#00D9FF',
+      color: colors.accent,
       marginTop: 1,
     },
     todaySection: { gap: 6 },
@@ -790,21 +788,21 @@ function createStyles(colors: ThemeColors) {
       marginTop: 4,
     },
     chip: {
-      backgroundColor: 'rgba(0, 217, 255, 0.08)',
+      backgroundColor: colors.accentSubtle,
       paddingVertical: 8,
       paddingHorizontal: spacing.md,
       borderRadius: borderRadius.full,
       borderWidth: 1,
-      borderColor: 'rgba(0, 217, 255, 0.2)',
+      borderColor: colors.accentBorder,
     },
     chipPressed: {
       opacity: 0.7,
-      backgroundColor: 'rgba(0, 217, 255, 0.15)',
+      backgroundColor: colors.accentSoft,
     },
     chipText: {
       fontFamily: fontFamily.medium,
       fontSize: 13,
-      color: '#00D9FF',
+      color: colors.accent,
     },
   });
 }

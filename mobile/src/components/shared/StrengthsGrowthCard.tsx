@@ -30,7 +30,7 @@ export function StrengthsGrowthCard({ strengths, gaps }: Props) {
         {strengths.length > 0 && (
           <View style={styles.chipColumn}>
             <Text style={[styles.chipColumnLabel, { color: colors.accent }]}>
-              💪 Strengths
+              Strengths
             </Text>
             <View style={styles.chipWrap}>
               {strengths.map((s) => (
@@ -42,7 +42,7 @@ export function StrengthsGrowthCard({ strengths, gaps }: Props) {
         {gaps.length > 0 && (
           <View style={styles.chipColumn}>
             <Text style={[styles.chipColumnLabel, { color: colors.warning }]}>
-              🎯 Growth Areas
+              Growth Areas
             </Text>
             <View style={styles.chipWrap}>
               {gaps.map((g) => (

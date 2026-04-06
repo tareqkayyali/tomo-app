@@ -372,7 +372,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
                       {event.date} · {event.startTime || ''} – {event.endTime || ''}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 16 }}>{event.type === 'exam' ? '📝' : '📚'}</Text>
+                  <Text style={{ fontSize: 16 }}>{event.type === 'exam' ? '' : ''}</Text>
                 </View>
               ))}
             </View>

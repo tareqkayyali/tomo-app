@@ -48,10 +48,10 @@ const MAX_FREEZE = 3;
 
 /** Map reward name → icon. Fallback to trophy for unknown rewards. */
 const REWARD_ICONS: Record<string, string> = {
-  'Sticker Pack': '\uD83C\uDFAB',
-  'Wristband': '\uD83E\uDEA2',
-  'Hoodie': '\uD83E\uDDE5',
-  'Jacket': '\uD83C\uDFC6',
+  'Sticker Pack': '',
+  'Wristband': '',
+  'Hoodie': '',
+  'Jacket': '',
 };
 
 // ---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ export function getStreakHeadline(streak: number): string {
 export function getRewardPreview(milestone: NextMilestone | null): string | null {
   if (!milestone) return null;
   const days = milestone.daysRemaining;
-  const icon = REWARD_ICONS[milestone.reward] || '\uD83C\uDFC6';
+  const icon = REWARD_ICONS[milestone.reward] || '';
   if (days === 1) {
     return `${icon} 1 day to ${milestone.reward} unlock!`;
   }
@@ -187,7 +187,7 @@ export function ReturnLoopWidget({
                 color={
                   i < clampedFreeze
                     ? colors.textOnDark
-                    : 'rgba(255,255,255,0.4)'
+                    : 'rgba(245,243,237,0.4)'
                 }
                 style={i > 0 ? styles.freezeIconGap : undefined}
               />
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   // Encouragement
   encouragement: {
     ...typography.bodySmall,
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(245,243,237,0.85)',
     marginTop: spacing.sm,
   },
 });

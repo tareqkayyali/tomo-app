@@ -27,6 +27,8 @@ import { resolveSuggestion } from '../services/api';
 import { spacing, borderRadius } from '../theme';
 import type { Suggestion, SuggestionType } from '../types';
 
+import { colors } from '../theme/colors';
+
 interface SuggestionCardProps {
   suggestion: Suggestion;
   onResolved?: (id: string, status: string) => void;
@@ -129,10 +131,10 @@ export function SuggestionCard({ suggestion, onResolved }: SuggestionCardProps) 
           ]}
         >
           {loading === 'accepted' ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <ActivityIndicator size="small" color="#F5F3ED" />
           ) : (
             <>
-              <SmartIcon name="checkmark" size={16} color="#FFF" />
+              <SmartIcon name="checkmark" size={16} color="#F5F3ED" />
               <Text style={styles.actionText}>Accept</Text>
             </>
           )}
@@ -223,6 +225,6 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#FFF',
+    color: colors.textPrimary,
   },
 });

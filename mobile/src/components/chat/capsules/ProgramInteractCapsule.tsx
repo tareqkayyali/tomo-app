@@ -31,7 +31,7 @@ export function ProgramInteractCapsuleComponent({ card, onSubmit }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>📋 Your Programs</Text>
+      <Text style={styles.heading}>Your Programs</Text>
       {card.programs.map((prog) => {
         const badge = STATUS_BADGE[prog.status] ?? STATUS_BADGE.recommended;
         const isActionable = prog.status === 'recommended' || prog.status === 'active';

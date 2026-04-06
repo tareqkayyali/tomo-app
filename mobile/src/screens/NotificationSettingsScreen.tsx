@@ -23,6 +23,8 @@ import { spacing, borderRadius, fontFamily } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { apiRequest } from '../services/api';
+import { colors } from '../theme/colors';
+
 import {
   registerForPushNotifications,
 } from '../services/notifications';
@@ -63,13 +65,13 @@ const CATEGORY_TOGGLES: Array<{
   color: string;
   locked?: boolean;
 }> = [
-  { key: 'push_critical', label: 'Critical Alerts', subtitle: 'Load warnings, injury risk, wellness flags', icon: 'flash', color: '#E74C3C', locked: true },
-  { key: 'push_training', label: 'Training', subtitle: 'Journal nudges, session reminders, streak risk', icon: 'calendar', color: '#F4501E' },
-  { key: 'push_coaching', label: 'Coaching', subtitle: 'New recommendations, personal bests, milestones', icon: 'star', color: '#2ECC71' },
-  { key: 'push_academic', label: 'Academic', subtitle: 'Exam alerts, dual load spikes, schedule conflicts', icon: 'book', color: '#3498DB' },
-  { key: 'push_triangle', label: 'Triangle', subtitle: 'Coach assessments, parent flags', icon: 'diamond', color: '#8E44AD' },
-  { key: 'push_cv', label: 'CV', subtitle: 'Profile views, completeness milestones', icon: 'person-circle', color: '#F39C12' },
-  { key: 'push_system', label: 'System', subtitle: 'App updates, feature tips', icon: 'information-circle', color: '#888888' },
+  { key: 'push_critical', label: 'Critical Alerts', subtitle: 'Load warnings, injury risk, wellness flags', icon: 'flash', color: colors.textSecondary, locked: true },
+  { key: 'push_training', label: 'Training', subtitle: 'Journal nudges, session reminders, streak risk', icon: 'calendar', color: colors.accent },
+  { key: 'push_coaching', label: 'Coaching', subtitle: 'New recommendations, personal bests, milestones', icon: 'star', color: colors.accent },
+  { key: 'push_academic', label: 'Academic', subtitle: 'Exam alerts, dual load spikes, schedule conflicts', icon: 'book', color: colors.textSecondary },
+  { key: 'push_triangle', label: 'Triangle', subtitle: 'Coach assessments, parent flags', icon: 'diamond', color: colors.textSecondary },
+  { key: 'push_cv', label: 'CV', subtitle: 'Profile views, completeness milestones', icon: 'person-circle', color: colors.textSecondary },
+  { key: 'push_system', label: 'System', subtitle: 'App updates, feature tips', icon: 'information-circle', color: colors.textSecondary },
 ];
 
 const QUIET_HOUR_OPTIONS = [
@@ -204,7 +206,7 @@ export function NotificationSettingsScreen() {
                       value={prefs[cat.key] as boolean}
                       onValueChange={(val) => savePrefs({ [cat.key]: val })}
                       trackColor={{ false: colors.border, true: cat.color }}
-                      thumbColor="#FFFFFF"
+                      thumbColor="#F5F3ED"
                     />
                   )}
                 </View>
@@ -326,7 +328,7 @@ function createStyles(colors: ThemeColors) {
 
     timeBadge: {
       flexDirection: 'row', alignItems: 'center',
-      backgroundColor: 'rgba(255,255,255,0.06)',
+      backgroundColor: colors.creamSubtle,
       borderRadius: borderRadius.md,
       paddingHorizontal: spacing.compact, paddingVertical: spacing.xs, gap: spacing.xs,
     },
@@ -344,7 +346,7 @@ function createStyles(colors: ThemeColors) {
     capControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     capBtn: {
       width: 32, height: 32, borderRadius: 16,
-      backgroundColor: 'rgba(255,255,255,0.08)',
+      backgroundColor: colors.creamMuted,
       justifyContent: 'center', alignItems: 'center',
     },
     capValue: { fontFamily: fontFamily.bold, fontSize: 18, minWidth: 24, textAlign: 'center' },

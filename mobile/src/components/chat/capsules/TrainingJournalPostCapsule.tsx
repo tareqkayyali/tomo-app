@@ -71,11 +71,11 @@ export function TrainingJournalPostCapsuleComponent({ card, onSubmit }: Props) {
   const pendingList = Array.isArray(card.pending_journals) ? card.pending_journals : [];
 
   const BODY_FEEL_OPTIONS = [
-    { id: '2', label: '😣 2' },
-    { id: '4', label: '😕 4' },
-    { id: '6', label: '😐 6' },
-    { id: '8', label: '😊 8' },
-    { id: '10', label: '💪 10' },
+    { id: '2', label: '2' },
+    { id: '4', label: '4' },
+    { id: '6', label: '6' },
+    { id: '8', label: '8' },
+    { id: '10', label: '10' },
   ];
 
   const handleSubmit = () => {

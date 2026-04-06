@@ -30,6 +30,8 @@ import { useSpringEntrance } from '../../hooks/useAnimations';
 import { fontFamily } from '../../theme/typography';
 import { spacing, borderRadius, layout } from '../../theme/spacing';
 import { pillarColors } from '../../theme/colors';
+import { colors } from '../../theme/colors';
+
 import type {
   MasterySnapshot,
   MasteryPillar,
@@ -380,7 +382,7 @@ export function MasteryContent({
                   const topMetric = p.metrics[0];
                   return (
                     <View key={p.groupId} style={styles.targetRow}>
-                      <Text style={styles.targetEmoji}>{p.emoji}</Text>
+                      {p.emoji ? <Text style={styles.targetEmoji}>{p.emoji}</Text> : null}
                       <Text
                         style={[styles.targetLabel, { color: colors.textOnDark }]}
                         numberOfLines={1}
@@ -505,7 +507,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: colors.creamSubtle,
   },
   targetEmoji: {
     fontSize: 16,

@@ -193,11 +193,11 @@ const styles = StyleSheet.create({
   },
   resultOk: {
     color: colors.accent,
-    backgroundColor: 'rgba(48,209,88,0.1)',
+    backgroundColor: colors.accentMuted,
   },
   resultFail: {
     color: colors.error,
-    backgroundColor: 'rgba(255,69,58,0.1)',
+    backgroundColor: colors.secondarySubtle,
   },
 });
 

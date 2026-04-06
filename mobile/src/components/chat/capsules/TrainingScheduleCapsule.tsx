@@ -36,7 +36,7 @@ const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const DURATIONS = [60, 75, 90, 120];
 
 // Assign accent color per category index
-const CAT_COLORS = ['#FF6B35', '#7B61FF', '#00D9FF', '#30D158', '#F39C12', '#FF2D55'];
+const CAT_COLORS = [themeColors.accent, themeColors.textSecondary, themeColors.accentLight, themeColors.accentDark, themeColors.textSecondary, themeColors.textSecondary];
 
 export function TrainingScheduleCapsuleComponent({ card, onSubmit }: Props) {
   const [categories, setCategories] = useState(card.categories);
@@ -84,7 +84,7 @@ export function TrainingScheduleCapsuleComponent({ card, onSubmit }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>🗓️ Plan My Training</Text>
+      <Text style={styles.heading}>Plan My Training</Text>
 
       {/* Summary */}
       <View style={styles.summaryRow}>

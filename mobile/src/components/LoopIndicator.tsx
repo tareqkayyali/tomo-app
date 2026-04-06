@@ -49,7 +49,7 @@ export function LoopIndicator({ steps, onStepPress }: LoopIndicatorProps) {
                 ]}
               >
                 {done && (
-                  <SmartIcon name="checkmark" size={12} color="#FFFFFF" />
+                  <SmartIcon name="checkmark" size={12} color="#F5F3ED" />
                 )}
               </View>
               {/* Label */}
@@ -90,7 +90,7 @@ export function LoopCompleteBanner({ visible }: { visible: boolean }) {
 
   return (
     <View style={styles.banner}>
-      <Text style={{ fontSize: 16 }}>🎉</Text>
+      <Text style={{ fontSize: 16 }}></Text>
       <Text style={styles.bannerText}>Loop Complete! +25 bonus points</Text>
     </View>
   );

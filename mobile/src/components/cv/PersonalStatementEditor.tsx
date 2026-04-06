@@ -135,7 +135,7 @@ export function PersonalStatementEditor({
   return (
     <View>
       {statementStatus === 'needs_update' && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FF6B3512', borderColor: '#FF6B3525', borderWidth: 0.5, borderRadius: 6, padding: 8, marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.accentMuted, borderColor: colors.accentBorder, borderWidth: 0.5, borderRadius: 6, padding: 8, marginBottom: 8 }}>
           <SmartIcon name="alert-circle" size={14} color={colors.tomoOrange} />
           <Text style={{ color: colors.tomoOrange, fontFamily: fontFamily.medium, fontSize: 10, flex: 1 }}>
             Your data has changed — consider regenerating
@@ -145,17 +145,17 @@ export function PersonalStatementEditor({
 
       {statementStatus === 'approved' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-          <SmartIcon name="checkmark-circle" size={12} color="#2ECC71" />
-          <Text style={{ color: '#2ECC71', fontFamily: fontFamily.medium, fontSize: 10 }}>
+          <SmartIcon name="checkmark-circle" size={12} color="#7A9B76" />
+          <Text style={{ color: colors.accent, fontFamily: fontFamily.medium, fontSize: 10 }}>
             Approved{lastGenerated ? ` · ${new Date(lastGenerated).toLocaleDateString()}` : ''}
           </Text>
         </View>
       )}
 
       <Text style={{
-        color: '#CCCCCC', fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 19,
+        color: colors.textSecondary, fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 19,
         fontStyle: 'italic', borderLeftWidth: 2,
-        borderLeftColor: statementStatus === 'approved' ? '#2ECC71' : colors.accent, paddingLeft: 10,
+        borderLeftColor: statementStatus === 'approved' ? colors.accent : colors.accent, paddingLeft: 10,
       }}>
         "{statement}"
       </Text>

@@ -18,16 +18,16 @@ interface DrillRatingCapsuleProps {
 
 const STARS = [1, 2, 3, 4, 5];
 const DIFFICULTY_OPTIONS = [
-  { id: '1', label: '😌 Easy' },
-  { id: '2', label: '🙂 Moderate' },
-  { id: '3', label: '💪 Challenging' },
-  { id: '4', label: '🔥 Hard' },
-  { id: '5', label: '🤯 Brutal' },
+  { id: '1', label: 'Easy' },
+  { id: '2', label: 'Moderate' },
+  { id: '3', label: 'Challenging' },
+  { id: '4', label: 'Hard' },
+  { id: '5', label: 'Brutal' },
 ];
 const COMPLETION_OPTIONS = [
-  { id: 'completed', label: '✅ Completed' },
-  { id: 'partial', label: '⚡ Partial' },
-  { id: 'skipped', label: '⏭️ Skipped' },
+  { id: 'completed', label: 'Completed' },
+  { id: 'partial', label: 'Partial' },
+  { id: 'skipped', label: 'Skipped' },
 ];
 
 export function DrillRatingCapsuleComponent({ card, onSubmit }: DrillRatingCapsuleProps) {
@@ -53,7 +53,7 @@ export function DrillRatingCapsuleComponent({ card, onSubmit }: DrillRatingCapsu
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>⭐ Rate: {card.drillName}</Text>
+      <Text style={styles.heading}>Rate: {card.drillName}</Text>
       {card.category && <Text style={styles.category}>{card.category}</Text>}
 
       {/* Star rating */}

@@ -32,7 +32,7 @@ export function EmojiScale({ options, selected, onSelect, label }: EmojiScalePro
                 pressed && styles.emojiButtonPressed,
               ]}
             >
-              <Text style={styles.emoji}>{opt.emoji}</Text>
+              {opt.emoji ? <Text style={styles.emoji}>{opt.emoji}</Text> : null}
               <Text style={[styles.value, isSelected && styles.valueSelected]}>
                 {opt.value}
               </Text>
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   },
   emojiButtonSelected: {
     borderColor: colors.accent1,
-    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    backgroundColor: colors.accentMuted,
   },
   emojiButtonPressed: {
     opacity: 0.7,

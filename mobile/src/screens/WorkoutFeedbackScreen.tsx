@@ -60,7 +60,7 @@ export function WorkoutFeedbackScreen({ navigation }: { navigation: { goBack: ()
       <SafeAreaView style={styles.container}>
         <View style={styles.successContainer}>
           <GradientCard style={styles.successCard}>
-            <SmartIcon name="checkmark-circle" size={64} color="rgba(255,255,255,0.9)" />
+            <SmartIcon name="checkmark-circle" size={64} color="rgba(245,243,237,0.9)" />
             <Text style={styles.successTitle}>Feedback Submitted!</Text>
             <Text style={styles.successPoints}>+{pointsEarned} points earned</Text>
           </GradientCard>
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   successPoints: {
     ...typography.h4,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(245,243,237,0.8)',
     marginTop: spacing.sm,
   },
 });

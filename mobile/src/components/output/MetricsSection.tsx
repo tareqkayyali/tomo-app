@@ -35,6 +35,8 @@ import {
 import type { OutputSnapshot, TestGroupCategory, RawTestGroup } from '../../services/api';
 import { getZoneColor, getZoneLabel, getGroupThemeColor } from './outputTypes';
 
+import { colors } from '../../theme/colors';
+
 // ── Reverse mapping: metric key → catalog test type ────────────────────
 // Inverse of backend's CATALOG_TO_METRIC. Uses the primary catalog ID for each metric.
 const METRIC_TO_CATALOG: Record<string, string> = {
@@ -240,7 +242,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
                   ]}
                   onPress={() => handleSelectTest(item)}
                 >
-                  <Text style={{ fontSize: 18 }}>{item.emoji}</Text>
+                  {item.emoji ? <Text style={{ fontSize: 18 }}>{item.emoji}</Text> : null}
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.dropdownName, { color: colors.textOnDark }]}>{item.name}</Text>
                     <Text style={[styles.dropdownMeta, { color: colors.textInactive }]}>
@@ -262,7 +264,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
       {pendingTest && (
         <GlassCard>
           <View style={styles.pendingHeader}>
-            <Text style={{ fontSize: 20 }}>{pendingTest.emoji}</Text>
+            {pendingTest.emoji ? <Text style={{ fontSize: 20 }}>{pendingTest.emoji}</Text> : null}
             <View style={{ flex: 1 }}>
               <Text style={[styles.pendingName, { color: colors.textOnDark }]}>{pendingTest.name}</Text>
               <Text style={[styles.pendingMeta, { color: colors.textInactive }]}>
@@ -295,9 +297,9 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
               disabled={submitting || !pendingValue.trim()}
             >
               {submitting ? (
-                <ActivityIndicator color="#FFF" size="small" />
+                <ActivityIndicator color="#F5F3ED" size="small" />
               ) : (
-                <SmartIcon name="checkmark" size={20} color="#FFF" />
+                <SmartIcon name="checkmark" size={20} color="#F5F3ED" />
               )}
             </Pressable>
           </View>
@@ -325,7 +327,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
                           {t.testType.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                         </Text>
                         {(t as any).coachName && (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#4A9EFF18', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 9999 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: colors.secondarySubtle, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 9999 }}>
                             <SmartIcon name="person-circle-outline" size={10} color={colors.info} />
                             <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.info }}>
                               Coach {(t as any).coachName}
@@ -453,7 +455,7 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
       {/* Header — tap to expand/collapse */}
       <Pressable onPress={() => setExpanded(!expanded)}>
         <View style={styles.groupHeader}>
-          <Text style={styles.groupEmoji}>{category.emoji}</Text>
+          {category.emoji ? <Text style={styles.groupEmoji}>{category.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
             <Text style={[styles.groupName, { color: colors.textOnDark }]}>{category.category}</Text>
           </View>
@@ -563,7 +565,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
       {/* Header — tap to expand/collapse */}
       <Pressable onPress={() => setExpanded(!expanded)}>
         <View style={styles.groupHeader}>
-          <Text style={styles.groupEmoji}>{group.emoji}</Text>
+          {group.emoji ? <Text style={styles.groupEmoji}>{group.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
             <Text style={[styles.groupName, { color: colors.textOnDark }]}>{group.displayName}</Text>
           </View>
@@ -596,7 +598,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <Text style={[styles.rawExpandedName, { color: colors.textOnDark }]}>{t.displayName}</Text>
                       {(t as any).coachName && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#4A9EFF18', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 9999 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: colors.secondarySubtle, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 9999 }}>
                           <SmartIcon name="person-circle-outline" size={10} color={colors.info} />
                           <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.info }}>
                             Coach {(t as any).coachName}
@@ -808,7 +810,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: colors.creamSubtle,
   },
   rawActionIcons: {
     flexDirection: 'row',

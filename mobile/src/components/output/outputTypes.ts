@@ -12,9 +12,9 @@ export const RAG_COLORS = {
 } as const;
 
 export const RAG_BG_COLORS = {
-  green: 'rgba(48, 209, 88, 0.15)',
-  amber: 'rgba(243, 156, 18, 0.15)',
-  red: 'rgba(231, 76, 60, 0.15)',
+  green: colors.accentSoft,
+  amber: colors.secondarySubtle,
+  red: colors.secondarySubtle,
   none: 'rgba(107, 107, 107, 0.10)',
 } as const;
 
@@ -93,11 +93,11 @@ export function getTrendColor(trend: 'up' | 'down' | 'stable', higherIsBetter = 
 // ── Vital Context Helpers ───────────────────────────────────────────
 
 export const ZONE_BG_COLORS: Record<string, string> = {
-  elite: 'rgba(48, 209, 88, 0.15)',
-  good: 'rgba(48, 209, 88, 0.12)',
-  average: 'rgba(0, 217, 255, 0.12)',
-  developing: 'rgba(243, 156, 18, 0.12)',
-  below: 'rgba(231, 76, 60, 0.12)',
+  elite: colors.accentSoft,
+  good: colors.accentMuted,
+  average: colors.accentMuted,
+  developing: colors.secondarySubtle,
+  below: colors.secondarySubtle,
 };
 
 export function getZoneBadgeColor(zone: string | null | undefined): string {
@@ -118,8 +118,8 @@ export function getBaselineText(deviation: number | null | undefined): string {
 
 export function getStoryStatusColor(status: 'strong' | 'mixed' | 'weak'): string {
   switch (status) {
-    case 'strong': return '#30D158';
-    case 'mixed': return '#F39C12';
-    case 'weak': return '#E74C3C';
+    case 'strong': return colors.accent;
+    case 'mixed': return colors.textSecondary;
+    case 'weak': return colors.textSecondary;
   }
 }

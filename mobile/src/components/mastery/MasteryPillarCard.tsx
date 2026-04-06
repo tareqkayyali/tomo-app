@@ -163,7 +163,7 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
         style={styles.header}
       >
         <View style={styles.headerLeft}>
-          <Text style={styles.emoji}>{pillar.emoji}</Text>
+          {pillar.emoji ? <Text style={styles.emoji}>{pillar.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
             <Text
               style={[styles.title, { color: colors.textOnDark }, getComponentStyle('pillar_title')]}
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.compact,
     paddingTop: spacing.compact,
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: colors.creamSubtle,
   },
   noDataText: {
     fontSize: 11,

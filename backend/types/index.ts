@@ -28,7 +28,7 @@ export interface ArchetypeDetail {
 
 export const ArchetypeInfo: Record<Archetype, ArchetypeDetail> = {
   phoenix: {
-    emoji: "🔥",
+    emoji: "",
     name: "Phoenix",
     rarity: "uncommon",
     description:
@@ -37,7 +37,7 @@ export const ArchetypeInfo: Record<Archetype, ArchetypeDetail> = {
     calmMessage: "Resist your fire today. Smart rest keeps you explosive.",
   },
   titan: {
-    emoji: "⚡",
+    emoji: "",
     name: "Titan",
     rarity: "common",
     description:
@@ -46,7 +46,7 @@ export const ArchetypeInfo: Record<Archetype, ArchetypeDetail> = {
     calmMessage: "Trust the accumulation. Don't max too often.",
   },
   blade: {
-    emoji: "🗡️",
+    emoji: "",
     name: "Blade",
     rarity: "rare",
     description:

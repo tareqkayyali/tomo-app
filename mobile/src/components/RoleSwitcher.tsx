@@ -20,6 +20,8 @@ import { useAuth } from '../hooks/useAuth';
 import { fontFamily, spacing } from '../theme';
 import type { UserRole } from '../types';
 
+import { colors } from '../theme/colors';
+
 // ═══ ROLE DEFINITIONS ═══
 
 const ROLES: Array<{
@@ -104,7 +106,7 @@ function RoleSegment({
           end={{ x: 1, y: 1 }}
           style={styles.segmentActive}
         >
-          <SmartIcon name={roleDef.icon} size={13} color="#FFFFFF" />
+          <SmartIcon name={roleDef.icon} size={13} color="#F5F3ED" />
           <Text style={styles.segmentTextActive}>{roleDef.label}</Text>
         </LinearGradient>
       ) : (
@@ -158,7 +160,7 @@ const styles = StyleSheet.create({
   segmentTextActive: {
     fontFamily: fontFamily.semiBold,
     fontSize: 12,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   segmentTextInactive: {
     fontFamily: fontFamily.medium,

@@ -34,22 +34,22 @@ import { darkColors, type ThemeColors } from './colors';
  *   light..bold    = clean body text (Poppins)
  */
 export const fontFamily = {
-  /** Montserrat Alternates 700 — clean geometric display for greetings, scores, section titles */
-  display: 'MontserratAlternates_700Bold',
-  /** Montserrat Alternates 500 — lighter display for signatures, labels */
-  displayMedium: 'MontserratAlternates_500Medium',
-  /** Montserrat Alternates 600 — semi-bold display variant */
-  displaySemiBold: 'MontserratAlternates_600SemiBold',
+  /** Poppins 700 — display, scores, section titles */
+  display: 'Poppins_700Bold',
+  /** Poppins 500 — lighter display for signatures, labels */
+  displayMedium: 'Poppins_500Medium',
+  /** Poppins 600 — semi-bold display variant */
+  displaySemiBold: 'Poppins_600SemiBold',
   /** @deprecated Use displayMedium instead */
-  displayRegular: 'MontserratAlternates_500Medium',
-  /** Montserrat Italic — coach notes and subtitles (replaces handwritten note font) */
-  note: 'Montserrat_400Regular_Italic',
-  /** Montserrat body weights */
-  light: 'Montserrat_300Light',
-  regular: 'Montserrat_400Regular',
-  medium: 'Montserrat_500Medium',
-  semiBold: 'Montserrat_600SemiBold',
-  bold: 'Montserrat_700Bold',
+  displayRegular: 'Poppins_500Medium',
+  /** Poppins 400 — coach notes, subtitles */
+  note: 'Poppins_400Regular',
+  /** Poppins body weights */
+  light: 'Poppins_300Light',
+  regular: 'Poppins_400Regular',
+  medium: 'Poppins_500Medium',
+  semiBold: 'Poppins_600SemiBold',
+  bold: 'Poppins_700Bold',
 } as const;
 
 /**

@@ -26,12 +26,12 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_EMOJIS: Record<string, string> = {
-  training: '⚡',
-  match: '⚽',
-  recovery: '🧘',
-  study_block: '📚',
-  exam: '📝',
-  other: '📋',
+  training: '',
+  match: '',
+  recovery: '',
+  study_block: '',
+  exam: '',
+  other: '',
 };
 
 // ── Props ────────────────────────────────────────────────────────────

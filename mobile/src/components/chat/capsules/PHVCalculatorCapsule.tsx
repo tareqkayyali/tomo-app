@@ -87,7 +87,7 @@ export function PHVCalculatorCapsuleComponent({ card, onSubmit }: Props) {
   if (result) {
     return (
       <View style={styles.container}>
-        <Text style={styles.heading}>📊 Growth Stage Result</Text>
+        <Text style={styles.heading}>Growth Stage Result</Text>
         <View style={styles.resultRow}>
           <Text style={styles.offsetValue}>
             {result.maturityOffset > 0 ? '+' : ''}{result.maturityOffset} yrs
@@ -104,7 +104,7 @@ export function PHVCalculatorCapsuleComponent({ card, onSubmit }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>📏 Growth Stage Calculator</Text>
+      <Text style={styles.heading}>Growth Stage Calculator</Text>
       <PillSelector options={SEX_OPTIONS} selected={sex} onSelect={setSex} label="Sex" />
       <View style={styles.dateRow}>
         <View style={styles.dateField}>
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   heading: { fontFamily: fontFamily.semiBold, fontSize: 16, color: colors.textPrimary },
   resultRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   offsetValue: { fontFamily: fontFamily.bold, fontSize: 28, color: colors.accent1 },
-  stageBadge: { fontFamily: fontFamily.semiBold, fontSize: 14, color: colors.accent2, backgroundColor: 'rgba(0,217,255,0.1)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: borderRadius.full, overflow: 'hidden' },
+  stageBadge: { fontFamily: fontFamily.semiBold, fontSize: 14, color: colors.accent2, backgroundColor: colors.accentMuted, paddingHorizontal: 12, paddingVertical: 4, borderRadius: borderRadius.full, overflow: 'hidden' },
   note: { fontFamily: fontFamily.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
   dateRow: { flexDirection: 'row', gap: spacing.sm },
   dateField: { flex: 1, gap: 4 },
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.creamMuted,
     paddingHorizontal: spacing.compact,
     minHeight: 40,
     justifyContent: 'center',

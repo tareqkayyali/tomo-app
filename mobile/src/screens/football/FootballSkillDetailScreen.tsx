@@ -621,7 +621,7 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       gap: 6,
       marginTop: spacing.sm,
-      backgroundColor: 'rgba(48, 209, 88, 0.10)',
+      backgroundColor: colors.accentMuted,
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: borderRadius.sm,
@@ -643,11 +643,11 @@ function createStyles(colors: ThemeColors) {
 
     // ── Growth edge ──
     growthEdge: {
-      backgroundColor: 'rgba(0, 217, 255, 0.08)',
+      backgroundColor: colors.accentSubtle,
       borderRadius: borderRadius.sm,
       padding: spacing.compact,
       borderWidth: 1,
-      borderColor: 'rgba(0, 217, 255, 0.15)',
+      borderColor: colors.accentSoft,
     },
     growthEdgeHeader: {
       flexDirection: 'row',
@@ -688,7 +688,7 @@ function createStyles(colors: ThemeColors) {
 
     // ── Training ──
     tipCard: {
-      borderColor: 'rgba(255, 107, 53, 0.2)',
+      borderColor: colors.accentBorder,
     },
     tipHeader: {
       flexDirection: 'row',

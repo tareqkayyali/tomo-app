@@ -54,7 +54,7 @@ const WEARABLE_DEFS = [
     name: 'WHOOP',
     icon: 'fitness-outline',
     iconBg: colors.backgroundElevated,
-    emoji: '🟡',
+    emoji: '',
     desc: 'Heart rate, HRV, sleep, recovery score',
     connectedDesc: 'Syncing HR, HRV, Sleep, Recovery',
     oauth: true, // Uses OAuth flow
@@ -63,7 +63,7 @@ const WEARABLE_DEFS = [
     key: 'appleWatch' as const,
     name: 'Apple Watch',
     icon: 'watch-outline',
-    iconBg: '#333',
+    iconBg: colors.surface,
     desc: 'Steps, heart rate, workouts, sleep via HealthKit',
     connectedDesc: 'Syncing HealthKit data',
     oauth: false, // Local HealthKit
@@ -337,7 +337,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                     {w.emoji ? (
                       <Text style={{ fontSize: 22 }}>{w.emoji}</Text>
                     ) : (
-                      <SmartIcon name={w.icon as any} size={22} color="#FFF" />
+                      <SmartIcon name={w.icon as any} size={22} color="#F5F3ED" />
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
@@ -439,8 +439,8 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                 paddingHorizontal: 16,
                 borderRadius: 12,
                 marginTop: 16,
-                backgroundColor: 'rgba(0, 217, 255, 0.12)',
-                borderColor: 'rgba(0, 217, 255, 0.3)',
+                backgroundColor: colors.accentMuted,
+                borderColor: colors.accentBorder,
                 borderWidth: 1,
               },
               pressed && { opacity: 0.7 },
@@ -471,7 +471,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             ]}
             onPress={() => navigation.navigate('PHVCalculator')}
           >
-            <View style={[styles.wearableIcon, { backgroundColor: '#3498DB20' }]}>
+            <View style={[styles.wearableIcon, { backgroundColor: colors.secondarySubtle }]}>
               <SmartIcon name="resize-outline" size={22} color={colors.info} />
             </View>
             <View style={{ flex: 1 }}>

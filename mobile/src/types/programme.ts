@@ -46,11 +46,11 @@ export const CATEGORY_LABELS: Record<DrillCategory, string> = {
 };
 
 export const CATEGORY_ICONS: Record<DrillCategory, string> = {
-  warmup: '🔥',
-  training: '⚡',
-  cooldown: '❄️',
-  recovery: '🌀',
-  activation: '💥',
+  warmup: '',
+  training: '',
+  cooldown: '',
+  recovery: '',
+  activation: '',
 };
 
 export const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

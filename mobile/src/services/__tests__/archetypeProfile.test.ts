@@ -41,7 +41,7 @@ console.log('\nPhoenix profile');
 (() => {
   const p = getArchetypeProfile('phoenix');
   assert(p.name === 'The Phoenix', `name = "${p.name}"`);
-  assert(p.color === '#FF6B6B', `color = ${p.color}`);
+  assert(p.color === '#E74C3C', `color = ${p.color}`);
   assert(p.tone.toLowerCase().includes('renewal') || p.tone.toLowerCase().includes('pacing'), `tone mentions renewal or pacing: "${p.tone}"`);
 })();
 
@@ -53,7 +53,7 @@ console.log('\nTitan profile');
 (() => {
   const p = getArchetypeProfile('titan');
   assert(p.name === 'The Titan', `name = "${p.name}"`);
-  assert(p.color === '#4C6EF5', `color = ${p.color}`);
+  assert(p.color === '#5A6B7C', `color = ${p.color}`);
   assert(p.tone.toLowerCase().includes('patient') || p.tone.toLowerCase().includes('solid'), `tone mentions patient or solid: "${p.tone}"`);
 })();
 
@@ -65,7 +65,7 @@ console.log('\nBlade profile');
 (() => {
   const p = getArchetypeProfile('blade');
   assert(p.name === 'The Blade', `name = "${p.name}"`);
-  assert(p.color === '#12B886', `color = ${p.color}`);
+  assert(p.color === '#7A9B76', `color = ${p.color}`);
   assert(p.tone.toLowerCase().includes('precise') || p.tone.toLowerCase().includes('sharp'), `tone mentions precise or sharp: "${p.tone}"`);
 })();
 
@@ -77,7 +77,7 @@ console.log('\nSurge profile');
 (() => {
   const p = getArchetypeProfile('surge');
   assert(p.name === 'The Surge', `name = "${p.name}"`);
-  assert(p.color === '#FFD43B', `color = ${p.color}`);
+  assert(p.color === '#F39C12', `color = ${p.color}`);
   assert(p.tone.toLowerCase().includes('dynamic') || p.tone.toLowerCase().includes('explosive'), `tone mentions dynamic or explosive: "${p.tone}"`);
 })();
 

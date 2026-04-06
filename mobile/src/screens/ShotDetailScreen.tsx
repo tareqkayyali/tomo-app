@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   tipCard: {
-    borderColor: 'rgba(255, 107, 53, 0.2)',
+    borderColor: colors.accentBorder,
   },
   tipHeader: {
     flexDirection: 'row',

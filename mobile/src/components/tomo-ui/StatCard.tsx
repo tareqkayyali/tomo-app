@@ -50,7 +50,7 @@ const StatCard: React.FC<StatCardProps> = memo(({
       case 'warning': return { border: `${colors.warning}4D`, bg: `${colors.warning}1A`, text: colors.warning };
       case 'error': return { border: `${colors.error}4D`, bg: `${colors.error}1A`, text: colors.error };
       case 'info': return { border: `${colors.info}4D`, bg: `${colors.info}1A`, text: colors.info };
-      default: return { border: colors.border, bg: 'rgba(255,255,255,0.04)', text: colors.textSecondary };
+      default: return { border: colors.border, bg: colors.borderLight, text: colors.textSecondary };
     }
   }, [variant, colors]);
 

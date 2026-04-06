@@ -254,8 +254,8 @@ export function AgilityTestScreen({ navigation }: Props) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
-          <View style={[styles.iconCircle, { backgroundColor: 'rgba(48,209,88,0.15)' }]}>
-            <SmartIcon name="swap-horizontal-outline" size={40} color="#30D158" />
+          <View style={[styles.iconCircle, { backgroundColor: colors.accentSoft }]}>
+            <SmartIcon name="swap-horizontal-outline" size={40} color="#7A9B76" />
           </View>
           <Text style={styles.title}>Agility Shuffle</Text>
           <Text style={styles.subtitle}>React to directional cues as fast as possible</Text>
@@ -278,12 +278,12 @@ export function AgilityTestScreen({ navigation }: Props) {
 
           <Pressable onPress={handleStart} style={styles.startWrap}>
             <LinearGradient
-              colors={['#30D158', '#30D158CC']}
+              colors={[colors.accent, colors.accent]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <SmartIcon name="play" size={22} color="#FFFFFF" />
+              <SmartIcon name="play" size={22} color="#F5F3ED" />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -331,7 +331,7 @@ export function AgilityTestScreen({ navigation }: Props) {
             <SmartIcon
               name={currentDirection === 'left' ? 'arrow-back' : 'arrow-forward'}
               size={120}
-              color="#30D158"
+              color="#7A9B76"
             />
             <Text style={styles.directionLabel}>
               {currentDirection.toUpperCase()}!
@@ -352,7 +352,7 @@ export function AgilityTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <SmartIcon name="checkmark-circle" size={80} color="#30D158" />
+            <SmartIcon name="checkmark-circle" size={80} color="#7A9B76" />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   stepNumText: {
     fontFamily: fontFamily.bold,
     fontSize: 14,
-    color: '#30D158',
+    color: colors.accent,
   },
   stepText: {
     fontFamily: fontFamily.regular,
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   startText: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   backWrap: { paddingVertical: spacing.md },
   backText: {
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   countdownNum: {
     fontFamily: fontFamily.bold,
     fontSize: 120,
-    color: '#30D158',
+    color: colors.accent,
     lineHeight: 130,
   },
 
@@ -481,13 +481,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.creamMuted,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     borderRadius: 3,
-    backgroundColor: '#30D158',
+    backgroundColor: colors.accent,
   },
   progressText: {
     fontFamily: fontFamily.medium,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   directionLabel: {
     fontFamily: fontFamily.bold,
     fontSize: 36,
-    color: '#30D158',
+    color: colors.accent,
     textAlign: 'center',
     marginTop: spacing.sm,
   },
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 32,
-    color: '#30D158',
+    color: colors.accent,
     marginTop: spacing.md,
   },
 });

@@ -20,10 +20,10 @@ interface Props {
 }
 
 const SCENARIO_LABELS: Record<string, string> = {
-  normal: '🟢 Normal Season',
-  league_active: '⚽ League Active',
-  exam_period: '📝 Exam Period',
-  league_and_exam: '🔥 League + Exam',
+  normal: 'Normal Season',
+  league_active: 'League Active',
+  exam_period: 'Exam Period',
+  league_and_exam: 'League + Exam',
 };
 
 const TIME_OPTIONS = [
@@ -78,7 +78,7 @@ export function ScheduleRulesCapsuleComponent({ card, onSubmit }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>⚙️ My Schedule Rules</Text>
+      <Text style={styles.heading}>My Schedule Rules</Text>
 
       {/* Scenario badge */}
       <View style={styles.scenarioBadge}>
@@ -86,8 +86,8 @@ export function ScheduleRulesCapsuleComponent({ card, onSubmit }: Props) {
       </View>
 
       {/* Toggles */}
-      <CapsuleToggle label="⚽ League Active" value={league} onChange={setLeague} />
-      <CapsuleToggle label="📝 Exam Period" value={examPeriod} onChange={setExamPeriod} />
+      <CapsuleToggle label="League Active" value={league} onChange={setLeague} />
+      <CapsuleToggle label="Exam Period" value={examPeriod} onChange={setExamPeriod} />
 
       {/* School days */}
       <CapsuleDayPicker label="School Days" selected={schoolDays} onChange={setSchoolDays} />

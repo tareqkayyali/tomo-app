@@ -15,6 +15,8 @@ import { fontFamily } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
 import type { ReadinessLevel } from '../../types';
 
+import { colors } from '../../theme/colors';
+
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface Props {
@@ -24,9 +26,9 @@ interface Props {
 }
 
 const LEVEL_COLORS: Record<ReadinessLevel, string> = {
-  GREEN: '#30D158',
-  YELLOW: '#F39C12',
-  RED: '#E74C3C',
+  GREEN: colors.accent,
+  YELLOW: colors.textSecondary,
+  RED: colors.textSecondary,
 };
 
 const LEVEL_LABELS: Record<ReadinessLevel, string> = {

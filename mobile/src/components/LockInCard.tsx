@@ -54,7 +54,7 @@ export function LockInCard() {
     return (
       <View style={[styles.pill, styles.lockedPill]}>
         <SmartIcon name="checkmark-circle" size={13} color={colors.readinessGreen} />
-        <Text style={[styles.pillText, { color: colors.readinessGreen }]}>Locked In 🔥</Text>
+        <Text style={[styles.pillText, { color: colors.readinessGreen }]}>Locked In</Text>
       </View>
     );
   }

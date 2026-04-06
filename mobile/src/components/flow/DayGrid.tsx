@@ -31,6 +31,8 @@ import { getIntensityConfig } from '../../utils/calendarHelpers';
 import type { CalendarEvent, SchoolSchedule } from '../../types';
 import type { ThemeColors } from '../../theme/colors';
 
+import { colors } from '../../theme/colors';
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const START_HOUR = 6;   // 6 AM
@@ -44,29 +46,29 @@ const LONG_PRESS_MS = 400;
 // ─── Type colors / emojis (match FlowTimeline) ─────────────────────────────
 
 const TYPE_COLORS: Record<string, string> = {
-  training: '#FF6B35',
-  match: '#FF6B35',
-  study_block: '#6366F1',
-  exam: '#E74C3C',
-  recovery: '#00D9FF',
-  other: '#666666',
+  training: colors.accent,
+  match: colors.accent,
+  study_block: colors.textSecondary,
+  exam: colors.textSecondary,
+  recovery: colors.textSecondary,
+  other: colors.textSecondary,
 };
 
 const TYPE_EMOJIS: Record<string, string> = {
-  training: '\u26A1',
-  match: '\u26BD',
-  study_block: '\uD83D\uDCDA',
-  exam: '\uD83D\uDCDD',
-  recovery: '\uD83E\uDDD8',
-  other: '\uD83D\uDCCB',
+  training: '',
+  match: '',
+  study_block: '',
+  exam: '',
+  recovery: '',
+  other: '',
 };
 
 function getTypeColor(type: string): string {
-  return TYPE_COLORS[type] ?? '#666666';
+  return TYPE_COLORS[type] ?? colors.textSecondary;
 }
 
 function getTypeEmoji(type: string): string {
-  return TYPE_EMOJIS[type] ?? '\uD83D\uDCCB';
+  return TYPE_EMOJIS[type] ?? '';
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -477,9 +479,9 @@ export function DayGrid({
               left: TIME_COL_WIDTH,
               right: 0,
               height: schoolZone.height,
-              backgroundColor: '#6366F1' + '0C',
+              backgroundColor: colors.textSecondary + '0C',
               borderLeftWidth: 3,
-              borderLeftColor: '#6366F1' + '40',
+              borderLeftColor: colors.textSecondary + '40',
               zIndex: 0,
             }}
           >
@@ -491,18 +493,18 @@ export function DayGrid({
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 4,
-                backgroundColor: '#6366F1' + '18',
+                backgroundColor: colors.textSecondary + '18',
                 borderRadius: 4,
                 paddingHorizontal: 6,
                 paddingVertical: 2,
               }}
             >
-              <Text style={{ fontSize: 10, opacity: 0.9 }}>{'\uD83C\uDFEB'}</Text>
+              <Text style={{ fontSize: 10, opacity: 0.9 }}>{''}</Text>
               <Text
                 style={{
                   fontSize: 9,
                   fontFamily: fontFamily.semiBold,
-                  color: '#6366F1',
+                  color: colors.textSecondary,
                   letterSpacing: 0.5,
                 }}
               >
@@ -844,13 +846,13 @@ function StaticEventBlock({
           {isCurrent && !isCompleted && (
             <View
               style={{
-                backgroundColor: '#FF6B35',
+                backgroundColor: colors.accent,
                 borderRadius: 4,
                 paddingHorizontal: 4,
                 paddingVertical: 1,
               }}
             >
-              <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '800' }}>NOW</Text>
+              <Text style={{ color: colors.textPrimary, fontSize: 8, fontWeight: '800' }}>NOW</Text>
             </View>
           )}
           {!readOnly && !locked && onDelete && (
@@ -864,7 +866,7 @@ function StaticEventBlock({
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={{ padding: 2 }}
             >
-              <SmartIcon name="trash-outline" size={12} color={'#E74C3C'} />
+              <SmartIcon name="trash-outline" size={12} color={colors.textSecondary} />
             </Pressable>
           )}
           {!readOnly && !locked && event.startTime && (
@@ -903,7 +905,7 @@ function StaticEventBlock({
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }}
               style={{
-                backgroundColor: '#2ED573',
+                backgroundColor: colors.accent,
                 borderRadius: 4,
                 paddingHorizontal: 8,
                 paddingVertical: 3,
@@ -912,8 +914,8 @@ function StaticEventBlock({
                 gap: 3,
               }}
             >
-              <SmartIcon name="checkmark" size={10} color="#FFF" />
-              <Text style={{ color: '#FFF', fontSize: 9, fontWeight: '700' }}>DONE</Text>
+              <SmartIcon name="checkmark" size={10} color="#F5F3ED" />
+              <Text style={{ color: colors.textPrimary, fontSize: 9, fontWeight: '700' }}>DONE</Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -1019,13 +1021,13 @@ function createStyles(colors: ThemeColors) {
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: '#FF3B30',
+      backgroundColor: colors.textSecondary,
       marginLeft: -4,
     },
     nowLine: {
       flex: 1,
       height: 2,
-      backgroundColor: '#FF3B30',
+      backgroundColor: colors.textSecondary,
     },
   });
 }

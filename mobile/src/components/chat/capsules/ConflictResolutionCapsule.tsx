@@ -17,7 +17,7 @@ export function ConflictResolutionCapsuleComponent({ card, onAction }: Props) {
   if (card.conflicts.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.heading}>✅ No conflicts found</Text>
+        <Text style={styles.heading}>No conflicts found</Text>
         <Text style={styles.subtext}>
           Your schedule looks clean for the next {card.daysChecked} days ({card.totalEvents} events checked).
         </Text>
@@ -27,7 +27,7 @@ export function ConflictResolutionCapsuleComponent({ card, onAction }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>⚠️ {card.conflicts.length} Conflict{card.conflicts.length > 1 ? 's' : ''} Found</Text>
+      <Text style={styles.heading}>{card.conflicts.length} Conflict{card.conflicts.length > 1 ? 's' : ''} Found</Text>
       <Text style={styles.subtext}>
         Checked {card.totalEvents} events over {card.daysChecked} days
       </Text>
@@ -39,7 +39,7 @@ export function ConflictResolutionCapsuleComponent({ card, onAction }: Props) {
             <Text style={styles.conflictDate}>{formatDate(conflict.date)}</Text>
             <View style={[styles.severityBadge, conflict.severity === 'danger' ? styles.dangerBadge : styles.warningBadge]}>
               <Text style={styles.severityText}>
-                {conflict.severity === 'danger' ? '🔴 High Risk' : '🟡 Watch'}
+                {conflict.severity === 'danger' ? 'High Risk' : 'Watch'}
               </Text>
             </View>
           </View>
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     borderLeftWidth: 3,
   },
-  dangerBorder: { borderLeftColor: '#E74C3C' },
+  dangerBorder: { borderLeftColor: colors.textSecondary },
   warningBorder: { borderLeftColor: colors.warning },
   conflictHeader: {
     flexDirection: 'row',
@@ -132,8 +132,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: borderRadius.full,
   },
-  dangerBadge: { backgroundColor: 'rgba(231, 76, 60, 0.15)' },
-  warningBadge: { backgroundColor: 'rgba(243, 156, 18, 0.15)' },
+  dangerBadge: { backgroundColor: colors.secondarySubtle },
+  warningBadge: { backgroundColor: colors.secondarySubtle },
   severityText: {
     fontFamily: fontFamily.medium,
     fontSize: 11,
@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
     overflow: 'hidden',
   },
-  hardIntensity: { backgroundColor: 'rgba(231, 76, 60, 0.2)', color: '#E74C3C' },
-  modIntensity: { backgroundColor: 'rgba(243, 156, 18, 0.2)', color: colors.warning },
+  hardIntensity: { backgroundColor: colors.secondaryMuted, color: colors.textSecondary },
+  modIntensity: { backgroundColor: colors.secondaryMuted, color: colors.warning },
   suggestionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

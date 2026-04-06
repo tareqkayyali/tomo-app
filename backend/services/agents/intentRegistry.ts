@@ -275,17 +275,31 @@ export const INTENT_REGISTRY: IntentDefinition[] = [
     ],
   },
 
-  // ── LEADERBOARD ──
+  // ── BENCHMARK COMPARISON (normative percentiles vs age/position peers) ──
+  {
+    id: "benchmark_comparison",
+    capsuleType: null,
+    agentType: "output",
+    description: "Compare performance to age/position peers using normative benchmarks and percentiles",
+    examples: [
+      "compare my times to peers", "how do I compare to other U19 CAMs",
+      "where do I rank vs my age group", "how do I stack up against other players",
+      "benchmark my sprint", "what percentile am I", "am I fast for my age",
+      "how do my scores compare", "vs other players my age", "compare to peers",
+      "how do I rank for my age", "where do I stand vs other players",
+    ],
+  },
+
+  // ── LEADERBOARD (gamification points/streaks only) ──
   {
     id: "leaderboard",
     capsuleType: "leaderboard_capsule",
     agentType: "mastery",
-    description: "View rankings or leaderboard",
+    description: "View the gamification leaderboard — points and streak rankings among all players",
     examples: [
-      "leaderboard", "rankings", "where do I rank", "top players",
-      "how do I rank", "show leaderboard", "streak leaderboard",
-      "global leaderboard", "show me the global leaderboard",
-      "show me the streak leaderboard",
+      "leaderboard", "show leaderboard", "global leaderboard",
+      "streak leaderboard", "show me the global leaderboard",
+      "show me the streak leaderboard", "top players", "rankings",
     ],
     requiredParams: ["boardType"],
   },

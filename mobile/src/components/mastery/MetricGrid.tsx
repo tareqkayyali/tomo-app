@@ -72,7 +72,7 @@ const MetricGrid: React.FC<MetricGridProps> = memo(({
             {momentum?.streakDays ?? 0}
           </Text>
           <Text style={styles.streakEmoji}>
-            {momentum?.streakTier.emoji ?? '\uD83D\uDC4B'}
+            {momentum?.streakTier.emoji && momentum.streakTier.emoji.trim() ? momentum.streakTier.emoji : ''}
           </Text>
         </View>
         <Text style={[styles.cellLabel, { color: colors.textDisabled }]}>

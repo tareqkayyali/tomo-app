@@ -276,7 +276,7 @@ function createStyles(colors: ThemeColors) {
       marginBottom: spacing.md,
       paddingVertical: spacing.xs,
       paddingHorizontal: spacing.sm,
-      backgroundColor: 'rgba(0, 217, 255, 0.08)',
+      backgroundColor: colors.accentSubtle,
       borderRadius: borderRadius.sm,
       alignSelf: 'flex-start',
     },

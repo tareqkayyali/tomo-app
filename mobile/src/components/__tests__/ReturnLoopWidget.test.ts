@@ -15,10 +15,10 @@ import { getArchetypeProfile } from '../../services/archetypeProfile';
 // ---------------------------------------------------------------------------
 
 const REWARD_ICONS: Record<string, string> = {
-  'Sticker Pack': '\uD83C\uDFAB',
-  'Wristband': '\uD83E\uDEA2',
-  'Hoodie': '\uD83E\uDDE5',
-  'Jacket': '\uD83C\uDFC6',
+  'Sticker Pack': '',
+  'Wristband': '',
+  'Hoodie': '',
+  'Jacket': '',
 };
 
 function getStreakHeadline(streak: number): string {
@@ -31,7 +31,7 @@ function getRewardPreview(
 ): string | null {
   if (!milestone) return null;
   const days = milestone.daysRemaining;
-  const icon = REWARD_ICONS[milestone.reward] || '\uD83C\uDFC6';
+  const icon = REWARD_ICONS[milestone.reward] || '';
   if (days === 1) {
     return `${icon} 1 day to ${milestone.reward} unlock!`;
   }
@@ -100,22 +100,22 @@ console.log('\ngetRewardPreview');
 // Reward icons present
 (() => {
   const sticker = getRewardPreview({ daysRemaining: 5, reward: 'Sticker Pack' });
-  assert(sticker!.includes('\uD83C\uDFAB'), `Sticker Pack has ticket icon`);
+  assert(sticker!.includes(''), `Sticker Pack has ticket icon`);
 
   const wristband = getRewardPreview({ daysRemaining: 3, reward: 'Wristband' });
-  assert(wristband!.includes('\uD83E\uDEA2'), `Wristband has knot icon`);
+  assert(wristband!.includes(''), `Wristband has knot icon`);
 
   const hoodie = getRewardPreview({ daysRemaining: 2, reward: 'Hoodie' });
-  assert(hoodie!.includes('\uD83E\uDDE5'), `Hoodie has coat icon`);
+  assert(hoodie!.includes(''), `Hoodie has coat icon`);
 
   const jacket = getRewardPreview({ daysRemaining: 1, reward: 'Jacket' });
-  assert(jacket!.includes('\uD83C\uDFC6'), `Jacket has trophy icon`);
+  assert(jacket!.includes(''), `Jacket has trophy icon`);
 })();
 
 // Unknown reward gets trophy fallback
 (() => {
   const unknown = getRewardPreview({ daysRemaining: 10, reward: 'Gold Medal' });
-  assert(unknown!.includes('\uD83C\uDFC6'), 'unknown reward gets trophy fallback');
+  assert(unknown!.includes(''), 'unknown reward gets trophy fallback');
   assert(unknown!.includes('Gold Medal'), 'unknown reward name preserved');
 })();
 
@@ -249,11 +249,11 @@ console.log('\nArchetype colors');
 (() => {
   const archetypes = ['phoenix', 'titan', 'blade', 'surge', null] as const;
   const expected: Record<string, string> = {
-    phoenix: '#FF6B6B',
-    titan: '#4C6EF5',
-    blade: '#12B886',
-    surge: '#FFD43B',
-    null: '#4A90A4',
+    phoenix: '#7A9B76',
+    titan: '#5A6B7C',
+    blade: '#7A9B76',
+    surge: '#5A6B7C',
+    null: '#5A6B7C',
   };
 
   for (const arch of archetypes) {

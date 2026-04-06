@@ -39,14 +39,14 @@ const INTENSITY_OPTIONS = ['Low', 'Moderate', 'High'] as const;
 const FREQUENCY_OPTIONS = ['1x/week', '2x/week', '3x/week', '4x/week', '5x/week', 'Daily'] as const;
 const DURATION_OPTIONS = ['2 weeks', '4 weeks', '6 weeks', '8 weeks', '12 weeks'] as const;
 const CATEGORY_OPTIONS = [
-  { key: 'strength', label: 'Strength', emoji: '💪', color: colors.info },
-  { key: 'speed', label: 'Speed', emoji: '⚡', color: colors.accent },
-  { key: 'endurance', label: 'Endurance', emoji: '🫁', color: colors.accent },
-  { key: 'power', label: 'Power', emoji: '💥', color: colors.error },
-  { key: 'agility', label: 'Agility', emoji: '🔀', color: colors.warning },
-  { key: 'technical', label: 'Technical', emoji: '⚽', color: colors.info },
-  { key: 'recovery', label: 'Recovery', emoji: '🧘', color: colors.textSecondary },
-  { key: 'acl_prevention', label: 'ACL Prevention', emoji: '🛡️', color: colors.info },
+  { key: 'strength', label: 'Strength', emoji: '', color: colors.info },
+  { key: 'speed', label: 'Speed', emoji: '', color: colors.accent },
+  { key: 'endurance', label: 'Endurance', emoji: '', color: colors.accent },
+  { key: 'power', label: 'Power', emoji: '', color: colors.error },
+  { key: 'agility', label: 'Agility', emoji: '', color: colors.warning },
+  { key: 'technical', label: 'Technical', emoji: '', color: colors.info },
+  { key: 'recovery', label: 'Recovery', emoji: '', color: colors.textSecondary },
+  { key: 'acl_prevention', label: 'ACL Prevention', emoji: '', color: colors.info },
 ] as const;
 
 interface DrillEntry {
@@ -208,7 +208,7 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
                     },
                   ]}
                 >
-                  <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
+                  {cat.emoji ? <Text style={styles.categoryEmoji}>{cat.emoji}</Text> : null}
                   <Text style={[styles.categoryLabel, { color: isActive ? cat.color : colors.textMuted }]}>
                     {cat.label}
                   </Text>
@@ -391,7 +391,7 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
           <GlassCard>
             <Text style={[styles.sectionTitle, { color: colors.textOnDark }]}>Summary</Text>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryEmoji}>{selectedCat?.emoji}</Text>
+              {selectedCat?.emoji ? <Text style={styles.summaryEmoji}>{selectedCat.emoji}</Text> : null}
               <View style={{ flex: 1 }}>
                 <Text style={[styles.summaryName, { color: colors.textOnDark }]}>{name}</Text>
                 <Text style={[styles.summaryMeta, { color: colors.textMuted }]}>

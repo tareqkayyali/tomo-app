@@ -72,13 +72,13 @@ type ProgressScreenProps = {
 // ── Pure helpers (kept for backward compat exports) ──────────────────
 
 export function getStreakTier(streak: number): { label: string; emoji: string } {
-  if (streak >= 90) return { label: 'Legend', emoji: '\uD83D\uDC51' };
-  if (streak >= 60) return { label: 'Veteran', emoji: '\u2B50' };
-  if (streak >= 30) return { label: 'Dedicated', emoji: '\uD83C\uDFC6' };
-  if (streak >= 14) return { label: 'Consistent', emoji: '\uD83D\uDCAA' };
-  if (streak >= 7) return { label: 'Building', emoji: '\uD83D\uDD25' };
-  if (streak >= 1) return { label: 'Started', emoji: '\uD83C\uDF31' };
-  return { label: 'New', emoji: '\uD83D\uDC4B' };
+  if (streak >= 90) return { label: 'Legend', emoji: '' };
+  if (streak >= 60) return { label: 'Veteran', emoji: '' };
+  if (streak >= 30) return { label: 'Dedicated', emoji: '' };
+  if (streak >= 14) return { label: 'Consistent', emoji: '' };
+  if (streak >= 7) return { label: 'Building', emoji: '' };
+  if (streak >= 1) return { label: 'Started', emoji: '' };
+  return { label: 'New', emoji: '' };
 }
 
 export function getNextMilestoneInfo(

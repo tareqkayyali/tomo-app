@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.compact,
     paddingTop: spacing.compact,
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: colors.creamSubtle,
   },
   header: {
     flexDirection: 'row',

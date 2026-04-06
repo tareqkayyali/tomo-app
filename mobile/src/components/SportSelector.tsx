@@ -49,10 +49,10 @@ function SportCard({
             end={{ x: 1, y: 1 }}
             style={[styles.card, styles.cardSelected]}
           >
-            <SmartIcon name={option.icon as any} size={40} color="#FFFFFF" />
+            <SmartIcon name={option.icon as any} size={40} color="#F5F3ED" />
             <Text style={styles.cardLabel}>{option.label}</Text>
             <View style={styles.checkBadge}>
-              <SmartIcon name="checkmark-circle" size={18} color="#FFFFFF" />
+              <SmartIcon name="checkmark-circle" size={18} color="#F5F3ED" />
             </View>
           </LinearGradient>
         ) : (
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   },
   cardSelected: {
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(245,243,237,0.3)',
   },
   cardDisabled: {
     opacity: 0.5,
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   comingSoonBadge: {
     position: 'absolute',
     bottom: 8,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.creamSoft,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,

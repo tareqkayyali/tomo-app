@@ -22,6 +22,8 @@ import {
 import type { JournalEntry } from '../../services/api';
 import type { CalendarEvent, JournalState } from '../../types';
 
+import { colors } from '../../theme/colors';
+
 // ── Variant Copy ──────────────────────────────────────────
 
 const VARIANT_COPY = {
@@ -31,9 +33,9 @@ const VARIANT_COPY = {
     postPrompt: 'What happened?',
     postPlaceholder: "e.g. Left knee felt better, stuck with pause squats",
     outcomes: [
-      { id: 'fell_short', label: 'Fell short', emoji: '😔' },
-      { id: 'hit_it', label: 'Hit it', emoji: '🎯' },
-      { id: 'exceeded', label: 'Exceeded', emoji: '🔥' },
+      { id: 'fell_short', label: 'Fell short', emoji: '' },
+      { id: 'hit_it', label: 'Hit it', emoji: '' },
+      { id: 'exceeded', label: 'Exceeded', emoji: '' },
     ],
   },
   recovery: {
@@ -42,9 +44,9 @@ const VARIANT_COPY = {
     postPrompt: 'What did you notice?',
     postPlaceholder: 'e.g. Foam rolling helped lower back',
     outcomes: [
-      { id: 'fell_short', label: 'Felt rough', emoji: '😣' },
-      { id: 'hit_it', label: 'OK', emoji: '😐' },
-      { id: 'exceeded', label: 'Felt great', emoji: '💚' },
+      { id: 'fell_short', label: 'Felt rough', emoji: '' },
+      { id: 'hit_it', label: 'OK', emoji: '' },
+      { id: 'exceeded', label: 'Felt great', emoji: '' },
     ],
   },
   match: {
@@ -53,9 +55,9 @@ const VARIANT_COPY = {
     postPrompt: 'What was your standout moment?',
     postPlaceholder: 'e.g. Won most aerial duels',
     outcomes: [
-      { id: 'fell_short', label: 'Tough one', emoji: '💪' },
-      { id: 'hit_it', label: 'Solid', emoji: '👊' },
-      { id: 'exceeded', label: 'Strong', emoji: '⭐' },
+      { id: 'fell_short', label: 'Tough one', emoji: '' },
+      { id: 'hit_it', label: 'Solid', emoji: '' },
+      { id: 'exceeded', label: 'Strong', emoji: '' },
     ],
   },
 };
@@ -266,7 +268,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                         disabled={!canSavePre || submitting}
                       >
                         {submitting ? (
-                          <ActivityIndicator size="small" color="#fff" />
+                          <ActivityIndicator size="small" color="#F5F3ED" />
                         ) : (
                           <Text style={ms.submitText}>Set target</Text>
                         )}
@@ -304,7 +306,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                               ]}
                               onPress={() => setOutcome(o.id)}
                             >
-                              <Text style={ms.outcomeEmoji}>{o.emoji}</Text>
+                              {o.emoji ? <Text style={ms.outcomeEmoji}>{o.emoji}</Text> : null}
                               <Text style={[ms.outcomeLabel, { color: outcome === o.id ? colors.accent2 : colors.textSecondary }]}>
                                 {o.label}
                               </Text>
@@ -332,7 +334,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                             disabled={!canSavePost || submitting}
                           >
                             {submitting ? (
-                              <ActivityIndicator size="small" color="#fff" />
+                              <ActivityIndicator size="small" color="#F5F3ED" />
                             ) : (
                               <Text style={ms.submitText}>Log reflection</Text>
                             )}
@@ -492,7 +494,7 @@ const ms = StyleSheet.create({
   submitText: {
     fontFamily: fontFamily.bold,
     fontSize: 14,
-    color: '#fff',
+    color: colors.textPrimary,
   },
   insightBox: {
     flexDirection: 'row',

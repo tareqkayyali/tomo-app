@@ -87,7 +87,7 @@ function buildMonthHtml(
 
     let pills = '';
     for (const ex of exams) {
-      pills += `<div class="exam-pill">📝 ${ex.subject} Exam</div>`;
+      pills += `<div class="exam-pill">${ex.subject} Exam</div>`;
     }
     for (const bl of blocks) {
       const col = subjectColor(bl.subject, allSubjects);
@@ -153,28 +153,28 @@ export async function exportStudyPlanPdf(plan: SavedStudyPlan): Promise<void> {
 <meta charset="utf-8" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, Helvetica, Arial, sans-serif; padding: 24px; color: #1a1a2e; }
+  body { font-family: -apple-system, Helvetica, Arial, sans-serif; padding: 24px; color: #1A1D2E; }
   h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-  .subtitle { font-size: 13px; color: #666; margin-bottom: 12px; }
+  .subtitle { font-size: 13px; color: #5A6B7C; margin-bottom: 12px; }
   .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
   .legend-item { display: flex; align-items: center; gap: 4px; font-size: 12px; }
   .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
   .month-section { margin-bottom: 28px; page-break-inside: avoid; }
-  .month-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; color: #1a1a2e; }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; }
-  .day-header { text-align: center; font-weight: 600; font-size: 10px; color: #888; padding: 6px 2px; background: #f9fafb; }
-  .day-cell { min-height: 70px; background: #fff; padding: 4px; font-size: 10px; }
-  .day-cell.empty { background: #fafafa; }
-  .day-cell.exam-day { background: #FEF2F2; }
-  .day-num { font-weight: 600; font-size: 11px; margin-bottom: 3px; color: #374151; }
-  .study-pill { background: #f5f3ff; border-radius: 3px; padding: 2px 4px; margin: 1px 0; font-size: 8px; color: #4338ca; line-height: 1.3; }
-  .study-pill .time { font-size: 7px; color: #6b7280; }
-  .exam-pill { background: #FEE2E2; color: #DC2626; border-radius: 3px; padding: 2px 4px; margin: 1px 0; font-size: 8px; font-weight: 700; }
+  .month-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; color: #1A1D2E; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: rgba(245,243,237,0.08); border: 1px solid rgba(245,243,237,0.08); border-radius: 6px; overflow: hidden; }
+  .day-header { text-align: center; font-weight: 600; font-size: 10px; color: #5A6B7C; padding: 6px 2px; background: #2A2F42; }
+  .day-cell { min-height: 70px; background: #1A1D2E; padding: 4px; font-size: 10px; color: #F5F3ED; }
+  .day-cell.empty { background: #2A2F42; }
+  .day-cell.exam-day { background: rgba(90,107,124,0.15); }
+  .day-num { font-weight: 600; font-size: 11px; margin-bottom: 3px; color: #F5F3ED; }
+  .study-pill { background: rgba(122,155,118,0.15); border-radius: 3px; padding: 2px 4px; margin: 1px 0; font-size: 8px; color: #7A9B76; line-height: 1.3; }
+  .study-pill .time { font-size: 7px; color: #5A6B7C; }
+  .exam-pill { background: rgba(90,107,124,0.15); color: #5A6B7C; border-radius: 3px; padding: 2px 4px; margin: 1px 0; font-size: 8px; font-weight: 700; }
   @media print { .month-section { page-break-inside: avoid; } }
 </style>
 </head>
 <body>
-  <h1>📚 Study Plan: ${plan.name}</h1>
+  <h1>Study Plan: ${plan.name}</h1>
   <div class="subtitle">${plan.blockCount} study sessions · ${plan.examCount} exams</div>
   <div class="legend">${legend}</div>
   ${monthHtmls.join('')}

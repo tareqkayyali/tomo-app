@@ -96,31 +96,8 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // TOMO_DRAFT_THEME disabled — Tomo 友 uses local palette only
       if (data.type === 'TOMO_DRAFT_THEME') {
-        setConfig((prev) => {
-          const base = baseConfigRef.current || prev;
-          if (!base) return prev;
-
-          const draftTheme: AppThemeRow = {
-            id: 'draft',
-            name: 'Draft Preview',
-            is_active: true,
-            colors_dark: {
-              ...(base.theme?.colors_dark || {}),
-              ...(data.payload?.colors_dark || {}),
-            },
-            colors_light: {
-              ...(base.theme?.colors_light || {}),
-              ...(data.payload?.colors_light || {}),
-            },
-            typography: {
-              ...(base.theme?.typography || {}),
-              ...(data.payload?.typography || {}),
-            },
-          };
-
-          return { ...base, theme: draftTheme };
-        });
         return;
       }
 

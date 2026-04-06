@@ -58,7 +58,7 @@ export default function ChangePasswordScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.successContainer}>
-          <SmartIcon name="checkmark-circle" size={64} color="#30D158" />
+          <SmartIcon name="checkmark-circle" size={64} color="#7A9B76" />
           <Text style={styles.successTitle}>Password Changed</Text>
           <Text style={styles.successSub}>Redirecting back...</Text>
         </View>
@@ -133,8 +133,8 @@ export default function ChangePasswordScreen() {
           {/* Password strength indicator */}
           {newPassword.length > 0 && (
             <View style={styles.strengthRow}>
-              <View style={[styles.strengthBar, { backgroundColor: newPassword.length >= 8 ? '#30D158' : '#E74C3C', width: `${Math.min(100, (newPassword.length / 12) * 100)}%` }]} />
-              <Text style={[styles.strengthText, { color: newPassword.length >= 8 ? '#30D158' : '#E74C3C' }]}>
+              <View style={[styles.strengthBar, { backgroundColor: newPassword.length >= 8 ? colors.accent : colors.textSecondary, width: `${Math.min(100, (newPassword.length / 12) * 100)}%` }]} />
+              <Text style={[styles.strengthText, { color: newPassword.length >= 8 ? colors.accent : colors.textSecondary }]}>
                 {newPassword.length < 8 ? 'Too short' : newPassword.length < 12 ? 'Good' : 'Strong'}
               </Text>
             </View>
@@ -143,7 +143,7 @@ export default function ChangePasswordScreen() {
           {/* Error */}
           {!!error && (
             <View style={styles.errorBanner}>
-              <SmartIcon name="alert-circle" size={18} color="#E74C3C" />
+              <SmartIcon name="alert-circle" size={18} color="#5A6B7C" />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
@@ -191,15 +191,15 @@ const styles = StyleSheet.create({
   strengthText: { fontFamily: fontFamily.medium, fontSize: 12 },
   errorBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(231, 76, 60, 0.12)', borderRadius: borderRadius.md,
+    backgroundColor: colors.secondarySubtle, borderRadius: borderRadius.md,
     padding: 12, marginTop: spacing.md,
   },
-  errorText: { fontFamily: fontFamily.medium, fontSize: 13, color: '#E74C3C', flex: 1 },
+  errorText: { fontFamily: fontFamily.medium, fontSize: 13, color: colors.textSecondary, flex: 1 },
   saveBtn: {
     backgroundColor: colors.accent1, borderRadius: borderRadius.md,
     paddingVertical: 14, alignItems: 'center', marginTop: spacing.xl,
   },
-  saveBtnText: { fontFamily: fontFamily.bold, fontSize: 15, color: '#FFF' },
+  saveBtnText: { fontFamily: fontFamily.bold, fontSize: 15, color: colors.textPrimary },
   successContainer: {
     flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12,
   },

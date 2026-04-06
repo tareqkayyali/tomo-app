@@ -38,8 +38,8 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 const BLOB_DURATION = 18000; // 18s full cycle — slow, ambient
 
 const AmbientBlobs: React.FC<AmbientBlobsProps> = memo(({
-  warmColor = '#FF6B35',
-  coolColor = '#00D9FF',
+  warmColor = '#7A9B76',
+  coolColor = '#5A6B7C',
   opacity = 0.04,
 }) => {
   const translateY1 = useSharedValue(0);

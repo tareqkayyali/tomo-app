@@ -22,6 +22,8 @@ import { fontFamily } from '../../theme/typography';
 import { borderRadius, animation } from '../../theme/spacing';
 import TomoIcon from './TomoIcon';
 
+import { colors } from '../../theme/colors';
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type ButtonVariant = 'primary' | 'orange' | 'secondary' | 'ghost';
@@ -83,12 +85,12 @@ const TomoButton: React.FC<TomoButtonProps> = memo(({
   const opacity = disabled ? 0.4 : 1;
 
   // Glossy variants use dark text on bright bg
-  const textColor = isGlossy ? '#0A0A0A' : colors.electricGreen;
-  const iconColor = isGlossy ? '#0A0A0A' : colors.electricGreen;
+  const textColor = isGlossy ? colors.background : colors.electricGreen;
+  const iconColor = isGlossy ? colors.background : colors.electricGreen;
 
   // Gradient colors per variant
   const gradientColors: [string, string] = variant === 'orange'
-    ? [colors.tomoOrange, '#E86835']
+    ? [colors.tomoOrange, colors.accent]
     : [colors.electricGreen, colors.electricGreenMuted];
 
   const content = (
@@ -123,7 +125,7 @@ const TomoButton: React.FC<TomoButtonProps> = memo(({
           />
           {/* Glass shine overlay */}
           <LinearGradient
-            colors={['rgba(255,255,255,0.35)', 'rgba(255,255,255,0.1)', 'transparent']}
+            colors={['rgba(245,243,237,0.35)', colors.creamSoft, 'transparent']}
             locations={[0, 0.3, 0.6]}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
@@ -164,9 +166,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-    borderLeftColor: 'rgba(255,255,255,0.2)',
-    borderRightColor: 'rgba(255,255,255,0.2)',
+    borderTopColor: colors.creamOverlay,
+    borderLeftColor: colors.creamOverlay,
+    borderRightColor: colors.creamOverlay,
     borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   flatBase: {

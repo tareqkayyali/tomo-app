@@ -235,7 +235,7 @@ export function DrillCameraScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  full: { flex: 1, backgroundColor: '#000' },
+  full: { flex: 1, backgroundColor: colors.background },
   center: {
     flex: 1,
     backgroundColor: colors.background,
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,0,0,0.7)',
+    backgroundColor: 'rgba(90,107,124,0.7)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: borderRadius.full,
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   hint: {
     fontFamily: fontFamily.medium,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(245,243,237,0.7)',
     marginTop: spacing.sm,
   },
 

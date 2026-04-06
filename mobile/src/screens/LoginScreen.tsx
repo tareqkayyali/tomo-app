@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.light,
     fontSize: 10,
     letterSpacing: 4,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
     textTransform: 'uppercase',
     marginBottom: GAP,
   },
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.creamSubtle,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 5,
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   valuePillText: {
     fontFamily: fontFamily.medium,
     fontSize: 10,
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(245,243,237,0.4)',
   },
 
   // ── Auth Section ────────────────────────────────────────────────
@@ -330,9 +330,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(245,243,237,0.07)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: colors.creamSoft,
     borderRadius: borderRadius.md,
     paddingVertical: 13,
     gap: spacing.sm,
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   emailToggleText: {
     fontFamily: fontFamily.medium,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(245,243,237,0.45)',
   },
 
   // Email form (expanded)
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,59,48,0.12)',
+    backgroundColor: colors.secondarySubtle,
     padding: spacing.sm,
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
@@ -410,12 +410,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.creamSoft,
   },
   dividerText: {
     fontFamily: fontFamily.regular,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
     marginHorizontal: spacing.md,
   },
 
@@ -428,9 +428,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 217, 255, 0.12)',
+    backgroundColor: colors.accentMuted,
     borderWidth: 1,
-    borderColor: 'rgba(0, 217, 255, 0.30)',
+    borderColor: colors.accentBorder,
   },
   getStartedText: {
     fontFamily: fontFamily.medium,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   footerText: {
     fontFamily: fontFamily.regular,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.25)',
+    color: 'rgba(245,243,237,0.25)',
     textAlign: 'center',
     marginTop: 'auto' as any,
     paddingTop: GAP,

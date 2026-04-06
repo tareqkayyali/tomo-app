@@ -56,10 +56,10 @@ function daysUntil(dateStr: string): number {
 
 function examTypeEmoji(type: string): string {
   switch (type?.toLowerCase()) {
-    case 'final': return '\uD83C\uDFAF';
-    case 'midterm': case 'mid-term': return '\uD83D\uDCCB';
-    case 'quiz': return '\u26A1';
-    default: return '\uD83D\uDCDD';
+    case 'final': return '';
+    case 'midterm': case 'mid-term': return '';
+    case 'quiz': return '';
+    default: return '';
   }
 }
 

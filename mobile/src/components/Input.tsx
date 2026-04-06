@@ -36,10 +36,10 @@ function injectAutofillCSS() {
     input:-webkit-autofill:hover,
     input:-webkit-autofill:focus,
     input:-webkit-autofill:active {
-      -webkit-box-shadow: 0 0 0 1000px rgba(20,20,20,1) inset !important;
-      box-shadow: 0 0 0 1000px rgba(20,20,20,1) inset !important;
-      -webkit-text-fill-color: #FFFFFF !important;
-      caret-color: #FFFFFF !important;
+      -webkit-box-shadow: 0 0 0 1000px #2A2F42 inset !important;
+      box-shadow: 0 0 0 1000px #2A2F42 inset !important;
+      -webkit-text-fill-color: #F5F3ED !important;
+      caret-color: #F5F3ED !important;
       transition: background-color 5000s ease-in-out 0s !important;
     }
     /* Remove all input focus outlines globally */
@@ -94,7 +94,7 @@ export function Input({
           <SmartIcon
             name={iconLeft}
             size={20}
-            color="rgba(255,255,255,0.4)"
+            color="rgba(245,243,237,0.4)"
             style={styles.iconLeft}
           />
         )}
@@ -105,7 +105,7 @@ export function Input({
             // Remove browser default outline on web
             Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {},
           ]}
-          placeholderTextColor="rgba(255,255,255,0.3)"
+          placeholderTextColor="rgba(245,243,237,0.3)"
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           {...props}
@@ -115,7 +115,7 @@ export function Input({
             <SmartIcon
               name={iconRight}
               size={20}
-              color="rgba(255,255,255,0.4)"
+              color="rgba(245,243,237,0.4)"
               style={styles.iconRight}
             />
           </Pressable>
@@ -132,21 +132,21 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.label,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(245,243,237,0.7)',
     marginBottom: spacing.xs,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.creamMuted,
     borderRadius: borderRadius.xl,            // 24px pill
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: colors.creamSoft,
     paddingHorizontal: spacing.md,
     minHeight: 48,
   },
   inputFocused: {
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: 'rgba(245,243,237,0.25)',
   },
   inputError: {
     borderColor: colors.error,

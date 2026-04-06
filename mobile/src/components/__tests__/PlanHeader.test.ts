@@ -110,7 +110,7 @@ console.log('\nlightenHex — basic behavior');
   // amount=0.5 should be halfway to white
   const result = lightenHex('#000000', 0.5);
   // 0 + (255 - 0) * 0.5 = 127.5 → rounds to 128 = 0x80
-  assert(result === '#808080', `black + 0.5 = ${result} (expected #808080)`);
+  assert(result === '#5A6B7C', `black + 0.5 = ${result} (expected #808080)`);
 })();
 
 console.log('\nlightenHex — valid hex output');
@@ -131,7 +131,7 @@ console.log('\nlightenHex — valid hex output');
 
 (() => {
   // Lightened should always be lighter (higher RGB values)
-  const hex = '#4C6EF5'; // Titan blue
+  const hex = '#5A6B7C'; // Titan blue
   const lightened = lightenHex(hex, 0.65);
   const origR = parseInt(hex.slice(1, 3), 16);
   const lightR = parseInt(lightened.slice(1, 3), 16);

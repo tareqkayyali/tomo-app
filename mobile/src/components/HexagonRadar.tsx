@@ -168,7 +168,7 @@ export function HexagonRadar({
             key={pct}
             points={pointsString(cx, cy, maxR * pct, numAxes)}
             fill="none"
-            stroke="rgba(255, 255, 255, 0.35)"
+            stroke="rgba(245, 243, 237, 0.35)"
             strokeWidth={1}
             strokeDasharray="2,3"
           />
@@ -184,7 +184,7 @@ export function HexagonRadar({
               y1={cy}
               x2={v.x}
               y2={v.y}
-              stroke="rgba(255, 255, 255, 0.35)"
+              stroke="rgba(245, 243, 237, 0.35)"
               strokeWidth={1}
               strokeDasharray="2,3"
             />
@@ -197,7 +197,7 @@ export function HexagonRadar({
             <Polygon
               points={benchmarkPointsStr}
               fill="none"
-              stroke="#CC0000"
+              stroke="#5A6B7C"
               strokeWidth={2}
               strokeOpacity={0.85}
               strokeDasharray="6,4"

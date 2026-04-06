@@ -265,7 +265,7 @@ export function MyRulesScreen({ navigation }: Props) {
         <Text style={styles.headerTitle}>My Rules</Text>
         {showSaved && (
           <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.savedBadge}>
-            <SmartIcon name="checkmark" size={12} color="#FFF" />
+            <SmartIcon name="checkmark" size={12} color="#F5F3ED" />
             <Text style={styles.savedText}>Saved!</Text>
           </Animated.View>
         )}
@@ -283,10 +283,10 @@ export function MyRulesScreen({ navigation }: Props) {
               disabled={saving}
             >
               {saving ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <ActivityIndicator size="small" color="#F5F3ED" />
               ) : (
                 <>
-                  <SmartIcon name="checkmark" size={16} color="#FFF" />
+                  <SmartIcon name="checkmark" size={16} color="#F5F3ED" />
                   <Text style={styles.saveBtnText}>Save</Text>
                 </>
               )}
@@ -1114,7 +1114,7 @@ const modalStyles = StyleSheet.create({
   submitText: {
     fontSize: 14,
     fontFamily: fontFamily.semiBold,
-    color: '#FFF',
+    color: colors.textPrimary,
   },
 });
 
@@ -1222,13 +1222,13 @@ function DatePickerModal({
                   style={[
                     dpStyles.cell,
                     isSelected && { backgroundColor: colors.warning, borderRadius: 18 },
-                    isToday && !isSelected && { borderWidth: 1.5, borderColor: '#F39C1240', borderRadius: 18 },
+                    isToday && !isSelected && { borderWidth: 1.5, borderColor: colors.secondaryMuted, borderRadius: 18 },
                   ]}
                   onPress={() => setPickedDay(day)}
                 >
                   <Text style={[
                     dpStyles.cellText,
-                    { color: isSelected ? '#FFF' : colors.textOnDark },
+                    { color: isSelected ? colors.textPrimary : colors.textOnDark },
                     isToday && !isSelected && { color: colors.warning },
                   ]}>
                     {day}
@@ -1338,7 +1338,7 @@ const dpStyles = StyleSheet.create({
   selectText: {
     fontSize: 14,
     fontFamily: fontFamily.semiBold,
-    color: '#FFF',
+    color: colors.textPrimary,
   },
 });
 
@@ -1586,7 +1586,7 @@ function createStyles(colors: ThemeColors) {
       borderRadius: borderRadius.full,
     },
     savedText: {
-      color: '#FFF',
+      color: colors.textPrimary,
       fontSize: 11,
       fontFamily: fontFamily.semiBold,
     },
@@ -1612,7 +1612,7 @@ function createStyles(colors: ThemeColors) {
       borderRadius: borderRadius.md,
     },
     saveBtnText: {
-      color: '#FFF',
+      color: colors.textPrimary,
       fontSize: 14,
       fontFamily: fontFamily.semiBold,
     },

@@ -33,13 +33,13 @@ interface WhyTodayMattersCardProps {
 
 /** Archetype emoji badges. */
 const ARCHETYPE_EMOJI: Record<string, string> = {
-  phoenix: '\uD83D\uDD25',
-  titan: '\uD83C\uDFDB\uFE0F',
-  blade: '\u2694\uFE0F',
-  surge: '\u26A1',
+  phoenix: '',
+  titan: '',
+  blade: '',
+  surge: '',
 };
 
-const DEFAULT_EMOJI = '\uD83D\uDCAA';
+const DEFAULT_EMOJI = '';
 
 // ---------------------------------------------------------------------------
 // Message pools — archetype × readiness
@@ -248,7 +248,7 @@ export function WhyTodayMattersCard({
   return (
     <Animated.View style={fadeIn}>
       <View style={[styles.card, { borderLeftColor: profile.color }]}>
-        <Text style={styles.emoji}>{emoji}</Text>
+        {emoji ? <Text style={styles.emoji}>{emoji}</Text> : null}
         <Text style={styles.message}>{message}</Text>
       </View>
     </Animated.View>

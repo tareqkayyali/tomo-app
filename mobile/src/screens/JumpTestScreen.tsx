@@ -307,7 +307,7 @@ export function JumpTestScreen({ navigation }: Props) {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: 'rgba(123,97,255,0.15)' }]}>
-            <SmartIcon name="arrow-up-outline" size={40} color="#7B61FF" />
+            <SmartIcon name="arrow-up-outline" size={40} color="#5A6B7C" />
           </View>
           <Text style={styles.title}>Jump Height</Text>
           <Text style={styles.subtitle}>Measure your vertical jump using phone sensors</Text>
@@ -330,12 +330,12 @@ export function JumpTestScreen({ navigation }: Props) {
 
           <Pressable onPress={handleStart} style={styles.startWrap}>
             <LinearGradient
-              colors={['#7B61FF', '#7B61FFCC']}
+              colors={[colors.textSecondary, colors.textSecondary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <SmartIcon name="play" size={22} color="#FFFFFF" />
+              <SmartIcon name="play" size={22} color="#F5F3ED" />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -394,7 +394,7 @@ export function JumpTestScreen({ navigation }: Props) {
             <SmartIcon
               name={phase === 'jumping' ? 'rocket-outline' : 'fitness-outline'}
               size={80}
-              color="#7B61FF"
+              color="#5A6B7C"
             />
             <Text style={styles.jumpNow}>
               {phase === 'jumping' ? 'In the air!' : 'JUMP!'}
@@ -423,7 +423,7 @@ export function JumpTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <SmartIcon name="checkmark-circle" size={80} color="#30D158" />
+            <SmartIcon name="checkmark-circle" size={80} color="#7A9B76" />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   stepNumText: {
     fontFamily: fontFamily.bold,
     fontSize: 14,
-    color: '#7B61FF',
+    color: colors.textSecondary,
   },
   stepText: {
     fontFamily: fontFamily.regular,
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   startText: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   backWrap: { paddingVertical: spacing.md },
   backText: {
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   countdownNum: {
     fontFamily: fontFamily.bold,
     fontSize: 120,
-    color: '#7B61FF',
+    color: colors.textSecondary,
     lineHeight: 130,
   },
   holdText: {
@@ -569,14 +569,14 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.creamSoft,
   },
   jumpDotActive: {
-    backgroundColor: '#7B61FF',
+    backgroundColor: colors.textSecondary,
     transform: [{ scale: 1.3 }],
   },
   jumpDotDone: {
-    backgroundColor: '#30D158',
+    backgroundColor: colors.accent,
   },
 
   centerContent: {
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
   jumpNow: {
     fontFamily: fontFamily.bold,
     fontSize: 48,
-    color: '#7B61FF',
+    color: colors.textSecondary,
     marginTop: spacing.lg,
   },
 
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   resultHeight: {
     fontFamily: fontFamily.bold,
     fontSize: 96,
-    color: '#7B61FF',
+    color: colors.textSecondary,
     lineHeight: 100,
   },
   resultUnit: {
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   jumpResultValue: {
     fontFamily: fontFamily.bold,
     fontSize: 18,
-    color: '#7B61FF',
+    color: colors.textSecondary,
   },
 
   // Done
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fontFamily.bold,
     fontSize: 32,
-    color: '#30D158',
+    color: colors.accent,
     marginTop: spacing.md,
   },
 });

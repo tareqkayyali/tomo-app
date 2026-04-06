@@ -53,7 +53,7 @@ export function CVEditCapsuleComponent({ card, onSubmit }: CVEditCapsuleProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>✏️ Edit Profile</Text>
+      <Text style={styles.heading}>Edit Profile</Text>
 
       {card.fields.map((field) => (
         <View key={field.field} style={styles.fieldRow}>

@@ -21,10 +21,10 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // Intensity → background tint for heatmap
 const INTENSITY_BG: Record<string, string> = {
-  REST: 'rgba(142, 142, 147, 0.12)',
-  LIGHT: 'rgba(0, 217, 255, 0.12)',
-  MODERATE: 'rgba(255, 107, 53, 0.12)',
-  HARD: 'rgba(255, 69, 58, 0.15)',
+  REST: colors.secondarySubtle,
+  LIGHT: colors.accentMuted,
+  MODERATE: colors.accentMuted,
+  HARD: colors.secondarySubtle,
 };
 
 interface Props {

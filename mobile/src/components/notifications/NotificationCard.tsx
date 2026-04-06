@@ -26,6 +26,8 @@ import { Badge } from '../Badge';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemeColors } from '../../theme/colors';
 import { spacing, borderRadius, fontFamily } from '../../theme';
+import { colors } from '../../theme/colors';
+
 import {
   CATEGORY_CONFIG,
   getChipColor,
@@ -107,12 +109,12 @@ function CardShell({
     <View
       style={[
         {
-          backgroundColor: '#1E1C20',
+          backgroundColor: colors.surface,
           borderRadius: borderRadius.lg,
           borderWidth: 1,
-          borderColor: isUnread ? config.color + '40' : 'rgba(255,255,255,0.06)',
+          borderColor: isUnread ? config.color + '40' : colors.creamSubtle,
           borderLeftWidth: isUnread ? 3 : 1,
-          borderLeftColor: isUnread ? config.color : 'rgba(255,255,255,0.06)',
+          borderLeftColor: isUnread ? config.color : colors.creamSubtle,
           padding: spacing.lg,
           position: 'relative' as const,
         },
@@ -150,7 +152,7 @@ export function NotificationCard({
       <Animated.View entering={FadeInDown.delay(getAnimationDelay(index)).duration(350).springify()}>
         <GlowWrapper glow={config.glow} breathing style={{ marginBottom: spacing.md, marginHorizontal: spacing.lg }}>
           <CardShell config={config} isUnread={isUnread} isDone={isDone}
-            style={{ backgroundColor: '#231A1A', borderColor: config.color + '60' }}>
+            style={{ backgroundColor: colors.surface, borderColor: config.color + '60' }}>
             {/* Header: icon + badge + time + priority */}
             <View style={s.topRow}>
               <View style={s.typeRow}>
@@ -350,8 +352,8 @@ function AskTomoButton({
         }}
         style={s.askTomoBtn}
       >
-        <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.info} />
-        <Text style={[s.askTomoText, { color: colors.info }]}>Ask Tomo</Text>
+        <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.textPrimary} />
+        <Text style={[s.askTomoText, { color: colors.textPrimary }]}>Ask Tomo</Text>
       </Pressable>
     </View>
   );
@@ -388,21 +390,21 @@ function createStyles(colors: ThemeColors) {
     titleP1: {
       fontFamily: fontFamily.bold,
       fontSize: 16,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
       lineHeight: 22,
       flex: 1,
     },
     titleP2: {
       fontFamily: fontFamily.semiBold,
       fontSize: 14,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
       lineHeight: 20,
       marginBottom: spacing.xs,
     },
     titleP3: {
       fontFamily: fontFamily.medium,
       fontSize: 13,
-      color: '#FFFFFF',
+      color: colors.textPrimary,
       flex: 1,
     },
     titleP4: {
@@ -413,7 +415,7 @@ function createStyles(colors: ThemeColors) {
     body: {
       fontFamily: fontFamily.regular,
       fontSize: 12,
-      color: '#B0B0B0',
+      color: colors.textBody,
       lineHeight: 18,
     },
     timeText: {
@@ -459,12 +461,12 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      backgroundColor: 'rgba(52, 152, 219, 0.12)',
-      borderColor: 'rgba(52, 152, 219, 0.30)',
+      backgroundColor: colors.background,
+      borderColor: colors.creamMuted,
       borderWidth: 1,
       paddingVertical: 10,
       paddingHorizontal: 16,
-      borderRadius: borderRadius.md,
+      borderRadius: 12,
     },
     askTomoText: {
       fontFamily: fontFamily.medium,

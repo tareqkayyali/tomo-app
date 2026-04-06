@@ -17,7 +17,9 @@ import type { CalendarEvent } from '../../types';
 import type { WeekDay } from '../../utils/calendarHelpers';
 import type { ThemeColors } from '../../theme/colors';
 
-const ACADEMIC_PURPLE = '#A855F7';
+import { colors } from '../../theme/colors';
+
+const ACADEMIC_PURPLE = colors.textSecondary;
 
 interface Props {
   weekDays: WeekDay[];
@@ -125,7 +127,7 @@ export function WeekBarChart({ weekDays, events, selectedDate, onDayPress }: Pro
             <View style={styles.barsContainer}>
               {/* Training bar */}
               <View style={styles.barRow}>
-                <Text style={styles.barEmoji}>⚡</Text>
+                <Text style={styles.barEmoji}></Text>
                 <View style={styles.barTrack}>
                   {trainPct > 0 && (
                     <View
@@ -142,7 +144,7 @@ export function WeekBarChart({ weekDays, events, selectedDate, onDayPress }: Pro
               </View>
               {/* Academic bar */}
               <View style={styles.barRow}>
-                <Text style={styles.barEmoji}>📚</Text>
+                <Text style={styles.barEmoji}></Text>
                 <View style={styles.barTrack}>
                   {acadPct > 0 && (
                     <View
@@ -162,15 +164,15 @@ export function WeekBarChart({ weekDays, events, selectedDate, onDayPress }: Pro
             {/* Event tag */}
             <View style={styles.tagCol}>
               {day.hasExam ? (
-                <View style={[styles.eventTag, { backgroundColor: '#E74C3C22' }]}>
+                <View style={[styles.eventTag, { backgroundColor: colors.secondarySubtle }]}>
                   <Text style={[styles.eventTagText, { color: colors.error }]}>
-                    📝 {day.examSubject.slice(0, 4)}
+                    {day.examSubject.slice(0, 4)}
                   </Text>
                 </View>
               ) : day.hasMatch ? (
                 <View style={[styles.eventTag, { backgroundColor: colors.accent2 + '22' }]}>
                   <Text style={[styles.eventTagText, { color: colors.accent2 }]}>
-                    ⚽ Match
+                    Match
                   </Text>
                 </View>
               ) : isToday ? (
@@ -192,7 +194,7 @@ export function WeekBarChart({ weekDays, events, selectedDate, onDayPress }: Pro
           <Text style={[styles.legendText, { color: colors.textMuted }]}>Academic</Text>
         </View>
         <View style={styles.legendItem}>
-          <Text style={[styles.legendText, { color: colors.textMuted }]}>📝 Exam</Text>
+          <Text style={[styles.legendText, { color: colors.textMuted }]}>Exam</Text>
         </View>
       </View>
     </GlassCard>

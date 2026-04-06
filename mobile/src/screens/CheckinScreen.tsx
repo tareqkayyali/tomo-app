@@ -83,46 +83,46 @@ interface EmojiOption {
 
 const STEP_EMOJIS: Record<string, EmojiOption[]> = {
   mood: [
-    { emoji: '\uD83D\uDE29', label: 'Rough', value: 2 },
-    { emoji: '\uD83D\uDE15', label: 'Meh', value: 4 },
-    { emoji: '\uD83D\uDE10', label: 'Okay', value: 6 },
-    { emoji: '\uD83D\uDE42', label: 'Good', value: 8 },
-    { emoji: '\uD83D\uDE04', label: 'Great', value: 10 },
+    { emoji: '', label: 'Rough', value: 2 },
+    { emoji: '', label: 'Meh', value: 4 },
+    { emoji: '', label: 'Okay', value: 6 },
+    { emoji: '', label: 'Good', value: 8 },
+    { emoji: '', label: 'Great', value: 10 },
   ],
   sleepHours: [
-    { emoji: '\uD83D\uDE34', label: '<5h', value: 4 },
-    { emoji: '\uD83D\uDE2A', label: '5-6h', value: 5.5 },
-    { emoji: '\uD83D\uDE0A', label: '7h', value: 7 },
-    { emoji: '\uD83D\uDE0E', label: '8h', value: 8 },
-    { emoji: '\uD83E\uDD29', label: '9h+', value: 9.5 },
+    { emoji: '', label: '<5h', value: 4 },
+    { emoji: '', label: '5-6h', value: 5.5 },
+    { emoji: '', label: '7h', value: 7 },
+    { emoji: '', label: '8h', value: 8 },
+    { emoji: '', label: '9h+', value: 9.5 },
   ],
   energy: [
-    { emoji: '\uD83E\uDEAB', label: 'Dead', value: 2 },
-    { emoji: '\uD83D\uDE2E\u200D\uD83D\uDCA8', label: 'Low', value: 4 },
-    { emoji: '\uD83D\uDE10', label: 'Okay', value: 6 },
-    { emoji: '\u26A1', label: 'Wired', value: 8 },
-    { emoji: '\uD83D\uDD25', label: 'On Fire', value: 10 },
+    { emoji: '', label: 'Dead', value: 2 },
+    { emoji: '', label: 'Low', value: 4 },
+    { emoji: '', label: 'Okay', value: 6 },
+    { emoji: '', label: 'Wired', value: 8 },
+    { emoji: '', label: 'On Fire', value: 10 },
   ],
   soreness: [
-    { emoji: '\uD83D\uDCAA', label: 'Fresh', value: 2 },
-    { emoji: '\uD83D\uDC4D', label: 'Slight', value: 4 },
-    { emoji: '\uD83D\uDE10', label: 'Some', value: 6 },
-    { emoji: '\uD83D\uDE23', label: 'Sore', value: 8 },
-    { emoji: '\uD83E\uDD15', label: 'Wrecked', value: 10 },
+    { emoji: '', label: 'Fresh', value: 2 },
+    { emoji: '', label: 'Slight', value: 4 },
+    { emoji: '', label: 'Some', value: 6 },
+    { emoji: '', label: 'Sore', value: 8 },
+    { emoji: '', label: 'Wrecked', value: 10 },
   ],
   academicStress: [
-    { emoji: '\uD83D\uDE0E', label: 'Chill', value: 2 },
-    { emoji: '\uD83D\uDCDA', label: 'Some', value: 4 },
-    { emoji: '\uD83D\uDE30', label: 'Busy', value: 6 },
-    { emoji: '\uD83E\uDD2F', label: 'Hectic', value: 8 },
-    { emoji: '\uD83D\uDC80', label: 'Maxed', value: 10 },
+    { emoji: '', label: 'Chill', value: 2 },
+    { emoji: '', label: 'Some', value: 4 },
+    { emoji: '', label: 'Busy', value: 6 },
+    { emoji: '', label: 'Hectic', value: 8 },
+    { emoji: '', label: 'Maxed', value: 10 },
   ],
   effortYesterday: [
-    { emoji: '\uD83D\uDECB\uFE0F', label: 'Rest', value: 2 },
-    { emoji: '\uD83D\uDEB6', label: 'Light', value: 4 },
-    { emoji: '\uD83C\uDFC3', label: 'Medium', value: 6 },
-    { emoji: '\uD83D\uDCAA', label: 'Hard', value: 8 },
-    { emoji: '\uD83E\uDD75', label: 'Brutal', value: 10 },
+    { emoji: '', label: 'Rest', value: 2 },
+    { emoji: '', label: 'Light', value: 4 },
+    { emoji: '', label: 'Medium', value: 6 },
+    { emoji: '', label: 'Hard', value: 8 },
+    { emoji: '', label: 'Brutal', value: 10 },
   ],
 };
 
@@ -469,7 +469,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
             <Animated.View style={[{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: 'rgba(255, 107, 53, 0.12)',
+              backgroundColor: colors.accentMuted,
               borderRadius: borderRadius.full,
               paddingHorizontal: spacing.lg,
               paddingVertical: spacing.compact,
@@ -487,7 +487,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
             <Animated.View style={[{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: 'rgba(255, 107, 53, 0.12)',
+              backgroundColor: colors.accentMuted,
               borderRadius: borderRadius.full,
               paddingHorizontal: spacing.lg,
               paddingVertical: spacing.compact,
@@ -617,15 +617,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
             paddingBottom: spacing.xl,
           }}
         >
-          {/* Step icon */}
-          <View style={{ alignItems: 'center', marginBottom: spacing.lg }}>
-            <Text style={{ fontSize: 44 }}>
-              {currentStep.type === 'pain' ? '\uD83E\uDE7A' :
-               selectedEmojis[currentStep.key] != null
-                ? STEP_EMOJIS[currentStep.key]?.[selectedEmojis[currentStep.key]]?.emoji
-                : STEP_EMOJIS[currentStep.key]?.[2]?.emoji ?? '\uD83D\uDE42'}
-            </Text>
-          </View>
+          {/* Step icon — emoji removed, show label only */}
 
           {/* Question */}
           <Text style={{
@@ -774,7 +766,7 @@ function EmojiPicker({
                   elevation: 6,
                 } : {}),
               }}>
-                <Text style={{ fontSize: emojiSize * 0.45 }}>{opt.emoji}</Text>
+                <Text style={{ fontSize: emojiSize * 0.3, fontFamily: fontFamily.bold, color: isSelected ? accentColor : colors.textMuted }}>{opt.value}</Text>
               </View>
               <Text style={{
                 fontFamily: isSelected ? fontFamily.semiBold : fontFamily.regular,
@@ -790,7 +782,7 @@ function EmojiPicker({
       </View>
 
       {/* Selected value display */}
-      {selectedIndex >= 0 && (
+      {selectedIndex >= 0 && options[selectedIndex].emoji ? (
         <Animated.Text
           entering={FadeInDown.duration(200)}
           style={{
@@ -803,7 +795,7 @@ function EmojiPicker({
         >
           {options[selectedIndex].emoji}
         </Animated.Text>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -844,7 +836,7 @@ function PainToggle({
           })}
           accessibilityLabel="No pain"
         >
-          <Text style={{ fontSize: 36 }}>{'\u2705'}</Text>
+          <Text style={{ fontSize: 36 }}>{''}</Text>
           <Text style={{
             fontFamily: fontFamily.semiBold,
             fontSize: 16,
@@ -874,7 +866,7 @@ function PainToggle({
           })}
           accessibilityLabel="Yes, I have pain"
         >
-          <Text style={{ fontSize: 36 }}>{'\uD83E\uDE79'}</Text>
+          <SmartIcon name="bandage-outline" size={36} color={painFlag ? colors.readinessRed : colors.textInactive} />
           <Text style={{
             fontFamily: fontFamily.semiBold,
             fontSize: 16,

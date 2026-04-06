@@ -94,7 +94,7 @@ export function ExamStudyPlanner({
       {suggestions.length > 0 && (
         <View style={styles.suggestionsSection}>
           <Text style={styles.suggestionsTitle}>
-            🧠 Tomo suggests these study blocks:
+            Tomo suggests these study blocks:
           </Text>
           {suggestions.map((sug) => (
             <TouchableOpacity

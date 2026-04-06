@@ -12,13 +12,13 @@ import type { BulkTimelineEditCapsule as BulkTimelineEditType, CapsuleAction } f
 import { CapsuleSubmitButton } from './shared/CapsuleSubmitButton';
 
 const EVENT_BADGES: Record<string, { label: string; color: string }> = {
-  training: { label: 'TRAIN', color: '#FF6B35' },
-  match: { label: 'MATCH', color: '#7B61FF' },
-  recovery: { label: 'RECOVER', color: '#30D158' },
-  study: { label: 'STUDY', color: '#00D9FF' },
-  exam: { label: 'EXAM', color: '#F39C12' },
-  school: { label: 'SCHOOL', color: '#8E8E93' },
-  sleep: { label: 'SLEEP', color: '#5856D6' },
+  training: { label: 'TRAIN', color: colors.accent },
+  match: { label: 'MATCH', color: colors.textSecondary },
+  recovery: { label: 'RECOVER', color: colors.accentLight },
+  study: { label: 'STUDY', color: colors.textSecondary },
+  exam: { label: 'EXAM', color: colors.textSecondary },
+  school: { label: 'SCHOOL', color: colors.textSecondary },
+  sleep: { label: 'SLEEP', color: colors.textSecondary },
 };
 
 const FILTER_TABS = [
@@ -85,7 +85,7 @@ export function BulkTimelineEditCapsuleComponent({ card, onSubmit }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>📋 Bulk Edit Events</Text>
+      <Text style={styles.title}>Bulk Edit Events</Text>
 
       {/* Filter tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   filterTabActive: {
     borderColor: colors.accent1,
-    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    backgroundColor: colors.accentMuted,
   },
   filterTabText: {
     fontFamily: fontFamily.medium,

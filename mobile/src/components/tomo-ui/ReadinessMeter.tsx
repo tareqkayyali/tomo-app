@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   scoreSuffix: {
     fontSize: 14,
     fontFamily: fontFamily.medium,
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(245,243,237,0.3)',
   },
 });
 

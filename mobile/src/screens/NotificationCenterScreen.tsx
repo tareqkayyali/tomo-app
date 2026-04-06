@@ -34,6 +34,8 @@ import { SwipeableNotificationCard } from '../components/notifications/Swipeable
 import { CategoryFilterBar } from '../components/notifications/CategoryFilterBar';
 import { type CategoryFilter } from '../components/notifications/constants';
 
+import { colors } from '../theme/colors';
+
 interface Section {
   title: string;
   data: NotificationData[];
@@ -410,7 +412,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   headerBadgeText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 10,
     fontFamily: fontFamily.bold,
   },

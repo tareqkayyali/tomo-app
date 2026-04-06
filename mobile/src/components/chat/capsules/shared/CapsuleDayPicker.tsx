@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   },
   dayPillSelected: {
     borderColor: colors.accent1,
-    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    backgroundColor: colors.accentMuted,
   },
   dayText: {
     fontFamily: fontFamily.medium,

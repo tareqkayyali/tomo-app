@@ -596,7 +596,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                       key={exam.id}
                       style={[styles.examPill, { borderColor: 'rgba(123, 97, 255, 0.25)', backgroundColor: 'rgba(123, 97, 255, 0.10)', flexDirection: 'row', alignItems: 'center', gap: 6 }]}
                     >
-                      <Text style={[styles.examPillSubject, { color: '#FFFFFF' }]}>{exam.subject}</Text>
+                      <Text style={[styles.examPillSubject, { color: colors.textPrimary }]}>{exam.subject}</Text>
                       <Text style={[styles.examPillDays, { color: days <= 7 ? colors.error : colors.eventMatch }]}>{days}d</Text>
                       <TouchableOpacity
                         hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
@@ -645,7 +645,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                           borderRadius: 10,
                           borderWidth: 1,
                           borderColor: isActive ? colors.eventMatch : colors.border,
-                          backgroundColor: isActive ? '#7B61FF20' : 'transparent',
+                          backgroundColor: isActive ? colors.secondarySubtle : 'transparent',
                         }}
                         onPress={() => setNewExamSubject(subj)}
                       >
@@ -712,7 +712,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                             borderRadius: 10,
                             borderWidth: 1,
                             borderColor: isActive ? colors.eventMatch : colors.border,
-                            backgroundColor: isActive ? '#7B61FF20' : 'transparent',
+                            backgroundColor: isActive ? colors.secondarySubtle : 'transparent',
                           }}
                           onPress={() => setNewExamType(fullType)}
                         >
@@ -765,7 +765,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                     setNewExamSubject('');
                   }}
                 >
-                  <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 14, color: '#FFF' }}>Add Exam</Text>
+                  <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 14, color: colors.textPrimary }}>Add Exam</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -853,7 +853,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
           <>
             {reason && (
               <TouchableOpacity
-                style={[styles.infoBanner, { backgroundColor: '#F39C1212', marginBottom: spacing.sm }]}
+                style={[styles.infoBanner, { backgroundColor: colors.secondarySubtle, marginBottom: spacing.sm }]}
                 onPress={handleNavigateToRules}
               >
                 <SmartIcon name="warning-outline" size={16} color={colors.warning} />

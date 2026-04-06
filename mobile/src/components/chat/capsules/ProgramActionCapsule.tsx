@@ -15,9 +15,9 @@ interface ProgramActionCapsuleProps {
 }
 
 const PRIORITY_BADGE: Record<string, { label: string; color: string }> = {
-  high: { label: '🔥 Top Pick', color: colors.accent1 },
-  medium: { label: '⚡ Recommended', color: colors.accent2 },
-  low: { label: '📋 Available', color: colors.textSecondary },
+  high: { label: 'Top Pick', color: colors.accent1 },
+  medium: { label: 'Recommended', color: colors.accent2 },
+  low: { label: 'Available', color: colors.textSecondary },
 };
 
 const ACTION_CONFIG: Record<string, { label: string; style: 'primary' | 'secondary' | 'destructive' }> = {
@@ -29,7 +29,7 @@ const ACTION_CONFIG: Record<string, { label: string; style: 'primary' | 'seconda
 
 export function ProgramActionCapsuleComponent({ card, onSubmit }: ProgramActionCapsuleProps) {
   const badge = PRIORITY_BADGE[card.priority] ?? PRIORITY_BADGE.low;
-  const statusLabel = card.currentStatus === 'active' ? '✅ Active' : card.currentStatus === 'done' ? '✓ Completed' : null;
+  const statusLabel = card.currentStatus === 'active' ? 'Active' : card.currentStatus === 'done' ? '✓ Completed' : null;
 
   const handleAction = (action: string) => {
     if (action === 'details') {
@@ -86,9 +86,9 @@ export function ProgramActionCapsuleComponent({ card, onSubmit }: ProgramActionC
       <Text style={styles.programName}>{card.programName}</Text>
 
       <View style={styles.metaRow}>
-        <Text style={styles.metaText}>📅 {card.frequency}</Text>
+        <Text style={styles.metaText}>{card.frequency}</Text>
         <Text style={styles.metaDot}>•</Text>
-        <Text style={styles.metaText}>⏱ {card.duration}</Text>
+        <Text style={styles.metaText}>{card.duration}</Text>
       </View>
 
       <View style={styles.actionsRow}>

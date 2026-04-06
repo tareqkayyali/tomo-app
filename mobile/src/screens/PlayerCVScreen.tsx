@@ -29,6 +29,8 @@ import { API_BASE_URL } from '../services/apiConfig';
 import { getIdToken } from '../services/auth';
 import { fontFamily, spacing, borderRadius } from '../theme';
 
+import { colors } from '../theme/colors';
+
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getIdToken();
   return token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
@@ -56,11 +58,11 @@ type CVTab = 'club' | 'university';
 // ── Section State Badge ──
 
 const STATE_CONFIG: Record<CVSectionState, { label: string; color: string; bgAlpha: string }> = {
-  auto_complete: { label: 'Auto', color: '#2ECC71', bgAlpha: '15' },
-  needs_input: { label: 'Add', color: '#FF6B35', bgAlpha: '15' },
-  ai_draft_pending: { label: 'AI Draft', color: '#3498DB', bgAlpha: '12' },
-  approved: { label: 'Done', color: '#2ECC71', bgAlpha: '15' },
-  insufficient_data: { label: 'Needs data', color: '#888888', bgAlpha: '12' },
+  auto_complete: { label: 'Auto', color: colors.accent, bgAlpha: '15' },
+  needs_input: { label: 'Add', color: colors.accent, bgAlpha: '15' },
+  ai_draft_pending: { label: 'AI Draft', color: colors.textSecondary, bgAlpha: '12' },
+  approved: { label: 'Done', color: colors.accent, bgAlpha: '15' },
+  insufficient_data: { label: 'Needs data', color: colors.textSecondary, bgAlpha: '12' },
 };
 
 function StateBadge({ state }: { state: CVSectionState }) {
@@ -688,7 +690,7 @@ export function PlayerCVScreen() {
               <Text style={[ss.avatarText, { color: colors.accent }]}>{(cv.identity.full_name || 'P').charAt(0).toUpperCase()}</Text>
             )}
             <View style={ss.cameraOverlay}>
-              <SmartIcon name="camera" size={12} color="#fff" />
+              <SmartIcon name="camera" size={12} color="#F5F3ED" />
             </View>
           </TouchableOpacity>
 
@@ -702,8 +704,8 @@ export function PlayerCVScreen() {
             </Text>
           )}
           {cv.physical.phv_stage && (
-            <View style={[ss.phvPill, { backgroundColor: '#3498DB18', borderColor: '#3498DB30' }]}>
-              <Text style={{ color: '#3498DB', fontSize: 10, fontFamily: fontFamily.semiBold }}>
+            <View style={[ss.phvPill, { backgroundColor: colors.secondarySubtle, borderColor: colors.secondaryMuted }]}>
+              <Text style={{ color: colors.textSecondary, fontSize: 10, fontFamily: fontFamily.semiBold }}>
                 {cv.physical.phv_stage === 'PRE' ? 'Pre-PHV' : cv.physical.phv_stage === 'CIRCA' ? 'Mid-PHV' : 'Post-PHV'}
                 {cv.physical.phv_offset_years != null ? ` (${cv.physical.phv_offset_years > 0 ? '+' : ''}${cv.physical.phv_offset_years.toFixed(1)}y)` : ''}
               </Text>
@@ -827,7 +829,7 @@ export function PlayerCVScreen() {
               <View key={t.metric_key} style={{ marginBottom: 8 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <Text style={{ color: colors.textPrimary, fontFamily: fontFamily.medium, fontSize: 12 }}>{t.metric_label}</Text>
-                  {t.total_improvement_pct != null && <Text style={{ color: t.total_improvement_pct >= 0 ? '#2ECC71' : '#E74C3C', fontFamily: fontFamily.semiBold, fontSize: 12 }}>{t.total_improvement_pct > 0 ? '+' : ''}{t.total_improvement_pct}%</Text>}
+                  {t.total_improvement_pct != null && <Text style={{ color: t.total_improvement_pct >= 0 ? colors.accent : colors.textSecondary, fontFamily: fontFamily.semiBold, fontSize: 12 }}>{t.total_improvement_pct > 0 ? '+' : ''}{t.total_improvement_pct}%</Text>}
                 </View>
               </View>
             ))}
@@ -858,8 +860,8 @@ export function PlayerCVScreen() {
               <View key={c.id} style={[ss.compItem, { borderColor: colors.border }]}>
                 <Text style={{ color: colors.textPrimary, fontFamily: fontFamily.medium, fontSize: 13 }}>{c.competition_name ?? 'Match'}{c.opponent ? ` vs ${c.opponent}` : ''}</Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                  {c.result && <View style={[ss.resultBadge, { backgroundColor: c.result.startsWith('W') ? '#2ECC7120' : c.result.startsWith('L') ? '#E74C3C20' : '#F39C1220' }]}>
-                    <Text style={{ color: c.result.startsWith('W') ? '#2ECC71' : c.result.startsWith('L') ? '#E74C3C' : '#F39C12', fontFamily: fontFamily.semiBold, fontSize: 11 }}>{c.result}</Text></View>}
+                  {c.result && <View style={[ss.resultBadge, { backgroundColor: c.result.startsWith('W') ? colors.accentMuted : c.result.startsWith('L') ? colors.secondarySubtle : colors.secondarySubtle }]}>
+                    <Text style={{ color: c.result.startsWith('W') ? colors.accent : c.result.startsWith('L') ? colors.textSecondary : colors.textSecondary, fontFamily: fontFamily.semiBold, fontSize: 11 }}>{c.result}</Text></View>}
                   {c.minutes_played != null && <Text style={{ color: colors.textSecondary, fontFamily: fontFamily.regular, fontSize: 11 }}>{c.minutes_played} min</Text>}
                 </View>
               </View>
@@ -886,15 +888,15 @@ export function PlayerCVScreen() {
         {/* ── 11. DUAL-ROLE (uni only) ── */}
         {isUni && cv.dual_role.dual_load_index != null && (
           <Section title="Dual-Role Competency" icon="git-compare-outline" state={cv.section_states.dual_role} colors={colors}>
-            <View style={[ss.verifiedBanner, { backgroundColor: '#3498DB10', borderColor: '#3498DB20' }]}>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#3498DB' }} />
-              <Text style={{ color: '#3498DB', fontSize: 10, fontFamily: fontFamily.medium }}>Tomo-unique — verified academic-athletic balance</Text>
+            <View style={[ss.verifiedBanner, { backgroundColor: colors.secondarySubtle, borderColor: colors.secondarySubtle }]}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.textSecondary }} />
+              <Text style={{ color: colors.textSecondary, fontSize: 10, fontFamily: fontFamily.medium }}>Tomo-unique — verified academic-athletic balance</Text>
             </View>
             <View style={ss.statRow}>
               <Stat label="Dual Load Index" value={cv.dual_role.dual_load_index} colors={colors} />
               {cv.dual_role.exam_period_training_rate != null && <Stat label="Exam training rate" value={`${Math.round(cv.dual_role.exam_period_training_rate * 100)}%`} colors={colors} />}
             </View>
-            {cv.dual_role.narrative && <Text style={[ss.statementText, { color: colors.textSecondary, borderLeftColor: '#3498DB', marginTop: 10 }]}>"{cv.dual_role.narrative}"</Text>}
+            {cv.dual_role.narrative && <Text style={[ss.statementText, { color: colors.textSecondary, borderLeftColor: colors.textSecondary, marginTop: 10 }]}>"{cv.dual_role.narrative}"</Text>}
           </Section>
         )}
 
@@ -925,7 +927,7 @@ export function PlayerCVScreen() {
                   <Text style={{ color: colors.textPrimary, fontFamily: fontFamily.semiBold, fontSize: 12 }}>{r.referee_name}</Text>
                   <Text style={{ color: colors.textSecondary, fontFamily: fontFamily.regular, fontSize: 10 }}>{r.referee_role} · {r.club_institution}</Text>
                 </View>
-                {r.consent_given && <View style={{ backgroundColor: '#2ECC7115', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}><Text style={{ color: '#2ECC71', fontSize: 9, fontFamily: fontFamily.semiBold }}>Confirmed</Text></View>}
+                {r.consent_given && <View style={{ backgroundColor: colors.accentSoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}><Text style={{ color: colors.accent, fontSize: 9, fontFamily: fontFamily.semiBold }}>Confirmed</Text></View>}
               </View>
             ))
           )}
@@ -946,9 +948,9 @@ export function PlayerCVScreen() {
         </Section>
 
         {/* ── INJURY STATUS ── */}
-        <View style={[ss.injuryBar, { backgroundColor: cv.injury_status.has_active_injury ? '#E74C3C15' : '#2ECC7115', borderColor: cv.injury_status.has_active_injury ? '#E74C3C25' : '#2ECC7125' }]}>
-          <SmartIcon name={cv.injury_status.has_active_injury ? 'medkit' : 'checkmark-circle'} size={14} color={cv.injury_status.has_active_injury ? '#E74C3C' : '#2ECC71'} />
-          <Text style={{ color: cv.injury_status.has_active_injury ? '#E74C3C' : '#2ECC71', fontFamily: fontFamily.medium, fontSize: 11 }}>{cv.injury_status.status_label}</Text>
+        <View style={[ss.injuryBar, { backgroundColor: cv.injury_status.has_active_injury ? colors.secondarySubtle : colors.accentSoft, borderColor: cv.injury_status.has_active_injury ? colors.secondaryMuted : colors.accentBorder }]}>
+          <SmartIcon name={cv.injury_status.has_active_injury ? 'medkit' : 'checkmark-circle'} size={14} color={cv.injury_status.has_active_injury ? colors.textSecondary : colors.accent} />
+          <Text style={{ color: cv.injury_status.has_active_injury ? colors.textSecondary : colors.accent, fontFamily: fontFamily.medium, fontSize: 11 }}>{cv.injury_status.status_label}</Text>
         </View>
 
         <View style={{ height: 100 }} />

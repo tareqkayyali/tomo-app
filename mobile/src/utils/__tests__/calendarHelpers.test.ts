@@ -115,9 +115,9 @@ assertEq(toDateStr(ws3), '2026-02-23', 'getWeekStart for Sunday → previous Mon
 
 // ─── getReadinessColor ──────────────────────────────────────────────────────
 
-assertEq(getReadinessColor('Green'), '#34C759', 'Green readiness color');
-assertEq(getReadinessColor('YELLOW'), '#FFD60A', 'Yellow readiness color (uppercase)');
-assertEq(getReadinessColor('red'), '#FF453A', 'Red readiness color (lowercase)');
+assertEq(getReadinessColor('Green'), '#7A9B76', 'Green readiness color');
+assertEq(getReadinessColor('YELLOW'), '#5A6B7C', 'Yellow readiness color (uppercase)');
+assertEq(getReadinessColor('red'), '#5A6B7C', 'Red readiness color (lowercase)');
 assertEq(getReadinessColor(null), null, 'null returns null');
 assertEq(getReadinessColor(undefined), null, 'undefined returns null');
 assertEq(getReadinessColor('unknown'), null, 'unknown returns null');
@@ -140,14 +140,14 @@ assertEq(unknown.label, 'Moderate', 'Unknown defaults to Moderate');
 
 // ─── getEventTypeColor ──────────────────────────────────────────────────────
 
-assertEq(getEventTypeColor('training'), '#2ECC71', 'training event color');
-assertEq(getEventTypeColor('match'), '#3498DB', 'match event color');
-assertEq(getEventTypeColor('recovery'), '#2ECC71', 'recovery event color');
-assertEq(getEventTypeColor('study_block'), '#3498DB', 'study_block event color');
-assertEq(getEventTypeColor('exam'), '#FFD60A', 'exam event color');
-assertEq(getEventTypeColor('other'), '#8E8E93', 'other event color');
-assertEq(getEventTypeColor(undefined), '#8E8E93', 'undefined defaults to other');
-assertEq(getEventTypeColor('garbage'), '#8E8E93', 'unknown type defaults to other');
+assertEq(getEventTypeColor('training'), '#7A9B76', 'training event color');
+assertEq(getEventTypeColor('match'), '#5A6B7C', 'match event color');
+assertEq(getEventTypeColor('recovery'), '#7A9B76', 'recovery event color');
+assertEq(getEventTypeColor('study_block'), '#5A6B7C', 'study_block event color');
+assertEq(getEventTypeColor('exam'), '#5A6B7C', 'exam event color');
+assertEq(getEventTypeColor('other'), '#5A6B7C', 'other event color');
+assertEq(getEventTypeColor(undefined), '#5A6B7C', 'undefined defaults to other');
+assertEq(getEventTypeColor('garbage'), '#5A6B7C', 'unknown type defaults to other');
 
 // ─── timeToMinutes ──────────────────────────────────────────────────────────
 

@@ -26,6 +26,8 @@ import { Input } from '../../components/Input';
 import { linkChildByEmail, submitOnboarding } from '../../services/api';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 
+import { colors } from '../../theme/colors';
+
 type Step = 'welcome' | 'email';
 
 export function ParentOnboardingScreen() {
@@ -276,7 +278,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 3,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.creamMuted,
     marginHorizontal: layout.screenMargin,
     marginTop: spacing.sm,
     borderRadius: 2,

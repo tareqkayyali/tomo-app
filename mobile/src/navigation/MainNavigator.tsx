@@ -25,6 +25,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -111,10 +112,10 @@ const TAB_ICONS: Record<TabName, string> = {
 
 const TAB_LABELS: Record<TabName, string> = {
   Plan: 'Timeline',
-  Test: 'Output',
-  Chat: 'TOMO',
-  Progress: 'Mastery',
-  ForYou: 'Own It',
+  Test: 'Data',
+  Chat: 'Chat',
+  Progress: 'Progress',
+  ForYou: 'Daily',
 };
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -160,6 +161,18 @@ function AnimatedTabIcon({
 
 // ── Center Chat Tab Button (RAISED, GRADIENT, TOMO LOGO) ────────────
 
+// -- Tomo 友 Logo: Two overlapping circles (companion symbol) --
+function TomoCompanionIcon({ size = 28, color = colors.textPrimary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 28 28">
+      {/* Left circle */}
+      <SvgCircle cx={10} cy={14} r={7} stroke={color} strokeWidth={1.8} fill="none" />
+      {/* Right circle (overlapping) */}
+      <SvgCircle cx={18} cy={14} r={7} stroke={color} strokeWidth={1.8} fill="none" />
+    </Svg>
+  );
+}
+
 function CenterChatButton({
   onPress,
   focused,
@@ -176,26 +189,15 @@ function CenterChatButton({
         pressed && { transform: [{ scale: 0.95 }] },
       ]}
     >
-      {focused ? (
-        // Focused: gradient outline ring around black button
-        <LinearGradient
-          colors={colors.gradientOrangeCyan}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.centerButtonGradientRing}
-        >
-          <View style={[styles.centerButton, { backgroundColor: '#000000' }]}>
-            <Image source={tomoLogo} style={styles.centerLogo} resizeMode="contain" />
-          </View>
-        </LinearGradient>
-      ) : (
-        // Unfocused: thin brand-color border
-        <View style={[styles.centerButtonOuter, { borderWidth: 1, borderColor: 'rgba(255, 107, 53, 0.35)' }]}>
-          <View style={[styles.centerButton, { backgroundColor: '#000000' }]}>
-            <Image source={tomoLogo} style={styles.centerLogo} resizeMode="contain" />
-          </View>
-        </View>
-      )}
+      <View style={[
+        styles.centerButton,
+        { backgroundColor: focused ? colors.accent : colors.accentDark },
+      ]}>
+        <TomoCompanionIcon size={30} color={colors.textPrimary} />
+      </View>
+      <Text style={[styles.tabLabel, { color: focused ? colors.accent : colors.textSecondary, marginTop: 4 }]}>
+        Chat
+      </Text>
     </Pressable>
   );
 }
@@ -235,10 +237,10 @@ function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
           <Pressable key={tabName} onPress={onPress} style={styles.tabBarItem}>
             <AnimatedTabIcon
               focused={isFocused}
-              color={isFocused ? colors.electricGreen : colors.chalkFaint}
+              color={isFocused ? colors.electricGreen : colors.textSecondary}
               iconName={TAB_ICONS[tabName]}
             />
-            <Text style={[styles.tabLabel, { color: isFocused ? colors.electricGreen : colors.chalkFaint }]}>
+            <Text style={[styles.tabLabel, { color: isFocused ? colors.electricGreen : colors.textSecondary }]}>
               {TAB_LABELS[tabName]}
             </Text>
             {tabName === 'ForYou' && pendingDrillNotifs.length > 0 && (
@@ -559,7 +561,7 @@ const styles = StyleSheet.create({
   tabBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.textPrimary,
   },
 
   // ── Center Chat Button (Tomo Logo) ───────────────────────────────
@@ -571,7 +573,7 @@ const styles = StyleSheet.create({
   centerButton: {
     width: 56,
     height: 56,
-    borderRadius: 16,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 4 },

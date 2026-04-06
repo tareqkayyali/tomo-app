@@ -22,7 +22,7 @@ interface SketchCornersProps {
 const SketchCorners: React.FC<SketchCornersProps> = memo(({
   size = 16,
   strokeWidth = 1.5,
-  color = 'rgba(245,240,232,0.15)',
+  color = 'rgba(245,243,237,0.15)',
   inset = 8,
 }) => (
   <>

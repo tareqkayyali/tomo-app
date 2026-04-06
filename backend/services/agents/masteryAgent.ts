@@ -29,7 +29,7 @@ export const masteryTools = [
         testType: {
           type: "string",
           description:
-            "reaction | jump | sprint | agility | balance",
+            "The exact test catalog ID (kebab-case). Common values: 10m-sprint, 20m-sprint, 30m-sprint, 40m-sprint, 60m-sprint, 100m-sprint, flying-10m, flying-20m, max-speed, cmj, squat-jump, drop-jump, reaction-time, agility-505, agility-ttest, agility-5105, illinois-agility, arrowhead-agility, yo-yo-ir1, yo-yo-ir2, cooper-run, balance-y, balance-eyes-closed. Extract the exact test name from the PLAYER TEST HISTORY in your context.",
         },
         months: {
           type: "number",
@@ -132,20 +132,21 @@ export async function executeMasteryTool(
           .order("achieved_at", { ascending: false })
           .limit(limit);
 
-        // Get best test scores
-        const { data: testSessions } = await db
-          .from("phone_test_sessions")
-          .select("test_type, score, date")
-          .eq("user_id", userId)
-          .order("score", { ascending: false })
-          .limit(limit);
+        // Get best test scores from both tables
+        const [phoneSessions, footballSessions] = await Promise.all([
+          db.from("phone_test_sessions").select("test_type, score, date").eq("user_id", userId).order("score", { ascending: false }).limit(limit),
+          db.from("football_test_results").select("test_type, primary_value, date").eq("user_id", userId).order("primary_value", { ascending: false }).limit(limit),
+        ]);
+        const allTests = [
+          ...(phoneSessions.data ?? []).map((t: any) => ({ test_type: t.test_type, score: t.score ?? 0, date: t.date })),
+          ...(footballSessions.data ?? []).map((t: any) => ({ test_type: t.test_type, score: t.primary_value ?? 0, date: t.date })),
+        ];
 
         // Group best scores by test type
         const bestByType: Record<string, { score: number; date: string }> = {};
-        for (const t of testSessions ?? []) {
-          const score = t.score ?? 0;
-          if (!bestByType[t.test_type] || score > bestByType[t.test_type].score) {
-            bestByType[t.test_type] = { score, date: t.date };
+        for (const t of allTests) {
+          if (!bestByType[t.test_type] || t.score > bestByType[t.test_type].score) {
+            bestByType[t.test_type] = { score: t.score, date: t.date };
           }
         }
 
@@ -163,15 +164,36 @@ export async function executeMasteryTool(
           .toISOString()
           .split("T")[0];
 
-        const { data } = await db
-          .from("phone_test_sessions")
-          .select("test_type, score, date, raw_data")
-          .eq("user_id", userId)
-          .eq("test_type", toolInput.testType)
-          .gte("date", since)
-          .order("date", { ascending: true });
+        // Query both test tables for trajectory data
+        const [phoneRes, footballRes] = await Promise.all([
+          db.from("phone_test_sessions")
+            .select("test_type, score, date, raw_data")
+            .eq("user_id", userId)
+            .eq("test_type", toolInput.testType)
+            .gte("date", since)
+            .order("date", { ascending: true }),
+          db.from("football_test_results")
+            .select("test_type, primary_value, date, raw_inputs")
+            .eq("user_id", userId)
+            .eq("test_type", toolInput.testType)
+            .gte("date", since)
+            .order("date", { ascending: true }),
+        ]);
 
-        const trajectory = data ?? [];
+        const phoneData = (phoneRes.data ?? []).map((r: any) => ({
+          test_type: r.test_type, score: r.score, date: r.date, raw_data: r.raw_data,
+        }));
+        const footballData = (footballRes.data ?? []).map((r: any) => ({
+          test_type: r.test_type, score: r.primary_value, date: r.date, raw_data: r.raw_inputs,
+        }));
+        // Merge, deduplicate by date, sort ascending
+        const mergedMap = new Map<string, any>();
+        for (const t of [...phoneData, ...footballData]) {
+          if (!mergedMap.has(t.date)) mergedMap.set(t.date, t);
+        }
+        const trajectory = [...mergedMap.values()]
+          .sort((a, b) => (a.date > b.date ? 1 : -1));
+
         const improvement =
           trajectory.length >= 2
             ? (trajectory[trajectory.length - 1].score ?? 0) - (trajectory[0].score ?? 0)
@@ -189,7 +211,7 @@ export async function executeMasteryTool(
       }
 
       case "get_cv_summary": {
-        const [milestonesRes, testsRes, userRes, plansRes, careerRes] =
+        const [milestonesRes, phoneTestsRes, footballTestsRes, userRes, plansRes, careerRes] =
           await Promise.all([
             db
               .from("milestones")
@@ -200,6 +222,12 @@ export async function executeMasteryTool(
             db
               .from("phone_test_sessions")
               .select("test_type, score, date")
+              .eq("user_id", userId)
+              .order("date", { ascending: false })
+              .limit(30),
+            db
+              .from("football_test_results")
+              .select("test_type, primary_value, date")
               .eq("user_id", userId)
               .order("date", { ascending: false })
               .limit(30),
@@ -226,7 +254,10 @@ export async function executeMasteryTool(
 
         const user = userRes.data;
         const milestones = milestonesRes.data ?? [];
-        const tests = testsRes.data ?? [];
+        const tests = [
+          ...(phoneTestsRes.data ?? []).map((t: any) => ({ test_type: t.test_type, score: t.score ?? 0, date: t.date })),
+          ...(footballTestsRes.data ?? []).map((t: any) => ({ test_type: t.test_type, score: t.primary_value ?? 0, date: t.date })),
+        ];
         const completedPlans = plansRes.data ?? [];
         const careerEntries = careerRes.data ?? [];
         const currentClub = careerEntries.find((e: any) => e.is_current) ?? null;
@@ -234,9 +265,8 @@ export async function executeMasteryTool(
         // Best scores per test type
         const bestByType: Record<string, { score: number; date: string }> = {};
         for (const t of tests) {
-          const score = t.score ?? 0;
-          if (!bestByType[t.test_type] || score > bestByType[t.test_type].score) {
-            bestByType[t.test_type] = { score, date: t.date };
+          if (!bestByType[t.test_type] || t.score > bestByType[t.test_type].score) {
+            bestByType[t.test_type] = { score: t.score, date: t.date };
           }
         }
 

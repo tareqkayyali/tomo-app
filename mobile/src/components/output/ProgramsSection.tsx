@@ -45,10 +45,10 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
-  mandatory: '🔥 Must Do',
-  high: '⭐ Recommended',
-  medium: '💡 Supplementary',
-  player_selected: '🎯 My Pick',
+  mandatory: 'Must Do',
+  high: 'Recommended',
+  medium: 'Supplementary',
+  player_selected: 'My Pick',
 };
 
 const PRIORITY_DESCRIPTIONS: Record<string, string> = {
@@ -58,11 +58,11 @@ const PRIORITY_DESCRIPTIONS: Record<string, string> = {
 };
 
 const CATEGORY_EMOJI: Record<string, string> = {
-  sprint: '⚡', sled: '🛷', strength: '💪', nordic: '🦵', plyometric: '🦘',
-  agility: '🔀', endurance: '🫁', power: '💥', hip_mobility: '🧘', acl_prevention: '🛡️',
-  groin: '🦿', ankle_stability: '⚓', passing: '🎯', shooting: '⚽', dribbling: '🏃',
-  first_touch: '🤲', crossing: '📐', heading: '🧠', defensive: '🏰', goalkeeping: '🧤',
-  set_piece: '🎪', tactical: '♟️', scanning: '👁️', combination_play: '🤝',
+  sprint: '', sled: '', strength: '', nordic: '', plyometric: '',
+  agility: '', endurance: '', power: '', hip_mobility: '', acl_prevention: '',
+  groin: '', ankle_stability: '', passing: '', shooting: '', dribbling: '',
+  first_touch: '', crossing: '', heading: '', defensive: '', goalkeeping: '',
+  set_piece: '', tactical: '', scanning: '', combination_play: '',
 };
 
 const DIFFICULTY_COLORS: Record<string, string> = {
@@ -266,7 +266,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
     <View style={styles.container}>
       {/* ── Deep Refresh Indicator ──────────────────────────────── */}
       {isDeepRefreshing && (
-        <View style={[styles.refreshBanner, { backgroundColor: 'rgba(255, 107, 53, 0.08)' }]}>
+        <View style={[styles.refreshBanner, { backgroundColor: colors.accentSubtle }]}>
           <SmartIcon name={(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).icon} size={16} color={colors.accent1} />
           <Text style={[styles.refreshText, { color: colors.accent1 }]}>
             {(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).title}...
@@ -305,7 +305,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
             >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.searchResultName, { color: colors.textOnDark }]} numberOfLines={1}>
-                  {CATEGORY_EMOJI[prog.category] || '📋'} {prog.name}
+                  {prog.name}
                 </Text>
                 <Text style={[styles.searchResultMeta, { color: colors.textMuted }]}>
                   {prog.type} · {prog.difficulty} · {prog.duration_minutes}min
@@ -337,14 +337,14 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               color={colors.textMuted}
             />
             <View style={[styles.priorityDot, { backgroundColor: colors.info }]} />
-            <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>🏋️ Coach Assigned</Text>
+            <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>Coach Assigned</Text>
             <View style={[styles.countBadge, { backgroundColor: `${colors.info}22` }]}>
               <Text style={[styles.countBadgeText, { color: colors.info }]}>{coachAssigned.length}</Text>
             </View>
           </Pressable>
           {coachGroupExpanded && (
             <>
-              <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+              <Text style={[styles.groupDesc, { color: colors.textBody }]}>
                 Programs assigned to you by your coach
               </Text>
               {coachAssigned.map((p: any) => (
@@ -365,7 +365,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               color={colors.textMuted}
             />
             <View style={[styles.priorityDot, { backgroundColor: colors.accent2 }]} />
-            <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>🎯 My Picks</Text>
+            <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>My Picks</Text>
             <View style={[styles.countBadge, { backgroundColor: colors.accent2 + '22' }]}>
               <Text style={[styles.countBadgeText, { color: colors.accent2 }]}>
                 {playerSelectedIds.length}
@@ -374,7 +374,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
           </Pressable>
           {myPicksExpanded && (
             <>
-              <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+              <Text style={[styles.groupDesc, { color: colors.textBody }]}>
                 Programs you added from the catalog
               </Text>
               {playerSelectedIds.map((psId) => {
@@ -448,7 +448,7 @@ function PriorityGroup({ label, programs, colors, onDone, onDismiss, activeIds =
   onToggleActive?: (programId: string) => void;
   onAddToCalendar?: (program: any) => void;
 }) {
-  const priorityColor = PRIORITY_COLORS[label] || '#666';
+  const priorityColor = PRIORITY_COLORS[label] || colors.textSecondary;
   const displayLabel = PRIORITY_LABELS[label] || label;
   const description = PRIORITY_DESCRIPTIONS[label] || '';
 
@@ -477,7 +477,7 @@ function PriorityGroup({ label, programs, colors, onDone, onDismiss, activeIds =
 
       {expanded && (
         <>
-          <Text style={[styles.groupDesc, { color: colors.textMuted }]}>{description}</Text>
+          <Text style={[styles.groupDesc, { color: colors.textBody }]}>{description}</Text>
 
           {visible.map((p) => (
             <ProgramCard key={p.programId} program={p} colors={colors} onDone={onDone} onDismiss={onDismiss} isActive={activeIds.includes(p.programId)} onToggleActive={onToggleActive} onAddToCalendar={onAddToCalendar} />
@@ -519,7 +519,7 @@ function ActiveGroup({ programs, colors, onDone, onToggleActive, onAddToCalendar
           color={colors.textMuted}
         />
         <View style={[styles.priorityDot, { backgroundColor: colors.accent }]} />
-        <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>{'🔥 Active Programs'}</Text>
+        <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>{'Active Programs'}</Text>
         <View style={[styles.countBadge, { backgroundColor: `${colors.success}22` }]}>
           <Text style={[styles.countBadgeText, { color: colors.accent }]}>{programs.length}</Text>
         </View>
@@ -527,7 +527,7 @@ function ActiveGroup({ programs, colors, onDone, onToggleActive, onAddToCalendar
 
       {expanded && (
         <>
-          <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+          <Text style={[styles.groupDesc, { color: colors.textBody }]}>
             Programs you're currently working on
           </Text>
           {programs.map((p) => (
@@ -554,9 +554,9 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
   const navigation = useNavigation<any>();
   const [expanded, setExpanded] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'done' | 'dismissed' | null>(null);
-  const priorityColor = PRIORITY_COLORS[program.priority] || '#666';
-  const emoji = CATEGORY_EMOJI[program.category] || '📋';
-  const diffColor = DIFFICULTY_COLORS[program.difficulty] || '#666';
+  const priorityColor = PRIORITY_COLORS[program.priority] || colors.textSecondary;
+  const emoji = CATEGORY_EMOJI[program.category] || '';
+  const diffColor = DIFFICULTY_COLORS[program.difficulty] || colors.textSecondary;
 
   const isCoachAssigned = (program as any).coachName || (program as any).coachId;
 
@@ -565,7 +565,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
       <GlassCard>
         {/* Collapsed: single row — emoji + name + freq/duration + chevron */}
         <View style={styles.cardHeader}>
-          <Text style={styles.cardEmoji}>{emoji}</Text>
+          {emoji ? <Text style={styles.cardEmoji}>{emoji}</Text> : null}
           <View style={{ flex: 1 }}>
             <Text style={[styles.programName, { color: colors.textOnDark }]} numberOfLines={1}>{program.name}</Text>
             <Text style={[styles.programMeta, { color: colors.textMuted }]}>
@@ -638,7 +638,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
         {confirmAction && (() => {
           const isDone = confirmAction === 'done';
           return (
-            <View style={[styles.confirmRow, { backgroundColor: isDone ? '#2ECC7110' : colors.accent1 + '10', borderRadius: borderRadius.sm, marginTop: spacing.sm }]}>
+            <View style={[styles.confirmRow, { backgroundColor: isDone ? colors.accentSubtle : colors.accent1 + '10', borderRadius: borderRadius.sm, marginTop: spacing.sm }]}>
               <SmartIcon
                 name={isDone ? 'checkmark-circle' : 'close-circle'}
                 size={18}
@@ -688,9 +688,9 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               <View style={[styles.diffBadge, { backgroundColor: diffColor + '22' }]}>
                 <Text style={[styles.diffText, { color: diffColor }]}>{program.difficulty}</Text>
               </View>
-              <View style={[styles.typeBadge, { backgroundColor: program.type === 'physical' ? '#2ECC7118' : '#5E5CE618' }]}>
+              <View style={[styles.typeBadge, { backgroundColor: program.type === 'physical' ? colors.accentSoft : colors.secondarySubtle }]}>
                 <Text style={[styles.typeText, { color: program.type === 'physical' ? colors.accent : colors.info }]}>
-                  {program.type === 'physical' ? '⚡' : '⚽'} {program.type}
+                  {program.type}
                 </Text>
               </View>
             </View>
@@ -713,14 +713,14 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
 
             {/* PHV Warnings */}
             {program.phvWarnings.length > 0 && (
-              <View style={[styles.warningBadge, { backgroundColor: '#FF453A15' }]}>
+              <View style={[styles.warningBadge, { backgroundColor: colors.secondarySubtle }]}>
                 <SmartIcon name="warning-outline" size={12} color={colors.error} />
                 <Text style={styles.warningText}>{program.phvWarnings[0]}</Text>
               </View>
             )}
 
             {/* Description */}
-            <Text style={[styles.descriptionText, { color: colors.textMuted }]}>
+            <Text style={[styles.descriptionText, { color: colors.textBody }]}>
               {program.description}
             </Text>
 
@@ -748,7 +748,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             {program.positionNote ? (
               <View style={styles.positionExpandedRow}>
                 <SmartIcon name="football-outline" size={14} color={colors.accent1} />
-                <Text style={[styles.positionExpandedText, { color: colors.textMuted }]}>{program.positionNote}</Text>
+                <Text style={[styles.positionExpandedText, { color: colors.textBody }]}>{program.positionNote}</Text>
               </View>
             ) : null}
 
@@ -766,7 +766,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             {/* Coaching cues */}
             {program.prescription.coachingCues.length > 0 && (
               <View style={styles.cuesBlock}>
-                <Text style={[styles.cuesTitle, { color: colors.textMuted }]}>💬 Coaching cues</Text>
+                <Text style={[styles.cuesTitle, { color: colors.textMuted }]}>Coaching cues</Text>
                 {program.prescription.coachingCues.map((c, i) => (
                   <Text key={i} style={[styles.cueText, { color: colors.textOnDark }]}>
                     {'\u2022'} {c}
@@ -777,8 +777,8 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
 
             {/* All PHV warnings in expanded */}
             {program.phvWarnings.length > 1 && (
-              <View style={[styles.phvExpandedBlock, { backgroundColor: '#FF453A10' }]}>
-                <Text style={[styles.phvExpandedTitle, { color: colors.error }]}>⚠️ Growth considerations</Text>
+              <View style={[styles.phvExpandedBlock, { backgroundColor: colors.secondarySubtle }]}>
+                <Text style={[styles.phvExpandedTitle, { color: colors.error }]}>Growth considerations</Text>
                 {program.phvWarnings.map((w, i) => (
                   <Text key={i} style={[styles.phvExpandedText, { color: colors.error }]}>• {w}</Text>
                 ))}
@@ -803,7 +803,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                     prescription: program.prescription,
                   });
                 }}
-                style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
+                style={[styles.askTomoButton, { backgroundColor: colors.accentMuted, borderColor: colors.accentBorder, borderWidth: 1 }]}
               >
                 <SmartIcon name="barbell-outline" size={16} color={colors.info} />
                 <Text style={[styles.askTomoText, { color: colors.info }]}>Add to Training</Text>
@@ -823,10 +823,10 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   },
                 });
               }}
-              style={[styles.askTomoButton, { backgroundColor: 'rgba(0, 217, 255, 0.12)', borderColor: 'rgba(0, 217, 255, 0.3)', borderWidth: 1 }]}
+              style={[styles.askTomoButton, { backgroundColor: colors.background, borderColor: colors.creamMuted, borderWidth: 1 }]}
             >
-              <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.info} />
-              <Text style={[styles.askTomoText, { color: colors.info }]}>Ask Tomo about this program</Text>
+              <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.textPrimary} />
+              <Text style={[styles.askTomoText, { color: colors.textPrimary }]}>Ask Tomo about this program</Text>
             </Pressable>
 
             {/* Action buttons moved above expanded content */}
@@ -861,7 +861,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     borderRadius: borderRadius.lg,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.creamSubtle,
     marginBottom: spacing.xs,
   },
   searchInput: {
@@ -882,7 +882,7 @@ const styles = StyleSheet.create({
     padding: spacing.compact,
     gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: colors.creamSubtle,
   },
   searchResultName: {
     fontFamily: fontFamily.medium,
@@ -1102,7 +1102,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: colors.creamMuted,
   },
   cardActionBtn: {
     flexDirection: 'row',

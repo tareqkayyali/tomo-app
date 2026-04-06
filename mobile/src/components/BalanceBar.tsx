@@ -82,7 +82,7 @@ export function BalanceBar({
             style={styles.aiCardGradient}
           >
             <View style={styles.aiHeader}>
-              <Text style={styles.aiEmoji}>🧠</Text>
+              <Text style={styles.aiEmoji}></Text>
               <Text style={[styles.aiLabel, { color: ACADEMIC_PURPLE }]}>TOMO BALANCE</Text>
             </View>
             <Text style={styles.aiText}>{aiInsight}</Text>

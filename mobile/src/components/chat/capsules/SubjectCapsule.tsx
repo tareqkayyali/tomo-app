@@ -75,9 +75,9 @@ const styles = StyleSheet.create({
   container: { backgroundColor: colors.backgroundElevated, borderRadius: borderRadius.lg, padding: spacing.md, gap: spacing.sm },
   heading: { fontFamily: fontFamily.semiBold, fontSize: 15, color: colors.textPrimary },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  subjectPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0, 217, 255, 0.1)', paddingVertical: 5, paddingHorizontal: 10, borderRadius: borderRadius.full, borderWidth: 1, borderColor: 'rgba(0, 217, 255, 0.25)' },
+  subjectPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.accentMuted, paddingVertical: 5, paddingHorizontal: 10, borderRadius: borderRadius.full, borderWidth: 1, borderColor: colors.accentBorder },
   subjectText: { fontFamily: fontFamily.medium, fontSize: 12, color: colors.accent2 },
-  removeX: { fontFamily: fontFamily.bold, fontSize: 12, color: 'rgba(255,255,255,0.4)' },
+  removeX: { fontFamily: fontFamily.bold, fontSize: 12, color: 'rgba(245,243,237,0.4)' },
   addRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   textInput: { flex: 1, fontFamily: fontFamily.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.inputBackground, borderRadius: borderRadius.lg, paddingHorizontal: spacing.compact, paddingVertical: 8 },
 });

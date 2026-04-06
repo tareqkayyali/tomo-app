@@ -238,7 +238,7 @@ export function DNACard({
                   <Text style={[styles.legendText, { color: colors.textMuted }]}>You</Text>
                 </View>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDash, { borderColor: '#CC0000' }]} />
+                  <View style={[styles.legendDash, { borderColor: colors.textSecondary }]} />
                   <Text style={[styles.legendText, { color: colors.textMuted }]}>Peer Average</Text>
                 </View>
               </View>

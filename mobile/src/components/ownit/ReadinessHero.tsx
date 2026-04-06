@@ -211,7 +211,7 @@ export function ReadinessHero({ snapshot }: ReadinessHeroProps) {
             )}
             <MetricPill
               label="Streak"
-              value={`${snapshot.streak_days ?? 0}🔥`}
+              value={`${snapshot.streak_days ?? 0}`}
               color={colors.accent1}
               icon="flame-outline"
             />

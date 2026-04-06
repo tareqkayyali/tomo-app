@@ -147,7 +147,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     // Context Card
     contextCard: {
-      borderColor: 'rgba(48, 209, 88, 0.15)',
+      borderColor: colors.accentSoft,
     },
     contextHeader: {
       flexDirection: 'row',

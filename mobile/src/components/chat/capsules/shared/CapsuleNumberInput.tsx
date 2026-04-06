@@ -29,7 +29,7 @@ export function CapsuleNumberInput({ value, onChangeText, onChange, unit, placeh
           value={value}
           onChangeText={handleChange}
           placeholder={placeholder ?? '0'}
-          placeholderTextColor="rgba(255,255,255,0.3)"
+          placeholderTextColor="rgba(245,243,237,0.3)"
           keyboardType="decimal-pad"
           returnKeyType="done"
         />
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.creamMuted,
     paddingHorizontal: spacing.compact,
     minHeight: 40,
   },

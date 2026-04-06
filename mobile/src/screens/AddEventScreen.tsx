@@ -333,8 +333,8 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
           });
           const programNames = unique.map((p) => p.name).join(', ');
           autoNotes = autoNotes
-            ? `${autoNotes}\n📋 Programs: ${programNames}`
-            : `📋 Programs: ${programNames}`;
+            ? `${autoNotes}\nPrograms: ${programNames}`
+            : `Programs: ${programNames}`;
         }
       }
 

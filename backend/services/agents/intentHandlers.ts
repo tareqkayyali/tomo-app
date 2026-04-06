@@ -611,6 +611,41 @@ async function handleStrengthsGaps(
   return null;
 }
 
+// ── Benchmark Comparison Handler (normative percentiles vs age/position peers) ──
+async function handleBenchmarkComparison(
+  _message: string, _params: Record<string, any>, context: PlayerContext
+): Promise<OrchestratorResult | null> {
+  try {
+    const benchResult = await executeOutputTool("get_benchmark_comparison", {}, context);
+    const profile = benchResult.result as any;
+    if (profile?.available && profile?.metrics?.length > 0) {
+      const metrics = profile.metrics as any[];
+      const cards: any[] = metrics.map((m: any) => ({
+        type: "text_card" as const,
+        emoji: m.percentile >= 75 ? "💪" : m.percentile >= 40 ? "📊" : "🎯",
+        headline: `${m.metric} — P${m.percentile}`,
+        body: `${m.value}${m.unit} — ${m.message ?? m.zone ?? ""}`,
+      }));
+      return {
+        message: `Benchmark profile vs ${profile.ageBand ?? ""} ${profile.position ?? ""} peers`,
+        structured: {
+          headline: `📊 Benchmark vs ${profile.ageBand ?? ""} ${profile.position ?? ""} Peers`,
+          cards,
+          chips: [
+            { label: "My strengths & gaps", action: "Show my strengths and gaps" },
+            { label: "Log a test", action: "I want to log a new test" },
+          ],
+        },
+        refreshTargets: [],
+        agentType: "output",
+      };
+    }
+  } catch (e) {
+    logger.warn("[intent-handler] benchmark_comparison failed", { error: e });
+  }
+  return null;
+}
+
 // ── Simple Capsule Handlers ──
 async function handlePadelShots(): Promise<OrchestratorResult | null> {
   return {
@@ -1736,6 +1771,7 @@ export const intentHandlers: Record<string, IntentHandler> = {
   phv_query: handlePhvQuery,
   phv_calculate: handlePhvCalculate,
   strengths_gaps: handleStrengthsGaps,
+  benchmark_comparison: handleBenchmarkComparison,
   leaderboard: handleLeaderboard,
   ghost_suggestions: handleGhostSuggestions,
   day_lock: handleDayLock,

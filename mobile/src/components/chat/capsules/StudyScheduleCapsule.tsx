@@ -27,9 +27,9 @@ export function StudyScheduleCapsuleComponent({ card, onSubmit }: Props) {
   const [daysPerSubject, setDaysPerSubject] = useState(card.daysPerSubject);
 
   const getUrgencyColor = (daysUntil: number) => {
-    if (daysUntil < 7) return '#E74C3C';
+    if (daysUntil < 7) return colors.textSecondary;
     if (daysUntil < 14) return colors.warning;
-    return '#30D158';
+    return colors.accent;
   };
 
   // OVERVIEW MODE
@@ -41,7 +41,7 @@ export function StudyScheduleCapsuleComponent({ card, onSubmit }: Props) {
         {/* Existing study plan info */}
         {card.hasStudyPlan && (
           <View style={styles.planBanner}>
-            <SmartIcon name="calendar-outline" size={16} color="#30D158" />
+            <SmartIcon name="calendar-outline" size={16} color="#7A9B76" />
             <View style={{ flex: 1 }}>
               <Text style={styles.planBannerTitle}>
                 Active study plan · {card.studyPlanBlockCount} sessions
@@ -195,12 +195,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.sm,
     borderWidth: 1,
-    borderColor: '#30D15830',
+    borderColor: colors.accentBorder,
   },
   planBannerTitle: {
     fontFamily: fontFamily.medium,
     fontSize: 13,
-    color: '#30D158',
+    color: colors.accent,
   },
   planBannerSub: {
     fontFamily: fontFamily.regular,

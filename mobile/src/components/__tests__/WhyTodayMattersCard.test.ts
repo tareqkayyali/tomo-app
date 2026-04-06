@@ -15,13 +15,13 @@ import { getArchetypeProfile } from '../../services/archetypeProfile';
 // ---------------------------------------------------------------------------
 
 const ARCHETYPE_EMOJI: Record<string, string> = {
-  phoenix: '\uD83D\uDD25',
-  titan: '\uD83C\uDFDB\uFE0F',
-  blade: '\u2694\uFE0F',
-  surge: '\u26A1',
+  phoenix: '',
+  titan: '',
+  blade: '',
+  surge: '',
 };
 
-const DEFAULT_EMOJI = '\uD83D\uDCAA';
+const DEFAULT_EMOJI = '';
 
 type ReadinessLevel = 'GREEN' | 'YELLOW' | 'RED';
 
@@ -363,16 +363,16 @@ console.log('\ngetDailyMessage — unknown archetype');
 console.log('\ngetArchetypeEmoji');
 
 (() => {
-  assert(getArchetypeEmoji('phoenix') === '\uD83D\uDD25', 'phoenix → fire emoji');
-  assert(getArchetypeEmoji('titan') === '\uD83C\uDFDB\uFE0F', 'titan → temple emoji');
-  assert(getArchetypeEmoji('blade') === '\u2694\uFE0F', 'blade → swords emoji');
-  assert(getArchetypeEmoji('surge') === '\u26A1', 'surge → lightning emoji');
+  assert(getArchetypeEmoji('phoenix') === '', 'phoenix → fire emoji');
+  assert(getArchetypeEmoji('titan') === '', 'titan → temple emoji');
+  assert(getArchetypeEmoji('blade') === '', 'blade → swords emoji');
+  assert(getArchetypeEmoji('surge') === '', 'surge → lightning emoji');
 })();
 
 // Case insensitive
 (() => {
-  assert(getArchetypeEmoji('Phoenix') === '\uD83D\uDD25', 'Phoenix (capitalized) → fire');
-  assert(getArchetypeEmoji('BLADE') === '\u2694\uFE0F', 'BLADE (upper) → swords');
+  assert(getArchetypeEmoji('Phoenix') === '', 'Phoenix (capitalized) → fire');
+  assert(getArchetypeEmoji('BLADE') === '', 'BLADE (upper) → swords');
 })();
 
 // Null / undefined / unknown → default
@@ -471,11 +471,11 @@ console.log('\nArchetype colors');
 (() => {
   const archetypes = ['phoenix', 'titan', 'blade', 'surge', null] as const;
   const expected: Record<string, string> = {
-    phoenix: '#FF6B6B',
-    titan: '#4C6EF5',
-    blade: '#12B886',
-    surge: '#FFD43B',
-    null: '#4A90A4',
+    phoenix: '#7A9B76',
+    titan: '#5A6B7C',
+    blade: '#7A9B76',
+    surge: '#5A6B7C',
+    null: '#5A6B7C',
   };
 
   for (const arch of archetypes) {

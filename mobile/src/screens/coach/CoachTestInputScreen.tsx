@@ -216,7 +216,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
             const catColor = CATEGORY_COLORS[q.test.category] || colors.textMuted;
             return (
               <View key={q.test.id} style={[styles.queueRow, { borderColor: colors.glassBorder }]}>
-                <Text style={styles.queueEmoji}>{q.test.emoji}</Text>
+                {q.test.emoji ? <Text style={styles.queueEmoji}>{q.test.emoji}</Text> : null}
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.queueName, { color: colors.textOnDark }]}>{q.test.name}</Text>
                   <Text style={[styles.queueCategory, { color: catColor }]}>{q.test.category}</Text>
@@ -330,7 +330,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
                   },
                 ]}
               >
-                <Text style={styles.testEmoji}>{test.emoji}</Text>
+                {test.emoji ? <Text style={styles.testEmoji}>{test.emoji}</Text> : null}
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.testName, { color: colors.textOnDark }]}>{test.name}</Text>
                   <View style={styles.testMeta}>

@@ -293,16 +293,16 @@ function createStyles(colors: ThemeColors) {
       color: colors.textOnDark,
     },
     capsuleChip: {
-      backgroundColor: 'rgba(0, 217, 255, 0.08)',
+      backgroundColor: colors.accentSubtle,
       paddingVertical: 10,
       paddingHorizontal: spacing.md,
       borderRadius: borderRadius.full,
       borderWidth: 1,
-      borderColor: 'rgba(0, 217, 255, 0.2)',
+      borderColor: colors.accentBorder,
     },
     capsuleChipPressed: {
       opacity: 0.7,
-      backgroundColor: 'rgba(0, 217, 255, 0.15)',
+      backgroundColor: colors.accentSoft,
     },
     capsuleChipText: {
       fontFamily: fontFamily.medium,
@@ -550,9 +550,9 @@ function createStyles(colors: ThemeColors) {
       marginBottom: spacing.xs,
     },
     savedItemActive: {
-      backgroundColor: 'rgba(255, 107, 53, 0.08)',
+      backgroundColor: colors.accentSubtle,
       borderWidth: 1,
-      borderColor: 'rgba(255, 107, 53, 0.2)',
+      borderColor: colors.accentBorder,
     },
     savedItemContent: {
       flex: 1,
@@ -638,9 +638,9 @@ function createStyles(colors: ThemeColors) {
       color: colors.textInactive,
     },
     confirmBtnConfirm: {
-      backgroundColor: 'rgba(0, 217, 255, 0.12)',
+      backgroundColor: colors.accentMuted,
       borderWidth: 1,
-      borderColor: 'rgba(0, 217, 255, 0.3)',
+      borderColor: colors.accentBorder,
     },
     confirmBtnConfirmText: {
       fontFamily: fontFamily.medium,

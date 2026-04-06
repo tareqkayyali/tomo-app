@@ -18,19 +18,19 @@ interface EventEditCapsuleProps {
 }
 
 const EVENT_TYPES = [
-  { id: 'training', label: '🏃 Training' },
-  { id: 'match', label: '⚽ Match' },
-  { id: 'recovery', label: '🩹 Recovery' },
-  { id: 'study', label: '📚 Study' },
-  { id: 'exam', label: '📝 Exam' },
-  { id: 'other', label: '📌 Other' },
+  { id: 'training', label: 'Training' },
+  { id: 'match', label: 'Match' },
+  { id: 'recovery', label: 'Recovery' },
+  { id: 'study', label: 'Study' },
+  { id: 'exam', label: 'Exam' },
+  { id: 'other', label: 'Other' },
 ];
 
 // Default fallback categories if player hasn't configured any
 const DEFAULT_TRAINING_CATEGORIES = [
-  { id: 'club', label: '⚽ Club / Academy' },
-  { id: 'gym', label: '🏋️ Gym' },
-  { id: 'personal', label: '🏃 Personal' },
+  { id: 'club', label: 'Club / Academy' },
+  { id: 'gym', label: 'Gym' },
+  { id: 'personal', label: 'Personal' },
 ];
 
 const DURATIONS = [
@@ -42,9 +42,9 @@ const DURATIONS = [
 ];
 
 const INTENSITIES = [
-  { id: 'LIGHT', label: '🟢 Light' },
-  { id: 'MODERATE', label: '🟡 Moderate' },
-  { id: 'HARD', label: '🔴 Hard' },
+  { id: 'LIGHT', label: 'Light' },
+  { id: 'MODERATE', label: 'Moderate' },
+  { id: 'HARD', label: 'Hard' },
 ];
 
 const TIME_SLOTS = [
@@ -79,7 +79,7 @@ export function EventEditCapsuleComponent({ card, onSubmit }: EventEditCapsulePr
   if (isDelete && card.existingEvents && card.existingEvents.length > 0 && !selectedEventId) {
     return (
       <View style={styles.container}>
-        <Text style={styles.heading}>🗑️ Cancel which event?</Text>
+        <Text style={styles.heading}>Cancel which event?</Text>
         <PillSelector
           options={card.existingEvents.map(e => ({
             id: e.id,
@@ -150,7 +150,7 @@ export function EventEditCapsuleComponent({ card, onSubmit }: EventEditCapsulePr
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>
-        {isCreate ? '📅 Add event' : '✏️ Edit event'}
+        {isCreate ? 'Add event' : 'Edit event'}
       </Text>
 
       {/* Title */}

@@ -365,7 +365,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
 
               <View style={styles.buttonRow}>
                 <TouchableOpacity
-                  style={[styles.subtleBtn, styles.backButton, { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }]}
+                  style={[styles.subtleBtn, styles.backButton, { backgroundColor: colors.creamSubtle, borderColor: colors.textDisabled }]}
                   onPress={() => setStep(1)}
                   activeOpacity={0.7}
                 >
@@ -486,9 +486,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(245,243,237,0.07)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: colors.creamSoft,
     borderRadius: 12,
     paddingVertical: 10,
     gap: spacing.sm,

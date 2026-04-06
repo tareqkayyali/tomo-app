@@ -13,27 +13,27 @@ import { PillSelector } from './shared/PillSelector';
 import { CapsuleSubmitButton } from './shared/CapsuleSubmitButton';
 
 const ENERGY_OPTIONS = [
-  { value: 2, emoji: '😴' },
-  { value: 4, emoji: '😐' },
-  { value: 6, emoji: '🙂' },
-  { value: 8, emoji: '😊' },
-  { value: 10, emoji: '🔥' },
+  { value: 2, emoji: '' },
+  { value: 4, emoji: '' },
+  { value: 6, emoji: '' },
+  { value: 8, emoji: '' },
+  { value: 10, emoji: '' },
 ];
 
 const SORENESS_OPTIONS = [
-  { value: 2, emoji: '😌' },
-  { value: 4, emoji: '🙂' },
-  { value: 6, emoji: '😐' },
-  { value: 8, emoji: '😣' },
-  { value: 10, emoji: '🤕' },
+  { value: 2, emoji: '' },
+  { value: 4, emoji: '' },
+  { value: 6, emoji: '' },
+  { value: 8, emoji: '' },
+  { value: 10, emoji: '' },
 ];
 
 const MOOD_OPTIONS = [
-  { value: 2, emoji: '😞' },
-  { value: 4, emoji: '😕' },
-  { value: 6, emoji: '😊' },
-  { value: 8, emoji: '😄' },
-  { value: 10, emoji: '🤩' },
+  { value: 2, emoji: '' },
+  { value: 4, emoji: '' },
+  { value: 6, emoji: '' },
+  { value: 8, emoji: '' },
+  { value: 10, emoji: '' },
 ];
 
 const SLEEP_OPTIONS = [
@@ -92,32 +92,32 @@ export function CheckinCapsuleComponent({ card, onSubmit }: CheckinCapsuleProps)
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>☀️ Morning Check-in</Text>
+      <Text style={styles.title}>Morning Check-in</Text>
       {staleMsg && <Text style={styles.staleWarning}>{staleMsg}</Text>}
 
       <EmojiScale
-        label="Energy ⚡"
+        label="Energy"
         options={ENERGY_OPTIONS}
         selected={energy}
         onSelect={setEnergy}
       />
 
       <PillSelector
-        label="Sleep 😴"
+        label="Sleep"
         options={SLEEP_OPTIONS}
         selected={sleepHours}
         onSelect={setSleepHours}
       />
 
       <EmojiScale
-        label="Soreness 💪"
+        label="Soreness"
         options={SORENESS_OPTIONS}
         selected={soreness}
         onSelect={setSoreness}
       />
 
       <EmojiScale
-        label="Mood 😊"
+        label="Mood"
         options={MOOD_OPTIONS}
         selected={mood}
         onSelect={setMood}
@@ -148,7 +148,7 @@ export function CheckinCapsuleComponent({ card, onSubmit }: CheckinCapsuleProps)
             value={painLocation}
             onChangeText={setPainLocation}
             placeholder="Where does it hurt?"
-            placeholderTextColor="rgba(255,255,255,0.3)"
+            placeholderTextColor="rgba(245,243,237,0.3)"
           />
         </View>
       )}
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   },
   painButtonSelected: {
     borderColor: colors.accent1,
-    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    backgroundColor: colors.accentMuted,
   },
   painButtonText: {
     fontFamily: fontFamily.medium,
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.xl,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: colors.creamSoft,
     paddingHorizontal: spacing.md,
     minHeight: 44,
     justifyContent: 'center',
