@@ -2,29 +2,29 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FlowOverview } from "@/components/admin/performance-intelligence/FlowOverview";
-import { SportContextEditor } from "@/components/admin/performance-intelligence/SportContextEditor";
-import { PHVConfigEditor } from "@/components/admin/performance-intelligence/PHVConfigEditor";
-import { ReadinessMatrixEditor } from "@/components/admin/performance-intelligence/ReadinessMatrixEditor";
-import { PromptTemplateEditor } from "@/components/admin/performance-intelligence/PromptTemplateEditor";
+import { SquadSportEditor } from "@/components/admin/performance-intelligence/SquadSportEditor";
+import { DevelopmentPathwaysEditor } from "@/components/admin/performance-intelligence/DevelopmentPathwaysEditor";
+import { AthleteProtectionEditor } from "@/components/admin/performance-intelligence/AthleteProtectionEditor";
+import { CoachingVoiceEditor } from "@/components/admin/performance-intelligence/CoachingVoiceEditor";
+import { LiveIntelligenceDashboard } from "@/components/admin/performance-intelligence/LiveIntelligenceDashboard";
 
 const TABS = [
-  { value: "overview", label: "Flow Overview" },
-  { value: "sport-context", label: "Sport Context" },
-  { value: "phv-config", label: "PHV Safety" },
-  { value: "readiness-matrix", label: "Readiness Matrix" },
-  { value: "prompt-templates", label: "AI Prompts" },
+  { value: "squad-sport", label: "Squad & Sport" },
+  { value: "development-pathways", label: "Development Pathways" },
+  { value: "athlete-protection", label: "Athlete Protection" },
+  { value: "coaching-voice", label: "Coaching Voice" },
+  { value: "live-intelligence", label: "Live Intelligence" },
 ];
 
-export default function PerformanceIntelligencePage() {
-  const [activeTab, setActiveTab] = useState("overview");
+export default function CoachingIntelligenceHubPage() {
+  const [activeTab, setActiveTab] = useState("squad-sport");
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Performance Intelligence Hub</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Coaching Intelligence Hub</h1>
         <p className="text-sm text-muted-foreground">
-          Configure how the AI Chat system makes decisions about athlete training, load, benchmarks, and growth safety.
+          Configure how Tomo coaches your athletes — no technical knowledge required
         </p>
       </div>
 
@@ -37,24 +37,24 @@ export default function PerformanceIntelligencePage() {
           ))}
         </TabsList>
 
-        <TabsContent value="overview" className="mt-6">
-          <FlowOverview onNavigateTab={setActiveTab} />
+        <TabsContent value="squad-sport" className="mt-6">
+          <SquadSportEditor />
         </TabsContent>
 
-        <TabsContent value="sport-context" className="mt-6">
-          <SportContextEditor />
+        <TabsContent value="development-pathways" className="mt-6">
+          <DevelopmentPathwaysEditor />
         </TabsContent>
 
-        <TabsContent value="phv-config" className="mt-6">
-          <PHVConfigEditor />
+        <TabsContent value="athlete-protection" className="mt-6">
+          <AthleteProtectionEditor />
         </TabsContent>
 
-        <TabsContent value="readiness-matrix" className="mt-6">
-          <ReadinessMatrixEditor />
+        <TabsContent value="coaching-voice" className="mt-6">
+          <CoachingVoiceEditor />
         </TabsContent>
 
-        <TabsContent value="prompt-templates" className="mt-6">
-          <PromptTemplateEditor />
+        <TabsContent value="live-intelligence" className="mt-6">
+          <LiveIntelligenceDashboard />
         </TabsContent>
       </Tabs>
     </div>

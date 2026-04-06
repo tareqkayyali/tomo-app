@@ -99,6 +99,15 @@ export const SPORT_COACHING_DEFAULTS: SportCoachingContext = {
       defender: "High aerial duel frequency. Prioritize strength, heading technique, recovery speed.",
       "centre-back": "High aerial duel frequency. Prioritize strength, heading technique, recovery speed.",
     },
+    seasonPhase: "in_season",
+    matchLoadUnit: 1.0,
+    positions: [
+      { id: "goalkeeper", name: "Goalkeeper", aerobicPriority: 4, strengthPriority: 7, notes: "Lower running volume, higher explosive demand.", active: true },
+      { id: "defender", name: "Defender", aerobicPriority: 6, strengthPriority: 7, notes: "High aerial duel frequency. Prioritize strength.", active: true },
+      { id: "midfielder", name: "Midfielder", aerobicPriority: 9, strengthPriority: 5, notes: "Highest total distance. Prioritize aerobic base.", active: true },
+      { id: "forward", name: "Forward", aerobicPriority: 7, strengthPriority: 6, notes: "High-intensity sprint frequency. Acceleration focus.", active: true },
+      { id: "winger", name: "Winger", aerobicPriority: 8, strengthPriority: 5, notes: "High-speed running volume. Repeated sprint ability.", active: true },
+    ],
   },
   padel: {
     keyMetrics: "Reaction time (BlazePods), lateral movement speed, court coverage, wrist/forearm loading",
@@ -108,6 +117,12 @@ export const SPORT_COACHING_DEFAULTS: SportCoachingContext = {
       "revés": "Higher rotational demand. Monitor core and oblique fatigue.",
       backhand: "Higher rotational demand. Monitor core and oblique fatigue.",
     },
+    seasonPhase: "in_season",
+    matchLoadUnit: 1.0,
+    positions: [
+      { id: "drive", name: "Drive", aerobicPriority: 6, strengthPriority: 6, notes: "Aggressive baseline play.", active: true },
+      { id: "reves", name: "Revés", aerobicPriority: 6, strengthPriority: 7, notes: "Higher rotational demand.", active: true },
+    ],
   },
   athletics: {
     keyMetrics: "Event-specific benchmarks, sprint mechanics (contact time, flight time), jump testing",
@@ -117,16 +132,29 @@ export const SPORT_COACHING_DEFAULTS: SportCoachingContext = {
       throws: "High power/strength demand. Monitor shoulder and back loading.",
       jumps: "High impact loading. Monitor ankle/knee stress, especially during growth phases.",
     },
+    seasonPhase: "in_season",
+    matchLoadUnit: 1.0,
+    positions: [
+      { id: "sprints", name: "Sprints", aerobicPriority: 3, strengthPriority: 8, notes: "Maximal neuromuscular demand.", active: true },
+      { id: "throws", name: "Throws", aerobicPriority: 3, strengthPriority: 9, notes: "High power/strength demand.", active: true },
+      { id: "jumps", name: "Jumps", aerobicPriority: 5, strengthPriority: 8, notes: "High impact loading.", active: true },
+    ],
   },
   basketball: {
     keyMetrics: "Vertical jump, agility, sprint, court coverage",
     loadFramework: "ACWR for practice + game load. Game count per week drives weekly load. Practice intensity varies by phase.",
     positionNotes: {},
+    seasonPhase: "in_season",
+    matchLoadUnit: 1.0,
+    positions: [],
   },
   tennis: {
     keyMetrics: "Lateral movement speed, serve velocity, rally endurance",
     loadFramework: "Match frequency + practice volume. Monitor shoulder/elbow loading for serve-dominant players.",
     positionNotes: {},
+    seasonPhase: "in_season",
+    matchLoadUnit: 1.0,
+    positions: [],
   },
 };
 
@@ -378,6 +406,13 @@ export const READINESS_MATRIX_DEFAULTS: ReadinessDecisionMatrix = {
 };
 
 export const PROMPT_TEMPLATES_DEFAULTS: AIPromptTemplates = {
+  coachingStyle: "supportive",
+  ageToneAdjustments: {
+    u13_u15: { enabled: true },
+    u17_u19: { enabled: true },
+    senior: { enabled: true },
+  },
+  programmePhilosophy: "",
   blocks: [
     {
       id: "sport_context",
@@ -490,6 +525,68 @@ export async function getFlowOverviewStats() {
     getPromptTemplatesConfig(),
   ]);
 
+  // Live squad data
+  let todaySquadStatus = { green: 0, amber: 0, red: 0 };
+  let recentDecisions: { type: string; athlete: string; description: string; time: string }[] = [];
+  let systemHealth = { aiActive: true, dataFresh: true, protectionLoaded: true };
+
+  try {
+    // Squad readiness counts from athlete_snapshots
+    const { data: snapshots } = await db()
+      .from("athlete_snapshots")
+      .select("readiness_rag, updated_at");
+
+    if (snapshots && Array.isArray(snapshots)) {
+      const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+      for (const s of snapshots) {
+        const rag = (s.readiness_rag || "").toUpperCase();
+        if (rag === "GREEN") todaySquadStatus.green++;
+        else if (rag === "AMBER") todaySquadStatus.amber++;
+        else if (rag === "RED") todaySquadStatus.red++;
+      }
+      // Check data freshness — any snapshot older than 6h = amber
+      const freshCount = snapshots.filter((s: { updated_at: string }) => s.updated_at > sixHoursAgo).length;
+      systemHealth.dataFresh = freshCount > snapshots.length * 0.5;
+    }
+
+    // Recent P1/P2 recommendations from last 24h
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: recs } = await db()
+      .from("athlete_recommendations")
+      .select("rec_type, title, priority, created_at, athlete_id")
+      .gte("created_at", oneDayAgo)
+      .lte("priority", 2)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (recs && Array.isArray(recs)) {
+      // Get athlete names
+      const athleteIds = [...new Set(recs.map((r: { athlete_id: string }) => r.athlete_id))];
+      const { data: users } = await db()
+        .from("users")
+        .select("id, full_name")
+        .in("id", athleteIds);
+      const nameMap: Record<string, string> = {};
+      if (users) for (const u of users) nameMap[u.id] = u.full_name || "Athlete";
+
+      recentDecisions = recs.map((r: { rec_type: string; title: string; priority: number; created_at: string; athlete_id: string }) => {
+        const type = r.priority === 1 ? "protection" : "load_management";
+        return {
+          type,
+          athlete: nameMap[r.athlete_id] || "Athlete",
+          description: r.title,
+          time: r.created_at,
+        };
+      });
+    }
+
+    // Protection loaded check
+    const dbPhv = await readConfig("phv_safety_config");
+    systemHealth.protectionLoaded = !!dbPhv;
+  } catch {
+    // Non-critical — stats page still renders with config counts
+  }
+
   return {
     sportsConfigured: Object.keys(sport).length,
     phvStages: phv.stages.length,
@@ -498,5 +595,9 @@ export async function getFlowOverviewStats() {
     readinessRules: readiness.rules.length,
     promptBlocks: prompts.blocks.length,
     enabledPromptBlocks: prompts.blocks.filter((b) => b.enabled).length,
+    todaySquadStatus,
+    recentDecisions,
+    overridesThisWeek: 0,
+    systemHealth,
   };
 }

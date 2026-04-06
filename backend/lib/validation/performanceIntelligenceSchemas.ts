@@ -4,10 +4,25 @@ import { z } from "zod";
 
 const positionNotesSchema = z.record(z.string(), z.string());
 
+const seasonPhaseSchema = z.enum(["pre_season", "in_season", "playoffs", "off_season"]);
+
+const positionConfigSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  aerobicPriority: z.number().min(1).max(10).default(5),
+  strengthPriority: z.number().min(1).max(10).default(5),
+  notes: z.string().default(""),
+  active: z.boolean().default(true),
+});
+
 const sportCoachingEntrySchema = z.object({
   keyMetrics: z.string().min(1),
   loadFramework: z.string().min(1),
   positionNotes: positionNotesSchema.default({}),
+  // v2 fields (Coaching Intelligence Hub)
+  seasonPhase: seasonPhaseSchema.default("in_season"),
+  matchLoadUnit: z.number().default(1.0),
+  positions: z.array(positionConfigSchema).default([]),
 });
 
 export const sportCoachingContextSchema = z.record(
@@ -95,8 +110,22 @@ const promptBlockSchema = z.object({
   description: z.string().default(""),
 });
 
+const ageToneAdjustmentsSchema = z.object({
+  u13_u15: z.object({ enabled: z.boolean().default(true) }),
+  u17_u19: z.object({ enabled: z.boolean().default(true) }),
+  senior: z.object({ enabled: z.boolean().default(true) }),
+});
+
 export const aiPromptTemplatesSchema = z.object({
   blocks: z.array(promptBlockSchema),
+  // v2 fields (Coaching Intelligence Hub)
+  coachingStyle: z.enum(["motivating", "supportive", "data_informed", "holistic"]).default("supportive"),
+  ageToneAdjustments: ageToneAdjustmentsSchema.default({
+    u13_u15: { enabled: true },
+    u17_u19: { enabled: true },
+    senior: { enabled: true },
+  }),
+  programmePhilosophy: z.string().max(500).default(""),
 });
 
 // ── POST wrapper (config_key + config_value) ──
@@ -118,3 +147,5 @@ export type ReadinessDecisionMatrix = z.infer<typeof readinessDecisionMatrixSche
 export type ReadinessRule = z.infer<typeof readinessRuleSchema>;
 export type AIPromptTemplates = z.infer<typeof aiPromptTemplatesSchema>;
 export type PromptBlock = z.infer<typeof promptBlockSchema>;
+export type PositionConfig = z.infer<typeof positionConfigSchema>;
+export type SeasonPhase = z.infer<typeof seasonPhaseSchema>;
