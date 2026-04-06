@@ -370,6 +370,7 @@ const ms = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   keyboardView: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   sheet: {
@@ -378,8 +379,7 @@ const ms = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 40,
     paddingHorizontal: spacing.lg,
-    maxHeight: '85%',
-    flex: 0,
+    maxHeight: '75%',
   },
   handleBar: {
     width: 36,
