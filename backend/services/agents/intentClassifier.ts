@@ -511,8 +511,8 @@ export async function classifyIntent(
   // Layer 1.5: Deterministic analysis guard — messages asking to ANALYZE/VIEW test data
   // must never be classified as log_test. Force fallthrough so the full AI agent handles it.
   const lower = message.toLowerCase();
-  if (/\b(analyz|progress|trajectory|history|trend|improv|how did|show my|compare)\b/i.test(lower)
-      && /\b(sprint|jump|agility|test|score|time)\b/i.test(lower)) {
+  if (/\b(analyz|progress|trajectory|history|trend|improv|how did|show my|compare|faster|slower|quicker|stronger|weaker|getting better|am i)\b/i.test(lower)
+      && /\b(sprint|jump|agility|test|score|time|cmj|cod|vo2|reaction|balance|strength|speed|endurance|10m|20m|30m|beep)\b/i.test(lower)) {
     const guard: ClassificationResult = {
       intentId: "agent_fallthrough",
       capsuleType: null,

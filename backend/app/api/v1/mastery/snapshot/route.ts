@@ -552,12 +552,16 @@ export async function GET(req: NextRequest) {
   const [benchmarkResult, normsResult, rawTestsResult, sportAttrsResult, masteryRecsResult, cmsConfigResult] = await Promise.allSettled([
     getPlayerBenchmarkProfile(athleteId),
     getPositionNorms(sport, position, ageBand, gender, "elite"),
-    db
-      .from("phone_test_sessions")
-      .select("test_type, score, date, raw_data")
-      .eq("user_id", athleteId)
-      .order("date", { ascending: false })
-      .limit(100),
+    Promise.all([
+      db.from("phone_test_sessions").select("test_type, score, date, raw_data").eq("user_id", athleteId).order("date", { ascending: false }).limit(100),
+      db.from("football_test_results").select("test_type, primary_value, date, raw_inputs").eq("user_id", athleteId).order("date", { ascending: false }).limit(100),
+    ]).then(([phone, football]) => ({
+      data: [
+        ...(phone.data ?? []),
+        ...(football.data ?? []).map((t: any) => ({ test_type: t.test_type, score: t.primary_value, date: t.date, raw_data: t.raw_inputs })),
+      ],
+      error: phone.error,
+    })),
     // Fetch CMS sport attribute colors for radar
     db
       .from("sport_attributes")

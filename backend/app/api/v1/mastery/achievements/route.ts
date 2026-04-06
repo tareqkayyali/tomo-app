@@ -118,12 +118,16 @@ export async function GET(req: NextRequest) {
         .eq("user_id", targetId)
         .order("achieved_at", { ascending: false })
         .limit(limit),
-      db
-        .from("phone_test_sessions")
-        .select("test_type, score, date")
-        .eq("user_id", targetId)
-        .order("date", { ascending: false })
-        .limit(200),
+      Promise.all([
+        db.from("phone_test_sessions").select("test_type, score, date").eq("user_id", targetId).order("date", { ascending: false }).limit(200),
+        db.from("football_test_results").select("test_type, primary_value, date").eq("user_id", targetId).order("date", { ascending: false }).limit(200),
+      ]).then(([phone, football]) => ({
+        data: [
+          ...(phone.data ?? []).map((t: any) => ({ test_type: t.test_type, score: t.score, date: t.date })),
+          ...(football.data ?? []).map((t: any) => ({ test_type: t.test_type, score: t.primary_value, date: t.date })),
+        ],
+        error: phone.error,
+      })),
       db
         .from("users")
         .select("current_streak, longest_streak, total_points")

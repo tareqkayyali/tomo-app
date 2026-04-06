@@ -24,8 +24,15 @@ export async function GET(req: NextRequest) {
   const testType = searchParams.get("testType") || undefined;
 
   const db = supabaseAdmin();
-  let query = db
+  let phoneQuery = db
     .from("phone_test_sessions")
+    .select("*")
+    .eq("user_id", auth.user.id)
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  let footballQuery = db
+    .from("football_test_results")
     .select("*")
     .eq("user_id", auth.user.id)
     .order("date", { ascending: false })
@@ -33,16 +40,17 @@ export async function GET(req: NextRequest) {
     .limit(limit);
 
   if (testType) {
-    query = query.eq("test_type", testType);
+    phoneQuery = phoneQuery.eq("test_type", testType);
+    footballQuery = footballQuery.eq("test_type", testType);
   }
 
-  const { data, error } = await query;
+  const [phoneRes, footballRes] = await Promise.all([phoneQuery, footballQuery]);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (phoneRes.error) {
+    return NextResponse.json({ error: phoneRes.error.message }, { status: 500 });
   }
 
-  const results = (data || []).map((row: Record<string, unknown>) => ({
+  const phoneResults = (phoneRes.data || []).map((row: Record<string, unknown>) => ({
     id: row.id,
     testType: row.test_type,
     score: row.score,
@@ -50,6 +58,24 @@ export async function GET(req: NextRequest) {
     date: row.date,
     createdAt: row.created_at,
   }));
+  const footballResults = (footballRes.data || []).map((row: Record<string, unknown>) => ({
+    id: row.id,
+    testType: row.test_type,
+    score: row.primary_value,
+    rawData: row.raw_inputs,
+    date: row.date,
+    createdAt: row.created_at,
+  }));
+
+  // Merge, deduplicate by testType+date, sort by date desc
+  const mergedMap = new Map<string, any>();
+  for (const r of [...phoneResults, ...footballResults]) {
+    const key = `${r.testType}_${r.date}`;
+    if (!mergedMap.has(key)) mergedMap.set(key, r);
+  }
+  const results = [...mergedMap.values()]
+    .sort((a: any, b: any) => (b.date > a.date ? 1 : -1))
+    .slice(0, limit);
 
   return NextResponse.json(
     { results, count: results.length },

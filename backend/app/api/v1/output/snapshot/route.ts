@@ -370,13 +370,17 @@ export async function GET(req: NextRequest) {
       .order("date", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    // Also fetch raw test results from phone_test_sessions (for tests without benchmark snapshots)
-    db
-      .from("phone_test_sessions")
-      .select("test_type, score, date, raw_data")
-      .eq("user_id", userId)
-      .order("date", { ascending: false })
-      .limit(100),
+    // Also fetch raw test results from both test tables (for tests without benchmark snapshots)
+    Promise.all([
+      db.from("phone_test_sessions").select("test_type, score, date, raw_data").eq("user_id", userId).order("date", { ascending: false }).limit(100),
+      db.from("football_test_results").select("test_type, primary_value, date, raw_inputs").eq("user_id", userId).order("date", { ascending: false }).limit(100),
+    ]).then(([phone, football]) => ({
+      data: [
+        ...(phone.data ?? []),
+        ...(football.data ?? []).map((t: any) => ({ test_type: t.test_type, score: t.primary_value, date: t.date, raw_data: t.raw_inputs })),
+      ],
+      error: phone.error,
+    })),
     // Layer 4 — DEVELOPMENT + CV_OPPORTUNITY recs for program context
     getRecommendations(userId, {
       role: "ATHLETE",

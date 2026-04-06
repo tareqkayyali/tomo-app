@@ -30,18 +30,23 @@ export async function computeAdaptationProfile(
   const db = supabaseAdmin();
   const eightWeeksAgo = new Date(Date.now() - 56 * 86400000).toISOString().slice(0, 10);
 
-  // Get weekly training loads and test scores
-  const [loadsRes, testsRes, checkinsRes] = await Promise.allSettled([
+  // Get weekly training loads and test scores (both test tables)
+  const [loadsRes, phoneTestsRes, footballTestsRes, checkinsRes] = await Promise.allSettled([
     db.from("athlete_daily_load")
       .select("load_date, training_load_au")
       .eq("athlete_id", athleteId)
       .gte("load_date", eightWeeksAgo)
       .order("load_date", { ascending: true }),
     db.from("phone_test_sessions")
-      .select("test_date, score")
-      .eq("athlete_id", athleteId)
-      .gte("test_date", eightWeeksAgo)
-      .order("test_date", { ascending: true }),
+      .select("date, score")
+      .eq("user_id", athleteId)
+      .gte("date", eightWeeksAgo)
+      .order("date", { ascending: true }),
+    db.from("football_test_results")
+      .select("date, primary_value")
+      .eq("user_id", athleteId)
+      .gte("date", eightWeeksAgo)
+      .order("date", { ascending: true }),
     db.from("checkins")
       .select("created_at, readiness_score")
       .eq("user_id", athleteId)
@@ -50,7 +55,9 @@ export async function computeAdaptationProfile(
   ]);
 
   const loads = loadsRes.status === "fulfilled" ? (loadsRes.value.data ?? []) : [];
-  const tests = testsRes.status === "fulfilled" ? (testsRes.value.data ?? []) : [];
+  const phoneTests = phoneTestsRes.status === "fulfilled" ? (phoneTestsRes.value.data ?? []) : [];
+  const footballTests = footballTestsRes.status === "fulfilled" ? ((footballTestsRes.value as any).data ?? []).map((t: any) => ({ date: t.date, score: t.primary_value })) : [];
+  const tests = [...phoneTests, ...footballTests];
   const checkins = checkinsRes.status === "fulfilled" ? (checkinsRes.value.data ?? []) : [];
 
   // Need at least 4 weeks of load data

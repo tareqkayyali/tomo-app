@@ -973,16 +973,18 @@ export async function executeOutputTool(
           }))
           .filter((item) => !categoryFilter || item.category === categoryFilter);
 
-        // Also fetch recent tests for this player
-        const { data: recentTests } = await db
-          .from("phone_test_sessions")
-          .select("test_type, score, date")
-          .eq("user_id", userId)
-          .order("date", { ascending: false })
-          .limit(10);
+        // Also fetch recent tests for this player (both tables)
+        const [phoneRecent, footballRecent] = await Promise.all([
+          db.from("phone_test_sessions").select("test_type, score, date").eq("user_id", userId).order("date", { ascending: false }).limit(10),
+          db.from("football_test_results").select("test_type, primary_value, date").eq("user_id", userId).order("date", { ascending: false }).limit(10),
+        ]);
+        const recentTests = [
+          ...(phoneRecent.data ?? []).map((t: any) => ({ test_type: t.test_type, score: t.score, date: t.date })),
+          ...(footballRecent.data ?? []).map((t: any) => ({ test_type: t.test_type, score: t.primary_value, date: t.date })),
+        ];
 
         const recentByType: Record<string, { id: string; name: string; lastValue: number; lastDate: string }> = {};
-        for (const t of recentTests ?? []) {
+        for (const t of recentTests) {
           if (!recentByType[t.test_type]) {
             recentByType[t.test_type] = {
               id: t.test_type,

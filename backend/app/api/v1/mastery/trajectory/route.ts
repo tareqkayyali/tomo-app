@@ -59,20 +59,23 @@ export async function GET(req: NextRequest) {
 
     const db = supabaseAdmin();
 
-    const { data: sessions, error } = await db
-      .from("phone_test_sessions")
-      .select("test_type, score, date")
-      .eq("user_id", targetId)
-      .gte("date", since)
-      .order("date", { ascending: true });
+    const [phoneRes, footballRes] = await Promise.all([
+      db.from("phone_test_sessions").select("test_type, score, date").eq("user_id", targetId).gte("date", since).order("date", { ascending: true }),
+      db.from("football_test_results").select("test_type, primary_value, date").eq("user_id", targetId).gte("date", since).order("date", { ascending: true }),
+    ]);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (phoneRes.error) {
+      return NextResponse.json({ error: phoneRes.error.message }, { status: 500 });
     }
+
+    const sessions = [
+      ...(phoneRes.data ?? []).map((s: any) => ({ test_type: s.test_type, score: s.score, date: s.date })),
+      ...(footballRes.data ?? []).map((s: any) => ({ test_type: s.test_type, score: s.primary_value, date: s.date })),
+    ];
 
     // Group by test_type
     const grouped: Record<string, TrajectoryPoint[]> = {};
-    for (const s of sessions ?? []) {
+    for (const s of sessions) {
       if (s.score == null) continue;
       if (!grouped[s.test_type]) grouped[s.test_type] = [];
       grouped[s.test_type].push({ date: s.date, score: s.score });

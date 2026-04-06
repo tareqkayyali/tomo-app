@@ -33,17 +33,22 @@ export async function computeTomoIntelligenceScore(
   const db = supabaseAdmin();
   const twentyEightDaysAgo = new Date(Date.now() - 28 * 86400000).toISOString();
 
-  const [checkinsRes, testsRes, snapshotRes, sessionsRes] = await Promise.allSettled([
+  const [checkinsRes, phoneTestsRes, footballTestsRes, snapshotRes, sessionsRes] = await Promise.allSettled([
     db.from("checkins")
       .select("created_at, readiness_score, sleep_hours")
       .eq("user_id", athleteId)
       .gte("created_at", twentyEightDaysAgo)
       .order("created_at", { ascending: true }),
     db.from("phone_test_sessions")
-      .select("test_date, score")
-      .eq("athlete_id", athleteId)
-      .gte("test_date", twentyEightDaysAgo.slice(0, 10))
-      .order("test_date", { ascending: true }),
+      .select("date, score")
+      .eq("user_id", athleteId)
+      .gte("date", twentyEightDaysAgo.slice(0, 10))
+      .order("date", { ascending: true }),
+    db.from("football_test_results")
+      .select("date, primary_value")
+      .eq("user_id", athleteId)
+      .gte("date", twentyEightDaysAgo.slice(0, 10))
+      .order("date", { ascending: true }),
     db.from("athlete_snapshots")
       .select("streak_days, dual_load_index, academic_load_7day, athletic_load_7day, wellness_7day_avg, wellness_trend")
       .eq("athlete_id", athleteId)
@@ -55,7 +60,9 @@ export async function computeTomoIntelligenceScore(
   ]);
 
   const checkins = checkinsRes.status === "fulfilled" ? (checkinsRes.value.data ?? []) : [];
-  const tests = testsRes.status === "fulfilled" ? (testsRes.value.data ?? []) : [];
+  const phoneTests = phoneTestsRes.status === "fulfilled" ? (phoneTestsRes.value.data ?? []) : [];
+  const footballTests = footballTestsRes.status === "fulfilled" ? ((footballTestsRes.value as any).data ?? []).map((t: any) => ({ date: t.date, score: t.primary_value })) : [];
+  const tests = [...phoneTests, ...footballTests];
   const snapshot = snapshotRes.status === "fulfilled" ? snapshotRes.value.data : null;
   const sessions = sessionsRes.status === "fulfilled" ? (sessionsRes.value.data ?? []) : [];
 
