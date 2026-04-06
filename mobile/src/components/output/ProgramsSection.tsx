@@ -590,45 +590,48 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               <Pressable
                 style={({ pressed }) => [
                   styles.cardActionBtn,
-                  { backgroundColor: (isActive ? colors.accent : colors.textMuted) + '18', opacity: pressed ? 0.7 : 1 },
+                  isActive ? styles.cardActionBtnSelected : styles.cardActionBtnDefault,
+                  pressed && { opacity: 0.7 },
                 ]}
                 onPress={(e) => {
                   e.stopPropagation();
                   onToggleActive(program.programId);
                 }}
               >
-                <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={16} color={isActive ? colors.accent : colors.textMuted} />
-                <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.textMuted }]}>Active</Text>
+                <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={14} color={isActive ? colors.accent : colors.textInactive} />
+                <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.textInactive }]}>Active</Text>
               </Pressable>
             )}
             {onDone && (
               <Pressable
                 style={({ pressed }) => [
                   styles.cardActionBtn,
-                  { backgroundColor: colors.accent + '18', opacity: pressed ? 0.7 : 1 },
+                  styles.cardActionBtnDefault,
+                  pressed && { opacity: 0.7 },
                 ]}
                 onPress={(e) => {
                   e.stopPropagation();
                   setConfirmAction('done');
                 }}
               >
-                <SmartIcon name="checkmark-circle-outline" size={16} color={colors.accent} />
-                <Text style={[styles.cardActionText, { color: colors.accent }]}>Done</Text>
+                <SmartIcon name="checkmark-circle-outline" size={14} color={colors.textInactive} />
+                <Text style={[styles.cardActionText, { color: colors.textInactive }]}>Done</Text>
               </Pressable>
             )}
             {onDismiss && !hideNotForMe && (
               <Pressable
                 style={({ pressed }) => [
                   styles.cardActionBtn,
-                  { backgroundColor: colors.textMuted + '12', opacity: pressed ? 0.7 : 1 },
+                  styles.cardActionBtnDefault,
+                  pressed && { opacity: 0.7 },
                 ]}
                 onPress={(e) => {
                   e.stopPropagation();
                   setConfirmAction('dismissed');
                 }}
               >
-                <SmartIcon name="close-circle-outline" size={16} color={colors.textMuted} />
-                <Text style={[styles.cardActionText, { color: colors.textMuted }]}>Not for me</Text>
+                <SmartIcon name="close-circle-outline" size={14} color={colors.textInactive} />
+                <Text style={[styles.cardActionText, { color: colors.textInactive }]}>Not for me</Text>
               </Pressable>
             )}
           </View>
@@ -1098,19 +1101,26 @@ const styles = StyleSheet.create({
   // Card actions
   cardActions: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.creamMuted,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: spacing.sm,
   },
   cardActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: spacing.compact,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  cardActionBtnDefault: {
+    backgroundColor: colors.chipBackground,
+    borderColor: colors.glassBorder,
+  },
+  cardActionBtnSelected: {
+    backgroundColor: 'rgba(122, 155, 118, 0.12)',
+    borderColor: colors.accent,
   },
   cardActionText: {
     fontFamily: fontFamily.medium,
