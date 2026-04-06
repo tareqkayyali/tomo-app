@@ -179,10 +179,10 @@ export function SpineTimeline({
                         {
                           backgroundColor: event.journalState === 'complete' ? colors.readinessGreen + '20'
                             : event.journalState === 'pre_set' ? colors.accent2 + '20'
-                            : colors.textMuted + '15',
+                            : colors.chipBackground,
                           borderColor: event.journalState === 'complete' ? colors.readinessGreen + '40'
                             : event.journalState === 'pre_set' ? colors.accent2 + '40'
-                            : colors.textMuted + '30',
+                            : colors.glassBorder,
                         },
                       ]}
                     >
@@ -192,7 +192,7 @@ export function SpineTimeline({
                         color={
                           event.journalState === 'complete' ? colors.readinessGreen
                             : event.journalState === 'pre_set' ? colors.accent2
-                            : colors.textMuted
+                            : colors.textBody
                         }
                       />
                       <Text style={[
@@ -200,7 +200,7 @@ export function SpineTimeline({
                         {
                           color: event.journalState === 'complete' ? colors.readinessGreen
                             : event.journalState === 'pre_set' ? colors.accent2
-                            : colors.textMuted,
+                            : colors.textBody,
                         },
                       ]}>
                         {event.journalState === 'complete' ? 'Logged'
@@ -396,9 +396,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
   },
   journalBadgeText: {

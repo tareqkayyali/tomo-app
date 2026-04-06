@@ -598,8 +598,8 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   onToggleActive(program.programId);
                 }}
               >
-                <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={14} color={isActive ? colors.accent : colors.textInactive} />
-                <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.textInactive }]}>Active</Text>
+                <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={14} color={isActive ? colors.accent : colors.textBody} />
+                <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.textBody }]}>Active</Text>
               </Pressable>
             )}
             {onDone && (
@@ -614,8 +614,8 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   setConfirmAction('done');
                 }}
               >
-                <SmartIcon name="checkmark-circle-outline" size={14} color={colors.textInactive} />
-                <Text style={[styles.cardActionText, { color: colors.textInactive }]}>Done</Text>
+                <SmartIcon name="checkmark-circle-outline" size={14} color={colors.textBody} />
+                <Text style={[styles.cardActionText, { color: colors.textBody }]}>Done</Text>
               </Pressable>
             )}
             {onDismiss && !hideNotForMe && (
@@ -630,8 +630,8 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   setConfirmAction('dismissed');
                 }}
               >
-                <SmartIcon name="close-circle-outline" size={14} color={colors.textInactive} />
-                <Text style={[styles.cardActionText, { color: colors.textInactive }]}>Not for me</Text>
+                <SmartIcon name="close-circle-outline" size={14} color={colors.textBody} />
+                <Text style={[styles.cardActionText, { color: colors.textBody }]}>Not for me</Text>
               </Pressable>
             )}
           </View>
