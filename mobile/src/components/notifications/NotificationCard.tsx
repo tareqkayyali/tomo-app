@@ -17,9 +17,9 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../SmartIcon';
+import { AskTomoChip } from '../mastery/AskTomoChip';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { GlowWrapper } from '../GlowWrapper';
@@ -324,52 +324,21 @@ function ChipRow({ chips }: { chips: Chip[] }) {
   );
 }
 
-// ─── Ask Tomo Button ──────────────────────────────────────────────────
+// ─── Ask Tomo Button — uses shared AskTomoChip ─────────────────────
 
 function AskTomoButton({
-  n, colors, s, navigation,
+  n,
 }: {
   n: NotificationData;
-  colors: ThemeColors;
-  s: ReturnType<typeof createStyles>;
-  navigation: any;
+  colors?: any;
+  s?: any;
+  navigation?: any;
 }) {
   if (n.status === 'acted' || n.status === 'dismissed') return null;
-
   const prefill = buildPrefill(n);
-
   return (
     <View style={{ marginTop: spacing.md }}>
-      <Pressable
-        onPress={() => {
-          try {
-            navigation.navigate('Main', {
-              screen: 'MainTabs',
-              params: { screen: 'Chat', params: { prefillMessage: prefill, autoSend: true } },
-            });
-          } catch (err) {
-            console.warn('[NotificationCard] Ask Tomo navigation failed:', err);
-          }
-        }}
-        style={({ pressed }) => [s.askTomoBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
-      >
-        <LinearGradient
-          colors={[colors.accentLight, colors.accent]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[StyleSheet.absoluteFillObject, { borderRadius: 999 }]}
-        />
-        <LinearGradient
-          colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.06)', 'transparent']}
-          locations={[0, 0.35, 0.65]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={[StyleSheet.absoluteFillObject, { borderRadius: 999 }]}
-        />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }]} />
-        <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.background} />
-        <Text style={[s.askTomoText, { color: colors.background }]}>Ask Tomo</Text>
-      </Pressable>
+      <AskTomoChip prompt={prefill} label="Ask Tomo" noMargin />
     </View>
   );
 }

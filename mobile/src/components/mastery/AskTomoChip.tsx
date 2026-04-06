@@ -1,13 +1,19 @@
 /**
- * AskTomoChip — Standardized AI entry point button.
- * Used across all screens (Mastery, Vitals, Programs, Notifications).
+ * AskTomoChip — THE single unified AI entry point button.
+ * Used across ALL screens (Mastery, Vitals, Programs, Notifications, Own It).
  * Style: Glossy sage green pill matching the Chat tab button.
+ *
+ * Usage:
+ *   <AskTomoChip prompt="Analyze my sprint" />              // auto-navigates to Chat
+ *   <AskTomoChip prompt="..." onPress={customHandler} />    // custom handler
+ *   <AskTomoChip prompt="..." label="Ask about X" />        // custom label
  */
 
 import React, { memo, useCallback } from 'react';
 import { StyleSheet, Text, Pressable, Platform, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { fontFamily } from '../../theme/typography';
@@ -16,24 +22,42 @@ import { spacing, borderRadius } from '../../theme/spacing';
 interface AskTomoChipProps {
   label?: string;
   prompt: string;
-  onPress: (prompt: string) => void;
+  /** If provided, called instead of auto-navigating to Chat */
+  onPress?: (prompt: string) => void;
+  /** Remove default marginTop (for inline placement) */
+  noMargin?: boolean;
 }
 
-const AskTomoChip: React.FC<AskTomoChipProps> = memo(({ label, prompt, onPress }) => {
+const AskTomoChip: React.FC<AskTomoChipProps> = memo(({ label, prompt, onPress, noMargin }) => {
   const { colors } = useTheme();
+  const navigation = useNavigation<any>();
 
   const handlePress = useCallback(() => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    onPress(prompt);
-  }, [prompt, onPress]);
+    if (onPress) {
+      onPress(prompt);
+    } else {
+      // Auto-navigate to Chat with prefilled message
+      try {
+        navigation.navigate('Main', {
+          screen: 'MainTabs',
+          params: { screen: 'Chat', params: { prefillMessage: prompt, autoSend: true } },
+        });
+      } catch {
+        // Fallback for different navigator structures
+        navigation.navigate('Chat', { prefillMessage: prompt, autoSend: true });
+      }
+    }
+  }, [prompt, onPress, navigation]);
 
   return (
     <Pressable
       onPress={handlePress}
       style={({ pressed }) => [
         styles.chip,
+        noMargin && { marginTop: 0 },
         pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
       ]}
     >
