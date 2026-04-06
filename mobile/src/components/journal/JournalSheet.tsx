@@ -199,7 +199,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
 
             {/* Header */}
             <View style={ms.headerRow}>
-              <SmartIcon name="book-outline" size={20} color={colors.accent2} />
+              <SmartIcon name="book-outline" size={20} color={colors.accent1} />
               <Text style={[ms.headerTitle, { color: colors.textOnDark }]}>
                 {event.name}
               </Text>
@@ -213,12 +213,12 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
               {(['pre', 'post'] as const).map(tab => (
                 <Pressable
                   key={tab}
-                  style={[ms.tab, activeTab === tab && { borderBottomColor: colors.accent2 }]}
+                  style={[ms.tab, activeTab === tab && { borderBottomColor: colors.accent1 }]}
                   onPress={() => setActiveTab(tab)}
                 >
                   <Text style={[
                     ms.tabText,
-                    { color: activeTab === tab ? colors.accent2 : colors.textMuted },
+                    { color: activeTab === tab ? colors.accent1 : colors.textMuted },
                   ]}>
                     {tab === 'pre' ? 'Pre-Training' : 'Post-Training'}
                   </Text>
@@ -228,7 +228,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
 
             {loading ? (
               <View style={ms.loadingContainer}>
-                <ActivityIndicator color={colors.accent2} />
+                <ActivityIndicator color={colors.accent1} />
               </View>
             ) : (
               <ScrollView style={ms.content} keyboardShouldPersistTaps="handled">
@@ -263,7 +263,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                     )}
                     {!isLocked && (
                       <Pressable
-                        style={[ms.submitBtn, { backgroundColor: canSavePre ? colors.accent2 : colors.textMuted + '30' }]}
+                        style={[ms.submitBtn, { backgroundColor: canSavePre ? colors.accent1 : colors.textMuted + '30' }]}
                         onPress={handleSavePre}
                         disabled={!canSavePre || submitting}
                       >
@@ -301,13 +301,13 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                               key={o.id}
                               style={[
                                 ms.outcomePill,
-                                { borderColor: outcome === o.id ? colors.accent2 : colors.textMuted + '30' },
-                                outcome === o.id && { backgroundColor: colors.accent2 + '20' },
+                                { borderColor: outcome === o.id ? colors.accent1 : colors.textMuted + '30' },
+                                outcome === o.id && { backgroundColor: colors.accent1 + '20' },
                               ]}
                               onPress={() => setOutcome(o.id)}
                             >
                               {o.emoji ? <Text style={ms.outcomeEmoji}>{o.emoji}</Text> : null}
-                              <Text style={[ms.outcomeLabel, { color: outcome === o.id ? colors.accent2 : colors.textSecondary }]}>
+                              <Text style={[ms.outcomeLabel, { color: outcome === o.id ? colors.accent1 : colors.textSecondary }]}>
                                 {o.label}
                               </Text>
                             </Pressable>
@@ -329,7 +329,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
 
                         {!isLocked && (
                           <Pressable
-                            style={[ms.submitBtn, { backgroundColor: canSavePost ? colors.accent2 : colors.textMuted + '30' }]}
+                            style={[ms.submitBtn, { backgroundColor: canSavePost ? colors.accent1 : colors.textMuted + '30' }]}
                             onPress={handleSavePost}
                             disabled={!canSavePost || submitting}
                           >
@@ -345,8 +345,8 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
 
                     {/* AI insight */}
                     {journal?.ai_insight && (
-                      <View style={[ms.insightBox, { backgroundColor: colors.accent2 + '10' }]}>
-                        <SmartIcon name="sparkles-outline" size={14} color={colors.accent2} />
+                      <View style={[ms.insightBox, { backgroundColor: colors.accent1 + '10' }]}>
+                        <SmartIcon name="sparkles-outline" size={14} color={colors.accent1} />
                         <Text style={[ms.insightText, { color: colors.textSecondary }]}>{journal.ai_insight}</Text>
                       </View>
                     )}
@@ -486,15 +486,15 @@ const ms = StyleSheet.create({
     paddingVertical: 20,
   },
   submitBtn: {
-    borderRadius: borderRadius.sm,
-    paddingVertical: 12,
+    borderRadius: borderRadius.full,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: spacing.sm,
   },
   submitText: {
     fontFamily: fontFamily.bold,
     fontSize: 14,
-    color: colors.textPrimary,
+    color: colors.background,
   },
   insightBox: {
     flexDirection: 'row',
