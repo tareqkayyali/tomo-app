@@ -56,6 +56,7 @@ const navigation = [
   {
     label: "AI & Recommendations",
     items: [
+      { name: "Performance Intelligence", href: "/admin/performance-intelligence", icon: "🧪" },
       { name: "Recommendation Engine", href: "/admin/recommendation-engine", icon: "🤖" },
       { name: "Intelligence Scores", href: "/admin/intelligence", icon: "🧠" },
     ],

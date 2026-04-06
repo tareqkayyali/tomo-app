@@ -100,6 +100,37 @@ export function calculatePHV(assessment: PHVAssessment): PHVResult {
 }
 
 function buildPHVResult(maturityOffset: number): PHVResult {
+  return buildPHVResultFromHardcoded(maturityOffset);
+}
+
+/**
+ * DB-aware PHV result builder. Reads stage config from CMS if available.
+ * Falls back to hardcoded values on DB error.
+ */
+export async function buildPHVResultFromConfig(maturityOffset: number): Promise<PHVResult> {
+  try {
+    const { getPHVSafetyConfig } = await import("@/services/admin/performanceIntelligenceService");
+    const config = await getPHVSafetyConfig();
+    const match = config.stages.find(
+      (s) => s.name !== "not_applicable" && maturityOffset >= s.offsetMin && maturityOffset < s.offsetMax
+    );
+    if (match) {
+      return {
+        maturityOffset,
+        phvStage: match.name as PHVResult["phvStage"],
+        loadingMultiplier: match.loadingMultiplier,
+        trainingPriorities: match.trainingPriorities,
+        safetyWarnings: match.safetyWarnings,
+        trainingImplication: `${match.name}: ${match.trainingPriorities.slice(0, 2).join(". ")}`,
+      };
+    }
+  } catch {
+    // Fall through to hardcoded
+  }
+  return buildPHVResultFromHardcoded(maturityOffset);
+}
+
+function buildPHVResultFromHardcoded(maturityOffset: number): PHVResult {
   if (maturityOffset < -1.0) {
     return {
       maturityOffset,

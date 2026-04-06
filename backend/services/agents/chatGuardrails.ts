@@ -339,19 +339,40 @@ function buildPHVExplanation(flaggedAlternatives: PHVSafeAlternative[]): string 
     `\n\n*Your loading multiplier is 0.60× during mid-PHV. These alternatives build the same movement patterns safely.*`;
 }
 
-export function enforcePHVSafety(
+export async function enforcePHVSafety(
   response: string,
   phvStage: string | null | undefined
-): { flagged: boolean; sanitized: string; flaggedTerms: string[] } {
+): Promise<{ flagged: boolean; sanitized: string; flaggedTerms: string[] }> {
   // Only enforce for mid-PHV athletes
   if (!phvStage || !["mid_phv", "MID", "circa"].includes(phvStage)) {
     return { flagged: false, sanitized: response, flaggedTerms: [] };
   }
 
+  // Try to load contraindications from DB config
+  let alternatives = PHV_SAFE_ALTERNATIVES;
+  try {
+    const { getPHVSafetyConfig } = await import("@/services/admin/performanceIntelligenceService");
+    const config = await getPHVSafetyConfig();
+    const dbAlts = config.contraindications
+      .filter((c) => c.applicableStages.includes("mid_phv"))
+      .map((c) => ({
+        pattern: new RegExp(c.pattern, "i"),
+        blocked: c.blocked,
+        alternative: c.alternative,
+        why: c.why,
+        mechanism: c.mechanism || "",
+        progression: c.progression || "",
+        citation: c.citation || "",
+      }));
+    if (dbAlts.length > 0) alternatives = dbAlts;
+  } catch {
+    // Fall through to hardcoded PHV_SAFE_ALTERNATIVES
+  }
+
   const flaggedTerms: string[] = [];
   const flaggedAlternatives: PHVSafeAlternative[] = [];
 
-  for (const alt of PHV_SAFE_ALTERNATIVES) {
+  for (const alt of alternatives) {
     const match = response.match(alt.pattern);
     if (match) {
       flaggedTerms.push(match[0]);
@@ -375,14 +396,29 @@ export function enforcePHVSafety(
  * Cacheable — zero per-request cost. Gives Claude proactive context
  * to suggest safe alternatives BEFORE the post-filter catches anything.
  */
-export function buildPHVSystemPromptBlock(phvStage: string | null | undefined): string {
+export async function buildPHVSystemPromptBlock(phvStage: string | null | undefined): Promise<string> {
   if (!phvStage || !["mid_phv", "MID", "circa"].includes(phvStage)) return "";
 
-  const contraindicated = PHV_SAFE_ALTERNATIVES.map(
-    (a) => `- ${a.blocked} → ${a.alternative} (${a.why})`
-  ).join("\n");
+  let contraindicated: string;
+  let loadingMult = "0.60";
 
-  return `\n\nPHV SAFETY — ATHLETE IS MID-PHV (loading multiplier 0.60×):
+  try {
+    const { getPHVSafetyConfig } = await import("@/services/admin/performanceIntelligenceService");
+    const config = await getPHVSafetyConfig();
+    const midStage = config.stages.find((s) => s.name === "mid_phv");
+    if (midStage) loadingMult = midStage.loadingMultiplier.toFixed(2);
+
+    const dbContras = config.contraindications.filter((c) => c.applicableStages.includes("mid_phv"));
+    if (dbContras.length > 0) {
+      contraindicated = dbContras.map((a) => `- ${a.blocked} → ${a.alternative} (${a.why})`).join("\n");
+    } else {
+      contraindicated = PHV_SAFE_ALTERNATIVES.map((a) => `- ${a.blocked} → ${a.alternative} (${a.why})`).join("\n");
+    }
+  } catch {
+    contraindicated = PHV_SAFE_ALTERNATIVES.map((a) => `- ${a.blocked} → ${a.alternative} (${a.why})`).join("\n");
+  }
+
+  return `\n\nPHV SAFETY — ATHLETE IS MID-PHV (loading multiplier ${loadingMult}×):
 CONTRAINDICATED exercises and their safe alternatives:
 ${contraindicated}
 

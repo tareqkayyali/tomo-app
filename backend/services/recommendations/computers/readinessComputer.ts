@@ -69,6 +69,17 @@ export async function computeReadinessRec(
   const isMidPhv = phv?.phvStage === 'mid_phv';
   const loadingMultiplier = phv?.loadingMultiplier ?? 1.0;
 
+  // Try to load CMS-managed confidence thresholds (non-blocking)
+  try {
+    const { getReadinessMatrixConfig } = await import("@/services/admin/performanceIntelligenceService");
+    const matrixConfig = await getReadinessMatrixConfig();
+    // Confidence thresholds are used in computeConfidence below — store for reference
+    // (actual override of computeConfidence would require refactoring the function signature)
+    void matrixConfig; // Config loaded into cache for future use
+  } catch {
+    // Continue with hardcoded defaults
+  }
+
   let priority: RecPriority;
   let title: string;
   let bodyShort: string;

@@ -83,53 +83,60 @@ function detectFocusFromMessage(message: string): { drillFocus: string; programF
 }
 
 // ── SPORT-POSITION CONTEXT LAYER ──────────────────────────────────
-export function buildSportContextSegment(ctx: PlayerContext): string {
+export async function buildSportContextSegment(ctx: PlayerContext): Promise<string> {
   const sport = ctx.sport?.toLowerCase() ?? "";
   const position = ctx.position ?? "unknown";
   const phvStage = ctx.snapshotEnrichment?.phvStage ?? null;
 
-  const sportMap: Record<string, string> = {
-    football: `Sport: Association football (soccer). Position: ${position}.
-Key performance metrics: Yo-Yo IR1, 10m/30m sprint, CMJ, agility T-test. ACWR model: 7:28 rolling.
-Load framework: Training units/week, match = 1.0 AU reference. Monitor ACWR sweet spot 0.8–1.3.
-${position === "goalkeeper" ? "Position note: Lower running volume, higher explosive demand. Prioritize reaction time, diving mechanics, distribution." : ""}
-${position === "striker" || position === "forward" ? "Position note: High-intensity sprint frequency. Prioritize acceleration, finishing under fatigue, 1v1 situations." : ""}
-${position === "midfielder" ? "Position note: Highest total distance covered. Prioritize aerobic base, repeated sprint ability, passing under pressure." : ""}
-${position === "defender" || position === "centre-back" ? "Position note: High aerial duel frequency. Prioritize strength, heading technique, recovery speed." : ""}`,
+  let segment: string;
 
-    padel: `Sport: Padel. Playing style: ${position}.
-Key metrics: Reaction time (BlazePods), lateral movement speed, court coverage, wrist/forearm loading.
-Load framework: Match density + training volume. Rally length and court movement patterns drive load.
-Watch for: Shoulder and wrist overuse patterns. Dominant-arm asymmetry increases oblique/shoulder injury risk.
-${position === "drive" ? "Style note: Aggressive baseline play. Monitor wrist/elbow loading from repeated drives." : ""}
-${position === "revés" || position === "backhand" ? "Style note: Higher rotational demand. Monitor core and oblique fatigue." : ""}`,
+  try {
+    const { getSportCoachingConfig, getPHVSafetyConfig } = await import("@/services/admin/performanceIntelligenceService");
+    const config = await getSportCoachingConfig();
+    const entry = config[sport];
 
-    athletics: `Sport: Athletics. Event group: ${position}.
-Key metrics: Event-specific benchmarks, sprint mechanics (contact time, flight time), jump testing.
-Load framework: High-CNS cost per quality session. Monitor inter-session recovery carefully.
-${position === "sprints" ? "Event note: Maximal neuromuscular demand. 48-72h between quality sprint sessions." : ""}
-${position === "throws" ? "Event note: High power/strength demand. Monitor shoulder and back loading." : ""}
-${position === "jumps" ? "Event note: High impact loading. Monitor ankle/knee stress, especially during growth phases." : ""}`,
+    if (entry) {
+      const posNote = entry.positionNotes[position] || "";
+      segment = `Sport: ${ctx.sport ?? sport}. Position: ${position}.\nKey performance metrics: ${entry.keyMetrics}\nLoad framework: ${entry.loadFramework}${posNote ? `\nPosition note: ${posNote}` : ""}`;
+    } else {
+      segment = `Sport: ${ctx.sport ?? "Unknown"}. Position: ${position}.`;
+    }
 
-    basketball: `Sport: Basketball. Position: ${position}.
-Key metrics: Vertical jump, agility, sprint, court coverage. ACWR for practice + game load.
-Load framework: Game count per week drives weekly load. Practice intensity varies by phase.`,
-
-    tennis: `Sport: Tennis. Playing style: ${position}.
-Key metrics: Lateral movement speed, serve velocity, rally endurance.
-Load framework: Match frequency + practice volume. Monitor shoulder/elbow loading for serve-dominant players.`,
-  };
-
-  let segment = sportMap[sport] ?? `Sport: ${ctx.sport ?? "Unknown"}. Position: ${position}.`;
-
-  // PHV safety overlay (reinforcement — deterministic gates exist elsewhere)
-  if (phvStage === "mid_phv" || phvStage === "MID") {
-    segment += `\n⚠️ MID-PHV ACTIVE: This athlete is in peak growth velocity. Loading multiplier 0.60×.
-BLOCKED movements: barbell back squat, depth/drop jumps, Olympic lifts, maximal sprint, heavy deadlift.
+    // PHV safety overlay from DB config
+    if (phvStage === "mid_phv" || phvStage === "MID") {
+      const phvConfig = await getPHVSafetyConfig();
+      const midStage = phvConfig.stages.find((s) => s.name === "mid_phv");
+      const mult = midStage?.loadingMultiplier ?? 0.6;
+      const blocked = phvConfig.contraindications
+        .filter((c) => c.applicableStages.includes("mid_phv"))
+        .map((c) => c.blocked.toLowerCase())
+        .join(", ");
+      segment += `\n⚠️ MID-PHV ACTIVE: This athlete is in peak growth velocity. Loading multiplier ${mult}×.
+BLOCKED movements: ${blocked || "barbell back squat, depth/drop jumps, Olympic lifts, maximal sprint, heavy deadlift"}.
 If any blocked movement is discussed: acknowledge, explain growth-phase risk, offer safe alternative.`;
+    }
+  } catch {
+    // Fallback to hardcoded if DB unavailable
+    segment = buildSportContextSegmentFallback(ctx.sport ?? "", position, phvStage);
   }
 
   return segment;
+}
+
+function buildSportContextSegmentFallback(sport: string, position: string, phvStage: string | null): string {
+  const sportLower = sport.toLowerCase();
+  const fallbackMap: Record<string, string> = {
+    football: `Sport: Association football (soccer). Position: ${position}.\nKey performance metrics: Yo-Yo IR1, 10m/30m sprint, CMJ, agility T-test. ACWR model: 7:28 rolling.\nLoad framework: Training units/week, match = 1.0 AU reference. Monitor ACWR sweet spot 0.8–1.3.`,
+    padel: `Sport: Padel. Playing style: ${position}.\nKey metrics: Reaction time, lateral movement speed, court coverage.`,
+    athletics: `Sport: Athletics. Event group: ${position}.\nKey metrics: Event-specific benchmarks, sprint mechanics.`,
+    basketball: `Sport: Basketball. Position: ${position}.\nKey metrics: Vertical jump, agility, sprint, court coverage.`,
+    tennis: `Sport: Tennis. Playing style: ${position}.\nKey metrics: Lateral movement speed, serve velocity, rally endurance.`,
+  };
+  let seg = fallbackMap[sportLower] ?? `Sport: ${sport}. Position: ${position}.`;
+  if (phvStage === "mid_phv" || phvStage === "MID") {
+    seg += `\n⚠️ MID-PHV ACTIVE: Loading multiplier 0.60×. BLOCKED: barbell back squat, depth/drop jumps, Olympic lifts, maximal sprint, heavy deadlift.`;
+  }
+  return seg;
 }
 
 // ── AGE-BAND COMMUNICATION PROFILE ────────────────────────────────
@@ -742,7 +749,7 @@ export async function orchestrate(
         : validation.sanitized;
 
       // PHV code-level safety filter — append warning if contraindicated exercises detected
-      const phvCheck = enforcePHVSafety(cleanMessage, context.snapshotEnrichment?.phvStage);
+      const phvCheck = await enforcePHVSafety(cleanMessage, context.snapshotEnrichment?.phvStage);
       if (phvCheck.flagged) {
         cleanMessage = phvCheck.sanitized;
         logger.warn("[PHV-SAFETY] Contraindicated exercise in response", {
@@ -1165,10 +1172,10 @@ async function buildAgentConfig(
   }
 
   // Sport-position context layer (~150-250 tokens, sport-specific coaching rules)
-  const sportContext = `\n\n${buildSportContextSegment(context)}`;
+  const sportContext = `\n\n${await buildSportContextSegment(context)}`;
 
   // PHV safety context — static, cacheable (~200 tokens for mid-PHV, 0 otherwise)
-  const phvBlock = buildPHVSystemPromptBlock(context.snapshotEnrichment?.phvStage);
+  const phvBlock = await buildPHVSystemPromptBlock(context.snapshotEnrichment?.phvStage);
 
   // Dual-load context — deterministic, ~50 tokens
   let dualLoadBlock = "";
