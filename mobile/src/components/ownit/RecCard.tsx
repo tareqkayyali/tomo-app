@@ -327,7 +327,7 @@ function ActionCTA({
         </Pressable>
       )}
 
-      {/* Ask Tomo button */}
+      {/* Ask Tomo button — glossy sage green */}
       <Pressable
         onPress={() => {
           const prompt = buildTomoPrompt(rec);
@@ -339,22 +339,41 @@ function ActionCTA({
             },
           });
         }}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
+        style={({ pressed }) => ({
+          flexDirection: 'row' as const,
+          alignItems: 'center' as const,
+          justifyContent: 'center' as const,
           gap: 8,
-          backgroundColor: colors.background,
-          borderColor: colors.creamMuted,
-          borderWidth: 1,
           paddingVertical: 10,
           paddingHorizontal: 16,
-          borderRadius: 12,
+          borderRadius: 999,
           marginTop: spacing.xs,
-        }}
+          overflow: 'hidden' as const,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.2,
+          shadowRadius: 8,
+          elevation: 4,
+          opacity: pressed ? 0.8 : 1,
+          transform: pressed ? [{ scale: 0.98 }] : [],
+        })}
       >
-        <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.textPrimary} />
-        <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: colors.textPrimary }}>
+        <LinearGradient
+          colors={[colors.accentLight, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { borderRadius: 999 }]}
+        />
+        <LinearGradient
+          colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.06)', 'transparent']}
+          locations={[0, 0.35, 0.65]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { borderRadius: 999 }]}
+        />
+        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }]} />
+        <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.background} />
+        <Text style={{ fontFamily: fontFamily.medium, fontSize: 13, color: colors.background }}>
           Ask Tomo about this
         </Text>
       </Pressable>

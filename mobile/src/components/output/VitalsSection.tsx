@@ -6,6 +6,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SmartIcon } from '../SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
@@ -123,10 +124,24 @@ function AskTomoButton({ prompt, colors }: { prompt: string; colors: any }) {
           },
         });
       }}
-      style={[styles.askTomoButton, { backgroundColor: colors.background, borderColor: colors.creamMuted, borderWidth: 1, borderRadius: 12 }]}
+      style={({ pressed }) => [styles.askTomoButton, { overflow: 'hidden' as const, borderRadius: 999 }, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
     >
-      <SmartIcon name="chatbubble-ellipses-outline" size={14} color={colors.textPrimary} />
-      <Text style={[styles.askTomoText, { color: colors.textPrimary }]}>Ask Tomo about this</Text>
+      <LinearGradient
+        colors={[colors.accentLight, colors.accent]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, { borderRadius: 999 }]}
+      />
+      <LinearGradient
+        colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.06)', 'transparent']}
+        locations={[0, 0.35, 0.65]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, { borderRadius: 999 }]}
+      />
+      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }]} />
+      <SmartIcon name="chatbubble-ellipses-outline" size={14} color={colors.background} />
+      <Text style={[styles.askTomoText, { color: colors.background }]}>Ask Tomo about this</Text>
     </Pressable>
   );
 }

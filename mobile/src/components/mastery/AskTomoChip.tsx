@@ -54,8 +54,8 @@ const AskTomoChip: React.FC<AskTomoChipProps> = memo(({ label, prompt, onPress }
       />
       {/* Inner border highlight */}
       <View style={styles.innerBorder} />
-      <SmartIcon name="chatbubble-ellipses-outline" size={14} color={colors.textPrimary} />
-      <Text style={[styles.text, { color: colors.textPrimary }]}>
+      <SmartIcon name="chatbubble-ellipses-outline" size={14} color={colors.background} />
+      <Text style={[styles.text, { color: colors.background }]}>
         {label || 'Ask Tomo about this'}
       </Text>
     </Pressable>

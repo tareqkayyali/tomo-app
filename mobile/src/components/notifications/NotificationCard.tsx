@@ -17,6 +17,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../SmartIcon';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -350,10 +351,24 @@ function AskTomoButton({
             console.warn('[NotificationCard] Ask Tomo navigation failed:', err);
           }
         }}
-        style={s.askTomoBtn}
+        style={({ pressed }) => [s.askTomoBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
       >
-        <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.textPrimary} />
-        <Text style={[s.askTomoText, { color: colors.textPrimary }]}>Ask Tomo</Text>
+        <LinearGradient
+          colors={[colors.accentLight, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { borderRadius: 999 }]}
+        />
+        <LinearGradient
+          colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.06)', 'transparent']}
+          locations={[0, 0.35, 0.65]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { borderRadius: 999 }]}
+        />
+        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }]} />
+        <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.background} />
+        <Text style={[s.askTomoText, { color: colors.background }]}>Ask Tomo</Text>
       </Pressable>
     </View>
   );
@@ -457,16 +472,19 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 3,
     },
     askTomoBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
       gap: 8,
-      backgroundColor: colors.background,
-      borderColor: colors.creamMuted,
-      borderWidth: 1,
       paddingVertical: 10,
       paddingHorizontal: 16,
-      borderRadius: 12,
+      borderRadius: 999,
+      overflow: 'hidden' as const,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 4,
     },
     askTomoText: {
       fontFamily: fontFamily.medium,
