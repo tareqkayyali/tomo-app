@@ -52,7 +52,7 @@ const TrajectoryCard: React.FC<TrajectoryCardProps> = memo(({
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.testLabel, { color: colors.textDisabled }]}>
+          <Text style={[styles.testLabel, { color: colors.textSecondary }]}>
             {testName.toUpperCase()}
           </Text>
           <View style={styles.scoreRow}>
@@ -92,7 +92,7 @@ const TrajectoryCard: React.FC<TrajectoryCardProps> = memo(({
 
       {chartData.length < 2 && (
         <View style={[styles.emptyChart, { height: 80 }]}>
-          <Text style={[styles.emptyText, { color: colors.textDisabled }]}>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             Need 2+ tests to show trend
           </Text>
         </View>
@@ -100,10 +100,10 @@ const TrajectoryCard: React.FC<TrajectoryCardProps> = memo(({
 
       {/* Stats row */}
       <View style={styles.statsRow}>
-        <Text style={[styles.statText, { color: colors.textDisabled }]}>
+        <Text style={[styles.statText, { color: colors.textBody }]}>
           Best: {trajectory.bestScore}
         </Text>
-        <Text style={[styles.statText, { color: colors.textDisabled }]}>
+        <Text style={[styles.statText, { color: colors.textBody }]}>
           Tests: {trajectory.totalTests}
         </Text>
       </View>
