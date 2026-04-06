@@ -451,7 +451,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}
                   onPress={() => handleNavigateToPreview(plan.blocks, undefined, plan.config, plan.id, true)}
                 >
-                  <SmartIcon name="document-text" size={16} color={colors.warning} />
+                  <SmartIcon name="document-text" size={16} color={colors.accent1} />
                   <Text style={styles.savedPlanName} numberOfLines={1}>{plan.name}</Text>
                 </Pressable>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -513,9 +513,9 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                 const updated = subjects.filter((s) => s !== subj);
                 updateRules({ study_subjects: updated });
               }}
-              style={[styles.subjectPill, { borderColor: colors.warning + '60', backgroundColor: colors.warning + '15' }]}
+              style={[styles.subjectPill, { borderColor: colors.accent1 + '60', backgroundColor: colors.accent1 + '15' }]}
             >
-              <Text style={[styles.subjectPillText, { color: colors.warning }]}>{subj}</Text>
+              <Text style={[styles.subjectPillText, { color: colors.accent1 }]}>{subj}</Text>
             </Pressable>
           ))}
           <Pressable
@@ -531,10 +531,10 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                 }) ?? Alert.alert('Add Subject', 'Use the chat to add a new subject');
               }
             }}
-            style={[styles.subjectPill, { borderColor: colors.warning + '40', borderStyle: 'dashed' }]}
+            style={[styles.subjectPill, { borderColor: colors.accent1 + '40', borderStyle: 'dashed' }]}
           >
-            <SmartIcon name="add" size={14} color={colors.warning} />
-            <Text style={[styles.subjectPillText, { color: colors.warning }]}>Add</Text>
+            <SmartIcon name="add" size={14} color={colors.accent1} />
+            <Text style={[styles.subjectPillText, { color: colors.accent1 }]}>Add</Text>
           </Pressable>
         </View>
       </View>
@@ -549,15 +549,15 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
               style={[
                 styles.durChip,
                 {
-                  backgroundColor: sessionDuration === dur ? colors.warning + '20' : 'transparent',
-                  borderColor: sessionDuration === dur ? colors.warning : colors.border,
+                  backgroundColor: sessionDuration === dur ? colors.accent1 + '20' : 'transparent',
+                  borderColor: sessionDuration === dur ? colors.accent1 : colors.border,
                 },
               ]}
             >
               <Text style={{
                 fontSize: 12,
                 fontFamily: fontFamily.semiBold,
-                color: sessionDuration === dur ? colors.warning : colors.textInactive,
+                color: sessionDuration === dur ? colors.accent1 : colors.textInactive,
               }}>
                 {dur}m
               </Text>
@@ -574,8 +574,8 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             onValueChange={(v) => {
               updateRules({ exam_period_active: v });
             }}
-            trackColor={{ false: colors.border, true: colors.warning + '80' }}
-            thumbColor={examModeEnabled ? colors.warning : colors.textInactive}
+            trackColor={{ false: colors.border, true: colors.accent1 + '80' }}
+            thumbColor={examModeEnabled ? colors.accent1 : colors.textInactive}
             style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
           />
         </View>
@@ -594,7 +594,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
                   return (
                     <View
                       key={exam.id}
-                      style={[styles.examPill, { borderColor: 'rgba(123, 97, 255, 0.25)', backgroundColor: 'rgba(123, 97, 255, 0.10)', flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+                      style={[styles.examPill, { borderColor: `${colors.accent1}40`, backgroundColor: `${colors.accent1}18`, flexDirection: 'row', alignItems: 'center', gap: 6 }]}
                     >
                       <Text style={[styles.examPillSubject, { color: colors.textPrimary }]}>{exam.subject}</Text>
                       <Text style={[styles.examPillDays, { color: days <= 7 ? colors.error : colors.eventMatch }]}>{days}d</Text>
@@ -628,7 +628,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
               marginTop: 10,
               gap: 14,
               borderWidth: 1,
-              borderColor: 'rgba(123, 97, 255, 0.15)',
+              borderColor: `${colors.accent1}25`,
             }}>
               {/* Subject selector */}
               <View style={{ gap: 6 }}>
@@ -867,15 +867,15 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
             {/* Edit existing plan */}
             {hasExistingPlan && (
               <TouchableOpacity
-                style={[styles.generateBtn, { backgroundColor: `${colors.warning}1F`, borderColor: `${colors.warning}4D`, borderWidth: 1, marginBottom: spacing.sm }]}
+                style={[styles.generateBtn, { backgroundColor: `${colors.accent1}1F`, borderColor: `${colors.accent1}4D`, borderWidth: 1, marginBottom: spacing.sm }]}
                 onPress={() => {
                   const latest = savedPlans[0];
                   handleNavigateToPreview(latest.blocks, undefined, latest.config, latest.id);
                 }}
                 activeOpacity={0.7}
               >
-                <SmartIcon name="pencil" size={16} color={colors.warning} />
-                <Text style={[styles.generateBtnText, { color: colors.warning }]}>Edit Study Plan</Text>
+                <SmartIcon name="pencil" size={16} color={colors.accent1} />
+                <Text style={[styles.generateBtnText, { color: colors.accent1 }]}>Edit Study Plan</Text>
               </TouchableOpacity>
             )}
 

@@ -18,8 +18,8 @@ import type { ThemeColors } from '../theme/colors';
 import { spacing, fontFamily, borderRadius } from '../theme';
 import { colors } from '../theme/colors';
 
-// Purple accent for academic (matching BalanceBar)
-const ACADEMIC_PURPLE = colors.info;
+// Sage green accent for academic (ARC theme)
+const ACADEMIC_PURPLE = colors.accent1;
 
 export type UpcomingExam = {
   id: string;
