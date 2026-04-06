@@ -8,6 +8,7 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, TextInput, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SmartIcon } from '../SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
@@ -813,7 +814,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               </Pressable>
             )}
 
-            {/* Ask Tomo about this program */}
+            {/* Ask Tomo about this program — glossy sage green */}
             <Pressable
               onPress={(e) => {
                 e.stopPropagation();
@@ -826,10 +827,24 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   },
                 });
               }}
-              style={[styles.askTomoButton, { backgroundColor: colors.background, borderColor: colors.creamMuted, borderWidth: 1 }]}
+              style={({ pressed }) => [styles.askTomoButton, { overflow: 'hidden' as const, borderRadius: 999 }, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
             >
-              <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.textPrimary} />
-              <Text style={[styles.askTomoText, { color: colors.textPrimary }]}>Ask Tomo about this program</Text>
+              <LinearGradient
+                colors={[colors.accentLight, colors.accent]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[StyleSheet.absoluteFillObject, { borderRadius: 999 }]}
+              />
+              <LinearGradient
+                colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.06)', 'transparent']}
+                locations={[0, 0.35, 0.65]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={[StyleSheet.absoluteFillObject, { borderRadius: 999 }]}
+              />
+              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }]} />
+              <SmartIcon name="chatbubble-ellipses-outline" size={16} color={colors.background} />
+              <Text style={[styles.askTomoText, { color: colors.background }]}>Ask Tomo about this program</Text>
             </Pressable>
 
             {/* Action buttons moved above expanded content */}
@@ -1089,9 +1104,14 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 999,
     marginTop: 12,
     marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   askTomoText: {
     fontFamily: fontFamily.medium,
