@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { HUB_DEFAULTS } from "./defaults";
 import type { ResponseRule, ContextBlock } from "./types";
@@ -17,6 +18,7 @@ export function Step3ResponseQuality({ onBack, onNext }: Props) {
   const [blocks, setBlocks] = useState<ContextBlock[]>(HUB_DEFAULTS.contextBlocks);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddBlock, setShowAddBlock] = useState(false);
 
   useEffect(() => {
     fetch("/api/v1/admin/performance-intelligence/prompt-templates", { credentials: "include" })
@@ -63,6 +65,14 @@ export function Step3ResponseQuality({ onBack, onNext }: Props) {
     setRules(updated);
     save(updated, blocks);
     setShowAddForm(false);
+  };
+
+  const addBlock = (name: string, description: string) => {
+    const newBlock: ContextBlock = { id: `block_${Date.now()}`, name, description, enabled: true, locked: false };
+    const updated = [...blocks, newBlock];
+    setBlocks(updated);
+    save(rules, updated);
+    setShowAddBlock(false);
   };
 
   if (loading) {
@@ -149,6 +159,18 @@ export function Step3ResponseQuality({ onBack, onNext }: Props) {
         ))}
       </div>
 
+      {/* Add context block */}
+      {showAddBlock ? (
+        <AddContextBlockForm onSave={addBlock} onCancel={() => setShowAddBlock(false)} />
+      ) : (
+        <button
+          onClick={() => setShowAddBlock(true)}
+          className="w-full text-center py-3 text-xs text-muted-foreground border border-dashed rounded hover:bg-accent/30 transition-colors"
+        >
+          + Add a scientific context block
+        </button>
+      )}
+
       {/* Navigation */}
       <div className="flex items-center justify-between pt-4">
         <Button variant="ghost" size="sm" onClick={onBack}>&larr; Back</Button>
@@ -165,17 +187,51 @@ function AddResponseRuleForm({ onSave, onCancel }: { onSave: (when: string, inst
 
   return (
     <Card className="bg-muted/20">
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-4 space-y-4">
+        <div>
+          <p className="text-xs font-medium">Add a response rule</p>
+          <p className="text-xs text-muted-foreground mt-1">Response rules tell the AI how to frame its coaching based on the athlete's situation. Write in plain English.</p>
+        </div>
         <div>
           <p className="text-xs font-medium mb-1">When this situation occurs...</p>
-          <Textarea value={when} onChange={(e) => setWhen(e.target.value)} rows={2} className="text-xs" placeholder="Describe the situation" />
+          <p className="text-xs text-muted-foreground mb-1">Describe when this rule should apply.</p>
+          <Textarea value={when} onChange={(e) => setWhen(e.target.value)} rows={2} className="text-xs" placeholder='e.g., "When an athlete has missed 3+ days of training"' />
         </div>
         <div>
           <p className="text-xs font-medium mb-1">The AI should always...</p>
-          <Textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} rows={2} className="text-xs" placeholder="Describe the instruction" />
+          <p className="text-xs text-muted-foreground mb-1">What instruction should the AI follow in this situation?</p>
+          <Textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} rows={2} className="text-xs" placeholder='e.g., "Welcome them back positively. Suggest an easy re-entry session. Do not reference missed days negatively."' />
         </div>
         <div className="flex gap-2">
           <Button size="sm" disabled={!when.trim() || !instruction.trim()} onClick={() => onSave(when, instruction)}>Save rule</Button>
+          <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AddContextBlockForm({ onSave, onCancel }: { onSave: (name: string, description: string) => void; onCancel: () => void }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  return (
+    <Card className="bg-muted/20">
+      <CardContent className="p-4 space-y-4">
+        <div>
+          <p className="text-xs font-medium">Add a scientific context block</p>
+          <p className="text-xs text-muted-foreground mt-1">Context blocks are layers of knowledge the AI includes when coaching athletes. Add a new domain of expertise for the AI to draw from.</p>
+        </div>
+        <div>
+          <p className="text-xs font-medium mb-1">Block name</p>
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-sm" placeholder="e.g., Nutrition and hydration science" />
+        </div>
+        <div>
+          <p className="text-xs font-medium mb-1">What does this block tell the AI?</p>
+          <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="text-xs" placeholder="e.g., The AI factors in the athlete's nutrition habits, hydration levels, and fueling strategy when planning training sessions." />
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" disabled={!name.trim()} onClick={() => onSave(name, description)}>Add block</Button>
           <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
         </div>
       </CardContent>

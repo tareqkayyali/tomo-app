@@ -190,32 +190,40 @@ function AddRuleForm({ onSave, onCancel }: { onSave: (when: string, actionText: 
 
   return (
     <Card className="bg-muted/20">
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-4 space-y-4">
+        <div>
+          <p className="text-xs font-medium">Add a new guardrail rule</p>
+          <p className="text-xs text-muted-foreground mt-1">Define a condition the AI checks before responding, and what it should do when the condition is met. Write in plain English — the AI will interpret it.</p>
+        </div>
         <div>
           <p className="text-xs font-medium mb-1">When this happens...</p>
-          <Textarea value={when} onChange={(e) => setWhen(e.target.value)} rows={2} className="text-xs" placeholder="Describe the condition in plain English" />
+          <p className="text-xs text-muted-foreground mb-1">Describe the athlete situation that should trigger this rule. Be specific.</p>
+          <Textarea value={when} onChange={(e) => setWhen(e.target.value)} rows={2} className="text-xs" placeholder='e.g., "Athlete has trained 5 or more days in a row without a rest day"' />
         </div>
         <div>
           <p className="text-xs font-medium mb-1">The AI should...</p>
-          <Textarea value={actionText} onChange={(e) => setActionText(e.target.value)} rows={2} className="text-xs" placeholder="Describe the action in plain English" />
+          <p className="text-xs text-muted-foreground mb-1">What action should the AI take when this condition is detected?</p>
+          <Textarea value={actionText} onChange={(e) => setActionText(e.target.value)} rows={2} className="text-xs" placeholder='e.g., "Recommend a rest day or active recovery only. Explain why consecutive training days increase injury risk."' />
         </div>
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <p className="text-xs font-medium mb-1">This is a...</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs font-medium mb-1">How strict is this rule?</p>
+            <p className="text-xs text-muted-foreground mb-1">Hard stop = the AI blocks training. Soft limit = reduces intensity. Warning = informs only.</p>
             <Select value={action} onValueChange={(v) => setAction((v as RuleAction) || "soft_limit")}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hard_stop">Hard stop</SelectItem>
-                <SelectItem value="soft_limit">Soft limit</SelectItem>
-                <SelectItem value="warn_only">Warning only</SelectItem>
+              <SelectTrigger className="h-8 text-xs w-full"><SelectValue /></SelectTrigger>
+              <SelectContent className="min-w-[250px]">
+                <SelectItem value="hard_stop">Hard stop — blocks the activity entirely</SelectItem>
+                <SelectItem value="soft_limit">Soft limit — reduces intensity automatically</SelectItem>
+                <SelectItem value="warn_only">Warning only — informs but doesn't restrict</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium mb-1">This reads from...</p>
+          <div>
+            <p className="text-xs font-medium mb-1">Which data does this rule read?</p>
+            <p className="text-xs text-muted-foreground mb-1">Select the data group this rule checks from the athlete snapshot.</p>
             <Select value={sourceGroup} onValueChange={(v) => setSourceGroup(v || "training_load")}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger className="h-8 text-xs w-full"><SelectValue /></SelectTrigger>
+              <SelectContent className="min-w-[220px]">
                 {Object.entries(SOURCE_LABELS).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v}</SelectItem>
                 ))}

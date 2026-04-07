@@ -183,34 +183,45 @@ function AddFilterForm({ onSave, onCancel }: { onSave: (catches: string, action:
 
   return (
     <Card className="bg-muted/20">
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-4 space-y-4">
+        <div>
+          <p className="text-xs font-medium">Add a safety filter</p>
+          <p className="text-xs text-muted-foreground mt-1">Safety filters scan the AI's response before the athlete sees it. Define what to catch and what to do about it.</p>
+        </div>
         <div>
           <p className="text-xs font-medium mb-1">If the AI's response contains or recommends...</p>
-          <Textarea value={catches} onChange={(e) => setCatches(e.target.value)} rows={2} className="text-xs" placeholder="What to detect in the AI output" />
+          <p className="text-xs text-muted-foreground mb-1">Describe the words, phrases, or types of content to catch.</p>
+          <Textarea value={catches} onChange={(e) => setCatches(e.target.value)} rows={2} className="text-xs" placeholder='e.g., "Train through the pain", "no pain no gain", or similar phrases that encourage ignoring discomfort' />
         </div>
         <div>
           <p className="text-xs font-medium mb-1">Then the AI should...</p>
+          <p className="text-xs text-muted-foreground mb-1">What action should be taken when this content is detected?</p>
           <Select value={action} onValueChange={(v) => setAction((v as FilterAction) || "translate_plain_language")}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {Object.entries(ACTION_LABELS).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v}</SelectItem>
-              ))}
+            <SelectTrigger className="h-8 text-xs w-full"><SelectValue /></SelectTrigger>
+            <SelectContent className="min-w-[300px]">
+              <SelectItem value="remove_and_replace">Remove and offer a safe alternative</SelectItem>
+              <SelectItem value="translate_plain_language">Translate into plain language</SelectItem>
+              <SelectItem value="add_safety_note">Keep it but add a safety note</SelectItem>
+              <SelectItem value="block_and_restart">Block the entire response and start again</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div>
           <p className="text-xs font-medium mb-1">What should it say instead? (optional)</p>
-          <Textarea value={replacement} onChange={(e) => setReplacement(e.target.value)} rows={2} className="text-xs" placeholder="Leave blank if not applicable" />
+          <p className="text-xs text-muted-foreground mb-1">If you chose "Remove and replace" or "Translate", provide the replacement text.</p>
+          <Textarea value={replacement} onChange={(e) => setReplacement(e.target.value)} rows={2} className="text-xs" placeholder="e.g., Listen to your body. If something does not feel right, let your coach know." />
         </div>
         <div>
           <p className="text-xs font-medium mb-1">This filter applies when...</p>
+          <p className="text-xs text-muted-foreground mb-1">Choose which athletes this filter protects.</p>
           <Select value={scope} onValueChange={(v) => setScope((v as FilterScope) || "always")}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {Object.entries(SCOPE_LABELS).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v}</SelectItem>
-              ))}
+            <SelectTrigger className="h-8 text-xs w-full"><SelectValue /></SelectTrigger>
+            <SelectContent className="min-w-[280px]">
+              <SelectItem value="always">Always — all athletes</SelectItem>
+              <SelectItem value="growth_phase">Athlete is in rapid growth phase</SelectItem>
+              <SelectItem value="under_16">Athlete is under 16</SelectItem>
+              <SelectItem value="active_injury">Athlete has an active injury logged</SelectItem>
+              <SelectItem value="new_athlete">Athlete is new (first 12 weeks)</SelectItem>
             </SelectContent>
           </Select>
         </div>
