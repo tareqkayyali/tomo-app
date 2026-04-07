@@ -102,11 +102,27 @@ export const SPORT_COACHING_DEFAULTS: SportCoachingContext = {
     seasonPhase: "in_season",
     matchLoadUnit: 1.0,
     positions: [
-      { id: "goalkeeper", name: "Goalkeeper", aerobicPriority: 4, strengthPriority: 7, notes: "Lower running volume, higher explosive demand.", active: true },
-      { id: "defender", name: "Defender", aerobicPriority: 6, strengthPriority: 7, notes: "High aerial duel frequency. Prioritize strength.", active: true },
-      { id: "midfielder", name: "Midfielder", aerobicPriority: 9, strengthPriority: 5, notes: "Highest total distance. Prioritize aerobic base.", active: true },
-      { id: "forward", name: "Forward", aerobicPriority: 7, strengthPriority: 6, notes: "High-intensity sprint frequency. Acceleration focus.", active: true },
-      { id: "winger", name: "Winger", aerobicPriority: 8, strengthPriority: 5, notes: "High-speed running volume. Repeated sprint ability.", active: true },
+      { id: "goalkeeper", name: "Goalkeeper", aerobicPriority: 4, strengthPriority: 7, notes: "Lower running volume, higher explosive demand.", active: true, primaryQuality: "Speed / acceleration", secondaryQuality: "Strength / power", distanceNote: "Lowest outfield distance but highest explosive demand", developmentPriority: "Reaction time and explosive power", trainingEmphasis: "30% aerobic, 30% speed, 40% power" },
+      { id: "defender", name: "Defender", aerobicPriority: 6, strengthPriority: 7, notes: "High aerial duel frequency. Prioritize strength.", active: true, primaryQuality: "Strength / power", secondaryQuality: "Aerobic capacity", distanceNote: "Moderate distance, high duel frequency", developmentPriority: "Strength and aerial ability", trainingEmphasis: "40% strength, 35% aerobic, 25% speed" },
+      { id: "midfielder", name: "Midfielder", aerobicPriority: 9, strengthPriority: 5, notes: "Highest total distance. Prioritize aerobic base.", active: true, primaryQuality: "Aerobic capacity", secondaryQuality: "Agility / change of direction", distanceNote: "Highest total distance of any position", developmentPriority: "Aerobic base and repeated sprint capacity", trainingEmphasis: "50% aerobic, 25% speed, 25% agility" },
+      { id: "forward", name: "Forward", aerobicPriority: 7, strengthPriority: 6, notes: "High-intensity sprint frequency. Acceleration focus.", active: true, primaryQuality: "Speed / acceleration", secondaryQuality: "Strength / power", distanceNote: "High sprint count, moderate total distance", developmentPriority: "Acceleration and finishing under fatigue", trainingEmphasis: "40% speed, 30% strength, 30% aerobic" },
+      { id: "winger", name: "Winger", aerobicPriority: 8, strengthPriority: 5, notes: "High-speed running volume. Repeated sprint ability.", active: true, primaryQuality: "Speed / acceleration", secondaryQuality: "Aerobic capacity", distanceNote: "High-speed running volume, repeated efforts", developmentPriority: "Repeated sprint ability and recovery", trainingEmphasis: "40% speed, 35% aerobic, 25% agility" },
+    ],
+    energySystem: "mixed",
+    energyDescription: "Intermittent high-intensity efforts (sprints, jumps, duels) within a predominantly aerobic base. Repeated sprint ability is critical.",
+    sessionDuration: 90,
+    highIntensityActions: "60-80 high-intensity runs, 15-20 sprints, 10-15 jumps per match",
+    physicalQualitiesRanking: ["Aerobic capacity", "Speed / acceleration", "Strength / power", "Agility / change of direction", "Flexibility / mobility"],
+    injuryRisks: ["Hamstring strain", "ACL", "Ankle sprain", "Groin injury", "Patellar tendinopathy"],
+    loadModel: { matchLoadUnit: 1.0, loadWindowWeeks: 4, highIntensityThreshold: 70, recoveryMinHours: 48 },
+    performanceMetrics: [
+      { id: "yoyo", name: "Yo-Yo Intermittent Recovery Test Level 1", shortName: "Yo-Yo IR1", whatItTests: "Aerobic capacity and repeated sprint recovery", protocol: "20m shuttle, increasing speed, record level and shuttle", unit: "Level/shuttle", category: "aerobic" },
+      { id: "sprint_10m", name: "10m Sprint", shortName: "10m sprint", whatItTests: "Acceleration from standing start", protocol: "Standing start, timing gates at 0m and 10m", unit: "seconds", category: "speed" },
+      { id: "sprint_30m", name: "30m Sprint", shortName: "30m sprint", whatItTests: "Maximum velocity approach speed", protocol: "Standing start, timing gates at 0m and 30m", unit: "seconds", category: "speed" },
+      { id: "cmj", name: "Countermovement Jump", shortName: "CMJ", whatItTests: "Lower body explosive power", protocol: "Hands on hips, countermovement, jump for max height", unit: "centimetres", category: "power" },
+      { id: "ttest", name: "T-Test Agility", shortName: "T-test", whatItTests: "Multi-directional agility and change of direction speed", protocol: "Sprint forward, shuffle left/right, backpedal", unit: "seconds", category: "agility" },
+      { id: "nordic", name: "Nordic Hamstring Strength", shortName: "Nordic", whatItTests: "Eccentric hamstring strength and injury resilience", protocol: "Controlled eccentric lowering from kneeling", unit: "qualitative", category: "strength" },
+      { id: "squat", name: "Relative Back Squat", shortName: "Rel. squat", whatItTests: "Lower body maximal strength relative to bodyweight", protocol: "Back squat 1RM divided by bodyweight", unit: "x bodyweight", category: "strength" },
     ],
   },
   padel: {
@@ -120,9 +136,17 @@ export const SPORT_COACHING_DEFAULTS: SportCoachingContext = {
     seasonPhase: "in_season",
     matchLoadUnit: 1.0,
     positions: [
-      { id: "drive", name: "Drive", aerobicPriority: 6, strengthPriority: 6, notes: "Aggressive baseline play.", active: true },
-      { id: "reves", name: "Revés", aerobicPriority: 6, strengthPriority: 7, notes: "Higher rotational demand.", active: true },
+      { id: "drive", name: "Drive", aerobicPriority: 6, strengthPriority: 6, notes: "Aggressive baseline play.", active: true, primaryQuality: "Speed / acceleration", secondaryQuality: "Strength / power", distanceNote: "", developmentPriority: "", trainingEmphasis: "" },
+      { id: "reves", name: "Revés", aerobicPriority: 6, strengthPriority: 7, notes: "Higher rotational demand.", active: true, primaryQuality: "Strength / power", secondaryQuality: "Agility / change of direction", distanceNote: "", developmentPriority: "", trainingEmphasis: "" },
     ],
+    energySystem: "mixed",
+    energyDescription: "Intermittent rallies with explosive lateral movements and overhead shots.",
+    sessionDuration: 75,
+    highIntensityActions: "",
+    physicalQualitiesRanking: ["Agility / change of direction", "Speed / acceleration", "Strength / power", "Aerobic capacity", "Flexibility / mobility"],
+    injuryRisks: ["Shoulder overuse", "Wrist injury", "Ankle sprain"],
+    loadModel: { matchLoadUnit: 1.0, loadWindowWeeks: 4, highIntensityThreshold: 70, recoveryMinHours: 48 },
+    performanceMetrics: [],
   },
   athletics: {
     keyMetrics: "Event-specific benchmarks, sprint mechanics (contact time, flight time), jump testing",
@@ -135,10 +159,18 @@ export const SPORT_COACHING_DEFAULTS: SportCoachingContext = {
     seasonPhase: "in_season",
     matchLoadUnit: 1.0,
     positions: [
-      { id: "sprints", name: "Sprints", aerobicPriority: 3, strengthPriority: 8, notes: "Maximal neuromuscular demand.", active: true },
-      { id: "throws", name: "Throws", aerobicPriority: 3, strengthPriority: 9, notes: "High power/strength demand.", active: true },
-      { id: "jumps", name: "Jumps", aerobicPriority: 5, strengthPriority: 8, notes: "High impact loading.", active: true },
+      { id: "sprints", name: "Sprints", aerobicPriority: 3, strengthPriority: 8, notes: "Maximal neuromuscular demand.", active: true, primaryQuality: "Speed / acceleration", secondaryQuality: "Strength / power", distanceNote: "", developmentPriority: "", trainingEmphasis: "" },
+      { id: "throws", name: "Throws", aerobicPriority: 3, strengthPriority: 9, notes: "High power/strength demand.", active: true, primaryQuality: "Strength / power", secondaryQuality: "Speed / acceleration", distanceNote: "", developmentPriority: "", trainingEmphasis: "" },
+      { id: "jumps", name: "Jumps", aerobicPriority: 5, strengthPriority: 8, notes: "High impact loading.", active: true, primaryQuality: "Strength / power", secondaryQuality: "Speed / acceleration", distanceNote: "", developmentPriority: "", trainingEmphasis: "" },
     ],
+    energySystem: "anaerobic_dominant",
+    energyDescription: "High-CNS maximal efforts with extended recovery periods between quality reps.",
+    sessionDuration: 90,
+    highIntensityActions: "",
+    physicalQualitiesRanking: ["Speed / acceleration", "Strength / power", "Flexibility / mobility", "Aerobic capacity", "Agility / change of direction"],
+    injuryRisks: ["Hamstring strain", "Back injury", "Knee injury", "Ankle sprain"],
+    loadModel: { matchLoadUnit: 1.0, loadWindowWeeks: 4, highIntensityThreshold: 70, recoveryMinHours: 72 },
+    performanceMetrics: [],
   },
   basketball: {
     keyMetrics: "Vertical jump, agility, sprint, court coverage",
@@ -147,6 +179,14 @@ export const SPORT_COACHING_DEFAULTS: SportCoachingContext = {
     seasonPhase: "in_season",
     matchLoadUnit: 1.0,
     positions: [],
+    energySystem: "mixed",
+    energyDescription: "Intermittent high-intensity bursts within a mixed aerobic-anaerobic base.",
+    sessionDuration: 60,
+    highIntensityActions: "",
+    physicalQualitiesRanking: ["Speed / acceleration", "Agility / change of direction", "Strength / power", "Aerobic capacity", "Flexibility / mobility"],
+    injuryRisks: ["Ankle sprain", "Knee injury", "ACL"],
+    loadModel: { matchLoadUnit: 1.0, loadWindowWeeks: 4, highIntensityThreshold: 70, recoveryMinHours: 48 },
+    performanceMetrics: [],
   },
   tennis: {
     keyMetrics: "Lateral movement speed, serve velocity, rally endurance",
@@ -155,6 +195,14 @@ export const SPORT_COACHING_DEFAULTS: SportCoachingContext = {
     seasonPhase: "in_season",
     matchLoadUnit: 1.0,
     positions: [],
+    energySystem: "mixed",
+    energyDescription: "Extended rallies with explosive serve and movement patterns.",
+    sessionDuration: 90,
+    highIntensityActions: "",
+    physicalQualitiesRanking: ["Agility / change of direction", "Speed / acceleration", "Aerobic capacity", "Strength / power", "Flexibility / mobility"],
+    injuryRisks: ["Shoulder overuse", "Elbow injury", "Ankle sprain", "Back injury"],
+    loadModel: { matchLoadUnit: 1.0, loadWindowWeeks: 4, highIntensityThreshold: 70, recoveryMinHours: 48 },
+    performanceMetrics: [],
   },
 };
 
@@ -177,6 +225,8 @@ export const PHV_SAFETY_DEFAULTS: PHVSafetyConfig = {
         "Limit repetitive impact (long-distance running)",
         "Monitor growth plate areas during resistance exercises",
       ],
+      flexibilityEmphasis: true,
+      coreStabilityEmphasis: true,
     },
     {
       name: "mid_phv",
@@ -199,6 +249,8 @@ export const PHV_SAFETY_DEFAULTS: PHVSafetyConfig = {
         "Increased injury risk — reduced coordination during rapid growth",
         "Watch for knee/heel pain — stop immediately if present",
       ],
+      flexibilityEmphasis: true,
+      coreStabilityEmphasis: true,
     },
     {
       name: "post_phv",
@@ -217,6 +269,8 @@ export const PHV_SAFETY_DEFAULTS: PHVSafetyConfig = {
         "Monitor training load closely (ACWR 0.8-1.3)",
         "Full range Nordic curls can resume with progression",
       ],
+      flexibilityEmphasis: false,
+      coreStabilityEmphasis: true,
     },
     {
       name: "not_applicable",
@@ -228,6 +282,8 @@ export const PHV_SAFETY_DEFAULTS: PHVSafetyConfig = {
         "Progressive overload",
       ],
       safetyWarnings: [],
+      flexibilityEmphasis: false,
+      coreStabilityEmphasis: false,
     },
   ],
   contraindications: [
@@ -338,6 +394,14 @@ export const PHV_SAFETY_DEFAULTS: PHVSafetyConfig = {
       triggerStages: ["mid_phv", "pre_phv"],
     },
   ],
+  loadThresholds: {
+    amberPercent: 30,
+    redPercent: 50,
+    hrvPercent: 30,
+    dualStressCap: 75,
+    sleepHours: 6,
+    beginnerWeeks: 12,
+  },
 };
 
 export const READINESS_MATRIX_DEFAULTS: ReadinessDecisionMatrix = {
@@ -350,6 +414,7 @@ export const READINESS_MATRIX_DEFAULTS: ReadinessDecisionMatrix = {
       titleNoTraining: "Recovery Day — Growth Phase",
       bodyShort: "Your body is recovering and growing. Take a full rest day today.",
       bodyShortNoTraining: "Good call resting today. Your body is in a growth phase — prioritise sleep and nutrition.",
+      aiBehaviour: "Full rest. Growth phase exercises only (light mobility). No training.",
     },
     {
       id: "red_default",
@@ -359,6 +424,7 @@ export const READINESS_MATRIX_DEFAULTS: ReadinessDecisionMatrix = {
       titleNoTraining: "Good Day to Rest",
       bodyShort: "Your body needs recovery today. Take it easy and focus on rest.",
       bodyShortNoTraining: "No training today — your body will thank you. Focus on sleep and hydration.",
+      aiBehaviour: "Full rest. Active recovery content only. Explains physiology.",
     },
     {
       id: "amber_high_acwr",
@@ -368,6 +434,7 @@ export const READINESS_MATRIX_DEFAULTS: ReadinessDecisionMatrix = {
       titleNoTraining: "Rest Day Helping You Recover",
       bodyShort: "Your training load is high and readiness is below normal. Reduce intensity today.",
       bodyShortNoTraining: "Rest day is helping you recover from high training load.",
+      aiBehaviour: "Light session only. Caps intensity at 50%. Adds load context.",
     },
     {
       id: "amber_default",
@@ -377,6 +444,7 @@ export const READINESS_MATRIX_DEFAULTS: ReadinessDecisionMatrix = {
       titleNoTraining: "Moderate Day — Stay Active",
       bodyShort: "You're not at your best today. Keep training light to moderate.",
       bodyShortNoTraining: "No training today — some light movement like a walk will keep you feeling good.",
+      aiBehaviour: "Light to moderate session. Monitors response. Adapts mid-session.",
     },
     {
       id: "green_mid_phv",
@@ -386,6 +454,7 @@ export const READINESS_MATRIX_DEFAULTS: ReadinessDecisionMatrix = {
       titleNoTraining: "Ready — Modified Rest Day",
       bodyShort: "You're feeling good but still in a growth phase. Train with modified intensity.",
       bodyShortNoTraining: "Rest day — your body is ready but load is modified during growth phase.",
+      aiBehaviour: "Modified training. Growth phase exercise restrictions apply.",
     },
     {
       id: "green_default",
@@ -395,6 +464,7 @@ export const READINESS_MATRIX_DEFAULTS: ReadinessDecisionMatrix = {
       titleNoTraining: "Ready — Rest Day Well Spent",
       bodyShort: "You're at your best. Go for it today!",
       bodyShortNoTraining: "No training today, but you're in great shape. Enjoy the rest.",
+      aiBehaviour: "Full planned session. Standard load and intensity.",
     },
   ],
   confidenceThresholds: {
@@ -403,10 +473,28 @@ export const READINESS_MATRIX_DEFAULTS: ReadinessDecisionMatrix = {
     stale: 0.5,
   },
   stalenessHours: 24,
+  developmentGates: [
+    { id: "g1", prerequisite: "Nordic curl — complete movement proficiency", unlocks: "Maximum sprint volume and repeated sprint programmes", rationale: "Hamstring strength must precede high-speed running volume to reduce ACL and hamstring strain risk (Read et al., 2016)", hardGate: true, active: true },
+    { id: "g2", prerequisite: "Yo-Yo IR1 Level 14 minimum", unlocks: "High-intensity strength training block", rationale: "Aerobic base supports recovery between strength efforts and reduces injury risk during resistance training adaptation", hardGate: false, active: true },
+    { id: "g3", prerequisite: "12 weeks structured training history", unlocks: "Standard training load targets (removes beginner protection)", rationale: "Connective tissue adaptation lags muscular adaptation by 8-12 weeks in previously untrained athletes", hardGate: true, active: true },
+  ],
+  gapResponses: {
+    belowDeveloping: "focus_development",
+    developingToCompetitive: "maintain_work",
+    aboveCompetitive: "acknowledge_maintain",
+  },
 };
 
 export const PROMPT_TEMPLATES_DEFAULTS: AIPromptTemplates = {
-  coachingStyle: "supportive",
+  coachingStyle: "supportive", // v2 compat
+  scienceTranslation: "balanced",
+  ageBandCalibration: {
+    u13: { vocabularyLevel: 1, scientificTerms: false, motivationalFraming: "encouragement" },
+    u15: { vocabularyLevel: 2, scientificTerms: false, motivationalFraming: "encouragement" },
+    u17: { vocabularyLevel: 3, scientificTerms: true, motivationalFraming: "neutral" },
+    u19: { vocabularyLevel: 4, scientificTerms: true, motivationalFraming: "performance" },
+    senior: { vocabularyLevel: 5, scientificTerms: true, motivationalFraming: "performance" },
+  },
   ageToneAdjustments: {
     u13_u15: { enabled: true },
     u17_u19: { enabled: true },
@@ -525,13 +613,17 @@ export async function getFlowOverviewStats() {
     getPromptTemplatesConfig(),
   ]);
 
-  // Live squad data
+  // Live data — anonymised for Decision Audit
   let todaySquadStatus = { green: 0, amber: 0, red: 0 };
-  let recentDecisions: { type: string; athlete: string; description: string; time: string }[] = [];
+  let recentDecisions: { type: string; description: string; rule: string; triggerData: string; time: string }[] = [];
   let systemHealth = { aiActive: true, dataFresh: true, protectionLoaded: true };
+  let growthPhaseInterventions = 0;
+  let loadTriggers = 0;
+  let readinessDecisions = 0;
+  const calibrationSignals: { severity: string; headline: string; body: string }[] = [];
 
   try {
-    // Squad readiness counts from athlete_snapshots
+    // Readiness counts from athlete_snapshots
     const { data: snapshots } = await db()
       .from("athlete_snapshots")
       .select("readiness_rag, updated_at");
@@ -544,40 +636,61 @@ export async function getFlowOverviewStats() {
         else if (rag === "AMBER") todaySquadStatus.amber++;
         else if (rag === "RED") todaySquadStatus.red++;
       }
-      // Check data freshness — any snapshot older than 6h = amber
       const freshCount = snapshots.filter((s: { updated_at: string }) => s.updated_at > sixHoursAgo).length;
       systemHealth.dataFresh = freshCount > snapshots.length * 0.5;
+      readinessDecisions = snapshots.length;
     }
 
-    // Recent P1/P2 recommendations from last 24h
+    // Recent P1/P2 recommendations from last 24h — ANONYMISED (no athlete names)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: recs } = await db()
       .from("athlete_recommendations")
-      .select("rec_type, title, priority, created_at, athlete_id")
+      .select("rec_type, title, priority, created_at")
       .gte("created_at", oneDayAgo)
       .lte("priority", 2)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(30);
 
     if (recs && Array.isArray(recs)) {
-      // Get athlete names
-      const athleteIds = [...new Set(recs.map((r: { athlete_id: string }) => r.athlete_id))];
-      const { data: users } = await db()
-        .from("users")
-        .select("id, full_name")
-        .in("id", athleteIds);
-      const nameMap: Record<string, string> = {};
-      if (users) for (const u of users) nameMap[u.id] = u.full_name || "Athlete";
+      // Count by type for summary cards
+      for (const r of recs) {
+        const rt = (r.rec_type || "").toUpperCase();
+        if (rt.includes("READINESS") || rt.includes("RECOVERY")) growthPhaseInterventions++;
+        else if (rt.includes("LOAD")) loadTriggers++;
+      }
 
-      recentDecisions = recs.map((r: { rec_type: string; title: string; priority: number; created_at: string; athlete_id: string }) => {
-        const type = r.priority === 1 ? "protection" : "load_management";
+      // Anonymised decision feed with rule references
+      recentDecisions = recs.map((r: { rec_type: string; title: string; priority: number; created_at: string }, idx: number) => {
+        const type = r.priority === 1 ? "protection" : r.rec_type.includes("LOAD") ? "load_management" : "readiness";
+        const ruleMap: Record<string, string> = {
+          READINESS: "Readiness protocol",
+          LOAD_WARNING: "Load threshold",
+          RECOVERY: "Recovery protocol",
+          DEVELOPMENT: "Development pathway",
+        };
         return {
           type,
-          athlete: nameMap[r.athlete_id] || "Athlete",
           description: r.title,
+          rule: ruleMap[r.rec_type] || r.rec_type,
+          triggerData: `Priority ${r.priority} decision`,
           time: r.created_at,
         };
       });
+    }
+
+    // Calibration signals from decision patterns
+    const totalDecisions = (recs || []).length;
+    if (totalDecisions > 5) {
+      const redPct = todaySquadStatus.red / Math.max(1, todaySquadStatus.green + todaySquadStatus.amber + todaySquadStatus.red) * 100;
+      if (redPct > 30) {
+        calibrationSignals.push({ severity: "amber", headline: "High rest-day proportion", body: `${Math.round(redPct)}% of readiness assessments resulted in rest day recommendations. Consider reviewing whether load thresholds are appropriately calibrated.` });
+      }
+      if (loadTriggers > totalDecisions * 0.5) {
+        calibrationSignals.push({ severity: "amber", headline: "Frequent load interventions", body: `Load thresholds triggered ${loadTriggers} times in the last 24h. Check whether the amber threshold (currently set) is appropriate for the current training phase.` });
+      }
+      if (growthPhaseInterventions === 0 && todaySquadStatus.amber + todaySquadStatus.red > 3) {
+        calibrationSignals.push({ severity: "green", headline: "Readiness protocol applying correctly", body: "Rule distribution matches expected patterns. No calibration issues detected." });
+      }
     }
 
     // Protection loaded check
@@ -599,5 +712,9 @@ export async function getFlowOverviewStats() {
     recentDecisions,
     overridesThisWeek: 0,
     systemHealth,
+    growthPhaseInterventions,
+    loadTriggers,
+    readinessDecisions,
+    calibrationSignals,
   };
 }

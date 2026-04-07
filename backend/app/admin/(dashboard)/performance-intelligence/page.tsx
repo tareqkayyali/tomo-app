@@ -2,29 +2,29 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SquadSportEditor } from "@/components/admin/performance-intelligence/SquadSportEditor";
-import { DevelopmentPathwaysEditor } from "@/components/admin/performance-intelligence/DevelopmentPathwaysEditor";
-import { AthleteProtectionEditor } from "@/components/admin/performance-intelligence/AthleteProtectionEditor";
-import { CoachingVoiceEditor } from "@/components/admin/performance-intelligence/CoachingVoiceEditor";
-import { LiveIntelligenceDashboard } from "@/components/admin/performance-intelligence/LiveIntelligenceDashboard";
+import { SportScienceLibrary } from "@/components/admin/performance-intelligence/SportScienceLibrary";
+import { PerformanceStandards } from "@/components/admin/performance-intelligence/PerformanceStandards";
+import { AthleteSafetyRules } from "@/components/admin/performance-intelligence/AthleteSafetyRules";
+import { CoachingLanguageEditor } from "@/components/admin/performance-intelligence/CoachingLanguageEditor";
+import { DecisionAudit } from "@/components/admin/performance-intelligence/DecisionAudit";
 
 const TABS = [
-  { value: "squad-sport", label: "Squad & Sport" },
-  { value: "development-pathways", label: "Development Pathways" },
-  { value: "athlete-protection", label: "Athlete Protection" },
-  { value: "coaching-voice", label: "Coaching Voice" },
-  { value: "live-intelligence", label: "Live Intelligence" },
+  { value: "sport-science", label: "Sport Science Library" },
+  { value: "performance-standards", label: "Performance Standards" },
+  { value: "safety-rules", label: "Athlete Safety Rules" },
+  { value: "coaching-language", label: "AI Coaching Language" },
+  { value: "decision-audit", label: "Decision Audit" },
 ];
 
 export default function CoachingIntelligenceHubPage() {
-  const [activeTab, setActiveTab] = useState("squad-sport");
+  const [activeTab, setActiveTab] = useState("sport-science");
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Coaching Intelligence Hub</h1>
         <p className="text-sm text-muted-foreground">
-          Configure how Tomo coaches your athletes — no technical knowledge required
+          Configure the sports science knowledge that guides every athlete's AI coaching
         </p>
       </div>
 
@@ -37,24 +37,24 @@ export default function CoachingIntelligenceHubPage() {
           ))}
         </TabsList>
 
-        <TabsContent value="squad-sport" className="mt-6">
-          <SquadSportEditor />
+        <TabsContent value="sport-science" className="mt-6">
+          <SportScienceLibrary />
         </TabsContent>
 
-        <TabsContent value="development-pathways" className="mt-6">
-          <DevelopmentPathwaysEditor />
+        <TabsContent value="performance-standards" className="mt-6">
+          <PerformanceStandards />
         </TabsContent>
 
-        <TabsContent value="athlete-protection" className="mt-6">
-          <AthleteProtectionEditor />
+        <TabsContent value="safety-rules" className="mt-6">
+          <AthleteSafetyRules />
         </TabsContent>
 
-        <TabsContent value="coaching-voice" className="mt-6">
-          <CoachingVoiceEditor />
+        <TabsContent value="coaching-language" className="mt-6">
+          <CoachingLanguageEditor />
         </TabsContent>
 
-        <TabsContent value="live-intelligence" className="mt-6">
-          <LiveIntelligenceDashboard />
+        <TabsContent value="decision-audit" className="mt-6">
+          <DecisionAudit />
         </TabsContent>
       </Tabs>
     </div>
