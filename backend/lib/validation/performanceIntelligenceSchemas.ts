@@ -55,12 +55,76 @@ const sportCoachingEntrySchema = z.object({
   injuryRisks: z.array(z.string()).default([]),
   loadModel: loadModelSchema.default({ matchLoadUnit: 1.0, loadWindowWeeks: 4, highIntensityThreshold: 70, recoveryMinHours: 48 }),
   performanceMetrics: z.array(performanceMetricSchema).default([]),
+  // v1 Hub: data groups for the Athlete Snapshot step
+  dataGroups: z.array(z.lazy(() => dataGroupSchema)).optional(),
 });
 
 export const sportCoachingContextSchema = z.record(
   z.string(),
   sportCoachingEntrySchema
 );
+
+// ── v1 Hub Types (native, not adapters) ──
+
+const snapshotFieldSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  fieldType: z.enum(["number", "scale_1_10", "rag", "text", "boolean", "calculated"]),
+  scale: z.enum(["live", "short_term", "long_term"]),
+  sourceKey: z.string().optional(),
+  enabled: z.boolean().default(true),
+});
+
+const dataGroupSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().default(""),
+  fields: z.array(snapshotFieldSchema).default([]),
+  enabled: z.boolean().default(true),
+  isDefault: z.boolean().default(true),
+});
+
+const ruleConditionSchema = z.object({
+  field: z.string(),
+  operator: z.enum(["greater_than", "less_than", "equals", "contains", "is_active"]),
+  value: z.union([z.string(), z.number()]),
+  unit: z.string().optional(),
+});
+
+const guardrailRuleSchema = z.object({
+  id: z.string().min(1),
+  when: z.string().min(1),
+  condition: ruleConditionSchema,
+  action: z.enum(["hard_stop", "soft_limit", "warn_only"]),
+  actionText: z.string().default(""),
+  sourceGroup: z.string().default(""),
+  enabled: z.boolean().default(true),
+});
+
+const responseRuleSchema = z.object({
+  id: z.string().min(1),
+  when: z.string().min(1),
+  instruction: z.string().min(1),
+  enabled: z.boolean().default(true),
+});
+
+const contextBlockV1Schema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().default(""),
+  enabled: z.boolean().default(true),
+  locked: z.boolean().default(false),
+});
+
+const safetyFilterSchema = z.object({
+  id: z.string().min(1),
+  catches: z.string().min(1),
+  action: z.enum(["remove_and_replace", "translate_plain_language", "add_safety_note", "block_and_restart"]),
+  replacement: z.string().optional(),
+  scope: z.enum(["always", "growth_phase", "under_16", "active_injury", "new_athlete"]),
+  enabled: z.boolean().default(true),
+  isDefault: z.boolean().default(true),
+});
 
 // ── PHV Safety Config ──
 
@@ -110,6 +174,8 @@ export const phvSafetyConfigSchema = z.object({
   monitoringAlerts: z.array(phvMonitoringAlertSchema),
   // v4 field
   loadThresholds: loadThresholdsSchema.default({ amberPercent: 30, redPercent: 50, hrvPercent: 30, dualStressCap: 75, sleepHours: 6, beginnerWeeks: 12 }),
+  // v1 Hub: safety filters for Step 4
+  safetyFilters: z.array(safetyFilterSchema).optional(),
 });
 
 // ── Readiness Decision Matrix ──
@@ -163,6 +229,8 @@ export const readinessDecisionMatrixSchema = z.object({
   // v4 fields
   developmentGates: z.array(developmentGateSchema).default([]),
   gapResponses: gapResponsesSchema.default({ belowDeveloping: "focus_development", developingToCompetitive: "maintain_work", aboveCompetitive: "acknowledge_maintain" }),
+  // v1 Hub: guardrail rules for Step 2
+  guardrailRules: z.array(guardrailRuleSchema).optional(),
 });
 
 // ── AI Prompt Templates ──
@@ -201,6 +269,9 @@ export const aiPromptTemplatesSchema = z.object({
   // v4 fields
   scienceTranslation: z.enum(["performance", "development", "action", "balanced"]).default("balanced"),
   ageBandCalibration: z.record(z.string(), ageBandCalibrationEntrySchema).default({}),
+  // v1 Hub: response rules + context blocks for Step 3
+  responseRules: z.array(responseRuleSchema).optional(),
+  contextBlocks: z.array(contextBlockV1Schema).optional(),
 });
 
 // ── Protocol Review Log ──
@@ -243,3 +314,11 @@ export type PerformanceMetric = z.infer<typeof performanceMetricSchema>;
 export type LoadModel = z.infer<typeof loadModelSchema>;
 export type AgeBandCalibrationEntry = z.infer<typeof ageBandCalibrationEntrySchema>;
 export type ProtocolReviewCreate = z.infer<typeof protocolReviewCreateSchema>;
+// v1 Hub types
+export type DataGroup = z.infer<typeof dataGroupSchema>;
+export type SnapshotField = z.infer<typeof snapshotFieldSchema>;
+export type GuardrailRule = z.infer<typeof guardrailRuleSchema>;
+export type RuleCondition = z.infer<typeof ruleConditionSchema>;
+export type ResponseRule = z.infer<typeof responseRuleSchema>;
+export type ContextBlockV1 = z.infer<typeof contextBlockV1Schema>;
+export type SafetyFilter = z.infer<typeof safetyFilterSchema>;
