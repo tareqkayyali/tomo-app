@@ -57,6 +57,8 @@ import { getDualLoadAdaptation, type DualLoadAdaptation } from "./dualLoadEngine
 import { computeBehavioralFingerprint, buildBehavioralPromptBlock } from "./behavioralFingerprint";
 import { scoreDecisionStakes } from "./decisionStakesRouter";
 import { computeTriangleState, buildTrianglePromptBlock } from "./triangleIntelligence";
+import { evaluatePDProtocols, DEFAULT_PD_CONTEXT } from "@/services/pdil";
+import type { PDContext } from "@/services/pdil";
 // conversationStateExtractor is called from route.ts, not here
 
 const MAX_TOOL_ITERATIONS = 5;
@@ -1192,6 +1194,17 @@ Recommendation: ${dla.recommendation}`;
     // Graceful fallback — continue without DLI context
   }
 
+  // ── PDIL: Performance Director Intelligence Layer (~100-300 tokens) ──
+  // Evaluates all PD-authored protocols against the athlete's current state.
+  // The resulting directives are AUTHORITATIVE — the AI MUST follow them.
+  let pdilBlock = "";
+  try {
+    const pdContext = await evaluatePDILForChat(context);
+    pdilBlock = buildPDILPromptBlock(pdContext);
+  } catch (e) {
+    console.warn("[PDIL] Chat evaluation failed, continuing without:", e);
+  }
+
   // Behavioral fingerprint (~50 tokens)
   let behavioralBlock = "";
   try {
@@ -1300,6 +1313,7 @@ REC FILTERING RULES (CRITICAL — follow strictly):
     sportContext +
     phvBlock +
     dualLoadBlock +
+    pdilBlock +
     behavioralBlock +
     triangleBlock +
     toneProfile +
@@ -1499,4 +1513,120 @@ async function validateCalendarActions(
     );
 
   return { warnings, suggestedSlots };
+}
+
+// ============================================================================
+// PDIL HELPERS — Performance Director Intelligence Layer for Chat
+// ============================================================================
+
+/**
+ * Evaluate PDIL protocols for a chat request.
+ * Uses the snapshot enrichment already loaded in PlayerContext to avoid extra DB calls.
+ */
+async function evaluatePDILForChat(context: PlayerContext): Promise<PDContext> {
+  const snapshot = context.snapshotEnrichment;
+  if (!snapshot) return DEFAULT_PD_CONTEXT;
+
+  const db = supabaseAdmin();
+  const today = context.todayDate;
+
+  // Parallel: fetch today's vitals + recent load (events already in context)
+  const [vitalsResult, loadResult] = await Promise.allSettled([
+    (db as any)
+      .from('athlete_daily_vitals')
+      .select('*')
+      .eq('athlete_id', context.userId)
+      .eq('vitals_date', today)
+      .single(),
+
+    (() => {
+      const loadFrom = new Date();
+      loadFrom.setDate(loadFrom.getDate() - 28);
+      return db
+        .from('athlete_daily_load')
+        .select('*')
+        .eq('athlete_id', context.userId)
+        .gte('load_date', loadFrom.toISOString().split('T')[0]);
+    })(),
+  ]);
+
+  const todayVitals = vitalsResult.status === 'fulfilled' ? vitalsResult.value?.data : null;
+  const recentDailyLoad = loadResult.status === 'fulfilled' ? (loadResult.value?.data ?? []) : [];
+
+  // Build upcoming events from context (already loaded in PlayerContext)
+  const upcomingEvents = [
+    ...context.todayEvents.map(e => ({ event_type: e.event_type, start_at: e.start_at })),
+    ...context.upcomingExams.map(e => ({ event_type: e.event_type, start_at: e.start_at })),
+    ...context.upcomingEvents.map(e => ({ event_type: e.event_type, start_at: e.start_at })),
+  ];
+
+  return evaluatePDProtocols({
+    snapshot: snapshot as unknown as Record<string, unknown>,
+    todayVitals,
+    upcomingEvents: upcomingEvents as any[],
+    recentDailyLoad: recentDailyLoad as any[],
+    trigger: 'chat',
+  });
+}
+
+/**
+ * Build the PDIL system prompt block from PDContext.
+ * This block is injected into the dynamic section so Claude respects PD decisions.
+ *
+ * Returns empty string when no protocols fire (athlete in default state).
+ */
+function buildPDILPromptBlock(pdContext: PDContext): string {
+  // If no protocols fired, no block needed — defaults apply
+  if (pdContext.activeProtocols.length === 0) return "";
+
+  const parts: string[] = [];
+  parts.push("\n\nPERFORMANCE DIRECTOR DIRECTIVES (MUST FOLLOW — these override any other guidance):");
+
+  const tm = pdContext.trainingModifiers;
+  const ai = pdContext.aiContext;
+
+  // Load cap
+  if (tm.load_multiplier < 1.0) {
+    const pct = Math.round(tm.load_multiplier * 100);
+    parts.push(`- LOAD CAP: Training load capped at ${pct}% of normal. Do NOT suggest sessions exceeding this.`);
+  }
+
+  // Intensity cap
+  if (tm.intensity_cap !== 'full') {
+    const capLabel = tm.intensity_cap.toUpperCase();
+    parts.push(`- INTENSITY CAP: Maximum session intensity is ${capLabel}. Do NOT suggest higher intensity training.`);
+  }
+
+  // Contraindications (blocked exercise categories)
+  if (tm.contraindications.length > 0) {
+    parts.push(`- BLOCKED CATEGORIES: Do NOT recommend these exercise types: ${tm.contraindications.join(', ')}`);
+  }
+
+  // Required elements
+  if (tm.required_elements.length > 0) {
+    parts.push(`- REQUIRED ELEMENTS: Always include these in any session plan: ${tm.required_elements.join(', ')}`);
+  }
+
+  // Session cap
+  if (tm.session_cap_minutes !== null) {
+    parts.push(`- SESSION CAP: Maximum session duration is ${tm.session_cap_minutes} minutes.`);
+  }
+
+  // AI system injection (PD's custom instructions)
+  if (ai.system_injection) {
+    parts.push(`- PD INSTRUCTION: ${ai.system_injection}`);
+  }
+
+  // Active protocols summary (so Claude can explain WHY these directives exist)
+  const protocolNames = pdContext.activeProtocols
+    .map(p => `${p.name} (P${p.priority}${p.safety_critical ? ', SAFETY' : ''})`)
+    .join(', ');
+  parts.push(`- ACTIVE PROTOCOLS: ${protocolNames}`);
+
+  // Safety escalation
+  if (ai.safety_critical) {
+    parts.push("- SAFETY MODE: One or more safety-critical protocols are active. Be conservative in all recommendations. Prioritize athlete safety over training progression.");
+  }
+
+  return parts.join("\n");
 }

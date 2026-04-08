@@ -19,11 +19,14 @@ import { handleCompetitionResult } from './handlers/competitionHandler';
 import { handleDrillCompleted } from './handlers/drillHandler';
 import { handleJournalPreSession, handleJournalPostSession } from './handlers/journalHandler';
 import { writeSnapshot } from './snapshot/snapshotWriter';
+import { readSnapshot } from './snapshot/snapshotReader';
 import { logger } from '@/lib/logger';
 import { triggerRecommendationComputation } from '../recommendations/recommendationDispatcher';
 import { triggerDeepProgramRefreshAsync, isDeepProgramStale } from '../programs/deepProgramRefresh';
 import { processDataEvent } from '../notifications/notificationTriggers';
 import { triggerSnapshotNotifications } from '../notifications/scheduledTriggers';
+import { evaluatePDProtocols } from '../pdil';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { AthleteEvent } from './types';
 
 /** Event types that should trigger a program recommendation refresh */
@@ -135,6 +138,11 @@ export async function processEvent(event: AthleteEvent): Promise<void> {
     // ── Always write updated snapshot ──
     await writeSnapshot(athlete_id, event);
 
+    // ── PDIL Evaluation (fire-and-forget — audit trail + protocol-triggered actions) ──
+    evaluatePDILForEvent(athlete_id, event).catch(err =>
+      logger.error('PDIL evaluation failed', { event_type, event_id, athlete_id, error: (err as Error).message })
+    );
+
     // ── Notification Center triggers (fire-and-forget, reads updated snapshot) ──
     processDataEvent(event as any).catch(err =>
       logger.error('Notification trigger failed', { event_type, event_id, athlete_id, error: (err as Error).message })
@@ -171,4 +179,73 @@ export async function processEvent(event: AthleteEvent): Promise<void> {
     // Don't re-throw — webhook should return 200 to avoid retries on permanent failures.
     // Transient failures will be caught by monitoring.
   }
+}
+
+// ============================================================================
+// PDIL EVALUATION HELPER
+// ============================================================================
+
+/**
+ * Reads the freshly-written snapshot + minimal context, then runs PDIL evaluation.
+ * This is fire-and-forget — it writes the audit trail and returns PDContext
+ * but the eventProcessor doesn't block on it.
+ *
+ * The PDContext returned here is NOT cached — it's for audit purposes.
+ * Screen consumers get their PDContext via getAthleteState() at render time.
+ */
+async function evaluatePDILForEvent(athleteId: string, event: AthleteEvent): Promise<void> {
+  const db = supabaseAdmin();
+
+  // Read the freshly-written snapshot
+  const snapshot = await readSnapshot(athleteId, 'ATHLETE');
+  if (!snapshot) return; // No snapshot = new athlete, nothing to evaluate yet
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // Parallel: fetch today's vitals, upcoming events, recent load
+  const [vitalsResult, eventsResult, loadResult] = await Promise.allSettled([
+    // Today's resolved vitals
+    (db as any)
+      .from('athlete_daily_vitals')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .eq('vitals_date', today)
+      .single(),
+
+    // Upcoming 14 days of events (for days_to_exam, has_match_today, etc.)
+    (() => {
+      const forward = new Date();
+      forward.setDate(forward.getDate() + 14);
+      return db
+        .from('calendar_events')
+        .select('*')
+        .eq('athlete_id', athleteId)
+        .gte('start_at', `${today}T00:00:00`)
+        .lte('start_at', forward.toISOString());
+    })(),
+
+    // 28 days of daily load (for ACWR trend, load_trend_7d)
+    (() => {
+      const loadFrom = new Date();
+      loadFrom.setDate(loadFrom.getDate() - 28);
+      return db
+        .from('athlete_daily_load')
+        .select('*')
+        .eq('athlete_id', athleteId)
+        .gte('load_date', loadFrom.toISOString().split('T')[0]);
+    })(),
+  ]);
+
+  const todayVitals = vitalsResult.status === 'fulfilled' ? vitalsResult.value.data : null;
+  const upcomingEvents = eventsResult.status === 'fulfilled' ? (eventsResult.value.data ?? []) : [];
+  const recentDailyLoad = loadResult.status === 'fulfilled' ? (loadResult.value.data ?? []) : [];
+
+  await evaluatePDProtocols({
+    snapshot: snapshot as Record<string, unknown>,
+    todayVitals,
+    upcomingEvents: upcomingEvents as any[],
+    recentDailyLoad: recentDailyLoad as any[],
+    trigger: 'event',
+    sourceEventId: event.event_id,
+  });
 }

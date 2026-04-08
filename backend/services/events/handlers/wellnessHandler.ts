@@ -8,6 +8,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { calculateReadiness } from '@/services/readinessCalculator';
 import { recomputeWellnessTrend } from '../computations/wellnessTrend';
+import { upsertDailyVitals } from '../aggregations/dailyVitalsWriter';
 import type { AthleteEvent, WellnessCheckinPayload } from '../types';
 import { readinessToRag } from '../constants';
 
@@ -53,6 +54,23 @@ export async function handleWellnessCheckin(event: AthleteEvent): Promise<void> 
 
   // 4. Recompute wellness trend
   await recomputeWellnessTrend(event.athlete_id);
+
+  // 5. Write to unified daily vitals (source-priority-resolved)
+  const eventDate = event.occurred_at
+    ? new Date(event.occurred_at).toISOString().slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+
+  upsertDailyVitals(event.athlete_id, eventDate, {
+    source:           'checkin',
+    energy:           payload.energy,
+    soreness:         payload.soreness,
+    mood:             payload.mood,
+    academic_stress:  payload.academic_stress ?? undefined,
+    pain_flag:        payload.pain_flag,
+    sleep_hours:      payload.sleep_hours,
+    readiness_score:  score,
+    readiness_rag:    readinessToRag(readinessResult.readiness),
+  }).catch(err => console.error('[WellnessHandler] dailyVitals write failed:', err));
 }
 
 /**

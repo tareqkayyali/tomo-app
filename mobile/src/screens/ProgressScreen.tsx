@@ -60,7 +60,7 @@ import { CoachNote, TomoButton } from '../components/tomo-ui';
 
 type ProgressScreenProps = {
   navigation: CompositeNavigationProp<
-    BottomTabNavigationProp<MainTabParamList, 'Progress'>,
+    BottomTabNavigationProp<MainTabParamList, 'Dashboard'>,
     NativeStackNavigationProp<MainStackParamList>
   >;
   /** When provided, shows another player's progress in read-only mode */
@@ -197,7 +197,7 @@ export function ProgressScreen({
   // Navigate to My Metrics (Output tab) to record tests
   const goToMyMetrics = useCallback(() => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('Test' as any, { initialTab: 'metrics' });
+    navigation.navigate('Dashboard' as any);
   }, [navigation]);
 
   // QuickAccessBar actions — page-specific + favorites + more

@@ -6,7 +6,7 @@
  *   1. Not authenticated → AuthNavigator (Login/Signup)
  *   2. Authenticated but !onboardingComplete → OnboardingScreen
  *   3. Authenticated + onboardingComplete →
- *      - role === 'player' → MainNavigator (5-tab player experience)
+ *      - role === 'player' → MainNavigator (3-tab player experience)
  *      - role === 'coach'  → CoachNavigator (3-tab coach portal)
  *      - role === 'parent' → ParentNavigator (3-tab parent portal)
  *
@@ -50,10 +50,8 @@ const linking: any = {
           MainTabs: {
             screens: {
               Plan: 'timeline',
-              Test: 'output',
               Chat: 'chat',
-              Progress: 'mastery',
-              ForYou: 'own-it',
+              Dashboard: 'dashboard',
             },
           },
           Checkin: 'checkin',

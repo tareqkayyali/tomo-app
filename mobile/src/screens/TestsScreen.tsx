@@ -58,10 +58,10 @@ import { usePageConfig } from '../hooks/usePageConfig';
 
 type TestsScreenProps = {
   navigation: CompositeNavigationProp<
-    BottomTabNavigationProp<MainTabParamList, 'Test'>,
+    BottomTabNavigationProp<MainTabParamList, 'Dashboard'>,
     NativeStackNavigationProp<MainStackParamList>
   >;
-  route: RouteProp<MainTabParamList, 'Test'>;
+  route: any;
 };
 
 type Tab = 'vitals' | 'metrics' | 'programs';

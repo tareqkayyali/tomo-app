@@ -19,6 +19,9 @@ import { getUnreadCount } from "@/services/notifications/notificationEngine";
 import {
   getDayBoundsISO,
 } from "@/services/agents/contextBuilder";
+import { evaluatePDProtocols } from "@/services/pdil";
+import { evaluateSignal } from "@/services/signals";
+import type { RecentVitalEntry, YesterdayVitals } from "@/services/signals";
 
 export async function GET(request: NextRequest) {
   try {
@@ -63,6 +66,8 @@ export async function GET(request: NextRequest) {
       currentActiveRes,
       schedulePrefsRes,
       whoopSleepRes,
+      recentVitalsRes,
+      yesterdayVitalsRes,
     ] = await Promise.allSettled([
       // 1. User profile
       (db as any)
@@ -149,6 +154,23 @@ export async function GET(request: NextRequest) {
         .order("date", { ascending: false })
         .limit(1)
         .maybeSingle(),
+
+      // 13. Recent vitals (7 days) — for Dashboard signal sparklines + sleep debt
+      (db as any)
+        .from("checkins")
+        .select("date, sleep_hours, mood, energy, soreness")
+        .eq("user_id", userId)
+        .gte("date", new Date(now.getTime() - 7 * 86400000).toLocaleDateString("en-CA", { timeZone: tz }))
+        .order("date", { ascending: false })
+        .limit(7),
+
+      // 14. Yesterday's checkin — for Dashboard signal delta calculations
+      (db as any)
+        .from("checkins")
+        .select("sleep_hours, mood, energy, soreness")
+        .eq("user_id", userId)
+        .eq("date", yesterday)
+        .maybeSingle(),
     ]);
 
     // ── Extract results with graceful fallbacks ──
@@ -165,6 +187,28 @@ export async function GET(request: NextRequest) {
     const schedulePrefs = schedulePrefsRes.status === "fulfilled" ? schedulePrefsRes.value?.data ?? null : null;
     // Prefer Whoop sleep_hours over manual check-in value (more accurate wearable data)
     const whoopSleep = whoopSleepRes.status === "fulfilled" ? (whoopSleepRes.value as any)?.data ?? null : null;
+
+    // Recent vitals (7 days) for Dashboard signal sparklines
+    const recentVitalsRaw = recentVitalsRes.status === "fulfilled" ? (recentVitalsRes.value as any)?.data ?? [] : [];
+    const recentVitals: RecentVitalEntry[] = recentVitalsRaw.map((v: any) => ({
+      date:           v.date,
+      sleep_hours:    v.sleep_hours ?? null,
+      hrv_morning_ms: null,  // Not in checkins — will be enriched from health_data if available
+      energy:         v.energy ?? null,
+      soreness:       v.soreness ?? null,
+      mood:           v.mood ?? null,
+    }));
+
+    // Yesterday's vitals for signal delta calculations
+    const yesterdayRaw = yesterdayVitalsRes.status === "fulfilled" ? (yesterdayVitalsRes.value as any)?.data ?? null : null;
+    const yesterdayVitals: YesterdayVitals | null = yesterdayRaw ? {
+      readiness_score: null,  // Computed field, not in raw checkin
+      soreness:        yesterdayRaw.soreness ?? null,
+      hrv_morning_ms:  null,  // Not in checkins
+      sleep_hours:     yesterdayRaw.sleep_hours ?? null,
+      energy:          yesterdayRaw.energy ?? null,
+      mood:            yesterdayRaw.mood ?? null,
+    } : null;
 
     // Pick the most recent non-sleep event that is still ongoing (end_at >= now, or no end_at)
     const currentActiveNonSleep = recentEvents.find((e: any) =>
@@ -207,6 +251,92 @@ export async function GET(request: NextRequest) {
         end_at: endISO,
         intensity: null,
       };
+    }
+
+    // ── PDIL + Signal shared data ──
+    // Hoisted so both PDIL and Signal evaluation can access them.
+    let pdVitals: any = null;
+    let pdLoad: any[] = [];
+
+    // ── PDIL Evaluation — Performance Director Intelligence Layer ──
+    // Runs the PD's protocol engine against the athlete's current state.
+    // Returns PDContext: training modifiers, rec guardrails, RAG overrides, AI context.
+    let pdContext = null;
+    try {
+      if (snapshot) {
+        // Gather minimal context for PDIL evaluation
+        const loadFrom = new Date(now.getTime() - 28 * 86400000);
+        const [pdVitalsRes, pdLoadRes] = await Promise.allSettled([
+          (db as any)
+            .from('athlete_daily_vitals')
+            .select('*')
+            .eq('athlete_id', userId)
+            .eq('vitals_date', today)
+            .single(),
+          db
+            .from('athlete_daily_load')
+            .select('*')
+            .eq('athlete_id', userId)
+            .gte('load_date', loadFrom.toISOString().split('T')[0]),
+        ]);
+
+        pdVitals = pdVitalsRes.status === 'fulfilled' ? pdVitalsRes.value?.data : null;
+        pdLoad = pdLoadRes.status === 'fulfilled' ? (pdLoadRes.value?.data ?? []) : [];
+
+        // Combine today + upcoming events already fetched
+        const allUpcoming = [
+          ...todayEvents,
+          ...(examsRes.status === 'fulfilled' ? examsRes.value?.data ?? [] : []),
+        ];
+
+        pdContext = await evaluatePDProtocols({
+          snapshot: snapshot as Record<string, unknown>,
+          todayVitals: pdVitals,
+          upcomingEvents: allUpcoming as any[],
+          recentDailyLoad: pdLoad as any[],
+          trigger: 'boot',
+        });
+      }
+    } catch (err) {
+      console.warn('[boot] PDIL evaluation failed, continuing without:', err);
+      // pdContext stays null — frontend uses defaults
+    }
+
+    // ── Signal Evaluation — Dashboard Signal Layer ──
+    // Runs after PDIL. Uses same input data + recentVitals + yesterdayVitals.
+    // Returns SignalContext for Dashboard rendering (display-ready).
+    let signalContext = null;
+    try {
+      if (snapshot) {
+        // Merge pdVitals + checkin data for signal evaluation
+        const signalVitals = {
+          ...(pdVitals ?? {}),
+          readiness_score: (snapshot as any)?.readiness_score,
+          readiness_rag: (snapshot as any)?.readiness_rag,
+          energy: latestCheckin?.energy,
+          soreness: latestCheckin?.soreness,
+          mood: latestCheckin?.mood,
+          sleep_hours: whoopSleep?.value ?? latestCheckin?.sleep_hours,
+          academic_stress: latestCheckin?.academic_stress,
+        };
+
+        signalContext = await evaluateSignal({
+          snapshot: snapshot as Record<string, unknown>,
+          todayVitals: signalVitals,
+          upcomingEvents: [
+            ...todayEvents,
+            ...(examsRes.status === 'fulfilled' ? examsRes.value?.data ?? [] : []),
+          ] as any[],
+          recentDailyLoad: pdLoad,
+          trigger: 'boot',
+          recentVitals,
+          yesterdayVitals,
+          trainingModifiers: pdContext?.trainingModifiers ?? null,
+        });
+      }
+    } catch (err) {
+      console.warn('[boot] Signal evaluation failed, continuing without:', err);
+      // signalContext stays null — Dashboard shows neutral state
     }
 
     // ── Shape response ──
@@ -303,6 +433,37 @@ export async function GET(request: NextRequest) {
 
       tomoIntelligenceScore: (snapshot as any)?.tomo_intelligence_score ?? null,
       adaptationCoefficient: (snapshot as any)?.adaptation_coefficient ?? null,
+
+      // ── PDIL: Performance Director Intelligence Layer ──
+      // Contains training modifiers (load cap, intensity cap, contraindications),
+      // recommendation guardrails, and active protocol metadata.
+      // Frontend uses this to enforce PD decisions across all screens.
+      pdContext: pdContext ? {
+        trainingModifiers: pdContext.trainingModifiers,
+        recGuardrails: pdContext.recGuardrails,
+        activeProtocols: pdContext.activeProtocols.map((p: any) => ({
+          name: p.name,
+          category: p.category,
+          priority: p.priority,
+          safety_critical: p.safety_critical,
+        })),
+        protocolsEvaluated: pdContext.auditTrail.length,
+        protocolsFired: pdContext.activeProtocols.length,
+      } : null,
+
+      // ── Signal Layer: Dashboard Signal Context ──
+      // Display-ready signal for the Dashboard hero section.
+      // Contains visual config, coaching text, pills, trigger rows, adapted plan.
+      // null when no signal conditions match (Dashboard shows neutral state).
+      signalContext,
+
+      // ── Recent Vitals (7 days) ──
+      // For Dashboard sparklines, sleep bars, and trend calculations.
+      recentVitals,
+
+      // ── Yesterday's Vitals ──
+      // For Dashboard delta calculations in trigger rows.
+      yesterdayVitals,
 
       fetchedAt: new Date().toISOString(),
     };

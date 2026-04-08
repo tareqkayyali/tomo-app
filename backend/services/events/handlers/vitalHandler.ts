@@ -7,6 +7,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { upsertDailyVitals } from '../aggregations/dailyVitalsWriter';
 import type { AthleteEvent, VitalReadingPayload, SleepRecordPayload } from '../types';
 
 /**
@@ -57,6 +58,16 @@ export async function handleVitalReading(event: AthleteEvent): Promise<void> {
     writes.push(writeHealthData(db, event.athlete_id, eventDate, 'body_temp', payload.skin_temp_celsius, '°C', 'wearable'));
   }
   await Promise.allSettled(writes);
+
+  // Write to unified daily vitals (wearable = highest priority source)
+  const wearableSource = payload.wearable_device?.toLowerCase() ?? 'wearable';
+  upsertDailyVitals(event.athlete_id, eventDate, {
+    source:           wearableSource,
+    hrv_morning_ms:   payload.hrv_ms,
+    resting_hr_bpm:   payload.resting_hr_bpm,
+    spo2_percent:     payload.spo2_percent,
+    recovery_score:   (payload as any).recovery_score,
+  }).catch(err => console.error('[VitalHandler] dailyVitals write failed:', err));
 
   // Update snapshot with latest HRV/HR values whenever available
   // Also compute baseline from 28-day window for morning readings
@@ -134,6 +145,15 @@ export async function handleSleepRecord(event: AthleteEvent): Promise<void> {
     writes.push(writeHealthData(db, event.athlete_id, eventDate, 'sleep_hours', payload.sleep_duration_hours, 'hrs', 'wearable'));
   }
   await Promise.allSettled(writes);
+
+  // Write to unified daily vitals (wearable sleep = highest priority)
+  upsertDailyVitals(event.athlete_id, eventDate, {
+    source:        'wearable',
+    sleep_hours:   payload.sleep_duration_hours,
+    sleep_quality: payload.sleep_quality_score ?? undefined,
+    deep_sleep_min: payload.deep_sleep_min,
+    rem_sleep_min:  payload.rem_sleep_min,
+  }).catch(err => console.error('[VitalHandler] dailyVitals sleep write failed:', err));
 
   // Update snapshot
   if (payload.sleep_quality_score != null) {

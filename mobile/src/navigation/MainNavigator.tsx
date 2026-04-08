@@ -1,18 +1,16 @@
 /**
- * Main Navigator — 5-tab bottom navigation (v2 Premium)
+ * Main Navigator — 3-tab bottom navigation (v2 Premium)
  *
  * Tabs:
- *   Plan | Test | Chat (CENTER RAISED, tomo logo) | Progress | For You
+ *   Timeline | Chat (CENTER RAISED, tomo logo) | Dashboard
  *
  * Profile removed from tabs → accessible via HeaderProfileButton (top-right)
  *
  * Center Chat tab:
  *   - Oversized, raised above tab bar
- *   - Rounded-square with orange→cyan gradient
+ *   - Rounded-square with gradient
  *   - tomo logo icon
  *   - Subtle glow shadow
- *
- * Loop Indicator: 4-step daily progress (Plan → Test → Progress → For You)
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -35,10 +33,8 @@ import Animated, {
 
 // Screens — Tabs
 import { HomeScreen } from '../screens/HomeScreen';
-import { ProgressScreen } from '../screens/ProgressScreen';
-import { TestsScreen } from '../screens/TestsScreen';
 import { TrainingScreen } from '../screens/TrainingScreen';
-import { ForYouScreen } from '../screens/ForYouScreen';
+import { SignalDashboardScreen } from '../screens/SignalDashboardScreen';
 
 // Screens — Stack
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -78,7 +74,7 @@ import { TomoIcon } from '../components/tomo-ui';
 import { fontFamily } from '../theme/typography';
 import { useAuth } from '../hooks/useAuth';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
-import { NotificationsProvider, useNotifications } from '../hooks/useNotifications';
+import { NotificationsProvider } from '../hooks/useNotifications';
 import { SubTabProvider, useSubTabs } from '../hooks/useSubTabContext';
 
 import type { MainTabParamList, MainStackParamList } from './types';
@@ -95,27 +91,21 @@ type TabName = keyof MainTabParamList;
 
 const TAB_ICONS_IONICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
   Plan: 'calendar-outline',
-  Test: 'flash-outline',
   Chat: 'chatbubble-outline',
-  Progress: 'bar-chart-outline',
-  ForYou: 'star-outline',
+  Dashboard: 'grid-outline',
 };
 
 /** Circle Grammar icon names for the tab bar (resolves via ARC_ICON_MAP) */
 const TAB_ICONS: Record<TabName, string> = {
   Plan: 'timeline',
-  Test: 'train',
   Chat: 'tomo',
-  Progress: 'trend',
-  ForYou: 'readiness',
+  Dashboard: 'trend',
 };
 
 const TAB_LABELS: Record<TabName, string> = {
   Plan: 'Timeline',
-  Test: 'Data',
   Chat: 'Chat',
-  Progress: 'Progress',
-  ForYou: 'Daily',
+  Dashboard: 'Dashboard',
 };
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -228,7 +218,6 @@ function CenterChatButton({
 
 function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
   const { colors } = useTheme();
-  const { pendingDrillNotifs } = useNotifications();
 
   return (
     <View style={[styles.tabBar, { backgroundColor: colors.navBackground, borderTopColor: colors.border }]}>
@@ -265,11 +254,6 @@ function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
             <Text style={[styles.tabLabel, { color: isFocused ? colors.electricGreen : colors.textSecondary }]}>
               {TAB_LABELS[tabName]}
             </Text>
-            {tabName === 'ForYou' && pendingDrillNotifs.length > 0 && (
-              <View style={[styles.tabBadge, { backgroundColor: colors.accent1 }]}>
-                <Text style={styles.tabBadgeText}>{pendingDrillNotifs.length}</Text>
-              </View>
-            )}
           </Pressable>
         );
       })}
@@ -279,7 +263,7 @@ function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
 
 // ── Tab Navigator ───────────────────────────────────────────────────
 
-const TAB_ORDER = ['Plan', 'Test', 'Chat', 'Progress', 'ForYou'] as const;
+const TAB_ORDER = ['Plan', 'Chat', 'Dashboard'] as const;
 
 function TabNavigator() {
   const { colors } = useTheme();
@@ -312,10 +296,8 @@ function TabNavigator() {
       }}
     >
       <Tab.Screen name="Plan" component={TrainingScreen} />
-      <Tab.Screen name="Test" component={TestsScreen} />
       <Tab.Screen name="Chat" component={HomeScreen} />
-      <Tab.Screen name="Progress" component={ProgressScreen} />
-      <Tab.Screen name="ForYou" component={ForYouScreen} />
+      <Tab.Screen name="Dashboard" component={SignalDashboardScreen} />
     </Tab.Navigator>
   );
 }
@@ -569,23 +551,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     marginTop: 2,
   },
-  tabBadge: {
-    position: 'absolute',
-    top: 0,
-    right: '25%',
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  tabBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-
   // ── Center Chat Button (Tomo Logo) ───────────────────────────────
   centerButtonWrap: {
     top: -20,

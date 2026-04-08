@@ -36,7 +36,7 @@ import type { MainTabParamList, MainStackParamList } from '../../navigation/type
 // ═══ TYPES ═══
 
 type TestsNavigationProp = CompositeNavigationProp<
-  BottomTabNavigationProp<MainTabParamList, 'Test'>,
+  BottomTabNavigationProp<MainTabParamList, 'Dashboard'>,
   NativeStackNavigationProp<MainStackParamList>
 >;
 

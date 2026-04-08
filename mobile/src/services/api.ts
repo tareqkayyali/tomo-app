@@ -201,6 +201,31 @@ export interface BootData {
   } | null;
   tomoIntelligenceScore: number | null;
   adaptationCoefficient: number | null;
+
+  // ── Signal Layer (Dashboard) ──
+  signalContext: {
+    key: string;
+    displayName: string;
+    subtitle: string;
+    color: string;
+    heroBackground: string;
+    arcOpacity: { large: number; medium: number; small: number };
+    pillBackground: string;
+    barRgba: string;
+    coachingColor: string;
+    pills: { label: string; subLabel: string }[];
+    coaching: string;
+    triggerRows: { metric: string; value: string; baseline: string; delta: string; isPositive: boolean }[];
+    adaptedPlan: { sessionName: string; sessionMeta: string } | null;
+    showUrgencyBadge: boolean;
+    urgencyLabel: string | null;
+    signalId: string;
+    priority: number;
+    evaluatedAt: string;
+  } | null;
+  recentVitals: { date: string; sleep_hours: number | null; hrv_morning_ms: number | null; energy: number | null; soreness: number | null; mood: number | null }[];
+  yesterdayVitals: { readiness_score: number | null; soreness: number | null; hrv_morning_ms: number | null; sleep_hours: number | null; energy: number | null; mood: number | null } | null;
+
   fetchedAt: string;
 }
 

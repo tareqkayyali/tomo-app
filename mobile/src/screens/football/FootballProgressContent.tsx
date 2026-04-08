@@ -179,8 +179,8 @@ export function FootballProgressContent({
     return (
       <EmptyProgressState
         sport="football"
-        onLogSession={() => navigation.navigate('Test' as any)}
-        onTakeTest={() => navigation.navigate('Test' as any)}
+        onLogSession={() => navigation.navigate('Dashboard' as any)}
+        onTakeTest={() => navigation.navigate('Dashboard' as any)}
       />
     );
   }

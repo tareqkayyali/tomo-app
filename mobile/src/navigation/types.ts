@@ -1,8 +1,8 @@
 /**
  * Navigation Types for Tomo v2
  *
- * 5-tab layout:
- * Plan | Test | Chat (center, raised, tomo logo) | Progress | For You
+ * 3-tab layout:
+ * Timeline | Chat (center, raised, tomo logo) | Dashboard
  *
  * Profile removed from tabs → accessible via header icon on every screen.
  */
@@ -15,10 +15,8 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Plan: undefined;
-  Test: { initialTab?: 'vitals' | 'metrics' | 'programs' } | undefined;
   Chat: { prefillMessage?: string; autoSend?: boolean } | undefined;
-  Progress: undefined;
-  ForYou: undefined;
+  Dashboard: undefined;
 };
 
 export type MainStackParamList = {

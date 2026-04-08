@@ -54,6 +54,15 @@ const navigation = [
     ],
   },
   {
+    label: "Performance Director",
+    items: [
+      { name: "Protocols", href: "/admin/protocols", icon: "🛡️" },
+      { name: "Dashboard Signals", href: "/admin/signals", icon: "📡" },
+      { name: "Test Simulator", href: "/admin/protocols/test", icon: "🧪" },
+      { name: "Audit Log", href: "/admin/protocols/audit", icon: "📜" },
+    ],
+  },
+  {
     label: "AI & Recommendations",
     items: [
       { name: "Performance Intelligence", href: "/admin/performance-intelligence", icon: "🧪" },

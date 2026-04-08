@@ -121,16 +121,16 @@ export function NotificationsScreen() {
     // Deep navigation by notification type
     switch (notif.type) {
       case 'test_result_added':
-        // Coach submitted a test → go to Output tab → My Metrics
-        (navigation as any).navigate('Test', { initialTab: 'metrics' });
+        // Coach submitted a test → go to Dashboard
+        (navigation as any).navigate('Dashboard');
         break;
 
       case 'suggestion_received': {
         // Coach assigned a program or study block
         const payload = notif.data as Record<string, unknown>;
         if (payload?.type === 'program' || payload?.programmeId) {
-          // Program → go to Output tab → My Programs
-          (navigation as any).navigate('Test', { initialTab: 'programs' });
+          // Program → go to Dashboard
+          (navigation as any).navigate('Dashboard');
         } else {
           // Study block or other suggestion → go to Timeline
           (navigation as any).navigate('Plan');
