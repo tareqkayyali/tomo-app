@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 9,
     letterSpacing: 2,
-    color: 'rgba(255,255,255,0.18)',
+    color: 'rgba(255,255,255,0.35)',
     textTransform: 'uppercase',
     marginBottom: 7,
   },
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   baseline: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: '#4A5E50',
+    color: 'rgba(255,255,255,0.40)',
     marginTop: 1,
   },
   rightBlock: {

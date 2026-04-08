@@ -119,7 +119,7 @@ export function QuickAccessRow({
             </Text>
           </View>
         )}
-        <Text style={[styles.dateText, { color: `${signalColor}59` }]}>
+        <Text style={[styles.dateText, { color: 'rgba(255,255,255,0.40)' }]}>
           {formatDate()}
         </Text>
       </View>

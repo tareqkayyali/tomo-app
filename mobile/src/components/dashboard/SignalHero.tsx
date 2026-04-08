@@ -1,8 +1,9 @@
 /**
  * SignalHero — The hero section of the Dashboard.
  *
- * Renders: QuickAccessRow, SignalArcIcon + name, SignalPillRow, CoachingCallout.
- * Background color shifts based on the active signal.
+ * Compact layout: Arc icon left-aligned with signal name inline.
+ * No full-width background overlay — just the arc icon gets color.
+ * Clean, minimal, dark theme with signal color accents only.
  */
 
 import React from 'react';
@@ -36,7 +37,7 @@ interface SignalHeroProps {
 
 export function SignalHero({ signal, activePanel, onPanelPress }: SignalHeroProps) {
   return (
-    <View style={[styles.container, { backgroundColor: signal.heroBackground }]}>
+    <View style={styles.container}>
       {/* Quick access pills + date */}
       <QuickAccessRow
         activePanel={activePanel}
@@ -46,17 +47,19 @@ export function SignalHero({ signal, activePanel, onPanelPress }: SignalHeroProp
         urgencyLabel={signal.urgencyLabel}
       />
 
-      {/* Arc icon + signal name */}
-      <View style={styles.arcRow}>
-        <SignalArcIcon
-          color={signal.color}
-          arcOpacity={signal.arcOpacity}
-        />
+      {/* Arc icon + signal name — compact inline layout */}
+      <View style={styles.signalRow}>
+        <View style={styles.arcContainer}>
+          <SignalArcIcon
+            color={signal.color}
+            arcOpacity={signal.arcOpacity}
+          />
+        </View>
         <View style={styles.nameBlock}>
           <Text style={[styles.signalName, { color: signal.color }]}>
             {signal.displayName}
           </Text>
-          <Text style={[styles.subtitle, { color: signal.color + '88' }]}>
+          <Text style={styles.subtitle}>
             {signal.subtitle}
           </Text>
         </View>
@@ -85,26 +88,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 14,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(122,155,118,0.12)',
+    // No full-width hero background — stays on page bg
   },
-  arcRow: {
+  signalRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 16,
+    alignItems: 'center',
+    gap: 14,
     marginBottom: 12,
+  },
+  arcContainer: {
+    // Arc icon only gets the signal tint — no background overlay
   },
   nameBlock: {
     flex: 1,
   },
   signalName: {
     fontFamily: fontFamily.bold,
-    fontSize: 25,
+    fontSize: 24,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontFamily: fontFamily.regular,
-    fontSize: 10,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.45)',
     marginTop: 2,
   },
 });

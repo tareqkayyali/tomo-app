@@ -48,12 +48,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fontFamily.semiBold,
-    fontSize: 8,
+    fontSize: 9,
     letterSpacing: 1,
   },
   subLabel: {
     fontFamily: fontFamily.regular,
     fontSize: 8,
-    color: 'rgba(255,255,255,0.28)',
+    color: 'rgba(255,255,255,0.42)',
   },
 });

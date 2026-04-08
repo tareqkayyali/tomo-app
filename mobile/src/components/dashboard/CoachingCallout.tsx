@@ -2,6 +2,7 @@
  * CoachingCallout — AI coaching text with left accent bar.
  *
  * "tomo ai" eyebrow + coaching text interpolated from signal context.
+ * Text colors bumped for readability on dark bg.
  */
 
 import React from 'react';
@@ -18,8 +19,8 @@ interface CoachingCalloutProps {
 export function CoachingCallout({ coaching, barColor, coachingColor, signalColor }: CoachingCalloutProps) {
   return (
     <View style={[styles.container, { borderLeftColor: barColor }]}>
-      <Text style={[styles.eyebrow, { color: signalColor + '80' }]}>TOMO AI</Text>
-      <Text style={[styles.text, { color: coachingColor }]}>{coaching}</Text>
+      <Text style={[styles.eyebrow, { color: signalColor }]}>TOMO AI</Text>
+      <Text style={styles.text}>{coaching}</Text>
     </View>
   );
 }
@@ -35,10 +36,12 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     textTransform: 'uppercase',
     marginBottom: 3,
+    opacity: 0.7,
   },
   text: {
     fontFamily: fontFamily.regular,
-    fontSize: 11,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 19,
+    color: 'rgba(255,255,255,0.72)',  // Bumped from coachingColor for readability
   },
 });

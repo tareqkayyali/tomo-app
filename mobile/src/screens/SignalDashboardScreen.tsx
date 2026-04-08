@@ -1,19 +1,12 @@
 /**
  * Signal Dashboard Screen — Signal-First Daily Command Centre
  *
- * Tomo's core product differentiator. Instead of raw numbers (WHOOP: "72/100"),
- * the Dashboard synthesises 2–5 metrics into a single named signal (e.g. "PRIMED")
- * with plain-English coaching and an adapted training plan.
- *
- * ── ARCHITECTURE ──
- * Pure renderer — receives SignalContext from boot endpoint, renders it.
- * Zero decision-making on the client. The PD controls everything via CMS.
- *
  * ── SECTIONS ──
- * 1. SignalHero — Arc icon, signal name, pills, coaching
- * 2. Today's Plan — Adapted session card
- * 3. Signal Triggers — "What triggered this signal" rows
- * 4. Slide-up Panels — Program, Metrics, Progress (overlays)
+ * 1. SignalHero — Arc icon (left), signal name, pills, coaching
+ * 2. Daily Recs — Expandable RIE recommendation cards (diverse types)
+ * 3. Today's Plan — Timeline activities for the day
+ * 4. Signal Triggers — "What triggered this signal" rows
+ * 5. Slide-up Panels — Program, Metrics, Progress (overlays)
  */
 
 import React, { useState, useCallback } from 'react';
@@ -64,6 +57,24 @@ const NEUTRAL_SIGNAL = {
   evaluatedAt: new Date().toISOString(),
 };
 
+// Event type → display label mapping
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  training: 'Training',
+  match: 'Match',
+  gym: 'Gym',
+  recovery: 'Recovery',
+  study: 'Study',
+  exam: 'Exam',
+  sleep: 'Sleep',
+  club: 'Club Session',
+  personal: 'Personal',
+};
+
+function formatEventTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
 export function SignalDashboardScreen() {
   const { colors } = useTheme();
   const { profile } = useAuth();
@@ -74,21 +85,20 @@ export function SignalDashboardScreen() {
 
   const [activePanel, setActivePanel] = useState<PanelId>(null);
 
-  // Refresh boot data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       refreshBoot();
     }, [refreshBoot])
   );
 
-  // Extract signal context from boot data (or use neutral fallback)
   const signal = bootData?.signalContext ?? NEUTRAL_SIGNAL;
   const recentVitals = bootData?.recentVitals ?? [];
+  const todayEvents = bootData?.todayEvents ?? [];
 
   // Loading state
   if (isBootLoading && !bootData) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: '#0F1219' }]} edges={['top']}>
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Dashboard</Text>
           <View style={styles.headerRight}>
@@ -98,7 +108,7 @@ export function SignalDashboardScreen() {
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.accent} size="small" />
-          <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading your signal...</Text>
+          <Text style={styles.loadingText}>Loading your signal...</Text>
         </View>
       </SafeAreaView>
     );
@@ -106,8 +116,8 @@ export function SignalDashboardScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: '#0F1219' }]} edges={['top']}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: signal.heroBackground }]}>
+      {/* Header — consistent dark bg, no hero tint */}
+      <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Dashboard</Text>
         <View style={styles.headerRight}>
           <CheckinHeaderButton
@@ -119,51 +129,90 @@ export function SignalDashboardScreen() {
         </View>
       </View>
 
-      {/* Main Content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Signal Hero */}
+        {/* Signal Hero — compact, no full-width bg overlay */}
         <SignalHero
           signal={signal}
           activePanel={activePanel}
           onPanelPress={setActivePanel}
         />
 
-        {/* Daily Recommendations from RIE */}
+        {/* Daily Recommendations from RIE — diverse, expandable */}
         <DailyRecommendations
           recs={bootData?.dashboardRecs ?? []}
           signalColor={signal.color}
         />
 
-        {/* Today's Plan */}
+        {/* Today's Plan — shows actual Timeline activities */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>TODAY&apos;S PLAN</Text>
-          {signal.adaptedPlan ? (
+
+          {/* Adapted session from signal (if signal overrides) */}
+          {signal.adaptedPlan && (
             <TodaysPlanCard
               sessionName={signal.adaptedPlan.sessionName}
               sessionMeta={signal.adaptedPlan.sessionMeta}
               signalColor={signal.color}
             />
-          ) : (
-            <View style={styles.emptyPlan}>
-              <Text style={styles.emptyPlanText}>
-                No session scheduled. Complete a check-in to see your adapted plan.
-              </Text>
-            </View>
           )}
 
-          {/* Signal Triggers */}
-          <SignalTriggerSection
-            triggerRows={signal.triggerRows}
-            signalColor={signal.color}
-          />
+          {/* Timeline events for today */}
+          {todayEvents.length > 0 ? (
+            <View style={styles.timelineSection}>
+              {todayEvents.map((event: any, i: number) => (
+                <View
+                  key={event.id ?? i}
+                  style={[styles.timelineCard, i === 0 && !signal.adaptedPlan && styles.timelineCardFirst]}
+                >
+                  <View style={styles.timelineDot}>
+                    <View style={[styles.timelineDotInner, { backgroundColor: signal.color }]} />
+                  </View>
+                  <View style={styles.timelineContent}>
+                    <View style={styles.timelineHeader}>
+                      <Text style={styles.timelineTime}>
+                        {formatEventTime(event.startAt)}
+                      </Text>
+                      <View style={[styles.timelineTypeBadge, { backgroundColor: `${signal.color}18` }]}>
+                        <Text style={[styles.timelineTypeText, { color: signal.color }]}>
+                          {EVENT_TYPE_LABELS[event.type] ?? event.type}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.timelineTitle}>{event.title}</Text>
+                    {event.intensity && (
+                      <Text style={styles.timelineIntensity}>
+                        Intensity: {event.intensity}/10
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : !signal.adaptedPlan ? (
+            <View style={styles.emptyPlan}>
+              <Text style={styles.emptyPlanText}>
+                No activities scheduled today. Check in to see your adapted plan.
+              </Text>
+            </View>
+          ) : null}
         </View>
+
+        {/* Signal Triggers */}
+        {signal.triggerRows.length > 0 && (
+          <View style={styles.section}>
+            <SignalTriggerSection
+              triggerRows={signal.triggerRows}
+              signalColor={signal.color}
+            />
+          </View>
+        )}
       </ScrollView>
 
-      {/* Slide-up Panels (rendered above scroll, managed by z-index) */}
+      {/* Slide-up Panels */}
       <ProgramPanel
         isOpen={activePanel === 'training'}
         onClose={() => setActivePanel(null)}
@@ -223,9 +272,71 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 9,
     letterSpacing: 2,
-    color: 'rgba(255,255,255,0.18)',
+    color: 'rgba(255,255,255,0.35)',
     textTransform: 'uppercase',
     marginBottom: 7,
+  },
+  // Timeline events
+  timelineSection: {
+    gap: 0,
+  },
+  timelineCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  timelineCardFirst: {
+    // First card when no adapted plan — no extra styling needed
+  },
+  timelineDot: {
+    width: 24,
+    alignItems: 'center',
+    paddingTop: 3,
+    marginRight: 10,
+  },
+  timelineDotInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    opacity: 0.6,
+  },
+  timelineContent: {
+    flex: 1,
+  },
+  timelineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 3,
+  },
+  timelineTime: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.55)',
+  },
+  timelineTypeBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  timelineTypeText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  timelineTitle: {
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
+    color: '#E5EBE8',
+  },
+  timelineIntensity: {
+    fontFamily: fontFamily.regular,
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.35)',
+    marginTop: 2,
   },
   emptyPlan: {
     backgroundColor: '#1B1F2E',
@@ -237,8 +348,8 @@ const styles = StyleSheet.create({
   },
   emptyPlanText: {
     fontFamily: fontFamily.regular,
-    fontSize: 11,
-    color: '#4A5E50',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.35)',
     lineHeight: 18,
     textAlign: 'center',
   },
@@ -251,5 +362,6 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: fontFamily.regular,
     fontSize: 12,
+    color: 'rgba(255,255,255,0.40)',
   },
 });
