@@ -382,7 +382,11 @@ export async function buildPlayerContext(
         academicLoad7day: (snapshot.academic_load_7day as number) ?? null,
         dualLoadIndex: (snapshot.dual_load_index as number) ?? null,
         hrvBaselineMs: (snapshot.hrv_baseline_ms as number) ?? null,
-        hrvTodayMs: (snapshot.hrv_today_ms as number) ?? null,
+        // Prefer freshest health_data HRV over potentially-stale snapshot value
+        hrvTodayMs: (() => {
+          const freshHrv = vitals.find((v: any) => v.metric_type === "hrv");
+          return freshHrv ? Math.round(freshHrv.value * 10) / 10 : ((snapshot.hrv_today_ms as number) ?? null);
+        })(),
         sleepQuality: (snapshot.sleep_quality as number) ?? null,
         wellness7dayAvg: (snapshot.wellness_7day_avg as number) ?? null,
         wellnessTrend: (snapshot.wellness_trend as string) ?? null,

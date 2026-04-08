@@ -684,6 +684,14 @@ export async function GET(req: NextRequest) {
     const soreness = checkin?.soreness as number | null;
     const sleepCheckin = checkin?.sleep_hours as number | null;
 
+    // ── Load & readiness coherence from snapshot ──
+    const acwr = snapshot?.acwr as number | null;
+    const injuryRisk = snapshot?.injury_risk_flag as string | null;
+    const readinessRag = snapshot?.readiness_rag as string | null;
+    const loadDanger = (injuryRisk === "RED" || (acwr != null && acwr > 1.5));
+    const loadWarning = !loadDanger && (injuryRisk === "AMBER" || (acwr != null && acwr > 1.3));
+    const readinessLow = (readinessRag === "RED" || readinessRag === "AMBER");
+
     if (pResult) parts.push(pResult.zoneLabel);
 
     switch (metric) {
@@ -697,7 +705,14 @@ export async function GET(req: NextRequest) {
         if (soreness != null && soreness >= 4) {
           parts.push(`You reported high soreness (${soreness}/5) — lower HRV is expected.`);
         }
-        if (energy != null && energy <= 2) {
+        // ── Load-aware energy interpretation ──
+        if (loadDanger) {
+          parts.push(`Training load is high (ACWR ${acwr?.toFixed(1) ?? "elevated"}) — prioritize recovery, not intensity.`);
+        } else if (loadWarning) {
+          parts.push(`Load is building (ACWR ${acwr?.toFixed(1) ?? "rising"}) — ease into sessions carefully.`);
+        } else if (readinessLow) {
+          parts.push("Readiness is low today — consider a lighter session even if energy feels okay.");
+        } else if (energy != null && energy <= 2) {
           parts.push("Low energy today aligns with this reading. Consider a lighter session.");
         } else if (energy != null && energy >= 4) {
           parts.push("High energy today — your body is ready for a quality session.");
@@ -714,6 +729,9 @@ export async function GET(req: NextRequest) {
         if (soreness != null && soreness >= 4) {
           parts.push("High soreness can elevate resting HR. Prioritize recovery today.");
         }
+        if (loadDanger) {
+          parts.push("Training load is elevated — monitor resting HR closely for overtraining signs.");
+        }
         break;
       }
       case "sleep_hours": {
@@ -726,7 +744,9 @@ export async function GET(req: NextRequest) {
         if (sleepCheckin != null && Math.abs(value - sleepCheckin) > 1) {
           parts.push(`Your check-in reported ${sleepCheckin}h — wearable and feel may differ.`);
         }
-        if (energy != null && energy <= 2 && value >= 7) {
+        if (loadDanger && value < 8) {
+          parts.push("With high training load, aim for 8+ hours to support recovery.");
+        } else if (energy != null && energy <= 2 && value >= 7) {
           parts.push("Despite decent sleep, energy is low — watch for signs of overtraining.");
         }
         break;
@@ -747,7 +767,7 @@ export async function GET(req: NextRequest) {
       .maybeSingle(),
     (db as any)
       .from("athlete_snapshots")
-      .select("snapshot_at, last_checkin_at, hrv_recorded_at, sleep_recorded_at")
+      .select("snapshot_at, last_checkin_at, hrv_recorded_at, sleep_recorded_at, acwr, injury_risk_flag, readiness_rag, readiness_score, hrv_today_ms, hrv_baseline_ms")
       .eq("athlete_id", userId)
       .maybeSingle(),
     // Latest single readings for real-time block
@@ -771,6 +791,26 @@ export async function GET(req: NextRequest) {
   for (const v of latestVitalsRaw) {
     if (!latestByType.has(v.metric_type)) {
       latestByType.set(v.metric_type, { value: v.value, date: v.date, created_at: v.created_at });
+    }
+  }
+
+  // ── Opportunistic snapshot HRV sync ──
+  // If health_data has a fresher HRV than the snapshot, update snapshot in background
+  // so Chat and all other consumers see the same value.
+  const freshHrv = latestByType.get("hrv");
+  if (freshHrv && snapshotMeta) {
+    const freshVal = Math.round(freshHrv.value * 10) / 10;
+    const snapshotVal = snapshotMeta.hrv_today_ms as number | null;
+    if (snapshotVal == null || Math.abs(freshVal - snapshotVal) > 0.5) {
+      // Fire-and-forget — don't block the response
+      (db as any)
+        .from("athlete_snapshots")
+        .update({ hrv_today_ms: freshVal, snapshot_at: new Date().toISOString() })
+        .eq("athlete_id", userId)
+        .then(() => {})
+        .catch(() => {});
+      // Also update local reference so buildRichContextInsight sees fresh value
+      snapshotMeta.hrv_today_ms = freshVal;
     }
   }
 
