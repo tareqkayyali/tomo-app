@@ -35,11 +35,22 @@ interface RecommendedProgram {
   positionNote: string;
 }
 
+interface CoachProgramme {
+  id: string;
+  name: string;
+  description: string | null;
+  seasonCycle: string;
+  startDate: string;
+  weeks: number;
+  coachId: string;
+}
+
 interface ProgramPanelProps {
   isOpen: boolean;
   onClose: () => void;
   adaptedPlan: { sessionName: string; sessionMeta: string } | null;
   activePrograms?: { programId: string; startedAt: string; metadata: Record<string, unknown> }[];
+  coachProgrammes?: CoachProgramme[];
   recommendedPrograms?: RecommendedProgram[];
   signalColor: string;
 }
@@ -138,12 +149,15 @@ export function ProgramPanel({
   onClose,
   adaptedPlan,
   activePrograms,
+  coachProgrammes,
   recommendedPrograms,
   signalColor,
 }: ProgramPanelProps) {
   const programs = activePrograms ?? [];
+  const coachProgs = coachProgrammes ?? [];
   const recommended = recommendedPrograms ?? [];
   const hasPrograms = programs.length > 0;
+  const hasCoachProgs = coachProgs.length > 0;
   const hasRecs = recommended.length > 0;
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -244,6 +258,68 @@ export function ProgramPanel({
             No active programs yet. Check the AI recommendations below or browse all programs in Output.
           </Text>
         </View>
+      )}
+
+      {/* ── Coach-Assigned Programmes ── */}
+      {hasCoachProgs && (
+        <>
+          <Text style={styles.sectionTitle}>COACH PROGRAMMES</Text>
+          {coachProgs.map((prog) => {
+            const startDate = new Date(prog.startDate);
+            const weeksElapsed = Math.max(1, Math.ceil((Date.now() - startDate.getTime()) / (7 * 86400000)));
+            const progress = Math.min(weeksElapsed / prog.weeks, 1);
+
+            return (
+              <View key={prog.id} style={styles.activeProgramCard}>
+                <View style={[styles.activeProgramBar, { backgroundColor: '#9B6FC3' }]} />
+                <View style={styles.activeProgramContent}>
+                  <View style={styles.activeProgramHeader}>
+                    <Svg viewBox="0 0 24 24" width={14} height={14}>
+                      <Circle cx={12} cy={8} r={4} stroke="#9B6FC3" strokeWidth={1.5} fill="none" />
+                      <Path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" stroke="#9B6FC3" strokeWidth={1.5} fill="none" strokeLinecap="round" />
+                    </Svg>
+                    <Text style={styles.activeProgramName}>{prog.name}</Text>
+                  </View>
+                  <View style={styles.activeProgramMeta}>
+                    <View style={[styles.categoryBadge, { backgroundColor: 'rgba(155,111,195,0.15)' }]}>
+                      <Text style={[styles.categoryBadgeText, { color: '#9B6FC3' }]}>
+                        COACH ASSIGNED
+                      </Text>
+                    </View>
+                    <View style={[styles.categoryBadge, { backgroundColor: 'rgba(155,111,195,0.10)' }]}>
+                      <Text style={[styles.categoryBadgeText, { color: '#9B6FC3' }]}>
+                        {prog.seasonCycle.replace('_', ' ')}
+                      </Text>
+                    </View>
+                  </View>
+                  {prog.description && (
+                    <Text style={[styles.startedText, { marginTop: 4 }]} numberOfLines={2}>
+                      {prog.description}
+                    </Text>
+                  )}
+                  <View style={styles.progressSection}>
+                    <View style={styles.progressLabels}>
+                      <Text style={styles.progressLabel}>
+                        Week {Math.min(weeksElapsed, prog.weeks)} of {prog.weeks}
+                      </Text>
+                      <Text style={[styles.progressPercent, { color: '#9B6FC3' }]}>
+                        {Math.round(progress * 100)}%
+                      </Text>
+                    </View>
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          { width: `${progress * 100}%`, backgroundColor: '#9B6FC3' },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </>
       )}
 
       {/* ── AI Recommended Programs ── */}

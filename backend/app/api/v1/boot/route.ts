@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
       yesterdayVitalsRes,
       activeProgramsRes,
       programRecsRes,
+      coachProgrammesRes,
     ] = await Promise.allSettled([
       // 1. User profile
       (db as any)
@@ -189,6 +190,14 @@ export async function GET(request: NextRequest) {
         .select("program_recommendations")
         .eq("athlete_id", userId)
         .single(),
+
+      // 17. Coach-assigned programmes (published, targeting this player)
+      (db as any)
+        .from("coach_programmes")
+        .select("id, name, description, season_cycle, start_date, weeks, status, coach_id, target_type, target_positions, target_player_ids")
+        .eq("status", "published")
+        .order("start_date", { ascending: false })
+        .limit(10),
     ]);
 
     // ── Extract results with graceful fallbacks ──
@@ -207,6 +216,16 @@ export async function GET(request: NextRequest) {
     const whoopSleep = whoopSleepRes.status === "fulfilled" ? (whoopSleepRes.value as any)?.data ?? null : null;
     const activePrograms = activeProgramsRes.status === "fulfilled" ? (activeProgramsRes.value as any)?.data ?? [] : [];
     const cachedProgramRecs = programRecsRes.status === "fulfilled" ? (programRecsRes.value as any)?.data?.program_recommendations : null;
+
+    // Filter coach programmes: only those targeting this player (by ID, position, or "all")
+    const allCoachProgs = coachProgrammesRes.status === "fulfilled" ? (coachProgrammesRes.value as any)?.data ?? [] : [];
+    const playerPosition = profile?.position ?? null;
+    const coachProgrammes = allCoachProgs.filter((p: any) => {
+      if (p.target_type === "all") return true;
+      if (p.target_type === "individual" && Array.isArray(p.target_player_ids) && p.target_player_ids.includes(userId)) return true;
+      if (p.target_type === "position_group" && playerPosition && Array.isArray(p.target_positions) && p.target_positions.includes(playerPosition)) return true;
+      return false;
+    });
 
     // Recent vitals (7 days) for Dashboard signal sparklines
     const recentVitalsRaw = recentVitalsRes.status === "fulfilled" ? (recentVitalsRes.value as any)?.data ?? [] : [];
@@ -421,6 +440,17 @@ export async function GET(request: NextRequest) {
         programId: p.program_id,
         startedAt: p.started_at,
         metadata: p.metadata ?? {},
+      })),
+
+      // Coach-assigned programmes (published, targeted at this player)
+      coachProgrammes: coachProgrammes.slice(0, 5).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        seasonCycle: p.season_cycle,
+        startDate: p.start_date,
+        weeks: p.weeks,
+        coachId: p.coach_id,
       })),
 
       // AI-recommended programs from deep program refresh (cached in snapshot)

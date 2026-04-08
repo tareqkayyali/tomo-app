@@ -247,6 +247,15 @@ export interface BootData {
     startedAt: string;
     metadata: Record<string, unknown>;
   }[];
+  coachProgrammes: {
+    id: string;
+    name: string;
+    description: string | null;
+    seasonCycle: string;
+    startDate: string;
+    weeks: number;
+    coachId: string;
+  }[];
   recommendedPrograms: {
     programId: string;
     name: string;

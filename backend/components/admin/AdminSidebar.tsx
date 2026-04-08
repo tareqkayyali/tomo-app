@@ -57,6 +57,7 @@ const navigation = [
     label: "Performance Director",
     items: [
       { name: "Protocols", href: "/admin/protocols", icon: "🛡️" },
+      { name: "Program Rules", href: "/admin/program-rules", icon: "🏋️" },
       { name: "Dashboard Signals", href: "/admin/signals", icon: "📡" },
       { name: "Test Simulator", href: "/admin/protocols/test", icon: "🧪" },
       { name: "Audit Log", href: "/admin/protocols/audit", icon: "📜" },

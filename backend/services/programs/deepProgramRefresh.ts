@@ -20,6 +20,7 @@ import { getInlinePrograms } from './footballPrograms';
 import { getRecommendationConfig } from '@/services/recommendations/recommendationConfig';
 import { withRetry } from '@/lib/aiRetry';
 import { getSnapshotState, applyGuardrails, buildGuardrailSummary } from './programGuardrails';
+import { evaluateProgramRules, type ProgramRuleGuidance } from './programRules';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -211,8 +212,43 @@ export async function deepProgramRefresh(
     const snapshot = await getSnapshotState(athleteId);
     const guardrailSummary = snapshot ? await buildGuardrailSummary(snapshot) : '';
 
-    // 2b. Build prompt with athlete context + program catalog + guardrails
-    const userPrompt = buildDeepProgramPrompt(ctx, excludedIds, guardrailSummary);
+    // 2b. Evaluate PD Program Rules — CMS-authored guidelines for program selection
+    let programRuleGuidance: ProgramRuleGuidance | null = null;
+    try {
+      if (snapshot) {
+        const se = ctx.snapshotEnrichment;
+        programRuleGuidance = await evaluateProgramRules(
+          {
+            snapshot: snapshot as any,
+            todayVitals: {
+              readiness_score: se?.readinessScore ?? null,
+              readiness_rag: se?.readinessRag ?? null,
+              energy: ctx.readinessComponents?.energy ?? null,
+              soreness: ctx.readinessComponents?.soreness ?? null,
+              mood: ctx.readinessComponents?.mood ?? null,
+              sleep_hours: ctx.readinessComponents?.sleepHours ?? null,
+              hrv_morning_ms: se?.hrvTodayMs ?? null,
+              pain_flag: false,
+            },
+            upcomingEvents: ctx.todayEvents as any[],
+            recentDailyLoad: [],
+            trigger: 'refresh',
+          },
+          {
+            sport: ctx.sport,
+            phv_stage: se?.phvStage ?? undefined,
+            age_band: ctx.ageBand ?? undefined,
+            position: ctx.position ?? undefined,
+          },
+          athleteId,
+        );
+      }
+    } catch (err) {
+      console.warn('[DeepProgramRefresh] Program rule evaluation failed (non-fatal):', (err as Error).message);
+    }
+
+    // 2c. Build prompt with athlete context + program catalog + guardrails + PD rules
+    const userPrompt = buildDeepProgramPrompt(ctx, excludedIds, guardrailSummary, programRuleGuidance);
 
     // 3. Call Claude
     const response = await withRetry(
@@ -256,7 +292,7 @@ export async function deepProgramRefresh(
     // Also index the raw program defs for fallback
     const defMap = new Map(FOOTBALL_PROGRAMS.map(p => [p.id, p]));
 
-    const aiPrograms: InlineProgram[] = [];
+    let aiPrograms: InlineProgram[] = [];
 
     for (const aiProg of parsed.selectedPrograms) {
       const base = baseMap.get(aiProg.programId);
@@ -333,7 +369,45 @@ export async function deepProgramRefresh(
     const priorityOrder = { mandatory: 0, high: 1, medium: 2 };
     aiPrograms.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
 
-    // 5b. Apply deterministic guardrails on top of AI selection
+    // 5b. Apply PD program rules deterministically (blocked programs removed, mandatory added)
+    if (programRuleGuidance && programRuleGuidance.activeRules.length > 0) {
+      // Remove blocked programs
+      const blockedSet = new Set(programRuleGuidance.blockedPrograms);
+      const blockedCats = new Set(programRuleGuidance.blockCategories);
+      const beforeCount = aiPrograms.length;
+      aiPrograms = aiPrograms.filter(p =>
+        !blockedSet.has(p.programId) && !blockedCats.has(p.category.toLowerCase())
+      );
+      if (aiPrograms.length < beforeCount) {
+        console.log(`[DeepProgramRefresh] PD rules blocked ${beforeCount - aiPrograms.length} programs for ${athleteId}`);
+      }
+
+      // Ensure mandatory programs are included
+      const existingIds = new Set(aiPrograms.map(p => p.programId));
+      for (const mandatoryId of programRuleGuidance.mandatoryPrograms) {
+        if (!existingIds.has(mandatoryId)) {
+          const base = baseMap.get(mandatoryId);
+          if (base) {
+            aiPrograms.unshift({ ...base, priority: 'mandatory' });
+          }
+        } else {
+          // Elevate existing to mandatory
+          const prog = aiPrograms.find(p => p.programId === mandatoryId);
+          if (prog) prog.priority = 'mandatory';
+        }
+      }
+
+      // Elevate high-priority programs
+      for (const highId of programRuleGuidance.highPriorityPrograms) {
+        const prog = aiPrograms.find(p => p.programId === highId);
+        if (prog && prog.priority === 'medium') prog.priority = 'high';
+      }
+
+      // Re-sort by priority
+      aiPrograms.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+    }
+
+    // 5c. Apply deterministic guardrails on top of AI selection
     let finalPrograms = aiPrograms;
     if (snapshot) {
       const guardrailed = await applyGuardrails(aiPrograms, snapshot);
@@ -397,7 +471,7 @@ export function triggerDeepProgramRefreshAsync(athleteId: string, timezone?: str
 // Prompt Builder
 // ---------------------------------------------------------------------------
 
-function buildDeepProgramPrompt(ctx: PlayerContext, excludedProgramIds: string[] = [], guardrailSummary: string = ''): string {
+function buildDeepProgramPrompt(ctx: PlayerContext, excludedProgramIds: string[] = [], guardrailSummary: string = '', programRuleGuidance: ProgramRuleGuidance | null = null): string {
   const se = ctx.snapshotEnrichment;
   const sections: string[] = [];
 
@@ -499,6 +573,55 @@ Weekly structure: ${JSON.stringify(matrix.weekly_structure)}`);
   // ── Guardrails (deterministic rules the AI MUST respect)
   if (guardrailSummary) {
     sections.push(`--- GUARDRAILS (MANDATORY — DO NOT OVERRIDE) ---\n${guardrailSummary}`);
+  }
+
+  // ── PD Program Rules (CMS-authored guidelines from Performance Director)
+  if (programRuleGuidance && programRuleGuidance.activeRules.length > 0) {
+    const pdLines: string[] = ['--- PD PROGRAM RULES (MANDATORY GUIDELINES — Performance Director authored) ---'];
+    pdLines.push(`Active rules: ${programRuleGuidance.activeRules.map(r => `${r.name} (P${r.priority}${r.safety_critical ? ', SAFETY-CRITICAL' : ''})`).join(', ')}`);
+
+    if (programRuleGuidance.mandatoryPrograms.length > 0) {
+      pdLines.push(`\nMANDATORY PROGRAMS (MUST include these — non-negotiable):`);
+      pdLines.push(programRuleGuidance.mandatoryPrograms.join(', '));
+    }
+    if (programRuleGuidance.highPriorityPrograms.length > 0) {
+      pdLines.push(`\nHIGH PRIORITY PROGRAMS (should be included with "high" priority):`);
+      pdLines.push(programRuleGuidance.highPriorityPrograms.join(', '));
+    }
+    if (programRuleGuidance.blockedPrograms.length > 0) {
+      pdLines.push(`\nBLOCKED PROGRAMS (DO NOT select these — PD has explicitly blocked them):`);
+      pdLines.push(programRuleGuidance.blockedPrograms.join(', '));
+    }
+    if (programRuleGuidance.prioritizeCategories.length > 0) {
+      pdLines.push(`\nPRIORITIZE CATEGORIES: ${programRuleGuidance.prioritizeCategories.join(', ')}`);
+    }
+    if (programRuleGuidance.blockCategories.length > 0) {
+      pdLines.push(`\nBLOCK CATEGORIES (DO NOT select programs from these categories): ${programRuleGuidance.blockCategories.join(', ')}`);
+    }
+
+    pdLines.push(`\nPrescription constraints:`);
+    if (programRuleGuidance.loadMultiplier < 1.0) {
+      pdLines.push(`  Load multiplier: ${programRuleGuidance.loadMultiplier} (apply to all program volumes)`);
+    }
+    if (programRuleGuidance.intensityCap !== 'full') {
+      pdLines.push(`  Intensity cap: ${programRuleGuidance.intensityCap} (no programs above this intensity)`);
+    }
+    if (programRuleGuidance.sessionCapMinutes) {
+      pdLines.push(`  Session cap: ${programRuleGuidance.sessionCapMinutes} minutes max`);
+    }
+    if (programRuleGuidance.frequencyCap) {
+      pdLines.push(`  Frequency cap: ${programRuleGuidance.frequencyCap} sessions/week max`);
+    }
+
+    if (programRuleGuidance.aiGuidanceText) {
+      pdLines.push(`\nPD GUIDANCE:\n${programRuleGuidance.aiGuidanceText}`);
+    }
+
+    if (programRuleGuidance.isSafetyCritical) {
+      pdLines.push(`\n⚠️ SAFETY-CRITICAL RULES ACTIVE — These rules CANNOT be overridden. Any program that violates safety-critical rules must be excluded regardless of other considerations.`);
+    }
+
+    sections.push(pdLines.join('\n'));
   }
 
   // ── Task
