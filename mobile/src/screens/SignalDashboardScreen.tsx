@@ -2,14 +2,13 @@
  * Signal Dashboard Screen — Signal-First Daily Command Centre
  *
  * ── SECTIONS ──
- * 1. SignalHero — Arc icon (left), signal name, pills, coaching
+ * 1. SignalHero — Arc icon (left), signal name, pills (trigger data), coaching
  * 2. Daily Recs — Expandable RIE recommendation cards (diverse types)
- * 3. Today's Plan — Timeline activities for the day
- * 4. Signal Triggers — "What triggered this signal" rows
- * 5. Slide-up Panels — Program, Metrics, Progress (overlays)
+ * 3. Up Next — Future timeline activities with contextual AI hints
+ * 4. Slide-up Panels — Program, Metrics, Progress (overlays)
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -27,7 +26,6 @@ import { useNavigation } from '@react-navigation/native';
 // Dashboard components
 import { SignalHero } from '../components/dashboard/SignalHero';
 import { TodaysPlanCard } from '../components/dashboard/TodaysPlanCard';
-import { SignalTriggerSection } from '../components/dashboard/SignalTriggerSection';
 import { DailyRecommendations } from '../components/dashboard/DailyRecommendations';
 import { ProgramPanel } from '../components/dashboard/panels/ProgramPanel';
 import { MetricsPanel } from '../components/dashboard/panels/MetricsPanel';
@@ -35,7 +33,6 @@ import { ProgressPanel } from '../components/dashboard/panels/ProgressPanel';
 
 type PanelId = 'training' | 'metrics' | 'progress' | null;
 
-// Default signal when no data available (neutral state)
 const NEUTRAL_SIGNAL = {
   key: 'BASELINE',
   displayName: 'BASELINE',
@@ -57,7 +54,6 @@ const NEUTRAL_SIGNAL = {
   evaluatedAt: new Date().toISOString(),
 };
 
-// Event type → display label mapping
 const EVENT_TYPE_LABELS: Record<string, string> = {
   training: 'Training',
   match: 'Match',
@@ -73,6 +69,46 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 function formatEventTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** Generate a contextual hint for the upcoming activity based on type + signal state */
+function getActivityHint(
+  event: { type: string; title: string; intensity: number | null },
+  signalKey: string,
+  activeRecs: { type: string; bodyShort: string | null }[],
+): string | null {
+  const type = event.type;
+  const isOverloaded = signalKey === 'OVERLOADED' || signalKey === 'RECOVERING' || signalKey === 'SLEEP_DEBT';
+  const hasRecoveryRec = activeRecs.some(r => r.type === 'RECOVERY' || r.type === 'READINESS');
+
+  if (type === 'sleep') {
+    if (hasRecoveryRec) {
+      return 'Start winding down early — recovery is a priority today. Limit screens 30 min before bed.';
+    }
+    return 'Prepare for quality sleep — dim lights, cool room, consistent routine.';
+  }
+  if (type === 'training' || type === 'gym' || type === 'club') {
+    if (isOverloaded) {
+      return 'Signal says recovery mode — keep this light. Technical work only, no max efforts.';
+    }
+    if (event.intensity && event.intensity >= 7) {
+      return 'High intensity planned — hydrate well beforehand and warm up thoroughly.';
+    }
+    return 'Stay present and focus on quality reps over volume.';
+  }
+  if (type === 'match') {
+    if (isOverloaded) {
+      return 'Your body is fatigued — focus on smart positioning and conserve energy for key moments.';
+    }
+    return 'Match day — activate with a dynamic warm-up 20 min before. Stay hydrated.';
+  }
+  if (type === 'study' || type === 'exam') {
+    return 'Balance is key — take a 5-min movement break every 45 minutes to stay sharp.';
+  }
+  if (type === 'recovery') {
+    return 'Active recovery session — gentle movement, stretching, and breathwork. No intensity.';
+  }
+  return null;
 }
 
 export function SignalDashboardScreen() {
@@ -95,7 +131,20 @@ export function SignalDashboardScreen() {
   const recentVitals = bootData?.recentVitals ?? [];
   const todayEvents = bootData?.todayEvents ?? [];
 
-  // Loading state
+  // Filter to only upcoming events (start time > now)
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    return todayEvents.filter((e: any) => new Date(e.startAt) > now);
+  }, [todayEvents]);
+
+  // Active recs for contextual hints
+  const activeRecs = useMemo(() => {
+    return (bootData?.dashboardRecs ?? []).map((r: any) => ({
+      type: r.type,
+      bodyShort: r.bodyShort,
+    }));
+  }, [bootData?.dashboardRecs]);
+
   if (isBootLoading && !bootData) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: '#0F1219' }]} edges={['top']}>
@@ -116,7 +165,6 @@ export function SignalDashboardScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: '#0F1219' }]} edges={['top']}>
-      {/* Header — consistent dark bg, no hero tint */}
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Dashboard</Text>
         <View style={styles.headerRight}>
@@ -134,22 +182,24 @@ export function SignalDashboardScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Signal Hero — compact, no full-width bg overlay */}
+        {/* Signal Hero — arc icon, signal name, pills (trigger data baked in), coaching */}
         <SignalHero
           signal={signal}
           activePanel={activePanel}
           onPanelPress={setActivePanel}
         />
 
-        {/* Daily Recommendations from RIE — diverse, expandable */}
+        {/* Daily Recommendations from RIE */}
         <DailyRecommendations
           recs={bootData?.dashboardRecs ?? []}
           signalColor={signal.color}
         />
 
-        {/* Today's Plan — shows actual Timeline activities */}
+        {/* Up Next — future timeline activities with contextual hints */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>TODAY&apos;S PLAN</Text>
+          <Text style={styles.sectionLabel}>
+            {signal.adaptedPlan ? "TODAY\u2019S PLAN" : "UP NEXT"}
+          </Text>
 
           {/* Adapted session from signal (if signal overrides) */}
           {signal.adaptedPlan && (
@@ -160,56 +210,71 @@ export function SignalDashboardScreen() {
             />
           )}
 
-          {/* Timeline events for today */}
-          {todayEvents.length > 0 ? (
+          {/* Upcoming activities only (after current time) */}
+          {upcomingEvents.length > 0 ? (
             <View style={styles.timelineSection}>
-              {todayEvents.map((event: any, i: number) => (
-                <View
-                  key={event.id ?? i}
-                  style={[styles.timelineCard, i === 0 && !signal.adaptedPlan && styles.timelineCardFirst]}
-                >
-                  <View style={styles.timelineDot}>
-                    <View style={[styles.timelineDotInner, { backgroundColor: signal.color }]} />
-                  </View>
-                  <View style={styles.timelineContent}>
-                    <View style={styles.timelineHeader}>
-                      <Text style={styles.timelineTime}>
+              {upcomingEvents.map((event: any, i: number) => {
+                const hint = getActivityHint(event, signal.key, activeRecs);
+                const isNext = i === 0;
+                return (
+                  <View
+                    key={event.id ?? i}
+                    style={[
+                      styles.timelineCard,
+                      isNext && styles.timelineCardNext,
+                    ]}
+                  >
+                    {/* Time column */}
+                    <View style={styles.timeColumn}>
+                      <Text style={[styles.timelineTime, isNext && { color: signal.color }]}>
                         {formatEventTime(event.startAt)}
                       </Text>
-                      <View style={[styles.timelineTypeBadge, { backgroundColor: `${signal.color}18` }]}>
-                        <Text style={[styles.timelineTypeText, { color: signal.color }]}>
-                          {EVENT_TYPE_LABELS[event.type] ?? event.type}
-                        </Text>
-                      </View>
                     </View>
-                    <Text style={styles.timelineTitle}>{event.title}</Text>
-                    {event.intensity && (
-                      <Text style={styles.timelineIntensity}>
-                        Intensity: {event.intensity}/10
-                      </Text>
-                    )}
+
+                    {/* Content */}
+                    <View style={styles.timelineContent}>
+                      <View style={styles.timelineHeader}>
+                        <Text style={[styles.timelineTitle, isNext && { color: '#E5EBE8' }]}>
+                          {event.title}
+                        </Text>
+                        <View style={[
+                          styles.timelineTypeBadge,
+                          { backgroundColor: isNext ? `${signal.color}20` : 'rgba(255,255,255,0.05)' },
+                        ]}>
+                          <Text style={[
+                            styles.timelineTypeText,
+                            { color: isNext ? signal.color : 'rgba(255,255,255,0.35)' },
+                          ]}>
+                            {EVENT_TYPE_LABELS[event.type] ?? event.type}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Contextual AI hint — only for next activity */}
+                      {isNext && hint && (
+                        <Text style={[styles.timelineHint, { color: `${signal.color}B3` }]}>
+                          {hint}
+                        </Text>
+                      )}
+
+                      {event.intensity && (
+                        <Text style={styles.timelineIntensity}>
+                          Intensity {event.intensity}/10
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ) : !signal.adaptedPlan ? (
             <View style={styles.emptyPlan}>
               <Text style={styles.emptyPlanText}>
-                No activities scheduled today. Check in to see your adapted plan.
+                No upcoming activities today. You&apos;re all caught up.
               </Text>
             </View>
           ) : null}
         </View>
-
-        {/* Signal Triggers */}
-        {signal.triggerRows.length > 0 && (
-          <View style={styles.section}>
-            <SignalTriggerSection
-              triggerRows={signal.triggerRows}
-              signalColor={signal.color}
-            />
-          </View>
-        )}
       </ScrollView>
 
       {/* Slide-up Panels */}
@@ -266,7 +331,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: 18,
   },
   sectionLabel: {
     fontFamily: fontFamily.medium,
@@ -274,33 +339,35 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: 'rgba(255,255,255,0.35)',
     textTransform: 'uppercase',
-    marginBottom: 7,
+    marginBottom: 10,
   },
-  // Timeline events
+  // Timeline
   timelineSection: {
     gap: 0,
   },
   timelineCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 10,
+    paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.04)',
   },
-  timelineCardFirst: {
-    // First card when no adapted plan — no extra styling needed
+  timelineCardNext: {
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    marginHorizontal: -10,
+    borderBottomWidth: 0,
+    marginBottom: 4,
   },
-  timelineDot: {
-    width: 24,
-    alignItems: 'center',
-    paddingTop: 3,
-    marginRight: 10,
+  timeColumn: {
+    width: 48,
+    paddingTop: 1,
   },
-  timelineDotInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    opacity: 0.6,
+  timelineTime: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.40)',
   },
   timelineContent: {
     flex: 1,
@@ -309,12 +376,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 3,
+    marginBottom: 2,
   },
-  timelineTime: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.55)',
+  timelineTitle: {
+    fontFamily: fontFamily.medium,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.65)',
+    flex: 1,
   },
   timelineTypeBadge: {
     borderRadius: 6,
@@ -327,15 +395,17 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  timelineTitle: {
-    fontFamily: fontFamily.medium,
-    fontSize: 13,
-    color: '#E5EBE8',
+  timelineHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 4,
+    marginBottom: 2,
   },
   timelineIntensity: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(255,255,255,0.28)',
     marginTop: 2,
   },
   emptyPlan: {
