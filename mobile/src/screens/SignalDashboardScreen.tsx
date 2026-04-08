@@ -283,6 +283,7 @@ export function SignalDashboardScreen() {
         onClose={() => setActivePanel(null)}
         adaptedPlan={signal.adaptedPlan}
         activePrograms={bootData?.activePrograms}
+        recommendedPrograms={bootData?.recommendedPrograms}
         signalColor={signal.color}
       />
       <MetricsPanel

@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
       recentVitalsRes,
       yesterdayVitalsRes,
       activeProgramsRes,
+      programRecsRes,
     ] = await Promise.allSettled([
       // 1. User profile
       (db as any)
@@ -181,6 +182,13 @@ export async function GET(request: NextRequest) {
         .eq("interaction_type", "self_assign")
         .order("started_at", { ascending: false })
         .limit(3),
+
+      // 16. Cached AI program recommendations — from deep program refresh
+      (db as any)
+        .from("athlete_snapshots")
+        .select("program_recommendations")
+        .eq("athlete_id", userId)
+        .single(),
     ]);
 
     // ── Extract results with graceful fallbacks ──
@@ -198,6 +206,7 @@ export async function GET(request: NextRequest) {
     // Prefer Whoop sleep_hours over manual check-in value (more accurate wearable data)
     const whoopSleep = whoopSleepRes.status === "fulfilled" ? (whoopSleepRes.value as any)?.data ?? null : null;
     const activePrograms = activeProgramsRes.status === "fulfilled" ? (activeProgramsRes.value as any)?.data ?? [] : [];
+    const cachedProgramRecs = programRecsRes.status === "fulfilled" ? (programRecsRes.value as any)?.data?.program_recommendations : null;
 
     // Recent vitals (7 days) for Dashboard signal sparklines
     const recentVitalsRaw = recentVitalsRes.status === "fulfilled" ? (recentVitalsRes.value as any)?.data ?? [] : [];
@@ -413,6 +422,26 @@ export async function GET(request: NextRequest) {
         startedAt: p.started_at,
         metadata: p.metadata ?? {},
       })),
+
+      // AI-recommended programs from deep program refresh (cached in snapshot)
+      recommendedPrograms: cachedProgramRecs?.programs
+        ? (cachedProgramRecs.programs as any[]).slice(0, 8).map((p: any) => ({
+            programId: p.programId,
+            name: p.name,
+            category: p.category,
+            type: p.type,
+            priority: p.priority,
+            durationWeeks: p.durationWeeks,
+            durationMin: p.durationMin,
+            description: p.description,
+            impact: p.impact,
+            frequency: p.frequency,
+            difficulty: p.difficulty,
+            tags: p.tags ?? [],
+            reason: p.reason,
+            positionNote: p.positionNote,
+          }))
+        : [],
 
       benchmarkSummary: benchmarkProfile
         ? {

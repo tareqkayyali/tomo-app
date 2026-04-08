@@ -247,6 +247,22 @@ export interface BootData {
     startedAt: string;
     metadata: Record<string, unknown>;
   }[];
+  recommendedPrograms: {
+    programId: string;
+    name: string;
+    category: string;
+    type: string;
+    priority: 'mandatory' | 'high' | 'medium';
+    durationWeeks: number;
+    durationMin: number;
+    description: string;
+    impact: string;
+    frequency: string;
+    difficulty: string;
+    tags: string[];
+    reason: string;
+    positionNote: string;
+  }[];
 
   fetchedAt: string;
 }
