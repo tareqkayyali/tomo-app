@@ -35,6 +35,7 @@ import { useNavigation } from '@react-navigation/native';
 import { SignalHero } from '../components/dashboard/SignalHero';
 import { TodaysPlanCard } from '../components/dashboard/TodaysPlanCard';
 import { SignalTriggerSection } from '../components/dashboard/SignalTriggerSection';
+import { DailyRecommendations } from '../components/dashboard/DailyRecommendations';
 import { ProgramPanel } from '../components/dashboard/panels/ProgramPanel';
 import { MetricsPanel } from '../components/dashboard/panels/MetricsPanel';
 import { ProgressPanel } from '../components/dashboard/panels/ProgressPanel';
@@ -131,6 +132,12 @@ export function SignalDashboardScreen() {
           onPanelPress={setActivePanel}
         />
 
+        {/* Daily Recommendations from RIE */}
+        <DailyRecommendations
+          recs={bootData?.dashboardRecs ?? []}
+          signalColor={signal.color}
+        />
+
         {/* Today's Plan */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>TODAY&apos;S PLAN</Text>
@@ -161,6 +168,7 @@ export function SignalDashboardScreen() {
         isOpen={activePanel === 'training'}
         onClose={() => setActivePanel(null)}
         adaptedPlan={signal.adaptedPlan}
+        activePrograms={bootData?.activePrograms}
         signalColor={signal.color}
       />
       <MetricsPanel
@@ -168,12 +176,15 @@ export function SignalDashboardScreen() {
         onClose={() => setActivePanel(null)}
         snapshot={bootData?.snapshot ?? null}
         recentVitals={recentVitals}
+        dailyLoad={bootData?.dailyLoad}
         signalColor={signal.color}
       />
       <ProgressPanel
         isOpen={activePanel === 'progress'}
         onClose={() => setActivePanel(null)}
         snapshot={bootData?.snapshot ?? null}
+        dailyLoad={bootData?.dailyLoad}
+        benchmarkSummary={bootData?.benchmarkSummary}
         signalColor={signal.color}
       />
     </SafeAreaView>

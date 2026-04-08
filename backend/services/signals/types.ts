@@ -227,6 +227,7 @@ export interface RecentVitalEntry {
   energy:          number | null;
   soreness:        number | null;
   mood:            number | null;
+  readiness_score?: number | null;
 }
 
 /**

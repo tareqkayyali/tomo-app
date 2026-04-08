@@ -14,10 +14,14 @@ interface ProgramPanelProps {
   isOpen: boolean;
   onClose: () => void;
   adaptedPlan: { sessionName: string; sessionMeta: string } | null;
+  activePrograms?: { programId: string; startedAt: string; metadata: Record<string, unknown> }[];
   signalColor: string;
 }
 
-export function ProgramPanel({ isOpen, onClose, adaptedPlan, signalColor }: ProgramPanelProps) {
+export function ProgramPanel({ isOpen, onClose, adaptedPlan, activePrograms, signalColor }: ProgramPanelProps) {
+  const programs = activePrograms ?? [];
+  const hasPrograms = programs.length > 0;
+
   return (
     <SlideUpPanel
       isOpen={isOpen}
@@ -25,6 +29,51 @@ export function ProgramPanel({ isOpen, onClose, adaptedPlan, signalColor }: Prog
       title="Training Programs"
       subtitle="Current program details"
     >
+      {/* Active Programs */}
+      {hasPrograms ? (
+        programs.map((prog) => {
+          const meta = prog.metadata as Record<string, any>;
+          const programName = meta?.name ?? meta?.programName ?? 'Active Program';
+          const category = meta?.category ?? meta?.trainingCategory ?? null;
+          const weekNumber = meta?.currentWeek ?? meta?.weekNumber ?? null;
+          const totalWeeks = meta?.totalWeeks ?? meta?.durationWeeks ?? null;
+          const startDate = new Date(prog.startedAt).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+
+          return (
+            <View key={prog.programId} style={styles.sectionCard}>
+              <Text style={styles.cardLabel}>ACTIVE PROGRAM</Text>
+              <Text style={styles.sessionName}>{programName}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                {category && (
+                  <View style={{ backgroundColor: signalColor + '15', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ fontFamily: fontFamily.medium, fontSize: 8, color: signalColor, letterSpacing: 1, textTransform: 'uppercase' }}>{category}</Text>
+                  </View>
+                )}
+                <Text style={styles.sessionMeta}>Started {startDate}</Text>
+              </View>
+              {weekNumber != null && totalWeeks != null && totalWeeks > 0 && (
+                <View style={{ marginTop: 10 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ fontFamily: fontFamily.medium, fontSize: 10, color: '#7A8D7E' }}>Week {weekNumber} of {totalWeeks}</Text>
+                    <Text style={{ fontFamily: fontFamily.medium, fontSize: 10, color: '#7A8D7E' }}>{Math.round((weekNumber / totalWeeks) * 100)}%</Text>
+                  </View>
+                  <View style={{ height: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                    <View style={{ height: 3, width: `${Math.min((weekNumber / totalWeeks) * 100, 100)}%`, backgroundColor: signalColor, borderRadius: 2 }} />
+                  </View>
+                </View>
+              )}
+            </View>
+          );
+        })
+      ) : (
+        <View style={styles.sectionCard}>
+          <Text style={styles.cardLabel}>NO ACTIVE PROGRAM</Text>
+          <Text style={styles.placeholder}>
+            You don't have an active training program yet. Browse available programs to get started with a structured plan.
+          </Text>
+        </View>
+      )}
+
       {/* Today's Session */}
       {adaptedPlan && (
         <View style={styles.sectionCard}>
@@ -33,14 +82,6 @@ export function ProgramPanel({ isOpen, onClose, adaptedPlan, signalColor }: Prog
           <Text style={styles.sessionMeta}>{adaptedPlan.sessionMeta}</Text>
         </View>
       )}
-
-      {/* Placeholder for exercise rows — Phase 5 will wire real data */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.cardLabel}>EXERCISES</Text>
-        <Text style={styles.placeholder}>
-          Exercise details will appear here when connected to your active program.
-        </Text>
-      </View>
 
       {/* This Week */}
       <View style={styles.sectionCard}>

@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
       whoopSleepRes,
       recentVitalsRes,
       yesterdayVitalsRes,
+      activeProgramsRes,
     ] = await Promise.allSettled([
       // 1. User profile
       (db as any)
@@ -97,8 +98,8 @@ export async function GET(request: NextRequest) {
         .limit(1)
         .maybeSingle(),
 
-      // 5. Active recommendations (top 3)
-      getRecommendations(userId, { role: "ATHLETE", limit: 3 }),
+      // 5. Active recommendations (top 6 — dashboard uses 6, legacy activeRecs uses 3)
+      getRecommendations(userId, { role: "ATHLETE", limit: 6 }),
 
       // 6. Benchmark profile
       getPlayerBenchmarkProfile(userId),
@@ -158,7 +159,7 @@ export async function GET(request: NextRequest) {
       // 13. Recent vitals (7 days) — for Dashboard signal sparklines + sleep debt
       (db as any)
         .from("checkins")
-        .select("date, sleep_hours, mood, energy, soreness")
+        .select("date, sleep_hours, mood, energy, soreness, readiness")
         .eq("user_id", userId)
         .gte("date", new Date(now.getTime() - 7 * 86400000).toLocaleDateString("en-CA", { timeZone: tz }))
         .order("date", { ascending: false })
@@ -171,6 +172,15 @@ export async function GET(request: NextRequest) {
         .eq("user_id", userId)
         .eq("date", yesterday)
         .maybeSingle(),
+
+      // 15. Active program interactions — for Today's Plan + Program Panel
+      (db as any)
+        .from("program_interactions")
+        .select("program_id, interaction_type, started_at, metadata")
+        .eq("user_id", userId)
+        .eq("interaction_type", "self_assign")
+        .order("started_at", { ascending: false })
+        .limit(3),
     ]);
 
     // ── Extract results with graceful fallbacks ──
@@ -187,6 +197,7 @@ export async function GET(request: NextRequest) {
     const schedulePrefs = schedulePrefsRes.status === "fulfilled" ? schedulePrefsRes.value?.data ?? null : null;
     // Prefer Whoop sleep_hours over manual check-in value (more accurate wearable data)
     const whoopSleep = whoopSleepRes.status === "fulfilled" ? (whoopSleepRes.value as any)?.data ?? null : null;
+    const activePrograms = activeProgramsRes.status === "fulfilled" ? (activeProgramsRes.value as any)?.data ?? [] : [];
 
     // Recent vitals (7 days) for Dashboard signal sparklines
     const recentVitalsRaw = recentVitalsRes.status === "fulfilled" ? (recentVitalsRes.value as any)?.data ?? [] : [];
@@ -197,6 +208,7 @@ export async function GET(request: NextRequest) {
       energy:         v.energy ?? null,
       soreness:       v.soreness ?? null,
       mood:           v.mood ?? null,
+      readiness_score: v.readiness === 'GREEN' ? 80 : v.readiness === 'YELLOW' ? 55 : v.readiness === 'RED' ? 30 : null,
     }));
 
     // Yesterday's vitals for signal delta calculations
@@ -377,6 +389,29 @@ export async function GET(request: NextRequest) {
         priority: r.priority,
         title: r.title,
         bodyShort: r.body_short ?? r.bodyShort ?? null,
+      })),
+
+      dashboardRecs: activeRecs.slice(0, 6).map((r: any) => ({
+        recId: r.rec_id ?? r.recId,
+        type: r.rec_type ?? r.recType,
+        priority: r.priority,
+        title: r.title,
+        bodyShort: r.body_short ?? r.bodyShort ?? null,
+        bodyLong: r.body_long ?? r.bodyLong ?? null,
+        context: r.context ?? {},
+        createdAt: r.created_at ?? r.createdAt,
+      })),
+
+      dailyLoad: pdLoad.map((d: any) => ({
+        date: d.load_date,
+        trainingLoadAu: Number(d.training_load_au ?? 0),
+        sessionCount: d.session_count ?? 0,
+      })),
+
+      activePrograms: activePrograms.map((p: any) => ({
+        programId: p.program_id,
+        startedAt: p.started_at,
+        metadata: p.metadata ?? {},
       })),
 
       benchmarkSummary: benchmarkProfile

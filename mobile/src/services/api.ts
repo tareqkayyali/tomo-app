@@ -223,8 +223,30 @@ export interface BootData {
     priority: number;
     evaluatedAt: string;
   } | null;
-  recentVitals: { date: string; sleep_hours: number | null; hrv_morning_ms: number | null; energy: number | null; soreness: number | null; mood: number | null }[];
+  recentVitals: { date: string; sleep_hours: number | null; hrv_morning_ms: number | null; energy: number | null; soreness: number | null; mood: number | null; readiness_score: number | null }[];
   yesterdayVitals: { readiness_score: number | null; soreness: number | null; hrv_morning_ms: number | null; sleep_hours: number | null; energy: number | null; mood: number | null } | null;
+
+  // ── Dashboard Enrichment ──
+  dashboardRecs: {
+    recId: string;
+    type: string;
+    priority: number;
+    title: string;
+    bodyShort: string | null;
+    bodyLong: string | null;
+    context: Record<string, unknown>;
+    createdAt: string;
+  }[];
+  dailyLoad: {
+    date: string;
+    trainingLoadAu: number;
+    sessionCount: number;
+  }[];
+  activePrograms: {
+    programId: string;
+    startedAt: string;
+    metadata: Record<string, unknown>;
+  }[];
 
   fetchedAt: string;
 }

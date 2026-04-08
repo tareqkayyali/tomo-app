@@ -14,6 +14,10 @@ interface TodaysPlanCardProps {
   sessionName: string;
   sessionMeta: string;
   signalColor: string;
+  exercises?: { name: string; sets: number; reps: string }[];
+  weekNumber?: number;
+  totalWeeks?: number;
+  adaptationNotes?: string[];
 }
 
 function ProgramGridIcon({ color }: { color: string }) {
@@ -28,31 +32,80 @@ function ProgramGridIcon({ color }: { color: string }) {
   );
 }
 
-export function TodaysPlanCard({ sessionName, sessionMeta, signalColor }: TodaysPlanCardProps) {
+export function TodaysPlanCard({ sessionName, sessionMeta, signalColor, exercises, weekNumber, totalWeeks, adaptationNotes }: TodaysPlanCardProps) {
+  const showExercises = exercises && exercises.length > 0;
+  const showWeekProgress = weekNumber != null && totalWeeks != null && totalWeeks > 0;
+  const showAdaptation = adaptationNotes && adaptationNotes.length > 0;
+
   return (
     <View style={styles.card}>
-      <View style={[styles.iconContainer, { backgroundColor: `${signalColor}1A` }]}>
-        <ProgramGridIcon color={signalColor} />
+      {/* Header row */}
+      <View style={styles.headerRow}>
+        <View style={[styles.iconContainer, { backgroundColor: `${signalColor}1A` }]}>
+          <ProgramGridIcon color={signalColor} />
+        </View>
+        <View style={styles.textBlock}>
+          <Text style={styles.sessionName}>{sessionName}</Text>
+          <Text style={styles.sessionMeta}>{sessionMeta}</Text>
+        </View>
       </View>
-      <View style={styles.textBlock}>
-        <Text style={styles.sessionName}>{sessionName}</Text>
-        <Text style={styles.sessionMeta}>{sessionMeta}</Text>
-      </View>
+
+      {/* Exercise Preview */}
+      {showExercises && (
+        <View style={styles.exerciseSection}>
+          {exercises!.slice(0, 3).map((ex, i) => (
+            <View key={i} style={styles.exerciseRow}>
+              <Text style={styles.exerciseName}>{ex.name}</Text>
+              <Text style={styles.exerciseSets}>{ex.sets} x {ex.reps}</Text>
+            </View>
+          ))}
+          {exercises!.length > 3 && (
+            <Text style={styles.moreExercises}>+{exercises!.length - 3} more</Text>
+          )}
+        </View>
+      )}
+
+      {/* Week Progress Bar */}
+      {showWeekProgress && (
+        <View style={styles.weekProgressSection}>
+          <View style={styles.weekProgressHeader}>
+            <Text style={styles.weekLabel}>Week {weekNumber} of {totalWeeks}</Text>
+            <Text style={styles.weekPercent}>{Math.round((weekNumber! / totalWeeks!) * 100)}%</Text>
+          </View>
+          <View style={styles.weekBarTrack}>
+            <View style={[styles.weekBarFill, { width: `${Math.min((weekNumber! / totalWeeks!) * 100, 100)}%`, backgroundColor: signalColor }]} />
+          </View>
+        </View>
+      )}
+
+      {/* Adaptation Notes */}
+      {showAdaptation && (
+        <View style={styles.adaptationSection}>
+          {adaptationNotes!.map((note, i) => (
+            <View key={i} style={styles.adaptationRow}>
+              <View style={styles.adaptationDot} />
+              <Text style={styles.adaptationText}>{note}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
     backgroundColor: '#1B1F2E',
     borderRadius: 14,
     padding: 13,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
     marginBottom: 14,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
   },
   iconContainer: {
     width: 40,
@@ -74,5 +127,97 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: 10,
     color: '#7A8D7E',
+  },
+  // Exercise preview
+  exerciseSection: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+  },
+  exerciseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  exerciseName: {
+    fontFamily: fontFamily.regular,
+    fontSize: 11,
+    color: '#E5EBE8',
+  },
+  exerciseSets: {
+    fontFamily: fontFamily.regular,
+    fontSize: 10,
+    color: '#7A8D7E',
+  },
+  moreExercises: {
+    fontFamily: fontFamily.regular,
+    fontSize: 10,
+    color: '#4A5E50',
+    marginTop: 4,
+  },
+  // Week progress
+  weekProgressSection: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+  },
+  weekProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  weekLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: 10,
+    color: '#7A8D7E',
+  },
+  weekPercent: {
+    fontFamily: fontFamily.medium,
+    fontSize: 10,
+    color: '#7A8D7E',
+  },
+  weekBarTrack: {
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  weekBarFill: {
+    height: 3,
+    borderRadius: 2,
+  },
+  // Adaptation notes
+  adaptationSection: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(196,154,60,0.06)',
+    borderRadius: 8,
+    padding: 10,
+  },
+  adaptationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginBottom: 3,
+  },
+  adaptationDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#c49a3c',
+    marginTop: 4,
+  },
+  adaptationText: {
+    fontFamily: fontFamily.regular,
+    fontSize: 10,
+    color: '#c49a3c',
+    lineHeight: 14,
+    flex: 1,
   },
 });
