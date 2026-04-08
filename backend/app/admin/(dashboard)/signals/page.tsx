@@ -33,7 +33,22 @@ interface Signal {
   is_enabled: boolean;
   is_built_in: boolean;
   show_urgency_badge: boolean;
+  urgency_label: string | null;
   conditions: { match: string; conditions: unknown[] };
+}
+
+const PRIORITY_COLORS: Record<string, string> = {
+  safety: "bg-red-500/20 text-red-400",
+  contextual: "bg-orange-500/20 text-orange-400",
+  positive: "bg-blue-500/20 text-blue-400",
+  custom: "bg-gray-500/20 text-gray-400",
+};
+
+function getPriorityStyle(priority: number): string {
+  if (priority <= 3) return PRIORITY_COLORS.safety;
+  if (priority <= 6) return PRIORITY_COLORS.contextual;
+  if (priority <= 8) return PRIORITY_COLORS.positive;
+  return PRIORITY_COLORS.custom;
 }
 
 export default function SignalsListPage() {
@@ -116,9 +131,17 @@ export default function SignalsListPage() {
             {signals.length} signal{signals.length !== 1 ? "s" : ""} configured — evaluated in priority order (lowest first)
           </p>
         </div>
-        <Link href="/admin/signals/new">
-          <Button>+ New Signal</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/protocols/test">
+            <Button variant="outline">Test / Simulate</Button>
+          </Link>
+          <Link href="/admin/protocols/audit">
+            <Button variant="outline">Audit Log</Button>
+          </Link>
+          <Link href="/admin/signals/new">
+            <Button>+ New Signal</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -142,10 +165,10 @@ export default function SignalsListPage() {
             <TableRow>
               <TableHead className="w-[80px]">Priority</TableHead>
               <TableHead>Signal</TableHead>
-              <TableHead>Subtitle</TableHead>
               <TableHead className="w-[100px]">Color</TableHead>
               <TableHead className="w-[120px]">Conditions</TableHead>
               <TableHead className="w-[100px]">Status</TableHead>
+              <TableHead className="w-[120px]">Safety Critical</TableHead>
               <TableHead className="w-[90px]">Built-in</TableHead>
               <TableHead className="w-[140px]">Actions</TableHead>
             </TableRow>
@@ -171,26 +194,26 @@ export default function SignalsListPage() {
                   onClick={() => router.push(`/admin/signals/${s.signal_id}/edit`)}
                 >
                   <TableCell>
-                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${
-                      s.priority <= 2 ? "bg-red-500/20 text-red-400" :
-                      s.priority <= 5 ? "bg-orange-500/20 text-orange-400" :
-                      "bg-blue-500/20 text-blue-400"
-                    }`}>
+                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${getPriorityStyle(s.priority)}`}>
                       {s.priority}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <span className="font-bold tracking-wide" style={{ color: s.color }}>
                         {s.display_name}
                       </span>
                       {s.show_urgency_badge && (
-                        <Badge variant="destructive" className="text-[10px]">URGENCY</Badge>
+                        <Badge variant="destructive" className="text-[10px]">
+                          {s.urgency_label?.toUpperCase() || "URGENCY"}
+                        </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{s.key}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-xs">
+                      {s.subtitle}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">{s.key}</p>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{s.subtitle}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div
@@ -201,17 +224,24 @@ export default function SignalsListPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="text-xs text-muted-foreground">
+                    <Badge variant="outline" className="text-xs">
                       {s.conditions?.conditions?.length ?? 0} rule{(s.conditions?.conditions?.length ?? 0) !== 1 ? "s" : ""}
                       {" · "}
                       {s.conditions?.match?.toUpperCase() ?? "ALL"}
-                    </span>
+                    </Badge>
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Switch
                       checked={s.is_enabled}
                       onCheckedChange={() => handleToggle(s)}
                     />
+                  </TableCell>
+                  <TableCell>
+                    {s.show_urgency_badge && (
+                      <Badge variant="destructive" className="text-xs">
+                        CRITICAL
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     {s.is_built_in && (
