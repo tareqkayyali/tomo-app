@@ -349,6 +349,13 @@ function detectActionContext(
     return "updating_events";
   if (/\b(check.?in|log|record)\b/i.test(userLower) || /check-in saved|logged/i.test(assistLower))
     return "checking_in";
+  // Session plan / training recommendation detection
+  if (/session plan|training plan|workout plan|here'?s your|recommended.*session/i.test(assistLower))
+    return "generating_session_plan";
+  if (/recommend|suggested|picked|drills for you|program/i.test(assistLower) && /train|drill|exercise|session|program/i.test(assistLower))
+    return "recommending_training";
+  if (/readiness|your readiness|check-in data|vitals/i.test(assistLower) && /green|yellow|red|moderate|light|hard/i.test(assistLower))
+    return "showing_readiness";
   if (/\b(show|view|what'?s|see|look)\b/i.test(userLower))
     return "viewing";
 

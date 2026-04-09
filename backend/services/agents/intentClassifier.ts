@@ -296,6 +296,20 @@ const FALLTHROUGH_PREFIXES = [
   /program.*(drills?|exercises?|sessions?|details?|explain)/i,
   /drills? (for|in|from) my/i,
   /what.*(drills?|exercises?) .*(in|for|from)/i,
+  // Follow-up patterns — user asking about previous AI response
+  /^why did you (recommend|suggest|pick|choose)/i,
+  /^why (those|these|that|this)/i,
+  /^what('s| is) the reason/i,
+  /^how (should|do|can) i (do|execute|perform|start)/i,
+  /^(tell me|what) about (those|these|that|the) (training|drill|session|exercise|program)/i,
+  /^(but |and )?(what about|how about)/i,
+  /^(ok|okay|sure|yes|yeah|yep|alright),?\s/i,
+  /^(can|could) (you )?(elaborate|expand|go deeper)/i,
+  /^(more|give me more) (details?|info|context)/i,
+  /^you (just |)said/i,
+  /^that('s| is) (not|too|very|quite)/i,
+  /^i (meant|mean|was asking|asked)/i,
+  /^no,?\s/i,
 ];
 
 function tryExactMatch(message: string): ClassificationResult | null {
@@ -343,6 +357,7 @@ ${buildClassifierIntentList()}
 agent_fallthrough: None of the above / needs full AI conversation or reasoning
 
 CRITICAL RULES:
+- FOLLOW-UP DETECTION: If the context shows "Last action: generating_session_plan" or "Last action: recommending_training" or "Last action: showing_readiness", and the user asks "why", "how", "what about", "tell me more", "those", or references previous content — ALWAYS classify as agent_fallthrough. The user is continuing the conversation.
 - If the user asks about a SPECIFIC program by name (e.g. "explain my First Touch program drills"), classify as agent_fallthrough — NOT show_programs.
 - If the user references a SPECIFIC recommendation by name or quotes it, classify as agent_fallthrough — NOT qa_readiness or recommendations.
 - If the user mentions pain, injury, or soreness in context of "what should I do", classify as agent_fallthrough — NOT qa_readiness.
@@ -377,6 +392,23 @@ function buildContextSummary(
   }
   if (context.activeTab) {
     parts.push(`Tab: ${context.activeTab}`);
+  }
+  // Include referenced drills/events for follow-up detection
+  if (conversationState?.referencedDrills && Object.keys(conversationState.referencedDrills).length > 0) {
+    const drillNames = Object.keys(conversationState.referencedDrills).slice(0, 5).join(", ");
+    parts.push(`Recent drills: ${drillNames}`);
+  }
+  if (conversationState?.referencedEventNames && conversationState.referencedEventNames.length > 0) {
+    const eventNames = conversationState.referencedEventNames.slice(-3).join(", ");
+    parts.push(`Recent events: ${eventNames}`);
+  }
+  // Entity graph last mentions — helps classifier know what "those" refers to
+  if (conversationState?.entityGraph?.lastMentioned) {
+    const mentions = Object.entries(conversationState.entityGraph.lastMentioned)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(", ");
+    if (mentions) parts.push(`Last mentioned: ${mentions}`);
   }
   return parts.length > 0 ? parts.join(" | ") : "No prior context";
 }

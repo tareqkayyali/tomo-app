@@ -747,7 +747,7 @@ function StatGridCard({
               ]}
               numberOfLines={3}
             >
-              {item.value}{item.unit ?? ''}
+              {item.value}{item.unit ? (/^[/%]/.test(item.unit) ? item.unit : ` ${item.unit}`) : ''}
             </Text>
             <Text style={styles.statGridLabel} numberOfLines={2}>{item.label}</Text>
           </View>

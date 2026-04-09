@@ -15,6 +15,8 @@ interface CapsuleDateChipProps {
 }
 
 function formatDateLabel(dateStr: string): string {
+  if (!dateStr) return 'Select date';
+
   const today = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
@@ -22,6 +24,7 @@ function formatDateLabel(dateStr: string): string {
   if (dateStr === tomorrow) return 'Tomorrow';
 
   const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return 'Select date';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 

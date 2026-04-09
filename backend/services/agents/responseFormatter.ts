@@ -810,8 +810,8 @@ Return JSON in \`\`\`json markers. Schema:
 { "headline": "Max 8 words", "cards": [VisualCard...], "chips": [{ "label": "text", "action": "message" }] }
 
 CARD TYPES (use the right one):
-- stat_grid: { type, items: [{ label, value, unit, highlight? }] } — for 3+ metrics (readiness, load)
-- stat_row: { type, label, value, unit, trend?, emoji? } — single stat
+- stat_grid: { type, items: [{ label, value, unit, highlight? }] } — for 3+ metrics (readiness, load). IMPORTANT: "unit" is ONLY for measurement symbols like "/10", "ms", "bpm", "%", "hrs", "AU". NEVER put descriptive text in unit (no "Status", "Green zone", "moderate concern"). Examples: { label: "Readiness", value: "YELLOW", unit: "" }, { label: "ACWR", value: "0.62", unit: "" }, { label: "Energy", value: 6, unit: "/10" }
+- stat_row: { type, label, value, unit, trend?, emoji? } — single stat. Same unit rules: measurement symbols only.
 - schedule_list: { type, date?, items: [{ time, title, type, clash? }] } — FOR ALL schedule/calendar queries: today, tomorrow, this week, what's on, training windows. ALWAYS use this, never describe events in text_card.
 - zone_stack: { type, current, levels: [{ zone, label, detail }] } — exam/load zones
 - clash_list: { type, clashes: [{ event1, event2, time, fix }] } — conflicts
