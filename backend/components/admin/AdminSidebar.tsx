@@ -64,6 +64,15 @@ const navigation = [
     ],
   },
   {
+    label: "Planning Intelligence",
+    items: [
+      { name: "Athlete Modes", href: "/admin/modes", icon: "🎯" },
+      { name: "Training Categories", href: "/admin/training-categories", icon: "🏷️" },
+      { name: "Planning Protocols", href: "/admin/planning-protocols", icon: "📐" },
+      { name: "Cognitive Windows", href: "/admin/cognitive-windows", icon: "🧠" },
+    ],
+  },
+  {
     label: "AI & Recommendations",
     items: [
       { name: "Performance Intelligence", href: "/admin/performance-intelligence", icon: "🧪" },
