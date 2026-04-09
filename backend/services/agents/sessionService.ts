@@ -356,10 +356,51 @@ function enrichContentWithStructured(content: string, structured: TomoResponse):
           .join(", ");
         parts.push(`[Proposed schedule: ${itemsStr}]`);
       }
+    } else if (card.type === "session_plan") {
+      // Preserve training session recommendations so follow-up questions can reference them
+      const c = card as any;
+      const title = c.title || c.sessionTitle || c.headline || "Training Session";
+      const duration = c.totalDuration || c.duration ? `${c.totalDuration || c.duration}min` : "";
+      const readiness = c.readiness || "";
+      const drills = c.items || c.drills || c.exercises || [];
+      if (Array.isArray(drills) && drills.length > 0) {
+        const drillList = drills
+          .map((d: any) => {
+            const name = d.name || d.title || "Drill";
+            const dur = d.duration || d.durationMin ? `${d.duration || d.durationMin}min` : "";
+            const cat = d.category || d.phase || "";
+            const intensity = d.intensity || "";
+            return `${name}${dur ? ` (${dur})` : ""}${cat ? ` [${cat}]` : ""}${intensity ? ` ${intensity}` : ""}`;
+          })
+          .join("; ");
+        parts.push(`[Recommended session: ${title}${duration ? ` ${duration}` : ""}${readiness ? ` readiness:${readiness}` : ""} — Drills: ${drillList}]`);
+      } else {
+        parts.push(`[Recommended session: ${title}${duration ? ` ${duration}` : ""}]`);
+      }
+    } else if (card.type === "stat_grid" || card.type === "stat_row") {
+      // Preserve metrics context (readiness, load, benchmarks)
+      const c = card as any;
+      const items = c.items || [];
+      if (Array.isArray(items) && items.length > 0) {
+        const metrics = items
+          .map((i: any) => `${i.label || ""}: ${i.value ?? ""}${i.unit ? ` ${i.unit}` : ""}`)
+          .filter((s: string) => s.length > 2)
+          .join(", ");
+        if (metrics) parts.push(`[Metrics: ${metrics}]`);
+      }
     } else if (card.type === "confirm_card") {
       parts.push(`[Pending confirmation: ${(card as any).body}]`);
     } else if (card.type === "text_card" && (card as any).body && !(content.includes((card as any).body))) {
       parts.push((card as any).body);
+    }
+  }
+
+  // Also preserve chips as suggested actions context
+  const chips = structured.chips;
+  if (chips && Array.isArray(chips) && chips.length > 0) {
+    const chipLabels = chips.map((c: any) => c.label || c.text || "").filter(Boolean);
+    if (chipLabels.length > 0) {
+      parts.push(`[Suggested actions: ${chipLabels.join(", ")}]`);
     }
   }
 

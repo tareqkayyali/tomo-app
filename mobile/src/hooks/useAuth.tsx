@@ -296,17 +296,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Logout — clear all user-scoped local data to prevent cross-user leaks
   const logout = useCallback(async () => {
     resetAnalytics();
+    // Capture uid before clearing state (needed for scoped cache keys)
+    const uid = userRef.current?.uid;
     // Clear user-scoped chat storage (uses internal user ID tracking)
     await clearSavedChatsStorage();
     // Clear other user-scoped AsyncStorage keys
-    await AsyncStorage.multiRemove([
+    const keysToRemove = [
       STORAGE_KEY_SAVED_STUDY_PLANS,
       STORAGE_KEY_PLANNING_STREAK,
       STORAGE_KEY_CONTENT_MANIFEST,
       STORAGE_KEY_CONTENT_BUNDLE,
       STORAGE_KEY_CONFIG_MANIFEST,
       STORAGE_KEY_CONFIG_BUNDLE,
-    ]);
+    ];
+    // Also clear user-scoped boot cache
+    if (uid) {
+      keysToRemove.push(`@tomo_boot_v1_${uid}`);
+    }
+    await AsyncStorage.multiRemove(keysToRemove);
     await signOut();
     setProfile(null);
   }, []);

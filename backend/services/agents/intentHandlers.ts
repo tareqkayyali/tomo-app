@@ -1521,6 +1521,39 @@ async function handleTodayBriefing(
 
 // ── Settings & Profile Agent Handlers ──────────────────────
 
+/**
+ * Format a raw tool result object into human-readable text.
+ * Converts {name: "Jamal", sport: "football", age: 12} into
+ * "Name: Jamal\nSport: Football\nAge: 12"
+ */
+function formatToolResult(result: Record<string, any>): string {
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(result)) {
+    if (value == null || value === "" || value === "unknown") continue;
+    // Convert camelCase/snake_case to Title Case label
+    const label = key
+      .replace(/([A-Z])/g, " $1")
+      .replace(/_/g, " ")
+      .replace(/^\w/, (c) => c.toUpperCase())
+      .trim();
+    // Format arrays nicely
+    if (Array.isArray(value)) {
+      if (value.length === 0) continue;
+      lines.push(`${label}: ${value.join(", ")}`);
+    } else if (typeof value === "object") {
+      // Nested objects — flatten key fields
+      const nested = Object.entries(value)
+        .filter(([, v]) => v != null && v !== "")
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(", ");
+      if (nested) lines.push(`${label}: ${nested}`);
+    } else {
+      lines.push(`${label}: ${value}`);
+    }
+  }
+  return lines.join("\n");
+}
+
 async function handleSettingsQuickAction(
   toolName: string,
   toolInput: Record<string, any>,
@@ -1530,9 +1563,17 @@ async function handleSettingsQuickAction(
   try {
     const result = await executeSettingsTool(toolName, toolInput, context);
     if (result.result) {
+      // Format tool result as human-readable text, not raw JSON
+      const formatted = Array.isArray(result.result)
+        ? result.result.map((item: any, i: number) =>
+            typeof item === "object" ? `${i + 1}. ${formatToolResult(item)}` : String(item)
+          ).join("\n\n")
+        : typeof result.result === "object"
+          ? formatToolResult(result.result)
+          : String(result.result);
       return {
         message: headline,
-        structured: buildTextResponse(JSON.stringify(result.result)),
+        structured: buildTextResponse(formatted),
         refreshTargets: result.refreshTarget ? [result.refreshTarget] : [],
         agentType: "settings",
       };

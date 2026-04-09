@@ -1323,9 +1323,29 @@ export function HomeScreen() {
       .catch(() => {});
   }, []);
 
+  const userId = profile?.uid || profile?.id || '';
+  const prevUserIdRef = useRef(userId);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // SECURITY: Reset ALL chat state when user identity changes (prevents cross-user data leak)
+  useEffect(() => {
+    if (prevUserIdRef.current && userId && prevUserIdRef.current !== userId) {
+      // User changed — wipe all local state
+      setMessages([]);
+      setCurrentChat(createNewChat());
+      setSavedChatsList([]);
+      setTodayData(null);
+      setServerSessions([]);
+      setChips([]);
+      setIsLoading(true);
+      // Re-fetch everything for the new user
+      loadData();
+    }
+    prevUserIdRef.current = userId;
+  }, [userId, loadData]);
 
   // Re-warm suggestions + today data when screen re-focuses (stale after 60s)
   const lastWarmRef = useRef(Date.now());
@@ -1341,8 +1361,6 @@ export function HomeScreen() {
       }
     }, [])
   );
-
-  const userId = profile?.uid || profile?.id || '';
 
   // ── Pick quote (changes on every new chat) ─────────────────────────
   const currentQuote = useMemo(() => {
