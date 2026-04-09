@@ -35,7 +35,7 @@ export default async function DashboardLayout({
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <AdminSidebar />
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col min-w-0">
           <AdminHeader userEmail={user.email} />
           <main className="flex-1 overflow-auto p-6">{children}</main>
         </div>
