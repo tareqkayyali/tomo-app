@@ -50,6 +50,10 @@ export type EventPayload =
   | CvExportedPayload
   | JournalPreSessionPayload
   | JournalPostSessionPayload
+  | ModeChangePayload
+  | PlanProposedPayload
+  | PlanCommittedPayload
+  | DliAlertPayload
   | Record<string, unknown>;    // fallback for extensibility
 
 // ---------------------------------------------------------------------------
@@ -242,6 +246,39 @@ export interface CvExportedPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Planning Intelligence Payloads
+// ---------------------------------------------------------------------------
+
+export interface ModeChangePayload {
+  previous_mode: string | null;
+  new_mode: string;
+  mode_params: Record<string, unknown>;
+  trigger: 'manual' | 'auto' | 'system';
+}
+
+export interface PlanProposedPayload {
+  plan_type: 'training' | 'study' | 'weekly' | 'adjustment';
+  planning_session_id: string;
+  mode_id: string;
+  protocols_applied: string[];
+  plan_summary: string;
+}
+
+export interface PlanCommittedPayload {
+  planning_session_id: string;
+  calendar_events_created: string[];
+  protocols_applied: string[];
+}
+
+export interface DliAlertPayload {
+  dual_load_index: number;
+  dual_load_zone: 'amber' | 'red' | 'critical';
+  previous_zone: string | null;
+  training_load_component: number;
+  academic_load_component: number;
+}
+
+// ---------------------------------------------------------------------------
 // Journal Payloads
 // ---------------------------------------------------------------------------
 
@@ -336,6 +373,102 @@ export interface AthleteSnapshot {
   last_journal_at: string | null;
   pending_pre_journal_count: number;
   pending_post_journal_count: number;
+
+  // ── Planning IP (migration 036) ──
+  athlete_mode: string | null;
+  mode_changed_at: string | null;
+  study_training_balance_ratio: number | null;
+  dual_load_zone: string | null;
+  applicable_protocol_ids: string[] | null;
+  exam_proximity_score: number | null;
+
+  // ── Snapshot 360: Performance Science (migration 037) ──
+  training_monotony: number | null;
+  training_strain: number | null;
+  data_confidence_score: number | null;
+  data_confidence_breakdown: Record<string, number> | null;
+  season_phase: string | null;
+  season_phase_week: number | null;
+  readiness_delta: number | null;
+  resting_hr_trend_7d: 'IMPROVING' | 'STABLE' | 'DECLINING' | null;
+
+  // ── Snapshot 360: Vitals Enrichment ──
+  spo2_pct: number | null;
+  skin_temp_c: number | null;
+  recovery_score: number | null;
+  sleep_hours: number | null;
+  sleep_consistency_score: number | null;
+  sleep_debt_3d: number | null;
+
+  // ── Snapshot 360: Trends ──
+  hrv_trend_7d_pct: number | null;
+  load_trend_7d_pct: number | null;
+  readiness_distribution_7d: Record<string, number> | null;
+  acwr_trend: 'IMPROVING' | 'STABLE' | 'DECLINING' | null;
+  sleep_trend_7d: 'IMPROVING' | 'STABLE' | 'DECLINING' | null;
+  body_feel_trend_7d: number | null;
+
+  // ── Snapshot 360: Schedule & Context ──
+  matches_next_7d: number | null;
+  exams_next_14d: number | null;
+  in_exam_period: boolean | null;
+  sessions_scheduled_next_7d: number | null;
+  days_since_last_session: number | null;
+
+  // ── Snapshot 360: Injury Detail ──
+  active_injury_count: number | null;
+  injury_locations: string[] | null;
+  days_since_injury: number | null;
+
+  // ── Snapshot 360: Engagement & Behavioral ──
+  chat_sessions_7d: number | null;
+  chat_messages_7d: number | null;
+  last_chat_at: string | null;
+  rec_action_rate_30d: number | null;
+  notification_action_rate_7d: number | null;
+  drills_completed_7d: number | null;
+  avg_drill_rating_30d: number | null;
+  active_program_count: number | null;
+  program_compliance_rate: number | null;
+  plan_compliance_7d: number | null;
+  checkin_consistency_7d: number | null;
+  total_points_7d: number | null;
+  longest_streak: number | null;
+
+  // ── Snapshot 360: Triangle Engagement ──
+  days_since_coach_interaction: number | null;
+  days_since_parent_interaction: number | null;
+  triangle_engagement_score: number | null;
+
+  // ── Snapshot 360: Academic Detail ──
+  study_hours_7d: number | null;
+  academic_stress_latest: number | null;
+  exam_count_active: number | null;
+
+  // ── Snapshot 360: CV & Recruiting ──
+  cv_views_total: number | null;
+  cv_views_7d: number | null;
+  cv_statement_status: string | null;
+  cv_sections_complete: Record<string, number> | null;
+
+  // ── Snapshot 360: Benchmark & Performance ──
+  overall_percentile: number | null;
+  top_strengths: Array<{ category: string; percentile: number }> | null;
+  key_gaps: Array<{ category: string; percentile: number }> | null;
+
+  // ── Snapshot 360: Longitudinal AI Context ──
+  active_goals_count: number | null;
+  unresolved_concerns_count: number | null;
+  coaching_preference: string | null;
+
+  // ── Snapshot 360: Wearable Status ──
+  wearable_connected: boolean | null;
+  wearable_last_sync_at: string | null;
+
+  // ── Snapshot 360: Journal Quality ──
+  pre_journal_completion_rate: number | null;
+  post_journal_completion_rate: number | null;
+  avg_post_body_feel_7d: number | null;
 
   // Meta
   last_event_id: string | null;

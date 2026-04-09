@@ -26,6 +26,21 @@ import type {
 } from '../types';
 import type { EffectiveRules } from '../hooks/useScheduleRules';
 
+// ── Mode Context (optional, from Planning IP) ──────────────────────
+
+export interface StudyModeContext {
+  modeId: string;
+  studyDurationMultiplier: number;
+  studyTrainingBalanceRatio: number;
+  /** Snapshot-derived: current readiness, load, etc. for smart scheduling */
+  snapshotState?: {
+    readiness_rag?: string | null;
+    academic_load_7day?: number | null;
+    sleep_debt_3d?: number | null;
+    in_exam_period?: boolean | null;
+  };
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function toDateStr(d: Date): string {
@@ -115,6 +130,7 @@ export function generateStudyPlan(
   existingEvents: CalendarEvent[] = [],
   schoolSchedule?: SchoolSchedule,
   effectiveRules?: EffectiveRules,
+  modeContext?: StudyModeContext,
 ): GeneratorResult {
   if (examSchedule.length === 0) return { blocks: [], warnings: [] };
 
@@ -131,10 +147,15 @@ export function generateStudyPlan(
     daysPerSubject,
     timeSlotStart,
     timeSlotEnd,
-    sessionDuration,
+    sessionDuration: rawSessionDuration,
     strategy,
     // excludedDays is intentionally IGNORED — study happens all 7 days
   } = config;
+
+  // Apply mode study duration multiplier if provided
+  const sessionDuration = modeContext
+    ? Math.round(rawSessionDuration * modeContext.studyDurationMultiplier)
+    : rawSessionDuration;
 
   // Clamp study window to day bounds if effective rules provided
   let windowStartMin = timeToMinutes(timeSlotStart);

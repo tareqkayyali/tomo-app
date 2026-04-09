@@ -30,6 +30,9 @@ const EXCLUDED_COLUMNS = new Set([
   "last_event_id",
   "last_session_at",
   "last_checkin_at",
+  "last_chat_at",
+  "wearable_last_sync_at",
+  "mode_changed_at",
   "dob",
   "sport",
   "position",
@@ -72,6 +75,43 @@ const LABEL_OVERRIDES: Record<string, string> = {
   mastery_scores: "Mastery Scores",
   speed_profile: "Speed Profile",
   strength_benchmarks: "Strength Benchmarks",
+  // Planning IP
+  athlete_mode: "Athlete Mode",
+  dual_load_zone: "Dual Load Zone",
+  applicable_protocol_ids: "Applicable Protocols",
+  exam_proximity_score: "Exam Proximity Score",
+  study_training_balance_ratio: "Study/Training Balance",
+  // Snapshot 360
+  training_monotony: "Training Monotony (Banister)",
+  training_strain: "Training Strain",
+  data_confidence_score: "Data Confidence Score",
+  data_confidence_breakdown: "Data Confidence Breakdown",
+  season_phase: "Season Phase",
+  readiness_delta: "Readiness Delta (Subjective − Objective)",
+  resting_hr_trend_7d: "Resting HR Trend (7d)",
+  spo2_pct: "SpO₂ (%)",
+  skin_temp_c: "Skin Temperature (°C)",
+  recovery_score: "Recovery Score",
+  sleep_hours: "Sleep Hours",
+  sleep_consistency_score: "Sleep Consistency Score",
+  sleep_debt_3d: "Sleep Debt (3d)",
+  hrv_trend_7d_pct: "HRV Trend 7d (%)",
+  load_trend_7d_pct: "Load Trend 7d (%)",
+  readiness_distribution_7d: "Readiness Distribution (7d)",
+  acwr_trend: "ACWR Trend",
+  sleep_trend_7d: "Sleep Trend (7d)",
+  body_feel_trend_7d: "Body Feel Trend (7d)",
+  matches_next_7d: "Matches Next 7d",
+  exams_next_14d: "Exams Next 14d",
+  in_exam_period: "In Exam Period",
+  active_injury_count: "Active Injury Count",
+  injury_locations: "Injury Locations",
+  days_since_injury: "Days Since Injury",
+  rec_action_rate_30d: "Rec Action Rate (30d)",
+  plan_compliance_7d: "Plan Compliance (7d)",
+  checkin_consistency_7d: "Check-in Consistency (7d)",
+  triangle_engagement_score: "Triangle Engagement Score",
+  overall_percentile: "Overall Percentile",
 };
 
 // ── Column Registry ──
@@ -123,6 +163,103 @@ const SNAPSHOT_COLUMNS: Array<[string, string, "number" | "string" | "json"]> =
     ["mastery_scores", "masteryScores", "json"],
     ["speed_profile", "speedProfile", "json"],
     ["strength_benchmarks", "strengthBenchmarks", "json"],
+
+    // ── Planning IP (Phase 1) ──
+    ["athlete_mode", "athleteMode", "string"],
+    ["mode_changed_at", "modeChangedAt", "string"],
+    ["study_training_balance_ratio", "studyTrainingBalanceRatio", "number"],
+    ["dual_load_zone", "dualLoadZone", "string"],
+    ["applicable_protocol_ids", "applicableProtocolIds", "json"],
+    ["exam_proximity_score", "examProximityScore", "number"],
+
+    // ── Snapshot 360: Performance Science ──
+    ["training_monotony", "trainingMonotony", "number"],
+    ["training_strain", "trainingStrain", "number"],
+    ["data_confidence_score", "dataConfidenceScore", "number"],
+    ["data_confidence_breakdown", "dataConfidenceBreakdown", "json"],
+    ["season_phase", "seasonPhase", "string"],
+    ["season_phase_week", "seasonPhaseWeek", "number"],
+    ["readiness_delta", "readinessDelta", "number"],
+    ["resting_hr_trend_7d", "restingHrTrend7d", "string"],
+
+    // ── Snapshot 360: Vitals Enrichment ──
+    ["spo2_pct", "spo2Pct", "number"],
+    ["skin_temp_c", "skinTempC", "number"],
+    ["recovery_score", "recoveryScore", "number"],
+    ["sleep_hours", "sleepHours", "number"],
+    ["sleep_consistency_score", "sleepConsistencyScore", "number"],
+    ["sleep_debt_3d", "sleepDebt3d", "number"],
+
+    // ── Snapshot 360: Trends ──
+    ["hrv_trend_7d_pct", "hrvTrend7dPct", "number"],
+    ["load_trend_7d_pct", "loadTrend7dPct", "number"],
+    ["readiness_distribution_7d", "readinessDistribution7d", "json"],
+    ["acwr_trend", "acwrTrend", "string"],
+    ["sleep_trend_7d", "sleepTrend7d", "string"],
+    ["body_feel_trend_7d", "bodyFeelTrend7d", "number"],
+
+    // ── Snapshot 360: Schedule & Context ──
+    ["matches_next_7d", "matchesNext7d", "number"],
+    ["exams_next_14d", "examsNext14d", "number"],
+    ["in_exam_period", "inExamPeriod", "string"],
+    ["sessions_scheduled_next_7d", "sessionsScheduledNext7d", "number"],
+    ["days_since_last_session", "daysSinceLastSession", "number"],
+
+    // ── Snapshot 360: Injury Detail ──
+    ["active_injury_count", "activeInjuryCount", "number"],
+    ["injury_locations", "injuryLocations", "json"],
+    ["days_since_injury", "daysSinceInjury", "number"],
+
+    // ── Snapshot 360: Engagement & Behavioral ──
+    ["chat_sessions_7d", "chatSessions7d", "number"],
+    ["chat_messages_7d", "chatMessages7d", "number"],
+    ["last_chat_at", "lastChatAt", "string"],
+    ["rec_action_rate_30d", "recActionRate30d", "number"],
+    ["notification_action_rate_7d", "notificationActionRate7d", "number"],
+    ["drills_completed_7d", "drillsCompleted7d", "number"],
+    ["avg_drill_rating_30d", "avgDrillRating30d", "number"],
+    ["active_program_count", "activeProgramCount", "number"],
+    ["program_compliance_rate", "programComplianceRate", "number"],
+    ["plan_compliance_7d", "planCompliance7d", "number"],
+    ["checkin_consistency_7d", "checkinConsistency7d", "number"],
+    ["total_points_7d", "totalPoints7d", "number"],
+    ["longest_streak", "longestStreak", "number"],
+
+    // ── Snapshot 360: Triangle Engagement ──
+    ["days_since_coach_interaction", "daysSinceCoachInteraction", "number"],
+    ["days_since_parent_interaction", "daysSinceParentInteraction", "number"],
+    ["triangle_engagement_score", "triangleEngagementScore", "number"],
+
+    // ── Snapshot 360: Academic Detail ──
+    ["study_hours_7d", "studyHours7d", "number"],
+    ["academic_stress_latest", "academicStressLatest", "number"],
+    ["exam_count_active", "examCountActive", "number"],
+
+    // ── Snapshot 360: CV & Recruiting ──
+    ["cv_views_total", "cvViewsTotal", "number"],
+    ["cv_views_7d", "cvViews7d", "number"],
+    ["cv_statement_status", "cvStatementStatus", "string"],
+    ["cv_sections_complete", "cvSectionsComplete", "json"],
+
+    // ── Snapshot 360: Benchmark & Performance ──
+    ["overall_percentile", "overallPercentile", "number"],
+    ["top_strengths", "topStrengths", "json"],
+    ["key_gaps", "keyGaps", "json"],
+
+    // ── Snapshot 360: Longitudinal AI Context ──
+    ["active_goals_count", "activeGoalsCount", "number"],
+    ["unresolved_concerns_count", "unresolvedConcernsCount", "number"],
+    ["coaching_preference", "coachingPreference", "string"],
+
+    // ── Snapshot 360: Wearable Status ──
+    ["wearable_connected", "wearableConnected", "string"],
+    ["wearable_last_sync_at", "wearableLastSyncAt", "string"],
+
+    // ── Snapshot 360: Journal Quality ──
+    ["pre_journal_completion_rate", "preJournalCompletionRate", "number"],
+    ["post_journal_completion_rate", "postJournalCompletionRate", "number"],
+    ["avg_post_body_feel_7d", "avgPostBodyFeel7d", "number"],
+
     // Identity / meta (will be filtered out by EXCLUDED_COLUMNS)
     ["athlete_id", "athleteId", "string"],
     ["snapshot_at", "snapshotAt", "string"],

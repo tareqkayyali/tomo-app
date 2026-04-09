@@ -101,6 +101,16 @@ export interface PlayerContext {
   // Top active recommendations from the Recommendation Intelligence Engine.
   // Injected into system prompt so the AI is always recommendation-aware.
   activeRecommendations: ActiveRecommendation[];
+
+  // ── Planning IP Context ──
+  planningContext: {
+    activeMode: string | null;
+    modeParams: Record<string, unknown> | null;
+    applicableProtocols: string[];
+    dualLoadZone: string | null;
+    examProximityScore: number | null;
+    dataConfidenceScore: number | null;
+  } | null;
 }
 
 /** Lightweight rec summary for system prompt injection */
@@ -163,6 +173,44 @@ export interface SnapshotEnrichment {
   lastJournalAt: string | null;
   pendingPreJournalCount: number;
   pendingPostJournalCount: number;
+
+  // ── Snapshot 360: Performance Science ──
+  trainingMonotony: number | null;
+  trainingStrain: number | null;
+  dataConfidenceScore: number | null;
+  readinessDelta: number | null;
+  sleepDebt3d: number | null;
+
+  // ── Snapshot 360: Vitals ──
+  spo2Pct: number | null;
+  recoveryScore: number | null;
+
+  // ── Snapshot 360: Trends ──
+  hrvTrend7dPct: number | null;
+  loadTrend7dPct: number | null;
+  acwrTrend: string | null;
+  sleepTrend7d: string | null;
+  bodyFeelTrend7d: number | null;
+  restingHrTrend7d: string | null;
+  readinessDistribution7d: Record<string, number> | null;
+
+  // ── Snapshot 360: Context ──
+  matchesNext7d: number | null;
+  examsNext14d: number | null;
+  seasonPhase: string | null;
+  daysSinceLastSession: number | null;
+
+  // ── Snapshot 360: Engagement ──
+  recActionRate30d: number | null;
+  planCompliance7d: number | null;
+  checkinConsistency7d: number | null;
+  coachingPreference: string | null;
+
+  // ── Planning IP ──
+  athleteMode: string | null;
+  dualLoadZone: string | null;
+  applicableProtocolIds: string[] | null;
+  examProximityScore: number | null;
 }
 
 export interface CalendarEvent {
@@ -411,6 +459,38 @@ export async function buildPlayerContext(
         lastJournalAt: (snapshot as any).last_journal_at ?? null,
         pendingPreJournalCount: (snapshot as any).pending_pre_journal_count ?? 0,
         pendingPostJournalCount: (snapshot as any).pending_post_journal_count ?? 0,
+        // Snapshot 360: Performance Science
+        trainingMonotony: (snapshot as any).training_monotony ?? null,
+        trainingStrain: (snapshot as any).training_strain ?? null,
+        dataConfidenceScore: (snapshot as any).data_confidence_score ?? null,
+        readinessDelta: (snapshot as any).readiness_delta ?? null,
+        sleepDebt3d: (snapshot as any).sleep_debt_3d ?? null,
+        // Snapshot 360: Vitals
+        spo2Pct: (snapshot as any).spo2_pct ?? null,
+        recoveryScore: (snapshot as any).recovery_score ?? null,
+        // Snapshot 360: Trends
+        hrvTrend7dPct: (snapshot as any).hrv_trend_7d_pct ?? null,
+        loadTrend7dPct: (snapshot as any).load_trend_7d_pct ?? null,
+        acwrTrend: (snapshot as any).acwr_trend ?? null,
+        sleepTrend7d: (snapshot as any).sleep_trend_7d ?? null,
+        bodyFeelTrend7d: (snapshot as any).body_feel_trend_7d ?? null,
+        restingHrTrend7d: (snapshot as any).resting_hr_trend_7d ?? null,
+        readinessDistribution7d: (snapshot as any).readiness_distribution_7d ?? null,
+        // Snapshot 360: Context
+        matchesNext7d: (snapshot as any).matches_next_7d ?? null,
+        examsNext14d: (snapshot as any).exams_next_14d ?? null,
+        seasonPhase: (snapshot as any).season_phase ?? null,
+        daysSinceLastSession: (snapshot as any).days_since_last_session ?? null,
+        // Snapshot 360: Engagement
+        recActionRate30d: (snapshot as any).rec_action_rate_30d ?? null,
+        planCompliance7d: (snapshot as any).plan_compliance_7d ?? null,
+        checkinConsistency7d: (snapshot as any).checkin_consistency_7d ?? null,
+        coachingPreference: (snapshot as any).coaching_preference ?? null,
+        // Planning IP
+        athleteMode: (snapshot as any).athlete_mode ?? null,
+        dualLoadZone: (snapshot as any).dual_load_zone ?? null,
+        applicableProtocolIds: (snapshot as any).applicable_protocol_ids ?? null,
+        examProximityScore: (snapshot as any).exam_proximity_score ?? null,
         projectedLoad7day: projectedLoadSum > 0 ? projectedLoadSum : null,
         projectedACWR: (() => {
           const currentCTL = (snapshot.ctl_28day as number) ?? 0;
@@ -422,6 +502,16 @@ export async function buildPlayerContext(
         })(),
       }
     : null;
+
+  // Build planning context from snapshot
+  const planningContext = snapshot ? {
+    activeMode: (snapshot as any).athlete_mode ?? null,
+    modeParams: null, // Populated from CMS when needed, not stored on snapshot
+    applicableProtocols: ((snapshot as any).applicable_protocol_ids as string[]) ?? [],
+    dualLoadZone: (snapshot as any).dual_load_zone ?? null,
+    examProximityScore: (snapshot as any).exam_proximity_score ?? null,
+    dataConfidenceScore: (snapshot as any).data_confidence_score ?? null,
+  } : null;
 
   // Derive age band from age
   let ageBand: string | null = null;
@@ -561,6 +651,7 @@ export async function buildPlayerContext(
     timezone: tz,
     snapshotEnrichment,
     activeRecommendations,
+    planningContext,
   };
 }
 

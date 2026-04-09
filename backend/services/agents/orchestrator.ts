@@ -32,6 +32,12 @@ import {
   buildSettingsStaticPrompt,
   buildSettingsDynamicPrompt,
 } from "./settingsAgent";
+import {
+  planningTools,
+  executePlanningTool,
+  buildPlanningStaticPrompt,
+  buildPlanningDynamicPrompt,
+} from "./planningAgent";
 import { validateResponse, GUARDRAIL_SYSTEM_BLOCK, categorizeMessage, enforcePHVSafety, buildPHVSystemPromptBlock, enforceNoDeadEnds } from "./chatGuardrails";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
@@ -222,6 +228,8 @@ const WRITE_ACTIONS = new Set([
   "set_goal",
   "log_injury",
   "update_cv_visibility",
+  // Planning agent write actions
+  "propose_mode_change",
 ]);
 
 // ── CAPSULE DIRECT ACTIONS — single-step confirmation (capsule submit = confirm) ──
@@ -269,7 +277,7 @@ export const CAPSULE_GATED_ACTIONS = new Set([
 ]);
 
 // ── AGENT TIEBREAKER — when multiple agents match, pick the best one ──
-type AgentType = "timeline" | "output" | "mastery" | "settings";
+type AgentType = "timeline" | "output" | "mastery" | "settings" | "planning";
 
 const TIEBREAKER_RULES: { pattern: RegExp; winner: AgentType }[] = [
   // Output wins for data/readiness/training queries
@@ -286,7 +294,11 @@ const TIEBREAKER_RULES: { pattern: RegExp; winner: AgentType }[] = [
   // Timeline wins for scheduling/calendar queries
   { pattern: /schedule.*conflict|clash|overlap|double.?book/i, winner: "timeline" },
   { pattern: /add.*event|create.*event|delete.*event|move.*event|reschedule/i, winner: "timeline" },
-  { pattern: /what.?s.*on.*calendar|what.*this week|plan.*week/i, winner: "timeline" },
+  { pattern: /what.?s.*on.*calendar|what.*this week/i, winner: "timeline" },
+  // Planning wins for plan/mode/protocol queries
+  { pattern: /plan.*training|training.*plan|plan.*week|weekly.*plan/i, winner: "planning" },
+  { pattern: /change.*mode|switch.*mode|what.*mode|current.*mode/i, winner: "planning" },
+  { pattern: /protocol|plan.*compliance|plan.*status/i, winner: "planning" },
 ];
 
 function resolveAgentTiebreaker(agents: AgentType[], message: string): AgentType[] {
@@ -309,7 +321,7 @@ function routeToAgents(
 ): AgentType[] {
   // Affirmation continuity: keep same agent when user says "yes", "do it", etc.
   if (isAffirmation(message) && lastAgentType) {
-    const valid = ["timeline", "output", "mastery", "settings"];
+    const valid = ["timeline", "output", "mastery", "settings", "planning"];
     if (valid.includes(lastAgentType)) {
       return [lastAgentType as AgentType];
     }
@@ -371,6 +383,20 @@ function routeToAgents(
     /\b(browse drills?|drill library|journal history|my journals?)\b/i.test(lower)
   ) {
     agents.add("settings");
+  }
+
+  // Planning agent signals — plan generation, mode switching, protocol queries
+  if (
+    /plan.*training|training.*plan/i.test(lower) ||
+    /plan.*study|study.*plan/i.test(lower) ||
+    /plan.*week|weekly.*plan/i.test(lower) ||
+    /change.*mode|switch.*mode/i.test(lower) ||
+    /what.*mode|current.*mode/i.test(lower) ||
+    /protocol|scheduling.*rule/i.test(lower) ||
+    /plan.*compliance|plan.*status/i.test(lower) ||
+    /adjust.*plan|modify.*plan/i.test(lower)
+  ) {
+    agents.add("planning");
   }
 
   // Default: route by active tab if no clear signal
@@ -1106,6 +1132,7 @@ function getAgentForCategory(category: string): string | null {
     recruiting: "mastery",
     academic_balance: "timeline",
     general_sport: "output",
+    planning: "planning",
   };
   return map[category] ?? null;
 }
@@ -1129,6 +1156,7 @@ async function buildAgentConfig(
     output: outputTools,
     mastery: masteryTools,
     settings: settingsTools,
+    planning: planningTools,
   };
 
   // Static prompt builders — no context needed, identical across all requests
@@ -1137,6 +1165,7 @@ async function buildAgentConfig(
     output: buildOutputStaticPrompt,
     mastery: buildMasteryStaticPrompt,
     settings: buildSettingsStaticPrompt,
+    planning: buildPlanningStaticPrompt,
   };
 
   // Dynamic prompt builders — per-player, per-request context
@@ -1145,6 +1174,7 @@ async function buildAgentConfig(
     output: buildOutputDynamicPrompt,
     mastery: buildMasteryDynamicPrompt,
     settings: buildSettingsDynamicPrompt,
+    planning: buildPlanningDynamicPrompt,
   };
 
   // Combine tools from all needed agents, add cache_control to last tool
@@ -1192,6 +1222,20 @@ Recommendation: ${dla.recommendation}`;
     }
   } catch (e) {
     // Graceful fallback — continue without DLI context
+  }
+
+  // ── DATA CONFIDENCE GUARD (~30-60 tokens when active) ──
+  let dataConfidenceBlock = "";
+  const dataConfidence = context.snapshotEnrichment?.dataConfidenceScore ?? null;
+  if (dataConfidence !== null && dataConfidence < 50) {
+    if (dataConfidence < 30) {
+      dataConfidenceBlock = `\n\nDATA CONFIDENCE WARNING (CRITICAL — score: ${dataConfidence}/100):
+IMPORTANT: Data confidence is very low. Do NOT prescribe specific intensity targets or training loads.
+Suggest the athlete sync their wearable or complete a check-in to improve data quality before giving detailed recommendations.`;
+    } else {
+      dataConfidenceBlock = `\n\nDATA CONFIDENCE NOTE (score: ${dataConfidence}/100):
+Note: This athlete's data may be incomplete. Suggest they sync their wearable or complete a check-in for more accurate recommendations.`;
+    }
   }
 
   // ── PDIL: Performance Director Intelligence Layer (~100-300 tokens) ──
@@ -1313,6 +1357,7 @@ REC FILTERING RULES (CRITICAL — follow strictly):
     sportContext +
     phvBlock +
     dualLoadBlock +
+    dataConfidenceBlock +
     pdilBlock +
     behavioralBlock +
     triangleBlock +
@@ -1361,6 +1406,8 @@ async function executeTool(
     return executeMasteryTool(toolName, toolInput, context);
   if (settingsTools.some((t) => t.name === toolName))
     return executeSettingsTool(toolName, toolInput, context);
+  if (planningTools.some((t) => t.name === toolName))
+    return executePlanningTool(toolName, toolInput, context);
   return { result: null, error: "Unknown tool" };
 }
 
@@ -1396,6 +1443,8 @@ function buildConfirmationPreview(
       `Delete "${toolInput.eventTitle}" from calendar`,
     log_check_in: () =>
       `Log check-in — Energy: ${toolInput.energy}/10, Soreness: ${toolInput.soreness}/10, Sleep: ${toolInput.sleepHours}h`,
+    propose_mode_change: () =>
+      `Switch to ${toolInput.targetMode} mode${toolInput.reason ? ` — ${toolInput.reason}` : ""}`,
   };
   return previews[toolName]?.() ?? "Confirm this action";
 }
@@ -1406,6 +1455,7 @@ function buildConfirmationHeadline(toolName: string): string {
     update_event: "✏️ Here's the fix",
     delete_event: "🗑️ Removing event",
     log_check_in: "📝 Logging check-in",
+    propose_mode_change: "🔄 Switching mode",
   };
   return headlines[toolName] ?? "Confirm this action";
 }
@@ -1423,6 +1473,8 @@ function formatConfirmationResult(
       `Removed "${result?.actualTitle ?? toolInput.eventTitle}" from your calendar ✓`,
     log_check_in: () =>
       `Check-in saved ✓ Your readiness is ${result?.checkIn?.readiness ?? "processing"}.`,
+    propose_mode_change: () =>
+      `Switched to ${toolInput.targetMode} mode ✓`,
   };
   return formats[toolName]?.() ?? "Done ✓";
 }

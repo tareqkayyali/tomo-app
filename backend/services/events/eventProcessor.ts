@@ -18,6 +18,7 @@ import { handleInjuryEvent } from './handlers/injuryHandler';
 import { handleCompetitionResult } from './handlers/competitionHandler';
 import { handleDrillCompleted } from './handlers/drillHandler';
 import { handleJournalPreSession, handleJournalPostSession } from './handlers/journalHandler';
+import { handleModeChange } from './handlers/modeChangeHandler';
 import { writeSnapshot } from './snapshot/snapshotWriter';
 import { readSnapshot } from './snapshot/snapshotReader';
 import { logger } from '@/lib/logger';
@@ -40,6 +41,7 @@ const PROGRAM_REFRESH_TRIGGERS = new Set<string>([
   EVENT_TYPES.WEARABLE_SYNC,       // HRV/sleep data → load adjustments
   EVENT_TYPES.ACADEMIC_EVENT,      // Exam period → dual load
   EVENT_TYPES.STUDY_SESSION_LOG,   // Academic load → dual load
+  EVENT_TYPES.MODE_CHANGE,         // Mode change → load caps change
 ]);
 
 /**
@@ -120,6 +122,18 @@ export async function processEvent(event: AthleteEvent): Promise<void> {
 
       case EVENT_TYPES.JOURNAL_POST_SESSION:
         await handleJournalPostSession(event);
+        break;
+
+      // Planning Intelligence
+      case EVENT_TYPES.MODE_CHANGE:
+        await handleModeChange(event);
+        break;
+
+      // Planning passive events — logged in event stream, snapshot meta update only
+      case EVENT_TYPES.PLAN_PROPOSED:
+      case EVENT_TYPES.PLAN_COMMITTED:
+      case EVENT_TYPES.DLI_AMBER:
+      case EVENT_TYPES.DLI_RED:
         break;
 
       // Passive events — logged in event stream, snapshot meta update only

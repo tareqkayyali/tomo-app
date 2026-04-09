@@ -8,6 +8,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { upsertDailyVitals } from '../aggregations/dailyVitalsWriter';
+import { computeTrend, computeTrendPct, computeSleepDebt3d, computeSleepConsistency } from '@/services/snapshot/trendUtils';
 import type { AthleteEvent, VitalReadingPayload, SleepRecordPayload } from '../types';
 
 /**
@@ -126,6 +127,67 @@ export async function handleVitalReading(event: AthleteEvent): Promise<void> {
       }
     }
   }
+
+  // ── Snapshot 360: Vitals enrichment + trends ──
+  await enrichVitalSnapshot(db, event.athlete_id, payload);
+}
+
+/**
+ * Enrich the snapshot with Snapshot 360 vital fields:
+ * spo2_pct, skin_temp_c, recovery_score, resting_hr_trend_7d, hrv_trend_7d_pct
+ */
+async function enrichVitalSnapshot(
+  db: any,
+  athleteId: string,
+  payload: VitalReadingPayload
+): Promise<void> {
+  const enrichment: Record<string, unknown> = {
+    athlete_id: athleteId,
+    snapshot_at: new Date().toISOString(),
+  };
+
+  // Direct vital fields from current reading
+  if (payload.spo2_percent != null) {
+    enrichment.spo2_pct = payload.spo2_percent;
+  }
+  if (payload.skin_temp_celsius != null) {
+    enrichment.skin_temp_c = payload.skin_temp_celsius;
+  }
+  if ((payload as any).recovery_score != null) {
+    enrichment.recovery_score = (payload as any).recovery_score;
+  }
+
+  // Compute 7-day trends from athlete_daily_vitals
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const { data: recentVitals } = await db
+    .from('athlete_daily_vitals')
+    .select('hrv_morning_ms, resting_hr_bpm, date')
+    .eq('athlete_id', athleteId)
+    .gte('date', sevenDaysAgo)
+    .order('date', { ascending: true });
+
+  if (recentVitals && recentVitals.length > 0) {
+    // Resting HR trend (lower is better)
+    const hrValues = recentVitals.map((v: any) => v.resting_hr_bpm as number | null);
+    const hrTrend = computeTrend(hrValues, true);
+    if (hrTrend !== null) {
+      enrichment.resting_hr_trend_7d = hrTrend;
+    }
+
+    // HRV trend percentage (higher is better)
+    const hrvValues = recentVitals.map((v: any) => v.hrv_morning_ms as number | null);
+    const hrvTrendPct = computeTrendPct(hrvValues);
+    if (hrvTrendPct !== null) {
+      enrichment.hrv_trend_7d_pct = hrvTrendPct;
+    }
+  }
+
+  // Only upsert if we have enrichment fields beyond the base
+  if (Object.keys(enrichment).length > 2) {
+    await db
+      .from('athlete_snapshots')
+      .upsert(enrichment, { onConflict: 'athlete_id' });
+  }
 }
 
 /**
@@ -155,15 +217,54 @@ export async function handleSleepRecord(event: AthleteEvent): Promise<void> {
     rem_sleep_min:  payload.rem_sleep_min,
   }).catch(err => console.error('[VitalHandler] dailyVitals sleep write failed:', err));
 
-  // Update snapshot
+  // Update snapshot with sleep quality + 360 fields
+  const sleepUpdate: Record<string, unknown> = {
+    athlete_id: event.athlete_id,
+    snapshot_at: new Date().toISOString(),
+  };
+
   if (payload.sleep_quality_score != null) {
+    sleepUpdate.sleep_quality = payload.sleep_quality_score;
+    sleepUpdate.sleep_recorded_at = new Date().toISOString();
+  }
+  if (payload.sleep_duration_hours != null) {
+    sleepUpdate.sleep_hours = payload.sleep_duration_hours;
+  }
+
+  // Compute sleep trends from 7-day daily vitals
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const { data: recentSleep } = await db
+    .from('athlete_daily_vitals')
+    .select('sleep_hours, sleep_quality, date')
+    .eq('athlete_id', event.athlete_id)
+    .gte('date', sevenDaysAgo)
+    .order('date', { ascending: true });
+
+  if (recentSleep && recentSleep.length > 0) {
+    const sleepHoursArr = recentSleep.map((v: any) => v.sleep_hours as number | null);
+
+    // Sleep trend (higher is better)
+    const sleepTrend = computeTrend(sleepHoursArr);
+    if (sleepTrend !== null) {
+      sleepUpdate.sleep_trend_7d = sleepTrend;
+    }
+
+    // Sleep consistency score
+    const consistency = computeSleepConsistency(sleepHoursArr);
+    if (consistency !== null) {
+      sleepUpdate.sleep_consistency_score = consistency;
+    }
+
+    // Sleep debt (last 3 nights)
+    const debt = computeSleepDebt3d(sleepHoursArr);
+    if (debt !== null) {
+      sleepUpdate.sleep_debt_3d = debt;
+    }
+  }
+
+  if (Object.keys(sleepUpdate).length > 2) {
     await db
       .from('athlete_snapshots')
-      .upsert({
-        athlete_id: event.athlete_id,
-        sleep_quality: payload.sleep_quality_score,
-        sleep_recorded_at: new Date().toISOString(),
-        snapshot_at: new Date().toISOString(),
-      }, { onConflict: 'athlete_id' });
+      .upsert(sleepUpdate, { onConflict: 'athlete_id' });
   }
 }

@@ -49,6 +49,13 @@ export const EVENT_TYPES = {
   // Journal
   JOURNAL_PRE_SESSION: 'JOURNAL_PRE_SESSION',
   JOURNAL_POST_SESSION: 'JOURNAL_POST_SESSION',
+
+  // Planning Intelligence
+  MODE_CHANGE: 'MODE_CHANGE',
+  PLAN_PROPOSED: 'PLAN_PROPOSED',
+  PLAN_COMMITTED: 'PLAN_COMMITTED',
+  DLI_AMBER: 'DLI_AMBER',
+  DLI_RED: 'DLI_RED',
 } as const;
 
 export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES];
@@ -95,6 +102,34 @@ export const SNAPSHOT_VISIBILITY = {
     'cv_completeness',
     'wellness_7day_avg', 'wellness_trend',
     'last_session_at', 'last_checkin_at',
+    // Planning IP (Phase 1)
+    'athlete_mode', 'dual_load_zone', 'applicable_protocol_ids', 'exam_proximity_score',
+    // Snapshot 360 — Performance Science
+    'training_monotony', 'training_strain', 'data_confidence_score', 'data_confidence_breakdown',
+    'season_phase', 'season_phase_week', 'readiness_delta', 'resting_hr_trend_7d',
+    // Snapshot 360 — Vitals
+    'spo2_pct', 'skin_temp_c', 'recovery_score', 'sleep_hours',
+    'sleep_consistency_score', 'sleep_debt_3d',
+    // Snapshot 360 — Trends
+    'hrv_trend_7d_pct', 'load_trend_7d_pct', 'readiness_distribution_7d',
+    'acwr_trend', 'sleep_trend_7d', 'body_feel_trend_7d',
+    // Snapshot 360 — Schedule & Context
+    'matches_next_7d', 'sessions_scheduled_next_7d', 'days_since_last_session',
+    // Snapshot 360 — Injury
+    'active_injury_count', 'injury_locations', 'days_since_injury',
+    // Snapshot 360 — Engagement
+    'chat_sessions_7d', 'chat_messages_7d', 'last_chat_at',
+    'rec_action_rate_30d', 'drills_completed_7d', 'avg_drill_rating_30d',
+    'active_program_count', 'program_compliance_rate', 'plan_compliance_7d',
+    'checkin_consistency_7d',
+    // Snapshot 360 — CV/Benchmark
+    'cv_views_total', 'cv_views_7d', 'cv_statement_status', 'cv_sections_complete',
+    'overall_percentile', 'top_strengths', 'key_gaps',
+    // Snapshot 360 — Longitudinal
+    'active_goals_count', 'unresolved_concerns_count', 'coaching_preference',
+    // Snapshot 360 — Wearable & Journal
+    'wearable_connected', 'wearable_last_sync_at',
+    'pre_journal_completion_rate', 'post_journal_completion_rate', 'avg_post_body_feel_7d',
   ] as const,
 
   PARENT: [
@@ -106,6 +141,16 @@ export const SNAPSHOT_VISIBILITY = {
     'wellness_7day_avg', 'wellness_trend',
     'triangle_rag',
     'last_checkin_at',
+    // Planning IP (Phase 1)
+    'athlete_mode', 'dual_load_zone',
+    // Snapshot 360 — visible to parent
+    'season_phase',
+    'sleep_hours', 'sleep_consistency_score', 'sleep_debt_3d',
+    'readiness_distribution_7d', 'sleep_trend_7d',
+    'matches_next_7d', 'exams_next_14d', 'in_exam_period',
+    'active_injury_count',
+    'checkin_consistency_7d',
+    'study_hours_7d', 'academic_stress_latest', 'exam_count_active',
   ] as const,
 } as const;
 

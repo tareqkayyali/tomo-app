@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
       activeProgramsRes,
       programRecsRes,
       coachProgrammesRes,
+      planningContextRes,
     ] = await Promise.allSettled([
       // 1. User profile
       (db as any)
@@ -198,6 +199,16 @@ export async function GET(request: NextRequest) {
         .eq("status", "published")
         .order("start_date", { ascending: false })
         .limit(10),
+
+      // 18. Planning context (360 planning fields from snapshot)
+      (async () => {
+        const { data } = await (db as any)
+          .from('athlete_snapshots')
+          .select('athlete_mode, dual_load_zone, applicable_protocol_ids, exam_proximity_score, data_confidence_score')
+          .eq('athlete_id', userId)
+          .maybeSingle();
+        return data;
+      })(),
     ]);
 
     // ── Extract results with graceful fallbacks ──
@@ -226,6 +237,9 @@ export async function GET(request: NextRequest) {
       if (p.target_type === "position_group" && playerPosition && Array.isArray(p.target_positions) && p.target_positions.includes(playerPosition)) return true;
       return false;
     });
+
+    // Planning context (360 planning fields)
+    const planningContext = planningContextRes.status === "fulfilled" ? (planningContextRes.value as any) ?? null : null;
 
     // Recent vitals (7 days) for Dashboard signal sparklines
     const recentVitalsRaw = recentVitalsRes.status === "fulfilled" ? (recentVitalsRes.value as any)?.data ?? [] : [];
@@ -550,6 +564,10 @@ export async function GET(request: NextRequest) {
       // Contains visual config, coaching text, pills, trigger rows, adapted plan.
       // null when no signal conditions match (Dashboard shows neutral state).
       signalContext,
+
+      // ── Planning Context (360 planning fields) ──
+      // Athlete mode, dual load zone, applicable protocols, exam proximity, data confidence.
+      planningContext,
 
       // ── Recent Vitals (7 days) ──
       // For Dashboard sparklines, sleep bars, and trend calculations.

@@ -9,6 +9,8 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { recomputeACWR } from '../computations/acwrComputation';
 import { recomputeDualLoad } from '../computations/dualLoadComputation';
 import { recomputeCv } from '../computations/cvComputation';
+import { computeTrainingScience } from '@/services/snapshot/trainingScienceComputed';
+import { computeTrend, computeTrendPct } from '@/services/snapshot/trendUtils';
 import type { AthleteEvent, SessionLogPayload } from '../types';
 
 /**
@@ -200,4 +202,99 @@ export async function handleSessionLog(event: AthleteEvent): Promise<void> {
 
   // 5. Recompute CV completeness (sessions + training age affect score)
   await recomputeCv(event.athlete_id);
+
+  // 6. Snapshot 360: Training science + load trends
+  await enrichSessionSnapshot(db, event.athlete_id, loadDate);
+}
+
+/**
+ * Enrich snapshot with Snapshot 360 session fields:
+ * training_monotony, training_strain, load_trend_7d_pct, days_since_last_session, body_feel_trend_7d
+ */
+async function enrichSessionSnapshot(
+  db: any,
+  athleteId: string,
+  loadDate: string
+): Promise<void> {
+  const enrichment: Record<string, unknown> = {
+    athlete_id: athleteId,
+    snapshot_at: new Date().toISOString(),
+  };
+
+  // Fetch 7-day daily loads for training science (Banister model)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const { data: dailyLoads } = await db
+    .from('athlete_daily_load')
+    .select('training_load_au, load_date')
+    .eq('athlete_id', athleteId)
+    .gte('load_date', sevenDaysAgo)
+    .order('load_date', { ascending: true });
+
+  if (dailyLoads && dailyLoads.length > 0) {
+    const loads = dailyLoads.map((d: any) => d.training_load_au as number);
+    const science = computeTrainingScience({ dailyLoads: loads });
+    if (science.training_monotony !== null) {
+      enrichment.training_monotony = science.training_monotony;
+    }
+    if (science.training_strain !== null) {
+      enrichment.training_strain = science.training_strain;
+    }
+
+    // Load trend percentage
+    const loadValues = dailyLoads.map((d: any) => d.training_load_au as number | null);
+    const loadTrend = computeTrendPct(loadValues);
+    if (loadTrend !== null) {
+      enrichment.load_trend_7d_pct = loadTrend;
+    }
+  }
+
+  // ACWR trend from recent snapshot history (last 7 ACWR values)
+  const { data: recentSnapshots } = await db
+    .from('athlete_snapshots')
+    .select('acwr')
+    .eq('athlete_id', athleteId)
+    .not('acwr', 'is', null)
+    .limit(1);
+
+  // days_since_last_session
+  const { data: lastSession } = await db
+    .from('athlete_events')
+    .select('occurred_at')
+    .eq('athlete_id', athleteId)
+    .eq('event_type', 'SESSION_LOG')
+    .order('occurred_at', { ascending: false })
+    .limit(2); // Get previous session (current one is this event)
+
+  if (lastSession && lastSession.length >= 2) {
+    const prevDate = new Date(lastSession[1].occurred_at);
+    const daysSince = Math.floor((Date.now() - prevDate.getTime()) / 86400000);
+    enrichment.days_since_last_session = daysSince;
+  } else {
+    enrichment.days_since_last_session = 0; // First session ever or first today
+  }
+
+  // body_feel_trend_7d from post-session journals
+  const { data: recentJournals } = await db
+    .from('training_journals')
+    .select('body_feel')
+    .eq('athlete_id', athleteId)
+    .eq('journal_type', 'post')
+    .gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString())
+    .order('created_at', { ascending: true });
+
+  if (recentJournals && recentJournals.length > 0) {
+    const bodyFeelValues = recentJournals
+      .map((j: any) => j.body_feel as number | null)
+      .filter((v: any): v is number => v != null);
+    if (bodyFeelValues.length > 0) {
+      const avg = bodyFeelValues.reduce((a: number, b: number) => a + b, 0) / bodyFeelValues.length;
+      enrichment.body_feel_trend_7d = Math.round(avg * 10) / 10;
+    }
+  }
+
+  if (Object.keys(enrichment).length > 2) {
+    await db
+      .from('athlete_snapshots')
+      .upsert(enrichment, { onConflict: 'athlete_id' });
+  }
 }

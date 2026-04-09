@@ -740,3 +740,230 @@ function addMinutes(time: string, mins: number): string {
 function getDayName(dow: number): DayName {
   return (["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as DayName[])[dow];
 }
+
+// ── Mode-Aware Extensions ──────────────────────────────────────
+
+import type { ModeParams } from './modeConfig';
+
+/**
+ * Get effective rules using CMS-managed mode params instead of binary scenario flags.
+ *
+ * Merges: MASTER_RULES + CMS mode params + player's mode_params_override.
+ * This is the mode-aware replacement for the scenario-based getEffectiveRules().
+ * Additive — existing getEffectiveRules() continues to work for backwards compatibility.
+ *
+ * @param prefs - Player schedule preferences (from DB)
+ * @param modeParams - Resolved CMS mode params (already merged with player overrides by caller)
+ * @param modeId - The active mode ID (for reference template lookup)
+ */
+export function getEffectiveRulesWithMode(
+  prefs: PlayerSchedulePreferences,
+  modeParams: ModeParams,
+  modeId: string
+): EffectiveRules {
+  const rules: ScheduleRule[] = [];
+
+  // School (P1, locked)
+  for (const day of prefs.school_days) {
+    rules.push({
+      id: `school_${day}`,
+      category: "school",
+      priority: 1,
+      name: "School",
+      days: [day],
+      startTime: prefs.school_start,
+      endTime: prefs.school_end,
+      intensity: "REST" as IntensityCap,
+      locked: true,
+      bufferAfter: prefs.buffer_default_min,
+      note: "Non-negotiable school hours",
+    });
+  }
+
+  // Club training (P4)
+  for (const day of prefs.club_days) {
+    rules.push({
+      id: `club_${day}`,
+      category: "club",
+      priority: 4,
+      name: "Club training",
+      days: [day],
+      startTime: prefs.club_start,
+      endTime: addMinutes(prefs.club_start, 90),
+      intensity: "HARD" as IntensityCap,
+      locked: false,
+      bufferAfter: prefs.buffer_post_high_intensity_min,
+      note: "Coach-set session",
+    });
+  }
+
+  // Gym (P5) — respect mode reduction
+  let gymDays = [...prefs.gym_days];
+  if (modeParams.reduceGymDaysTo !== null && gymDays.length > modeParams.reduceGymDaysTo) {
+    gymDays = gymDays.slice(0, modeParams.reduceGymDaysTo);
+  }
+  for (const day of gymDays) {
+    rules.push({
+      id: `gym_${day}`,
+      category: "gym",
+      priority: 5,
+      name: "Gym training",
+      days: [day],
+      startTime: prefs.gym_start,
+      endTime: addMinutes(prefs.gym_start, prefs.gym_duration_min),
+      intensity: "MODERATE" as IntensityCap,
+      locked: false,
+      bufferAfter: prefs.buffer_default_min,
+      note: "Individual strength & conditioning",
+    });
+  }
+
+  // Study (P6) — respect mode duration multiplier
+  const studyDuration = Math.round(
+    prefs.study_duration_min * modeParams.studyDurationMultiplier
+  );
+  for (const day of prefs.study_days) {
+    rules.push({
+      id: `study_${day}`,
+      category: "study",
+      priority: 6,
+      name: "Study block",
+      days: [day],
+      startTime: prefs.study_start,
+      endTime: addMinutes(prefs.study_start, studyDuration),
+      intensity: "REST" as IntensityCap,
+      locked: false,
+      bufferAfter: prefs.buffer_default_min,
+      note: modeParams.studyDurationMultiplier > 1
+        ? `Extended study — ${modeId} mode`
+        : "Daily study block",
+    });
+  }
+
+  // Personal dev (P7) — dropped if mode says so
+  if (!modeParams.dropPersonalDev) {
+    for (const day of prefs.personal_dev_days) {
+      rules.push({
+        id: `personal_dev_${day}`,
+        category: "personal_dev",
+        priority: 7,
+        name: "Personal development",
+        days: [day],
+        startTime: prefs.personal_dev_start,
+        endTime: addMinutes(prefs.personal_dev_start, 60),
+        intensity: "REST" as IntensityCap,
+        locked: false,
+        bufferAfter: 15,
+        note: "Film study, tactical review, mental skills",
+      });
+    }
+  }
+
+  rules.sort((a, b) => a.priority - b.priority);
+
+  // Map scenario from mode for backwards compat
+  const scenarioFromMode: ScenarioId = migrateModeLegacyScenario(modeId, prefs);
+
+  return {
+    rules,
+    buffers: {
+      default: prefs.buffer_default_min,
+      afterHighIntensity: prefs.buffer_post_high_intensity_min,
+      afterMatch: prefs.buffer_post_match_min,
+      beforeMatch: MASTER_BUFFERS.beforeMatch,
+    },
+    intensityCaps: {
+      maxHardPerWeek: modeParams.maxHardPerWeek,
+      maxSessionsPerDay: modeParams.maxSessionsPerDay,
+      noHardBeforeMatch: MASTER_INTENSITY_CAPS.noHardBeforeMatch,
+      noHardOnExamDay: modeParams.intensityCapOnExamDays !== null,
+      recoveryDayAfterMatch: modeParams.addRecoveryAfterMatch,
+    },
+    scenario: scenarioFromMode,
+    dayBounds: {
+      startHour: parseHour(prefs.day_bounds_start || "06:00"),
+      endHour: parseHour(prefs.day_bounds_end || "22:00"),
+    },
+  };
+}
+
+/**
+ * Build the mode-aware AI system prompt text block.
+ * Richer than buildRuleContext() — includes mode name, coaching tone, balance ratio.
+ */
+export function buildModeRuleContext(
+  prefs: PlayerSchedulePreferences,
+  modeParams: ModeParams,
+  modeId: string
+): string {
+  const effective = getEffectiveRulesWithMode(prefs, modeParams, modeId);
+
+  const lines: string[] = [];
+  lines.push("━━ SCHEDULING RULES ━━");
+  lines.push(`Active mode: ${modeId.toUpperCase()}`);
+  lines.push(`Coaching tone: ${modeParams.aiCoachingTone}`);
+  lines.push(`Study/Training balance: ${Math.round(modeParams.studyTrainingBalanceRatio * 100)}% study / ${Math.round((1 - modeParams.studyTrainingBalanceRatio) * 100)}% training`);
+  lines.push(`Load cap multiplier: ${modeParams.loadCapMultiplier}`);
+
+  lines.push("\nPRIORITY ORDER (1=highest, schedule in this order):");
+  for (const p of PRIORITY_ORDER) {
+    lines.push(`  ${p.priority}. ${p.category.toUpperCase()} — ${p.note}`);
+  }
+
+  lines.push(`\nINTENSITY CAPS:`);
+  lines.push(`  Max HARD per week: ${effective.intensityCaps.maxHardPerWeek}`);
+  lines.push(`  Max sessions per day: ${effective.intensityCaps.maxSessionsPerDay}`);
+  lines.push(`  No HARD before match: ${effective.intensityCaps.noHardBeforeMatch}`);
+  lines.push(`  Recovery after match: ${effective.intensityCaps.recoveryDayAfterMatch}`);
+  if (modeParams.intensityCapOnExamDays) {
+    lines.push(`  Exam day intensity cap: ${modeParams.intensityCapOnExamDays}`);
+  }
+
+  lines.push(`\nBUFFERS:`);
+  lines.push(`  Default: ${effective.buffers.default} min`);
+  lines.push(`  After high intensity: ${effective.buffers.afterHighIntensity} min`);
+  lines.push(`  After match: ${effective.buffers.afterMatch} min`);
+  lines.push(`  Before match: ${effective.buffers.beforeMatch} min`);
+
+  lines.push(`\nPLAYER'S WEEKLY SCHEDULE:`);
+  for (const rule of effective.rules) {
+    const dayNames = rule.days.map(d => getDayName(d)).join(", ");
+    lines.push(`  ${rule.startTime}-${rule.endTime} ${rule.name} [${dayNames}] ${rule.locked ? "(LOCKED)" : ""} ${rule.intensity}`);
+  }
+
+  // Priority boosts from mode
+  if (modeParams.priorityBoosts.length > 0) {
+    lines.push(`\nMODE PRIORITY ADJUSTMENTS:`);
+    for (const boost of modeParams.priorityBoosts) {
+      lines.push(`  ${boost.category}: ${boost.delta > 0 ? '+' : ''}${boost.delta} priority`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Map legacy scenario flags to a mode ID for migration.
+ * Used during the transition period before all athletes have an explicit mode.
+ */
+export function migrateScenarioToMode(prefs: PlayerSchedulePreferences): string {
+  if (prefs.league_is_active && prefs.exam_period_active) return 'league'; // closest match
+  if (prefs.league_is_active) return 'league';
+  if (prefs.exam_period_active) return 'study';
+  return 'balanced';
+}
+
+/**
+ * Derive a legacy ScenarioId from mode + prefs (for backwards compat in EffectiveRules).
+ */
+function migrateModeLegacyScenario(modeId: string, prefs: PlayerSchedulePreferences): ScenarioId {
+  // If prefs still have scenario flags set, honour them for backwards compat
+  if (prefs.league_is_active && prefs.exam_period_active) return 'league_and_exam';
+  if (prefs.league_is_active) return 'league_active';
+  if (prefs.exam_period_active) return 'exam_period';
+  // Otherwise derive from mode
+  if (modeId === 'league') return 'league_active';
+  if (modeId === 'study') return 'exam_period';
+  if (modeId === 'rest') return 'normal';
+  return 'normal';
+}

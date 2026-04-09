@@ -11,6 +11,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { Database } from '@/types/database';
 import { readinessToRag } from '../constants';
+import { computeDataConfidence } from '@/services/snapshot/dataConfidenceScore';
 import type { AthleteEvent, WellnessCheckinPayload } from '../types';
 
 type SnapshotUpsert = Database['public']['Tables']['athlete_snapshots']['Insert'];
@@ -104,6 +105,9 @@ export async function writeSnapshot(athleteId: string, event: AthleteEvent): Pro
     }
   }
 
+  // ── Snapshot 360: Cross-cutting enrichment ──
+  await enrichCrossCuttingFields(db, athleteId, update);
+
   // UPSERT — creates on first event, updates thereafter
   const { error } = await db
     .from('athlete_snapshots')
@@ -111,5 +115,119 @@ export async function writeSnapshot(athleteId: string, event: AthleteEvent): Pro
 
   if (error) {
     console.error('[SnapshotWriter] Upsert failed:', error.message, { athleteId });
+  }
+}
+
+/**
+ * Enrich the snapshot update with cross-cutting fields computed from multiple sources.
+ * Called on every event to keep schedule context, data confidence, and wearable status fresh.
+ */
+async function enrichCrossCuttingFields(
+  db: any,
+  athleteId: string,
+  update: Record<string, unknown>
+): Promise<void> {
+  const now = new Date();
+
+  try {
+    // Run lightweight queries in parallel
+    const [calendarRes, wearableRes, checkinRes, sessionRes, subjectsRes] = await Promise.all([
+      // Schedule context: matches + exams in upcoming window
+      db
+        .from('calendar_events')
+        .select('event_type, start_time')
+        .eq('athlete_id', athleteId)
+        .gte('start_time', now.toISOString())
+        .lte('start_time', new Date(now.getTime() + 14 * 86400000).toISOString())
+        .in('event_type', ['match', 'exam']),
+
+      // Wearable freshness: last vital reading timestamp
+      db
+        .from('athlete_daily_vitals')
+        .select('date')
+        .eq('athlete_id', athleteId)
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+
+      // Last checkin timestamp
+      db
+        .from('athlete_events')
+        .select('occurred_at')
+        .eq('athlete_id', athleteId)
+        .eq('event_type', 'WELLNESS_CHECKIN')
+        .order('occurred_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+
+      // Last session logged timestamp
+      db
+        .from('athlete_events')
+        .select('occurred_at')
+        .eq('athlete_id', athleteId)
+        .eq('event_type', 'SESSION_LOG')
+        .order('occurred_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+
+      // Subject count for data confidence
+      db
+        .from('athlete_subjects')
+        .select('id', { count: 'exact', head: true })
+        .eq('athlete_id', athleteId),
+    ]);
+
+    // Schedule context
+    if (calendarRes.data) {
+      const events = calendarRes.data as Array<{ event_type: string; start_time: string }>;
+      const sevenDayLimit = new Date(now.getTime() + 7 * 86400000);
+      update.matches_next_7d = events.filter(
+        e => e.event_type === 'match' && new Date(e.start_time) <= sevenDayLimit
+      ).length;
+      update.exams_next_14d = events.filter(e => e.event_type === 'exam').length;
+
+      // Check if any exam is within 14 days
+      const hasExamSoon = events.some(e => e.event_type === 'exam');
+      update.in_exam_period = hasExamSoon;
+    }
+
+    // Sessions scheduled next 7 days
+    const { count: scheduledCount } = await db
+      .from('calendar_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('athlete_id', athleteId)
+      .gte('start_time', now.toISOString())
+      .lte('start_time', new Date(now.getTime() + 7 * 86400000).toISOString())
+      .in('event_type', ['club', 'gym', 'match', 'recovery']);
+
+    if (scheduledCount != null) {
+      update.sessions_scheduled_next_7d = scheduledCount;
+    }
+
+    // Wearable status
+    if (wearableRes.data?.date) {
+      const lastSyncDate = new Date(wearableRes.data.date);
+      const hoursSinceSync = (now.getTime() - lastSyncDate.getTime()) / (60 * 60 * 1000);
+      update.wearable_connected = hoursSinceSync <= 48;
+      update.wearable_last_sync_at = lastSyncDate.toISOString();
+    } else {
+      update.wearable_connected = false;
+    }
+
+    // Data confidence score
+    const confidence = computeDataConfidence({
+      wearable_last_sync_at: wearableRes.data?.date ? new Date(wearableRes.data.date) : null,
+      last_checkin_at: checkinRes.data?.occurred_at ? new Date(checkinRes.data.occurred_at) : null,
+      last_session_logged_at: sessionRes.data?.occurred_at ? new Date(sessionRes.data.occurred_at) : null,
+      last_scheduled_session_at: null, // Would need separate query — skip for now
+      athlete_subjects_count: subjectsRes.count ?? 0,
+      asOf: now,
+    });
+
+    update.data_confidence_score = confidence.data_confidence_score;
+    update.data_confidence_breakdown = confidence.data_confidence_breakdown;
+  } catch (err) {
+    // Cross-cutting enrichment is best-effort — don't fail the snapshot write
+    console.warn('[SnapshotWriter] Cross-cutting enrichment failed:', err);
   }
 }

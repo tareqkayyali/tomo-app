@@ -26,6 +26,22 @@ import type {
   SchoolSchedule,
 } from '../types';
 
+// ── Mode Context (optional, from Planning IP) ──────────────────────
+
+export interface TrainingModeContext {
+  modeId: string;
+  loadCapMultiplier: number;
+  maxHardPerWeek: number;
+  reduceGymDaysTo: number | null;
+  /** Snapshot-derived state for smart scheduling */
+  snapshotState?: {
+    readiness_rag?: string | null;
+    acwr?: number | null;
+    training_monotony?: number | null;
+    injury_risk_flag?: string | null;
+  };
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function toDateStr(d: Date): string {
@@ -82,6 +98,7 @@ export function generateTrainingPlan(
   schoolSchedule?: SchoolSchedule,
   schedulingConfig?: SchedulingConfig,
   effectiveRules?: EffectiveRules,
+  modeContext?: TrainingModeContext,
 ): TrainingGeneratorResult {
   // If EffectiveRules provided, derive scheduling config from them (rule engine → engine bridge)
   let sConfig: SchedulingConfig;
@@ -103,9 +120,22 @@ export function generateTrainingPlan(
     }
   }
 
-  const enabledCategories = config.categories.filter((c) => c.enabled);
+  let enabledCategories = config.categories.filter((c) => c.enabled);
   if (enabledCategories.length === 0) {
     return { blocks: [], warnings: ['No training categories enabled.'] };
+  }
+
+  // Apply mode constraints if provided
+  if (modeContext) {
+    // Reduce gym days if mode specifies
+    if (modeContext.reduceGymDaysTo !== null) {
+      enabledCategories = enabledCategories.map(cat => {
+        if (cat.id === 'gym' && cat.daysPerWeek > (modeContext.reduceGymDaysTo ?? cat.daysPerWeek)) {
+          return { ...cat, daysPerWeek: modeContext.reduceGymDaysTo! };
+        }
+        return cat;
+      });
+    }
   }
 
   // Date range: tomorrow → planWeeks ahead
