@@ -1,11 +1,14 @@
 /**
  * Boot Data Context — Pre-fetches athlete state during app loading screen.
  *
- * Fires GET /api/v1/boot as soon as auth completes (during AnimatedSplashScreen).
- * Caches in AsyncStorage for instant hydration on next launch.
- * Consumed by: ProactiveDashboard (Chat), useOwnItData, useOutputData.
+ * SECURITY: Boot data is strictly tied to the authenticated user.
+ * - When user changes, ALL boot data is wiped IMMEDIATELY before any fetch
+ * - Cache is NEVER loaded without verifying it belongs to the current user
+ * - No stale data from a previous user can ever be displayed
  *
- * Listens to refreshBus('*') to auto-refresh when data changes (checkin, test, event).
+ * Fires GET /api/v1/boot as soon as auth completes (during AnimatedSplashScreen).
+ * Consumed by: ProactiveDashboard (Chat), useOwnItData, useOutputData.
+ * Listens to refreshBus('*') to auto-refresh when data changes.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
@@ -37,19 +40,32 @@ export function BootProvider({ children }: { children: ReactNode }) {
   const [bootData, setBootData] = useState<BootData | null>(null);
   const [isBootLoading, setIsBootLoading] = useState(true);
   const fetchingRef = useRef(false);
-  const userIdRef = useRef<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
-  const cacheKey = user ? `${CACHE_KEY_PREFIX}${user.uid}` : null;
-
-  // Load from cache immediately
+  // ── Core: wipe + re-fetch whenever user identity changes ────────────
   useEffect(() => {
-    if (!cacheKey) return;
+    const newUid = user?.uid ?? null;
+    const prevUid = currentUserIdRef.current;
+
+    // User signed out or changed — IMMEDIATELY wipe all data
+    if (prevUid !== newUid) {
+      setBootData(null);
+      setIsBootLoading(true);
+      fetchingRef.current = false; // cancel any in-flight fetch for old user
+      currentUserIdRef.current = newUid;
+    }
+
+    if (!user || !newUid) return;
+
+    // Load from cache ONLY for the current user, and ONLY as a brief placeholder
+    const cacheKey = `${CACHE_KEY_PREFIX}${newUid}`;
     AsyncStorage.getItem(cacheKey)
       .then((raw) => {
+        // Guard: if user changed while we were reading cache, discard
+        if (currentUserIdRef.current !== newUid) return;
         if (raw) {
           try {
             const cached = JSON.parse(raw) as BootData;
-            // Only use cache if less than 1 hour old
             const age = Date.now() - new Date(cached.fetchedAt).getTime();
             if (age < 60 * 60 * 1000) {
               setBootData(cached);
@@ -58,58 +74,56 @@ export function BootProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {});
-  }, [cacheKey]);
 
-  // Fetch fresh data
-  const fetchBoot = useCallback(async () => {
-    if (fetchingRef.current || !user) return;
+    // Always fetch fresh data for the new user
+    const fetchForUser = async () => {
+      if (fetchingRef.current) return;
+      fetchingRef.current = true;
+      try {
+        const data = await getBootData();
+        // Guard: if user changed while we were fetching, discard the result
+        if (currentUserIdRef.current !== newUid) return;
+        setBootData(data);
+        setIsBootLoading(false);
+        // Cache for next launch
+        AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch(() => {});
+      } catch (err) {
+        if (currentUserIdRef.current !== newUid) return;
+        console.warn('[boot] fetch failed:', err);
+        setIsBootLoading(false);
+      } finally {
+        fetchingRef.current = false;
+      }
+    };
+
+    fetchForUser();
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Refresh on data changes (checkin, test logged, event created) ───
+  const refreshBoot = useCallback(async () => {
+    const uid = currentUserIdRef.current;
+    if (!uid || fetchingRef.current) return;
     fetchingRef.current = true;
-
     try {
       const data = await getBootData();
+      if (currentUserIdRef.current !== uid) return; // user changed mid-fetch
       setBootData(data);
-      setIsBootLoading(false);
-
-      // Cache for next launch
-      if (cacheKey) {
-        AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch(() => {});
-      }
+      const cacheKey = `${CACHE_KEY_PREFIX}${uid}`;
+      AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch(() => {});
     } catch (err) {
-      console.warn('[boot] fetch failed:', err);
-      setIsBootLoading(false);
-      // On failure, keep any cached data — graceful degradation
+      console.warn('[boot] refresh failed:', err);
     } finally {
       fetchingRef.current = false;
     }
-  }, [user, cacheKey]);
+  }, []);
 
-  // Trigger boot fetch when user becomes available
-  useEffect(() => {
-    if (!user) {
-      setBootData(null);
-      setIsBootLoading(true);
-      userIdRef.current = null;
-      return;
-    }
-
-    // Only fetch once per user session (unless refreshed)
-    if (userIdRef.current !== user.uid) {
-      userIdRef.current = user.uid;
-      fetchBoot();
-    }
-  }, [user, fetchBoot]);
-
-  // Listen to refreshBus — re-fetch when data changes
+  // Listen to refreshBus
   useEffect(() => {
     if (!user) return;
     return onRefresh('*', () => {
-      fetchBoot();
+      refreshBoot();
     });
-  }, [user, fetchBoot]);
-
-  const refreshBoot = useCallback(async () => {
-    await fetchBoot();
-  }, [fetchBoot]);
+  }, [user, refreshBoot]);
 
   const value = React.useMemo(
     () => ({ bootData, isBootLoading, refreshBoot }),
