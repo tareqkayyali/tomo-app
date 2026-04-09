@@ -1,0 +1,706 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+
+/* ---------- types ---------- */
+
+interface ModeFormProps {
+  modeId?: string;
+  initialData?: Record<string, unknown>;
+}
+
+/* ---------- option lists ---------- */
+
+const SPORT_OPTIONS: [string, string][] = [
+  ["football", "Football"],
+  ["padel", "Padel"],
+  ["basketball", "Basketball"],
+  ["tennis", "Tennis"],
+  ["athletics", "Athletics"],
+];
+
+const INTENSITY_CAP_OPTIONS: [string, string][] = [
+  ["REST", "REST"],
+  ["LIGHT", "LIGHT"],
+  ["MODERATE", "MODERATE"],
+];
+
+const AI_TONE_OPTIONS: [string, string][] = [
+  ["supportive", "Supportive"],
+  ["performance", "Performance"],
+  ["balanced", "Balanced"],
+  ["academic", "Academic"],
+];
+
+/* ---------- BadgeMultiSelect ---------- */
+
+function BadgeMultiSelect({
+  options,
+  selected,
+  onChange,
+}: {
+  options: [string, string][];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  function toggle(key: string) {
+    if (selected.includes(key)) {
+      onChange(selected.filter((s) => s !== key));
+    } else {
+      onChange([...selected, key]);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map(([key, label]) => {
+        const isSelected = selected.includes(key);
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => toggle(key)}
+            className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition-colors border cursor-pointer ${
+              isSelected
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-transparent text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- PillSelector (single select with nullable) ---------- */
+
+function PillSelector({
+  options,
+  value,
+  onChange,
+  nullable = false,
+}: {
+  options: [string, string][];
+  value: string | null;
+  onChange: (next: string | null) => void;
+  nullable?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {nullable && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition-colors border cursor-pointer ${
+            value === null
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-transparent text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          None
+        </button>
+      )}
+      {options.map(([key, label]) => {
+        const isSelected = value === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(key)}
+            className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition-colors border cursor-pointer ${
+              isSelected
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-transparent text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- helpers ---------- */
+
+function parseParams(data: Record<string, unknown>): Record<string, unknown> {
+  if (!data.params || typeof data.params !== "object") return {};
+  return data.params as Record<string, unknown>;
+}
+
+function safeNum(v: unknown, fallback: string): string {
+  if (v === null || v === undefined) return fallback;
+  return String(v);
+}
+
+function safeBool(v: unknown, fallback: boolean): boolean {
+  if (typeof v === "boolean") return v;
+  return fallback;
+}
+
+function safeStr(v: unknown, fallback: string | null): string | null {
+  if (v === null || v === undefined) return fallback;
+  return String(v);
+}
+
+function safeJson(v: unknown): string {
+  if (v === null || v === undefined) return "{}";
+  try {
+    return JSON.stringify(v, null, 2);
+  } catch {
+    return "{}";
+  }
+}
+
+/* ---------- component ---------- */
+
+export function ModeForm({ modeId, initialData }: ModeFormProps) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+
+  const params = initialData ? parseParams(initialData) : {};
+
+  // Section 1: Identity
+  const [id, setId] = useState((initialData?.id as string) ?? "");
+  const [label, setLabel] = useState((initialData?.label as string) ?? "");
+  const [description, setDescription] = useState(
+    (initialData?.description as string) ?? ""
+  );
+  const [icon, setIcon] = useState((initialData?.icon as string) ?? "");
+  const [color, setColor] = useState((initialData?.color as string) ?? "#4CAF50");
+  const [sortOrder, setSortOrder] = useState<number>(
+    (initialData?.sort_order as number) ?? 0
+  );
+  const [isEnabled, setIsEnabled] = useState(
+    (initialData?.is_enabled as boolean) ?? true
+  );
+
+  // Sport filter
+  const initSports = Array.isArray(initialData?.sport_filter)
+    ? (initialData.sport_filter as string[])
+    : [];
+  const [sportFilter, setSportFilter] = useState<string[]>(initSports);
+
+  // Section 2: Params — broken into individual fields
+  const [maxHardPerWeek, setMaxHardPerWeek] = useState(safeNum(params.maxHardPerWeek, ""));
+  const [maxSessionsPerDay, setMaxSessionsPerDay] = useState(safeNum(params.maxSessionsPerDay, ""));
+  const [studyDurationMultiplier, setStudyDurationMultiplier] = useState(
+    safeNum(params.studyDurationMultiplier, "")
+  );
+  const [reduceGymDaysTo, setReduceGymDaysTo] = useState(safeNum(params.reduceGymDaysTo, ""));
+  const [dropPersonalDev, setDropPersonalDev] = useState(safeBool(params.dropPersonalDev, false));
+  const [intensityCapOnExamDays, setIntensityCapOnExamDays] = useState<string | null>(
+    safeStr(params.intensityCapOnExamDays, null)
+  );
+  const [addRecoveryAfterMatch, setAddRecoveryAfterMatch] = useState(
+    safeBool(params.addRecoveryAfterMatch, false)
+  );
+  const [studyTrainingBalanceRatio, setStudyTrainingBalanceRatio] = useState(
+    safeNum(params.studyTrainingBalanceRatio, "")
+  );
+  const [loadCapMultiplier, setLoadCapMultiplier] = useState(
+    safeNum(params.loadCapMultiplier, "")
+  );
+  const [aiCoachingTone, setAiCoachingTone] = useState<string | null>(
+    safeStr(params.aiCoachingTone, null)
+  );
+
+  // Advanced JSON fields
+  const [priorityBoosts, setPriorityBoosts] = useState(safeJson(params.priorityBoosts));
+  const [referenceTemplates, setReferenceTemplates] = useState(
+    safeJson(params.referenceTemplates)
+  );
+
+  /* ---------- save ---------- */
+
+  async function handleSave() {
+    if (!label.trim()) {
+      toast.error("Label is required");
+      return;
+    }
+
+    if (!modeId && !id.trim()) {
+      toast.error("Mode ID is required");
+      return;
+    }
+
+    // Validate JSON fields
+    let parsedPriorityBoosts: unknown;
+    let parsedReferenceTemplates: unknown;
+    try {
+      parsedPriorityBoosts = priorityBoosts.trim() ? JSON.parse(priorityBoosts) : null;
+    } catch {
+      toast.error("Priority Boosts JSON is invalid");
+      return;
+    }
+    try {
+      parsedReferenceTemplates = referenceTemplates.trim()
+        ? JSON.parse(referenceTemplates)
+        : null;
+    } catch {
+      toast.error("Reference Templates JSON is invalid");
+      return;
+    }
+
+    // Build params object
+    const builtParams: Record<string, unknown> = {};
+
+    if (maxHardPerWeek !== "") builtParams.maxHardPerWeek = Number(maxHardPerWeek);
+    if (maxSessionsPerDay !== "") builtParams.maxSessionsPerDay = Number(maxSessionsPerDay);
+    if (studyDurationMultiplier !== "")
+      builtParams.studyDurationMultiplier = Number(studyDurationMultiplier);
+    if (reduceGymDaysTo !== "") builtParams.reduceGymDaysTo = Number(reduceGymDaysTo);
+    builtParams.dropPersonalDev = dropPersonalDev;
+    if (intensityCapOnExamDays !== null)
+      builtParams.intensityCapOnExamDays = intensityCapOnExamDays;
+    builtParams.addRecoveryAfterMatch = addRecoveryAfterMatch;
+    if (studyTrainingBalanceRatio !== "")
+      builtParams.studyTrainingBalanceRatio = Number(studyTrainingBalanceRatio);
+    if (loadCapMultiplier !== "")
+      builtParams.loadCapMultiplier = Number(loadCapMultiplier);
+    if (aiCoachingTone !== null) builtParams.aiCoachingTone = aiCoachingTone;
+    if (parsedPriorityBoosts) builtParams.priorityBoosts = parsedPriorityBoosts;
+    if (parsedReferenceTemplates) builtParams.referenceTemplates = parsedReferenceTemplates;
+
+    const body: Record<string, unknown> = {
+      label: label.trim(),
+      description: description.trim() || null,
+      icon: icon.trim() || null,
+      color: color.trim() || null,
+      sort_order: sortOrder,
+      is_enabled: isEnabled,
+      sport_filter: sportFilter.length > 0 ? sportFilter : null,
+      params: builtParams,
+    };
+
+    // For create, include the id
+    if (!modeId) {
+      body.id = id.trim();
+    }
+
+    setSaving(true);
+    try {
+      const url = modeId
+        ? `/api/v1/admin/modes/${modeId}`
+        : "/api/v1/admin/modes";
+      const method = modeId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        toast.success(modeId ? "Mode updated" : "Mode created");
+        router.push("/admin/modes");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "Failed to save mode");
+      }
+    } catch (err) {
+      toast.error("Network error saving mode");
+    }
+    setSaving(false);
+  }
+
+  /* ---------- delete ---------- */
+
+  async function handleDelete() {
+    if (!modeId) return;
+    if (!confirm(`Delete "${label}"? This cannot be undone.`)) return;
+
+    const res = await fetch(`/api/v1/admin/modes/${modeId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    if (res.ok) {
+      toast.success(`"${label}" deleted`);
+      router.push("/admin/modes");
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.error || "Failed to delete mode");
+    }
+  }
+
+  /* ---------- render ---------- */
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      {/* Back link */}
+      <Button
+        variant="ghost"
+        onClick={() => router.push("/admin/modes")}
+        className="mb-2"
+      >
+        &larr; Back to Modes
+      </Button>
+
+      <h1 className="text-3xl font-bold tracking-tight">
+        {modeId ? `Edit Mode: ${label}` : "New Mode"}
+      </h1>
+
+      {/* Section 1: Identity */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Identity</CardTitle>
+          <CardDescription>Basic mode information</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* ID — only editable on create */}
+          <div className="space-y-2">
+            <Label>Mode ID</Label>
+            {modeId ? (
+              <p className="text-sm font-mono text-muted-foreground">{modeId}</p>
+            ) : (
+              <Input
+                value={id}
+                onChange={(e) => setId(e.target.value)}
+                placeholder="e.g. exam_mode, league_mode"
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              Unique identifier (snake_case). Cannot be changed after creation.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Label</Label>
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g. Exam Mode"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Description</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What does this mode do?"
+              rows={3}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Icon (emoji)</Label>
+              <Input
+                value={icon}
+                onChange={(e) => setIcon(e.target.value)}
+                placeholder="e.g. exam emoji"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  placeholder="#4CAF50"
+                />
+                <div
+                  className="h-9 w-9 rounded-md border shrink-0"
+                  style={{ backgroundColor: color }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Sort Order</Label>
+              <Input
+                type="number"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(Number(e.target.value))}
+              />
+            </div>
+            <div className="flex items-center gap-3 pt-6">
+              <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
+              <Label>Enabled</Label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Section 2: Sport Filter */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Sport Filter</CardTitle>
+          <CardDescription>
+            Which sports can use this mode? Leave empty for all sports.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BadgeMultiSelect
+            options={SPORT_OPTIONS}
+            selected={sportFilter}
+            onChange={setSportFilter}
+          />
+          {sportFilter.length === 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              No filter applied — available for all sports
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Section 3: Schedule Parameters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Schedule Parameters</CardTitle>
+          <CardDescription>
+            Controls how the schedule engine adjusts when this mode is active
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Max Hard Sessions / Week</Label>
+              <Input
+                type="number"
+                min={0}
+                max={14}
+                value={maxHardPerWeek}
+                onChange={(e) => setMaxHardPerWeek(e.target.value)}
+                placeholder="e.g. 2"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Max Sessions / Day</Label>
+              <Input
+                type="number"
+                min={0}
+                max={5}
+                value={maxSessionsPerDay}
+                onChange={(e) => setMaxSessionsPerDay(e.target.value)}
+                placeholder="e.g. 1"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Study Duration Multiplier</Label>
+              <Input
+                type="number"
+                min={0}
+                max={5}
+                step={0.1}
+                value={studyDurationMultiplier}
+                onChange={(e) => setStudyDurationMultiplier(e.target.value)}
+                placeholder="e.g. 1.5"
+              />
+              <p className="text-xs text-muted-foreground">
+                Multiplier applied to study session durations
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Reduce Gym Days To</Label>
+              <Input
+                type="number"
+                min={0}
+                max={7}
+                value={reduceGymDaysTo}
+                onChange={(e) => setReduceGymDaysTo(e.target.value)}
+                placeholder="Leave empty for no change"
+              />
+              <p className="text-xs text-muted-foreground">
+                Reduce weekly gym sessions to this number (empty = no change)
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label>Intensity Cap on Exam Days</Label>
+            <PillSelector
+              options={INTENSITY_CAP_OPTIONS}
+              value={intensityCapOnExamDays}
+              onChange={setIntensityCapOnExamDays}
+              nullable
+            />
+            <p className="text-xs text-muted-foreground">
+              Maximum training intensity allowed on exam days
+            </p>
+          </div>
+
+          <Separator />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Study/Training Balance Ratio</Label>
+              <Input
+                type="number"
+                min={0}
+                max={1}
+                step={0.1}
+                value={studyTrainingBalanceRatio}
+                onChange={(e) => setStudyTrainingBalanceRatio(e.target.value)}
+                placeholder="e.g. 0.6"
+              />
+              <p className="text-xs text-muted-foreground">
+                0.0 = all training, 1.0 = all study
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Load Cap Multiplier</Label>
+              <Input
+                type="number"
+                min={0}
+                max={1}
+                step={0.1}
+                value={loadCapMultiplier}
+                onChange={(e) => setLoadCapMultiplier(e.target.value)}
+                placeholder="e.g. 0.7"
+              />
+              <p className="text-xs text-muted-foreground">
+                Caps overall training load (1.0 = no cap)
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={dropPersonalDev}
+                onCheckedChange={setDropPersonalDev}
+              />
+              <div>
+                <Label>Drop Personal Dev</Label>
+                <p className="text-xs text-muted-foreground">
+                  Remove personal development sessions
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={addRecoveryAfterMatch}
+                onCheckedChange={setAddRecoveryAfterMatch}
+              />
+              <div>
+                <Label>Add Recovery After Match</Label>
+                <p className="text-xs text-muted-foreground">
+                  Auto-schedule recovery post-match
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Section 4: AI Coaching */}
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Coaching</CardTitle>
+          <CardDescription>
+            Controls how the AI coach adjusts tone and recommendations
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>AI Coaching Tone</Label>
+            <PillSelector
+              options={AI_TONE_OPTIONS}
+              value={aiCoachingTone}
+              onChange={setAiCoachingTone}
+              nullable
+            />
+            <p className="text-xs text-muted-foreground">
+              How the AI coach adjusts its communication style in this mode
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Section 5: Advanced (JSON) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Advanced Configuration</CardTitle>
+          <CardDescription>
+            JSON fields for priority boosts and reference templates
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Priority Boosts (JSON)</Label>
+            <Textarea
+              className="font-mono text-sm min-h-[120px]"
+              value={priorityBoosts}
+              onChange={(e) => setPriorityBoosts(e.target.value)}
+              placeholder='e.g. { "recovery": 2, "study": 3 }'
+            />
+            <p className="text-xs text-muted-foreground">
+              Boost priority for specific recommendation categories
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Reference Templates (JSON)</Label>
+            <Textarea
+              className="font-mono text-sm min-h-[120px]"
+              value={referenceTemplates}
+              onChange={(e) => setReferenceTemplates(e.target.value)}
+              placeholder='e.g. { "exam_prep": "template_id" }'
+            />
+            <p className="text-xs text-muted-foreground">
+              Template references used by the schedule engine
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Actions */}
+      <div className="flex items-center justify-between pb-8">
+        <div>
+          {modeId && (
+            <Button
+              variant="ghost"
+              className="text-red-400 hover:text-red-300"
+              onClick={handleDelete}
+            >
+              Delete Mode
+            </Button>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push("/admin/modes")}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : modeId ? "Save Changes" : "Create Mode"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

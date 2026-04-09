@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -12,22 +14,30 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
 interface Category {
   id: string;
-  key: string;
   label: string;
   icon: string | null;
   color: string | null;
+  default_mode: string | null;
+  default_days_per_week: number | null;
+  default_session_duration: number | null;
+  default_preferred_time: string | null;
   sort_order: number;
   is_enabled: boolean;
-  default_duration_minutes: number | null;
-  default_intensity: string | null;
   sport_filter: string[] | null;
 }
 
 export default function TrainingCategoriesPage() {
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,7 +68,9 @@ export default function TrainingCategoriesPage() {
     });
 
     if (res.ok) {
-      toast.success(`"${cat.label}" ${!cat.is_enabled ? "enabled" : "disabled"}`);
+      toast.success(
+        `"${cat.label}" ${!cat.is_enabled ? "enabled" : "disabled"}`
+      );
       fetchCategories();
     } else {
       const err = await res.json().catch(() => ({}));
@@ -87,11 +99,17 @@ export default function TrainingCategoriesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Training Categories</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Training Categories
+          </h1>
           <p className="text-muted-foreground">
-            {categories.length} categor{categories.length !== 1 ? "ies" : "y"} configured
+            {categories.length} categor
+            {categories.length !== 1 ? "ies" : "y"} configured
           </p>
         </div>
+        <Link href="/admin/training-categories/new">
+          <Button>+ New Category</Button>
+        </Link>
       </div>
 
       <div className="rounded-md border">
@@ -100,33 +118,45 @@ export default function TrainingCategoriesPage() {
             <TableRow>
               <TableHead className="w-[60px]">Order</TableHead>
               <TableHead>Label</TableHead>
-              <TableHead>Key</TableHead>
-              <TableHead>Default Duration</TableHead>
-              <TableHead>Default Intensity</TableHead>
-              <TableHead className="w-[100px]">Sport Filter</TableHead>
+              <TableHead>Mode</TableHead>
+              <TableHead>Days/Wk</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead>Sport Filter</TableHead>
               <TableHead className="w-[80px]">Enabled</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={9}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   Loading...
                 </TableCell>
               </TableRow>
             ) : categories.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={9}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   No categories found
                 </TableCell>
               </TableRow>
             ) : (
               categories.map((cat) => (
                 <TableRow key={cat.id}>
-                  <TableCell className="font-mono text-sm">{cat.sort_order}</TableCell>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
+                  <TableCell className="font-mono text-sm">
+                    {cat.sort_order}
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/admin/training-categories/${cat.id}/edit`}
+                      className="font-medium hover:underline flex items-center gap-2"
+                    >
                       {cat.color && (
                         <div
                           className="h-4 w-4 rounded-sm border shrink-0"
@@ -135,28 +165,31 @@ export default function TrainingCategoriesPage() {
                       )}
                       {cat.icon && <span>{cat.icon}</span>}
                       {cat.label}
-                    </div>
+                    </Link>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {cat.key}
+                  <TableCell className="text-sm capitalize">
+                    {cat.default_mode?.replace("_", " ") || "—"}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {cat.default_duration_minutes ? `${cat.default_duration_minutes} min` : "—"}
+                    {cat.default_days_per_week ?? "—"}
                   </TableCell>
-                  <TableCell>
-                    {cat.default_intensity ? (
-                      <Badge variant="outline" className="text-xs">
-                        {cat.default_intensity}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
+                  <TableCell className="text-sm">
+                    {cat.default_session_duration
+                      ? `${cat.default_session_duration} min`
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm capitalize">
+                    {cat.default_preferred_time || "—"}
                   </TableCell>
                   <TableCell>
                     {cat.sport_filter && cat.sport_filter.length > 0 ? (
                       <div className="flex gap-1 flex-wrap">
                         {cat.sport_filter.map((s) => (
-                          <Badge key={s} variant="outline" className="text-xs">
+                          <Badge
+                            key={s}
+                            variant="outline"
+                            className="text-xs"
+                          >
                             {s}
                           </Badge>
                         ))}
@@ -172,14 +205,30 @@ export default function TrainingCategoriesPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-400 hover:text-red-300"
-                      onClick={() => handleDelete(cat)}
-                    >
-                      Delete
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={<Button variant="ghost" size="sm" />}
+                      >
+                        ...
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() =>
+                            router.push(
+                              `/admin/training-categories/${cat.id}/edit`
+                            )
+                          }
+                        >
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(cat)}
+                          className="text-destructive"
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
