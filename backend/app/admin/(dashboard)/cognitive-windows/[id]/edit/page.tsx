@@ -43,7 +43,7 @@ export default function EditCognitiveWindowPage() {
 
   if (error || !initialData) {
     return (
-      <div className="flex items-center justify-center py-20 text-red-400">
+      <div className="flex items-center justify-center py-20 text-destructive">
         {error || "Cognitive window not found"}
       </div>
     );

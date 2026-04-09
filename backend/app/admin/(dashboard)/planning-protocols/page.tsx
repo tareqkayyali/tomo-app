@@ -258,7 +258,7 @@ export default function PlanningProtocolsListPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-red-400 hover:text-red-300"
+                        className="text-destructive hover:text-destructive/80"
                         onClick={() => handleDelete(p)}
                       >
                         Delete

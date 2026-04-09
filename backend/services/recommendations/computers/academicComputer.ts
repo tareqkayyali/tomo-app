@@ -30,10 +30,10 @@ export async function computeAcademicRec(
 ): Promise<void> {
   const db = supabaseAdmin();
 
-  // 1. Read latest snapshot
-  const { data: snapshot } = await db
+  // 1. Read latest snapshot (includes athlete_mode — not yet in generated types)
+  const { data: snapshot } = await (db as any)
     .from('athlete_snapshots')
-    .select('dual_load_index, academic_load_7day, athletic_load_7day')
+    .select('dual_load_index, academic_load_7day, athletic_load_7day, athlete_mode')
     .eq('athlete_id', athleteId)
     .single();
 
@@ -89,10 +89,12 @@ export async function computeAcademicRec(
     }
   }
 
-  // 5. Read load data
+  // 5. Read load data + mode
   const dualLoad = snapshot.dual_load_index as number | null;
   const academicLoad = snapshot.academic_load_7day as number | null;
   const athleticLoad = snapshot.athletic_load_7day as number | null;
+  const athleteMode = (snapshot as Record<string, unknown>).athlete_mode as string | null;
+  const isStudyMode = athleteMode === 'study';
 
   // 6. Determine confidence
   let confidence = 0.6;
@@ -100,12 +102,18 @@ export async function computeAcademicRec(
   else if (enteredBy === 'ATHLETE') confidence = 0.75;
 
   // 7. Evaluate decision matrix (first match wins)
+  // Study mode lowers thresholds — academic load triggers more aggressively
+  const dualThresholdP1 = isStudyMode ? 55 : 70;
+  const dualThresholdP2 = isStudyMode ? 45 : 60;
+  const academicLoadThreshold = isStudyMode ? 200 : 250;
+  const dualOverlapThreshold = isStudyMode ? 65 : 80;
+
   let priority: RecPriority | null = null;
   let title = '';
   let bodyShort = '';
   let bodyLong = '';
 
-  if (daysToNearestExam !== null && daysToNearestExam <= 3 && dualLoad !== null && dualLoad > 70) {
+  if (daysToNearestExam !== null && daysToNearestExam <= 3 && dualLoad !== null && dualLoad > dualThresholdP1) {
     priority = 1;
     title = 'Exam Week — Reduce Training';
     const examInfo = nearestExamSubject ? ` (${nearestExamSubject})` : '';
@@ -115,7 +123,7 @@ export async function computeAcademicRec(
       + `Reduce training to light sessions or recovery-only this week. `
       + `Your academic performance matters — a lighter training week won't hurt your fitness `
       + `but will help you focus and perform better in exams.`;
-  } else if (daysToNearestExam !== null && daysToNearestExam <= 7 && dualLoad !== null && dualLoad > 60) {
+  } else if (daysToNearestExam !== null && daysToNearestExam <= 7 && dualLoad !== null && dualLoad > dualThresholdP2) {
     priority = 2;
     title = 'Exam Approaching — Plan Ahead';
     const examInfo = nearestExamSubject ? ` (${nearestExamSubject})` : '';
@@ -125,7 +133,7 @@ export async function computeAcademicRec(
       + `Start front-loading your training now so you can taper down as the exam approaches. `
       + (estimatedPrepHours ? `You've estimated ${estimatedPrepHours}h of prep — ` : '')
       + `Plan your study blocks around training, not the other way around this week.`;
-  } else if (academicLoad !== null && academicLoad > 250) {
+  } else if (academicLoad !== null && academicLoad > academicLoadThreshold) {
     priority = 2;
     title = 'Heavy Study Week — Balance Load';
     bodyShort = 'Your academic load is high this week. Consider lighter training sessions.';
@@ -133,7 +141,7 @@ export async function computeAcademicRec(
       + `Combined with your athletic load (${athleticLoad ?? 'N/A'} AU), `
       + `your total stress is significant. Consider dropping one training session or `
       + `reducing intensity to keep your overall load manageable.`;
-  } else if (dualLoad !== null && dualLoad > 80) {
+  } else if (dualLoad !== null && dualLoad > dualOverlapThreshold) {
     priority = 2;
     title = 'Academic + Athletic Overlap';
     bodyShort = 'Both your academic and athletic loads are high. Something needs to give.';
@@ -142,7 +150,8 @@ export async function computeAcademicRec(
       + `Academic load: ${academicLoad ?? 'N/A'} AU, Athletic load: ${athleticLoad ?? 'N/A'} AU. `
       + `Talk to your coach about reducing training volume, or see if any study commitments can be rescheduled.`;
   } else if (academicEventType === 'EXAM') {
-    priority = 4;
+    // Study mode boosts exam-noted priority P4 → P3
+    priority = isStudyMode ? 3 : 4;
     title = 'Exam Noted — Schedule Adjusted';
     const examInfo = nearestExamSubject ? ` for ${nearestExamSubject}` : '';
     bodyShort = `Your exam${examInfo} has been noted. Training will be adjusted around it.`;
@@ -166,6 +175,7 @@ export async function computeAcademicRec(
     estimated_prep_hours: estimatedPrepHours,
     upcoming_exam_count: examEvents.length,
     entered_by: enteredBy,
+    athlete_mode: athleteMode,
   };
 
   // 9. Build context

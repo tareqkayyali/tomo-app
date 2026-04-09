@@ -99,11 +99,79 @@ const SPORT_OPTIONS: { value: string; label: string }[] = [
   { value: "athletics", label: "Athletics" },
 ];
 
+const TRIGGER_FIELD_OPTIONS: { value: string; label: string }[] = [
+  { value: "acwr", label: "ACWR" },
+  { value: "training_monotony", label: "Training Monotony" },
+  { value: "training_strain", label: "Training Strain" },
+  { value: "dual_load_index", label: "Dual Load Index" },
+  { value: "readiness_score", label: "Readiness Score" },
+  { value: "readiness_rag", label: "Readiness RAG" },
+  { value: "sleep_hours", label: "Sleep Hours" },
+  { value: "sleep_debt_3d", label: "Sleep Debt (3d)" },
+  { value: "hrv_today_ms", label: "HRV Today" },
+  { value: "active_injury_count", label: "Active Injury Count" },
+  { value: "exam_proximity_score", label: "Exam Proximity Score" },
+  { value: "athlete_mode", label: "Athlete Mode" },
+  { value: "phv_stage", label: "PHV Stage" },
+  { value: "checkin_consistency_7d", label: "Check-in Consistency (7d)" },
+  { value: "data_confidence_score", label: "Data Confidence Score" },
+  { value: "days_since_last_session", label: "Days Since Last Session" },
+  { value: "matches_next_7d", label: "Matches Next 7 Days" },
+  { value: "in_exam_period", label: "In Exam Period" },
+];
+
+const OPERATOR_OPTIONS: { value: string; label: string }[] = [
+  { value: "gt", label: ">" },
+  { value: "gte", label: ">=" },
+  { value: "lt", label: "<" },
+  { value: "lte", label: "<=" },
+  { value: "eq", label: "=" },
+  { value: "neq", label: "!=" },
+];
+
+const ACTION_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: "reduce_load", label: "Reduce Load" },
+  { value: "suggest", label: "Suggest Action" },
+  { value: "block_intensity", label: "Block Intensity" },
+  { value: "schedule_recovery", label: "Schedule Recovery" },
+  { value: "boost_study", label: "Boost Study" },
+  { value: "alert", label: "Alert" },
+];
+
 /* ---------- types ---------- */
+
+interface TriggerCondition {
+  field: string;
+  operator: string;
+  value: string;
+}
 
 interface PlanningProtocolFormProps {
   protocolId?: string;
   initialData?: Record<string, unknown>;
+}
+
+/* ---------- helpers ---------- */
+
+function parseTriggerConditions(raw: unknown): TriggerCondition[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((c: Record<string, unknown>) => ({
+    field: String(c.field ?? ""),
+    operator: String(c.operator ?? "gt"),
+    value: String(c.value ?? ""),
+  }));
+}
+
+function parseActions(raw: unknown): { type: string; suggest: string; amount: string } {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { type: "", suggest: "", amount: "" };
+  }
+  const obj = raw as Record<string, unknown>;
+  return {
+    type: String(obj.type ?? ""),
+    suggest: String(obj.suggest ?? ""),
+    amount: obj.amount !== undefined ? String(obj.amount) : "",
+  };
 }
 
 /* ---------- component ---------- */
@@ -125,16 +193,18 @@ export function PlanningProtocolForm({
   const [category, setCategory] = useState(
     (initialData?.category as string) ?? "safety"
   );
-  const [triggerConditions, setTriggerConditions] = useState(
-    initialData?.trigger_conditions
-      ? JSON.stringify(initialData.trigger_conditions, null, 2)
-      : "[]"
+
+  // Structured trigger conditions
+  const [conditions, setConditions] = useState<TriggerCondition[]>(
+    parseTriggerConditions(initialData?.trigger_conditions)
   );
-  const [actions, setActions] = useState(
-    initialData?.actions
-      ? JSON.stringify(initialData.actions, null, 2)
-      : "{}"
-  );
+
+  // Structured actions
+  const initActions = parseActions(initialData?.actions);
+  const [actionType, setActionType] = useState(initActions.type);
+  const [actionSuggest, setActionSuggest] = useState(initActions.suggest);
+  const [actionAmount, setActionAmount] = useState(initActions.amount);
+
   const [scientificBasis, setScientificBasis] = useState(
     (initialData?.scientific_basis as string) ?? ""
   );
@@ -155,44 +225,48 @@ export function PlanningProtocolForm({
     );
   }
 
+  function updateCondition(idx: number, patch: Partial<TriggerCondition>) {
+    setConditions((prev) =>
+      prev.map((c, i) => (i === idx ? { ...c, ...patch } : c))
+    );
+  }
+
+  function removeCondition(idx: number) {
+    setConditions((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function addCondition() {
+    setConditions((prev) => [...prev, { field: "acwr", operator: "gt", value: "" }]);
+  }
+
   async function handleSave() {
     if (!name.trim()) {
       toast.error("Name is required");
       return;
     }
 
-    let parsedTriggerConditions: unknown[];
-    let parsedActions: Record<string, unknown>;
+    // Build trigger conditions array from structured state
+    const triggerConditionsPayload = conditions
+      .filter((c) => c.field && c.value !== "")
+      .map((c) => ({
+        field: c.field,
+        operator: c.operator,
+        value: isNaN(Number(c.value)) ? c.value : Number(c.value),
+      }));
 
-    try {
-      parsedTriggerConditions = JSON.parse(triggerConditions);
-      if (!Array.isArray(parsedTriggerConditions)) {
-        toast.error("Trigger conditions must be a JSON array");
-        return;
-      }
-    } catch {
-      toast.error("Invalid JSON in trigger conditions");
-      return;
-    }
-
-    try {
-      parsedActions = JSON.parse(actions);
-      if (typeof parsedActions !== "object" || Array.isArray(parsedActions)) {
-        toast.error("Actions must be a JSON object");
-        return;
-      }
-    } catch {
-      toast.error("Invalid JSON in actions");
-      return;
-    }
+    // Build actions object from structured state
+    const actionsPayload: Record<string, unknown> = {};
+    if (actionType) actionsPayload.type = actionType;
+    if (actionSuggest.trim()) actionsPayload.suggest = actionSuggest.trim();
+    if (actionAmount !== "") actionsPayload.amount = Number(actionAmount);
 
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
       severity,
       category,
-      trigger_conditions: parsedTriggerConditions,
-      actions: parsedActions,
+      trigger_conditions: triggerConditionsPayload,
+      actions: actionsPayload,
       scientific_basis: scientificBasis.trim() || null,
       sport_filter: sportFilter.length > 0 ? sportFilter : null,
       is_enabled: isEnabled,
@@ -339,40 +413,131 @@ export function PlanningProtocolForm({
         </CardContent>
       </Card>
 
-      {/* Trigger Conditions & Actions */}
+      {/* Trigger Conditions — human-readable */}
       <Card>
         <CardHeader>
-          <CardTitle>Logic</CardTitle>
+          <CardTitle>Trigger Conditions</CardTitle>
           <CardDescription>
-            Define when this protocol triggers and what actions it takes
+            Define when this protocol activates. All conditions must be met (AND logic).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {conditions.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No conditions defined. Add a condition below.
+            </p>
+          )}
+          {conditions.map((cond, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <select
+                value={cond.field}
+                onChange={(e) => updateCondition(idx, { field: e.target.value })}
+                className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {TRIGGER_FIELD_OPTIONS.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={cond.operator}
+                onChange={(e) => updateCondition(idx, { operator: e.target.value })}
+                className="flex h-9 w-20 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {OPERATOR_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <Input
+                value={cond.value}
+                onChange={(e) => updateCondition(idx, { value: e.target.value })}
+                placeholder="Value"
+                className="w-32"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive/80"
+                onClick={() => removeCondition(idx)}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addCondition}
+          >
+            + Add Condition
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Actions — human-readable */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Actions</CardTitle>
+          <CardDescription>
+            Define what this protocol does when triggered
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label>Trigger Conditions (JSON array)</Label>
-            <Textarea
-              className="font-mono text-sm min-h-[140px]"
-              value={triggerConditions}
-              onChange={(e) => setTriggerConditions(e.target.value)}
-              placeholder='[{"field": "acwr", "operator": ">", "value": 1.5}]'
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Each condition is an object with field, operator, and value.
-            </p>
+            <Label>Action Type</Label>
+            <div className="flex gap-2 mt-1.5 flex-wrap">
+              {ACTION_TYPE_OPTIONS.map((opt) => (
+                <Badge
+                  key={opt.value}
+                  variant="outline"
+                  className={`cursor-pointer transition-colors px-3 py-1 text-sm ${
+                    actionType === opt.value
+                      ? "bg-foreground text-background border-foreground"
+                      : "hover:bg-muted"
+                  }`}
+                  onClick={() => setActionType(opt.value)}
+                >
+                  {opt.label}
+                </Badge>
+              ))}
+            </div>
           </div>
 
           <div>
-            <Label>Actions (JSON object)</Label>
+            <Label>Suggestion / Message</Label>
             <Textarea
-              className="font-mono text-sm min-h-[140px]"
-              value={actions}
-              onChange={(e) => setActions(e.target.value)}
-              placeholder='{"type": "reduce_load", "amount": 0.3}'
+              value={actionSuggest}
+              onChange={(e) => setActionSuggest(e.target.value)}
+              placeholder="e.g. Training monotony high — scheduled deload recommended to prevent overtraining"
+              className="min-h-[60px]"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Define the action payload this protocol executes when triggered.
+              Human-readable suggestion shown to the athlete or coach
             </p>
           </div>
+
+          {(actionType === "reduce_load" || actionType === "boost_study") && (
+            <div>
+              <Label>Amount (%)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={actionAmount}
+                onChange={(e) => setActionAmount(e.target.value)}
+                placeholder="e.g. 40"
+                className="w-32"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Percentage adjustment (e.g. 40 = reduce load by 40%)
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

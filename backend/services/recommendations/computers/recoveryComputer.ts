@@ -33,9 +33,10 @@ export async function computeRecoveryRec(
   const db = supabaseAdmin();
 
   // 1. Read latest snapshot
-  const { data: snapshot } = await db
+  // athlete_mode not yet in generated types — use (db as any)
+  const { data: snapshot } = await (db as any)
     .from('athlete_snapshots')
-    .select('readiness_rag, readiness_score, acwr, sleep_quality, wellness_trend, last_session_at, athletic_load_7day')
+    .select('readiness_rag, readiness_score, acwr, sleep_quality, wellness_trend, last_session_at, athletic_load_7day, athlete_mode')
     .eq('athlete_id', athleteId)
     .single();
 
@@ -81,6 +82,10 @@ export async function computeRecoveryRec(
   } else if (event.event_type === 'SLEEP_RECORD') {
     confidence = 0.7;
   }
+
+  // 6b. Mode-aware — league mode always triggers post-match recovery
+  const athleteMode = (snapshot as Record<string, unknown>).athlete_mode as string | null;
+  const isLeagueMode = athleteMode === 'league';
 
   // 7. Evaluate decision matrix (first match wins)
   let priority: RecPriority | null = null;
@@ -147,6 +152,15 @@ export async function computeRecoveryRec(
     bodyLong = `Your readiness is green, sleep quality is great (${sleepQuality}/10), `
       + `and you've had adequate rest time. You're in an ideal state for high-intensity `
       + `training or competition. Make the most of it!`;
+  } else if (isLeagueMode && isPostMatch) {
+    // League mode — always emit recovery rec after any match, regardless of other conditions
+    priority = 2;
+    title = 'Post-Match Recovery — League Mode';
+    bodyShort = 'League mode active. Recovery is mandatory after every match.';
+    bodyLong = `You're in league mode, which means match recovery is prioritized above all else. `
+      + `Even if you feel good, your body needs recovery time between competitive fixtures. `
+      + `Focus on nutrition, hydration, and sleep. Avoid hard training for at least 24 hours. `
+      + `Your next session should be light recovery or skill work only.`;
   } else {
     // No recovery rec needed
     return;
@@ -162,6 +176,7 @@ export async function computeRecoveryRec(
     is_post_match: isPostMatch,
     phv_stage: phv?.phvStage ?? null,
     loading_multiplier: loadingMultiplier,
+    athlete_mode: athleteMode,
   };
 
   // 9. Build context

@@ -35,9 +35,10 @@ export async function computeLoadWarningRec(
   const db = supabaseAdmin();
 
   // 1. Read latest snapshot
-  const { data: snapshot } = await db
+  // athlete_mode not yet in generated types — use (db as any)
+  const { data: snapshot } = await (db as any)
     .from('athlete_snapshots')
-    .select('acwr, atl_7day, ctl_28day, dual_load_index, injury_risk_flag, athletic_load_7day, academic_load_7day')
+    .select('acwr, atl_7day, ctl_28day, dual_load_index, injury_risk_flag, athletic_load_7day, academic_load_7day, athlete_mode')
     .eq('athlete_id', athleteId)
     .single();
 
@@ -65,30 +66,38 @@ export async function computeLoadWarningRec(
   // 3. Determine confidence based on load data history
   const confidence = await computeConfidence(athleteId, db);
 
+  // 3b. Mode-aware thresholds — rest mode is more conservative
+  const athleteMode = (snapshot as Record<string, unknown>).athlete_mode as string | null;
+  const isRestMode = athleteMode === 'rest';
+  const acwrP1Threshold = isRestMode ? 1.2 : 1.5;
+  const acwrP2Threshold = isRestMode ? 1.1 : 1.3;
+  const phvAcwrThreshold = isRestMode ? 1.0 : 1.2;
+  const dualLoadThreshold = isRestMode ? 65 : 80;
+
   // 4. Evaluate decision matrix (first match wins)
   let priority: RecPriority | null = null;
   let title = '';
   let bodyShort = '';
   let bodyLong = '';
 
-  if (isMidPhv && acwr !== null && acwr > 1.2) {
+  if (isMidPhv && acwr !== null && acwr > phvAcwrThreshold) {
     // Lower threshold during growth spurt
     priority = 1;
     title = 'Growth Phase Load Alert';
     bodyShort = 'Your training load is high for your growth phase. Reduce intensity today.';
-    bodyLong = `Your ACWR is ${acwr.toFixed(2)} which exceeds the safe threshold of 1.2 `
+    bodyLong = `Your ACWR is ${acwr.toFixed(2)} which exceeds the safe threshold of ${phvAcwrThreshold} `
       + `during your growth spurt. Young athletes in rapid growth are more vulnerable to `
       + `overuse injuries. Your load should be reduced by ${Math.round((1 - loadingMultiplier) * 100)}%. `
       + `Focus on skill work and avoid maximal efforts.`;
-  } else if (acwr !== null && acwr > 1.5) {
+  } else if (acwr !== null && acwr > acwrP1Threshold) {
     priority = 1;
     title = 'Training Spike Detected';
     bodyShort = 'Your recent training load has spiked. High injury risk — reduce immediately.';
-    bodyLong = `Your ACWR is ${acwr.toFixed(2)} (danger zone is above 1.5). `
+    bodyLong = `Your ACWR is ${acwr.toFixed(2)} (danger zone is above ${acwrP1Threshold}). `
       + `This means your recent training is significantly higher than your body is used to. `
       + `Research shows this dramatically increases injury risk. `
       + `Reduce training volume and intensity over the next 48 hours.`;
-  } else if (dualLoad !== null && dualLoad > 80) {
+  } else if (dualLoad !== null && dualLoad > dualLoadThreshold) {
     priority = 2;
     title = 'Combined Load High';
     bodyShort = 'Your athletic + academic load is high. Balance is key this week.';
@@ -96,11 +105,11 @@ export async function computeLoadWarningRec(
       + `Athletic load: ${snapshot.athletic_load_7day ?? 'N/A'} AU, `
       + `Academic load: ${snapshot.academic_load_7day ?? 'N/A'} AU. `
       + `Consider reducing training volume or speaking with your coach about load management.`;
-  } else if (acwr !== null && acwr > 1.3) {
+  } else if (acwr !== null && acwr > acwrP2Threshold) {
     priority = 2;
     title = 'Load Building Quickly';
     bodyShort = 'Your training load is climbing. Stay aware and don\'t push too hard.';
-    bodyLong = `Your ACWR is ${acwr.toFixed(2)} (amber zone is 1.3–1.5). `
+    bodyLong = `Your ACWR is ${acwr.toFixed(2)} (amber zone is ${acwrP2Threshold}–${acwrP1Threshold}). `
       + `You've been training harder than your recent average. `
       + `This isn't dangerous yet, but keep monitoring. `
       + `If you feel any soreness or fatigue, take it easier tomorrow.`;
@@ -177,6 +186,7 @@ export async function computeLoadWarningRec(
     phv_stage: phv?.phvStage ?? null,
     loading_multiplier: loadingMultiplier,
     contributing_factors: buildContributingFactors(snapshot, phv),
+    athlete_mode: athleteMode,
   };
 
   // 6. Build snapshot context

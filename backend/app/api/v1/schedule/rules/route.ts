@@ -15,6 +15,7 @@ import {
   getEffectiveRules,
   type PlayerSchedulePreferences,
 } from "@/services/scheduling/scheduleRuleEngine";
+import { emitEventSafe } from "@/services/events/eventEmitter";
 
 // Table name cast — regenerate types after migration to remove
 const TABLE = "player_schedule_preferences" as any;
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     preferences: merged,
     scenario,
+    athleteMode: (merged as any).athlete_mode ?? 'balanced',
     effectiveRules: {
       buffers: effective.buffers,
       intensityCaps: effective.intensityCaps,
@@ -68,6 +70,7 @@ const ALLOWED_FIELDS = new Set([
   "exam_subjects", "exam_start_date",
   "pre_exam_study_weeks", "days_per_subject",
   "training_categories", "exam_schedule", "study_subjects",
+  "athlete_mode", "mode_params_override",
 ]);
 
 export async function PATCH(req: NextRequest) {
@@ -120,9 +123,30 @@ export async function PATCH(req: NextRequest) {
       ...(prefs ?? {}),
     };
 
+    // ── Emit MODE_CHANGE event if athlete_mode was updated ──
+    if (updates.athlete_mode) {
+      const previousMode = (prefs as any)?.athlete_mode ?? 'balanced';
+      const newMode = updates.athlete_mode as string;
+      if (previousMode !== newMode) {
+        await emitEventSafe({
+          athleteId: auth.user.id,
+          eventType: 'MODE_CHANGE',
+          source: 'MANUAL',
+          payload: {
+            previous_mode: previousMode,
+            new_mode: newMode,
+            mode_params: {},
+            trigger: 'manual',
+          },
+          createdBy: auth.user.id,
+        });
+      }
+    }
+
     return NextResponse.json({
       updated: true,
       scenario: detectScenario(merged),
+      athleteMode: (merged as any).athlete_mode ?? 'balanced',
     });
   } catch (err) {
     console.error("[schedule/rules PATCH] Unhandled error:", err);

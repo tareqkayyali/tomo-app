@@ -19,84 +19,84 @@ const navigation = [
   {
     label: "Overview",
     items: [
-      { name: "Dashboard", href: "/admin", icon: "📊" },
+      { name: "Dashboard", href: "/admin" },
     ],
   },
   {
     label: "Training Content",
     items: [
-      { name: "Drills", href: "/admin/drills", icon: "⚡" },
-      { name: "Programs", href: "/admin/programs", icon: "🏋️" },
-      { name: "Programmes", href: "/admin/programmes", icon: "📅" },
-      { name: "Assessments", href: "/admin/assessments", icon: "📋" },
-      { name: "Normative Data", href: "/admin/normative-data", icon: "📈" },
-      { name: "Mastery Pillars", href: "/admin/mastery", icon: "🧬" },
+      { name: "Drills", href: "/admin/drills" },
+      { name: "Programs", href: "/admin/programs" },
+      { name: "Programmes", href: "/admin/programmes" },
+      { name: "Assessments", href: "/admin/assessments" },
+      { name: "Normative Data", href: "/admin/normative-data" },
+      { name: "Mastery Pillars", href: "/admin/mastery" },
     ],
   },
   {
     label: "Sport Configuration",
     items: [
-      { name: "Sports", href: "/admin/sports", icon: "🏆" },
+      { name: "Sports", href: "/admin/sports" },
     ],
   },
   {
     label: "Content",
     items: [
-      { name: "Content Items", href: "/admin/content", icon: "📝" },
+      { name: "Content Items", href: "/admin/content" },
     ],
   },
   {
     label: "Player CV",
     items: [
-      { name: "CV Overview", href: "/admin/cv", icon: "📄" },
-      { name: "CV Athletes", href: "/admin/cv/athletes", icon: "👤" },
-      { name: "CV Settings", href: "/admin/cv/settings", icon: "⚙️" },
+      { name: "CV Overview", href: "/admin/cv" },
+      { name: "CV Athletes", href: "/admin/cv/athletes" },
+      { name: "CV Settings", href: "/admin/cv/settings" },
     ],
   },
   {
     label: "Performance Director",
     items: [
-      { name: "Protocols", href: "/admin/protocols", icon: "🛡️" },
-      { name: "Program Rules", href: "/admin/program-rules", icon: "🏋️" },
-      { name: "Dashboard Signals", href: "/admin/signals", icon: "📡" },
-      { name: "Test Simulator", href: "/admin/protocols/test", icon: "🧪" },
-      { name: "Audit Log", href: "/admin/protocols/audit", icon: "📜" },
+      { name: "Protocols", href: "/admin/protocols" },
+      { name: "Program Rules", href: "/admin/program-rules" },
+      { name: "Dashboard Signals", href: "/admin/signals" },
+      { name: "Test Simulator", href: "/admin/protocols/test" },
+      { name: "Audit Log", href: "/admin/protocols/audit" },
     ],
   },
   {
     label: "Planning Intelligence",
     items: [
-      { name: "Athlete Modes", href: "/admin/modes", icon: "🎯" },
-      { name: "Training Categories", href: "/admin/training-categories", icon: "🏷️" },
-      { name: "Planning Protocols", href: "/admin/planning-protocols", icon: "📐" },
-      { name: "Cognitive Windows", href: "/admin/cognitive-windows", icon: "🧠" },
+      { name: "Athlete Modes", href: "/admin/modes" },
+      { name: "Training Categories", href: "/admin/training-categories" },
+      { name: "Planning Protocols", href: "/admin/planning-protocols" },
+      { name: "Cognitive Windows", href: "/admin/cognitive-windows" },
     ],
   },
   {
     label: "AI & Recommendations",
     items: [
-      { name: "Performance Intelligence", href: "/admin/performance-intelligence", icon: "🧪" },
-      { name: "Recommendation Engine", href: "/admin/recommendation-engine", icon: "🤖" },
-      { name: "Intelligence Scores", href: "/admin/intelligence", icon: "🧠" },
+      { name: "Performance Intelligence", href: "/admin/performance-intelligence" },
+      { name: "Recommendation Engine", href: "/admin/recommendation-engine" },
+      { name: "Intelligence Scores", href: "/admin/intelligence" },
     ],
   },
   {
     label: "Notifications",
     items: [
-      { name: "Dashboard", href: "/admin/notifications", icon: "🔔" },
-      { name: "Templates", href: "/admin/notifications/templates", icon: "📋" },
-      { name: "Scheduled Jobs", href: "/admin/notifications/scheduled", icon: "⏰" },
-      { name: "Push Delivery", href: "/admin/notifications/push", icon: "📱" },
-      { name: "Management", href: "/admin/notifications/management", icon: "⚙️" },
+      { name: "Dashboard", href: "/admin/notifications" },
+      { name: "Templates", href: "/admin/notifications/templates" },
+      { name: "Scheduled Jobs", href: "/admin/notifications/scheduled" },
+      { name: "Push Delivery", href: "/admin/notifications/push" },
+      { name: "Management", href: "/admin/notifications/management" },
     ],
   },
   {
     label: "App Design",
     items: [
-      { name: "Brand Colors", href: "/admin/design/brand", icon: "🎨" },
-      { name: "Proactive Dashboard", href: "/admin/proactive-dashboard", icon: "📊" },
-      { name: "DNA Card Tiers", href: "/admin/dna-card", icon: "🃏" },
-      { name: "Feature Flags", href: "/admin/feature-flags", icon: "🚩" },
+      { name: "Brand Colors", href: "/admin/design/brand" },
+      { name: "Proactive Dashboard", href: "/admin/proactive-dashboard" },
+      { name: "DNA Card Tiers", href: "/admin/dna-card" },
+      { name: "Feature Flags", href: "/admin/feature-flags" },
     ],
   },
 ];
@@ -128,7 +128,6 @@ export function AdminSidebar() {
                         isActive={isActive}
                         render={<Link href={item.href} />}
                       >
-                        <span>{item.icon}</span>
                         <span>{item.name}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

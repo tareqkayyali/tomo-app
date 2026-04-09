@@ -15,6 +15,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getScheduleRules, updateScheduleRules } from '../services/api';
 import type { ScheduleRulesResponse } from '../services/api';
+import { getApiUrl } from '../services/apiConfig';
 import { colors } from '../theme/colors';
 
 // ── Types (mirrors backend scheduleRuleEngine) ──────────────────
@@ -87,7 +88,10 @@ export interface PlayerSchedulePreferences {
   buffer_post_match_min: number;
   buffer_post_high_intensity_min: number;
 
-  // Scenario flags
+  // Athlete Mode (Planning Intelligence)
+  athlete_mode: string;
+
+  // Scenario flags (legacy — derived from athlete_mode)
   league_is_active: boolean;
   exam_period_active: boolean;
 
@@ -124,6 +128,7 @@ export interface EffectiveRules {
 export interface ScheduleRulesData {
   preferences: PlayerSchedulePreferences;
   scenario: string;
+  athleteMode: string;
   effectiveRules: EffectiveRules;
 }
 
@@ -192,6 +197,7 @@ export const DEFAULT_PREFERENCES: PlayerSchedulePreferences = {
   league_is_active: false,
   exam_period_active: false,
   exam_subjects: [],
+  athlete_mode: 'balanced',
   exam_start_date: null,
   pre_exam_study_weeks: 3,
   days_per_subject: 3,
@@ -214,7 +220,36 @@ const SAVEABLE_FIELDS = [
   'exam_subjects', 'exam_start_date',
   'pre_exam_study_weeks', 'days_per_subject',
   'training_categories', 'exam_schedule', 'study_subjects',
+  'athlete_mode', 'mode_params_override',
 ] as const;
+
+// ── CMS Training Category Templates ────────────────────────────
+
+async function fetchCmsTrainingCategories(): Promise<TrainingCategoryRule[] | null> {
+  try {
+    const base = getApiUrl();
+    const res = await fetch(`${base}/api/v1/content/training-categories`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const templates = data.categories ?? [];
+    if (templates.length === 0) return null;
+
+    return templates.map((t: Record<string, unknown>) => ({
+      id: t.id as string,
+      label: t.label as string,
+      icon: (t.icon as string) ?? 'fitness-outline',
+      color: (t.color as string) ?? colors.accent,
+      enabled: true,
+      mode: (t.default_mode as string) ?? 'fixed_days',
+      fixedDays: [],
+      daysPerWeek: (t.default_days_per_week as number) ?? 3,
+      sessionDuration: (t.default_session_duration as number) ?? 60,
+      preferredTime: (t.default_preferred_time as string) ?? 'afternoon',
+    }));
+  } catch {
+    return null; // Silently fall back to hardcoded defaults
+  }
+}
 
 // ── Hook ────────────────────────────────────────────────────────
 
@@ -234,13 +269,20 @@ export function useScheduleRules() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getScheduleRules();
+      // Fetch saved rules and CMS templates in parallel
+      const [data, cmsCategories] = await Promise.all([
+        getScheduleRules(),
+        fetchCmsTrainingCategories(),
+      ]);
+
+      // Use CMS templates as fallback defaults (instead of hardcoded), then hardcoded as last resort
+      const categoryFallback = cmsCategories ?? DEFAULT_TRAINING_CATEGORIES;
 
       const prefs: PlayerSchedulePreferences = {
         ...DEFAULT_PREFERENCES,
         ...(data.preferences as Partial<PlayerSchedulePreferences>),
         training_categories:
-          (data.preferences as any).training_categories ?? DEFAULT_TRAINING_CATEGORIES,
+          (data.preferences as any).training_categories ?? categoryFallback,
         exam_schedule: (data.preferences as any).exam_schedule ?? [],
         study_subjects: (data.preferences as any).study_subjects ?? [],
       };

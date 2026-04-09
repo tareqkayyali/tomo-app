@@ -160,14 +160,6 @@ function safeStr(v: unknown, fallback: string | null): string | null {
   return String(v);
 }
 
-function safeJson(v: unknown): string {
-  if (v === null || v === undefined) return "{}";
-  try {
-    return JSON.stringify(v, null, 2);
-  } catch {
-    return "{}";
-  }
-}
 
 /* ---------- component ---------- */
 
@@ -222,11 +214,17 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
     safeStr(params.aiCoachingTone, null)
   );
 
-  // Advanced JSON fields
-  const [priorityBoosts, setPriorityBoosts] = useState(safeJson(params.priorityBoosts));
-  const [referenceTemplates, setReferenceTemplates] = useState(
-    safeJson(params.referenceTemplates)
-  );
+  // Priority Boosts — structured array
+  const initBoosts = Array.isArray(params.priorityBoosts)
+    ? (params.priorityBoosts as { category: string; delta: number }[])
+    : [];
+  const [priorityBoosts, setPriorityBoosts] = useState<{ category: string; delta: number }[]>(initBoosts);
+
+  // Reference Templates — key/value pairs
+  const initTemplates = (params.referenceTemplates && typeof params.referenceTemplates === 'object' && !Array.isArray(params.referenceTemplates))
+    ? Object.entries(params.referenceTemplates as Record<string, string>).map(([k, v]) => ({ key: k, value: v }))
+    : [];
+  const [referenceTemplates, setReferenceTemplates] = useState<{ key: string; value: string }[]>(initTemplates);
 
   /* ---------- save ---------- */
 
@@ -241,23 +239,9 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
       return;
     }
 
-    // Validate JSON fields
-    let parsedPriorityBoosts: unknown;
-    let parsedReferenceTemplates: unknown;
-    try {
-      parsedPriorityBoosts = priorityBoosts.trim() ? JSON.parse(priorityBoosts) : null;
-    } catch {
-      toast.error("Priority Boosts JSON is invalid");
-      return;
-    }
-    try {
-      parsedReferenceTemplates = referenceTemplates.trim()
-        ? JSON.parse(referenceTemplates)
-        : null;
-    } catch {
-      toast.error("Reference Templates JSON is invalid");
-      return;
-    }
+    // Build structured data from form state
+    const validBoosts = priorityBoosts.filter((b) => b.category.trim());
+    const validTemplates = referenceTemplates.filter((t) => t.key.trim());
 
     // Build params object
     const builtParams: Record<string, unknown> = {};
@@ -276,8 +260,12 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
     if (loadCapMultiplier !== "")
       builtParams.loadCapMultiplier = Number(loadCapMultiplier);
     if (aiCoachingTone !== null) builtParams.aiCoachingTone = aiCoachingTone;
-    if (parsedPriorityBoosts) builtParams.priorityBoosts = parsedPriorityBoosts;
-    if (parsedReferenceTemplates) builtParams.referenceTemplates = parsedReferenceTemplates;
+    if (validBoosts.length > 0) builtParams.priorityBoosts = validBoosts;
+    if (validTemplates.length > 0) {
+      const templatesObj: Record<string, string> = {};
+      for (const t of validTemplates) templatesObj[t.key.trim()] = t.value;
+      builtParams.referenceTemplates = templatesObj;
+    }
 
     const body: Record<string, unknown> = {
       label: label.trim(),
@@ -404,11 +392,11 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Icon (emoji)</Label>
+              <Label>Icon</Label>
               <Input
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
-                placeholder="e.g. exam emoji"
+                placeholder="e.g. icon identifier"
               />
             </div>
             <div className="space-y-2">
@@ -640,40 +628,110 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
         </CardContent>
       </Card>
 
-      {/* Section 5: Advanced (JSON) */}
+      {/* Section 5: Priority Boosts */}
       <Card>
         <CardHeader>
-          <CardTitle>Advanced Configuration</CardTitle>
+          <CardTitle>Priority Boosts</CardTitle>
           <CardDescription>
-            JSON fields for priority boosts and reference templates
+            Boost priority for specific recommendation categories when this mode is active
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Priority Boosts (JSON)</Label>
-            <Textarea
-              className="font-mono text-sm min-h-[120px]"
-              value={priorityBoosts}
-              onChange={(e) => setPriorityBoosts(e.target.value)}
-              placeholder='e.g. { "recovery": 2, "study": 3 }'
-            />
-            <p className="text-xs text-muted-foreground">
-              Boost priority for specific recommendation categories
-            </p>
-          </div>
+        <CardContent className="space-y-3">
+          {priorityBoosts.map((boost, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <Input
+                value={boost.category}
+                onChange={(e) => {
+                  const next = [...priorityBoosts];
+                  next[idx] = { ...next[idx], category: e.target.value };
+                  setPriorityBoosts(next);
+                }}
+                placeholder="Category (e.g. recovery, study)"
+                className="flex-1"
+              />
+              <Input
+                type="number"
+                value={boost.delta}
+                onChange={(e) => {
+                  const next = [...priorityBoosts];
+                  next[idx] = { ...next[idx], delta: Number(e.target.value) };
+                  setPriorityBoosts(next);
+                }}
+                placeholder="Delta"
+                className="w-24"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive/80"
+                onClick={() => setPriorityBoosts(priorityBoosts.filter((_, i) => i !== idx))}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setPriorityBoosts([...priorityBoosts, { category: "", delta: 0 }])}
+          >
+            + Add Boost
+          </Button>
+        </CardContent>
+      </Card>
 
-          <div className="space-y-2">
-            <Label>Reference Templates (JSON)</Label>
-            <Textarea
-              className="font-mono text-sm min-h-[120px]"
-              value={referenceTemplates}
-              onChange={(e) => setReferenceTemplates(e.target.value)}
-              placeholder='e.g. { "exam_prep": "template_id" }'
-            />
-            <p className="text-xs text-muted-foreground">
-              Template references used by the schedule engine
-            </p>
-          </div>
+      {/* Section 6: Reference Templates */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Reference Templates</CardTitle>
+          <CardDescription>
+            Template references used by the schedule engine
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {referenceTemplates.map((tmpl, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <Input
+                value={tmpl.key}
+                onChange={(e) => {
+                  const next = [...referenceTemplates];
+                  next[idx] = { ...next[idx], key: e.target.value };
+                  setReferenceTemplates(next);
+                }}
+                placeholder="Key (e.g. exam_prep)"
+                className="flex-1"
+              />
+              <Input
+                value={tmpl.value}
+                onChange={(e) => {
+                  const next = [...referenceTemplates];
+                  next[idx] = { ...next[idx], value: e.target.value };
+                  setReferenceTemplates(next);
+                }}
+                placeholder="Template ID"
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive/80"
+                onClick={() => setReferenceTemplates(referenceTemplates.filter((_, i) => i !== idx))}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setReferenceTemplates([...referenceTemplates, { key: "", value: "" }])}
+          >
+            + Add Template
+          </Button>
         </CardContent>
       </Card>
 
@@ -685,7 +743,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
           {modeId && (
             <Button
               variant="ghost"
-              className="text-red-400 hover:text-red-300"
+              className="text-destructive hover:text-destructive/80"
               onClick={handleDelete}
             >
               Delete Mode

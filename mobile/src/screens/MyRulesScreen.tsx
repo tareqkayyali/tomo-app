@@ -43,6 +43,7 @@ import type {
 } from '../hooks/useScheduleRules';
 import { spacing, borderRadius, fontFamily } from '../theme';
 import { syncAutoBlocks } from '../services/api';
+import { ModeSelector } from '../components/planning/ModeSelector';
 import type { ThemeColors } from '../theme/colors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
@@ -81,10 +82,18 @@ export function MyRulesScreen({ navigation }: Props) {
   const { rules, loading, dirty, saving, setLocal, save, discard } = useScheduleRules();
   const { profile } = useAuth();
 
-  // Section collapse state
+  // Section collapse state — study auto-expands when athlete_mode is 'study'
+  const athleteMode = rules?.preferences?.athlete_mode ?? 'balanced';
   const [coreOpen, setCoreOpen] = useState(true);
   const [studyOpen, setStudyOpen] = useState(false);
   const [trainingOpen, setTrainingOpen] = useState(false);
+
+  // Auto-expand study section when in study mode
+  useEffect(() => {
+    if (athleteMode === 'study') {
+      setStudyOpen(true);
+    }
+  }, [athleteMode]);
 
   const hasMigrated = useRef(false);
 
@@ -296,6 +305,13 @@ export function MyRulesScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* ═══ Athlete Mode Selector ═══ */}
+        <ModeSelector
+          currentMode={prefs.athlete_mode ?? 'balanced'}
+          onModeChange={(modeId) => setLocal({ athlete_mode: modeId } as any)}
+          disabled={saving}
+        />
+
         {/* ═══ SECTION A: Core Rules ═══ */}
         <SectionHeader
           title="Core"
