@@ -60,6 +60,7 @@ const navigation = [
       { name: "Program Rules", href: "/admin/program-rules" },
       { name: "Dashboard Signals", href: "/admin/signals" },
       { name: "Test Simulator", href: "/admin/protocols/test" },
+      { name: "ACWR Inspector", href: "/admin/acwr-inspector" },
       { name: "Audit Log", href: "/admin/protocols/audit" },
     ],
   },
