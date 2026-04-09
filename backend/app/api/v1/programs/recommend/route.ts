@@ -82,6 +82,7 @@ export async function GET(req: NextRequest) {
     timezone: "UTC",
     snapshotEnrichment: null,
     activeRecommendations: [],
+    planningContext: null,
   };
 
   try {
