@@ -6,9 +6,19 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthChange, signIn, signUp, signOut, signInWithProvider, AuthUser } from '../services/auth';
 import { getUser, registerUser } from '../services/api';
 import { initAnalytics, identify, setAnalyticsEnabled, resetAnalytics, track } from '../services/analytics';
+import { clearSavedChatsStorage, setSavedChatsUserId } from '../services/savedChats';
+import {
+  STORAGE_KEY_SAVED_STUDY_PLANS,
+  STORAGE_KEY_PLANNING_STREAK,
+  STORAGE_KEY_CONTENT_MANIFEST,
+  STORAGE_KEY_CONTENT_BUNDLE,
+  STORAGE_KEY_CONFIG_MANIFEST,
+  STORAGE_KEY_CONFIG_BUNDLE,
+} from '../constants/storageKeys';
 import type { User, Sport, UserRole } from '../types';
 
 // ── Dev bypass — skip login for rapid testing ──────────────────────
@@ -105,6 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await getUser();
       setProfile(response.user);
       setNeedsRegistration(false);
+      // Scope local storage to this user (prevents cross-user data leaks)
+      setSavedChatsUserId(response.user.uid);
       // COPPA: enable analytics only for eligible users
       const age = response.user.age || 0;
       const canTrack = age >= 13 && (age >= 18 || !!response.user.parentalConsent);
@@ -165,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setProfile(null);
         setNeedsRegistration(false);
+        setSavedChatsUserId(null); // Clear user scope on sign-out
       }
       setIsLoading(false);
     });
@@ -280,9 +293,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Logout
+  // Logout — clear all user-scoped local data to prevent cross-user leaks
   const logout = useCallback(async () => {
     resetAnalytics();
+    // Clear user-scoped chat storage (uses internal user ID tracking)
+    await clearSavedChatsStorage();
+    // Clear other user-scoped AsyncStorage keys
+    await AsyncStorage.multiRemove([
+      STORAGE_KEY_SAVED_STUDY_PLANS,
+      STORAGE_KEY_PLANNING_STREAK,
+      STORAGE_KEY_CONTENT_MANIFEST,
+      STORAGE_KEY_CONTENT_BUNDLE,
+      STORAGE_KEY_CONFIG_MANIFEST,
+      STORAGE_KEY_CONFIG_BUNDLE,
+    ]);
     await signOut();
     setProfile(null);
   }, []);

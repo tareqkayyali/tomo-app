@@ -2,13 +2,45 @@
  * Saved Chats Service
  * Manages multiple chat conversations locally via AsyncStorage.
  * Each chat has an ID, title, messages, and timestamp.
+ *
+ * SECURITY: All storage keys are scoped to the current user ID
+ * to prevent cross-user data leakage on shared devices.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEY_SAVED_CHATS, STORAGE_KEY_ACTIVE_CHAT } from '../constants/storageKeys';
 
-const STORAGE_KEY = STORAGE_KEY_SAVED_CHATS;
-const ACTIVE_CHAT_KEY = STORAGE_KEY_ACTIVE_CHAT;
+// ─── User-scoped key management ─────────────────────────────────────
+let _currentUserId: string | null = null;
+
+/** Must be called after login with the authenticated user's ID */
+export function setSavedChatsUserId(userId: string | null): void {
+  _currentUserId = userId;
+}
+
+function getUserScopedKey(baseKey: string): string {
+  if (!_currentUserId) {
+    // Fallback to base key — but getSavedChats will return [] if no user
+    return baseKey;
+  }
+  return `${baseKey}_${_currentUserId}`;
+}
+
+/** Clear all chat data for the current user from AsyncStorage (call on logout) */
+export async function clearSavedChatsStorage(): Promise<void> {
+  if (_currentUserId) {
+    await AsyncStorage.multiRemove([
+      getUserScopedKey(STORAGE_KEY_SAVED_CHATS),
+      getUserScopedKey(STORAGE_KEY_ACTIVE_CHAT),
+    ]);
+  }
+  // Also clear legacy unscoped keys (one-time migration cleanup)
+  await AsyncStorage.multiRemove([
+    STORAGE_KEY_SAVED_CHATS,
+    STORAGE_KEY_ACTIVE_CHAT,
+  ]);
+  _currentUserId = null;
+}
 
 export interface SavedChat {
   id: string;
@@ -44,8 +76,10 @@ function deriveTitle(messages: SavedMessage[]): string {
 // ─── Read all saved chats ────────────────────────────────────────────
 
 export async function getSavedChats(): Promise<SavedChat[]> {
+  if (!_currentUserId) return []; // No user = no chats (security guard)
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const key = getUserScopedKey(STORAGE_KEY_SAVED_CHATS);
+    const raw = await AsyncStorage.getItem(key);
     if (!raw) return [];
     const chats: SavedChat[] = JSON.parse(raw);
     // Sort newest first
@@ -60,7 +94,9 @@ export async function getSavedChats(): Promise<SavedChat[]> {
 // ─── Save / update a chat ────────────────────────────────────────────
 
 export async function saveChat(chat: SavedChat): Promise<void> {
+  if (!_currentUserId) return; // No user = don't save (security guard)
   try {
+    const key = getUserScopedKey(STORAGE_KEY_SAVED_CHATS);
     const chats = await getSavedChats();
     const index = chats.findIndex((c) => c.id === chat.id);
     const updated: SavedChat = {
@@ -73,7 +109,7 @@ export async function saveChat(chat: SavedChat): Promise<void> {
     } else {
       chats.unshift(updated);
     }
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
+    await AsyncStorage.setItem(key, JSON.stringify(chats));
   } catch {
     // Silently fail — non-critical
   }
@@ -82,10 +118,12 @@ export async function saveChat(chat: SavedChat): Promise<void> {
 // ─── Delete a chat ───────────────────────────────────────────────────
 
 export async function deleteChat(chatId: string): Promise<void> {
+  if (!_currentUserId) return;
   try {
+    const key = getUserScopedKey(STORAGE_KEY_SAVED_CHATS);
     const chats = await getSavedChats();
     const filtered = chats.filter((c) => c.id !== chatId);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    await AsyncStorage.setItem(key, JSON.stringify(filtered));
   } catch {
     // Silently fail
   }
@@ -107,16 +145,20 @@ export function createNewChat(): SavedChat {
 // ─── Active chat ID (which chat is currently open) ───────────────────
 
 export async function getActiveChatId(): Promise<string | null> {
+  if (!_currentUserId) return null;
   try {
-    return await AsyncStorage.getItem(ACTIVE_CHAT_KEY);
+    const key = getUserScopedKey(STORAGE_KEY_ACTIVE_CHAT);
+    return await AsyncStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
 export async function setActiveChatId(id: string): Promise<void> {
+  if (!_currentUserId) return;
   try {
-    await AsyncStorage.setItem(ACTIVE_CHAT_KEY, id);
+    const key = getUserScopedKey(STORAGE_KEY_ACTIVE_CHAT);
+    await AsyncStorage.setItem(key, id);
   } catch {
     // Silently fail
   }
