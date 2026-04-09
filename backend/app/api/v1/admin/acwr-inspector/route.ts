@@ -36,13 +36,13 @@ export async function GET(req: NextRequest) {
   // 1. Fetch athlete profile
   const { data: profile } = await (db as any)
     .from("users")
-    .select("id, full_name, email, sport, position")
+    .select("id, name, email, sport, position")
     .eq("id", athleteId)
     .maybeSingle();
 
   if (!profile) {
     return NextResponse.json(
-      { error: "Athlete not found" },
+      { error: "Athlete not found. Check that the UUID exists in the users table." },
       { status: 404 }
     );
   }
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     athlete: {
       id: profile.id,
-      name: profile.full_name,
+      name: profile.name,
       email: profile.email,
       sport: profile.sport,
       position: profile.position,
