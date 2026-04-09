@@ -104,10 +104,8 @@ function buildExactMatchMap(): void {
     { text: "edit my schedule rules", intentId: "schedule_rules" },
     { text: "edit my rules", intentId: "schedule_rules" },
     { text: "my rules", intentId: "schedule_rules" },
-    // Training plan
-    { text: "plan my training", intentId: "plan_training" },
-    { text: "plan my training week", intentId: "plan_training" },
-    { text: "give me a training plan", intentId: "plan_training" },
+    // Training plan — routed to PlanningAgent via orchestrator fallthrough
+    // Exact matches removed so plan queries hit the AI planning agent instead of the old capsule
     // Study plan (exam-driven)
     { text: "plan my study", intentId: "plan_study" },
     { text: "plan my study schedule", intentId: "plan_study" },
@@ -352,6 +350,7 @@ CRITICAL RULES:
 - "qa_readiness" is ONLY for checking vitals/scores (e.g. "how am I", "my readiness"). NOT for asking what to do about readiness signals.
 - "leaderboard" is ONLY for gamification rankings (points, streaks). If the user mentions age, peers, position, percentile, or "compare" in a performance context, classify as benchmark_comparison — NOT leaderboard.
 - "log_test" is ONLY for when the user explicitly wants to LOG/RECORD a NEW test result. Words like "analyze", "progress", "trajectory", "history", "show", "how did", "trend", "improve" mean the user wants to VIEW/ANALYZE existing data — classify as agent_fallthrough, NOT log_test.
+- "plan_training" is DEPRECATED. If the user asks to plan training, plan their week, or get a training plan, classify as agent_fallthrough — the PlanningAgent handles these now.
 - When in doubt, use agent_fallthrough with confidence 0.6.
 
 Return JSON only: {"intent":"<id>","confidence":<0.0-1.0>,"params":{}}

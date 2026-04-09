@@ -344,7 +344,7 @@ function routeToAgents(
     isRecoveryFollowUp ||
     isRecommendationFollowUp ||
     context.activeTab === "Output" ||
-    /readiness|tired|energy|sleep|recovery|vitals|how (do|am) i feel|check.?in|score|metric|compare|benchmark|percentile|rank|how.*stack up|vs other|test result|how fit|sprint|jump|sore|soreness|pain|drill|exercise|workout|warm.?up|cool.?down|practice plan|training plan|what.*(should|can) i train|weakness|weak|gap|strength|area.*(improve|work|develop)|where.*(need|lack)|my best|my worst/i.test(
+    /readiness|tired|energy|sleep|recovery|vitals|how (do|am) i feel|check.?in|score|metric|compare|benchmark|percentile|rank|how.*stack up|vs other|test result|how fit|sprint|jump|sore|soreness|pain|drill|exercise|workout|warm.?up|cool.?down|practice plan|what.*(should|can) i train|weakness|weak|gap|strength|area.*(improve|work|develop)|where.*(need|lack)|my best|my worst/i.test(
       lower
     )
   ) {
