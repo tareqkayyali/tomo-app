@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
 
 /* ---------- types ---------- */
 
@@ -346,6 +347,22 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
       <h1 className="text-3xl font-bold tracking-tight">
         {modeId ? `Edit Mode: ${label}` : "New Mode"}
       </h1>
+
+      <PageGuide
+        summary="Each mode defines a complete behavior profile that affects scheduling, load thresholds, AI coaching tone, and recommendation priorities. When an athlete activates this mode, every downstream system reads these parameters."
+        details={[
+          "Identity: The Mode ID is used in code and the data fabric. Pick a clear snake_case name — it cannot be changed after creation.",
+          "Schedule Parameters: These directly control the Planning Intelligence engine. 'Max Hard Sessions/Week' caps high-intensity days. 'Load Cap Multiplier' scales the athlete's allowable training load (0.7 = 30% reduction).",
+          "Intensity Cap on Exam Days: When set, the schedule engine blocks sessions above this intensity on any day with a logged exam. REST = no training, LIGHT = technique only, MODERATE = normal but no maximal efforts.",
+          "AI Coaching Tone: Changes how the chat agent communicates. 'Academic' emphasizes study-training balance. 'Performance' focuses on competition prep. 'Supportive' prioritizes wellbeing.",
+          "Priority Boosts: These shift recommendation ranking. A +2 delta on 'recovery' means recovery recs appear higher in the athlete's feed when this mode is active.",
+        ]}
+        examples={[
+          "For an Exam Mode: Set maxHardPerWeek=1, loadCapMultiplier=0.6, intensityCapOnExamDays=LIGHT, studyDurationMultiplier=1.5, aiCoachingTone=academic. This dramatically reduces training load while boosting study time.",
+          "For a League Mode: Set addRecoveryAfterMatch=ON, maxSessionsPerDay=1, aiCoachingTone=performance. Add a priority boost of +2 for 'recovery'. This ensures match recovery is always prioritized.",
+          "For a Rest/Off-Season Mode: Set maxHardPerWeek=0, loadCapMultiplier=0.3, dropPersonalDev=ON. The system will only allow light active recovery sessions.",
+        ]}
+      />
 
       {/* Section 1: Identity */}
       <Card>

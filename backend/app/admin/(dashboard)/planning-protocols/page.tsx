@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
 
 interface PlanningProtocol {
   id: string;
@@ -133,6 +134,24 @@ export default function PlanningProtocolsListPage() {
           <Button>+ New Protocol</Button>
         </Link>
       </div>
+
+      <PageGuide
+        summary="Planning Protocols are automated rules that fire when an athlete's data hits specific thresholds. They're the guardrails of the system — preventing overtraining, managing exam stress, and ensuring recovery happens when it should."
+        details={[
+          "Each protocol has trigger conditions (IF) and actions (THEN). When all conditions are met, the action fires automatically. Think of them as 'if ACWR > 1.5, then reduce load by 40%'.",
+          "Severity determines how aggressively the system enforces the protocol. MANDATORY rules block the athlete from overriding (e.g., growth phase load caps). ADVISORY rules suggest but allow override. INFO rules are educational.",
+          "Category groups protocols for the recommendation engine. 'Safety' and 'load_management' protocols feed into the Load Warning computer. 'Academic' protocols feed the Academic computer. 'Recovery' protocols feed the Recovery computer.",
+          "Conditions use snapshot fields — the same real-time data that powers the athlete dashboard. Common fields: ACWR, dual load index, exam proximity score, readiness score, active injury count.",
+          "Sport Filter lets you create sport-specific protocols. A football protocol might trigger on match day + 1, while a tennis protocol might watch for consecutive match days.",
+          "Scientific Basis is shown to coaches and parents when they ask 'why is this recommendation showing?' It builds trust in the system. Always reference peer-reviewed research when possible.",
+        ]}
+        examples={[
+          "PHV Load Reduction (MANDATORY, safety): IF phv_stage = mid_phv AND ACWR > 1.2, THEN reduce_load 40%. Scientific basis: Lloyd & Oliver (2012) youth periodization model.",
+          "Exam Week Taper (ADVISORY, academic): IF exam_proximity_score > 80 AND dual_load_index > 60, THEN reduce_load 30% + suggest 'Front-load training early this week to free up exam prep time'.",
+          "Post-Match Recovery (ADVISORY, recovery): IF days_since_last_session = 0 AND matches_next_7d >= 1, THEN schedule_recovery + suggest 'Recovery session recommended — you have another match this week'.",
+          "Detraining Alert (INFO, performance): IF ACWR < 0.8 AND days_since_last_session > 5, THEN alert + suggest 'Your training has dropped significantly. Even light activity helps maintain your base'.",
+        ]}
+      />
 
       {/* Severity Filter */}
       <div className="flex gap-3">

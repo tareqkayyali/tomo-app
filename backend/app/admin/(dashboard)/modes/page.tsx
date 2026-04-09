@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
 
 interface Mode {
   id: string;
@@ -97,6 +98,23 @@ export default function ModesPage() {
           + New Mode
         </Button>
       </div>
+
+      <PageGuide
+        summary="Athlete Modes control how the entire system behaves for each athlete. When an athlete switches mode, it changes schedule constraints, recommendation thresholds, AI coaching tone, and training load caps across the platform."
+        details={[
+          "Each mode adjusts the Planning Intelligence engine: ACWR thresholds, dual load sensitivity, session caps, and recovery priority are all mode-dependent.",
+          "The recommendation computers (academic, load warning, recovery) read the active mode from the athlete snapshot and shift their decision thresholds accordingly.",
+          "Modes are surfaced in the mobile app as a horizontal selector on the My Rules screen. The athlete taps to switch, which triggers a MODE_CHANGE event through the data fabric.",
+          "Focus on getting the params right: 'Max Hard Sessions/Week' and 'Load Cap Multiplier' have the highest impact on an athlete's weekly training volume.",
+          "Sport Filter lets you restrict a mode to specific sports. Leave empty to make it available for all athletes.",
+        ]}
+        examples={[
+          "Balanced (default): No special overrides. Standard ACWR thresholds (1.5 P1, 1.3 P2). Good for regular training blocks.",
+          "League: Recovery is forced after every match. Add Recovery After Match = ON. AI coaching tone shifts to 'performance'. Load cap stays at 1.0.",
+          "Study: Dual load thresholds drop by ~20%. Intensity capped on exam days. Study duration multiplier increases. AI tone becomes 'academic'.",
+          "Rest: ACWR danger threshold drops from 1.5 to 1.2. Load cap at 0.7. Personal dev sessions dropped. Used during off-season or injury recovery.",
+        ]}
+      />
 
       <div className="rounded-md border">
         <Table>

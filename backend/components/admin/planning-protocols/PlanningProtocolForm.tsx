@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
 
 /* ---------- constants ---------- */
 
@@ -332,6 +333,24 @@ export function PlanningProtocolForm({
       <h1 className="text-3xl font-bold tracking-tight">
         {isEdit ? "Edit Planning Protocol" : "New Planning Protocol"}
       </h1>
+
+      <PageGuide
+        summary="A planning protocol is an automated guardrail. Define the conditions that trigger it and the action the system takes. When the athlete's real-time snapshot data matches all conditions, the protocol fires and adjusts their training plan."
+        details={[
+          "Name and Description: Make the name action-oriented so athletes and coaches instantly understand what it does when it appears as a recommendation card (e.g., 'Exam Week Taper' not 'Protocol 7').",
+          "Severity: MANDATORY protocols cannot be dismissed by the athlete — use for safety-critical rules like growth phase load limits. ADVISORY protocols show as strong suggestions. INFO protocols are educational nudges.",
+          "Category: Determines which recommendation computer processes this protocol. Safety and load_management go through the Load Warning engine. Academic goes through the Academic engine. Recovery through the Recovery engine.",
+          "Trigger Conditions: All conditions must be true simultaneously (AND logic). Use snapshot fields like ACWR, readiness_score, dual_load_index, or exam_proximity_score. The operator compares the field's current value against your threshold.",
+          "Actions: 'Reduce Load' scales down the athlete's planned training volume by the specified percentage. 'Block Intensity' prevents sessions above a certain RPE. 'Schedule Recovery' inserts a recovery session. 'Suggest' sends a coaching message.",
+          "Scientific Basis: Shown to coaches and in the audit log. Reference peer-reviewed research to build trust. This is what separates data-driven coaching from guesswork.",
+        ]}
+        examples={[
+          "Trigger: ACWR > 1.5 (training spike). Action: Reduce Load 40%. This catches the most dangerous overtraining pattern — a sudden jump in training volume that the body isn't adapted to.",
+          "Trigger: Exam Proximity Score > 80 AND Dual Load Index > 60. Action: Reduce Load 30% + Suggest 'Front-load training this week'. This proactively manages the study-training conflict.",
+          "Trigger: Active Injury Count > 0 AND ACWR > 1.0. Action: Block Intensity + Suggest 'Modified training only while injury is active'. This prevents re-aggravation.",
+          "Trigger: PHV Stage = mid_phv AND Days Since Last Session < 1. Action: Suggest 'Growth phase athletes need 48h between high-intensity sessions'. Safety-first for growing athletes.",
+        ]}
+      />
 
       {/* Basic Info */}
       <Card>
