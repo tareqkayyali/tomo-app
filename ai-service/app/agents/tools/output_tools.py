@@ -49,12 +49,12 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT energy, soreness, sleep_hours, sleep_quality, mood,
-                          pain_flag, notes, wellness_score, academic_stress,
-                          created_at::text
-                   FROM wellness_checkins
-                   WHERE user_id = %s AND created_at::date = %s::date
-                   ORDER BY created_at DESC LIMIT 1""",
+                """SELECT energy, soreness, sleep_hours, mood, academic_stress,
+                          pain_flag, pain_location, readiness, intensity,
+                          effort_yesterday, date::text
+                   FROM checkins
+                   WHERE user_id = %s AND date = %s
+                   ORDER BY date DESC LIMIT 1""",
                 (user_id, target_date),
             )
             row = await result.fetchone()
@@ -67,13 +67,14 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             "energy": _safe_float(row[0]),
             "soreness": _safe_float(row[1]),
             "sleep_hours": _safe_float(row[2]),
-            "sleep_quality": _safe_float(row[3]),
-            "mood": _safe_float(row[4]),
+            "mood": _safe_float(row[3]),
+            "academic_stress": _safe_float(row[4]),
             "pain_flag": bool(row[5]),
-            "notes": row[6],
-            "wellness_score": _safe_float(row[7]),
-            "academic_stress": _safe_float(row[8]),
-            "checked_in_at": row[9],
+            "pain_location": row[6],
+            "readiness": row[7],
+            "intensity": row[8],
+            "effort_yesterday": _safe_float(row[9]),
+            "checked_in_date": row[10],
             "is_today": target_date == context.today_date,
         }
 
@@ -86,10 +87,10 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT metric_name, value, recorded_at::date::text, source
+                """SELECT metric_type, value, date::text, source
                    FROM health_data
-                   WHERE user_id = %s AND recorded_at >= %s::date
-                   ORDER BY recorded_at DESC""",
+                   WHERE user_id = %s AND date >= %s
+                   ORDER BY date DESC""",
                 (user_id, since),
             )
             rows = await result.fetchall()
@@ -116,24 +117,25 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT energy, soreness, sleep_hours, mood, wellness_score,
-                          pain_flag, created_at::date::text
-                   FROM wellness_checkins
-                   WHERE user_id = %s AND created_at >= %s::date
-                   ORDER BY created_at DESC""",
+                """SELECT energy, soreness, sleep_hours, mood, academic_stress,
+                          pain_flag, readiness, date::text
+                   FROM checkins
+                   WHERE user_id = %s AND date >= %s
+                   ORDER BY date DESC""",
                 (user_id, since),
             )
             rows = await result.fetchall()
 
         history = [
             {
-                "date": row[6],
+                "date": row[7],
                 "energy": _safe_float(row[0]),
                 "soreness": _safe_float(row[1]),
                 "sleep_hours": _safe_float(row[2]),
                 "mood": _safe_float(row[3]),
-                "wellness_score": _safe_float(row[4]),
+                "academic_stress": _safe_float(row[4]),
                 "pain_flag": bool(row[5]),
+                "readiness": row[6],
             }
             for row in rows
         ]
@@ -200,23 +202,23 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
         if test_type:
-            query = """SELECT test_type, score, unit, percentile, recorded_at::date::text, id
-                       FROM phone_test_results
-                       WHERE user_id = %s AND test_type = %s AND recorded_at >= %s::date
+            query = """SELECT test_type, score, NULL::text AS unit, NULL::float AS percentile, date::text, id::text
+                       FROM phone_test_sessions
+                       WHERE user_id = %s AND test_type = %s AND date >= %s
                        UNION ALL
-                       SELECT test_type, score, unit, percentile, recorded_at::date::text, id::text
+                       SELECT test_type, primary_value AS score, primary_unit AS unit, percentile, date::text, id::text
                        FROM football_test_results
-                       WHERE user_id = %s AND test_type = %s AND recorded_at >= %s::date
+                       WHERE user_id = %s AND test_type = %s AND date >= %s
                        ORDER BY 5 DESC"""
             params = (user_id, test_type, since, user_id, test_type, since)
         else:
-            query = """SELECT test_type, score, unit, percentile, recorded_at::date::text, id
-                       FROM phone_test_results
-                       WHERE user_id = %s AND recorded_at >= %s::date
+            query = """SELECT test_type, score, NULL::text AS unit, NULL::float AS percentile, date::text, id::text
+                       FROM phone_test_sessions
+                       WHERE user_id = %s AND date >= %s
                        UNION ALL
-                       SELECT test_type, score, unit, percentile, recorded_at::date::text, id::text
+                       SELECT test_type, primary_value AS score, primary_unit AS unit, percentile, date::text, id::text
                        FROM football_test_results
-                       WHERE user_id = %s AND recorded_at >= %s::date
+                       WHERE user_id = %s AND date >= %s
                        ORDER BY 5 DESC"""
             params = (user_id, since, user_id, since)
 
@@ -342,22 +344,22 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         target_age = age_band or context.age_band or "U19"
         target_position = context.position or "ALL"
 
-        # Get athlete's latest scores
+        # Get athlete's latest scores from both test tables
         async with pool.connection() as conn:
             if metric:
                 test_result = await conn.execute(
-                    """SELECT test_type, score, unit, recorded_at::date::text
-                       FROM phone_test_results
+                    """SELECT test_type, score, date::text
+                       FROM phone_test_sessions
                        WHERE user_id = %s AND test_type = %s
-                       ORDER BY recorded_at DESC LIMIT 1""",
+                       ORDER BY date DESC LIMIT 1""",
                     (user_id, metric),
                 )
             else:
                 test_result = await conn.execute(
-                    """SELECT DISTINCT ON (test_type) test_type, score, unit, recorded_at::date::text
-                       FROM phone_test_results
+                    """SELECT DISTINCT ON (test_type) test_type, score, date::text
+                       FROM phone_test_sessions
                        WHERE user_id = %s
-                       ORDER BY test_type, recorded_at DESC""",
+                       ORDER BY test_type, date DESC""",
                     (user_id,),
                 )
             test_rows = await test_result.fetchall()
@@ -402,8 +404,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             comparisons.append({
                 "test_type": test_type,
                 "score": score,
-                "unit": row[2],
-                "date": row[3],
+                "date": row[2],
                 "percentile": percentile,
                 "normative": norm,
             })
@@ -419,19 +420,14 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         """Get personalized training program recommendations based on athlete's gaps, readiness, and position. Returns up to 5 programs ranked by priority. Call get_my_programs first to check what they already have."""
         from app.db.supabase import get_pool
         pool = get_pool()
-        sport = (context.sport or "football").lower()
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, name, category, description, sport, position,
-                          weekly_frequency, duration_weeks, difficulty,
-                          primary_attribute, equipment_needed
-                   FROM programs
-                   WHERE (sport = %s OR sport = 'all')
-                     AND is_active = true
-                   ORDER BY priority ASC
+                """SELECT id, name, category, type, description, difficulty,
+                          duration_minutes, tags, position_emphasis, equipment
+                   FROM football_training_programs
+                   ORDER BY name
                    LIMIT 10""",
-                (sport,),
             )
             rows = await result.fetchall()
 
@@ -440,20 +436,19 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                 "program_id": row[0],
                 "name": row[1],
                 "category": row[2],
-                "description": row[3],
-                "sport": row[4],
-                "position": row[5],
-                "weekly_frequency": row[6],
-                "duration_weeks": row[7],
-                "difficulty": row[8],
-                "primary_attribute": row[9],
-                "equipment": row[10],
+                "type": row[3],
+                "description": row[4],
+                "difficulty": row[5],
+                "duration_minutes": row[6],
+                "tags": row[7],
+                "position_emphasis": row[8],
+                "equipment": row[9],
             }
             for row in rows
         ]
 
         return {
-            "sport": sport,
+            "sport": context.sport or "football",
             "position": context.position,
             "readiness": context.readiness_score,
             "programs": programs[:5],
@@ -513,98 +508,94 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
     @tool
     async def get_my_programs() -> dict:
-        """Get the athlete's currently active/enrolled programs. Shows programs they've self-assigned or been assigned."""
+        """Get the athlete's currently active/enrolled programs. Shows programs they've been recommended via the snapshot recommendation engine."""
         from app.db.supabase import get_pool
         pool = get_pool()
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT p.id, p.name, p.category, p.description, p.weekly_frequency,
-                          p.duration_weeks, p.difficulty, pp.started_at::date::text,
-                          pp.progress_pct, pp.status
-                   FROM player_programs pp
-                   JOIN programs p ON p.id = pp.program_id
-                   WHERE pp.user_id = %s AND pp.status IN ('active', 'in_progress')
-                   ORDER BY pp.started_at DESC""",
+                """SELECT program_recommendations
+                   FROM athlete_snapshots
+                   WHERE athlete_id = %s""",
                 (user_id,),
             )
-            rows = await result.fetchall()
+            row = await result.fetchone()
 
-        programs = [
-            {
-                "program_id": row[0],
-                "name": row[1],
-                "category": row[2],
-                "description": row[3],
-                "weekly_frequency": row[4],
-                "duration_weeks": row[5],
-                "difficulty": row[6],
-                "started_at": row[7],
-                "progress_pct": _safe_float(row[8], 0),
-                "status": row[9],
-            }
-            for row in rows
-        ]
+        if not row or not row[0]:
+            return {"programs": [], "total": 0}
 
-        return {"programs": programs, "total": len(programs)}
+        raw = row[0]
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                return {"programs": [], "total": 0}
+
+        # Handle both formats: raw list or { programs: [...] }
+        programs = raw if isinstance(raw, list) else (raw.get("programs", []) if isinstance(raw, dict) else [])
+
+        # Normalize program objects
+        normalized = []
+        for p in programs[:5]:
+            if isinstance(p, dict):
+                normalized.append({
+                    "program_id": p.get("id") or p.get("program_id", ""),
+                    "name": p.get("name", "Unknown"),
+                    "category": p.get("category", ""),
+                    "description": p.get("description", ""),
+                    "difficulty": p.get("difficulty", ""),
+                    "tags": p.get("tags", []),
+                })
+
+        return {"programs": normalized, "total": len(programs)}
 
     @tool
     async def get_program_by_id(program_id: str) -> dict:
-        """Get full details for a specific program by ID. Includes drills, schedule, progressions."""
+        """Get full details for a specific program by ID. Includes description, prescriptions, PHV guidance."""
         from app.db.supabase import get_pool
         pool = get_pool()
 
         async with pool.connection() as conn:
             prog_result = await conn.execute(
-                """SELECT id, name, category, description, sport, position,
-                          weekly_frequency, duration_weeks, difficulty,
-                          primary_attribute, equipment_needed
-                   FROM programs WHERE id = %s""",
+                """SELECT id, name, category, type, description, difficulty,
+                          duration_minutes, tags, position_emphasis, equipment,
+                          prescriptions, phv_guidance
+                   FROM football_training_programs WHERE id = %s""",
                 (program_id,),
             )
             prog_row = await prog_result.fetchone()
 
-            drills_result = await conn.execute(
-                """SELECT d.id, d.name, d.category, d.duration_seconds, d.intensity,
-                          pd.sets, pd.reps, pd.order_index
-                   FROM program_drills pd
-                   JOIN drills d ON d.id = pd.drill_id
-                   WHERE pd.program_id = %s
-                   ORDER BY pd.order_index""",
-                (program_id,),
-            )
-            drill_rows = await drills_result.fetchall()
-
         if not prog_row:
             return {"error": f"Program {program_id} not found"}
 
-        drills = [
-            {
-                "drill_id": row[0],
-                "name": row[1],
-                "category": row[2],
-                "duration_min": max(1, (row[3] or 300) // 60),
-                "intensity": row[4],
-                "sets": row[5],
-                "reps": row[6],
-                "order": row[7],
-            }
-            for row in drill_rows
-        ]
+        # Parse prescriptions from JSONB
+        prescriptions = prog_row[10]
+        if isinstance(prescriptions, str):
+            try:
+                prescriptions = json.loads(prescriptions)
+            except (json.JSONDecodeError, TypeError):
+                prescriptions = {}
+
+        phv_guidance = prog_row[11]
+        if isinstance(phv_guidance, str):
+            try:
+                phv_guidance = json.loads(phv_guidance)
+            except (json.JSONDecodeError, TypeError):
+                phv_guidance = {}
 
         return {
             "program_id": prog_row[0],
             "name": prog_row[1],
             "category": prog_row[2],
-            "description": prog_row[3],
-            "sport": prog_row[4],
-            "position": prog_row[5],
-            "weekly_frequency": prog_row[6],
-            "duration_weeks": prog_row[7],
-            "difficulty": prog_row[8],
-            "primary_attribute": prog_row[9],
-            "equipment": prog_row[10],
-            "drills": drills,
+            "type": prog_row[3],
+            "description": prog_row[4],
+            "difficulty": prog_row[5],
+            "duration_minutes": prog_row[6],
+            "tags": prog_row[7],
+            "position_emphasis": prog_row[8],
+            "equipment": prog_row[9],
+            "prescriptions": prescriptions,
+            "phv_guidance": phv_guidance,
         }
 
     @tool
@@ -678,14 +669,13 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, title, event_type, start_time::text, end_time::text,
-                          intensity, notes, linked_program_id
+                """SELECT id, title, event_type, start_at::text, end_at::text,
+                          intensity, notes
                    FROM calendar_events
                    WHERE user_id = %s
-                     AND date = %s::date
+                     AND start_at::date = %s::date
                      AND event_type IN ('training', 'gym', 'club_training', 'match')
-                     AND is_deleted = false
-                   ORDER BY start_time""",
+                   ORDER BY start_at""",
                 (user_id, context.today_date),
             )
             rows = await result.fetchall()
@@ -699,7 +689,6 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                 "end": row[4],
                 "intensity": row[5],
                 "notes": row[6],
-                "program_id": row[7],
             }
             for row in rows
         ]

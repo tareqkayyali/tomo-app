@@ -132,11 +132,11 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT metric_name, value, recorded_at::date::text, source
+                """SELECT metric_type, value, date::text, source
                    FROM health_data
-                   WHERE user_id = %s AND metric_name IN ('sleep_hours', 'sleep_quality', 'sleep_score')
-                     AND recorded_at >= %s::date
-                   ORDER BY recorded_at DESC""",
+                   WHERE user_id = %s AND metric_type IN ('sleep_hours', 'sleep_quality', 'sleep_score')
+                     AND date >= %s
+                   ORDER BY date DESC""",
                 (user_id, since),
             )
             rows = await result.fetchall()

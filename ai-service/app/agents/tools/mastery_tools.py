@@ -40,9 +40,9 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
             # Get PRs (personal records) from test results
             pr_result = await conn.execute(
                 """SELECT DISTINCT ON (test_type)
-                          test_type, score, unit, recorded_at::date::text
-                   FROM phone_test_results
-                   WHERE user_id = %s AND recorded_at >= %s::date
+                          test_type, score, date::text
+                   FROM phone_test_sessions
+                   WHERE user_id = %s AND date >= %s
                    ORDER BY test_type, score DESC""",
                 (user_id, since),
             )
@@ -53,14 +53,14 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
                 """SELECT streak_days, sessions_total, training_age_weeks,
                           cv_completeness, coachability_index
                    FROM athlete_snapshots
-                   WHERE user_id = %s
+                   WHERE athlete_id = %s
                    ORDER BY updated_at DESC LIMIT 1""",
                 (user_id,),
             )
             streak_row = await streak_result.fetchone()
 
         prs = [
-            {"test_type": row[0], "best_score": _safe_float(row[1]), "unit": row[2], "date": row[3]}
+            {"test_type": row[0], "best_score": _safe_float(row[1]), "date": row[2]}
             for row in pr_rows
         ]
 
@@ -91,14 +91,14 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT score, unit, percentile, recorded_at::date::text
-                   FROM phone_test_results
-                   WHERE user_id = %s AND test_type = %s AND recorded_at >= %s::date
+                """SELECT score, date::text
+                   FROM phone_test_sessions
+                   WHERE user_id = %s AND test_type = %s AND date >= %s
                    UNION ALL
-                   SELECT score, unit, percentile, recorded_at::date::text
+                   SELECT primary_value AS score, date::text
                    FROM football_test_results
-                   WHERE user_id = %s AND test_type = %s AND recorded_at >= %s::date
-                   ORDER BY 4 ASC""",
+                   WHERE user_id = %s AND test_type = %s AND date >= %s
+                   ORDER BY 2 ASC""",
                 (user_id, test_type, since, user_id, test_type, since),
             )
             rows = await result.fetchall()
@@ -107,7 +107,7 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
             return {"error": f"No {test_type} results found in the last {months} months"}
 
         scores = [_safe_float(row[0], 0) for row in rows]
-        dates = [row[3] for row in rows]
+        dates = [row[1] for row in rows]
 
         best = max(scores)
         worst = min(scores)
@@ -117,7 +117,7 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
         improvement_pct = ((latest - earliest) / earliest * 100) if earliest != 0 else 0
 
         data_points = [
-            {"date": row[3], "score": _safe_float(row[0]), "unit": row[1], "percentile": _safe_float(row[2])}
+            {"date": row[1], "score": _safe_float(row[0])}
             for row in rows
         ]
 

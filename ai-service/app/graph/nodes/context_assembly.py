@@ -327,7 +327,7 @@ async def _fetch_recommendations(user_id: str) -> list[dict]:
         resp = (
             sb.table("athlete_recommendations")
             .select("rec_type, priority, title, body_short, confidence_score")
-            .eq("user_id", user_id)
+            .eq("athlete_id", user_id)
             .eq("is_active", True)
             .order("priority")
             .limit(5)
@@ -700,10 +700,15 @@ async def build_player_context(
     schedule_preferences = SchedulePreferences()
     if sched_prefs_row:
         try:
-            schedule_preferences = SchedulePreferences(**{
-                k: v for k, v in sched_prefs_row.items()
-                if k in SchedulePreferences.model_fields and k != "user_id"
-            })
+            # Convert date/datetime objects to strings for Pydantic str fields
+            cleaned = {}
+            for k, v in sched_prefs_row.items():
+                if k in SchedulePreferences.model_fields and k != "user_id":
+                    if hasattr(v, "isoformat"):  # date or datetime
+                        cleaned[k] = v.isoformat()
+                    else:
+                        cleaned[k] = v
+            schedule_preferences = SchedulePreferences(**cleaned)
         except Exception as e:
             logger.warning(f"Failed to parse schedule prefs: {e}")
 

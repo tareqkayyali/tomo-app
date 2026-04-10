@@ -37,12 +37,11 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, title, event_type, start_time::text, end_time::text,
-                          intensity, notes, description, linked_program_id,
-                          linked_category_id, is_deleted
+                """SELECT id, title, event_type, start_at::text, end_at::text,
+                          intensity, notes, sport
                    FROM calendar_events
-                   WHERE user_id = %s AND date = %s::date AND is_deleted = false
-                   ORDER BY start_time""",
+                   WHERE user_id = %s AND start_at::date = %s::date
+                   ORDER BY start_at""",
                 (user_id, context.today_date),
             )
             rows = await result.fetchall()
@@ -56,9 +55,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
                 "end_time": row[4],
                 "intensity": row[5],
                 "notes": row[6],
-                "description": row[7],
-                "linked_program_id": row[8],
-                "linked_category_id": row[9],
+                "sport": row[7],
             }
             for row in rows
         ]
@@ -76,13 +73,12 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, title, event_type, date::text, start_time::text,
-                          end_time::text, intensity, notes, linked_program_id
+                """SELECT id, title, event_type, start_at::date::text, start_at::text,
+                          end_at::text, intensity, notes
                    FROM calendar_events
                    WHERE user_id = %s
-                     AND date >= %s::date AND date <= %s::date
-                     AND is_deleted = false
-                   ORDER BY date, start_time""",
+                     AND start_at::date >= %s::date AND start_at::date <= %s::date
+                   ORDER BY start_at""",
                 (user_id, start, end),
             )
             rows = await result.fetchall()
@@ -101,7 +97,6 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
                 "end_time": row[5],
                 "intensity": row[6],
                 "notes": row[7],
-                "linked_program_id": row[8],
             })
 
         # Fill in empty days
@@ -208,10 +203,10 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, title, event_type, start_time::text, end_time::text, intensity
+                """SELECT id, title, event_type, start_at::text, end_at::text, intensity
                    FROM calendar_events
-                   WHERE user_id = %s AND date = %s::date AND is_deleted = false
-                   ORDER BY start_time""",
+                   WHERE user_id = %s AND start_at::date = %s::date
+                   ORDER BY start_at""",
                 (user_id, target_date),
             )
             rows = await result.fetchall()
