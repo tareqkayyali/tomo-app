@@ -25,6 +25,7 @@ import type { CapsuleAction } from "@/services/agents/responseFormatter";
 import { preFlightCheck } from "@/services/agents/chatGuardrails";
 import {
   getAIServiceMode,
+  shouldUsePythonService,
   proxyToAIServiceStream,
   shadowProxyToAIService,
   type AIServiceRequest,
@@ -162,19 +163,19 @@ export async function POST(req: NextRequest) {
 
         // ── AI Service proxy check ──
         const aiServiceMode = getAIServiceMode();
+        const aiRequest: AIServiceRequest = {
+          message,
+          session_id: sessionId,
+          player_id: auth.user.id,
+          active_tab: body.activeTab ?? "Chat",
+          timezone: body.timezone ?? "UTC",
+          confirmed_action: body.confirmedAction ?? null,
+        };
 
-        if (aiServiceMode === "true") {
+        if (aiServiceMode === "true" && shouldUsePythonService()) {
           // Full proxy: Python AI service handles orchestration
+          // Percentage-based: AI_SERVICE_PERCENTAGE controls rollout (default 100%)
           send("status", { status: "Thinking..." });
-
-          const aiRequest: AIServiceRequest = {
-            message,
-            session_id: sessionId,
-            player_id: auth.user.id,
-            active_tab: body.activeTab ?? "Chat",
-            timezone: body.timezone ?? "UTC",
-            confirmed_action: body.confirmedAction ?? null,
-          };
 
           for await (const sse of proxyToAIServiceStream(aiRequest, (s) => send("status", { status: s }))) {
             send(sse.event, sse.data);
@@ -184,16 +185,10 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        if (aiServiceMode === "shadow") {
-          // Shadow mode: fire-and-forget to Python, TS serves response
-          shadowProxyToAIService({
-            message,
-            session_id: sessionId,
-            player_id: auth.user.id,
-            active_tab: body.activeTab ?? "Chat",
-            timezone: body.timezone ?? "UTC",
-            confirmed_action: body.confirmedAction ?? null,
-          });
+        if (aiServiceMode === "shadow" || aiServiceMode === "true") {
+          // Shadow: fire-and-forget to Python, TS serves response
+          // Also fires for "true" mode when percentage check falls to TS path
+          shadowProxyToAIService(aiRequest);
         }
 
         // ── Orchestrate with streaming callbacks (TypeScript path) ──

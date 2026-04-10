@@ -61,6 +61,28 @@ export function getAIServiceMode(): AIServiceMode {
   return "false";
 }
 
+/**
+ * Percentage-based routing for gradual cutover.
+ * When AI_SERVICE_ENABLED=true, this controls what % of requests
+ * actually go to Python. The rest fall back to TypeScript.
+ *
+ * AI_SERVICE_PERCENTAGE=10  → 10% Python, 90% TypeScript
+ * AI_SERVICE_PERCENTAGE=50  → 50/50
+ * AI_SERVICE_PERCENTAGE=100 → full cutover (default when true)
+ *
+ * Only applies when mode="true". Shadow mode always runs both.
+ */
+export function shouldUsePythonService(): boolean {
+  const mode = getAIServiceMode();
+  if (mode === "false") return false;
+  if (mode === "shadow") return false; // shadow always runs TS + background Python
+  // mode === "true" — check percentage
+  const pct = parseInt(process.env.AI_SERVICE_PERCENTAGE || "100", 10);
+  if (pct >= 100) return true;
+  if (pct <= 0) return false;
+  return Math.random() * 100 < pct;
+}
+
 // ── SSE Stream Proxy ─────────────────────────────────────────────
 
 /**
@@ -209,27 +231,54 @@ export async function proxyToAIServiceSync(
 /**
  * Fire-and-forget request to Python service for shadow mode comparison.
  * Does NOT affect the user-facing response — purely for LangSmith logging.
+ *
+ * Logs latency, agent used, and whether the Python response succeeded.
+ * 30s timeout prevents zombie connections from eating resources.
  */
 export function shadowProxyToAIService(request: AIServiceRequest): void {
   const url = `${getAIServiceUrl()}/api/v1/chat/sync`;
+  const t0 = Date.now();
 
   fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
+    signal: AbortSignal.timeout(30000), // 30s hard cutoff
   })
-    .then((res) => {
+    .then(async (res) => {
+      const elapsed = Date.now() - t0;
       if (!res.ok) {
         logger.warn("[ai-proxy:shadow] Python returned non-OK", {
           status: res.status,
+          elapsed_ms: elapsed,
+          player_id: request.player_id,
         });
-      } else {
-        logger.info("[ai-proxy:shadow] Shadow request completed");
+        return;
+      }
+      try {
+        const data = await res.json();
+        logger.info("[ai-proxy:shadow] Shadow completed", {
+          elapsed_ms: elapsed,
+          player_id: request.player_id,
+          py_agent: data._telemetry?.agent ?? "unknown",
+          py_cost: data._telemetry?.cost_usd ?? 0,
+          py_tools: data._telemetry?.tools_called ?? 0,
+          py_message_len: data.message?.length ?? 0,
+        });
+      } catch {
+        logger.info("[ai-proxy:shadow] Shadow completed (no telemetry)", {
+          elapsed_ms: elapsed,
+        });
       }
     })
     .catch((err) => {
-      logger.warn("[ai-proxy:shadow] Shadow request failed", {
-        error: err instanceof Error ? err.message : String(err),
+      const elapsed = Date.now() - t0;
+      const msg = err instanceof Error ? err.message : String(err);
+      const isTimeout = msg.includes("abort") || msg.includes("timeout");
+      logger.warn(`[ai-proxy:shadow] Shadow ${isTimeout ? "timed out" : "failed"}`, {
+        error: msg,
+        elapsed_ms: elapsed,
+        player_id: request.player_id,
       });
     });
 }
