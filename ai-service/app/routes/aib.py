@@ -103,7 +103,7 @@ async def get_aib_endpoint(user_id: str):
             """
             SELECT summary_text, snapshot_hash
             FROM athlete_intelligence_briefs
-            WHERE athlete_id = $1 AND is_current = true
+            WHERE athlete_id = %s AND is_current = true
             ORDER BY generated_at DESC
             LIMIT 1
             """,

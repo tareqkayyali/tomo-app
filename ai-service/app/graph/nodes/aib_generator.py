@@ -252,7 +252,7 @@ async def save_aib(
                 """
                 UPDATE athlete_intelligence_briefs
                 SET is_current = false
-                WHERE athlete_id = $1 AND is_current = true
+                WHERE athlete_id = %s AND is_current = true
                 """,
                 (user_id,),
             )
@@ -266,7 +266,7 @@ async def save_aib(
                     readiness_score, acwr, injury_risk_flag,
                     model_used, cost_usd, is_current, generated_at
                 ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     'claude-3-5-haiku-20241022', 0.003, true, NOW()
                 )
                 """,
@@ -316,7 +316,7 @@ async def ensure_fresh_aib(context: PlayerContext) -> Optional[str]:
                 """
                 SELECT summary_text, snapshot_hash, generated_at
                 FROM athlete_intelligence_briefs
-                WHERE athlete_id = $1 AND is_current = true
+                WHERE athlete_id = %s AND is_current = true
                 ORDER BY generated_at DESC
                 LIMIT 1
                 """,

@@ -108,7 +108,7 @@ async def _fetch_profile(pool, user_id: str) -> Optional[dict]:
             SELECT name, sport, age, role, current_streak, longest_streak,
                    position, gender, height_cm, weight_kg
             FROM users
-            WHERE id = $1
+            WHERE id = %s
             """,
             (user_id,),
         )
@@ -128,9 +128,9 @@ async def _fetch_today_events(
             """
             SELECT id, title, event_type, start_at, end_at, notes, intensity
             FROM calendar_events
-            WHERE user_id = $1
-              AND start_at >= $2::timestamptz
-              AND start_at <= $3::timestamptz
+            WHERE user_id = %s
+              AND start_at >= %s::timestamptz
+              AND start_at <= %s::timestamptz
             ORDER BY start_at
             """,
             (user_id, day_start, day_end),
@@ -148,7 +148,7 @@ async def _fetch_latest_checkin(pool, user_id: str) -> Optional[dict]:
             SELECT energy, soreness, sleep_hours, mood, academic_stress,
                    pain_flag, readiness, date
             FROM checkins
-            WHERE user_id = $1
+            WHERE user_id = %s
             ORDER BY date DESC
             LIMIT 1
             """,
@@ -169,7 +169,7 @@ async def _fetch_recent_vitals(pool, user_id: str) -> list[dict]:
             """
             SELECT metric_type, value, date
             FROM health_data
-            WHERE user_id = $1 AND date >= $2
+            WHERE user_id = %s AND date >= %s
             ORDER BY date DESC
             LIMIT 15
             """,
@@ -189,10 +189,10 @@ async def _fetch_upcoming_exams(
             """
             SELECT id, title, event_type, start_at, end_at, notes, intensity
             FROM calendar_events
-            WHERE user_id = $1
+            WHERE user_id = %s
               AND event_type = 'exam'
-              AND start_at >= $2::timestamptz
-              AND start_at <= $3::timestamptz
+              AND start_at >= %s::timestamptz
+              AND start_at <= %s::timestamptz
             ORDER BY start_at
             """,
             (user_id, day_start, in_14_days_end),
@@ -209,7 +209,7 @@ async def _fetch_phone_tests(pool, user_id: str) -> list[dict]:
             """
             SELECT test_type, score, date
             FROM phone_test_sessions
-            WHERE user_id = $1
+            WHERE user_id = %s
             ORDER BY date DESC
             LIMIT 20
             """,
@@ -227,7 +227,7 @@ async def _fetch_football_tests(pool, user_id: str) -> list[dict]:
             """
             SELECT test_type, primary_value AS score, date
             FROM football_test_results
-            WHERE user_id = $1
+            WHERE user_id = %s
             ORDER BY date DESC
             LIMIT 20
             """,
@@ -245,7 +245,7 @@ async def _fetch_schedule_prefs(pool, user_id: str) -> Optional[dict]:
             """
             SELECT *
             FROM player_schedule_preferences
-            WHERE user_id = $1
+            WHERE user_id = %s
             """,
             (user_id,),
         )
@@ -263,7 +263,7 @@ async def _fetch_snapshot(pool, user_id: str) -> Optional[dict]:
             """
             SELECT *
             FROM athlete_snapshots
-            WHERE athlete_id = $1
+            WHERE athlete_id = %s
             """,
             (user_id,),
         )
@@ -283,9 +283,9 @@ async def _fetch_projected_load(
             """
             SELECT COALESCE(SUM(estimated_load_au), 0) AS total_load
             FROM calendar_events
-            WHERE user_id = $1
-              AND start_at >= $2::timestamptz
-              AND start_at <= $3::timestamptz
+            WHERE user_id = %s
+              AND start_at >= %s::timestamptz
+              AND start_at <= %s::timestamptz
               AND estimated_load_au IS NOT NULL
             """,
             (user_id, day_start, in_7_days_end),
@@ -303,9 +303,9 @@ async def _fetch_upcoming_events(
             """
             SELECT id, title, event_type, start_at, end_at, notes, intensity
             FROM calendar_events
-            WHERE user_id = $1
-              AND start_at >= $2::timestamptz
-              AND start_at <= $3::timestamptz
+            WHERE user_id = %s
+              AND start_at >= %s::timestamptz
+              AND start_at <= %s::timestamptz
             ORDER BY start_at
             """,
             (user_id, day_end, in_7_days_end),
@@ -352,7 +352,7 @@ async def _fetch_benchmark_profile(pool, user_id: str) -> Optional[dict]:
             """
             SELECT strength_benchmarks, speed_profile, cv_completeness
             FROM athlete_snapshots
-            WHERE athlete_id = $1
+            WHERE athlete_id = %s
             """,
             (user_id,),
         )
@@ -376,7 +376,7 @@ async def _fetch_aib(pool, user_id: str) -> Optional[str]:
             """
             SELECT summary_text
             FROM athlete_intelligence_briefs
-            WHERE athlete_id = $1
+            WHERE athlete_id = %s
               AND is_current = true
             ORDER BY generated_at DESC
             LIMIT 1
