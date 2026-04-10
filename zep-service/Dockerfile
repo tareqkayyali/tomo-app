@@ -1,8 +1,5 @@
 # Zep CE (Community Edition) — Self-hosted memory server for Tomo AI
-# Deployed as a separate Railway service: tomo-zep
-#
-# Zep 0.25 reads config from config.yaml in its working directory.
-# Our entrypoint.sh generates this file from Railway env vars at runtime.
+# v3 — renamed entrypoint to bust Docker cache
 #
 # REQUIRED environment variables (set in Railway dashboard):
 #   ZEP_STORE_POSTGRES_DSN  — Supabase Postgres via PgBouncer (port 6543)
@@ -12,10 +9,9 @@
 
 FROM ghcr.io/getzep/zep:0.25
 
-# Copy our entrypoint that generates config.yaml from env vars
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
 EXPOSE 8000
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/app/start.sh"]
