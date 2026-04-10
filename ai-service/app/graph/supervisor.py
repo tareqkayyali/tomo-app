@@ -10,6 +10,9 @@ Graph flow:
   │  context_assembly ─── Populates player_context + aib_summary    │
   │    │                                                            │
   │    ▼                                                            │
+  │  rag_retrieval ─────── PropertyGraphIndex hybrid search         │
+  │    │                                                            │
+  │    ▼                                                            │
   │  pre_router ────────── Intent classify + agent route            │
   │    │                                                            │
   │    ├── capsule ──── format_response ──── persist ──── END       │
@@ -37,6 +40,7 @@ from langgraph.graph import StateGraph, END
 
 from app.models.state import TomoChatState
 from app.graph.nodes.context_assembly import context_assembly_node
+from app.graph.nodes.rag_retrieval import rag_retrieval_node
 from app.graph.nodes.pre_router import pre_router_node
 from app.graph.nodes.agent_dispatch import agent_dispatch_node, execute_confirmed_action
 from app.graph.nodes.validate import validate_node
@@ -83,6 +87,7 @@ def build_supervisor_graph() -> StateGraph:
 
     # ── Add nodes ──
     graph.add_node("context_assembly", context_assembly_node)
+    graph.add_node("rag_retrieval", rag_retrieval_node)
     graph.add_node("pre_router", pre_router_node)
     graph.add_node("agent_dispatch", agent_dispatch_node)
     graph.add_node("execute_confirmed", execute_confirmed_action)
@@ -94,7 +99,8 @@ def build_supervisor_graph() -> StateGraph:
     graph.set_entry_point("context_assembly")
 
     # ── Linear edges ──
-    graph.add_edge("context_assembly", "pre_router")
+    graph.add_edge("context_assembly", "rag_retrieval")
+    graph.add_edge("rag_retrieval", "pre_router")
 
     # ── Conditional edge: pre_router → {capsule | confirm | ai} ──
     graph.add_conditional_edges(
@@ -191,6 +197,9 @@ async def run_supervisor(
         "tool_calls": [],
         "final_cards": [],
         "write_confirmed": False,
+        # Initialize RAG
+        "rag_context": "",
+        "rag_metadata": {},
     }
 
     # If this is a confirmation, inject the pending action

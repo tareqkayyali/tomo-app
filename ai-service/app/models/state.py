@@ -68,6 +68,10 @@ class TomoChatState(MessagesState):
     total_tokens: int
     latency_ms: float
 
+    # ── RAG (populated by rag_retrieval_node) ──
+    rag_context: Optional[str]  # Formatted knowledge graph text for prompt injection
+    rag_metadata: Optional[dict[str, Any]]  # Entity/chunk counts, sub-questions, cost
+
     # ── Write actions (for interrupt/resume) ──
     pending_write_action: Optional[dict[str, Any]]
     write_confirmed: bool

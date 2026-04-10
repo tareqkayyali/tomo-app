@@ -85,6 +85,12 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         secondary_agents=secondary_agents if secondary_agents else None,
     )
 
+    # 2b. Inject RAG context from PropertyGraphIndex (Phase 5)
+    rag_context = state.get("rag_context", "")
+    if rag_context:
+        dynamic_block += f"\n\n{rag_context}"
+        logger.info(f"RAG context injected: {len(rag_context)} chars")
+
     # 3. Create LLM with tools bound
     api_key = settings.anthropic_api_key
     if not api_key:
