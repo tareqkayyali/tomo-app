@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # LangSmith
     langchain_tracing_v2: bool = True
     langchain_project: str = "tomo-ai-staging"
-    langchain_endpoint: str = "https://api.smith.langchain.com"
+    langchain_endpoint: str = "https://eu.api.smith.langchain.com"
 
     # Database (Supabase)
     supabase_url: str
