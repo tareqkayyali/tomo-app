@@ -328,7 +328,7 @@ async def _fetch_recommendations(user_id: str) -> list[dict]:
             sb.table("athlete_recommendations")
             .select("rec_type, priority, title, body_short, confidence_score")
             .eq("athlete_id", user_id)
-            .eq("is_active", True)
+            .in_("status", ["PENDING", "ACTIVE"])
             .order("priority")
             .limit(5)
             .execute()
