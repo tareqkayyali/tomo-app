@@ -14,6 +14,7 @@ from typing_extensions import TypedDict
 from langgraph.graph import MessagesState
 
 from app.models.context import PlayerContext
+from app.models.tenant import TenantContext
 
 
 class TomoChatState(MessagesState):
@@ -71,6 +72,9 @@ class TomoChatState(MessagesState):
     # ── RAG (populated by rag_retrieval_node) ──
     rag_context: Optional[str]  # Formatted knowledge graph text for prompt injection
     rag_metadata: Optional[dict[str, Any]]  # Entity/chunk counts, sub-questions, cost
+
+    # ── Multi-Tenant (populated by context_assembly_node) ──
+    tenant_context: Optional[TenantContext]
 
     # ── Write actions (for interrupt/resume) ──
     pending_write_action: Optional[dict[str, Any]]

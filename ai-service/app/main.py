@@ -15,6 +15,7 @@ from app.db.supabase import init_db_pool, close_db_pool
 from app.routes.chat import router as chat_router
 from app.routes.health import router as health_router
 from app.routes.aib import router as aib_router
+from app.routes.tenants import router as tenants_router
 
 
 logger = logging.getLogger("tomo-ai")
@@ -89,3 +90,4 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(aib_router, prefix="/api/v1")
+app.include_router(tenants_router, prefix="/api/v1")

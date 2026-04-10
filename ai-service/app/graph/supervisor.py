@@ -200,6 +200,8 @@ async def run_supervisor(
         # Initialize RAG
         "rag_context": "",
         "rag_metadata": {},
+        # Initialize multi-tenant
+        "tenant_context": None,
     }
 
     # If this is a confirmation, inject the pending action
