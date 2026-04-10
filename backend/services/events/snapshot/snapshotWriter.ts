@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { Database } from '@/types/database';
 import { readinessToRag } from '../constants';
 import { computeDataConfidence } from '@/services/snapshot/dataConfidenceScore';
+import { triggerAIBRegeneration } from '@/services/agents/aiServiceProxy';
 import type { AthleteEvent, WellnessCheckinPayload } from '../types';
 
 type SnapshotUpsert = Database['public']['Tables']['athlete_snapshots']['Insert'];
@@ -115,6 +116,10 @@ export async function writeSnapshot(athleteId: string, event: AthleteEvent): Pro
 
   if (error) {
     console.error('[SnapshotWriter] Upsert failed:', error.message, { athleteId });
+  } else {
+    // Fire-and-forget: trigger AIB regeneration on the Python AI service.
+    // Non-blocking — event pipeline performance unaffected.
+    triggerAIBRegeneration(athleteId);
   }
 }
 

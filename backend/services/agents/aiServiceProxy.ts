@@ -234,6 +234,54 @@ export function shadowProxyToAIService(request: AIServiceRequest): void {
     });
 }
 
+// ── AIB Trigger ─────────────────────────────────────────────────
+
+/**
+ * Fire-and-forget: trigger AIB regeneration on the Python AI service.
+ * Called after writeSnapshot() to keep the Athlete Intelligence Brief fresh.
+ *
+ * Non-blocking — never affects event pipeline performance.
+ * If the AI service is down, silently logs and moves on.
+ */
+export function triggerAIBRegeneration(
+  userId: string,
+  timezone: string = "UTC",
+  force: boolean = false
+): void {
+  const mode = getAIServiceMode();
+  if (mode === "false") return; // AI service disabled — skip
+
+  const url = `${getAIServiceUrl()}/api/v1/aib/generate`;
+
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_id: userId,
+      timezone,
+      force,
+    }),
+    signal: AbortSignal.timeout(10000), // 10s timeout — it's background work
+  })
+    .then((res) => {
+      if (!res.ok) {
+        logger.warn("[ai-proxy:aib] AIB generation returned non-OK", {
+          status: res.status,
+          userId,
+        });
+      } else {
+        logger.info("[ai-proxy:aib] AIB regeneration triggered", { userId });
+      }
+    })
+    .catch((err) => {
+      // Completely non-blocking — event pipeline unaffected
+      logger.warn("[ai-proxy:aib] AIB trigger failed (non-blocking)", {
+        error: err instanceof Error ? err.message : String(err),
+        userId,
+      });
+    });
+}
+
 // ── Health Check ─────────────────────────────────────────────────
 
 /**
