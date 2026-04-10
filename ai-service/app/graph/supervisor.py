@@ -200,6 +200,8 @@ async def run_supervisor(
         # Initialize RAG
         "rag_context": "",
         "rag_metadata": {},
+        # Initialize memory (4-tier: Zep + AIB + longitudinal)
+        "memory_context": None,
         # Initialize multi-tenant
         "tenant_context": None,
     }

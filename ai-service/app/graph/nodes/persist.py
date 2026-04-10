@@ -105,4 +105,22 @@ async def persist_node(state: TomoChatState) -> dict:
         # Persistence failure should NOT block the response
         logger.error(f"persist_node error (non-blocking): {e}", exc_info=True)
 
+    # ── Zep memory save (non-blocking, fire-and-forget) ──
+    try:
+        from app.services.memory_service import save_memory_after_turn
+
+        # Count messages in this session to determine turn count
+        turn_count = len([m for m in messages if hasattr(m, "type") and m.type == "human"])
+
+        await save_memory_after_turn(
+            user_id=user_id,
+            session_id=session_id,
+            user_message=user_message,
+            assistant_response=final_response or agent_response,
+            agent_type=selected_agent,
+            turn_count=turn_count,
+        )
+    except Exception as e:
+        logger.debug(f"Zep memory save skipped: {e}")
+
     return {}

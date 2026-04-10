@@ -43,6 +43,7 @@ class TomoChatState(MessagesState):
     # ── Context (populated by context_assembly_node) ──
     player_context: Optional[PlayerContext]
     aib_summary: Optional[str]  # Pre-synthesized AIB text (Haiku-generated)
+    memory_context: Optional[str]  # Formatted 4-tier memory block for prompt injection
 
     # ── Routing (populated by router nodes) ──
     route_decision: Optional[str]  # "capsule" | "ai"

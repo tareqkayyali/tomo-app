@@ -91,6 +91,12 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         dynamic_block += f"\n\n{rag_context}"
         logger.info(f"RAG context injected: {len(rag_context)} chars")
 
+    # 2c. Inject memory context from 4-tier memory (Zep CE)
+    memory_context = state.get("memory_context", "")
+    if memory_context:
+        dynamic_block += f"\n\n{memory_context}"
+        logger.info(f"Memory context injected: {len(memory_context)} chars")
+
     # 3. Create LLM with tools bound
     api_key = settings.anthropic_api_key
     if not api_key:

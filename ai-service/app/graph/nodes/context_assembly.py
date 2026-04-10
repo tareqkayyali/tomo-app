@@ -886,21 +886,35 @@ async def context_assembly_node(state: TomoChatState) -> dict:
         if hasattr(last_msg, "content"):
             last_message = str(last_msg.content)
 
-    # Build context + fetch AIB in parallel
+    # Build context + fetch AIB + fetch memory in parallel
+    from app.services.memory_service import fetch_memory_context
+
     pool = get_pool()
     context_task = build_player_context(user_id, active_tab, last_message, tz)
+    memory_task = fetch_memory_context(user_id)
 
     if pool:
         aib_task = _fetch_aib(pool, user_id)
-        context, aib_summary = await asyncio.gather(context_task, aib_task)
+        context, aib_summary, memory_ctx = await asyncio.gather(
+            context_task, aib_task, memory_task
+        )
     else:
         context = await context_task
         aib_summary = None
+        memory_ctx = await memory_task
+
+    # Format memory for prompt injection
+    memory_text = memory_ctx.format_for_prompt() if memory_ctx else ""
 
     elapsed_ms = (time.monotonic() - start) * 1000
-    logger.info(f"Context assembly completed in {elapsed_ms:.0f}ms for {user_id}")
+    logger.info(
+        f"Context assembly completed in {elapsed_ms:.0f}ms for {user_id} "
+        f"(memory={'yes' if memory_text else 'no'}, "
+        f"zep_facts={len(memory_ctx.zep_facts) if memory_ctx else 0})"
+    )
 
     return {
         "player_context": context,
         "aib_summary": aib_summary,
+        "memory_context": memory_text if memory_text else None,
     }
