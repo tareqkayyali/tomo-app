@@ -103,13 +103,16 @@ SETTINGS_PATTERNS = [
 ]
 
 PLANNING_PATTERNS = [
-    re.compile(r"\bplan training\b", re.I),
-    re.compile(r"\btraining plan\b", re.I),
-    re.compile(r"\bplan study\b", re.I),
-    re.compile(r"\bplan week\b", re.I),
-    re.compile(r"\bchange mode\b", re.I),
+    re.compile(r"\bplan\s+(?:my\s+)?training\b", re.I),
+    re.compile(r"\btraining\s+plan\b", re.I),
+    re.compile(r"\bplan\s+(?:my\s+)?study\b", re.I),
+    re.compile(r"\bplan\s+(?:my\s+)?week\b", re.I),
+    re.compile(r"\bplan\s+(?:my\s+)?(?:training\s+)?week\b", re.I),
+    re.compile(r"\bchange\s+mode\b", re.I),
+    re.compile(r"\bswitch\s+(?:to\s+)?(?:study|rest|league|balanced)\b", re.I),
     re.compile(r"\bprotocol\b", re.I),
-    re.compile(r"\bscheduling rule\b", re.I),
+    re.compile(r"\bscheduling\s+rule\b", re.I),
+    re.compile(r"\bmode\s+(?:change|switch|options?)\b", re.I),
 ]
 
 

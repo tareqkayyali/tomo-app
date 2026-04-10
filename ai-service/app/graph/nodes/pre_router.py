@@ -1,0 +1,131 @@
+"""
+Tomo AI Service — Pre-Router Node
+Bridges the 3-layer intent classifier and 5-way agent router into a LangGraph node.
+
+Flow:
+  1. Extract user message from state
+  2. Run classify_intent() (exact match → Haiku → fallthrough)
+  3. Run route_to_agents() for agent selection
+  4. Set route_decision (capsule | ai), selected_agent, routing_confidence
+
+If intent is a capsule direct action → short-circuit to capsule_handler.
+If intent is fallthrough → route to appropriate agent subgraph.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+
+from app.models.state import TomoChatState
+from app.agents.intent_classifier import (
+    classify_intent,
+    ClassificationResult,
+    ConversationState,
+)
+from app.agents.intent_registry import CAPSULE_DIRECT_ACTIONS, CAPSULE_GATED_ACTIONS
+from app.agents.router import route_to_agents, should_keep_agent_lock
+
+logger = logging.getLogger("tomo-ai.pre_router")
+
+
+async def pre_router_node(state: TomoChatState) -> dict:
+    """
+    Pre-router node: classifies intent + routes to agent.
+
+    Updates state with:
+      - route_decision: "capsule" | "ai"
+      - capsule_type: intent capsule type (if capsule)
+      - selected_agent: primary agent type
+      - routing_confidence: 0.0-1.0
+    """
+    t0 = time.monotonic()
+    context = state.get("player_context")
+
+    if not context:
+        logger.error("pre_router_node: no player_context in state")
+        return {
+            "route_decision": "ai",
+            "selected_agent": "output",
+            "routing_confidence": 0.0,
+        }
+
+    # Extract user message from state messages
+    messages = state.get("messages", [])
+    user_message = ""
+    for msg in reversed(messages):
+        if hasattr(msg, "type") and msg.type == "human":
+            user_message = msg.content if isinstance(msg.content, str) else str(msg.content)
+            break
+
+    if not user_message:
+        return {
+            "route_decision": "ai",
+            "selected_agent": "output",
+            "routing_confidence": 0.0,
+        }
+
+    # Build conversation state for classifier context
+    conv_state = ConversationState()
+
+    # Check agent lock (conversation continuity)
+    last_agent = state.get("selected_agent")
+    if last_agent and should_keep_agent_lock(user_message, last_agent, None):
+        elapsed = (time.monotonic() - t0) * 1000
+        logger.info(f"Agent lock kept: {last_agent} ({elapsed:.0f}ms)")
+        return {
+            "route_decision": "ai",
+            "selected_agent": last_agent,
+            "routing_confidence": 0.85,
+        }
+
+    # Run 3-layer intent classifier
+    classification: ClassificationResult = await classify_intent(
+        user_message, conv_state, context
+    )
+
+    # Determine if this is a capsule action or needs full AI
+    is_capsule = False
+    capsule_type = None
+
+    if classification.capsule_type:
+        intent_id = classification.intent_id
+        # Check if it's a direct capsule action (no LLM needed)
+        if intent_id in {d.value if hasattr(d, "value") else d for d in CAPSULE_DIRECT_ACTIONS}:
+            is_capsule = True
+            capsule_type = classification.capsule_type
+        elif intent_id in {g.value if hasattr(g, "value") else g for g in CAPSULE_GATED_ACTIONS}:
+            is_capsule = True
+            capsule_type = classification.capsule_type
+
+    # Run 5-way agent router
+    active_tab = state.get("active_tab", "Chat")
+    agents = route_to_agents(user_message, active_tab, last_agent)
+    primary_agent = agents[0] if agents else "output"
+    secondary_agents = agents[1:] if len(agents) > 1 else []
+
+    # Use classifier's agent_type if high confidence, else use router's
+    if classification.confidence >= 0.8 and classification.agent_type:
+        primary_agent = classification.agent_type
+
+    elapsed = (time.monotonic() - t0) * 1000
+    logger.info(
+        f"Pre-router: intent={classification.intent_id} "
+        f"(layer={classification.classification_layer}, conf={classification.confidence:.2f}) "
+        f"→ agent={primary_agent} "
+        f"{'CAPSULE' if is_capsule else 'AI'} "
+        f"({elapsed:.0f}ms)"
+    )
+
+    result = {
+        "route_decision": "capsule" if is_capsule else "ai",
+        "capsule_type": capsule_type,
+        "selected_agent": primary_agent,
+        "routing_confidence": classification.confidence,
+    }
+
+    # Store secondary agents for multi-agent tool merging
+    if secondary_agents:
+        result["_secondary_agents"] = secondary_agents
+
+    return result
