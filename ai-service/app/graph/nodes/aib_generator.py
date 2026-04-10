@@ -212,7 +212,7 @@ async def generate_aib(context: PlayerContext) -> Optional[str]:
     try:
         settings = get_settings()
         llm = ChatAnthropic(
-            model="claude-3-5-haiku-20241022",
+            model="claude-haiku-4-5-20251001",
             temperature=0.3,
             max_tokens=600,
             anthropic_api_key=settings.anthropic_api_key,
@@ -277,7 +277,7 @@ async def save_aib(
                     model_used, cost_usd, is_current, generated_at
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    'claude-3-5-haiku-20241022', 0.003, true, NOW()
+                    'claude-haiku-4-5-20251001', 0.003, true, NOW()
                 )
                 """,
                 (
