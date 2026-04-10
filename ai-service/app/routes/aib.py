@@ -68,6 +68,28 @@ async def generate_aib_endpoint(req: AIBGenerateRequest):
         if req.force or not context.snapshot_enrichment:
             # Force generation or no snapshot yet
             logger.info(f"Generating AIB for {req.user_id} (force={req.force}, has_snapshot={context.snapshot_enrichment is not None})")
+
+            # Direct Anthropic test to isolate the issue
+            try:
+                from langchain_anthropic import ChatAnthropic
+                from app.config import get_settings
+                settings = get_settings()
+                key_preview = settings.anthropic_api_key[:12] + "..." if settings.anthropic_api_key else "MISSING"
+                logger.info(f"Anthropic key: {key_preview}")
+
+                llm = ChatAnthropic(
+                    model="claude-3-5-haiku-20241022",
+                    temperature=0.3,
+                    max_tokens=600,
+                    anthropic_api_key=settings.anthropic_api_key,
+                )
+                test_resp = await llm.ainvoke([{"role": "user", "content": "Say 'AIB test OK' in 3 words"}])
+                logger.info(f"LLM test response: {test_resp.content}")
+            except Exception as llm_err:
+                import traceback
+                logger.error(f"LLM direct test failed: {traceback.format_exc()}")
+                raise HTTPException(status_code=500, detail=f"LLM test failed: {str(llm_err)}")
+
             aib_text = await generate_aib(context)
             if aib_text:
                 snapshot_hash = _compute_snapshot_hash(context)
