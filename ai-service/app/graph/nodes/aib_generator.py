@@ -207,12 +207,15 @@ async def generate_aib(context: PlayerContext) -> Optional[str]:
     Returns the AIB text summary, or None on failure.
     """
     from langchain_anthropic import ChatAnthropic
+    from app.config import get_settings
 
     try:
+        settings = get_settings()
         llm = ChatAnthropic(
             model="claude-3-5-haiku-20241022",
             temperature=0.3,
             max_tokens=600,
+            anthropic_api_key=settings.anthropic_api_key,
         )
 
         prompt = _format_aib_prompt(context)
@@ -222,11 +225,18 @@ async def generate_aib(context: PlayerContext) -> Optional[str]:
         ])
 
         aib_text = response.content
+        if isinstance(aib_text, list):
+            # LangChain sometimes returns list of content blocks
+            aib_text = "".join(
+                block.get("text", str(block)) if isinstance(block, dict) else str(block)
+                for block in aib_text
+            )
         logger.info(f"AIB generated for {context.user_id} ({len(aib_text)} chars)")
         return aib_text
 
     except Exception as e:
-        logger.error(f"AIB generation failed for {context.user_id}: {e}")
+        import traceback
+        logger.error(f"AIB generation failed for {context.user_id}: {e}\n{traceback.format_exc()}")
         return None
 
 

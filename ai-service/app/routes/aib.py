@@ -101,6 +101,36 @@ async def generate_aib_endpoint(req: AIBGenerateRequest):
         raise HTTPException(status_code=500, detail=f"AIB error: {str(e)}")
 
 
+@router.get("/debug/{user_id}")
+async def debug_context_endpoint(user_id: str, tz: str = "Asia/Riyadh"):
+    """
+    Debug endpoint: returns raw PlayerContext for an athlete.
+    Used to verify context assembly independently of AIB generation.
+    """
+    import traceback
+    try:
+        context = await build_player_context(user_id=user_id, timezone_str=tz)
+        return {
+            "name": context.name,
+            "sport": context.sport,
+            "position": context.position,
+            "age_band": context.age_band,
+            "readiness": context.readiness_score,
+            "today_events": len(context.today_events),
+            "upcoming_exams": len(context.upcoming_exams),
+            "upcoming_events": len(context.upcoming_events),
+            "vitals": len(context.recent_vitals),
+            "test_scores": len(context.recent_test_scores),
+            "has_snapshot": context.snapshot_enrichment is not None,
+            "has_recs": len(context.active_recommendations),
+            "temporal": context.temporal_context.model_dump(),
+            "snapshot_acwr": context.snapshot_enrichment.acwr if context.snapshot_enrichment else None,
+            "snapshot_readiness": context.snapshot_enrichment.readiness_rag if context.snapshot_enrichment else None,
+        }
+    except Exception as e:
+        return {"error": str(e), "traceback": traceback.format_exc()}
+
+
 @router.get("/{user_id}", response_model=AIBResponse)
 async def get_aib_endpoint(user_id: str):
     """
