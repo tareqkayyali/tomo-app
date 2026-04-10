@@ -24,8 +24,8 @@ supabase==2.13.0
 asyncpg==0.30.0
 psycopg[binary]==3.2.6
 
-# Memory (Zep)
-zep-python==2.8.0
+# Memory (Zep CE — self-hosted)
+zep-python==2.0.2
 
 # RAG
 llama-index-core==0.12.35
@@ -33,7 +33,7 @@ llama-index-embeddings-voyageai==0.3.3
 cohere==5.13.8
 
 # RAG Quality
-ragas==0.2.16
+ragas==0.4.3
 
 # Utilities
 python-dotenv==1.1.0
