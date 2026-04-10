@@ -39,6 +39,14 @@ import {
   categorizeMessage,
 } from "@/services/agents/chatGuardrails";
 import {
+  getAIServiceMode,
+  shouldUsePythonService,
+  proxyToAIServiceStream,
+  proxyToAIServiceSync,
+  shadowProxyToAIService,
+  type AIServiceRequest,
+} from "@/services/agents/aiServiceProxy";
+import {
   getOrCreateSession,
   loadSessionHistory,
   saveMessage,
@@ -350,12 +358,40 @@ export async function POST(req: NextRequest) {
       }
     };
 
+    // ── AI Service proxy — shadow mode + percentage-based cutover ──
+    const aiServiceMode = getAIServiceMode();
+    const aiRequest: AIServiceRequest = {
+      message: body.message,
+      session_id: sessionId,
+      player_id: auth.user.id,
+      active_tab: body.activeTab ?? "Chat",
+      timezone: body.timezone ?? "UTC",
+      confirmed_action: body.confirmedAction ?? null,
+    };
+
     // ── STREAMING PATH — SSE response ──────────────────────────────
     if (wantsStream) {
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
           try {
+            // Full proxy: Python handles everything
+            if (aiServiceMode === "true" && shouldUsePythonService()) {
+              controller.enqueue(encoder.encode(formatSSE("status", { status: "Thinking..." })));
+              for await (const sse of proxyToAIServiceStream(aiRequest, (s) => {
+                controller.enqueue(encoder.encode(formatSSE("status", { status: s })));
+              })) {
+                controller.enqueue(encoder.encode(formatSSE(sse.event, sse.data)));
+              }
+              controller.close();
+              return;
+            }
+
+            // Shadow: fire-and-forget to Python, TS serves
+            if (aiServiceMode === "shadow" || aiServiceMode === "true") {
+              shadowProxyToAIService(aiRequest);
+            }
+
             // Emit initial status while context is ready
             controller.enqueue(encoder.encode(formatSSE("status", { status: "Thinking..." })));
 
@@ -417,7 +453,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── NON-STREAMING PATH — unchanged JSON response ───────────────
+    // ── NON-STREAMING PATH — JSON response ──────────────────────────
+
+    // Full proxy: Python handles everything
+    if (aiServiceMode === "true" && shouldUsePythonService()) {
+      const pyResult = await proxyToAIServiceSync(aiRequest);
+      return NextResponse.json(pyResult);
+    }
+
+    // Shadow: fire-and-forget to Python, TS serves
+    if (aiServiceMode === "shadow" || aiServiceMode === "true") {
+      shadowProxyToAIService(aiRequest);
+    }
+
     const result = await orchestrate(
       enrichedMessage,
       context,
