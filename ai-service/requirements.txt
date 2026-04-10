@@ -1,0 +1,40 @@
+# Tomo AI Service — Enterprise Architecture
+# Python 3.12+ required
+
+# Framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+httpx==0.28.1
+sse-starlette==2.2.1
+
+# LangGraph + LangChain
+langgraph==0.4.1
+langgraph-checkpoint-postgres==2.0.18
+langchain-core==0.3.51
+langchain-anthropic==0.3.17
+langsmith==0.3.42
+
+# Structured Output
+instructor==1.7.9
+pydantic==2.11.3
+pydantic-settings==2.9.1
+
+# Database
+supabase==2.13.0
+asyncpg==0.30.0
+psycopg[binary]==3.2.6
+
+# Memory (Zep)
+zep-python==2.8.0
+
+# RAG
+llama-index-core==0.12.35
+llama-index-embeddings-voyageai==0.3.3
+cohere==5.13.8
+
+# RAG Quality
+ragas==0.2.16
+
+# Utilities
+python-dotenv==1.1.0
+orjson==3.10.18

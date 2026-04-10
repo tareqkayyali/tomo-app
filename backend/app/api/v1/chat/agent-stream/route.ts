@@ -24,6 +24,12 @@ import { executeSettingsTool } from "@/services/agents/settingsAgent";
 import type { CapsuleAction } from "@/services/agents/responseFormatter";
 import { preFlightCheck } from "@/services/agents/chatGuardrails";
 import {
+  getAIServiceMode,
+  proxyToAIServiceStream,
+  shadowProxyToAIService,
+  type AIServiceRequest,
+} from "@/services/agents/aiServiceProxy";
+import {
   getOrCreateSession,
   loadSessionHistory,
   saveMessage,
@@ -154,7 +160,43 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // ── Orchestrate with streaming callbacks ──
+        // ── AI Service proxy check ──
+        const aiServiceMode = getAIServiceMode();
+
+        if (aiServiceMode === "true") {
+          // Full proxy: Python AI service handles orchestration
+          send("status", { status: "Thinking..." });
+
+          const aiRequest: AIServiceRequest = {
+            message,
+            session_id: sessionId,
+            player_id: auth.user.id,
+            active_tab: body.activeTab ?? "Chat",
+            timezone: body.timezone ?? "UTC",
+            confirmed_action: body.confirmedAction ?? null,
+          };
+
+          for await (const sse of proxyToAIServiceStream(aiRequest, (s) => send("status", { status: s }))) {
+            send(sse.event, sse.data);
+          }
+
+          controller.close();
+          return;
+        }
+
+        if (aiServiceMode === "shadow") {
+          // Shadow mode: fire-and-forget to Python, TS serves response
+          shadowProxyToAIService({
+            message,
+            session_id: sessionId,
+            player_id: auth.user.id,
+            active_tab: body.activeTab ?? "Chat",
+            timezone: body.timezone ?? "UTC",
+            confirmed_action: body.confirmedAction ?? null,
+          });
+        }
+
+        // ── Orchestrate with streaming callbacks (TypeScript path) ──
         send("status", { status: "Thinking..." });
         const result = await orchestrate(
           message,
