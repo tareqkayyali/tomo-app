@@ -10,31 +10,44 @@ ZEP_PORT="${PORT:-8000}"
 echo "Port: ${ZEP_PORT}"
 
 # ---------------------------------------------------------------
-# 1. Build CLEAN DSN — strip search_path completely
-#    Zep CE 0.25 must use public schema (where pgvector lives).
-#    We handle the public.users conflict in init.sql instead.
+# 1. Build DSN variants
+#    Supabase installs pgvector in the 'extensions' schema.
+#    Zep's CREATE TABLE needs 'vector' type → extensions must be
+#    in the search_path. We build two DSNs:
+#      PSQL_DSN  — no search_path (psql rejects it as URI param)
+#      ZEP_DSN   — search_path=public,extensions for the Go driver
 # ---------------------------------------------------------------
 RAW_DSN="${ZEP_STORE_POSTGRES_DSN}"
 BASE=$(echo "$RAW_DSN" | cut -d'?' -f1)
 QUERY=$(echo "$RAW_DSN" | cut -s -d'?' -f2-)
 
+# Strip any existing search_path
 CLEAN_PARAMS=""
 if [ -n "$QUERY" ]; then
   CLEAN_PARAMS=$(echo "$QUERY" | tr '&' '\n' | grep -v '^search_path=' | tr '\n' '&' | sed 's/&$//')
 fi
+
+# PSQL_DSN: clean (psql rejects search_path as URI param)
 if [ -n "$CLEAN_PARAMS" ]; then
-  DSN="${BASE}?${CLEAN_PARAMS}"
+  PSQL_DSN="${BASE}?${CLEAN_PARAMS}"
 else
-  DSN="${BASE}"
+  PSQL_DSN="${BASE}"
 fi
-echo "DSN ready (public schema)"
+
+# ZEP_DSN: with search_path=public,extensions (bun pgdriver passes to PG)
+if [ -n "$CLEAN_PARAMS" ]; then
+  ZEP_DSN="${BASE}?${CLEAN_PARAMS}&search_path=public,extensions"
+else
+  ZEP_DSN="${BASE}?search_path=public,extensions"
+fi
+echo "DSN ready (search_path=public,extensions)"
 
 # ---------------------------------------------------------------
 # 2. Pre-flight DB init — rename conflicting objects before Zep
 #    15s timeout prevents hanging if Supabase is unreachable.
 # ---------------------------------------------------------------
 echo "Running database init..."
-if timeout 15 psql "$DSN" -f /app/init.sql 2>&1; then
+if timeout 15 psql "$PSQL_DSN" -f /app/init.sql 2>&1; then
   echo "Database init complete."
 else
   echo "WARNING: Database init had errors (non-fatal, continuing...)"
@@ -48,7 +61,7 @@ cat > /app/config.yaml <<EOF
 store:
   type: postgres
   postgres:
-    dsn: "${DSN}"
+    dsn: "${ZEP_DSN}"
 server:
   port: ${ZEP_PORT}
 auth:
