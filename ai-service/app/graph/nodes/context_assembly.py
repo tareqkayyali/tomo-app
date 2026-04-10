@@ -389,6 +389,26 @@ async def _fetch_aib(pool, user_id: str) -> Optional[str]:
 
 # ── Snapshot → SnapshotEnrichment mapping ────────────────────────────
 
+def _safe_float(val, default=None) -> float | None:
+    """Convert Decimal/int/str to float. psycopg3 returns Decimal for numeric cols."""
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_int(val, default=0) -> int:
+    """Convert Decimal/float/str to int."""
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return default
+
+
 def _build_snapshot_enrichment(
     snapshot: dict,
     vitals: list[dict],
@@ -397,6 +417,8 @@ def _build_snapshot_enrichment(
     """
     Map raw athlete_snapshots row to SnapshotEnrichment model.
     Mirrors the TS snapshotEnrichment building in contextBuilder.ts.
+    All numeric values go through _safe_float/_safe_int to handle
+    psycopg3's Decimal return type.
     """
     # Prefer freshest HRV from health_data over stale snapshot value
     fresh_hrv = next(
@@ -406,77 +428,77 @@ def _build_snapshot_enrichment(
     hrv_today = (
         round(float(fresh_hrv["value"]) * 10) / 10
         if fresh_hrv
-        else snapshot.get("hrv_today_ms")
+        else _safe_float(snapshot.get("hrv_today_ms"))
     )
 
     # Compute projected ACWR
-    ctl = snapshot.get("ctl_28day") or 0
-    atl = snapshot.get("atl_7day") or 0
+    ctl = _safe_float(snapshot.get("ctl_28day"), 0)
+    atl = _safe_float(snapshot.get("atl_7day"), 0)
     projected_acwr = None
     if ctl > 0:
         projected_acwr = round((atl + projected_load_sum / 7) / ctl, 2)
 
     return SnapshotEnrichment(
-        acwr=snapshot.get("acwr"),
-        atl_7day=snapshot.get("atl_7day"),
-        ctl_28day=snapshot.get("ctl_28day"),
+        acwr=_safe_float(snapshot.get("acwr")),
+        atl_7day=_safe_float(snapshot.get("atl_7day")),
+        ctl_28day=_safe_float(snapshot.get("ctl_28day")),
         injury_risk_flag=snapshot.get("injury_risk_flag"),
-        athletic_load_7day=snapshot.get("athletic_load_7day"),
-        academic_load_7day=snapshot.get("academic_load_7day"),
-        dual_load_index=snapshot.get("dual_load_index"),
+        athletic_load_7day=_safe_float(snapshot.get("athletic_load_7day")),
+        academic_load_7day=_safe_float(snapshot.get("academic_load_7day")),
+        dual_load_index=_safe_float(snapshot.get("dual_load_index")),
         projected_load_7day=projected_load_sum if projected_load_sum > 0 else None,
         projected_acwr=projected_acwr,
-        hrv_baseline_ms=snapshot.get("hrv_baseline_ms"),
+        hrv_baseline_ms=_safe_float(snapshot.get("hrv_baseline_ms")),
         hrv_today_ms=hrv_today,
-        sleep_quality=snapshot.get("sleep_quality"),
-        wellness_7day_avg=snapshot.get("wellness_7day_avg"),
+        sleep_quality=_safe_float(snapshot.get("sleep_quality")),
+        wellness_7day_avg=_safe_float(snapshot.get("wellness_7day_avg")),
         wellness_trend=snapshot.get("wellness_trend"),
-        sessions_total=snapshot.get("sessions_total") or 0,
-        training_age_weeks=snapshot.get("training_age_weeks") or 0,
-        streak_days=snapshot.get("streak_days") or 0,
-        cv_completeness=snapshot.get("cv_completeness"),
+        sessions_total=_safe_int(snapshot.get("sessions_total")),
+        training_age_weeks=_safe_int(snapshot.get("training_age_weeks")),
+        streak_days=_safe_int(snapshot.get("streak_days")),
+        cv_completeness=_safe_float(snapshot.get("cv_completeness")),
         mastery_scores=snapshot.get("mastery_scores") or {},
         strength_benchmarks=snapshot.get("strength_benchmarks") or {},
         speed_profile=snapshot.get("speed_profile") or {},
-        coachability_index=snapshot.get("coachability_index"),
+        coachability_index=_safe_float(snapshot.get("coachability_index")),
         phv_stage=snapshot.get("phv_stage"),
-        phv_offset_years=snapshot.get("phv_offset_years"),
+        phv_offset_years=_safe_float(snapshot.get("phv_offset_years")),
         triangle_rag=snapshot.get("triangle_rag"),
         readiness_rag=snapshot.get("readiness_rag"),
-        readiness_score=snapshot.get("readiness_score"),
+        readiness_score=_safe_float(snapshot.get("readiness_score")),
         last_checkin_at=str(snapshot["last_checkin_at"]) if snapshot.get("last_checkin_at") else None,
-        journal_completeness_7d=snapshot.get("journal_completeness_7d"),
-        journal_streak_days=snapshot.get("journal_streak_days") or 0,
-        target_achievement_rate_30d=snapshot.get("target_achievement_rate_30d"),
+        journal_completeness_7d=_safe_float(snapshot.get("journal_completeness_7d")),
+        journal_streak_days=_safe_int(snapshot.get("journal_streak_days")),
+        target_achievement_rate_30d=_safe_float(snapshot.get("target_achievement_rate_30d")),
         last_journal_at=str(snapshot["last_journal_at"]) if snapshot.get("last_journal_at") else None,
-        pending_pre_journal_count=snapshot.get("pending_pre_journal_count") or 0,
-        pending_post_journal_count=snapshot.get("pending_post_journal_count") or 0,
-        training_monotony=snapshot.get("training_monotony"),
-        training_strain=snapshot.get("training_strain"),
-        data_confidence_score=snapshot.get("data_confidence_score"),
-        readiness_delta=snapshot.get("readiness_delta"),
-        sleep_debt_3d=snapshot.get("sleep_debt_3d"),
-        spo2_pct=snapshot.get("spo2_pct"),
-        recovery_score=snapshot.get("recovery_score"),
-        hrv_trend_7d_pct=snapshot.get("hrv_trend_7d_pct"),
-        load_trend_7d_pct=snapshot.get("load_trend_7d_pct"),
+        pending_pre_journal_count=_safe_int(snapshot.get("pending_pre_journal_count")),
+        pending_post_journal_count=_safe_int(snapshot.get("pending_post_journal_count")),
+        training_monotony=_safe_float(snapshot.get("training_monotony")),
+        training_strain=_safe_float(snapshot.get("training_strain")),
+        data_confidence_score=_safe_float(snapshot.get("data_confidence_score")),
+        readiness_delta=_safe_float(snapshot.get("readiness_delta")),
+        sleep_debt_3d=_safe_float(snapshot.get("sleep_debt_3d")),
+        spo2_pct=_safe_float(snapshot.get("spo2_pct")),
+        recovery_score=_safe_float(snapshot.get("recovery_score")),
+        hrv_trend_7d_pct=_safe_float(snapshot.get("hrv_trend_7d_pct")),
+        load_trend_7d_pct=_safe_float(snapshot.get("load_trend_7d_pct")),
         acwr_trend=snapshot.get("acwr_trend"),
         sleep_trend_7d=snapshot.get("sleep_trend_7d"),
-        body_feel_trend_7d=snapshot.get("body_feel_trend_7d"),
+        body_feel_trend_7d=_safe_float(snapshot.get("body_feel_trend_7d")),
         resting_hr_trend_7d=snapshot.get("resting_hr_trend_7d"),
         readiness_distribution_7d=snapshot.get("readiness_distribution_7d"),
-        matches_next_7d=snapshot.get("matches_next_7d"),
-        exams_next_14d=snapshot.get("exams_next_14d"),
+        matches_next_7d=_safe_int(snapshot.get("matches_next_7d"), None),
+        exams_next_14d=_safe_int(snapshot.get("exams_next_14d"), None),
         season_phase=snapshot.get("season_phase"),
-        days_since_last_session=snapshot.get("days_since_last_session"),
-        rec_action_rate_30d=snapshot.get("rec_action_rate_30d"),
-        plan_compliance_7d=snapshot.get("plan_compliance_7d"),
-        checkin_consistency_7d=snapshot.get("checkin_consistency_7d"),
+        days_since_last_session=_safe_int(snapshot.get("days_since_last_session"), None),
+        rec_action_rate_30d=_safe_float(snapshot.get("rec_action_rate_30d")),
+        plan_compliance_7d=_safe_float(snapshot.get("plan_compliance_7d")),
+        checkin_consistency_7d=_safe_float(snapshot.get("checkin_consistency_7d")),
         coaching_preference=snapshot.get("coaching_preference"),
         athlete_mode=snapshot.get("athlete_mode"),
         dual_load_zone=snapshot.get("dual_load_zone"),
         applicable_protocol_ids=snapshot.get("applicable_protocol_ids"),
-        exam_proximity_score=snapshot.get("exam_proximity_score"),
+        exam_proximity_score=_safe_float(snapshot.get("exam_proximity_score")),
     )
 
 
