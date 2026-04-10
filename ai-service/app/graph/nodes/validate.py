@@ -34,7 +34,7 @@ PHV_BLOCKED_PATTERNS = [
     re.compile(r"\bolympic\s+lift", re.I),
     re.compile(r"\bclean\s+and\s+jerk", re.I),
     re.compile(r"\bsnatch\b", re.I),
-    re.compile(r"\bmaximal\s+sprint", re.I),
+    re.compile(r"\bmax(?:imal)?\s+sprint", re.I),
     re.compile(r"\bheavy\s+deadlift", re.I),
     re.compile(r"\bmax\s+(?:effort\s+)?(?:squat|deadlift|bench)", re.I),
     re.compile(r"\b1\s*rm\b", re.I),  # 1RM testing
