@@ -2,16 +2,16 @@
 # Deployed as a separate Railway service: tomo-zep
 #
 # Zep provides:
-#   - Temporal fact storage + automatic entity extraction
-#   - Semantic memory search across sessions
+#   - Temporal fact storage + automatic entity extraction (via OpenAI)
+#   - Semantic memory search across sessions (via OpenAI embeddings)
 #   - Session summarization
 #   - Entity graph traversal
 #
-# Environment variables (set in Railway dashboard):
+# REQUIRED environment variables (set in Railway dashboard):
 #   ZEP_STORE_POSTGRES_DSN  — Supabase Postgres via PgBouncer (port 6543)
 #   ZEP_AUTH_SECRET          — Random 32+ char key for API auth
-#   ZEP_MEMORY_SEARCH_SCOPE — Number of sessions to search (default: 12)
-#   ZEP_LLM_MODEL           — Model for extraction (default: haiku)
+#   ZEP_OPENAI_API_KEY       — OpenAI API key (required for extraction + embeddings)
+#   ZEP_LOG_LEVEL            — info / debug / warn
 
 FROM ghcr.io/getzep/zep:0.25
 
