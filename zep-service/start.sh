@@ -1,23 +1,36 @@
 #!/bin/sh
-# Generate Zep CE config.yaml from Railway environment variables at runtime.
-# v3 — renamed to bust Docker cache
-
 set -e
 
 echo "=== Tomo Zep CE Startup ==="
-echo "Generating config.yaml..."
 
-# Debug: show which env vars are set (masked)
-echo "ZEP_STORE_POSTGRES_DSN: ${ZEP_STORE_POSTGRES_DSN:+SET}"
-echo "ZEP_AUTH_SECRET: ${ZEP_AUTH_SECRET:+SET}"
-echo "ZEP_OPENAI_API_KEY: ${ZEP_OPENAI_API_KEY:+SET}"
+# 1. Force search_path=zep,public in DSN
+#    - If DSN already has search_path=zep (without ,public), replace it
+#    - If DSN has no search_path, append it
+DSN="${ZEP_STORE_POSTGRES_DSN}"
 
-# Write config to Zep's working directory
+# Strip any existing search_path param (handles both ?search_path= and &search_path=)
+CLEAN_DSN=$(echo "$DSN" | sed -E 's/[&?]search_path=[^&]*//')
+# Re-add the correct search_path
+case "$CLEAN_DSN" in
+  *\?*) DSN="${CLEAN_DSN}&search_path=zep,public" ;;
+  *)    DSN="${CLEAN_DSN}?search_path=zep,public" ;;
+esac
+echo "DSN configured: search_path=zep,public (forced)"
+
+# 2. Run pre-flight DB init (create schema, handle conflicts)
+echo "Running database init..."
+if psql "${ZEP_STORE_POSTGRES_DSN}" -f /app/init.sql 2>&1; then
+  echo "Database init complete."
+else
+  echo "WARNING: Database init had errors (non-fatal, continuing...)"
+fi
+
+# 3. Generate config.yaml from env vars
 cat > /app/config.yaml <<EOF
 store:
   type: postgres
   postgres:
-    dsn: "${ZEP_STORE_POSTGRES_DSN}"
+    dsn: "${DSN}"
 server:
   port: 8000
 auth:
@@ -44,10 +57,6 @@ log:
   level: ${ZEP_LOG_LEVEL:-info}
 EOF
 
-echo "config.yaml written to /app/config.yaml"
-echo "Listing /app/ contents:"
-ls -la /app/
-
-echo "Starting Zep CE..."
+echo "config.yaml generated. Starting Zep CE..."
 cd /app
 exec ./zep
