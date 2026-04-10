@@ -93,6 +93,16 @@ async def generate_sse_events(request: ChatRequest):
         if pending_write and not result.get("write_confirmed"):
             pending_confirmation = pending_write
 
+        # Extract context for mobile app parity (TS endpoint sends this)
+        player_ctx = result.get("player_context")
+        context_data = {}
+        if player_ctx:
+            context_data = {
+                "ageBand": getattr(player_ctx, "age_band", None),
+                "readinessScore": getattr(player_ctx, "readiness_score", None),
+                "activeTab": getattr(player_ctx, "active_tab", "Chat"),
+            }
+
         # Build response matching the mobile app format
         response = {
             "message": message_text,
@@ -100,6 +110,7 @@ async def generate_sse_events(request: ChatRequest):
             "sessionId": request.session_id or f"session-{request.player_id}",
             "refreshTargets": refresh_targets,
             "pendingConfirmation": pending_confirmation,
+            "context": context_data,
         }
 
         # Add telemetry in debug header
@@ -185,12 +196,23 @@ async def chat_sync(request: ChatRequest):
         except (json.JSONDecodeError, TypeError):
             message_text = final_response_raw
 
+    # Extract context for mobile app parity
+    player_ctx = result.get("player_context")
+    context_data = {}
+    if player_ctx:
+        context_data = {
+            "ageBand": getattr(player_ctx, "age_band", None),
+            "readinessScore": getattr(player_ctx, "readiness_score", None),
+            "activeTab": getattr(player_ctx, "active_tab", "Chat"),
+        }
+
     return {
         "message": message_text,
         "structured": structured,
         "sessionId": request.session_id or f"session-{request.player_id}",
         "refreshTargets": result.get("_refresh_targets", []),
         "pendingConfirmation": result.get("pending_write_action") if not result.get("write_confirmed") else None,
+        "context": context_data,
         "_telemetry": {
             "cost_usd": result.get("total_cost_usd", 0),
             "tokens": result.get("total_tokens", 0),
