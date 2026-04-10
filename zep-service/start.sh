@@ -10,30 +10,41 @@ ZEP_PORT="${PORT:-8000}"
 echo "Port: ${ZEP_PORT}"
 
 # ---------------------------------------------------------------
-# 1. Build clean DSN — strip search_path
-#    init.sql moves pgvector to public schema, so no search_path
-#    manipulation needed. Just clean the DSN.
+# 1. Build clean DSN — ensure sslmode=disable for Railway internal
+#    Railway internal networking has no SSL between services.
 # ---------------------------------------------------------------
 RAW_DSN="${ZEP_STORE_POSTGRES_DSN}"
 BASE=$(echo "$RAW_DSN" | cut -d'?' -f1)
 QUERY=$(echo "$RAW_DSN" | cut -s -d'?' -f2-)
 
+# Strip search_path (not needed with dedicated PG)
 CLEAN_PARAMS=""
 if [ -n "$QUERY" ]; then
   CLEAN_PARAMS=$(echo "$QUERY" | tr '&' '\n' | grep -v '^search_path=' | tr '\n' '&' | sed 's/&$//')
 fi
+
+# Ensure sslmode=disable is present (Railway internal = no SSL)
+if echo "$CLEAN_PARAMS" | grep -q 'sslmode='; then
+  : # already set
+else
+  if [ -n "$CLEAN_PARAMS" ]; then
+    CLEAN_PARAMS="${CLEAN_PARAMS}&sslmode=disable"
+  else
+    CLEAN_PARAMS="sslmode=disable"
+  fi
+fi
+
 if [ -n "$CLEAN_PARAMS" ]; then
   DSN="${BASE}?${CLEAN_PARAMS}"
 else
   DSN="${BASE}"
 fi
-echo "DSN ready (clean, no search_path)"
+echo "DSN ready (sslmode=disable for Railway internal)"
 
 # ---------------------------------------------------------------
-# 2. Pre-flight DB init — MUST succeed for Zep to work
-#    - Moves pgvector from extensions→public schema
-#    - Renames conflicting public.users view
-#    15s timeout prevents hanging if Supabase is unreachable.
+# 2. Pre-flight DB init — CREATE EXTENSION vector if missing
+#    Dedicated Railway PostgreSQL (pgvector/pgvector:pg16).
+#    15s timeout prevents hanging if DB is unreachable.
 # ---------------------------------------------------------------
 echo "Running database init..."
 if timeout 15 psql "$DSN" -f /app/init.sql 2>&1; then
