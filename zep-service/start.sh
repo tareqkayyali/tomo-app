@@ -4,6 +4,12 @@ set -e
 echo "=== Tomo Zep CE Startup ==="
 
 # ---------------------------------------------------------------
+# 0. Port — Railway injects PORT env var, Zep MUST listen on it
+# ---------------------------------------------------------------
+ZEP_PORT="${PORT:-8000}"
+echo "Port: ${ZEP_PORT}"
+
+# ---------------------------------------------------------------
 # 1. Build CLEAN DSN — strip search_path completely
 #    Zep CE 0.25 must use public schema (where pgvector lives).
 #    We handle the public.users conflict in init.sql instead.
@@ -12,7 +18,6 @@ RAW_DSN="${ZEP_STORE_POSTGRES_DSN}"
 BASE=$(echo "$RAW_DSN" | cut -d'?' -f1)
 QUERY=$(echo "$RAW_DSN" | cut -s -d'?' -f2-)
 
-# Remove search_path from query params (handles any position)
 CLEAN_PARAMS=""
 if [ -n "$QUERY" ]; then
   CLEAN_PARAMS=$(echo "$QUERY" | tr '&' '\n' | grep -v '^search_path=' | tr '\n' '&' | sed 's/&$//')
@@ -22,14 +27,14 @@ if [ -n "$CLEAN_PARAMS" ]; then
 else
   DSN="${BASE}"
 fi
-echo "DSN ready (public schema, search_path stripped)"
+echo "DSN ready (public schema)"
 
 # ---------------------------------------------------------------
 # 2. Pre-flight DB init — rename conflicting objects before Zep
-#    psql runs with the clean DSN (no search_path param).
+#    15s timeout prevents hanging if Supabase is unreachable.
 # ---------------------------------------------------------------
 echo "Running database init..."
-if psql "$DSN" -f /app/init.sql 2>&1; then
+if timeout 15 psql "$DSN" -f /app/init.sql 2>&1; then
   echo "Database init complete."
 else
   echo "WARNING: Database init had errors (non-fatal, continuing...)"
@@ -45,7 +50,7 @@ store:
   postgres:
     dsn: "${DSN}"
 server:
-  port: 8000
+  port: ${ZEP_PORT}
 auth:
   secret: "${ZEP_AUTH_SECRET}"
   required: true
@@ -70,6 +75,6 @@ log:
   level: ${ZEP_LOG_LEVEL:-info}
 EOF
 
-echo "config.yaml generated. Starting Zep CE..."
+echo "config.yaml generated. Starting Zep on port ${ZEP_PORT}..."
 cd /app
 exec ./zep
