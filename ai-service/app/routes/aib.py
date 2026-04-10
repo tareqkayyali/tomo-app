@@ -54,38 +54,51 @@ async def generate_aib_endpoint(req: AIBGenerateRequest):
       3. If stale or force=True → generate with Haiku → save
       4. Return AIB text
     """
-    # Build context to get snapshot data
-    context = await build_player_context(
-        user_id=req.user_id,
-        timezone_str=req.timezone,
-    )
+    import traceback
 
-    if req.force or not context.snapshot_enrichment:
-        # Force generation or no snapshot yet
-        aib_text = await generate_aib(context)
-        if aib_text:
-            snapshot_hash = _compute_snapshot_hash(context)
-            await save_aib(req.user_id, aib_text, snapshot_hash, context)
-            return AIBResponse(
-                user_id=req.user_id,
-                summary_text=aib_text,
-                snapshot_hash=snapshot_hash,
-                is_fresh=True,
-                generated=True,
-            )
-        raise HTTPException(status_code=500, detail="AIB generation failed")
+    try:
+        # Build context to get snapshot data
+        logger.info(f"Building context for {req.user_id}...")
+        context = await build_player_context(
+            user_id=req.user_id,
+            timezone_str=req.timezone,
+        )
+        logger.info(f"Context built: name={context.name}, sport={context.sport}, snapshot={'yes' if context.snapshot_enrichment else 'no'}")
 
-    # Use ensure_fresh_aib (checks hash, generates if stale)
-    aib_text = await ensure_fresh_aib(context)
-    snapshot_hash = _compute_snapshot_hash(context)
+        if req.force or not context.snapshot_enrichment:
+            # Force generation or no snapshot yet
+            logger.info(f"Generating AIB for {req.user_id} (force={req.force}, has_snapshot={context.snapshot_enrichment is not None})")
+            aib_text = await generate_aib(context)
+            if aib_text:
+                snapshot_hash = _compute_snapshot_hash(context)
+                await save_aib(req.user_id, aib_text, snapshot_hash, context)
+                return AIBResponse(
+                    user_id=req.user_id,
+                    summary_text=aib_text,
+                    snapshot_hash=snapshot_hash,
+                    is_fresh=True,
+                    generated=True,
+                )
+            raise HTTPException(status_code=500, detail="AIB generation failed — Haiku returned None")
 
-    return AIBResponse(
-        user_id=req.user_id,
-        summary_text=aib_text,
-        snapshot_hash=snapshot_hash,
-        is_fresh=True,
-        generated=aib_text is not None,
-    )
+        # Use ensure_fresh_aib (checks hash, generates if stale)
+        aib_text = await ensure_fresh_aib(context)
+        snapshot_hash = _compute_snapshot_hash(context)
+
+        return AIBResponse(
+            user_id=req.user_id,
+            summary_text=aib_text,
+            snapshot_hash=snapshot_hash,
+            is_fresh=True,
+            generated=aib_text is not None,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_detail = traceback.format_exc()
+        logger.error(f"AIB generate failed for {req.user_id}: {error_detail}")
+        raise HTTPException(status_code=500, detail=f"AIB error: {str(e)}")
 
 
 @router.get("/{user_id}", response_model=AIBResponse)
@@ -98,32 +111,36 @@ async def get_aib_endpoint(user_id: str):
     if not pool:
         raise HTTPException(status_code=503, detail="Database not available")
 
-    async with pool.connection() as conn:
-        result = await conn.execute(
-            """
-            SELECT summary_text, snapshot_hash
-            FROM athlete_intelligence_briefs
-            WHERE athlete_id = %s AND is_current = true
-            ORDER BY generated_at DESC
-            LIMIT 1
-            """,
-            (user_id,),
-        )
-        row = await result.fetchone()
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """
+                SELECT summary_text, snapshot_hash
+                FROM athlete_intelligence_briefs
+                WHERE athlete_id = %s AND is_current = true
+                ORDER BY generated_at DESC
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            row = await result.fetchone()
 
-    if not row:
+        if not row:
+            return AIBResponse(
+                user_id=user_id,
+                summary_text=None,
+                snapshot_hash=None,
+                is_fresh=False,
+                generated=False,
+            )
+
         return AIBResponse(
             user_id=user_id,
-            summary_text=None,
-            snapshot_hash=None,
-            is_fresh=False,
+            summary_text=row[0],
+            snapshot_hash=row[1],
+            is_fresh=True,
             generated=False,
         )
-
-    return AIBResponse(
-        user_id=user_id,
-        summary_text=row[0],
-        snapshot_hash=row[1],
-        is_fresh=True,
-        generated=False,
-    )
+    except Exception as e:
+        logger.error(f"GET AIB failed for {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"AIB read error: {str(e)}")
