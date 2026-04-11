@@ -6,8 +6,11 @@
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PlayerContext } from "./contextBuilder";
-import { resolveNavigation, resolveNavigationFromMessage } from "./deepNavigationEngine";
-import type { AppScreen } from "./deepNavigationEngine";
+// Deep navigation engine migrated to Python AI service — inline stubs for capsule compatibility
+type AppScreen = string;
+function resolveNavigation(opts: { screen: AppScreen; params?: any; highlight?: any }) {
+  return { type: "navigation", screen: opts.screen, params: opts.params ?? {}, highlight: opts.highlight ?? null };
+}
 import { logger } from "@/lib/logger";
 
 // ── Tool Definitions ──────────────────────────────────────────

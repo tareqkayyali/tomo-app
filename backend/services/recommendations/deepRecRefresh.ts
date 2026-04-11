@@ -23,9 +23,26 @@ import { REC_EXPIRY_HOURS } from './constants';
 import { getRecommendationConfig } from './recommendationConfig';
 import type { RecType, RecPriority, RecommendationInsert } from './types';
 import { withRetry } from '@/lib/aiRetry';
-import { retrieveKnowledgeChunks, type KnowledgeChunk } from './rag/ragRetriever';
 import { loadAthleteMemory } from '@/services/agents/longitudinalMemory';
-import { buildSportContextSegment, buildToneProfile } from '@/services/agents/orchestrator';
+import { buildSportContextSegment, buildToneProfile } from '@/services/ai/sportContext';
+
+// RAG retriever — graceful degradation if unavailable (migrated to Python LlamaIndex)
+type KnowledgeChunk = {
+  content: string;
+  chunk_id?: string;
+  title?: string;
+  evidence_grade?: string;
+  athlete_summary?: string;
+  primary_source?: string;
+  metadata?: Record<string, unknown>;
+};
+let retrieveKnowledgeChunks: ((query: string, sport?: string, limit?: number) => Promise<KnowledgeChunk[]>) | null = null;
+try {
+  const ragMod = require('./rag/ragRetriever');
+  retrieveKnowledgeChunks = ragMod.retrieveKnowledgeChunks;
+} catch {
+  // RAG module deleted in Phase 9 cleanup — knowledge retrieval now in Python
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -245,8 +262,9 @@ export async function deepRecRefresh(
       if (ctx.upcomingExams.length > 0) ragRecTypes.push('ACADEMIC');
       if (ragRecTypes.length === 0) ragRecTypes.push('DEVELOPMENT'); // default
 
-      // Retrieve chunks for the most relevant rec type
-      const chunks = await retrieveKnowledgeChunks({
+      // Retrieve chunks for the most relevant rec type (RAG migrated to Python)
+      if (!retrieveKnowledgeChunks) throw new Error('RAG module unavailable (migrated to Python)');
+      const chunks = await (retrieveKnowledgeChunks as any)({
         rec_type: ragRecTypes[0],
         phv_stage: (se?.phvStage as string) || 'POST',
         age_group: mapAgeBandToGroup(ctx.ageBand),
@@ -260,7 +278,7 @@ export async function deepRecRefresh(
       });
 
       if (chunks.length > 0) {
-        retrievedChunkIds = chunks.map(c => c.chunk_id);
+        retrievedChunkIds = chunks.map((c: KnowledgeChunk) => c.chunk_id);
         ragSection = formatRagSection(chunks);
         console.log(`[DeepRecRefresh] RAG: ${chunks.length} chunks retrieved for ${ragRecTypes[0]} (IDs: ${retrievedChunkIds.join(', ')})`);
       }

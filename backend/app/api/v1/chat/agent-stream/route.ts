@@ -1,14 +1,15 @@
 /**
  * POST /api/v1/chat/agent-stream
  *
- * Streaming version of /api/v1/chat/agent.
- * Returns Server-Sent Events (SSE) with status updates during tool execution
- * and the final structured response in the "done" event.
+ * Streaming chat endpoint — proxies all AI traffic to the Python AI service (tomo-ai).
+ * Capsule actions (direct tool execution, $0) still execute in TypeScript.
  *
  * Events:
  *   event: status  → { status: "Checking your readiness..." }
  *   event: done    → { message, structured, sessionId, refreshTargets, pendingConfirmation, context }
  *   event: error   → { error: "..." }
+ *
+ * Phase 9 cleanup: Removed TS orchestrator path. Python serves 100% of AI traffic.
  */
 
 import { NextRequest } from "next/server";
@@ -16,33 +17,19 @@ import { requireAuth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { logger } from "@/lib/logger";
 import { buildPlayerContext } from "@/services/agents/contextBuilder";
-import { orchestrate, CAPSULE_DIRECT_ACTIONS } from "@/services/agents/orchestrator";
 import { executeOutputTool } from "@/services/agents/outputAgent";
 import { executeTimelineTool } from "@/services/agents/timelineAgent";
 import { executeMasteryTool } from "@/services/agents/masteryAgent";
 import { executeSettingsTool } from "@/services/agents/settingsAgent";
-import type { CapsuleAction } from "@/services/agents/responseFormatter";
 import { preFlightCheck } from "@/services/agents/chatGuardrails";
 import {
-  getAIServiceMode,
-  shouldUsePythonService,
   proxyToAIServiceStream,
-  shadowProxyToAIService,
   type AIServiceRequest,
 } from "@/services/agents/aiServiceProxy";
 import {
   getOrCreateSession,
-  loadSessionHistory,
   saveMessage,
-  savePendingAction,
-  getPendingAction,
-  clearPendingAction,
-  getSessionState,
-  updateSessionState,
-  isAffirmation,
-  type ConversationState,
 } from "@/services/agents/sessionService";
-import { extractConversationState } from "@/services/agents/conversationStateExtractor";
 
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
@@ -83,60 +70,28 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        // ── Session management (mirrors /chat/agent exactly) ──
+        // ── Session management ──
         let sessionId: string | null = null;
-        let conversationHistory: { role: "user" | "assistant"; content: string }[] = [];
-        let lastAgentType: string | undefined;
-        let activeAgent: string | null = null;
-        let conversationState: ConversationState | null = null;
-
         try {
           const session = await getOrCreateSession(auth.user.id, body.sessionId);
           sessionId = session.id;
           await saveMessage(session.id, auth.user.id, "user", message);
-
-          const sessionState = await getSessionState(session.id);
-          activeAgent = sessionState.activeAgent;
-          conversationState = sessionState.conversationState;
-
-          // Server-side pending action detection
-          if (!body.confirmedAction && isAffirmation(message)) {
-            const pendingResult = await getPendingAction(session.id);
-            if (pendingResult.action) {
-              body.confirmedAction = {
-                toolName: pendingResult.action.toolName,
-                toolInput: pendingResult.action.toolInput,
-                agentType: pendingResult.action.agentType,
-                actions: pendingResult.action.actions,
-              };
-              await clearPendingAction(session.id);
-            }
-          }
-
-          const historyResult = await loadSessionHistory(session.id);
-          conversationHistory = historyResult.messages.slice(0, -1);
-          lastAgentType = historyResult.lastAgentType;
-
-          if (body.confirmedAction) {
-            await clearPendingAction(session.id);
-          }
         } catch (sessionErr) {
           logger.warn("[agent-stream] Session management unavailable", { error: sessionErr instanceof Error ? sessionErr.message : String(sessionErr) });
         }
 
-        // ── Build player context ──
-        send("status", { status: "Loading your profile..." });
-        const context = await buildPlayerContext(
-          auth.user.id,
-          body.activeTab ?? "Chat",
-          message,
-          body.timezone
-        );
-
-        // ── Handle capsule submissions ──
+        // ── Handle capsule actions ($0, deterministic) ──
         if (body.capsuleAction) {
           send("status", { status: "Processing..." });
-          const ca = body.capsuleAction as CapsuleAction;
+          const ca = body.capsuleAction;
+
+          const context = await buildPlayerContext(
+            auth.user.id,
+            body.activeTab ?? "Chat",
+            message,
+            body.timezone
+          );
+
           const executors: Record<string, typeof executeOutputTool> = {
             output: executeOutputTool,
             timeline: executeTimelineTool,
@@ -147,22 +102,33 @@ export async function POST(req: NextRequest) {
           if (executor) {
             const toolResult = await executor(ca.toolName, ca.toolInput, context);
             const refreshTargets = toolResult.refreshTarget ? [toolResult.refreshTarget] : [];
+            const friendlyName = ca.toolName.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
             const resultMsg = toolResult.error
-              ? `Error: ${toolResult.error}`
-              : `Done! ${ca.toolName.replace(/_/g, " ")} completed.`;
+              ? `❌ ${toolResult.error}`
+              : `✅ ${friendlyName} — done!`;
 
             if (sessionId) {
               await saveMessage(sessionId, auth.user.id, "assistant", resultMsg).catch(() => {});
             }
 
-            send("done", { message: resultMsg, structured: null, sessionId, refreshTargets, pendingConfirmation: null });
+            send("done", {
+              message: resultMsg,
+              structured: null,
+              sessionId,
+              refreshTargets,
+              pendingConfirmation: null,
+              context: {
+                ageBand: context.ageBand,
+                readinessScore: context.readinessScore,
+                activeTab: context.activeTab,
+              },
+            });
             controller.close();
             return;
           }
         }
 
-        // ── AI Service proxy check ──
-        const aiServiceMode = getAIServiceMode();
+        // ── Python AI service — all non-capsule traffic ──
         const aiRequest: AIServiceRequest = {
           message,
           session_id: sessionId,
@@ -172,91 +138,11 @@ export async function POST(req: NextRequest) {
           confirmed_action: body.confirmedAction ?? null,
         };
 
-        if (aiServiceMode === "true" && shouldUsePythonService()) {
-          // Full proxy: Python AI service handles orchestration
-          // Percentage-based: AI_SERVICE_PERCENTAGE controls rollout (default 100%)
-          send("status", { status: "Thinking..." });
-
-          for await (const sse of proxyToAIServiceStream(aiRequest, (s) => send("status", { status: s }))) {
-            send(sse.event, sse.data);
-          }
-
-          controller.close();
-          return;
-        }
-
-        if (aiServiceMode === "shadow" || aiServiceMode === "true") {
-          // Shadow: fire-and-forget to Python, TS serves response
-          // Also fires for "true" mode when percentage check falls to TS path
-          shadowProxyToAIService(aiRequest);
-        }
-
-        // ── Orchestrate with streaming callbacks (TypeScript path) ──
         send("status", { status: "Thinking..." });
-        const result = await orchestrate(
-          message,
-          context,
-          body.confirmedAction,
-          conversationHistory,
-          lastAgentType,
-          activeAgent,
-          conversationState,
-          {
-            onStatus: (status) => send("status", { status }),
-          }
-        );
 
-        // ── Save response + update session state ──
-        if (sessionId) {
-          try {
-            await saveMessage(sessionId, auth.user.id, "assistant", result.message, {
-              structured: result.structured ?? null,
-              agent: result.agentType ?? null,
-            });
-
-            if (result.pendingConfirmation) {
-              await savePendingAction(sessionId, {
-                toolName: result.pendingConfirmation.toolName,
-                toolInput: result.pendingConfirmation.toolInput,
-                agentType: result.pendingConfirmation.agentType,
-                preview: result.pendingConfirmation.preview,
-                actions: result.pendingConfirmation.actions ?? undefined,
-              });
-            }
-
-            const newConversationState = extractConversationState(
-              message,
-              result.message,
-              conversationState,
-              context.todayDate,
-              context.timezone,
-              result.structured
-            );
-
-            await updateSessionState(sessionId, {
-              activeAgent: result.agentType ?? activeAgent,
-              conversationState: newConversationState,
-            });
-          } catch (saveErr) {
-            logger.warn("[agent-stream] Save failed", { error: saveErr instanceof Error ? saveErr.message : String(saveErr) });
-          }
+        for await (const sse of proxyToAIServiceStream(aiRequest, (s) => send("status", { status: s }))) {
+          send(sse.event, sse.data);
         }
-
-        // ── Send final result ──
-        const debugMode = req.headers.get("x-tomo-debug") === "true";
-        send("done", {
-          message: result.message,
-          structured: result.structured ?? null,
-          sessionId,
-          refreshTargets: result.refreshTargets,
-          pendingConfirmation: result.pendingConfirmation ?? null,
-          context: {
-            ageBand: context.ageBand,
-            readinessScore: context.readinessScore,
-            activeTab: context.activeTab,
-          },
-          ...(debugMode && result._eval ? { _eval: result._eval } : {}),
-        });
 
         controller.close();
       } catch (err) {
@@ -272,7 +158,7 @@ export async function POST(req: NextRequest) {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
       "api-version": "v1",
     },
   });

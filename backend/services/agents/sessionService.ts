@@ -7,7 +7,8 @@
  */
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { TomoResponse } from "./responseFormatter";
+// TomoResponse type — inlined after responseFormatter.ts was migrated to Python
+type TomoResponse = { cards: Array<{ type: string; [key: string]: any }>; [key: string]: any };
 
 // chat_sessions and chat_messages aren't in generated DB types yet.
 // Use untyped client until `npx supabase gen types` is re-run after migration.

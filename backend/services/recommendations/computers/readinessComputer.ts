@@ -22,8 +22,9 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getPlayerPHVStage } from '@/services/programs/phvCalculator';
 import { supersedeExisting } from '../supersedeExisting';
 import { REC_EXPIRY_HOURS, READINESS_STALE_HOURS } from '../constants';
-import { retrieveKnowledgeChunks } from '../rag/ragRetriever';
-import { generateAugmentedContent } from '../rag/ragGenerator';
+// RAG migrated to Python LlamaIndex — graceful stubs (always return empty, fallback to static content)
+const retrieveKnowledgeChunks = async (..._args: any[]): Promise<any[]> => [];
+const generateAugmentedContent = async (..._args: any[]): Promise<{ body_short: string; body_long: string }> => ({ body_short: '', body_long: '' });
 import type { AthleteEvent } from '../../events/types';
 import type { RecPriority, RecommendationInsert } from '../types';
 
