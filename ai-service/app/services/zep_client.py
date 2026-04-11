@@ -6,15 +6,15 @@ Uses httpx instead of zep-python SDK to avoid version compatibility issues
 between Zep CE and Zep Cloud SDKs. Full control, no dependency drift.
 
 Zep CE API reference:
-  POST   /api/v1/users                      — Create user
-  GET    /api/v1/users/{user_id}             — Get user
+  POST   /api/v1/user                      — Create user
+  GET    /api/v1/user/{user_id}             — Get user
   POST   /api/v1/sessions                    — Create session
   GET    /api/v1/sessions/{session_id}       — Get session
   DELETE /api/v1/sessions/{session_id}       — Delete session
   POST   /api/v1/sessions/{session_id}/memory — Add memory (messages)
   GET    /api/v1/sessions/{session_id}/memory — Get memory (with facts)
   POST   /api/v1/sessions/{session_id}/search — Search memory
-  GET    /api/v1/users/{user_id}/sessions    — List user sessions
+  GET    /api/v1/user/{user_id}/sessions    — List user sessions
 """
 
 from __future__ import annotations
@@ -141,7 +141,7 @@ class ZepClient:
             client = await self._get_client()
 
             # Check if user exists
-            resp = await client.get(f"/api/v1/users/{user_id}")
+            resp = await client.get(f"/api/v1/user/{user_id}")
             if resp.status_code == 200:
                 return False
 
@@ -149,7 +149,7 @@ class ZepClient:
             payload: dict[str, Any] = {"user_id": user_id}
             if metadata:
                 payload["metadata"] = metadata
-            resp = await client.post("/api/v1/users", json=payload)
+            resp = await client.post("/api/v1/user", json=payload)
             resp.raise_for_status()
             logger.info(f"Zep user created: {user_id}")
             return True
@@ -195,7 +195,7 @@ class ZepClient:
         try:
             client = await self._get_client()
             resp = await client.get(
-                f"/api/v1/users/{user_id}/sessions",
+                f"/api/v1/user/{user_id}/sessions",
                 params={"limit": limit},
             )
             if resp.status_code == 200:
