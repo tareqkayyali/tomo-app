@@ -97,7 +97,7 @@ async def _cohere_rerank(query: str, documents: list[str]) -> list[float]:
     try:
         co = _get_cohere()
         response = co.rerank(
-            model="rerank-english-v3.0",
+            model="rerank-english-v3.5",
             query=query,
             documents=documents,
             top_n=len(documents),  # Score all documents

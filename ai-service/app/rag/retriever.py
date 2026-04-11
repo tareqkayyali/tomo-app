@@ -1,13 +1,14 @@
 """
 Tomo AI Service — Hybrid Retriever
-Combines 4 retrieval signals for maximum recall + precision:
+Combines 5 retrieval signals for maximum recall + precision:
 
   1. Vector search on knowledge entities (Voyage AI embeddings)
   2. Vector search on knowledge chunks (existing rag_knowledge_chunks)
   3. Full-text search on entities (PostgreSQL tsvector)
-  4. Graph traversal from top-scoring entities
+  4. BM25-style text search on knowledge chunks (ts_rank_cd)
+  5. Graph traversal from top-scoring entities (1-hop + 2-hop for conditions)
 
-Then feeds all results through the 2-stage reranker (Cohere + state-aware).
+Then feeds all results through the 2-stage reranker (Cohere v3.5 + state-aware).
 
 For complex queries, uses SubQuestionEngine to decompose into sub-questions,
 retrieves for each, and merges before reranking.
@@ -23,6 +24,7 @@ from typing import Optional
 from app.models.context import PlayerContext
 from app.rag.embedder import embed_query
 from app.rag.graph_store import (
+    search_chunks_by_text,
     search_chunks_by_vector,
     search_entities_by_text,
     search_entities_by_vector,
@@ -145,7 +147,7 @@ async def _retrieve_single(
         if context.age_band:
             age_groups = [context.age_band.upper()]
 
-    # Run 3 search strategies in parallel
+    # Run 4 search strategies in parallel (5th signal: BM25 chunk text search)
     vector_entities_task = search_entities_by_vector(
         embedding, entity_types=entity_types, limit=8, threshold=0.55
     )
@@ -159,11 +161,18 @@ async def _retrieve_single(
     text_search_task = search_entities_by_text(
         query, entity_types=entity_types, limit=5
     )
+    chunk_text_task = search_chunks_by_text(
+        query,
+        phv_stages=phv_stages,
+        age_groups=age_groups,
+        limit=4,
+    )
 
-    vector_entities, chunks, text_entities = await asyncio.gather(
+    vector_entities, chunks, text_entities, text_chunks = await asyncio.gather(
         vector_entities_task,
         chunk_vector_task,
         text_search_task,
+        chunk_text_task,
         return_exceptions=True,
     )
 
@@ -189,7 +198,7 @@ async def _retrieve_single(
                 text_for_rerank=f"{chunk.title}: {chunk.content[:300]}",
             ))
 
-    # Process text search results
+    # Process text search results (entities)
     if isinstance(text_entities, list):
         for ent in text_entities:
             results.append(RetrievalResult(
@@ -197,6 +206,16 @@ async def _retrieve_single(
                 entity=ent,
                 score=ent.similarity or 0.0,
                 text_for_rerank=f"{ent.display_name}: {ent.description}",
+            ))
+
+    # Process BM25 text search results (chunks) — 5th signal
+    if isinstance(text_chunks, list):
+        for chunk in text_chunks:
+            results.append(RetrievalResult(
+                source="chunk_text",
+                chunk=chunk,
+                score=chunk.similarity,
+                text_for_rerank=f"{chunk.title}: {chunk.content[:300]}",
             ))
 
     # Graph traversal from top 3 vector entities

@@ -302,6 +302,49 @@ async def search_chunks_by_vector(
     ]
 
 
+async def search_chunks_by_text(
+    query: str,
+    rec_types: list[str] = None,
+    phv_stages: list[str] = None,
+    age_groups: list[str] = None,
+    limit: int = 5,
+) -> list[ChunkResult]:
+    """
+    BM25-style text search on rag_knowledge_chunks via PostgreSQL tsvector.
+    Uses ts_rank_cd with normalization=32 (length normalization) to approximate BM25.
+
+    Requires migration 043 (search_vector column + match_knowledge_chunks_text RPC).
+    Graceful fallback: returns empty list if tsvector column doesn't exist yet.
+    """
+    pool = get_pool()
+
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                "SELECT * FROM match_knowledge_chunks_text(%s, %s, %s, %s, %s)",
+                (query, rec_types, phv_stages, age_groups, limit),
+            )
+            rows = await result.fetchall()
+            cols = [desc.name for desc in result.description]
+
+        return [
+            ChunkResult(
+                chunk_id=str(row[cols.index("chunk_id")]),
+                domain=row[cols.index("domain")],
+                title=row[cols.index("title")],
+                content=row[cols.index("content")],
+                athlete_summary=row[cols.index("athlete_summary")],
+                evidence_grade=row[cols.index("evidence_grade")],
+                similarity=float(row[cols.index("rank")]),
+            )
+            for row in rows
+        ]
+    except Exception as e:
+        # Graceful fallback if migration 043 hasn't been applied yet
+        logger.warning(f"Chunk text search unavailable (migration 043 pending?): {e}")
+        return []
+
+
 # ── Graph Traversal ───────────────────────────────────────────────────────────
 
 async def traverse_from_entity(
