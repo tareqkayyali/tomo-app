@@ -37,8 +37,6 @@ import logging
 from typing import Literal
 
 from langgraph.graph import StateGraph, END
-from langsmith import traceable
-from langsmith.run_helpers import get_current_run_tree
 
 from app.models.state import TomoChatState
 from app.graph.nodes.context_assembly import context_assembly_node
@@ -322,7 +320,6 @@ def _build_post_execution_metadata(result: dict) -> tuple[dict, list[str]]:
     return metadata, tags
 
 
-@traceable(name="tomo_chat_turn", run_type="chain")
 async def run_supervisor(
     user_id: str,
     session_id: str,
@@ -386,7 +383,8 @@ async def run_supervisor(
         input_state["pending_write_action"] = confirmed_action
         input_state["write_confirmed"] = True
 
-    # Pre-execution metadata (known before graph runs)
+    # Pre-execution metadata attached to the LangSmith trace via config
+    # (auto-tracer reads this and includes it on the root run)
     pre_metadata = {
         "user_id": user_id,
         "session_id": session_id,
@@ -406,19 +404,17 @@ async def run_supervisor(
     try:
         result = await graph.ainvoke(input_state, config=config)
 
-        # ── Post-execution: attach rich metadata to LangSmith trace ──
+        # ── Post-execution: compute observability summary ──
+        # The auto-tracer captures this in the output state, making it
+        # visible and searchable in LangSmith trace details.
         try:
-            rt = get_current_run_tree()
-            if rt:
-                post_metadata, post_tags = _build_post_execution_metadata(result)
-                rt.metadata = {**rt.metadata, **pre_metadata, **post_metadata}
-                rt.tags = list(set((rt.tags or []) + post_tags))
-                logger.debug(
-                    f"LangSmith trace enriched: "
-                    f"tags={len(post_tags)} metadata_keys={len(post_metadata)}"
-                )
+            post_metadata, post_tags = _build_post_execution_metadata(result)
+            result["_observability"] = {
+                "metadata": post_metadata,
+                "tags": post_tags,
+            }
         except Exception as e:
-            logger.warning(f"LangSmith trace enrichment failed (non-blocking): {e}")
+            logger.warning(f"Observability enrichment failed (non-blocking): {e}")
 
         return result
     except Exception as e:
