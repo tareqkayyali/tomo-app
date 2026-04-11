@@ -17,6 +17,7 @@ import time
 from typing import Optional
 
 from app.models.state import TomoChatState
+from app.graph.observability import build_post_execution_metadata
 
 logger = logging.getLogger("tomo-ai.persist")
 
@@ -122,4 +123,12 @@ async def persist_node(state: TomoChatState) -> dict:
     except Exception as e:
         logger.debug(f"Zep memory save skipped: {e}")
 
-    return {}
+    # ── Compute observability metadata for LangSmith trace capture ──
+    # persist_node is the last node before END, so the auto-tracer
+    # captures this in the graph output — no PATCH/update_run needed.
+    try:
+        post_metadata, post_tags = build_post_execution_metadata(state)
+        return {"_observability": {"metadata": post_metadata, "tags": post_tags}}
+    except Exception as e:
+        logger.warning(f"Observability enrichment failed (non-blocking): {e}")
+        return {}

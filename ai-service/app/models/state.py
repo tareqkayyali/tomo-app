@@ -82,3 +82,6 @@ class TomoChatState(MessagesState):
     # ── Write actions (for interrupt/resume) ──
     pending_write_action: Optional[dict[str, Any]]
     write_confirmed: bool
+
+    # ── Observability (computed by persist_node for LangSmith) ──
+    _observability: Optional[dict[str, Any]]
