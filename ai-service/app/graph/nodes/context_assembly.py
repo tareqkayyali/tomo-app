@@ -386,6 +386,47 @@ async def _fetch_aib(pool, user_id: str) -> Optional[str]:
         return row[0] if row else None
 
 
+async def _fetch_wearable_status(pool, user_id: str) -> Optional[dict]:
+    """Fetch WHOOP connection status from wearable_connections (single source of truth)."""
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """
+                SELECT sync_status, last_sync_at, sync_error
+                FROM wearable_connections
+                WHERE user_id = %s AND provider = 'whoop'
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            row = await result.fetchone()
+            if not row:
+                return None
+
+            sync_status = row[0]
+            last_sync_at = row[1]
+            sync_error = row[2]
+
+            connected = sync_status != "auth_required"
+            hours_since_sync = None
+            if last_sync_at:
+                from datetime import timezone as tz
+                diff = datetime.now(tz.utc) - last_sync_at.replace(tzinfo=tz.utc) if last_sync_at.tzinfo is None else datetime.now(tz.utc) - last_sync_at
+                hours_since_sync = round(diff.total_seconds() / 3600, 1)
+
+            return {
+                "connected": connected,
+                "data_fresh": hours_since_sync is not None and hours_since_sync <= 48,
+                "sync_status": sync_status,
+                "last_sync_at": str(last_sync_at) if last_sync_at else None,
+                "hours_since_sync": hours_since_sync,
+                "sync_error": sync_error,
+            }
+    except Exception as e:
+        logger.warning(f"Wearable status query failed (table may not exist): {e}")
+        return None
+
+
 # ── Snapshot → SnapshotEnrichment mapping ────────────────────────────
 
 def _safe_float(val, default=None) -> float | None:
@@ -658,6 +699,7 @@ async def build_player_context(
         _fetch_upcoming_events(pool, user_id, day_end, in_7_days_end),   # 10
         _fetch_recommendations(user_id),                            # 11
         _fetch_aib(pool, user_id),                                  # 12
+        _fetch_wearable_status(pool, user_id),                      # 13
         return_exceptions=True,
     )
 
@@ -682,6 +724,7 @@ async def build_player_context(
     upcoming_events_raw = safe_get(10, [])
     recs_raw = safe_get(11, [])
     aib_text = safe_get(12)
+    wearable_status_raw = safe_get(13)
 
     # ── Merge test results (phone + football, deduplicated) ──
     merged = {}
@@ -865,6 +908,7 @@ async def build_player_context(
         snapshot_enrichment=snapshot_enrichment,
         active_recommendations=active_recommendations,
         planning_context=planning_context,
+        wearable_status={"whoop": wearable_status_raw} if wearable_status_raw else None,
     )
 
 

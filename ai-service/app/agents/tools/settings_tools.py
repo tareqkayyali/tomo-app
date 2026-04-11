@@ -233,7 +233,7 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         try:
             async with pool.connection() as conn:
                 result = await conn.execute(
-                    """SELECT provider, status, last_sync_at::text, token_expires_at::text
+                    """SELECT provider, sync_status, last_sync_at::text, token_expires_at::text, sync_error
                        FROM wearable_connections
                        WHERE user_id = %s""",
                     (user_id,),
@@ -243,13 +243,28 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
             logger.warning(f"get_wearable_status query failed (table may not exist): {e}")
             return {"connections": [], "total": 0}
 
-        connections = [
-            {
-                "provider": row[0], "status": row[1],
-                "last_sync": row[2], "expires": row[3],
-            }
-            for row in rows
-        ]
+        connections = []
+        for row in rows:
+            sync_status = row[1]
+            last_sync = row[2]
+            connected = sync_status != "auth_required"
+            hours_since = None
+            if last_sync:
+                try:
+                    from datetime import datetime as dt, timezone as tz
+                    sync_dt = dt.fromisoformat(last_sync.replace("Z", "+00:00"))
+                    hours_since = round((dt.now(tz.utc) - sync_dt).total_seconds() / 3600, 1)
+                except Exception:
+                    pass
+            connections.append({
+                "provider": row[0],
+                "status": "connected" if connected else "disconnected",
+                "sync_status": sync_status,
+                "last_sync": last_sync,
+                "hours_since_sync": hours_since,
+                "data_fresh": hours_since is not None and hours_since <= 48,
+                "sync_error": row[4],
+            })
 
         return {"connections": connections, "total": len(connections)}
 

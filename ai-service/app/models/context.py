@@ -264,3 +264,6 @@ class PlayerContext(BaseModel):
 
     # Planning IP Context
     planning_context: Optional[PlanningContext] = None
+
+    # Wearable integration status (authoritative source for WHOOP)
+    wearable_status: Optional[dict] = None  # {"whoop": {"connected": bool, "data_fresh": bool, ...}}

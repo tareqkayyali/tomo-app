@@ -420,6 +420,30 @@ SNAPSHOT DATA:
     return "\n".join(parts)
 
 
+def build_wearable_status_block(ctx: PlayerContext) -> str:
+    """Block 2.11: Authoritative WHOOP connection status."""
+    ws = ctx.wearable_status
+    if not ws or "whoop" not in ws:
+        return "WHOOP STATUS: Not connected. No wearable integration detected."
+
+    whoop = ws["whoop"]
+    if not whoop:
+        return "WHOOP STATUS: Not connected. No wearable integration detected."
+
+    connected = whoop.get("connected", False)
+    data_fresh = whoop.get("data_fresh", False)
+    hours = whoop.get("hours_since_sync")
+    sync_error = whoop.get("sync_error")
+
+    if connected and data_fresh:
+        return f"WHOOP STATUS: Connected and syncing. Last sync: {hours}h ago. Data is FRESH. Use health_data for accurate vitals."
+    elif connected and not data_fresh:
+        return f"WHOOP STATUS: Connected but data is STALE (last sync: {hours}h ago). Recommend syncing now."
+    else:
+        err = f" Error: {sync_error}" if sync_error else ""
+        return f"WHOOP STATUS: Not connected. No active WHOOP integration.{err}"
+
+
 def build_aib_block(aib_summary: Optional[str]) -> str:
     """Block 2.10: Athlete Intelligence Brief (pre-synthesized by Haiku)."""
     if not aib_summary:
@@ -473,6 +497,7 @@ def build_system_prompt(
         build_temporal_block(context),
         build_schedule_rule_block(context),
         build_recs_block(context),
+        build_wearable_status_block(context),
     ]
 
     # Conversation context (if provided)
