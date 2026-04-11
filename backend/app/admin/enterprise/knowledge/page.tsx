@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { BulkImportExport } from "@/components/admin/enterprise/BulkImportExport";
 
 /**
  * Enterprise Knowledge Operations
@@ -89,11 +90,17 @@ export default function KnowledgePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Knowledge Operations</h1>
-        <p className="text-muted-foreground">
-          Manage sports science knowledge chunks and knowledge graph entities
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Knowledge Operations</h1>
+          <p className="text-muted-foreground">
+            Manage sports science knowledge chunks and knowledge graph entities
+          </p>
+        </div>
+        <BulkImportExport
+          resourceType="knowledge"
+          onImportComplete={fetchKnowledge}
+        />
       </div>
 
       {/* Summary cards */}

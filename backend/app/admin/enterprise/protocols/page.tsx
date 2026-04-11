@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { BulkImportExport } from "@/components/admin/enterprise/BulkImportExport";
 
 /**
  * Enterprise Protocol Management
@@ -87,12 +88,18 @@ export default function ProtocolsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Protocol Hierarchy</h1>
-        <p className="text-muted-foreground">
-          Protocols resolved through the tenant hierarchy. Mandatory protocols
-          cannot be overridden.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Protocol Hierarchy</h1>
+          <p className="text-muted-foreground">
+            Protocols resolved through the tenant hierarchy. Mandatory protocols
+            cannot be overridden.
+          </p>
+        </div>
+        <BulkImportExport
+          resourceType="protocols"
+          onImportComplete={fetchProtocols}
+        />
       </div>
 
       {/* Category filter */}

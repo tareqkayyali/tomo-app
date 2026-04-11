@@ -54,6 +54,7 @@ const navigation: NavGroup[] = [
     minRole: "super_admin",
     items: [
       { name: "Organizations", href: "/admin/enterprise/organizations" },
+      { name: "Onboarding", href: "/admin/enterprise/onboarding" },
     ],
   },
   {
@@ -61,6 +62,7 @@ const navigation: NavGroup[] = [
     minRole: "institutional_pd",
     items: [
       { name: "Knowledge Base", href: "/admin/enterprise/knowledge" },
+      { name: "Knowledge Editor", href: "/admin/enterprise/knowledge/editor" },
       { name: "Knowledge Graph", href: "/admin/enterprise/knowledge/graph" },
     ],
   },
@@ -69,6 +71,7 @@ const navigation: NavGroup[] = [
     minRole: "institutional_pd",
     items: [
       { name: "Protocols", href: "/admin/enterprise/protocols" },
+      { name: "Protocol Builder", href: "/admin/enterprise/protocols/builder" },
       { name: "Protocol Inheritance", href: "/admin/enterprise/protocols/inheritance" },
       { name: "Protocol Simulator", href: "/admin/enterprise/protocols/test" },
     ],
