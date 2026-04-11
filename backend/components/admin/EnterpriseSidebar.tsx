@@ -123,8 +123,8 @@ const navigation: NavGroup[] = [
     label: "Notifications",
     minRole: "institutional_pd",
     items: [
-      { name: "Templates", href: "/admin/notification-templates" },
-      { name: "Scheduled Jobs", href: "/admin/notification-scheduled" },
+      { name: "Templates", href: "/admin/notifications/templates" },
+      { name: "Scheduled Jobs", href: "/admin/notifications/scheduled" },
     ],
   },
   {

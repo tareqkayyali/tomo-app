@@ -27,9 +27,10 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const errorParam = searchParams.get("error");
   const [error, setError] = useState(
-    searchParams.get("error") === "unauthorized"
-      ? "You do not have admin access."
+    errorParam === "unauthorized" || errorParam === "no_cms_access"
+      ? "You do not have CMS access. Contact your administrator."
       : ""
   );
   const [loading, setLoading] = useState(false);
@@ -64,7 +65,7 @@ function LoginForm() {
       return;
     }
 
-    router.push("/admin");
+    router.push("/admin/enterprise");
     router.refresh();
   }
 
