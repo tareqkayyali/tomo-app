@@ -199,11 +199,12 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, entry_type, title, organization, start_date::text,
-                          end_date::text, description, achievements
-                   FROM athlete_career_history
-                   WHERE user_id = %s
-                   ORDER BY start_date DESC""",
+                """SELECT id, entry_type, club_name, league_level, country,
+                          position, started_month, ended_month, is_current,
+                          appearances, goals, assists, achievements
+                   FROM cv_career_entries
+                   WHERE athlete_id = %s
+                   ORDER BY display_order, started_month DESC""",
                 (user_id,),
             )
             rows = await result.fetchall()
@@ -212,12 +213,17 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
             {
                 "id": row[0],
                 "type": row[1],
-                "title": row[2],
-                "organization": row[3],
-                "start_date": row[4],
-                "end_date": row[5],
-                "description": row[6],
-                "achievements": row[7],
+                "club": row[2],
+                "league_level": row[3],
+                "country": row[4],
+                "position": row[5],
+                "start": row[6],
+                "end": row[7],
+                "is_current": bool(row[8]),
+                "appearances": row[9],
+                "goals": row[10],
+                "assists": row[11],
+                "achievements": row[12],
             }
             for row in rows
         ]

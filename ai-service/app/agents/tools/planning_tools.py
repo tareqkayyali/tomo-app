@@ -138,11 +138,12 @@ def make_planning_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT date::text, title, event_type, intensity, start_time::text, end_time::text
+                """SELECT start_at::date::text, title, event_type, intensity,
+                          start_at::text, end_at::text
                    FROM calendar_events
-                   WHERE user_id = %s AND date >= %s::date AND date <= %s::date
-                     AND is_deleted = false
-                   ORDER BY date, start_time""",
+                   WHERE user_id = %s AND start_at::date >= %s::date
+                     AND start_at::date <= %s::date
+                   ORDER BY start_at""",
                 (user_id, today, end),
             )
             rows = await result.fetchall()

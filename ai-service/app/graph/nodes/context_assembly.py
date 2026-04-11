@@ -105,8 +105,7 @@ async def _fetch_profile(pool, user_id: str) -> Optional[dict]:
     async with pool.connection() as conn:
         result = await conn.execute(
             """
-            SELECT name, sport, age, role, current_streak, longest_streak,
-                   position, gender, height_cm, weight_kg
+            SELECT name, sport, age, role, current_streak, longest_streak
             FROM users
             WHERE id = %s
             """,

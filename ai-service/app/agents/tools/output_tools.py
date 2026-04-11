@@ -265,15 +265,16 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, name, category, equipment, duration_seconds, intensity,
-                          description, primary_attribute, sport
-                   FROM drills
-                   WHERE (sport = %s OR sport = 'all')
-                     AND (intensity = %s OR intensity = 'ANY')
+                """SELECT id, name, category, duration_minutes, intensity,
+                          description, attribute_keys, sport_id
+                   FROM training_drills
+                   WHERE (sport_id = %s OR sport_id = 'all')
+                     AND (intensity = %s OR intensity = 'light')
                      AND category ILIKE %s
+                     AND active = true
                    ORDER BY RANDOM()
                    LIMIT 8""",
-                (sport, intensity, f"%{category}%"),
+                (sport, intensity.lower(), f"%{category}%"),
             )
             rows = await result.fetchall()
 
@@ -282,11 +283,10 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                 "drill_id": row[0],
                 "name": row[1],
                 "category": row[2],
-                "equipment": row[3],
-                "duration_min": max(1, (row[4] or 300) // 60),
-                "intensity": row[5] or intensity,
-                "description": row[6],
-                "primary_attribute": row[7],
+                "duration_min": row[3] or 15,
+                "intensity": row[4] or intensity,
+                "description": row[5],
+                "primary_attribute": (row[6] or [None])[0] if row[6] else None,
             }
             for row in rows
         ]
@@ -309,10 +309,10 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, name, category, equipment, duration_seconds, intensity,
-                          description, instructions, primary_attribute, sport,
-                          progressions, media_url
-                   FROM drills WHERE id = %s""",
+                """SELECT id, name, category, duration_minutes, intensity,
+                          description, instructions, attribute_keys, sport_id,
+                          video_url
+                   FROM training_drills WHERE id = %s""",
                 (drill_id,),
             )
             row = await result.fetchone()
@@ -324,15 +324,13 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             "drill_id": row[0],
             "name": row[1],
             "category": row[2],
-            "equipment": row[3],
-            "duration_min": max(1, (row[4] or 300) // 60),
-            "intensity": row[5],
-            "description": row[6],
-            "instructions": row[7],
-            "primary_attribute": row[8],
-            "sport": row[9],
-            "progressions": row[10],
-            "media_url": row[11],
+            "duration_min": row[3] or 15,
+            "intensity": row[4],
+            "description": row[5],
+            "instructions": row[6],
+            "primary_attribute": (row[7] or [None])[0] if row[7] else None,
+            "sport": row[8],
+            "media_url": row[9],
         }
 
     @tool
@@ -344,75 +342,49 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         target_age = age_band or context.age_band or "U19"
         target_position = context.position or "ALL"
 
-        # Get athlete's latest scores from both test tables
+        # Read pre-computed benchmarks from player_benchmark_snapshots
+        # (populated by TS backend whenever tests are logged)
         async with pool.connection() as conn:
             if metric:
-                test_result = await conn.execute(
-                    """SELECT test_type, score, date::text
-                       FROM phone_test_sessions
-                       WHERE user_id = %s AND test_type = %s
-                       ORDER BY date DESC LIMIT 1""",
+                bench_result = await conn.execute(
+                    """SELECT DISTINCT ON (metric_key) metric_key, metric_label, value,
+                              percentile, zone, age_band_used, position_used,
+                              tested_at::text
+                       FROM player_benchmark_snapshots
+                       WHERE user_id = %s AND metric_key = %s
+                       ORDER BY metric_key, tested_at DESC""",
                     (user_id, metric),
                 )
             else:
-                test_result = await conn.execute(
-                    """SELECT DISTINCT ON (test_type) test_type, score, date::text
-                       FROM phone_test_sessions
+                bench_result = await conn.execute(
+                    """SELECT DISTINCT ON (metric_key) metric_key, metric_label, value,
+                              percentile, zone, age_band_used, position_used,
+                              tested_at::text
+                       FROM player_benchmark_snapshots
                        WHERE user_id = %s
-                       ORDER BY test_type, date DESC""",
+                       ORDER BY metric_key, tested_at DESC""",
                     (user_id,),
                 )
-            test_rows = await test_result.fetchall()
-
-            # Get normative data
-            norm_result = await conn.execute(
-                """SELECT metric_key, age_band, position, p25, p50, p75, p90, unit
-                   FROM sport_normative_data
-                   WHERE age_band = %s AND (position = %s OR position = 'ALL')""",
-                (target_age, target_position),
-            )
-            norm_rows = await norm_result.fetchall()
-
-        norms = {}
-        for row in norm_rows:
-            norms[row[0]] = {
-                "p25": _safe_float(row[3]),
-                "p50": _safe_float(row[4]),
-                "p75": _safe_float(row[5]),
-                "p90": _safe_float(row[6]),
-                "unit": row[7],
-            }
+            bench_rows = await bench_result.fetchall()
 
         comparisons = []
-        for row in test_rows:
-            test_type = row[0]
-            score = _safe_float(row[1])
-            norm = norms.get(test_type, {})
-            percentile = None
-            if norm and score:
-                if score >= (norm.get("p90") or 999):
-                    percentile = 90
-                elif score >= (norm.get("p75") or 999):
-                    percentile = 75
-                elif score >= (norm.get("p50") or 999):
-                    percentile = 50
-                elif score >= (norm.get("p25") or 999):
-                    percentile = 25
-                else:
-                    percentile = 10
-
+        for row in bench_rows:
             comparisons.append({
-                "test_type": test_type,
-                "score": score,
-                "date": row[2],
-                "percentile": percentile,
-                "normative": norm,
+                "test_type": row[0],
+                "label": row[1],
+                "score": _safe_float(row[2]),
+                "percentile": int(row[3]) if row[3] is not None else None,
+                "zone": row[4],
+                "age_band": row[5],
+                "position": row[6],
+                "date": row[7],
             })
 
         return {
             "age_band": target_age,
             "position": target_position,
             "comparisons": comparisons,
+            "total": len(comparisons),
         }
 
     @tool
@@ -606,11 +578,10 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, test_name, test_key, category, unit, description,
-                          instructions, sport, equipment_needed
+                """SELECT id, name, test_id, description,
+                          primary_metric_name, sport_id, inputs, attribute_keys
                    FROM sport_test_definitions
-                   WHERE is_active = true
-                   ORDER BY category, test_name""",
+                   ORDER BY sort_order, name""",
             )
             rows = await result.fetchall()
 
@@ -619,12 +590,11 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                 "id": row[0],
                 "name": row[1],
                 "key": row[2],
-                "category": row[3],
-                "unit": row[4],
-                "description": row[5],
-                "instructions": row[6],
-                "sport": row[7],
-                "equipment": row[8],
+                "description": row[3],
+                "primary_metric": row[4],
+                "sport": row[5],
+                "inputs": row[6],
+                "attributes": row[7],
             }
             for row in rows
         ]

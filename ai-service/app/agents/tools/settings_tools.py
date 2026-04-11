@@ -37,16 +37,20 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         from app.db.supabase import get_pool
         pool = get_pool()
 
-        async with pool.connection() as conn:
-            result = await conn.execute(
-                """SELECT id, title, description, category, target_value, current_value,
-                          unit, deadline::text, status, created_at::date::text
-                   FROM athlete_goals
-                   WHERE user_id = %s AND status IN ('active', 'in_progress')
-                   ORDER BY deadline ASC NULLS LAST""",
-                (user_id,),
-            )
-            rows = await result.fetchall()
+        try:
+            async with pool.connection() as conn:
+                result = await conn.execute(
+                    """SELECT id, title, description, category, target_value, current_value,
+                              unit, deadline::text, status, created_at::date::text
+                       FROM athlete_goals
+                       WHERE user_id = %s AND status IN ('active', 'in_progress')
+                       ORDER BY deadline ASC NULLS LAST""",
+                    (user_id,),
+                )
+                rows = await result.fetchall()
+        except Exception as e:
+            logger.warning(f"get_goals query failed (table may not exist): {e}")
+            return {"goals": [], "total": 0, "note": "Goals feature not yet available"}
 
         goals = [
             {
@@ -67,16 +71,20 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         from app.db.supabase import get_pool
         pool = get_pool()
 
-        async with pool.connection() as conn:
-            result = await conn.execute(
-                """SELECT id, body_area, severity, description, onset_date::text,
-                          expected_return_date::text, status, notes
-                   FROM athlete_injuries
-                   WHERE user_id = %s AND status = 'active'
-                   ORDER BY severity DESC""",
-                (user_id,),
-            )
-            rows = await result.fetchall()
+        try:
+            async with pool.connection() as conn:
+                result = await conn.execute(
+                    """SELECT id, body_area, severity, description, onset_date::text,
+                              expected_return_date::text, status, notes
+                       FROM return_to_play
+                       WHERE user_id = %s AND status = 'active'
+                       ORDER BY severity DESC""",
+                    (user_id,),
+                )
+                rows = await result.fetchall()
+        except Exception as e:
+            logger.warning(f"get_injury_status query failed: {e}")
+            return {"injuries": [], "total_active": 0, "has_severe": False}
 
         injuries = [
             {
@@ -100,16 +108,20 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         pool = get_pool()
         since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
-        async with pool.connection() as conn:
-            result = await conn.execute(
-                """SELECT meal_type, description, calories, protein_g, carbs_g, fat_g,
-                          logged_at::date::text, logged_at::time::text
-                   FROM athlete_nutrition_log
-                   WHERE user_id = %s AND logged_at >= %s::date
-                   ORDER BY logged_at DESC""",
-                (user_id, since),
-            )
-            rows = await result.fetchall()
+        try:
+            async with pool.connection() as conn:
+                result = await conn.execute(
+                    """SELECT meal_type, description, calories, protein_g, carbs_g, fat_g,
+                              logged_at::date::text, logged_at::time::text
+                       FROM nutrition_logs
+                       WHERE user_id = %s AND logged_at >= %s::date
+                       ORDER BY logged_at DESC""",
+                    (user_id, since),
+                )
+                rows = await result.fetchall()
+        except Exception as e:
+            logger.warning(f"get_nutrition_log query failed: {e}")
+            return {"days": days, "meals": [], "total": 0}
 
         meals = [
             {
@@ -218,14 +230,18 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         from app.db.supabase import get_pool
         pool = get_pool()
 
-        async with pool.connection() as conn:
-            result = await conn.execute(
-                """SELECT provider, status, last_sync_at::text, token_expires_at::text
-                   FROM wearable_connections
-                   WHERE user_id = %s""",
-                (user_id,),
-            )
-            rows = await result.fetchall()
+        try:
+            async with pool.connection() as conn:
+                result = await conn.execute(
+                    """SELECT provider, status, last_sync_at::text, token_expires_at::text
+                       FROM wearable_connections
+                       WHERE user_id = %s""",
+                    (user_id,),
+                )
+                rows = await result.fetchall()
+        except Exception as e:
+            logger.warning(f"get_wearable_status query failed (table may not exist): {e}")
+            return {"connections": [], "total": 0}
 
         connections = [
             {
@@ -245,10 +261,10 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
 
         target_sport = sport or (context.sport or "football").lower()
 
-        query = """SELECT id, name, category, equipment, duration_seconds, intensity,
-                          description, primary_attribute, sport
-                   FROM drills
-                   WHERE (sport = %s OR sport = 'all') AND is_active = true"""
+        query = """SELECT id, name, category, duration_minutes, intensity,
+                          description, attribute_keys, sport_id
+                   FROM training_drills
+                   WHERE (sport_id = %s OR sport_id = 'all') AND active = true"""
         params: list = [target_sport]
 
         if category:
@@ -264,9 +280,10 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         drills = [
             {
                 "id": row[0], "name": row[1], "category": row[2],
-                "equipment": row[3], "duration_min": max(1, (row[4] or 300) // 60),
-                "intensity": row[5], "description": row[6],
-                "primary_attribute": row[7], "sport": row[8],
+                "duration_min": row[3] or 15,
+                "intensity": row[4], "description": row[5],
+                "primary_attribute": (row[6] or [None])[0] if row[6] else None,
+                "sport": row[7],
             }
             for row in rows
         ]
