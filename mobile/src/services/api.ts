@@ -1160,6 +1160,7 @@ export async function sendAgentChatMessageStreaming(
     const xhr = new XMLHttpRequest();
     let processedLength = 0;
     let currentEvent = '';
+    let lineBuffer = ''; // Buffer for partial lines across XHR chunks
     let settled = false;
 
     const settle = () => {
@@ -1177,34 +1178,50 @@ export async function sendAgentChatMessageStreaming(
     xhr.setRequestHeader('Accept', 'text/event-stream');
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
-    // Process partial SSE data as it arrives
+    // Dispatch a fully-received SSE line
+    const processLine = (line: string) => {
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith('data: ') && currentEvent) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (currentEvent === 'delta') {
+            callbacks.onDelta(data.text);
+          } else if (currentEvent === 'status') {
+            callbacks.onStatus(data.status);
+          } else if (currentEvent === 'done') {
+            callbacks.onDone(data as AgentChatResponse);
+          } else if (currentEvent === 'error') {
+            callbacks.onError(new Error(data.error));
+          }
+        } catch { /* ignore malformed SSE line */ }
+        currentEvent = '';
+      }
+    };
+
+    // Process partial SSE data as it arrives, buffering incomplete lines
     xhr.onprogress = () => {
       const newText = xhr.responseText.substring(processedLength);
       processedLength = xhr.responseText.length;
 
-      const lines = newText.split('\n');
+      // Prepend any leftover from the previous chunk
+      const fullText = lineBuffer + newText;
+      const lines = fullText.split('\n');
+
+      // Last element may be an incomplete line — keep it for next chunk
+      lineBuffer = lines.pop() || '';
+
       for (const line of lines) {
-        if (line.startsWith('event: ')) {
-          currentEvent = line.slice(7).trim();
-        } else if (line.startsWith('data: ') && currentEvent) {
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (currentEvent === 'delta') {
-              callbacks.onDelta(data.text);
-            } else if (currentEvent === 'status') {
-              callbacks.onStatus(data.status);
-            } else if (currentEvent === 'done') {
-              callbacks.onDone(data as AgentChatResponse);
-            } else if (currentEvent === 'error') {
-              callbacks.onError(new Error(data.error));
-            }
-          } catch { /* ignore malformed SSE line */ }
-          currentEvent = '';
-        }
+        processLine(line);
       }
     };
 
     xhr.onload = () => {
+      // Flush any remaining buffered line (final SSE data may arrive without trailing \n)
+      if (lineBuffer.trim()) {
+        processLine(lineBuffer);
+        lineBuffer = '';
+      }
       if (xhr.status >= 400) {
         try {
           const errData = JSON.parse(xhr.responseText);

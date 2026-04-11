@@ -131,7 +131,6 @@ const navigation: NavGroup[] = [
     label: "App Design",
     minRole: "super_admin",
     items: [
-      { name: "Theme & Brand", href: "/admin/design/brand" },
       { name: "Feature Flags", href: "/admin/feature-flags" },
     ],
   },
