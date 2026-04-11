@@ -34,12 +34,11 @@ Built on LangGraph StateGraph with TomoChatState.
 from __future__ import annotations
 
 import logging
-import os
 from typing import Literal
 
 from langgraph.graph import StateGraph, END
-from langchain_core.tracers.langchain import LangChainTracer
-from langsmith import Client as LangSmithClient
+from langsmith import traceable
+from langsmith.run_helpers import get_current_run_tree
 
 from app.models.state import TomoChatState
 from app.graph.nodes.context_assembly import context_assembly_node
@@ -323,6 +322,7 @@ def _build_post_execution_metadata(result: dict) -> tuple[dict, list[str]]:
     return metadata, tags
 
 
+@traceable(name="tomo_chat_turn", run_type="chain")
 async def run_supervisor(
     user_id: str,
     session_id: str,
@@ -396,17 +396,11 @@ async def run_supervisor(
         "has_confirmed_action": confirmed_action is not None,
     }
 
-    # LangChainTracer captures the root run_id during execution
-    tracer = LangChainTracer(
-        project_name=os.environ.get("LANGCHAIN_PROJECT", "tomo-ai-staging"),
-    )
-
     config = {
         "configurable": {
             "thread_id": session_id,
         },
         "metadata": pre_metadata,
-        "callbacks": [tracer],
     }
 
     try:
@@ -414,23 +408,17 @@ async def run_supervisor(
 
         # ── Post-execution: attach rich metadata to LangSmith trace ──
         try:
-            if tracer.latest_run and tracer.latest_run.id:
-                run_id = tracer.latest_run.id
+            rt = get_current_run_tree()
+            if rt:
                 post_metadata, post_tags = _build_post_execution_metadata(result)
-                full_metadata = {**pre_metadata, **post_metadata}
-
-                ls_client = LangSmithClient()
-                ls_client.update_run(
-                    run_id=run_id,
-                    extra={"metadata": full_metadata},
-                    tags=post_tags,
-                )
+                rt.metadata = {**rt.metadata, **pre_metadata, **post_metadata}
+                rt.tags = list(set((rt.tags or []) + post_tags))
                 logger.debug(
-                    f"LangSmith trace updated: run_id={run_id} "
-                    f"tags={len(post_tags)} metadata_keys={len(full_metadata)}"
+                    f"LangSmith trace enriched: "
+                    f"tags={len(post_tags)} metadata_keys={len(post_metadata)}"
                 )
         except Exception as e:
-            logger.warning(f"LangSmith trace update failed (non-blocking): {e}")
+            logger.warning(f"LangSmith trace enrichment failed (non-blocking): {e}")
 
         return result
     except Exception as e:
