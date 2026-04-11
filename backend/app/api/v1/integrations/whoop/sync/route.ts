@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
       pushMetric(healthRows, userId, date, "sleep_debt", p.sleep_debt_hrs, "hrs");
     }
 
-    // Workout metrics (5 types per workout)
+    // Workout metrics (7 types per workout — includes start/end timestamps)
     for (const evt of sessionEvents) {
       const p = evt.payload as Record<string, unknown>;
       const date = new Date(evt.occurred_at).toISOString().slice(0, 10);
@@ -219,6 +219,15 @@ export async function POST(req: NextRequest) {
       pushMetric(healthRows, userId, date, "workout_max_hr", p.max_hr_bpm, "bpm");
       pushMetric(healthRows, userId, date, "workout_calories", p.calories_kcal, "kcal");
       pushMetric(healthRows, userId, date, "workout_duration_min", p.duration_min, "min");
+      // Store start/end as minutes-since-midnight for time display
+      if (p.start_time && typeof p.start_time === "string") {
+        const st = new Date(p.start_time);
+        pushMetric(healthRows, userId, date, "workout_start_time", st.getHours() * 60 + st.getMinutes(), "time");
+      }
+      if (p.end_time && typeof p.end_time === "string") {
+        const et = new Date(p.end_time);
+        pushMetric(healthRows, userId, date, "workout_end_time", et.getHours() * 60 + et.getMinutes(), "time");
+      }
     }
 
     // Cycle/daily summary metrics (4 types)

@@ -24,6 +24,7 @@ const SLEEP_METRICS = new Set([
 const WORKOUT_METRICS = new Set([
   "workout_strain", "workout_avg_hr", "workout_max_hr",
   "workout_calories", "workout_duration_min",
+  "workout_start_time", "workout_end_time",
 ]);
 const CYCLE_METRICS = new Set([
   "daily_strain", "heart_rate", "max_heart_rate", "calories",
@@ -63,6 +64,8 @@ const METRIC_LABELS: Record<string, string> = {
   workout_max_hr: "Workout Max HR",
   workout_calories: "Workout Calories",
   workout_duration_min: "Workout Duration",
+  workout_start_time: "Start Time",
+  workout_end_time: "End Time",
   daily_strain: "Daily Strain",
   heart_rate: "Avg Heart Rate",
   max_heart_rate: "Max Heart Rate",

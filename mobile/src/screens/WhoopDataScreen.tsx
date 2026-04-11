@@ -72,6 +72,14 @@ function formatDate(dateStr: string): string {
 }
 
 function formatMetricValue(value: number, unit: string): string {
+  if (unit === 'time') {
+    // Minutes-since-midnight → "9:30 AM"
+    const hours = Math.floor(value / 60);
+    const mins = Math.round(value % 60);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const h = hours % 12 || 12;
+    return `${h}:${mins.toString().padStart(2, '0')} ${period}`;
+  }
   if (unit === '%') return `${Math.round(value * 10) / 10}%`;
   if (unit === 'ms') return `${Math.round(value * 10) / 10} ms`;
   if (unit === 'bpm') return `${Math.round(value)} bpm`;
@@ -221,9 +229,22 @@ export function WhoopDataScreen({ navigation }: Props) {
     setRefreshing(false);
   }, [loadData]);
 
+  // Auto-sync on page load if connected and data is stale (>15 min)
+  const autoSyncTriggered = React.useRef(false);
+
   useEffect(() => {
     loadData().finally(() => setLoading(false));
   }, [loadData]);
+
+  useEffect(() => {
+    if (!data || autoSyncTriggered.current || !data.connected) return;
+    const hoursSince = data.hours_since_sync;
+    // Auto-sync if last sync >15 min ago (or never synced)
+    if (hoursSince === null || hoursSince > 0.25) {
+      autoSyncTriggered.current = true;
+      handleSync();
+    }
+  }, [data, handleSync]);
 
   if (loading) {
     return (

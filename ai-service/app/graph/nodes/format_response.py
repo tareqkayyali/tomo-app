@@ -31,8 +31,8 @@ def _extract_json(text: str) -> Optional[dict]:
     if not text:
         return None
 
-    # Strategy 1: Fenced JSON block
-    fenced = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", text)
+    # Strategy 1: Fenced JSON block (greedy match for nested objects)
+    fenced = re.search(r"```json\s*(\{[\s\S]*\})\s*```", text)
     if fenced:
         try:
             return json.loads(fenced.group(1))

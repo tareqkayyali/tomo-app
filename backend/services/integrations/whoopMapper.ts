@@ -118,6 +118,8 @@ export function mapWorkoutsToSessionLogs(
         source: "WEARABLE",
         payload: {
           session_type: "WORKOUT",
+          start_time: w.start,
+          end_time: w.end,
           duration_min: durationMin,
           strain: w.score!.strain,
           avg_hr_bpm: w.score!.average_heart_rate,
