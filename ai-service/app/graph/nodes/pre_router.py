@@ -48,6 +48,8 @@ async def pre_router_node(state: TomoChatState) -> dict:
             "route_decision": "ai",
             "selected_agent": "output",
             "routing_confidence": 0.0,
+            "classification_layer": "error",
+            "intent_id": "unknown",
         }
 
     # Extract user message from state messages
@@ -63,6 +65,8 @@ async def pre_router_node(state: TomoChatState) -> dict:
             "route_decision": "ai",
             "selected_agent": "output",
             "routing_confidence": 0.0,
+            "classification_layer": "error",
+            "intent_id": "unknown",
         }
 
     # Build conversation state for classifier context
@@ -77,6 +81,8 @@ async def pre_router_node(state: TomoChatState) -> dict:
             "route_decision": "ai",
             "selected_agent": last_agent,
             "routing_confidence": 0.85,
+            "classification_layer": "agent_lock",
+            "intent_id": "agent_lock",
         }
 
     # Run 3-layer intent classifier
@@ -122,6 +128,8 @@ async def pre_router_node(state: TomoChatState) -> dict:
         "capsule_type": capsule_type,
         "selected_agent": primary_agent,
         "routing_confidence": classification.confidence,
+        "classification_layer": classification.classification_layer,
+        "intent_id": classification.intent_id,
     }
 
     # Store secondary agents for multi-agent tool merging

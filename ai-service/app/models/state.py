@@ -50,6 +50,8 @@ class TomoChatState(MessagesState):
     capsule_type: Optional[str]  # If capsule, which type
     selected_agent: Optional[str]  # "output" | "timeline" | "mastery" | "settings" | "planning"
     routing_confidence: Optional[float]  # 0.0 - 1.0
+    classification_layer: Optional[str]  # "exact_match" | "haiku" | "fallthrough" | "agent_lock"
+    intent_id: Optional[str]  # e.g. "qa_readiness", "log_test", "agent_fallthrough"
 
     # ── Agent execution ──
     agent_response: Optional[str]  # Raw agent text output
