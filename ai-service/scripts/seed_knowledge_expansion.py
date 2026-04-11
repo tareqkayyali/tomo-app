@@ -1192,17 +1192,18 @@ async def seed():
             f"Some relationships reference base-seed entities not in this batch. "
             f"Attempting to resolve {len(missing_entities)} missing entities from DB..."
         )
-        # Resolve missing entity IDs from existing DB records
+        # Resolve missing entity IDs from existing DB records (psycopg3 API)
         from app.db.supabase import get_pool
         pool = get_pool()
-        async with pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT id, name FROM knowledge_entities WHERE name = ANY($1::text[])",
-                list(missing_entities),
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                "SELECT id, name FROM knowledge_entities WHERE name = ANY(%s::text[])",
+                [list(missing_entities)],
             )
+            rows = await result.fetchall()
             for row in rows:
-                name_to_id[row["name"]] = str(row["id"])
-            resolved = {row["name"] for row in rows}
+                name_to_id[row[1]] = str(row[0])  # (id, name) tuple
+            resolved = {row[1] for row in rows}
             still_missing = missing_entities - resolved
             if still_missing:
                 logger.warning(f"Could not resolve entities (run base seed first?): {still_missing}")
