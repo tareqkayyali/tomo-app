@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
     snapshotEnrichment: null,
     activeRecommendations: [],
     planningContext: null,
+    wearableStatus: null,
   };
 
   try {

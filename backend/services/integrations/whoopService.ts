@@ -323,18 +323,71 @@ async function whoopGet<T>(
   return json;
 }
 
-// ── Data Fetchers (v2 API) ──
+// ── Paginated Fetch Wrapper ──
+// WHOOP API uses cursor-based pagination: { records: T[], next_token?: string }
+// This fetches all pages up to maxPages to prevent silent data loss.
+async function whoopGetPaginated<T>(
+  accessToken: string,
+  path: string,
+  params: Record<string, string>,
+  maxPages = 10
+): Promise<T[]> {
+  const allRecords: T[] = [];
+  let nextToken: string | undefined;
+  let page = 0;
+
+  do {
+    const reqParams: Record<string, string> = { ...params, limit: "25" };
+    if (nextToken) reqParams.nextToken = nextToken;
+
+    const data = await whoopGet<{ records: T[]; next_token?: string }>(
+      accessToken,
+      path,
+      reqParams
+    );
+    allRecords.push(...(data.records || []));
+    nextToken = data.next_token;
+    page++;
+
+    if (nextToken) {
+      console.log(`[whoopService] ${path} page ${page} fetched ${data.records?.length ?? 0} records, next_token present — continuing`);
+    }
+  } while (nextToken && page < maxPages);
+
+  if (page >= maxPages && nextToken) {
+    console.warn(`[whoopService] ${path} hit maxPages cap (${maxPages}), ${allRecords.length} records total — some data may be truncated`);
+  }
+
+  return allRecords;
+}
+
+// ── Adaptive Sync Window ──
+// Computes the start/end dates for a WHOOP sync based on when we last synced.
+// First sync: 30 days. Subsequent: from last_sync_at minus 1-day overlap buffer.
+export function computeSyncWindow(lastSyncAt: string | null): { start: string; end: string } {
+  const end = new Date().toISOString();
+  if (!lastSyncAt) {
+    // First sync: 30 days lookback
+    return { start: new Date(Date.now() - 30 * 86400000).toISOString(), end };
+  }
+  // Adaptive: from last_sync_at minus 1-day overlap buffer
+  // The overlap catches WHOOP records that were scored after our last sync
+  const lastSync = new Date(lastSyncAt);
+  const start = new Date(lastSync.getTime() - 86400000).toISOString();
+  return { start, end };
+}
+
+// ── Data Fetchers (v2 API — paginated) ──
 export async function fetchRecoveries(
   accessToken: string,
   startDate: string,
   endDate: string
 ): Promise<WhoopRecovery[]> {
-  const data = await whoopGet<{ records: WhoopRecovery[] }>(
+  return whoopGetPaginated<WhoopRecovery>(
     accessToken,
     "/v2/recovery",
-    { start: startDate, end: endDate, limit: "25" }
+    { start: startDate, end: endDate }
   );
-  return data.records || [];
 }
 
 export async function fetchSleeps(
@@ -342,12 +395,11 @@ export async function fetchSleeps(
   startDate: string,
   endDate: string
 ): Promise<WhoopSleep[]> {
-  const data = await whoopGet<{ records: WhoopSleep[] }>(
+  return whoopGetPaginated<WhoopSleep>(
     accessToken,
     "/v2/activity/sleep",
-    { start: startDate, end: endDate, limit: "25" }
+    { start: startDate, end: endDate }
   );
-  return data.records || [];
 }
 
 export async function fetchWorkouts(
@@ -355,12 +407,11 @@ export async function fetchWorkouts(
   startDate: string,
   endDate: string
 ): Promise<WhoopWorkout[]> {
-  const data = await whoopGet<{ records: WhoopWorkout[] }>(
+  return whoopGetPaginated<WhoopWorkout>(
     accessToken,
     "/v2/activity/workout",
-    { start: startDate, end: endDate, limit: "25" }
+    { start: startDate, end: endDate }
   );
-  return data.records || [];
 }
 
 export async function fetchCycles(
@@ -368,12 +419,11 @@ export async function fetchCycles(
   startDate: string,
   endDate: string
 ): Promise<WhoopCycle[]> {
-  const data = await whoopGet<{ records: WhoopCycle[] }>(
+  return whoopGetPaginated<WhoopCycle>(
     accessToken,
     "/v2/cycle",
-    { start: startDate, end: endDate, limit: "25" }
+    { start: startDate, end: endDate }
   );
-  return data.records || [];
 }
 
 export async function fetchProfile(

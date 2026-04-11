@@ -7,6 +7,7 @@ import {
   fetchWorkouts,
   fetchCycles,
   updateSyncStatus,
+  computeSyncWindow,
 } from "@/services/integrations/whoopService";
 import {
   mapRecoveryToVitalReadings,
@@ -17,13 +18,80 @@ import {
 import { emitEventSafe } from "@/services/events/eventEmitter";
 import type { EventType, SourceType } from "@/services/events/constants";
 
+// ── Health metric write helper ──
+// Bulk upserts health_data rows for enterprise-grade efficiency.
+// Uses a single upsert call per batch instead of one-at-a-time writes.
+interface HealthMetricRow {
+  user_id: string;
+  date: string;
+  metric_type: string;
+  value: number;
+  unit: string;
+  source: string;
+}
+
+async function writeHealthMetrics(
+  db: any,
+  rows: HealthMetricRow[]
+): Promise<{ written: number; errors: number }> {
+  if (rows.length === 0) return { written: 0, errors: 0 };
+
+  // Batch upsert for efficiency — single DB call instead of N calls
+  const { error, count } = await db
+    .from("health_data")
+    .upsert(rows, { onConflict: "user_id,date,metric_type", ignoreDuplicates: false, count: "exact" });
+
+  if (error) {
+    console.error(`[whoop/sync] Batch health_data write failed (${rows.length} rows):`, error.message);
+    // Fallback: try individual writes so partial success is captured
+    let written = 0;
+    let errors = 0;
+    for (const row of rows) {
+      const { error: writeErr } = await db
+        .from("health_data")
+        .upsert(row, { onConflict: "user_id,date,metric_type", ignoreDuplicates: false });
+      if (writeErr) {
+        errors++;
+        console.error(`[whoop/sync] health_data write failed (${row.metric_type}):`, writeErr.message);
+      } else {
+        written++;
+      }
+    }
+    return { written, errors };
+  }
+
+  return { written: count ?? rows.length, errors: 0 };
+}
+
+// Helper: push a metric row if value is truthy
+function pushMetric(
+  rows: HealthMetricRow[],
+  userId: string,
+  date: string,
+  metricType: string,
+  value: unknown,
+  unit: string
+) {
+  if (value != null && value !== undefined && value !== 0 && !Number.isNaN(value)) {
+    rows.push({
+      user_id: userId,
+      date,
+      metric_type: metricType,
+      value: typeof value === "number" ? value : Number(value),
+      unit,
+      source: "whoop",
+    });
+  }
+}
+
 /**
  * POST /api/v1/integrations/whoop/sync
  *
- * Pulls WHOOP data and ingests as Tomo events.
- * - First sync (no last_sync_at): pulls last 30 days
- * - Subsequent syncs: pulls last 24 hours
- * Auto-refreshes tokens if expired.
+ * Pulls WHOOP data and ingests as Tomo events + health_data.
+ * - Uses adaptive lookback: first sync = 30 days, subsequent = from last_sync_at - 1 day overlap
+ * - Paginated fetchers: never silently drops records (cursor-based pagination)
+ * - Writes full WHOOP dataset: 20+ metric types across recovery, sleep, workout, cycle
+ * - Bulk upserts for enterprise efficiency
  */
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
@@ -39,7 +107,7 @@ export async function POST(req: NextRequest) {
     // Get valid access token (auto-refreshes if needed)
     const accessToken = await getValidAccessToken(userId);
 
-    // Check if this is the first sync (no last_sync_at means initial sync)
+    // Get connection metadata for adaptive sync window
     const { supabaseAdmin } = await import("@/lib/supabase/admin");
     const db = supabaseAdmin() as any;
     const { data: conn } = await db
@@ -49,31 +117,19 @@ export async function POST(req: NextRequest) {
       .eq("provider", "whoop")
       .single();
 
-    const isFirstSync = !conn?.last_sync_at;
-
-    // Check if force full sync requested (query param or no health_data yet)
+    // Force full sync via query param
     const forceFullSync = req.nextUrl?.searchParams?.get("full") === "true";
 
-    // Check if health_data has any rows for this user (if empty, treat as first sync)
-    const { count: healthDataCount } = await db
-      .from("health_data")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-    const hasNoHealthData = (healthDataCount ?? 0) === 0;
+    // Adaptive sync window: uses last_sync_at to compute optimal lookback
+    const { start: startDate, end: endDate } = forceFullSync
+      ? computeSyncWindow(null) // null = 30-day lookback
+      : computeSyncWindow(conn?.last_sync_at);
 
-    // Time window: 30 days for first sync or empty health_data, 7 days minimum otherwise
-    const endDate = new Date().toISOString();
-    const needsFullSync = isFirstSync || forceFullSync || hasNoHealthData;
-    const lookbackMs = needsFullSync
-      ? 30 * 24 * 60 * 60 * 1000  // 30 days
-      : 7 * 24 * 60 * 60 * 1000;  // 7 days (enough for weekly aggregator)
-    const startDate = new Date(Date.now() - lookbackMs).toISOString();
+    const isFirstSync = !conn?.last_sync_at;
 
-    console.log(`[whoop/sync] userId=${userId} firstSync=${isFirstSync} fullSync=${forceFullSync} noHealthData=${hasNoHealthData} lookback=${needsFullSync ? '30d' : '7d'}`);
+    console.log(`[whoop/sync] userId=${userId} firstSync=${isFirstSync} fullSync=${forceFullSync} window=${startDate} → ${endDate}`);
 
-    console.log(`[whoop/sync] Fetching window: ${startDate} → ${endDate}`);
-
-    // Fetch all data types in parallel — log errors instead of silently swallowing
+    // Fetch all data types in parallel — paginated to capture all records
     const [recoveries, sleeps, workouts, cycles] = await Promise.all([
       fetchRecoveries(accessToken, startDate, endDate).catch((e) => {
         console.error("[whoop/sync] Recovery fetch FAILED:", e.message);
@@ -93,7 +149,7 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    console.log(`[whoop/sync] Fetched: recoveries=${recoveries.length} sleeps=${sleeps.length} workouts=${workouts.length} cycles=${cycles.length} window=${startDate} to ${endDate}`);
+    console.log(`[whoop/sync] Fetched: recoveries=${recoveries.length} sleeps=${sleeps.length} workouts=${workouts.length} cycles=${cycles.length}`);
 
     // Map WHOOP data to Tomo events
     const vitalEvents = mapRecoveryToVitalReadings(recoveries);
@@ -122,74 +178,66 @@ export async function POST(req: NextRequest) {
       if (result) emitted++;
     }
 
-    // ── Write directly to health_data for My Vitals page ──
-    // The event processor may not run (webhook not configured), so we
-    // write here as the guaranteed path for WHOOP data visibility.
-    let healthDataWritten = 0;
-    let healthDataErrors = 0;
+    // ── Write FULL WHOOP dataset to health_data ──
+    // This is the guaranteed path for data visibility — event processor may not run.
+    const healthRows: HealthMetricRow[] = [];
+
+    // Recovery metrics (5 types)
     for (const evt of vitalEvents) {
       const p = evt.payload as Record<string, unknown>;
       const date = new Date(evt.occurred_at).toISOString().slice(0, 10);
-      const rows: Array<{ user_id: string; date: string; metric_type: string; value: number; unit: string; source: string }> = [];
-
-      if (p.hrv_ms) rows.push({ user_id: userId, date, metric_type: "hrv", value: p.hrv_ms as number, unit: "ms", source: "whoop" });
-      if (p.resting_hr_bpm) rows.push({ user_id: userId, date, metric_type: "resting_hr", value: p.resting_hr_bpm as number, unit: "bpm", source: "whoop" });
-      if (p.spo2_percent) rows.push({ user_id: userId, date, metric_type: "blood_oxygen", value: p.spo2_percent as number, unit: "%", source: "whoop" });
-      if (p.recovery_score) rows.push({ user_id: userId, date, metric_type: "recovery_score", value: p.recovery_score as number, unit: "%", source: "whoop" });
-      if (p.skin_temp_celsius) rows.push({ user_id: userId, date, metric_type: "body_temp", value: p.skin_temp_celsius as number, unit: "°C", source: "whoop" });
-
-      for (const row of rows) {
-        const { error: writeErr } = await db.from("health_data").upsert(row, { onConflict: "user_id,date,metric_type", ignoreDuplicates: false });
-        if (writeErr) {
-          healthDataErrors++;
-          console.error(`[whoop/sync] health_data write failed (${row.metric_type}):`, writeErr.message);
-        } else {
-          healthDataWritten++;
-        }
-      }
+      pushMetric(healthRows, userId, date, "hrv", p.hrv_ms, "ms");
+      pushMetric(healthRows, userId, date, "resting_hr", p.resting_hr_bpm, "bpm");
+      pushMetric(healthRows, userId, date, "blood_oxygen", p.spo2_percent, "%");
+      pushMetric(healthRows, userId, date, "recovery_score", p.recovery_score, "%");
+      pushMetric(healthRows, userId, date, "body_temp", p.skin_temp_celsius, "°C");
     }
 
+    // Sleep metrics (11 types — full sleep dataset)
     for (const evt of sleepEvents) {
       const p = evt.payload as Record<string, unknown>;
       const date = new Date(evt.occurred_at).toISOString().slice(0, 10);
-      if (p.sleep_duration_hours) {
-        const { error: writeErr } = await db.from("health_data").upsert(
-          { user_id: userId, date, metric_type: "sleep_hours", value: p.sleep_duration_hours as number, unit: "hrs", source: "whoop" },
-          { onConflict: "user_id,date,metric_type", ignoreDuplicates: false }
-        );
-        if (writeErr) {
-          healthDataErrors++;
-          console.error(`[whoop/sync] health_data write failed (sleep_hours):`, writeErr.message);
-        } else {
-          healthDataWritten++;
-        }
-      }
+      pushMetric(healthRows, userId, date, "sleep_hours", p.sleep_duration_hours, "hrs");
+      pushMetric(healthRows, userId, date, "deep_sleep_min", p.deep_sleep_min, "min");
+      pushMetric(healthRows, userId, date, "rem_sleep_min", p.rem_sleep_min, "min");
+      pushMetric(healthRows, userId, date, "light_sleep_min", p.light_sleep_min, "min");
+      pushMetric(healthRows, userId, date, "awake_min", p.awake_min, "min");
+      pushMetric(healthRows, userId, date, "respiratory_rate", p.respiratory_rate, "breaths/min");
+      pushMetric(healthRows, userId, date, "sleep_efficiency", p.sleep_efficiency, "%");
+      pushMetric(healthRows, userId, date, "sleep_performance", p.sleep_performance_pct, "%");
+      pushMetric(healthRows, userId, date, "sleep_consistency", p.sleep_consistency_pct, "%");
+      pushMetric(healthRows, userId, date, "sleep_needed_baseline", p.sleep_needed_baseline_hrs, "hrs");
+      pushMetric(healthRows, userId, date, "sleep_debt", p.sleep_debt_hrs, "hrs");
     }
 
-    // Also extract vitals from cycles (cycles often return even when recovery/sleep endpoints are empty)
+    // Workout metrics (5 types per workout)
+    for (const evt of sessionEvents) {
+      const p = evt.payload as Record<string, unknown>;
+      const date = new Date(evt.occurred_at).toISOString().slice(0, 10);
+      pushMetric(healthRows, userId, date, "workout_strain", p.strain, "");
+      pushMetric(healthRows, userId, date, "workout_avg_hr", p.avg_hr_bpm, "bpm");
+      pushMetric(healthRows, userId, date, "workout_max_hr", p.max_hr_bpm, "bpm");
+      pushMetric(healthRows, userId, date, "workout_calories", p.calories_kcal, "kcal");
+      pushMetric(healthRows, userId, date, "workout_duration_min", p.duration_min, "min");
+    }
+
+    // Cycle/daily summary metrics (4 types)
     for (const cycle of cycles) {
       if (!cycle.score || cycle.score_state !== "SCORED") continue;
       const date = new Date(cycle.end || cycle.updated_at).toISOString().slice(0, 10);
-      const rows: Array<{ user_id: string; date: string; metric_type: string; value: number; unit: string; source: string }> = [];
-
-      if (cycle.score.average_heart_rate) rows.push({ user_id: userId, date, metric_type: "heart_rate", value: cycle.score.average_heart_rate, unit: "bpm", source: "whoop" });
-      if (cycle.score.kilojoule) rows.push({ user_id: userId, date, metric_type: "calories", value: Math.round(cycle.score.kilojoule / 4.184), unit: "kcal", source: "whoop" });
-
-      for (const row of rows) {
-        const { error: writeErr } = await db.from("health_data").upsert(row, { onConflict: "user_id,date,metric_type", ignoreDuplicates: false });
-        if (writeErr) {
-          healthDataErrors++;
-          console.error(`[whoop/sync] health_data write failed (cycle):`, writeErr.message);
-        } else {
-          healthDataWritten++;
-        }
-      }
+      pushMetric(healthRows, userId, date, "daily_strain", cycle.score.strain, "");
+      pushMetric(healthRows, userId, date, "heart_rate", cycle.score.average_heart_rate, "bpm");
+      pushMetric(healthRows, userId, date, "max_heart_rate", cycle.score.max_heart_rate, "bpm");
+      pushMetric(healthRows, userId, date, "calories", Math.round(cycle.score.kilojoule / 4.184), "kcal");
     }
 
-    // Always touch created_at on all health_data rows in the sync window —
-    // even if 0 new rows written (same data, or Whoop returned no new records).
-    // This ensures the freshness calculation knows we *just checked* Whoop,
-    // so the staleness dot turns green/aging after a successful sync.
+    // Bulk write all health metrics
+    const { written: healthDataWritten, errors: healthDataErrors } =
+      await writeHealthMetrics(db, healthRows);
+
+    console.log(`[whoop/sync] health_data: ${healthDataWritten} written, ${healthDataErrors} errors, ${healthRows.length} total rows`);
+
+    // Touch created_at on all health_data rows in the sync window for freshness tracking
     try {
       await db.from("health_data")
         .update({ created_at: new Date().toISOString() })
@@ -200,17 +248,14 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Update athlete_snapshot with latest Whoop vitals ──
-    // Query latest per metric type (ORDER BY date DESC) instead of filtering
-    // by server UTC "today" — avoids timezone mismatch where Whoop data date
-    // differs from server date, causing the snapshot to never update.
     try {
       const { data: latestVitals } = await db
         .from("health_data")
         .select("metric_type, value")
         .eq("user_id", userId)
-        .in("metric_type", ["hrv", "resting_hr", "sleep_hours"])
+        .in("metric_type", ["hrv", "resting_hr", "sleep_hours", "recovery_score", "blood_oxygen", "body_temp"])
         .order("date", { ascending: false })
-        .limit(20);
+        .limit(30);
 
       // Deduplicate: take first (latest) per metric_type
       const latestByType = new Map<string, number>();
@@ -221,10 +266,18 @@ export async function POST(req: NextRequest) {
       }
 
       if (latestByType.size > 0) {
-        const snapshotUpdate: Record<string, unknown> = { snapshot_at: new Date().toISOString() };
+        const snapshotUpdate: Record<string, unknown> = {
+          snapshot_at: new Date().toISOString(),
+          wearable_connected: true,
+          wearable_last_sync_at: new Date().toISOString(),
+        };
         if (latestByType.has("hrv")) snapshotUpdate.hrv_today_ms = latestByType.get("hrv");
         if (latestByType.has("resting_hr")) snapshotUpdate.resting_hr_bpm = latestByType.get("resting_hr");
         if (latestByType.has("sleep_hours")) snapshotUpdate.sleep_quality = latestByType.get("sleep_hours");
+        if (latestByType.has("recovery_score")) snapshotUpdate.recovery_score = latestByType.get("recovery_score");
+        if (latestByType.has("blood_oxygen")) snapshotUpdate.spo2_pct = latestByType.get("blood_oxygen");
+        if (latestByType.has("body_temp")) snapshotUpdate.skin_temp_c = latestByType.get("body_temp");
+
         // Compute HRV baseline from last 7 days
         const { data: recentHRV } = await db
           .from("health_data")
@@ -255,14 +308,11 @@ export async function POST(req: NextRequest) {
       events_emitted: emitted,
       health_data_written: healthDataWritten,
       health_data_errors: healthDataErrors,
+      health_data_total_rows: healthRows.length,
       first_sync: isFirstSync,
-      full_sync: needsFullSync,
-      lookback_days: needsFullSync ? 30 : 7,
+      full_sync: forceFullSync,
       window: { start: startDate, end: endDate },
-      _syncVersion: 4,
-      _debug: {
-        firstCycle: cycles[0] ? { id: (cycles[0] as any).id, start: (cycles[0] as any).start, end: (cycles[0] as any).end } : null,
-      },
+      _syncVersion: 5,
       summary: {
         recoveries: recoveries.length,
         sleeps: sleeps.length,

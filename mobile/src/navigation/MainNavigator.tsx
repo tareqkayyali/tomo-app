@@ -66,6 +66,7 @@ import PHVCalculatorScreen from '../screens/PHVCalculatorScreen';
 import { StudyPlanView } from '../screens/StudyPlanView';
 import { TrainingPlanView } from '../screens/TrainingPlanView';
 import { BulkEditEventsScreen } from '../screens/BulkEditEventsScreen';
+import { WhoopDataScreen } from '../screens/WhoopDataScreen';
 
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
@@ -518,6 +519,11 @@ export function MainNavigator() {
       <Stack.Screen
         name="BulkEditEvents"
         component={BulkEditEventsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="WhoopData"
+        component={WhoopDataScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

@@ -91,6 +91,7 @@ export type MainStackParamList = {
   // Multi-role screens
   Notifications: undefined;
   LinkAccount: undefined;
+  WhoopData: undefined;
 };
 
 // ── Coach Navigation ─────────────────────────────────────────────────────

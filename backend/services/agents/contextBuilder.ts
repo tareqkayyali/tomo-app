@@ -111,6 +111,20 @@ export interface PlayerContext {
     examProximityScore: number | null;
     dataConfidenceScore: number | null;
   } | null;
+
+  // ── Wearable Integration Status ──
+  // Authoritative WHOOP connection status injected into system prompt.
+  // Prevents AI from giving conflicting answers by removing need for tool calls.
+  wearableStatus: {
+    whoop: {
+      connected: boolean;
+      dataFresh: boolean; // true if last sync <48h ago
+      syncStatus: string | null;
+      lastSyncAt: string | null;
+      hoursSinceSync: number | null;
+      syncError: string | null;
+    };
+  } | null;
 }
 
 /** Lightweight rec summary for system prompt injection */
@@ -270,6 +284,7 @@ export async function buildPlayerContext(
     recsRes,
     benchmarkProfileRes,
     upcomingEventsRes,
+    wearableConnRes,
   ] = await Promise.allSettled([
     (db as any)
       .from("users")
@@ -349,6 +364,13 @@ export async function buildPlayerContext(
       .gte("start_at", dayEndISO)
       .lte("start_at", in7DaysEndISO)
       .order("start_at"),
+    // Wearable connection status — single source of truth for WHOOP status
+    (db as any)
+      .from("wearable_connections")
+      .select("provider, sync_status, last_sync_at, sync_error")
+      .eq("user_id", userId)
+      .eq("provider", "whoop")
+      .maybeSingle(),
   ]);
 
   const profile =
@@ -407,6 +429,25 @@ export async function buildPlayerContext(
   // Upcoming events (next 7 days, all types — for study block visibility)
   const upcomingEvents =
     upcomingEventsRes.status === "fulfilled" ? (upcomingEventsRes.value.data ?? []) : [];
+
+  // Wearable connection status — authoritative source for WHOOP status
+  const wearableConn =
+    wearableConnRes.status === "fulfilled" ? wearableConnRes.value.data : null;
+  const whoopConnected = !!wearableConn && wearableConn.sync_status !== "auth_required";
+  const whoopLastSync = wearableConn?.last_sync_at ? new Date(wearableConn.last_sync_at) : null;
+  const whoopHoursSinceSync = whoopLastSync
+    ? (Date.now() - whoopLastSync.getTime()) / 3600000
+    : Infinity;
+  const wearableStatus: PlayerContext["wearableStatus"] = {
+    whoop: {
+      connected: whoopConnected,
+      dataFresh: whoopHoursSinceSync <= 48,
+      syncStatus: wearableConn?.sync_status ?? null,
+      lastSyncAt: wearableConn?.last_sync_at ?? null,
+      hoursSinceSync: isFinite(whoopHoursSinceSync) ? Math.round(whoopHoursSinceSync * 10) / 10 : null,
+      syncError: wearableConn?.sync_error ?? null,
+    },
+  };
 
   // Layer 4 recs — map to lightweight ActiveRecommendation[]
   const rawRecs: Recommendation[] =
@@ -652,6 +693,7 @@ export async function buildPlayerContext(
     snapshotEnrichment,
     activeRecommendations,
     planningContext,
+    wearableStatus,
   };
 }
 

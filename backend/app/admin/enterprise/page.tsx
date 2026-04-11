@@ -16,6 +16,7 @@ interface DashboardStats {
   knowledge: { chunks: number; entities: number; relationships: number };
   ai: { evalPassRate: number; phvSafetyScore: number; avgLatencyMs: number };
   engagement: { dailyActive: number; weeklyActive: number; avgSessionsPerWeek: number };
+  wearables: { whoop: { total: number; active: number; stale: number } };
 }
 
 function StatCard({
@@ -73,6 +74,7 @@ export default function EnterpriseDashboard() {
         knowledge: { chunks: 0, entities: 0, relationships: 0 },
         ai: { evalPassRate: 0, phvSafetyScore: 1.0, avgLatencyMs: 0 },
         engagement: { dailyActive: 0, weeklyActive: 0, avgSessionsPerWeek: 0 },
+        wearables: { whoop: { total: 0, active: 0, stale: 0 } },
       });
     } finally {
       setLoading(false);
@@ -190,6 +192,39 @@ export default function EnterpriseDashboard() {
             value={`${s.ai.avgLatencyMs}ms`}
             sublabel="Chat response time"
             color={s.ai.avgLatencyMs < 3000 ? "green" : "yellow"}
+          />
+        </div>
+      </div>
+
+      {/* Wearable Integrations */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Wearable Integrations</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="WHOOP Connected"
+            value={s.wearables.whoop.total}
+            sublabel="Total WHOOP integrations"
+          />
+          <StatCard
+            label="Active (syncing)"
+            value={s.wearables.whoop.active}
+            sublabel="Data fresh (<48h)"
+            color={s.wearables.whoop.active > 0 ? "green" : "default"}
+          />
+          <StatCard
+            label="Stale / Auth Required"
+            value={s.wearables.whoop.stale}
+            sublabel="Need reconnection or sync"
+            color={s.wearables.whoop.stale > 0 ? "yellow" : "green"}
+          />
+          <StatCard
+            label="Coverage"
+            value={
+              s.athletes.total > 0
+                ? `${Math.round((s.wearables.whoop.total / s.athletes.total) * 100)}%`
+                : "0%"
+            }
+            sublabel="Athletes with WHOOP"
           />
         </div>
       </div>

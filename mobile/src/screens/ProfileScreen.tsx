@@ -356,6 +356,11 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             onPress={() => navigation.navigate('Settings')}
           />
           <MenuItem
+            icon="fitness-outline"
+            label="Whoop Data"
+            onPress={() => navigation.navigate('WhoopData')}
+          />
+          <MenuItem
             icon="notifications-outline"
             label="Notifications"
             onPress={() => navigation.navigate('NotificationSettings')}

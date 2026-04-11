@@ -1437,6 +1437,21 @@ export function buildOutputDynamicPrompt(context: PlayerContext): string {
     vitalsDesc = `\nWEARABLE/HEALTH DATA (from Whoop/health_data):\n${lines.join("\n")}`;
   }
 
+  // Build authoritative wearable connection status
+  const ws = context.wearableStatus?.whoop;
+  let wearableStatusDesc = "";
+  if (ws) {
+    if (ws.connected && ws.dataFresh) {
+      wearableStatusDesc = `\nWHOOP STATUS: Connected and syncing. Last sync: ${ws.hoursSinceSync != null ? `${ws.hoursSinceSync}h ago` : "unknown"}. Data is FRESH.`;
+    } else if (ws.connected && !ws.dataFresh) {
+      wearableStatusDesc = `\nWHOOP STATUS: Connected but data is STALE (last sync: ${ws.hoursSinceSync != null ? `${ws.hoursSinceSync}h ago` : "unknown"}). Recommend syncing now.`;
+    } else {
+      wearableStatusDesc = `\nWHOOP STATUS: Not connected. No active WHOOP integration.${ws.syncError ? ` Error: ${ws.syncError}` : ""}`;
+    }
+  } else {
+    wearableStatusDesc = "\nWHOOP STATUS: Not connected. No wearable integration detected.";
+  }
+
   // Build snapshot enrichment context (HRV baselines, wellness trends, load)
   const snap = context.snapshotEnrichment;
   let snapDesc = "";
@@ -1463,7 +1478,7 @@ PLAYER CONTEXT:
 - Latest check-in data (USE THESE EXACT NUMBERS): ${compDesc}
 - Current streak: ${context.currentStreak} days
 - Academic load score: ${context.academicLoadScore.toFixed(1)}/10
-${benchmarkDesc ? `\nBENCHMARK PROFILE:\n${benchmarkDesc}` : ""}${vitalsDesc}${snapDesc}
+${benchmarkDesc ? `\nBENCHMARK PROFILE:\n${benchmarkDesc}` : ""}${wearableStatusDesc}${vitalsDesc}${snapDesc}
 
 PLAYER TEST HISTORY:
 Players CAN log test results directly through this chat.

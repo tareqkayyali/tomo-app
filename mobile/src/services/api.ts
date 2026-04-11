@@ -3198,6 +3198,44 @@ export async function getWhoopAuthorizeUrl(): Promise<string> {
 }
 
 // ============================================
+// WHOOP Data (full dataset for WhoopDataScreen)
+// ============================================
+
+export interface WhoopMetricValue {
+  value: number;
+  unit: string;
+  label: string;
+}
+
+export interface WhoopDataCategory {
+  date: string;
+  metrics: Record<string, WhoopMetricValue>;
+}
+
+export interface WhoopDataResponse {
+  connected: boolean;
+  sync_status: string | null;
+  sync_error: string | null;
+  last_sync_at: string | null;
+  connected_at: string | null;
+  hours_since_sync: number | null;
+  data_fresh: boolean;
+  categories: {
+    recovery: WhoopDataCategory[];
+    sleep: WhoopDataCategory[];
+    workout: WhoopDataCategory[];
+    cycle: WhoopDataCategory[];
+  };
+  metric_labels: Record<string, string>;
+  days_requested: number;
+  total_data_points: number;
+}
+
+export async function getWhoopData(days: number = 7): Promise<WhoopDataResponse> {
+  return apiRequest<WhoopDataResponse>(`/api/v1/integrations/whoop/data?days=${days}`);
+}
+
+// ============================================
 // Program Interactions (done/dismiss/active)
 // ============================================
 

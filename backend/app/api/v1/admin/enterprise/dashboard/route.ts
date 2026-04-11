@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
       knowledgeCount,
       entityCount,
       relationCount,
+      wearableStats,
     ] = await Promise.all([
       // Athletes
       db
@@ -51,6 +52,11 @@ export async function GET(req: NextRequest) {
       (db as any)
         .from("knowledge_relationships")
         .select("id", { count: "exact", head: true }),
+
+      // Wearable connection stats
+      (db as any)
+        .from("wearable_connections")
+        .select("provider, sync_status, last_sync_at"),
     ]);
 
     const protocols = protocolCount.data || [];
@@ -60,6 +66,21 @@ export async function GET(req: NextRequest) {
     const institutionalCount = protocols.filter(
       (p: any) => p.institution_id != null
     ).length;
+
+    // Wearable stats
+    const wearableConns = wearableStats.data || [];
+    const whoopConns = wearableConns.filter((c: any) => c.provider === "whoop");
+    const whoopTotal = whoopConns.length;
+    const whoopActive = whoopConns.filter((c: any) => {
+      if (!c.last_sync_at) return false;
+      const hoursSince = (Date.now() - new Date(c.last_sync_at).getTime()) / 3600000;
+      return hoursSince <= 48 && c.sync_status !== "auth_required";
+    }).length;
+    const whoopStale = whoopConns.filter((c: any) => {
+      if (!c.last_sync_at) return true;
+      const hoursSince = (Date.now() - new Date(c.last_sync_at).getTime()) / 3600000;
+      return hoursSince > 48 || c.sync_status === "auth_required";
+    }).length;
 
     return NextResponse.json({
       athletes: {
@@ -86,6 +107,13 @@ export async function GET(req: NextRequest) {
         dailyActive: 0,
         weeklyActive: 0,
         avgSessionsPerWeek: 0,
+      },
+      wearables: {
+        whoop: {
+          total: whoopTotal,
+          active: whoopActive,
+          stale: whoopStale,
+        },
       },
     });
   } catch (error: any) {

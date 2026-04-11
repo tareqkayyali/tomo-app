@@ -82,6 +82,14 @@ export function mapSleepToRecords(
           awake_min: Math.round(stages.total_awake_time_milli / 60000),
           respiratory_rate: s.score!.respiratory_rate || undefined,
           sleep_efficiency: s.score!.sleep_efficiency_percentage || undefined,
+          sleep_performance_pct: s.score!.sleep_performance_percentage || undefined,
+          sleep_consistency_pct: s.score!.sleep_consistency_percentage || undefined,
+          sleep_needed_baseline_hrs: s.score!.sleep_needed?.baseline_milli
+            ? Math.round((s.score!.sleep_needed.baseline_milli / 3600000) * 10) / 10
+            : undefined,
+          sleep_debt_hrs: s.score!.sleep_needed?.need_from_sleep_debt_milli
+            ? Math.round((s.score!.sleep_needed.need_from_sleep_debt_milli / 3600000) * 10) / 10
+            : undefined,
           source: "whoop",
         },
       };

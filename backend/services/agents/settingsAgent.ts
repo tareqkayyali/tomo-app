@@ -416,18 +416,31 @@ export async function executeSettingsTool(
       }
 
       case "get_wearable_connections": {
-        const { data: tokens } = await dbAny
-          .from("whoop_tokens")
-          .select("last_synced_at, created_at")
+        const { data: conn } = await dbAny
+          .from("wearable_connections")
+          .select("last_sync_at, connected_at, sync_status, sync_error")
           .eq("user_id", userId)
+          .eq("provider", "whoop")
           .single();
+
+        const isConnected = !!conn && conn.sync_status !== "auth_required";
+        const lastSync = conn?.last_sync_at ? new Date(conn.last_sync_at) : null;
+        const hoursSinceSync = lastSync
+          ? (Date.now() - lastSync.getTime()) / 3600000
+          : Infinity;
+        const isFresh = hoursSinceSync <= 48;
+
         return {
           result: {
-            whoop: tokens ? {
-              connected: true,
-              lastSyncedAt: tokens.last_synced_at,
-              connectedAt: tokens.created_at,
-            } : { connected: false },
+            whoop: {
+              connected: isConnected,
+              dataFresh: isFresh,
+              lastSyncAt: conn?.last_sync_at ?? null,
+              hoursSinceSync: isFinite(hoursSinceSync) ? Math.round(hoursSinceSync * 10) / 10 : null,
+              syncStatus: conn?.sync_status ?? null,
+              syncError: conn?.sync_error ?? null,
+              connectedAt: conn?.connected_at ?? null,
+            },
           },
         };
       }
@@ -710,20 +723,36 @@ export async function executeSettingsTool(
       }
 
       case "get_integration_status": {
-        const { data: whoopToken } = await dbAny
-          .from("whoop_tokens")
-          .select("last_synced_at, created_at, access_token")
+        const { data: conn } = await dbAny
+          .from("wearable_connections")
+          .select("last_sync_at, connected_at, sync_status, sync_error, token_expires_at")
           .eq("user_id", userId)
+          .eq("provider", "whoop")
           .single();
+
+        const isConnected = !!conn && conn.sync_status !== "auth_required";
+        const lastSync = conn?.last_sync_at ? new Date(conn.last_sync_at) : null;
+        const hoursSinceSync = lastSync
+          ? (Date.now() - lastSync.getTime()) / 3600000
+          : Infinity;
+        const isFresh = hoursSinceSync <= 48;
+        const tokenValid = conn?.token_expires_at
+          ? new Date(conn.token_expires_at).getTime() > Date.now()
+          : false;
 
         return {
           result: {
             integrations: {
-              whoop: whoopToken ? {
-                connected: true,
-                lastSynced: whoopToken.last_synced_at,
-                hasValidToken: !!whoopToken.access_token,
-              } : { connected: false },
+              whoop: {
+                connected: isConnected,
+                dataFresh: isFresh,
+                lastSyncAt: conn?.last_sync_at ?? null,
+                hoursSinceSync: isFinite(hoursSinceSync) ? Math.round(hoursSinceSync * 10) / 10 : null,
+                syncStatus: conn?.sync_status ?? null,
+                syncError: conn?.sync_error ?? null,
+                connectedAt: conn?.connected_at ?? null,
+                hasValidToken: tokenValid,
+              },
             },
           },
         };
