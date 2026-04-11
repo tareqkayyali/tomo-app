@@ -3,11 +3,74 @@ Tomo AI Service — Observability Metadata Builder
 Computes 40+ metadata fields and categorical tags from graph state
 for LangSmith trace enrichment.
 
-Called by persist_node (last node before END) so the auto-tracer
-captures the data in the graph output — no PATCH/update_run needed.
+Two delivery mechanisms:
+  1. persist_node returns _observability in state → visible in trace output
+  2. create_observability_trace() creates a separate lightweight trace with
+     all fields as native LangSmith metadata + tags → fully filterable
 """
 
 from __future__ import annotations
+
+import datetime
+import logging
+import os
+
+logger = logging.getLogger("tomo-ai.observability")
+
+_ls_client = None
+
+
+def _get_langsmith_client():
+    """Lazy singleton for LangSmith client."""
+    global _ls_client
+    if _ls_client is None:
+        from langsmith import Client
+        _ls_client = Client()
+    return _ls_client
+
+
+def create_observability_trace(
+    result: dict,
+    message: str,
+    user_id: str,
+    session_id: str,
+    request_id: str,
+) -> None:
+    """
+    Create a lightweight observability summary trace in LangSmith.
+
+    Uses POST /runs (not PATCH) so it works on Personal plan.
+    All computed fields become native LangSmith metadata (filterable)
+    and tags (filterable). Stored in a separate project to keep
+    the main trace view clean.
+    """
+    post_metadata, post_tags = build_post_execution_metadata(result)
+
+    # Add identity fields so we can cross-reference with main traces
+    post_metadata["request_id"] = request_id
+    post_metadata["user_id"] = user_id
+    post_metadata["session_id"] = session_id
+
+    base_project = os.environ.get("LANGCHAIN_PROJECT", "tomo-ai")
+    obs_project = f"{base_project}-observability"
+
+    client = _get_langsmith_client()
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    path_type = post_metadata.get("path_type", "ai")
+    agent_type = post_metadata.get("agent_type", "unknown")
+
+    client.create_run(
+        name=f"tomo:{path_type}:{agent_type}",
+        run_type="chain",
+        inputs={"message": message},
+        outputs={"summary": post_metadata},
+        metadata=post_metadata,
+        tags=post_tags,
+        project_name=obs_project,
+        start_time=now,
+        end_time=now,
+    )
 
 
 def build_post_execution_metadata(state: dict) -> tuple[dict, list[str]]:
