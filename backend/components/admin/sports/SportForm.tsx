@@ -14,6 +14,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { FieldGuide } from "@/components/admin/FieldGuide";
+import { sportsHelp } from "@/lib/cms-help/sports";
 
 interface SportFormProps {
   sportId?: string;
@@ -104,6 +107,8 @@ export function SportForm({ sportId, initialData }: SportFormProps) {
         </Button>
       </div>
 
+      <PageGuide {...sportsHelp.list.page} />
+
       <Card>
         <CardHeader>
           <CardTitle>Basic Info</CardTitle>
@@ -120,9 +125,7 @@ export function SportForm({ sportId, initialData }: SportFormProps) {
                 required
                 pattern="^[a-z0-9_-]+$"
               />
-              <p className="text-xs text-muted-foreground">
-                Lowercase letters, numbers, dashes, underscores only. Cannot be changed later.
-              </p>
+              <FieldGuide {...sportsHelp.list.fields!.key} />
             </div>
           )}
 
@@ -135,6 +138,7 @@ export function SportForm({ sportId, initialData }: SportFormProps) {
               placeholder="Football"
               required
             />
+            <FieldGuide {...sportsHelp.list.fields!.label} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -146,6 +150,7 @@ export function SportForm({ sportId, initialData }: SportFormProps) {
                 onChange={(e) => setIcon(e.target.value)}
                 placeholder="football-outline"
               />
+              <FieldGuide {...sportsHelp.list.fields!.icon_name} />
             </div>
 
             <div className="space-y-2">
@@ -163,6 +168,7 @@ export function SportForm({ sportId, initialData }: SportFormProps) {
                   style={{ backgroundColor: color }}
                 />
               </div>
+              <FieldGuide {...sportsHelp.list.fields!.color_hex} />
             </div>
           </div>
 
@@ -175,15 +181,19 @@ export function SportForm({ sportId, initialData }: SportFormProps) {
                 value={sortOrder}
                 onChange={(e) => setSortOrder(Number(e.target.value))}
               />
+              <FieldGuide {...sportsHelp.list.fields!.sort_order} />
             </div>
 
-            <div className="flex items-center gap-3 pt-6">
-              <Switch
-                id="available"
-                checked={available}
-                onCheckedChange={setAvailable}
-              />
-              <Label htmlFor="available">Available</Label>
+            <div className="space-y-2 pt-6">
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="available"
+                  checked={available}
+                  onCheckedChange={setAvailable}
+                />
+                <Label htmlFor="available">Available</Label>
+              </div>
+              <FieldGuide {...sportsHelp.list.fields!.available} />
             </div>
           </div>
         </CardContent>

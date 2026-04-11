@@ -28,6 +28,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { protocolsHelp } from "@/lib/cms-help/protocols";
 import {
   GripVertical,
   Plus,
@@ -1080,6 +1082,7 @@ function ProtocolBuilderInner() {
           <h1 className="text-xl font-bold">
             {isEditMode ? "Edit Protocol" : "New Protocol"}
           </h1>
+          <PageGuide {...protocolsHelp.builder.page} />
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>

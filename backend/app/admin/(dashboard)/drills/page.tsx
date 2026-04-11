@@ -29,6 +29,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { drillsHelp } from "@/lib/cms-help/drills";
 
 interface DrillRow {
   id: string;
@@ -127,6 +129,7 @@ export default function DrillsListPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Training Drills</h1>
+          <PageGuide {...drillsHelp.list.page} />
           <p className="text-muted-foreground">
             {total} drill{total !== 1 ? "s" : ""} in the catalog
           </p>

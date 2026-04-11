@@ -11,6 +11,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { sportsHelp } from "@/lib/cms-help/sports";
 
 interface Sport {
   id: string;
@@ -55,6 +57,7 @@ export default function SportsListPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Sports</h1>
+          <PageGuide {...sportsHelp.list.page} />
           <p className="text-muted-foreground">
             {sports.length} sport{sports.length !== 1 ? "s" : ""} configured
           </p>

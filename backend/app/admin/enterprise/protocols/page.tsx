@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { BulkImportExport } from "@/components/admin/enterprise/BulkImportExport";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { protocolsHelp } from "@/lib/cms-help/protocols";
 
 /**
  * Enterprise Protocol Management
@@ -91,6 +93,7 @@ export default function ProtocolsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">Protocol Hierarchy</h1>
+          <PageGuide {...protocolsHelp.list.page} />
           <p className="text-muted-foreground">
             Protocols resolved through the tenant hierarchy. Mandatory protocols
             cannot be overridden.

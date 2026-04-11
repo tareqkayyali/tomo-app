@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { protocolsHelp } from "@/lib/cms-help/protocols";
 
 /**
  * Protocol Inheritance Visualization
@@ -358,6 +360,7 @@ export default function ProtocolInheritancePage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Protocol Inheritance</h1>
+        <PageGuide {...protocolsHelp.inheritance.page} />
         <p className="text-muted-foreground">
           Visualize how protocols flow through the tenant hierarchy
         </p>

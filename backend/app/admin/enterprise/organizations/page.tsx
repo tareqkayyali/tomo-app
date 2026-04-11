@@ -15,6 +15,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { enterpriseDashboardHelp } from "@/lib/cms-help/enterprise-dashboard";
 
 /**
  * Organization Management — Super Admin Only
@@ -88,6 +90,7 @@ export default function OrganizationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Organizations</h1>
+          <PageGuide {...enterpriseDashboardHelp.organizations_list.page} />
           <p className="text-muted-foreground">
             Manage institutions and groups in the tenant hierarchy
           </p>

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { notificationsHelp } from "@/lib/cms-help/notifications";
 
 interface NotifTemplate {
   type: string;
@@ -94,6 +96,7 @@ export default function NotificationTemplatesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Notification Templates</h1>
+        <PageGuide {...notificationsHelp.templates.page} />
         <p className="text-sm text-muted-foreground">{templates.length} templates</p>
       </div>
 

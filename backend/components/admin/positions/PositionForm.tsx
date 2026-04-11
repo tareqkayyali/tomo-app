@@ -14,6 +14,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { AttributeWeightSliders } from "./AttributeWeightSliders";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { sportsHelp } from "@/lib/cms-help/sports";
 
 interface PositionFormProps {
   sportId: string;
@@ -82,6 +84,8 @@ export function PositionForm({ sportId, positionId, initialData }: PositionFormP
           {saving ? "Saving..." : positionId ? "Update Position" : "Create Position"}
         </Button>
       </div>
+
+      <PageGuide {...sportsHelp.positions.page} />
 
       <Separator />
 

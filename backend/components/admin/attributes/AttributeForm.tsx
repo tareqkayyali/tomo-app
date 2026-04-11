@@ -19,6 +19,9 @@ import {
 } from "./SubAttributeBuilder";
 import { PhonePreview } from "@/components/admin/preview/PhonePreview";
 import { usePreviewSync } from "@/components/admin/preview/usePreviewSync";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { FieldGuide } from "@/components/admin/FieldGuide";
+import { sportsHelp } from "@/lib/cms-help/sports";
 
 interface AttributeFormProps {
   sportId: string;
@@ -153,6 +156,8 @@ export function AttributeForm({
         </Button>
       </div>
 
+      <PageGuide {...sportsHelp.attributes.page} />
+
       <Card>
         <CardHeader>
           <CardTitle>Attribute Info</CardTitle>
@@ -169,9 +174,7 @@ export function AttributeForm({
                 required
                 pattern="^[a-z0-9_]+$"
               />
-              <p className="text-xs text-muted-foreground">
-                Lowercase, underscores only
-              </p>
+              <FieldGuide {...sportsHelp.attributes.fields!.key} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="label">Label (short)</Label>
@@ -206,6 +209,7 @@ export function AttributeForm({
                 placeholder="PAC"
                 maxLength={10}
               />
+              <FieldGuide {...sportsHelp.attributes.fields!.abbreviation} />
             </div>
           </div>
 

@@ -30,6 +30,9 @@ import {
   DerivedMetricEditor,
   type DerivedMetricDef,
 } from "./DerivedMetricEditor";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { FieldGuide } from "@/components/admin/FieldGuide";
+import { assessmentsHelp } from "@/lib/cms-help/assessments";
 
 interface AssessmentFormProps {
   assessmentId?: string;
@@ -191,6 +194,8 @@ export function AssessmentForm({
         </Button>
       </div>
 
+      <PageGuide {...assessmentsHelp.list.page} />
+
       <Separator />
 
       {/* Section 1: Metadata */}
@@ -209,6 +214,7 @@ export function AssessmentForm({
                 placeholder="e.g., sprint_30m"
                 required
               />
+              <FieldGuide {...assessmentsHelp.list.fields!.metric_key} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="name">Name *</Label>
@@ -298,6 +304,7 @@ export function AssessmentForm({
               onChange={(e) => setSortOrder(Number(e.target.value))}
               min={0}
             />
+            <FieldGuide {...assessmentsHelp.list.fields!.sort_order} />
           </div>
         </CardContent>
       </Card>
@@ -306,9 +313,7 @@ export function AssessmentForm({
       <Card>
         <CardHeader>
           <CardTitle>Input Fields</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Define the data fields athletes fill in when recording this test
-          </p>
+          <FieldGuide {...assessmentsHelp.list.fields!.input_definitions} />
         </CardHeader>
         <CardContent>
           <InputFieldBuilder fields={inputs} onChange={setInputs} />
@@ -319,10 +324,7 @@ export function AssessmentForm({
       <Card>
         <CardHeader>
           <CardTitle>Derived Metrics</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Computed values calculated from the input fields (e.g., estimated max
-            speed from 30m time)
-          </p>
+          <FieldGuide {...assessmentsHelp.list.fields!.derived_metrics} />
         </CardHeader>
         <CardContent>
           <DerivedMetricEditor

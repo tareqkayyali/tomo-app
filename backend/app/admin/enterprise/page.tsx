@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { enterpriseDashboardHelp } from "@/lib/cms-help/enterprise-dashboard";
 
 /**
  * Enterprise CMS Dashboard
@@ -107,6 +109,7 @@ export default function EnterpriseDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Enterprise Dashboard</h1>
+          <PageGuide {...enterpriseDashboardHelp.dashboard.page} />
           <p className="text-muted-foreground">Organization performance overview</p>
         </div>
         <Badge variant="outline" className="text-xs">

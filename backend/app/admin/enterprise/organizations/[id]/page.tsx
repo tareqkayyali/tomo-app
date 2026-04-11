@@ -16,6 +16,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { enterpriseDashboardHelp } from "@/lib/cms-help/enterprise-dashboard";
 
 /**
  * Organization Detail — Super Admin / Institutional PD
@@ -149,6 +151,7 @@ export default function OrgDetailPage() {
               {tenant.is_active ? "Active" : "Inactive"}
             </Badge>
           </div>
+          <PageGuide {...enterpriseDashboardHelp.organization_detail.page} />
           <p className="text-muted-foreground">
             {tenant.slug} &middot; {tenant.tier} &middot;{" "}
             {tenant.subscription_tier}

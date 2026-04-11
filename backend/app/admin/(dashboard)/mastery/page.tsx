@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { masteryHelp } from "@/lib/cms-help/mastery";
 
 // ── Types ──
 
@@ -187,6 +189,7 @@ export default function MasteryPillarsPage() {
           <h1 className="text-3xl font-bold tracking-tight">
             Mastery Pillars
           </h1>
+          <PageGuide {...masteryHelp.pillars.page} />
           <p className="text-muted-foreground">
             Configure the 7 mastery pillars, their metrics, weights, and radar
             chart axes

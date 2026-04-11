@@ -29,6 +29,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { programsHelp } from "@/lib/cms-help/programs";
 
 const CATEGORIES = [
   "sprint", "sled", "strength", "power", "plyometric",
@@ -119,6 +121,7 @@ export default function ProgramsListPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Training Programs</h1>
+          <PageGuide {...programsHelp.list.page} />
           <p className="text-muted-foreground">
             {total} program{total !== 1 ? "s" : ""} in the catalog
           </p>

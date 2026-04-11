@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { FieldGuide } from "@/components/admin/FieldGuide";
+import { cognitiveWindowsHelp } from "@/lib/cms-help/cognitive-windows";
 
 /* ---------- types ---------- */
 
@@ -141,6 +144,8 @@ export function CognitiveWindowForm({ windowId, initialData }: CognitiveWindowFo
         </p>
       </div>
 
+      <PageGuide {...cognitiveWindowsHelp.list.page} />
+
       {/* Session Type */}
       <Card>
         <CardHeader>
@@ -158,6 +163,7 @@ export function CognitiveWindowForm({ windowId, initialData }: CognitiveWindowFo
               onChange={(e) => setSessionType(e.target.value)}
               placeholder="e.g. High Intensity Training"
             />
+            <FieldGuide {...cognitiveWindowsHelp.list.fields!.session_type} />
           </div>
         </CardContent>
       </Card>
@@ -173,6 +179,7 @@ export function CognitiveWindowForm({ windowId, initialData }: CognitiveWindowFo
         <CardContent>
           <div className="space-y-2">
             <Label>State</Label>
+            <FieldGuide {...cognitiveWindowsHelp.list.fields!.cognitive_state} />
             <div className="flex gap-2 flex-wrap">
               {COGNITIVE_STATES.map((state) => {
                 const isSelected = cognitiveState === state.value;
@@ -207,6 +214,7 @@ export function CognitiveWindowForm({ windowId, initialData }: CognitiveWindowFo
         <CardContent>
           <div className="space-y-2">
             <Label>Delay (minutes)</Label>
+            <FieldGuide {...cognitiveWindowsHelp.list.fields!.optimal_study_delay} />
             <div className="flex gap-2 flex-wrap">
               {DELAY_OPTIONS.map((opt) => {
                 const isSelected = delayMinutes === opt.value;

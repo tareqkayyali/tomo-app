@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { BulkImportExport } from "@/components/admin/enterprise/BulkImportExport";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { knowledgeHelp } from "@/lib/cms-help/knowledge";
 
 /**
  * Enterprise Knowledge Operations
@@ -93,6 +95,7 @@ export default function KnowledgePage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">Knowledge Operations</h1>
+          <PageGuide {...knowledgeHelp.list.page} />
           <p className="text-muted-foreground">
             Manage sports science knowledge chunks and knowledge graph entities
           </p>

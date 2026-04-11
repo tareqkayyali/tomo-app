@@ -16,6 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { evaluationsHelp } from "@/lib/cms-help/evaluations";
 
 /* ------------------------------------------------------------------
    Conversation Browser & PD Annotation
@@ -513,6 +515,7 @@ export default function ConversationBrowserPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Conversation Browser</h1>
+        <PageGuide {...evaluationsHelp.conversation_browser.page} />
         <p className="text-muted-foreground">
           Browse and annotate AI coaching conversations
         </p>

@@ -15,6 +15,8 @@ import NormativeSpreadsheet, {
 import AddMetricDialog from "@/components/admin/normative/AddMetricDialog";
 import NormativeImportDialog from "@/components/admin/normative/NormativeImportDialog";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { normativeDataHelp } from "@/lib/cms-help/normative-data";
 
 const SPORTS = [
   { id: "football", label: "Football" },
@@ -154,6 +156,7 @@ export default function NormativeDataPage() {
           <h1 className="text-3xl font-bold tracking-tight">
             Normative Data
           </h1>
+          <PageGuide {...normativeDataHelp.browser.page} />
           <p className="text-muted-foreground">
             {rows.length} metric{rows.length !== 1 ? "s" : ""} for{" "}
             {SPORTS.find((s) => s.id === sportId)?.label ?? sportId}

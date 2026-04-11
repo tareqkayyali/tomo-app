@@ -30,6 +30,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { knowledgeHelp } from "@/lib/cms-help/knowledge";
 
 /**
  * Knowledge Editor — Phase 10
@@ -567,6 +569,7 @@ export default function KnowledgeEditorPage() {
           <h1 className="text-2xl font-bold">
             {chunkId ? "Edit Knowledge Chunk" : "New Knowledge Chunk"}
           </h1>
+          <PageGuide {...knowledgeHelp.editor.page} />
           <p className="text-muted-foreground">
             {chunkId
               ? `Editing chunk v${version}`

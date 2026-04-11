@@ -15,6 +15,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { SubMetricBuilder } from "./SubMetricBuilder";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { sportsHelp } from "@/lib/cms-help/sports";
 
 interface SubMetric {
   key: string;
@@ -96,6 +98,8 @@ export function SkillForm({ sportId, skillId, initialData }: SkillFormProps) {
           {saving ? "Saving..." : skillId ? "Update Skill" : "Create Skill"}
         </Button>
       </div>
+
+      <PageGuide {...sportsHelp.skills.page} />
 
       <Separator />
 

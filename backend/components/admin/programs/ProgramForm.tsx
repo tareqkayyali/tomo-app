@@ -23,6 +23,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { FieldGuide } from "@/components/admin/FieldGuide";
+import { programsHelp } from "@/lib/cms-help/programs";
 
 // ── Constants ──
 
@@ -243,6 +246,8 @@ export function ProgramForm({ programId, initialData }: ProgramFormProps) {
         </div>
       </div>
 
+      <PageGuide {...programsHelp.list.page} />
+
       <Separator />
 
       {/* ── Section 1: Basic Info ── */}
@@ -268,6 +273,7 @@ export function ProgramForm({ programId, initialData }: ProgramFormProps) {
                   ))}
                 </SelectContent>
               </Select>
+              <FieldGuide {...programsHelp.list.fields!.category} />
             </div>
           </div>
 
@@ -290,6 +296,7 @@ export function ProgramForm({ programId, initialData }: ProgramFormProps) {
             <div className="space-y-2">
               <Label>Duration (min)</Label>
               <Input type="number" value={durationMinutes} onChange={(e) => setDurationMinutes(Number(e.target.value))} min={1} max={180} />
+              <FieldGuide {...programsHelp.list.fields!.duration_weeks} />
             </div>
             <div className="space-y-2">
               <Label>Difficulty</Label>
@@ -301,6 +308,7 @@ export function ProgramForm({ programId, initialData }: ProgramFormProps) {
                   ))}
                 </SelectContent>
               </Select>
+              <FieldGuide {...programsHelp.list.fields!.difficulty} />
             </div>
             <div className="space-y-2">
               <Label>Sort Order</Label>

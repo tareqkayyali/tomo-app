@@ -30,6 +30,9 @@ import { AttributeMultiSelect } from "./AttributeMultiSelect";
 import { AgeBandSelector } from "./AgeBandSelector";
 import { PositionMultiSelect } from "./PositionMultiSelect";
 import { MediaUploader } from "./MediaUploader";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { FieldGuide } from "@/components/admin/FieldGuide";
+import { drillsHelp } from "@/lib/cms-help/drills";
 
 interface Equipment {
   name: string;
@@ -208,6 +211,8 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
         </div>
       </div>
 
+      <PageGuide {...drillsHelp.list.page} />
+
       <Separator />
 
       {/* Basic Info */}
@@ -226,6 +231,7 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
                 placeholder="e.g., Sprint Intervals"
                 required
               />
+              <FieldGuide {...drillsHelp.list.fields!.name} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="sport">Sport *</Label>
@@ -240,6 +246,7 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
                   <SelectItem value="tennis">Tennis</SelectItem>
                 </SelectContent>
               </Select>
+              <FieldGuide {...drillsHelp.list.fields!.sport} />
             </div>
           </div>
 
@@ -269,6 +276,7 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
                   ))}
                 </SelectContent>
               </Select>
+              <FieldGuide {...drillsHelp.list.fields!.category} />
             </div>
             <div className="space-y-2">
               <Label>Intensity *</Label>
@@ -284,6 +292,7 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
                   ))}
                 </SelectContent>
               </Select>
+              <FieldGuide {...drillsHelp.list.fields!.intensity} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="duration">Duration (min)</Label>
@@ -295,6 +304,7 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
                 min={1}
                 max={120}
               />
+              <FieldGuide {...drillsHelp.list.fields!.duration} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="sortOrder">Sort Order</Label>
@@ -403,11 +413,13 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
           <Separator />
           <div className="space-y-2">
             <Label>Age Bands</Label>
+            <FieldGuide {...drillsHelp.list.fields!.age_bands} />
             <AgeBandSelector selected={ageBands} onChange={setAgeBands} />
           </div>
           <Separator />
           <div className="space-y-2">
             <Label>Positions</Label>
+            <FieldGuide {...drillsHelp.list.fields!.positions} />
             <PositionMultiSelect
               selected={positionKeys}
               onChange={setPositionKeys}
@@ -436,7 +448,8 @@ export function DrillForm({ drillId, initialData }: DrillFormProps) {
         <CardHeader>
           <CardTitle>Media</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <FieldGuide {...drillsHelp.list.fields!.video_url} />
           <MediaUploader
             drillId={drillId}
             videoUrl={videoUrl}

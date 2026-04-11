@@ -12,6 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { evaluationsHelp } from "@/lib/cms-help/evaluations";
 
 /**
  * Enterprise Evaluation & Annotation
@@ -168,6 +170,7 @@ export default function EvaluationsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Evaluation & Annotation</h1>
+        <PageGuide {...evaluationsHelp.dashboard.page} />
         <p className="text-muted-foreground">
           AI eval suite results, PHV safety gate, and conversation quality
           monitoring

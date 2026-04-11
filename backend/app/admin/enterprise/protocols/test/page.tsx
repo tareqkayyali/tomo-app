@@ -23,6 +23,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { protocolsHelp } from "@/lib/cms-help/protocols";
 
 /**
  * Protocol Simulator — Phase 10
@@ -385,6 +387,7 @@ export default function ProtocolSimulatorPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Protocol Simulator</h1>
+        <PageGuide {...protocolsHelp.simulator.page} />
         <p className="text-muted-foreground">
           Test protocol conditions against sample athlete snapshots. See which
           protocols fire and how outputs resolve.

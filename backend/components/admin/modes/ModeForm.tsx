@@ -17,6 +17,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { PageGuide } from "@/components/admin/PageGuide";
+import { FieldGuide } from "@/components/admin/FieldGuide";
+import { modesHelp } from "@/lib/cms-help/modes";
 
 /* ---------- types ---------- */
 
@@ -348,21 +350,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
         {modeId ? `Edit Mode: ${label}` : "New Mode"}
       </h1>
 
-      <PageGuide
-        summary="Each mode defines a complete behavior profile that affects scheduling, load thresholds, AI coaching tone, and recommendation priorities. When an athlete activates this mode, every downstream system reads these parameters."
-        details={[
-          "Identity: The Mode ID is used in code and the data fabric. Pick a clear snake_case name — it cannot be changed after creation.",
-          "Schedule Parameters: These directly control the Planning Intelligence engine. 'Max Hard Sessions/Week' caps high-intensity days. 'Load Cap Multiplier' scales the athlete's allowable training load (0.7 = 30% reduction).",
-          "Intensity Cap on Exam Days: When set, the schedule engine blocks sessions above this intensity on any day with a logged exam. REST = no training, LIGHT = technique only, MODERATE = normal but no maximal efforts.",
-          "AI Coaching Tone: Changes how the chat agent communicates. 'Academic' emphasizes study-training balance. 'Performance' focuses on competition prep. 'Supportive' prioritizes wellbeing.",
-          "Priority Boosts: These shift recommendation ranking. A +2 delta on 'recovery' means recovery recs appear higher in the athlete's feed when this mode is active.",
-        ]}
-        examples={[
-          "For an Exam Mode: Set maxHardPerWeek=1, loadCapMultiplier=0.6, intensityCapOnExamDays=LIGHT, studyDurationMultiplier=1.5, aiCoachingTone=academic. This dramatically reduces training load while boosting study time.",
-          "For a League Mode: Set addRecoveryAfterMatch=ON, maxSessionsPerDay=1, aiCoachingTone=performance. Add a priority boost of +2 for 'recovery'. This ensures match recovery is always prioritized.",
-          "For a Rest/Off-Season Mode: Set maxHardPerWeek=0, loadCapMultiplier=0.3, dropPersonalDev=ON. The system will only allow light active recovery sessions.",
-        ]}
-      />
+      <PageGuide {...modesHelp.form.page} />
 
       {/* Section 1: Identity */}
       <Card>
@@ -383,9 +371,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
                 placeholder="e.g. exam_mode, league_mode"
               />
             )}
-            <p className="text-xs text-muted-foreground">
-              Unique identifier (snake_case). Cannot be changed after creation.
-            </p>
+            <FieldGuide {...modesHelp.form.fields!.modeId} />
           </div>
 
           <div className="space-y-2">
@@ -519,9 +505,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
                 onChange={(e) => setStudyDurationMultiplier(e.target.value)}
                 placeholder="e.g. 1.5"
               />
-              <p className="text-xs text-muted-foreground">
-                Multiplier applied to study session durations
-              </p>
+              <FieldGuide {...modesHelp.form.fields!.studyDurationMultiplier} />
             </div>
             <div className="space-y-2">
               <Label>Reduce Gym Days To</Label>
@@ -533,9 +517,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
                 onChange={(e) => setReduceGymDaysTo(e.target.value)}
                 placeholder="Leave empty for no change"
               />
-              <p className="text-xs text-muted-foreground">
-                Reduce weekly gym sessions to this number (empty = no change)
-              </p>
+              <FieldGuide {...modesHelp.form.fields!.reduceGymDaysTo} />
             </div>
           </div>
 
@@ -549,9 +531,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
               onChange={setIntensityCapOnExamDays}
               nullable
             />
-            <p className="text-xs text-muted-foreground">
-              Maximum training intensity allowed on exam days
-            </p>
+            <FieldGuide {...modesHelp.form.fields!.intensityCapOnExamDays} />
           </div>
 
           <Separator />
@@ -568,9 +548,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
                 onChange={(e) => setStudyTrainingBalanceRatio(e.target.value)}
                 placeholder="e.g. 0.6"
               />
-              <p className="text-xs text-muted-foreground">
-                0.0 = all training, 1.0 = all study
-              </p>
+              <FieldGuide {...modesHelp.form.fields!.studyTrainingBalanceRatio} />
             </div>
             <div className="space-y-2">
               <Label>Load Cap Multiplier</Label>
@@ -583,9 +561,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
                 onChange={(e) => setLoadCapMultiplier(e.target.value)}
                 placeholder="e.g. 0.7"
               />
-              <p className="text-xs text-muted-foreground">
-                Caps overall training load (1.0 = no cap)
-              </p>
+              <FieldGuide {...modesHelp.form.fields!.loadCapMultiplier} />
             </div>
           </div>
 
@@ -599,9 +575,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
               />
               <div>
                 <Label>Drop Personal Dev</Label>
-                <p className="text-xs text-muted-foreground">
-                  Remove personal development sessions
-                </p>
+                <FieldGuide {...modesHelp.form.fields!.dropPersonalDev} />
               </div>
             </div>
 
@@ -612,9 +586,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
               />
               <div>
                 <Label>Add Recovery After Match</Label>
-                <p className="text-xs text-muted-foreground">
-                  Auto-schedule recovery post-match
-                </p>
+                <FieldGuide {...modesHelp.form.fields!.addRecoveryAfterMatch} />
               </div>
             </div>
           </div>
@@ -638,9 +610,7 @@ export function ModeForm({ modeId, initialData }: ModeFormProps) {
               onChange={setAiCoachingTone}
               nullable
             />
-            <p className="text-xs text-muted-foreground">
-              How the AI coach adjusts its communication style in this mode
-            </p>
+            <FieldGuide {...modesHelp.form.fields!.aiCoachingTone} />
           </div>
         </CardContent>
       </Card>

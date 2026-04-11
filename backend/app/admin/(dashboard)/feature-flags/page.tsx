@@ -14,6 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { featureFlagsHelp } from "@/lib/cms-help/feature-flags";
 
 interface FeatureFlag {
   id: string;
@@ -63,6 +65,7 @@ export default function FeatureFlagsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Feature Flags</h1>
+          <PageGuide {...featureFlagsHelp.list.page} />
           <p className="text-muted-foreground">
             {flags.length} flag{flags.length !== 1 ? "s" : ""} configured
           </p>

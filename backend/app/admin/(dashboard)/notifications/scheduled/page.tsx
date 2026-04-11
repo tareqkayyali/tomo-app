@@ -4,6 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { notificationsHelp } from "@/lib/cms-help/notifications";
 
 interface ScheduledJob {
   name: string;
@@ -83,6 +85,7 @@ export default function ScheduledJobsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Scheduled Jobs</h1>
+        <PageGuide {...notificationsHelp.scheduled_jobs.page} />
         <Button
           variant="outline"
           onClick={() => runTrigger("all", "All triggers")}

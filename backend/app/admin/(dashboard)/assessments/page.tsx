@@ -28,6 +28,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { assessmentsHelp } from "@/lib/cms-help/assessments";
 
 interface AssessmentRow {
   id: string;
@@ -98,6 +100,7 @@ export default function AssessmentsListPage() {
           <h1 className="text-3xl font-bold tracking-tight">
             Physical Test Definitions
           </h1>
+          <PageGuide {...assessmentsHelp.list.page} />
           <p className="text-muted-foreground">
             {total} assessment{total !== 1 ? "s" : ""} configured
           </p>

@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { knowledgeHelp } from "@/lib/cms-help/knowledge";
 
 /**
  * Knowledge Graph Visualization
@@ -616,6 +618,7 @@ function GraphCanvas({ data }: { data: GraphData }) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Knowledge Graph</h1>
+          <PageGuide {...knowledgeHelp.graph.page} />
           <p className="text-sm text-muted-foreground">
             {filteredEntities.length} entities, {filteredRelationships.length} relationships
             {(filteredEntities.length !== data.entities.length ||

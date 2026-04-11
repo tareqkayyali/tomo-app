@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { FieldGuide } from "@/components/admin/FieldGuide";
+import { featureFlagsHelp } from "@/lib/cms-help/feature-flags";
 
 interface FeatureFlagFormProps {
   flagId?: string;
@@ -95,6 +98,8 @@ export function FeatureFlagForm({ flagId, initialData }: FeatureFlagFormProps) {
         </Button>
       </div>
 
+      <PageGuide {...featureFlagsHelp.list.page} />
+
       <Separator />
 
       <Card>
@@ -113,11 +118,7 @@ export function FeatureFlagForm({ flagId, initialData }: FeatureFlagFormProps) {
               disabled={!!flagId}
               className={flagId ? "opacity-60" : ""}
             />
-            {!flagId && (
-              <p className="text-xs text-muted-foreground">
-                Unique identifier. Cannot be changed after creation.
-              </p>
-            )}
+            <FieldGuide {...featureFlagsHelp.list.fields!.flag_key} />
           </div>
 
           <div className="space-y-2">
@@ -129,11 +130,15 @@ export function FeatureFlagForm({ flagId, initialData }: FeatureFlagFormProps) {
               placeholder="What does this flag control?"
               rows={3}
             />
+            <FieldGuide {...featureFlagsHelp.list.fields!.description} />
           </div>
 
-          <div className="flex items-center gap-3">
-            <Switch checked={enabled} onCheckedChange={setEnabled} />
-            <Label>Enabled</Label>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Switch checked={enabled} onCheckedChange={setEnabled} />
+              <Label>Enabled</Label>
+            </div>
+            <FieldGuide {...featureFlagsHelp.list.fields!.enabled} />
           </div>
 
           <div className="space-y-2">
@@ -144,9 +149,7 @@ export function FeatureFlagForm({ flagId, initialData }: FeatureFlagFormProps) {
               onChange={(e) => setSportsText(e.target.value)}
               placeholder="e.g., football, basketball (leave empty for all sports)"
             />
-            <p className="text-xs text-muted-foreground">
-              Leave empty to apply to all sports.
-            </p>
+            <FieldGuide {...featureFlagsHelp.list.fields!.sport_filter} />
           </div>
         </CardContent>
       </Card>

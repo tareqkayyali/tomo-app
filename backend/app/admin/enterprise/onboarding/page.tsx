@@ -16,6 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { enterpriseDashboardHelp } from "@/lib/cms-help/enterprise-dashboard";
 
 /**
  * Institutional Onboarding — Phase 10
@@ -227,6 +229,7 @@ export default function OnboardingPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Institutional Onboarding</h1>
+        <PageGuide {...enterpriseDashboardHelp.onboarding_wizard.page} />
         <p className="text-muted-foreground">
           Set up a new institution on the Tomo platform
         </p>

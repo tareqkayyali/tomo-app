@@ -14,6 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { cognitiveWindowsHelp } from "@/lib/cms-help/cognitive-windows";
 
 interface CognitiveWindow {
   id: string;
@@ -62,6 +64,7 @@ export default function CognitiveWindowsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Cognitive Windows</h1>
+          <PageGuide {...cognitiveWindowsHelp.list.page} />
           <p className="text-muted-foreground">
             {windows.length} window{windows.length !== 1 ? "s" : ""} configured
           </p>

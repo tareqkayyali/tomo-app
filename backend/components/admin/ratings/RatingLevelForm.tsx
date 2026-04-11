@@ -14,6 +14,9 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/admin/PageGuide";
+import { FieldGuide } from "@/components/admin/FieldGuide";
+import { sportsHelp } from "@/lib/cms-help/sports";
 
 interface RatingLevelFormProps {
   sportId: string;
@@ -85,6 +88,8 @@ export function RatingLevelForm({ sportId, levelId, initialData }: RatingLevelFo
         </Button>
       </div>
 
+      <PageGuide {...sportsHelp.rating_levels.page} />
+
       <Separator />
 
       <Card>
@@ -123,39 +128,42 @@ export function RatingLevelForm({ sportId, levelId, initialData }: RatingLevelFo
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="minRating">Min Rating *</Label>
-              <Input
-                id="minRating"
-                type="number"
-                value={minRating}
-                onChange={(e) => setMinRating(Number(e.target.value))}
-                min={0}
-                required
-              />
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="minRating">Min Rating *</Label>
+                <Input
+                  id="minRating"
+                  type="number"
+                  value={minRating}
+                  onChange={(e) => setMinRating(Number(e.target.value))}
+                  min={0}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxRating">Max Rating *</Label>
+                <Input
+                  id="maxRating"
+                  type="number"
+                  value={maxRating}
+                  onChange={(e) => setMaxRating(Number(e.target.value))}
+                  min={0}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sortOrder">Sort Order</Label>
+                <Input
+                  id="sortOrder"
+                  type="number"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(Number(e.target.value))}
+                  min={0}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="maxRating">Max Rating *</Label>
-              <Input
-                id="maxRating"
-                type="number"
-                value={maxRating}
-                onChange={(e) => setMaxRating(Number(e.target.value))}
-                min={0}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sortOrder">Sort Order</Label>
-              <Input
-                id="sortOrder"
-                type="number"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(Number(e.target.value))}
-                min={0}
-              />
-            </div>
+            <FieldGuide {...sportsHelp.rating_levels.fields!.min_max_rating} />
           </div>
 
           <div className="space-y-2">
