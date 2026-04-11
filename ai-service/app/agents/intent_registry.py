@@ -411,6 +411,22 @@ INTENT_REGISTRY: list[IntentDefinition] = [
         examples=["reduce my load", "lower intensity"],
     ),
     IntentDefinition(
+        id="load_advice_request",
+        capsule_type=None,
+        agent_type="output",
+        description="Athlete asking for advice on training load, ACWR analysis, overtraining concerns, or deload recommendations",
+        examples=[
+            "advice on my load",
+            "how is my load looking",
+            "am I overtraining",
+            "should I reduce my load",
+            "is my load too high",
+            "load management advice",
+            "deload advice",
+            "what should I do about my load",
+        ],
+    ),
+    IntentDefinition(
         id="exam_setup",
         capsule_type=None,
         agent_type="timeline",

@@ -189,15 +189,17 @@ def build_post_execution_metadata(state: dict) -> tuple[dict, list[str]]:
 
     # ── RAG ──
     rag_meta = state.get("rag_metadata") or {}
-    metadata["rag_used"] = bool(rag_meta.get("chunk_count", 0))
+    metadata["rag_used"] = (
+        rag_meta.get("entity_count", 0) > 0 or
+        rag_meta.get("chunk_count", 0) > 0
+    )
     metadata["rag_entity_count"] = rag_meta.get("entity_count", 0)
     metadata["rag_chunk_count"] = rag_meta.get("chunk_count", 0)
     metadata["rag_graph_hops"] = rag_meta.get("graph_hops", 0)
     metadata["rag_sub_questions"] = rag_meta.get("sub_questions", 0)
     metadata["rag_cost_usd"] = rag_meta.get("retrieval_cost_usd", 0.0)
     metadata["rag_latency_ms"] = rag_meta.get("latency_ms", 0.0)
-    if metadata["rag_used"]:
-        tags.append("rag:yes")
+    tags.append("rag:used" if metadata["rag_used"] else "rag:skipped")
 
     # ── Write actions ──
     has_pending = state.get("pending_write_action") is not None
@@ -220,7 +222,7 @@ def build_post_execution_metadata(state: dict) -> tuple[dict, list[str]]:
         sport = getattr(player_ctx, "sport", None)
         position = getattr(player_ctx, "position", None)
         age_band = getattr(player_ctx, "age_band", None)
-        readiness = getattr(player_ctx, "readiness_score", None)
+        readiness_rag = getattr(player_ctx, "readiness_score", None)  # "Yellow"/"Green"/"Red"
 
         if sport:
             metadata["sport"] = sport
@@ -230,16 +232,71 @@ def build_post_execution_metadata(state: dict) -> tuple[dict, list[str]]:
         if age_band:
             metadata["age_band"] = age_band
             tags.append(f"age:{age_band}")
-        if readiness:
-            metadata["readiness_score"] = readiness
-            tags.append(f"readiness:{readiness}")
+        if readiness_rag:
+            metadata["readiness_rag"] = readiness_rag
+            tags.append(f"readiness:{readiness_rag}")
 
-        # PHV stage from snapshot enrichment
+        # Snapshot enrichment — PHV, numeric readiness, injury, ACWR, dual load
         snapshot = getattr(player_ctx, "snapshot_enrichment", None)
         if snapshot:
+            # PHV stage
             phv = getattr(snapshot, "phv_stage", None)
             if phv:
                 metadata["phv_stage"] = phv
                 tags.append(f"phv:{phv}")
+
+            # Numeric readiness (0-100) + bucket
+            numeric_readiness = getattr(snapshot, "readiness_score", 0) or 0
+            metadata["readiness_score"] = numeric_readiness
+            readiness_bucket = (
+                "low" if numeric_readiness < 50 else
+                "medium" if numeric_readiness < 75 else
+                "high"
+            )
+            metadata["readiness_bucket"] = readiness_bucket
+
+            # Injury risk flag
+            injury_risk = getattr(snapshot, "injury_risk_flag", "UNKNOWN") or "UNKNOWN"
+            metadata["injury_risk"] = injury_risk
+            tags.append(f"injury:{injury_risk.lower()}")
+
+            # ACWR + bucket
+            acwr = getattr(snapshot, "acwr", 0.0) or 0.0
+            metadata["acwr"] = acwr
+            acwr_bucket = (
+                "danger" if acwr > 1.5 else
+                "caution" if acwr > 1.3 else
+                "safe"
+            )
+            metadata["acwr_bucket"] = acwr_bucket
+            tags.append(f"acwr:{acwr_bucket}")
+
+            # Dual load zone
+            dlz = getattr(snapshot, "dual_load_zone", None)
+            if dlz:
+                metadata["dual_load_zone"] = dlz
+                tags.append(f"dlz:{dlz.lower()}")
+
+            # Data confidence score (0-100)
+            data_conf = getattr(snapshot, "data_confidence_score", 0) or 0
+            metadata["data_confidence_score"] = data_conf
+
+            # Check-in staleness (days since last check-in)
+            last_checkin = getattr(snapshot, "last_checkin_at", None)
+            today_date = getattr(player_ctx, "today_date", None)
+            if last_checkin and today_date:
+                try:
+                    from datetime import datetime as dt
+                    checkin_date_str = str(last_checkin)[:10]
+                    staleness = (
+                        dt.strptime(today_date, "%Y-%m-%d")
+                        - dt.strptime(checkin_date_str, "%Y-%m-%d")
+                    ).days
+                    metadata["checkin_staleness_days"] = staleness
+                    tags.append(f"stale:{staleness}d")
+                except Exception:
+                    metadata["checkin_staleness_days"] = -1
+            else:
+                metadata["checkin_staleness_days"] = -1
 
     return metadata, tags
