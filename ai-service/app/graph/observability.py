@@ -64,7 +64,7 @@ def create_observability_trace(
         run_type="chain",
         inputs={"message": message},
         outputs={"summary": post_metadata},
-        metadata=post_metadata,
+        extra={"metadata": post_metadata},
         tags=post_tags,
         project_name=obs_project,
         start_time=now,
