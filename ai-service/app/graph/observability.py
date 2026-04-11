@@ -51,8 +51,7 @@ def create_observability_trace(
     post_metadata["user_id"] = user_id
     post_metadata["session_id"] = session_id
 
-    base_project = os.environ.get("LANGCHAIN_PROJECT", "tomo-ai")
-    obs_project = f"{base_project}-observability"
+    obs_project = os.environ.get("LANGCHAIN_PROJECT", "tomo-ai")
 
     client = _get_langsmith_client()
     now = datetime.datetime.now(datetime.timezone.utc)
