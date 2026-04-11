@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import httpx
+import jwt
 
 from app.config import get_settings
 
@@ -92,12 +93,21 @@ class ZepClient:
         self.timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
 
+    def _generate_jwt(self) -> str:
+        """
+        Generate a JWT token for Zep CE authentication.
+        Zep CE expects a JWT signed with ZEP_AUTH_SECRET, not the raw secret.
+        """
+        payload = {"sub": "zep", "iss": "zep"}
+        return jwt.encode(payload, self.api_key, algorithm="HS256")
+
     async def _get_client(self) -> httpx.AsyncClient:
         """Lazy-init async httpx client."""
         if self._client is None or self._client.is_closed:
             headers = {"Content-Type": "application/json"}
             if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
+                token = self._generate_jwt()
+                headers["Authorization"] = f"Bearer {token}"
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
                 headers=headers,
