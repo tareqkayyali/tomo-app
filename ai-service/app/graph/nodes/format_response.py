@@ -91,14 +91,45 @@ def _build_context_stat_grid(state: TomoChatState) -> Optional[dict]:
 
 
 def _truncate_body(body: str, max_sentences: int = MAX_BODY_SENTENCES) -> str:
-    """Truncate body to max N sentences. Pulse: data cards do the work, not prose."""
+    """
+    Truncate body to max N sentences. Pulse: data cards do the work, not prose.
+    Handles bullet lists, numbered lists, and multi-line content — not just periods.
+    """
     if not body:
         return body
-    # Split on sentence boundaries (but not on abbreviations or numbers like "1.")
-    sentences = re.split(r'(?<!\d)(?<=[.!?])\s+', body.strip())
-    if len(sentences) <= max_sentences:
-        return body.strip()
-    return " ".join(sentences[:max_sentences])
+
+    text = body.strip()
+
+    # Strip bullet/check markers for cleaner output
+    # Split on: sentence boundaries, newlines, bullet prefixes
+    lines = [
+        ln.strip().lstrip("•✓✔✗✘-–—*▸▹›»→⇒·● ").lstrip("0123456789.)")
+        .strip()
+        for ln in re.split(r'\n+', text)
+        if ln.strip()
+    ]
+
+    if not lines:
+        return text
+
+    # If it's a simple 1-2 line response, return as-is
+    if len(lines) <= max_sentences:
+        # Still check sentence count within each line
+        all_sentences = []
+        for ln in lines:
+            all_sentences.extend(re.split(r'(?<=[.!?])\s+', ln))
+        if len(all_sentences) <= max_sentences:
+            return text
+
+    # Take first N meaningful segments, join as prose
+    segments = []
+    for ln in lines:
+        sents = re.split(r'(?<=[.!?])\s+', ln)
+        segments.extend(sents)
+        if len(segments) >= max_sentences:
+            break
+
+    return " ".join(segments[:max_sentences])
 
 
 def _strip_emoji(text: str) -> str:
@@ -120,6 +151,63 @@ def _strip_emoji(text: str) -> str:
     return cleaned
 
 
+def _enforce_headline_priority(headline: str, cards: list, state: TomoChatState) -> str:
+    """
+    Pulse safety rule: if RED injury risk or ACWR danger zone exists,
+    the headline MUST lead with the most critical signal — never GREEN.
+
+    "TODAY: Green readiness" when ACWR is 1.55 = dangerous misguidance.
+    """
+    hl_lower = headline.lower()
+
+    # Check stat_grid cards for danger signals
+    has_red = False
+    acwr_danger = False
+    acwr_val = None
+
+    for card in cards:
+        if card.get("type") != "stat_grid":
+            continue
+        for item in card.get("items", []):
+            label = str(item.get("label", "")).lower()
+            value = str(item.get("value", "")).lower()
+            highlight = str(item.get("highlight", "")).lower()
+
+            if highlight == "red":
+                has_red = True
+            if "acwr" in label:
+                try:
+                    acwr_val = float(re.sub(r"[^\d.]", "", str(item.get("value", "0"))))
+                    if acwr_val > 1.3:
+                        acwr_danger = True
+                except (ValueError, TypeError):
+                    pass
+
+    # Also check player context directly
+    ctx = state.get("player_context") if state else None
+    if ctx:
+        snapshot = getattr(ctx, "snapshot_enrichment", None)
+        if snapshot:
+            injury = getattr(snapshot, "injury_risk_flag", None)
+            if str(injury).lower() in ("red", "high"):
+                has_red = True
+            snap_acwr = getattr(snapshot, "acwr_7_28", None) or getattr(snapshot, "acwr", None)
+            if snap_acwr and float(snap_acwr) > 1.3:
+                acwr_danger = True
+                acwr_val = float(snap_acwr)
+
+    # If headline leads with GREEN but danger signals exist, rewrite it
+    if (has_red or acwr_danger) and "green" in hl_lower:
+        if acwr_danger and has_red:
+            return f"ACWR {acwr_val:.2f} — deload required" if acwr_val else "Danger zone — deload required"
+        elif acwr_danger:
+            return f"ACWR {acwr_val:.2f} — reduce load this week" if acwr_val else "High load — reduce this week"
+        elif has_red:
+            return "RED flag — recovery priority"
+
+    return headline
+
+
 def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     """Apply Pulse layout enforcement to any structured response."""
     # 1. Strip emoji from headline
@@ -133,6 +221,13 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     )
     if any(hl.startswith(b) for b in banned_starts):
         structured["headline"] = "Your update"
+
+    # 2b. HEADLINE PRIORITY: danger signals must override GREEN in headline
+    #     If stat_grid has RED injury risk or ACWR >1.3, headline must not lead with GREEN
+    if state:
+        structured["headline"] = _enforce_headline_priority(
+            structured.get("headline", ""), structured.get("cards", []), state
+        )
 
     # 3. Enforce max 2 chips, validate chip structure
     chips = structured.get("chips", [])
@@ -400,10 +495,13 @@ async def format_response_node(state: TomoChatState) -> dict:
 
             # ── Validate per card type — drop empty renders ──
 
-            # Text/advisory: must have body
+            # Text/advisory: must have substantive body
             if card_type in ("text_card", "coach_note"):
-                if not card.get("body", "").strip():
-                    continue
+                card_body = card.get("body", "").strip()
+                # Strip emoji to check actual text content
+                card_body_text = _strip_emoji(card_body)
+                if not card_body_text or len(card_body_text) < 15:
+                    continue  # Drop cards with empty/emoji-only/too-short body
 
             # Stat grid: must have non-empty items with label+value
             elif card_type == "stat_grid":
