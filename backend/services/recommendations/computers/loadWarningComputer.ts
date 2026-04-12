@@ -39,7 +39,7 @@ export async function computeLoadWarningRec(
   // athlete_mode not yet in generated types — use (db as any)
   const { data: snapshot } = await (db as any)
     .from('athlete_snapshots')
-    .select('acwr, atl_7day, ctl_28day, dual_load_index, injury_risk_flag, athletic_load_7day, academic_load_7day, athlete_mode')
+    .select('acwr, atl_7day, ctl_28day, dual_load_index, injury_risk_flag, athletic_load_7day, academic_load_7day, athlete_mode, ccrs_alert_flags, ccrs, ccrs_recommendation')
     .eq('athlete_id', athleteId)
     .single();
 
@@ -81,7 +81,18 @@ export async function computeLoadWarningRec(
   let bodyShort = '';
   let bodyLong = '';
 
-  if (isMidPhv && acwr !== null && acwr > phvAcwrThreshold) {
+  // CCRS ACWR_BLOCKED flag — ACWR > 2.0 hard cap from cascading readiness formula
+  const ccrsAlertFlags = ((snapshot as Record<string, unknown>).ccrs_alert_flags as string[] | null) ?? [];
+  const ccrsScore = (snapshot as Record<string, unknown>).ccrs as number | null;
+  if (ccrsAlertFlags.includes('ACWR_BLOCKED')) {
+    priority = 1;
+    title = 'Extreme Load — Training Blocked';
+    bodyShort = 'Your training load ratio is critically high. All high-intensity training is blocked until it drops.';
+    bodyLong = `Your ACWR is ${acwr?.toFixed(2) ?? 'critically high'} — well above the safe ceiling. `
+      + `Your composite readiness score is capped at ${ccrsScore ?? 40}/100. `
+      + `This level of training spike has a very high injury risk. `
+      + `Only light movement, stretching, or complete rest until your load normalises.`;
+  } else if (isMidPhv && acwr !== null && acwr > phvAcwrThreshold) {
     // Lower threshold during growth spurt
     priority = 1;
     title = 'Growth Phase Load Alert';

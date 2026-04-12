@@ -34,10 +34,11 @@ export async function computeReadinessRec(
 ): Promise<void> {
   const db = supabaseAdmin();
 
-  // 1. Read latest snapshot
-  const { data: snapshot } = await db
+  // 1. Read latest snapshot (including CCRS fields when available)
+  // Cast to any — CCRS columns not yet in generated types
+  const { data: snapshot } = await (db as any)
     .from('athlete_snapshots')
-    .select('readiness_rag, readiness_score, acwr, atl_7day, ctl_28day, dual_load_index, sleep_quality, last_checkin_at')
+    .select('readiness_rag, readiness_score, acwr, atl_7day, ctl_28day, dual_load_index, sleep_quality, last_checkin_at, ccrs, ccrs_confidence, ccrs_recommendation, ccrs_alert_flags, data_freshness')
     .eq('athlete_id', athleteId)
     .single();
 
@@ -61,8 +62,11 @@ export async function computeReadinessRec(
   // 4. Get PHV growth stage (may be null for adults or un-assessed athletes)
   const phv = await getPlayerPHVStage(athleteId);
 
-  // 3. Determine confidence based on data freshness
-  const confidence = computeConfidence(snapshot.last_checkin_at, event.event_type);
+  // 3. Determine confidence — prefer CCRS confidence when available
+  const ccrsConfidence = snapshot.ccrs_confidence as string | null;
+  const confidence = ccrsConfidence
+    ? mapCCRSConfidence(ccrsConfidence)
+    : computeConfidence(snapshot.last_checkin_at, event.event_type);
 
   // 4. Evaluate decision matrix
   const rag = snapshot.readiness_rag as string | null;
@@ -86,7 +90,22 @@ export async function computeReadinessRec(
   let bodyShort: string;
   let bodyLong: string;
 
-  if (rag === 'RED' && isMidPhv) {
+  // CCRS-aware decision: use ccrs_recommendation when available for finer granularity
+  const ccrsRec = snapshot.ccrs_recommendation as string | null;
+  const ccrsScore = snapshot.ccrs as number | null;
+  const ccrsAlertFlags = (snapshot.ccrs_alert_flags as string[] | null) ?? [];
+
+  // CCRS BLOCKED overrides everything — hard safety cap (ACWR > 2.0 or extreme risk)
+  if (ccrsRec === 'blocked') {
+    priority = 1;
+    title = hasTrainingToday ? 'Training Blocked — Recovery Required' : 'Full Recovery Day';
+    bodyShort = hasTrainingToday
+      ? 'Multiple risk factors detected. Skip training today — your body needs full recovery.'
+      : 'Multiple risk indicators are elevated. Rest today and focus on recovery.';
+    bodyLong = hasTrainingToday
+      ? `Your composite readiness score is ${ccrsScore ?? 'very low'}/100 with critical flags: ${ccrsAlertFlags.join(', ') || 'multiple risk factors'}. Training is blocked until these indicators improve. Focus on sleep, hydration, and light movement only.`
+      : `Your readiness score is ${ccrsScore ?? 'very low'}/100. No training today is the right call. Flags: ${ccrsAlertFlags.join(', ') || 'elevated risk'}. Prioritise full recovery.`;
+  } else if (rag === 'RED' && isMidPhv) {
     priority = 1;
     title = hasTrainingToday ? 'Rest Day — Growth Phase' : 'Recovery Day — Growth Phase';
     bodyShort = hasTrainingToday
@@ -287,6 +306,20 @@ function computeConfidence(lastCheckinAt: string | null, eventType: string): num
   if (wearableEventTypes.includes(eventType) && hoursSinceCheckin > 12) return 0.7;
 
   return 0.9;
+}
+
+/**
+ * Map CCRS 5-level confidence to a 0-1 score for recommendation confidence.
+ */
+function mapCCRSConfidence(ccrsConfidence: string): number {
+  switch (ccrsConfidence) {
+    case 'very_high': return 0.95;
+    case 'high': return 0.85;
+    case 'medium': return 0.70;
+    case 'low': return 0.55;
+    case 'estimated': return 0.40;
+    default: return 0.50;
+  }
 }
 
 function buildContributingFactors(

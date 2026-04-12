@@ -9,6 +9,8 @@ import {
 import { deliverQueuedPushes } from "@/services/notifications/pushDelivery";
 import { expireByTTL } from "@/services/notifications/notificationEngine";
 import { runConditionExpiryCheck, cleanDismissalLog } from "@/services/notifications/expiryResolver";
+import { decayStaleSnapshots } from "@/services/snapshot/snapshotStalenessDecay";
+import { updateBaselines } from "@/services/snapshot/baselineUpdater";
 
 const HEADERS = { "api-version": "v1" };
 
@@ -62,11 +64,18 @@ export async function GET(req: NextRequest) {
       results.streak_at_risk = await triggerStreakAtRisk();
     }
 
+    // Baseline updater — run near 02:00 UTC (2-3 window)
+    if (hour >= 2 && hour <= 3) {
+      results.baseline_update = await updateBaselines();
+    }
+
     // Rest day reminder — run near 06:00 UTC (5-6 window)
     if (hour >= 5 && hour <= 6) {
       results.rest_day = await triggerRestDayReminder();
       // Housekeeping: clean dismissal log entries older than 30 days (daily, low-traffic window)
       results.dismissal_log_cleaned = await cleanDismissalLog();
+      // CCRS staleness decay: recompute ACWR + CCRS for stale athletes, decay frozen readiness
+      results.staleness_decay = await decayStaleSnapshots();
     }
 
     // Bedtime + pre-match sleep — run 15:00-23:00 UTC (covers UTC±8 evening windows)
@@ -137,6 +146,14 @@ export async function POST(req: NextRequest) {
 
     if (trigger === "checkin_reminder" || trigger === "all") {
       results.checkin_reminder = await triggerSmartCheckinReminder();
+    }
+
+    if (trigger === "staleness_decay" || trigger === "all") {
+      results.staleness_decay = await decayStaleSnapshots();
+    }
+
+    if (trigger === "baseline_update" || trigger === "all") {
+      results.baseline_update = await updateBaselines();
     }
 
     return NextResponse.json(

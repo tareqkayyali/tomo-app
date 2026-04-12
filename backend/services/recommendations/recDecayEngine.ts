@@ -42,10 +42,11 @@ export async function computeRecDecay(
 
   if (!recs || recs.length === 0) return [];
 
-  // Get recent snapshot for contradiction checks
-  const { data: snapshot } = await db
+  // Get recent snapshot for contradiction checks + data freshness
+  // Cast to any — CCRS/data_freshness columns not yet in generated types
+  const { data: snapshot } = await (db as any)
     .from("athlete_snapshots")
-    .select("readiness_score, acwr, dual_load_index, wellness_trend")
+    .select("readiness_score, acwr, dual_load_index, wellness_trend, data_freshness, ccrs")
     .eq("athlete_id", athleteId)
     .single();
 
@@ -86,6 +87,19 @@ export async function computeRecDecay(
       if (recType === "READINESS" && (snapshot.wellness_trend as string) === "IMPROVING") {
         decayScore *= 0.5;
         decayReason = "wellness trend improving";
+      }
+
+      // Data freshness multiplier — stale data means recs based on it are less trustworthy
+      const freshness = snapshot.data_freshness as string | null;
+      if (freshness && decayScore > 0) {
+        const freshnessMult = freshness === 'UNKNOWN' ? 0.1
+          : freshness === 'STALE' ? 0.3
+          : freshness === 'AGING' ? 0.7
+          : 1.0;
+        if (freshnessMult < 1.0) {
+          decayScore *= freshnessMult;
+          decayReason = decayReason ?? `data freshness: ${freshness}`;
+        }
       }
     }
 
