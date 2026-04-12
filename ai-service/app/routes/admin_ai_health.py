@@ -26,12 +26,14 @@ from pydantic import BaseModel
 from app.config import get_settings
 from app.db.supabase import get_pool
 from app.services.langsmith_collector import (
+    fetch_recent_runs,
     run_collection_cycle,
     write_feedback_to_langsmith,
 )
 from app.services.issue_analyzer import analyze_open_issues
 from app.services.weekly_trend_analyzer import run_weekly_trend_analysis
 from app.services.monthly_digest_generator import run_monthly_digest
+from app.services.insights_engine import generate_insights
 
 logger = logging.getLogger("tomo-ai.routes.admin_ai_health")
 
@@ -57,12 +59,47 @@ def _verify_service_key(
 async def trigger_collection(_: None = Depends(_verify_service_key)):
     """
     Layer 1 — 6h acute pulse.
-    Fetches recent LangSmith runs, detects issues, generates fixes.
+    Fetches traces, runs 9 detectors, generates insights + fixes.
     Called by APScheduler every 6h and manually via admin CMS.
     """
     result = await run_collection_cycle()
     fixes = await analyze_open_issues()
-    return {**result, "fixes_generated": fixes}
+
+    # Generate domain-aware insights from trace data
+    insights_result = []
+    try:
+        traces = await fetch_recent_runs(hours=6)
+        if traces:
+            insights_result = await generate_insights(traces)
+    except Exception as e:
+        logger.error(f"Insights generation failed: {e}")
+
+    return {
+        **result,
+        "fixes_generated": fixes,
+        "insights": insights_result,
+    }
+
+
+@router.get("/insights")
+async def get_insights(_: None = Depends(_verify_service_key)):
+    """
+    Generate fresh domain-aware insights from recent traces.
+    Returns 5 analysis reports covering safety, coaching, routing, cost, dual-load.
+    Each insight is a Haiku-generated narrative with severity and highlighted traces.
+    """
+    try:
+        traces = await fetch_recent_runs(hours=24)
+        if not traces:
+            return {"insights": [], "traces_analyzed": 0, "message": "No traces in last 24h"}
+        insights = await generate_insights(traces)
+        return {
+            "insights": insights,
+            "traces_analyzed": len(traces),
+        }
+    except Exception as e:
+        logger.error(f"Insights generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/weekly-trend")

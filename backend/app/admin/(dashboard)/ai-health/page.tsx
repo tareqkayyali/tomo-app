@@ -63,6 +63,15 @@ interface Digest {
   stats?: Record<string, unknown>;
 }
 
+interface Insight {
+  question: string;
+  answer: string;
+  severity: "critical" | "high" | "medium" | "info";
+  category: "safety" | "coaching" | "routing" | "cost" | "dual_load";
+  traces_analyzed: number;
+  highlighted_traces: string[];
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const SEV_STYLE: Record<string, string> = {
@@ -110,11 +119,28 @@ function TrendBadge({ trend }: { trend: TrendData | null }) {
 
 // ── Main Page ───────────────────────────────────────────────────────────────
 
+const CATEGORY_LABEL: Record<string, string> = {
+  safety: "Athlete Safety",
+  coaching: "Coaching Quality",
+  routing: "Intent Routing",
+  cost: "Cost Efficiency",
+  dual_load: "Dual-Load Stress",
+};
+
+const INSIGHT_SEV_STYLE: Record<string, string> = {
+  critical: "border-l-red-500 bg-red-500/5",
+  high: "border-l-orange-500 bg-orange-500/5",
+  medium: "border-l-yellow-500 bg-yellow-500/5",
+  info: "border-l-zinc-600 bg-zinc-800/30",
+};
+
 export default function AIHealthPage() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [digest, setDigest] = useState<Digest>({});
+  const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [collecting, setCollecting] = useState(false);
+  const [generatingInsights, setGeneratingInsights] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -153,6 +179,10 @@ export default function AIHealthPage() {
         toast.success(
           `Collection complete: ${data.runs_analyzed} runs, ${data.issues_detected} issues, ${data.fixes_generated} fixes`
         );
+        // If insights came back with collection, show them
+        if (data.insights && data.insights.length > 0) {
+          setInsights(data.insights);
+        }
         fetchData();
       } else {
         toast.error("Collection failed");
@@ -161,6 +191,26 @@ export default function AIHealthPage() {
       toast.error("Collection request failed");
     } finally {
       setCollecting(false);
+    }
+  };
+
+  const generateInsightsReport = async () => {
+    setGeneratingInsights(true);
+    try {
+      const res = await fetch("/api/v1/admin/ai-health/insights", {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInsights(data.insights ?? []);
+        toast.success(`Insights generated from ${data.traces_analyzed} traces`);
+      } else {
+        toast.error("Insights generation failed");
+      }
+    } catch {
+      toast.error("Request failed");
+    } finally {
+      setGeneratingInsights(false);
     }
   };
 
@@ -231,14 +281,24 @@ export default function AIHealthPage() {
             trends
           </p>
         </div>
-        <Button
-          onClick={triggerCollection}
-          disabled={collecting}
-          variant="outline"
-          size="sm"
-        >
-          {collecting ? "Collecting..." : "Run Collection"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={generateInsightsReport}
+            disabled={generatingInsights}
+            variant="outline"
+            size="sm"
+          >
+            {generatingInsights ? "Analyzing..." : "Generate Insights"}
+          </Button>
+          <Button
+            onClick={triggerCollection}
+            disabled={collecting}
+            variant="outline"
+            size="sm"
+          >
+            {collecting ? "Collecting..." : "Run Collection"}
+          </Button>
+        </div>
       </div>
 
       {/* Metrics row */}
@@ -291,6 +351,63 @@ export default function AIHealthPage() {
       )}
 
       <Separator />
+
+      {/* Domain Insights */}
+      {insights.length > 0 && (
+        <>
+          <div>
+            <h2 className="text-sm font-medium mb-4">Domain Insights</h2>
+            <div className="space-y-3">
+              {insights.map((insight, idx) => (
+                <Card
+                  key={idx}
+                  className={`border-l-4 ${INSIGHT_SEV_STYLE[insight.severity] ?? "border-l-zinc-600 bg-zinc-800/30"}`}
+                >
+                  <CardContent className="pt-4 pb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] uppercase tracking-wider ${SEV_BADGE[insight.severity] ?? ""}`}
+                        >
+                          {insight.severity}
+                        </Badge>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {CATEGORY_LABEL[insight.category] ?? insight.category}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {insight.traces_analyzed} traces analyzed
+                      </span>
+                    </div>
+
+                    <p className="text-sm font-medium mb-2">{insight.question}</p>
+
+                    <p className="text-sm text-zinc-300/90 leading-relaxed whitespace-pre-wrap">
+                      {insight.answer}
+                    </p>
+
+                    {insight.highlighted_traces.length > 0 && (
+                      <div className="mt-3 flex gap-2 flex-wrap">
+                        {insight.highlighted_traces.map((traceId) => (
+                          <span
+                            key={traceId}
+                            className="font-mono text-[10px] bg-zinc-900/80 rounded px-1.5 py-0.5 text-zinc-500"
+                          >
+                            {traceId.slice(0, 8)}…
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+        </>
+      )}
 
       {/* Fix queue */}
       <div>
