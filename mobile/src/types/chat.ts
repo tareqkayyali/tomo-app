@@ -726,7 +726,9 @@ export interface DailyBriefingCard {
 
 export interface ActionChip {
   label: string;
+  /** Python AI service sends 'message', TS legacy sends 'action' — accept both */
   action: string;
+  message?: string;
 }
 
 export interface ConfirmAction {
@@ -740,6 +742,8 @@ export interface ConfirmAction {
 
 export interface TomoResponse {
   headline: string;
+  /** Coaching body text — 2-4 sentences of interpretation and advice */
+  body?: string;
   cards: VisualCard[];
   chips?: ActionChip[];
   confirm?: ConfirmAction;

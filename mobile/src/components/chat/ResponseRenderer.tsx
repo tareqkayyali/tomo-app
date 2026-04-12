@@ -55,6 +55,13 @@ function createStyles(colors: ThemeColors) {
       color: colors.textOnDark,
       marginBottom: 4,
     },
+    bodyText: {
+      fontFamily: fontFamily.regular,
+      fontSize: 15,
+      lineHeight: 22,
+      color: colors.textBody,
+      marginBottom: 4,
+    },
 
     // Stat Row
     statRow: {
@@ -1586,10 +1593,19 @@ export function ResponseRenderer({
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  // Body text: show when it differs from headline and has substance
+  const showBody = response.body
+    && response.body.trim() !== ''
+    && response.body.trim() !== response.headline?.trim();
+
   return (
     <View style={styles.container}>
       {response.headline ? (
         <Text style={styles.headline}>{response.headline}</Text>
+      ) : null}
+
+      {showBody ? (
+        <Text style={styles.bodyText}>{response.body}</Text>
       ) : null}
 
       {(Array.isArray(response.cards) ? response.cards : []).map((card, i) => (
@@ -1611,7 +1627,7 @@ export function ResponseRenderer({
           {response.chips.map((chip, i) => (
             <Pressable
               key={i}
-              onPress={() => onChipPress(chip.action)}
+              onPress={() => onChipPress(chip.message || chip.action)}
               style={({ pressed }) => [
                 styles.actionChip,
                 pressed && styles.actionChipPressed,
