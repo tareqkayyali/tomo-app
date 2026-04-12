@@ -281,8 +281,18 @@ def build_ccrs_block(ctx: PlayerContext) -> str:
 Score: {score:.0f}/100 | Recommendation: {rec_label} | Confidence: {confidence}
 Data Freshness: {freshness}"""
 
+    # ACWR is internal context for the AI — NEVER display raw values to athlete.
+    # Qualitative label only. The athlete sees CCRS score/recommendation.
     if acwr is not None:
-        block += f"\nTraining Load Ratio: {acwr:.2f} (internal reference)"
+        if acwr > 1.5:
+            load_label = "DANGER — overtraining zone"
+        elif acwr > 1.3:
+            load_label = "ELEVATED — approaching overload"
+        elif acwr >= 0.8:
+            load_label = "SAFE — sweet spot"
+        else:
+            load_label = "LOW — undertraining"
+        block += f"\nTraining Load Status: {load_label} (do NOT show numbers to athlete)"
 
     if flags:
         block += f"\nAlert Flags: {', '.join(flags)}"
@@ -601,9 +611,9 @@ def build_snapshot_context(ctx: PlayerContext) -> str:
     se = ctx.snapshot_enrichment
     if se:
         parts.append(f"""
-SNAPSHOT DATA:
-- Load Ratio (7:28): {se.acwr} | ATL-7d: {se.atl_7day} | CTL-28d: {se.ctl_28day}
-- Injury Risk: {se.injury_risk_flag or 'N/A'} | Projected Load Ratio: {se.projected_acwr}
+SNAPSHOT DATA (internal — do NOT show raw numbers to athlete, interpret as coaching advice):
+- Injury Risk: {se.injury_risk_flag or 'N/A'}
+- Training Load: {'OVERTRAINING' if se.acwr and se.acwr > 1.5 else ('ELEVATED' if se.acwr and se.acwr > 1.3 else 'NORMAL')}
 - HRV: baseline {se.hrv_baseline_ms}ms, today {se.hrv_today_ms}ms | Trend: {se.hrv_trend_7d_pct}%
 - Sleep Quality: {se.sleep_quality} | Wellness 7d: {se.wellness_7day_avg} ({se.wellness_trend})
 - Recovery Score: {se.recovery_score} | SpO2: {se.spo2_pct}%

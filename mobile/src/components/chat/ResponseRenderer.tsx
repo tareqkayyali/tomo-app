@@ -935,6 +935,38 @@ function ClashListCard({
   );
 }
 
+/** Map raw metric keys to human-readable names */
+const METRIC_DISPLAY_NAMES: Record<string, string> = {
+  sprint_10m: '10m Sprint',
+  sprint_20m: '20m Sprint',
+  sprint_30m: '30m Sprint',
+  sprint_40m: '40m Sprint',
+  sprint_flying_20m: 'Flying 20m',
+  agility_505: '5-0-5 Agility',
+  agility_ttest: 'T-Test',
+  agility_5105: '5-10-5 Agility',
+  illinois_agility: 'Illinois Agility',
+  arrowhead_agility: 'Arrowhead Agility',
+  cmj_height: 'Counter Movement Jump',
+  broad_jump: 'Broad Jump',
+  vertical_jump: 'Vertical Jump',
+  yo_yo_ir1: 'Yo-Yo IR1',
+  yo_yo_ir2: 'Yo-Yo IR2',
+  beep_test: 'Beep Test',
+  '1rm_squat': '1RM Squat',
+  '1rm_bench': '1RM Bench Press',
+  '1rm_deadlift': '1RM Deadlift',
+  grip_strength: 'Grip Strength',
+  sit_and_reach: 'Sit & Reach',
+};
+
+/** Correct ordinal suffix (1st, 2nd, 3rd, 4th, etc.) */
+function ordinalSuffix(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 function BenchmarkBarCard({
   card,
   styles,
@@ -942,10 +974,12 @@ function BenchmarkBarCard({
   card: BenchmarkBar;
   styles: ReturnType<typeof createStyles>;
 }) {
+  const displayMetric = METRIC_DISPLAY_NAMES[card.metric] || card.metric.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
   return (
     <View style={styles.benchmarkCard}>
       <View style={styles.benchmarkHeader}>
-        <Text style={styles.benchmarkMetric}>{card.metric}</Text>
+        <Text style={styles.benchmarkMetric}>{displayMetric}</Text>
         <Text style={styles.benchmarkValue}>
           {card.value} {card.unit}
         </Text>
@@ -959,7 +993,7 @@ function BenchmarkBarCard({
         />
       </View>
       <Text style={styles.benchmarkFooter}>
-        {card.percentile}th percentile · {card.ageBand}
+        {ordinalSuffix(card.percentile)} percentile · {card.ageBand}
       </Text>
     </View>
   );
@@ -1083,6 +1117,9 @@ function CoachNoteCard({
   styles: ReturnType<typeof createStyles>;
   colors: ThemeColors;
 }) {
+  // Don't render if note is empty/whitespace-only (safety net — backend should filter these)
+  if (!card.note || !card.note.trim()) return null;
+
   return (
     <View style={styles.coachNote}>
       <SmartIcon name="megaphone-outline" size={16} color={colors.accent1} />

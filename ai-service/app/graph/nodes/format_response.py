@@ -193,8 +193,52 @@ def _enforce_headline_priority(headline: str, cards: list, state: TomoChatState)
     return headline
 
 
+def _sanitize_acwr_references(text: str) -> str:
+    """
+    Deterministic ACWR sanitization — strip raw ACWR values from athlete-facing text.
+    ACWR is an internal metric; athletes see CCRS/readiness language instead.
+    Runs AFTER LLM generation — cannot be ignored by the model.
+    """
+    if not text:
+        return text
+    # 1. Remove parenthetical ACWR references entirely: "(ACWR 1.55)" / "(ACWR: 1.55)"
+    text = re.sub(r"\s*\(\s*ACWR\s*[=:\s]*\d+\.?\d*[^)]*\)", "", text, flags=re.I)
+    # 2. "your ACWR is/hit/reached 1.55" → "your training load is elevated"
+    text = re.sub(
+        r"\byour\s+ACWR\s*(?:is\s+|hit\s+|reached\s+|at\s+|=\s*|:\s*)?(\d+\.?\d*)",
+        "your training load is elevated",
+        text, flags=re.I,
+    )
+    # 3. "ACWR 1.55" / "ACWR is 1.55" / "ACWR: 1.55" → "training load is elevated"
+    text = re.sub(
+        r"\bACWR\s*(?:is\s+|=\s*|:\s*|of\s+|hit\s+|at\s+|reached\s+)?(\d+\.?\d*)",
+        "training load is elevated",
+        text, flags=re.I,
+    )
+    # 4. "your ACWR" standalone → "your training load"
+    text = re.sub(r"\byour\s+ACWR\b", "your training load", text, flags=re.I)
+    # 5. "ACWR" standalone → "training load" (only match uppercase to avoid false positives)
+    text = re.sub(r"\bACWR\b", "training load", text)
+    # Clean up double spaces and trailing commas before periods
+    text = re.sub(r",\s*\.", ".", text)
+    text = re.sub(r"  +", " ", text).strip()
+    return text
+
+
 def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     """Apply Pulse layout enforcement to any structured response."""
+
+    # 0. ACWR sanitization — deterministic, runs before any other processing
+    # Athletes should never see raw ACWR values; they see readiness/CCRS language.
+    structured["headline"] = _sanitize_acwr_references(structured.get("headline", ""))
+    structured["body"] = _sanitize_acwr_references(structured.get("body", ""))
+    for card in structured.get("cards", []):
+        if card.get("type") in ("text_card", "coach_note"):
+            if card.get("body"):
+                card["body"] = _sanitize_acwr_references(card["body"])
+            if card.get("note"):
+                card["note"] = _sanitize_acwr_references(card["note"])
+
     # 1. Strip emoji from headline
     structured["headline"] = _strip_emoji(structured.get("headline", ""))
 
@@ -478,13 +522,17 @@ async def format_response_node(state: TomoChatState) -> dict:
             # ── Validate per card type — drop empty renders ──
 
             # Text/advisory: must have substantive body
-            if card_type in ("text_card", "coach_note"):
-                # coach_note uses "note" field, text_card uses "body"
-                card_body = (card.get("body") or card.get("note") or "").strip()
-                # Strip emoji to check actual text content
+            if card_type == "text_card":
+                card_body = (card.get("body") or "").strip()
                 card_body_text = _strip_emoji(card_body)
                 if not card_body_text or len(card_body_text) < 15:
-                    continue  # Drop cards with empty/emoji-only/too-short body
+                    continue  # Drop text_cards with empty/too-short body
+            elif card_type == "coach_note":
+                # Mobile renders card.note — body field is ignored by the renderer
+                card_note = (card.get("note") or "").strip()
+                card_note_text = _strip_emoji(card_note)
+                if not card_note_text or len(card_note_text) < 15:
+                    continue  # Drop coach_notes with empty/too-short note
 
             # Stat grid: must have non-empty items with label+value
             elif card_type == "stat_grid":

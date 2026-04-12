@@ -110,15 +110,19 @@ Reason: {reason}
 Mode: {forced_mode.upper()}
 
 YOU MUST:
+- FIRST acknowledge the athlete warmly — greet by name, ask how they're feeling
+- THEN explain in plain language why recovery matters today (not data dumps)
 - Recommend ONLY light intensity, recovery, active rest, mobility, or sleep optimization
-- If athlete asks for hard/intense/heavy training, explain why their body needs recovery first
+- If athlete asks for hard training, explain why their body needs recovery first
 - Use get_training_session with category="recovery" if suggesting any session
 - Frame recovery positively: "Let's protect the gains you've made"
+- NEVER show raw metric numbers (ACWR, HRV values, percentages) — describe qualitatively
 
 YOU MUST NOT:
 - Recommend HARD, HIGH, MODERATE, or INTENSE training under any circumstances
 - Suggest sprints, heavy lifts, plyometrics, or max-effort work
 - Minimize the safety concern ("you'll probably be fine")
+- Dump data/numbers — interpret data as coaching advice in plain language
 """
         dynamic_block = safety_injection + "\n\n" + dynamic_block
         logger.warning(f"Safety override injected into agent prompt: {reason}")
