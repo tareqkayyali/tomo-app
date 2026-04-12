@@ -73,6 +73,9 @@ async def persist_node(state: TomoChatState) -> dict:
             )
 
             # Save conversation turn
+            # NOTE: User message is already saved by TypeScript gateway (route.ts)
+            # before proxying to Python. We only save the assistant response here
+            # to avoid duplicate user messages inflating session history.
             turn_data = {
                 "agent_type": selected_agent,
                 "routing_confidence": routing_confidence,
@@ -82,12 +85,6 @@ async def persist_node(state: TomoChatState) -> dict:
                 "tokens": total_tokens,
                 "latency_ms": latency_ms,
             }
-
-            await conn.execute(
-                """INSERT INTO chat_messages (session_id, user_id, role, content, metadata)
-                   VALUES (%s, %s, 'user', %s, '{}')""",
-                (session_id, user_id, user_message),
-            )
 
             await conn.execute(
                 """INSERT INTO chat_messages (session_id, user_id, role, content, metadata)

@@ -159,8 +159,24 @@ YOU MUST NOT:
         ]
     )
 
-    # Conversation messages from state
+    # Conversation messages from state (already token-budgeted by conversation_history.py)
     conversation_msgs = list(state.get("messages", []))
+
+    # Safety: if conversation messages are still over 20K chars (~5K tokens),
+    # trim to last 4 messages to keep LLM input lean. This catches edge cases
+    # where the history loader's budget wasn't aggressive enough.
+    conv_chars = sum(
+        len(m.content) if isinstance(m.content, str) else len(str(m.content))
+        for m in conversation_msgs
+    )
+    if conv_chars > 20000 and len(conversation_msgs) > 4:
+        trimmed_count = len(conversation_msgs) - 4
+        conversation_msgs = conversation_msgs[-4:]
+        logger.warning(
+            f"Agent dispatch: trimmed {trimmed_count} messages "
+            f"({conv_chars} chars → ~{sum(len(m.content) if isinstance(m.content, str) else 0 for m in conversation_msgs)} chars)"
+        )
+
     all_messages = [system_msg] + conversation_msgs
 
     # 5. Agentic loop

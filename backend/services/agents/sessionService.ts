@@ -15,7 +15,7 @@ type TomoResponse = { cards: Array<{ type: string; [key: string]: any }>; [key: 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supa = () => supabaseAdmin() as any;
 
-const TOKEN_BUDGET = 12000;
+const TOKEN_BUDGET = 5000; // 5K tokens for history — matched to Python conversation_history.py
 const CHARS_PER_TOKEN = 4; // rough estimate
 const PENDING_ACTION_TTL_MS = 60 * 60 * 1000; // 60 minutes
 
