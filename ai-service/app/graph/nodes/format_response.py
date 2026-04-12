@@ -57,15 +57,22 @@ def _pulse_post_process(structured: dict) -> dict:
     # 1. Strip emoji from headline
     structured["headline"] = _strip_emoji(structured.get("headline", ""))
 
-    # 2. Ban "Here's what I found" even if LLM sneaks it through
+    # 2. Ban filler headlines even if LLM sneaks them through
     hl = structured.get("headline", "").lower()
-    if hl.startswith("here's what") or hl.startswith("here's your"):
-        structured["headline"] = ""
+    banned_starts = (
+        "here's what", "here's your", "great question",
+        "absolutely", "sure thing", "let me check",
+    )
+    if any(hl.startswith(b) for b in banned_starts):
+        structured["headline"] = "Your update"
 
-    # 3. Enforce max 2 chips
+    # 3. Enforce max 2 chips, validate chip structure
     chips = structured.get("chips", [])
-    if len(chips) > 2:
-        structured["chips"] = chips[:2]
+    valid_chips = [
+        c for c in chips
+        if isinstance(c, dict) and c.get("label") and c.get("message")
+    ]
+    structured["chips"] = valid_chips[:2]
 
     # 4. Reorder cards: data cards first, then text/advisory
     cards = structured.get("cards", [])
@@ -73,6 +80,16 @@ def _pulse_post_process(structured: dict) -> dict:
         data_cards = [c for c in cards if c.get("type") in DATA_CARD_TYPES]
         other_cards = [c for c in cards if c.get("type") not in DATA_CARD_TYPES]
         structured["cards"] = data_cards + other_cards
+
+    # 5. Ensure body exists (mobile renderer needs it)
+    if not structured.get("body", "").strip():
+        # Use first text_card body or headline as fallback
+        for card in structured.get("cards", []):
+            if card.get("type") in ("text_card", "coach_note") and card.get("body"):
+                structured["body"] = card["body"]
+                break
+        if not structured.get("body", "").strip():
+            structured["body"] = structured.get("headline", "") or "Here's what I found."
 
     return structured
 
@@ -303,11 +320,77 @@ async def format_response_node(state: TomoChatState) -> dict:
         for card in structured["cards"]:
             if not isinstance(card, dict) or "type" not in card:
                 continue
-            # Drop text/note cards with empty body (renders as blank UI block)
             card_type = card["type"]
+
+            # ── Validate per card type — drop empty renders ──
+
+            # Text/advisory: must have body
             if card_type in ("text_card", "coach_note"):
                 if not card.get("body", "").strip():
                     continue
+
+            # Stat grid: must have non-empty items with label+value
+            elif card_type == "stat_grid":
+                items = card.get("items")
+                if not isinstance(items, list) or not items:
+                    continue
+                # Clean items: keep only those with visible content
+                clean = [
+                    it for it in items
+                    if isinstance(it, dict) and it.get("label") and it.get("value") is not None
+                ]
+                if not clean:
+                    continue
+                # Ensure every item has highlight field (default green)
+                for it in clean:
+                    if "highlight" not in it:
+                        it["highlight"] = "green"
+                card["items"] = clean
+
+            # Stat row: must have label + value
+            elif card_type == "stat_row":
+                if not card.get("label") or card.get("value") is None:
+                    continue
+
+            # Schedule list: must have events/items
+            elif card_type == "schedule_list":
+                events = card.get("events") or card.get("items") or []
+                if not isinstance(events, list) or not events:
+                    continue
+
+            # Session plan: must have drills
+            elif card_type == "session_plan":
+                drills = card.get("drills") or []
+                if not isinstance(drills, list) or not drills:
+                    continue
+
+            # Program recommendation: must have programs
+            elif card_type == "program_recommendation":
+                programs = card.get("programs") or []
+                if not isinstance(programs, list) or not programs:
+                    continue
+
+            # Zone stack: must have zones
+            elif card_type == "zone_stack":
+                zones = card.get("zones") or []
+                if not isinstance(zones, list) or not zones:
+                    continue
+
+            # Benchmark bar: must have value
+            elif card_type == "benchmark_bar":
+                if card.get("value") is None and card.get("percentile") is None:
+                    continue
+
+            # Clash list: must have clashes
+            elif card_type == "clash_list":
+                clashes = card.get("clashes") or card.get("items") or []
+                if not isinstance(clashes, list) or not clashes:
+                    continue
+
+            # Confirm card: always valid (has action_data)
+            elif card_type == "confirm_card":
+                pass
+
             valid_cards.append(card)
         structured["cards"] = valid_cards
 
