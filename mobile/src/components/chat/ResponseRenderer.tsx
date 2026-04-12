@@ -102,30 +102,32 @@ function createStyles(colors: ThemeColors) {
     trendDown: { color: colors.error },
     trendFlat: { color: colors.textInactive },
 
-    // Schedule List
+    // Schedule List — matches confirm card table theme
     scheduleCard: {
-      backgroundColor: colors.cardLight,
+      backgroundColor: colors.accentSubtle,
       borderRadius: borderRadius.md,
-      padding: 12,
+      borderWidth: 1,
+      borderColor: colors.accentSoft,
+      padding: 14,
     },
     scheduleDate: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 13,
-      color: colors.textInactive,
+      fontFamily: fontFamily.bold,
+      fontSize: 15,
+      color: colors.accent1,
       marginBottom: 8,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
     },
     scheduleItem: {
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: 6,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: `${colors.accentSoft}60`,
       gap: 10,
     },
     scheduleTime: {
       fontFamily: fontFamily.medium,
-      fontSize: 13,
-      color: colors.textInactive,
+      fontSize: 12,
+      color: colors.textSecondary,
       width: 50,
     },
     scheduleDot: {
@@ -134,7 +136,7 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 4,
     },
     scheduleTitle: {
-      fontFamily: fontFamily.medium,
+      fontFamily: fontFamily.semiBold,
       fontSize: 14,
       color: colors.textOnDark,
       flex: 1,
@@ -143,52 +145,52 @@ function createStyles(colors: ThemeColors) {
       color: colors.error,
     },
 
-    // Week Schedule
+    // Week Schedule — matches confirm card table theme
     weekScheduleCard: {
-      backgroundColor: colors.cardLight,
+      backgroundColor: colors.accentSubtle,
       borderRadius: borderRadius.md,
-      padding: 12,
-      gap: 4,
+      borderWidth: 1,
+      borderColor: colors.accentSoft,
+      padding: 14,
+      gap: 0,
     },
     weekScheduleSummary: {
-      fontFamily: fontFamily.medium,
+      fontFamily: fontFamily.regular,
       fontSize: 13,
       color: colors.textBody,
       marginBottom: 8,
       lineHeight: 20,
     },
     weekScheduleDayHeader: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 13,
-      color: colors.accent2 ?? colors.textOnDark,
-      marginTop: 10,
-      marginBottom: 4,
+      fontFamily: fontFamily.medium,
+      fontSize: 12,
+      color: colors.textSecondary,
+      width: 36,
       textTransform: 'uppercase',
-      letterSpacing: 0.8,
     },
 
-    // Week Plan (Pulse design)
+    // Week Plan — matches confirm card table theme
     weekPlanCard: {
-      backgroundColor: colors.cardLight,
+      backgroundColor: colors.accentSubtle,
       borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.accentSoft,
       padding: 14,
-      gap: 2,
+      gap: 0,
     },
     weekPlanHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 10,
+      marginBottom: 8,
       paddingBottom: 8,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
+      borderBottomColor: `${colors.accentSoft}60`,
     },
     weekPlanTitle: {
       fontFamily: fontFamily.bold,
-      fontSize: 12,
-      color: colors.textSecondary,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
+      fontSize: 15,
+      color: colors.accent1,
     },
     weekPlanDateRange: {
       fontFamily: fontFamily.medium,
@@ -196,48 +198,40 @@ function createStyles(colors: ThemeColors) {
       color: colors.textSecondary,
     },
     weekPlanRow: {
+      paddingVertical: 6,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: `${colors.accentSoft}60`,
+    },
+    weekPlanRowInner: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: `${colors.border}40`,
-      gap: 8,
+      gap: 10,
     },
     weekPlanDay: {
-      fontFamily: fontFamily.bold,
-      fontSize: 13,
-      color: colors.accent1,
+      fontFamily: fontFamily.medium,
+      fontSize: 12,
+      color: colors.textSecondary,
       width: 36,
       textTransform: 'uppercase',
     },
-    weekPlanTags: {
+    weekPlanActivities: {
       flex: 1,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      gap: 6,
-    },
-    weekPlanTag: {
-      borderRadius: borderRadius.full,
-      borderWidth: 1,
-      paddingHorizontal: 10,
-      paddingVertical: 3,
-    },
-    weekPlanTagText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 11,
-    },
-    weekPlanNote: {
-      fontFamily: fontFamily.regular,
-      fontSize: 12,
-      color: colors.textSecondary,
+      fontFamily: fontFamily.semiBold,
+      fontSize: 14,
+      color: colors.textOnDark,
     },
     weekPlanTime: {
       fontFamily: fontFamily.medium,
       fontSize: 12,
-      color: colors.textSecondary,
-      minWidth: 40,
+      color: colors.accent1,
       textAlign: 'right',
+    },
+    weekPlanNote: {
+      fontFamily: fontFamily.regular,
+      fontSize: 11,
+      color: colors.textSecondary,
+      marginLeft: 46,
+      marginTop: 2,
     },
 
     // Choice Card (radio options)
@@ -968,43 +962,20 @@ function ScheduleListCard({
   return (
     <View style={styles.scheduleCard}>
       <Text style={styles.scheduleDate}>{card.date}</Text>
-      {(Array.isArray(card.items) ? card.items : []).map((item, i) => {
-        const badgeColor = SCHEDULE_COLORS[item.type] || SCHEDULE_COLORS.other;
-        return (
-          <View
-            key={i}
-            style={[
-              styles.scheduleItem,
-              item.clash && styles.scheduleClashBorder,
-            ]}
-          >
-            <Text style={styles.scheduleTime}>{item.time}</Text>
-            <Text style={[styles.scheduleTitle, item.clash && styles.scheduleClash]}>
-              {item.title}
-            </Text>
-            <View
-              style={[
-                styles.scheduleTypeBadge,
-                {
-                  borderColor: item.clash ? colors.accent : badgeColor,
-                  backgroundColor: item.clash
-                    ? colors.accentMuted
-                    : `${badgeColor}15`,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.scheduleTypeBadgeText,
-                  { color: item.clash ? colors.accent : badgeColor },
-                ]}
-              >
-                {item.clash ? 'Clash' : BADGE_LABELS[item.type] || item.type}
-              </Text>
-            </View>
-          </View>
-        );
-      })}
+      {(Array.isArray(card.items) ? card.items : []).map((item, i) => (
+        <View
+          key={i}
+          style={[
+            styles.scheduleItem,
+            item.clash && styles.scheduleClashBorder,
+          ]}
+        >
+          <Text style={styles.scheduleTime}>{item.time}</Text>
+          <Text style={[styles.scheduleTitle, item.clash && styles.scheduleClash]} numberOfLines={1}>
+            {item.title}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -1021,33 +992,53 @@ function WeekScheduleCard({
       {card.summary ? (
         <Text style={styles.weekScheduleSummary}>{card.summary}</Text>
       ) : null}
-      {(Array.isArray(card.days) ? card.days : []).map((day, di) => (
-        <View key={di}>
-          <Text style={styles.weekScheduleDayHeader}>{day.dayLabel}</Text>
-          {(Array.isArray(day.items) ? day.items : []).map((item, i) => {
-            const badgeColor = SCHEDULE_COLORS[item.type] || SCHEDULE_COLORS.other;
-            return (
-              <View key={i} style={styles.scheduleItem}>
-                <Text style={styles.scheduleTime}>{item.time}</Text>
-                <Text style={styles.scheduleTitle}>{item.title}</Text>
-                <View
-                  style={[
-                    styles.scheduleTypeBadge,
-                    {
-                      borderColor: badgeColor,
-                      backgroundColor: `${badgeColor}15`,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.scheduleTypeBadgeText, { color: badgeColor }]}>
-                    {BADGE_LABELS[item.type] || item.type}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      ))}
+      {(Array.isArray(card.days) ? card.days : []).map((day, di) => {
+        // Collapse day's items into a single table row: day | activities | time
+        const activities = (Array.isArray(day.items) ? day.items : [])
+          .map((item) => item.title)
+          .join(' · ');
+        const lastTime = (Array.isArray(day.items) ? day.items : [])
+          .filter((item) => item.time)
+          .pop()?.time || '';
+        return (
+          <View
+            key={di}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 6,
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: `${colors.accentSoft}60`,
+              gap: 10,
+            }}
+          >
+            <Text style={styles.weekScheduleDayHeader}>{day.dayLabel}</Text>
+            <Text
+              style={{
+                flex: 1,
+                fontFamily: fontFamily.semiBold,
+                fontSize: 14,
+                color: colors.textOnDark,
+              }}
+              numberOfLines={1}
+            >
+              {activities || '—'}
+            </Text>
+            {lastTime ? (
+              <Text
+                style={{
+                  fontFamily: fontFamily.medium,
+                  fontSize: 12,
+                  color: colors.accent1,
+                  textAlign: 'right',
+                }}
+              >
+                {lastTime}
+              </Text>
+            ) : null}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -1074,31 +1065,31 @@ function WeekPlanCard({
 }) {
   return (
     <View style={styles.weekPlanCard}>
-      {/* Header row: title + date range */}
+      {/* Header — matches confirm card headline */}
       <View style={styles.weekPlanHeader}>
-        <Text style={styles.weekPlanTitle}>{card.title || 'WEEK PLAN'}</Text>
+        <Text style={styles.weekPlanTitle}>{card.title || 'Your Week'}</Text>
         {card.date_range ? (
           <Text style={styles.weekPlanDateRange}>{card.date_range}</Text>
         ) : null}
       </View>
-      {/* Day rows */}
-      {(Array.isArray(card.days) ? card.days : []).map((day, i) => (
-        <View key={i} style={styles.weekPlanRow}>
-          <Text style={styles.weekPlanDay}>{day.day}</Text>
-          <View style={styles.weekPlanTags}>
-            {(Array.isArray(day.tags) ? day.tags : []).map((tag, ti) => {
-              const tagColor = TAG_COLORS[tag.color] || TAG_COLORS.gray;
-              return (
-                <View key={ti} style={[styles.weekPlanTag, { backgroundColor: `${tagColor}20`, borderColor: tagColor }]}>
-                  <Text style={[styles.weekPlanTagText, { color: tagColor }]}>{tag.label}</Text>
-                </View>
-              );
-            })}
+      {/* Day rows — same layout as confirm card table rows */}
+      {(Array.isArray(card.days) ? card.days : []).map((day, i) => {
+        const activities = (Array.isArray(day.tags) ? day.tags : [])
+          .map((tag) => tag.label)
+          .join(' · ');
+        return (
+          <View key={i} style={styles.weekPlanRow}>
+            <View style={styles.weekPlanRowInner}>
+              <Text style={styles.weekPlanDay}>{day.day}</Text>
+              <Text style={styles.weekPlanActivities} numberOfLines={1}>
+                {activities || '—'}
+              </Text>
+              {day.time ? <Text style={styles.weekPlanTime}>{day.time}</Text> : null}
+            </View>
             {day.note ? <Text style={styles.weekPlanNote}>{day.note}</Text> : null}
           </View>
-          {day.time ? <Text style={styles.weekPlanTime}>{day.time}</Text> : null}
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
