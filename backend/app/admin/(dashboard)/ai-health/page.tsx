@@ -75,10 +75,10 @@ interface Insight {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const SEV_STYLE: Record<string, string> = {
-  critical: "border-red-500/30 bg-red-500/10",
-  high: "border-orange-500/30 bg-orange-500/10",
-  medium: "border-yellow-500/30 bg-yellow-500/10",
-  low: "border-zinc-700 bg-zinc-800/50",
+  critical: "border-red-300 bg-red-50",
+  high: "border-orange-300 bg-orange-50",
+  medium: "border-yellow-300 bg-yellow-50",
+  low: "border-zinc-200 bg-zinc-50",
 };
 
 const SEV_BADGE: Record<string, string> = {
@@ -101,20 +101,20 @@ function TrendBadge({ trend }: { trend: TrendData | null }) {
   const { direction, pct_change, alert } = trend;
   if (direction === "improving")
     return (
-      <span className="text-xs text-green-400 font-medium">
+      <span className="text-xs text-green-600 font-medium">
         {Math.abs(pct_change ?? 0).toFixed(0)}% better
       </span>
     );
   if (direction === "worsening")
     return (
       <span
-        className={`text-xs font-medium ${alert ? "text-red-400" : "text-orange-400"}`}
+        className={`text-xs font-medium ${alert ? "text-red-600" : "text-orange-600"}`}
       >
         {(pct_change ?? 0).toFixed(0)}% worse{alert ? " !" : ""}
       </span>
     );
   if (direction === "new")
-    return <span className="text-xs text-blue-400 font-medium">new this week</span>;
+    return <span className="text-xs text-blue-600 font-medium">new this week</span>;
   return <span className="text-xs text-zinc-500">stable</span>;
 }
 
@@ -308,22 +308,22 @@ export default function AIHealthPage() {
           {
             label: "Open issues",
             value: open.length,
-            color: open.length > 0 ? "text-red-400" : "text-zinc-500",
+            color: open.length > 0 ? "text-red-600" : "text-zinc-500",
           },
           {
             label: "Fixes ready",
             value: pending.length,
-            color: pending.length > 0 ? "text-amber-400" : "text-zinc-500",
+            color: pending.length > 0 ? "text-amber-600" : "text-zinc-500",
           },
           {
             label: "Applied",
             value: applied.length,
-            color: applied.length > 0 ? "text-green-400" : "text-zinc-500",
+            color: applied.length > 0 ? "text-green-600" : "text-zinc-500",
           },
           {
             label: "Trend alerts",
             value: alerts.length,
-            color: alerts.length > 0 ? "text-red-400" : "text-zinc-500",
+            color: alerts.length > 0 ? "text-red-600" : "text-zinc-500",
           },
         ].map((m) => (
           <Card key={m.label}>
@@ -337,14 +337,14 @@ export default function AIHealthPage() {
 
       {/* Monthly digest */}
       {digest?.narrative && (
-        <Card className="border-blue-500/30 bg-blue-500/5">
+        <Card className="border-blue-200 bg-blue-50">
           <CardHeader className="pb-2">
-            <CardDescription className="text-blue-400 uppercase tracking-wide text-xs font-medium">
+            <CardDescription className="text-blue-600 uppercase tracking-wide text-xs font-medium">
               Monthly digest — {digest.month_start}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-blue-300/90 leading-relaxed whitespace-pre-wrap">
+            <p className="text-sm text-blue-800 leading-relaxed whitespace-pre-wrap">
               {digest.narrative}
             </p>
           </CardContent>
@@ -424,7 +424,7 @@ export default function AIHealthPage() {
             {[...open, ...pending, ...applied].map((issue) => (
               <Card
                 key={issue.id}
-                className={`border ${SEV_STYLE[issue.severity] ?? "border-zinc-700"}`}
+                className={`border ${SEV_STYLE[issue.severity] ?? "border-zinc-200"}`}
               >
                 <CardContent className="pt-5 pb-4">
                   {/* Issue header */}
@@ -442,7 +442,7 @@ export default function AIHealthPage() {
                         </span>
                         <TrendBadge trend={issue.trend_data} />
                         {issue.recurrence_count > 0 && (
-                          <span className="text-xs text-red-400 font-medium">
+                          <span className="text-xs text-red-600 font-medium">
                             recurred {issue.recurrence_count}x
                           </span>
                         )}
@@ -460,7 +460,7 @@ export default function AIHealthPage() {
                     issue.fixes.filter(Boolean).map((fix) => (
                       <div
                         key={fix.id}
-                        className="bg-zinc-800/60 rounded-lg p-4 mt-3 border border-zinc-700/50"
+                        className="bg-zinc-50 rounded-lg p-4 mt-3 border border-zinc-200"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -479,13 +479,13 @@ export default function AIHealthPage() {
                         </p>
 
                         {fix.file_path && (
-                          <div className="font-mono text-xs bg-zinc-900/80 rounded px-2 py-1 mb-3 text-zinc-400">
+                          <div className="font-mono text-xs bg-zinc-100 rounded px-2 py-1 mb-3 text-zinc-700 border border-zinc-200">
                             {fix.file_path}
                           </div>
                         )}
 
                         {fix.code_change && (
-                          <pre className="text-xs bg-zinc-900/80 rounded p-3 mb-3 overflow-x-auto whitespace-pre-wrap text-zinc-300 max-h-64 overflow-y-auto">
+                          <pre className="text-xs bg-zinc-900 rounded p-3 mb-3 overflow-x-auto whitespace-pre-wrap text-zinc-100 max-h-64 overflow-y-auto">
                             {fix.code_change}
                           </pre>
                         )}
@@ -507,7 +507,7 @@ export default function AIHealthPage() {
                             )}
                             {fix.status === "applied" && (
                               <>
-                                <span className="text-xs text-green-400 font-medium self-center">
+                                <span className="text-xs text-green-600 font-medium self-center">
                                   Applied {fix.applied_at?.slice(0, 10)}
                                 </span>
                                 <Button
@@ -521,7 +521,7 @@ export default function AIHealthPage() {
                               </>
                             )}
                             {fix.status === "verified" && (
-                              <span className="text-xs text-blue-400 font-medium">
+                              <span className="text-xs text-blue-600 font-medium">
                                 Verified
                               </span>
                             )}
