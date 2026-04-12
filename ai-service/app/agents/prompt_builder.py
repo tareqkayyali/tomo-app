@@ -231,6 +231,72 @@ CONTRAINDICATED exercises and safe alternatives:
 ALWAYS proactively suggest the safe alternative. Never prescribe a contraindicated exercise."""
 
 
+def build_ccrs_block(ctx: PlayerContext) -> str:
+    """
+    Block 2.0: CCRS (Cascading Confidence Readiness Score) — primary readiness signal.
+
+    CCRS is a 0-100 composite score that dynamically weights available data sources.
+    When biometrics are stale, it shifts weight to check-in and historical data.
+    When check-in is missing, it falls back to biometrics or historical prior.
+    No single missing data source can freeze or break the score.
+    """
+    se = ctx.snapshot_enrichment
+    if not se or se.ccrs is None:
+        return ""
+
+    score = se.ccrs
+    confidence = se.ccrs_confidence or "unknown"
+    rec = se.ccrs_recommendation or "unknown"
+    flags = se.ccrs_alert_flags or []
+    freshness = se.data_freshness or "UNKNOWN"
+    acwr = se.acwr
+
+    # Map recommendation to athlete-friendly label
+    rec_labels = {
+        "full_load": "Full Training",
+        "moderate": "Moderate — Adjusted Intensity",
+        "reduced": "Reduced Load",
+        "recovery": "Recovery Only",
+        "blocked": "Training Blocked",
+    }
+    rec_label = rec_labels.get(rec, rec)
+
+    # Build block
+    block = f"""READINESS ASSESSMENT (CCRS — Cascading Confidence Readiness Score):
+Score: {score:.0f}/100 | Recommendation: {rec_label} | Confidence: {confidence}
+Data Freshness: {freshness}"""
+
+    if acwr is not None:
+        acwr_zone = "safe" if acwr <= 1.3 else "caution" if acwr <= 1.5 else "danger"
+        block += f"\nACWR: {acwr:.2f} ({acwr_zone} zone)"
+
+    if flags:
+        block += f"\nAlert Flags: {', '.join(flags)}"
+
+    # Explain CCRS simply when athlete asks about readiness
+    block += """
+
+CCRS explained simply: Your readiness score combines everything we know — how you feel (check-in), your body data (HRV, sleep, heart rate), and your training history. When some data is missing or old, the score automatically leans more on what IS fresh. A higher score means you're more ready to train hard.
+
+WHEN PRESENTING READINESS TO THE ATHLETE:
+- Always show CCRS score (e.g. "Your readiness is 72/100")
+- Show ACWR as a training load indicator alongside CCRS
+- Use the CCRS recommendation (not raw ACWR) to guide training intensity
+- If confidence is "estimated" or "low", mention that fresh data would improve accuracy"""
+
+    # Safety enforcement based on CCRS recommendation
+    if rec in ("blocked", "recovery"):
+        block += f"""
+
+CCRS SAFETY OVERRIDE — recommendation is {rec.upper()}:
+- ALL training must be LIGHT intensity or recovery only
+- Do NOT recommend HARD or MODERATE intensity
+- Explain to athlete: "Your body needs recovery right now. Your readiness score is {score:.0f}/100."
+- This overrides all other training guidance"""
+
+    return block
+
+
 def build_red_risk_block(ctx: PlayerContext) -> str:
     """Block 2.x: RED risk hard enforcement — overrides agent behavior when active."""
     se = ctx.snapshot_enrichment
@@ -600,7 +666,8 @@ def build_system_prompt(
 
     # ── Block 2: Dynamic ──
     dynamic_parts = [
-        build_red_risk_block(context),           # Safety override FIRST (highest salience)
+        build_ccrs_block(context),               # CCRS is primary readiness signal
+        build_red_risk_block(context),           # Safety override (fires when CCRS unavailable or RED)
         build_checkin_staleness_block(context),   # Staleness warning
         build_aib_block(aib_summary),
         build_sport_context(context),

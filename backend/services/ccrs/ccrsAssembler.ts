@@ -54,13 +54,8 @@ export async function computeAndPersistCCRS(athleteId: string): Promise<CCRSResu
       .eq('date', new Date().toISOString().slice(0, 10))
       .maybeSingle(),
 
-    // Training load for ACWR (last 28 days from pre-aggregated daily_load)
-    db
-      .from('athlete_daily_load')
-      .select('load_date, training_load_au')
-      .eq('athlete_id', athleteId)
-      .gte('load_date', new Date(Date.now() - 28 * 86400000).toISOString().slice(0, 10))
-      .order('load_date', { ascending: false }),
+    // (ACWR now read from snapshot — no separate daily_load query needed)
+    Promise.resolve({ data: null }),
 
     // Historical CCRS scores (14-day rolling average as prior)
     dbAny
@@ -127,17 +122,16 @@ export async function computeAndPersistCCRS(athleteId: string): Promise<CCRSResu
     });
   }
 
-  // ── ACWR inputs ──
+  // ── ACWR inputs (use snapshot's authoritative ACWR, not raw daily_load) ──
+  // acwrComputation.ts includes academic load weighting (×0.4) and proper
+  // daily-average normalization. Recomputing here would diverge.
   let acwr: ACWRInputs | null = null;
-  const loadData = loadRes.data;
-  if (loadData && loadData.length >= 5) {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-    const acute7d = loadData
-      .filter((d: any) => d.load_date >= sevenDaysAgo)
-      .reduce((sum: number, d: any) => sum + (d.training_load_au ?? 0), 0);
-    const chronic28d = loadData
-      .reduce((sum: number, d: any) => sum + (d.training_load_au ?? 0), 0);
-    acwr = { acute_load_7d: acute7d, chronic_load_28d: chronic28d };
+  if (snapshot.acwr != null && snapshot.atl_7day != null && snapshot.ctl_28day != null) {
+    // Convert daily averages back to period sums for the CCRS formula
+    acwr = {
+      acute_load_7d: snapshot.atl_7day * 7,
+      chronic_load_28d: snapshot.ctl_28day * 28,
+    };
   }
 
   // ── Historical score (14-day rolling CCRS average, default 62) ──
