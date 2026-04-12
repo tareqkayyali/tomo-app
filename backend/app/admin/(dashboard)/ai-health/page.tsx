@@ -195,6 +195,78 @@ function InsightCardList({ insights }: { insights: Insight[] }) {
   );
 }
 
+// ── Delta computation (Latest shows only NEW findings) ────────────────────
+
+interface DeltaResult {
+  deltaInsights: Insight[];   // Only insights affected by new traces
+  unchangedCount: number;     // Categories with no new trace data
+  newTraceIds: string[];      // Trace IDs not in previous batch
+  totalNewTraces: number;     // Net new trace count
+}
+
+function computeInsightDelta(
+  latest: InsightBatch,
+  previous: InsightBatch | null
+): DeltaResult {
+  if (!previous || previous.insights.length === 0) {
+    return {
+      deltaInsights: latest.insights,
+      unchangedCount: 0,
+      newTraceIds: [...new Set(latest.insights.flatMap((i) => i.highlighted_traces))],
+      totalNewTraces: latest.traces_analyzed,
+    };
+  }
+
+  // Collect ALL trace IDs from the previous batch
+  const prevTraceIds = new Set<string>();
+  for (const ins of previous.insights) {
+    for (const t of ins.highlighted_traces) {
+      prevTraceIds.add(t);
+    }
+  }
+
+  // Find genuinely new trace IDs in the latest batch
+  const allLatestTraceIds = new Set<string>();
+  for (const ins of latest.insights) {
+    for (const t of ins.highlighted_traces) {
+      allLatestTraceIds.add(t);
+    }
+  }
+  const newTraceIds = [...allLatestTraceIds].filter((t) => !prevTraceIds.has(t));
+  const newTraceSet = new Set(newTraceIds);
+
+  // An insight is "delta" if it references at least one new trace ID,
+  // OR if its category didn't exist in the previous batch,
+  // OR if its severity changed for the same category.
+  const prevByCategory = new Map<string, Insight>();
+  for (const ins of previous.insights) {
+    prevByCategory.set(ins.category, ins);
+  }
+
+  const deltaInsights: Insight[] = [];
+  let unchangedCount = 0;
+
+  for (const ins of latest.insights) {
+    const prev = prevByCategory.get(ins.category);
+    const hasNewTraces = ins.highlighted_traces.some((t) => newTraceSet.has(t));
+    const isNewCategory = !prev;
+    const severityChanged = prev && prev.severity !== ins.severity;
+
+    if (isNewCategory || severityChanged || hasNewTraces) {
+      deltaInsights.push(ins);
+    } else {
+      unchangedCount++;
+    }
+  }
+
+  return {
+    deltaInsights,
+    unchangedCount,
+    newTraceIds,
+    totalNewTraces: Math.max(0, latest.traces_analyzed - previous.traces_analyzed),
+  };
+}
+
 const INSIGHTS_STORAGE_KEY = "tomo_ai_health_insights_history";
 
 function loadInsightHistory(): InsightBatch[] {
@@ -480,37 +552,64 @@ export default function AIHealthPage() {
 
       <Separator />
 
-      {/* ── Latest Insights ──────────────────────────────────── */}
-      {latestBatch && latestBatch.insights.length > 0 && (
-        <>
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-medium">Latest Insights</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Generated{" "}
-                  {new Date(latestBatch.generated_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}{" "}
-                  — {latestBatch.traces_analyzed} traces analyzed
-                </p>
+      {/* ── Latest Insights (delta only) ────────────────────── */}
+      {latestBatch && latestBatch.insights.length > 0 && (() => {
+        const prevBatch = historicalBatches.length > 0 ? historicalBatches[0] : null;
+        const delta = computeInsightDelta(latestBatch, prevBatch);
+        return (
+          <>
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-sm font-medium">Latest Insights</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Generated{" "}
+                    {new Date(latestBatch.generated_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}{" "}
+                    — {latestBatch.traces_analyzed} traces analyzed
+                    {delta.totalNewTraces > 0 && (
+                      <span className="text-emerald-600 font-medium">
+                        {" "}(+{delta.totalNewTraces} new)
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
+                  Current
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
-                Current
-              </Badge>
+
+              {delta.deltaInsights.length > 0 ? (
+                <>
+                  <InsightCardList insights={delta.deltaInsights} />
+                  {delta.unchangedCount > 0 && (
+                    <p className="text-xs text-muted-foreground mt-3">
+                      {delta.unchangedCount} categor{delta.unchangedCount === 1 ? "y" : "ies"} unchanged from previous generation
+                    </p>
+                  )}
+                </>
+              ) : (
+                <Card className="border-zinc-200 bg-zinc-50">
+                  <CardContent className="py-6 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No new findings — all {latestBatch.insights.length} categories unchanged from previous generation
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
-            <InsightCardList insights={latestBatch.insights} />
-          </div>
 
-          <Separator />
-        </>
-      )}
+            <Separator />
+          </>
+        );
+      })()}
 
-      {/* ── Historical Insights ────────────────────────────── */}
+      {/* ── Historical Insights (full previous generations) ── */}
       {historicalBatches.length > 0 && (
         <>
           <div>
@@ -520,7 +619,8 @@ export default function AIHealthPage() {
                   Historical Insights
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {historicalBatches.length} previous generation{historicalBatches.length > 1 ? "s" : ""}
+                  {historicalBatches.length} previous generation{historicalBatches.length > 1 ? "s" : ""}{" "}
+                  — {historicalBatches.reduce((sum, b) => sum + b.traces_analyzed, 0)} total traces
                 </p>
               </div>
               <Button
