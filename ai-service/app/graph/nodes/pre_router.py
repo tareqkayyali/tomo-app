@@ -79,6 +79,18 @@ def _check_red_risk_gate(context) -> Optional[dict]:
         except Exception:
             pass
 
+    # Gate 4: CCRS recommendation is "blocked" or "recovery"
+    ccrs_rec = getattr(se, "ccrs_recommendation", None)
+    if ccrs_rec in ("blocked", "recovery"):
+        ccrs_score = getattr(se, "ccrs", None)
+        reasons.append(f"CCRS={ccrs_score} recommendation={ccrs_rec}")
+
+    # Gate 5: CCRS alert flags include critical flags
+    ccrs_flags = getattr(se, "ccrs_alert_flags", []) or []
+    critical_flags = [f for f in ccrs_flags if f in ("ACWR_BLOCKED", "HRV_SUPPRESSED", "SLEEP_DEFICIT")]
+    if critical_flags and "CCRS" not in " ".join(reasons):
+        reasons.append(f"CCRS flags: {', '.join(critical_flags)}")
+
     if not reasons:
         return None
 
@@ -89,6 +101,7 @@ def _check_red_risk_gate(context) -> Optional[dict]:
         "hours_since_checkin": hours_since_checkin,
         "acwr": se.acwr,
         "injury_risk_flag": se.injury_risk_flag,
+        "ccrs_recommendation": ccrs_rec,
     }
 
 

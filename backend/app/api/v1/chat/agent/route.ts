@@ -19,6 +19,9 @@ import { executeSettingsTool } from "@/services/agents/settingsAgent";
 import {
   preFlightCheck,
   categorizeMessage,
+  enforceRedRiskSafety,
+  enforcePHVSafety,
+  enforceNoDeadEnds,
 } from "@/services/agents/chatGuardrails";
 import {
   proxyToAIServiceStream,
@@ -199,6 +202,8 @@ export async function POST(req: NextRequest) {
     };
 
     // Detect SSE streaming request
+    // NOTE: Streaming responses bypass TS post-response safety filters.
+    // Python's inline safety gates (pre_router RED risk, validate node PHV) cover streaming.
     const wantsStream = req.nextUrl.searchParams.get("stream") === "true";
 
     if (wantsStream) {
@@ -233,6 +238,45 @@ export async function POST(req: NextRequest) {
 
     // Non-streaming: sync proxy to Python
     const pyResult = await proxyToAIServiceSync(aiRequest);
+
+    // ── POST-RESPONSE SAFETY FILTERS (defense-in-depth) ──────────
+    // Python has its own safety gates, but these catch anything that slips through.
+    if (pyResult.message && typeof pyResult.message === "string") {
+      try {
+        const { supabaseAdmin } = await import("@/lib/supabase/admin");
+        const db = supabaseAdmin();
+        const { data: snap } = await (db as any)
+          .from("athlete_snapshots")
+          .select("injury_risk_flag, acwr, phv_stage")
+          .eq("athlete_id", auth.user.id)
+          .maybeSingle();
+
+        if (snap) {
+          const redCheck = enforceRedRiskSafety(
+            pyResult.message,
+            snap.injury_risk_flag,
+            snap.acwr
+          );
+          if (redCheck.flagged) {
+            pyResult.message = redCheck.sanitized;
+          }
+
+          const phvCheck = await enforcePHVSafety(
+            pyResult.message,
+            snap.phv_stage
+          );
+          if (phvCheck.flagged) {
+            pyResult.message = phvCheck.sanitized;
+          }
+        }
+      } catch (safetyErr) {
+        // Safety filter failure must never block the response
+        console.warn("[chat] Post-response safety filter failed:", safetyErr);
+      }
+
+      pyResult.message = enforceNoDeadEnds(pyResult.message);
+    }
+
     return NextResponse.json(pyResult);
   } catch (err) {
     const errorMessage =

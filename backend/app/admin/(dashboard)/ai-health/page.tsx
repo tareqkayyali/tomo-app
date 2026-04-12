@@ -72,6 +72,13 @@ interface Insight {
   highlighted_traces: string[];
 }
 
+interface InsightBatch {
+  id: string;
+  generated_at: string;
+  traces_analyzed: number;
+  insights: Insight[];
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const SEV_STYLE: Record<string, string> = {
@@ -135,13 +142,96 @@ const INSIGHT_SEV_STYLE: Record<string, string> = {
   info: "border-l-zinc-400 bg-zinc-50",
 };
 
+// ── Insight Card List (reusable for Latest + Historical) ──────────────────
+
+function InsightCardList({ insights }: { insights: Insight[] }) {
+  return (
+    <div className="space-y-3">
+      {insights.map((insight, idx) => (
+        <Card
+          key={idx}
+          className={`border-l-4 ${INSIGHT_SEV_STYLE[insight.severity] ?? "border-l-zinc-400 bg-zinc-50"}`}
+        >
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] uppercase tracking-wider ${SEV_BADGE[insight.severity] ?? ""}`}
+                >
+                  {insight.severity}
+                </Badge>
+                <span className="text-xs font-medium text-muted-foreground">
+                  {CATEGORY_LABEL[insight.category] ?? insight.category}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {insight.traces_analyzed} traces analyzed
+              </span>
+            </div>
+
+            <p className="text-sm font-medium mb-2">{insight.question}</p>
+
+            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+              {insight.answer}
+            </p>
+
+            {insight.highlighted_traces.length > 0 && (
+              <div className="mt-3 flex gap-2 flex-wrap">
+                {insight.highlighted_traces.map((traceId) => (
+                  <span
+                    key={traceId}
+                    className="font-mono text-[10px] bg-zinc-200 rounded px-1.5 py-0.5 text-zinc-600"
+                  >
+                    {traceId.slice(0, 8)}…
+                  </span>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+const INSIGHTS_STORAGE_KEY = "tomo_ai_health_insights_history";
+
+function loadInsightHistory(): InsightBatch[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(INSIGHTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveInsightHistory(batches: InsightBatch[]) {
+  if (typeof window === "undefined") return;
+  // Keep last 20 batches max
+  const trimmed = batches.slice(0, 20);
+  localStorage.setItem(INSIGHTS_STORAGE_KEY, JSON.stringify(trimmed));
+}
+
 export default function AIHealthPage() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [digest, setDigest] = useState<Digest>({});
-  const [insights, setInsights] = useState<Insight[]>([]);
+  const [latestBatch, setLatestBatch] = useState<InsightBatch | null>(null);
+  const [historicalBatches, setHistoricalBatches] = useState<InsightBatch[]>([]);
+  const [showHistorical, setShowHistorical] = useState(false);
   const [loading, setLoading] = useState(true);
   const [collecting, setCollecting] = useState(false);
   const [generatingInsights, setGeneratingInsights] = useState(false);
+
+  // Load persisted history on mount
+  useEffect(() => {
+    const history = loadInsightHistory();
+    if (history.length > 0) {
+      setLatestBatch(history[0]);
+      setHistoricalBatches(history.slice(1));
+    }
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
@@ -180,9 +270,21 @@ export default function AIHealthPage() {
         toast.success(
           `Collection complete: ${data.runs_analyzed} runs, ${data.issues_detected} issues, ${data.fixes_generated} fixes`
         );
-        // If insights came back with collection, show them
+        // If insights came back with collection, add to history
         if (data.insights && data.insights.length > 0) {
-          setInsights(data.insights);
+          const collectionBatch: InsightBatch = {
+            id: crypto.randomUUID(),
+            generated_at: new Date().toISOString(),
+            traces_analyzed: data.runs_analyzed ?? 0,
+            insights: data.insights,
+          };
+          const updatedHistory: InsightBatch[] = [];
+          if (latestBatch) updatedHistory.push(latestBatch, ...historicalBatches);
+          else updatedHistory.push(...historicalBatches);
+
+          setLatestBatch(collectionBatch);
+          setHistoricalBatches(updatedHistory);
+          saveInsightHistory([collectionBatch, ...updatedHistory]);
         }
         fetchData();
       } else {
@@ -203,8 +305,33 @@ export default function AIHealthPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setInsights(data.insights ?? []);
-        toast.success(`Insights generated from ${data.traces_analyzed} traces`);
+        const newInsights: Insight[] = data.insights ?? [];
+        const tracesAnalyzed: number = data.traces_analyzed ?? newInsights.reduce(
+          (max: number, i: Insight) => Math.max(max, i.traces_analyzed), 0
+        );
+
+        const newBatch: InsightBatch = {
+          id: crypto.randomUUID(),
+          generated_at: new Date().toISOString(),
+          traces_analyzed: tracesAnalyzed,
+          insights: newInsights,
+        };
+
+        // Move current latest to historical
+        const updatedHistory: InsightBatch[] = [];
+        if (latestBatch) {
+          updatedHistory.push(latestBatch, ...historicalBatches);
+        } else {
+          updatedHistory.push(...historicalBatches);
+        }
+
+        setLatestBatch(newBatch);
+        setHistoricalBatches(updatedHistory);
+        saveInsightHistory([newBatch, ...updatedHistory]);
+
+        toast.success(
+          `Insights generated from ${tracesAnalyzed} traces`
+        );
       } else {
         toast.error("Insights generation failed");
       }
@@ -353,57 +480,86 @@ export default function AIHealthPage() {
 
       <Separator />
 
-      {/* Domain Insights */}
-      {insights.length > 0 && (
+      {/* ── Latest Insights ──────────────────────────────────── */}
+      {latestBatch && latestBatch.insights.length > 0 && (
         <>
           <div>
-            <h2 className="text-sm font-medium mb-4">Domain Insights</h2>
-            <div className="space-y-3">
-              {insights.map((insight, idx) => (
-                <Card
-                  key={idx}
-                  className={`border-l-4 ${INSIGHT_SEV_STYLE[insight.severity] ?? "border-l-zinc-400 bg-zinc-50"}`}
-                >
-                  <CardContent className="pt-4 pb-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] uppercase tracking-wider ${SEV_BADGE[insight.severity] ?? ""}`}
-                        >
-                          {insight.severity}
-                        </Badge>
-                        <span className="text-xs font-medium text-muted-foreground">
-                          {CATEGORY_LABEL[insight.category] ?? insight.category}
-                        </span>
-                      </div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-medium">Latest Insights</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Generated{" "}
+                  {new Date(latestBatch.generated_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}{" "}
+                  — {latestBatch.traces_analyzed} traces analyzed
+                </p>
+              </div>
+              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
+                Current
+              </Badge>
+            </div>
+            <InsightCardList insights={latestBatch.insights} />
+          </div>
+
+          <Separator />
+        </>
+      )}
+
+      {/* ── Historical Insights ────────────────────────────── */}
+      {historicalBatches.length > 0 && (
+        <>
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-medium text-muted-foreground">
+                  Historical Insights
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {historicalBatches.length} previous generation{historicalBatches.length > 1 ? "s" : ""}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setShowHistorical(!showHistorical)}
+              >
+                {showHistorical ? "Collapse" : "Show history"}
+              </Button>
+            </div>
+
+            {showHistorical && (
+              <div className="space-y-6">
+                {historicalBatches.map((batch) => (
+                  <div key={batch.id} className="opacity-75">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-zinc-100 text-zinc-500 border-zinc-300"
+                      >
+                        Historical
+                      </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {insight.traces_analyzed} traces analyzed
+                        {new Date(batch.generated_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}{" "}
+                        — {batch.traces_analyzed} traces
                       </span>
                     </div>
-
-                    <p className="text-sm font-medium mb-2">{insight.question}</p>
-
-                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
-                      {insight.answer}
-                    </p>
-
-                    {insight.highlighted_traces.length > 0 && (
-                      <div className="mt-3 flex gap-2 flex-wrap">
-                        {insight.highlighted_traces.map((traceId) => (
-                          <span
-                            key={traceId}
-                            className="font-mono text-[10px] bg-zinc-200 rounded px-1.5 py-0.5 text-zinc-600"
-                          >
-                            {traceId.slice(0, 8)}…
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    <InsightCardList insights={batch.insights} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <Separator />

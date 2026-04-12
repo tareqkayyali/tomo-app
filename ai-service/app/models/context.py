@@ -158,6 +158,13 @@ class SnapshotEnrichment(BaseModel):
     applicable_protocol_ids: Optional[list[str]] = None
     exam_proximity_score: Optional[float] = None
 
+    # CCRS (Cascading Confidence Readiness Score)
+    ccrs: Optional[float] = None              # 0-100 continuous readiness score
+    ccrs_confidence: Optional[str] = None     # very_high | high | medium | low | estimated
+    ccrs_recommendation: Optional[str] = None # full_load | moderate | reduced | recovery | blocked
+    ccrs_alert_flags: list[str] = Field(default_factory=list)
+    data_freshness: Optional[str] = None      # FRESH | AGING | STALE | UNKNOWN
+
 
 class PlanningContext(BaseModel):
     """Planning Intelligence Protocol context from snapshot."""

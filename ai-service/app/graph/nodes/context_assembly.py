@@ -539,6 +539,12 @@ def _build_snapshot_enrichment(
         dual_load_zone=snapshot.get("dual_load_zone"),
         applicable_protocol_ids=snapshot.get("applicable_protocol_ids"),
         exam_proximity_score=_safe_float(snapshot.get("exam_proximity_score")),
+        # CCRS
+        ccrs=_safe_float(snapshot.get("ccrs")),
+        ccrs_confidence=snapshot.get("ccrs_confidence"),
+        ccrs_recommendation=snapshot.get("ccrs_recommendation"),
+        ccrs_alert_flags=snapshot.get("ccrs_alert_flags") or [],
+        data_freshness=snapshot.get("data_freshness"),
     )
 
 
