@@ -163,20 +163,16 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     ]
     structured["chips"] = valid_chips[:2]
 
-    # 4. Reorder cards: data cards first, then text/advisory
+    # 3. Reorder cards: data cards first, then text/advisory
     cards = structured.get("cards", [])
     data_cards = [c for c in cards if c.get("type") in DATA_CARD_TYPES]
     other_cards = [c for c in cards if c.get("type") not in DATA_CARD_TYPES]
-
-    # 5. Data cards are optional — only inject for explicit metric queries
-    # Conversational responses (greetings, emotional support, follow-ups) intentionally omit data cards
-
     structured["cards"] = data_cards + other_cards
 
-    # 6. Truncate body — Pulse: 1-2 sentences, let data cards do the work
+    # 4. Truncate body to max sentences
     structured["body"] = _truncate_body(structured.get("body", ""))
 
-    # 7. Ensure body exists (mobile renderer needs it)
+    # 5. Ensure body exists (mobile renderer needs it)
     if not structured.get("body", "").strip():
         for card in structured.get("cards", []):
             if card.get("type") in ("text_card", "coach_note") and (card.get("body") or card.get("note")):
@@ -184,6 +180,24 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
                 break
         if not structured.get("body", "").strip():
             structured["body"] = structured.get("headline", "") or "Let me know what you'd like to work on."
+
+    # 6. DEDUPLICATION: remove text_card / coach_note cards whose content
+    #    matches the body — prevents the same paragraph rendering twice on mobile.
+    body_norm = (structured.get("body", "") or "").strip().lower()[:100]
+    if body_norm:
+        deduped_cards = []
+        for card in structured["cards"]:
+            card_type = card.get("type")
+            if card_type == "text_card":
+                card_body = (card.get("body") or "").strip().lower()[:100]
+                if card_body and card_body == body_norm:
+                    continue  # Skip — already rendered as body text
+            elif card_type == "coach_note":
+                card_note = (card.get("note") or "").strip().lower()[:100]
+                if card_note and card_note == body_norm:
+                    continue  # Skip — already rendered as body text
+            deduped_cards.append(card)
+        structured["cards"] = deduped_cards
 
     return structured
 

@@ -1635,6 +1635,22 @@ export function ResponseRenderer({
     && response.body.trim() !== ''
     && response.body.trim() !== response.headline?.trim();
 
+  // Deduplicate: when body is shown, skip text_card/coach_note cards whose
+  // content matches the body (prevents the same paragraph rendering twice)
+  const bodyNorm = (response.body || '').trim().toLowerCase().slice(0, 100);
+  const filteredCards = (Array.isArray(response.cards) ? response.cards : []).filter((card) => {
+    if (!showBody) return true;
+    if (card.type === 'text_card') {
+      const cardBody = ((card as TextCard).body || '').trim().toLowerCase().slice(0, 100);
+      if (cardBody && bodyNorm && cardBody === bodyNorm) return false;
+    }
+    if (card.type === 'coach_note') {
+      const noteBody = ((card as CoachNote).note || '').trim().toLowerCase().slice(0, 100);
+      if (noteBody && bodyNorm && noteBody === bodyNorm) return false;
+    }
+    return true;
+  });
+
   return (
     <View style={styles.container}>
       {response.headline ? (
@@ -1645,7 +1661,7 @@ export function ResponseRenderer({
         <Text style={styles.bodyText}>{response.body}</Text>
       ) : null}
 
-      {(Array.isArray(response.cards) ? response.cards : []).map((card, i) => (
+      {filteredCards.map((card, i) => (
         <RenderCard
           key={i}
           card={card}
