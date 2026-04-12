@@ -157,8 +157,9 @@ async def validate_node(state: TomoChatState) -> dict:
             flags.append("medical_diagnosis_warning")
             # Don't replace, but append disclaimer
             agent_response += (
-                "\n\n⚠️ *I'm not a medical professional. If you're experiencing pain or injury, "
-                "please see a qualified healthcare provider for proper diagnosis and treatment.*"
+                "\n\nJust so you know — I'm your training coach, not a doctor. "
+                "If you're dealing with real pain, please get it checked out by a physio or doctor. "
+                "I'll adjust your training in the meantime."
             )
             break
 
@@ -169,9 +170,10 @@ async def validate_node(state: TomoChatState) -> dict:
     # should prevent this, but if they miss, this layer catches it.
     if context and context.snapshot_enrichment:
         se = context.snapshot_enrichment
+        # CCRS is the authority for readiness-based safety (ACWR removed Apr 2026)
         is_red_risk = (
             (se.injury_risk_flag and se.injury_risk_flag.upper() == "RED")
-            or (se.acwr is not None and se.acwr > 1.5)
+            or (getattr(se, "ccrs_recommendation", None) in ("blocked", "recovery"))
         )
         if is_red_risk:
             high_intensity_pattern = re.compile(
@@ -192,9 +194,9 @@ async def validate_node(state: TomoChatState) -> dict:
                     f"ACWR={se.acwr}, injury_flag={se.injury_risk_flag}"
                 )
                 agent_response += (
-                    "\n\n**Safety Note**: Your current load levels are elevated. "
-                    "All training should be light intensity or recovery-focused "
-                    "until your metrics improve and you complete a fresh check-in."
+                    "\n\nHey — your body's telling us it needs a breather right now. "
+                    "Let's keep things light today — easy recovery, good sleep, hydration. "
+                    "Once you're feeling better and we get a fresh check-in, we'll ramp back up."
                 )
 
     # ── Layer 3: Format Validation ───────────────────────────────
@@ -213,19 +215,13 @@ async def validate_node(state: TomoChatState) -> dict:
 
     # Check response isn't too long (Gen Z constraint)
     sentence_count = len(re.findall(r'[.!?]+', agent_response))
-    if sentence_count > 8:
+    if sentence_count > 14:
         flags.append("verbose_response")
 
-    # Check for filler phrases (Pulse banned list)
+    # Check for robotic filler phrases — only truly clinical/robotic ones
     filler_patterns = [
-        re.compile(r"^(?:great\s+question|absolutely|of\s+course|certainly)", re.I | re.M),
-        re.compile(r"\bgreat\s+question\b", re.I),
-        re.compile(r"\babsolutely\b", re.I),
         re.compile(r"\bhere'?s\s+what\s+I\s+found\b", re.I),
         re.compile(r"\bhere'?s\s+your\s+data\b", re.I),
-        re.compile(r"\blet\s+me\s+check\b", re.I),
-        re.compile(r"\bsure\s+thing\b", re.I),
-        re.compile(r"\bbased\s+on\s+your\s+data\b", re.I),
     ]
     for fp in filler_patterns:
         if fp.search(agent_response):

@@ -138,7 +138,26 @@ def _build_exact_match_map() -> dict[str, dict]:
           "let's train", "can i train", "am i ready to train",
           "should i train today", "can i train today",
           "am i ready to work out", "start a session",
-          "i want to train", "ready to train"], "qa_readiness")
+          "i want to train", "ready to train",
+          "i want to begin training", "can i start training",
+          "can i start training today", "let's start training",
+          "when can i start training", "when can i train",
+          "am i good to train", "is it okay to train today",
+          "can i work out today"], "qa_readiness")
+
+    # Recovery / rest queries
+    _add(["do i need recovery", "should i rest today", "do i need a rest day",
+          "should i take a day off", "am i overtraining",
+          "do i need to recover", "is today a rest day",
+          "should i skip training today", "am i too tired to train",
+          "recovery day"], "load_advice_request")
+
+    # Benchmark / comparison queries
+    _add(["how is my speed vs my age", "compare my speed",
+          "how do i compare to my age group", "am i fast for my age",
+          "benchmark my tests", "benchmark all my tests",
+          "how do my results compare", "percentile for my tests",
+          "am i above average", "where do i rank"], "benchmark_comparison")
 
     # Events
     _add(["add event", "create event", "new event", "add a session",
@@ -386,9 +405,12 @@ async def classify_intent(
         )
         return haiku_result
 
-    # Layer 3: Fallthrough
+    # Layer 3: Fallthrough — log for pattern mining
     elapsed = (time.monotonic() - t0) * 1000
-    logger.info(f"Layer 3 fallthrough ({elapsed:.0f}ms)")
+    logger.warning(
+        f"INTENT FALLTHROUGH: message='{message[:150]}' "
+        f"({elapsed:.0f}ms) — add pattern to prevent recurrence"
+    )
     return ClassificationResult(
         intent_id="agent_fallthrough",
         capsule_type=None,

@@ -28,6 +28,33 @@ logger = logging.getLogger("tomo-ai.rag_retrieval")
 # Skip RAG for very short messages (greetings, confirmations, etc.)
 MIN_MESSAGE_LENGTH = 8
 
+# Intents where empty RAG results are a safety concern
+SAFETY_CRITICAL_INTENTS = frozenset({
+    "qa_readiness", "load_advice_request", "recovery_guidance",
+    "injury_query", "red_risk_override",
+})
+
+# Intent-specific query expansion for better retrieval matching
+QUERY_EXPANSIONS = {
+    "qa_readiness": "athlete readiness training load management recovery protocol",
+    "load_advice_request": "training load management periodization injury prevention",
+    "recovery_guidance": "recovery protocols load reduction active recovery youth athlete",
+    "training_planning": "training periodization youth athlete season planning",
+    "benchmark_comparison": "performance benchmarks age norms testing standards",
+    "injury_query": "injury prevention youth athlete load management risk factors",
+    "red_risk_override": "recovery protocols deload forced recovery injury prevention",
+}
+
+
+def _build_retrieval_query(user_message: str, intent_id: str, context) -> str:
+    """Construct a retrieval query that maps natural language to knowledge domain."""
+    sport = (context.sport or "football").lower() if context else "football"
+
+    expansion = QUERY_EXPANSIONS.get(intent_id, "")
+    if expansion:
+        return f"{user_message} {expansion} {sport}"
+    return user_message
+
 
 async def rag_retrieval_node(state: TomoChatState) -> dict:
     """
@@ -63,9 +90,15 @@ async def rag_retrieval_node(state: TomoChatState) -> dict:
 
     player_context = state.get("player_context")
 
+    # Build intent-aware retrieval query for better knowledge matching
+    intent_id = state.get("intent_id", "")
+    retrieval_query = _build_retrieval_query(user_message, intent_id, player_context)
+    if retrieval_query != user_message:
+        logger.debug(f"RAG query expanded: '{user_message[:60]}' → '{retrieval_query[:100]}'")
+
     try:
         result = await retrieve(
-            query=user_message,
+            query=retrieval_query,
             player_context=player_context,
             top_k=4,
         )
@@ -88,7 +121,13 @@ async def rag_retrieval_node(state: TomoChatState) -> dict:
                 f"{elapsed:.0f}ms, ${result.retrieval_cost_usd:.5f}"
             )
         else:
-            logger.debug(f"RAG retrieval: no relevant results ({elapsed:.0f}ms)")
+            if intent_id in SAFETY_CRITICAL_INTENTS:
+                logger.warning(
+                    f"RAG EMPTY for safety-critical intent={intent_id} "
+                    f"query='{user_message[:100]}' — proceeding without knowledge grounding"
+                )
+            else:
+                logger.debug(f"RAG retrieval: no relevant results ({elapsed:.0f}ms)")
 
         return {
             "rag_context": result.formatted_text,

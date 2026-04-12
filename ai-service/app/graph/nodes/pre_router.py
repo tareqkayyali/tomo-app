@@ -96,6 +96,8 @@ def _check_red_risk_gate(context) -> Optional[dict]:
         "acwr": se.acwr,
         "injury_risk_flag": se.injury_risk_flag,
         "ccrs_recommendation": ccrs_rec,
+        "ccrs_score": getattr(se, "ccrs", None),
+        "ccrs_confidence": getattr(se, "ccrs_confidence", None),
     }
 
 

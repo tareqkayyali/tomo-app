@@ -32,8 +32,8 @@ DATA_CARD_TYPES = frozenset({
     "clash_list", "phv_assessment", "drill_card", "week_schedule",
 })
 
-# Body text limit — Pulse spec says 1-2 sentences max
-MAX_BODY_SENTENCES = 2
+# Body text limit — coaching responses need room for interpretation + advice
+MAX_BODY_SENTENCES = 5
 
 
 def _build_context_stat_grid(state: TomoChatState) -> Optional[dict]:
@@ -67,16 +67,13 @@ def _build_context_stat_grid(state: TomoChatState) -> Optional[dict]:
         )
         items.append({"label": "Injury Risk", "value": injury.title(), "highlight": highlight})
 
-    # ACWR
-    acwr = getattr(snapshot, "acwr", None) if snapshot else None
-    if acwr is not None:
-        if acwr > 1.5:
-            highlight = "red"
-        elif acwr > 1.3:
-            highlight = "yellow"
-        else:
-            highlight = "green"
-        items.append({"label": "ACWR", "value": f"{acwr:.2f}", "highlight": highlight})
+    # CCRS Readiness Score (primary readiness signal, replaces ACWR display)
+    ccrs = getattr(snapshot, "ccrs", None) if snapshot else None
+    ccrs_rec = getattr(snapshot, "ccrs_recommendation", None) if snapshot else None
+    if ccrs is not None:
+        highlight = "red" if ccrs < 45 else ("yellow" if ccrs < 70 else "green")
+        label = "Readiness" if not ccrs_rec else f"Readiness ({ccrs_rec.replace('_', ' ').title()})"
+        items.append({"label": label, "value": f"{ccrs:.0f}/100", "highlight": highlight})
 
     # Data confidence
     data_conf = getattr(snapshot, "data_confidence_score", None) if snapshot else None
@@ -153,37 +150,18 @@ def _strip_emoji(text: str) -> str:
 
 def _enforce_headline_priority(headline: str, cards: list, state: TomoChatState) -> str:
     """
-    Pulse safety rule: if RED injury risk or ACWR danger zone exists,
-    the headline MUST lead with the most critical signal — never GREEN.
+    Safety rule: if CCRS indicates concern or RED injury risk,
+    the headline MUST reflect the most critical signal — never GREEN.
 
-    "TODAY: Green readiness" when ACWR is 1.55 = dangerous misguidance.
+    Uses CCRS recommendation (not raw ACWR) as the authority.
+    Headlines use coaching voice, not clinical language.
     """
     hl_lower = headline.lower()
 
-    # Check stat_grid cards for danger signals
+    # Check player context for danger signals (CCRS-based)
     has_red = False
-    acwr_danger = False
-    acwr_val = None
+    ccrs_concern = False
 
-    for card in cards:
-        if card.get("type") != "stat_grid":
-            continue
-        for item in card.get("items", []):
-            label = str(item.get("label", "")).lower()
-            value = str(item.get("value", "")).lower()
-            highlight = str(item.get("highlight", "")).lower()
-
-            if highlight == "red":
-                has_red = True
-            if "acwr" in label:
-                try:
-                    acwr_val = float(re.sub(r"[^\d.]", "", str(item.get("value", "0"))))
-                    if acwr_val > 1.3:
-                        acwr_danger = True
-                except (ValueError, TypeError):
-                    pass
-
-    # Also check player context directly
     ctx = state.get("player_context") if state else None
     if ctx:
         snapshot = getattr(ctx, "snapshot_enrichment", None)
@@ -191,19 +169,26 @@ def _enforce_headline_priority(headline: str, cards: list, state: TomoChatState)
             injury = getattr(snapshot, "injury_risk_flag", None)
             if str(injury).lower() in ("red", "high"):
                 has_red = True
-            snap_acwr = getattr(snapshot, "acwr_7_28", None) or getattr(snapshot, "acwr", None)
-            if snap_acwr and float(snap_acwr) > 1.3:
-                acwr_danger = True
-                acwr_val = float(snap_acwr)
+            ccrs_rec = getattr(snapshot, "ccrs_recommendation", None)
+            if ccrs_rec in ("blocked", "recovery", "reduced"):
+                ccrs_concern = True
 
-    # If headline leads with GREEN but danger signals exist, rewrite it
-    if (has_red or acwr_danger) and "green" in hl_lower:
-        if acwr_danger and has_red:
-            return f"ACWR {acwr_val:.2f} — deload required" if acwr_val else "Danger zone — deload required"
-        elif acwr_danger:
-            return f"ACWR {acwr_val:.2f} — reduce load this week" if acwr_val else "High load — reduce this week"
+    # Also check stat_grid cards for red highlights
+    for card in cards:
+        if card.get("type") != "stat_grid":
+            continue
+        for item in card.get("items", []):
+            if str(item.get("highlight", "")).lower() == "red":
+                has_red = True
+
+    # If headline leads with GREEN but danger signals exist, rewrite with coaching voice
+    if (has_red or ccrs_concern) and "green" in hl_lower:
+        if has_red and ccrs_concern:
+            return "Your body needs recovery today"
+        elif ccrs_concern:
+            return "Load's been building — lighter week ahead"
         elif has_red:
-            return "RED flag — recovery priority"
+            return "Recovery first today"
 
     return headline
 
@@ -213,13 +198,13 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     # 1. Strip emoji from headline
     structured["headline"] = _strip_emoji(structured.get("headline", ""))
 
-    # 2. Ban filler headlines even if LLM sneaks them through
+    # 2. Ban truly robotic headlines — allow natural coaching language
     hl = structured.get("headline", "").lower()
     banned_starts = (
-        "here's what", "here's your", "great question",
-        "absolutely", "sure thing", "let me check",
+        "here's what", "here's your",
     )
     if any(hl.startswith(b) for b in banned_starts):
+        logger.info(f"Banned headline detected: '{structured['headline']}' — keeping but logging")
         structured["headline"] = "Your update"
 
     # 2b. HEADLINE PRIORITY: danger signals must override GREEN in headline
@@ -242,11 +227,8 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     data_cards = [c for c in cards if c.get("type") in DATA_CARD_TYPES]
     other_cards = [c for c in cards if c.get("type") not in DATA_CARD_TYPES]
 
-    # 5. PULSE RULE: If no data card exists, inject stat_grid from player context
-    if not data_cards and state:
-        fallback_grid = _build_context_stat_grid(state)
-        if fallback_grid:
-            data_cards = [fallback_grid]
+    # 5. Data cards are optional — only inject for explicit metric queries
+    # Conversational responses (greetings, emotional support, follow-ups) intentionally omit data cards
 
     structured["cards"] = data_cards + other_cards
 
@@ -260,7 +242,7 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
                 structured["body"] = _truncate_body(card.get("body") or card.get("note", ""))
                 break
         if not structured.get("body", "").strip():
-            structured["body"] = structured.get("headline", "") or "Your update"
+            structured["body"] = structured.get("headline", "") or "Let me know what you'd like to work on."
 
     return structured
 
