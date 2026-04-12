@@ -1,11 +1,16 @@
 """
 Tomo AI Service — LangSmith Collector (Layer 1: 6-hour acute pulse)
 
-Fetches recent runs from LangSmith REST API, detects 9 issue patterns,
-upserts into ai_issues with three-question overlap logic:
+Reads recent traces from local ai_trace_log table (written by persist_node),
+detects 9 issue patterns, upserts into ai_issues with three-question overlap logic:
   Q1: Record exists? → UPDATE, don't duplicate
   Q2: Status is fix_applied/resolved? → increment recurrence_count
   Q3: Affected_count growing fast? → auto-escalate severity
+
+Data source: ai_trace_log (local Supabase) — NOT LangSmith REST API.
+This decouples the feedback loop from LangSmith API read access (which
+requires Plus plan). LangSmith traces are still created for debugging
+via the UI, but automated monitoring runs off local data.
 
 9 detectors:
   1. routing_miss — fallthrough with no intent match
@@ -33,59 +38,58 @@ from app.db.supabase import get_pool
 
 logger = logging.getLogger("tomo-ai.langsmith_collector")
 
-
-def _get_langsmith_config() -> tuple[str, dict, str]:
-    """Return (base_url, headers, project_name) for LangSmith API."""
-    settings = get_settings()
-    base = settings.langchain_endpoint.rstrip("/")
-    headers = {"x-api-key": settings.langsmith_api_key}
-    project = settings.langchain_project
-    return base, headers, project
+# ── Column mapping for ai_trace_log rows ─────────────────────────────────
+TRACE_COLS = [
+    "id", "created_at", "request_id", "user_id", "session_id", "message",
+    "path_type", "agent_type", "classification_layer", "intent_id",
+    "routing_confidence", "tool_count", "tool_names",
+    "total_cost_usd", "total_tokens", "latency_ms",
+    "validation_passed", "validation_flags",
+    "phv_gate_fired", "crisis_detected", "ped_detected", "medical_warning",
+    "rag_used", "rag_entity_count", "rag_chunk_count",
+    "rag_cost_usd", "rag_latency_ms",
+    "sport", "age_band", "phv_stage",
+    "readiness_score", "readiness_rag", "injury_risk",
+    "acwr", "acwr_bucket", "data_confidence_score",
+    "checkin_staleness_days",
+    "cost_bucket", "latency_bucket", "confidence_bucket", "tool_bucket",
+]
 
 
 async def fetch_recent_runs(hours: int = 6) -> list[dict]:
     """
-    Pull root-level runs from LangSmith for the last N hours.
-    Filters for our custom observability traces (name starts with 'tomo:')
-    which contain all 40+ metadata fields as native filterable metadata.
+    Read recent traces from local ai_trace_log table.
+    Returns list of dicts with all metadata fields — same shape the
+    detectors expect, but sourced from our own DB instead of LangSmith API.
     """
-    base, headers, project = _get_langsmith_config()
+    pool = get_pool()
+    if not pool:
+        logger.error("No DB pool available for trace fetch")
+        return []
+
     start_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
-    params = {
-        "project_name": project,
-        "start_time": start_time.isoformat(),
-        "limit": 500,
-        "is_root": True,
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(
-                f"{base}/runs", headers=headers, params=params
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                f"SELECT {', '.join(TRACE_COLS)} FROM ai_trace_log "
+                "WHERE created_at >= %s ORDER BY created_at DESC LIMIT 500",
+                (start_time,),
             )
-            resp.raise_for_status()
-            runs = resp.json()
+            rows = await result.fetchall()
 
-            # LangSmith API may return list directly or wrapped in results
-            if isinstance(runs, dict):
-                return runs.get("results", runs.get("runs", []))
-            if isinstance(runs, list):
-                return runs
-            return []
+        runs = [dict(zip(TRACE_COLS, row)) for row in rows]
+        logger.info(f"Fetched {len(runs)} traces from ai_trace_log (last {hours}h)")
+        return runs
+
     except Exception as e:
-        logger.error(f"LangSmith fetch failed: {e}")
+        logger.error(f"ai_trace_log fetch failed: {e}")
         return []
 
 
 def _meta(run: dict, key: str, default: Any = None) -> Any:
-    """Safely extract a metadata field from a run."""
-    # Check outputs.summary first (our observability trace format)
-    val = (run.get("outputs") or {}).get("summary", {}).get(key)
-    if val is not None:
-        return val
-    # Fallback to extra.metadata (native LangSmith metadata)
-    val = (run.get("extra") or {}).get("metadata", {}).get(key)
+    """Safely extract a metadata field from a trace log row."""
+    val = run.get(key)
     if val is not None:
         return val
     return default
