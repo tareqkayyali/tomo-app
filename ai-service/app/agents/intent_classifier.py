@@ -133,6 +133,13 @@ def _build_exact_match_map() -> dict[str, dict]:
     _add(["my programs", "show programs", "what programs do you recommend",
           "training programs", "recommended programs"], "show_programs")
 
+    # Training readiness (routes to output agent for readiness-first check)
+    _add(["start training", "i want to start training", "begin training",
+          "let's train", "can i train", "am i ready to train",
+          "should i train today", "can i train today",
+          "am i ready to work out", "start a session",
+          "i want to train", "ready to train"], "qa_readiness")
+
     # Events
     _add(["add event", "create event", "new event", "add a session",
           "build a session", "schedule training"], "create_event")
@@ -241,6 +248,7 @@ CRITICAL RULES:
 7. log_test is ONLY for NEW test logging (NOT viewing/analyzing results)
 8. plan_training is DEPRECATED → use agent_fallthrough
 9. Follow-up questions about previous agent response → agent_fallthrough
+10. "start training", "can I train", "ready to train" → qa_readiness (readiness check FIRST, not schedule)
 
 {context_summary}
 
