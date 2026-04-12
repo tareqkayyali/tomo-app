@@ -148,117 +148,14 @@ def _strip_emoji(text: str) -> str:
     return cleaned
 
 
-def _enforce_headline_priority(headline: str, cards: list, state: TomoChatState) -> str:
-    """
-    Safety rule: if CCRS indicates concern or RED injury risk,
-    the headline MUST reflect the most critical signal — never GREEN.
-
-    Uses CCRS recommendation (not raw ACWR) as the authority.
-    Headlines use coaching voice, not clinical language.
-    """
-    hl_lower = headline.lower()
-
-    # Check player context for danger signals (CCRS-based)
-    has_red = False
-    ccrs_concern = False
-
-    ctx = state.get("player_context") if state else None
-    if ctx:
-        snapshot = getattr(ctx, "snapshot_enrichment", None)
-        if snapshot:
-            injury = getattr(snapshot, "injury_risk_flag", None)
-            if str(injury).lower() in ("red", "high"):
-                has_red = True
-            ccrs_rec = getattr(snapshot, "ccrs_recommendation", None)
-            if ccrs_rec in ("blocked", "recovery", "reduced"):
-                ccrs_concern = True
-
-    # Also check stat_grid cards for red highlights
-    for card in cards:
-        if card.get("type") != "stat_grid":
-            continue
-        for item in card.get("items", []):
-            if str(item.get("highlight", "")).lower() == "red":
-                has_red = True
-
-    # If headline leads with GREEN but danger signals exist, rewrite with coaching voice
-    if (has_red or ccrs_concern) and "green" in hl_lower:
-        if has_red and ccrs_concern:
-            return "Your body needs recovery today"
-        elif ccrs_concern:
-            return "Load's been building — lighter week ahead"
-        elif has_red:
-            return "Recovery first today"
-
-    return headline
-
-
-def _sanitize_acwr_references(text: str) -> str:
-    """
-    Deterministic ACWR sanitization — strip raw ACWR values from athlete-facing text.
-    ACWR is an internal metric; athletes see CCRS/readiness language instead.
-    Runs AFTER LLM generation — cannot be ignored by the model.
-    """
-    if not text:
-        return text
-    # 1. Remove parenthetical ACWR references entirely: "(ACWR 1.55)" / "(ACWR: 1.55)"
-    text = re.sub(r"\s*\(\s*ACWR\s*[=:\s]*\d+\.?\d*[^)]*\)", "", text, flags=re.I)
-    # 2. "your ACWR is/hit/reached 1.55" → "your training load is elevated"
-    text = re.sub(
-        r"\byour\s+ACWR\s*(?:is\s+|hit\s+|reached\s+|at\s+|=\s*|:\s*)?(\d+\.?\d*)",
-        "your training load is elevated",
-        text, flags=re.I,
-    )
-    # 3. "ACWR 1.55" / "ACWR is 1.55" / "ACWR: 1.55" → "training load is elevated"
-    text = re.sub(
-        r"\bACWR\s*(?:is\s+|=\s*|:\s*|of\s+|hit\s+|at\s+|reached\s+)?(\d+\.?\d*)",
-        "training load is elevated",
-        text, flags=re.I,
-    )
-    # 4. "your ACWR" standalone → "your training load"
-    text = re.sub(r"\byour\s+ACWR\b", "your training load", text, flags=re.I)
-    # 5. "ACWR" standalone → "training load" (only match uppercase to avoid false positives)
-    text = re.sub(r"\bACWR\b", "training load", text)
-    # Clean up double spaces and trailing commas before periods
-    text = re.sub(r",\s*\.", ".", text)
-    text = re.sub(r"  +", " ", text).strip()
-    return text
-
-
 def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
-    """Apply Pulse layout enforcement to any structured response."""
+    """Apply Pulse layout formatting to any structured response.
+    No guardrails — only structural formatting for mobile rendering."""
 
-    # 0. ACWR sanitization — deterministic, runs before any other processing
-    # Athletes should never see raw ACWR values; they see readiness/CCRS language.
-    structured["headline"] = _sanitize_acwr_references(structured.get("headline", ""))
-    structured["body"] = _sanitize_acwr_references(structured.get("body", ""))
-    for card in structured.get("cards", []):
-        if card.get("type") in ("text_card", "coach_note"):
-            if card.get("body"):
-                card["body"] = _sanitize_acwr_references(card["body"])
-            if card.get("note"):
-                card["note"] = _sanitize_acwr_references(card["note"])
-
-    # 1. Strip emoji from headline
+    # 1. Strip emoji from headline (cleaner UI)
     structured["headline"] = _strip_emoji(structured.get("headline", ""))
 
-    # 2. Ban truly robotic headlines — allow natural coaching language
-    hl = structured.get("headline", "").lower()
-    banned_starts = (
-        "here's what", "here's your",
-    )
-    if any(hl.startswith(b) for b in banned_starts):
-        logger.info(f"Banned headline detected: '{structured['headline']}' — keeping but logging")
-        structured["headline"] = "Your update"
-
-    # 2b. HEADLINE PRIORITY: danger signals must override GREEN in headline
-    #     If stat_grid has RED injury risk or ACWR >1.3, headline must not lead with GREEN
-    if state:
-        structured["headline"] = _enforce_headline_priority(
-            structured.get("headline", ""), structured.get("cards", []), state
-        )
-
-    # 3. Enforce max 2 chips, validate chip structure
+    # 2. Enforce max 2 chips, validate chip structure
     chips = structured.get("chips", [])
     valid_chips = [
         c for c in chips

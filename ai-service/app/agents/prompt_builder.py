@@ -23,15 +23,9 @@ logger = logging.getLogger("tomo-ai.prompt")
 # BLOCK 1: STATIC (cacheable across requests)
 # ══════════════════════════════════════════════════════════════════════
 
-GUARDRAIL_BLOCK = """SAFETY GUARDRAILS:
-- Never provide medical diagnoses or specific medical treatment plans
-- For injury severity 3+ (cannot train), recommend medical consultation
-- Never discuss politics, violence, adult content, drugs, hate speech, or gambling
-- If self-harm detected: immediately provide crisis resources (Crisis Text Line: text HOME to 741741, 988 Suicide Hotline)
-- Never fabricate data — if unavailable, say "Data pending" or suggest the athlete check in
-- Protect athlete privacy — never reference other athletes by name
-- All training advice must consider readiness and injury state
-- Never prescribe exercises that conflict with active injury or PHV restrictions"""
+# NOTE: GUARDRAIL_BLOCK removed — guardrails will be CMS-configurable in a future phase.
+# Only PHV safety is enforced (deterministically in validate_node, not via prompt).
+GUARDRAIL_BLOCK = ""
 
 COACHING_IDENTITY = """WHO YOU ARE:
 You are Tomo — a personal AI coach for young athletes. You talk like a real
@@ -95,20 +89,19 @@ CHIP RULES:
 # ── Agent-Specific Static Prompts ────────────────────────────────────
 
 def build_output_static() -> str:
-    return """OUTPUT AGENT — Readiness, Performance, Training, Drills, Programs
+    return """OUTPUT AGENT — Readiness, Performance, Training, Drills, Programs, Benchmarks
 
 You analyze athlete data and provide coaching intelligence:
-- Explain data in plain language FIRST — the athlete should understand your advice from words alone, without needing the data card
+- Explain data in plain language — the athlete should understand your advice from words alone
 - Ask follow-up questions when context is missing: "How did the session feel?" "Did you sleep okay?"
 - Acknowledge the athlete's effort or situation before diving into numbers
-- RED readiness → prioritize recovery, proactively suggest recovery activities
-- Pain/extreme fatigue → recommend medical consultation, modified training only
-- If athlete is in recovery/reduced mode, lead with recovery suggestions — don't wait for them to ask
+- Use CCRS readiness score + injury risk to inform training recommendations
+- Identify benchmark gaps and growth opportunities using normative data
+- Highlight sport-specific and position-specific strengths and areas to improve
 - TIME DIRECTION: Past activities are DONE — only recommend FUTURE training
-- Training drills: match intensity to readiness (GREEN=any, YELLOW=light/moderate, RED=light only)
 - Always include warm-up/cooldown in full sessions
 - Test logging: if athlete gives type + score → call log_test_result directly
-- Benchmarks: only call get_benchmark_comparison when athlete mentions age, peers, or comparison
+- Benchmarks: call get_benchmark_comparison when athlete mentions age, peers, or comparison
 - Recovery: use get_training_session with category="recovery" (never create_event for recovery)
 - Programs: call get_my_programs first, then get_training_program_recommendations"""
 
@@ -281,86 +274,27 @@ def build_ccrs_block(ctx: PlayerContext) -> str:
 Score: {score:.0f}/100 | Recommendation: {rec_label} | Confidence: {confidence}
 Data Freshness: {freshness}"""
 
-    # ACWR is internal context for the AI — NEVER display raw values to athlete.
-    # Qualitative label only. The athlete sees CCRS score/recommendation.
+    # Training load context (ACWR-based)
     if acwr is not None:
-        if acwr > 1.5:
-            load_label = "DANGER — overtraining zone"
-        elif acwr > 1.3:
-            load_label = "ELEVATED — approaching overload"
-        elif acwr >= 0.8:
-            load_label = "SAFE — sweet spot"
-        else:
-            load_label = "LOW — undertraining"
-        block += f"\nTraining Load Status: {load_label} (do NOT show numbers to athlete)"
+        block += f"\nTraining Load Ratio (7:28 ACWR): {acwr:.2f}"
 
     if flags:
         block += f"\nAlert Flags: {', '.join(flags)}"
 
-    # Explain CCRS simply when athlete asks about readiness
+    # CCRS explanation for the LLM
     block += """
 
-CCRS explained simply: Your readiness score combines everything we know — how you feel (check-in), your body data (HRV, sleep, heart rate), and your training history. When some data is missing or old, the score automatically leans more on what IS fresh. A higher score means you're more ready to train hard.
+CCRS explained: Readiness score (0-100) combining check-in data, biometrics (HRV, sleep, heart rate), and training history. Higher = more ready to train. Use this data to inform coaching advice."""
 
-WHEN PRESENTING READINESS TO THE ATHLETE:
-- Always show CCRS score (e.g. "Your readiness is 72/100")
-- CCRS is the primary readiness signal. Load ratio is internal context — do not display to athlete as a headline metric.
-- Use the CCRS recommendation to guide training intensity
-- If confidence is "estimated" or "low", mention that fresh data would improve accuracy"""
-
-    # Safety enforcement based on CCRS recommendation
-    if rec in ("blocked", "recovery"):
-        block += f"""
-
-CCRS SAFETY OVERRIDE — recommendation is {rec.upper()}:
-- ALL training must be LIGHT intensity or recovery only
-- Do NOT recommend HARD or MODERATE intensity
-- Explain to athlete: "Your body needs recovery right now. Your readiness score is {score:.0f}/100."
-- This overrides all other training guidance"""
-
+    # Data context only — no enforcement. Guardrails will be CMS-configurable.
     return block
 
 
+# build_red_risk_block REMOVED — safety enforcement will be CMS-configurable.
+# PHV safety is enforced deterministically in validate_node.
 def build_red_risk_block(ctx: PlayerContext) -> str:
-    """Block 2.x: RED risk hard enforcement — overrides agent behavior when active."""
-    se = ctx.snapshot_enrichment
-    if not se:
-        return ""
-
-    parts: list[str] = []
-
-    if se.injury_risk_flag and se.injury_risk_flag.upper() == "RED":
-        parts.append(f"Injury Risk Flag: RED")
-    # ACWR removed from safety enforcement (Apr 2026) — CCRS is the authority
-
-    if not parts:
-        return ""
-
-    # Check staleness for additional context
-    stale_note = ""
-    if se.last_checkin_at:
-        try:
-            from datetime import datetime, timezone
-            last_checkin = datetime.fromisoformat(
-                se.last_checkin_at.replace("Z", "+00:00")
-            )
-            hours = (datetime.now(timezone.utc) - last_checkin).total_seconds() / 3600
-            if hours > 24:
-                stale_note = f"\nCheck-in data is STALE ({hours:.0f}h old) — confidence in current state is LOW."
-        except Exception:
-            pass
-
-    return f"""RED RISK ACTIVE — HARD SAFETY ENFORCEMENT:
-{chr(10).join('- ' + p for p in parts)}{stale_note}
-
-MANDATORY BEHAVIOR (NON-NEGOTIABLE):
-- Do NOT recommend any HARD or MODERATE intensity training
-- ALL training suggestions MUST be LIGHT intensity or recovery only
-- If athlete requests high-intensity training, explain WHY it is unsafe right now
-- Recommend: active recovery, mobility work, sleep optimization, hydration
-- If check-in is stale, strongly encourage completing a fresh check-in first
-- Recovery timeline: "Once your readiness score improves and you're back in GREEN, we'll ramp back up"
-- This overrides ALL other training guidance in this prompt"""
+    """Removed — returns empty. Will be CMS-configurable."""
+    return ""
 
 
 def build_dual_load_block(ctx: PlayerContext) -> str:
@@ -418,51 +352,16 @@ Athletic load (7d): {ath:.0f} AU | Academic load (7d): {acad:.0f} AU"""
     return block
 
 
+# build_checkin_staleness_block REMOVED — will be CMS-configurable.
 def build_checkin_staleness_block(ctx: PlayerContext) -> str:
-    """Block 2.x: Warn when check-in data is stale or missing."""
-    if not ctx.checkin_date:
-        return """CHECK-IN STATUS: NO CHECK-IN ON RECORD
-Athlete has never checked in. Data confidence is ZERO.
-- Strongly encourage a check-in before giving any training advice
-- Do NOT prescribe specific intensity without readiness data"""
-
-    try:
-        from datetime import datetime
-        checkin_date = datetime.strptime(ctx.checkin_date, "%Y-%m-%d").date()
-        today = datetime.strptime(ctx.today_date, "%Y-%m-%d").date()
-        days_stale = (today - checkin_date).days
-
-        if days_stale == 0:
-            return ""
-        elif days_stale == 1:
-            return "CHECK-IN: Yesterday. Data is slightly stale. Encourage a fresh check-in."
-        else:
-            return f"""CHECK-IN STATUS: STALE ({days_stale} days old)
-Last check-in: {ctx.checkin_date} ({days_stale} days ago)
-- Training recommendations have LOW confidence
-- Strongly encourage a check-in before prescribing intensity
-- Default to CONSERVATIVE intensity (LIGHT/MODERATE) until fresh data"""
-    except Exception:
-        return ""
+    """Removed — returns empty. Will be CMS-configurable."""
+    return ""
 
 
+# build_data_confidence_block REMOVED — will be CMS-configurable.
 def build_data_confidence_block(ctx: PlayerContext) -> str:
-    """Block 2.4: Data confidence guard (flags low-quality data)."""
-    se = ctx.snapshot_enrichment
-    if not se or se.data_confidence_score is None:
-        return ""
-
-    score = se.data_confidence_score
-    if score >= 50:
-        return ""
-
-    if score < 30:
-        return f"""DATA CONFIDENCE WARNING (CRITICAL — score: {score}/100):
-Do NOT prescribe specific intensity targets or training loads.
-Suggest the athlete sync their wearable or complete a check-in first."""
-    else:
-        return f"""DATA CONFIDENCE NOTE (score: {score}/100):
-Athlete data may be incomplete. Suggest wearable sync or check-in for more accurate recommendations."""
+    """Removed — returns empty. Will be CMS-configurable."""
+    return ""
 
 
 def build_tone_profile(age_band: Optional[str]) -> str:
@@ -611,9 +510,9 @@ def build_snapshot_context(ctx: PlayerContext) -> str:
     se = ctx.snapshot_enrichment
     if se:
         parts.append(f"""
-SNAPSHOT DATA (internal — do NOT show raw numbers to athlete, interpret as coaching advice):
+SNAPSHOT DATA:
 - Injury Risk: {se.injury_risk_flag or 'N/A'}
-- Training Load: {'OVERTRAINING' if se.acwr and se.acwr > 1.5 else ('ELEVATED' if se.acwr and se.acwr > 1.3 else 'NORMAL')}
+- ACWR (7:28): {se.acwr} | ATL-7d: {se.atl_7day} | CTL-28d: {se.ctl_28day} | Projected: {se.projected_acwr}
 - HRV: baseline {se.hrv_baseline_ms}ms, today {se.hrv_today_ms}ms | Trend: {se.hrv_trend_7d_pct}%
 - Sleep Quality: {se.sleep_quality} | Wellness 7d: {se.wellness_7day_avg} ({se.wellness_trend})
 - Recovery Score: {se.recovery_score} | SpO2: {se.spo2_pct}%
@@ -685,32 +584,30 @@ def build_system_prompt(
     static_block: Cacheable across requests for the same agent type.
     dynamic_block: Changes every request based on player context.
     """
-    # ── Block 1: Static ──
+    # ── Block 1: Static (coaching identity + format + agent prompt) ──
+    # NOTE: GUARDRAIL_BLOCK removed — guardrails will be CMS-configurable.
     agent_static_fn = STATIC_BUILDERS.get(agent_type, build_output_static)
-    static_block = "\n\n".join([
-        GUARDRAIL_BLOCK,
+    static_parts = [
         COACHING_IDENTITY,
         PULSE_RESPONSE_RULES,
         PULSE_OUTPUT_FORMAT,
         agent_static_fn(),
-    ])
+    ]
+    static_block = "\n\n".join(p for p in static_parts if p)
 
-    # ── Block 2: Dynamic ──
+    # ── Block 2: Dynamic (data context — no guardrails, just athlete data) ──
     dynamic_parts = [
-        build_ccrs_block(context),               # CCRS is primary readiness signal
-        build_red_risk_block(context),           # Safety override (fires when CCRS unavailable or RED)
-        build_checkin_staleness_block(context),   # Staleness warning
-        build_aib_block(aib_summary),
-        build_sport_context(context),
-        build_phv_block(context),
-        build_dual_load_block(context),
-        build_data_confidence_block(context),
-        build_tone_profile(context.age_band),
-        build_snapshot_context(context),
-        build_temporal_block(context),
-        build_schedule_rule_block(context),
-        build_recs_block(context),
-        build_wearable_status_block(context),
+        build_ccrs_block(context),               # CCRS readiness data (no enforcement)
+        build_aib_block(aib_summary),            # Pre-analyzed coaching brief
+        build_sport_context(context),            # Sport + position context
+        build_phv_block(context),                # PHV growth stage context
+        build_dual_load_block(context),          # Academic + athletic load data
+        build_tone_profile(context.age_band),    # Age-band communication style
+        build_snapshot_context(context),          # Full snapshot data
+        build_temporal_block(context),            # Date/time context
+        build_schedule_rule_block(context),       # Schedule rules
+        build_recs_block(context),               # Active recommendations
+        build_wearable_status_block(context),    # WHOOP connection status
     ]
 
     # Conversation context (if provided)

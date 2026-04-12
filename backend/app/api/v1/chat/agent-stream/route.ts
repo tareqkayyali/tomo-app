@@ -62,13 +62,7 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        // ── Guardrail pre-flight ──
-        const preflight = preFlightCheck(message);
-        if (preflight.blocked) {
-          send("done", { message: preflight.message, structured: null, sessionId: null, refreshTargets: [], pendingConfirmation: null });
-          controller.close();
-          return;
-        }
+        // Pre-flight guardrails REMOVED — will be CMS-configurable.
 
         // ── Session management ──
         let sessionId: string | null = null;

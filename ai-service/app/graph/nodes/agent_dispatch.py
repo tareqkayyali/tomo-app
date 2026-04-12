@@ -74,21 +74,8 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
             "total_tokens": 0,
         }
 
-    # 1. Get tools for this agent + user
+    # 1. Get tools for this agent + user (all tools available — no restrictions)
     tools = get_tools_for_agent(agent_type, user_id, context, secondary_agents)
-
-    # 1b. Recovery mode — restrict tool set when safety override active
-    safety_override = state.get("_safety_override")
-    if safety_override and safety_override.get("forced_mode") == "recovery":
-        RECOVERY_SAFE_TOOLS = {
-            "get_readiness_detail", "get_training_session", "get_my_programs",
-            "get_schedule", "get_benchmark_comparison", "get_active_recommendations",
-            "navigate_to", "log_test_result", "get_injury_status",
-        }
-        pre_count = len(tools)
-        tools = [t for t in tools if t.name in RECOVERY_SAFE_TOOLS]
-        logger.info(f"Recovery mode: restricted {pre_count} → {len(tools)} safe tools")
-
     tool_map = {t.name: t for t in tools}
 
     # 2. Build 2-block system prompt
@@ -98,34 +85,6 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         aib_summary=aib_summary,
         secondary_agents=secondary_agents if secondary_agents else None,
     )
-
-    # 2b. Safety override — hard constraint injection when RED risk active
-    safety_override = state.get("_safety_override")
-    if safety_override:
-        forced_mode = safety_override.get("forced_mode", "recovery")
-        reason = safety_override.get("reason", "elevated risk")
-        safety_injection = f"""
-HARD SAFETY CONSTRAINT (NON-NEGOTIABLE — overrides ALL other instructions):
-Reason: {reason}
-Mode: {forced_mode.upper()}
-
-YOU MUST:
-- FIRST acknowledge the athlete warmly — greet by name, ask how they're feeling
-- THEN explain in plain language why recovery matters today (not data dumps)
-- Recommend ONLY light intensity, recovery, active rest, mobility, or sleep optimization
-- If athlete asks for hard training, explain why their body needs recovery first
-- Use get_training_session with category="recovery" if suggesting any session
-- Frame recovery positively: "Let's protect the gains you've made"
-- NEVER show raw metric numbers (ACWR, HRV values, percentages) — describe qualitatively
-
-YOU MUST NOT:
-- Recommend HARD, HIGH, MODERATE, or INTENSE training under any circumstances
-- Suggest sprints, heavy lifts, plyometrics, or max-effort work
-- Minimize the safety concern ("you'll probably be fine")
-- Dump data/numbers — interpret data as coaching advice in plain language
-"""
-        dynamic_block = safety_injection + "\n\n" + dynamic_block
-        logger.warning(f"Safety override injected into agent prompt: {reason}")
 
     # 2c. Inject RAG context from PropertyGraphIndex (Phase 5)
     rag_context = state.get("rag_context", "")

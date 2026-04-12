@@ -98,21 +98,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── GUARDRAIL PRE-FLIGHT CHECK ─────────────────────────────
-  const guardrailResult = preFlightCheck(body.message);
-
-  if (guardrailResult.blocked) {
-    return NextResponse.json({
-      message: guardrailResult.message,
-      refreshTargets: [],
-      pendingConfirmation: null,
-      blocked: true,
-      category: guardrailResult.category,
-    });
-  }
-
-  // Tag topic for analytics (non-blocking)
-  const _topicCategory = categorizeMessage(body.message);
+  // Pre-flight guardrails REMOVED — will be CMS-configurable.
+  // PHV safety is enforced downstream in Python validate_node + TS enforcePHVSafety.
 
   try {
     // ── SESSION MANAGEMENT ──────────────────────────────────────
