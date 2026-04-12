@@ -55,11 +55,9 @@ def _check_red_risk_gate(context) -> Optional[dict]:
     if se.injury_risk_flag and se.injury_risk_flag.upper() == "RED":
         reasons.append("injury_risk_flag=RED")
 
-    # Gate 2: ACWR > 1.5 (danger zone)
-    if se.acwr is not None and se.acwr > 1.5:
-        reasons.append(f"ACWR={se.acwr:.2f} (>1.5 danger zone)")
-
-    # Gate 3: Stale check-in (>24h) combined with elevated load
+    # Gate 2+3: ACWR-based gates REMOVED (Apr 2026)
+    # ACWR excluded from safety enforcement — academic load was inflating
+    # ACWR to RED without heavy training. CCRS gates (4+5) are the authority.
     checkin_stale = False
     hours_since_checkin: Optional[float] = None
     if se.last_checkin_at:
@@ -72,10 +70,6 @@ def _check_red_risk_gate(context) -> Optional[dict]:
             ).total_seconds() / 3600
             if hours_since_checkin > 24:
                 checkin_stale = True
-                if se.acwr is not None and se.acwr > 1.3:
-                    reasons.append(
-                        f"stale_checkin ({hours_since_checkin:.0f}h) + elevated_ACWR={se.acwr:.2f}"
-                    )
         except Exception:
             pass
 

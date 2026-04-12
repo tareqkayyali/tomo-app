@@ -122,17 +122,11 @@ export async function computeAndPersistCCRS(athleteId: string): Promise<CCRSResu
     });
   }
 
-  // ── ACWR inputs (use snapshot's authoritative ACWR, not raw daily_load) ──
-  // acwrComputation.ts includes academic load weighting (×0.4) and proper
-  // daily-average normalization. Recomputing here would diverge.
-  let acwr: ACWRInputs | null = null;
-  if (snapshot.acwr != null && snapshot.atl_7day != null && snapshot.ctl_28day != null) {
-    // Convert daily averages back to period sums for the CCRS formula
-    acwr = {
-      acute_load_7d: snapshot.atl_7day * 7,
-      chronic_load_28d: snapshot.ctl_28day * 28,
-    };
-  }
+  // ── ACWR excluded from CCRS (Apr 2026) ──
+  // ACWR still computes independently on the snapshot for visibility,
+  // but is not factored into CCRS until load accuracy is validated.
+  // Academic load (×0.4 weight) was inflating ACWR to RED without heavy training.
+  const acwr: ACWRInputs | null = null;
 
   // ── Historical score (14-day rolling CCRS average, default 62) ──
   const recentScores = recentScoresRes.data;

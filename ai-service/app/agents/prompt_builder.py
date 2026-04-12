@@ -307,8 +307,7 @@ def build_red_risk_block(ctx: PlayerContext) -> str:
 
     if se.injury_risk_flag and se.injury_risk_flag.upper() == "RED":
         parts.append(f"Injury Risk Flag: RED")
-    if se.acwr is not None and se.acwr > 1.5:
-        parts.append(f"ACWR: {se.acwr:.2f} (DANGER ZONE >1.5)")
+    # ACWR removed from safety enforcement (Apr 2026) — CCRS is the authority
 
     if not parts:
         return ""

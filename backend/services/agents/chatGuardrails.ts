@@ -405,9 +405,10 @@ export function enforceRedRiskSafety(
   injuryRiskFlag: string | null | undefined,
   acwr: number | null | undefined
 ): { flagged: boolean; sanitized: string; reasons: string[] } {
+  // ACWR removed from safety enforcement (Apr 2026) — CCRS is the authority.
+  // ACWR academic load weighting was inflating to RED without heavy training.
   const isRedRisk =
-    (injuryRiskFlag && injuryRiskFlag.toUpperCase() === "RED") ||
-    (acwr != null && acwr > 1.5);
+    (injuryRiskFlag && injuryRiskFlag.toUpperCase() === "RED");
 
   if (!isRedRisk) {
     return { flagged: false, sanitized: response, reasons: [] };
