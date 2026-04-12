@@ -256,8 +256,8 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     # 7. Ensure body exists (mobile renderer needs it)
     if not structured.get("body", "").strip():
         for card in structured.get("cards", []):
-            if card.get("type") in ("text_card", "coach_note") and card.get("body"):
-                structured["body"] = _truncate_body(card["body"])
+            if card.get("type") in ("text_card", "coach_note") and (card.get("body") or card.get("note")):
+                structured["body"] = _truncate_body(card.get("body") or card.get("note", ""))
                 break
         if not structured.get("body", "").strip():
             structured["body"] = structured.get("headline", "") or "Your update"
@@ -497,7 +497,8 @@ async def format_response_node(state: TomoChatState) -> dict:
 
             # Text/advisory: must have substantive body
             if card_type in ("text_card", "coach_note"):
-                card_body = card.get("body", "").strip()
+                # coach_note uses "note" field, text_card uses "body"
+                card_body = (card.get("body") or card.get("note") or "").strip()
                 # Strip emoji to check actual text content
                 card_body_text = _strip_emoji(card_body)
                 if not card_body_text or len(card_body_text) < 15:
