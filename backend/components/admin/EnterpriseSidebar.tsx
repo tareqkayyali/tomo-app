@@ -117,6 +117,7 @@ const navigation: NavGroup[] = [
     items: [
       { name: "Performance Intelligence", href: "/admin/performance-intelligence" },
       { name: "ACWR Inspector", href: "/admin/acwr-inspector" },
+      { name: "AI Health", href: "/admin/ai-health" },
     ],
   },
   {
