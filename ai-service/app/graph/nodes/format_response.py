@@ -32,6 +32,74 @@ DATA_CARD_TYPES = frozenset({
     "clash_list", "phv_assessment", "drill_card", "week_schedule",
 })
 
+# Body text limit — Pulse spec says 1-2 sentences max
+MAX_BODY_SENTENCES = 2
+
+
+def _build_context_stat_grid(state: TomoChatState) -> Optional[dict]:
+    """
+    Build a readiness stat_grid from player context when the LLM
+    fails to include a data card. Returns None if no context available.
+    """
+    ctx = state.get("player_context")
+    if not ctx:
+        return None
+
+    snapshot = getattr(ctx, "snapshot_enrichment", None)
+    items = []
+
+    # Readiness RAG
+    readiness_rag = getattr(snapshot, "readiness_rag", None) if snapshot else None
+    readiness_score = getattr(snapshot, "readiness_score", None) if snapshot else None
+    if readiness_rag or readiness_score is not None:
+        rag_val = readiness_rag or "—"
+        highlight = {"Green": "green", "Yellow": "yellow", "Red": "red"}.get(
+            str(rag_val).title(), "yellow"
+        )
+        display = f"{rag_val}" + (f" ({int(readiness_score)})" if readiness_score else "")
+        items.append({"label": "Readiness", "value": display, "highlight": highlight})
+
+    # Injury risk
+    injury = getattr(snapshot, "injury_risk_flag", None) if snapshot else None
+    if injury:
+        highlight = {"GREEN": "green", "AMBER": "yellow", "RED": "red"}.get(
+            injury.upper(), "yellow"
+        )
+        items.append({"label": "Injury Risk", "value": injury.title(), "highlight": highlight})
+
+    # ACWR
+    acwr = getattr(snapshot, "acwr", None) if snapshot else None
+    if acwr is not None:
+        if acwr > 1.5:
+            highlight = "red"
+        elif acwr > 1.3:
+            highlight = "yellow"
+        else:
+            highlight = "green"
+        items.append({"label": "ACWR", "value": f"{acwr:.2f}", "highlight": highlight})
+
+    # Data confidence
+    data_conf = getattr(snapshot, "data_confidence_score", None) if snapshot else None
+    if data_conf is not None:
+        highlight = "red" if data_conf < 40 else ("yellow" if data_conf < 70 else "green")
+        items.append({"label": "Data Confidence", "value": f"{int(data_conf)}%", "highlight": highlight})
+
+    if not items:
+        return None
+
+    return {"type": "stat_grid", "items": items}
+
+
+def _truncate_body(body: str, max_sentences: int = MAX_BODY_SENTENCES) -> str:
+    """Truncate body to max N sentences. Pulse: data cards do the work, not prose."""
+    if not body:
+        return body
+    # Split on sentence boundaries (but not on abbreviations or numbers like "1.")
+    sentences = re.split(r'(?<!\d)(?<=[.!?])\s+', body.strip())
+    if len(sentences) <= max_sentences:
+        return body.strip()
+    return " ".join(sentences[:max_sentences])
+
 
 def _strip_emoji(text: str) -> str:
     """Remove emoji characters from text. Pulse spec: no emoji in headings."""
@@ -52,7 +120,7 @@ def _strip_emoji(text: str) -> str:
     return cleaned
 
 
-def _pulse_post_process(structured: dict) -> dict:
+def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     """Apply Pulse layout enforcement to any structured response."""
     # 1. Strip emoji from headline
     structured["headline"] = _strip_emoji(structured.get("headline", ""))
@@ -76,20 +144,28 @@ def _pulse_post_process(structured: dict) -> dict:
 
     # 4. Reorder cards: data cards first, then text/advisory
     cards = structured.get("cards", [])
-    if cards:
-        data_cards = [c for c in cards if c.get("type") in DATA_CARD_TYPES]
-        other_cards = [c for c in cards if c.get("type") not in DATA_CARD_TYPES]
-        structured["cards"] = data_cards + other_cards
+    data_cards = [c for c in cards if c.get("type") in DATA_CARD_TYPES]
+    other_cards = [c for c in cards if c.get("type") not in DATA_CARD_TYPES]
 
-    # 5. Ensure body exists (mobile renderer needs it)
+    # 5. PULSE RULE: If no data card exists, inject stat_grid from player context
+    if not data_cards and state:
+        fallback_grid = _build_context_stat_grid(state)
+        if fallback_grid:
+            data_cards = [fallback_grid]
+
+    structured["cards"] = data_cards + other_cards
+
+    # 6. Truncate body — Pulse: 1-2 sentences, let data cards do the work
+    structured["body"] = _truncate_body(structured.get("body", ""))
+
+    # 7. Ensure body exists (mobile renderer needs it)
     if not structured.get("body", "").strip():
-        # Use first text_card body or headline as fallback
         for card in structured.get("cards", []):
             if card.get("type") in ("text_card", "coach_note") and card.get("body"):
-                structured["body"] = card["body"]
+                structured["body"] = _truncate_body(card["body"])
                 break
         if not structured.get("body", "").strip():
-            structured["body"] = structured.get("headline", "") or "Here's what I found."
+            structured["body"] = structured.get("headline", "") or "Your update"
 
     return structured
 
@@ -283,7 +359,7 @@ async def format_response_node(state: TomoChatState) -> dict:
 
     # Case 1: Write action pending confirmation
     if pending_write and not write_confirmed:
-        structured = _pulse_post_process(_build_confirmation_response(pending_write))
+        structured = _pulse_post_process(_build_confirmation_response(pending_write), state)
         return {
             "final_response": json.dumps(structured),
             "final_cards": structured.get("cards", []),
@@ -294,9 +370,9 @@ async def format_response_node(state: TomoChatState) -> dict:
         try:
             confirmed_data = json.loads(agent_response)
             results = confirmed_data.get("confirmed_results", [])
-            structured = _pulse_post_process(_build_confirmed_response(results))
+            structured = _pulse_post_process(_build_confirmed_response(results), state)
         except (json.JSONDecodeError, TypeError):
-            structured = _pulse_post_process(_build_text_response(agent_response))
+            structured = _pulse_post_process(_build_text_response(agent_response), state)
 
         return {
             "final_response": json.dumps(structured),
@@ -402,8 +478,8 @@ async def format_response_node(state: TomoChatState) -> dict:
                 "body": structured["body"],
             }]
 
-        # Apply Pulse layout enforcement
-        structured = _pulse_post_process(structured)
+        # Apply Pulse layout enforcement (pass state for context-aware fallback)
+        structured = _pulse_post_process(structured, state)
 
         return {
             "final_response": json.dumps(structured),
@@ -412,7 +488,7 @@ async def format_response_node(state: TomoChatState) -> dict:
 
     # Case 4: Fallback — plain text to text_card
     if agent_response:
-        structured = _pulse_post_process(_build_text_response(agent_response))
+        structured = _pulse_post_process(_build_text_response(agent_response), state)
         return {
             "final_response": json.dumps(structured),
             "final_cards": structured.get("cards", []),
