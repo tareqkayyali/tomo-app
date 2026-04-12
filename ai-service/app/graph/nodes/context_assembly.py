@@ -602,7 +602,16 @@ def _build_temporal_context(
             pass
 
     is_exam_proximity = len(near_exams) > 0
-    exam_details = ", ".join(e.get("title", "") for e in near_exams) if near_exams else None
+    # Include dates in exam_details so the LLM sees WHEN, not just titles
+    exam_detail_parts = []
+    for e in near_exams:
+        title = e.get("title", "Exam")
+        try:
+            start = datetime.fromisoformat(str(e["start_at"]).replace("Z", "+00:00"))
+            exam_detail_parts.append(f"{title} on {start.strftime('%a %b %d at %H:%M')}")
+        except Exception:
+            exam_detail_parts.append(title)
+    exam_details = ", ".join(exam_detail_parts) if exam_detail_parts else None
 
     # Day type
     day_type = "rest"
@@ -745,7 +754,9 @@ async def build_player_context(
     )[:20]
 
     # ── Schedule preferences ──
-    schedule_preferences = SchedulePreferences()
+    # ONLY inject schedule data when the user has actually configured preferences.
+    # Never inject hardcoded defaults — the AI would present them as real data.
+    schedule_preferences: Optional[SchedulePreferences] = None
     if sched_prefs_row:
         try:
             # Convert date/datetime objects to strings for Pydantic str fields
@@ -757,10 +768,13 @@ async def build_player_context(
                     else:
                         cleaned[k] = v
             schedule_preferences = SchedulePreferences(**cleaned)
+            logger.info("Schedule preferences loaded from DB")
         except Exception as e:
             logger.warning(f"Failed to parse schedule prefs: {e}")
+    else:
+        logger.info("No schedule preferences in DB — skipping schedule context injection")
 
-    active_scenario = _detect_scenario(schedule_preferences)
+    active_scenario = _detect_scenario(schedule_preferences or SchedulePreferences())
 
     # ── Age band ──
     age_band = _derive_age_band(profile.get("age"))

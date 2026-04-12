@@ -892,8 +892,12 @@ const ChatBubble = React.memo(function ChatBubble({
               onCapsuleSubmit={onCapsuleSubmit}
               onNavigate={onNavigate}
             />
-            {/* Show text above cards if both exist */}
-            {message.text && !message.structured.headline && (
+            {/* Show text above cards if both exist — but NOT for self-contained cards
+                (confirm_card, choice_card) which render their own content */}
+            {message.text && !message.structured.headline
+              && !(message.structured.cards ?? []).some(
+                (c: any) => c.type === 'confirm_card' || c.type === 'choice_card'
+              ) && (
               <MarkdownMessage content={message.text} />
             )}
           </>
@@ -1500,8 +1504,10 @@ export function HomeScreen() {
       setIsSending(true);
       scrollToBottom();
 
-      // Show typing indicator while waiting for API response
-      setMessages((prev) => [...prev, TYPING_MSG]);
+      // Show typing indicator while waiting for API response (dedupe)
+      setMessages((prev) =>
+        prev.some((m) => m.id === '__typing__') ? prev : [...prev, TYPING_MSG]
+      );
       scrollToBottom();
 
       // Create abort controller for this request
@@ -1624,14 +1630,16 @@ export function HomeScreen() {
             );
           });
         } catch (streamErr) {
-          // Streaming failed — clean up streaming placeholder
-          setMessages((prev) => prev.filter((m) => m.id !== streamMsgId));
+          // Streaming failed — clean up BOTH streaming placeholder AND typing indicator
+          setMessages((prev) => prev.filter((m) => m.id !== streamMsgId && m.id !== TYPING_MSG.id));
 
           if (abortController.signal.aborted) throw streamErr;
 
           // Fall back to non-streaming request
           if (!streamingSucceeded) {
-            setMessages((prev) => [...prev, TYPING_MSG]);
+            setMessages((prev) =>
+              prev.some((m) => m.id === '__typing__') ? prev : [...prev, TYPING_MSG]
+            );
 
             const agentResponse = await sendAgentChatMessage(
               chatPayload,
@@ -2047,15 +2055,7 @@ export function HomeScreen() {
           </>
         ) : null}
 
-        {/* ─── Confirmation Card (agent write action gate) ────────── */}
-        {!showSavedChats && pendingConfirmation && (
-          <ConfirmationCard
-            confirmation={pendingConfirmation}
-            onConfirm={handleConfirmAction}
-            onCancel={handleCancelAction}
-            onConfirmSingle={handleConfirmSingle}
-          />
-        )}
+        {/* Confirmation handled by inline confirm_card in ResponseRenderer */}
 
         {/* ─── Input Bar ───────────────────────────────────────────── */}
         {!showSavedChats && (

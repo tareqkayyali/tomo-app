@@ -27,6 +27,8 @@ export type CardType =
   | 'navigation_capsule'
   | 'quick_action_capsule'
   | 'week_schedule'
+  | 'week_plan'
+  | 'choice_card'
   | 'training_journal_pre_capsule'
   | 'training_journal_post_capsule';
 
@@ -61,6 +63,39 @@ export interface WeekSchedule {
   type: 'week_schedule';
   summary: string;
   days: WeekDaySchedule[];
+}
+
+// ── Week Plan Card (Pulse design — colored pills per day) ──────
+export interface WeekPlanTag {
+  label: string;
+  color: 'green' | 'yellow' | 'red' | 'blue' | 'orange' | 'gray';
+}
+
+export interface WeekPlanDay {
+  day: string;                  // "MON", "TUE", etc.
+  tags: WeekPlanTag[];          // Colored pills like [Football] [Gym]
+  note?: string;                // e.g. "Light activation only"
+  time?: string;                // e.g. "19:30" or "TBC"
+}
+
+export interface WeekPlan {
+  type: 'week_plan';
+  title?: string;               // "WEEK PLAN"
+  date_range?: string;          // "Apr 13–19"
+  days: WeekPlanDay[];
+}
+
+// ── Choice Card (interactive options — radio-style) ────────────
+export interface ChoiceOption {
+  label: string;
+  description?: string;
+  value: string;                // sent as chip message when tapped
+}
+
+export interface ChoiceCard {
+  type: 'choice_card';
+  headline: string;
+  options: ChoiceOption[];
 }
 
 export interface ZoneLevel {
@@ -678,6 +713,8 @@ export type VisualCard =
   | RegularStudyCapsule
   | ProgramRecommendationCard
   | WeekSchedule
+  | WeekPlan
+  | ChoiceCard
   | InjuryCard
   | GoalCard
   | DailyBriefingCard;

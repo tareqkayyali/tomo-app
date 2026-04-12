@@ -36,18 +36,18 @@ PHV_BLOCKED_PATTERNS = [
     re.compile(r"\bplyometric.*max", re.I),
 ]
 
-PHV_SAFETY_REPLACEMENT = """⚠️ **Safety Notice — Growth Phase**
+PHV_SAFETY_REPLACEMENT = """Hey — heads up on this one 💪
 
-I adjusted my recommendation because you're in your peak growth phase (Mid-PHV). Some exercises I initially considered aren't safe right now:
+I tweaked my suggestion because your body's in a big growth phase right now. Some of those exercises aren't a great idea while you're growing this fast — but here's what works just as well:
 
-**Safe alternatives for your growth stage:**
-- Goblet squat instead of barbell squat (protects growth plates)
+**What to do instead:**
+- Goblet squat instead of barbell squat (way safer for your joints)
 - Soft-landing box steps instead of depth/drop jumps
-- Light dumbbells/kettlebells instead of Olympic lifts
-- 85% effort accel-decel drills instead of maximal sprints
-- Trap bar / partial ROM instead of heavy deadlifts
+- Light dumbbells or kettlebells instead of Olympic lifts
+- 85% effort drills instead of maximal sprints
+- Trap bar or partial range instead of heavy deadlifts
 
-Your body is growing fast — we protect the joints and tendons now, build max strength after your growth spurt. 💪"""
+We'll get you to the heavy stuff once your growth spurt settles — for now, these alternatives still build serious strength without the risk. You've got this."""
 
 
 # ── Main Validation Function ──────────────────────────────────────
@@ -90,7 +90,17 @@ async def validate_node(state: TomoChatState) -> dict:
                     "validation_flags": flags,
                 }
 
-    # ── Layer 2: Format Validation ───────────────────────────────
+    # ── Layer 2: Tone Validation (advisory — log, don't block) ───
+
+    tone_violations = _validate_tone(agent_response)
+    if tone_violations:
+        flags.append("tone_violation")
+        logger.warning(
+            f"TONE VALIDATION: {len(tone_violations)} violations detected: "
+            f"{tone_violations[:3]}"  # log first 3
+        )
+
+    # ── Layer 3: Format Validation ───────────────────────────────
 
     # Check if response is valid JSON (expected format)
     has_json = bool(re.search(r"```json\s*\{", agent_response))
@@ -110,3 +120,48 @@ async def validate_node(state: TomoChatState) -> dict:
         "validation_passed": validation_passed,
         "validation_flags": flags,
     }
+
+
+# ── Tone Validation — Companion Clause enforcement ─────────────
+
+BANNED_PHRASES = [
+    "great effort", "fantastic work", "amazing job", "keep it up",
+    "you've got this", "believe in yourself", "stay focused",
+    "crushing it", "optimal performance", "according to your data",
+    "your metrics indicate", "it is recommended", "you should consider",
+    "thank you for your input", "session has been generated",
+    "based on your performance", "incredible work", "amazing progress",
+    "keep pushing", "stay motivated", "excellent work",
+]
+
+BANNED_PATTERNS = [
+    re.compile(r"today'?s session (will|focuses|is designed)", re.I),
+    re.compile(r"the programme (requires|states|indicates)", re.I),
+    re.compile(r"research shows that", re.I),
+    re.compile(r"it is important to (note|understand|remember)", re.I),
+    re.compile(r"according to (your|the) data", re.I),
+    re.compile(r"your (ACWR|HRV|readiness score) (is|indicates|shows)", re.I),
+    re.compile(r"based on (your|the) (data|metrics|performance)", re.I),
+    re.compile(r"I recommend that you", re.I),
+    re.compile(r"studies (show|suggest|indicate)", re.I),
+]
+
+
+def _validate_tone(text: str) -> list[str]:
+    """
+    Check response text against banned phrases and patterns.
+    Returns list of violations found. Empty = passed.
+    Advisory only in v1 — log violations, do not block response.
+    """
+    violations: list[str] = []
+    text_lower = text.lower()
+
+    for phrase in BANNED_PHRASES:
+        if phrase in text_lower:
+            violations.append(f'Banned phrase: "{phrase}"')
+
+    for pattern in BANNED_PATTERNS:
+        if pattern.search(text):
+            violations.append(f"Banned pattern: {pattern.pattern}")
+
+    return violations

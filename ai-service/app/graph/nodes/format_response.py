@@ -30,10 +30,11 @@ DATA_CARD_TYPES = frozenset({
     "stat_grid", "stat_row", "schedule_list", "zone_stack",
     "benchmark_bar", "session_plan", "program_recommendation",
     "clash_list", "phv_assessment", "drill_card", "week_schedule",
+    "week_plan", "choice_card",
 })
 
-# Body text limit — coaching responses need room for interpretation + advice
-MAX_BODY_SENTENCES = 5
+# Body text limit — keep responses tight, let cards do the heavy lifting
+MAX_BODY_SENTENCES = 3
 
 
 def _build_context_stat_grid(state: TomoChatState) -> Optional[dict]:
@@ -152,8 +153,12 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     """Apply Pulse layout formatting to any structured response.
     No guardrails — only structural formatting for mobile rendering."""
 
-    # 1. Strip emoji from headline (cleaner UI)
-    structured["headline"] = _strip_emoji(structured.get("headline", ""))
+    # 1. Strip emoji + markdown from headline (cleaner UI)
+    hl = _strip_emoji(structured.get("headline", ""))
+    hl = re.sub(r"\*\*(.+?)\*\*", r"\1", hl)
+    hl = re.sub(r"\*(.+?)\*", r"\1", hl)
+    hl = re.sub(r"^#+\s*", "", hl)
+    structured["headline"] = hl.strip()
 
     # 2. Enforce max 2 chips, validate chip structure
     chips = structured.get("chips", [])
@@ -172,14 +177,58 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     # 4. Truncate body to max sentences
     structured["body"] = _truncate_body(structured.get("body", ""))
 
+    # 4b. Sanitize body — strip raw technical metrics + markdown artifacts
+    body = structured.get("body", "")
+    if body:
+        # Strip markdown formatting — body renders as plain text on mobile
+        body = re.sub(r"\*\*(.+?)\*\*", r"\1", body)  # **bold** → bold
+        body = re.sub(r"\*(.+?)\*", r"\1", body)       # *italic* → italic
+        body = re.sub(r"__(.+?)__", r"\1", body)        # __underline__ → underline
+        body = re.sub(r"`(.+?)`", r"\1", body)          # `code` → code
+        body = re.sub(r"^#+\s*", "", body, flags=re.M)  # # heading → heading
+        # Strip raw technical metrics
+        body = re.sub(r"\bACWR\b\s*(?:hit|is|at|of|=)?\s*\d+\.?\d*", "training load's been building", body, flags=re.I)
+        body = re.sub(r"\bACWR\b", "training load", body, flags=re.I)
+        body = re.sub(r"\b\d+\.?\d*\s*ms\s*(?:HRV|hrv)", "recovery signals", body, flags=re.I)
+        body = re.sub(r"\bHRV\s*(?:is|at|of|=)?\s*\d+\.?\d*\s*(?:ms)?", "recovery signals", body, flags=re.I)
+        structured["body"] = body
+
+    # 4c. Sanitize stat_grid items — convert raw values to friendly labels
+    for card in structured.get("cards", []):
+        if card.get("type") == "stat_grid":
+            for item in card.get("items", []):
+                label = (item.get("label") or "").lower()
+                value = str(item.get("value", ""))
+                # HRV: never show raw ms — convert to descriptive
+                if "hrv" in label and re.search(r"\d+\.?\d*\s*ms", value):
+                    ms_val = float(re.search(r"(\d+\.?\d*)", value).group(1))
+                    item["value"] = "Strong" if ms_val > 80 else "Okay" if ms_val > 50 else "Low"
+                # Energy/Mood on /5 scale → descriptive
+                if ("energy" in label or "mood" in label) and re.search(r"\d+\.?\d*/5", value):
+                    score = float(re.search(r"(\d+\.?\d*)/5", value).group(1))
+                    item["value"] = "High" if score >= 4 else "Good" if score >= 3 else "Low"
+                # ACWR → never show, convert to plain
+                if "acwr" in label or "load ratio" in label:
+                    item["label"] = "Training Load"
+                    if re.search(r"\d+\.?\d*", value):
+                        num = float(re.search(r"(\d+\.?\d*)", value).group(1))
+                        item["value"] = "Spiked" if num > 1.5 else "Elevated" if num > 1.3 else "Building" if num > 1.0 else "Good"
+
     # 5. Ensure body exists (mobile renderer needs it)
-    if not structured.get("body", "").strip():
+    #    EXCEPT: self-contained card types render their own content —
+    #    injecting fallback body causes duplicate text on mobile.
+    SELF_CONTAINED_CARDS = {"confirm_card", "choice_card"}
+    has_self_contained = any(
+        c.get("type") in SELF_CONTAINED_CARDS
+        for c in structured.get("cards", [])
+    )
+    if not has_self_contained and not structured.get("body", "").strip():
         for card in structured.get("cards", []):
             if card.get("type") in ("text_card", "coach_note") and (card.get("body") or card.get("note")):
                 structured["body"] = _truncate_body(card.get("body") or card.get("note", ""))
                 break
         if not structured.get("body", "").strip():
-            structured["body"] = structured.get("headline", "") or "Let me know what you'd like to work on."
+            structured["body"] = structured.get("headline", "") or "What's on your mind?"
 
     # 6. DEDUPLICATION: remove text_card / coach_note cards whose content
     #    matches the body — prevents the same paragraph rendering twice on mobile.
@@ -252,55 +301,102 @@ def _build_text_response(text: str) -> dict:
         body = " ".join(sentences[:3])
 
     return {
-        "headline": headline or "Your update",
-        "body": body or headline or "Your update",
-        "cards": [{"type": "text_card", "headline": headline, "body": body or headline or "Your update"}],
+        "headline": headline or "Hey — what's up?",
+        "body": body or headline or "What would you like to do?",
+        "cards": [{"type": "text_card", "headline": headline, "body": body or headline or "What would you like to do?"}],
         "chips": [],
     }
 
 
 def _build_confirmation_response(pending: dict) -> dict:
-    """Build a confirmation card for a pending write action."""
-    actions = pending.get("actions", [pending.get("primary_action", {})])
-    preview = pending.get("preview", "")
+    """Build a confirmation card for a pending write action.
 
-    # Build headline based on action type
+    Returns ONLY a confirm_card — no duplicate headline/body text.
+    Batch actions rendered as structured items for the mobile renderer.
+    """
+    actions = pending.get("actions", [pending.get("primary_action", {})])
+
+    # Build headline based on action type + count
     primary = actions[0] if actions else {}
     tool_name = primary.get("toolName", "action")
-    headline_map = {
-        "create_event": "Add to timeline?",
-        "update_event": "Update this event?",
-        "delete_event": "Remove this event?",
-        "log_check_in": "Log your check-in?",
-        "log_test_result": "Log this result?",
-        "set_goal": "Set new goal?",
-        "propose_mode_change": "Switch training mode?",
-    }
-    headline = headline_map.get(tool_name, "Confirm this action?")
+    count = len(actions)
 
-    body_parts = [preview] if preview else []
+    if count > 1:
+        headline_map = {
+            "create_event": f"Add {count} events to timeline?",
+            "delete_event": f"Remove {count} events?",
+        }
+        confirm_headline = headline_map.get(tool_name, f"Confirm {count} actions?")
+    else:
+        headline_map = {
+            "create_event": "Add to timeline?",
+            "update_event": "Update this event?",
+            "delete_event": "Remove this event?",
+            "log_check_in": "Log your check-in?",
+            "log_test_result": "Log this result?",
+            "set_goal": "Set new goal?",
+            "propose_mode_change": "Switch training mode?",
+        }
+        confirm_headline = headline_map.get(tool_name, "Confirm this action?")
+
+    # Build structured items for the mobile renderer
+    items = []
     for action in actions:
         inp = action.get("toolInput", {})
-        if inp.get("title"):
-            body_parts.append(f"• {inp['title']}")
-        if inp.get("date"):
-            body_parts.append(f"  Date: {inp['date']}")
+        title = inp.get("title", inp.get("event_type", "Event"))
+        if isinstance(title, str):
+            title = title.replace("_", " ").title()
+
+        # Format date: "2026-04-13" → "Mon Apr 13"
+        date_str = inp.get("date", "")
+        formatted_date = _format_confirm_date(date_str) if date_str else ""
+
+        # Format time: "17:00" + "18:00" → "17:00–18:00"
+        time_str = ""
         if inp.get("start_time"):
-            body_parts.append(f"  Time: {inp['start_time']}")
+            time_str = inp["start_time"]
+            if inp.get("end_time"):
+                time_str += f"–{inp['end_time']}"
+
+        items.append({
+            "title": title,
+            "date": formatted_date,
+            "time": time_str,
+        })
+
+    # Fallback body for single-item or when items render fails
+    body_fallback = "Ready to proceed?"
+    if items:
+        body_fallback = " · ".join(
+            f"{it['title']} {it['date']} {it['time']}".strip() for it in items[:3]
+        )
+        if len(items) > 3:
+            body_fallback += f" + {len(items) - 3} more"
 
     return {
-        "headline": headline,
-        "body": "\n".join(body_parts) if body_parts else "Ready to proceed?",
+        "headline": "",
+        "body": "",
         "cards": [{
             "type": "confirm_card",
-            "headline": headline,
-            "body": "\n".join(body_parts),
+            "headline": confirm_headline,
+            "body": body_fallback,
+            "items": items,
             "confirm_label": "Confirm",
             "cancel_label": "Cancel",
             "action_data": pending,
         }],
         "chips": [],
     }
+
+
+def _format_confirm_date(date_str: str) -> str:
+    """Format ISO date 'YYYY-MM-DD' → readable 'Mon Apr 13'."""
+    try:
+        from datetime import datetime
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        return dt.strftime("%a %b %d")
+    except (ValueError, TypeError):
+        return date_str
 
 
 def _build_done_headline(results: list[dict]) -> str:
@@ -486,6 +582,11 @@ async def format_response_node(state: TomoChatState) -> dict:
                 if not isinstance(programs, list) or not programs:
                     continue
 
+            # Benchmark bar: must have metric + percentile
+            elif card_type == "benchmark_bar":
+                if not card.get("metric") or card.get("percentile") is None:
+                    continue
+
             # Zone stack: must have zones
             elif card_type == "zone_stack":
                 zones = card.get("zones") or []
@@ -506,6 +607,18 @@ async def format_response_node(state: TomoChatState) -> dict:
             # Confirm card: always valid (has action_data)
             elif card_type == "confirm_card":
                 pass
+
+            # Week plan: must have days array
+            elif card_type == "week_plan":
+                days = card.get("days") or []
+                if not isinstance(days, list) or not days:
+                    continue
+
+            # Choice card: must have options array
+            elif card_type == "choice_card":
+                options = card.get("options") or []
+                if not isinstance(options, list) or not options:
+                    continue
 
             valid_cards.append(card)
         structured["cards"] = valid_cards

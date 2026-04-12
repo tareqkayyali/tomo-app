@@ -31,6 +31,8 @@ import type {
   ActionChip,
   CapsuleAction,
   ProgramRecommendationCard,
+  WeekPlan,
+  ChoiceCard,
   InjuryCard,
   GoalCard,
   DailyBriefingCard,
@@ -57,10 +59,10 @@ function createStyles(colors: ThemeColors) {
     },
     bodyText: {
       fontFamily: fontFamily.regular,
-      fontSize: 15,
-      lineHeight: 22,
+      fontSize: 14,
+      lineHeight: 20,
       color: colors.textBody,
-      marginBottom: 4,
+      marginBottom: 6,
     },
 
     // Stat Row
@@ -163,6 +165,126 @@ function createStyles(colors: ThemeColors) {
       marginBottom: 4,
       textTransform: 'uppercase',
       letterSpacing: 0.8,
+    },
+
+    // Week Plan (Pulse design)
+    weekPlanCard: {
+      backgroundColor: colors.cardLight,
+      borderRadius: borderRadius.md,
+      padding: 14,
+      gap: 2,
+    },
+    weekPlanHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
+      paddingBottom: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    weekPlanTitle: {
+      fontFamily: fontFamily.bold,
+      fontSize: 12,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    weekPlanDateRange: {
+      fontFamily: fontFamily.medium,
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    weekPlanRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: `${colors.border}40`,
+      gap: 8,
+    },
+    weekPlanDay: {
+      fontFamily: fontFamily.bold,
+      fontSize: 13,
+      color: colors.accent1,
+      width: 36,
+      textTransform: 'uppercase',
+    },
+    weekPlanTags: {
+      flex: 1,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 6,
+    },
+    weekPlanTag: {
+      borderRadius: borderRadius.full,
+      borderWidth: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+    },
+    weekPlanTagText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 11,
+    },
+    weekPlanNote: {
+      fontFamily: fontFamily.regular,
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    weekPlanTime: {
+      fontFamily: fontFamily.medium,
+      fontSize: 12,
+      color: colors.textSecondary,
+      minWidth: 40,
+      textAlign: 'right',
+    },
+
+    // Choice Card (radio options)
+    choiceCard: {
+      backgroundColor: colors.cardLight,
+      borderRadius: borderRadius.md,
+      padding: 14,
+      gap: 6,
+    },
+    choiceHeadline: {
+      fontFamily: fontFamily.bold,
+      fontSize: 11,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginBottom: 6,
+    },
+    choiceOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: `${colors.border}20`,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 12,
+      gap: 12,
+    },
+    choiceRadio: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 1.5,
+      borderColor: colors.textInactive,
+    },
+    choiceContent: {
+      flex: 1,
+      gap: 2,
+    },
+    choiceLabel: {
+      fontFamily: fontFamily.semiBold,
+      fontSize: 14,
+      color: colors.textOnDark,
+    },
+    choiceDescription: {
+      fontFamily: fontFamily.regular,
+      fontSize: 12,
+      color: colors.textSecondary,
     },
 
     // Zone Stack
@@ -356,6 +478,36 @@ function createStyles(colors: ThemeColors) {
       lineHeight: 20,
       color: colors.textBody,
     },
+    confirmItems: {
+      gap: 0,
+      marginVertical: 4,
+    },
+    confirmItemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 6,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: `${colors.accentSoft}60`,
+      gap: 10,
+    },
+    confirmItemDate: {
+      fontFamily: fontFamily.medium,
+      fontSize: 12,
+      color: colors.textSecondary,
+      width: 72,
+    },
+    confirmItemTitle: {
+      flex: 1,
+      fontFamily: fontFamily.semiBold,
+      fontSize: 14,
+      color: colors.textOnDark,
+    },
+    confirmItemTime: {
+      fontFamily: fontFamily.medium,
+      fontSize: 12,
+      color: colors.accent1,
+      textAlign: 'right',
+    },
     confirmButtons: {
       flexDirection: 'row',
       gap: 10,
@@ -371,19 +523,23 @@ function createStyles(colors: ThemeColors) {
     confirmBtnText: {
       fontFamily: fontFamily.bold,
       fontSize: 14,
-      color: colors.textPrimary,
+      color: '#FFFFFF',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
     },
     cancelBtn: {
-      flex: 0.6,
-      backgroundColor: colors.cardLight,
+      flex: 0.7,
+      backgroundColor: 'transparent',
       borderRadius: borderRadius.full,
+      borderWidth: 1,
+      borderColor: colors.textInactive,
       paddingVertical: 10,
       alignItems: 'center',
     },
     cancelBtnText: {
       fontFamily: fontFamily.medium,
       fontSize: 14,
-      color: colors.textOnDark,
+      color: colors.textSecondary,
     },
 
     // Coach Note
@@ -729,6 +885,13 @@ function StatRowCard({ card, styles }: { card: StatRow; styles: ReturnType<typeo
   );
 }
 
+// Highlight color mapping for stat_grid items
+const HIGHLIGHT_COLORS: Record<string, { value: string; border: string; bar: string }> = {
+  green: { value: colors.accent, border: colors.accent, bar: colors.accent },
+  yellow: { value: colors.warning, border: colors.warning, bar: colors.warning },
+  red: { value: colors.error, border: colors.error, bar: colors.error },
+};
+
 function StatGridCard({
   card,
   styles,
@@ -739,26 +902,39 @@ function StatGridCard({
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }} contentContainerStyle={{ paddingHorizontal: 4 }}>
       <View style={styles.statGrid}>
-        {(Array.isArray(card.items) ? card.items : []).map((item, i) => (
-          <View
-            key={i}
-            style={[
-              styles.statGridItem,
-              item.highlight && styles.statGridItemHighlight,
-            ]}
-          >
-            <Text
+        {(Array.isArray(card.items) ? card.items : []).map((item, i) => {
+          const hl = HIGHLIGHT_COLORS[String(item.highlight || '').toLowerCase()];
+          return (
+            <View
+              key={i}
               style={[
-                styles.statGridValue,
-                item.highlight && styles.statGridValueHighlight,
+                styles.statGridItem,
+                hl && { borderWidth: 1, borderColor: hl.border },
               ]}
-              numberOfLines={3}
             >
-              {item.value}{item.unit ? (/^[/%]/.test(item.unit) ? item.unit : ` ${item.unit}`) : ''}
-            </Text>
-            <Text style={styles.statGridLabel} numberOfLines={2}>{item.label}</Text>
-          </View>
-        ))}
+              <Text
+                style={[
+                  styles.statGridValue,
+                  hl && { color: hl.value },
+                ]}
+                numberOfLines={3}
+              >
+                {item.value}{item.unit ? (/^[/%]/.test(item.unit) ? item.unit : ` ${item.unit}`) : ''}
+              </Text>
+              <Text style={styles.statGridLabel} numberOfLines={2}>{item.label}</Text>
+              {/* Color bar at bottom — matches highlight */}
+              {hl && (
+                <View style={{
+                  height: 3,
+                  backgroundColor: hl.bar,
+                  borderRadius: 2,
+                  width: '100%',
+                  marginTop: 4,
+                }} />
+              )}
+            </View>
+          );
+        })}
       </View>
     </ScrollView>
   );
@@ -876,6 +1052,92 @@ function WeekScheduleCard({
   );
 }
 
+// ── Week Plan Card (Pulse design — colored pills per day) ────────
+
+const TAG_COLORS: Record<string, string> = {
+  green: colors.accent,
+  yellow: colors.warning,
+  red: colors.error,
+  blue: '#4A90D9',
+  orange: '#F4501E',
+  gray: '#6B6B6B',
+};
+
+function WeekPlanCard({
+  card,
+  styles,
+  colors: themeColors,
+}: {
+  card: WeekPlan;
+  styles: ReturnType<typeof createStyles>;
+  colors: ThemeColors;
+}) {
+  return (
+    <View style={styles.weekPlanCard}>
+      {/* Header row: title + date range */}
+      <View style={styles.weekPlanHeader}>
+        <Text style={styles.weekPlanTitle}>{card.title || 'WEEK PLAN'}</Text>
+        {card.date_range ? (
+          <Text style={styles.weekPlanDateRange}>{card.date_range}</Text>
+        ) : null}
+      </View>
+      {/* Day rows */}
+      {(Array.isArray(card.days) ? card.days : []).map((day, i) => (
+        <View key={i} style={styles.weekPlanRow}>
+          <Text style={styles.weekPlanDay}>{day.day}</Text>
+          <View style={styles.weekPlanTags}>
+            {(Array.isArray(day.tags) ? day.tags : []).map((tag, ti) => {
+              const tagColor = TAG_COLORS[tag.color] || TAG_COLORS.gray;
+              return (
+                <View key={ti} style={[styles.weekPlanTag, { backgroundColor: `${tagColor}20`, borderColor: tagColor }]}>
+                  <Text style={[styles.weekPlanTagText, { color: tagColor }]}>{tag.label}</Text>
+                </View>
+              );
+            })}
+            {day.note ? <Text style={styles.weekPlanNote}>{day.note}</Text> : null}
+          </View>
+          {day.time ? <Text style={styles.weekPlanTime}>{day.time}</Text> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ── Choice Card (interactive radio-style options) ────────────────
+
+function ChoiceCardComponent({
+  card,
+  styles,
+  colors: themeColors,
+  onChipPress,
+}: {
+  card: ChoiceCard;
+  styles: ReturnType<typeof createStyles>;
+  colors: ThemeColors;
+  onChipPress?: (action: string) => void;
+}) {
+  return (
+    <View style={styles.choiceCard}>
+      <Text style={styles.choiceHeadline}>{card.headline}</Text>
+      {(Array.isArray(card.options) ? card.options : []).map((opt, i) => (
+        <Pressable
+          key={i}
+          onPress={() => onChipPress?.(opt.value || opt.label)}
+          style={({ pressed }) => [styles.choiceOption, pressed && { opacity: 0.7 }]}
+        >
+          <View style={styles.choiceRadio} />
+          <View style={styles.choiceContent}>
+            <Text style={styles.choiceLabel}>{opt.label}</Text>
+            {opt.description ? (
+              <Text style={styles.choiceDescription}>{opt.description}</Text>
+            ) : null}
+          </View>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 const ZONE_COLORS: Record<string, string> = {
   green: colors.accent,
   yellow: colors.warning,
@@ -974,26 +1236,29 @@ function BenchmarkBarCard({
   card: BenchmarkBar;
   styles: ReturnType<typeof createStyles>;
 }) {
-  const displayMetric = METRIC_DISPLAY_NAMES[card.metric] || card.metric.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  // Guard against undefined metric/percentile/ageBand from malformed AI responses
+  const metricKey = card.metric || '';
+  const displayMetric = METRIC_DISPLAY_NAMES[metricKey] || (metricKey ? metricKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Benchmark');
+  const percentile = typeof card.percentile === 'number' ? card.percentile : 0;
 
   return (
     <View style={styles.benchmarkCard}>
       <View style={styles.benchmarkHeader}>
         <Text style={styles.benchmarkMetric}>{displayMetric}</Text>
         <Text style={styles.benchmarkValue}>
-          {card.value} {card.unit}
+          {card.value ?? '—'} {card.unit ?? ''}
         </Text>
       </View>
       <View style={styles.benchmarkBarBg}>
         <View
           style={[
             styles.benchmarkBarFill,
-            { width: `${Math.min(100, card.percentile)}%` },
+            { width: `${Math.min(100, percentile)}%` },
           ]}
         />
       </View>
       <Text style={styles.benchmarkFooter}>
-        {ordinalSuffix(card.percentile)} percentile · {card.ageBand}
+        {ordinalSuffix(percentile)} percentile · {card.ageBand ?? '—'}
       </Text>
     </View>
   );
@@ -1134,30 +1399,48 @@ function ConfirmCardComponent({
   onConfirm,
   onCancel,
 }: {
-  card: ConfirmCard;
+  card: ConfirmCard & { items?: { title: string; date: string; time: string }[] };
   styles: ReturnType<typeof createStyles>;
   onConfirm?: () => void;
   onCancel?: () => void;
 }) {
+  const items = Array.isArray((card as any).items) ? (card as any).items : [];
+  const hasItems = items.length > 0;
+
   return (
     <View style={styles.confirmCard}>
+      {/* Headline */}
       <Text style={styles.confirmHeadline}>{card.headline}</Text>
-      <Text style={styles.confirmBody}>{card.body}</Text>
+
+      {/* Structured event items (batch confirmations) */}
+      {hasItems ? (
+        <View style={styles.confirmItems}>
+          {items.map((item: { title: string; date: string; time: string }, i: number) => (
+            <View key={i} style={styles.confirmItemRow}>
+              <Text style={styles.confirmItemDate}>{item.date}</Text>
+              <Text style={styles.confirmItemTitle} numberOfLines={1}>{item.title}</Text>
+              {item.time ? <Text style={styles.confirmItemTime}>{item.time}</Text> : null}
+            </View>
+          ))}
+        </View>
+      ) : card.body ? (
+        <Text style={styles.confirmBody}>{card.body}</Text>
+      ) : null}
+
+      {/* Buttons — side by side: Cancel (subtle) | Confirm (accent) */}
       <View style={styles.confirmButtons}>
+        <Pressable
+          onPress={onCancel}
+          style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.cancelBtnText}>Cancel</Text>
+        </Pressable>
         <Pressable
           onPress={onConfirm}
           style={({ pressed }) => [styles.confirmBtn, pressed && { opacity: 0.8 }]}
         >
-          <Text style={styles.confirmBtnText}>{card.confirmLabel}</Text>
+          <Text style={styles.confirmBtnText}>{card.confirmLabel || 'CONFIRM'}</Text>
         </Pressable>
-        {card.cancelLabel ? (
-          <Pressable
-            onPress={onCancel}
-            style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.8 }]}
-          >
-            <Text style={styles.cancelBtnText}>{card.cancelLabel}</Text>
-          </Pressable>
-        ) : null}
       </View>
     </View>
   );
@@ -1558,6 +1841,10 @@ function RenderCard({
       return <ScheduleListCard card={card} styles={styles} />;
     case 'week_schedule':
       return <WeekScheduleCard card={card} styles={styles} />;
+    case 'week_plan':
+      return <WeekPlanCard card={card as WeekPlan} styles={styles} colors={colors} />;
+    case 'choice_card':
+      return <ChoiceCardComponent card={card as ChoiceCard} styles={styles} colors={colors} onChipPress={onChipPress} />;
     case 'zone_stack':
       return <ZoneStackCard card={card} styles={styles} />;
     case 'clash_list':
@@ -1630,23 +1917,39 @@ export function ResponseRenderer({
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  // Self-contained card types render their own content — no outer body needed
+  const SELF_CONTAINED_TYPES = new Set(['confirm_card', 'choice_card']);
+  const hasSelfContainedCard = (Array.isArray(response.cards) ? response.cards : [])
+    .some((c) => SELF_CONTAINED_TYPES.has(c.type));
+
   // Body text: show when it differs from headline and has substance
-  const showBody = response.body
+  // Skip for self-contained cards (they render their own headline/body internally)
+  const showBody = !hasSelfContainedCard
+    && response.body
     && response.body.trim() !== ''
     && response.body.trim() !== response.headline?.trim();
 
-  // Deduplicate: when body is shown, skip text_card/coach_note cards whose
-  // content matches the body (prevents the same paragraph rendering twice)
-  const bodyNorm = (response.body || '').trim().toLowerCase().slice(0, 100);
+  // Deduplicate: skip text_card/coach_note cards whose content overlaps
+  // with the body or headline (prevents the same paragraph rendering twice).
+  // Uses fuzzy match — strips markdown/bullets and compares first 80 chars.
+  const stripForCompare = (s: string) =>
+    s.replace(/[*_#•\-`]/g, '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80);
+  const bodyNorm = stripForCompare(response.body || '');
+  const headlineNorm = stripForCompare(response.headline || '');
+
   const filteredCards = (Array.isArray(response.cards) ? response.cards : []).filter((card) => {
-    if (!showBody) return true;
     if (card.type === 'text_card') {
-      const cardBody = ((card as TextCard).body || '').trim().toLowerCase().slice(0, 100);
-      if (cardBody && bodyNorm && cardBody === bodyNorm) return false;
+      const tc = card as TextCard;
+      const cardBody = stripForCompare(tc.body || '');
+      const cardHeadline = stripForCompare(tc.headline || '');
+      // Skip if card body matches response body
+      if (showBody && cardBody && bodyNorm && cardBody === bodyNorm) return false;
+      // Skip if card headline matches response headline (prevents full duplicate block)
+      if (headlineNorm && cardHeadline && cardHeadline === headlineNorm) return false;
     }
     if (card.type === 'coach_note') {
-      const noteBody = ((card as CoachNote).note || '').trim().toLowerCase().slice(0, 100);
-      if (noteBody && bodyNorm && noteBody === bodyNorm) return false;
+      const noteBody = stripForCompare((card as CoachNote).note || '');
+      if (showBody && noteBody && bodyNorm && noteBody === bodyNorm) return false;
     }
     return true;
   });

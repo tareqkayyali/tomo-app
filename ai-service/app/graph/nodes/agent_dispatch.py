@@ -32,6 +32,7 @@ from app.models.state import TomoChatState
 from app.agents.tools import get_tools_for_agent
 from app.agents.tools.bridge import is_write_action, is_capsule_direct
 from app.agents.prompt_builder import build_system_prompt
+from app.agents.greeting_handler import detect_greeting_tier
 
 logger = logging.getLogger("tomo-ai.agent_dispatch")
 
@@ -85,6 +86,40 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         aib_summary=aib_summary,
         secondary_agents=secondary_agents if secondary_agents else None,
     )
+
+    # 2b. Inject classified intent so LLM knows what type of message this is
+    intent_id = state.get("intent_id", "unknown")
+
+    # For greetings: detect energy tier and inject vibe-matched guidance
+    if intent_id == "greeting":
+        user_msg = ""
+        for msg in reversed(state.get("messages", [])):
+            if hasattr(msg, "type") and msg.type == "human":
+                user_msg = msg.content if isinstance(msg.content, str) else str(msg.content)
+                break
+        tier = detect_greeting_tier(user_msg, context)
+        intent_guidance = _build_greeting_guidance(tier)
+        logger.info(f"Greeting energy tier: {tier} for '{user_msg[:40]}'")
+    else:
+        INTENT_GUIDANCE = {
+            "qa_readiness": (
+                "CURRENT INTENT: READINESS QUESTION\n"
+                "The athlete wants to know how ready they are. Lead with how they're doing in "
+                "plain language, then show the data card."
+            ),
+            "load_advice_request": (
+                "CURRENT INTENT: LOAD ADVICE\n"
+                "The athlete is asking about their training load. Be honest about where they're at."
+            ),
+            "emotional_checkin": (
+                "CURRENT INTENT: EMOTIONAL CHECK-IN\n"
+                "The athlete is sharing how they feel. Acknowledge FIRST. No training advice "
+                "until they ask for it. Use VALIDATE mode."
+            ),
+        }
+        intent_guidance = INTENT_GUIDANCE.get(intent_id, f"CURRENT INTENT: {intent_id}")
+
+    dynamic_block = f"{intent_guidance}\n\n{dynamic_block}"
 
     # 2c. Inject RAG context from PropertyGraphIndex (Phase 5)
     rag_context = state.get("rag_context", "")
@@ -198,11 +233,23 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
                     "toolCallId": wc["id"],
                 })
 
-            # Build preview text for the user
+            # Build preview text with event details (shown in confirm handler)
             preview_parts = []
             for pa in pending_actions:
-                name = pa["toolName"].replace("_", " ").title()
-                preview_parts.append(f"• {name}")
+                inp = pa.get("toolInput", {})
+                title = inp.get("title", "")
+                if title:
+                    detail = title
+                    date = inp.get("date", "")
+                    start_time = inp.get("start_time", "")
+                    if date:
+                        detail += f" on {date}"
+                    if start_time:
+                        detail += f" at {start_time}"
+                    preview_parts.append(detail)
+                else:
+                    name = pa["toolName"].replace("_", " ").title()
+                    preview_parts.append(name)
 
             pending = {
                 "actions": pending_actions,
@@ -357,3 +404,88 @@ async def execute_confirmed_action(state: TomoChatState) -> dict:
         "tool_calls": [{"name": a.get("toolName"), "input": a.get("toolInput"), "confirmed": True} for a in actions],
         "_refresh_targets": list(refresh_targets),
     }
+
+
+# ── Greeting energy-tier guidance for LLM ────────────────────────────
+
+def _build_greeting_guidance(tier: str) -> str:
+    """
+    Build LLM guidance for greeting responses based on detected energy tier.
+    The LLM uses these as inspiration — NOT literal scripts.
+    """
+    TIER_GUIDANCE = {
+        "high_energy": (
+            "CURRENT INTENT: GREETING (HIGH ENERGY — the athlete is hyped)\n"
+            "Match their energy. Be excited WITH them. Keep it short and action-oriented.\n"
+            "Vibe examples (use as inspiration, don't copy literally):\n"
+            '- "Aye, there you are. Let\'s get into it."\n'
+            '- "That energy — let\'s put it to work."\n'
+            '- "Yes. Today\'s the day. What are we doing?"\n'
+            '- "Okay okay I see you. Let\'s build something today."'
+        ),
+        "neutral": (
+            "CURRENT INTENT: GREETING (CASUAL — relaxed, normal energy)\n"
+            "Be warm and easy. Ask how they're doing or what's on their mind.\n"
+            "Vibe examples (use as inspiration, don't copy literally):\n"
+            '- "Hey — good to see you. How you feeling today?"\n'
+            '- "Yo. What are we working with today?"\n'
+            '- "Hey. What\'s the plan — training, or just checking in?"\n'
+            '- "Sup. You training today or just vibing?"'
+        ),
+        "low_energy": (
+            "CURRENT INTENT: GREETING (QUIET — low energy, short message)\n"
+            "Mirror their calm. Be gentle, check in on how they're actually doing.\n"
+            "Vibe examples (use as inspiration, don't copy literally):\n"
+            '- "Hey. You good?"\n'
+            '- "Hi. How are you actually doing?"\n'
+            '- "Hey. Tired one or just getting started?"\n'
+            '- "What\'s up. Talk to me — what kind of day has it been?"'
+        ),
+        "late_night": (
+            "CURRENT INTENT: GREETING (LATE NIGHT — it's past 10pm)\n"
+            "Acknowledge the late hour. Be chill, slightly concerned but not parental.\n"
+            "Vibe examples (use as inspiration, don't copy literally):\n"
+            '- "Still up? What\'s on your mind."\n'
+            '- "Late one. Everything alright?"\n'
+            '- "Hey night owl. Training or just thinking?"'
+        ),
+        "early_morning": (
+            "CURRENT INTENT: GREETING (EARLY MORNING — before 7am)\n"
+            "Acknowledge the early start. Respect the commitment.\n"
+            "Vibe examples (use as inspiration, don't copy literally):\n"
+            '- "Early start. Respect. What are we doing today?"\n'
+            '- "Morning. How\'d you sleep?"\n'
+            '- "Up early — good sign. What\'s the plan?"'
+        ),
+        "returning": (
+            "CURRENT INTENT: GREETING (RETURNING — 5+ days since last session)\n"
+            "Welcome them back warmly. No guilt about the gap. Zero judgment.\n"
+            "Vibe examples (use as inspiration, don't copy literally):\n"
+            '- "Hey — been a minute. Good to have you back."\n'
+            '- "There you are. No stress about the gap — what are we doing?"\n'
+            '- "Back. Good. Let\'s not make a thing of it — what do you need?"\n'
+            '- "Welcome back. How you feeling after the break?"'
+        ),
+        "post_match": (
+            "CURRENT INTENT: GREETING (POST-MATCH — match day or recently played)\n"
+            "Ask about the match/game. Show genuine interest in how it went.\n"
+            "Vibe examples (use as inspiration, don't copy literally):\n"
+            '- "Heard you played recently — how\'d it go?"\n'
+            '- "Post-match day. How\'s the body feeling?"\n'
+            '- "Big day recently. Recovery mode or you feeling okay?"'
+        ),
+    }
+
+    base = TIER_GUIDANCE.get(tier, TIER_GUIDANCE["neutral"])
+
+    return (
+        f"{base}\n\n"
+        "GREETING RULES:\n"
+        "- NO data cards, NO stat_grids, NO benchmarks, NO tools. Just talk.\n"
+        "- NEVER open with the athlete's name — 'Hey James!' feels like a CRM, not a friend.\n"
+        "- ALWAYS end with an open question or action invitation — never a dead-end statement.\n"
+        "- Keep it to 1-3 sentences max. Short, warm, real.\n"
+        "- Use their context (time, readiness, recent activity) to make it personal if relevant,\n"
+        "  but don't force it — sometimes 'Hey, you good?' is perfect.\n"
+        "- This is the start of a CONVERSATION — your response should invite them to keep talking."
+    )

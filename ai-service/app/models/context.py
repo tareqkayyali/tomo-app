@@ -254,8 +254,8 @@ class PlayerContext(BaseModel):
     # Temporal awareness
     temporal_context: TemporalContext = Field(default_factory=TemporalContext)
 
-    # Schedule rules
-    schedule_preferences: SchedulePreferences = Field(default_factory=SchedulePreferences)
+    # Schedule rules (None = user hasn't configured — don't inject phantom defaults)
+    schedule_preferences: Optional[SchedulePreferences] = None
     active_scenario: str = "normal"  # normal | league_active | exam_period | league_and_exam
 
     # Context for routing

@@ -110,6 +110,7 @@ export async function getOrCreateSession(
   sessionId?: string
 ): Promise<ChatSession> {
   if (sessionId) {
+    // Existing session ID provided — look it up
     const { data, error } = await supa()
       .from("chat_sessions")
       .select()
@@ -119,19 +120,12 @@ export async function getOrCreateSession(
       .single();
 
     if (data && !error) return data as ChatSession;
+    // Session not found or ended — fall through to create new
   }
 
-  // Find most recent active session or create new
-  const { data: recent } = await supa()
-    .from("chat_sessions")
-    .select()
-    .eq("user_id", userId)
-    .is("ended_at", null)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (recent) return recent as ChatSession;
+  // No sessionId (new chat) or invalid sessionId — always create fresh.
+  // Previous logic reused the most recent active session, which caused
+  // stale conversation history to bleed into new chats.
   return createSession(userId);
 }
 
