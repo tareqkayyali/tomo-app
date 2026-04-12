@@ -10,6 +10,7 @@ import { calculateReadiness } from '@/services/readinessCalculator';
 import { recomputeWellnessTrend } from '../computations/wellnessTrend';
 import { upsertDailyVitals } from '../aggregations/dailyVitalsWriter';
 import { computeTrend, computeSleepDebt3d, computeSleepConsistency } from '@/services/snapshot/trendUtils';
+import { computeAndPersistCCRS } from '@/services/ccrs/ccrsAssembler';
 import type { AthleteEvent, WellnessCheckinPayload } from '../types';
 import { readinessToRag } from '../constants';
 
@@ -75,6 +76,11 @@ export async function handleWellnessCheckin(event: AthleteEvent): Promise<void> 
 
   // 6. Snapshot 360 enrichment
   await enrichWellnessSnapshot(db, event.athlete_id, payload, score);
+
+  // 7. CCRS — recompute cascading readiness with fresh check-in data
+  computeAndPersistCCRS(event.athlete_id).catch(err =>
+    console.error('[WellnessHandler] CCRS computation failed:', err),
+  );
 }
 
 /**

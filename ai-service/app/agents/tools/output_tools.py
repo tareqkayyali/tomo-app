@@ -250,8 +250,32 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         from app.db.supabase import get_pool
         pool = get_pool()
 
-        # Auto-select intensity from readiness
-        if not intensity:
+        # ── RED RISK GUARD (hard enforcement) ────────────────────
+        # Check injury_risk_flag + ACWR from snapshot BEFORE processing.
+        # Even if LLM requests HARD intensity, this overrides to LIGHT.
+        se = context.snapshot_enrichment
+        red_risk = False
+        risk_reasons: list[str] = []
+
+        if se:
+            if se.injury_risk_flag and se.injury_risk_flag.upper() == "RED":
+                red_risk = True
+                risk_reasons.append(f"injury_risk={se.injury_risk_flag}")
+            if se.acwr is not None and se.acwr > 1.5:
+                red_risk = True
+                risk_reasons.append(f"ACWR={se.acwr:.2f}")
+
+        if red_risk:
+            if intensity and intensity.upper() in ("HARD", "MODERATE"):
+                logger.warning(
+                    f"RED RISK GUARD: Overriding {intensity} to LIGHT "
+                    f"({', '.join(risk_reasons)})"
+                )
+            intensity = "LIGHT"
+            if category.lower() in ("speed", "strength", "agility"):
+                category = "recovery"
+        elif not intensity:
+            # Auto-select intensity from readiness
             readiness = context.readiness_score
             if readiness == "Red":
                 intensity = "LIGHT"

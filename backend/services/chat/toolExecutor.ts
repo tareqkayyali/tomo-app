@@ -205,42 +205,44 @@ export async function executeToolCall(
       }
 
       case "search_knowledge_base": {
-        // Simple text search on knowledge_base table
+        // Text search on rag_knowledge_chunks table (sports science knowledge)
         const query = input.query as string;
         if (!query) return { error: "query is required" };
 
         const { data: results } = await db
-          .from("knowledge_base")
-          .select("category, title, content, metadata")
+          .from("rag_knowledge_chunks")
+          .select("domain, title, content, athlete_summary, evidence_grade")
           .textSearch("content", query.split(" ").join(" & "))
           .limit(5);
 
         if (!results || results.length === 0) {
           // Fallback: use ilike for partial matching
           const { data: fallback } = await db
-            .from("knowledge_base")
-            .select("category, title, content, metadata")
+            .from("rag_knowledge_chunks")
+            .select("domain, title, content, athlete_summary, evidence_grade")
             .ilike("content", `%${query.split(" ")[0]}%`)
             .limit(3);
 
           return {
             count: fallback?.length || 0,
-            results: (fallback || []).map((r, i) => ({
+            results: (fallback || []).map((r: any, i: number) => ({
               rank: i + 1,
               title: r.title,
-              text: r.content,
-              category: r.category,
+              text: r.athlete_summary || r.content,
+              category: r.domain,
+              evidence_grade: r.evidence_grade,
             })),
           };
         }
 
         return {
           count: results.length,
-          results: results.map((r, i) => ({
+          results: results.map((r: any, i: number) => ({
             rank: i + 1,
             title: r.title,
-            text: r.content,
-            category: r.category,
+            text: r.athlete_summary || r.content,
+            category: r.domain,
+            evidence_grade: r.evidence_grade,
           })),
         };
       }

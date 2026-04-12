@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime, timezone as tz
+from typing import Optional
 
 from app.models.state import TomoChatState
 from app.agents.intent_classifier import (
@@ -27,6 +29,97 @@ from app.agents.intent_registry import CAPSULE_DIRECT_ACTIONS, CAPSULE_GATED_ACT
 from app.agents.router import route_to_agents, should_keep_agent_lock
 
 logger = logging.getLogger("tomo-ai.pre_router")
+
+
+# ── RED Risk Safety Gate ─────────────────────────────────────────────
+
+def _check_red_risk_gate(context) -> Optional[dict]:
+    """
+    Hard safety gate: detect RED risk conditions that require forced recovery routing.
+
+    Fires BEFORE intent classification so athletes cannot "talk around" safety.
+    Does NOT block conversation — forces recovery-constrained mode via the output agent.
+
+    Gates:
+      1. injury_risk_flag == RED
+      2. ACWR > 1.5 (danger zone)
+      3. Stale check-in (>24h) + elevated ACWR (>1.3)
+    """
+    if not context or not hasattr(context, "snapshot_enrichment") or not context.snapshot_enrichment:
+        return None
+
+    se = context.snapshot_enrichment
+    reasons: list[str] = []
+
+    # Gate 1: Injury risk flag is RED
+    if se.injury_risk_flag and se.injury_risk_flag.upper() == "RED":
+        reasons.append("injury_risk_flag=RED")
+
+    # Gate 2: ACWR > 1.5 (danger zone)
+    if se.acwr is not None and se.acwr > 1.5:
+        reasons.append(f"ACWR={se.acwr:.2f} (>1.5 danger zone)")
+
+    # Gate 3: Stale check-in (>24h) combined with elevated load
+    checkin_stale = False
+    hours_since_checkin: Optional[float] = None
+    if se.last_checkin_at:
+        try:
+            last_checkin = datetime.fromisoformat(
+                se.last_checkin_at.replace("Z", "+00:00")
+            )
+            hours_since_checkin = (
+                datetime.now(tz.utc) - last_checkin
+            ).total_seconds() / 3600
+            if hours_since_checkin > 24:
+                checkin_stale = True
+                if se.acwr is not None and se.acwr > 1.3:
+                    reasons.append(
+                        f"stale_checkin ({hours_since_checkin:.0f}h) + elevated_ACWR={se.acwr:.2f}"
+                    )
+        except Exception:
+            pass
+
+    if not reasons:
+        return None
+
+    return {
+        "reason": "; ".join(reasons),
+        "forced_mode": "recovery",
+        "checkin_stale": checkin_stale,
+        "hours_since_checkin": hours_since_checkin,
+        "acwr": se.acwr,
+        "injury_risk_flag": se.injury_risk_flag,
+    }
+
+
+# ── Dual-Load Observability ──────────────────────────────────────────
+
+def _check_dual_load_active(context) -> Optional[str]:
+    """
+    Check if dual academic + physical load is active.
+    Observability-only: logs for LangSmith visibility, no routing change.
+    """
+    if not context:
+        return None
+
+    signals: list[str] = []
+    se = context.snapshot_enrichment if hasattr(context, "snapshot_enrichment") else None
+
+    if se and se.dual_load_index is not None and se.dual_load_index >= 60:
+        signals.append(f"DLI={se.dual_load_index:.0f}")
+    if hasattr(context, "upcoming_exams") and context.upcoming_exams:
+        signals.append(f"{len(context.upcoming_exams)} exams in 14d")
+    if (
+        hasattr(context, "readiness_components")
+        and context.readiness_components
+        and context.readiness_components.academic_stress is not None
+        and context.readiness_components.academic_stress >= 4
+    ):
+        signals.append(
+            f"academic_stress={context.readiness_components.academic_stress}/5"
+        )
+
+    return "; ".join(signals) if signals else None
 
 
 async def pre_router_node(state: TomoChatState) -> dict:
@@ -51,6 +144,29 @@ async def pre_router_node(state: TomoChatState) -> dict:
             "classification_layer": "error",
             "intent_id": "unknown",
         }
+
+    # ── RED RISK SAFETY GATE (hard enforcement) ──────────────────
+    # Fires BEFORE intent classification. If athlete is in RED injury risk,
+    # danger-zone ACWR, or has stale data + elevated load, force recovery mode.
+    safety_override = _check_red_risk_gate(context)
+    if safety_override:
+        elapsed = (time.monotonic() - t0) * 1000
+        logger.warning(
+            f"RED RISK GATE TRIGGERED: {safety_override['reason']} ({elapsed:.0f}ms)"
+        )
+        return {
+            "route_decision": "ai",
+            "selected_agent": "output",
+            "routing_confidence": 1.0,
+            "classification_layer": "safety_gate",
+            "intent_id": "red_risk_override",
+            "_safety_override": safety_override,
+        }
+
+    # ── Dual-load observability ──────────────────────────────────
+    dual_load_status = _check_dual_load_active(context)
+    if dual_load_status:
+        logger.info(f"Dual-load active: {dual_load_status}")
 
     # Extract user message from state messages
     messages = state.get("messages", [])

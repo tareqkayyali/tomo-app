@@ -162,6 +162,41 @@ async def validate_node(state: TomoChatState) -> dict:
             )
             break
 
+    # ── Layer 2b: RED Risk Safety (post-response enforcement) ────
+    # If athlete is in RED risk zone and response contains high-intensity
+    # recommendations without safety caveats, append a safety warning.
+    # This is defense-in-depth: the pre-router gate and tool-level guard
+    # should prevent this, but if they miss, this layer catches it.
+    if context and context.snapshot_enrichment:
+        se = context.snapshot_enrichment
+        is_red_risk = (
+            (se.injury_risk_flag and se.injury_risk_flag.upper() == "RED")
+            or (se.acwr is not None and se.acwr > 1.5)
+        )
+        if is_red_risk:
+            high_intensity_pattern = re.compile(
+                r"\bHARD\b|\bhigh.?intensity\b|\bmax.?effort\b|\bsprint.*100%\b|\b1\s*RM\b",
+                re.I,
+            )
+            safety_caveat = re.compile(
+                r"\bdon'?t\b|\bshouldn'?t\b|\bavoid\b|\bnot\s+recommended\b"
+                r"|\binstead\b|\brecovery\b|\breduced\b|\blight\s+only\b",
+                re.I,
+            )
+            if high_intensity_pattern.search(agent_response) and not safety_caveat.search(
+                agent_response
+            ):
+                flags.append("red_risk_violation")
+                logger.warning(
+                    f"RED RISK POST-FILTER: High-intensity in response for RED-risk athlete. "
+                    f"ACWR={se.acwr}, injury_flag={se.injury_risk_flag}"
+                )
+                agent_response += (
+                    "\n\n**Safety Note**: Your current load levels are elevated. "
+                    "All training should be light intensity or recovery-focused "
+                    "until your metrics improve and you complete a fresh check-in."
+                )
+
     # ── Layer 3: Format Validation ───────────────────────────────
 
     # Check if response is valid JSON (expected format)

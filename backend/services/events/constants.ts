@@ -130,6 +130,8 @@ export const SNAPSHOT_VISIBILITY = {
     // Snapshot 360 — Wearable & Journal
     'wearable_connected', 'wearable_last_sync_at',
     'pre_journal_completion_rate', 'post_journal_completion_rate', 'avg_post_body_feel_7d',
+    // CCRS — Cascading Confidence Readiness
+    'ccrs', 'ccrs_confidence', 'ccrs_recommendation', 'ccrs_alert_flags', 'data_freshness',
   ] as const,
 
   PARENT: [
@@ -151,6 +153,8 @@ export const SNAPSHOT_VISIBILITY = {
     'active_injury_count',
     'checkin_consistency_7d',
     'study_hours_7d', 'academic_stress_latest', 'exam_count_active',
+    // CCRS — parent sees score + recommendation (no component breakdown)
+    'ccrs', 'ccrs_confidence', 'ccrs_recommendation', 'data_freshness',
   ] as const,
 } as const;
 

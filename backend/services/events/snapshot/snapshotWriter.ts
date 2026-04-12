@@ -231,6 +231,24 @@ async function enrichCrossCuttingFields(
 
     update.data_confidence_score = confidence.data_confidence_score;
     update.data_confidence_breakdown = confidence.data_confidence_breakdown;
+
+    // Data freshness tier — derived from most recent activity timestamp
+    const activityTimestamps = [
+      wearableRes.data?.date ? new Date(wearableRes.data.date) : null,
+      checkinRes.data?.occurred_at ? new Date(checkinRes.data.occurred_at) : null,
+      sessionRes.data?.occurred_at ? new Date(sessionRes.data.occurred_at) : null,
+    ].filter(Boolean) as Date[];
+
+    if (activityTimestamps.length === 0) {
+      update.data_freshness = 'UNKNOWN';
+    } else {
+      const mostRecent = Math.max(...activityTimestamps.map(t => t.getTime()));
+      const hoursSinceMostRecent = (now.getTime() - mostRecent) / (60 * 60 * 1000);
+      if (hoursSinceMostRecent <= 12) update.data_freshness = 'FRESH';
+      else if (hoursSinceMostRecent <= 36) update.data_freshness = 'AGING';
+      else if (hoursSinceMostRecent <= 96) update.data_freshness = 'STALE';
+      else update.data_freshness = 'UNKNOWN';
+    }
   } catch (err) {
     // Cross-cutting enrichment is best-effort — don't fail the snapshot write
     console.warn('[SnapshotWriter] Cross-cutting enrichment failed:', err);

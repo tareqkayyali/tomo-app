@@ -176,6 +176,25 @@ async def _retrieve_single(
         return_exceptions=True,
     )
 
+    # ── Diagnostic logging: per-signal results ───────────────────
+    ve_count = len(vector_entities) if isinstance(vector_entities, list) else "ERROR"
+    ch_count = len(chunks) if isinstance(chunks, list) else "ERROR"
+    te_count = len(text_entities) if isinstance(text_entities, list) else "ERROR"
+    tc_count = len(text_chunks) if isinstance(text_chunks, list) else "ERROR"
+    logger.info(
+        f"RAG signals: vector_entities={ve_count}, chunk_vector={ch_count}, "
+        f"text_entities={te_count}, chunk_text={tc_count}"
+    )
+    # Log actual errors for debugging
+    for label, res in [
+        ("vector_entities", vector_entities),
+        ("chunk_vector", chunks),
+        ("text_entities", text_entities),
+        ("chunk_text", text_chunks),
+    ]:
+        if isinstance(res, Exception):
+            logger.error(f"RAG signal {label} failed: {res}")
+
     results: list[RetrievalResult] = []
 
     # Process vector entity results

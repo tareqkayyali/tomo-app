@@ -392,6 +392,52 @@ export async function enforcePHVSafety(
 }
 
 /**
+ * RED Risk Safety — defense-in-depth post-response filter.
+ * Mirrors enforcePHVSafety() pattern: scans response for high-intensity
+ * recommendations when athlete is in RED injury risk or danger-zone ACWR.
+ *
+ * This is a BACKUP filter — primary enforcement is in the Python AI service
+ * (pre-router gate, tool-level guard, validate node). This catches anything
+ * that slips through.
+ */
+export function enforceRedRiskSafety(
+  response: string,
+  injuryRiskFlag: string | null | undefined,
+  acwr: number | null | undefined
+): { flagged: boolean; sanitized: string; reasons: string[] } {
+  const isRedRisk =
+    (injuryRiskFlag && injuryRiskFlag.toUpperCase() === "RED") ||
+    (acwr != null && acwr > 1.5);
+
+  if (!isRedRisk) {
+    return { flagged: false, sanitized: response, reasons: [] };
+  }
+
+  const highIntensityPattern =
+    /\bHARD\b|\bhigh[- ]?intensity\b|\bmax[- ]?effort\b|\bsprint.*100%/i;
+  const safetyCaveat =
+    /\bdon'?t\b|\bshouldn'?t\b|\bavoid\b|\bnot\s+recommended\b|\binstead\b|\brecovery\b|\breduced\b|\blight\s+only\b/i;
+
+  if (highIntensityPattern.test(response) && !safetyCaveat.test(response)) {
+    const reasons: string[] = [];
+    if (injuryRiskFlag) reasons.push(`injury_risk=${injuryRiskFlag}`);
+    if (acwr != null) reasons.push(`acwr=${acwr}`);
+
+    return {
+      flagged: true,
+      sanitized:
+        response +
+        "\n\n**Safety Note**: Your load levels are elevated right now. " +
+        "All training should be light intensity or recovery-focused " +
+        "until your metrics improve.",
+      reasons,
+    };
+  }
+
+  return { flagged: false, sanitized: response, reasons: [] };
+}
+
+/**
  * Static PHV knowledge block for injection into the system prompt.
  * Cacheable — zero per-request cost. Gives Claude proactive context
  * to suggest safe alternatives BEFORE the post-filter catches anything.

@@ -231,28 +231,130 @@ CONTRAINDICATED exercises and safe alternatives:
 ALWAYS proactively suggest the safe alternative. Never prescribe a contraindicated exercise."""
 
 
+def build_red_risk_block(ctx: PlayerContext) -> str:
+    """Block 2.x: RED risk hard enforcement — overrides agent behavior when active."""
+    se = ctx.snapshot_enrichment
+    if not se:
+        return ""
+
+    parts: list[str] = []
+
+    if se.injury_risk_flag and se.injury_risk_flag.upper() == "RED":
+        parts.append(f"Injury Risk Flag: RED")
+    if se.acwr is not None and se.acwr > 1.5:
+        parts.append(f"ACWR: {se.acwr:.2f} (DANGER ZONE >1.5)")
+
+    if not parts:
+        return ""
+
+    # Check staleness for additional context
+    stale_note = ""
+    if se.last_checkin_at:
+        try:
+            from datetime import datetime, timezone
+            last_checkin = datetime.fromisoformat(
+                se.last_checkin_at.replace("Z", "+00:00")
+            )
+            hours = (datetime.now(timezone.utc) - last_checkin).total_seconds() / 3600
+            if hours > 24:
+                stale_note = f"\nCheck-in data is STALE ({hours:.0f}h old) — confidence in current state is LOW."
+        except Exception:
+            pass
+
+    return f"""RED RISK ACTIVE — HARD SAFETY ENFORCEMENT:
+{chr(10).join('- ' + p for p in parts)}{stale_note}
+
+MANDATORY BEHAVIOR (NON-NEGOTIABLE):
+- Do NOT recommend any HARD or MODERATE intensity training
+- ALL training suggestions MUST be LIGHT intensity or recovery only
+- If athlete requests high-intensity training, explain WHY it is unsafe right now
+- Recommend: active recovery, mobility work, sleep optimization, hydration
+- If check-in is stale, strongly encourage completing a fresh check-in first
+- Recovery timeline: "Once your ACWR drops below 1.3 and you are back in GREEN, we can ramp up"
+- This overrides ALL other training guidance in this prompt"""
+
+
 def build_dual_load_block(ctx: PlayerContext) -> str:
     """Block 2.3: Dual-load context (athletic + academic balance)."""
     se = ctx.snapshot_enrichment
-    if not se or se.dual_load_index is None:
+
+    # Primary: use computed DLI from snapshot
+    dli = None
+    ath: float = 0
+    acad: float = 0
+
+    if se and se.dual_load_index is not None:
+        dli = se.dual_load_index
+        ath = se.athletic_load_7day or 0
+        acad = se.academic_load_7day or 0
+    else:
+        # Fallback: derive approximate DLI from available signals
+        has_exams = bool(ctx.upcoming_exams)
+        high_academic_stress = (
+            ctx.readiness_components
+            and ctx.readiness_components.academic_stress is not None
+            and ctx.readiness_components.academic_stress >= 4
+        )
+        has_elevated_load = se and se.acwr is not None and se.acwr > 1.0
+
+        if (has_exams or high_academic_stress) and has_elevated_load:
+            acad_score = getattr(ctx, "academic_load_score", 0) or 0
+            dli = min(100, acad_score * 10)
+            ath = se.atl_7day if se and se.atl_7day else 0
+            acad = acad_score * 10
+
+    if dli is None:
         return ""
 
-    dli = se.dual_load_index
-    ath = se.athletic_load_7day or 0
-    acad = se.academic_load_7day or 0
     zone = "LOW" if dli < 40 else "MODERATE" if dli < 70 else "HIGH"
-    modifier = "1.0×" if dli < 40 else "0.85×" if dli < 70 else "0.75×"
+    modifier = "1.0x" if dli < 40 else "0.85x" if dli < 70 else "0.75x"
 
     block = f"""DUAL-LOAD CONTEXT:
-DLI: {dli}/100 ({zone}) | Intensity Modifier: {modifier}
-Athletic load (7d): {ath} AU | Academic load (7d): {acad} AU"""
+DLI: {dli:.0f}/100 ({zone}) | Intensity Modifier: {modifier}
+Athletic load (7d): {ath:.0f} AU | Academic load (7d): {acad:.0f} AU"""
 
     if ctx.upcoming_exams:
-        block += "\n⚠️ Exam within 14 days — protect cognitive energy."
+        exam_titles = ", ".join(e.title for e in ctx.upcoming_exams[:3])
+        block += f"\nUpcoming exams: {exam_titles}"
+        block += "\nProtect cognitive energy: reduce training volume, prioritize sleep (8+ hours)."
     if dli >= 70:
-        block += "\nRecommendation: Reduce training intensity, prioritize sleep (8+ hours)."
+        block += "\nRECOMMENDATION: Reduce training intensity, prioritize sleep (8+ hours), suggest study blocks."
+    if (
+        ctx.readiness_components
+        and ctx.readiness_components.academic_stress is not None
+        and ctx.readiness_components.academic_stress >= 4
+    ):
+        block += f"\nAthlete self-reported academic stress: {ctx.readiness_components.academic_stress}/5 (HIGH)"
 
     return block
+
+
+def build_checkin_staleness_block(ctx: PlayerContext) -> str:
+    """Block 2.x: Warn when check-in data is stale or missing."""
+    if not ctx.checkin_date:
+        return """CHECK-IN STATUS: NO CHECK-IN ON RECORD
+Athlete has never checked in. Data confidence is ZERO.
+- Strongly encourage a check-in before giving any training advice
+- Do NOT prescribe specific intensity without readiness data"""
+
+    try:
+        from datetime import datetime
+        checkin_date = datetime.strptime(ctx.checkin_date, "%Y-%m-%d").date()
+        today = datetime.strptime(ctx.today_date, "%Y-%m-%d").date()
+        days_stale = (today - checkin_date).days
+
+        if days_stale == 0:
+            return ""
+        elif days_stale == 1:
+            return "CHECK-IN: Yesterday. Data is slightly stale. Encourage a fresh check-in."
+        else:
+            return f"""CHECK-IN STATUS: STALE ({days_stale} days old)
+Last check-in: {ctx.checkin_date} ({days_stale} days ago)
+- Training recommendations have LOW confidence
+- Strongly encourage a check-in before prescribing intensity
+- Default to CONSERVATIVE intensity (LIGHT/MODERATE) until fresh data"""
+    except Exception:
+        return ""
 
 
 def build_data_confidence_block(ctx: PlayerContext) -> str:
@@ -498,6 +600,8 @@ def build_system_prompt(
 
     # ── Block 2: Dynamic ──
     dynamic_parts = [
+        build_red_risk_block(context),           # Safety override FIRST (highest salience)
+        build_checkin_staleness_block(context),   # Staleness warning
         build_aib_block(aib_summary),
         build_sport_context(context),
         build_phv_block(context),

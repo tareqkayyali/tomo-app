@@ -9,6 +9,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { upsertDailyVitals } from '../aggregations/dailyVitalsWriter';
 import { computeTrend, computeTrendPct, computeSleepDebt3d, computeSleepConsistency } from '@/services/snapshot/trendUtils';
+import { computeAndPersistCCRS } from '@/services/ccrs/ccrsAssembler';
 import type { AthleteEvent, VitalReadingPayload, SleepRecordPayload } from '../types';
 
 /**
@@ -116,12 +117,19 @@ export async function handleVitalReading(event: AthleteEvent): Promise<void> {
       if (hrvValues.length > 0) {
         const baseline = hrvValues.reduce((sum: number, v: number) => sum + v, 0) / hrvValues.length;
 
-        // Only update baseline (today's values already written above)
+        // Compute SD for CCRS baseline quality (cold start detection)
+        const mean = baseline;
+        const variance = hrvValues.reduce((sum: number, v: number) => sum + Math.pow(v - mean, 2), 0) / hrvValues.length;
+        const sd = Math.sqrt(variance);
+
+        // Update baseline + CCRS baseline quality fields
         await db
           .from('athlete_snapshots')
           .upsert({
             athlete_id: event.athlete_id,
             hrv_baseline_ms: Math.round(baseline * 10) / 10,
+            hrv_sd_30d: Math.round(sd * 100) / 100,
+            hrv_sample_n: hrvValues.length,
             snapshot_at: new Date().toISOString(),
           }, { onConflict: 'athlete_id' });
       }
@@ -130,6 +138,11 @@ export async function handleVitalReading(event: AthleteEvent): Promise<void> {
 
   // ── Snapshot 360: Vitals enrichment + trends ──
   await enrichVitalSnapshot(db, event.athlete_id, payload);
+
+  // ── CCRS — recompute with fresh biometric data ──
+  computeAndPersistCCRS(event.athlete_id).catch(err =>
+    console.error('[VitalHandler] CCRS computation failed:', err),
+  );
 }
 
 /**
