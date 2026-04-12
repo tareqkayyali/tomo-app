@@ -156,7 +156,7 @@ async def _retrieve_single(
         phv_stages=phv_stages,
         age_groups=age_groups,
         limit=5,
-        threshold=0.60,
+        # threshold 0.40 tuned for Voyage-3-lite 512-dim (typical top hit ~0.5-0.6)
     )
     text_search_task = search_entities_by_text(
         query, entity_types=entity_types, limit=5
