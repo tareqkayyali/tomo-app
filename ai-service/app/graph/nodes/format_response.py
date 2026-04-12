@@ -70,13 +70,14 @@ def _build_text_response(text: str) -> dict:
         body = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
 
     # Truncate body if too long (Gen Z: max 3 sentences)
-    sentences = re.split(r'(?<=[.!?])\s+', body)
+    # Negative lookbehind for digits prevents splitting on numbered lists ("1. " "2. ")
+    sentences = re.split(r'(?<!\d)(?<=[.!?])\s+', body)
     if len(sentences) > 3:
         body = " ".join(sentences[:3])
 
     return {
         "headline": headline or "Here's what I found",
-        "body": body or headline,
+        "body": body or headline or "Here's what I found",
         "cards": [{"type": "text_card", "headline": headline, "body": body or headline}],
         "chips": [],
     }
@@ -202,11 +203,17 @@ async def format_response_node(state: TomoChatState) -> dict:
             "chips": parsed.get("chips", []),
         }
 
-        # Validate cards have required 'type' field
+        # Validate cards have required 'type' field and visible content
         valid_cards = []
         for card in structured["cards"]:
-            if isinstance(card, dict) and "type" in card:
-                valid_cards.append(card)
+            if not isinstance(card, dict) or "type" not in card:
+                continue
+            # Drop text/note cards with empty body (renders as blank UI block)
+            card_type = card["type"]
+            if card_type in ("text_card", "coach_note"):
+                if not card.get("body", "").strip():
+                    continue
+            valid_cards.append(card)
         structured["cards"] = valid_cards
 
         # If no cards but has body, create a text card

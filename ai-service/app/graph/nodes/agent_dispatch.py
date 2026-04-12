@@ -36,6 +36,7 @@ from app.agents.prompt_builder import build_system_prompt
 logger = logging.getLogger("tomo-ai.agent_dispatch")
 
 MAX_ITERATIONS = 5
+MAX_TOOL_RESULT_CHARS = 3000  # Truncate tool results to prevent context bloat
 
 # Haiku 4.5 pricing: $0.80/MTok input, $4.00/MTok output
 HAIKU_INPUT_COST_PER_TOKEN = 0.0000008
@@ -107,7 +108,7 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
     llm = ChatAnthropic(
         model="claude-haiku-4-5-20251001",
         temperature=0.3,
-        max_tokens=1024,
+        max_tokens=4096,
         api_key=api_key,
     )
     llm_with_tools = llm.bind_tools(tools)
@@ -236,6 +237,12 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
             except Exception as e:
                 logger.warning(f"Tool {tc['name']} failed: {e}", exc_info=True)
                 result_str = json.dumps({"error": str(e)[:200]})
+
+            # Truncate oversized tool results to prevent context bloat
+            if len(result_str) > MAX_TOOL_RESULT_CHARS:
+                original_len = len(result_str)
+                result_str = result_str[:MAX_TOOL_RESULT_CHARS] + \
+                    f"\n... [truncated, {original_len} chars total]"
 
             tool_msg = ToolMessage(content=result_str, tool_call_id=tc["id"])
             all_messages.append(tool_msg)

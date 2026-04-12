@@ -69,8 +69,23 @@ async def pre_router_node(state: TomoChatState) -> dict:
             "intent_id": "unknown",
         }
 
-    # Build conversation state for classifier context
+    # Build conversation state from loaded history for classifier context
     conv_state = ConversationState()
+    if len(messages) > 1:
+        # Extract current_topic from last user message (for follow-up detection)
+        for msg in reversed(messages[:-1]):
+            if hasattr(msg, "type") and msg.type == "human":
+                conv_state.current_topic = msg.content[:200]
+                break
+        # Extract last_action from last assistant response
+        for msg in reversed(messages[:-1]):
+            if hasattr(msg, "type") and msg.type == "ai":
+                content_lower = msg.content[:300].lower()
+                for action_kw in ("created", "logged", "confirmed", "updated", "scheduled"):
+                    if action_kw in content_lower:
+                        conv_state.last_action = action_kw
+                        break
+                break
 
     # Check agent lock (conversation continuity)
     last_agent = state.get("selected_agent")

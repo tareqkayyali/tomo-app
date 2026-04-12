@@ -173,14 +173,24 @@ async def run_supervisor(
     Returns:
         Final state dict with final_response, final_cards, telemetry, etc.
     """
-    from langchain_core.messages import HumanMessage
+    from langchain_core.messages import HumanMessage, AIMessage
     import uuid
 
     graph = get_supervisor()
 
-    # Build initial state
+    # Load conversation history for session continuity (graceful fallback)
+    history_messages: list = []
+    try:
+        from app.graph.conversation_history import load_conversation_history
+        history_messages = await load_conversation_history(session_id, user_id)
+        if history_messages:
+            logger.info(f"Loaded {len(history_messages)} history messages for session {session_id[:8]}...")
+    except Exception as e:
+        logger.warning(f"History load failed (continuing without): {e}")
+
+    # Build initial state — history + current message
     input_state: dict = {
-        "messages": [HumanMessage(content=message)],
+        "messages": history_messages + [HumanMessage(content=message)],
         "user_id": user_id,
         "session_id": session_id,
         "active_tab": active_tab,
