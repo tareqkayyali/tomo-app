@@ -220,6 +220,13 @@ export interface SnapshotEnrichment {
   checkinConsistency7d: number | null;
   coachingPreference: string | null;
 
+  // CCRS (Cascading Confidence Readiness Score)
+  ccrs: number | null;                    // 0-100 readiness score
+  ccrsConfidence: string | null;          // very_high | high | medium | low | estimated
+  ccrsRecommendation: string | null;      // full_load | moderate | reduced | recovery | blocked
+  ccrsAlertFlags: string[] | null;        // ACWR_BLOCKED, HRV_SUPPRESSED, SLEEP_DEFICIT, etc.
+  dataFreshness: string | null;           // FRESH | AGING | STALE | UNKNOWN
+
   // ── Planning IP ──
   athleteMode: string | null;
   dualLoadZone: string | null;
@@ -527,6 +534,12 @@ export async function buildPlayerContext(
         planCompliance7d: (snapshot as any).plan_compliance_7d ?? null,
         checkinConsistency7d: (snapshot as any).checkin_consistency_7d ?? null,
         coachingPreference: (snapshot as any).coaching_preference ?? null,
+        // CCRS
+        ccrs: (snapshot as any).ccrs ?? null,
+        ccrsConfidence: (snapshot as any).ccrs_confidence ?? null,
+        ccrsRecommendation: (snapshot as any).ccrs_recommendation ?? null,
+        ccrsAlertFlags: (snapshot as any).ccrs_alert_flags ?? null,
+        dataFreshness: (snapshot as any).data_freshness ?? null,
         // Planning IP
         athleteMode: (snapshot as any).athlete_mode ?? null,
         dualLoadZone: (snapshot as any).dual_load_zone ?? null,

@@ -22,6 +22,7 @@ import {
   enforceRedRiskSafety,
   enforcePHVSafety,
   enforceNoDeadEnds,
+  checkRedRiskForTool,
 } from "@/services/agents/chatGuardrails";
 import {
   proxyToAIServiceStream,
@@ -137,6 +138,21 @@ export async function POST(req: NextRequest) {
         body.timezone
       );
 
+      // ── S3 SAFETY GATE: Check RED risk before capsule write-tool execution ──
+      const se = context.snapshotEnrichment;
+      const safetyCheck = checkRedRiskForTool(
+        toolName,
+        toolInput,
+        se?.injuryRiskFlag,
+        se?.ccrsRecommendation,
+        se?.ccrs,
+      );
+      // Use potentially modified input (intensity downgraded for RED athletes)
+      const safeToolInput = safetyCheck.modifiedInput;
+      if (safetyCheck.reasons.length > 0) {
+        console.warn(`[SAFETY-TS] Capsule gate: ${toolName} → ${safetyCheck.reasons.join(", ")}`);
+      }
+
       // Execute the tool directly based on agent type
       let toolResult: { result: any; refreshTarget?: string; error?: string };
       try {
@@ -148,7 +164,7 @@ export async function POST(req: NextRequest) {
         };
         const executor = executors[agentType];
         if (executor) {
-          toolResult = await executor(toolName, toolInput, context);
+          toolResult = await executor(toolName, safeToolInput, context);
         } else {
           toolResult = { result: null, error: `Unknown agent type: ${agentType}` };
         }
@@ -160,9 +176,10 @@ export async function POST(req: NextRequest) {
 
       // Deterministic response — no LLM needed for capsule confirmation
       const friendlyName = toolName.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const safetyNote = safetyCheck.safetyMessage ? `\n\n${safetyCheck.safetyMessage}` : "";
       const message = toolResult.error
         ? `❌ ${toolResult.error}`
-        : `✅ ${friendlyName} — done!`;
+        : `✅ ${friendlyName} — done!${safetyNote}`;
 
       // Save capsule result to session
       if (sessionId) {
@@ -212,11 +229,55 @@ export async function POST(req: NextRequest) {
         async start(controller) {
           try {
             controller.enqueue(encoder.encode(formatSSE("status", { status: "Thinking..." })));
+
+            // S4 FIX: Accumulate response text during streaming for post-filter
+            let accumulatedMessage = "";
+
             for await (const sse of proxyToAIServiceStream(aiRequest, (s) => {
               controller.enqueue(encoder.encode(formatSSE("status", { status: s })));
             })) {
               controller.enqueue(encoder.encode(formatSSE(sse.event, sse.data)));
+
+              // Accumulate the response event for safety post-check
+              if (sse.event === "response" && sse.data?.message) {
+                accumulatedMessage += sse.data.message;
+              }
             }
+
+            // S4: Post-stream safety filter — check accumulated response
+            if (accumulatedMessage) {
+              try {
+                const { supabaseAdmin } = await import("@/lib/supabase/admin");
+                const db = supabaseAdmin();
+                const { data: snap } = await (db as any)
+                  .from("athlete_snapshots")
+                  .select("injury_risk_flag, acwr, phv_stage")
+                  .eq("athlete_id", auth.user.id)
+                  .maybeSingle();
+
+                if (snap) {
+                  const corrections: string[] = [];
+
+                  const redCheck = enforceRedRiskSafety(accumulatedMessage, snap.injury_risk_flag, snap.acwr);
+                  if (redCheck.flagged) corrections.push("red_risk_violation");
+
+                  const phvCheck = await enforcePHVSafety(accumulatedMessage, snap.phv_stage);
+                  if (phvCheck.flagged) corrections.push("phv_safety_violation");
+
+                  if (corrections.length > 0) {
+                    console.warn(`[SAFETY-TS] Stream post-filter: ${corrections.join(", ")}`);
+                    const correctedMessage = phvCheck.flagged ? phvCheck.sanitized : redCheck.sanitized;
+                    controller.enqueue(encoder.encode(formatSSE("safety_correction", {
+                      corrected_message: correctedMessage,
+                      violations: corrections,
+                    })));
+                  }
+                }
+              } catch (safetyErr) {
+                console.warn("[chat] Stream post-filter safety check failed:", safetyErr);
+              }
+            }
+
             controller.close();
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "Stream error";

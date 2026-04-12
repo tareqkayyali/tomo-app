@@ -45,8 +45,24 @@ def _check_red_risk_gate(context) -> Optional[dict]:
       2. ACWR > 1.5 (danger zone)
       3. Stale check-in (>24h) + elevated ACWR (>1.3)
     """
-    if not context or not hasattr(context, "snapshot_enrichment") or not context.snapshot_enrichment:
+    if not context or not hasattr(context, "snapshot_enrichment"):
         return None
+
+    # Gate 0 (S1 fix): No snapshot data at all — cold start, never checked in
+    # Conservative default: force recovery rather than allowing unrestricted access
+    if not context.snapshot_enrichment:
+        logger.warning("RED RISK GATE: No snapshot_enrichment (cold start). Forcing recovery mode.")
+        return {
+            "reason": "no_reliable_readiness_data (cold start — no snapshot)",
+            "forced_mode": "recovery",
+            "checkin_stale": True,
+            "hours_since_checkin": None,
+            "acwr": None,
+            "injury_risk_flag": None,
+            "ccrs_recommendation": None,
+            "ccrs_score": None,
+            "ccrs_confidence": None,
+        }
 
     se = context.snapshot_enrichment
     reasons: list[str] = []
@@ -84,6 +100,21 @@ def _check_red_risk_gate(context) -> Optional[dict]:
     critical_flags = [f for f in ccrs_flags if f in ("ACWR_BLOCKED", "HRV_SUPPRESSED", "SLEEP_DEFICIT")]
     if critical_flags and "CCRS" not in " ".join(reasons):
         reasons.append(f"CCRS flags: {', '.join(critical_flags)}")
+
+    # Gate 6 (S1 fix): CCRS absent or low-confidence + stale data = no reliable readiness
+    ccrs_confidence = getattr(se, "ccrs_confidence", None)
+    data_freshness = getattr(se, "data_freshness", None)
+    ccrs_score = getattr(se, "ccrs", None)
+
+    ccrs_untrusted = ccrs_confidence in (None, "low", "estimated") or ccrs_score is None
+    data_stale = data_freshness in (None, "STALE", "UNKNOWN") or checkin_stale
+
+    if ccrs_untrusted and data_stale and not reasons:
+        reasons.append(
+            f"no_reliable_readiness_data (ccrs_confidence={ccrs_confidence}, "
+            f"data_freshness={data_freshness}, checkin_stale={checkin_stale})"
+        )
+        logger.warning(f"RED RISK GATE: CCRS unreliable + stale data → forcing recovery")
 
     if not reasons:
         return None

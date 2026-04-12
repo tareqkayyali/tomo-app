@@ -371,12 +371,32 @@ export async function enforcePHVSafety(
 
   const flaggedTerms: string[] = [];
   const flaggedAlternatives: PHVSafeAlternative[] = [];
+  let sanitized = response;
 
   for (const alt of alternatives) {
-    const match = response.match(alt.pattern);
+    const match = sanitized.match(alt.pattern);
     if (match) {
       flaggedTerms.push(match[0]);
       flaggedAlternatives.push(alt);
+      // REPLACE the contraindicated term with the safe alternative (S2 fix)
+      sanitized = sanitized.replace(alt.pattern, alt.alternative);
+    }
+  }
+
+  // Scan for clinical PHV terminology — athlete should never see these
+  const PHV_CLINICAL_TERMS: Array<{ pattern: RegExp; replacement: string }> = [
+    { pattern: /\bPHV\b/g, replacement: "your growth phase" },
+    { pattern: /\bpeak height velocity\b/gi, replacement: "your current growth phase" },
+    { pattern: /\bgrowth plates?\b/gi, replacement: "your developing joints" },
+    { pattern: /\bapophys(?:eal|is)\b/gi, replacement: "growth-related" },
+    { pattern: /\bmid[- ]?PHV\b/gi, replacement: "your current development stage" },
+    { pattern: /\bpre[- ]?PHV\b/gi, replacement: "your current development stage" },
+    { pattern: /\bpost[- ]?PHV\b/gi, replacement: "your current development stage" },
+  ];
+  for (const { pattern, replacement } of PHV_CLINICAL_TERMS) {
+    if (pattern.test(sanitized)) {
+      flaggedTerms.push(pattern.source);
+      sanitized = sanitized.replace(pattern, replacement);
     }
   }
 
@@ -384,9 +404,14 @@ export async function enforcePHVSafety(
     return { flagged: false, sanitized: response, flaggedTerms: [] };
   }
 
+  // Append coaching explanation of modifications (athlete sees safe terms + explanation)
+  sanitized += buildPHVExplanation(flaggedAlternatives);
+
+  console.warn(`[SAFETY-TS] PHV filter: replaced ${flaggedTerms.length} terms: ${flaggedTerms.join(", ")}`);
+
   return {
     flagged: true,
-    sanitized: response + buildPHVExplanation(flaggedAlternatives),
+    sanitized,
     flaggedTerms,
   };
 }
@@ -436,6 +461,81 @@ export function enforceRedRiskSafety(
   }
 
   return { flagged: false, sanitized: response, reasons: [] };
+}
+
+// ── S3 FIX: CAPSULE SAFETY GATE ─────────────────────────────────
+// Pure function. Zero I/O. Runs before ANY capsule write-tool execution.
+// If athlete is in RED risk or CCRS recommends recovery/blocked, downgrades
+// intensity to LIGHT and returns a coaching-voice safety message.
+// This closes the gap where 60-70% of traffic (capsule fast-path) bypassed
+// all Python safety gates.
+
+interface CapsuleSafetyResult {
+  blocked: boolean;
+  modifiedInput: Record<string, unknown>;
+  safetyMessage: string | null;
+  reasons: string[];
+}
+
+/** Tools that create or modify training load — these must be gated */
+const WRITE_TOOLS_REQUIRING_SAFETY = new Set([
+  "create_event", "update_event", "generate_training_plan",
+  "log_test_result", "propose_mode_change",
+]);
+
+/** Intensities that are unsafe for RED/recovery athletes */
+const UNSAFE_INTENSITIES = new Set(["HARD", "HIGH", "MODERATE", "INTENSE"]);
+
+export function checkRedRiskForTool(
+  toolName: string,
+  toolInput: Record<string, unknown>,
+  injuryRiskFlag: string | null | undefined,
+  ccrsRecommendation: string | null | undefined,
+  ccrs: number | null | undefined,
+): CapsuleSafetyResult {
+  // Only gate write tools that affect training load
+  if (!WRITE_TOOLS_REQUIRING_SAFETY.has(toolName)) {
+    return { blocked: false, modifiedInput: toolInput, safetyMessage: null, reasons: [] };
+  }
+
+  const isRedRisk = injuryRiskFlag?.toUpperCase() === "RED";
+  const isRecoveryMode = ccrsRecommendation === "blocked" || ccrsRecommendation === "recovery";
+  const isLowCCRS = typeof ccrs === "number" && ccrs < 40;
+
+  if (!isRedRisk && !isRecoveryMode && !isLowCCRS) {
+    return { blocked: false, modifiedInput: toolInput, safetyMessage: null, reasons: [] };
+  }
+
+  // Build reasons for audit trail
+  const reasons: string[] = [];
+  if (isRedRisk) reasons.push(`injury_risk=RED`);
+  if (isRecoveryMode) reasons.push(`ccrs_recommendation=${ccrsRecommendation}`);
+  if (isLowCCRS) reasons.push(`ccrs=${ccrs}`);
+
+  console.warn(`[SAFETY-TS] Capsule safety gate fired for ${toolName}: ${reasons.join(", ")}`);
+
+  // Downgrade intensity in the tool input (transparent to athlete)
+  const modified = { ...toolInput };
+  const currentIntensity = String(modified.intensity ?? modified.session_intensity ?? "").toUpperCase();
+
+  if (UNSAFE_INTENSITIES.has(currentIntensity)) {
+    if (modified.intensity !== undefined) modified.intensity = "LIGHT";
+    if (modified.session_intensity !== undefined) modified.session_intensity = "LIGHT";
+    reasons.push(`intensity_downgraded: ${currentIntensity}→LIGHT`);
+  }
+
+  // For generate_training_plan, force category to recovery
+  if (toolName === "generate_training_plan") {
+    modified.category = "recovery";
+    modified.intensity = "LIGHT";
+    reasons.push("plan_category_forced_to_recovery");
+  }
+
+  const safetyMessage =
+    "Your body needs recovery right now — I've adjusted this to light intensity. " +
+    "Once your readiness improves, we'll ramp back up.";
+
+  return { blocked: false, modifiedInput: modified, safetyMessage, reasons };
 }
 
 /**
