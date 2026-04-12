@@ -25,6 +25,57 @@ from app.models.state import TomoChatState
 
 logger = logging.getLogger("tomo-ai.format_response")
 
+# ── Pulse layout constants ──
+DATA_CARD_TYPES = frozenset({
+    "stat_grid", "stat_row", "schedule_list", "zone_stack",
+    "benchmark_bar", "session_plan", "program_recommendation",
+    "clash_list", "phv_assessment", "drill_card", "week_schedule",
+})
+
+
+def _strip_emoji(text: str) -> str:
+    """Remove emoji characters from text. Pulse spec: no emoji in headings."""
+    if not text:
+        return text
+    # Remove common emoji unicode ranges
+    cleaned = re.sub(
+        r'[\U0001F600-\U0001F9FF'   # Emoticons + Supplemental Symbols
+        r'\U0001F300-\U0001F5FF'    # Misc Symbols & Pictographs
+        r'\U00002600-\U000027BF'    # Misc Symbols + Dingbats
+        r'\U0000FE00-\U0000FE0F'    # Variation Selectors
+        r'\U0000200D'               # Zero Width Joiner
+        r'\U00002702-\U000027B0'    # Dingbats
+        r'\U0001FA00-\U0001FA6F'    # Chess Symbols
+        r'\U0001FA70-\U0001FAFF'    # Symbols Extended-A
+        r']+', '', text
+    ).strip()
+    return cleaned
+
+
+def _pulse_post_process(structured: dict) -> dict:
+    """Apply Pulse layout enforcement to any structured response."""
+    # 1. Strip emoji from headline
+    structured["headline"] = _strip_emoji(structured.get("headline", ""))
+
+    # 2. Ban "Here's what I found" even if LLM sneaks it through
+    hl = structured.get("headline", "").lower()
+    if hl.startswith("here's what") or hl.startswith("here's your"):
+        structured["headline"] = ""
+
+    # 3. Enforce max 2 chips
+    chips = structured.get("chips", [])
+    if len(chips) > 2:
+        structured["chips"] = chips[:2]
+
+    # 4. Reorder cards: data cards first, then text/advisory
+    cards = structured.get("cards", [])
+    if cards:
+        data_cards = [c for c in cards if c.get("type") in DATA_CARD_TYPES]
+        other_cards = [c for c in cards if c.get("type") not in DATA_CARD_TYPES]
+        structured["cards"] = data_cards + other_cards
+
+    return structured
+
 
 def _extract_json(text: str) -> Optional[dict]:
     """Extract JSON from agent response using 3 strategies."""
@@ -76,9 +127,9 @@ def _build_text_response(text: str) -> dict:
         body = " ".join(sentences[:3])
 
     return {
-        "headline": headline or "Here's what I found",
-        "body": body or headline or "Here's what I found",
-        "cards": [{"type": "text_card", "headline": headline, "body": body or headline}],
+        "headline": headline or "Your update",
+        "body": body or headline or "Your update",
+        "cards": [{"type": "text_card", "headline": headline, "body": body or headline or "Your update"}],
         "chips": [],
     }
 
@@ -92,15 +143,15 @@ def _build_confirmation_response(pending: dict) -> dict:
     primary = actions[0] if actions else {}
     tool_name = primary.get("toolName", "action")
     headline_map = {
-        "create_event": "📅 Add to calendar?",
-        "update_event": "✏️ Update event?",
-        "delete_event": "🗑️ Delete event?",
-        "log_check_in": "✅ Log check-in?",
-        "log_test_result": "📝 Log test result?",
-        "set_goal": "🎯 Set new goal?",
-        "propose_mode_change": "🔄 Switch mode?",
+        "create_event": "Add to timeline?",
+        "update_event": "Update this event?",
+        "delete_event": "Remove this event?",
+        "log_check_in": "Log your check-in?",
+        "log_test_result": "Log this result?",
+        "set_goal": "Set new goal?",
+        "propose_mode_change": "Switch training mode?",
     }
-    headline = headline_map.get(tool_name, "Confirm action?")
+    headline = headline_map.get(tool_name, "Confirm this action?")
 
     body_parts = [preview] if preview else []
     for action in actions:
@@ -119,7 +170,7 @@ def _build_confirmation_response(pending: dict) -> dict:
             "type": "confirm_card",
             "headline": headline,
             "body": "\n".join(body_parts),
-            "confirm_label": "Yes, do it",
+            "confirm_label": "Confirm",
             "cancel_label": "Cancel",
             "action_data": pending,
         }],
@@ -127,29 +178,73 @@ def _build_confirmation_response(pending: dict) -> dict:
     }
 
 
+def _build_done_headline(results: list[dict]) -> str:
+    """Build natural-language headline from confirmed action results."""
+    if not results:
+        return "Done"
+
+    first = results[0]
+    tool_name = first.get("tool", "")
+    result_data = first.get("result", {})
+
+    # Try extracting event details for natural language headline
+    if isinstance(result_data, dict):
+        title = result_data.get("title", "")
+        start_time = result_data.get("start_time", "")
+        if title and start_time:
+            return f"{title} added for {start_time}"
+        if title:
+            return f"{title} confirmed"
+
+    # Fallback: natural language from tool name
+    tool_headlines = {
+        "create_event": "Added to timeline",
+        "update_event": "Event updated",
+        "delete_event": "Event removed",
+        "log_check_in": "Check-in logged",
+        "log_test_result": "Result logged",
+        "set_goal": "Goal set",
+        "propose_mode_change": "Mode updated",
+    }
+    return tool_headlines.get(tool_name, "Done")
+
+
 def _build_confirmed_response(results: list[dict]) -> dict:
-    """Build response after a write action has been confirmed and executed."""
+    """Build Pulse done response — natural language + green stat_grid card."""
     success_count = sum(1 for r in results if r.get("success"))
     total = len(results)
 
     if success_count == total:
-        headline = "✅ Done!"
-        body_parts = []
+        headline = _build_done_headline(results)
+        # Build stat_grid items with green highlights showing event details
+        items = []
         for r in results:
-            tool_display = r.get("tool", "").replace("_", " ").title()
-            body_parts.append(f"• {tool_display} completed")
-        body = "\n".join(body_parts) if body_parts else "Action completed successfully."
+            result_data = r.get("result", {})
+            if isinstance(result_data, dict):
+                title = result_data.get("title", r.get("tool", "").replace("_", " ").title())
+                date = result_data.get("date", "")
+                start_time = result_data.get("start_time", "")
+                detail = f"{date} {start_time}".strip() if date or start_time else "Confirmed"
+                items.append({"label": title, "value": detail, "highlight": "green"})
+            else:
+                tool_display = r.get("tool", "").replace("_", " ").title()
+                items.append({"label": tool_display, "value": "Confirmed", "highlight": "green"})
+
+        # Use stat_grid for green done card (mobile renderer shows green highlights)
+        done_card = {"type": "stat_grid", "items": items} if items else {
+            "type": "text_card", "headline": headline, "body": "Action completed."
+        }
+        body = ""
     else:
-        headline = "⚠️ Partial success"
-        body = f"{success_count}/{total} actions completed."
+        headline = f"{success_count} of {total} actions completed"
+        body = "Some actions could not be completed."
+        done_card = {"type": "text_card", "headline": headline, "body": body}
 
     return {
         "headline": headline,
         "body": body,
-        "cards": [{"type": "text_card", "headline": headline, "body": body}],
-        "chips": [
-            {"label": "What's next?", "message": "What should I do next?"},
-        ],
+        "cards": [done_card],
+        "chips": [{"label": "What's next?", "message": "What should I do next?"}],
     }
 
 
@@ -171,7 +266,7 @@ async def format_response_node(state: TomoChatState) -> dict:
 
     # Case 1: Write action pending confirmation
     if pending_write and not write_confirmed:
-        structured = _build_confirmation_response(pending_write)
+        structured = _pulse_post_process(_build_confirmation_response(pending_write))
         return {
             "final_response": json.dumps(structured),
             "final_cards": structured.get("cards", []),
@@ -182,9 +277,9 @@ async def format_response_node(state: TomoChatState) -> dict:
         try:
             confirmed_data = json.loads(agent_response)
             results = confirmed_data.get("confirmed_results", [])
-            structured = _build_confirmed_response(results)
+            structured = _pulse_post_process(_build_confirmed_response(results))
         except (json.JSONDecodeError, TypeError):
-            structured = _build_text_response(agent_response)
+            structured = _pulse_post_process(_build_text_response(agent_response))
 
         return {
             "final_response": json.dumps(structured),
@@ -224,6 +319,9 @@ async def format_response_node(state: TomoChatState) -> dict:
                 "body": structured["body"],
             }]
 
+        # Apply Pulse layout enforcement
+        structured = _pulse_post_process(structured)
+
         return {
             "final_response": json.dumps(structured),
             "final_cards": structured.get("cards", []),
@@ -231,7 +329,7 @@ async def format_response_node(state: TomoChatState) -> dict:
 
     # Case 4: Fallback — plain text to text_card
     if agent_response:
-        structured = _build_text_response(agent_response)
+        structured = _pulse_post_process(_build_text_response(agent_response))
         return {
             "final_response": json.dumps(structured),
             "final_cards": structured.get("cards", []),

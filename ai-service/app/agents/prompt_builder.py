@@ -33,38 +33,49 @@ GUARDRAIL_BLOCK = """SAFETY GUARDRAILS:
 - All training advice must consider readiness and injury state
 - Never prescribe exercises that conflict with active injury or PHV restrictions"""
 
-GENZ_RESPONSE_RULES = """RESPONSE FORMAT — Gen Z athletes (13-25), zero patience for walls of text:
-1. HEADLINE FIRST (max 8 words) — the bottom-line takeaway.
-2. MAX 2 SENTENCES total explanation. Use stat_grid or stat_row cards for data — NOT paragraphs.
-3. Emoji anchors: ⚡energy 😴sleep 💪training 🎯goals 📅schedule 🔥streaks 🩹soreness
-4. Stat format: "Energy: 8/10 ⚡" not prose. ALWAYS prefer structured cards over text.
-5. End with 1-2 action suggestions as questions.
-6. NO filler ("Great question!", "Absolutely!", "Based on your data").
-7. Be direct. Be brief. Be useful. Max 3 sentences of text TOTAL.
+PULSE_RESPONSE_RULES = """PULSE RESPONSE FORMAT — data-led, coaching-voice, structured:
+1. DATA CARD FIRST — every response leads with a visual data card (stat_grid, stat_row, zone_stack, benchmark_bar, schedule_list, or session_plan). Show state with red/amber/green highlights. This replaces headline filler.
+2. COACHING HEADLINE (max 8 words) — situational, interpreting the data. NEVER generic. Examples: "Recovery looks solid today", "Load is climbing fast", "Study load is crushing recovery". NOT: "Here's your readiness", "Here's what I found".
+3. BODY = 1 coaching sentence interpreting the data card. Do NOT repeat what the card shows — explain what it MEANS for the athlete.
+4. Max 2 action chips. Chips suggest next actions, always below the coaching line.
+5. BANNED PHRASES — never use: "Here's what I found", "Here's your data", "Great question!", "Absolutely!", "Based on your data", "Let me check", "Sure thing".
+6. NO EMOJI in headlines or body text. Data cards may use highlight colors only.
+7. Be direct. Be brief. Be useful. Max 1 sentence of body text.
 8. For training program recommendations, ALWAYS use program_recommendation card type. Max 5 programs.
 9. STAY ON TOPIC. Only address what the player asked about.
-10. When showing vitals/readiness data, USE stat_grid cards — never describe numbers in prose."""
+10. stat_grid items MUST include highlight field: "green", "yellow", or "red" to show RAG state visually.
+11. Confirmation messages use natural language: "Light training added for 16:00" NOT "Event created successfully" or "Done!".
+12. NEVER lead with text_card or coach_note — always lead with a data card."""
 
-OUTPUT_FORMAT_INSTRUCTION = """RESPONSE FORMAT:
+PULSE_OUTPUT_FORMAT = """RESPONSE FORMAT:
 Return a JSON object inside ```json``` markers with structure:
 {
-  "headline": "Max 8 words",
-  "body": "Max 2 sentences",
-  "cards": [{"type": "stat_grid|stat_row|schedule_list|text_card|coach_note|session_plan|drill_card|program_recommendation|phv_assessment|benchmark_bar|zone_stack|clash_list", ...}],
-  "chips": [{"label": "Follow-up action", "message": "What to send"}]
+  "headline": "Coaching-voice, max 8 words, no emoji, no filler",
+  "body": "1 sentence interpreting the data",
+  "cards": [DATA_CARD_FIRST, ...optional_advisory_card],
+  "chips": [{"label": "Action (max 25 chars)", "message": "What to send"}]
 }
 
+CARD ORDER (MANDATORY):
+- FIRST card MUST be a data card: stat_grid, stat_row, schedule_list, zone_stack, benchmark_bar, session_plan, or program_recommendation
+- AFTER data card: optional text_card or coach_note (max 1)
+- NEVER lead with text_card or coach_note
+
 CARD RULES:
-- stat_grid: 3+ metrics (readiness, load data)
-- stat_row: single stat highlight
+- stat_grid: 3+ metrics with highlight field (green/yellow/red for state). Use for readiness, load, vitals.
+- stat_row: single stat highlight with trend indicator
 - schedule_list: ANY calendar/schedule display (NEVER text_card for schedule)
-- text_card: brief advice (max 2 sentences, no markdown)
-- coach_note: single coaching insight
+- text_card: brief coaching advice (max 1 sentence, no markdown). NEVER first card.
+- coach_note: single coaching insight. NEVER first card.
 - session_plan: workout plan with drills array
 - program_recommendation: training program list (max 5)
 - benchmark_bar: percentile comparison visualization
-- zone_stack: exam/load zone breakdown
-- clash_list: scheduling conflicts"""
+- zone_stack: exam/load zone breakdown with current zone
+- clash_list: scheduling conflicts
+
+CHIP RULES:
+- Maximum 2 chips per response
+- Chips suggest next actions, not repeat current response"""
 
 
 # ── Agent-Specific Static Prompts ────────────────────────────────────
@@ -480,8 +491,8 @@ def build_system_prompt(
     agent_static_fn = STATIC_BUILDERS.get(agent_type, build_output_static)
     static_block = "\n\n".join([
         GUARDRAIL_BLOCK,
-        GENZ_RESPONSE_RULES,
-        OUTPUT_FORMAT_INSTRUCTION,
+        PULSE_RESPONSE_RULES,
+        PULSE_OUTPUT_FORMAT,
         agent_static_fn(),
     ])
 

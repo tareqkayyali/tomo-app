@@ -181,11 +181,16 @@ async def validate_node(state: TomoChatState) -> dict:
     if sentence_count > 8:
         flags.append("verbose_response")
 
-    # Check for filler phrases
+    # Check for filler phrases (Pulse banned list)
     filler_patterns = [
         re.compile(r"^(?:great\s+question|absolutely|of\s+course|certainly)", re.I | re.M),
         re.compile(r"\bgreat\s+question\b", re.I),
         re.compile(r"\babsolutely\b", re.I),
+        re.compile(r"\bhere'?s\s+what\s+I\s+found\b", re.I),
+        re.compile(r"\bhere'?s\s+your\s+data\b", re.I),
+        re.compile(r"\blet\s+me\s+check\b", re.I),
+        re.compile(r"\bsure\s+thing\b", re.I),
+        re.compile(r"\bbased\s+on\s+your\s+data\b", re.I),
     ]
     for fp in filler_patterns:
         if fp.search(agent_response):
