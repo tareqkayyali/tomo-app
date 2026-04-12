@@ -82,10 +82,11 @@ const SEV_STYLE: Record<string, string> = {
 };
 
 const SEV_BADGE: Record<string, string> = {
-  critical: "bg-red-500/20 text-red-400 border-red-500/30",
-  high: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  medium: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  low: "bg-zinc-700 text-zinc-400 border-zinc-600",
+  critical: "bg-red-100 text-red-700 border-red-300",
+  high: "bg-orange-100 text-orange-700 border-orange-300",
+  medium: "bg-yellow-100 text-yellow-700 border-yellow-300",
+  low: "bg-zinc-100 text-zinc-600 border-zinc-300",
+  info: "bg-zinc-100 text-zinc-600 border-zinc-300",
 };
 
 const P_LABEL: Record<number, string> = {
@@ -128,10 +129,10 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 const INSIGHT_SEV_STYLE: Record<string, string> = {
-  critical: "border-l-red-500 bg-red-500/5",
-  high: "border-l-orange-500 bg-orange-500/5",
-  medium: "border-l-yellow-500 bg-yellow-500/5",
-  info: "border-l-zinc-600 bg-zinc-800/30",
+  critical: "border-l-red-500 bg-red-50",
+  high: "border-l-orange-500 bg-orange-50",
+  medium: "border-l-yellow-500 bg-yellow-50",
+  info: "border-l-zinc-400 bg-zinc-50",
 };
 
 export default function AIHealthPage() {
@@ -361,7 +362,7 @@ export default function AIHealthPage() {
               {insights.map((insight, idx) => (
                 <Card
                   key={idx}
-                  className={`border-l-4 ${INSIGHT_SEV_STYLE[insight.severity] ?? "border-l-zinc-600 bg-zinc-800/30"}`}
+                  className={`border-l-4 ${INSIGHT_SEV_STYLE[insight.severity] ?? "border-l-zinc-400 bg-zinc-50"}`}
                 >
                   <CardContent className="pt-4 pb-3">
                     <div className="flex items-center justify-between mb-2">
@@ -383,7 +384,7 @@ export default function AIHealthPage() {
 
                     <p className="text-sm font-medium mb-2">{insight.question}</p>
 
-                    <p className="text-sm text-zinc-300/90 leading-relaxed whitespace-pre-wrap">
+                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
                       {insight.answer}
                     </p>
 
@@ -392,7 +393,7 @@ export default function AIHealthPage() {
                         {insight.highlighted_traces.map((traceId) => (
                           <span
                             key={traceId}
-                            className="font-mono text-[10px] bg-zinc-900/80 rounded px-1.5 py-0.5 text-zinc-500"
+                            className="font-mono text-[10px] bg-zinc-200 rounded px-1.5 py-0.5 text-zinc-600"
                           >
                             {traceId.slice(0, 8)}…
                           </span>
