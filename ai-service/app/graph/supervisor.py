@@ -237,16 +237,18 @@ async def run_supervisor(
     try:
         result = await graph.ainvoke(input_state, config=config)
 
-        # Create filterable observability trace in separate LangSmith project
+        # Fire-and-forget: observability trace runs in background thread
+        # NEVER blocks the chat response — analytics must not impact UX
         try:
+            import asyncio
             from app.graph.observability import create_observability_trace
-            create_observability_trace(
+            asyncio.create_task(create_observability_trace(
                 result=result,
                 message=message,
                 user_id=user_id,
                 session_id=session_id,
                 request_id=input_state["request_id"],
-            )
+            ))
         except Exception as e:
             logger.debug(f"Observability trace skipped: {e}")
 

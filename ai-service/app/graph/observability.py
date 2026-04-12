@@ -11,6 +11,7 @@ Two delivery mechanisms:
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import logging
 import os
@@ -29,7 +30,7 @@ def _get_langsmith_client():
     return _ls_client
 
 
-def create_observability_trace(
+def _create_observability_trace_sync(
     result: dict,
     message: str,
     user_id: str,
@@ -37,12 +38,12 @@ def create_observability_trace(
     request_id: str,
 ) -> None:
     """
-    Create a lightweight observability summary trace in LangSmith.
+    Synchronous implementation — called via asyncio.to_thread() so it
+    never blocks the FastAPI event loop.
 
     Uses POST /runs (not PATCH) so it works on Personal plan.
     All computed fields become native LangSmith metadata (filterable)
-    and tags (filterable). Stored in a separate project to keep
-    the main trace view clean.
+    and tags (filterable).
     """
     post_metadata, post_tags = build_post_execution_metadata(result)
 
@@ -70,6 +71,34 @@ def create_observability_trace(
         start_time=now,
         end_time=now,
     )
+
+
+async def create_observability_trace(
+    result: dict,
+    message: str,
+    user_id: str,
+    session_id: str,
+    request_id: str,
+) -> None:
+    """
+    Fire-and-forget observability trace — runs in a background thread
+    so it NEVER blocks the chat response to the user.
+
+    Enterprise pattern: analytics/observability must never impact
+    user-facing latency.
+    """
+    try:
+        await asyncio.to_thread(
+            _create_observability_trace_sync,
+            result=result,
+            message=message,
+            user_id=user_id,
+            session_id=session_id,
+            request_id=request_id,
+        )
+    except Exception as e:
+        # Observability failure must never propagate
+        logger.debug(f"Observability trace failed (non-blocking): {e}")
 
 
 def build_post_execution_metadata(state: dict) -> tuple[dict, list[str]]:
