@@ -102,6 +102,13 @@ def _build_exact_match_map() -> dict[str, dict]:
         for p in phrases:
             m[_normalize(p)] = {"intent_id": intent_id, "params": params or {}}
 
+    # Greetings → route to output agent for warm coaching response ($0 classification)
+    _add(["hey tomo", "hi tomo", "hello tomo", "hey", "hi", "hello",
+          "good morning", "good afternoon", "good evening", "morning",
+          "what's up", "sup", "yo", "heya", "hiya", "howdy",
+          "hey coach", "hi coach", "hello coach",
+          "what's good", "how's it going"], "greeting")
+
     # Test log
     _add(["log a test", "record my sprint", "add my cmj score", "log test",
           "record a test", "log my test", "test log"], "log_test")

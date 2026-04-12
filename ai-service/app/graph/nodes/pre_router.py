@@ -262,18 +262,16 @@ async def pre_router_node(state: TomoChatState) -> dict:
     )
 
     # Determine if this is a capsule action or needs full AI
+    #
+    # IMPORTANT: Capsule fast-path is DISABLED until format_response supports
+    # capsule-specific response generation. Currently, the capsule path skips
+    # agent_dispatch which means no agent_response is produced — format_response
+    # falls to the empty-response handler ("I'm here to help") which is broken.
+    # All intents route through AI for proper tool execution + LLM generation.
+    # Capsule routing will be re-enabled when Phase 6 adds deterministic
+    # response builders for each capsule type.
     is_capsule = False
-    capsule_type = None
-
-    if classification.capsule_type:
-        intent_id = classification.intent_id
-        # Check if it's a direct capsule action (no LLM needed)
-        if intent_id in {d.value if hasattr(d, "value") else d for d in CAPSULE_DIRECT_ACTIONS}:
-            is_capsule = True
-            capsule_type = classification.capsule_type
-        elif intent_id in {g.value if hasattr(g, "value") else g for g in CAPSULE_GATED_ACTIONS}:
-            is_capsule = True
-            capsule_type = classification.capsule_type
+    capsule_type = classification.capsule_type  # Preserve for telemetry/future use
 
     # Run 5-way agent router
     active_tab = state.get("active_tab", "Chat")

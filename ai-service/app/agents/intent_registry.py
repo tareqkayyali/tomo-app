@@ -37,6 +37,15 @@ class IntentDefinition:
 # ── Full Intent Registry ─────────────────────────────────────────────
 
 INTENT_REGISTRY: list[IntentDefinition] = [
+    # ── Greeting (warm coaching response, no tools needed) ──
+    IntentDefinition(
+        id="greeting",
+        capsule_type=None,
+        agent_type="output",
+        description="Greeting or casual hello — respond warmly as a coach, no data needed",
+        examples=["hey tomo", "hi", "hello", "good morning", "what's up"],
+    ),
+
     # ── Test & Check-in ──
     IntentDefinition(
         id="log_test",
