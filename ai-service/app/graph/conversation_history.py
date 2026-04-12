@@ -15,6 +15,7 @@ consecutive same-role messages to prevent history inflation.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Optional
 
@@ -91,7 +92,8 @@ async def load_conversation_history(
             if role == "user":
                 all_msgs.append(HumanMessage(content=content))
             elif role == "assistant":
-                all_msgs.append(AIMessage(content=content))
+                readable = _extract_readable_content(content)
+                all_msgs.append(AIMessage(content=readable))
             # Skip 'system' role messages
 
         if not all_msgs:
@@ -147,6 +149,97 @@ def _apply_token_budget(messages: list[BaseMessage]) -> list[BaseMessage]:
     if summary:
         return [AIMessage(content=f"[Previous conversation summary]\n{summary}")] + recent
     return recent
+
+
+def _extract_readable_content(raw_content: str) -> str:
+    """
+    Convert a structured JSON response into readable text for the LLM.
+
+    The persist node saves the final structured JSON (headline, body, cards, chips)
+    as the assistant's message. When loaded as history, the LLM needs natural text
+    — not a raw JSON blob — to understand what it said previously.
+
+    Example:
+      Input:  '{"headline":"Your week","body":"I'm adding gym...","cards":[...]}'
+      Output: "Your week\nI'm adding gym...\n[Week plan: MON School · Gym at 18:00, ...]"
+    """
+    if not raw_content or not raw_content.strip().startswith("{"):
+        return raw_content  # Not JSON — return as-is (plain text response)
+
+    try:
+        data = json.loads(raw_content)
+        if not isinstance(data, dict) or "headline" not in data:
+            return raw_content  # Not a structured response
+
+        parts: list[str] = []
+
+        # Headline + body = the coaching text
+        if data.get("headline"):
+            parts.append(data["headline"])
+        if data.get("body"):
+            parts.append(data["body"])
+
+        # Summarize cards so the LLM knows what was shown
+        for card in data.get("cards", []):
+            card_type = card.get("type", "")
+
+            if card_type == "week_plan":
+                days = card.get("days", [])
+                day_parts = []
+                for day in days:
+                    tags = " · ".join(t.get("label", "") for t in day.get("tags", []))
+                    time_str = day.get("time", "")
+                    note = day.get("note", "")
+                    line = f"{day.get('day', '')}: {tags}"
+                    if time_str:
+                        line += f" at {time_str}"
+                    if note:
+                        line += f" ({note})"
+                    day_parts.append(line)
+                parts.append(f"[Showed week plan: {'; '.join(day_parts)}]")
+
+            elif card_type == "confirm_card":
+                items = card.get("items", [])
+                if items:
+                    item_parts = []
+                    for it in items:
+                        detail = it.get("title", "")
+                        if it.get("date"):
+                            detail += f" on {it['date']}"
+                        if it.get("time"):
+                            detail += f" at {it['time']}"
+                        item_parts.append(detail)
+                    parts.append(f"[Proposed to add: {', '.join(item_parts)}]")
+
+            elif card_type == "stat_grid":
+                items = card.get("items", [])
+                stats = [f"{it.get('label', '')}: {it.get('value', '')}" for it in items]
+                if stats:
+                    parts.append(f"[Stats shown: {', '.join(stats)}]")
+
+            elif card_type in ("text_card", "coach_note"):
+                text = card.get("body") or card.get("note", "")
+                if text and text not in " ".join(parts):
+                    parts.append(text)
+
+            elif card_type == "schedule_list":
+                items_list = card.get("items", [])
+                events = [f"{it.get('time', '')} {it.get('title', '')}" for it in items_list]
+                if events:
+                    parts.append(f"[Schedule shown: {', '.join(events)}]")
+
+        # Include suggested actions so the LLM knows what follow-ups were offered
+        chips = data.get("chips", [])
+        if chips:
+            labels = [c.get("label", "") for c in chips if c.get("label")]
+            if labels:
+                parts.append(f"[Suggested follow-ups: {', '.join(labels)}]")
+
+        result = "\n".join(parts)
+        return result if result.strip() else raw_content
+
+    except (json.JSONDecodeError, TypeError, KeyError):
+        return raw_content  # Parse failed — return raw
 
 
 def _compress_older_messages(messages: list[BaseMessage], char_budget: int) -> str:
