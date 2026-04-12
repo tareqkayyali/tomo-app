@@ -170,6 +170,9 @@ async def search_entities_by_vector(
     Uses the match_knowledge_entities RPC.
     """
     pool = get_pool()
+    if not pool:
+        logger.warning("DB pool not available for entity vector search")
+        return []
     emb_str = _format_embedding(embedding)
 
     async with pool.connection() as conn:
@@ -204,6 +207,9 @@ async def search_entities_by_text(
     PostgreSQL built-in text search (ts_rank_cd for relevance scoring).
     """
     pool = get_pool()
+    if not pool:
+        logger.warning("DB pool not available for entity text search")
+        return []
 
     # Build tsquery from user input — split on whitespace, join with | for OR matching
     words = [w for w in query.strip().split() if len(w) > 2]
@@ -263,27 +269,44 @@ async def search_chunks_by_vector(
     phv_stages: list[str] = None,
     age_groups: list[str] = None,
     limit: int = 5,
-    threshold: float = 0.65,
+    threshold: float = 0.40,
 ) -> list[ChunkResult]:
     """
     Vector search on existing rag_knowledge_chunks table.
-    Uses the existing match_knowledge_chunks RPC from migration 016.
+    Direct SQL query with pgvector cosine distance.
+    Threshold 0.40 tuned for Voyage-3-lite 512-dim embeddings (typical top hit ~0.5-0.6).
     """
     pool = get_pool()
+    if not pool:
+        logger.warning("DB pool not available for chunk vector search")
+        return []
     emb_str = _format_embedding(embedding)
 
     # Default filters (broad match if not specified)
     _rec = rec_types or ["READINESS", "RECOVERY", "DEVELOPMENT", "LOAD_WARNING",
                           "ACADEMIC", "MOTIVATION", "INJURY_PREVENTION", "NUTRITION",
                           "CV_OPPORTUNITY", "LOAD_MANAGEMENT", "PHV", "AGE_BAND",
-                          "WELLBEING"]
+                          "WELLBEING", "TRAINING_PLANNING", "SAFETY", "TESTING"]
     _phv = phv_stages or ["PRE", "CIRCA", "POST"]
     _age = age_groups or ["U13", "U15", "U17", "U19", "ADULT"]
 
     async with pool.connection() as conn:
         result = await conn.execute(
-            "SELECT * FROM match_knowledge_chunks(%s::vector, %s, %s, %s, %s, %s)",
-            (emb_str, _rec, _phv, _age, limit, threshold),
+            """
+            SELECT
+                chunk_id, domain, title, content, athlete_summary,
+                evidence_grade,
+                1 - (embedding <=> %s::vector) AS similarity
+            FROM rag_knowledge_chunks
+            WHERE
+                rec_types && %s::text[]
+                AND phv_stages && %s::text[]
+                AND age_groups && %s::text[]
+                AND 1 - (embedding <=> %s::vector) > %s
+            ORDER BY embedding <=> %s::vector
+            LIMIT %s
+            """,
+            (emb_str, _rec, _phv, _age, emb_str, threshold, emb_str, limit),
         )
         rows = await result.fetchall()
         cols = [desc.name for desc in result.description]
@@ -317,6 +340,9 @@ async def search_chunks_by_text(
     Graceful fallback: returns empty list if tsvector column doesn't exist yet.
     """
     pool = get_pool()
+    if not pool:
+        logger.warning("DB pool not available for chunk text search")
+        return []
 
     try:
         async with pool.connection() as conn:
@@ -358,6 +384,9 @@ async def traverse_from_entity(
     Uses the traverse_knowledge_graph RPC.
     """
     pool = get_pool()
+    if not pool:
+        logger.warning("DB pool not available for graph traversal")
+        return []
 
     async with pool.connection() as conn:
         result = await conn.execute(
@@ -395,6 +424,9 @@ async def traverse_2hop(
     E.g., Mid_PHV → CONTRAINDICATED_FOR → Exercise → SAFE_ALTERNATIVE_TO → Exercise
     """
     pool = get_pool()
+    if not pool:
+        logger.warning("DB pool not available for 2-hop graph traversal")
+        return []
 
     async with pool.connection() as conn:
         result = await conn.execute(
