@@ -296,7 +296,9 @@ export function useScheduleRules() {
       });
       setDirty(false);
     } catch (err) {
-      console.error('[useScheduleRules] load failed:', err);
+      // AbortError is expected when component unmounts during fetch — ignore silently
+      if (err instanceof Error && err.name === 'AbortError') return;
+      console.warn('[useScheduleRules] load failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to load rules');
       const defaults = DEFAULT_PREFERENCES;
       currentPrefsRef.current = defaults;

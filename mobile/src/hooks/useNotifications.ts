@@ -95,25 +95,26 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
     const registerToken = async () => {
       try {
+        // Push tokens only work on native devices, not web
+        if (Platform.OS === 'web') return;
+
         const Device = await import('expo-device');
-        console.log('[push] isDevice:', Device.isDevice);
         if (!Device.isDevice) return;
 
         const Notifications = await import('expo-notifications');
         const { status } = await Notifications.requestPermissionsAsync();
-        console.log('[push] permission status:', status);
         if (status !== 'granted') return;
 
         const tokenData = await Notifications.getExpoPushTokenAsync({
           projectId: '7cd0fd4e-b7fa-4bd0-8eb5-b15808e224cc',
         });
-        console.log('[push] token:', tokenData.data);
         if (tokenData.data) {
           await registerPushToken(tokenData.data, Platform.OS);
-          console.log('[push] token registered on backend');
         }
       } catch (err) {
-        console.error('[push] registration failed:', err);
+        // AbortError is expected on web/simulator — silently ignore
+        if (err instanceof Error && err.name === 'AbortError') return;
+        console.warn('[push] registration failed:', err);
       }
     };
 
