@@ -9,8 +9,16 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { upsertDailyVitals } from '../aggregations/dailyVitalsWriter';
 import { computeTrend, computeTrendPct, computeSleepDebt3d, computeSleepConsistency } from '@/services/snapshot/trendUtils';
-import { computeAndPersistCCRS } from '@/services/ccrs/ccrsAssembler';
 import type { AthleteEvent, VitalReadingPayload, SleepRecordPayload } from '../types';
+
+// CCRS module is optional — may not be deployed yet
+let computeAndPersistCCRS: ((userId: string) => Promise<void>) | null = null;
+try {
+  const ccrs = require('@/services/ccrs/ccrsAssembler');
+  computeAndPersistCCRS = ccrs.computeAndPersistCCRS;
+} catch {
+  // CCRS module not available yet — skip
+}
 
 /**
  * Write a vital metric to health_data for the weekly aggregator.
@@ -140,7 +148,7 @@ export async function handleVitalReading(event: AthleteEvent): Promise<void> {
   await enrichVitalSnapshot(db, event.athlete_id, payload);
 
   // ── CCRS — recompute with fresh biometric data ──
-  computeAndPersistCCRS(event.athlete_id).catch(err =>
+  computeAndPersistCCRS?.(event.athlete_id).catch(err =>
     console.error('[VitalHandler] CCRS computation failed:', err),
   );
 }

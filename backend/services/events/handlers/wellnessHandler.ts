@@ -10,8 +10,16 @@ import { calculateReadiness } from '@/services/readinessCalculator';
 import { recomputeWellnessTrend } from '../computations/wellnessTrend';
 import { upsertDailyVitals } from '../aggregations/dailyVitalsWriter';
 import { computeTrend, computeSleepDebt3d, computeSleepConsistency } from '@/services/snapshot/trendUtils';
-import { computeAndPersistCCRS } from '@/services/ccrs/ccrsAssembler';
 import type { AthleteEvent, WellnessCheckinPayload } from '../types';
+
+// CCRS module is optional — may not be deployed yet
+let computeAndPersistCCRS: ((userId: string) => Promise<void>) | null = null;
+try {
+  const ccrs = require('@/services/ccrs/ccrsAssembler');
+  computeAndPersistCCRS = ccrs.computeAndPersistCCRS;
+} catch {
+  // CCRS module not available yet — skip
+}
 import { readinessToRag } from '../constants';
 
 /**
@@ -78,7 +86,7 @@ export async function handleWellnessCheckin(event: AthleteEvent): Promise<void> 
   await enrichWellnessSnapshot(db, event.athlete_id, payload, score);
 
   // 7. CCRS — recompute cascading readiness with fresh check-in data
-  computeAndPersistCCRS(event.athlete_id).catch(err =>
+  computeAndPersistCCRS?.(event.athlete_id).catch(err =>
     console.error('[WellnessHandler] CCRS computation failed:', err),
   );
 }
