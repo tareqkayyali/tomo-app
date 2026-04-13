@@ -41,7 +41,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
                           intensity, notes, sport
                    FROM calendar_events
                    WHERE user_id = %s AND start_at::date = %s::date
-                   ORDER BY start_at""",
+                   ORDER BY calendar_events.start_at""",
                 (user_id, context.today_date),
             )
             rows = await result.fetchall()
@@ -78,7 +78,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
                    FROM calendar_events
                    WHERE user_id = %s
                      AND start_at::date >= %s::date AND start_at::date <= %s::date
-                   ORDER BY start_at""",
+                   ORDER BY calendar_events.start_at""",
                 (user_id, start, end),
             )
             rows = await result.fetchall()
@@ -206,7 +206,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
                 """SELECT id, title, event_type, start_at::text, end_at::text, intensity
                    FROM calendar_events
                    WHERE user_id = %s AND start_at::date = %s::date
-                   ORDER BY start_at""",
+                   ORDER BY calendar_events.start_at""",
                 (user_id, target_date),
             )
             rows = await result.fetchall()

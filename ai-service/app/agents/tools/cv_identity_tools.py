@@ -50,16 +50,6 @@ def make_cv_identity_tools(user_id: str, context: PlayerContext) -> list:
             )
             benchmarks = await bench_result.fetchall()
 
-            # Get mastery pillar scores
-            pillar_result = await conn.execute(
-                """SELECT pillar_id, score, updated_at::text
-                   FROM athlete_pillar_scores
-                   WHERE athlete_id = %s
-                   ORDER BY pillar_id""",
-                (user_id,),
-            )
-            pillars = await pillar_result.fetchall()
-
             # Get checkin consistency (90 days)
             consistency_result = await conn.execute(
                 """SELECT COUNT(*) FROM checkins
@@ -68,12 +58,16 @@ def make_cv_identity_tools(user_id: str, context: PlayerContext) -> list:
             )
             consistency_row = await consistency_result.fetchone()
 
+        # Get mastery pillar scores from snapshot enrichment (no separate table)
+        se = context.snapshot_enrichment
+        pillar_map_raw = se.mastery_scores if se else {}
+
         # Physical layer: average percentile from benchmarks
         percentiles = [int(r[1]) for r in benchmarks if r[1] is not None]
         physical_score = round(sum(percentiles) / len(percentiles)) if percentiles else 0
 
         # Map pillar scores to identity layers
-        pillar_map = {r[0]: _safe_float(r[1], 0) for r in pillars}
+        pillar_map = {k: _safe_float(v, 0) for k, v in pillar_map_raw.items()}
 
         # Build 5 layers
         layers = {

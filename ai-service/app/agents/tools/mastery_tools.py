@@ -54,7 +54,7 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
                           cv_completeness, coachability_index
                    FROM athlete_snapshots
                    WHERE athlete_id = %s
-                   ORDER BY updated_at DESC LIMIT 1""",
+                   ORDER BY snapshot_at DESC LIMIT 1""",
                 (user_id,),
             )
             streak_row = await streak_result.fetchone()

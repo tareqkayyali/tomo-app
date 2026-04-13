@@ -69,7 +69,6 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
                           duration_minutes, tags, position_emphasis, equipment,
                           prescriptions
                    FROM football_training_programs
-                   WHERE active = TRUE
                    ORDER BY name""",
             )
             rows = await result.fetchall()
@@ -124,8 +123,8 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
         async with pool.connection() as conn:
             # Check for active training blocks
             block_result = await conn.execute(
-                """SELECT id, name, phase, week_number, total_weeks,
-                          start_date::text, end_date::text, intensity_profile,
+                """SELECT id, name, phase, week_number, duration_weeks,
+                          start_date::text, end_date::text, goals,
                           created_at::text
                    FROM training_blocks
                    WHERE user_id = %s AND status = 'active'
@@ -147,10 +146,10 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
             "name": block[1],
             "phase": block[2],
             "week_number": block[3],
-            "total_weeks": block[4],
+            "duration_weeks": block[4],
             "start_date": block[5],
             "end_date": block[6],
-            "intensity_profile": block[7],
+            "goals": block[7],
             "acwr": se.acwr if se else None,
             "readiness": context.readiness_score,
         }
@@ -177,10 +176,9 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
                 """SELECT id, name, category, type, description, difficulty,
                           duration_minutes, tags, position_emphasis
                    FROM football_training_programs
-                   WHERE active = TRUE
-                     AND (position_emphasis IS NULL OR position_emphasis ILIKE %s)
+                   WHERE %s = ANY(position_emphasis) OR 'ALL' = ANY(position_emphasis)
                    ORDER BY name""",
-                (f"%{position}%",),
+                (position,),
             )
             rows = await result.fetchall()
 
@@ -233,7 +231,7 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, name, phase, status, week_number, total_weeks,
+                """SELECT id, name, phase, status, week_number, duration_weeks,
                           start_date::text, end_date::text, created_at::text
                    FROM training_blocks
                    WHERE user_id = %s AND created_at >= %s::timestamp
@@ -249,7 +247,7 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
                 "phase": row[2],
                 "status": row[3],
                 "week_number": row[4],
-                "total_weeks": row[5],
+                "duration_weeks": row[5],
                 "start_date": row[6],
                 "end_date": row[7],
                 "created_at": row[8],

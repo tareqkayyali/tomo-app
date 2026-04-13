@@ -143,7 +143,7 @@ def make_planning_tools(user_id: str, context: PlayerContext) -> list:
                    FROM calendar_events
                    WHERE user_id = %s AND start_at::date >= %s::date
                      AND start_at::date <= %s::date
-                   ORDER BY start_at""",
+                   ORDER BY calendar_events.start_at""",
                 (user_id, today, end),
             )
             rows = await result.fetchall()

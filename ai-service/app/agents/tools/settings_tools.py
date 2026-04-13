@@ -182,23 +182,30 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT category, is_enabled, push_enabled, quiet_hours_start::text,
-                          quiet_hours_end::text
+                """SELECT quiet_hours_start::text, quiet_hours_end::text,
+                          push_critical, push_training, push_coaching,
+                          push_academic, push_triangle, push_cv, push_system,
+                          max_push_per_day
                    FROM athlete_notification_preferences
-                   WHERE user_id = %s""",
+                   WHERE athlete_id = %s""",
                 (user_id,),
             )
-            rows = await result.fetchall()
+            row = await result.fetchone()
+
+        if not row:
+            return {"preferences": [], "note": "No notification preferences set — using defaults"}
 
         prefs = [
-            {
-                "category": row[0], "enabled": bool(row[1]),
-                "push": bool(row[2]), "quiet_start": row[3], "quiet_end": row[4],
-            }
-            for row in rows
+            {"category": cat, "push_enabled": bool(row[i + 2])}
+            for i, cat in enumerate(["critical", "training", "coaching", "academic", "triangle", "cv", "system"])
         ]
 
-        return {"preferences": prefs}
+        return {
+            "preferences": prefs,
+            "quiet_hours_start": row[0],
+            "quiet_hours_end": row[1],
+            "max_push_per_day": row[9],
+        }
 
     @tool
     async def get_schedule_rules() -> dict:

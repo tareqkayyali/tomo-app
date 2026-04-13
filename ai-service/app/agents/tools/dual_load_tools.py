@@ -88,9 +88,9 @@ def make_dual_load_tools(user_id: str, context: PlayerContext) -> list:
 
             # Get cognitive window definitions
             cw_result = await conn.execute(
-                """SELECT session_type, cognitive_state, optimal_study_delay_minutes, description
+                """SELECT window_type, label, optimal_delay_minutes, description
                    FROM cognitive_windows
-                   WHERE is_enabled = TRUE""",
+                   WHERE enabled = TRUE""",
             )
             windows = await cw_result.fetchall()
 
@@ -103,23 +103,25 @@ def make_dual_load_tools(user_id: str, context: PlayerContext) -> list:
             for row in windows
         }
 
+        # Map event types to cognitive window types
+        EVENT_TO_WINDOW = {
+            "gym": "post_strength",
+            "club_training": "post_cardio",
+            "training": "post_cardio",
+            "match": "post_hiit",
+            "recovery": "rest_day",
+        }
+
         study_windows = []
         for ev in events:
             title, ev_type, start_at, end_at, intensity = ev
-            # Map event type to cognitive window key
-            cw_key = None
-            if ev_type == "match":
-                cw_key = "match"
-            elif ev_type == "recovery":
-                cw_key = "recovery"
-            elif intensity and intensity.upper() == "HARD":
-                cw_key = "high_intensity"
-            elif ev_type == "gym":
-                cw_key = "strength"
-            elif intensity and intensity.upper() == "MODERATE":
-                cw_key = "moderate_cardio"
+            # Map event type + intensity to cognitive window key
+            if intensity and intensity.upper() == "HARD":
+                cw_key = "post_hiit"
+            elif ev_type in EVENT_TO_WINDOW:
+                cw_key = EVENT_TO_WINDOW[ev_type]
             else:
-                cw_key = "skill_technical"
+                cw_key = "post_cardio"
 
             window = window_map.get(cw_key, {})
             delay = window.get("delay_minutes", 60)
@@ -163,25 +165,25 @@ def make_dual_load_tools(user_id: str, context: PlayerContext) -> list:
         async with pool.connection() as conn:
             # Get exams in window
             exam_result = await conn.execute(
-                """SELECT title, start_at::date::text, start_at::text
+                """SELECT title, start_at::date::text AS exam_date, start_at::text
                    FROM calendar_events
                    WHERE user_id = %s AND event_type = 'exam'
                      AND start_at >= NOW()
                      AND start_at <= %s::timestamp
-                   ORDER BY start_at""",
+                   ORDER BY calendar_events.start_at""",
                 (user_id, end_date),
             )
             exams = await exam_result.fetchall()
 
             # Get training events in window
             training_result = await conn.execute(
-                """SELECT start_at::date::text, event_type, intensity, title
+                """SELECT start_at::date::text AS train_date, event_type, intensity, title
                    FROM calendar_events
                    WHERE user_id = %s
                      AND event_type IN ('training', 'gym', 'club_training', 'match')
                      AND start_at >= NOW()
                      AND start_at <= %s::timestamp
-                   ORDER BY start_at""",
+                   ORDER BY calendar_events.start_at""",
                 (user_id, end_date),
             )
             trainings = await training_result.fetchall()
