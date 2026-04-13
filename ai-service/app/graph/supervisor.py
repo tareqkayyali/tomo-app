@@ -39,6 +39,7 @@ from app.models.state import TomoChatState
 from app.graph.nodes.context_assembly import context_assembly_node
 from app.graph.nodes.rag_retrieval import rag_retrieval_node
 from app.graph.nodes.pre_router import pre_router_node
+from app.graph.nodes.planner_node import planner_node
 from app.graph.nodes.agent_dispatch import agent_dispatch_node, execute_confirmed_action
 from app.graph.nodes.validate import validate_node
 from app.graph.nodes.format_response import format_response_node
@@ -86,6 +87,7 @@ def build_supervisor_graph() -> StateGraph:
     graph.add_node("context_assembly", context_assembly_node)
     graph.add_node("rag_retrieval", rag_retrieval_node)
     graph.add_node("pre_router", pre_router_node)
+    graph.add_node("planner", planner_node)  # v2: conversation planner (pass-through in Phase 1)
     graph.add_node("agent_dispatch", agent_dispatch_node)
     graph.add_node("execute_confirmed", execute_confirmed_action)
     graph.add_node("validate", validate_node)
@@ -111,8 +113,11 @@ def build_supervisor_graph() -> StateGraph:
         },
     )
 
-    # ── RAG → Agent dispatch ──
-    graph.add_edge("rag_retrieval", "agent_dispatch")
+    # ── RAG → Planner → Agent dispatch ──
+    # Planner sits between RAG and agent_dispatch to detect multi-step workflows.
+    # Phase 1: pass-through (logs only). Phase 3: creates workflow plans.
+    graph.add_edge("rag_retrieval", "planner")
+    graph.add_edge("planner", "agent_dispatch")
 
     # ── Agent dispatch → validate ──
     graph.add_edge("agent_dispatch", "validate")

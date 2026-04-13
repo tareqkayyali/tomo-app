@@ -1,0 +1,22 @@
+[
+  {"cards": [{"type": "stat_grid", "items": [{"label": "Energy", "value": "High", "highlight": "green"}, {"label": "Sleep", "value": "7.5h", "highlight": "green"}]}], "expected_valid": true},
+  {"cards": [{"type": "schedule_list", "date": "Mon Apr 14", "items": [{"time": "3:30 PM", "title": "English Study", "event_type": "study"}]}], "expected_valid": true},
+  {"cards": [{"type": "session_plan", "title": "Speed Work", "total_duration_min": 55, "items": [{"name": "Warm-Up", "category": "warmup", "duration_min": 10, "intensity": "LIGHT"}]}], "expected_valid": true},
+  {"cards": [{"type": "choice_card", "headline": "PICK YOUR SESSION TYPE", "options": [{"label": "Gym", "description": "Strength", "value": "Build gym session"}, {"label": "Speed", "description": "Sprint work", "value": "Build speed session"}]}], "expected_valid": true},
+  {"cards": [{"type": "confirm_card", "headline": "Add to timeline?", "body": "Gym Session Tue Apr 14 5:00 PM", "confirm_label": "Confirm", "cancel_label": "Cancel"}], "expected_valid": true},
+  {"cards": [{"type": "benchmark_bar", "metric": "10m Sprint", "value": 1.82, "percentile": 65.0}], "expected_valid": true},
+  {"cards": [{"type": "text_card", "body": "Great work this week. Keep the momentum going."}], "expected_valid": true},
+  {"cards": [{"type": "week_plan", "days": [{"day": "MON", "tags": [{"label": "School", "color": "yellow"}]}, {"day": "TUE", "tags": [{"label": "Gym", "color": "blue"}]}]}], "expected_valid": true},
+  {"cards": [{"type": "injury_card", "location": "left knee", "severity": 2}], "expected_valid": true},
+  {"cards": [{"type": "goal_card", "title": "Sub 1.8s 10m sprint"}], "expected_valid": true},
+  {"cards": [{"type": "stat_grid"}], "expected_valid": false},
+  {"cards": [{"type": "schedule_list"}], "expected_valid": false},
+  {"cards": [{"type": "session_plan", "title": "Missing items field"}], "expected_valid": false},
+  {"cards": [{"type": "choice_card", "headline": "Pick", "options": []}], "expected_valid": true},
+  {"cards": [{"type": "confirm_card"}], "expected_valid": false},
+  {"cards": [{"type": "injury_card", "location": "knee", "severity": 5}], "expected_valid": false},
+  {"cards": [{"type": "unknown_future_card", "data": "anything"}], "expected_valid": true},
+  {"cards": [{"type": "benchmark_bar", "metric": "CMJ", "value": 37.8, "percentile": 77.0, "unit": "cm", "age_band": "U17"}], "expected_valid": true},
+  {"cards": [{"type": "clash_list", "clashes": [{"event_a": "Gym", "event_b": "Football", "overlap_minutes": 30, "suggestion": "Move gym 30min earlier"}]}], "expected_valid": true},
+  {"cards": [{"type": "daily_briefing_card", "date": "Mon Apr 14"}], "expected_valid": true}
+]

@@ -7,6 +7,7 @@ Flow:
   2. Run classify_intent() (exact match → Haiku → fallthrough)
   3. Run route_to_agents() for agent selection
   4. Set route_decision, selected_agent, routing_confidence
+  5. [SHADOW] Run Sonnet classifier in background for A/B comparison (Phase 1)
 
 All safety guardrails removed — will be re-added as CMS-configurable rules.
 PHV safety is enforced downstream in validate_node (only hard gate).
@@ -14,7 +15,9 @@ PHV safety is enforced downstream in validate_node (only hard gate).
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 import time
 from typing import Optional
 
@@ -26,9 +29,16 @@ from app.agents.intent_classifier import (
 )
 from app.agents.intent_registry import CAPSULE_DIRECT_ACTIONS, CAPSULE_GATED_ACTIONS
 from app.agents.router import route_to_agents, should_keep_agent_lock
+from app.agents.sonnet_classifier import shadow_classify_and_compare
 from app.utils.message_helpers import get_msg_type, get_msg_content
 
 logger = logging.getLogger("tomo-ai.pre_router")
+
+# Feature flag: set CLASSIFIER_VERSION=sonnet to use Sonnet as primary (Phase 2)
+# Default: shadow mode (Sonnet runs in background, Haiku+regex is primary)
+_CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "haiku")
+# Shadow mode: set SONNET_SHADOW=true to enable shadow comparison logging
+_SONNET_SHADOW = os.environ.get("SONNET_SHADOW", "true").lower() == "true"
 
 
 async def pre_router_node(state: TomoChatState) -> dict:
@@ -144,5 +154,44 @@ async def pre_router_node(state: TomoChatState) -> dict:
     # Store secondary agents for multi-agent tool merging
     if secondary_agents:
         result["_secondary_agents"] = secondary_agents
+
+    # ── Shadow Sonnet Comparison (Phase 1) ──────────────────────────────
+    # Runs Sonnet classifier in background without affecting production routing.
+    # Logs comparison results to ai_trace_log.sonnet_shadow for A/B analysis.
+    if _SONNET_SHADOW and classification.classification_layer != "agent_lock":
+        # Build conversation summary from recent messages
+        conv_summary = ""
+        recent_msgs = []
+        for msg in messages[-6:]:
+            role = get_msg_type(msg)
+            content = get_msg_content(msg)[:150]
+            if role in ("human", "ai"):
+                recent_msgs.append(f"{role}: {content}")
+        if recent_msgs:
+            conv_summary = "\n".join(recent_msgs[-4:])  # Last 2 turns
+
+        # Fire-and-forget shadow comparison (do not block the pipeline)
+        async def _shadow_task():
+            try:
+                comparison = await shadow_classify_and_compare(
+                    message=user_message,
+                    existing_result={
+                        "agent_type": primary_agent,
+                        "intent_id": classification.intent_id,
+                        "confidence": classification.confidence,
+                        "classification_layer": classification.classification_layer,
+                    },
+                    conversation_summary=conv_summary,
+                    active_tab=active_tab,
+                    last_agent=last_agent,
+                    context=context,
+                )
+                # Store comparison in state for persist node to log
+                # (Non-blocking — if this fails, production is unaffected)
+                logger.debug(f"Shadow comparison: {comparison.get('agent_match', 'unknown')}")
+            except Exception as e:
+                logger.debug(f"Shadow classification skipped: {e}")
+
+        asyncio.create_task(_shadow_task())
 
     return result
