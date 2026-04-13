@@ -26,18 +26,34 @@ def _safe_float(v, default=None):
         return default
 
 
-# Map Python event types to TS backend Zod-validated types
+# TS backend Zod-validated event types
+_VALID_EVENT_TYPES = {"training", "match", "recovery", "study_block", "study", "exam", "other"}
+
+# Map LLM-generated event types to valid Zod enum values
 _EVENT_TYPE_MAP = {
     "gym": "training",
+    "gym_session": "training",
     "club_training": "training",
+    "speed_training": "training",
+    "speed_session": "training",
+    "speed": "training",
+    "strength": "training",
+    "conditioning": "training",
+    "practice": "training",
+    "session": "training",
+    "workout": "training",
     "rest": "recovery",
+    "rest_day": "recovery",
     "personal_dev": "other",
+    "personal": "other",
 }
 
 
 def _map_event_type(et: str) -> str:
-    """Map AI agent event types to TS backend calendar event types."""
-    return _EVENT_TYPE_MAP.get(et, et)
+    """Map AI agent event types to TS backend calendar event types.
+    Falls back to 'training' for any unmapped type (safest default)."""
+    mapped = _EVENT_TYPE_MAP.get(et, et)
+    return mapped if mapped in _VALID_EVENT_TYPES else "training"
 
 
 def make_timeline_tools(user_id: str, context: PlayerContext) -> list:

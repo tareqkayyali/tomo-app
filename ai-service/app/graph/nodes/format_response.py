@@ -201,7 +201,7 @@ def _ensure_timeline_card(structured: dict, state: TomoChatState) -> dict:
                 time_str = _extract_time_from_iso(ev.get("start_time", ""))
                 items.append({
                     "time": time_str or "—",
-                    "title": ev.get("title", "Event"),
+                    "title": _strip_emoji(ev.get("title", "Event")),
                     "type": ev.get("event_type", "other"),
                 })
             if not items:
@@ -225,7 +225,7 @@ def _ensure_timeline_card(structured: dict, state: TomoChatState) -> dict:
                         time_str = _extract_time_from_iso(ev.get("start_time", ""))
                         items.append({
                             "time": time_str or "—",
-                            "title": ev.get("title", "Event"),
+                            "title": _strip_emoji(ev.get("title", "Event")),
                             "type": ev.get("event_type", "other"),
                         })
                     schedule_cards.append({

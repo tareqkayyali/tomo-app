@@ -100,6 +100,32 @@ export async function proxy(req: NextRequest) {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
   }
 
+  // --- 0b. Internal service-to-service auth (Python AI service → TS backend) ---
+  // The Python AI service sends write actions (create_event, etc.) via bridge.
+  // It authenticates with the Supabase service role key + X-Tomo-Internal header.
+  // We validate the key and trust the X-Tomo-User-Id for the downstream user context.
+  const internalHeader = req.headers.get("x-tomo-internal");
+  if (internalHeader === "ai-service") {
+    const authHeader = req.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+    if (token && serviceKey && token === serviceKey) {
+      const userId = req.headers.get("x-tomo-user-id");
+      if (!userId) {
+        return addCorsHeaders(
+          NextResponse.json({ error: "Internal auth: X-Tomo-User-Id required" }, { status: 400 }),
+          origin
+        );
+      }
+      const response = NextResponse.next({ request: req });
+      response.headers.set("x-user-id", userId);
+      response.headers.set("x-user-email", "ai-service@internal");
+      return addCorsHeaders(response, origin);
+    }
+    // Invalid service key — fall through to normal auth
+  }
+
   // --- 1. Try Bearer token (mobile app + web) ---
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {

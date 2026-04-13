@@ -62,7 +62,7 @@ async def bridge_post(
     client = _get_client()
     headers = {}
     if user_id:
-        headers["x-user-id"] = user_id
+        headers["x-tomo-user-id"] = user_id
 
     try:
         resp = await client.post(path, json=body, headers=headers)
@@ -85,7 +85,7 @@ async def bridge_put(
     client = _get_client()
     headers = {}
     if user_id:
-        headers["x-user-id"] = user_id
+        headers["x-tomo-user-id"] = user_id
 
     try:
         resp = await client.put(path, json=body, headers=headers)
@@ -108,7 +108,7 @@ async def bridge_patch(
     client = _get_client()
     headers = {}
     if user_id:
-        headers["x-user-id"] = user_id
+        headers["x-tomo-user-id"] = user_id
 
     try:
         resp = await client.patch(path, json=body, headers=headers)
@@ -131,7 +131,7 @@ async def bridge_delete(
     client = _get_client()
     headers = {}
     if user_id:
-        headers["x-user-id"] = user_id
+        headers["x-tomo-user-id"] = user_id
 
     try:
         kwargs: dict[str, Any] = {"headers": headers}
@@ -157,7 +157,7 @@ async def bridge_get(
     client = _get_client()
     headers = {}
     if user_id:
-        headers["x-user-id"] = user_id
+        headers["x-tomo-user-id"] = user_id
 
     try:
         resp = await client.get(path, params=params, headers=headers)
