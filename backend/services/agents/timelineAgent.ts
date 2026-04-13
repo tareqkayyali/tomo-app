@@ -990,7 +990,7 @@ export async function executeTimelineTool(
         }));
 
         const skippedNote = skippedCount > 0 ? ` (${skippedCount} skipped — already exist)` : "";
-        const warningNote = warnings.length > 0 ? `\n⚠️ ${warnings.join("; ")}` : "";
+        const warningNote = warnings.length > 0 ? `\nNote: ${warnings.join("; ")}` : "";
         return {
           result: {
             success: true,
@@ -1108,7 +1108,7 @@ export function buildTimelineDynamicPrompt(context: PlayerContext): string {
           .join(", ");
 
   const acwrWarning = (context.snapshotEnrichment?.projectedACWR ?? 0) > 1.5
-    ? '\n⚠️ WARNING: Projected ACWR > 1.5 — high injury risk if all scheduled sessions are completed at planned intensity. Consider reducing load or swapping a HARD session to LIGHT.'
+    ? '\nWARNING: Projected ACWR > 1.5 -- high injury risk if all scheduled sessions are completed at planned intensity. Consider reducing load or swapping a HARD session to LIGHT.'
     : '';
 
   return `

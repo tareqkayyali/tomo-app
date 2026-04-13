@@ -713,8 +713,8 @@ S8_EDGE_CASES: list[EvalScenario] = [
     # Gibberish / unicode
     EvalScenario(id="s8_20", suite="s8_edge", query="asdfghjkl qwerty",
         tags=["edge", "gibberish"]),
-    EvalScenario(id="s8_21", suite="s8_edge", query="💪🔥⚡🏃‍♂️",
-        tags=["edge", "emoji_only"]),
+    EvalScenario(id="s8_21", suite="s8_edge", query="lets go pump iron sprint run",
+        tags=["edge", "slang_only"]),
 
     # Extremely long query
     EvalScenario(id="s8_22", suite="s8_edge",

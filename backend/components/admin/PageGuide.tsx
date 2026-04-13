@@ -81,7 +81,7 @@ export function PageGuide({ summary, details, examples, impact, warning, storage
                 </div>
               )}
               {warning && (
-                <p className="text-sm text-destructive leading-relaxed">⚠ {warning}</p>
+                <p className="text-sm text-destructive leading-relaxed">{warning}</p>
               )}
             </div>
           )}

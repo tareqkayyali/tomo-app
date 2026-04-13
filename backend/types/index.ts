@@ -55,7 +55,7 @@ export const ArchetypeInfo: Record<Archetype, ArchetypeDetail> = {
     calmMessage: "End while sharp. Quality > fatigue.",
   },
   surge: {
-    emoji: "🌊",
+    emoji: "",
     name: "Surge",
     rarity: "common",
     description:

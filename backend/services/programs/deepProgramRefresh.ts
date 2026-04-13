@@ -618,7 +618,7 @@ Weekly structure: ${JSON.stringify(matrix.weekly_structure)}`);
     }
 
     if (programRuleGuidance.isSafetyCritical) {
-      pdLines.push(`\n⚠️ SAFETY-CRITICAL RULES ACTIVE — These rules CANNOT be overridden. Any program that violates safety-critical rules must be excluded regardless of other considerations.`);
+      pdLines.push(`\nSAFETY-CRITICAL RULES ACTIVE -- These rules CANNOT be overridden. Any program that violates safety-critical rules must be excluded regardless of other considerations.`);
     }
 
     sections.push(pdLines.join('\n'));

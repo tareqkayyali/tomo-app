@@ -104,37 +104,37 @@ interface VitalGroupResult {
 
 const VITAL_GROUPS = [
   {
-    groupId: "recovery_readiness", displayName: "Recovery & Readiness", emoji: "🔋",
+    groupId: "recovery_readiness", displayName: "Recovery & Readiness", emoji: "",
     colorTheme: "green", priority: 1,
     athleteDescription: "How ready your body is to train hard today. Green = push it. Red = your body needs rest.",
   },
   {
-    groupId: "sleep", displayName: "Sleep", emoji: "🌙",
+    groupId: "sleep", displayName: "Sleep", emoji: "",
     colorTheme: "purple", priority: 2,
     athleteDescription: "Where your muscles grow and your brain locks in what you learned at training.",
   },
   {
-    groupId: "cardio_load", displayName: "Cardiovascular Load", emoji: "❤️‍🔥",
+    groupId: "cardio_load", displayName: "Cardiovascular Load", emoji: "",
     colorTheme: "red", priority: 3,
     athleteDescription: "How hard your heart and lungs worked. Like a fuel gauge — spend wisely, not all at once.",
   },
   {
-    groupId: "activity_movement", displayName: "Activity & Movement", emoji: "🏃",
+    groupId: "activity_movement", displayName: "Activity & Movement", emoji: "",
     colorTheme: "blue", priority: 4,
     athleteDescription: "Your daily movement volume — steps, active minutes, and calories burned.",
   },
   {
-    groupId: "body_growth", displayName: "Body & Growth", emoji: "📏",
+    groupId: "body_growth", displayName: "Body & Growth", emoji: "",
     colorTheme: "orange", priority: 5,
     athleteDescription: "Your body's physical development — height, weight, and growth stage tracking.",
   },
   {
-    groupId: "respiratory_oxygen", displayName: "Respiratory & Oxygen", emoji: "🌬️",
+    groupId: "respiratory_oxygen", displayName: "Respiratory & Oxygen", emoji: "",
     colorTheme: "teal", priority: 6,
     athleteDescription: "How well your lungs deliver oxygen. Breathing rate changes can flag illness early.",
   },
   {
-    groupId: "mental_load", displayName: "Mental Load", emoji: "🧠",
+    groupId: "mental_load", displayName: "Mental Load", emoji: "",
     colorTheme: "pink", priority: 7,
     athleteDescription: "Your mental state — stress, mood, and academic load that affect performance.",
   },
@@ -815,9 +815,9 @@ export async function GET(req: NextRequest) {
   }
 
   const realTimeMetricDefs = [
-    { metric: "hrv", label: "HRV", emoji: "💓", unit: "ms" },
-    { metric: "resting_hr", label: "Resting HR", emoji: "💗", unit: "bpm" },
-    { metric: "sleep_hours", label: "Sleep", emoji: "😴", unit: "hrs" },
+    { metric: "hrv", label: "HRV", emoji: "", unit: "ms" },
+    { metric: "resting_hr", label: "Resting HR", emoji: "", unit: "bpm" },
+    { metric: "sleep_hours", label: "Sleep", emoji: "", unit: "hrs" },
   ];
 
   const playerAge = profile.age ?? (profile.date_of_birth ? computeDecimalAge(profile.date_of_birth) : null);

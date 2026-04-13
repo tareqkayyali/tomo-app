@@ -334,7 +334,7 @@ function buildPHVExplanation(flaggedAlternatives: PHVSafeAlternative[]): string 
     `Safe return: ${alt.progression}`
   );
 
-  return `\n\n⚠️ **Growth Stage Safety — some exercises need modification:**\n\n` +
+  return `\n\n**Growth Stage Safety -- some exercises need modification:**\n\n` +
     lines.join("\n\n") +
     `\n\n*Your loading multiplier is 0.60× during mid-PHV. These alternatives build the same movement patterns safely.*`;
 }

@@ -63,7 +63,7 @@ export function StatsCards({ stats }: { stats: DashboardStats }) {
           title="Training Drills"
           value={stats.drills.total}
           description="Drills in the catalog"
-          icon="⚡"
+          icon=""
           href="/admin/drills"
           breakdown={[
             { label: "active", value: stats.drills.active },
@@ -74,14 +74,14 @@ export function StatsCards({ stats }: { stats: DashboardStats }) {
           title="Assessments"
           value={stats.assessments}
           description="Physical test definitions"
-          icon="📋"
+          icon=""
           href="/admin/assessments"
         />
         <StatCard
           title="Normative Data"
           value={stats.normativeData}
           description="Benchmark metric rows"
-          icon="📈"
+          icon=""
           href="/admin/normative-data"
         />
       </div>
@@ -92,7 +92,7 @@ export function StatsCards({ stats }: { stats: DashboardStats }) {
           title="Sports"
           value={stats.sports.total}
           description="Configured sports"
-          icon="🏆"
+          icon=""
           href="/admin/sports"
           breakdown={[
             { label: "available", value: stats.sports.available },
@@ -106,7 +106,7 @@ export function StatsCards({ stats }: { stats: DashboardStats }) {
           title="Content Items"
           value={stats.contentItems.total}
           description="Quotes, tips, milestones"
-          icon="📝"
+          icon=""
           href="/admin/content"
           breakdown={[
             { label: "active", value: stats.contentItems.active },
@@ -120,7 +120,7 @@ export function StatsCards({ stats }: { stats: DashboardStats }) {
           title="Drill Usage"
           value={stats.drillUsage.totalCompletions}
           description="Total drill completions"
-          icon="🎯"
+          icon=""
           breakdown={[
             { label: "unique users", value: stats.drillUsage.uniqueUsers },
           ]}

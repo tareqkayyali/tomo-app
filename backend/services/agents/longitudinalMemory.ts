@@ -69,10 +69,10 @@ export async function loadAthleteMemory(athleteId: string): Promise<string> {
       parts.push(`Goals: ${memory.currentGoals.slice(-3).join('; ')}`);
     }
     if (memory.unresolvedConcerns?.length > 0) {
-      parts.push(`⚠️ Open concerns: ${memory.unresolvedConcerns.slice(-3).join('; ')}`);
+      parts.push(`Open concerns: ${memory.unresolvedConcerns.slice(-3).join('; ')}`);
     }
     if (memory.injuryHistory?.length > 0) {
-      parts.push(`🩹 Injury history: ${memory.injuryHistory.slice(-3).join('; ')}`);
+      parts.push(`Injury history: ${memory.injuryHistory.slice(-3).join('; ')}`);
     }
     if (memory.behavioralPatterns?.length > 0) {
       parts.push(`Patterns: ${memory.behavioralPatterns.slice(-2).join('; ')}`);
@@ -81,7 +81,7 @@ export async function loadAthleteMemory(athleteId: string): Promise<string> {
       parts.push(`Prefers: ${memory.coachingPreferences.slice(-2).join('; ')}`);
     }
     if (memory.keyMilestones?.length > 0) {
-      parts.push(`🏆 Recent milestones: ${memory.keyMilestones.slice(-2).join('; ')}`);
+      parts.push(`Recent milestones: ${memory.keyMilestones.slice(-2).join('; ')}`);
     }
     if (data.last_session_summary) {
       parts.push(`Last session: ${data.last_session_summary}`);

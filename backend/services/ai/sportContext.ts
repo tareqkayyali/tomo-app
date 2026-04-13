@@ -39,7 +39,7 @@ export async function buildSportContextSegment(ctx: PlayerContext): Promise<stri
         .filter((c) => c.applicableStages.includes("mid_phv"))
         .map((c) => c.blocked.toLowerCase())
         .join(", ");
-      segment += `\n⚠️ MID-PHV ACTIVE: This athlete is in peak growth velocity. Loading multiplier ${mult}×.
+      segment += `\nMID-PHV ACTIVE: This athlete is in peak growth velocity. Loading multiplier ${mult}x.
 BLOCKED movements: ${blocked || "barbell back squat, depth/drop jumps, Olympic lifts, maximal sprint, heavy deadlift"}.
 If any blocked movement is discussed: acknowledge, explain growth-phase risk, offer safe alternative.`;
     }
@@ -62,7 +62,7 @@ function buildSportContextSegmentFallback(sport: string, position: string, phvSt
   };
   let seg = fallbackMap[sportLower] ?? `Sport: ${sport}. Position: ${position}.`;
   if (phvStage === "mid_phv" || phvStage === "MID") {
-    seg += `\n⚠️ MID-PHV ACTIVE: Loading multiplier 0.60×. BLOCKED: barbell back squat, depth/drop jumps, Olympic lifts, maximal sprint, heavy deadlift.`;
+    seg += `\nMID-PHV ACTIVE: Loading multiplier 0.60x. BLOCKED: barbell back squat, depth/drop jumps, Olympic lifts, maximal sprint, heavy deadlift.`;
   }
   return seg;
 }

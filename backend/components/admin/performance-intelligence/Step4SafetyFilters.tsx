@@ -143,7 +143,7 @@ export function Step4SafetyFilters({ onBack }: Props) {
               </div>
               {filter.isDefault ? (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <span>🔒</span> Platform default
+                  Platform default
                 </span>
               ) : (
                 <Switch checked={filter.enabled} onCheckedChange={(v) => toggleFilter(filter.id, v)} className="scale-75" />

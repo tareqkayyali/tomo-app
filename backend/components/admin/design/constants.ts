@@ -290,27 +290,27 @@ export const FONT_WEIGHTS = [
 
 export const TAB_META: Record<string, { icon: string; title: string; description: string }> = {
   global: {
-    icon: "🎨",
+    icon: "",
     title: "Global Theme",
     description: "Brand colors, backgrounds, text, glass effects, and shared component typography",
   },
   timeline: {
-    icon: "📅",
+    icon: "",
     title: "Timeline",
     description: "Event colors and calendar/event/insight component typography",
   },
   output: {
-    icon: "⚡",
+    icon: "",
     title: "Output",
     description: "Readiness, benchmark colors, and vitals/metrics/program component typography",
   },
   chat: {
-    icon: "💬",
+    icon: "",
     title: "Tomo Chat",
     description: "Chat message, agent label, chip, and timestamp typography",
   },
   mastery: {
-    icon: "🏆",
+    icon: "",
     title: "Mastery",
     description: "Radar chart colors, DNA card tiers, and mastery component typography",
   },

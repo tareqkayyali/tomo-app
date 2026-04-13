@@ -276,9 +276,16 @@ async def run_supervisor(
 
         return result
     except Exception as e:
+        import json as _json
         logger.error(f"Supervisor execution failed: {e}", exc_info=True)
+        error_response = {
+            "headline": "Hey -- ran into something",
+            "body": "Something tripped up on my end. Mind sending that again?",
+            "cards": [],
+            "chips": [{"label": "Try again", "message": "Can you try that again?"}],
+        }
         return {
-            "final_response": '{{"headline":"Hey -- ran into something","body":"Something tripped up on my end. Mind sending that again?","cards":[],"chips":[{{"label":"Try again","message":"Can you try that again?"}}]}}',
+            "final_response": _json.dumps(error_response),
             "final_cards": [],
             "total_cost_usd": 0.0,
             "total_tokens": 0,
