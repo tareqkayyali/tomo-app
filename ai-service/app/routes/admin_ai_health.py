@@ -411,9 +411,9 @@ async def get_dashboard(
 
         global_stats = {
             "total_traces": g[0] or 0,
-            "avg_cost_usd": round(float(g[1] or 0), 6),
+            "avg_cost": round(float(g[1] or 0), 6),
             "avg_latency_ms": round(float(g[2] or 0), 1),
-            "error_rate": round(float(g[3] or 0), 4),
+            "error_rate": round(float(g[3] or 0) * 100, 2),
             "safety_flags": int(g[4] or 0),
             "total_cost_usd": round(float(g[5] or 0), 4),
         }
@@ -424,7 +424,7 @@ async def get_dashboard(
             SELECT
                 agent_type,
                 COUNT(*),
-                SUM(CASE WHEN validation_passed THEN 1 ELSE 0 END),
+                SUM(CASE WHEN validation_passed IS NOT false THEN 1 ELSE 0 END),
                 AVG(total_cost_usd),
                 AVG(latency_ms),
                 AVG(routing_confidence),
@@ -475,8 +475,8 @@ async def get_dashboard(
                 "total_traces": total,
                 "success_count": success,
                 "error_count": error,
-                "success_rate": round(success / max(total, 1), 4),
-                "avg_cost_usd": round(float(row[3] or 0), 6),
+                "success_rate": round(success / max(total, 1) * 100, 2),
+                "avg_cost": round(float(row[3] or 0), 6),
                 "avg_latency_ms": round(float(row[4] or 0), 1),
                 "avg_confidence": round(float(row[5] or 0), 4),
                 "top_intents": agent_intents.get(agent_type, []),
