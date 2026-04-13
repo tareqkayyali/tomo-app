@@ -62,16 +62,6 @@ async def persist_node(state: TomoChatState) -> dict:
     try:
         pool = get_pool()
         async with pool.connection() as conn:
-            # Upsert chat session
-            await conn.execute(
-                """INSERT INTO chat_sessions (id, user_id, last_agent_type, updated_at)
-                   VALUES (%s, %s, %s, NOW())
-                   ON CONFLICT (id) DO UPDATE SET
-                     last_agent_type = EXCLUDED.last_agent_type,
-                     updated_at = NOW()""",
-                (session_id, user_id, selected_agent),
-            )
-
             # Save conversation turn
             # NOTE: User message is already saved by TypeScript gateway (route.ts)
             # before proxying to Python. We only save the assistant response here

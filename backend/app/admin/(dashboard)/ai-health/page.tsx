@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Card,
@@ -79,6 +79,65 @@ interface InsightBatch {
   insights: Insight[];
 }
 
+// Dashboard API types
+interface AgentStats {
+  agent_type: string;
+  total_traces: number;
+  success_rate: number;
+  avg_cost: number;
+  avg_latency_ms: number;
+  error_count: number;
+  safety_flags: number;
+  top_intents: string[];
+}
+
+interface GlobalStats {
+  total_traces: number;
+  avg_cost: number;
+  error_rate: number;
+  safety_flags: number;
+}
+
+interface DashboardData {
+  global_stats: GlobalStats;
+  agents: AgentStats[];
+  time_range: { from: string; to: string };
+}
+
+interface Trace {
+  id: string;
+  created_at: string;
+  user_message: string;
+  agent_type: string;
+  intent_id: string;
+  classification_method: string;
+  classification_confidence: number;
+  tools_called: string[];
+  total_cost_usd: number;
+  total_latency_ms: number;
+  total_tokens: number;
+  validation_passed: boolean;
+  validation_flags: string[];
+  session_id: string;
+  user_id: string;
+  request_id: string;
+  rag_used: boolean;
+  rag_chunks: number;
+  sport: string;
+  age_band: string;
+  readiness_color: string;
+  acwr: number | null;
+  phv_safety: boolean;
+  crisis_detected: boolean;
+}
+
+interface TracesResponse {
+  traces: Trace[];
+  total_count: number;
+  limit: number;
+  offset: number;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const SEV_STYLE: Record<string, string> = {
@@ -103,6 +162,108 @@ const P_LABEL: Record<number, string> = {
   4: "P4 UX",
 };
 
+const CATEGORY_LABEL: Record<string, string> = {
+  safety: "Athlete Safety",
+  coaching: "Coaching Quality",
+  routing: "Intent Routing",
+  cost: "Cost Efficiency",
+  dual_load: "Dual-Load Stress",
+};
+
+const INSIGHT_SEV_STYLE: Record<string, string> = {
+  critical: "border-l-red-500 bg-red-50",
+  high: "border-l-orange-500 bg-orange-50",
+  medium: "border-l-yellow-500 bg-yellow-50",
+  info: "border-l-zinc-400 bg-zinc-50",
+};
+
+const TIME_RANGE_HOURS: Record<string, number> = {
+  "1h": 1,
+  "6h": 6,
+  "24h": 24,
+  "7d": 168,
+  "30d": 720,
+};
+
+type TimeRange = "1h" | "6h" | "24h" | "7d" | "30d";
+type TabId = "command" | "traces" | "issues";
+
+const AGENT_TYPES = [
+  "All",
+  "timeline",
+  "recovery",
+  "output",
+  "mastery",
+  "settings",
+  "planning",
+  "testing_benchmark",
+  "dual_load",
+  "cv_identity",
+  "training_program",
+] as const;
+
+const PATH_TYPES = ["All", "capsule", "full_ai", "confirmed_write"] as const;
+
+const COST_BUCKETS = ["All", "free", "cheap", "moderate", "expensive"] as const;
+const LATENCY_BUCKETS = ["All", "fast", "normal", "slow"] as const;
+const VALIDATION_OPTIONS = ["All", "Pass", "Fail"] as const;
+
+function getTimeRange(range: string): { from: string; to: string } {
+  const now = new Date();
+  const hours = TIME_RANGE_HOURS[range] || 24;
+  const from = new Date(now.getTime() - hours * 3600000);
+  return { from: from.toISOString(), to: now.toISOString() };
+}
+
+function formatCost(cost: number): string {
+  return `$${cost.toFixed(4)}`;
+}
+
+function formatLatency(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function truncate(str: string, len: number): string {
+  if (!str) return "";
+  return str.length > len ? str.slice(0, len) + "..." : str;
+}
+
+function healthDot(rate: number): { color: string; border: string } {
+  if (rate >= 95) return { color: "bg-green-500", border: "border-l-green-500" };
+  if (rate >= 85) return { color: "bg-yellow-500", border: "border-l-yellow-500" };
+  return { color: "bg-red-500", border: "border-l-red-500" };
+}
+
+// ── Skeleton Loader ─────────────────────────────────────────────────────────
+
+function Skeleton({ className }: { className?: string }) {
+  return (
+    <div className={`animate-pulse bg-zinc-200 rounded ${className ?? "h-4 w-20"}`} />
+  );
+}
+
+// ── Trend Badge ─────────────────────────────────────────────────────────────
+
 function TrendBadge({ trend }: { trend: TrendData | null }) {
   if (!trend) return null;
   const { direction, pct_change, alert } = trend;
@@ -125,24 +286,7 @@ function TrendBadge({ trend }: { trend: TrendData | null }) {
   return <span className="text-xs text-zinc-500">stable</span>;
 }
 
-// ── Main Page ───────────────────────────────────────────────────────────────
-
-const CATEGORY_LABEL: Record<string, string> = {
-  safety: "Athlete Safety",
-  coaching: "Coaching Quality",
-  routing: "Intent Routing",
-  cost: "Cost Efficiency",
-  dual_load: "Dual-Load Stress",
-};
-
-const INSIGHT_SEV_STYLE: Record<string, string> = {
-  critical: "border-l-red-500 bg-red-50",
-  high: "border-l-orange-500 bg-orange-50",
-  medium: "border-l-yellow-500 bg-yellow-50",
-  info: "border-l-zinc-400 bg-zinc-50",
-};
-
-// ── Insight Card List (reusable for Latest + Historical) ──────────────────
+// ── Insight Card List (reusable for Latest + Historical + Filtered) ─────────
 
 function InsightCardList({ insights }: { insights: Insight[] }) {
   return (
@@ -183,7 +327,7 @@ function InsightCardList({ insights }: { insights: Insight[] }) {
                     key={traceId}
                     className="font-mono text-[10px] bg-zinc-200 rounded px-1.5 py-0.5 text-zinc-600"
                   >
-                    {traceId.slice(0, 8)}…
+                    {traceId.slice(0, 8)}...
                   </span>
                 ))}
               </div>
@@ -195,140 +339,153 @@ function InsightCardList({ insights }: { insights: Insight[] }) {
   );
 }
 
-// ── Delta computation (Latest shows only NEW findings) ────────────────────
-
-interface DeltaResult {
-  deltaInsights: Insight[];   // Only insights affected by new traces
-  unchangedCount: number;     // Categories with no new trace data
-  newTraceIds: string[];      // Trace IDs not in previous batch
-  totalNewTraces: number;     // Net new trace count
-}
-
-function computeInsightDelta(
-  latest: InsightBatch,
-  previous: InsightBatch | null
-): DeltaResult {
-  if (!previous || previous.insights.length === 0) {
-    return {
-      deltaInsights: latest.insights,
-      unchangedCount: 0,
-      newTraceIds: [...new Set(latest.insights.flatMap((i) => i.highlighted_traces))],
-      totalNewTraces: latest.traces_analyzed,
-    };
-  }
-
-  // Collect ALL trace IDs from the previous batch
-  const prevTraceIds = new Set<string>();
-  for (const ins of previous.insights) {
-    for (const t of ins.highlighted_traces) {
-      prevTraceIds.add(t);
-    }
-  }
-
-  // Find genuinely new trace IDs in the latest batch
-  const allLatestTraceIds = new Set<string>();
-  for (const ins of latest.insights) {
-    for (const t of ins.highlighted_traces) {
-      allLatestTraceIds.add(t);
-    }
-  }
-  const newTraceIds = [...allLatestTraceIds].filter((t) => !prevTraceIds.has(t));
-  const newTraceSet = new Set(newTraceIds);
-
-  // An insight is "delta" if it references at least one new trace ID,
-  // OR if its category didn't exist in the previous batch,
-  // OR if its severity changed for the same category.
-  const prevByCategory = new Map<string, Insight>();
-  for (const ins of previous.insights) {
-    prevByCategory.set(ins.category, ins);
-  }
-
-  const deltaInsights: Insight[] = [];
-  let unchangedCount = 0;
-
-  for (const ins of latest.insights) {
-    const prev = prevByCategory.get(ins.category);
-    const hasNewTraces = ins.highlighted_traces.some((t) => newTraceSet.has(t));
-    const isNewCategory = !prev;
-    const severityChanged = prev && prev.severity !== ins.severity;
-
-    if (isNewCategory || severityChanged || hasNewTraces) {
-      deltaInsights.push(ins);
-    } else {
-      unchangedCount++;
-    }
-  }
-
-  return {
-    deltaInsights,
-    unchangedCount,
-    newTraceIds,
-    totalNewTraces: Math.max(0, latest.traces_analyzed - previous.traces_analyzed),
-  };
-}
-
-const INSIGHTS_STORAGE_KEY = "tomo_ai_health_insights_history";
-
-function loadInsightHistory(): InsightBatch[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(INSIGHTS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveInsightHistory(batches: InsightBatch[]) {
-  if (typeof window === "undefined") return;
-  // Keep last 20 batches max
-  const trimmed = batches.slice(0, 20);
-  localStorage.setItem(INSIGHTS_STORAGE_KEY, JSON.stringify(trimmed));
-}
+// ── Main Page ───────────────────────────────────────────────────────────────
 
 export default function AIHealthPage() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabId>("command");
+
+  // Time range
+  const [timeRange, setTimeRange] = useState<TimeRange>("24h");
+
+  // Command Center state
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+
+  // Traces tab state
+  const [tracesData, setTracesData] = useState<TracesResponse | null>(null);
+  const [tracesLoading, setTracesLoading] = useState(false);
+  const [expandedTraceId, setExpandedTraceId] = useState<string | null>(null);
+  const [tracesOffset, setTracesOffset] = useState(0);
+  const TRACES_LIMIT = 50;
+
+  // Trace filters
+  const [filterAgentType, setFilterAgentType] = useState("All");
+  const [filterPathType, setFilterPathType] = useState("All");
+  const [filterIntent, setFilterIntent] = useState("");
+  const [filterCostBucket, setFilterCostBucket] = useState("All");
+  const [filterLatencyBucket, setFilterLatencyBucket] = useState("All");
+  const [filterValidation, setFilterValidation] = useState("All");
+
+  // Filtered insights (from traces tab)
+  const [filteredInsights, setFilteredInsights] = useState<Insight[] | null>(null);
+  const [filteredInsightsLoading, setFilteredInsightsLoading] = useState(false);
+  const [filteredTracesAnalyzed, setFilteredTracesAnalyzed] = useState(0);
+
+  // Issues tab state
   const [issues, setIssues] = useState<Issue[]>([]);
-  const [digest, setDigest] = useState<Digest>({});
-  const [latestBatch, setLatestBatch] = useState<InsightBatch | null>(null);
-  const [historicalBatches, setHistoricalBatches] = useState<InsightBatch[]>([]);
-  const [showHistorical, setShowHistorical] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [issuesLoading, setIssuesLoading] = useState(true);
   const [collecting, setCollecting] = useState(false);
-  const [generatingInsights, setGeneratingInsights] = useState(false);
 
-  // Load persisted history on mount
-  useEffect(() => {
-    const history = loadInsightHistory();
-    if (history.length > 0) {
-      setLatestBatch(history[0]);
-      setHistoricalBatches(history.slice(1));
-    }
-  }, []);
+  // ── Fetch: Dashboard ──────────────────────────────────────────────────────
 
-  const fetchData = useCallback(async () => {
+  const fetchDashboard = useCallback(async () => {
+    setDashboardLoading(true);
     try {
-      const [issuesRes, digestRes] = await Promise.all([
-        fetch("/api/v1/admin/ai-health/issues", { credentials: "include" }),
-        fetch("/api/v1/admin/ai-health/digest/latest", { credentials: "include" }),
-      ]);
-
-      if (issuesRes.ok) {
-        const data = await issuesRes.json();
-        setIssues(data.issues ?? []);
+      const { from, to } = getTimeRange(timeRange);
+      const res = await fetch(
+        `/api/v1/admin/ai-health/dashboard?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+        { credentials: "include" }
+      );
+      if (res.ok) {
+        setDashboardData(await res.json());
+      } else {
+        toast.error("Failed to load dashboard data");
       }
-      if (digestRes.ok) {
-        setDigest(await digestRes.json());
-      }
-    } catch (e) {
-      toast.error("Failed to load AI health data");
+    } catch {
+      toast.error("Dashboard request failed");
     } finally {
-      setLoading(false);
+      setDashboardLoading(false);
+    }
+  }, [timeRange]);
+
+  // ── Fetch: Traces ─────────────────────────────────────────────────────────
+
+  const fetchTraces = useCallback(async (offset = 0) => {
+    setTracesLoading(true);
+    setFilteredInsights(null);
+    try {
+      const { from, to } = getTimeRange(timeRange);
+      const params = new URLSearchParams({
+        from,
+        to,
+        limit: String(TRACES_LIMIT),
+        offset: String(offset),
+      });
+      if (filterAgentType !== "All") params.set("agent_type", filterAgentType);
+      if (filterPathType !== "All") params.set("path_type", filterPathType);
+      if (filterIntent.trim()) params.set("intent_id", filterIntent.trim());
+
+      const res = await fetch(
+        `/api/v1/admin/ai-health/traces?${params.toString()}`,
+        { credentials: "include" }
+      );
+      if (res.ok) {
+        const data: TracesResponse = await res.json();
+        setTracesData(data);
+        setTracesOffset(offset);
+      } else {
+        toast.error("Failed to load traces");
+      }
+    } catch {
+      toast.error("Traces request failed");
+    } finally {
+      setTracesLoading(false);
+    }
+  }, [timeRange, filterAgentType, filterPathType, filterIntent]);
+
+  // ── Fetch: Issues ─────────────────────────────────────────────────────────
+
+  const fetchIssues = useCallback(async () => {
+    setIssuesLoading(true);
+    try {
+      const res = await fetch("/api/v1/admin/ai-health/issues", {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIssues(data.issues ?? []);
+      } else {
+        toast.error("Failed to load issues");
+      }
+    } catch {
+      toast.error("Issues request failed");
+    } finally {
+      setIssuesLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // ── Filtered Insights ─────────────────────────────────────────────────────
+
+  const runFilteredInsights = async () => {
+    setFilteredInsightsLoading(true);
+    try {
+      const { from, to } = getTimeRange(timeRange);
+      const body: Record<string, unknown> = { from, to, filters: {} };
+      if (filterAgentType !== "All") body.agent_type = filterAgentType;
+
+      const res = await fetch("/api/v1/admin/ai-health/insights/filtered", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFilteredInsights(data.insights ?? []);
+        setFilteredTracesAnalyzed(data.traces_analyzed ?? 0);
+        toast.success(`Insights generated from ${data.traces_analyzed ?? 0} traces`);
+      } else {
+        toast.error("Insight generation failed");
+      }
+    } catch {
+      toast.error("Request failed");
+    } finally {
+      setFilteredInsightsLoading(false);
+    }
+  };
+
+  // ── Collection Trigger ────────────────────────────────────────────────────
 
   const triggerCollection = async () => {
     setCollecting(true);
@@ -342,23 +499,7 @@ export default function AIHealthPage() {
         toast.success(
           `Collection complete: ${data.runs_analyzed} runs, ${data.issues_detected} issues, ${data.fixes_generated} fixes`
         );
-        // If insights came back with collection, add to history
-        if (data.insights && data.insights.length > 0) {
-          const collectionBatch: InsightBatch = {
-            id: crypto.randomUUID(),
-            generated_at: new Date().toISOString(),
-            traces_analyzed: data.runs_analyzed ?? 0,
-            insights: data.insights,
-          };
-          const updatedHistory: InsightBatch[] = [];
-          if (latestBatch) updatedHistory.push(latestBatch, ...historicalBatches);
-          else updatedHistory.push(...historicalBatches);
-
-          setLatestBatch(collectionBatch);
-          setHistoricalBatches(updatedHistory);
-          saveInsightHistory([collectionBatch, ...updatedHistory]);
-        }
-        fetchData();
+        fetchIssues();
       } else {
         toast.error("Collection failed");
       }
@@ -369,50 +510,7 @@ export default function AIHealthPage() {
     }
   };
 
-  const generateInsightsReport = async () => {
-    setGeneratingInsights(true);
-    try {
-      const res = await fetch("/api/v1/admin/ai-health/insights", {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const newInsights: Insight[] = data.insights ?? [];
-        const tracesAnalyzed: number = data.traces_analyzed ?? newInsights.reduce(
-          (max: number, i: Insight) => Math.max(max, i.traces_analyzed), 0
-        );
-
-        const newBatch: InsightBatch = {
-          id: crypto.randomUUID(),
-          generated_at: new Date().toISOString(),
-          traces_analyzed: tracesAnalyzed,
-          insights: newInsights,
-        };
-
-        // Move current latest to historical
-        const updatedHistory: InsightBatch[] = [];
-        if (latestBatch) {
-          updatedHistory.push(latestBatch, ...historicalBatches);
-        } else {
-          updatedHistory.push(...historicalBatches);
-        }
-
-        setLatestBatch(newBatch);
-        setHistoricalBatches(updatedHistory);
-        saveInsightHistory([newBatch, ...updatedHistory]);
-
-        toast.success(
-          `Insights generated from ${tracesAnalyzed} traces`
-        );
-      } else {
-        toast.error("Insights generation failed");
-      }
-    } catch {
-      toast.error("Request failed");
-    } finally {
-      setGeneratingInsights(false);
-    }
-  };
+  // ── Fix Actions ───────────────────────────────────────────────────────────
 
   const markFixApplied = async (fixId: string) => {
     try {
@@ -424,7 +522,7 @@ export default function AIHealthPage() {
       });
       if (res.ok) {
         toast.success("Fix marked as applied");
-        fetchData();
+        fetchIssues();
       } else {
         toast.error("Failed to update fix status");
       }
@@ -442,8 +540,8 @@ export default function AIHealthPage() {
         body: JSON.stringify({ status: "verified" }),
       });
       if (res.ok) {
-        toast.success("Fix verified — feedback sent to LangSmith");
-        fetchData();
+        toast.success("Fix verified");
+        fetchIssues();
       } else {
         toast.error("Failed to verify fix");
       }
@@ -452,345 +550,1012 @@ export default function AIHealthPage() {
     }
   };
 
-  // Categorize issues
-  const open = issues.filter((i) => i.status === "open");
-  const pending = issues.filter((i) => i.status === "fix_generated");
-  const applied = issues.filter((i) => i.status === "fix_applied");
-  const alerts = issues.filter((i) => {
-    const t = i.trend_data;
-    return t && typeof t === "object" && "alert" in t && t.alert;
-  });
+  // ── Effects ───────────────────────────────────────────────────────────────
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">AI Health</h1>
-        <p className="text-sm text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (activeTab === "command") fetchDashboard();
+  }, [activeTab, fetchDashboard]);
+
+  useEffect(() => {
+    if (activeTab === "traces") fetchTraces(0);
+  }, [activeTab, fetchTraces]);
+
+  useEffect(() => {
+    if (activeTab === "issues") fetchIssues();
+  }, [activeTab, fetchIssues]);
+
+  // Re-fetch dashboard when time range changes (if on command tab)
+  useEffect(() => {
+    if (activeTab === "command") fetchDashboard();
+  }, [timeRange, fetchDashboard]);
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+
+  const sortedAgents = useMemo(() => {
+    if (!dashboardData?.agents) return [];
+    return [...dashboardData.agents].sort((a, b) => b.total_traces - a.total_traces);
+  }, [dashboardData]);
+
+  const open = useMemo(() => issues.filter((i) => i.status === "open"), [issues]);
+  const pending = useMemo(
+    () => issues.filter((i) => i.status === "fix_generated"),
+    [issues]
+  );
+  const applied = useMemo(
+    () => issues.filter((i) => i.status === "fix_applied"),
+    [issues]
+  );
+
+  // Client-side cost/latency/validation filtering for traces
+  const filteredTraces = useMemo(() => {
+    if (!tracesData?.traces) return [];
+    let result = tracesData.traces;
+
+    if (filterCostBucket !== "All") {
+      result = result.filter((t) => {
+        const c = t.total_cost_usd;
+        switch (filterCostBucket) {
+          case "free": return c === 0;
+          case "cheap": return c > 0 && c < 0.005;
+          case "moderate": return c >= 0.005 && c < 0.02;
+          case "expensive": return c >= 0.02;
+          default: return true;
+        }
+      });
+    }
+
+    if (filterLatencyBucket !== "All") {
+      result = result.filter((t) => {
+        const ms = t.total_latency_ms;
+        switch (filterLatencyBucket) {
+          case "fast": return ms < 1000;
+          case "normal": return ms >= 1000 && ms < 3000;
+          case "slow": return ms >= 3000;
+          default: return true;
+        }
+      });
+    }
+
+    if (filterValidation !== "All") {
+      result = result.filter((t) =>
+        filterValidation === "Pass" ? t.validation_passed : !t.validation_passed
+      );
+    }
+
+    return result;
+  }, [tracesData, filterCostBucket, filterLatencyBucket, filterValidation]);
+
+  const hasActiveFilters =
+    filterAgentType !== "All" ||
+    filterPathType !== "All" ||
+    filterIntent.trim() !== "" ||
+    filterCostBucket !== "All" ||
+    filterLatencyBucket !== "All" ||
+    filterValidation !== "All";
+
+  // ── Tab Bar ───────────────────────────────────────────────────────────────
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "command", label: "Command Center" },
+    { id: "traces", label: "Trace Explorer" },
+    { id: "issues", label: "Issues & Fixes" },
+  ];
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">AI Health</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            LangSmith feedback loop — issue detection, fix recommendations, and quality
-            trends
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={generateInsightsReport}
-            disabled={generatingInsights}
-            variant="outline"
-            size="sm"
-          >
-            {generatingInsights ? "Analyzing..." : "Generate Insights"}
-          </Button>
-          <Button
-            onClick={triggerCollection}
-            disabled={collecting}
-            variant="outline"
-            size="sm"
-          >
-            {collecting ? "Collecting..." : "Run Collection"}
-          </Button>
-        </div>
+    <div className="space-y-6 max-w-6xl">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-semibold">AI Health</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          3-level observability: real-time metrics, trace inspection, and issue management
+        </p>
       </div>
 
-      {/* Metrics row */}
-      <div className="grid grid-cols-4 gap-4">
-        {[
-          {
-            label: "Open issues",
-            value: open.length,
-            color: open.length > 0 ? "text-red-600" : "text-zinc-500",
-          },
-          {
-            label: "Fixes ready",
-            value: pending.length,
-            color: pending.length > 0 ? "text-amber-600" : "text-zinc-500",
-          },
-          {
-            label: "Applied",
-            value: applied.length,
-            color: applied.length > 0 ? "text-green-600" : "text-zinc-500",
-          },
-          {
-            label: "Trend alerts",
-            value: alerts.length,
-            color: alerts.length > 0 ? "text-red-600" : "text-zinc-500",
-          },
-        ].map((m) => (
-          <Card key={m.label}>
-            <CardContent className="pt-4 pb-3">
-              <div className={`text-2xl font-medium ${m.color}`}>{m.value}</div>
-              <div className="text-xs text-muted-foreground mt-1">{m.label}</div>
-            </CardContent>
-          </Card>
+      {/* Tab Bar */}
+      <div className="flex border-b border-zinc-200">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+              activeTab === tab.id
+                ? "text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-700"
+            }`}
+          >
+            {tab.label}
+            {activeTab === tab.id && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-zinc-900 rounded-t" />
+            )}
+          </button>
         ))}
       </div>
 
-      {/* Monthly digest */}
-      {digest?.narrative && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-blue-600 uppercase tracking-wide text-xs font-medium">
-              Monthly digest — {digest.month_start}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-blue-800 leading-relaxed whitespace-pre-wrap">
-              {digest.narrative}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {/* ================================================================ */}
+      {/* TAB 1: Command Center                                           */}
+      {/* ================================================================ */}
+      {activeTab === "command" && (
+        <div className="space-y-6">
+          {/* Time Range Bar */}
+          <div className="flex items-center gap-1 bg-zinc-50 p-1.5 rounded-lg w-fit">
+            {(["1h", "6h", "24h", "7d", "30d"] as TimeRange[]).map((r) => (
+              <button
+                key={r}
+                onClick={() => setTimeRange(r)}
+                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                  timeRange === r
+                    ? "bg-white text-zinc-900 shadow-sm border border-zinc-200"
+                    : "text-zinc-500 hover:text-zinc-700"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
 
-      <Separator />
-
-      {/* ── Latest Insights (delta only) ────────────────────── */}
-      {latestBatch && latestBatch.insights.length > 0 && (() => {
-        const prevBatch = historicalBatches.length > 0 ? historicalBatches[0] : null;
-        const delta = computeInsightDelta(latestBatch, prevBatch);
-        return (
-          <>
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-sm font-medium">Latest Insights</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Generated{" "}
-                    {new Date(latestBatch.generated_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    — {latestBatch.traces_analyzed} traces analyzed
-                    {delta.totalNewTraces > 0 && (
-                      <span className="text-emerald-600 font-medium">
-                        {" "}(+{delta.totalNewTraces} new)
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
-                  Current
-                </Badge>
-              </div>
-
-              {delta.deltaInsights.length > 0 ? (
-                <>
-                  <InsightCardList insights={delta.deltaInsights} />
-                  {delta.unchangedCount > 0 && (
-                    <p className="text-xs text-muted-foreground mt-3">
-                      {delta.unchangedCount} categor{delta.unchangedCount === 1 ? "y" : "ies"} unchanged from previous generation
-                    </p>
-                  )}
-                </>
-              ) : (
-                <Card className="border-zinc-200 bg-zinc-50">
-                  <CardContent className="py-6 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      No new findings — all {latestBatch.insights.length} categories unchanged from previous generation
-                    </p>
+          {/* Global Stats Strip */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {dashboardLoading ? (
+              <>
+                {[1, 2, 3, 4].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="pt-4 pb-3">
+                      <Skeleton className="h-8 w-16 mb-2" />
+                      <Skeleton className="h-3 w-24" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
+            ) : dashboardData ? (
+              <>
+                <Card>
+                  <CardContent className="pt-4 pb-3">
+                    <div className="text-2xl font-medium text-zinc-900">
+                      {dashboardData.global_stats.total_traces.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Total Traces
+                    </div>
                   </CardContent>
                 </Card>
-              )}
-            </div>
-
-            <Separator />
-          </>
-        );
-      })()}
-
-      {/* ── Historical Insights (full previous generations) ── */}
-      {historicalBatches.length > 0 && (
-        <>
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-medium text-muted-foreground">
-                  Historical Insights
-                </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {historicalBatches.length} previous generation{historicalBatches.length > 1 ? "s" : ""}{" "}
-                  — {historicalBatches.reduce((sum, b) => sum + b.traces_analyzed, 0)} total traces
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs h-7"
-                onClick={() => setShowHistorical(!showHistorical)}
-              >
-                {showHistorical ? "Collapse" : "Show history"}
-              </Button>
-            </div>
-
-            {showHistorical && (
-              <div className="space-y-6">
-                {historicalBatches.map((batch) => (
-                  <div key={batch.id} className="opacity-75">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] bg-zinc-100 text-zinc-500 border-zinc-300"
-                      >
-                        Historical
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(batch.generated_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}{" "}
-                        — {batch.traces_analyzed} traces
-                      </span>
+                <Card>
+                  <CardContent className="pt-4 pb-3">
+                    <div className="text-2xl font-medium text-zinc-900">
+                      {formatCost(dashboardData.global_stats.avg_cost)}
                     </div>
-                    <InsightCardList insights={batch.insights} />
-                  </div>
-                ))}
-              </div>
+                    <div className="text-xs text-muted-foreground mt-1">Avg Cost</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4 pb-3">
+                    <div
+                      className={`text-2xl font-medium ${
+                        dashboardData.global_stats.error_rate > 5
+                          ? "text-red-600"
+                          : dashboardData.global_stats.error_rate > 2
+                            ? "text-orange-600"
+                            : "text-zinc-900"
+                      }`}
+                    >
+                      {dashboardData.global_stats.error_rate.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">Error Rate</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4 pb-3">
+                    <div
+                      className={`text-2xl font-medium ${
+                        dashboardData.global_stats.safety_flags > 0
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }`}
+                    >
+                      {dashboardData.global_stats.safety_flags}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Safety Flags
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card className="col-span-full">
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  No dashboard data available
+                </CardContent>
+              </Card>
             )}
           </div>
 
-          <Separator />
-        </>
+          {/* Agent Health Grid */}
+          <div>
+            <h2 className="text-sm font-medium mb-3">Agent Health</h2>
+            {dashboardLoading ? (
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="pt-4 pb-3 space-y-2">
+                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-3 w-40" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : sortedAgents.length > 0 ? (
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                {sortedAgents.map((agent) => {
+                  const health = healthDot(agent.success_rate);
+                  return (
+                    <Card
+                      key={agent.agent_type}
+                      className={`border-l-4 ${health.border}`}
+                    >
+                      <CardContent className="pt-4 pb-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span
+                            className={`inline-block w-2.5 h-2.5 rounded-full ${health.color}`}
+                          />
+                          <span className="text-sm font-medium capitalize">
+                            {agent.agent_type.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                        <div className="text-xs text-zinc-600 space-y-1">
+                          <div>
+                            {agent.total_traces} traces{" "}
+                            <span className="text-zinc-400 mx-1">|</span>
+                            <span
+                              className={
+                                agent.success_rate >= 95
+                                  ? "text-green-600"
+                                  : agent.success_rate >= 85
+                                    ? "text-yellow-600"
+                                    : "text-red-600"
+                              }
+                            >
+                              {agent.success_rate.toFixed(1)}% success
+                            </span>
+                          </div>
+                          <div>
+                            {formatCost(agent.avg_cost)} avg
+                            <span className="text-zinc-400 mx-1">|</span>
+                            {formatLatency(agent.avg_latency_ms)} avg
+                          </div>
+                          {agent.top_intents.length > 0 && (
+                            <div className="text-zinc-400">
+                              Top: {agent.top_intents.slice(0, 3).join(", ")}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7 px-2 text-blue-600 hover:text-blue-700"
+                            onClick={() => {
+                              setFilterAgentType(agent.agent_type);
+                              setActiveTab("traces");
+                            }}
+                          >
+                            View Traces →
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  No agent data for this time range
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Active Issues (inline preview) */}
+          {!dashboardLoading && issues.length > 0 && (
+            <div>
+              <Separator className="mb-6" />
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-medium">Active Issues</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 text-blue-600"
+                  onClick={() => setActiveTab("issues")}
+                >
+                  View all →
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {issues
+                  .filter((i) => i.status === "open" || i.status === "fix_generated")
+                  .slice(0, 5)
+                  .map((issue) => (
+                    <Card
+                      key={issue.id}
+                      className={`border ${SEV_STYLE[issue.severity] ?? "border-zinc-200"}`}
+                    >
+                      <CardContent className="py-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] uppercase tracking-wider ${SEV_BADGE[issue.severity] ?? ""}`}
+                            >
+                              {issue.severity}
+                            </Badge>
+                            <span className="text-sm">{issue.pattern_summary}</span>
+                            <TrendBadge trend={issue.trend_data} />
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {issue.affected_count} runs
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Fix queue */}
-      <div>
-        <h2 className="text-sm font-medium mb-4">Fix Queue</h2>
-        {[...open, ...pending, ...applied].length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              No active issues. Run a collection to detect issues from LangSmith traces.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {[...open, ...pending, ...applied].map((issue) => (
-              <Card
-                key={issue.id}
-                className={`border ${SEV_STYLE[issue.severity] ?? "border-zinc-200"}`}
+      {/* ================================================================ */}
+      {/* TAB 2: Trace Explorer                                           */}
+      {/* ================================================================ */}
+      {activeTab === "traces" && (
+        <div className="space-y-4">
+          {/* Time Range (shared) */}
+          <div className="flex items-center gap-1 bg-zinc-50 p-1.5 rounded-lg w-fit">
+            {(["1h", "6h", "24h", "7d", "30d"] as TimeRange[]).map((r) => (
+              <button
+                key={r}
+                onClick={() => setTimeRange(r)}
+                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                  timeRange === r
+                    ? "bg-white text-zinc-900 shadow-sm border border-zinc-200"
+                    : "text-zinc-500 hover:text-zinc-700"
+                }`}
               >
-                <CardContent className="pt-5 pb-4">
-                  {/* Issue header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] uppercase tracking-wider ${SEV_BADGE[issue.severity] ?? ""}`}
-                        >
-                          {issue.severity}
-                        </Badge>
-                        <span className="text-xs font-medium text-muted-foreground">
-                          {issue.issue_type.replace(/_/g, " ")}
-                        </span>
-                        <TrendBadge trend={issue.trend_data} />
-                        {issue.recurrence_count > 0 && (
-                          <span className="text-xs text-red-600 font-medium">
-                            recurred {issue.recurrence_count}x
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm">{issue.pattern_summary}</p>
+                {r}
+              </button>
+            ))}
+          </div>
+
+          {/* Filter Bar */}
+          <div className="bg-zinc-50 p-3 rounded-lg flex flex-wrap items-end gap-3">
+            {/* Agent Type */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                Agent
+              </label>
+              <select
+                value={filterAgentType}
+                onChange={(e) => setFilterAgentType(e.target.value)}
+                className="text-xs border border-zinc-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              >
+                {AGENT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t === "All" ? "All Agents" : t.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Path Type */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                Path
+              </label>
+              <select
+                value={filterPathType}
+                onChange={(e) => setFilterPathType(e.target.value)}
+                className="text-xs border border-zinc-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              >
+                {PATH_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t === "All" ? "All Paths" : t.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Intent */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                Intent
+              </label>
+              <input
+                type="text"
+                value={filterIntent}
+                onChange={(e) => setFilterIntent(e.target.value)}
+                placeholder="e.g. create_event"
+                className="text-xs border border-zinc-300 rounded px-2 py-1.5 bg-white w-36 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              />
+            </div>
+
+            {/* Cost Bucket */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                Cost
+              </label>
+              <select
+                value={filterCostBucket}
+                onChange={(e) => setFilterCostBucket(e.target.value)}
+                className="text-xs border border-zinc-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              >
+                {COST_BUCKETS.map((b) => (
+                  <option key={b} value={b}>
+                    {b === "All" ? "All Costs" : b}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Latency Bucket */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                Latency
+              </label>
+              <select
+                value={filterLatencyBucket}
+                onChange={(e) => setFilterLatencyBucket(e.target.value)}
+                className="text-xs border border-zinc-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              >
+                {LATENCY_BUCKETS.map((b) => (
+                  <option key={b} value={b}>
+                    {b === "All" ? "All Latencies" : b}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Validation */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                Validation
+              </label>
+              <select
+                value={filterValidation}
+                onChange={(e) => setFilterValidation(e.target.value)}
+                className="text-xs border border-zinc-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              >
+                {VALIDATION_OPTIONS.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Apply Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs h-[30px]"
+              onClick={() => {
+                setTracesOffset(0);
+                fetchTraces(0);
+              }}
+            >
+              Apply
+            </Button>
+          </div>
+
+          {/* Traces Table */}
+          {tracesLoading ? (
+            <Card>
+              <CardContent className="py-6 space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex gap-4">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-64" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-8" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : filteredTraces.length > 0 ? (
+            <div className="border border-zinc-200 rounded-lg overflow-hidden">
+              {/* Table Header */}
+              <div className="grid grid-cols-[72px_1fr_90px_100px_48px_72px_72px_48px] bg-zinc-100 text-[10px] font-medium text-zinc-500 uppercase tracking-wider px-3 py-2 border-b border-zinc-200">
+                <div>Time</div>
+                <div>Message</div>
+                <div>Agent</div>
+                <div>Intent</div>
+                <div>Tools</div>
+                <div>Cost</div>
+                <div>Latency</div>
+                <div>Status</div>
+              </div>
+
+              {/* Table Rows */}
+              {filteredTraces.map((trace) => (
+                <div key={trace.id}>
+                  <div
+                    className={`grid grid-cols-[72px_1fr_90px_100px_48px_72px_72px_48px] px-3 py-2 text-xs cursor-pointer transition-colors ${
+                      expandedTraceId === trace.id
+                        ? "bg-zinc-50"
+                        : "hover:bg-zinc-50"
+                    } border-b border-zinc-100`}
+                    onClick={() =>
+                      setExpandedTraceId(
+                        expandedTraceId === trace.id ? null : trace.id
+                      )
+                    }
+                  >
+                    <div className="font-mono text-zinc-500">
+                      {formatTime(trace.created_at)}
                     </div>
-                    <div className="text-right text-xs text-muted-foreground ml-4 shrink-0">
-                      <div>{issue.affected_count} runs</div>
-                      <div>{issue.week_start}</div>
+                    <div className="text-zinc-800 truncate pr-2">
+                      {truncate(trace.user_message, 50)}
+                    </div>
+                    <div className="text-zinc-600 capitalize truncate">
+                      {trace.agent_type.replace(/_/g, " ")}
+                    </div>
+                    <div className="text-zinc-500 font-mono truncate">
+                      {trace.intent_id || "-"}
+                    </div>
+                    <div className="text-zinc-600 text-center">
+                      {trace.tools_called?.length ?? 0}
+                    </div>
+                    <div className="font-mono text-zinc-600">
+                      {formatCost(trace.total_cost_usd)}
+                    </div>
+                    <div className="text-zinc-600">
+                      {formatLatency(trace.total_latency_ms)}
+                    </div>
+                    <div className="text-center">
+                      {trace.validation_passed ? (
+                        <span className="text-green-600 font-medium">
+                          Pass
+                        </span>
+                      ) : (
+                        <span className="text-red-600 font-medium">
+                          Fail
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Fixes */}
-                  {Array.isArray(issue.fixes) &&
-                    issue.fixes.filter(Boolean).map((fix) => (
-                      <div
-                        key={fix.id}
-                        className="bg-zinc-50 rounded-lg p-4 mt-3 border border-zinc-200"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px]">
-                              {P_LABEL[fix.priority] ?? `P${fix.priority}`}
-                            </Badge>
-                            <span className="text-sm font-medium">{fix.title}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {Math.round(fix.confidence * 100)}% confidence
+                  {/* Expanded Detail */}
+                  {expandedTraceId === trace.id && (
+                    <div className="bg-zinc-50 border-b border-zinc-200 px-4 py-3">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-2 text-xs">
+                        <div>
+                          <span className="text-zinc-400 font-medium">Session:</span>{" "}
+                          <span className="font-mono text-zinc-700">
+                            {trace.session_id ? trace.session_id.slice(0, 12) + "..." : "-"}
                           </span>
                         </div>
-
-                        <p className="text-xs text-muted-foreground mb-3">
-                          {fix.description}
-                        </p>
-
-                        {fix.file_path && (
-                          <div className="font-mono text-xs bg-zinc-100 rounded px-2 py-1 mb-3 text-zinc-700 border border-zinc-200">
-                            {fix.file_path}
-                          </div>
-                        )}
-
-                        {fix.code_change && (
-                          <pre className="text-xs bg-zinc-900 rounded p-3 mb-3 overflow-x-auto whitespace-pre-wrap text-zinc-100 max-h-64 overflow-y-auto">
-                            {fix.code_change}
-                          </pre>
-                        )}
-
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-muted-foreground">
-                            Expected: {fix.expected_impact}
-                          </p>
-                          <div className="flex gap-2">
-                            {fix.status === "pending" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-xs h-7"
-                                onClick={() => markFixApplied(fix.id)}
-                              >
-                                Mark applied
-                              </Button>
-                            )}
-                            {fix.status === "applied" && (
-                              <>
-                                <span className="text-xs text-green-600 font-medium self-center">
-                                  Applied {fix.applied_at?.slice(0, 10)}
-                                </span>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs h-7"
-                                  onClick={() => markFixVerified(fix.id)}
-                                >
-                                  Verify fix
-                                </Button>
-                              </>
-                            )}
-                            {fix.status === "verified" && (
-                              <span className="text-xs text-blue-600 font-medium">
-                                Verified
+                        <div>
+                          <span className="text-zinc-400 font-medium">User:</span>{" "}
+                          <span className="font-mono text-zinc-700">
+                            {trace.user_id ? trace.user_id.slice(0, 12) + "..." : "-"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-400 font-medium">Request:</span>{" "}
+                          <span className="font-mono text-zinc-700">
+                            {trace.request_id || "-"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-400 font-medium">
+                            Classification:
+                          </span>{" "}
+                          <span className="text-zinc-700">
+                            {trace.classification_method}
+                            {trace.classification_confidence > 0 && (
+                              <span className="text-zinc-400 ml-1">
+                                ({(trace.classification_confidence * 100).toFixed(0)}%
+                                confidence)
                               </span>
                             )}
-                          </div>
+                          </span>
                         </div>
+                        <div>
+                          <span className="text-zinc-400 font-medium">Tools:</span>{" "}
+                          <span className="font-mono text-zinc-700">
+                            {trace.tools_called?.length > 0
+                              ? JSON.stringify(trace.tools_called)
+                              : "none"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-400 font-medium">Tokens:</span>{" "}
+                          <span className="text-zinc-700">
+                            {trace.total_tokens.toLocaleString()}
+                          </span>
+                          <span className="text-zinc-400 mx-1">|</span>
+                          <span className="text-zinc-400 font-medium">RAG:</span>{" "}
+                          <span className="text-zinc-700">
+                            {trace.rag_used
+                              ? `yes (${trace.rag_chunks} chunks)`
+                              : "no"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-400 font-medium">Sport:</span>{" "}
+                          <span className="text-zinc-700">
+                            {trace.sport || "-"}
+                          </span>
+                          <span className="text-zinc-400 mx-1">|</span>
+                          <span className="text-zinc-400 font-medium">Age:</span>{" "}
+                          <span className="text-zinc-700">
+                            {trace.age_band || "-"}
+                          </span>
+                          <span className="text-zinc-400 mx-1">|</span>
+                          <span className="text-zinc-400 font-medium">
+                            Readiness:
+                          </span>{" "}
+                          <span
+                            className={
+                              trace.readiness_color === "green"
+                                ? "text-green-600"
+                                : trace.readiness_color === "yellow"
+                                  ? "text-yellow-600"
+                                  : trace.readiness_color === "red"
+                                    ? "text-red-600"
+                                    : "text-zinc-600"
+                            }
+                          >
+                            {trace.readiness_color
+                              ? trace.readiness_color.charAt(0).toUpperCase() +
+                                trace.readiness_color.slice(1)
+                              : "-"}
+                          </span>
+                          <span className="text-zinc-400 mx-1">|</span>
+                          <span className="text-zinc-400 font-medium">ACWR:</span>{" "}
+                          <span className="text-zinc-700">
+                            {trace.acwr != null ? trace.acwr.toFixed(1) : "-"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-400 font-medium">Safety:</span>{" "}
+                          <span className="text-zinc-700">
+                            PHV={trace.phv_safety ? "yes" : "no"}, Crisis=
+                            {trace.crisis_detected ? "yes" : "no"}
+                          </span>
+                        </div>
+                        {trace.validation_flags &&
+                          trace.validation_flags.length > 0 && (
+                            <div className="col-span-full">
+                              <span className="text-zinc-400 font-medium">
+                                Validation Flags:
+                              </span>{" "}
+                              <span className="text-red-600 font-mono">
+                                {JSON.stringify(trace.validation_flags)}
+                              </span>
+                            </div>
+                          )}
                       </div>
-                    ))}
+                      {/* Full message */}
+                      <div className="mt-3 pt-2 border-t border-zinc-200">
+                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-medium">
+                          Full Message
+                        </span>
+                        <p className="text-xs text-zinc-700 mt-1 whitespace-pre-wrap">
+                          {trace.user_message}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No traces found for the selected filters and time range
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Pagination */}
+          {tracesData && tracesData.total_count > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-zinc-500">
+                Showing {tracesOffset + 1}-
+                {Math.min(tracesOffset + TRACES_LIMIT, tracesData.total_count)} of{" "}
+                {tracesData.total_count.toLocaleString()}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  disabled={tracesOffset === 0}
+                  onClick={() => fetchTraces(Math.max(0, tracesOffset - TRACES_LIMIT))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  disabled={tracesOffset + TRACES_LIMIT >= tracesData.total_count}
+                  onClick={() => fetchTraces(tracesOffset + TRACES_LIMIT)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Run Insights Button */}
+          {hasActiveFilters && (
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={runFilteredInsights}
+                disabled={filteredInsightsLoading}
+              >
+                {filteredInsightsLoading
+                  ? "Generating Insights..."
+                  : "Run Insights on Filtered Traces"}
+              </Button>
+              {filteredInsights && (
+                <span className="text-xs text-muted-foreground">
+                  {filteredInsights.length} insights from{" "}
+                  {filteredTracesAnalyzed} traces
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Filtered Insights Results */}
+          {filteredInsights && filteredInsights.length > 0 && (
+            <div>
+              <Separator className="mb-4" />
+              <h3 className="text-sm font-medium mb-3">Filtered Insights</h3>
+              <InsightCardList insights={filteredInsights} />
+            </div>
+          )}
+          {filteredInsights && filteredInsights.length === 0 && (
+            <Card>
+              <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                No insights generated from filtered traces
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* TAB 3: Issues & Fixes                                           */}
+      {/* ================================================================ */}
+      {activeTab === "issues" && (
+        <div className="space-y-6">
+          {/* Header with Collection trigger */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-medium">Issue Detection & Fix Recommendations</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {issues.length} total issues ({open.length} open, {pending.length} fixes
+                ready, {applied.length} applied)
+              </p>
+            </div>
+            <Button
+              onClick={triggerCollection}
+              disabled={collecting}
+              variant="outline"
+              size="sm"
+            >
+              {collecting ? "Collecting..." : "Run Collection"}
+            </Button>
+          </div>
+
+          {/* Metrics Row */}
+          <div className="grid grid-cols-4 gap-4">
+            {[
+              {
+                label: "Open issues",
+                value: open.length,
+                color: open.length > 0 ? "text-red-600" : "text-zinc-500",
+              },
+              {
+                label: "Fixes ready",
+                value: pending.length,
+                color: pending.length > 0 ? "text-amber-600" : "text-zinc-500",
+              },
+              {
+                label: "Applied",
+                value: applied.length,
+                color: applied.length > 0 ? "text-green-600" : "text-zinc-500",
+              },
+              {
+                label: "Trend alerts",
+                value: issues.filter(
+                  (i) =>
+                    i.trend_data &&
+                    typeof i.trend_data === "object" &&
+                    "alert" in i.trend_data &&
+                    i.trend_data.alert
+                ).length,
+                color:
+                  issues.filter(
+                    (i) =>
+                      i.trend_data &&
+                      typeof i.trend_data === "object" &&
+                      "alert" in i.trend_data &&
+                      i.trend_data.alert
+                  ).length > 0
+                    ? "text-red-600"
+                    : "text-zinc-500",
+              },
+            ].map((m) => (
+              <Card key={m.label}>
+                <CardContent className="pt-4 pb-3">
+                  {issuesLoading ? (
+                    <Skeleton className="h-8 w-10" />
+                  ) : (
+                    <div className={`text-2xl font-medium ${m.color}`}>
+                      {m.value}
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {m.label}
+                  </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-        )}
-      </div>
+
+          <Separator />
+
+          {/* Issue + Fix Queue */}
+          {issuesLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Card key={i}>
+                  <CardContent className="py-5 space-y-3">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-64" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : [...open, ...pending, ...applied].length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No active issues. Run a collection to detect issues from traces.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {[...open, ...pending, ...applied].map((issue) => (
+                <Card
+                  key={issue.id}
+                  className={`border ${SEV_STYLE[issue.severity] ?? "border-zinc-200"}`}
+                >
+                  <CardContent className="pt-5 pb-4">
+                    {/* Issue header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] uppercase tracking-wider ${SEV_BADGE[issue.severity] ?? ""}`}
+                          >
+                            {issue.severity}
+                          </Badge>
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {issue.issue_type.replace(/_/g, " ")}
+                          </span>
+                          <TrendBadge trend={issue.trend_data} />
+                          {issue.recurrence_count > 0 && (
+                            <span className="text-xs text-red-600 font-medium">
+                              recurred {issue.recurrence_count}x
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm">{issue.pattern_summary}</p>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground ml-4 shrink-0">
+                        <div>{issue.affected_count} runs</div>
+                        <div>{issue.week_start}</div>
+                      </div>
+                    </div>
+
+                    {/* Fixes */}
+                    {Array.isArray(issue.fixes) &&
+                      issue.fixes.filter(Boolean).map((fix) => (
+                        <div
+                          key={fix.id}
+                          className="bg-zinc-50 rounded-lg p-4 mt-3 border border-zinc-200"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px]">
+                                {P_LABEL[fix.priority] ?? `P${fix.priority}`}
+                              </Badge>
+                              <span className="text-sm font-medium">
+                                {fix.title}
+                              </span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {Math.round(fix.confidence * 100)}% confidence
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-muted-foreground mb-3">
+                            {fix.description}
+                          </p>
+
+                          {fix.file_path && (
+                            <div className="font-mono text-xs bg-zinc-100 rounded px-2 py-1 mb-3 text-zinc-700 border border-zinc-200">
+                              {fix.file_path}
+                            </div>
+                          )}
+
+                          {fix.code_change && (
+                            <pre className="text-xs bg-zinc-900 rounded p-3 mb-3 overflow-x-auto whitespace-pre-wrap text-zinc-100 max-h-64 overflow-y-auto">
+                              {fix.code_change}
+                            </pre>
+                          )}
+
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-muted-foreground">
+                              Expected: {fix.expected_impact}
+                            </p>
+                            <div className="flex gap-2">
+                              {fix.status === "pending" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-7"
+                                  onClick={() => markFixApplied(fix.id)}
+                                >
+                                  Mark applied
+                                </Button>
+                              )}
+                              {fix.status === "applied" && (
+                                <>
+                                  <span className="text-xs text-green-600 font-medium self-center">
+                                    Applied {fix.applied_at?.slice(0, 10)}
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs h-7"
+                                    onClick={() => markFixVerified(fix.id)}
+                                  >
+                                    Verify fix
+                                  </Button>
+                                </>
+                              )}
+                              {fix.status === "verified" && (
+                                <span className="text-xs text-blue-600 font-medium">
+                                  Verified
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
