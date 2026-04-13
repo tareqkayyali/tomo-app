@@ -60,12 +60,13 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
     """Create timeline agent tools bound to a specific user context."""
 
     @tool
-    async def get_today_events() -> dict:
-        """Get all events scheduled for today. Shows training, matches, study, exams, and personal events with times, types, and intensity."""
+    async def get_today_events(date: str = "") -> dict:
+        """Get all events scheduled for a specific date. Defaults to today if no date provided. When the conversation is about tomorrow or another day, pass that date as YYYY-MM-DD. Shows training, matches, study, exams, and personal events with times, types, and intensity."""
         from app.db.supabase import get_pool
         pool = get_pool()
         tz = context.timezone or "UTC"
-        logger.info(f"get_today_events: timezone={tz}, today={context.today_date}")
+        target_date = date or context.today_date
+        logger.info(f"get_today_events: timezone={tz}, date={target_date}")
 
         async with pool.connection() as conn:
             result = await conn.execute(
@@ -77,7 +78,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
                    WHERE user_id = %s
                      AND (start_at AT TIME ZONE %s)::date = %s::date
                    ORDER BY calendar_events.start_at""",
-                (tz, tz, user_id, tz, context.today_date),
+                (tz, tz, user_id, tz, target_date),
             )
             rows = await result.fetchall()
 
@@ -95,7 +96,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
             for row in rows
         ]
 
-        return {"date": context.today_date, "events": events, "total": len(events)}
+        return {"date": target_date, "events": events, "total": len(events)}
 
     @tool
     async def get_week_schedule(start_date: str = "") -> dict:
@@ -307,6 +308,28 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
             "has_issues": len(clashes) > 0 or len(warnings) > 0,
         }
 
+    @tool
+    async def suggest_time_slots(date: str, event_type: str = "training", duration_minutes: int = 60) -> dict:
+        """Suggest 2-3 best available time slots for a given date and event type. Uses the schedule engine to respect school hours, buffers, and preferences. Returns scored suggestions with 12h times. Call this BEFORE creating events to offer the athlete time choices."""
+        from app.agents.tools.bridge import bridge_get
+        tz = context.timezone or "UTC"
+
+        result = await bridge_get(
+            "/api/v1/calendar/suggest-slots",
+            params={
+                "date": date,
+                "eventType": event_type,
+                "durationMin": str(duration_minutes),
+                "timezone": tz,
+            },
+            user_id=user_id,
+        )
+
+        if "error" in result:
+            return {"error": result["error"], "date": date}
+
+        return result
+
     return [
         get_today_events,
         get_week_schedule,
@@ -314,4 +337,5 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         update_event,
         delete_event,
         detect_load_collision,
+        suggest_time_slots,
     ]

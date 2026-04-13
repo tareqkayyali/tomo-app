@@ -22,6 +22,18 @@ logger = logging.getLogger("tomo-ai.prompt")
 
 # ── Date/time formatting helpers for prompt injection ─────────────
 
+def _format_12h(time_24: str) -> str:
+    """Convert 24h time string (HH:MM) to 12h format (e.g., '5:45 PM')."""
+    try:
+        parts = time_24.strip().split(":")
+        h, m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+        period = "PM" if h >= 12 else "AM"
+        h12 = h % 12 or 12
+        return f"{h12}:{m:02d} {period}"
+    except (ValueError, IndexError):
+        return time_24
+
+
 def _format_event_date(iso_str: str) -> str:
     """Parse ISO datetime string → readable date like 'Mon Apr 14'."""
     try:
@@ -32,13 +44,14 @@ def _format_event_date(iso_str: str) -> str:
 
 
 def _format_event_time(start_iso: str, end_iso: str | None = None) -> str:
-    """Parse ISO datetime → readable time like '16:00–17:30' or '16:00'."""
+    """Parse ISO datetime → readable 12h time like '4:00 PM - 5:30 PM'."""
     try:
         start_dt = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
-        start_str = start_dt.strftime("%H:%M")
+        start_str = _format_12h(start_dt.strftime("%H:%M"))
         if end_iso:
             end_dt = datetime.fromisoformat(end_iso.replace("Z", "+00:00"))
-            return f"{start_str}–{end_dt.strftime('%H:%M')}"
+            end_str = _format_12h(end_dt.strftime("%H:%M"))
+            return f"{start_str} - {end_str}"
         return start_str
     except (ValueError, AttributeError):
         return ""
@@ -330,15 +343,15 @@ PLANNING example (week building — uses week_plan + choice_card):
   "cards": [
     {"type": "week_plan", "title": "WEEK PLAN", "date_range": "Apr 13–19", "days": [
       {"day": "MON", "tags": [{"label": "Exam day", "color": "yellow"}], "note": "Light activation only"},
-      {"day": "TUE", "tags": [{"label": "Football", "color": "green"}, {"label": "Gym", "color": "blue"}], "time": "19:30"},
-      {"day": "WED", "tags": [{"label": "Football", "color": "green"}], "time": "19:30"},
+      {"day": "TUE", "tags": [{"label": "Football", "color": "green"}, {"label": "Gym", "color": "blue"}], "time": "7:30 PM"},
+      {"day": "WED", "tags": [{"label": "Football", "color": "green"}], "time": "7:30 PM"},
       {"day": "THU", "tags": [{"label": "Gym", "color": "blue"}], "time": "TBC"},
-      {"day": "FRI", "tags": [{"label": "Football", "color": "green"}], "time": "19:30"},
+      {"day": "FRI", "tags": [{"label": "Football", "color": "green"}], "time": "7:30 PM"},
       {"day": "SAT", "tags": [{"label": "Recovery", "color": "gray"}]},
       {"day": "SUN", "tags": [{"label": "Rest", "color": "gray"}]}
     ]},
     {"type": "choice_card", "headline": "PICK YOUR GYM TIMING", "options": [
-      {"label": "Both before football", "description": "17:30–18:30 · same days as club", "value": "Both gym sessions before football"},
+      {"label": "Both before football", "description": "5:30 - 6:30 PM · same days as club", "value": "Both gym sessions before football"},
       {"label": "Split — one before, one separate day", "description": "Lighter legs on the standalone day", "value": "Split gym sessions across the week"}
     ]}
   ],
@@ -353,8 +366,8 @@ TIMELINE example (schedule data — ALWAYS use schedule_list card, NEVER text):
   "body": "Quiet one today — just study after school. Good recovery window before tomorrow.",
   "cards": [
     {"type": "schedule_list", "date": "Mon Apr 13", "items": [
-      {"time": "08:00", "title": "School", "type": "study"},
-      {"time": "15:30", "title": "English Study", "type": "study"},
+      {"time": "8:00 AM", "title": "School", "type": "study"},
+      {"time": "3:30 PM", "title": "English Study", "type": "study"},
       {"time": "—", "title": "Rest", "type": "rest"}
     ]}
   ],
@@ -365,7 +378,28 @@ TIMELINE example (schedule data — ALWAYS use schedule_list card, NEVER text):
 }
 ```
 
-SESSION CREATION example (choice-first — ALWAYS let them pick type):
+SESSION CREATION example (when athlete specifies type — build the actual workout):
+```json
+{
+  "headline": "Speed work — keeping it sharp",
+  "body": "Load's been building, so we're going controlled intensity. Focus on acceleration mechanics.",
+  "cards": [
+    {"type": "session_plan", "title": "Speed & Acceleration", "duration": "55 min", "intensity": "moderate", "drills": [
+      {"name": "Dynamic Warm-Up", "sets": 1, "duration": "10 min", "notes": "A-skips, high knees, leg swings, build-up sprints"},
+      {"name": "A1. 10m Acceleration Sprints", "sets": 6, "reps": 1, "notes": "RPE 8 · 90s rest · focus on first-step explosion"},
+      {"name": "A2. Flying 20m Sprints", "sets": 4, "reps": 1, "notes": "RPE 7 · 2min rest · maintain top speed"},
+      {"name": "B1. Lateral Shuttle Drill", "sets": 4, "reps": 3, "notes": "5m each direction · quick feet"},
+      {"name": "Cool-Down", "sets": 1, "duration": "8 min", "notes": "Static stretch — quads, hamstrings, hip flexors"}
+    ]}
+  ],
+  "chips": [
+    {"label": "Add to tomorrow", "message": "Add this session to my calendar for tomorrow"},
+    {"label": "Adjust intensity", "message": "Make this session lighter"}
+  ]
+}
+```
+
+SESSION TYPE PICKER example (when athlete doesn't specify type):
 ```json
 {
   "headline": "What kind of session for tomorrow?",
@@ -373,9 +407,9 @@ SESSION CREATION example (choice-first — ALWAYS let them pick type):
   "cards": [
     {"type": "choice_card", "headline": "PICK YOUR SESSION TYPE", "options": [
       {"label": "Gym session", "description": "Strength & conditioning", "value": "Build me a gym session for tomorrow"},
+      {"label": "Speed drills", "description": "Acceleration and sprint work", "value": "Build me a speed session for tomorrow"},
       {"label": "Football drills", "description": "Technical work on the pitch", "value": "Build me a football drill session for tomorrow"},
-      {"label": "Recovery session", "description": "Mobility, foam rolling, stretching", "value": "Build me a recovery session for tomorrow"},
-      {"label": "Custom", "description": "Tell me what you want", "value": "I want to choose my own session type"}
+      {"label": "Recovery session", "description": "Mobility, foam rolling, stretching", "value": "Build me a recovery session for tomorrow"}
     ]}
   ],
   "chips": []
@@ -387,8 +421,8 @@ CARD TYPES:
 - stat_row: Single stat with trend
 - schedule_list: MANDATORY for ALL timeline/calendar data. Never use text_card for schedules.
   Format: {"type":"schedule_list","date":"Mon Apr 13","items":[
-    {"time":"15:30","title":"English Study","type":"study"},
-    {"time":"17:00","title":"Football Training","type":"training"},
+    {"time":"3:30 PM","title":"English Study","type":"study"},
+    {"time":"5:00 PM","title":"Football Training","type":"training"},
     {"time":"—","title":"Rest","type":"rest"}
   ]}
   Event types: training, match, study, rest, exam, gym, personal_dev, club_training, recovery
@@ -410,7 +444,7 @@ CARD TYPES:
   Tag colors: green=training, blue=gym, yellow=exam/caution, red=critical, orange=match, gray=rest/recovery
 - choice_card: USE THIS when asking the athlete to choose between options (instead of open text questions).
   Format: {"type":"choice_card","headline":"PICK YOUR GYM TIMING","options":[
-    {"label":"Both before football","description":"17:30–18:30 · same days as club","value":"Both gym sessions before football"},
+    {"label":"Both before football","description":"5:30 - 6:30 PM · same days as club","value":"Both gym sessions before football"},
     {"label":"Split — one before, one separate day","description":"Lighter legs on the standalone day","value":"Split gym sessions across the week"}
   ]}
 
@@ -451,14 +485,25 @@ You help the athlete understand their data and figure out what to do next:
 OUTPUT RESPONSE FORMAT — MANDATORY:
 1. HEADLINE: Max 10 words. Coaching insight, not a label.
 2. BODY: 1-2 sentences max. Plain language. No raw numbers — cards carry data.
-3. CARDS: stat_grid for readiness/vitals, session_plan for workouts, program_recommendation for programs. For training requests: choice_card FIRST to let them pick session type.
+3. CARDS: stat_grid for readiness/vitals, session_plan for workouts, program_recommendation for programs.
 4. CHIPS: Max 2 contextual follow-ups relevant to what was just shown.
+5. TIME FORMAT: Always use 12-hour format (e.g., "5:45 PM" not "17:45").
 
-TRAINING SESSION REQUESTS:
-When the athlete asks to build/create a training session:
-- Show a choice_card with session type options (Gym, Football, Recovery, Speed, Custom)
-- Include load/readiness context in the body as advisory — never refuse
-- ONLY schedule for the day they asked about — never add extra days"""
+TRAINING SESSION REQUESTS — CRITICAL:
+When the athlete asks to build/create/generate a training session:
+1. If they specified a TYPE (e.g., "gym session", "speed session", "acceleration work"):
+   - Call get_training_session with the matching category to BUILD an actual workout
+   - Show a session_plan card with drills, sets, reps, warm-up, and cooldown
+   - Include "Add to my calendar" chip so they can schedule it
+   - NEVER just create a blank calendar event — always build the actual workout first
+2. If they did NOT specify a type:
+   - Show choice_card with type options (Gym, Speed, Football, Recovery, Custom)
+3. If they mention a specific day ("for tomorrow", "on Monday"):
+   - After showing the session_plan, offer to add it to their calendar for that day
+   - Chip text like "Add to tomorrow's calendar" or "Schedule for Monday"
+4. Include load/readiness context in the body as advisory — never refuse
+5. ONLY address the day they asked about — never add extra days
+6. If load is elevated or injury risk is high, acknowledge it in the body and adjust intensity"""
 
 
 def build_timeline_static() -> str:
@@ -482,8 +527,9 @@ TIMELINE RESPONSE FORMAT — MANDATORY (follow this EXACTLY):
 2. BODY: One coaching observation — max 1-2 sentences. No event details in body. (e.g., "Quiet one today. Good chance to recover before tomorrow.")
 3. CARDS: ALWAYS return a schedule_list card. NEVER use text_card for schedule data. NEVER describe events in the body.
    - schedule_list needs: date (readable like "Mon Apr 13"), items array
-   - Each item needs: time (HH:MM extracted from start_time), title (event title), type (event_type value)
-   - Extract time from ISO: "2026-04-13T15:30:00+03:00" → "15:30"
+   - Each item needs: time (12h format like "3:30 PM"), title (event title), type (event_type value)
+   - Extract time from ISO: "2026-04-13T15:30:00+03:00" → "3:30 PM"
+   - ALWAYS use 12-hour format (e.g., "5:45 PM" not "17:45")
    - Empty day with no events → items: [{"time": "—", "title": "Rest day — nothing scheduled", "type": "rest"}]
 4. CHIPS: ALWAYS include 2 contextual follow-ups:
    Today's schedule → "Add training" + "Show my week"
@@ -494,13 +540,21 @@ TIMELINE RESPONSE FORMAT — MANDATORY (follow this EXACTLY):
 
 NEVER put event times/titles in the body. The schedule_list card IS the timeline view.
 
-EVENT CREATION REQUESTS:
-When the athlete asks to add a training or study session:
-- Show a choice_card FIRST with type options (e.g., "Gym", "Football", "Recovery", "Study", "Custom")
-- If load/readiness is elevated, mention it in the body as advisory — never refuse the request
-- ONLY schedule for the EXACT day they requested — if they say "tomorrow", ONLY create events for tomorrow
-- Never add extra events for other days unless they explicitly ask
-- Headline, body, and card MUST be consistent — no contradictions"""
+EVENT CREATION / SCHEDULING REQUESTS:
+When the athlete asks to ADD or SCHEDULE an event to the calendar:
+1. Call suggest_time_slots for that day to find available windows
+2. Call get_today_events with the correct date (e.g., tomorrow's date if they said "tomorrow") to show the existing schedule
+3. In ONE response, show:
+   - A schedule_list card showing the target day's existing events
+   - A choice_card with 2-3 time slot suggestions from suggest_time_slots + a "Custom time" option
+4. When they pick a slot, call create_event directly — the system auto-shows the confirmation card
+5. If load/readiness is elevated, mention it in the body as advisory — never refuse the request
+6. ONLY schedule for the EXACT day they requested — never add extra days
+7. If they say "tomorrow", use get_today_events(date=tomorrow_date) — NEVER show today's events
+8. Headline, body, and card MUST be consistent — no contradictions
+9. All times in 12-hour format (e.g., "5:45 PM" not "17:45")
+
+NOTE: If the athlete says "BUILD me a session" (workout plan with drills), that goes to the Output agent, not Timeline. Timeline only handles calendar scheduling."""
 
 
 def build_mastery_static() -> str:
@@ -993,36 +1047,60 @@ def build_schedule_rule_block(ctx: PlayerContext) -> str:
         "league_and_exam": "League + Exams — dual pressure, conservative load",
     }.get(scenario, "Balanced")
 
+    # Convert schedule times to 12h format for readability
+    school_s = _format_12h(prefs.school_start) if prefs.school_start else prefs.school_start
+    school_e = _format_12h(prefs.school_end) if prefs.school_end else prefs.school_end
+    day_s = _format_12h(prefs.day_bounds_start) if prefs.day_bounds_start else prefs.day_bounds_start
+    day_e = _format_12h(prefs.day_bounds_end) if prefs.day_bounds_end else prefs.day_bounds_end
+    club_t = _format_12h(prefs.club_start) if prefs.club_start else prefs.club_start
+    gym_t = _format_12h(prefs.gym_start) if prefs.gym_start else prefs.gym_start
+    study_t = _format_12h(prefs.study_start) if prefs.study_start else prefs.study_start
+
     return f"""SCHEDULE RULES:
 - Active scenario: {scenario} ({scenario_desc})
-- School days: {prefs.school_days} | Hours: {prefs.school_start}-{prefs.school_end}
-- Day bounds: {prefs.day_bounds_start}-{prefs.day_bounds_end}
+- School days: {prefs.school_days} | Hours: {school_s}-{school_e}
+- Day bounds: {day_s}-{day_e}
 - Buffers: default {prefs.buffer_default_min}min, post-match {prefs.buffer_post_match_min}min, post-hard {prefs.buffer_post_high_intensity_min}min
-- Club days: {prefs.club_days} at {prefs.club_start}
-- Gym days: {prefs.gym_days} at {prefs.gym_start} ({prefs.gym_duration_min}min)
-- Study days: {prefs.study_days} at {prefs.study_start} ({prefs.study_duration_min}min)
+- Club days: {prefs.club_days} at {club_t}
+- Gym days: {prefs.gym_days} at {gym_t} ({prefs.gym_duration_min}min)
+- Study days: {prefs.study_days} at {study_t} ({prefs.study_duration_min}min)
 
 HARD CONSTRAINTS:
 - Never schedule during school hours or exam blocks
 - No HARD within 2h of match kickoff
 - No HARD on exam days
-- No training before {prefs.day_bounds_start} or after {prefs.day_bounds_end}
-- Max 2 sessions per day"""
+- No training before {day_s} or after {day_e}
+- Max 2 sessions per day
+- Display ALL times in 12-hour format (e.g., "5:45 PM" not "17:45")"""
 
 
 def build_snapshot_context(ctx: PlayerContext) -> str:
     """Block 2.9: Player context block with readiness, load, vitals, tests."""
+    # Compute tomorrow's date for date-aware prompting
+    from datetime import timedelta
+    try:
+        today_dt = datetime.strptime(ctx.today_date, "%Y-%m-%d")
+        tomorrow_date = (today_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        tomorrow_date = "unknown"
+
     parts = [f"""PLAYER CONTEXT:
 - Name: {ctx.name} | Sport: {ctx.sport} | Position: {ctx.position or 'N/A'}
 - Age Band: {ctx.age_band or 'N/A'} | Role: {ctx.role}
-- Today: {ctx.today_date} | Time: {ctx.current_time} | Timezone: {ctx.timezone}
+- Today: {ctx.today_date} | Tomorrow: {tomorrow_date} | Time: {ctx.current_time} | Timezone: {ctx.timezone}
+- When the user says "tomorrow", use date {tomorrow_date}. When they say "today", use date {ctx.today_date}.
 - Readiness: {ctx.readiness_score or 'NOT_CHECKED_IN'} (date: {ctx.checkin_date or 'N/A'})
 - Current streak: {ctx.current_streak} days
-- Academic load score: {ctx.academic_load_score}/10"""]
+- Academic load score: {ctx.academic_load_score}/10
+
+DATE RULES:
+- When the athlete asks about a day OTHER than today, do NOT show today's schedule in your response. Only show the requested day's schedule.
+- If they say "tomorrow", call get_today_events with date={tomorrow_date} — NEVER show today's events for a tomorrow question.
+- All follow-up messages about a specific day refer to THAT day until the user explicitly switches."""]
 
     # ── Today's schedule (full event details) ──
     if ctx.today_events:
-        today_lines = ["TODAY'S SCHEDULE:"]
+        today_lines = [f"TODAY'S SCHEDULE ({ctx.today_date}):"]
         for e in ctx.today_events:
             time_str = _format_event_time(e.start_at, e.end_at)
             intensity_tag = f" [{e.intensity}]" if e.intensity else ""

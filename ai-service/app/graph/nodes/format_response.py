@@ -149,18 +149,30 @@ def _strip_emoji(text: str) -> str:
     return cleaned
 
 
+def _format_12h(time_24: str) -> str:
+    """Convert 24h time string (HH:MM) to 12h format (e.g., '5:45 PM')."""
+    try:
+        parts = time_24.strip().split(":")
+        h, m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+        period = "PM" if h >= 12 else "AM"
+        h12 = h % 12 or 12
+        return f"{h12}:{m:02d} {period}"
+    except (ValueError, IndexError):
+        return time_24
+
+
 def _extract_time_from_iso(iso_str: str) -> str:
-    """Extract HH:MM time from ISO datetime string."""
+    """Extract time from ISO datetime string in 12h format (e.g., '5:30 PM')."""
     if not iso_str:
         return ""
     try:
         from datetime import datetime
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        return dt.strftime("%H:%M")
+        return _format_12h(dt.strftime("%H:%M"))
     except (ValueError, TypeError, AttributeError):
         # Fallback: regex for T15:30 pattern
         match = re.search(r'T?(\d{2}:\d{2})', iso_str)
-        return match.group(1) if match else ""
+        return _format_12h(match.group(1)) if match else ""
 
 
 def _ensure_timeline_card(structured: dict, state: TomoChatState) -> dict:
@@ -550,14 +562,15 @@ def _build_confirmation_response(pending: dict) -> dict:
         date_str = inp.get("date", "")
         formatted_date = _format_confirm_date(date_str) if date_str else ""
 
-        # Format time — support both camelCase and snake_case field names
+        # Format time in 12h — support both camelCase and snake_case field names
         time_str = ""
         start = inp.get("startTime") or inp.get("start_time") or ""
         end = inp.get("endTime") or inp.get("end_time") or ""
         if start:
-            time_str = start
+            time_str = _format_12h(start) if ":" in start and len(start) <= 5 else start
             if end:
-                time_str += f"–{end}"
+                end_fmt = _format_12h(end) if ":" in end and len(end) <= 5 else end
+                time_str += f"–{end_fmt}"
 
         items.append({
             "title": title,
@@ -611,10 +624,18 @@ def _build_done_headline(results: list[dict]) -> str:
 
     # Try extracting event details for natural language headline
     if isinstance(result_data, dict):
-        title = result_data.get("name") or result_data.get("title") or ""
-        start_time = result_data.get("startTime") or result_data.get("start_time") or ""
+        # Handle nested event response from TS backend
+        event_data = result_data.get("event", result_data)
+        title = event_data.get("name") or event_data.get("title") or ""
+        # Use actual time (may have been auto-repositioned)
+        if result_data.get("autoRepositioned"):
+            suggested = result_data.get("suggestedTime", {})
+            start_time = suggested.get("startTime", "")
+        else:
+            start_time = event_data.get("startTime") or event_data.get("start_time") or ""
         if title and start_time:
-            return f"{title} added for {start_time}"
+            time_display = _format_12h(start_time) if ":" in start_time and len(start_time) <= 5 else start_time
+            return f"{title} locked in for {time_display}"
         if title:
             return f"{title} confirmed"
 
@@ -645,13 +666,38 @@ def _build_confirmed_response(results: list[dict]) -> dict:
         headline = _build_done_headline(results)
         # Build stat_grid items with green highlights showing event details
         items = []
+        auto_reposition_note = ""
         for r in results:
             result_data = r.get("result", {})
             if isinstance(result_data, dict):
-                title = result_data.get("name") or result_data.get("title") or r.get("tool", "").replace("_", " ").title()
-                date = result_data.get("date", "")
-                start_time = result_data.get("startTime") or result_data.get("start_time") or ""
-                detail = f"{date} {start_time}".strip() if date or start_time else "Confirmed"
+                # Handle nested event response (TS returns { event: {...}, autoRepositioned: ... })
+                event_data = result_data.get("event", result_data)
+                title = event_data.get("name") or event_data.get("title") or r.get("tool", "").replace("_", " ").title()
+                date = event_data.get("date", "")
+
+                # Check for auto-repositioning: use actual stored time, not original request
+                if result_data.get("autoRepositioned"):
+                    suggested = result_data.get("suggestedTime", {})
+                    start_time = suggested.get("startTime", "")
+                    end_time = suggested.get("endTime", "")
+                    orig = result_data.get("originalTime", {})
+                    orig_start = orig.get("startTime", "")
+                    orig_fmt = _format_12h(orig_start) if orig_start and ":" in orig_start else orig_start
+                    new_fmt = _format_12h(start_time) if start_time and ":" in start_time else start_time
+                    auto_reposition_note = f"Moved from {orig_fmt} to {new_fmt} to avoid a clash."
+                else:
+                    start_time = event_data.get("startTime") or event_data.get("start_time") or ""
+
+                time_display = _format_12h(start_time) if start_time and ":" in start_time and len(start_time) <= 5 else start_time
+                # Format date as readable
+                date_display = ""
+                if date:
+                    try:
+                        from datetime import datetime as _dt
+                        date_display = _dt.strptime(date, "%Y-%m-%d").strftime("%a %b %d")
+                    except (ValueError, TypeError):
+                        date_display = date
+                detail = f"{date_display} {time_display}".strip() if date_display or time_display else "Confirmed"
                 items.append({"label": title, "value": detail, "highlight": "green"})
             else:
                 tool_display = r.get("tool", "").replace("_", " ").title()
@@ -662,7 +708,7 @@ def _build_confirmed_response(results: list[dict]) -> dict:
             "type": "text_card", "headline": headline, "body": "All good."
         }
         cards = [done_card]
-        body = ""
+        body = auto_reposition_note
     else:
         # Warm error — never robotic "X of Y actions"
         failed = [r for r in results if not r.get("success")]
@@ -702,11 +748,31 @@ def _build_confirmed_response(results: list[dict]) -> dict:
             },
         ]
 
+    # Context-aware chips based on the action type
+    primary_tool = results[0].get("tool", "") if results else ""
+    if primary_tool in ("create_event", "update_event"):
+        chips = [
+            {"label": "Show tomorrow", "message": "Show me tomorrow's schedule"},
+            {"label": "Check collisions", "message": "Check for scheduling conflicts"},
+        ]
+    elif primary_tool == "delete_event":
+        chips = [
+            {"label": "Show today", "message": "Show me today's schedule"},
+            {"label": "Add training", "message": "Add a training session"},
+        ]
+    elif primary_tool in ("log_check_in", "log_test_result"):
+        chips = [
+            {"label": "Check readiness", "message": "What's my readiness?"},
+            {"label": "Build session", "message": "Build me a training session"},
+        ]
+    else:
+        chips = [{"label": "What else?", "message": "What should I do next?"}]
+
     return {
         "headline": headline,
-        "body": "",
+        "body": body,
         "cards": cards,
-        "chips": [{"label": "What else?", "message": "What should I do next?"}],
+        "chips": chips,
     }
 
 
