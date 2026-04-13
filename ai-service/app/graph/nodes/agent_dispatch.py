@@ -33,6 +33,7 @@ from app.agents.tools import get_tools_for_agent
 from app.agents.tools.bridge import is_write_action, is_capsule_direct
 from app.agents.prompt_builder import build_system_prompt
 from app.agents.greeting_handler import detect_greeting_tier
+from app.utils.message_helpers import find_last_human_message
 
 logger = logging.getLogger("tomo-ai.agent_dispatch")
 
@@ -92,11 +93,7 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
 
     # For greetings: detect energy tier and inject vibe-matched guidance
     if intent_id == "greeting":
-        user_msg = ""
-        for msg in reversed(state.get("messages", [])):
-            if hasattr(msg, "type") and msg.type == "human":
-                user_msg = msg.content if isinstance(msg.content, str) else str(msg.content)
-                break
+        user_msg = find_last_human_message(state.get("messages", []))
         tier = detect_greeting_tier(user_msg, context)
         intent_guidance = _build_greeting_guidance(tier)
         logger.info(f"Greeting energy tier: {tier} for '{user_msg[:40]}'")
@@ -328,6 +325,46 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
                 if isinstance(b, dict) and b.get("type") == "text"
             ]
             agent_response = "\n".join(text_blocks)
+
+    # Recovery: if loop exhausted with tool-call-only response (no text content),
+    # make one final LLM call WITHOUT tools to force text synthesis from the
+    # accumulated context. This prevents empty responses when the agent gathered
+    # data via tools but never got a chance to summarize.
+    if not agent_response.strip() and tool_calls_log:
+        logger.warning(
+            f"Empty agent response after {len(tool_calls_log)} tool calls "
+            f"({MAX_ITERATIONS} iterations) -- forcing synthesis call"
+        )
+        try:
+            # Call LLM without tools bound -- forces text generation
+            synthesis_response = await llm.ainvoke(all_messages)
+
+            # Track telemetry for synthesis call
+            usage = synthesis_response.response_metadata.get("usage", {})
+            input_tokens = usage.get("input_tokens", 0)
+            output_tokens = usage.get("output_tokens", 0)
+            cache_read = usage.get("cache_read_input_tokens", 0)
+            total_tokens += input_tokens + output_tokens
+            total_cost += ((input_tokens - cache_read) * HAIKU_INPUT_COST_PER_TOKEN) + \
+                          (output_tokens * HAIKU_OUTPUT_COST_PER_TOKEN)
+
+            if isinstance(synthesis_response.content, str):
+                agent_response = synthesis_response.content
+            elif isinstance(synthesis_response.content, list):
+                text_blocks = [
+                    b.get("text", "") for b in synthesis_response.content
+                    if isinstance(b, dict) and b.get("type") == "text"
+                ]
+                agent_response = "\n".join(text_blocks)
+
+            all_messages.append(synthesis_response)
+            logger.info(f"Synthesis call recovered: {len(agent_response)} chars")
+        except Exception as e:
+            logger.error(f"Synthesis call failed: {e}")
+            agent_response = (
+                "Hey -- I looked into that but had trouble putting it together. "
+                "Mind asking again?"
+            )
 
     elapsed = (time.monotonic() - t0) * 1000
     logger.info(

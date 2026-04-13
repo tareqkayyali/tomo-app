@@ -18,6 +18,7 @@ from typing import Optional
 
 from app.models.state import TomoChatState
 from app.graph.observability import build_post_execution_metadata
+from app.utils.message_helpers import find_last_human_message, count_human_messages
 
 logger = logging.getLogger("tomo-ai.persist")
 
@@ -48,12 +49,10 @@ async def persist_node(state: TomoChatState) -> dict:
     routing_confidence = state.get("routing_confidence", 0.0)
 
     # Extract user message from state
+    # Uses robust helper that handles both LangChain objects and dict-format
+    # messages from LangGraph's add_messages reducer
     messages = state.get("messages", [])
-    user_message = ""
-    for msg in reversed(messages):
-        if hasattr(msg, "type") and msg.type == "human":
-            user_message = msg.content if isinstance(msg.content, str) else str(msg.content)
-            break
+    user_message = find_last_human_message(messages)
 
     if not user_id or not session_id:
         logger.warning("persist_node: missing user_id or session_id, skipping persist")
@@ -93,7 +92,8 @@ async def persist_node(state: TomoChatState) -> dict:
         logger.error(f"persist_node error (non-blocking): {e}", exc_info=True)
 
     # Count messages in this session to determine turn count
-    turn_count = len([m for m in messages if hasattr(m, "type") and m.type == "human"])
+    # Uses robust helper that handles dict-format messages from add_messages reducer
+    turn_count = count_human_messages(messages)
 
     # ── Zep memory save (non-blocking, fire-and-forget) ──
     try:
@@ -140,7 +140,11 @@ async def persist_node(state: TomoChatState) -> dict:
                             acwr, acwr_bucket, data_confidence_score,
                             checkin_staleness_days,
                             cost_bucket, latency_bucket, confidence_bucket, tool_bucket,
-                            assistant_response, turn_number, response_length_chars
+                            assistant_response, turn_number, response_length_chars,
+                            capsule_type, position, readiness_bucket,
+                            rag_graph_hops, rag_sub_questions,
+                            has_pending_write, write_confirmed,
+                            dual_load_zone, validation_flag_count
                         ) VALUES (
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
@@ -155,7 +159,11 @@ async def persist_node(state: TomoChatState) -> dict:
                             %s, %s, %s,
                             %s,
                             %s, %s, %s, %s,
-                            %s, %s, %s
+                            %s, %s, %s,
+                            %s, %s, %s,
+                            %s, %s,
+                            %s, %s,
+                            %s, %s
                         )
                         """,
                         (
@@ -202,6 +210,16 @@ async def persist_node(state: TomoChatState) -> dict:
                             (final_response or agent_response or "")[:5000],
                             turn_count,
                             len(final_response or agent_response or ""),
+                            # LangSmith parity fields (9 columns)
+                            m.get("capsule_type"),
+                            m.get("position"),
+                            m.get("readiness_bucket"),
+                            m.get("rag_graph_hops", 0),
+                            m.get("rag_sub_questions", 0),
+                            m.get("has_pending_write", False),
+                            m.get("write_confirmed", False),
+                            m.get("dual_load_zone"),
+                            m.get("validation_flag_count", 0),
                         ),
                     )
         except Exception as e:

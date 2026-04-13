@@ -26,6 +26,7 @@ from app.agents.intent_classifier import (
 )
 from app.agents.intent_registry import CAPSULE_DIRECT_ACTIONS, CAPSULE_GATED_ACTIONS
 from app.agents.router import route_to_agents, should_keep_agent_lock
+from app.utils.message_helpers import get_msg_type, get_msg_content
 
 logger = logging.getLogger("tomo-ai.pre_router")
 
@@ -54,11 +55,12 @@ async def pre_router_node(state: TomoChatState) -> dict:
         }
 
     # Extract user message from state messages
+    # Uses robust helper for both LangChain objects and dict-format messages
     messages = state.get("messages", [])
     user_message = ""
     for msg in reversed(messages):
-        if hasattr(msg, "type") and msg.type == "human":
-            user_message = msg.content if isinstance(msg.content, str) else str(msg.content)
+        if get_msg_type(msg) == "human":
+            user_message = get_msg_content(msg)
             break
 
     if not user_message:
@@ -75,13 +77,13 @@ async def pre_router_node(state: TomoChatState) -> dict:
     if len(messages) > 1:
         # Extract current_topic from last user message (for follow-up detection)
         for msg in reversed(messages[:-1]):
-            if hasattr(msg, "type") and msg.type == "human":
-                conv_state.current_topic = msg.content[:200]
+            if get_msg_type(msg) == "human":
+                conv_state.current_topic = get_msg_content(msg)[:200]
                 break
         # Extract last_action from last assistant response
         for msg in reversed(messages[:-1]):
-            if hasattr(msg, "type") and msg.type == "ai":
-                content_lower = msg.content[:300].lower()
+            if get_msg_type(msg) == "ai":
+                content_lower = get_msg_content(msg)[:300].lower()
                 for action_kw in ("created", "logged", "confirmed", "updated", "scheduled"):
                     if action_kw in content_lower:
                         conv_state.last_action = action_kw

@@ -194,7 +194,7 @@ const TIME_RANGE_HOURS: Record<string, number> = {
   "30d": 720,
 };
 
-type TimeRange = "1h" | "6h" | "24h" | "7d" | "30d";
+type TimeRange = "1h" | "6h" | "24h" | "7d" | "30d" | "custom";
 type TabId = "command" | "traces" | "issues";
 
 const AGENT_TYPES = [
@@ -217,11 +217,21 @@ const COST_BUCKETS = ["All", "free", "cheap", "moderate", "expensive"] as const;
 const LATENCY_BUCKETS = ["All", "fast", "normal", "slow"] as const;
 const VALIDATION_OPTIONS = ["All", "Pass", "Fail"] as const;
 
-function getTimeRange(range: string): { from: string; to: string } {
+function getTimeRange(range: string, customFrom?: string, customTo?: string): { from: string; to: string } {
+  if (range === "custom" && customFrom && customTo) {
+    return {
+      from: new Date(customFrom).toISOString(),
+      to: new Date(customTo).toISOString(),
+    };
+  }
   const now = new Date();
   const hours = TIME_RANGE_HOURS[range] || 24;
   const from = new Date(now.getTime() - hours * 3600000);
   return { from: from.toISOString(), to: now.toISOString() };
+}
+
+function toDatetimeLocal(iso: string): string {
+  return new Date(iso).toISOString().slice(0, 16);
 }
 
 function formatCost(cost: number | null | undefined): string {
@@ -377,10 +387,19 @@ export default function AIHealthPage() {
   const [filterLatencyBucket, setFilterLatencyBucket] = useState("All");
   const [filterValidation, setFilterValidation] = useState("All");
 
+  // Custom date range for traces (from/to pickers)
+  const [customFrom, setCustomFrom] = useState(() => {
+    return new Date(Date.now() - 24 * 3600000).toISOString().slice(0, 16);
+  });
+  const [customTo, setCustomTo] = useState(() => {
+    return new Date().toISOString().slice(0, 16);
+  });
+
   // Filtered insights (from traces tab)
   const [filteredInsights, setFilteredInsights] = useState<Insight[] | null>(null);
   const [filteredInsightsLoading, setFilteredInsightsLoading] = useState(false);
   const [filteredTracesAnalyzed, setFilteredTracesAnalyzed] = useState(0);
+  const [activeInsightTab, setActiveInsightTab] = useState("");
 
   // Issues tab state
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -415,7 +434,7 @@ export default function AIHealthPage() {
     setTracesLoading(true);
     setFilteredInsights(null);
     try {
-      const { from, to } = getTimeRange(timeRange);
+      const { from, to } = getTimeRange(timeRange, customFrom, customTo);
       const params = new URLSearchParams({
         from,
         to,
@@ -442,7 +461,7 @@ export default function AIHealthPage() {
     } finally {
       setTracesLoading(false);
     }
-  }, [timeRange, filterAgentType, filterPathType, filterIntent]);
+  }, [timeRange, customFrom, customTo, filterAgentType, filterPathType, filterIntent]);
 
   // ── Fetch: Issues ─────────────────────────────────────────────────────────
 
@@ -470,7 +489,7 @@ export default function AIHealthPage() {
   const runFilteredInsights = async () => {
     setFilteredInsightsLoading(true);
     try {
-      const { from, to } = getTimeRange(timeRange);
+      const { from, to } = getTimeRange(timeRange, customFrom, customTo);
       const body: Record<string, unknown> = { from, to, filters: {} };
       if (filterAgentType !== "All") body.agent_type = filterAgentType;
 
@@ -579,6 +598,15 @@ export default function AIHealthPage() {
     if (activeTab === "command") fetchDashboard();
   }, [timeRange, fetchDashboard]);
 
+  // Sync customFrom/customTo when time range quick-buttons are clicked
+  useEffect(() => {
+    if (timeRange !== "custom") {
+      const { from, to } = getTimeRange(timeRange);
+      setCustomFrom(toDatetimeLocal(from));
+      setCustomTo(toDatetimeLocal(to));
+    }
+  }, [timeRange]);
+
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const sortedAgents = useMemo(() => {
@@ -642,6 +670,43 @@ export default function AIHealthPage() {
     filterCostBucket !== "All" ||
     filterLatencyBucket !== "All" ||
     filterValidation !== "All";
+
+  // Group insights by category for tabbed view
+  const insightsByCategory = useMemo(() => {
+    if (!filteredInsights) return {} as Record<string, Insight[]>;
+    const grouped: Record<string, Insight[]> = {};
+    for (const i of filteredInsights) {
+      if (!grouped[i.category]) grouped[i.category] = [];
+      grouped[i.category].push(i);
+    }
+    return grouped;
+  }, [filteredInsights]);
+
+  const insightCategories = useMemo(
+    () => Object.keys(insightsByCategory),
+    [insightsByCategory]
+  );
+
+  // Highest severity per category for tab badge
+  const categorySeverity = useMemo(() => {
+    const sev: Record<string, string> = {};
+    const order = ["critical", "high", "medium", "info"];
+    for (const [cat, insights] of Object.entries(insightsByCategory)) {
+      let best = "info";
+      for (const i of insights) {
+        if (order.indexOf(i.severity) < order.indexOf(best)) best = i.severity;
+      }
+      sev[cat] = best;
+    }
+    return sev;
+  }, [insightsByCategory]);
+
+  // Auto-select first insight tab when insights load
+  useEffect(() => {
+    if (insightCategories.length > 0 && !insightCategories.includes(activeInsightTab)) {
+      setActiveInsightTab(insightCategories[0]);
+    }
+  }, [insightCategories, activeInsightTab]);
 
   // ── Tab Bar ───────────────────────────────────────────────────────────────
 
@@ -1045,6 +1110,41 @@ export default function AIHealthPage() {
               </select>
             </div>
 
+            {/* Separator */}
+            <div className="w-px h-8 bg-zinc-300 self-end mb-0.5" />
+
+            {/* From Date */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                From
+              </label>
+              <input
+                type="datetime-local"
+                value={customFrom}
+                onChange={(e) => {
+                  setCustomFrom(e.target.value);
+                  setTimeRange("custom");
+                }}
+                className="text-xs border border-zinc-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              />
+            </div>
+
+            {/* To Date */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                To
+              </label>
+              <input
+                type="datetime-local"
+                value={customTo}
+                onChange={(e) => {
+                  setCustomTo(e.target.value);
+                  setTimeRange("custom");
+                }}
+                className="text-xs border border-zinc-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              />
+            </div>
+
             {/* Apply Button */}
             <Button
               size="sm"
@@ -1320,7 +1420,7 @@ export default function AIHealthPage() {
             </div>
           )}
 
-          {/* Run Insights + Export */}
+          {/* Run Insights + Export All */}
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
@@ -1343,7 +1443,9 @@ export default function AIHealthPage() {
                 onClick={() => {
                   const exportData = {
                     exported_at: new Date().toISOString(),
-                    time_range: timeRange,
+                    time_range: timeRange === "custom"
+                      ? { from: customFrom, to: customTo }
+                      : timeRange,
                     filters: {
                       agent_type: filterAgentType !== "All" ? filterAgentType : null,
                       path_type: filterPathType !== "All" ? filterPathType : null,
@@ -1355,6 +1457,7 @@ export default function AIHealthPage() {
                     traces_analyzed: filteredTracesAnalyzed,
                     insights: filteredInsights.map((i) => ({
                       category: i.category,
+                      category_label: CATEGORY_LABEL[i.category] ?? i.category,
                       severity: i.severity,
                       question: i.question,
                       answer: i.answer,
@@ -1383,30 +1486,147 @@ export default function AIHealthPage() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = `tomo-ai-insights-${new Date().toISOString().slice(0, 16).replace(/:/g, "-")}.json`;
+                  a.download = `tomo-ai-insights-all-${new Date().toISOString().slice(0, 16).replace(/:/g, "-")}.json`;
                   a.click();
                   URL.revokeObjectURL(url);
                 }}
               >
-                Export JSON
+                Export All
               </Button>
-            )}
-            {filteredInsights && (
-              <span className="text-xs text-muted-foreground">
-                {filteredInsights.length} insights from{" "}
-                {filteredTracesAnalyzed} traces
-              </span>
             )}
           </div>
 
-          {/* Insights Results */}
+          {/* Insights Results — Tabbed View */}
           {filteredInsights && filteredInsights.length > 0 && (
             <div>
               <Separator className="mb-4" />
-              <h3 className="text-sm font-medium mb-3">
-                {hasActiveFilters ? "Filtered Insights" : "Full Trace Insights"}
-              </h3>
-              <InsightCardList insights={filteredInsights} />
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium">
+                  {hasActiveFilters ? "Filtered Insights" : "Full Trace Insights"}
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  {filteredInsights.length} insights from {filteredTracesAnalyzed} traces
+                </span>
+              </div>
+
+              {/* Insight Category Tabs */}
+              <div className="flex border-b border-zinc-200 mb-0 overflow-x-auto">
+                {insightCategories.map((cat) => {
+                  const sev = categorySeverity[cat] || "info";
+                  const sevDot: Record<string, string> = {
+                    critical: "bg-red-500",
+                    high: "bg-orange-500",
+                    medium: "bg-yellow-500",
+                    info: "bg-zinc-400",
+                  };
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveInsightTab(cat)}
+                      className={`px-3 py-2.5 text-xs font-medium transition-colors relative whitespace-nowrap flex items-center gap-1.5 ${
+                        activeInsightTab === cat
+                          ? "text-zinc-900"
+                          : "text-zinc-500 hover:text-zinc-700"
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${sevDot[sev] || sevDot.info}`} />
+                      {CATEGORY_LABEL[cat] ?? cat}
+                      {activeInsightTab === cat && (
+                        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-zinc-900 rounded-t" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Active Tab Content */}
+              {activeInsightTab && insightsByCategory[activeInsightTab] && (
+                <Card className="rounded-t-none border-t-0">
+                  <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+                    <CardTitle className="text-sm font-medium">
+                      {CATEGORY_LABEL[activeInsightTab] ?? activeInsightTab}
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-blue-600 hover:text-blue-700 h-7"
+                      onClick={() => {
+                        const tabInsights = insightsByCategory[activeInsightTab];
+                        const exportData = {
+                          exported_at: new Date().toISOString(),
+                          category: activeInsightTab,
+                          category_label: CATEGORY_LABEL[activeInsightTab] ?? activeInsightTab,
+                          time_range: timeRange === "custom"
+                            ? { from: customFrom, to: customTo }
+                            : timeRange,
+                          filters: {
+                            agent_type: filterAgentType !== "All" ? filterAgentType : null,
+                            path_type: filterPathType !== "All" ? filterPathType : null,
+                            intent: filterIntent.trim() || null,
+                          },
+                          insights: tabInsights.map((i) => ({
+                            severity: i.severity,
+                            question: i.question,
+                            answer: i.answer,
+                            traces_analyzed: i.traces_analyzed,
+                            highlighted_traces: i.highlighted_traces,
+                          })),
+                        };
+                        const blob = new Blob(
+                          [JSON.stringify(exportData, null, 2)],
+                          { type: "application/json" }
+                        );
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `tomo-insight-${activeInsightTab}-${new Date().toISOString().slice(0, 16).replace(/:/g, "-")}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                    >
+                      Export {CATEGORY_LABEL[activeInsightTab] ?? activeInsightTab}
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 space-y-3">
+                    {insightsByCategory[activeInsightTab].map((insight, idx) => (
+                      <div
+                        key={idx}
+                        className={`border-l-4 rounded-r-lg p-3 ${
+                          INSIGHT_SEV_STYLE[insight.severity] ?? "border-l-zinc-400 bg-zinc-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] uppercase tracking-wider ${SEV_BADGE[insight.severity] ?? ""}`}
+                          >
+                            {insight.severity}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {insight.traces_analyzed} traces
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium mb-2">{insight.question}</p>
+                        <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                          {insight.answer}
+                        </p>
+                        {insight.highlighted_traces.length > 0 && (
+                          <div className="mt-3 flex gap-2 flex-wrap">
+                            {insight.highlighted_traces.map((traceId) => (
+                              <span
+                                key={traceId}
+                                className="font-mono text-[10px] bg-zinc-200 rounded px-1.5 py-0.5 text-zinc-600"
+                              >
+                                {traceId.slice(0, 8)}...
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
           {filteredInsights && filteredInsights.length === 0 && (

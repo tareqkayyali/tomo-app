@@ -21,6 +21,8 @@ from typing import Optional
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 
+from app.utils.message_helpers import get_msg_type, get_msg_content
+
 logger = logging.getLogger("tomo-ai.conversation_history")
 
 # ── Token Budget ──────────────────────────────────────────────────
@@ -254,9 +256,10 @@ def _compress_older_messages(messages: list[BaseMessage], char_budget: int) -> s
     topics_seen: set[str] = set()
 
     for msg in messages:
-        content = msg.content[:500]  # Sample first 500 chars per message
+        content = get_msg_content(msg)[:500]  # Sample first 500 chars per message
+        msg_type = get_msg_type(msg)
 
-        if hasattr(msg, "type") and msg.type == "human":
+        if msg_type == "human":
             # Keep first line of user messages as topic indicators
             first_line = content.split("\n")[0].strip()
             if first_line and len(first_line) < 200:
@@ -265,7 +268,7 @@ def _compress_older_messages(messages: list[BaseMessage], char_budget: int) -> s
                 if topic_key not in topics_seen:
                     topics_seen.add(topic_key)
                     user_questions.append(first_line)
-        elif hasattr(msg, "type") and msg.type == "ai":
+        elif msg_type == "ai":
             # Extract action confirmations from assistant messages
             content_lower = content.lower()
             if any(kw in content_lower for kw in ("confirmed", "created", "logged", "updated", "done")):
@@ -283,3 +286,45 @@ def _compress_older_messages(messages: list[BaseMessage], char_budget: int) -> s
 
     summary = "\n".join(parts)
     return summary[:char_budget] if summary else ""
+
+
+async def load_last_agent_for_session(
+    session_id: str,
+    user_id: str,
+) -> Optional[str]:
+    """
+    Load the last agent type used in a session from chat_messages metadata.
+
+    This enables cross-invocation agent continuity: when a user sends a follow-up
+    message, the pre_router can check agent lock against the PREVIOUS turn's agent
+    instead of always starting fresh.
+
+    Returns: agent type string ("output", "timeline", etc.) or None
+    """
+    from app.db.supabase import get_pool
+
+    pool = get_pool()
+    if not pool:
+        return None
+
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """SELECT metadata->>'agent_type' AS agent_type
+                   FROM chat_messages
+                   WHERE session_id = %s AND user_id = %s AND role = 'assistant'
+                     AND metadata IS NOT NULL
+                   ORDER BY created_at DESC
+                   LIMIT 1""",
+                (session_id, user_id),
+            )
+            row = await result.fetchone()
+
+        if row and row[0]:
+            logger.debug(f"Last agent for session {session_id[:8]}: {row[0]}")
+            return row[0]
+        return None
+
+    except Exception as e:
+        logger.debug(f"Last agent lookup failed (non-blocking): {e}")
+        return None

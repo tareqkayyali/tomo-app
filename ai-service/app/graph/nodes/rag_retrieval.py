@@ -22,6 +22,7 @@ import time
 
 from app.models.state import TomoChatState
 from app.rag.retriever import retrieve
+from app.utils.message_helpers import get_msg_type, get_msg_content
 
 logger = logging.getLogger("tomo-ai.rag_retrieval")
 
@@ -75,14 +76,19 @@ async def rag_retrieval_node(state: TomoChatState) -> dict:
         return {"rag_context": "", "rag_metadata": {}}
 
     # Get the latest user message
+    # Uses robust helper for both LangChain objects and dict-format messages
     user_message = ""
     for msg in reversed(messages):
-        if hasattr(msg, "type") and msg.type == "human":
-            user_message = msg.content
+        msg_type = get_msg_type(msg)
+        if msg_type == "human":
+            user_message = get_msg_content(msg)
             break
-        elif hasattr(msg, "content") and not hasattr(msg, "type"):
-            user_message = msg.content
-            break
+        elif msg_type is None:
+            # Unknown format -- try to extract content as fallback
+            content = get_msg_content(msg)
+            if content:
+                user_message = content
+                break
 
     if not user_message or len(user_message) < MIN_MESSAGE_LENGTH:
         logger.debug(f"Skipping RAG: message too short ({len(user_message)} chars)")

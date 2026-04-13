@@ -178,13 +178,21 @@ async def run_supervisor(
 
     graph = get_supervisor()
 
-    # Load conversation history for session continuity (graceful fallback)
+    # Load conversation history + last agent for session continuity (graceful fallback)
     history_messages: list = []
+    last_session_agent: str | None = None
     try:
-        from app.graph.conversation_history import load_conversation_history
+        from app.graph.conversation_history import (
+            load_conversation_history,
+            load_last_agent_for_session,
+        )
         history_messages = await load_conversation_history(session_id, user_id)
+        last_session_agent = await load_last_agent_for_session(session_id, user_id)
         if history_messages:
-            logger.info(f"Loaded {len(history_messages)} history messages for session {session_id[:8]}...")
+            logger.info(
+                f"Loaded {len(history_messages)} history messages for session {session_id[:8]}... "
+                f"(last_agent={last_session_agent or 'none'})"
+            )
     except Exception as e:
         logger.warning(f"History load failed (continuing without): {e}")
 
@@ -206,6 +214,10 @@ async def run_supervisor(
         # Initialize routing classification
         "classification_layer": None,
         "intent_id": None,
+        # Seed with last agent from session for cross-invocation agent lock.
+        # pre_router checks state.get("selected_agent") for conversation continuity;
+        # without this, every invocation starts fresh and agent lock never fires.
+        "selected_agent": last_session_agent,
         # Initialize output
         "tool_calls": [],
         "final_cards": [],
