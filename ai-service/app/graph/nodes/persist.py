@@ -124,6 +124,11 @@ async def persist_node(state: TomoChatState) -> dict:
             if pool:
                 m = post_metadata  # shorthand
                 async with pool.connection() as conn:
+                    # Use autocommit so each INSERT is independent.
+                    # Without this, a failed INSERT aborts the transaction
+                    # and the fallback INSERT also fails with
+                    # "current transaction is aborted".
+                    await conn.set_autocommit(True)
                     try:
                         # Full INSERT with all 51 columns (requires migration for 12 new columns)
                         await conn.execute(
