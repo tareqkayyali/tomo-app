@@ -25,7 +25,6 @@ from app.agents.intent_classifier import (
     ConversationState,
     _normalize,
     _EXACT_MATCH_MAP,
-    _build_exact_match_map,
 )
 from app.agents.sonnet_classifier import classify_with_sonnet, SonnetClassificationResult
 from app.agents.router import should_keep_agent_lock
@@ -113,10 +112,8 @@ async def _classify_sonnet(state: TomoChatState) -> dict:
         }
 
     # Layer 1: Exact match ($0, 0ms)
-    # Reuse existing exact-match map from intent_classifier
-    if not _EXACT_MATCH_MAP:
-        _build_exact_match_map()
-
+    # _EXACT_MATCH_MAP is populated at intent_classifier module load (line 274).
+    # It's guaranteed to have 150+ entries when this module is imported.
     normalized = _normalize(user_message)
     exact_hit = _EXACT_MATCH_MAP.get(normalized)
     if exact_hit:

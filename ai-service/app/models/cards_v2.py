@@ -192,7 +192,9 @@ def validate_card(card_dict: dict[str, Any]) -> tuple[bool, Optional[dict[str, A
 
     try:
         validated = model_cls.model_validate(card_dict)
-        return True, validated.model_dump(exclude_none=True), None
+        # by_alias=True ensures fields with aliases (e.g., event_type→type) use
+        # the alias name in output, matching what the mobile app expects.
+        return True, validated.model_dump(by_alias=True, exclude_none=True), None
     except Exception as e:
         return False, None, f"{card_type}: {str(e)[:200]}"
 

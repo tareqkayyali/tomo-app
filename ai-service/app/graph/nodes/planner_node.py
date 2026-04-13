@@ -17,6 +17,7 @@ Phase 3: Full activation — creates and tracks multi-step workflows.
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -159,7 +160,6 @@ async def _load_active_plan(session_id: str, user_id: str) -> Optional[Conversat
             )
             row = await result.fetchone()
             if row and row[0]:
-                import json
                 data = row[0] if isinstance(row[0], dict) else json.loads(row[0])
                 plan_dict = data.get("plan")
                 if plan_dict:

@@ -730,17 +730,33 @@ PROGRAM RESPONSE FORMAT — MANDATORY:
 
 # ── v2 Consolidated Agent Prompts (4 agents) ──────────────────────────
 
-def build_performance_static() -> str:
-    """v2 Performance agent — merges output + testing + recovery + training_program."""
-    return (
-        build_output_static()
-        + "\n\n"
-        + build_testing_benchmark_static()
-        + "\n\n"
-        + build_recovery_static()
-        + "\n\n"
-        + build_training_program_static()
-    )
+def build_performance_static(intent_id: str = "") -> str:
+    """v2 Performance agent — intent-aware prompt selection.
+
+    Instead of concatenating all 4 sub-prompts (~1,700 tokens), selects
+    only the relevant sub-prompt based on classified intent. This keeps
+    the static block under ~500 tokens, leaving more context for history
+    and RAG.
+
+    Falls back to the base output prompt when intent is unknown.
+    """
+    # Always include the base output prompt (readiness, drills, programs)
+    base = build_output_static()
+
+    # Add specialized sub-prompt based on intent
+    _TESTING_INTENTS = {"log_test", "test_trajectory", "benchmark_comparison", "qa_test_history"}
+    _RECOVERY_INTENTS = {"recovery_guidance", "deload_assessment", "injury_assessment"}
+    _PROGRAM_INTENTS = {"program_recommendation", "phv_query"}
+
+    if intent_id in _TESTING_INTENTS:
+        return base + "\n\n" + build_testing_benchmark_static()
+    elif intent_id in _RECOVERY_INTENTS:
+        return base + "\n\n" + build_recovery_static()
+    elif intent_id in _PROGRAM_INTENTS:
+        return base + "\n\n" + build_training_program_static()
+
+    # Default: just the base output prompt (~500 tokens)
+    return base
 
 
 def build_planning_v2_static() -> str:
@@ -1393,6 +1409,7 @@ def build_system_prompt(
     aib_summary: Optional[str] = None,
     conversation_context: Optional[str] = None,
     secondary_agents: Optional[list[str]] = None,
+    intent_id: Optional[str] = None,
 ) -> tuple[str, str]:
     """
     Build the 2-block system prompt.
@@ -1406,11 +1423,19 @@ def build_system_prompt(
     # ── Block 1: Static (coaching identity + format + agent prompt) ──
     # NOTE: GUARDRAIL_BLOCK removed — guardrails will be CMS-configurable.
     agent_static_fn = STATIC_BUILDERS.get(agent_type, build_output_static)
+
+    # v2: Performance agent uses intent-aware prompt trimming to stay under budget
+    import inspect
+    if "intent_id" in inspect.signature(agent_static_fn).parameters:
+        agent_static = agent_static_fn(intent_id=intent_id or "")
+    else:
+        agent_static = agent_static_fn()
+
     static_parts = [
         COACHING_IDENTITY,
         PULSE_RESPONSE_RULES,
         PULSE_OUTPUT_FORMAT,
-        agent_static_fn(),
+        agent_static,
     ]
     static_block = "\n\n".join(p for p in static_parts if p)
 

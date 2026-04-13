@@ -711,25 +711,29 @@ async def get_filtered_insights(
 
     cols_sql = ", ".join(f"t.{c}" for c in _INSIGHTS_TRACE_COLS)
 
-    async with pool.connection() as conn:
-        # Main trace query with LEFT JOIN to backfill assistant_response
-        # from chat_messages for traces recorded before the column was added.
-        result = await conn.execute(
-            f"""SELECT {cols_sql},
-                       backfill.content AS _backfill_response
-                FROM ai_trace_log t
-                LEFT JOIN LATERAL (
-                    SELECT content FROM chat_messages
-                    WHERE session_id = t.session_id
-                      AND role = 'assistant'
-                      AND created_at BETWEEN t.created_at AND t.created_at + interval '60 seconds'
-                    ORDER BY created_at ASC LIMIT 1
-                ) backfill ON t.assistant_response IS NULL
-                WHERE {where_clause}
-                ORDER BY t.created_at DESC LIMIT 500""",
-            params,
-        )
-        rows = await result.fetchall()
+    try:
+        async with pool.connection() as conn:
+            # Main trace query with LEFT JOIN to backfill assistant_response
+            # from chat_messages for traces recorded before the column was added.
+            result = await conn.execute(
+                f"""SELECT {cols_sql},
+                           backfill.content AS _backfill_response
+                    FROM ai_trace_log t
+                    LEFT JOIN LATERAL (
+                        SELECT content FROM chat_messages
+                        WHERE session_id = t.session_id
+                          AND role = 'assistant'
+                          AND created_at BETWEEN t.created_at AND t.created_at + interval '60 seconds'
+                        ORDER BY created_at ASC LIMIT 1
+                    ) backfill ON t.assistant_response IS NULL
+                    WHERE {where_clause}
+                    ORDER BY t.created_at DESC LIMIT 500""",
+                params,
+            )
+            rows = await result.fetchall()
+    except Exception as e:
+        logger.error(f"Filtered insights SQL query failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Trace query failed: {str(e)[:300]}")
 
     # Build trace dicts, merging backfill into assistant_response
     all_cols = _INSIGHTS_TRACE_COLS + ["_backfill_response"]
@@ -740,6 +744,22 @@ async def get_filtered_insights(
         if not trace.get("assistant_response") and trace.get("_backfill_response"):
             trace["assistant_response"] = trace["_backfill_response"]
         trace.pop("_backfill_response", None)
+        # Convert Decimal types to float for JSON serialization
+        for key in ("total_cost_usd", "routing_confidence", "acwr",
+                     "rag_cost_usd", "data_confidence_score"):
+            if trace.get(key) is not None:
+                try:
+                    trace[key] = float(trace[key])
+                except (TypeError, ValueError):
+                    pass
+        for key in ("tool_count", "total_tokens", "latency_ms",
+                     "rag_latency_ms", "rag_entity_count", "rag_chunk_count",
+                     "checkin_staleness_days", "turn_number", "response_length_chars"):
+            if trace.get(key) is not None:
+                try:
+                    trace[key] = int(trace[key])
+                except (TypeError, ValueError):
+                    pass
         traces.append(trace)
 
     if not traces:
@@ -756,5 +776,5 @@ async def get_filtered_insights(
             "traces_analyzed": len(traces),
         }
     except Exception as e:
-        logger.error(f"Filtered insights generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Filtered insights generation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Insights engine error: {str(e)[:300]}")

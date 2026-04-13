@@ -506,7 +506,9 @@ export default function AIHealthPage() {
         setFilteredTracesAnalyzed(data.traces_analyzed ?? 0);
         toast.success(`Insights generated from ${data.traces_analyzed ?? 0} traces`);
       } else {
-        toast.error("Insight generation failed");
+        const errData = await res.json().catch(() => ({}));
+        const detail = errData.detail || errData.error || `HTTP ${res.status}`;
+        toast.error(`Insight generation failed: ${detail}`);
       }
     } catch {
       toast.error("Request failed");

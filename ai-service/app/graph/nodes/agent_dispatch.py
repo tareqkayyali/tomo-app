@@ -92,16 +92,18 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
     tools = get_tools_for_agent(agent_type, user_id, context, secondary_agents)
     tool_map = {t.name: t for t in tools}
 
-    # 2. Build 2-block system prompt
+    # 2. Build 2-block system prompt (v2: passes intent_id for prompt trimming)
+    intent_id = state.get("intent_id", "unknown")
     static_block, dynamic_block = build_system_prompt(
         agent_type=agent_type,
         context=context,
         aib_summary=aib_summary,
         secondary_agents=secondary_agents if secondary_agents else None,
+        intent_id=intent_id,
     )
 
     # 2b. Inject classified intent so LLM knows what type of message this is
-    intent_id = state.get("intent_id", "unknown")
+    # (intent_id already extracted above for build_system_prompt)
 
     # For greetings: detect energy tier and inject vibe-matched guidance
     if intent_id == "greeting":
@@ -463,6 +465,24 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
             )
 
     elapsed = (time.monotonic() - t0) * 1000
+
+    # Multi-step workflow completion check: if the planner expected N steps
+    # but fewer tool calls happened, log a warning. The LLM may have only
+    # completed part of the workflow (e.g., built drills but didn't schedule).
+    if workflow_steps and len(workflow_steps) > 1:
+        expected_agents = set(a for a, _ in workflow_steps)
+        called_tools_set = set(tc.get("name", "") for tc in tool_calls_log)
+        if len(tool_calls_log) == 0:
+            logger.warning(
+                f"Multi-step workflow produced ZERO tool calls "
+                f"(expected {len(workflow_steps)} steps: {[a for a, _ in workflow_steps]})"
+            )
+        elif len(tool_calls_log) < len(workflow_steps):
+            logger.info(
+                f"Multi-step workflow: {len(tool_calls_log)} tool calls "
+                f"for {len(workflow_steps)} steps — partial completion"
+            )
+
     logger.info(
         f"Agent dispatch complete: agent={agent_type} "
         f"tools={len(tool_calls_log)} cost=${total_cost:.6f} "

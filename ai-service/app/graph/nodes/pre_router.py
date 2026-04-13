@@ -186,8 +186,8 @@ async def pre_router_node(state: TomoChatState) -> dict:
                     last_agent=last_agent,
                     context=context,
                 )
-                # Store comparison in state for persist node to log
-                # (Non-blocking — if this fails, production is unaffected)
+                # Shadow results logged via logger (not stored in state — fire-and-forget).
+                # Structured comparison data is in the log for offline A/B analysis.
                 logger.debug(f"Shadow comparison: {comparison.get('agent_match', 'unknown')}")
             except Exception as e:
                 logger.debug(f"Shadow classification skipped: {e}")

@@ -457,16 +457,23 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     #     Invalid cards are dropped and logged. Unknown types pass through.
     try:
         from app.models.cards_v2 import validate_card as _validate_card
+    except ImportError as _imp_err:
+        logger.warning(f"cards_v2 import failed: {_imp_err} — skipping card validation")
+        _validate_card = None
+
+    if _validate_card:
         validated_cards = []
         for card in structured.get("cards", []):
-            valid, cleaned, error = _validate_card(card)
-            if valid and cleaned:
-                validated_cards.append(cleaned)
-            elif error:
-                logger.warning(f"Card validation dropped: {error}")
+            try:
+                valid, cleaned, error = _validate_card(card)
+                if valid and cleaned:
+                    validated_cards.append(cleaned)
+                elif error:
+                    logger.warning(f"Card validation dropped: {error}")
+            except Exception as card_err:
+                logger.warning(f"Card validation error: {card_err} — passing through")
+                validated_cards.append(card)  # Pass through on validation error
         structured["cards"] = validated_cards
-    except ImportError:
-        pass  # cards_v2 not available — skip validation
 
     return structured
 
