@@ -173,24 +173,26 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
     async def log_check_in(
         energy: int = 3,
         soreness: int = 3,
-        sleep_hours: float = 7.0,
+        sleepHours: float = 7.0,
         mood: int = 3,
-        pain_flag: bool = False,
-        academic_stress: int = 0,
-        notes: str = "",
+        painFlag: bool = False,
+        effortYesterday: int = 5,
+        academicStress: int = 0,
+        painLocation: str = "",
     ) -> dict:
-        """Log a daily wellness check-in. Energy, soreness, mood: 1-5 scale. Sleep in hours. Pain flag if experiencing pain. This is a WRITE action."""
+        """Log a daily wellness check-in. Energy, soreness, mood, effortYesterday: 1-10 scale. Sleep in hours. Pain flag if experiencing pain. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
         return await bridge_post(
             "/api/v1/checkin",
             {
                 "energy": energy,
                 "soreness": soreness,
-                "sleep_hours": sleep_hours,
+                "sleepHours": sleepHours,
                 "mood": mood,
-                "pain_flag": pain_flag,
-                "academic_stress": academic_stress,
-                "notes": notes,
+                "painFlag": painFlag,
+                "effortYesterday": effortYesterday,
+                "academicStress": academicStress or None,
+                "painLocation": painLocation or None,
             },
             user_id=user_id,
         )
@@ -391,10 +393,10 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             stage = "POST"
             multiplier = 1.0
 
-        blocked = []
+        higher_risk = []
         alternatives = []
         if stage == "MID":
-            blocked = ["Barbell back squat", "Depth/drop jumps", "Olympic lifts", "Maximal sprint", "Heavy deadlift"]
+            higher_risk = ["Barbell back squat", "Depth/drop jumps", "Olympic lifts", "Maximal sprint", "Heavy deadlift"]
             alternatives = ["Goblet squat", "Soft-landing box steps", "Light dumbbells/kettlebells",
                           "85% effort accel-decel drills", "Trap bar / partial ROM"]
 
@@ -403,8 +405,9 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             "offset_years": round(offset, 2),
             "chronological_age": round(age_years, 1),
             "loading_multiplier": multiplier,
-            "blocked_movements": blocked,
+            "higher_risk_movements": higher_risk,
             "safe_alternatives": alternatives,
+            "advisory": "These movements carry extra risk during growth — suggest alternatives but respect athlete's decision" if higher_risk else "",
         }
 
     @tool
@@ -502,14 +505,50 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
     # NOTE: get_test_catalog + log_test_result moved to testing_benchmark_tools.py (Sprint 1)
 
     @tool
-    async def rate_drill(drill_id: str, rating: int = 3, feedback: str = "") -> dict:
-        """Rate a drill after completing it. Rating: 1-5 scale. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_post
-        return await bridge_post(
-            "/api/v1/drills/rate",
-            {"drill_id": drill_id, "rating": rating, "feedback": feedback},
-            user_id=user_id,
-        )
+    async def rate_drill(
+        drill_id: str,
+        rating: int = 3,
+        difficulty: int = 0,
+        completion_status: str = "completed",
+        effort: int = 0,
+        notes: str = "",
+    ) -> dict:
+        """Rate a drill after completing it. Rating: 1-5 scale. Difficulty: 1-5 (optional). Effort: 1-10 (optional). Completion: skipped/partial/completed. This is a WRITE action."""
+        from app.db.supabase import get_pool
+        pool = get_pool()
+
+        clamped_rating = max(1, min(5, round(rating)))
+        clamped_difficulty = max(1, min(5, round(difficulty))) if difficulty else None
+        clamped_effort = max(1, min(10, round(effort))) if effort else None
+
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """INSERT INTO drill_ratings (user_id, drill_id, date, rating, difficulty, completion_status, effort, notes)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                   RETURNING id, drill_id, rating, date::text""",
+                (
+                    user_id,
+                    drill_id,
+                    context.today_date,
+                    clamped_rating,
+                    clamped_difficulty,
+                    completion_status if completion_status in ("skipped", "partial", "completed") else "completed",
+                    clamped_effort,
+                    notes or None,
+                ),
+            )
+            row = await result.fetchone()
+
+        if not row:
+            return {"error": "Failed to save drill rating"}
+
+        return {
+            "success": True,
+            "id": str(row[0]),
+            "drill_id": str(row[1]),
+            "rating": row[2],
+            "date": row[3],
+        }
 
     @tool
     async def get_today_training_for_journal() -> dict:
@@ -557,43 +596,56 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
     @tool
     async def save_journal_pre(
-        event_id: str,
-        focus: str = "",
-        energy_level: int = 3,
-        goals: str = "",
+        calendar_event_id: str,
+        pre_target: str = "",
+        pre_mental_cue: str = "",
+        pre_focus_tag: str = "",
     ) -> dict:
-        """Save a pre-training journal entry for a specific event. Focus: what to work on. Goals: session targets. This is a WRITE action."""
+        """Save a pre-training journal entry for a specific calendar event. pre_target: what to focus on (required). pre_mental_cue: mental cue (optional, max 100 chars). pre_focus_tag: one of strength/speed/technique/tactical/fitness (optional). This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
+
+        body: dict = {
+            "calendar_event_id": calendar_event_id,
+            "pre_target": pre_target,
+        }
+        if pre_mental_cue:
+            body["pre_mental_cue"] = pre_mental_cue
+        if pre_focus_tag and pre_focus_tag in ("strength", "speed", "technique", "tactical", "fitness"):
+            body["pre_focus_tag"] = pre_focus_tag
+
         return await bridge_post(
-            "/api/v1/journal/pre",
-            {
-                "event_id": event_id,
-                "focus": focus,
-                "energy_level": energy_level,
-                "goals": goals,
-            },
+            "/api/v1/journal/pre-session",
+            body,
             user_id=user_id,
         )
 
     @tool
     async def save_journal_post(
-        event_id: str,
-        rating: int = 3,
-        highlight: str = "",
-        improvement: str = "",
-        notes: str = "",
+        journal_id: str,
+        post_outcome: str = "hit_it",
+        post_reflection: str = "",
+        post_next_focus: str = "",
+        post_body_feel: int = 0,
     ) -> dict:
-        """Save a post-training journal entry for a specific event. Rating: 1-5. Highlight: best moment. Improvement: area to work on. This is a WRITE action."""
+        """Save a post-training journal entry. journal_id: UUID from the pre-session journal. post_outcome: fell_short/hit_it/exceeded. post_reflection: reflection on the session (required). post_next_focus: what to work on next (optional). post_body_feel: 1-10 body feel (optional). This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
+
+        if post_outcome not in ("fell_short", "hit_it", "exceeded"):
+            post_outcome = "hit_it"
+
+        body: dict = {
+            "journal_id": journal_id,
+            "post_outcome": post_outcome,
+            "post_reflection": post_reflection,
+        }
+        if post_next_focus:
+            body["post_next_focus"] = post_next_focus
+        if post_body_feel and 1 <= post_body_feel <= 10:
+            body["post_body_feel"] = post_body_feel
+
         return await bridge_post(
-            "/api/v1/journal/post",
-            {
-                "event_id": event_id,
-                "rating": rating,
-                "highlight": highlight,
-                "improvement": improvement,
-                "notes": notes,
-            },
+            "/api/v1/journal/post-session",
+            body,
             user_id=user_id,
         )
 

@@ -324,49 +324,90 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         description: str = "",
     ) -> dict:
         """Set a new goal. Categories: performance, fitness, academic, personal, nutrition, recovery. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_post
-        return await bridge_post(
-            "/api/v1/goals",
-            {
-                "title": title, "category": category,
-                "target_value": target_value, "unit": unit,
-                "deadline": deadline, "description": description,
-            },
-            user_id=user_id,
-        )
+        from app.db.supabase import get_pool
+        pool = get_pool()
+
+        try:
+            async with pool.connection() as conn:
+                await conn.execute(
+                    """INSERT INTO athlete_goals (user_id, title, category, target_value, unit, deadline, description, status)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, 'active')""",
+                    (user_id, title, category, target_value or None, unit or None, deadline or None, description or None),
+                )
+            return {"success": True, "title": title, "category": category, "status": "active"}
+        except Exception as e:
+            logger.warning(f"set_goal insert failed (table may not exist): {e}")
+            return {"error": "Goals feature not yet available", "detail": str(e)}
 
     @tool
     async def complete_goal(goal_id: str) -> dict:
         """Mark a goal as completed. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_put
-        return await bridge_put(f"/api/v1/goals/{goal_id}", {"status": "completed"}, user_id=user_id)
+        from app.db.supabase import get_pool
+        pool = get_pool()
+
+        try:
+            async with pool.connection() as conn:
+                result = await conn.execute(
+                    """UPDATE athlete_goals SET status = 'completed'
+                       WHERE id = %s::uuid AND user_id = %s RETURNING id""",
+                    (goal_id, user_id),
+                )
+                row = await result.fetchone()
+                if not row:
+                    return {"error": "Goal not found or not owned by this athlete"}
+            return {"success": True, "goal_id": goal_id, "status": "completed"}
+        except Exception as e:
+            logger.warning(f"complete_goal update failed (table may not exist): {e}")
+            return {"error": "Goals feature not yet available", "detail": str(e)}
 
     @tool
     async def delete_goal(goal_id: str) -> dict:
         """Delete a goal. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_delete
-        return await bridge_delete(f"/api/v1/goals/{goal_id}", user_id=user_id)
+        from app.db.supabase import get_pool
+        pool = get_pool()
+
+        try:
+            async with pool.connection() as conn:
+                result = await conn.execute(
+                    """DELETE FROM athlete_goals WHERE id = %s::uuid AND user_id = %s RETURNING id""",
+                    (goal_id, user_id),
+                )
+                row = await result.fetchone()
+                if not row:
+                    return {"error": "Goal not found or not owned by this athlete"}
+            return {"success": True, "goal_id": goal_id, "deleted": True}
+        except Exception as e:
+            logger.warning(f"delete_goal failed (table may not exist): {e}")
+            return {"error": "Goals feature not yet available", "detail": str(e)}
 
     @tool
     async def log_injury(
-        body_area: str,
-        severity: int = 1,
+        location: str,
+        severity: str = "minor",
         description: str = "",
-        notes: str = "",
     ) -> dict:
-        """Log an injury. Body areas: ankle, knee, hamstring, quad, shoulder, back, wrist, etc. Severity: 1=Soreness (train normally), 2=Pain (affects training), 3=Cannot train. This is a WRITE action."""
+        """Log an injury. Locations: ankle, knee, hamstring, quad, shoulder, back, wrist, etc. Severity: minor, moderate, severe. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
+
+        valid_severities = {"minor", "moderate", "severe"}
+        if severity not in valid_severities:
+            return {"error": f"Invalid severity: {severity}. Must be one of: {', '.join(sorted(valid_severities))}"}
+
         return await bridge_post(
             "/api/v1/injuries",
-            {"body_area": body_area, "severity": severity, "description": description, "notes": notes},
+            {"location": location, "severity": severity, "description": description, "reportedBy": "athlete"},
             user_id=user_id,
         )
 
     @tool
-    async def clear_injury(injury_id: str) -> dict:
-        """Mark an injury as recovered/cleared. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_put
-        return await bridge_put(f"/api/v1/injuries/{injury_id}", {"status": "recovered"}, user_id=user_id)
+    async def clear_injury(location: str = "general") -> dict:
+        """Clear/recover an injury by body location. Emits INJURY_CLEARED event. This is a WRITE action."""
+        from app.agents.tools.bridge import bridge_delete
+        return await bridge_delete(
+            "/api/v1/injuries",
+            body={"location": location, "clearedBy": "athlete"},
+            user_id=user_id,
+        )
 
     @tool
     async def log_nutrition(
@@ -378,31 +419,56 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         fat_g: int = 0,
     ) -> dict:
         """Log a meal/snack. Meal types: breakfast, lunch, dinner, snack, pre_workout, post_workout. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_post
-        return await bridge_post(
-            "/api/v1/nutrition",
-            {
-                "meal_type": meal_type, "description": description,
-                "calories": calories, "protein_g": protein_g,
-                "carbs_g": carbs_g, "fat_g": fat_g,
-            },
-            user_id=user_id,
-        )
+        from app.db.supabase import get_pool
+
+        valid_types = {"breakfast", "lunch", "dinner", "snack", "pre_workout", "post_workout"}
+        if meal_type not in valid_types:
+            return {"error": f"Invalid meal_type: {meal_type}. Must be one of: {', '.join(sorted(valid_types))}"}
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        pool = get_pool()
+
+        try:
+            async with pool.connection() as conn:
+                await conn.execute(
+                    """INSERT INTO nutrition_logs (user_id, date, meal_type, calories, protein_g, carbs_g, fat_g, notes)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (user_id, today, meal_type, calories or None, protein_g or None, carbs_g or None, fat_g or None, description or None),
+                )
+            return {"success": True, "meal_type": meal_type, "date": today}
+        except Exception as e:
+            logger.error(f"log_nutrition insert failed: {e}")
+            return {"error": f"Failed to log nutrition: {e}"}
 
     @tool
     async def log_sleep(
         hours: float = 7.0,
-        quality: int = 3,
+        quality: str = "",
         bedtime: str = "",
         wake_time: str = "",
+        date: str = "",
     ) -> dict:
-        """Manually log sleep data. Quality: 1-5 scale. Times in HH:MM format. Use when wearable not available. This is a WRITE action."""
+        """Manually log sleep data. Quality: poor, fair, good, excellent (auto-derived from hours if omitted). Times in HH:MM format. Date in YYYY-MM-DD (defaults to today). This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
-        return await bridge_post(
-            "/api/v1/sleep",
-            {"hours": hours, "quality": quality, "bedtime": bedtime, "wake_time": wake_time},
-            user_id=user_id,
-        )
+
+        target_date = date or datetime.now().strftime("%Y-%m-%d")
+
+        body: dict = {
+            "date": target_date,
+            "totalHours": hours,
+            "source": "manual",
+        }
+        if quality:
+            valid_qualities = {"poor", "fair", "good", "excellent"}
+            if quality not in valid_qualities:
+                return {"error": f"Invalid quality: {quality}. Must be one of: {', '.join(sorted(valid_qualities))}"}
+            body["quality"] = quality
+        if bedtime:
+            body["bedTime"] = bedtime
+        if wake_time:
+            body["wakeTime"] = wake_time
+
+        return await bridge_post("/api/v1/sleep/sync", body, user_id=user_id)
 
     @tool
     async def update_profile(
@@ -415,25 +481,31 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
 
         body: dict = {}
         if height_cm > 0:
-            body["height_cm"] = height_cm
+            body["heightCm"] = height_cm
         if weight_kg > 0:
-            body["weight_kg"] = weight_kg
+            body["weightKg"] = weight_kg
         if position:
             body["position"] = position
 
-        return await bridge_put("/api/v1/profile", body, user_id=user_id)
+        return await bridge_put("/api/v1/user", body, user_id=user_id)
 
     @tool
     async def update_notification_preferences(
         category: str,
         enabled: bool = True,
-        push_enabled: bool = True,
     ) -> dict:
         """Update notification preferences for a category. Categories: critical, training, coaching, academic, triangle, cv, system. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_put
+
+        # TS route expects individual boolean fields like push_training, push_cv, etc.
+        valid_categories = {"critical", "training", "coaching", "academic", "triangle", "cv", "system"}
+        if category not in valid_categories:
+            return {"error": f"Invalid category: {category}. Valid: {', '.join(sorted(valid_categories))}"}
+
+        field_name = f"push_{category}"
         return await bridge_put(
-            "/api/v1/notifications/preferences",
-            {"category": category, "is_enabled": enabled, "push_enabled": push_enabled},
+            "/api/v1/notifications/settings",
+            {field_name: enabled},
             user_id=user_id,
         )
 
@@ -448,7 +520,7 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         day_bounds_end: str = "",
     ) -> dict:
         """Update schedule rules. Times in HH:MM format. Days as comma-separated numbers (1=Mon, 7=Sun). This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_put
+        from app.agents.tools.bridge import bridge_patch
 
         body: dict = {}
         if school_start:
@@ -466,13 +538,13 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         if day_bounds_end:
             body["day_bounds_end"] = day_bounds_end
 
-        return await bridge_put("/api/v1/schedule/rules", body, user_id=user_id)
+        return await bridge_patch("/api/v1/schedule/rules", body, user_id=user_id)
 
     @tool
     async def toggle_league_mode(active: bool = True) -> dict:
         """Toggle league active mode on/off. Affects training prioritization and periodization. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_put
-        return await bridge_put(
+        from app.agents.tools.bridge import bridge_patch
+        return await bridge_patch(
             "/api/v1/schedule/rules",
             {"league_is_active": active},
             user_id=user_id,
@@ -485,7 +557,7 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         start_date: str = "",
     ) -> dict:
         """Toggle exam period mode. Reduces training volume, prioritizes study windows. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_put
+        from app.agents.tools.bridge import bridge_patch
 
         body: dict = {"exam_period_active": active}
         if subjects:
@@ -493,7 +565,7 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         if start_date:
             body["exam_start_date"] = start_date
 
-        return await bridge_put("/api/v1/schedule/rules", body, user_id=user_id)
+        return await bridge_patch("/api/v1/schedule/rules", body, user_id=user_id)
 
     @tool
     async def navigate_to(target_tab: str) -> dict:
@@ -505,11 +577,15 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
 
     @tool
     async def sync_wearable(provider: str = "whoop") -> dict:
-        """Trigger a wearable data sync. Providers: whoop, garmin, apple_watch. This is a WRITE action."""
+        """Trigger a wearable data sync. Currently supports whoop. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
+
+        if provider != "whoop":
+            return {"error": f"Unsupported provider: {provider}. Currently only 'whoop' is supported."}
+
         return await bridge_post(
-            "/api/v1/wearables/sync",
-            {"provider": provider},
+            "/api/v1/integrations/whoop/sync",
+            {},
             user_id=user_id,
         )
 

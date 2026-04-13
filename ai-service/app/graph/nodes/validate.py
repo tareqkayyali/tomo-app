@@ -2,12 +2,11 @@
 Tomo AI Service — Validation Node
 Post-agent validation that runs on every response before it reaches the user.
 
-Layer 1: PHV Safety (HARD GATE — blocks response if Mid-PHV violation)
+Layer 1: PHV Safety (ADVISORY — appends growth-phase warning, never blocks)
 Layer 2: Format Validation (ensures response structure is parseable)
 
-All other guardrails (content safety, RED risk, quality checks) have been
-removed from code. They will be re-added as CMS-configurable rules in a
-future phase. PHV is the only non-negotiable hard gate.
+All guardrails are ADVISORY — warn and inform, never block the player from
+acting. Tomo is a coach/friend who advises, not a gatekeeper who restricts.
 """
 
 from __future__ import annotations
@@ -36,18 +35,17 @@ PHV_BLOCKED_PATTERNS = [
     re.compile(r"\bplyometric.*max", re.I),
 ]
 
-PHV_SAFETY_REPLACEMENT = """Hey — heads up on this one 💪
+PHV_SAFETY_WARNING = """
 
-I tweaked my suggestion because your body's in a big growth phase right now. Some of those exercises aren't a great idea while you're growing this fast — but here's what works just as well:
+Just a heads up — your body's in a big growth phase right now. Some of these exercises carry extra risk while you're growing this fast. Here are safer alternatives that still build serious strength:
 
-**What to do instead:**
-- Goblet squat instead of barbell squat (way safer for your joints)
+- Goblet squat instead of barbell squat (safer for your joints)
 - Soft-landing box steps instead of depth/drop jumps
 - Light dumbbells or kettlebells instead of Olympic lifts
 - 85% effort drills instead of maximal sprints
 - Trap bar or partial range instead of heavy deadlifts
 
-We'll get you to the heavy stuff once your growth spurt settles — for now, these alternatives still build serious strength without the risk. You've got this."""
+Your call — but I'd go with the alternatives for now. We'll get to the heavy stuff once your growth spurt settles."""
 
 
 # ── Main Validation Function ──────────────────────────────────────
@@ -68,7 +66,7 @@ async def validate_node(state: TomoChatState) -> dict:
     if not agent_response:
         return {"validation_passed": True, "validation_flags": []}
 
-    # ── Layer 1: PHV Safety (HARD GATE) ──────────────────────────
+    # ── Layer 1: PHV Safety (ADVISORY — warn, never block) ─────
 
     is_mid_phv = False
     if context and context.snapshot_enrichment:
@@ -78,17 +76,14 @@ async def validate_node(state: TomoChatState) -> dict:
     if is_mid_phv:
         for pattern in PHV_BLOCKED_PATTERNS:
             if pattern.search(agent_response):
-                flags.append("phv_safety_violation")
+                flags.append("phv_safety_advisory")
                 logger.warning(
-                    f"PHV SAFETY GATE: Blocked movement detected in response. "
+                    f"PHV SAFETY ADVISORY: Growth-phase movement detected in response. "
                     f"Pattern: {pattern.pattern}"
                 )
-                # Replace response with safety message
-                return {
-                    "agent_response": PHV_SAFETY_REPLACEMENT,
-                    "validation_passed": False,
-                    "validation_flags": flags,
-                }
+                # Append advisory warning to the response — never replace it
+                agent_response = agent_response + PHV_SAFETY_WARNING
+                break  # One warning is enough
 
     # ── Layer 2: Tone Validation (advisory — log, don't block) ───
 
@@ -111,7 +106,7 @@ async def validate_node(state: TomoChatState) -> dict:
     if re.search(r"\bdata\s+(?:shows?|indicates?)\b.*\b(?:exactly|precisely)\s+\d+\.\d{3,}", agent_response, re.I):
         flags.append("possible_data_fabrication")
 
-    validation_passed = "phv_safety_violation" not in flags
+    validation_passed = True  # All validation is advisory — never block
     if flags:
         logger.info(f"Validation flags: {flags}")
 

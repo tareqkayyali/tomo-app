@@ -4,9 +4,9 @@ Tomo AI Service — Training Program Agent Tools (7 tools)
 Sprint 4 — periodization, block training, PHV-safe program filtering,
 position-specific recommendations, and load override capabilities.
 
-NON-NEGOTIABLE: enforcePHVSafety() runs on EVERY write tool response.
-get_phv_appropriate_programs filters catalog BEFORE returning — never post-filter.
-ACWR > 1.5 blocks block creation and routes to Recovery agent.
+PHV safety: mid-PHV athletes get safe program alternatives pre-filtered.
+ACWR > 1.5: tools return warning advisory — player always decides.
+All gates are ADVISORY — warn and inform, never block the player.
 """
 
 from __future__ import annotations
@@ -49,10 +49,15 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
             return str(getattr(se, "phv_stage", "")).upper() in ("MID", "CIRCA", "MID_PHV", "CIRCA_PHV")
         return False
 
-    def _acwr_blocked() -> bool:
-        """Check if ACWR is dangerously high."""
+    def _acwr_warning() -> str | None:
+        """Return advisory warning if ACWR is elevated. Never blocks — player decides."""
         se = context.snapshot_enrichment
-        return se is not None and se.acwr is not None and se.acwr > 1.5
+        if se and se.acwr is not None:
+            if se.acwr > 1.5:
+                return f"Heads up — your training load is very high right now (ACWR {se.acwr:.2f}). I'd recommend a lighter session or recovery day, but it's your call."
+            if se.acwr > 1.3:
+                return f"Your training load is elevated (ACWR {se.acwr:.2f}). Consider keeping intensity moderate today."
+        return None
 
     @tool
     async def get_phv_appropriate_programs() -> dict:
@@ -156,19 +161,12 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
 
     @tool
     async def get_position_program_recommendations() -> dict:
-        """Get position-specific program recommendations. Matches programs to the athlete's sport, position, gaps, and current load. Respects ACWR gates and PHV safety."""
+        """Get position-specific program recommendations. Matches programs to the athlete's sport, position, gaps, and current load. Includes load advisory when ACWR is elevated."""
         from app.db.supabase import get_pool
         pool = get_pool()
 
         se = context.snapshot_enrichment
         position = context.position or "General"
-
-        if _acwr_blocked():
-            return {
-                "blocked": True,
-                "reason": f"ACWR critically high ({se.acwr:.2f}) — training block creation blocked. Recovery agent recommended.",
-                "acwr": se.acwr,
-            }
 
         async with pool.connection() as conn:
             # Get programs with position emphasis matching
@@ -212,7 +210,7 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
             for row in rows
         ]
 
-        return {
+        result = {
             "sport": context.sport,
             "position": position,
             "programs": programs[:8],
@@ -221,6 +219,10 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
             "readiness": context.readiness_score,
             "phv_active": _is_mid_phv(),
         }
+        warning = _acwr_warning()
+        if warning:
+            result["load_advisory"] = warning
+        return result
 
     @tool
     async def get_training_block_history(months: int = 6) -> dict:
@@ -267,69 +269,72 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
         name: str,
         phase: str = "general_prep",
         duration_weeks: int = 4,
-        sessions_per_week: int = 3,
-        focus: str = "",
+        start_date: str = "",
+        goals: str = "",
     ) -> dict:
-        """Create a new periodized training block. Phase: general_prep, specific_prep, competition, transition. BLOCKED if ACWR > 1.5. This is a WRITE action."""
+        """Create a new periodized training block. Phase: general_prep, specific_prep, competition, transition. Includes load advisory if ACWR is elevated. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
 
-        if _acwr_blocked():
-            se = context.snapshot_enrichment
-            return {
-                "blocked": True,
-                "reason": f"ACWR critically high ({se.acwr:.2f}) — cannot create training block. Complete a deload first.",
-                "redirect": "recovery",
-            }
+        target_start = start_date or context.today_date
 
-        return await bridge_post(
+        result = await bridge_post(
             "/api/v1/training-program/blocks",
             {
                 "name": name,
                 "phase": phase,
+                "start_date": target_start,
                 "duration_weeks": duration_weeks,
-                "sessions_per_week": sessions_per_week,
-                "focus": focus or f"{context.sport} {context.position or 'general'}",
-                "phv_active": _is_mid_phv(),
+                "goals": goals or None,
             },
             user_id=user_id,
         )
+
+        # Append advisory if ACWR is elevated
+        warning = _acwr_warning()
+        if warning and isinstance(result, dict) and "error" not in result:
+            result["load_advisory"] = warning
+
+        return result
 
     @tool
     async def update_block_phase(
         block_id: str,
         new_phase: str,
-        notes: str = "",
     ) -> dict:
-        """Transition a training block to a new phase. Phases: general_prep → specific_prep → competition → transition. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_post
+        """Transition a training block to a new phase. Phases: general_prep -> specific_prep -> competition -> transition. Must advance forward. This is a WRITE action."""
+        from app.agents.tools.bridge import bridge_put
 
         valid_phases = ["general_prep", "specific_prep", "competition", "transition"]
         if new_phase not in valid_phases:
             return {"error": f"Invalid phase. Use one of: {', '.join(valid_phases)}"}
 
-        return await bridge_post(
+        return await bridge_put(
             f"/api/v1/training-program/blocks/{block_id}/phase",
-            {"phase": new_phase, "notes": notes},
+            {"new_phase": new_phase},
             user_id=user_id,
         )
 
     @tool
     async def override_session_load(
         event_id: str,
-        new_intensity: str = "",
-        new_load_au: float = 0,
+        intensity: str = "MODERATE",
+        load_au: float = 0,
         reason: str = "",
     ) -> dict:
-        """Override the load/intensity for a specific training session. Use when coach or athlete needs to adjust a planned session based on readiness or recovery. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_post
+        """Override the load/intensity for a specific training session. intensity: REST, LIGHT, MODERATE, HARD. Use when coach or athlete needs to adjust a planned session based on readiness or recovery. This is a WRITE action."""
+        from app.agents.tools.bridge import bridge_put
 
-        return await bridge_post(
+        valid_intensities = ["REST", "LIGHT", "MODERATE", "HARD"]
+        if intensity not in valid_intensities:
+            return {"error": f"intensity must be one of: {', '.join(valid_intensities)}"}
+
+        body: dict = {"intensity": intensity, "reason": reason}
+        if load_au > 0:
+            body["load_au"] = load_au
+
+        return await bridge_put(
             f"/api/v1/calendar/events/{event_id}/load-override",
-            {
-                "intensity": new_intensity,
-                "load_au": new_load_au,
-                "reason": reason,
-            },
+            body,
             user_id=user_id,
         )
 

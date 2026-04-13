@@ -149,6 +149,137 @@ def _strip_emoji(text: str) -> str:
     return cleaned
 
 
+def _extract_time_from_iso(iso_str: str) -> str:
+    """Extract HH:MM time from ISO datetime string."""
+    if not iso_str:
+        return ""
+    try:
+        from datetime import datetime
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        return dt.strftime("%H:%M")
+    except (ValueError, TypeError, AttributeError):
+        # Fallback: regex for T15:30 pattern
+        match = re.search(r'T?(\d{2}:\d{2})', iso_str)
+        return match.group(1) if match else ""
+
+
+def _ensure_timeline_card(structured: dict, state: TomoChatState) -> dict:
+    """
+    Enforce schedule_list card for timeline agent responses.
+    If the LLM produced text but no schedule card, build one from tool results.
+    """
+    if not state or state.get("selected_agent") != "timeline":
+        return structured
+
+    # Already has a schedule card — nothing to do
+    cards = structured.get("cards", [])
+    has_schedule = any(
+        c.get("type") in ("schedule_list", "week_schedule", "week_plan")
+        for c in cards
+    )
+    if has_schedule:
+        return structured
+
+    # Look for schedule data in ToolMessage objects from state messages
+    messages = state.get("messages", [])
+    for msg in reversed(messages):
+        content = getattr(msg, "content", None)
+        if not content or not isinstance(content, str):
+            continue
+        # ToolMessage has tool_call_id attribute
+        if not hasattr(msg, "tool_call_id"):
+            continue
+        try:
+            data = json.loads(content)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        # get_today_events result: {"date": "...", "events": [...], "total": N}
+        if isinstance(data, dict) and "events" in data and "date" in data:
+            items = []
+            for ev in data["events"]:
+                time_str = _extract_time_from_iso(ev.get("start_time", ""))
+                items.append({
+                    "time": time_str or "—",
+                    "title": ev.get("title", "Event"),
+                    "type": ev.get("event_type", "other"),
+                })
+            if not items:
+                items = [{"time": "—", "title": "Rest day — nothing scheduled", "type": "rest"}]
+            schedule_card = {
+                "type": "schedule_list",
+                "date": _format_confirm_date(data["date"]),
+                "items": items,
+            }
+            structured["cards"] = [schedule_card] + structured.get("cards", [])
+            logger.info("Timeline enforcement: injected schedule_list from tool results")
+            return structured
+
+        # get_week_schedule result: {"schedule": [{"date": ..., "events": [...]}, ...]}
+        if isinstance(data, dict) and "schedule" in data:
+            schedule_cards = []
+            for day in data["schedule"]:
+                if day.get("events"):
+                    items = []
+                    for ev in day["events"]:
+                        time_str = _extract_time_from_iso(ev.get("start_time", ""))
+                        items.append({
+                            "time": time_str or "—",
+                            "title": ev.get("title", "Event"),
+                            "type": ev.get("event_type", "other"),
+                        })
+                    schedule_cards.append({
+                        "type": "schedule_list",
+                        "date": _format_confirm_date(day["date"]),
+                        "items": items,
+                    })
+            if schedule_cards:
+                structured["cards"] = schedule_cards + structured.get("cards", [])
+                logger.info(f"Timeline enforcement: injected {len(schedule_cards)} schedule_list cards")
+                return structured
+
+    return structured
+
+
+def _ensure_timeline_chips(structured: dict, state: TomoChatState) -> dict:
+    """Add contextual chips for timeline agent responses when none exist."""
+    if not state or state.get("selected_agent") != "timeline":
+        return structured
+    if structured.get("chips"):
+        return structured  # Already has chips
+
+    tool_calls = state.get("tool_calls", [])
+    tool_names = {tc.get("name", "") for tc in tool_calls}
+
+    if "get_today_events" in tool_names:
+        structured["chips"] = [
+            {"label": "Add training", "message": "Add a training session today"},
+            {"label": "Show my week", "message": "What does my week look like?"},
+        ]
+    elif "get_week_schedule" in tool_names:
+        structured["chips"] = [
+            {"label": "Add event", "message": "Add an event to my schedule"},
+            {"label": "Check collisions", "message": "Check for any schedule conflicts"},
+        ]
+    elif "detect_load_collision" in tool_names:
+        structured["chips"] = [
+            {"label": "Show today", "message": "What's on today?"},
+            {"label": "Fix collision", "message": "Help me fix the schedule conflict"},
+        ]
+    elif tool_names & {"create_event", "update_event", "delete_event"}:
+        structured["chips"] = [
+            {"label": "Show updated", "message": "Show my updated schedule"},
+            {"label": "Check collisions", "message": "Any schedule conflicts?"},
+        ]
+    else:
+        structured["chips"] = [
+            {"label": "Today's schedule", "message": "What's on today?"},
+            {"label": "This week", "message": "Show my week"},
+        ]
+
+    return structured
+
+
 def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
     """Apply Pulse layout formatting to any structured response.
     No guardrails — only structural formatting for mobile rendering."""
@@ -214,6 +345,42 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
                         num = float(re.search(r"(\d+\.?\d*)", value).group(1))
                         item["value"] = "Spiked" if num > 1.5 else "Elevated" if num > 1.3 else "Building" if num > 1.0 else "Good"
 
+    # 4d. Strip emojis from ALL card content — zero emoji policy
+    for card in structured.get("cards", []):
+        for field in ("headline", "title", "body", "note", "date", "summary"):
+            if card.get(field) and isinstance(card[field], str):
+                card[field] = _strip_emoji(card[field])
+        # Strip from nested items (schedule_list, stat_grid, confirm_card, etc.)
+        for item in card.get("items", []):
+            if isinstance(item, dict):
+                for field in ("label", "value", "title", "time", "date"):
+                    if item.get(field) and isinstance(item[field], str):
+                        item[field] = _strip_emoji(item[field])
+        # Strip from week_plan days
+        for day in card.get("days", []):
+            if isinstance(day, dict):
+                if day.get("note"):
+                    day["note"] = _strip_emoji(day["note"])
+                for tag in day.get("tags", []):
+                    if isinstance(tag, dict) and tag.get("label"):
+                        tag["label"] = _strip_emoji(tag["label"])
+        # Strip from schedule events
+        for evt in card.get("events", []):
+            if isinstance(evt, dict):
+                for field in ("title", "time"):
+                    if evt.get(field) and isinstance(evt[field], str):
+                        evt[field] = _strip_emoji(evt[field])
+        # Strip from choice_card options
+        for opt in card.get("options", []):
+            if isinstance(opt, dict):
+                for field in ("label", "description"):
+                    if opt.get(field) and isinstance(opt[field], str):
+                        opt[field] = _strip_emoji(opt[field])
+
+    # Strip emojis from body text too
+    if structured.get("body"):
+        structured["body"] = _strip_emoji(structured["body"])
+
     # 5. Ensure body exists (mobile renderer needs it)
     #    EXCEPT: self-contained card types render their own content —
     #    injecting fallback body causes duplicate text on mobile.
@@ -247,6 +414,32 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
                     continue  # Skip — already rendered as body text
             deduped_cards.append(card)
         structured["cards"] = deduped_cards
+
+    # 7. Timeline enforcement: ensure schedule_list card for timeline agent
+    if state:
+        structured = _ensure_timeline_card(structured, state)
+
+    # 8. Timeline chip defaults: add contextual chips for timeline responses
+    if state:
+        structured = _ensure_timeline_chips(structured, state)
+
+    # 9. Check-in pill: if player hasn't checked in today, prepend "Check in" chip
+    #    Applies across ALL agents — not just timeline
+    if state:
+        ctx = state.get("player_context")
+        if ctx:
+            checkin_date = getattr(ctx, "checkin_date", None)
+            today_date = getattr(ctx, "today_date", None)
+            if today_date and checkin_date != today_date:
+                chips = structured.get("chips", [])
+                # Don't add if already present
+                if not any(
+                    (c.get("label") or "").lower().strip() == "check in"
+                    for c in chips
+                ):
+                    checkin_chip = {"label": "Check in", "message": "Log my daily check-in"}
+                    chips = [checkin_chip] + chips
+                structured["chips"] = chips[:2]
 
     return structured
 
@@ -566,9 +759,15 @@ async def format_response_node(state: TomoChatState) -> dict:
 
             # Schedule list: must have events/items
             elif card_type == "schedule_list":
-                events = card.get("events") or card.get("items") or []
-                if not isinstance(events, list) or not events:
+                items = card.get("items") or card.get("events") or []
+                if not isinstance(items, list) or not items:
                     continue
+                # Normalize: always use "items" key (TypeScript ScheduleList expects "items")
+                card["items"] = items
+                # Normalize event_type → type for each item (TypeScript uses "type")
+                for it in items:
+                    if isinstance(it, dict) and "event_type" in it and "type" not in it:
+                        it["type"] = it.pop("event_type")
 
             # Session plan: must have drills
             elif card_type == "session_plan":

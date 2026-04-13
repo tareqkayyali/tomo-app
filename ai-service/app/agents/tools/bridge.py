@@ -99,18 +99,45 @@ async def bridge_put(
         return {"error": f"Connection to TS backend failed: {e}"}
 
 
-async def bridge_delete(
+async def bridge_patch(
     path: str,
+    body: dict[str, Any],
     user_id: Optional[str] = None,
 ) -> dict[str, Any]:
-    """DELETE to TS backend. Returns parsed JSON response."""
+    """PATCH to TS backend. Returns parsed JSON response."""
     client = _get_client()
     headers = {}
     if user_id:
         headers["X-Tomo-User-Id"] = user_id
 
     try:
-        resp = await client.delete(path, headers=headers)
+        resp = await client.patch(path, json=body, headers=headers)
+        resp.raise_for_status()
+        return resp.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Bridge PATCH {path} → {e.response.status_code}: {e.response.text[:500]}")
+        return {"error": f"TS backend returned {e.response.status_code}", "detail": e.response.text[:200]}
+    except httpx.RequestError as e:
+        logger.error(f"Bridge PATCH {path} connection error: {e}")
+        return {"error": f"Connection to TS backend failed: {e}"}
+
+
+async def bridge_delete(
+    path: str,
+    body: Optional[dict[str, Any]] = None,
+    user_id: Optional[str] = None,
+) -> dict[str, Any]:
+    """DELETE to TS backend. Supports optional JSON body. Returns parsed JSON response."""
+    client = _get_client()
+    headers = {}
+    if user_id:
+        headers["X-Tomo-User-Id"] = user_id
+
+    try:
+        kwargs: dict[str, Any] = {"headers": headers}
+        if body is not None:
+            kwargs["content"] = __import__("json").dumps(body).encode("utf-8")
+        resp = await client.delete(path, **kwargs)
         resp.raise_for_status()
         return resp.json()
     except httpx.HTTPStatusError as e:
@@ -152,15 +179,26 @@ WRITE_ACTIONS: set[str] = {
     # Output writes
     "log_check_in", "log_test_result", "rate_drill",
     "save_journal_pre", "save_journal_post",
+    "create_test_session",
     # Settings writes
     "set_goal", "complete_goal", "delete_goal",
-    "log_injury", "clear_injury",
+    "log_injury", "clear_injury", "flag_injury_concern",
     "log_nutrition", "log_sleep",
     "update_profile", "update_notification_preferences",
     # Mastery writes
     "add_career_entry", "update_career_entry",
+    "add_verified_achievement", "set_recruitment_visibility",
     # Planning writes
     "propose_mode_change",
+    "create_training_block", "update_block_phase", "override_session_load",
+    "generate_integrated_weekly_plan",
+    # Schedule writes
+    "update_schedule_rules", "toggle_league_mode", "toggle_exam_period",
+    "set_academic_priority_period", "set_academic_stress_level",
+    # Recovery writes
+    "trigger_deload_week", "log_recovery_session",
+    # Integration writes
+    "sync_wearable",
 }
 
 # Write actions that can execute without confirmation (capsule direct actions)
@@ -169,6 +207,7 @@ CAPSULE_DIRECT_ACTIONS: set[str] = {
     "save_journal_pre", "save_journal_post",
     "update_profile", "complete_goal",
     "log_nutrition", "log_sleep",
+    "sync_wearable",
 }
 
 

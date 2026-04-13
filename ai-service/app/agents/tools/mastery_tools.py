@@ -233,23 +233,29 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
     @tool
     async def add_career_entry(
         entry_type: str,
-        title: str,
-        organization: str = "",
-        start_date: str = "",
-        end_date: str = "",
-        description: str = "",
+        club_name: str,
+        league_level: str = "",
+        country: str = "",
+        position: str = "",
+        started_month: str = "",
+        ended_month: str = "",
+        is_current: bool = False,
+        achievements: list[str] | None = None,
     ) -> dict:
-        """Add a new career history entry. Types: team, club, competition, award, certification. This is a WRITE action."""
+        """Add a new career history entry. Types: club, competition, award, certification. club_name is the team/org name. started_month/ended_month format: YYYY-MM. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
         return await bridge_post(
-            "/api/v1/career",
+            "/api/v1/cv/career",
             {
                 "entry_type": entry_type,
-                "title": title,
-                "organization": organization,
-                "start_date": start_date,
-                "end_date": end_date,
-                "description": description,
+                "club_name": club_name,
+                "league_level": league_level or None,
+                "country": country or None,
+                "position": position or None,
+                "started_month": started_month or None,
+                "ended_month": ended_month or None,
+                "is_current": is_current,
+                "achievements": achievements or [],
             },
             user_id=user_id,
         )
@@ -257,25 +263,37 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
     @tool
     async def update_career_entry(
         entry_id: str,
-        title: str = "",
-        organization: str = "",
-        description: str = "",
-        end_date: str = "",
+        club_name: str = "",
+        league_level: str = "",
+        country: str = "",
+        position: str = "",
+        started_month: str = "",
+        ended_month: str = "",
+        is_current: bool | None = None,
+        achievements: list[str] | None = None,
     ) -> dict:
         """Update an existing career history entry. Only provide fields to change. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_put
 
         body: dict = {}
-        if title:
-            body["title"] = title
-        if organization:
-            body["organization"] = organization
-        if description:
-            body["description"] = description
-        if end_date:
-            body["end_date"] = end_date
+        if club_name:
+            body["club_name"] = club_name
+        if league_level:
+            body["league_level"] = league_level
+        if country:
+            body["country"] = country
+        if position:
+            body["position"] = position
+        if started_month:
+            body["started_month"] = started_month
+        if ended_month:
+            body["ended_month"] = ended_month
+        if is_current is not None:
+            body["is_current"] = is_current
+        if achievements is not None:
+            body["achievements"] = achievements
 
-        return await bridge_put(f"/api/v1/career/{entry_id}", body, user_id=user_id)
+        return await bridge_put(f"/api/v1/cv/career/{entry_id}", body, user_id=user_id)
 
     # NOTE: get_test_trajectory moved to testing_benchmark_tools.py (Sprint 1)
     return [

@@ -26,6 +26,20 @@ def _safe_float(v, default=None):
         return default
 
 
+# Map Python event types to TS backend Zod-validated types
+_EVENT_TYPE_MAP = {
+    "gym": "training",
+    "club_training": "training",
+    "rest": "recovery",
+    "personal_dev": "other",
+}
+
+
+def _map_event_type(et: str) -> str:
+    """Map AI agent event types to TS backend calendar event types."""
+    return _EVENT_TYPE_MAP.get(et, et)
+
+
 def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
     """Create timeline agent tools bound to a specific user context."""
 
@@ -34,15 +48,20 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         """Get all events scheduled for today. Shows training, matches, study, exams, and personal events with times, types, and intensity."""
         from app.db.supabase import get_pool
         pool = get_pool()
+        tz = context.timezone or "UTC"
+        logger.info(f"get_today_events: timezone={tz}, today={context.today_date}")
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, title, event_type, start_at::text, end_at::text,
+                """SELECT id, title, event_type,
+                          (start_at AT TIME ZONE %s)::text,
+                          (end_at AT TIME ZONE %s)::text,
                           intensity, notes, sport
                    FROM calendar_events
-                   WHERE user_id = %s AND start_at::date = %s::date
+                   WHERE user_id = %s
+                     AND (start_at AT TIME ZONE %s)::date = %s::date
                    ORDER BY calendar_events.start_at""",
-                (user_id, context.today_date),
+                (tz, tz, user_id, tz, context.today_date),
             )
             rows = await result.fetchall()
 
@@ -67,19 +86,24 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         """Get the full week schedule starting from a date (defaults to today). Shows all 7 days with events, rest days, and load distribution."""
         from app.db.supabase import get_pool
         pool = get_pool()
+        tz = context.timezone or "UTC"
 
         start = start_date or context.today_date
         end = (datetime.strptime(start, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d")
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, title, event_type, start_at::date::text, start_at::text,
-                          end_at::text, intensity, notes
+                """SELECT id, title, event_type,
+                          (start_at AT TIME ZONE %s)::date::text,
+                          (start_at AT TIME ZONE %s)::text,
+                          (end_at AT TIME ZONE %s)::text,
+                          intensity, notes
                    FROM calendar_events
                    WHERE user_id = %s
-                     AND start_at::date >= %s::date AND start_at::date <= %s::date
+                     AND (start_at AT TIME ZONE %s)::date >= %s::date
+                     AND (start_at AT TIME ZONE %s)::date <= %s::date
                    ORDER BY calendar_events.start_at""",
-                (user_id, start, end),
+                (tz, tz, tz, user_id, tz, start, tz, end),
             )
             rows = await result.fetchall()
 
@@ -144,17 +168,18 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         except ValueError:
             return {"error": "Invalid date format. Use YYYY-MM-DD"}
 
+        tz = context.timezone or "UTC"
         return await bridge_post(
-            "/api/v1/events",
+            "/api/v1/calendar/events",
             {
-                "title": title,
-                "event_type": event_type,
+                "name": title,
+                "type": _map_event_type(event_type),
                 "date": date,
-                "start_time": start_time,
-                "end_time": end_time or "",
+                "startTime": start_time,
+                "endTime": end_time or None,
                 "intensity": intensity,
-                "notes": notes,
-                "description": description,
+                "notes": notes or None,
+                "timezone": tz,
             },
             user_id=user_id,
         )
@@ -170,15 +195,15 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         date: str = "",
     ) -> dict:
         """Update an existing calendar event. Only provide fields you want to change. This is a WRITE action requiring confirmation."""
-        from app.agents.tools.bridge import bridge_put
+        from app.agents.tools.bridge import bridge_patch
 
-        body: dict = {"event_id": event_id}
+        body: dict = {}
         if title:
-            body["title"] = title
+            body["name"] = title
         if start_time:
-            body["start_time"] = start_time
+            body["startTime"] = start_time
         if end_time:
-            body["end_time"] = end_time
+            body["endTime"] = end_time
         if intensity:
             body["intensity"] = intensity
         if notes:
@@ -186,28 +211,33 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         if date:
             body["date"] = date
 
-        return await bridge_put(f"/api/v1/events/{event_id}", body, user_id=user_id)
+        return await bridge_patch(f"/api/v1/calendar/events/{event_id}", body, user_id=user_id)
 
     @tool
     async def delete_event(event_id: str) -> dict:
         """Delete a calendar event by ID. This is a WRITE action requiring confirmation."""
         from app.agents.tools.bridge import bridge_delete
-        return await bridge_delete(f"/api/v1/events/{event_id}", user_id=user_id)
+        return await bridge_delete(f"/api/v1/calendar/events/{event_id}", user_id=user_id)
 
     @tool
     async def detect_load_collision(date: str = "") -> dict:
         """Detect scheduling conflicts and load collisions for a specific date or today. Checks for overlapping events, excessive load, and rule violations (e.g., HARD after HARD, training during school)."""
         from app.db.supabase import get_pool
         pool = get_pool()
+        tz = context.timezone or "UTC"
         target_date = date or context.today_date
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """SELECT id, title, event_type, start_at::text, end_at::text, intensity
+                """SELECT id, title, event_type,
+                          (start_at AT TIME ZONE %s)::text,
+                          (end_at AT TIME ZONE %s)::text,
+                          intensity
                    FROM calendar_events
-                   WHERE user_id = %s AND start_at::date = %s::date
+                   WHERE user_id = %s
+                     AND (start_at AT TIME ZONE %s)::date = %s::date
                    ORDER BY calendar_events.start_at""",
-                (user_id, target_date),
+                (tz, tz, user_id, tz, target_date),
             )
             rows = await result.fetchall()
 

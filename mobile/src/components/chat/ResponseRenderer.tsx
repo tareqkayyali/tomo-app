@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TouchableOpacity } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
@@ -234,39 +234,24 @@ function createStyles(colors: ThemeColors) {
       marginTop: 2,
     },
 
-    // Choice Card (radio options)
-    choiceCard: {
-      backgroundColor: colors.cardLight,
-      borderRadius: borderRadius.md,
-      padding: 14,
-      gap: 6,
-    },
-    choiceHeadline: {
-      fontFamily: fontFamily.bold,
-      fontSize: 11,
-      color: colors.textSecondary,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      marginBottom: 6,
-    },
-    choiceOption: {
+    // Choice Card (radio options inside confirmCard container)
+    choiceRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: `${colors.border}20`,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 4,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: `${colors.accentSoft}60`,
       gap: 12,
     },
     choiceRadio: {
-      width: 18,
-      height: 18,
-      borderRadius: 9,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
       borderWidth: 1.5,
-      borderColor: colors.textInactive,
+      borderColor: colors.accent1,
     },
-    choiceContent: {
+    choiceTextWrap: {
       flex: 1,
       gap: 2,
     },
@@ -275,7 +260,7 @@ function createStyles(colors: ThemeColors) {
       fontSize: 14,
       color: colors.textOnDark,
     },
-    choiceDescription: {
+    choiceDesc: {
       fontFamily: fontFamily.regular,
       fontSize: 12,
       color: colors.textSecondary,
@@ -959,23 +944,34 @@ function ScheduleListCard({
   card: ScheduleList;
   styles: ReturnType<typeof createStyles>;
 }) {
+  // Accept both "items" and "events" keys (Python may send either)
+  const rawItems = Array.isArray(card.items)
+    ? card.items
+    : Array.isArray((card as any).events)
+      ? (card as any).events
+      : [];
+
+  // Reuse confirm card layout — same visual as confirmation cards, no buttons
   return (
-    <View style={styles.scheduleCard}>
-      <Text style={styles.scheduleDate}>{card.date}</Text>
-      {(Array.isArray(card.items) ? card.items : []).map((item, i) => (
-        <View
-          key={i}
-          style={[
-            styles.scheduleItem,
-            item.clash && styles.scheduleClashBorder,
-          ]}
-        >
-          <Text style={styles.scheduleTime}>{item.time}</Text>
-          <Text style={[styles.scheduleTitle, item.clash && styles.scheduleClash]} numberOfLines={1}>
-            {item.title}
-          </Text>
+    <View style={styles.confirmCard}>
+      {card.date ? <Text style={styles.confirmHeadline}>{card.date}</Text> : null}
+      {rawItems.length > 0 ? (
+        <View style={styles.confirmItems}>
+          {rawItems.map((item: any, i: number) => (
+            <View key={i} style={styles.confirmItemRow}>
+              <Text style={styles.confirmItemDate}>{item.time || '—'}</Text>
+              <Text style={styles.confirmItemTitle} numberOfLines={1}>
+                {item.title || item.name || 'Event'}
+              </Text>
+              {(item.end_time || item.intensity) ? (
+                <Text style={styles.confirmItemTime}>
+                  {item.end_time || item.intensity}
+                </Text>
+              ) : null}
+            </View>
+          ))}
         </View>
-      ))}
+      ) : null}
     </View>
   );
 }
@@ -1094,7 +1090,7 @@ function WeekPlanCard({
   );
 }
 
-// ── Choice Card (interactive radio-style options) ────────────────
+// ── Choice Card (reuses confirmCard styles — standardized) ───────
 
 function ChoiceCardComponent({
   card,
@@ -1108,23 +1104,29 @@ function ChoiceCardComponent({
   onChipPress?: (action: string) => void;
 }) {
   return (
-    <View style={styles.choiceCard}>
-      <Text style={styles.choiceHeadline}>{card.headline}</Text>
-      {(Array.isArray(card.options) ? card.options : []).map((opt, i) => (
-        <Pressable
-          key={i}
-          onPress={() => onChipPress?.(opt.value || opt.label)}
-          style={({ pressed }) => [styles.choiceOption, pressed && { opacity: 0.7 }]}
-        >
-          <View style={styles.choiceRadio} />
-          <View style={styles.choiceContent}>
-            <Text style={styles.choiceLabel}>{opt.label}</Text>
-            {opt.description ? (
-              <Text style={styles.choiceDescription}>{opt.description}</Text>
-            ) : null}
-          </View>
-        </Pressable>
-      ))}
+    <View style={styles.confirmCard}>
+      {card.headline ? <Text style={styles.confirmHeadline}>{card.headline}</Text> : null}
+      <View style={styles.confirmItems}>
+        {(Array.isArray(card.options) ? card.options : []).map((opt, i) => (
+          <TouchableOpacity
+            key={i}
+            activeOpacity={0.6}
+            onPress={() => {
+              const msg = opt.value || opt.label;
+              if (msg && onChipPress) onChipPress(msg);
+            }}
+            style={styles.choiceRow}
+          >
+            <View style={styles.choiceRadio} />
+            <View style={styles.choiceTextWrap}>
+              <Text style={styles.choiceLabel} numberOfLines={1}>{opt.label}</Text>
+              {opt.description ? (
+                <Text style={styles.choiceDesc} numberOfLines={2}>{opt.description}</Text>
+              ) : null}
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 }

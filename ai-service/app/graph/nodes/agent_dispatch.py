@@ -380,7 +380,11 @@ async def execute_confirmed_action(state: TomoChatState) -> dict:
 
         try:
             result = await tool_fn.ainvoke(tool_input)
-            results.append({"tool": tool_name, "result": result, "success": True})
+            # Check if bridge returned an error (e.g. 404, validation failure)
+            if isinstance(result, dict) and "error" in result:
+                results.append({"tool": tool_name, "error": result["error"], "detail": result.get("detail", ""), "success": False})
+            else:
+                results.append({"tool": tool_name, "result": result, "success": True})
         except Exception as e:
             results.append({"tool": tool_name, "error": str(e), "success": False})
 
@@ -389,13 +393,16 @@ async def execute_confirmed_action(state: TomoChatState) -> dict:
     for action in actions:
         name = action.get("toolName", "")
         if "event" in name or "schedule" in name:
-            refresh_targets.add("schedule")
+            refresh_targets.add("calendar")
         if "check_in" in name or "readiness" in name:
             refresh_targets.add("readiness")
+            refresh_targets.add("recommendations")
         if "program" in name:
             refresh_targets.add("programs")
-        if "test" in name:
-            refresh_targets.add("tests")
+        if "test" in name or "journal" in name or "check_in" in name:
+            refresh_targets.add("metrics")
+        # Every write action should refresh notifications
+        refresh_targets.add("notifications")
 
     return {
         "agent_response": json.dumps({"confirmed_results": results}),

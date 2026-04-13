@@ -239,18 +239,27 @@ def make_dual_load_tools(user_id: str, context: PlayerContext) -> list:
         start_date: str = "",
         end_date: str = "",
         intensity_cap: str = "MODERATE",
+        reason: str = "exam_period",
     ) -> dict:
-        """Activate exam/academic priority mode — caps training intensity and suggests study-first scheduling. This is a WRITE action."""
+        """Activate exam/academic priority mode — caps training intensity and suggests study-first scheduling. intensity_cap: LIGHT or MODERATE. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
 
         target_start = start_date or context.today_date
+
+        if not end_date:
+            return {"error": "end_date is required for academic priority period"}
+
+        # Map string intensity cap to float modifier the TS route expects
+        # The TS route uses intensity_modifier <= 0.75 for LIGHT, else MODERATE
+        intensity_modifier = 0.7 if intensity_cap == "LIGHT" else 0.85
 
         return await bridge_post(
             "/api/v1/dual-load/academic-priority",
             {
                 "start_date": target_start,
                 "end_date": end_date,
-                "intensity_cap": intensity_cap,
+                "intensity_modifier": intensity_modifier,
+                "reason": reason,
             },
             user_id=user_id,
         )

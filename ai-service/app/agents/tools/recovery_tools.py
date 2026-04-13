@@ -47,8 +47,8 @@ def make_recovery_tools(user_id: str, context: PlayerContext) -> list:
         readiness = context.readiness_score or "Green"
 
         if injury_risk == "RED" or acwr > 1.5:
-            recommendation = "BLOCKED"
-            advice = "Full recovery day recommended. Your body needs rest before the next session."
+            recommendation = "CAUTION"
+            advice = "Your body's carrying a lot right now. A full recovery day would be smart — but your call."
         elif readiness == "Red" or acwr > 1.3:
             recommendation = "RECOVERY_ONLY"
             advice = "Light recovery work only — foam rolling, stretching, gentle mobility."
@@ -206,21 +206,28 @@ def make_recovery_tools(user_id: str, context: PlayerContext) -> list:
     async def log_recovery_session(
         session_type: str = "general",
         duration_min: int = 30,
+        start_time: str = "09:00",
         notes: str = "",
     ) -> dict:
-        """Log a recovery session. session_type: foam_rolling, stretching, ice_bath, massage, yoga, general. This is a WRITE action."""
+        """Log a recovery session. session_type: foam_rolling, stretching, ice_bath, massage, yoga, general. start_time in HH:MM format. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
+
+        # Compute endTime by adding duration_min to startTime
+        h, m = int(start_time.split(":")[0]), int(start_time.split(":")[1])
+        total_min = h * 60 + m + duration_min
+        end_h, end_m = divmod(min(total_min, 23 * 60 + 59), 60)
+        end_time = f"{end_h:02d}:{end_m:02d}"
 
         return await bridge_post(
             "/api/v1/calendar/events",
             {
-                "title": f"Recovery: {session_type.replace('_', ' ').title()}",
-                "event_type": "recovery",
-                "start_date": context.today_date,
-                "duration_minutes": duration_min,
+                "name": f"Recovery: {session_type.replace('_', ' ').title()}",
+                "type": "recovery",
+                "date": context.today_date,
+                "startTime": start_time,
+                "endTime": end_time,
                 "intensity": "LIGHT",
                 "notes": notes,
-                "metadata": {"recovery_type": session_type},
             },
             user_id=user_id,
         )
@@ -300,23 +307,26 @@ def make_recovery_tools(user_id: str, context: PlayerContext) -> list:
 
     @tool
     async def flag_injury_concern(
-        body_part: str,
-        severity: int = 2,
+        location: str,
+        severity: str = "moderate",
         description: str = "",
     ) -> dict:
-        """Flag an injury concern. Logs it to the athlete's profile and optionally notifies the coach via Triangle. severity: 1=Soreness, 2=Pain affecting training, 3=Cannot train. This is a WRITE action."""
+        """Flag an injury concern. Logs it to the athlete's profile and notifies the coach via Triangle. severity: minor, moderate, severe. location: body part affected (e.g. left_knee, right_ankle, lower_back). This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
 
-        if severity >= 3:
-            logger.warning(f"Severity 3 injury flagged for {user_id}: {body_part}")
+        valid_severities = ("minor", "moderate", "severe")
+        if severity not in valid_severities:
+            return {"error": f"severity must be one of: {', '.join(valid_severities)}"}
+
+        if severity == "severe":
+            logger.warning(f"Severe injury flagged for {user_id}: {location}")
 
         return await bridge_post(
             "/api/v1/injuries",
             {
-                "body_part": body_part,
+                "location": location,
                 "severity": severity,
                 "description": description,
-                "notify_coach": severity >= 2,
             },
             user_id=user_id,
         )

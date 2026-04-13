@@ -172,18 +172,16 @@ def make_testing_benchmark_tools(user_id: str, context: PlayerContext) -> list:
     async def log_test_result(
         test_type: str,
         score: float,
-        unit: str = "",
-        notes: str = "",
+        raw_data: dict | None = None,
     ) -> dict:
-        """Log a new test result. test_type examples: sprint_10m, cmj, yoyo_ir1, agility_ttest, vertical_jump. Score in appropriate units. This is a WRITE action."""
+        """Log a new test result via phone test pipeline. test_type examples: sprint_10m, cmj, yoyo_ir1, agility_ttest, vertical_jump. Score in appropriate units. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
         return await bridge_post(
-            "/api/v1/tests",
+            "/api/v1/phone-tests/session",
             {
-                "test_type": test_type,
+                "testType": test_type,
                 "score": score,
-                "unit": unit,
-                "notes": notes,
+                "rawData": raw_data or {},
             },
             user_id=user_id,
         )
@@ -248,9 +246,10 @@ def make_testing_benchmark_tools(user_id: str, context: PlayerContext) -> list:
     async def create_test_session(
         test_types: str,
         scheduled_date: str = "",
+        start_time: str = "09:00",
         notes: str = "",
     ) -> dict:
-        """Schedule a test battery session on the calendar. test_types: comma-separated list of test keys (e.g. 'sprint_10m,cmj,yoyo_ir1'). Creates a calendar event with test session metadata. This is a WRITE action."""
+        """Schedule a test battery session on the calendar. test_types: comma-separated list of test keys (e.g. 'sprint_10m,cmj,yoyo_ir1'). Creates a calendar event. start_time in HH:MM format. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
 
         tests = [t.strip() for t in test_types.split(",") if t.strip()]
@@ -258,20 +257,27 @@ def make_testing_benchmark_tools(user_id: str, context: PlayerContext) -> list:
             return {"error": "Provide at least one test type"}
 
         target_date = scheduled_date or context.today_date
-        title = f"Test Session: {', '.join(tests[:3])}"
+        event_name = f"Test Session: {', '.join(tests[:3])}"
         if len(tests) > 3:
-            title += f" +{len(tests) - 3} more"
+            event_name += f" +{len(tests) - 3} more"
+
+        # Compute endTime from number of tests (15 min each, minimum 30 min)
+        duration_min = max(30, len(tests) * 15)
+        h, m = int(start_time.split(":")[0]), int(start_time.split(":")[1])
+        total_min = h * 60 + m + duration_min
+        end_h, end_m = divmod(min(total_min, 23 * 60 + 59), 60)
+        end_time = f"{end_h:02d}:{end_m:02d}"
 
         return await bridge_post(
             "/api/v1/calendar/events",
             {
-                "title": title,
-                "event_type": "test_session",
-                "start_date": target_date,
-                "duration_minutes": max(30, len(tests) * 15),
+                "name": event_name,
+                "type": "other",
+                "date": target_date,
+                "startTime": start_time,
+                "endTime": end_time,
                 "intensity": "MODERATE",
                 "notes": notes or f"Tests: {', '.join(tests)}",
-                "metadata": {"test_types": tests},
             },
             user_id=user_id,
         )

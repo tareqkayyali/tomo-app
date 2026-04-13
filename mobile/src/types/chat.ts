@@ -44,8 +44,10 @@ export interface StatRow {
 export interface ScheduleItem {
   time: string;
   title: string;
-  type: 'training' | 'match' | 'study' | 'rest' | 'exam' | 'other';
+  type: 'training' | 'match' | 'study' | 'rest' | 'exam' | 'gym' | 'personal_dev' | 'club_training' | 'recovery' | 'other';
   clash?: boolean;
+  intensity?: string;
+  notes?: string;
 }
 
 export interface ScheduleList {
