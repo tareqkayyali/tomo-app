@@ -300,7 +300,7 @@ export function computeFocusItems(plan: Plan | null, events: CalendarEvent[]): F
 }
 
 /** Convert "HH:MM" (24h) to "H:MM AM/PM" */
-function formatTime12h(time24: string): string {
+export function formatTime12h(time24: string): string {
   const [h, m] = time24.split(':').map(Number);
   const period = h >= 12 ? 'PM' : 'AM';
   const hour12 = h % 12 || 12;

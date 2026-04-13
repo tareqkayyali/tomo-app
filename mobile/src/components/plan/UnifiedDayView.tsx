@@ -14,7 +14,6 @@ import {
   RefreshControl,
   Pressable,
   Platform,
-  TouchableOpacity,
 } from 'react-native';
 import { PinchGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 import { SmartIcon } from '../SmartIcon';
@@ -28,6 +27,8 @@ import { DayLockButton } from '../../components/calendar/DayLockButton';
 import { ScrollFadeOverlay } from '../../components/ScrollFadeOverlay';
 import { SuggestionsBanner } from '../../components/SuggestionsBanner';
 import { DayStrip } from './DayStrip';
+import { DayHighlights } from './DayHighlights';
+import type { DayHighlight } from './DayHighlights';
 import { spacing, layout, shadows, fontFamily, borderRadius } from '../../theme';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemeColors } from '../../theme/colors';
@@ -126,15 +127,8 @@ export function UnifiedDayView({
   const emptyCompleted = useMemo(() => new Set<string>(), []);
   const noop = () => {};
 
-  // Zoom controls for timeline (buttons + pinch)
+  // Zoom controls for timeline (pinch-to-zoom on native)
   const [zoomLevel, setZoomLevel] = useState(1.0);
-  const zoomIn = useCallback(() => {
-    setZoomLevel(prev => Math.min(1.5, Math.round((prev + 0.1) * 10) / 10));
-  }, []);
-
-  const zoomOut = useCallback(() => {
-    setZoomLevel(prev => Math.max(0.7, Math.round((prev - 0.1) * 10) / 10));
-  }, []);
 
   // Pinch-to-zoom: update zoom level on pinch end
   const pinchRef = React.useRef<any>(null);
@@ -198,6 +192,20 @@ export function UnifiedDayView({
     return `${day}, ${date}`;
   }, [isToday, selectedDay]);
 
+  // Day highlights (exams, future: matches, deadlines)
+  const dayHighlights: DayHighlight[] = useMemo(() => {
+    return events
+      .filter(e => e.type === 'exam')
+      .map(e => ({
+        id: e.id,
+        kind: 'exam' as const,
+        label: e.name,
+        time: e.startTime,
+        color: colors.warning,
+        iconName: 'school',
+      }));
+  }, [events, colors.warning]);
+
   return (
     <View style={{ flex: 1 }}>
       {/* ─── Day Strip Navigation ─── */}
@@ -220,6 +228,11 @@ export function UnifiedDayView({
         </View>
       )}
 
+      {/* ─── Day Highlights (exams, etc.) ─── */}
+      {dayHighlights.length > 0 && (
+        <DayHighlights highlights={dayHighlights} />
+      )}
+
       <ScrollFadeOverlay />
       <ScrollView
         ref={scrollViewRef}
@@ -239,30 +252,7 @@ export function UnifiedDayView({
         )}
 
 
-        {/* ─── Zoom Controls ─── */}
-        {events.length > 0 && (
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 4, gap: 8 }}>
-            <TouchableOpacity
-              onPress={zoomOut}
-              style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', opacity: zoomLevel <= 0.7 ? 0.3 : 1 }}
-              disabled={zoomLevel <= 0.7}
-            >
-              <SmartIcon name="remove" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
-            <Text style={{ color: colors.textMuted, fontSize: 11, fontFamily: 'Poppins_500Medium', minWidth: 32, textAlign: 'center' }}>
-              {Math.round(zoomLevel * 100)}%
-            </Text>
-            <TouchableOpacity
-              onPress={zoomIn}
-              style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', opacity: zoomLevel >= 1.5 ? 0.3 : 1 }}
-              disabled={zoomLevel >= 1.5}
-            >
-              <SmartIcon name="add" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ─── Connected Spine Timeline (pinch-to-zoom on native, buttons everywhere) ─── */}
+        {/* ─── Connected Spine Timeline (pinch-to-zoom on native) ─── */}
         {Platform.OS !== 'web' ? (
           <PinchGestureHandler
             ref={pinchRef}
