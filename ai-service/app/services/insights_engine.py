@@ -135,12 +135,16 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
         if len(set(agents_seen)) > 1:
             agent_switch_sessions.append(sid)
 
-    # Tone analysis: detect robotic patterns in assistant responses
+    # Tone analysis: detect language quality patterns in assistant responses
     responses_with_text = [t for t in traces if t.get("assistant_response")]
+
+    # Robotic / clinical language markers
     robotic_markers = [
         "actions completed", "Event created", "has been created",
         "I apologize", "I'm sorry, but", "As an AI",
         "I don't have access", "I cannot", "Unfortunately,",
+        "Please note that", "It is important to", "I would recommend",
+        "Based on the data", "According to", "It appears that",
     ]
     robotic_responses = []
     for t in responses_with_text:
@@ -148,10 +152,50 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
         if any(marker.lower() in resp.lower() for marker in robotic_markers):
             robotic_responses.append(t)
 
+    # Warmth / personalization markers (positive signals)
+    warmth_markers = [
+        "you've", "you're", "your", "nice work", "solid",
+        "let's", "we can", "keep it up", "great question",
+        "love that", "smart move", "proud", "crushing it",
+    ]
+    warm_responses = []
+    for t in responses_with_text:
+        resp = t.get("assistant_response", "").lower()
+        if sum(1 for m in warmth_markers if m in resp) >= 2:
+            warm_responses.append(t)
+
     # Short responses (< 50 chars = likely curt/unhelpful)
     curt_responses = [t for t in responses_with_text if len(t.get("assistant_response", "")) < 50]
     # Very long responses (> 2000 chars = possibly overwhelming for Gen Z)
     overly_long = [t for t in responses_with_text if len(t.get("assistant_response", "")) > 2000]
+
+    # Opening phrase analysis — what does Tomo lead with?
+    opening_patterns: dict[str, int] = {"question": 0, "affirmation": 0, "information": 0, "greeting": 0, "other": 0}
+    affirmation_openers = ["nice", "great", "solid", "love", "good", "awesome", "perfect", "hey"]
+    question_openers = ["what", "how", "when", "would", "do you", "are you", "want"]
+    for t in responses_with_text:
+        first_line = (t.get("assistant_response") or "").strip().split("\n")[0].lower()[:60]
+        if any(first_line.startswith(q) for q in question_openers):
+            opening_patterns["question"] += 1
+        elif any(first_line.startswith(a) for a in affirmation_openers) or "!" in first_line[:30]:
+            opening_patterns["affirmation"] += 1
+        elif first_line.startswith(("hey", "hi ", "yo ")):
+            opening_patterns["greeting"] += 1
+        elif first_line:
+            opening_patterns["information"] += 1
+
+    # Response length buckets
+    length_buckets = {"short_under_100": 0, "concise_100_300": 0, "medium_300_800": 0, "long_800_plus": 0}
+    for t in responses_with_text:
+        ln = len(t.get("assistant_response", ""))
+        if ln < 100:
+            length_buckets["short_under_100"] += 1
+        elif ln < 300:
+            length_buckets["concise_100_300"] += 1
+        elif ln < 800:
+            length_buckets["medium_300_800"] += 1
+        else:
+            length_buckets["long_800_plus"] += 1
 
     # ── 7 Domain-Specific Questions ──────────────────────────────────
 
@@ -257,7 +301,13 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
         },
         {
             "category": "conversational_connect",
-            "question": "Is Tomo maintaining conversational continuity across turns, or are sessions fragmenting into disconnected exchanges?",
+            "question": (
+                "Analyze ONLY conversation flow and context retention across multi-turn sessions. "
+                "DO NOT analyze safety, cost, or tone — those are covered by other domains. "
+                "Focus exclusively on: (1) Does the assistant reference what was discussed earlier in the session? "
+                "(2) Are agent switches mid-session causing context loss? "
+                "(3) Does the conversation feel like a continuous thread or disconnected Q&A?"
+            ),
             "data": {
                 "total_sessions_unique": len(sessions),
                 "multi_turn_sessions": len(multi_turn_sessions),
@@ -299,58 +349,72 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
         },
         {
             "category": "tone_warmth",
-            "question": "Are Tomo's responses warm, supportive, and Gen Z-appropriate, or are they robotic and clinical?",
+            "question": (
+                "Analyze ONLY the language quality and tone of Tomo's responses. "
+                "DO NOT analyze safety, routing, or cost — those are covered by other domains. "
+                "Focus exclusively on: (1) Does it sound like a supportive coach or a clinical tool? "
+                "(2) Is the language age-appropriate for the athlete's age band? "
+                "(3) Does it use personalization, encouragement, and natural phrasing? "
+                "(4) Are there robotic/corporate patterns that break the coaching vibe?"
+            ),
             "data": {
-                "total_responses_with_text": len(responses_with_text),
-                "robotic_response_count": len(robotic_responses),
+                "total_responses_analyzed": len(responses_with_text),
+                "age_band_distribution": _count_by_field(responses_with_text, "age_band"),
+                # ── Tone signals ──
+                "robotic_language_detected": len(robotic_responses),
                 "robotic_pct": round(len(robotic_responses) / max(len(responses_with_text), 1) * 100, 1),
-                "curt_response_count": len(curt_responses),
-                "curt_pct": round(len(curt_responses) / max(len(responses_with_text), 1) * 100, 1),
-                "overly_long_count": len(overly_long),
-                "overly_long_pct": round(len(overly_long) / max(len(responses_with_text), 1) * 100, 1),
+                "warm_personalized_count": len(warm_responses),
+                "warm_pct": round(len(warm_responses) / max(len(responses_with_text), 1) * 100, 1),
+                # ── Length profile ──
+                "response_length_distribution": length_buckets,
                 "avg_response_length_chars": round(
                     sum(len(t.get("assistant_response", "")) for t in responses_with_text)
                     / max(len(responses_with_text), 1)
                 ),
+                "curt_under_50_chars": len(curt_responses),
+                "overly_long_over_2000_chars": len(overly_long),
+                # ── Opening patterns (how does Tomo start responses?) ──
+                "opening_pattern_counts": opening_patterns,
+                "affirmation_open_pct": round(
+                    opening_patterns["affirmation"] / max(len(responses_with_text), 1) * 100, 1
+                ),
+                # ── Validation quality flags ──
                 "verbose_flagged": len(verbose),
-                "filler_flagged": len(filler),
-                "red_athlete_responses": [
+                "filler_language_flagged": len(filler),
+                # ── Sample responses for tone analysis (random mix, not error-biased) ──
+                "sample_responses_warm": [
                     {
                         "user": (t.get("message") or "")[:80],
-                        "assistant": (t.get("assistant_response") or "")[:200],
-                        "injury_risk": t.get("injury_risk"),
-                        "readiness_rag": t.get("readiness_rag"),
-                    }
-                    for t in responses_with_text
-                    if t.get("injury_risk") == "RED"
-                ][:5],
-                "robotic_samples": [
-                    {
-                        "user": (t.get("message") or "")[:80],
-                        "assistant": (t.get("assistant_response") or "")[:200],
+                        "assistant_opening": (t.get("assistant_response") or "")[:250],
+                        "age_band": t.get("age_band", "unknown"),
                         "agent": t.get("agent_type"),
                     }
-                    for t in robotic_responses[:5]
+                    for t in warm_responses[:4]
                 ],
-                "curt_samples": [
+                "sample_responses_robotic": [
                     {
                         "user": (t.get("message") or "")[:80],
-                        "assistant": t.get("assistant_response", ""),
+                        "assistant_opening": (t.get("assistant_response") or "")[:250],
+                        "age_band": t.get("age_band", "unknown"),
+                        "agent": t.get("agent_type"),
+                        "robotic_markers_found": [
+                            m for m in robotic_markers
+                            if m.lower() in (t.get("assistant_response") or "").lower()
+                        ],
+                    }
+                    for t in robotic_responses[:4]
+                ],
+                "sample_responses_general": [
+                    {
+                        "user": (t.get("message") or "")[:80],
+                        "assistant_opening": (t.get("assistant_response") or "")[:250],
+                        "age_band": t.get("age_band", "unknown"),
                         "agent": t.get("agent_type"),
                     }
-                    for t in curt_responses[:5]
+                    for t in responses_with_text[::max(len(responses_with_text) // 5, 1)][:5]
                 ],
-                "age_band_distribution": _count_by_field(responses_with_text, "age_band"),
-                "error_responses": [
-                    {
-                        "user": (t.get("message") or "")[:80],
-                        "assistant": (t.get("assistant_response") or "")[:200],
-                    }
-                    for t in responses_with_text
-                    if t.get("validation_passed") is False
-                ][:5],
             },
-            "relevant_traces": robotic_responses + curt_responses + overly_long,
+            "relevant_traces": robotic_responses + curt_responses + overly_long + warm_responses,
         },
     ]
 
