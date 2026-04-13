@@ -453,6 +453,21 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
                     chips = [checkin_chip] + chips
                 structured["chips"] = chips[:2]
 
+    # 10. Pydantic card validation (v2) — validate every card against registry
+    #     Invalid cards are dropped and logged. Unknown types pass through.
+    try:
+        from app.models.cards_v2 import validate_card as _validate_card
+        validated_cards = []
+        for card in structured.get("cards", []):
+            valid, cleaned, error = _validate_card(card)
+            if valid and cleaned:
+                validated_cards.append(cleaned)
+            elif error:
+                logger.warning(f"Card validation dropped: {error}")
+        structured["cards"] = validated_cards
+    except ImportError:
+        pass  # cards_v2 not available — skip validation
+
     return structured
 
 

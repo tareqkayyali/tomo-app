@@ -67,6 +67,7 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
     context = state.get("player_context")
     aib_summary = state.get("aib_summary")
     secondary_agents = state.get("_secondary_agents", [])
+    workflow_steps = state.get("_workflow_steps")
 
     if not context:
         return {
@@ -75,6 +76,17 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
             "total_cost_usd": 0.0,
             "total_tokens": 0,
         }
+
+    # Multi-step workflow: if planner detected a multi-agent workflow,
+    # merge tools from ALL workflow step agents so the LLM has access to everything.
+    # The system prompt will guide the LLM to execute steps in order.
+    if workflow_steps:
+        workflow_agents = list(set(a for a, _ in workflow_steps))
+        logger.info(f"Multi-step workflow: {len(workflow_steps)} steps, agents={workflow_agents}")
+        # Merge secondary agents from workflow into the tool set
+        for wa in workflow_agents:
+            if wa != agent_type and wa not in secondary_agents:
+                secondary_agents.append(wa)
 
     # 1. Get tools for this agent + user (all tools available — no restrictions)
     tools = get_tools_for_agent(agent_type, user_id, context, secondary_agents)
@@ -133,6 +145,17 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         intent_guidance = INTENT_GUIDANCE.get(intent_id, f"CURRENT INTENT: {intent_id}")
 
     dynamic_block = f"{intent_guidance}\n\n{dynamic_block}"
+
+    # 2b-workflow. Inject multi-step workflow instructions if planner created a plan
+    if workflow_steps:
+        step_instructions = ["MULTI-STEP WORKFLOW — execute these steps IN ORDER:"]
+        for i, (step_agent, step_action) in enumerate(workflow_steps):
+            step_instructions.append(f"  Step {i + 1} ({step_agent}): {step_action}")
+        step_instructions.append(
+            "Complete ALL steps in a single response. Call the tools for each step "
+            "sequentially. Combine all results into one unified response with appropriate cards."
+        )
+        dynamic_block = "\n".join(step_instructions) + "\n\n" + dynamic_block
 
     # 2b-2. Context bridge — cue agent to use conversation history on continuing sessions.
     # Without this, agent switches (e.g. output → timeline) lose conversational context

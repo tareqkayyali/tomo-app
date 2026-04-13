@@ -169,23 +169,14 @@ async def planner_node(state: TomoChatState) -> dict:
         plan = _create_plan_from_template(workflow_type)
         if plan:
             logger.info(
-                f"[PLANNER] Multi-step workflow detected: {workflow_type} "
+                f"[PLANNER] Multi-step workflow: {workflow_type} "
                 f"({len(plan.steps)} steps: {[s.agent for s in plan.steps]})"
             )
-
-            # Phase 1: Log only, do not activate plan
-            # Phase 3: Uncomment the return below to activate
-            # return {
-            #     "_conversation_plan": plan.model_dump(),
-            #     "_workflow_steps": [(s.agent, s.action) for s in plan.steps],
-            # }
-
-            # Phase 1: Pass-through with metadata logging
             return {
-                "_planner_detected_workflow": workflow_type,
-                "_planner_steps": len(plan.steps),
+                "_conversation_plan": plan.model_dump(),
+                "_workflow_steps": [(s.agent, s.action) for s in plan.steps],
             }
 
     # Single-agent request — pass-through
-    logger.debug(f"[PLANNER] Single-agent pass-through: {agent}/{intent}")
+    logger.debug(f"[PLANNER] Single-agent: {agent}/{intent}")
     return {}
