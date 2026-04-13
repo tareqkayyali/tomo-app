@@ -74,67 +74,15 @@ export async function POST(req: NextRequest) {
           logger.warn("[agent-stream] Session management unavailable", { error: sessionErr instanceof Error ? sessionErr.message : String(sessionErr) });
         }
 
-        // ── Handle capsule actions ($0, deterministic) ──
+        // ── Capsule actions → Python AI service (v2: single write path) ──
+        // Previously executed in TS directly. Now forwarded to Python where
+        // the classifier handles them via the capsule fast-path ($0, no LLM).
+        // This ensures all writes go through one pipeline with safety gates,
+        // cost tracking, and audit logging.
         if (body.capsuleAction) {
-          send("status", { status: "Processing..." });
-          const ca = body.capsuleAction;
-
-          const context = await buildPlayerContext(
-            auth.user.id,
-            body.activeTab ?? "Chat",
-            message,
-            body.timezone
-          );
-
-          // Safety gate: check RED risk before capsule write execution (matches sync route)
-          const se = context.snapshotEnrichment;
-          const safetyCheck = checkRedRiskForTool(
-            ca.toolName,
-            ca.toolInput,
-            se?.injuryRiskFlag,
-            se?.ccrsRecommendation,
-            se?.ccrs,
-          );
-          const safeToolInput = safetyCheck.modifiedInput;
-          if (safetyCheck.reasons.length > 0) {
-            logger.warn(`[SAFETY-TS] Stream capsule gate: ${ca.toolName} → ${safetyCheck.reasons.join(", ")}`);
-          }
-
-          const executors: Record<string, typeof executeOutputTool> = {
-            output: executeOutputTool,
-            timeline: executeTimelineTool,
-            mastery: executeMasteryTool,
-            settings: executeSettingsTool,
-          };
-          const executor = executors[ca.agentType];
-          if (executor) {
-            const toolResult = await executor(ca.toolName, safeToolInput, context);
-            const refreshTargets = toolResult.refreshTarget ? [toolResult.refreshTarget] : [];
-            const friendlyName = ca.toolName.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-            const safetyNote = safetyCheck.safetyMessage ? `\n\n${safetyCheck.safetyMessage}` : "";
-            const resultMsg = toolResult.error
-              ? `${toolResult.error}`
-              : `${friendlyName} — done!${safetyNote}`;
-
-            if (sessionId) {
-              await saveMessage(sessionId, auth.user.id, "assistant", resultMsg).catch(() => {});
-            }
-
-            send("done", {
-              message: resultMsg,
-              structured: null,
-              sessionId,
-              refreshTargets,
-              pendingConfirmation: null,
-              context: {
-                ageBand: context.ageBand,
-                readinessScore: context.readinessScore,
-                activeTab: context.activeTab,
-              },
-            });
-            controller.close();
-            return;
-          }
+          logger.info(`[capsule→python] Forwarding ${body.capsuleAction.toolName} to AI service`);
+          // Fall through to Python proxy below — capsuleAction is passed as confirmed_action
+          body.confirmedAction = body.capsuleAction;
         }
 
         // ── Python AI service — all non-capsule traffic ──

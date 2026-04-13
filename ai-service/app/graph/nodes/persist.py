@@ -313,6 +313,42 @@ async def persist_node(state: TomoChatState) -> dict:
             # Trace log failure must never block the response
             logger.warning(f"ai_trace_log write failed (non-blocking): {e}")
 
+        # ── v2: Save workflow plan data to conversation_plans table ──
+        workflow_plan = state.get("_conversation_plan")
+        workflow_steps = state.get("_workflow_steps")
+        if workflow_plan or workflow_steps:
+            try:
+                pool = get_pool()
+                if pool:
+                    async with pool.connection() as wconn:
+                        await wconn.set_autocommit(True)
+                        plan_data = {
+                            "plan": workflow_plan,
+                            "steps": workflow_steps,
+                            "agent": selected_agent,
+                            "secondary_agents": state.get("_secondary_agents", []),
+                            "intent": state.get("intent_id"),
+                        }
+                        await wconn.execute(
+                            """INSERT INTO conversation_plans (session_id, user_id, plan_data)
+                               VALUES (%s, %s, %s)
+                               ON CONFLICT DO NOTHING""",
+                            (session_id, user_id, json.dumps(plan_data, default=str)),
+                        )
+                        logger.info(
+                            f"Workflow plan saved: session={session_id[:8]}... "
+                            f"type={workflow_plan.get('workflow_type') if isinstance(workflow_plan, dict) else 'unknown'}"
+                        )
+            except Exception as wp_err:
+                logger.debug(f"Workflow plan save skipped: {wp_err}")
+
+        # ── v2: Save shadow Sonnet comparison to ai_trace_log.sonnet_shadow ──
+        # The shadow comparison runs in pre_router as a background task.
+        # We can't easily pass its result through state (it's async fire-and-forget).
+        # Instead, we log the v2 classifier metadata alongside the trace.
+        # When CLASSIFIER_VERSION=sonnet, the classifier's own cost/latency is
+        # already included in total_cost_usd via classifier_node.
+
         return {"_observability": {"metadata": post_metadata, "tags": post_tags}}
     except Exception as e:
         logger.warning(f"Observability enrichment failed (non-blocking): {e}")

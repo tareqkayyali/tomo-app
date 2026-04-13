@@ -141,19 +141,49 @@ def _create_plan_from_template(workflow_type: str) -> Optional[ConversationPlan]
 
 # ── LangGraph Node ────────────────────────────────────────────────────
 
+async def _load_active_plan(session_id: str, user_id: str) -> Optional[ConversationPlan]:
+    """Load an active (non-expired) conversation plan from DB for this session."""
+    try:
+        from app.db.supabase import get_pool
+        pool = get_pool()
+        if not pool:
+            return None
+
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """SELECT plan_data FROM conversation_plans
+                   WHERE session_id = %s AND user_id = %s
+                     AND expires_at > NOW()
+                   ORDER BY created_at DESC LIMIT 1""",
+                (session_id, user_id),
+            )
+            row = await result.fetchone()
+            if row and row[0]:
+                import json
+                data = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+                plan_dict = data.get("plan")
+                if plan_dict:
+                    return ConversationPlan.model_validate(plan_dict)
+    except Exception as e:
+        logger.debug(f"Plan load failed (non-blocking): {e}")
+
+    return None
+
+
 async def planner_node(state: TomoChatState) -> dict:
     """
     Conversation Planner node.
 
-    Phase 1 (current): Pass-through with logging.
-    Phase 3 (future): Creates and tracks multi-step workflow plans.
+    1. Check for existing active plan in DB (multi-turn workflow continuation)
+    2. If no existing plan, detect if current message needs a new workflow
+    3. Return workflow steps for agent_dispatch to iterate
 
     Reads:
         - state.selected_agent: Primary agent from classifier
         - state._secondary_agents: Secondary agents if multi-agent
         - state.intent_id: Classified intent
 
-    Writes (Phase 3):
+    Writes:
         - state._conversation_plan: Active plan for agent_dispatch to iterate
         - state._workflow_steps: Ordered list of (agent, action) tuples
     """
@@ -161,15 +191,36 @@ async def planner_node(state: TomoChatState) -> dict:
     intent = state.get("intent_id", "unknown")
     secondary = state.get("_secondary_agents", [])
     second_agent = secondary[0] if secondary else None
+    session_id = state.get("session_id", "")
+    user_id = state.get("user_id", "")
 
-    # Detect if this needs a multi-step workflow
+    # 1. Check for active plan from previous turn (multi-turn workflow resume)
+    if session_id and user_id:
+        existing_plan = await _load_active_plan(session_id, user_id)
+        if existing_plan and existing_plan.steps:
+            # Find the next pending step
+            pending_steps = [
+                (s.agent, s.action) for s in existing_plan.steps
+                if s.status == "pending"
+            ]
+            if pending_steps:
+                logger.info(
+                    f"[PLANNER] Resuming workflow: {existing_plan.workflow_type} "
+                    f"({len(pending_steps)} steps remaining)"
+                )
+                return {
+                    "_conversation_plan": existing_plan.model_dump(),
+                    "_workflow_steps": pending_steps,
+                }
+
+    # 2. Detect if this needs a new multi-step workflow
     workflow_type = _detect_workflow_type(agent, intent, second_agent)
 
     if workflow_type:
         plan = _create_plan_from_template(workflow_type)
         if plan:
             logger.info(
-                f"[PLANNER] Multi-step workflow: {workflow_type} "
+                f"[PLANNER] New workflow: {workflow_type} "
                 f"({len(plan.steps)} steps: {[s.agent for s in plan.steps]})"
             )
             return {

@@ -113,86 +113,15 @@ export async function POST(req: NextRequest) {
       console.warn("[chat] Session management unavailable:", sessionErr instanceof Error ? sessionErr.message : sessionErr);
     }
 
-    // ── CAPSULE ACTION — direct tool execution, skip LLM ($0) ───
+    // ── CAPSULE ACTION → Python AI service (v2: single write path) ──
+    // Previously executed in TS directly via agent executors.
+    // Now forwarded to Python where the classifier handles capsule actions
+    // via the capsule fast-path ($0, no LLM) with safety gates, cost tracking,
+    // and audit logging through the unified pipeline.
     if (body.capsuleAction) {
-      const { toolName, toolInput, agentType } = body.capsuleAction;
-
-      // Build context for tool execution
-      const context = await buildPlayerContext(
-        auth.user.id,
-        body.activeTab ?? "Chat",
-        body.message,
-        body.timezone
-      );
-
-      // ── S3 SAFETY GATE: Check RED risk before capsule write-tool execution ──
-      const se = context.snapshotEnrichment;
-      const safetyCheck = checkRedRiskForTool(
-        toolName,
-        toolInput,
-        se?.injuryRiskFlag,
-        se?.ccrsRecommendation,
-        se?.ccrs,
-      );
-      // Use potentially modified input (intensity downgraded for RED athletes)
-      const safeToolInput = safetyCheck.modifiedInput;
-      if (safetyCheck.reasons.length > 0) {
-        console.warn(`[SAFETY-TS] Capsule gate: ${toolName} → ${safetyCheck.reasons.join(", ")}`);
-      }
-
-      // Execute the tool directly based on agent type
-      let toolResult: { result: any; refreshTarget?: string; error?: string };
-      try {
-        const executors: Record<string, typeof executeOutputTool> = {
-          output: executeOutputTool,
-          timeline: executeTimelineTool,
-          mastery: executeMasteryTool,
-          settings: executeSettingsTool,
-        };
-        const executor = executors[agentType];
-        if (executor) {
-          toolResult = await executor(toolName, safeToolInput, context);
-        } else {
-          toolResult = { result: null, error: `Unknown agent type: ${agentType}` };
-        }
-      } catch (execErr) {
-        toolResult = { result: null, error: execErr instanceof Error ? execErr.message : "Capsule action failed" };
-      }
-
-      const refreshTargets = toolResult.refreshTarget ? [toolResult.refreshTarget] : [];
-
-      // Deterministic response — no LLM needed for capsule confirmation
-      const friendlyName = toolName.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-      const safetyNote = safetyCheck.safetyMessage ? `\n\n${safetyCheck.safetyMessage}` : "";
-      const message = toolResult.error
-        ? `${toolResult.error}`
-        : `${friendlyName} — done!${safetyNote}`;
-
-      // Save capsule result to session
-      if (sessionId) {
-        try {
-          await saveMessage(sessionId, auth.user.id, "assistant", message, {
-            structured: null,
-            agent: agentType,
-          });
-        } catch (e) { console.error("[chat-agent] Save capsule message failed:", e); }
-      }
-
-      return NextResponse.json(
-        {
-          message,
-          structured: null,
-          sessionId,
-          refreshTargets,
-          pendingConfirmation: null,
-          context: {
-            ageBand: context.ageBand,
-            readinessScore: context.readinessScore,
-            activeTab: context.activeTab,
-          },
-        },
-        { headers: { "api-version": "v1" } }
-      );
+      console.log(`[capsule→python] Forwarding ${body.capsuleAction.toolName} to AI service`);
+      body.confirmedAction = body.capsuleAction;
+      // Fall through to Python proxy below
     }
 
     // ── PYTHON AI SERVICE — all non-capsule traffic ─────────────
