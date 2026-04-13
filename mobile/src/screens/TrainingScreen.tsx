@@ -448,6 +448,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
         onUpdate={(eventId, patch) => handleUpdateEvent(eventId, patch)}
         onCheckinPress={() => navigation.navigate('Checkin')}
         onJournalPress={(event) => setJournalEvent(event)}
+        examSchedule={rules?.preferences?.exam_schedule ?? []}
       />
 
       {/* ─── Journal Sheet ─── */}

@@ -30,9 +30,11 @@ import { DayStrip } from './DayStrip';
 import { DayHighlights } from './DayHighlights';
 import type { DayHighlight } from './DayHighlights';
 import { spacing, layout, shadows, fontFamily, borderRadius } from '../../theme';
+import { toDateStr } from '../../utils/calendarHelpers';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemeColors } from '../../theme/colors';
 import type { CalendarEvent, Suggestion } from '../../types';
+import type { ExamScheduleEntry } from '../../hooks/useScheduleRules';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -82,6 +84,8 @@ export interface UnifiedDayViewProps {
   onCheckinPress?: () => void;
   onJournalPress?: (event: CalendarEvent) => void;
 
+  // Schedule-based exam data (from player_schedule_preferences)
+  examSchedule?: ExamScheduleEntry[];
 }
 
 // ---------------------------------------------------------------------------
@@ -120,6 +124,7 @@ export function UnifiedDayView({
   onUpdate,
   onCheckinPress,
   onJournalPress,
+  examSchedule,
 }: UnifiedDayViewProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -192,19 +197,45 @@ export function UnifiedDayView({
     return `${day}, ${date}`;
   }, [isToday, selectedDay]);
 
-  // Day highlights (exams, future: matches, deadlines)
+  // Day highlights (exams from calendar events + schedule preferences)
+  const selectedDayStr = toDateStr(selectedDay);
   const dayHighlights: DayHighlight[] = useMemo(() => {
-    return events
-      .filter(e => e.type === 'exam')
-      .map(e => ({
-        id: e.id,
-        kind: 'exam' as const,
-        label: e.name,
-        time: e.startTime,
-        color: colors.warning,
-        iconName: 'school',
-      }));
-  }, [events, colors.warning]);
+    const highlights: DayHighlight[] = [];
+    const seenIds = new Set<string>();
+
+    // Source 1: Calendar events with type 'exam' (already filtered to selected day)
+    for (const e of events) {
+      if (e.type === 'exam') {
+        seenIds.add(e.id);
+        highlights.push({
+          id: e.id,
+          kind: 'exam',
+          label: e.name,
+          time: e.startTime,
+          color: colors.warning,
+          iconName: 'school',
+        });
+      }
+    }
+
+    // Source 2: Schedule preferences exam_schedule (matched by date)
+    if (examSchedule) {
+      for (const ex of examSchedule) {
+        if (ex.examDate === selectedDayStr && !seenIds.has(ex.id)) {
+          highlights.push({
+            id: ex.id,
+            kind: 'exam',
+            label: ex.subject,
+            time: null,
+            color: colors.warning,
+            iconName: 'school',
+          });
+        }
+      }
+    }
+
+    return highlights;
+  }, [events, examSchedule, selectedDayStr, colors.warning]);
 
   return (
     <View style={{ flex: 1 }}>
