@@ -215,12 +215,12 @@ function getTimeRange(range: string): { from: string; to: string } {
   return { from: from.toISOString(), to: now.toISOString() };
 }
 
-function formatCost(cost: number): string {
-  return `$${cost.toFixed(4)}`;
+function formatCost(cost: number | null | undefined): string {
+  return `$${(cost ?? 0).toFixed(4)}`;
 }
 
-function formatLatency(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`;
+function formatLatency(ms: number | null | undefined): string {
+  return `${((ms ?? 0) / 1000).toFixed(1)}s`;
 }
 
 function formatTime(iso: string): string {
@@ -248,9 +248,10 @@ function truncate(str: string, len: number): string {
   return str.length > len ? str.slice(0, len) + "..." : str;
 }
 
-function healthDot(rate: number): { color: string; border: string } {
-  if (rate >= 95) return { color: "bg-green-500", border: "border-l-green-500" };
-  if (rate >= 85) return { color: "bg-yellow-500", border: "border-l-yellow-500" };
+function healthDot(rate: number | null | undefined): { color: string; border: string } {
+  const r = rate ?? 0;
+  if (r >= 95) return { color: "bg-green-500", border: "border-l-green-500" };
+  if (r >= 85) return { color: "bg-yellow-500", border: "border-l-yellow-500" };
   return { color: "bg-red-500", border: "border-l-red-500" };
 }
 
@@ -713,7 +714,7 @@ export default function AIHealthPage() {
                 <Card>
                   <CardContent className="pt-4 pb-3">
                     <div className="text-2xl font-medium text-zinc-900">
-                      {dashboardData.global_stats.total_traces.toLocaleString()}
+                      {(dashboardData.global_stats.total_traces ?? 0).toLocaleString()}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       Total Traces
@@ -732,14 +733,14 @@ export default function AIHealthPage() {
                   <CardContent className="pt-4 pb-3">
                     <div
                       className={`text-2xl font-medium ${
-                        dashboardData.global_stats.error_rate > 5
+                        (dashboardData.global_stats.error_rate ?? 0) > 5
                           ? "text-red-600"
-                          : dashboardData.global_stats.error_rate > 2
+                          : (dashboardData.global_stats.error_rate ?? 0) > 2
                             ? "text-orange-600"
                             : "text-zinc-900"
                       }`}
                     >
-                      {dashboardData.global_stats.error_rate.toFixed(1)}%
+                      {(dashboardData.global_stats.error_rate ?? 0).toFixed(1)}%
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">Error Rate</div>
                   </CardContent>
@@ -748,12 +749,12 @@ export default function AIHealthPage() {
                   <CardContent className="pt-4 pb-3">
                     <div
                       className={`text-2xl font-medium ${
-                        dashboardData.global_stats.safety_flags > 0
+                        (dashboardData.global_stats.safety_flags ?? 0) > 0
                           ? "text-red-600"
                           : "text-green-600"
                       }`}
                     >
-                      {dashboardData.global_stats.safety_flags}
+                      {dashboardData.global_stats.safety_flags ?? 0}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       Safety Flags
@@ -810,14 +811,14 @@ export default function AIHealthPage() {
                             <span className="text-zinc-400 mx-1">|</span>
                             <span
                               className={
-                                agent.success_rate >= 95
+                                (agent.success_rate ?? 0) >= 95
                                   ? "text-green-600"
-                                  : agent.success_rate >= 85
+                                  : (agent.success_rate ?? 0) >= 85
                                     ? "text-yellow-600"
                                     : "text-red-600"
                               }
                             >
-                              {agent.success_rate.toFixed(1)}% success
+                              {(agent.success_rate ?? 0).toFixed(1)}% success
                             </span>
                           </div>
                           <div>
@@ -1158,9 +1159,9 @@ export default function AIHealthPage() {
                           </span>{" "}
                           <span className="text-zinc-700">
                             {trace.classification_method}
-                            {trace.classification_confidence > 0 && (
+                            {(trace.classification_confidence ?? 0) > 0 && (
                               <span className="text-zinc-400 ml-1">
-                                ({(trace.classification_confidence * 100).toFixed(0)}%
+                                ({((trace.classification_confidence ?? 0) * 100).toFixed(0)}%
                                 confidence)
                               </span>
                             )}
