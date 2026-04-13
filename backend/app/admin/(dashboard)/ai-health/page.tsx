@@ -67,7 +67,7 @@ interface Insight {
   question: string;
   answer: string;
   severity: "critical" | "high" | "medium" | "info";
-  category: "safety" | "coaching" | "routing" | "cost" | "dual_load";
+  category: "safety" | "coaching" | "routing" | "cost" | "dual_load" | "conversational_connect" | "tone_warmth" | "rag_coverage";
   traces_analyzed: number;
   highlighted_traces: string[];
 }
@@ -177,6 +177,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   dual_load: "Dual-Load Stress",
   conversational_connect: "Conversational Connect",
   tone_warmth: "Tone & Warmth",
+  rag_coverage: "RAG Coverage",
 };
 
 const INSIGHT_SEV_STYLE: Record<string, string> = {

@@ -10,12 +10,15 @@ but deeply aware of youth athlete coaching requirements.
 Runs after each collection cycle. Insights are stored in ai_issues.metadata
 as 'insight' field and displayed in the admin CMS.
 
-Each analysis cycle asks 5 domain-specific questions:
+Each analysis cycle asks 8 domain-specific questions:
   1. Safety — Did Tomo catch every RED/danger-zone athlete?
   2. Coaching quality — Were responses grounded in sports science (RAG)?
   3. Routing — Did the classifier route correctly or fall through?
   4. Cost — Are we spending efficiently per intent type?
   5. Dual-load — Did Tomo detect combined academic + physical stress?
+  6. Conversational Connect — Is context retained across multi-turn sessions?
+  7. Tone & Warmth — Does Tomo sound like a coach, not a clinical tool?
+  8. RAG Coverage — Is the knowledge system reaching the right queries?
 """
 
 from __future__ import annotations
@@ -197,7 +200,104 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
         else:
             length_buckets["long_800_plus"] += 1
 
-    # ── 7 Domain-Specific Questions ──────────────────────────────────
+    # ── RAG coverage analysis ──────────────────────────────────────────
+    rag_used_traces = [t for t in traces if t.get("rag_used")]
+    rag_not_used = [t for t in traces if not t.get("rag_used")]
+
+    # High-stakes intents that SHOULD use RAG for sports science grounding
+    _high_stakes_intents = {
+        "qa_readiness", "load_advice_request", "recovery_guidance",
+        "training_planning", "benchmark_comparison", "injury_query",
+        "emotional_checkin", "program_recommendation", "agent_fallthrough",
+        "red_risk_override",
+    }
+    high_stakes_traces = [t for t in traces if t.get("intent_id") in _high_stakes_intents]
+    high_stakes_no_rag = [t for t in high_stakes_traces if not t.get("rag_used")]
+
+    # Low-stakes intents that should correctly skip RAG (greetings, nav, etc.)
+    _low_stakes_intents = {"greeting", "affirmation", "check_in", "navigation"}
+    low_stakes_with_rag = [
+        t for t in traces
+        if t.get("intent_id") in _low_stakes_intents and t.get("rag_used")
+    ]
+
+    # RAG quality: entity-only (found entities but no chunks) vs full retrieval
+    rag_entity_only = [
+        t for t in rag_used_traces
+        if (t.get("rag_entity_count") or 0) > 0 and (t.get("rag_chunk_count") or 0) == 0
+    ]
+    rag_with_chunks = [t for t in rag_used_traces if (t.get("rag_chunk_count") or 0) > 0]
+
+    # Compare response quality: RAG-grounded vs non-grounded
+    _rag_responses = [t for t in rag_used_traces if t.get("assistant_response")]
+    _norag_responses = [t for t in rag_not_used if t.get("assistant_response")]
+    avg_len_with_rag = round(
+        sum(len(t.get("assistant_response", "")) for t in _rag_responses)
+        / max(len(_rag_responses), 1)
+    )
+    avg_len_without_rag = round(
+        sum(len(t.get("assistant_response", "")) for t in _norag_responses)
+        / max(len(_norag_responses), 1)
+    )
+    avg_tools_with_rag = round(
+        sum(t.get("tool_count", 0) for t in rag_used_traces) / max(len(rag_used_traces), 1), 1
+    )
+    avg_tools_without_rag = round(
+        sum(t.get("tool_count", 0) for t in rag_not_used) / max(len(rag_not_used), 1), 1
+    )
+
+    # RAG cost and latency overhead
+    total_rag_cost = round(sum(t.get("rag_cost_usd", 0) or 0 for t in rag_used_traces), 5)
+    avg_rag_latency = round(
+        sum(t.get("rag_latency_ms", 0) or 0 for t in rag_used_traces)
+        / max(len(rag_used_traces), 1), 0
+    )
+
+    # RAG coverage breakdown by agent type
+    _rag_by_agent: dict[str, dict[str, int]] = {}
+    for t in traces:
+        agent = t.get("agent_type", "unknown")
+        if agent not in _rag_by_agent:
+            _rag_by_agent[agent] = {"total": 0, "rag_used": 0, "chunks": 0}
+        _rag_by_agent[agent]["total"] += 1
+        if t.get("rag_used"):
+            _rag_by_agent[agent]["rag_used"] += 1
+            _rag_by_agent[agent]["chunks"] += t.get("rag_chunk_count", 0) or 0
+    rag_coverage_by_agent = {
+        agent: {
+            "total": d["total"],
+            "rag_used": d["rag_used"],
+            "coverage_pct": round(d["rag_used"] / max(d["total"], 1) * 100, 1),
+            "avg_chunks": round(d["chunks"] / max(d["rag_used"], 1), 1),
+        }
+        for agent, d in sorted(_rag_by_agent.items(), key=lambda x: -x[1]["total"])
+    }
+
+    # RAG coverage by intent (top intents that use/skip RAG)
+    _rag_by_intent: dict[str, dict[str, int]] = {}
+    for t in traces:
+        intent = t.get("intent_id", "unknown")
+        if intent not in _rag_by_intent:
+            _rag_by_intent[intent] = {"total": 0, "rag_used": 0}
+        _rag_by_intent[intent]["total"] += 1
+        if t.get("rag_used"):
+            _rag_by_intent[intent]["rag_used"] += 1
+    rag_coverage_by_intent = {
+        intent: {
+            "total": d["total"],
+            "rag_used": d["rag_used"],
+            "coverage_pct": round(d["rag_used"] / max(d["total"], 1) * 100, 1),
+        }
+        for intent, d in sorted(_rag_by_intent.items(), key=lambda x: -x[1]["total"])[:10]
+    }
+
+    # Full AI traces that had no RAG at all (potential misses)
+    full_ai_no_rag = [
+        t for t in traces
+        if t.get("path_type") == "full_ai" and not t.get("rag_used")
+    ]
+
+    # ── 8 Domain-Specific Questions ──────────────────────────────────
 
     questions = [
         {
@@ -416,6 +516,86 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
             },
             "relevant_traces": robotic_responses + curt_responses + overly_long + warm_responses,
         },
+        {
+            "category": "rag_coverage",
+            "question": (
+                "Analyze ONLY the RAG (Retrieval-Augmented Generation) knowledge system coverage "
+                "and its impact on response quality. DO NOT analyze safety, cost, tone, or routing "
+                "-- those are covered by other domains. Focus exclusively on: "
+                "(1) What percentage of queries reach and retrieve from the RAG system? "
+                "(2) Are high-stakes sports science queries (readiness, load, recovery, training) "
+                "getting RAG-grounded responses, or flying blind on model memory alone? "
+                "(3) Is there a measurable quality difference (response length, tool usage) between "
+                "RAG-grounded vs non-grounded responses? "
+                "(4) Are low-stakes queries (greetings, nav) correctly skipping RAG to save cost?"
+            ),
+            "data": {
+                "total_sessions": total,
+                # ── Coverage ──
+                "rag_triggered_count": len(rag_used_traces),
+                "rag_skipped_count": len(rag_not_used),
+                "rag_coverage_pct": round(len(rag_used_traces) / max(total, 1) * 100, 1),
+                "full_ai_no_rag": len(full_ai_no_rag),
+                "full_ai_no_rag_pct": round(
+                    len(full_ai_no_rag) / max(len([t for t in traces if t.get("path_type") == "full_ai"]), 1) * 100, 1
+                ),
+                # ── Retrieval quality ──
+                "entity_only_no_chunks": len(rag_entity_only),
+                "entity_only_pct": round(
+                    len(rag_entity_only) / max(len(rag_used_traces), 1) * 100, 1
+                ),
+                "full_retrieval_with_chunks": len(rag_with_chunks),
+                "avg_chunks_when_used": round(
+                    sum(t.get("rag_chunk_count", 0) or 0 for t in rag_with_chunks)
+                    / max(len(rag_with_chunks), 1), 1
+                ),
+                # ── High-stakes coverage (CRITICAL) ──
+                "high_stakes_total": len(high_stakes_traces),
+                "high_stakes_no_rag": len(high_stakes_no_rag),
+                "high_stakes_no_rag_pct": round(
+                    len(high_stakes_no_rag) / max(len(high_stakes_traces), 1) * 100, 1
+                ),
+                "high_stakes_intents_checked": list(_high_stakes_intents),
+                "high_stakes_no_rag_messages": [
+                    {"intent": t.get("intent_id"), "message": (t.get("message") or "")[:100]}
+                    for t in high_stakes_no_rag[:5]
+                ],
+                # ── Low-stakes waste ──
+                "low_stakes_with_rag_count": len(low_stakes_with_rag),
+                "low_stakes_wasted_cost": round(
+                    sum(t.get("rag_cost_usd", 0) or 0 for t in low_stakes_with_rag), 5
+                ),
+                # ── Quality impact: RAG vs no-RAG ──
+                "avg_response_length_with_rag": avg_len_with_rag,
+                "avg_response_length_without_rag": avg_len_without_rag,
+                "length_delta_pct": round(
+                    (avg_len_with_rag - avg_len_without_rag) / max(avg_len_without_rag, 1) * 100, 1
+                ),
+                "avg_tools_with_rag": avg_tools_with_rag,
+                "avg_tools_without_rag": avg_tools_without_rag,
+                # ── Cost and latency overhead ──
+                "total_rag_cost_usd": total_rag_cost,
+                "avg_rag_latency_ms": avg_rag_latency,
+                "rag_pct_of_total_cost": round(
+                    total_rag_cost / max(sum(t.get("total_cost_usd", 0) or 0 for t in traces), 0.00001) * 100, 1
+                ),
+                # ── Per-agent breakdown ──
+                "rag_coverage_by_agent": rag_coverage_by_agent,
+                # ── Per-intent breakdown (top 10) ──
+                "rag_coverage_by_intent": rag_coverage_by_intent,
+                # ── Sample messages that skipped RAG but probably shouldn't have ──
+                "sample_full_ai_no_rag": [
+                    {
+                        "intent": t.get("intent_id"),
+                        "agent": t.get("agent_type"),
+                        "message": (t.get("message") or "")[:100],
+                        "response_preview": (t.get("assistant_response") or "")[:150],
+                    }
+                    for t in full_ai_no_rag[:5]
+                ],
+            },
+            "relevant_traces": high_stakes_no_rag + rag_entity_only + full_ai_no_rag,
+        },
     ]
 
     # ── Call Haiku for each question ─────────────────────────────────
@@ -425,7 +605,7 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
         relevant_count = len(q["relevant_traces"])
 
         # Skip questions with no relevant data (always run routing, cost, tone, conversation)
-        _always_run = ("routing", "cost", "tone_warmth", "conversational_connect")
+        _always_run = ("routing", "cost", "tone_warmth", "conversational_connect", "rag_coverage")
         if relevant_count == 0 and q["category"] not in _always_run:
             insights.append({
                 "question": q["question"],
@@ -575,6 +755,21 @@ def _infer_severity(
         if robotic_pct > 20 or curt_pct > 15:
             return "high"
         if robotic_pct > 10 or curt_pct > 5:
+            return "medium"
+        return "info"
+
+    if category == "rag_coverage":
+        high_stakes_no_rag_pct = data.get("high_stakes_no_rag_pct", 0)
+        rag_coverage_pct = data.get("rag_coverage_pct", 100)
+        entity_only_pct = data.get("entity_only_pct", 0)
+        # Critical: high-stakes queries flying blind (> 30% missing RAG)
+        if high_stakes_no_rag_pct > 30:
+            return "critical"
+        # High: overall RAG coverage below 30% on full_ai OR high-stakes missing > 15%
+        if rag_coverage_pct < 30 or high_stakes_no_rag_pct > 15:
+            return "high"
+        # Medium: entity-only rate high (retrieving but not finding relevant chunks)
+        if entity_only_pct > 25 or high_stakes_no_rag_pct > 5:
             return "medium"
         return "info"
 
