@@ -21,7 +21,7 @@ import { executeOutputTool } from "@/services/agents/outputAgent";
 import { executeTimelineTool } from "@/services/agents/timelineAgent";
 import { executeMasteryTool } from "@/services/agents/masteryAgent";
 import { executeSettingsTool } from "@/services/agents/settingsAgent";
-import { preFlightCheck } from "@/services/agents/chatGuardrails";
+import { preFlightCheck, checkRedRiskForTool } from "@/services/agents/chatGuardrails";
 import {
   proxyToAIServiceStream,
   type AIServiceRequest,
@@ -86,6 +86,20 @@ export async function POST(req: NextRequest) {
             body.timezone
           );
 
+          // Safety gate: check RED risk before capsule write execution (matches sync route)
+          const se = context.snapshotEnrichment;
+          const safetyCheck = checkRedRiskForTool(
+            ca.toolName,
+            ca.toolInput,
+            se?.injuryRiskFlag,
+            se?.ccrsRecommendation,
+            se?.ccrs,
+          );
+          const safeToolInput = safetyCheck.modifiedInput;
+          if (safetyCheck.reasons.length > 0) {
+            logger.warn(`[SAFETY-TS] Stream capsule gate: ${ca.toolName} → ${safetyCheck.reasons.join(", ")}`);
+          }
+
           const executors: Record<string, typeof executeOutputTool> = {
             output: executeOutputTool,
             timeline: executeTimelineTool,
@@ -94,12 +108,13 @@ export async function POST(req: NextRequest) {
           };
           const executor = executors[ca.agentType];
           if (executor) {
-            const toolResult = await executor(ca.toolName, ca.toolInput, context);
+            const toolResult = await executor(ca.toolName, safeToolInput, context);
             const refreshTargets = toolResult.refreshTarget ? [toolResult.refreshTarget] : [];
             const friendlyName = ca.toolName.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+            const safetyNote = safetyCheck.safetyMessage ? `\n\n${safetyCheck.safetyMessage}` : "";
             const resultMsg = toolResult.error
               ? `${toolResult.error}`
-              : `${friendlyName} — done!`;
+              : `${friendlyName} — done!${safetyNote}`;
 
             if (sessionId) {
               await saveMessage(sessionId, auth.user.id, "assistant", resultMsg).catch(() => {});

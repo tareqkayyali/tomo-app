@@ -113,6 +113,22 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
                 "The athlete is sharing how they feel. Acknowledge FIRST. No training advice "
                 "until they ask for it. Use VALIDATE mode."
             ),
+            "create_event": (
+                "CURRENT INTENT: CREATE CALENDAR EVENT\n"
+                "The athlete wants to add something to their schedule. If they gave details "
+                "(title, date, time, type), create the event directly. If missing info, ask "
+                "for what you need — don't guess dates or times."
+            ),
+            "qa_today_schedule": (
+                "CURRENT INTENT: TODAY'S SCHEDULE / PLAN MY DAY\n"
+                "Show what's on their calendar today. If they asked to 'plan' their day, "
+                "also identify gaps and suggest what to do based on their readiness and load."
+            ),
+            "qa_week_schedule": (
+                "CURRENT INTENT: WEEK SCHEDULE / PLAN MY WEEK\n"
+                "Show the week overview. Highlight busy days, rest days, and any load "
+                "concerns. If they asked to 'plan' their week, suggest adjustments."
+            ),
         }
         intent_guidance = INTENT_GUIDANCE.get(intent_id, f"CURRENT INTENT: {intent_id}")
 

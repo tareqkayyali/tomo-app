@@ -1,9 +1,12 @@
 """
 Tomo AI Service — RAG Retrieval LangGraph Node
-Runs the hybrid PropertyGraphIndex retriever between context_assembly and pre_router.
+Runs the hybrid PropertyGraphIndex retriever between pre_router and agent_dispatch.
 
 Flow:
-  context_assembly → **rag_retrieval** → pre_router → agent_dispatch → ...
+  context_assembly → pre_router → **rag_retrieval** → agent_dispatch → ...
+
+pre_router runs FIRST so intent_id is set when this node checks RAG_SKIP_INTENTS.
+Capsule and confirm paths skip this node entirely (saves ~$0.003 per skip).
 
 This node:
   1. Gets the user message + player_context from state

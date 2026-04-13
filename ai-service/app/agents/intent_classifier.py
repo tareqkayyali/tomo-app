@@ -219,11 +219,15 @@ def _build_exact_match_map() -> dict[str, dict]:
     _add(["show my notifications", "any notifications", "my alerts"], "view_notifications")
     _add(["mark all as read", "clear notifications"], "clear_notifications")
 
-    # Day/week planning (common fallthrough phrases)
+    # Day planning → qa_today_schedule (timeline agent, NOT today_briefing which is output)
+    # Critical: pre_router uses classifier's agent_type when conf >= 0.8.
+    # Exact match = 1.0, so the router tiebreaker never gets a chance.
+    # These MUST map to a timeline-routed intent.
     _add(["plan my day", "plan for my day", "plan for today",
           "plan today", "let's plan my day", "let's plan today",
           "help me plan today", "what should i do today",
-          "organize my day", "plan out my day"], "today_briefing")
+          "organize my day", "plan out my day"], "qa_today_schedule")
+    # Week planning → qa_week_schedule (already timeline agent)
     _add(["plan my week", "plan for this week", "plan this week",
           "let's plan the week", "let's plan my week",
           "help me plan my week", "organize my week",
