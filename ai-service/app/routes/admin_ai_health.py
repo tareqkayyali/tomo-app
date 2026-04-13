@@ -521,27 +521,28 @@ def _build_trace_filters(
     cost_bucket: Optional[str],
     latency_bucket: Optional[str],
 ) -> tuple[str, list]:
-    """Build WHERE clause and params list for trace queries."""
-    clauses = ["created_at BETWEEN %s AND %s"]
+    """Build WHERE clause and params list for trace queries.
+    Uses t. prefix for all columns to work with JOINed queries."""
+    clauses = ["t.created_at BETWEEN %s AND %s"]
     params: list = [dt_from, dt_to]
 
     if agent_type is not None:
-        clauses.append("agent_type = %s")
+        clauses.append("t.agent_type = %s")
         params.append(agent_type)
     if path_type is not None:
-        clauses.append("path_type = %s")
+        clauses.append("t.path_type = %s")
         params.append(path_type)
     if intent_id is not None:
-        clauses.append("intent_id = %s")
+        clauses.append("t.intent_id = %s")
         params.append(intent_id)
     if validation_passed is not None:
-        clauses.append("validation_passed = %s")
+        clauses.append("t.validation_passed = %s")
         params.append(validation_passed)
     if cost_bucket is not None:
-        clauses.append("cost_bucket = %s")
+        clauses.append("t.cost_bucket = %s")
         params.append(cost_bucket)
     if latency_bucket is not None:
-        clauses.append("latency_bucket = %s")
+        clauses.append("t.latency_bucket = %s")
         params.append(latency_bucket)
 
     return " AND ".join(clauses), params
@@ -575,29 +576,43 @@ async def get_traces(
         intent_id, validation_passed, cost_bucket, latency_bucket,
     )
 
-    cols_sql = ", ".join(_TRACE_BROWSER_COLS)
+    cols_sql = ", ".join(f"t.{c}" for c in _TRACE_BROWSER_COLS)
 
     async with pool.connection() as conn:
         # ── Total count ─────────────────────────────────────────────
         count_result = await conn.execute(
-            f"SELECT COUNT(*) FROM ai_trace_log WHERE {where_clause}",
+            f"SELECT COUNT(*) FROM ai_trace_log t WHERE {where_clause}",
             params,
         )
         count_row = await count_result.fetchone()
         total_count = int(count_row[0]) if count_row else 0
 
-        # ── Paginated rows ──────────────────────────────────────────
+        # ── Paginated rows with assistant_response backfill ─────────
         rows_result = await conn.execute(
-            f"SELECT {cols_sql} FROM ai_trace_log "
-            f"WHERE {where_clause} "
-            f"ORDER BY created_at DESC LIMIT %s OFFSET %s",
+            f"""SELECT {cols_sql},
+                       backfill.content AS _backfill_response
+                FROM ai_trace_log t
+                LEFT JOIN LATERAL (
+                    SELECT content FROM chat_messages
+                    WHERE session_id = t.session_id
+                      AND role = 'assistant'
+                      AND created_at BETWEEN t.created_at AND t.created_at + interval '60 seconds'
+                    ORDER BY created_at ASC LIMIT 1
+                ) backfill ON t.assistant_response IS NULL
+                WHERE {where_clause}
+                ORDER BY t.created_at DESC LIMIT %s OFFSET %s""",
             params + [limit, offset],
         )
         rows = await rows_result.fetchall()
 
+    all_cols = _TRACE_BROWSER_COLS + ["_backfill_response"]
     traces = []
     for row in rows:
-        trace = dict(zip(_TRACE_BROWSER_COLS, row))
+        trace = dict(zip(all_cols, row))
+        # Merge backfill into assistant_response
+        if not trace.get("assistant_response") and trace.get("_backfill_response"):
+            trace["assistant_response"] = trace["_backfill_response"]
+        trace.pop("_backfill_response", None)
         # Serialize datetime
         if hasattr(trace.get("created_at"), "isoformat"):
             trace["created_at"] = trace["created_at"].isoformat()
@@ -694,18 +709,38 @@ async def get_filtered_insights(
         intent_id_filter, vp, cost_bucket_filter, latency_bucket_filter,
     )
 
-    cols_sql = ", ".join(_INSIGHTS_TRACE_COLS)
+    cols_sql = ", ".join(f"t.{c}" for c in _INSIGHTS_TRACE_COLS)
 
     async with pool.connection() as conn:
+        # Main trace query with LEFT JOIN to backfill assistant_response
+        # from chat_messages for traces recorded before the column was added.
         result = await conn.execute(
-            f"SELECT {cols_sql} FROM ai_trace_log "
-            f"WHERE {where_clause} "
-            f"ORDER BY created_at DESC LIMIT 500",
+            f"""SELECT {cols_sql},
+                       backfill.content AS _backfill_response
+                FROM ai_trace_log t
+                LEFT JOIN LATERAL (
+                    SELECT content FROM chat_messages
+                    WHERE session_id = t.session_id
+                      AND role = 'assistant'
+                      AND created_at BETWEEN t.created_at AND t.created_at + interval '60 seconds'
+                    ORDER BY created_at ASC LIMIT 1
+                ) backfill ON t.assistant_response IS NULL
+                WHERE {where_clause}
+                ORDER BY t.created_at DESC LIMIT 500""",
             params,
         )
         rows = await result.fetchall()
 
-    traces = [dict(zip(_INSIGHTS_TRACE_COLS, row)) for row in rows]
+    # Build trace dicts, merging backfill into assistant_response
+    all_cols = _INSIGHTS_TRACE_COLS + ["_backfill_response"]
+    traces = []
+    for row in rows:
+        trace = dict(zip(all_cols, row))
+        # Use backfill if assistant_response is empty
+        if not trace.get("assistant_response") and trace.get("_backfill_response"):
+            trace["assistant_response"] = trace["_backfill_response"]
+        trace.pop("_backfill_response", None)
+        traces.append(trace)
 
     if not traces:
         return {

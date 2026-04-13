@@ -360,8 +360,9 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
     for q in questions:
         relevant_count = len(q["relevant_traces"])
 
-        # Skip questions with no relevant data
-        if relevant_count == 0 and q["category"] not in ("routing", "cost"):
+        # Skip questions with no relevant data (always run routing, cost, tone, conversation)
+        _always_run = ("routing", "cost", "tone_warmth", "conversational_connect")
+        if relevant_count == 0 and q["category"] not in _always_run:
             insights.append({
                 "question": q["question"],
                 "answer": "No relevant traces in this window. No issues detected.",
