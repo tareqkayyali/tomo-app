@@ -33,7 +33,7 @@ logger = logging.getLogger("tomo-ai.greeting")
 
 GREETING_TIERS = {
     "high_energy": [
-        "Aye, there you are. Let's get into it 💪",
+        "Aye, there you are. Let's get into it.",
         "That energy — let's put it to work.",
         "Yes. Today's the day. What are we doing?",
         "Love it. Let's not waste it — what's the move?",

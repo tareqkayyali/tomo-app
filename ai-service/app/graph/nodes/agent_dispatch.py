@@ -69,7 +69,7 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
 
     if not context:
         return {
-            "agent_response": "I need your profile data to help you. Please try again.",
+            "agent_response": "Hey -- having a bit of trouble loading your profile. Give it another go in a sec.",
             "tool_calls": [],
             "total_cost_usd": 0.0,
             "total_tokens": 0,
@@ -189,7 +189,7 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         except Exception as e:
             logger.error(f"Agent LLM call failed (iter {iteration}): {e}", exc_info=True)
             return {
-                "agent_response": f"Sorry, I had trouble processing that. Error: {str(e)[:100]}",
+                "agent_response": "Ran into something on my end -- mind trying that again?",
                 "tool_calls": tool_calls_log,
                 "total_cost_usd": total_cost,
                 "total_tokens": total_tokens,
@@ -353,13 +353,13 @@ async def execute_confirmed_action(state: TomoChatState) -> dict:
     """
     pending = state.get("pending_write_action")
     if not pending:
-        return {"agent_response": "No pending action to confirm."}
+        return {"agent_response": "Looks like that action expired -- what would you like to do?"}
 
     user_id = state["user_id"]
     context = state.get("player_context")
 
     if not context:
-        return {"agent_response": "Context not available. Please try again."}
+        return {"agent_response": "Having trouble loading your info right now. Give it another shot."}
 
     results = []
     actions = pending.get("actions", [pending.get("primary_action", pending)])

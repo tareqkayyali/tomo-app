@@ -147,7 +147,7 @@ async def generate_sse_events(request: ChatRequest):
         logger.error(f"Chat error: {e}", exc_info=True)
         error_response = {
             "error": str(e),
-            "message": "Sorry, I ran into an issue. Try again?",
+            "message": "Something tripped up on my end -- mind trying that again?",
         }
         yield f"event: error\ndata: {json.dumps(error_response)}\n\n"
 

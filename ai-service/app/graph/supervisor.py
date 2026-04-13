@@ -266,7 +266,7 @@ async def run_supervisor(
     except Exception as e:
         logger.error(f"Supervisor execution failed: {e}", exc_info=True)
         return {
-            "final_response": f'{{"headline":"Something went wrong","body":"I hit an error processing your request. Please try again.","cards":[{{"type":"text_card","body":"Error: {str(e)[:100]}"}}],"chips":[]}}',
+            "final_response": '{{"headline":"Hey -- ran into something","body":"Something tripped up on my end. Mind sending that again?","cards":[],"chips":[{{"label":"Try again","message":"Can you try that again?"}}]}}',
             "final_cards": [],
             "total_cost_usd": 0.0,
             "total_tokens": 0,

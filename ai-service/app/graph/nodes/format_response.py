@@ -494,9 +494,9 @@ def _build_text_response(text: str) -> dict:
         body = " ".join(sentences[:3])
 
     return {
-        "headline": headline or "Hey — what's up?",
-        "body": body or headline or "What would you like to do?",
-        "cards": [{"type": "text_card", "headline": headline, "body": body or headline or "What would you like to do?"}],
+        "headline": headline or "Hey -- what's on your mind?",
+        "body": body or headline or "What are you thinking?",
+        "cards": [{"type": "text_card", "headline": headline, "body": body or headline or "What are you thinking?"}],
         "chips": [],
     }
 
@@ -566,7 +566,7 @@ def _build_confirmation_response(pending: dict) -> dict:
         })
 
     # Fallback body for single-item or when items render fails
-    body_fallback = "Ready to proceed?"
+    body_fallback = "Look good?"
     if items:
         body_fallback = " · ".join(
             f"{it['title']} {it['date']} {it['time']}".strip() for it in items[:3]
@@ -620,20 +620,20 @@ def _build_done_headline(results: list[dict]) -> str:
 
     # Fallback: natural language from tool name
     tool_headlines = {
-        "create_event": "Added to timeline",
-        "update_event": "Event updated",
-        "delete_event": "Event removed",
-        "log_check_in": "Check-in logged",
-        "log_test_result": "Result logged",
-        "log_recovery_session": "Recovery session added",
-        "create_training_block": "Training block started",
-        "trigger_deload_week": "Deload week active",
-        "flag_injury_concern": "Concern noted",
-        "log_injury": "Injury logged",
-        "set_goal": "Goal set",
-        "propose_mode_change": "Mode updated",
+        "create_event": "Locked in",
+        "update_event": "Updated -- you're set",
+        "delete_event": "Removed -- all clear",
+        "log_check_in": "Check-in saved",
+        "log_test_result": "Result saved",
+        "log_recovery_session": "Recovery session added -- smart move",
+        "create_training_block": "Training block started -- let's go",
+        "trigger_deload_week": "Deload week is on -- your body will thank you",
+        "flag_injury_concern": "Noted -- keeping an eye on it",
+        "log_injury": "Logged -- take care of yourself",
+        "set_goal": "Goal locked in",
+        "propose_mode_change": "Mode switched -- you're set",
     }
-    return tool_headlines.get(tool_name, "Done")
+    return tool_headlines.get(tool_name, "Done -- you're good")
 
 
 def _build_confirmed_response(results: list[dict]) -> dict:
@@ -667,19 +667,21 @@ def _build_confirmed_response(results: list[dict]) -> dict:
         # Warm error — never robotic "X of Y actions"
         failed = [r for r in results if not r.get("success")]
         error_detail = ""
+        tool_name = ""
         if failed:
             err = failed[0].get("error", "")
+            tool_name = failed[0].get("tool", "").replace("_", " ")
             if "connection" in str(err).lower() or "connect" in str(err).lower():
-                error_detail = "Having trouble reaching the server right now."
+                error_detail = f"Tried to {tool_name} but the server's not responding right now. Worth another shot in a sec."
             elif "404" in str(err) or "not found" in str(err).lower():
-                error_detail = "This feature is being set up — hang tight."
+                error_detail = f"That {tool_name} feature is still being set up on my end. Should be ready soon."
             elif "400" in str(err) or "validation" in str(err).lower():
-                error_detail = "Something didn't look right in the request. Try again with different details."
+                error_detail = f"Something didn't line up with the {tool_name} details. Want to try with different info?"
             else:
-                error_detail = "Hit a snag on my end. Give it another shot."
+                error_detail = f"Ran into something unexpected trying to {tool_name}. Want to give it another go?"
 
-        headline = "Couldn't get that done"
-        body = error_detail or "Something went wrong, but it's on me. Try again."
+        headline = f"Didn't quite land" if not tool_name else f"Couldn't get the {tool_name} through"
+        body = error_detail or "Something tripped up on my end. Want to try again?"
 
         # Build a retry confirm_card so the user can tap CONFIRM again
         # instead of the "Try again" chip which restarts the full LLM pipeline.
@@ -903,12 +905,12 @@ async def format_response_node(state: TomoChatState) -> dict:
     # Case 5: Empty response
     return {
         "final_response": json.dumps({
-            "headline": "I'm here to help",
-            "body": "Could you tell me more about what you need? Try asking about your readiness, schedule, or training.",
-            "cards": [{"type": "text_card", "body": "Try: 'What's my readiness?' or 'Show my schedule'"}],
+            "headline": "Hey -- what can I help with?",
+            "body": "I'm ready whenever you are. What's on your mind?",
+            "cards": [],
             "chips": [
-                {"label": "My readiness", "message": "What's my readiness?"},
-                {"label": "Today's schedule", "message": "What's on today?"},
+                {"label": "How am I doing?", "message": "What's my readiness?"},
+                {"label": "Today's plan", "message": "What's on today?"},
             ],
         }),
         "final_cards": [],
