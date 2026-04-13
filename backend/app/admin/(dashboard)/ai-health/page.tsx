@@ -1320,41 +1320,99 @@ export default function AIHealthPage() {
             </div>
           )}
 
-          {/* Run Insights Button */}
-          {hasActiveFilters && (
-            <div className="flex items-center gap-3">
+          {/* Run Insights + Export */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={runFilteredInsights}
+              disabled={filteredInsightsLoading}
+            >
+              {filteredInsightsLoading
+                ? "Generating Insights..."
+                : hasActiveFilters
+                  ? "Run Insights on Filtered Traces"
+                  : "Run Insights on All Traces"}
+            </Button>
+            {filteredInsights && filteredInsights.length > 0 && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="text-xs"
-                onClick={runFilteredInsights}
-                disabled={filteredInsightsLoading}
+                className="text-xs text-blue-600 hover:text-blue-700"
+                onClick={() => {
+                  const exportData = {
+                    exported_at: new Date().toISOString(),
+                    time_range: timeRange,
+                    filters: {
+                      agent_type: filterAgentType !== "All" ? filterAgentType : null,
+                      path_type: filterPathType !== "All" ? filterPathType : null,
+                      intent: filterIntent.trim() || null,
+                      cost_bucket: filterCostBucket !== "All" ? filterCostBucket : null,
+                      latency_bucket: filterLatencyBucket !== "All" ? filterLatencyBucket : null,
+                      validation: filterValidation !== "All" ? filterValidation : null,
+                    },
+                    traces_analyzed: filteredTracesAnalyzed,
+                    insights: filteredInsights.map((i) => ({
+                      category: i.category,
+                      severity: i.severity,
+                      question: i.question,
+                      answer: i.answer,
+                      traces_analyzed: i.traces_analyzed,
+                      highlighted_traces: i.highlighted_traces,
+                    })),
+                    dashboard_snapshot: dashboardData ? {
+                      total_traces: dashboardData.global_stats.total_traces,
+                      avg_cost: dashboardData.global_stats.avg_cost,
+                      error_rate: dashboardData.global_stats.error_rate,
+                      safety_flags: dashboardData.global_stats.safety_flags,
+                      agents: dashboardData.agents.map((a) => ({
+                        agent: a.agent_type,
+                        traces: a.total_traces,
+                        success_rate: a.success_rate,
+                        avg_cost: a.avg_cost,
+                        avg_latency_ms: a.avg_latency_ms,
+                        top_intents: a.top_intents,
+                      })),
+                    } : null,
+                  };
+                  const blob = new Blob(
+                    [JSON.stringify(exportData, null, 2)],
+                    { type: "application/json" }
+                  );
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `tomo-ai-insights-${new Date().toISOString().slice(0, 16).replace(/:/g, "-")}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
               >
-                {filteredInsightsLoading
-                  ? "Generating Insights..."
-                  : "Run Insights on Filtered Traces"}
+                Export JSON
               </Button>
-              {filteredInsights && (
-                <span className="text-xs text-muted-foreground">
-                  {filteredInsights.length} insights from{" "}
-                  {filteredTracesAnalyzed} traces
-                </span>
-              )}
-            </div>
-          )}
+            )}
+            {filteredInsights && (
+              <span className="text-xs text-muted-foreground">
+                {filteredInsights.length} insights from{" "}
+                {filteredTracesAnalyzed} traces
+              </span>
+            )}
+          </div>
 
-          {/* Filtered Insights Results */}
+          {/* Insights Results */}
           {filteredInsights && filteredInsights.length > 0 && (
             <div>
               <Separator className="mb-4" />
-              <h3 className="text-sm font-medium mb-3">Filtered Insights</h3>
+              <h3 className="text-sm font-medium mb-3">
+                {hasActiveFilters ? "Filtered Insights" : "Full Trace Insights"}
+              </h3>
               <InsightCardList insights={filteredInsights} />
             </div>
           )}
           {filteredInsights && filteredInsights.length === 0 && (
             <Card>
               <CardContent className="py-6 text-center text-sm text-muted-foreground">
-                No insights generated from filtered traces
+                No insights generated from traces
               </CardContent>
             </Card>
           )}
