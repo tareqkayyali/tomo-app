@@ -728,7 +728,49 @@ PROGRAM RESPONSE FORMAT — MANDATORY:
 4. CHIPS: Max 2 contextual follow-ups (e.g., "Start this program" + "Show alternatives")."""
 
 
-STATIC_BUILDERS: dict[str, callable] = {
+# ── v2 Consolidated Agent Prompts (4 agents) ──────────────────────────
+
+def build_performance_static() -> str:
+    """v2 Performance agent — merges output + testing + recovery + training_program."""
+    return (
+        build_output_static()
+        + "\n\n"
+        + build_testing_benchmark_static()
+        + "\n\n"
+        + build_recovery_static()
+        + "\n\n"
+        + build_training_program_static()
+    )
+
+
+def build_planning_v2_static() -> str:
+    """v2 Planning agent — merges timeline + planning + dual_load."""
+    return (
+        build_timeline_static()
+        + "\n\n"
+        + build_planning_static()
+        + "\n\n"
+        + build_dual_load_static()
+    )
+
+
+def build_identity_static() -> str:
+    """v2 Identity agent — merges mastery + cv_identity."""
+    return (
+        build_mastery_static()
+        + "\n\n"
+        + build_cv_identity_static()
+    )
+
+
+# Settings agent prompt is unchanged (already a single agent)
+
+
+import os as _os
+_AGENT_VERSION = _os.environ.get("AGENT_VERSION", "v2")
+
+# v1: 10 agents
+_STATIC_BUILDERS_V1: dict[str, callable] = {
     "output": build_output_static,
     "timeline": build_timeline_static,
     "mastery": build_mastery_static,
@@ -740,6 +782,26 @@ STATIC_BUILDERS: dict[str, callable] = {
     "cv_identity": build_cv_identity_static,
     "training_program": build_training_program_static,
 }
+
+# v2: 4 agents + backward-compat aliases
+_STATIC_BUILDERS_V2: dict[str, callable] = {
+    # Canonical v2 agents
+    "performance": build_performance_static,
+    "planning": build_planning_v2_static,
+    "identity": build_identity_static,
+    "settings": build_settings_static,
+    # Backward compat aliases (v1 names → v2 prompts)
+    "output": build_performance_static,
+    "testing_benchmark": build_performance_static,
+    "recovery": build_performance_static,
+    "training_program": build_performance_static,
+    "timeline": build_planning_v2_static,
+    "dual_load": build_planning_v2_static,
+    "mastery": build_identity_static,
+    "cv_identity": build_identity_static,
+}
+
+STATIC_BUILDERS = _STATIC_BUILDERS_V2 if _AGENT_VERSION == "v2" else _STATIC_BUILDERS_V1
 
 
 # ══════════════════════════════════════════════════════════════════════

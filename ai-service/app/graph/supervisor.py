@@ -36,14 +36,20 @@ from typing import Literal
 from langgraph.graph import StateGraph, END
 
 from app.models.state import TomoChatState
+import os
+
 from app.graph.nodes.context_assembly import context_assembly_node
 from app.graph.nodes.rag_retrieval import rag_retrieval_node
 from app.graph.nodes.pre_router import pre_router_node
+from app.graph.nodes.classifier_node import classifier_node
 from app.graph.nodes.planner_node import planner_node
 from app.graph.nodes.agent_dispatch import agent_dispatch_node, execute_confirmed_action
 from app.graph.nodes.validate import validate_node
 from app.graph.nodes.format_response import format_response_node
 from app.graph.nodes.persist import persist_node
+
+# Feature flag: use v2 classifier node (Sonnet) vs v1 pre_router (Haiku+regex)
+_CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "haiku")
 
 logger = logging.getLogger("tomo-ai.supervisor")
 
@@ -84,15 +90,20 @@ def build_supervisor_graph() -> StateGraph:
     graph = StateGraph(TomoChatState)
 
     # ── Add nodes ──
+    # Use v2 classifier (Sonnet) when CLASSIFIER_VERSION=sonnet, else v1 (Haiku+regex)
+    active_classifier = classifier_node if _CLASSIFIER_VERSION == "sonnet" else pre_router_node
+
     graph.add_node("context_assembly", context_assembly_node)
     graph.add_node("rag_retrieval", rag_retrieval_node)
-    graph.add_node("pre_router", pre_router_node)
-    graph.add_node("planner", planner_node)  # v2: conversation planner (pass-through in Phase 1)
+    graph.add_node("classifier", active_classifier)  # v1: pre_router, v2: sonnet classifier
+    graph.add_node("planner", planner_node)           # v2: conversation planner
     graph.add_node("agent_dispatch", agent_dispatch_node)
     graph.add_node("execute_confirmed", execute_confirmed_action)
     graph.add_node("validate", validate_node)
     graph.add_node("format_response", format_response_node)
     graph.add_node("persist", persist_node)
+
+    logger.info(f"Supervisor graph: classifier={_CLASSIFIER_VERSION}, agent_version={os.environ.get('AGENT_VERSION', 'v2')}")
 
     # ── Set entry point ──
     graph.set_entry_point("context_assembly")
@@ -100,11 +111,11 @@ def build_supervisor_graph() -> StateGraph:
     # ── Linear edges ──
     # pre_router runs BEFORE rag_retrieval so intent_id is set for RAG skip logic.
     # Capsule/confirm paths skip RAG entirely (saves ~$0.003 per skip).
-    graph.add_edge("context_assembly", "pre_router")
+    graph.add_edge("context_assembly", "classifier")
 
     # ── Conditional edge: pre_router → {capsule | confirm | rag → ai} ──
     graph.add_conditional_edges(
-        "pre_router",
+        "classifier",
         route_after_pre_router,
         {
             "capsule": "format_response",       # Capsule: skip agent + RAG, go straight to format

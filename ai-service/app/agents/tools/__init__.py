@@ -2,17 +2,26 @@
 Tomo AI Service — Tool Registry
 Maps agent types to their tool factory functions.
 
+v1 (10 agents): output, timeline, mastery, settings, planning,
+                testing_benchmark, recovery, dual_load, cv_identity, training_program
+v2 (4 agents):  performance, planning, identity, settings
+
+Controlled by AGENT_VERSION env var (default: "v2").
+v1 agent names are aliased to v2 agents for backward compatibility.
+
 Usage:
-    tools = get_tools_for_agent("output", user_id, context)
+    tools = get_tools_for_agent("performance", user_id, context)
     # Returns list of LangChain @tool instances bound to the user
 """
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from app.models.context import PlayerContext
 
+# v1 factories (individual agents)
 from app.agents.tools.output_tools import make_output_tools
 from app.agents.tools.timeline_tools import make_timeline_tools
 from app.agents.tools.mastery_tools import make_mastery_tools
@@ -24,8 +33,15 @@ from app.agents.tools.dual_load_tools import make_dual_load_tools
 from app.agents.tools.cv_identity_tools import make_cv_identity_tools
 from app.agents.tools.training_program_tools import make_training_program_tools
 
+# v2 consolidated factories (4 agents)
+from app.agents.tools.performance_tools import make_performance_tools
+from app.agents.tools.planning_tools_v2 import make_planning_tools_v2
+from app.agents.tools.identity_tools import make_identity_tools
 
-TOOL_FACTORIES: dict[str, Any] = {
+_AGENT_VERSION = os.environ.get("AGENT_VERSION", "v2")
+
+# v1: 10 agents (backward compat)
+TOOL_FACTORIES_V1: dict[str, Any] = {
     "output": make_output_tools,
     "timeline": make_timeline_tools,
     "mastery": make_mastery_tools,
@@ -37,6 +53,27 @@ TOOL_FACTORIES: dict[str, Any] = {
     "cv_identity": make_cv_identity_tools,
     "training_program": make_training_program_tools,
 }
+
+# v2: 4 agents + aliases from v1 names
+TOOL_FACTORIES_V2: dict[str, Any] = {
+    # The 4 canonical v2 agents
+    "performance": make_performance_tools,
+    "planning": make_planning_tools_v2,
+    "identity": make_identity_tools,
+    "settings": make_settings_tools,
+    # Aliases: v1 agent names → v2 agents (backward compat for existing code)
+    "output": make_performance_tools,
+    "testing_benchmark": make_performance_tools,
+    "recovery": make_performance_tools,
+    "training_program": make_performance_tools,
+    "timeline": make_planning_tools_v2,
+    "dual_load": make_planning_tools_v2,
+    "mastery": make_identity_tools,
+    "cv_identity": make_identity_tools,
+}
+
+# Active factory map
+TOOL_FACTORIES = TOOL_FACTORIES_V2 if _AGENT_VERSION == "v2" else TOOL_FACTORIES_V1
 
 
 def get_tools_for_agent(
