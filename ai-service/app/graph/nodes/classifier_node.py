@@ -56,11 +56,17 @@ async def classifier_node(state: TomoChatState) -> dict:
     """
     # Runtime check — not cached module-level var
     version = os.environ.get("CLASSIFIER_VERSION", "haiku").strip().lower()
+    # DIAGNOSTIC: Always log which path is taken + raw env var
+    logger.warning(
+        f"[CLASSIFIER-DIAG] version={repr(version)} | "
+        f"raw_env={repr(os.environ.get('CLASSIFIER_VERSION'))} | "
+        f"all_keys_with_class={[k for k in os.environ if 'CLASS' in k.upper()]}"
+    )
     if version == "sonnet":
-        logger.info("[CLASSIFIER] Sonnet v2 path active")
+        logger.warning("[CLASSIFIER] >>> SONNET V2 PATH ACTIVE <<<")
         return await _classify_sonnet(state)
     else:
-        logger.info(f"[CLASSIFIER] v1 Haiku+regex path (CLASSIFIER_VERSION={repr(version)})")
+        logger.warning(f"[CLASSIFIER] >>> V1 HAIKU PATH (version={repr(version)}) <<<")
         from app.graph.nodes.pre_router import pre_router_node
         return await pre_router_node(state)
 
