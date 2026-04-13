@@ -129,9 +129,22 @@ def _build_exact_match_map() -> dict[str, dict]:
     _add(["my load", "what's my load", "training load", "acwr",
           "my acwr", "dual load"], "qa_load")
     _add(["today's schedule", "what's on today", "my events today",
-          "today's events", "what do i have today"], "qa_today_schedule")
+          "today's events", "what do i have today",
+          "what's my schedule", "my schedule", "my schedule today",
+          "schedule for today", "today schedule", "today's plan",
+          "what am i doing today", "anything on today",
+          "have i got anything today", "what's planned for today",
+          "my agenda", "today's agenda", "what's happening today",
+          "any sessions today", "any events today",
+          "what's lined up today", "what have i got today",
+          "plans for today", "am i busy today"], "qa_today_schedule")
     _add(["this week's schedule", "my week", "what's this week",
-          "week schedule", "weekly schedule"], "qa_week_schedule")
+          "week schedule", "weekly schedule",
+          "what's my week looking like", "my weekly plan",
+          "what's happening this week", "anything this week",
+          "what do i have this week", "this week's plan",
+          "this week's events", "my schedule this week",
+          "plans this week", "am i busy this week"], "qa_week_schedule")
     _add(["my tests", "test history", "recent scores", "my scores",
           "show my tests"], "qa_test_history")
     _add(["my streak", "current streak", "how many days"], "qa_streak")

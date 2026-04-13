@@ -28,7 +28,9 @@ from app.config import get_settings
 logger = logging.getLogger("tomo-ai.rag.sub_question")
 
 # Minimum word count to trigger decomposition
-MIN_WORDS_FOR_DECOMPOSITION = 12
+# Lowered from 12 to 8 — most athlete questions are short but can still
+# span domains (e.g., "am I ready to train after my growth spurt?")
+MIN_WORDS_FOR_DECOMPOSITION = 8
 
 # Domain keywords that suggest multi-hop potential
 MULTI_DOMAIN_KEYWORDS = {

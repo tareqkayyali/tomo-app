@@ -43,9 +43,11 @@ from app.rag.sub_question import decompose_query, should_decompose
 
 logger = logging.getLogger("tomo-ai.rag.retriever")
 
-# Maximum chunks for prompt injection (token budget ~600 tokens)
-MAX_PROMPT_CHUNKS = 4
-MAX_PROMPT_TOKENS = 700  # ~4 chars per token
+# Maximum chunks for prompt injection (token budget ~900 tokens)
+# Increased from 4 to 6 to improve grounding depth — insights showed
+# avg 1.5 chunks per high-stakes query (recovery agent at 0.3).
+MAX_PROMPT_CHUNKS = 6
+MAX_PROMPT_TOKENS = 900  # ~4 chars per token
 
 
 async def retrieve(
@@ -149,14 +151,20 @@ async def _retrieve_single(
 
     # Run 4 search strategies in parallel (5th signal: BM25 chunk text search)
     vector_entities_task = search_entities_by_vector(
-        embedding, entity_types=entity_types, limit=8, threshold=0.55
+        embedding, entity_types=entity_types, limit=8, threshold=0.40
+        # Lowered from 0.55 to 0.40 — insights showed entities found but
+        # chunks missed at higher thresholds (52.2% entity-only rate).
     )
     chunk_vector_task = search_chunks_by_vector(
         embedding,
         phv_stages=phv_stages,
         age_groups=age_groups,
-        limit=5,
-        # threshold 0.40 tuned for Voyage-3-lite 512-dim (typical top hit ~0.5-0.6)
+        limit=8,  # Increased from 5 to feed more candidates to reranker
+        threshold=0.28,
+        # Lowered from 0.40 to 0.28 — Voyage-3-lite 512-dim typical top
+        # hit ~0.5-0.6 but plain-language athlete queries score lower.
+        # Recovery queries averaged 0.3 chunks at 0.40 threshold.
+        # Reranker + state-aware boosts handle precision after recall.
     )
     text_search_task = search_entities_by_text(
         query, entity_types=entity_types, limit=5
@@ -165,7 +173,7 @@ async def _retrieve_single(
         query,
         phv_stages=phv_stages,
         age_groups=age_groups,
-        limit=4,
+        limit=6,  # Increased from 4 for better BM25 recall on casual language
     )
 
     vector_entities, chunks, text_entities, text_chunks = await asyncio.gather(

@@ -163,11 +163,13 @@ async def search_entities_by_vector(
     embedding: list[float],
     entity_types: list[str] = None,
     limit: int = 10,
-    threshold: float = 0.60,
+    threshold: float = 0.40,
 ) -> list[KnowledgeEntity]:
     """
     Vector similarity search on entity embeddings.
     Uses the match_knowledge_entities RPC.
+    Default threshold lowered from 0.60 to 0.40 to improve recall —
+    the Cohere reranker handles precision downstream.
     """
     pool = get_pool()
     if not pool:
@@ -268,13 +270,16 @@ async def search_chunks_by_vector(
     rec_types: list[str] = None,
     phv_stages: list[str] = None,
     age_groups: list[str] = None,
-    limit: int = 5,
-    threshold: float = 0.40,
+    limit: int = 8,
+    threshold: float = 0.28,
 ) -> list[ChunkResult]:
     """
     Vector search on existing rag_knowledge_chunks table.
     Direct SQL query with pgvector cosine distance.
-    Threshold 0.40 tuned for Voyage-3-lite 512-dim embeddings (typical top hit ~0.5-0.6).
+    Threshold lowered from 0.40 to 0.28 — insights showed 52.2% entity-only
+    rate (entities found, zero chunks). Plain-language athlete queries produce
+    lower cosine similarity against formal sports science chunks. The Cohere
+    reranker + state-aware boosts handle precision after this recall stage.
     """
     pool = get_pool()
     if not pool:

@@ -274,7 +274,10 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
                 "latency_ms": elapsed,
             }
 
-        # Execute read tools in parallel
+        # Execute read tools and track failures for error recovery
+        iter_failures = 0
+        iter_total = len(response.tool_calls)
+
         for tc in response.tool_calls:
             tool_fn = tool_map.get(tc["name"])
             if not tool_fn:
@@ -283,20 +286,44 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
                     tool_call_id=tc["id"],
                 )
                 all_messages.append(tool_msg)
+                iter_failures += 1
                 continue
 
             try:
                 result = await tool_fn.ainvoke(tc["args"])
                 # Ensure result is JSON-serializable string
                 if isinstance(result, dict):
-                    result_str = json.dumps(result, default=str)
+                    # Check if bridge returned a structured error
+                    if "error" in result:
+                        iter_failures += 1
+                        logger.warning(f"Tool {tc['name']} returned error: {result['error']}")
+                        result_str = json.dumps({
+                            "error": result["error"],
+                            "detail": result.get("detail", ""),
+                            "guidance": (
+                                f"The {tc['name']} tool encountered an issue. "
+                                "Let the athlete know what went wrong in plain language "
+                                "and suggest what they can do next (retry, rephrase, or "
+                                "try a different approach). Never leave them at a dead end."
+                            ),
+                        }, default=str)
+                    else:
+                        result_str = json.dumps(result, default=str)
                 elif isinstance(result, str):
                     result_str = result
                 else:
                     result_str = json.dumps({"result": str(result)}, default=str)
             except Exception as e:
+                iter_failures += 1
                 logger.warning(f"Tool {tc['name']} failed: {e}", exc_info=True)
-                result_str = json.dumps({"error": str(e)[:200]})
+                result_str = json.dumps({
+                    "error": str(e)[:200],
+                    "guidance": (
+                        f"The {tc['name']} tool failed. Acknowledge this to the athlete "
+                        "and suggest they try again or ask differently. "
+                        "Never silently drop the request."
+                    ),
+                })
 
             # Truncate oversized tool results to prevent context bloat
             if len(result_str) > MAX_TOOL_RESULT_CHARS:
@@ -313,6 +340,24 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
                 "result_preview": result_str[:200],
                 "iteration": iteration,
             })
+
+        # If majority of tools failed in this iteration, inject a recovery
+        # prompt so the LLM acknowledges the issue instead of hallucinating data
+        if iter_total > 0 and iter_failures > 0 and iter_failures >= (iter_total / 2):
+            logger.warning(
+                f"Tool failure cascade: {iter_failures}/{iter_total} failed in iter {iteration}"
+            )
+            # Inject as a user-like prompt to steer the LLM toward honest error handling
+            recovery_msg = HumanMessage(
+                content=(
+                    f"[SYSTEM NOTE: {iter_failures} of {iter_total} data tools failed. "
+                    "Do NOT make up data or pretend tools worked. "
+                    "Tell the athlete honestly what you could not load. "
+                    "If you have partial data, share it with a note about what is missing. "
+                    "Suggest they try again or ask differently.]"
+                ),
+            )
+            all_messages.append(recovery_msg)
 
     # Extract final response
     agent_response = ""
