@@ -179,7 +179,7 @@ def _build_exact_match_map() -> dict[str, dict]:
           "how do my results compare", "percentile for my tests",
           "am i above average", "where do i rank"], "benchmark_comparison")
 
-    # Events / session building (37.5% fallthrough gap — these MUST exact match)
+    # Events / session building — MUST exact match, never fallthrough
     _add(["add event", "create event", "new event", "add a session",
           "build a session", "schedule training",
           "build me a session", "build me a gym session",
@@ -190,7 +190,21 @@ def _build_exact_match_map() -> dict[str, dict]:
           "add training to my day", "set up a training session",
           "set up a session", "add a workout",
           "schedule a training session", "add session",
-          "new session", "create a workout"], "create_event")
+          "new session", "create a workout",
+          # Sport-specific session types (33% fallthrough in traces)
+          "speed session", "acceleration session", "speed and acceleration session",
+          "gym session", "gym session plan", "plan a gym session",
+          "build a gym session", "build a speed session",
+          "plan a speed session", "create a speed session",
+          "conditioning session", "recovery session",
+          "strength session", "strength training session",
+          "football session", "soccer session", "basketball session",
+          "padel session", "tennis session",
+          "club training session", "club session",
+          "morning session", "evening session", "afternoon session",
+          "build me a speed session", "build me a conditioning session",
+          "plan me a session", "plan me a gym session",
+          "set up gym session", "set up a gym session"], "create_event")
     _add(["add an exam", "new exam", "i have an exam"], "add_exam")
 
     # Study

@@ -80,7 +80,7 @@ async def generate_sse_events(request: ChatRequest):
         if final_response_raw:
             try:
                 structured = json.loads(final_response_raw)
-                message_text = structured.get("body") or structured.get("headline", "")
+                message_text = structured.get("body") or structured.get("headline") or "What's on your mind?"
             except (json.JSONDecodeError, TypeError):
                 message_text = final_response_raw
                 structured = {
@@ -198,7 +198,7 @@ async def chat_sync(request: ChatRequest):
     if final_response_raw:
         try:
             structured = json.loads(final_response_raw)
-            message_text = structured.get("body") or structured.get("headline", "")
+            message_text = structured.get("body") or structured.get("headline") or "What's on your mind?"
         except (json.JSONDecodeError, TypeError):
             message_text = final_response_raw
 

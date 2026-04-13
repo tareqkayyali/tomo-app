@@ -230,6 +230,47 @@ def _extract_readable_content(raw_content: str) -> str:
                 if events:
                     parts.append(f"[Schedule shown: {', '.join(events)}]")
 
+            elif card_type == "session_plan":
+                drills = card.get("drills", [])
+                drill_names = [d.get("name", d.get("title", "")) for d in drills if isinstance(d, dict)]
+                if drill_names:
+                    parts.append(f"[Session plan: {', '.join(drill_names[:5])}]")
+
+            elif card_type == "program_recommendation":
+                programs = card.get("programs", [])
+                prog_names = [p.get("name", "") for p in programs if isinstance(p, dict)]
+                if prog_names:
+                    parts.append(f"[Programs suggested: {', '.join(prog_names[:3])}]")
+
+            elif card_type == "benchmark_bar":
+                metric = card.get("metric", "")
+                percentile = card.get("percentile", "")
+                if metric:
+                    parts.append(f"[Benchmark: {metric} at {percentile}th percentile]")
+
+            elif card_type == "choice_card":
+                options = card.get("options", [])
+                opt_labels = [o.get("label", "") for o in options if isinstance(o, dict)]
+                if opt_labels:
+                    parts.append(f"[Choices offered: {', '.join(opt_labels)}]")
+
+            elif card_type == "drill_card":
+                name = card.get("name", card.get("title", ""))
+                if name:
+                    parts.append(f"[Drill shown: {name}]")
+
+            elif card_type == "zone_stack":
+                zones = card.get("zones", [])
+                zone_names = [z.get("label", "") for z in zones if isinstance(z, dict)]
+                if zone_names:
+                    parts.append(f"[Zones: {', '.join(zone_names)}]")
+
+            elif card_type == "stat_row":
+                label = card.get("label", "")
+                value = card.get("value", "")
+                if label:
+                    parts.append(f"[{label}: {value}]")
+
         # Include suggested actions so the LLM knows what follow-ups were offered
         chips = data.get("chips", [])
         if chips:
@@ -238,7 +279,16 @@ def _extract_readable_content(raw_content: str) -> str:
                 parts.append(f"[Suggested follow-ups: {', '.join(labels)}]")
 
         result = "\n".join(parts)
-        return result if result.strip() else raw_content
+        if result.strip():
+            return result
+
+        # Fallback: generate a type summary from card types instead of returning
+        # raw JSON. LLM needs readable text, not JSON blobs — blank context causes
+        # empty responses on agent switches.
+        card_types = [c.get("type", "unknown") for c in data.get("cards", [])]
+        if card_types:
+            return f"[Showed {', '.join(card_types)} cards]"
+        return "[Previous response — no readable content extracted]"
 
     except (json.JSONDecodeError, TypeError, KeyError):
         return raw_content  # Parse failed — return raw
