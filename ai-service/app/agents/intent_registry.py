@@ -25,7 +25,7 @@ class IntentDefinition:
     """Single intent definition."""
     id: str
     capsule_type: Optional[str]
-    agent_type: str  # timeline | output | mastery | settings | planning
+    agent_type: str  # timeline | output | mastery | settings | planning | testing_benchmark | recovery | dual_load | cv_identity | training_program
     description: str
     examples: list[str] = field(default_factory=list)
     required_params: list[str] = field(default_factory=list)
@@ -50,7 +50,7 @@ INTENT_REGISTRY: list[IntentDefinition] = [
     IntentDefinition(
         id="log_test",
         capsule_type="test_log_capsule",
-        agent_type="output",
+        agent_type="testing_benchmark",
         description="Log a physical test result (sprint, jump, agility, etc.)",
         examples=["log a test", "record my sprint", "add my CMJ score"],
         required_params=["testType"],
@@ -220,18 +220,18 @@ INTENT_REGISTRY: list[IntentDefinition] = [
         examples=["calculate my PHV", "check my growth stage"],
     ),
 
-    # ── Strengths & Benchmarks ──
+    # ── Strengths & Benchmarks (routed to testing_benchmark agent) ──
     IntentDefinition(
         id="strengths_gaps",
         capsule_type="strengths_gaps_capsule",
-        agent_type="output",
+        agent_type="testing_benchmark",
         description="Analyze strengths and performance gaps",
         examples=["what are my strengths", "my weaknesses", "gap analysis"],
     ),
     IntentDefinition(
         id="benchmark_comparison",
         capsule_type=None,
-        agent_type="output",
+        agent_type="testing_benchmark",
         description="Compare performance to age-group benchmarks",
         examples=["how do I compare", "my percentile", "benchmark comparison"],
     ),
@@ -380,7 +380,7 @@ INTENT_REGISTRY: list[IntentDefinition] = [
     IntentDefinition(
         id="qa_test_history",
         capsule_type="quick_action",
-        agent_type="output",
+        agent_type="testing_benchmark",
         description="View test history / recent scores",
         examples=["my tests", "test history", "recent scores"],
         tool_name="get_test_results",
@@ -524,6 +524,220 @@ INTENT_REGISTRY: list[IntentDefinition] = [
     IntentDefinition(id="refresh_recommendations", capsule_type=None, agent_type="settings",
                      description="Refresh AI recommendations",
                      examples=["refresh recommendations", "update my recs"]),
+
+    # ── Testing & Benchmark Agent (Sprint 1) ──
+    IntentDefinition(
+        id="combine_readiness",
+        capsule_type=None,
+        agent_type="testing_benchmark",
+        description="Get combine readiness composite score across all tested metrics",
+        examples=["combine readiness", "how ready am I for combine", "overall test profile"],
+    ),
+    IntentDefinition(
+        id="test_report",
+        capsule_type=None,
+        agent_type="testing_benchmark",
+        description="Generate a scout-ready test report or test summary",
+        examples=["generate test report", "scout report", "test summary"],
+    ),
+    IntentDefinition(
+        id="test_trajectory",
+        capsule_type=None,
+        agent_type="testing_benchmark",
+        description="View test score trajectory and improvement trend over time",
+        examples=["my sprint progress", "how has my CMJ improved", "test trajectory"],
+    ),
+    IntentDefinition(
+        id="schedule_test_session",
+        capsule_type=None,
+        agent_type="testing_benchmark",
+        description="Schedule a test battery session on the calendar",
+        examples=["schedule a test session", "plan a test battery", "book testing day"],
+    ),
+
+    # ── Recovery Agent (Sprint 1) ──
+    IntentDefinition(
+        id="recovery_status",
+        capsule_type=None,
+        agent_type="recovery",
+        description="Check current recovery status and whether athlete should train",
+        examples=["how's my recovery", "should I train today", "am I recovered"],
+    ),
+    IntentDefinition(
+        id="deload_recommendation",
+        capsule_type=None,
+        agent_type="recovery",
+        description="Get deload week recommendation based on load and readiness trends",
+        examples=["do I need a deload", "should I take a break", "am I overtraining"],
+    ),
+    IntentDefinition(
+        id="trigger_deload",
+        capsule_type=None,
+        agent_type="recovery",
+        description="Start a deload week — reduce training load on calendar",
+        examples=["start a deload week", "trigger deload", "give me a recovery week"],
+    ),
+    IntentDefinition(
+        id="log_recovery",
+        capsule_type=None,
+        agent_type="recovery",
+        description="Log a recovery session (foam rolling, stretching, ice bath, etc.)",
+        examples=["log foam rolling", "did stretching today", "log ice bath session"],
+    ),
+    IntentDefinition(
+        id="tissue_loading",
+        capsule_type=None,
+        agent_type="recovery",
+        description="View tissue loading history — daily volume and overuse patterns",
+        examples=["tissue loading history", "how much have I been training", "training volume"],
+    ),
+    IntentDefinition(
+        id="flag_injury",
+        capsule_type=None,
+        agent_type="recovery",
+        description="Flag an injury concern — log body part, severity, and optionally notify coach",
+        examples=["my knee hurts", "flag an injury", "I have pain in my hamstring"],
+        context_boosts=["pain_flag", "severity >= 2"],
+    ),
+
+    # ── Dual-Load Agent (Sprint 2) ──
+    IntentDefinition(
+        id="dual_load_dashboard",
+        capsule_type=None,
+        agent_type="dual_load",
+        description="View dual-load dashboard — athletic vs academic balance, stress index",
+        examples=["dual load", "my balance", "academic vs training load"],
+    ),
+    IntentDefinition(
+        id="cognitive_windows",
+        capsule_type=None,
+        agent_type="dual_load",
+        description="Get optimal study windows based on today's training schedule",
+        examples=["when should I study", "cognitive readiness", "best time to study today"],
+    ),
+    IntentDefinition(
+        id="exam_collision",
+        capsule_type=None,
+        agent_type="dual_load",
+        description="Forecast exam-training collisions and recommend adjustments",
+        examples=["exam collision check", "do I have training on exam day", "exam conflict"],
+    ),
+    IntentDefinition(
+        id="academic_priority",
+        capsule_type=None,
+        agent_type="dual_load",
+        description="Activate exam/academic priority mode — cap training intensity",
+        examples=["activate exam mode", "academic priority", "study mode on"],
+    ),
+    IntentDefinition(
+        id="integrated_plan",
+        capsule_type=None,
+        agent_type="dual_load",
+        description="Generate an integrated weekly plan balancing training and academics",
+        examples=["plan my week with exams", "balanced weekly plan", "integrated training and study plan"],
+    ),
+    IntentDefinition(
+        id="academic_stress",
+        capsule_type=None,
+        agent_type="dual_load",
+        description="Log current academic stress level (1-10)",
+        examples=["academic stress is high", "school stress 8", "stressed about exams"],
+    ),
+
+    # ── CV & Identity Agent (Sprint 3) ──
+    IntentDefinition(
+        id="five_layer_identity",
+        capsule_type=None,
+        agent_type="cv_identity",
+        description="View 5-layer performance identity (Physical, Technical, Tactical, Mental, Social)",
+        examples=["my identity", "5 layer profile", "performance identity"],
+    ),
+    IntentDefinition(
+        id="coachability_index",
+        capsule_type=None,
+        agent_type="cv_identity",
+        description="View coachability index — composite from responsiveness, PBs, consistency, adherence",
+        examples=["my coachability", "coachability score", "how coachable am I"],
+    ),
+    IntentDefinition(
+        id="development_velocity",
+        capsule_type=None,
+        agent_type="cv_identity",
+        description="View development velocity — rate of improvement across tested metrics",
+        examples=["development velocity", "how fast am I improving", "improvement rate"],
+    ),
+    IntentDefinition(
+        id="recruitment_visibility",
+        capsule_type=None,
+        agent_type="cv_identity",
+        description="Toggle recruitment visibility for talent database",
+        examples=["make my profile visible", "recruitment visibility", "scouts can see me"],
+    ),
+    IntentDefinition(
+        id="cv_export",
+        capsule_type=None,
+        agent_type="cv_identity",
+        description="Generate a CV export or scout-ready profile document",
+        examples=["export my CV", "generate scout report", "download my profile"],
+    ),
+    IntentDefinition(
+        id="verified_achievement",
+        capsule_type=None,
+        agent_type="cv_identity",
+        description="Add a verified achievement to profile (performance, academic, leadership)",
+        examples=["add achievement", "I won the tournament", "add my award"],
+    ),
+
+    # ── Training Program Agent (Sprint 4) ──
+    IntentDefinition(
+        id="phv_programs",
+        capsule_type=None,
+        agent_type="training_program",
+        description="Get PHV-safe training programs filtered for growth phase safety",
+        examples=["safe programs for my age", "PHV appropriate training", "growth safe programs"],
+    ),
+    IntentDefinition(
+        id="periodization",
+        capsule_type=None,
+        agent_type="training_program",
+        description="View current periodization context — active block, phase, week",
+        examples=["what phase am I in", "periodization", "current training block"],
+    ),
+    IntentDefinition(
+        id="position_programs",
+        capsule_type=None,
+        agent_type="training_program",
+        description="Get position-specific program recommendations",
+        examples=["programs for a striker", "midfielder training", "position specific programs"],
+    ),
+    IntentDefinition(
+        id="block_history",
+        capsule_type=None,
+        agent_type="training_program",
+        description="View training block history — past and current blocks with phases",
+        examples=["training block history", "past blocks", "my periodization history"],
+    ),
+    IntentDefinition(
+        id="create_block",
+        capsule_type=None,
+        agent_type="training_program",
+        description="Create a new periodized training block",
+        examples=["create a training block", "start a 4 week block", "build a periodization plan"],
+    ),
+    IntentDefinition(
+        id="update_phase",
+        capsule_type=None,
+        agent_type="training_program",
+        description="Transition a training block to a new phase",
+        examples=["move to competition phase", "transition block phase", "change to specific prep"],
+    ),
+    IntentDefinition(
+        id="load_override",
+        capsule_type=None,
+        agent_type="training_program",
+        description="Override load/intensity for a specific training session",
+        examples=["override today's load", "reduce session intensity", "adjust today's training"],
+    ),
 ]
 
 
@@ -569,4 +783,13 @@ WRITE_ACTIONS: set[str] = {
     "generate_regular_study_plan", "add_career_entry", "update_career_entry",
     "update_profile_field", "set_goal", "log_injury", "update_cv_visibility",
     "propose_mode_change",
+    # Sprint 1 — Recovery & Testing
+    "trigger_deload_week", "log_recovery_session", "flag_injury_concern",
+    "create_test_session",
+    # Sprint 2 — Dual-Load
+    "set_academic_priority_period", "generate_integrated_weekly_plan", "set_academic_stress_level",
+    # Sprint 3 — CV & Identity
+    "set_recruitment_visibility", "generate_cv_export", "add_verified_achievement",
+    # Sprint 4 — Training Program
+    "create_training_block", "update_block_phase", "override_session_load",
 }

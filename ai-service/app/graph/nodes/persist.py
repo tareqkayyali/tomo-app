@@ -64,10 +64,10 @@ async def persist_node(state: TomoChatState) -> dict:
         async with pool.connection() as conn:
             # Upsert chat session
             await conn.execute(
-                """INSERT INTO chat_sessions (id, user_id, active_agent, updated_at)
+                """INSERT INTO chat_sessions (id, user_id, last_agent_type, updated_at)
                    VALUES (%s, %s, %s, NOW())
                    ON CONFLICT (id) DO UPDATE SET
-                     active_agent = EXCLUDED.active_agent,
+                     last_agent_type = EXCLUDED.last_agent_type,
                      updated_at = NOW()""",
                 (session_id, user_id, selected_agent),
             )

@@ -21,18 +21,50 @@ export interface DualLoadResult {
 }
 
 /** Athletic load normalization: 500 AU = heavy training week (max 50 points) */
-const ATHLETIC_MAX_AU = 500;
+export const ATHLETIC_MAX_AU = 500;
 
 /** Academic load normalization: 300 AU = heavy exam week (max 50 points) */
-const ACADEMIC_MAX_AU = 300;
+export const ACADEMIC_MAX_AU = 300;
 
 /** Exam amplifier threshold: academic load above this triggers 1.3x multiplier */
-const EXAM_AMPLIFIER_THRESHOLD = 200;
-const EXAM_AMPLIFIER = 1.3;
+export const EXAM_AMPLIFIER_THRESHOLD = 200;
+export const EXAM_AMPLIFIER = 1.3;
+
+/**
+ * Pure function — computes the dual load index from raw 7-day sums.
+ * Zero I/O, zero side effects. Usable from agents, tests, or pipelines.
+ *
+ * @param athleticSum - Raw 7-day training load in AU
+ * @param academicSum - Raw 7-day academic load in AU
+ * @returns DualLoadResult with dual_load_index (0-100) and raw sums
+ */
+export function calculateDualLoadIndex(
+  athleticSum: number,
+  academicSum: number,
+): DualLoadResult {
+  // Normalize to 0-50 scale each
+  const athleticNorm = Math.min(50, Math.round((athleticSum / ATHLETIC_MAX_AU) * 50));
+
+  let academicNorm = Math.round((academicSum / ACADEMIC_MAX_AU) * 50);
+  // Exam amplifier: heavy academic weeks get extra weight
+  if (academicSum > EXAM_AMPLIFIER_THRESHOLD) {
+    academicNorm = Math.round(academicNorm * EXAM_AMPLIFIER);
+  }
+  academicNorm = Math.min(50, academicNorm);
+
+  const dualLoadIndex = athleticNorm + academicNorm;
+
+  return {
+    dual_load_index: dualLoadIndex,
+    academic_load_7day: Math.round(academicSum),
+    athletic_load_7day: Math.round(athleticSum * 10) / 10,
+  };
+}
 
 /**
  * Recompute the dual load index from the athlete_daily_load table.
  * Writes dual_load_index, academic_load_7day, athletic_load_7day to snapshot.
+ * Delegates computation to pure calculateDualLoadIndex().
  */
 export async function recomputeDualLoad(athleteId: string): Promise<DualLoadResult> {
   const db = supabaseAdmin();
@@ -54,23 +86,7 @@ export async function recomputeDualLoad(athleteId: string): Promise<DualLoadResu
     (sum: number, d: any) => sum + (d.academic_load_au || 0), 0
   );
 
-  // Normalize to 0-50 scale each
-  const athleticNorm = Math.min(50, Math.round((athleticSum / ATHLETIC_MAX_AU) * 50));
-
-  let academicNorm = Math.round((academicSum / ACADEMIC_MAX_AU) * 50);
-  // Exam amplifier: heavy academic weeks get extra weight
-  if (academicSum > EXAM_AMPLIFIER_THRESHOLD) {
-    academicNorm = Math.round(academicNorm * EXAM_AMPLIFIER);
-  }
-  academicNorm = Math.min(50, academicNorm);
-
-  const dualLoadIndex = athleticNorm + academicNorm;
-
-  const result: DualLoadResult = {
-    dual_load_index: dualLoadIndex,
-    academic_load_7day: Math.round(academicSum),
-    athletic_load_7day: Math.round(athleticSum * 10) / 10,
-  };
+  const result = calculateDualLoadIndex(athleticSum, academicSum);
 
   await writeDualLoadToSnapshot(athleteId, result);
   return result;

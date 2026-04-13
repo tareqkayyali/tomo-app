@@ -18,6 +18,11 @@ from app.agents.tools.timeline_tools import make_timeline_tools
 from app.agents.tools.mastery_tools import make_mastery_tools
 from app.agents.tools.settings_tools import make_settings_tools
 from app.agents.tools.planning_tools import make_planning_tools
+from app.agents.tools.testing_benchmark_tools import make_testing_benchmark_tools
+from app.agents.tools.recovery_tools import make_recovery_tools
+from app.agents.tools.dual_load_tools import make_dual_load_tools
+from app.agents.tools.cv_identity_tools import make_cv_identity_tools
+from app.agents.tools.training_program_tools import make_training_program_tools
 
 
 TOOL_FACTORIES: dict[str, Any] = {
@@ -26,6 +31,11 @@ TOOL_FACTORIES: dict[str, Any] = {
     "mastery": make_mastery_tools,
     "settings": make_settings_tools,
     "planning": make_planning_tools,
+    "testing_benchmark": make_testing_benchmark_tools,
+    "recovery": make_recovery_tools,
+    "dual_load": make_dual_load_tools,
+    "cv_identity": make_cv_identity_tools,
+    "training_program": make_training_program_tools,
 }
 
 
@@ -62,11 +72,11 @@ def get_all_tool_names() -> dict[str, list[str]]:
     return {
         "output": [
             "get_readiness_detail", "get_vitals_trend", "get_checkin_history",
-            "get_dual_load_score", "log_check_in", "get_test_results",
-            "get_training_session", "get_drill_detail", "get_benchmark_comparison",
+            "get_dual_load_score", "log_check_in",
+            "get_training_session", "get_drill_detail",
             "get_training_program_recommendations", "calculate_phv_stage",
-            "get_my_programs", "get_program_by_id", "get_test_catalog",
-            "log_test_result", "rate_drill", "get_today_training_for_journal",
+            "get_my_programs", "get_program_by_id",
+            "rate_drill", "get_today_training_for_journal",
             "get_pending_post_journal", "save_journal_pre", "save_journal_post",
         ],
         "timeline": [
@@ -74,7 +84,7 @@ def get_all_tool_names() -> dict[str, list[str]]:
             "update_event", "delete_event", "detect_load_collision",
         ],
         "mastery": [
-            "get_achievement_history", "get_test_trajectory", "get_cv_summary",
+            "get_achievement_history", "get_cv_summary",
             "get_consistency_score", "list_career_history",
             "add_career_entry", "update_career_entry",
         ],
@@ -91,5 +101,28 @@ def get_all_tool_names() -> dict[str, list[str]]:
         "planning": [
             "get_planning_context", "get_mode_options", "propose_mode_change",
             "get_current_plan", "get_protocol_details",
+        ],
+        "testing_benchmark": [
+            "get_test_results", "get_test_catalog", "get_benchmark_comparison",
+            "log_test_result", "get_test_trajectory",
+            "create_test_session", "get_combine_readiness_score", "generate_test_report",
+        ],
+        "recovery": [
+            "get_recovery_status", "get_deload_recommendation", "trigger_deload_week",
+            "log_recovery_session", "get_tissue_loading_history", "flag_injury_concern",
+        ],
+        "dual_load": [
+            "get_dual_load_dashboard", "get_cognitive_readiness_windows",
+            "get_exam_collision_forecast", "set_academic_priority_period",
+            "generate_integrated_weekly_plan", "set_academic_stress_level",
+        ],
+        "cv_identity": [
+            "get_5_layer_identity", "get_coachability_index", "get_development_velocity",
+            "set_recruitment_visibility", "generate_cv_export", "add_verified_achievement",
+        ],
+        "training_program": [
+            "get_phv_appropriate_programs", "get_periodization_context",
+            "get_position_program_recommendations", "get_training_block_history",
+            "create_training_block", "update_block_phase", "override_session_load",
         ],
     }

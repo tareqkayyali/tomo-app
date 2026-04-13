@@ -107,6 +107,7 @@ export interface PlayerContext {
     activeMode: string | null;
     modeParams: Record<string, unknown> | null;
     applicableProtocols: string[];
+    applicableProtocolDetails: ProtocolDetail[];
     dualLoadZone: string | null;
     examProximityScore: number | null;
     dataConfidenceScore: number | null;
@@ -134,6 +135,18 @@ export interface ActiveRecommendation {
   title: string;
   bodyShort: string;
   confidence: number;
+}
+
+/** Lightweight protocol detail for agent context (from pd_protocols) */
+export interface ProtocolDetail {
+  protocolId: string;
+  name: string;
+  category: string;
+  loadMultiplier: number | null;
+  intensityCap: string | null;
+  contraindications: string[];
+  aiSystemInjection: string | null;
+  safetyCritical: boolean;
 }
 
 /** Fields from athlete_snapshots that enhance context beyond legacy queries */
@@ -292,6 +305,7 @@ export async function buildPlayerContext(
     benchmarkProfileRes,
     upcomingEventsRes,
     wearableConnRes,
+    pdProtocolsRes,
   ] = await Promise.allSettled([
     (db as any)
       .from("users")
@@ -378,6 +392,11 @@ export async function buildPlayerContext(
       .eq("user_id", userId)
       .eq("provider", "whoop")
       .maybeSingle(),
+    // PDIL protocols — all enabled protocols for agent context filtering
+    (db as any)
+      .from("pd_protocols")
+      .select("protocol_id, name, category, load_multiplier, intensity_cap, contraindications, ai_system_injection, safety_critical")
+      .eq("is_enabled", true),
   ]);
 
   const profile =
@@ -455,6 +474,10 @@ export async function buildPlayerContext(
       syncError: wearableConn?.sync_error ?? null,
     },
   };
+
+  // PDIL protocols — all enabled protocols (filtered to applicable IDs below)
+  const allProtocols: any[] =
+    pdProtocolsRes.status === "fulfilled" ? (pdProtocolsRes.value.data ?? []) : [];
 
   // Layer 4 recs — map to lightweight ActiveRecommendation[]
   const rawRecs: Recommendation[] =
@@ -557,11 +580,28 @@ export async function buildPlayerContext(
       }
     : null;
 
-  // Build planning context from snapshot
+  // Build planning context from snapshot + PDIL protocol details
+  const applicableIds: string[] = ((snapshot as any)?.applicable_protocol_ids as string[]) ?? [];
+  const applicableProtocolDetails: ProtocolDetail[] = applicableIds.length > 0
+    ? allProtocols
+        .filter((p: any) => applicableIds.includes(p.protocol_id))
+        .map((p: any) => ({
+          protocolId: p.protocol_id,
+          name: p.name,
+          category: p.category,
+          loadMultiplier: p.load_multiplier ?? null,
+          intensityCap: p.intensity_cap ?? null,
+          contraindications: Array.isArray(p.contraindications) ? p.contraindications : [],
+          aiSystemInjection: p.ai_system_injection ?? null,
+          safetyCritical: p.safety_critical ?? false,
+        }))
+    : [];
+
   const planningContext = snapshot ? {
     activeMode: (snapshot as any).athlete_mode ?? null,
     modeParams: null, // Populated from CMS when needed, not stored on snapshot
-    applicableProtocols: ((snapshot as any).applicable_protocol_ids as string[]) ?? [],
+    applicableProtocols: applicableIds,
+    applicableProtocolDetails,
     dualLoadZone: (snapshot as any).dual_load_zone ?? null,
     examProximityScore: (snapshot as any).exam_proximity_score ?? null,
     dataConfidenceScore: (snapshot as any).data_confidence_score ?? null,

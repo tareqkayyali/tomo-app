@@ -23,6 +23,7 @@ from app.models.context import (
     CalendarEvent,
     PlanningContext,
     PlayerContext,
+    ProtocolDetail,
     ReadinessComponents,
     SchedulePreferences,
     SnapshotEnrichment,
@@ -386,6 +387,37 @@ async def _fetch_aib(pool, user_id: str) -> Optional[str]:
         return row[0] if row else None
 
 
+async def _fetch_pd_protocols(pool) -> list[dict]:
+    """Fetch all enabled PDIL protocols — filtered to applicable IDs after snapshot is available."""
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """
+                SELECT protocol_id, name, category, load_multiplier, intensity_cap,
+                       contraindications, ai_system_injection, safety_critical
+                FROM pd_protocols
+                WHERE is_enabled = TRUE
+                """,
+            )
+            rows = await result.fetchall()
+            return [
+                {
+                    "protocol_id": str(r[0]),
+                    "name": r[1],
+                    "category": r[2],
+                    "load_multiplier": float(r[3]) if r[3] is not None else None,
+                    "intensity_cap": r[4],
+                    "contraindications": list(r[5]) if r[5] else [],
+                    "ai_system_injection": r[6],
+                    "safety_critical": bool(r[7]) if r[7] is not None else False,
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        logger.warning(f"pd_protocols query failed (table may not exist): {e}")
+        return []
+
+
 async def _fetch_wearable_status(pool, user_id: str) -> Optional[dict]:
     """Fetch WHOOP connection status from wearable_connections (single source of truth)."""
     try:
@@ -715,6 +747,7 @@ async def build_player_context(
         _fetch_recommendations(user_id),                            # 11
         _fetch_aib(pool, user_id),                                  # 12
         _fetch_wearable_status(pool, user_id),                      # 13
+        _fetch_pd_protocols(pool),                                     # 14
         return_exceptions=True,
     )
 
@@ -740,6 +773,7 @@ async def build_player_context(
     recs_raw = safe_get(11, [])
     aib_text = safe_get(12)
     wearable_status_raw = safe_get(13)
+    all_pd_protocols = safe_get(14, [])
 
     # ── Merge test results (phone + football, deduplicated) ──
     merged = {}
@@ -854,13 +888,33 @@ async def build_player_context(
             snapshot, vitals_raw, projected_load_sum
         )
 
-    # ── Planning context ──
+    # ── Planning context + PDIL protocol details ──
     planning_context = None
     if snapshot:
+        applicable_ids: list[str] = snapshot.get("applicable_protocol_ids") or []
+        # Filter all_pd_protocols to only those applicable to this athlete
+        applicable_details = []
+        if applicable_ids and all_pd_protocols:
+            id_set = set(applicable_ids)
+            applicable_details = [
+                ProtocolDetail(
+                    protocol_id=p["protocol_id"],
+                    name=p["name"],
+                    category=p["category"],
+                    load_multiplier=p.get("load_multiplier"),
+                    intensity_cap=p.get("intensity_cap"),
+                    contraindications=p.get("contraindications", []),
+                    ai_system_injection=p.get("ai_system_injection"),
+                    safety_critical=p.get("safety_critical", False),
+                )
+                for p in all_pd_protocols
+                if p.get("protocol_id") in id_set
+            ]
         planning_context = PlanningContext(
             active_mode=snapshot.get("athlete_mode"),
             mode_params=None,
-            applicable_protocols=snapshot.get("applicable_protocol_ids") or [],
+            applicable_protocols=applicable_ids,
+            applicable_protocol_details=applicable_details,
             dual_load_zone=snapshot.get("dual_load_zone"),
             exam_proximity_score=snapshot.get("exam_proximity_score"),
             data_confidence_score=snapshot.get("data_confidence_score"),

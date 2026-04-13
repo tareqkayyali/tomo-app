@@ -1,7 +1,8 @@
 """
-Tomo AI Service — Output Agent Tools (22 tools)
-Readiness, performance, vitals, drills, programs, benchmarks, journals.
+Tomo AI Service — Output Agent Tools (16 tools)
+Readiness, performance, vitals, drills, programs, journals.
 
+Sprint 1 decomposition: test/benchmark tools moved to testing_benchmark_tools.py.
 Factory function creates tools bound to a specific user_id + PlayerContext.
 Read tools query Supabase directly via psycopg3.
 Write tools defer to the TS bridge for event pipeline integration.
@@ -194,51 +195,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             user_id=user_id,
         )
 
-    @tool
-    async def get_test_results(test_type: str = "", days: int = 90) -> dict:
-        """Get test results history. Optionally filter by test_type. Test types: sprint_10m, sprint_30m, cmj, yoyo_ir1, agility_ttest, agility_505, reaction_time, vertical_jump, etc. Leave empty for all tests."""
-        from app.db.supabase import get_pool
-        pool = get_pool()
-        since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-
-        if test_type:
-            query = """SELECT test_type, score, NULL::text AS unit, NULL::float AS percentile, date::text, id::text
-                       FROM phone_test_sessions
-                       WHERE user_id = %s AND test_type = %s AND date >= %s
-                       UNION ALL
-                       SELECT test_type, primary_value AS score, primary_unit AS unit, percentile, date::text, id::text
-                       FROM football_test_results
-                       WHERE user_id = %s AND test_type = %s AND date >= %s
-                       ORDER BY 5 DESC"""
-            params = (user_id, test_type, since, user_id, test_type, since)
-        else:
-            query = """SELECT test_type, score, NULL::text AS unit, NULL::float AS percentile, date::text, id::text
-                       FROM phone_test_sessions
-                       WHERE user_id = %s AND date >= %s
-                       UNION ALL
-                       SELECT test_type, primary_value AS score, primary_unit AS unit, percentile, date::text, id::text
-                       FROM football_test_results
-                       WHERE user_id = %s AND date >= %s
-                       ORDER BY 5 DESC"""
-            params = (user_id, since, user_id, since)
-
-        async with pool.connection() as conn:
-            result = await conn.execute(query, params)
-            rows = await result.fetchall()
-
-        tests = [
-            {
-                "test_type": row[0],
-                "score": _safe_float(row[1]),
-                "unit": row[2],
-                "percentile": _safe_float(row[3]),
-                "date": row[4],
-                "id": row[5],
-            }
-            for row in rows
-        ]
-
-        return {"days": days, "filter": test_type or "all", "results": tests, "total": len(tests)}
+    # NOTE: get_test_results moved to testing_benchmark_tools.py (Sprint 1)
 
     @tool
     async def get_training_session(
@@ -357,59 +314,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             "media_url": row[9],
         }
 
-    @tool
-    async def get_benchmark_comparison(metric: str = "", age_band: str = "") -> dict:
-        """Get benchmark/percentile comparison for the athlete's test results against normative data. Use when athlete mentions peers, age group, comparison, or percentile. Metric examples: sprint_10m, cmj, yoyo_ir1, agility_ttest."""
-        from app.db.supabase import get_pool
-        pool = get_pool()
-
-        target_age = age_band or context.age_band or "U19"
-        target_position = context.position or "ALL"
-
-        # Read pre-computed benchmarks from player_benchmark_snapshots
-        # (populated by TS backend whenever tests are logged)
-        async with pool.connection() as conn:
-            if metric:
-                bench_result = await conn.execute(
-                    """SELECT DISTINCT ON (metric_key) metric_key, metric_label, value,
-                              percentile, zone, age_band_used, position_used,
-                              tested_at::text
-                       FROM player_benchmark_snapshots
-                       WHERE user_id = %s AND metric_key = %s
-                       ORDER BY metric_key, tested_at DESC""",
-                    (user_id, metric),
-                )
-            else:
-                bench_result = await conn.execute(
-                    """SELECT DISTINCT ON (metric_key) metric_key, metric_label, value,
-                              percentile, zone, age_band_used, position_used,
-                              tested_at::text
-                       FROM player_benchmark_snapshots
-                       WHERE user_id = %s
-                       ORDER BY metric_key, tested_at DESC""",
-                    (user_id,),
-                )
-            bench_rows = await bench_result.fetchall()
-
-        comparisons = []
-        for row in bench_rows:
-            comparisons.append({
-                "test_type": row[0],
-                "label": row[1],
-                "score": _safe_float(row[2]),
-                "percentile": int(row[3]) if row[3] is not None else None,
-                "zone": row[4],
-                "age_band": row[5],
-                "position": row[6],
-                "date": row[7],
-            })
-
-        return {
-            "age_band": target_age,
-            "position": target_position,
-            "comparisons": comparisons,
-            "total": len(comparisons),
-        }
+    # NOTE: get_benchmark_comparison moved to testing_benchmark_tools.py (Sprint 1)
 
     @tool
     async def get_training_program_recommendations() -> dict:
@@ -594,56 +499,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             "phv_guidance": phv_guidance,
         }
 
-    @tool
-    async def get_test_catalog() -> dict:
-        """Get the full test catalog — all available test types the athlete can log. Includes phone tests and sport-specific tests."""
-        from app.db.supabase import get_pool
-        pool = get_pool()
-
-        async with pool.connection() as conn:
-            result = await conn.execute(
-                """SELECT id, name, test_id, description,
-                          primary_metric_name, sport_id, inputs, attribute_keys
-                   FROM sport_test_definitions
-                   ORDER BY sort_order, name""",
-            )
-            rows = await result.fetchall()
-
-        tests = [
-            {
-                "id": row[0],
-                "name": row[1],
-                "key": row[2],
-                "description": row[3],
-                "primary_metric": row[4],
-                "sport": row[5],
-                "inputs": row[6],
-                "attributes": row[7],
-            }
-            for row in rows
-        ]
-
-        return {"tests": tests, "total": len(tests)}
-
-    @tool
-    async def log_test_result(
-        test_type: str,
-        score: float,
-        unit: str = "",
-        notes: str = "",
-    ) -> dict:
-        """Log a new test result. test_type examples: sprint_10m, cmj, yoyo_ir1, agility_ttest, vertical_jump. Score in appropriate units. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_post
-        return await bridge_post(
-            "/api/v1/tests",
-            {
-                "test_type": test_type,
-                "score": score,
-                "unit": unit,
-                "notes": notes,
-            },
-            user_id=user_id,
-        )
+    # NOTE: get_test_catalog + log_test_result moved to testing_benchmark_tools.py (Sprint 1)
 
     @tool
     async def rate_drill(drill_id: str, rating: int = 3, feedback: str = "") -> dict:
@@ -747,16 +603,12 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         get_checkin_history,
         get_dual_load_score,
         log_check_in,
-        get_test_results,
         get_training_session,
         get_drill_detail,
-        get_benchmark_comparison,
         get_training_program_recommendations,
         calculate_phv_stage,
         get_my_programs,
         get_program_by_id,
-        get_test_catalog,
-        log_test_result,
         rate_drill,
         get_today_training_for_journal,
         get_pending_post_journal,

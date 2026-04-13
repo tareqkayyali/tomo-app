@@ -166,11 +166,24 @@ class SnapshotEnrichment(BaseModel):
     data_freshness: Optional[str] = None      # FRESH | AGING | STALE | UNKNOWN
 
 
+class ProtocolDetail(BaseModel):
+    """Lightweight PDIL protocol detail for agent context."""
+    protocol_id: str
+    name: str
+    category: str
+    load_multiplier: Optional[float] = None
+    intensity_cap: Optional[str] = None
+    contraindications: list[str] = Field(default_factory=list)
+    ai_system_injection: Optional[str] = None
+    safety_critical: bool = False
+
+
 class PlanningContext(BaseModel):
     """Planning Intelligence Protocol context from snapshot."""
     active_mode: Optional[str] = None
     mode_params: Optional[dict] = None
     applicable_protocols: list[str] = Field(default_factory=list)
+    applicable_protocol_details: list[ProtocolDetail] = Field(default_factory=list)
     dual_load_zone: Optional[str] = None
     exam_proximity_score: Optional[float] = None
     data_confidence_score: Optional[float] = None

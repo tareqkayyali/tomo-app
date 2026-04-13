@@ -277,9 +277,9 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
 
         return await bridge_put(f"/api/v1/career/{entry_id}", body, user_id=user_id)
 
+    # NOTE: get_test_trajectory moved to testing_benchmark_tools.py (Sprint 1)
     return [
         get_achievement_history,
-        get_test_trajectory,
         get_cv_summary,
         get_consistency_score,
         list_career_history,
