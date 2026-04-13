@@ -1,27 +1,19 @@
 /**
  * POST /api/v1/chat/agent-stream
  *
- * Streaming chat endpoint — proxies all AI traffic to the Python AI service (tomo-ai).
- * Capsule actions (direct tool execution, $0) still execute in TypeScript.
+ * Streaming chat endpoint — proxies ALL traffic to the Python AI service.
+ * Capsule actions are forwarded to Python as confirmed_action (v2 single write path).
  *
  * Events:
  *   event: status  → { status: "Checking your readiness..." }
  *   event: done    → { message, structured, sessionId, refreshTargets, pendingConfirmation, context }
  *   event: error   → { error: "..." }
- *
- * Phase 9 cleanup: Removed TS orchestrator path. Python serves 100% of AI traffic.
  */
 
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { logger } from "@/lib/logger";
-import { buildPlayerContext } from "@/services/agents/contextBuilder";
-import { executeOutputTool } from "@/services/agents/outputAgent";
-import { executeTimelineTool } from "@/services/agents/timelineAgent";
-import { executeMasteryTool } from "@/services/agents/masteryAgent";
-import { executeSettingsTool } from "@/services/agents/settingsAgent";
-import { preFlightCheck, checkRedRiskForTool } from "@/services/agents/chatGuardrails";
 import {
   proxyToAIServiceStream,
   type AIServiceRequest,

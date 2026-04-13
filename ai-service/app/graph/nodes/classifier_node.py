@@ -21,12 +21,10 @@ from typing import Optional
 from app.models.state import TomoChatState
 from app.agents.intent_classifier import (
     classify_intent,
-    ClassificationResult,
-    ConversationState,
     _normalize,
     _EXACT_MATCH_MAP,
 )
-from app.agents.sonnet_classifier import classify_with_sonnet, SonnetClassificationResult
+from app.agents.sonnet_classifier import classify_with_sonnet
 from app.agents.router import should_keep_agent_lock
 from app.utils.message_helpers import get_msg_type, get_msg_content
 
