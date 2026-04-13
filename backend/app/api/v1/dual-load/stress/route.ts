@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   // Update the athlete's snapshot with academic stress
   const { error: snapError } = await (db as any)
-    .from("athlete_snapshot")
+    .from("athlete_snapshots")
     .update({
       academic_stress_level: stress_level,
       academic_stress_notes: notes || null,

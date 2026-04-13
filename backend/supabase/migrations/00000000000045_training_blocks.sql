@@ -101,21 +101,20 @@ CREATE POLICY athlete_achievements_service_role
   ON athlete_achievements FOR ALL
   USING (auth.role() = 'service_role');
 
--- Add columns to profiles for recruitment visibility (CV agent)
-ALTER TABLE profiles
+-- Add columns to users for recruitment visibility (CV agent)
+ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS recruitment_visible boolean DEFAULT false,
   ADD COLUMN IF NOT EXISTS recruitment_visibility_level text DEFAULT 'private'
     CHECK (recruitment_visibility_level IN ('private', 'coaches_only', 'public'));
 
--- Add academic stress columns to athlete_snapshot (Dual-Load agent)
--- Using DO block since athlete_snapshot may have varying schema
+-- Add academic stress columns to athlete_snapshots (Dual-Load agent)
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'athlete_snapshot' AND column_name = 'academic_stress_level'
+    WHERE table_name = 'athlete_snapshots' AND column_name = 'academic_stress_level'
   ) THEN
-    ALTER TABLE athlete_snapshot
+    ALTER TABLE public.athlete_snapshots
       ADD COLUMN academic_stress_level integer CHECK (academic_stress_level BETWEEN 1 AND 10),
       ADD COLUMN academic_stress_notes text;
   END IF;

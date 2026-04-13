@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   // Update recruitment visibility on the athlete profile
   const { data: profile, error: updateError } = await (db as any)
-    .from("profiles")
+    .from("users")
     .update({
       recruitment_visible: visible,
       recruitment_visibility_level: visibility_level || (visible ? "public" : "private"),
