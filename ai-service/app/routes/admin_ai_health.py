@@ -498,7 +498,7 @@ async def get_dashboard(
 
 # Columns to return for each trace row
 _TRACE_BROWSER_COLS = [
-    "id", "created_at", "message", "agent_type", "path_type",
+    "id", "created_at", "message", "assistant_response", "agent_type", "path_type",
     "intent_id", "classification_layer", "routing_confidence",
     "tool_count", "tool_names",
     "total_cost_usd", "total_tokens", "latency_ms",
@@ -507,6 +507,7 @@ _TRACE_BROWSER_COLS = [
     "rag_used", "sport", "age_band",
     "readiness_rag", "acwr",
     "cost_bucket", "latency_bucket",
+    "turn_number", "response_length_chars",
 ]
 
 
@@ -634,6 +635,7 @@ async def get_traces(
 # All columns needed by generate_insights (matches langsmith_collector.TRACE_COLS)
 _INSIGHTS_TRACE_COLS = [
     "id", "created_at", "request_id", "user_id", "session_id", "message",
+    "assistant_response", "turn_number", "response_length_chars",
     "path_type", "agent_type", "classification_layer", "intent_id",
     "routing_confidence", "tool_count", "tool_names",
     "total_cost_usd", "total_tokens", "latency_ms",

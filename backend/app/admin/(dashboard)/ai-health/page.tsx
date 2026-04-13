@@ -107,14 +107,17 @@ interface DashboardData {
 interface Trace {
   id: string;
   created_at: string;
-  user_message: string;
+  message: string;
+  assistant_response: string;
   agent_type: string;
+  path_type: string;
   intent_id: string;
-  classification_method: string;
-  classification_confidence: number;
-  tools_called: string[];
+  classification_layer: string;
+  routing_confidence: number;
+  tool_count: number;
+  tool_names: string[];
   total_cost_usd: number;
-  total_latency_ms: number;
+  latency_ms: number;
   total_tokens: number;
   validation_passed: boolean;
   validation_flags: string[];
@@ -122,13 +125,17 @@ interface Trace {
   user_id: string;
   request_id: string;
   rag_used: boolean;
-  rag_chunks: number;
+  rag_chunk_count: number;
   sport: string;
   age_band: string;
-  readiness_color: string;
+  readiness_rag: string;
   acwr: number | null;
-  phv_safety: boolean;
+  phv_gate_fired: boolean;
   crisis_detected: boolean;
+  turn_number: number;
+  response_length_chars: number;
+  cost_bucket: string;
+  latency_bucket: string;
 }
 
 interface TracesResponse {
@@ -168,6 +175,8 @@ const CATEGORY_LABEL: Record<string, string> = {
   routing: "Intent Routing",
   cost: "Cost Efficiency",
   dual_load: "Dual-Load Stress",
+  conversational_connect: "Conversational Connect",
+  tone_warmth: "Tone & Warmth",
 };
 
 const INSIGHT_SEV_STYLE: Record<string, string> = {
@@ -607,7 +616,7 @@ export default function AIHealthPage() {
 
     if (filterLatencyBucket !== "All") {
       result = result.filter((t) => {
-        const ms = t.total_latency_ms;
+        const ms = t.latency_ms ?? 0;
         switch (filterLatencyBucket) {
           case "fast": return ms < 1000;
           case "normal": return ms >= 1000 && ms < 3000;
@@ -1101,25 +1110,25 @@ export default function AIHealthPage() {
                       {formatTime(trace.created_at)}
                     </div>
                     <div className="text-zinc-800 truncate pr-2">
-                      {truncate(trace.user_message, 50)}
+                      {truncate(trace.message || "", 60)}
                     </div>
                     <div className="text-zinc-600 capitalize truncate">
-                      {trace.agent_type.replace(/_/g, " ")}
+                      {(trace.agent_type || "").replace(/_/g, " ")}
                     </div>
                     <div className="text-zinc-500 font-mono truncate">
                       {trace.intent_id || "-"}
                     </div>
                     <div className="text-zinc-600 text-center">
-                      {trace.tools_called?.length ?? 0}
+                      {trace.tool_count ?? 0}
                     </div>
                     <div className="font-mono text-zinc-600">
                       {formatCost(trace.total_cost_usd)}
                     </div>
                     <div className="text-zinc-600">
-                      {formatLatency(trace.total_latency_ms)}
+                      {formatLatency(trace.latency_ms)}
                     </div>
                     <div className="text-center">
-                      {trace.validation_passed ? (
+                      {trace.validation_passed !== false ? (
                         <span className="text-green-600 font-medium">
                           Pass
                         </span>
@@ -1142,15 +1151,15 @@ export default function AIHealthPage() {
                           </span>
                         </div>
                         <div>
-                          <span className="text-zinc-400 font-medium">User:</span>{" "}
-                          <span className="font-mono text-zinc-700">
-                            {trace.user_id ? trace.user_id.slice(0, 12) + "..." : "-"}
+                          <span className="text-zinc-400 font-medium">Turn:</span>{" "}
+                          <span className="text-zinc-700">
+                            {trace.turn_number || 1}
                           </span>
                         </div>
                         <div>
-                          <span className="text-zinc-400 font-medium">Request:</span>{" "}
-                          <span className="font-mono text-zinc-700">
-                            {trace.request_id || "-"}
+                          <span className="text-zinc-400 font-medium">Path:</span>{" "}
+                          <span className="text-zinc-700 capitalize">
+                            {(trace.path_type || "").replace(/_/g, " ")}
                           </span>
                         </div>
                         <div>
@@ -1158,11 +1167,11 @@ export default function AIHealthPage() {
                             Classification:
                           </span>{" "}
                           <span className="text-zinc-700">
-                            {trace.classification_method}
-                            {(trace.classification_confidence ?? 0) > 0 && (
+                            {trace.classification_layer || "-"}
+                            {(trace.routing_confidence ?? 0) > 0 && (
                               <span className="text-zinc-400 ml-1">
-                                ({((trace.classification_confidence ?? 0) * 100).toFixed(0)}%
-                                confidence)
+                                ({((trace.routing_confidence ?? 0) * 100).toFixed(0)}%
+                                conf)
                               </span>
                             )}
                           </span>
@@ -1170,21 +1179,21 @@ export default function AIHealthPage() {
                         <div>
                           <span className="text-zinc-400 font-medium">Tools:</span>{" "}
                           <span className="font-mono text-zinc-700">
-                            {trace.tools_called?.length > 0
-                              ? JSON.stringify(trace.tools_called)
+                            {(trace.tool_names?.length ?? 0) > 0
+                              ? trace.tool_names.join(", ")
                               : "none"}
                           </span>
                         </div>
                         <div>
                           <span className="text-zinc-400 font-medium">Tokens:</span>{" "}
                           <span className="text-zinc-700">
-                            {trace.total_tokens.toLocaleString()}
+                            {(trace.total_tokens ?? 0).toLocaleString()}
                           </span>
                           <span className="text-zinc-400 mx-1">|</span>
                           <span className="text-zinc-400 font-medium">RAG:</span>{" "}
                           <span className="text-zinc-700">
                             {trace.rag_used
-                              ? `yes (${trace.rag_chunks} chunks)`
+                              ? `yes (${trace.rag_chunk_count ?? 0} chunks)`
                               : "no"}
                           </span>
                         </div>
@@ -1204,30 +1213,27 @@ export default function AIHealthPage() {
                           </span>{" "}
                           <span
                             className={
-                              trace.readiness_color === "green"
+                              (trace.readiness_rag || "").toLowerCase() === "green"
                                 ? "text-green-600"
-                                : trace.readiness_color === "yellow"
+                                : (trace.readiness_rag || "").toLowerCase() === "yellow"
                                   ? "text-yellow-600"
-                                  : trace.readiness_color === "red"
+                                  : (trace.readiness_rag || "").toLowerCase() === "red"
                                     ? "text-red-600"
                                     : "text-zinc-600"
                             }
                           >
-                            {trace.readiness_color
-                              ? trace.readiness_color.charAt(0).toUpperCase() +
-                                trace.readiness_color.slice(1)
-                              : "-"}
+                            {trace.readiness_rag || "-"}
                           </span>
                           <span className="text-zinc-400 mx-1">|</span>
                           <span className="text-zinc-400 font-medium">ACWR:</span>{" "}
                           <span className="text-zinc-700">
-                            {trace.acwr != null ? trace.acwr.toFixed(1) : "-"}
+                            {trace.acwr != null ? Number(trace.acwr).toFixed(1) : "-"}
                           </span>
                         </div>
                         <div>
                           <span className="text-zinc-400 font-medium">Safety:</span>{" "}
                           <span className="text-zinc-700">
-                            PHV={trace.phv_safety ? "yes" : "no"}, Crisis=
+                            PHV={trace.phv_gate_fired ? "yes" : "no"}, Crisis=
                             {trace.crisis_detected ? "yes" : "no"}
                           </span>
                         </div>
@@ -1238,18 +1244,36 @@ export default function AIHealthPage() {
                                 Validation Flags:
                               </span>{" "}
                               <span className="text-red-600 font-mono">
-                                {JSON.stringify(trace.validation_flags)}
+                                {trace.validation_flags.join(", ")}
                               </span>
                             </div>
                           )}
                       </div>
-                      {/* Full message */}
+
+                      {/* User Message */}
                       <div className="mt-3 pt-2 border-t border-zinc-200">
                         <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-medium">
-                          Full Message
+                          User Message
                         </span>
-                        <p className="text-xs text-zinc-700 mt-1 whitespace-pre-wrap">
-                          {trace.user_message}
+                        <p className="text-xs text-zinc-700 mt-1 whitespace-pre-wrap bg-white rounded p-2 border border-zinc-100">
+                          {trace.message || "(empty)"}
+                        </p>
+                      </div>
+
+                      {/* Assistant Response */}
+                      <div className="mt-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-medium">
+                            Assistant Response
+                          </span>
+                          {trace.response_length_chars > 0 && (
+                            <span className="text-[10px] text-zinc-300">
+                              ({trace.response_length_chars} chars)
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-700 mt-1 whitespace-pre-wrap bg-blue-50 rounded p-2 border border-blue-100 max-h-48 overflow-y-auto">
+                          {trace.assistant_response || "(not captured — traces before this update lack response text)"}
                         </p>
                       </div>
                     </div>

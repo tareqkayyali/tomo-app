@@ -92,12 +92,12 @@ async def persist_node(state: TomoChatState) -> dict:
         # Persistence failure should NOT block the response
         logger.error(f"persist_node error (non-blocking): {e}", exc_info=True)
 
+    # Count messages in this session to determine turn count
+    turn_count = len([m for m in messages if hasattr(m, "type") and m.type == "human"])
+
     # ── Zep memory save (non-blocking, fire-and-forget) ──
     try:
         from app.services.memory_service import save_memory_after_turn
-
-        # Count messages in this session to determine turn count
-        turn_count = len([m for m in messages if hasattr(m, "type") and m.type == "human"])
 
         await save_memory_after_turn(
             user_id=user_id,
@@ -139,7 +139,8 @@ async def persist_node(state: TomoChatState) -> dict:
                             readiness_score, readiness_rag, injury_risk,
                             acwr, acwr_bucket, data_confidence_score,
                             checkin_staleness_days,
-                            cost_bucket, latency_bucket, confidence_bucket, tool_bucket
+                            cost_bucket, latency_bucket, confidence_bucket, tool_bucket,
+                            assistant_response, turn_number, response_length_chars
                         ) VALUES (
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
@@ -153,7 +154,8 @@ async def persist_node(state: TomoChatState) -> dict:
                             %s, %s, %s,
                             %s, %s, %s,
                             %s,
-                            %s, %s, %s, %s
+                            %s, %s, %s, %s,
+                            %s, %s, %s
                         )
                         """,
                         (
@@ -196,6 +198,10 @@ async def persist_node(state: TomoChatState) -> dict:
                             m.get("latency_bucket"),
                             m.get("confidence_bucket"),
                             m.get("tool_bucket"),
+                            # Conversational quality fields
+                            (final_response or agent_response or "")[:5000],
+                            turn_count,
+                            len(final_response or agent_response or ""),
                         ),
                     )
         except Exception as e:

@@ -51,6 +51,12 @@ Domain expertise you MUST apply:
   by sports science knowledge chunks, not just model memory.
 - Capsule efficiency: Simple actions (check-in, navigation) should cost $0 via capsule \
   fast-path, not $0.01+ via full AI.
+- Conversational continuity: Multi-turn sessions must show awareness of prior messages. \
+  Repeating introductions, forgetting recent context, or restarting topics = broken experience.
+- Warm tone: Tomo is a supportive coaching companion, NOT a clinical tool. Responses must \
+  feel personal, encouraging, and age-appropriate. Robotic phrasing ("0 of 1 actions completed", \
+  "Event created"), lack of athlete name usage, generic error messages = tone failure. \
+  U13 needs simpler language, U19 can handle more direct sport science terminology.
 
 Output format: Write a brief, direct analysis (3-5 bullet points). Each bullet must:
 1. Start with a specific finding (not vague)
@@ -111,7 +117,43 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
     verbose = [t for t in traces if "verbose_response" in (t.get("validation_flags") or [])]
     filler = [t for t in traces if "filler_language" in (t.get("validation_flags") or [])]
 
-    # ── 5 Domain-Specific Questions ──────────────────────────────────
+    # Conversational context
+    # Group traces by session_id to analyze multi-turn behavior
+    sessions: dict[str, list[dict]] = {}
+    for t in traces:
+        sid = t.get("session_id", "")
+        if sid:
+            sessions.setdefault(sid, []).append(t)
+    multi_turn_sessions = {k: v for k, v in sessions.items() if len(v) > 1}
+    single_turn_sessions = {k: v for k, v in sessions.items() if len(v) == 1}
+
+    # Detect agent switches within a session (different agent on consecutive turns)
+    agent_switch_sessions: list[str] = []
+    for sid, turns in multi_turn_sessions.items():
+        sorted_turns = sorted(turns, key=lambda x: x.get("turn_number", 0))
+        agents_seen = [t.get("agent_type", "unknown") for t in sorted_turns]
+        if len(set(agents_seen)) > 1:
+            agent_switch_sessions.append(sid)
+
+    # Tone analysis: detect robotic patterns in assistant responses
+    responses_with_text = [t for t in traces if t.get("assistant_response")]
+    robotic_markers = [
+        "actions completed", "Event created", "has been created",
+        "I apologize", "I'm sorry, but", "As an AI",
+        "I don't have access", "I cannot", "Unfortunately,",
+    ]
+    robotic_responses = []
+    for t in responses_with_text:
+        resp = t.get("assistant_response", "")
+        if any(marker.lower() in resp.lower() for marker in robotic_markers):
+            robotic_responses.append(t)
+
+    # Short responses (< 50 chars = likely curt/unhelpful)
+    curt_responses = [t for t in responses_with_text if len(t.get("assistant_response", "")) < 50]
+    # Very long responses (> 2000 chars = possibly overwhelming for Gen Z)
+    overly_long = [t for t in responses_with_text if len(t.get("assistant_response", "")) > 2000]
+
+    # ── 7 Domain-Specific Questions ──────────────────────────────────
 
     questions = [
         {
@@ -212,6 +254,103 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
                 ][:5],
             },
             "relevant_traces": danger_acwr + stale,
+        },
+        {
+            "category": "conversational_connect",
+            "question": "Is Tomo maintaining conversational continuity across turns, or are sessions fragmenting into disconnected exchanges?",
+            "data": {
+                "total_sessions_unique": len(sessions),
+                "multi_turn_sessions": len(multi_turn_sessions),
+                "single_turn_sessions": len(single_turn_sessions),
+                "multi_turn_pct": round(len(multi_turn_sessions) / max(len(sessions), 1) * 100, 1),
+                "avg_turns_per_session": round(
+                    sum(len(v) for v in sessions.values()) / max(len(sessions), 1), 1
+                ),
+                "max_turns_in_session": max((len(v) for v in sessions.values()), default=0),
+                "agent_switch_sessions": len(agent_switch_sessions),
+                "agent_switch_pct_of_multi": round(
+                    len(agent_switch_sessions) / max(len(multi_turn_sessions), 1) * 100, 1
+                ),
+                "deep_sessions_over_5_turns": len([v for v in sessions.values() if len(v) >= 5]),
+                "agent_distribution_in_multi": _count_by_field(
+                    [t for turns in multi_turn_sessions.values() for t in turns], "agent_type"
+                ),
+                "sample_multi_turn_exchanges": [
+                    {
+                        "turn": t.get("turn_number", 0),
+                        "user": (t.get("message") or "")[:80],
+                        "assistant": (t.get("assistant_response") or "")[:120],
+                        "agent": t.get("agent_type", "unknown"),
+                    }
+                    for sid in list(multi_turn_sessions.keys())[:2]
+                    for t in sorted(multi_turn_sessions[sid], key=lambda x: x.get("turn_number", 0))[:4]
+                ],
+                "sample_agent_switch_exchanges": [
+                    {
+                        "turn": t.get("turn_number", 0),
+                        "user": (t.get("message") or "")[:80],
+                        "agent": t.get("agent_type", "unknown"),
+                    }
+                    for sid in agent_switch_sessions[:2]
+                    for t in sorted(multi_turn_sessions.get(sid, []), key=lambda x: x.get("turn_number", 0))[:4]
+                ],
+            },
+            "relevant_traces": [t for turns in multi_turn_sessions.values() for t in turns],
+        },
+        {
+            "category": "tone_warmth",
+            "question": "Are Tomo's responses warm, supportive, and Gen Z-appropriate, or are they robotic and clinical?",
+            "data": {
+                "total_responses_with_text": len(responses_with_text),
+                "robotic_response_count": len(robotic_responses),
+                "robotic_pct": round(len(robotic_responses) / max(len(responses_with_text), 1) * 100, 1),
+                "curt_response_count": len(curt_responses),
+                "curt_pct": round(len(curt_responses) / max(len(responses_with_text), 1) * 100, 1),
+                "overly_long_count": len(overly_long),
+                "overly_long_pct": round(len(overly_long) / max(len(responses_with_text), 1) * 100, 1),
+                "avg_response_length_chars": round(
+                    sum(len(t.get("assistant_response", "")) for t in responses_with_text)
+                    / max(len(responses_with_text), 1)
+                ),
+                "verbose_flagged": len(verbose),
+                "filler_flagged": len(filler),
+                "red_athlete_responses": [
+                    {
+                        "user": (t.get("message") or "")[:80],
+                        "assistant": (t.get("assistant_response") or "")[:200],
+                        "injury_risk": t.get("injury_risk"),
+                        "readiness_rag": t.get("readiness_rag"),
+                    }
+                    for t in responses_with_text
+                    if t.get("injury_risk") == "RED"
+                ][:5],
+                "robotic_samples": [
+                    {
+                        "user": (t.get("message") or "")[:80],
+                        "assistant": (t.get("assistant_response") or "")[:200],
+                        "agent": t.get("agent_type"),
+                    }
+                    for t in robotic_responses[:5]
+                ],
+                "curt_samples": [
+                    {
+                        "user": (t.get("message") or "")[:80],
+                        "assistant": t.get("assistant_response", ""),
+                        "agent": t.get("agent_type"),
+                    }
+                    for t in curt_responses[:5]
+                ],
+                "age_band_distribution": _count_by_field(responses_with_text, "age_band"),
+                "error_responses": [
+                    {
+                        "user": (t.get("message") or "")[:80],
+                        "assistant": (t.get("assistant_response") or "")[:200],
+                    }
+                    for t in responses_with_text
+                    if t.get("validation_passed") is False
+                ][:5],
+            },
+            "relevant_traces": robotic_responses + curt_responses + overly_long,
         },
     ]
 
@@ -354,6 +493,24 @@ def _infer_severity(
             return "critical"
         if data.get("danger_with_zero_tools", 0) > 0:
             return "high"
+        return "info"
+
+    if category == "conversational_connect":
+        switch_pct = data.get("agent_switch_pct_of_multi", 0)
+        multi_pct = data.get("multi_turn_pct", 0)
+        if switch_pct > 50:
+            return "high"
+        if switch_pct > 25 or multi_pct < 10:
+            return "medium"
+        return "info"
+
+    if category == "tone_warmth":
+        robotic_pct = data.get("robotic_pct", 0)
+        curt_pct = data.get("curt_pct", 0)
+        if robotic_pct > 20 or curt_pct > 15:
+            return "high"
+        if robotic_pct > 10 or curt_pct > 5:
+            return "medium"
         return "info"
 
     return "info"
