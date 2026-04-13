@@ -149,7 +149,7 @@ async def classify_with_sonnet(
     try:
         client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         response = await client.messages.create(
-            model="claude-sonnet-4-6-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=100,
             system=[{
                 "type": "text",
