@@ -89,9 +89,15 @@ async def generate_sse_events(request: ChatRequest):
                     "chips": [],
                 }
 
-        # Build pending confirmation if write action detected
+        # Build pending confirmation if write action detected or retry needed
         if pending_write and not result.get("write_confirmed"):
+            # New write action awaiting first confirmation
             pending_confirmation = pending_write
+        elif result.get("write_confirmed") and result.get("pending_write_action"):
+            # Confirmed action failed — return pending action for retry
+            # Mobile will attach it to the error message as confirmAction,
+            # enabling the user to tap CONFIRM again instead of "Try again" text
+            pending_confirmation = result.get("pending_write_action")
 
         # Extract context for mobile app parity (TS endpoint sends this)
         player_ctx = result.get("player_context")
@@ -211,7 +217,7 @@ async def chat_sync(request: ChatRequest):
         "structured": structured,
         "sessionId": request.session_id or f"session-{request.player_id}",
         "refreshTargets": result.get("_refresh_targets", []),
-        "pendingConfirmation": result.get("pending_write_action") if not result.get("write_confirmed") else None,
+        "pendingConfirmation": result.get("pending_write_action") or None,
         "context": context_data,
         "_telemetry": {
             "cost_usd": result.get("total_cost_usd", 0),

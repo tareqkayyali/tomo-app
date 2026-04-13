@@ -357,17 +357,26 @@ async def execute_confirmed_action(state: TomoChatState) -> dict:
 
     user_id = state["user_id"]
     context = state.get("player_context")
-    agent_type = state.get("selected_agent", "output")
 
     if not context:
         return {"agent_response": "Context not available. Please try again."}
 
-    # Get tools
-    tools = get_tools_for_agent(agent_type, user_id, context)
-    tool_map = {t.name: t for t in tools}
-
     results = []
     actions = pending.get("actions", [pending.get("primary_action", pending)])
+
+    # Build tool map from ALL agent types referenced in the actions.
+    # Critical: pre_router classifies the confirmation text which may route to
+    # a different agent than the one that originally proposed the write action.
+    # Using action.agentType ensures the correct tools are always available.
+    tool_map = {}
+    needed_agents = set()
+    fallback_agent = state.get("selected_agent", "output")
+    for action in actions:
+        needed_agents.add(action.get("agentType", fallback_agent))
+    for agent_type in needed_agents:
+        for t in get_tools_for_agent(agent_type, user_id, context):
+            tool_map[t.name] = t
+    logger.info(f"Confirmed action: agents={needed_agents}, tools={list(tool_map.keys())}")
 
     for action in actions:
         tool_name = action.get("toolName", "")
@@ -404,9 +413,16 @@ async def execute_confirmed_action(state: TomoChatState) -> dict:
         # Every write action should refresh notifications
         refresh_targets.add("notifications")
 
+    # If ALL actions failed, preserve pending_write_action for retry.
+    # The format_response node will return it as pendingConfirmation so the
+    # mobile shows a new confirm card instead of requiring "Try again" text.
+    all_failed = not any(r.get("success") for r in results)
+    if all_failed:
+        logger.warning(f"All confirmed actions failed: {[r.get('error', '') for r in results]}")
+
     return {
         "agent_response": json.dumps({"confirmed_results": results}),
-        "pending_write_action": None,
+        "pending_write_action": pending if all_failed else None,
         "write_confirmed": True,
         "tool_calls": [{"name": a.get("toolName"), "input": a.get("toolInput"), "confirmed": True} for a in actions],
         "_refresh_targets": list(refresh_targets),

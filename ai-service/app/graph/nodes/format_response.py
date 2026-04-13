@@ -527,8 +527,13 @@ def _build_confirmation_response(pending: dict) -> dict:
             "delete_event": "Remove this event?",
             "log_check_in": "Log your check-in?",
             "log_test_result": "Log this result?",
+            "log_recovery_session": "Add recovery session?",
+            "create_training_block": "Start this training block?",
             "set_goal": "Set new goal?",
             "propose_mode_change": "Switch training mode?",
+            "trigger_deload_week": "Start a deload week?",
+            "flag_injury_concern": "Log this concern?",
+            "log_injury": "Log this injury?",
         }
         confirm_headline = headline_map.get(tool_name, "Confirm this action?")
 
@@ -536,7 +541,8 @@ def _build_confirmation_response(pending: dict) -> dict:
     items = []
     for action in actions:
         inp = action.get("toolInput", {})
-        title = inp.get("title", inp.get("event_type", "Event"))
+        # Support both old (title/event_type) and new (name/type) field names
+        title = inp.get("name") or inp.get("title") or inp.get("type") or inp.get("event_type") or "Session"
         if isinstance(title, str):
             title = title.replace("_", " ").title()
 
@@ -544,12 +550,14 @@ def _build_confirmation_response(pending: dict) -> dict:
         date_str = inp.get("date", "")
         formatted_date = _format_confirm_date(date_str) if date_str else ""
 
-        # Format time: "17:00" + "18:00" → "17:00–18:00"
+        # Format time — support both camelCase and snake_case field names
         time_str = ""
-        if inp.get("start_time"):
-            time_str = inp["start_time"]
-            if inp.get("end_time"):
-                time_str += f"–{inp['end_time']}"
+        start = inp.get("startTime") or inp.get("start_time") or ""
+        end = inp.get("endTime") or inp.get("end_time") or ""
+        if start:
+            time_str = start
+            if end:
+                time_str += f"–{end}"
 
         items.append({
             "title": title,
@@ -603,8 +611,8 @@ def _build_done_headline(results: list[dict]) -> str:
 
     # Try extracting event details for natural language headline
     if isinstance(result_data, dict):
-        title = result_data.get("title", "")
-        start_time = result_data.get("start_time", "")
+        title = result_data.get("name") or result_data.get("title") or ""
+        start_time = result_data.get("startTime") or result_data.get("start_time") or ""
         if title and start_time:
             return f"{title} added for {start_time}"
         if title:
@@ -617,6 +625,11 @@ def _build_done_headline(results: list[dict]) -> str:
         "delete_event": "Event removed",
         "log_check_in": "Check-in logged",
         "log_test_result": "Result logged",
+        "log_recovery_session": "Recovery session added",
+        "create_training_block": "Training block started",
+        "trigger_deload_week": "Deload week active",
+        "flag_injury_concern": "Concern noted",
+        "log_injury": "Injury logged",
         "set_goal": "Goal set",
         "propose_mode_change": "Mode updated",
     }
@@ -624,7 +637,7 @@ def _build_done_headline(results: list[dict]) -> str:
 
 
 def _build_confirmed_response(results: list[dict]) -> dict:
-    """Build Pulse done response — natural language + green stat_grid card."""
+    """Build Pulse done response — warm, natural language + green stat_grid card."""
     success_count = sum(1 for r in results if r.get("success"))
     total = len(results)
 
@@ -635,9 +648,9 @@ def _build_confirmed_response(results: list[dict]) -> dict:
         for r in results:
             result_data = r.get("result", {})
             if isinstance(result_data, dict):
-                title = result_data.get("title", r.get("tool", "").replace("_", " ").title())
+                title = result_data.get("name") or result_data.get("title") or r.get("tool", "").replace("_", " ").title()
                 date = result_data.get("date", "")
-                start_time = result_data.get("start_time", "")
+                start_time = result_data.get("startTime") or result_data.get("start_time") or ""
                 detail = f"{date} {start_time}".strip() if date or start_time else "Confirmed"
                 items.append({"label": title, "value": detail, "highlight": "green"})
             else:
@@ -646,19 +659,52 @@ def _build_confirmed_response(results: list[dict]) -> dict:
 
         # Use stat_grid for green done card (mobile renderer shows green highlights)
         done_card = {"type": "stat_grid", "items": items} if items else {
-            "type": "text_card", "headline": headline, "body": "Action completed."
+            "type": "text_card", "headline": headline, "body": "All good."
         }
+        cards = [done_card]
         body = ""
     else:
-        headline = f"{success_count} of {total} actions completed"
-        body = "Some actions could not be completed."
-        done_card = {"type": "text_card", "headline": headline, "body": body}
+        # Warm error — never robotic "X of Y actions"
+        failed = [r for r in results if not r.get("success")]
+        error_detail = ""
+        if failed:
+            err = failed[0].get("error", "")
+            if "connection" in str(err).lower() or "connect" in str(err).lower():
+                error_detail = "Having trouble reaching the server right now."
+            elif "404" in str(err) or "not found" in str(err).lower():
+                error_detail = "This feature is being set up — hang tight."
+            elif "400" in str(err) or "validation" in str(err).lower():
+                error_detail = "Something didn't look right in the request. Try again with different details."
+            else:
+                error_detail = "Hit a snag on my end. Give it another shot."
+
+        headline = "Couldn't get that done"
+        body = error_detail or "Something went wrong, but it's on me. Try again."
+
+        # Build a retry confirm_card so the user can tap CONFIRM again
+        # instead of the "Try again" chip which restarts the full LLM pipeline.
+        # The confirm_card reuses the same action data — mobile sends it as
+        # confirmedAction which goes straight to execute_confirmed.
+        retry_items = []
+        for r in results:
+            tool_display = r.get("tool", "").replace("_", " ").title()
+            retry_items.append({"title": tool_display, "date": "", "time": ""})
+
+        cards = [
+            {"type": "text_card", "body": body},
+            {
+                "type": "confirm_card",
+                "headline": "Try again?",
+                "items": retry_items,
+                "confirmLabel": "RETRY",
+            },
+        ]
 
     return {
         "headline": headline,
-        "body": body,
-        "cards": [done_card],
-        "chips": [{"label": "What's next?", "message": "What should I do next?"}],
+        "body": "",
+        "cards": cards,
+        "chips": [{"label": "What else?", "message": "What should I do next?"}],
     }
 
 
@@ -695,10 +741,18 @@ async def format_response_node(state: TomoChatState) -> dict:
         except (json.JSONDecodeError, TypeError):
             structured = _pulse_post_process(_build_text_response(agent_response), state)
 
-        return {
+        result_dict = {
             "final_response": json.dumps(structured),
             "final_cards": structured.get("cards", []),
         }
+
+        # If actions failed, pending_write_action is preserved by execute_confirmed.
+        # Pass it through so the chat route returns it as pendingConfirmation,
+        # enabling the mobile to show a retry confirm card (not "Try again" text).
+        if pending_write:
+            result_dict["pending_write_action"] = pending_write
+
+        return result_dict
 
     # Case 3: Normal agent response — try to parse structured JSON
     parsed = _extract_json(agent_response) if agent_response else None
