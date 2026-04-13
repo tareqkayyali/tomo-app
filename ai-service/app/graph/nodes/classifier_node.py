@@ -51,13 +51,16 @@ async def classifier_node(state: TomoChatState) -> dict:
     """
     Unified classifier node.
 
-    CLASSIFIER_VERSION=haiku: Uses existing 3-layer Haiku+regex classifier.
-    CLASSIFIER_VERSION=sonnet: Uses 2-layer exact-match + Sonnet.
+    Reads CLASSIFIER_VERSION at RUNTIME (not module load) to avoid stale
+    singleton cache issues where the graph compiles before env vars are set.
     """
-    if _CLASSIFIER_VERSION == "sonnet":
+    # Runtime check — not cached module-level var
+    version = os.environ.get("CLASSIFIER_VERSION", "haiku").strip().lower()
+    if version == "sonnet":
+        logger.info("[CLASSIFIER] Sonnet v2 path active")
         return await _classify_sonnet(state)
     else:
-        # Delegate to existing pre_router_node for v1
+        logger.info(f"[CLASSIFIER] v1 Haiku+regex path (CLASSIFIER_VERSION={repr(version)})")
         from app.graph.nodes.pre_router import pre_router_node
         return await pre_router_node(state)
 

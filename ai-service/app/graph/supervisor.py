@@ -90,12 +90,11 @@ def build_supervisor_graph() -> StateGraph:
     graph = StateGraph(TomoChatState)
 
     # ── Add nodes ──
-    # Use v2 classifier (Sonnet) when CLASSIFIER_VERSION=sonnet, else v1 (Haiku+regex)
-    active_classifier = classifier_node if _CLASSIFIER_VERSION == "sonnet" else pre_router_node
-
+    # classifier_node checks CLASSIFIER_VERSION at RUNTIME (not module load)
+    # so it always delegates correctly regardless of when the graph was compiled.
     graph.add_node("context_assembly", context_assembly_node)
     graph.add_node("rag_retrieval", rag_retrieval_node)
-    graph.add_node("classifier", active_classifier)  # v1: pre_router, v2: sonnet classifier
+    graph.add_node("classifier", classifier_node)  # Runtime: sonnet or pre_router
     graph.add_node("planner", planner_node)           # v2: conversation planner
     graph.add_node("agent_dispatch", agent_dispatch_node)
     graph.add_node("execute_confirmed", execute_confirmed_action)
