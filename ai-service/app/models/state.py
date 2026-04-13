@@ -83,5 +83,11 @@ class TomoChatState(MessagesState):
     pending_write_action: Optional[dict[str, Any]]
     write_confirmed: bool
 
+    # ── v2: Multi-agent workflows (populated by classifier + planner nodes) ──
+    _secondary_agents: list[str]  # Additional agents for multi-agent routing
+    _workflow_steps: Optional[list[tuple[str, str]]]  # [(agent, action)] from planner
+    _conversation_plan: Optional[dict[str, Any]]  # Full ConversationPlan dict from planner
+    _refresh_targets: list[str]  # UI refresh targets from agent execution
+
     # ── Observability (computed by persist_node for LangSmith) ──
     _observability: Optional[dict[str, Any]]

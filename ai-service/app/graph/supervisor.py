@@ -56,9 +56,9 @@ logger = logging.getLogger("tomo-ai.supervisor")
 
 # ── Routing Functions ──────────────────────────────────────────────
 
-def route_after_pre_router(state: TomoChatState) -> Literal["capsule", "confirm", "ai"]:
+def route_after_classifier(state: TomoChatState) -> Literal["capsule", "confirm", "ai"]:
     """
-    Conditional edge after pre_router_node.
+    Conditional edge after classifier node.
     Determines whether to go to capsule fast-path, confirm path, or full AI.
     """
     # Check if this is a write action confirmation
@@ -116,7 +116,7 @@ def build_supervisor_graph() -> StateGraph:
     # ── Conditional edge: pre_router → {capsule | confirm | rag → ai} ──
     graph.add_conditional_edges(
         "classifier",
-        route_after_pre_router,
+        route_after_classifier,
         {
             "capsule": "format_response",       # Capsule: skip agent + RAG, go straight to format
             "confirm": "execute_confirmed",      # Confirmed write: skip RAG, execute the pending action
@@ -195,6 +195,28 @@ async def run_supervisor(
 
     graph = get_supervisor()
 
+    # ── Cost limit check (v2) ────────────────────────────────────────
+    try:
+        from app.middleware.cost_tracker import (
+            get_user_spend, check_cost_limit, build_cost_limit_response,
+        )
+        daily_spent, monthly_spent = await get_user_spend(user_id)
+        cost_check = check_cost_limit(daily_spent, monthly_spent)
+        if not cost_check.allowed:
+            logger.warning(
+                f"Cost limit hit for {user_id}: daily=${daily_spent:.4f}, "
+                f"monthly=${monthly_spent:.4f}, reason={cost_check.reason}"
+            )
+            return {
+                "final_response": build_cost_limit_response(),
+                "session_id": session_id,
+                "total_cost_usd": 0.0,
+                "total_tokens": 0,
+                "latency_ms": 0.0,
+            }
+    except Exception as e:
+        logger.debug(f"Cost check skipped: {e}")  # Fail open — never block on cost check errors
+
     # Load conversation history + last agent for session continuity (graceful fallback)
     history_messages: list = []
     last_session_agent: str | None = None
@@ -246,6 +268,11 @@ async def run_supervisor(
         "memory_context": None,
         # Initialize multi-tenant
         "tenant_context": None,
+        # v2: Initialize workflow fields
+        "_secondary_agents": [],
+        "_workflow_steps": None,
+        "_conversation_plan": None,
+        "_refresh_targets": [],
         # Initialize observability (computed by persist_node for LangSmith)
         "_observability": None,
     }

@@ -44,10 +44,12 @@ class ScheduleItem(BaseModel):
     """Single item in a schedule list."""
     time: str
     title: str
-    event_type: str  # training | match | gym | study | exam | rest | personal_dev
+    event_type: str = Field(alias="type", default="training")  # training | match | gym | study | exam | rest
     intensity: Optional[str] = None
     clash: Optional[bool] = False
     notes: Optional[str] = None
+
+    model_config = {"populate_by_name": True}  # Accept both "type" and "event_type"
 
 
 class ScheduleListCard(BaseModel):
