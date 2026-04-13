@@ -121,6 +121,23 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Feedback loop scheduler failed to start: {e}")
 
+    # ── v2 Architecture Diagnostic ──────────────────────────────────
+    # Log exact env var values so deploy logs confirm v2 activation
+    _cv = os.environ.get("CLASSIFIER_VERSION", "NOT_SET")
+    _av = os.environ.get("AGENT_VERSION", "NOT_SET")
+    _ss = os.environ.get("SONNET_SHADOW", "NOT_SET")
+    logger.info(
+        f"[V2 CONFIG] CLASSIFIER_VERSION={repr(_cv)} "
+        f"AGENT_VERSION={repr(_av)} "
+        f"SONNET_SHADOW={repr(_ss)}"
+    )
+    if _cv != "sonnet":
+        logger.warning(
+            f"[V2 CONFIG] Sonnet classifier NOT active! "
+            f"CLASSIFIER_VERSION={repr(_cv)} (expected 'sonnet'). "
+            f"Check Railway env vars for extra quotes or spaces."
+        )
+
     logger.info(
         f"Tomo AI Service started | env={settings.environment} | port={settings.port}"
     )
