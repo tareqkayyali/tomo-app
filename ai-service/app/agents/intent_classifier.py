@@ -179,9 +179,18 @@ def _build_exact_match_map() -> dict[str, dict]:
           "how do my results compare", "percentile for my tests",
           "am i above average", "where do i rank"], "benchmark_comparison")
 
-    # Events
+    # Events / session building (37.5% fallthrough gap — these MUST exact match)
     _add(["add event", "create event", "new event", "add a session",
-          "build a session", "schedule training"], "create_event")
+          "build a session", "schedule training",
+          "build me a session", "build me a gym session",
+          "build me a training session", "create a session",
+          "create a training session", "plan a session",
+          "plan a training session", "schedule a session",
+          "schedule a workout", "add a training session",
+          "add training to my day", "set up a training session",
+          "set up a session", "add a workout",
+          "schedule a training session", "add session",
+          "new session", "create a workout"], "create_event")
     _add(["add an exam", "new exam", "i have an exam"], "add_exam")
 
     # Study
@@ -209,6 +218,16 @@ def _build_exact_match_map() -> dict[str, dict]:
     # Notifications
     _add(["show my notifications", "any notifications", "my alerts"], "view_notifications")
     _add(["mark all as read", "clear notifications"], "clear_notifications")
+
+    # Day/week planning (common fallthrough phrases)
+    _add(["plan my day", "plan for my day", "plan for today",
+          "plan today", "let's plan my day", "let's plan today",
+          "help me plan today", "what should i do today",
+          "organize my day", "plan out my day"], "today_briefing")
+    _add(["plan my week", "plan for this week", "plan this week",
+          "let's plan the week", "let's plan my week",
+          "help me plan my week", "organize my week",
+          "plan out my week", "plan for the week"], "qa_week_schedule")
 
     # Cross-feature
     _add(["daily briefing", "morning brief", "what's my day"], "today_briefing")

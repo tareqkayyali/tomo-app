@@ -205,8 +205,11 @@ TIEBREAKER_RULES: list[tuple[re.Pattern, AgentType]] = [
     (re.compile(r"periodization|training.*block|block.*phase", re.I), "training_program"),
     (re.compile(r"create.*block|sessions?\s*per\s*week", re.I), "training_program"),
     (re.compile(r"phv.*(?:safe|appropriate)|load.*override", re.I), "training_program"),
+    # Session building → timeline (create_event), NOT output
+    (re.compile(r"generat.*session|build.*session", re.I), "timeline"),
+    (re.compile(r"add.*session|create.*session|schedule.*session", re.I), "timeline"),
+    (re.compile(r"plan.*(?:my\s+)?day|plan.*today", re.I), "timeline"),
     # Output wins for:
-    (re.compile(r"generat.*session|build.*session", re.I), "output"),
     (re.compile(r"readiness|energy|sleep.*score|vitals", re.I), "output"),
     (re.compile(r"load|overload|acwr", re.I), "output"),
     (re.compile(r"drill|exercise|workout", re.I), "output"),

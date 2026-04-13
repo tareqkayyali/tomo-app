@@ -10,18 +10,15 @@ Graph flow:
   │  context_assembly ─── Populates player_context + aib_summary    │
   │    │                                                            │
   │    ▼                                                            │
-  │  rag_retrieval ─────── PropertyGraphIndex hybrid search         │
-  │    │                                                            │
-  │    ▼                                                            │
   │  pre_router ────────── Intent classify + agent route            │
   │    │                                                            │
   │    ├── capsule ──── format_response ──── persist ──── END       │
   │    │                                                            │
   │    ├── confirm ──── execute_confirmed ── validate ──┐           │
   │    │                                                │           │
-  │    └── ai ──────── agent_dispatch ──── validate ────┤           │
+  │    └── ai ──── rag_retrieval ── agent_dispatch ─────┤           │
   │                                                     │           │
-  │                                        format_response          │
+  │                                        validate ── format       │
   │                                              │                  │
   │                                           persist               │
   │                                              │                  │
@@ -99,19 +96,23 @@ def build_supervisor_graph() -> StateGraph:
     graph.set_entry_point("context_assembly")
 
     # ── Linear edges ──
-    graph.add_edge("context_assembly", "rag_retrieval")
-    graph.add_edge("rag_retrieval", "pre_router")
+    # pre_router runs BEFORE rag_retrieval so intent_id is set for RAG skip logic.
+    # Capsule/confirm paths skip RAG entirely (saves ~$0.003 per skip).
+    graph.add_edge("context_assembly", "pre_router")
 
-    # ── Conditional edge: pre_router → {capsule | confirm | ai} ──
+    # ── Conditional edge: pre_router → {capsule | confirm | rag → ai} ──
     graph.add_conditional_edges(
         "pre_router",
         route_after_pre_router,
         {
-            "capsule": "format_response",       # Capsule: skip agent, go straight to format
-            "confirm": "execute_confirmed",      # Confirmed write: execute the pending action
-            "ai": "agent_dispatch",              # Full AI: run agent with tools
+            "capsule": "format_response",       # Capsule: skip agent + RAG, go straight to format
+            "confirm": "execute_confirmed",      # Confirmed write: skip RAG, execute the pending action
+            "ai": "rag_retrieval",              # Full AI: RAG first, then agent dispatch
         },
     )
+
+    # ── RAG → Agent dispatch ──
+    graph.add_edge("rag_retrieval", "agent_dispatch")
 
     # ── Agent dispatch → validate ──
     graph.add_edge("agent_dispatch", "validate")

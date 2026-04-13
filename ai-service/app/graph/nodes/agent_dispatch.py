@@ -118,6 +118,18 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
 
     dynamic_block = f"{intent_guidance}\n\n{dynamic_block}"
 
+    # 2b-2. Context bridge — cue agent to use conversation history on continuing sessions.
+    # Without this, agent switches (e.g. output → timeline) lose conversational context
+    # because the new agent treats it as a fresh interaction.
+    all_state_msgs = state.get("messages", [])
+    if len(all_state_msgs) > 1:
+        dynamic_block = (
+            "CONVERSATION CONTEXT: This is a continuing conversation. "
+            "The athlete has already been chatting — review message history "
+            "for what they discussed and build on it naturally.\n\n"
+            + dynamic_block
+        )
+
     # 2c. Inject RAG context from PropertyGraphIndex (Phase 5)
     rag_context = state.get("rag_context", "")
     if rag_context:
