@@ -125,7 +125,7 @@ You are like the athlete's favorite coach — someone who genuinely knows them, 
 
 PERSONALITY & TONE:
 - Warm, friendly, relatable — like texting a cool older coach who actually cares
-- Use emojis naturally (2-4 per message)
+- Keep tone warm and relatable
 - Use the athlete's first name naturally
 - Be specific and direct — reference their ACTUAL numbers
 - Full mentor scope: training, recovery, mental wellness, motivation, nutrition, sleep, school-sport balance
@@ -142,7 +142,7 @@ ATHLETE PROFILE:
 - Sport: ${sport}
 - Current Streak: ${user.current_streak} days
 - Days Since Rest: ${user.days_since_rest}
-${archetypeDetail ? `- Archetype: ${archetypeDetail.name} ${archetypeDetail.emoji} — ${archetypeDetail.description}` : "- Archetype: Not yet assigned (needs 14+ check-ins)"}
+${archetypeDetail ? `- Archetype: ${archetypeDetail.name} — ${archetypeDetail.description}` : "- Archetype: Not yet assigned (needs 14+ check-ins)"}
 ${archetypeDetail ? `- Fatal Flaw: ${archetypeDetail.fatalFlaw}` : ""}
 
 RECENT CHECK-INS (last 5):
@@ -181,41 +181,41 @@ function generateRuleBasedResponse(
 
   // Pain override
   if (hasPain || /\b(pain|hurt|injury|injured|hurts)\b/i.test(userMessage)) {
-    return `Hey ${name} 🙏 If you're dealing with pain, your body is asking for a break. Rest up today — taking a day off now saves you weeks later. If it keeps up, definitely check in with a doctor or physio.`;
+    return `Hey ${name}, if you're dealing with pain, your body is asking for a break. Rest up today — taking a day off now saves you weeks later. If it keeps up, definitely check in with a doctor or physio.`;
   }
 
   // Red readiness
   if (readiness === "Red") {
-    return `${name}, your body is in the red zone today 🔴 Recovery is the priority — light stretching, lots of water, and an early night will help you bounce back. You've got this!`;
+    return `${name}, your body is in the red zone today. Recovery is the priority — light stretching, lots of water, and an early night will help you bounce back. You've got this!`;
   }
 
   switch (intent) {
     case INTENTS.LOG_WORKOUT:
-      return `Let's go ${name}! 🔥 Great work getting after it. Head to your daily check-in to log this session — it helps me dial in your recovery and next training plan perfectly.`;
+      return `Let's go ${name}! Great work getting after it. Head to your daily check-in to log this session — it helps me dial in your recovery and next training plan perfectly.`;
 
     case INTENTS.CHECK_IN:
       if (todayCheckin) {
-        return `Already checked in today, ${name}! 📊 Energy at ${todayCheckin.energy}/10, soreness at ${todayCheckin.soreness}/10.${archetypeDetail ? ` As a ${archetypeDetail.name} ${archetypeDetail.emoji}, ${archetypeDetail.calmMessage}` : ""}`;
+        return `Already checked in today, ${name}! Energy at ${todayCheckin.energy}/10, soreness at ${todayCheckin.soreness}/10.${archetypeDetail ? ` As a ${archetypeDetail.name}, ${archetypeDetail.calmMessage}` : ""}`;
       }
-      return `Hey ${name}! 👋 Head to the check-in screen to log your energy, soreness, and sleep — then I'll build you a personalized ${sport} plan! 🎯`;
+      return `Hey ${name}! Head to the check-in screen to log your energy, soreness, and sleep — then I'll build you a personalized ${sport} plan!`;
 
     case INTENTS.QUESTION_RECOVERY:
-      return `Great question, ${name}! Try 5-10 minutes of foam rolling on your tight spots — it makes a huge difference for ${sport} athletes 🧘${user.current_streak >= 7 ? ` You're on a ${user.current_streak}-day streak 🔥 — smart recovery keeps that going!` : ""}`;
+      return `Great question, ${name}! Try 5-10 minutes of foam rolling on your tight spots — it makes a huge difference for ${sport} athletes.${user.current_streak >= 7 ? ` You're on a ${user.current_streak}-day streak — smart recovery keeps that going!` : ""}`;
 
     case INTENTS.QUESTION_TRAINING:
       if (todayPlan) {
-        return `Your plan today is a ${todayPlan.intensity} ${todayPlan.workout_type} session, about ${todayPlan.duration} minutes ⚡ ${todayPlan.intensity === "light" ? "Keep it controlled and focus on technique 🎯" : "Bring the energy but listen to your body! 💪🔥"}`;
+        return `Your plan today is a ${todayPlan.intensity} ${todayPlan.workout_type} session, about ${todayPlan.duration} minutes. ${todayPlan.intensity === "light" ? "Keep it controlled and focus on technique." : "Bring the energy but listen to your body!"}`;
       }
-      return `Complete your daily check-in first, ${name}! Then I'll build you a personalized ${sport} session 🎯`;
+      return `Complete your daily check-in first, ${name}! Then I'll build you a personalized ${sport} session.`;
 
     case INTENTS.QUESTION_NUTRITION:
-      return `For ${sport}, carbs before training and protein within 30 mins after is the winning combo 🍌🥩 Every athlete is different — find what works for your body!`;
+      return `For ${sport}, carbs before training and protein within 30 mins after is the winning combo. Every athlete is different — find what works for your body!`;
 
     case INTENTS.QUESTION_ACADEMIC:
-      return `Balancing ${sport} and school is no joke, ${name} 📚⚡ Log your academic stress during check-in — I'll adjust your training plan so you don't burn out on both ends.`;
+      return `Balancing ${sport} and school is no joke, ${name}. Log your academic stress during check-in — I'll adjust your training plan so you don't burn out on both ends.`;
 
     default:
-      return `Hey ${name}! 👋 ${user.current_streak > 0 ? `${user.current_streak}-day streak going strong 🔥` : "Ready to start building a streak? 🚀"} What can I help with?`;
+      return `Hey ${name}! ${user.current_streak > 0 ? `${user.current_streak}-day streak going strong.` : "Ready to start building a streak?"} What can I help with?`;
   }
 }
 

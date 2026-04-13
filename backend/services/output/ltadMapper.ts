@@ -26,7 +26,7 @@ const STAGES: LTADStage[] = [
   {
     stageName: "FUNdamentals",
     stageKey: "fundamentals",
-    emoji: "🎮",
+    emoji: "",
     description: "All about having fun and learning to move. Try lots of different sports and activities — this builds your athletic base for everything that comes later.",
     trainingFocus: [
       "Try different sports",
@@ -40,7 +40,7 @@ const STAGES: LTADStage[] = [
   {
     stageName: "Learn to Train",
     stageKey: "learn_to_train",
-    emoji: "📚",
+    emoji: "",
     description: "Your brain is wired to pick up new skills right now. This is the golden window for learning technique — the moves you nail now will stick with you for life.",
     trainingFocus: [
       "Skill development",
@@ -54,7 +54,7 @@ const STAGES: LTADStage[] = [
   {
     stageName: "Train to Train",
     stageKey: "train_to_train",
-    emoji: "🔥",
+    emoji: "",
     description: "Your body is growing fast right now. Focus on building your aerobic engine and maintaining the skills you've learned. Don't rush heavy training — your body needs time to catch up.",
     trainingFocus: [
       "Aerobic fitness base",
@@ -68,7 +68,7 @@ const STAGES: LTADStage[] = [
   {
     stageName: "Train to Compete",
     stageKey: "train_to_compete",
-    emoji: "⚡",
+    emoji: "",
     description: "Your body is ready for real training intensity. This is when you start building serious strength and power. Time to train like a competitor.",
     trainingFocus: [
       "Strength & power development",
@@ -82,7 +82,7 @@ const STAGES: LTADStage[] = [
   {
     stageName: "Train to Win",
     stageKey: "train_to_win",
-    emoji: "🏆",
+    emoji: "",
     description: "You're physically mature — all systems go. Training is now about maximizing performance, refining your game, and peaking for competitions.",
     trainingFocus: [
       "Peak performance training",

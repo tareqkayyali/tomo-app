@@ -3,13 +3,13 @@ Tomo AI Service — Greeting Handler ($0 fast-path)
 Energy-matched greeting responses. No LLM call needed.
 
 Detects the vibe of the athlete's greeting and mirrors it:
-  🟢 HIGH ENERGY — caps, exclamation, hype keywords
-  🟡 NEUTRAL     — standard "hey", "yo", "what's up"
-  🔵 LOW ENERGY  — short one-word, quiet tone
-  🌙 LATE NIGHT  — after 10pm
-  🌅 EARLY MORNING — before 7am
-  🔁 RETURNING   — 5+ days since last session
-  🏆 POST MATCH  — match day or day after
+  HIGH ENERGY  — caps, exclamation, hype keywords
+  NEUTRAL      — standard "hey", "yo", "what's up"
+  LOW ENERGY   — short one-word, quiet tone
+  LATE NIGHT   — after 10pm
+  EARLY MORNING — before 7am
+  RETURNING    — 5+ days since last session
+  POST MATCH   — match day or day after
 
 Two hard rules:
   1. Never open with the athlete's name — "Hey James!" feels CRM, not friend

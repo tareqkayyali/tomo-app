@@ -165,8 +165,8 @@ export async function POST(req: NextRequest) {
       const friendlyName = toolName.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
       const safetyNote = safetyCheck.safetyMessage ? `\n\n${safetyCheck.safetyMessage}` : "";
       const message = toolResult.error
-        ? `❌ ${toolResult.error}`
-        : `✅ ${friendlyName} — done!${safetyNote}`;
+        ? `${toolResult.error}`
+        : `${friendlyName} — done!${safetyNote}`;
 
       // Save capsule result to session
       if (sessionId) {

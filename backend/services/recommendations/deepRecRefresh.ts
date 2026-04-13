@@ -573,7 +573,7 @@ PHV offset: ${se?.phvOffsetYears != null ? `${se.phvOffsetYears.toFixed(1)} year
 
   if (hasStaleCheckin) {
     sections.push(`--- READINESS STATE ---
-⚠️ NO FRESH CHECK-IN — Last check-in was ${checkinAgeHours != null ? `${Math.round(checkinAgeHours)}h ago` : 'NEVER'}.
+NO FRESH CHECK-IN — Last check-in was ${checkinAgeHours != null ? `${Math.round(checkinAgeHours)}h ago` : 'NEVER'}.
 The readiness values below are STALE and should NOT be used for training intensity or readiness recommendations.
 DO NOT recommend specific training intensities or readiness-based actions from this data.
 Instead: Your FIRST recommendation MUST be a READINESS rec telling the athlete to do their daily check-in (action: "Checkin", label: "Check In").
@@ -585,7 +585,7 @@ Stale components: ${ctx.readinessComponents
     : 'No components'}`);
   } else {
     sections.push(`--- READINESS STATE ---
-✅ Fresh check-in (${Math.round(checkinAgeHours!)}h ago)
+Fresh check-in (${Math.round(checkinAgeHours!)}h ago)
 Readiness: ${ctx.readinessScore || 'No check-in today'}
 Readiness score (0-100): ${se?.readinessScore ?? 'N/A'}
 Readiness RAG: ${se?.readinessRag ?? 'N/A'}

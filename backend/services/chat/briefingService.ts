@@ -69,9 +69,9 @@ export interface DailyBriefing {
 
 function buildGreeting(name: string, hour: number): string {
   const first = name?.split(" ")[0] || "champ";
-  if (hour < 12) return `gm ${first} ☀️`;
-  if (hour < 17) return `afternoon grind ${first} 💪`;
-  return `evening ${first} 🌙`;
+  if (hour < 12) return `gm ${first}`;
+  if (hour < 17) return `afternoon grind ${first}`;
+  return `evening ${first}`;
 }
 
 // ─── Readiness Label ────────────────────────────────────────────────────────
@@ -81,11 +81,11 @@ function getReadinessLabel(
 ): string {
   switch (status) {
     case "green":
-      return "Locked in 🟢";
+      return "Locked in";
     case "yellow":
-      return "Take it easy 🟡";
+      return "Take it easy";
     case "red":
-      return "Rest day 🔴";
+      return "Rest day";
     default:
       return "Check in to find out";
   }
@@ -129,7 +129,7 @@ function generateAlerts(
   if (user.days_since_rest >= 6) {
     alerts.push({
       type: "rest_needed",
-      emoji: "🛑",
+      emoji: "",
       message:
         user.days_since_rest >= 7
           ? `${user.days_since_rest} days straight — rest day is overdue`
@@ -143,7 +143,7 @@ function generateAlerts(
   if (acwr !== null && acwr > 1.3) {
     alerts.push({
       type: "acwr_warning",
-      emoji: "📈",
+      emoji: "",
       message: "Training load spiking — dial it back today",
       severity: "warn",
     });
@@ -153,7 +153,7 @@ function generateAlerts(
   if (todayCheckin?.pain_flag) {
     alerts.push({
       type: "pain_flag",
-      emoji: "🚨",
+      emoji: "",
       message: "You flagged pain — rest is the move today",
       severity: "critical",
     });
@@ -167,7 +167,7 @@ function generateAlerts(
   ) {
     alerts.push({
       type: "academic_stress",
-      emoji: "📚",
+      emoji: "",
       message: `Academic stress at ${todayCheckin.academic_stress}/10 — lighter session today`,
       severity: "warn",
     });
@@ -177,7 +177,7 @@ function generateAlerts(
   if (!hasCheckedIn && user.current_streak > 0 && localHour >= 16) {
     alerts.push({
       type: "streak_risk",
-      emoji: "🔥",
+      emoji: "",
       message: `${user.current_streak}-day streak at risk — check in before midnight`,
       severity: "info",
     });

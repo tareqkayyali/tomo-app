@@ -54,17 +54,17 @@ export interface WeeklyVitalsSummary {
 // ── Config ──────────────────────────────────────────────────────────────
 
 const METRIC_CONFIG: Record<string, { label: string; emoji: string; unit: string; color: string; direction: "higher_better" | "lower_better" }> = {
-  heart_rate: { label: "Heart Rate", emoji: "❤️", unit: "bpm", color: "#FF3B30", direction: "lower_better" },
-  hrv: { label: "HRV", emoji: "💓", unit: "ms", color: "#AF52DE", direction: "higher_better" },
-  resting_hr: { label: "Resting HR", emoji: "💗", unit: "bpm", color: "#FF6B6B", direction: "lower_better" },
-  recovery_score: { label: "Recovery Score", emoji: "🔋", unit: "%", color: "#30D158", direction: "higher_better" },
-  steps: { label: "Steps", emoji: "👣", unit: "steps", color: "#30D158", direction: "higher_better" },
-  calories: { label: "Active Cal", emoji: "🔥", unit: "kcal", color: "#FF9500", direction: "higher_better" },
-  blood_oxygen: { label: "SpO₂", emoji: "🫁", unit: "%", color: "#00D9FF", direction: "higher_better" },
-  sleep_hours: { label: "Sleep", emoji: "😴", unit: "hrs", color: "#6366F1", direction: "higher_better" },
-  body_temp: { label: "Body Temp", emoji: "🌡️", unit: "°C", color: "#FF6B35", direction: "lower_better" },
-  respiratory_rate: { label: "Resp Rate", emoji: "🌬️", unit: "/min", color: "#34C759", direction: "lower_better" },
-  vo2max: { label: "VO₂ Max", emoji: "🏃", unit: "ml/kg/min", color: "#007AFF", direction: "higher_better" },
+  heart_rate: { label: "Heart Rate", emoji: "", unit: "bpm", color: "#FF3B30", direction: "lower_better" },
+  hrv: { label: "HRV", emoji: "", unit: "ms", color: "#AF52DE", direction: "higher_better" },
+  resting_hr: { label: "Resting HR", emoji: "", unit: "bpm", color: "#FF6B6B", direction: "lower_better" },
+  recovery_score: { label: "Recovery Score", emoji: "", unit: "%", color: "#30D158", direction: "higher_better" },
+  steps: { label: "Steps", emoji: "", unit: "steps", color: "#30D158", direction: "higher_better" },
+  calories: { label: "Active Cal", emoji: "", unit: "kcal", color: "#FF9500", direction: "higher_better" },
+  blood_oxygen: { label: "SpO₂", emoji: "", unit: "%", color: "#00D9FF", direction: "higher_better" },
+  sleep_hours: { label: "Sleep", emoji: "", unit: "hrs", color: "#6366F1", direction: "higher_better" },
+  body_temp: { label: "Body Temp", emoji: "", unit: "°C", color: "#FF6B35", direction: "lower_better" },
+  respiratory_rate: { label: "Resp Rate", emoji: "", unit: "/min", color: "#34C759", direction: "lower_better" },
+  vo2max: { label: "VO₂ Max", emoji: "", unit: "ml/kg/min", color: "#007AFF", direction: "higher_better" },
 };
 
 // ── Core ────────────────────────────────────────────────────────────────
@@ -298,7 +298,7 @@ function buildCombinedStories(metrics: VitalMetricSummary[]): VitalStoryBlock[] 
     stories.push({
       storyId: "recovery_signal",
       title: "Recovery Signal",
-      emoji: "🔋",
+      emoji: "",
       status,
       statusColor: status === "strong" ? "#30D158" : status === "mixed" ? "#F39C12" : "#E74C3C",
       narrative: statusNarrative,
@@ -324,7 +324,7 @@ function buildCombinedStories(metrics: VitalMetricSummary[]): VitalStoryBlock[] 
     stories.push({
       storyId: "load_impact",
       title: "Training Load",
-      emoji: "⚡",
+      emoji: "",
       status,
       statusColor: status === "strong" ? "#30D158" : status === "mixed" ? "#F39C12" : "#E74C3C",
       narrative,
@@ -349,7 +349,7 @@ function buildCombinedStories(metrics: VitalMetricSummary[]): VitalStoryBlock[] 
     stories.push({
       storyId: "sleep_recovery",
       title: "Sleep & Recovery",
-      emoji: "🌙",
+      emoji: "",
       status,
       statusColor: status === "strong" ? "#30D158" : status === "mixed" ? "#F39C12" : "#E74C3C",
       narrative,
@@ -382,7 +382,7 @@ function buildCombinedStories(metrics: VitalMetricSummary[]): VitalStoryBlock[] 
     stories.push({
       storyId: "trend_summary",
       title: "Weekly Trend",
-      emoji: "📊",
+      emoji: "",
       status,
       statusColor: status === "strong" ? "#30D158" : status === "mixed" ? "#F39C12" : "#E74C3C",
       narrative: parts.join(". ") + ".",

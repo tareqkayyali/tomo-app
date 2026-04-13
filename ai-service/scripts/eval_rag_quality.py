@@ -10,10 +10,10 @@ Metrics:
   - Multi-Hop Success: Sub-question decomposition produces better results?
 
 Gate criteria:
-  ✅ PHV contraindication chain fully traversed (6 exercises + 6 alternatives)
-  ✅ Context precision ≥ 0.70
-  ✅ Context recall ≥ 0.80
-  ✅ Multi-hop queries produce relevant 2-hop results
+  [PASS] PHV contraindication chain fully traversed (6 exercises + 6 alternatives)
+  [PASS] Context precision >= 0.70
+  [PASS] Context recall >= 0.80
+  [PASS] Multi-hop queries produce relevant 2-hop results
 
 Usage:
   cd ai-service
@@ -276,32 +276,32 @@ async def main():
     print("=" * 70)
 
     # Gate Test: Contraindication chain
-    print("\n🔒 GATE TEST: PHV Contraindication Chain Traversal")
+    print("\n[GATE TEST] PHV Contraindication Chain Traversal")
     print("-" * 50)
     chain_result = await evaluate_contraindication_chain()
     if chain_result["passed"]:
-        print(f"  ✅ PASSED — {chain_result['exercises_found']}/6 exercises, "
+        print(f"  [PASS] PASSED — {chain_result['exercises_found']}/6 exercises, "
               f"{chain_result['alternatives_found']}/6 alternatives")
         print(f"  Body regions: {chain_result['body_regions']}")
     else:
-        print(f"  ❌ FAILED — {chain_result.get('reason', 'incomplete chain')}")
+        print(f"  [FAIL] FAILED — {chain_result.get('reason', 'incomplete chain')}")
         if "exercises_found" in chain_result:
             print(f"  Exercises: {chain_result['exercises_found']}/6")
             print(f"  Alternatives: {chain_result['alternatives_found']}/6")
 
     # Retrieval Cases
-    print(f"\n📊 RETRIEVAL EVALUATION — {len(EVAL_CASES)} cases")
+    print(f"\n[EVAL] RETRIEVAL EVALUATION — {len(EVAL_CASES)} cases")
     print("-" * 50)
 
     results: list[EvalResult] = []
     for case in EVAL_CASES:
         result = await evaluate_case(case)
         results.append(result)
-        status = "✅" if result.passed else "❌"
+        status = "[PASS]" if result.passed else "[FAIL]"
         print(f"  {status} {case.description}")
         print(f"     Recall: {result.recall:.2f} | Precision: {result.precision:.2f} | {result.latency_ms:.0f}ms")
         if result.notes:
-            print(f"     ⚠ {result.notes}")
+            print(f"     [WARN] {result.notes}")
 
     # Summary
     print("\n" + "=" * 70)
@@ -317,7 +317,7 @@ async def main():
     print(f"  Avg recall: {avg_recall:.2f}")
     print(f"  Avg precision: {avg_precision:.2f}")
     print(f"  Avg latency: {avg_latency:.0f}ms")
-    print(f"  Chain gate: {'✅ PASSED' if chain_result['passed'] else '❌ FAILED'}")
+    print(f"  Chain gate: {'PASSED' if chain_result['passed'] else 'FAILED'}")
     print(f"  Total time: {time.time() - t0:.1f}s")
 
     # Gate check
@@ -326,7 +326,7 @@ async def main():
         and avg_recall >= 0.50
         and passed_count >= len(results) * 0.7
     )
-    print(f"\n  {'🎯 PHASE 5 GATE: PASSED' if gate_passed else '⚠ PHASE 5 GATE: NEEDS WORK'}")
+    print(f"\n  {'PHASE 5 GATE: PASSED' if gate_passed else 'PHASE 5 GATE: NEEDS WORK'}")
     print("=" * 70)
 
     await close_client()

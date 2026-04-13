@@ -147,7 +147,7 @@ export interface RecommendationEngineConfig {
 
 export const BUILT_IN_RULES: Rule[] = [
   {
-    id: "acwr_danger", name: "ACWR Danger Zone", emoji: "🔴", enabled: true, builtIn: true,
+    id: "acwr_danger", name: "ACWR Danger Zone", emoji: "", enabled: true, builtIn: true,
     conditions: [{ field: "acwr", operator: ">", value: 1.5 }],
     actions: [
       { type: "reduce_load", value: "50" },
@@ -155,7 +155,7 @@ export const BUILT_IN_RULES: Rule[] = [
     ],
   },
   {
-    id: "acwr_high", name: "ACWR High Zone", emoji: "🟡", enabled: true, builtIn: true,
+    id: "acwr_high", name: "ACWR High Zone", emoji: "", enabled: true, builtIn: true,
     conditions: [{ field: "acwr", operator: ">", value: 1.3 }],
     actions: [
       { type: "reduce_load", value: "70" },
@@ -163,7 +163,7 @@ export const BUILT_IN_RULES: Rule[] = [
     ],
   },
   {
-    id: "readiness_red", name: "Readiness RED", emoji: "🔴", enabled: true, builtIn: true,
+    id: "readiness_red", name: "Readiness RED", emoji: "", enabled: true, builtIn: true,
     conditions: [{ field: "readinessRag", operator: "=", value: "RED" }],
     actions: [
       { type: "reduce_load", value: "50" },
@@ -174,7 +174,7 @@ export const BUILT_IN_RULES: Rule[] = [
     ],
   },
   {
-    id: "readiness_amber", name: "Readiness AMBER", emoji: "🟡", enabled: true, builtIn: true,
+    id: "readiness_amber", name: "Readiness AMBER", emoji: "", enabled: true, builtIn: true,
     conditions: [{ field: "readinessRag", operator: "=", value: "AMBER" }],
     actions: [
       { type: "reduce_load", value: "75" },
@@ -182,7 +182,7 @@ export const BUILT_IN_RULES: Rule[] = [
     ],
   },
   {
-    id: "hrv_suppressed", name: "HRV Suppressed", emoji: "💓", enabled: true, builtIn: true,
+    id: "hrv_suppressed", name: "HRV Suppressed", emoji: "", enabled: true, builtIn: true,
     conditions: [{ field: "hrvRatio", operator: "<", value: 0.7 }],
     actions: [
       { type: "reduce_load", value: "60" },
@@ -190,7 +190,7 @@ export const BUILT_IN_RULES: Rule[] = [
     ],
   },
   {
-    id: "hrv_mild", name: "HRV Mildly Suppressed", emoji: "💓", enabled: true, builtIn: true,
+    id: "hrv_mild", name: "HRV Mildly Suppressed", emoji: "", enabled: true, builtIn: true,
     conditions: [{ field: "hrvRatio", operator: "<", value: 0.85 }],
     actions: [
       { type: "reduce_load", value: "80" },
@@ -198,7 +198,7 @@ export const BUILT_IN_RULES: Rule[] = [
     ],
   },
   {
-    id: "sleep_poor", name: "Poor Sleep", emoji: "😴", enabled: true, builtIn: true,
+    id: "sleep_poor", name: "Poor Sleep", emoji: "", enabled: true, builtIn: true,
     conditions: [{ field: "sleepQuality", operator: "<", value: 5 }],
     actions: [
       { type: "reduce_load", value: "80" },
@@ -206,7 +206,7 @@ export const BUILT_IN_RULES: Rule[] = [
     ],
   },
   {
-    id: "dual_load_high", name: "Dual Load High", emoji: "⚖️", enabled: true, builtIn: true,
+    id: "dual_load_high", name: "Dual Load High", emoji: "", enabled: true, builtIn: true,
     conditions: [{ field: "dualLoadIndex", operator: ">", value: 80 }],
     actions: [
       { type: "reduce_load", value: "70" },
@@ -214,7 +214,7 @@ export const BUILT_IN_RULES: Rule[] = [
     ],
   },
   {
-    id: "injury_risk_high", name: "Injury Risk High", emoji: "🩹", enabled: true, builtIn: true,
+    id: "injury_risk_high", name: "Injury Risk High", emoji: "", enabled: true, builtIn: true,
     conditions: [{ field: "injuryRiskFlag", operator: "=", value: "high" }],
     actions: [
       { type: "reduce_load", value: "60" },
@@ -222,7 +222,7 @@ export const BUILT_IN_RULES: Rule[] = [
     ],
   },
   {
-    id: "training_age_beginner", name: "Training Age Beginner", emoji: "🌱", enabled: true, builtIn: true,
+    id: "training_age_beginner", name: "Training Age Beginner", emoji: "", enabled: true, builtIn: true,
     conditions: [{ field: "trainingAgeWeeks", operator: "<", value: 8 }],
     actions: [
       { type: "reduce_load", value: "70" },

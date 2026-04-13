@@ -18,8 +18,8 @@ const autoBlockSchema = z.object({
 
 // Marker used to identify system-generated blocks
 const AUTO_BLOCK_MARKER = "auto_block";
-const SCHOOL_TITLE = "🏫 School Hours";
-const SLEEP_TITLE = "😴 Sleep";
+const SCHOOL_TITLE = "School Hours";
+const SLEEP_TITLE = "Sleep";
 
 // ─── POST /api/v1/calendar/auto-block ──────────────────────────────────────
 
@@ -73,9 +73,9 @@ export async function POST(req: NextRequest) {
     for (const block of existingBlocks ?? []) {
       const startDate = new Date(block.start_at);
       const localDate = startDate.toLocaleDateString("en-CA", { timeZone: tz });
-      if (block.title.startsWith("🏫")) {
+      if (block.title.startsWith("School")) {
         existingSchoolByDate.set(localDate, block.id);
-      } else if (block.title.startsWith("😴")) {
+      } else if (block.title.startsWith("Sleep")) {
         existingSleepByDate.set(localDate, block.id);
       }
     }

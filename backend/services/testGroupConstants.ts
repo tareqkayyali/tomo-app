@@ -19,37 +19,37 @@ export interface TestGroupDef {
 
 export const TEST_GROUPS: TestGroupDef[] = [
   {
-    groupId: "speed_acceleration", displayName: "Speed & Acceleration", emoji: "⚡",
+    groupId: "speed_acceleration", displayName: "Speed & Acceleration", emoji: "",
     colorTheme: "yellow", priority: 1,
     athleteDescription: "How fast you explode off the mark and reach top pace. The first 10m usually wins or loses the ball.",
   },
   {
-    groupId: "power_explosiveness", displayName: "Power & Explosiveness", emoji: "💥",
+    groupId: "power_explosiveness", displayName: "Power & Explosiveness", emoji: "",
     colorTheme: "orange", priority: 2,
     athleteDescription: "How explosively your muscles work — winning headers, sharp direction changes, and leaping for goal.",
   },
   {
-    groupId: "agility_cod", displayName: "Agility & Change of Direction", emoji: "🔀",
+    groupId: "agility_cod", displayName: "Agility & Change of Direction", emoji: "",
     colorTheme: "teal", priority: 3,
     athleteDescription: "How quickly you stop, turn, and re-accelerate. The harder you are to defend against.",
   },
   {
-    groupId: "aerobic_endurance", displayName: "Aerobic Engine", emoji: "🫁",
+    groupId: "aerobic_endurance", displayName: "Aerobic Engine", emoji: "",
     colorTheme: "blue", priority: 4,
     athleteDescription: "Your engine size — how long you can keep going at high intensity without fading.",
   },
   {
-    groupId: "strength", displayName: "Strength", emoji: "💪",
+    groupId: "strength", displayName: "Strength", emoji: "",
     colorTheme: "red", priority: 5,
     athleteDescription: "Your raw force production — the foundation that supports speed, power, and injury resistance.",
   },
   {
-    groupId: "mobility_movement", displayName: "Mobility & Movement Quality", emoji: "🧘",
+    groupId: "mobility_movement", displayName: "Mobility & Movement Quality", emoji: "",
     colorTheme: "green", priority: 6,
     athleteDescription: "How well your body moves through its full range — protects joints and unlocks athletic potential.",
   },
   {
-    groupId: "body_composition", displayName: "Body Composition", emoji: "📐",
+    groupId: "body_composition", displayName: "Body Composition", emoji: "",
     colorTheme: "purple", priority: 7,
     athleteDescription: "Your body's physical makeup — the structural foundation everything else is built on.",
   },

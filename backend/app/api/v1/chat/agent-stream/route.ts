@@ -98,8 +98,8 @@ export async function POST(req: NextRequest) {
             const refreshTargets = toolResult.refreshTarget ? [toolResult.refreshTarget] : [];
             const friendlyName = ca.toolName.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
             const resultMsg = toolResult.error
-              ? `❌ ${toolResult.error}`
-              : `✅ ${friendlyName} — done!`;
+              ? `${toolResult.error}`
+              : `${friendlyName} — done!`;
 
             if (sessionId) {
               await saveMessage(sessionId, auth.user.id, "assistant", resultMsg).catch(() => {});

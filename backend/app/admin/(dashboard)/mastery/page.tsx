@@ -217,26 +217,26 @@ export default function MasteryPillarsPage() {
             <div>
               <span className="font-medium text-foreground">Radar Mapping:</span>
               <div className="text-muted-foreground mt-1 space-y-0.5">
-                <div>🟡 PAC ← Speed &amp; Acceleration</div>
-                <div>🟠 POW ← Power &amp; Explosiveness</div>
-                <div>🔵 AGI ← Agility &amp; CoD</div>
+                <div>PAC - Speed &amp; Acceleration</div>
+                <div>POW - Power &amp; Explosiveness</div>
+                <div>AGI - Agility &amp; CoD</div>
               </div>
             </div>
             <div>
               <span className="font-medium text-foreground">&nbsp;</span>
               <div className="text-muted-foreground mt-1 space-y-0.5">
-                <div>🔷 END ← Aerobic Engine</div>
-                <div>🔴 STR ← Strength</div>
-                <div>🟢 MOB ← Mobility + Body Comp</div>
+                <div>END - Aerobic Engine</div>
+                <div>STR - Strength</div>
+                <div>MOB - Mobility + Body Comp</div>
               </div>
             </div>
             <div>
               <span className="font-medium text-foreground">Tier Thresholds:</span>
               <div className="text-muted-foreground mt-1 space-y-0.5">
-                <div>🥉 Bronze: 0–29</div>
-                <div>🥈 Silver: 30–59</div>
-                <div>🥇 Gold: 60–84</div>
-                <div>💎 Diamond: 85+</div>
+                <div>Bronze: 0-29</div>
+                <div>Silver: 30-59</div>
+                <div>Gold: 60-84</div>
+                <div>Diamond: 85+</div>
               </div>
             </div>
           </div>
