@@ -4,7 +4,10 @@
 -- Phases: general_prep → specific_prep → competition → transition
 -- Referenced by training_program_tools.py (Sprint 4 agent layer).
 
-CREATE TABLE IF NOT EXISTS training_blocks (
+-- Drop partial table from failed first run (FK to non-existent "programs" table)
+DROP TABLE IF EXISTS training_blocks CASCADE;
+
+CREATE TABLE training_blocks (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name          text NOT NULL,
@@ -13,7 +16,7 @@ CREATE TABLE IF NOT EXISTS training_blocks (
   end_date      date NOT NULL,
   duration_weeks integer NOT NULL CHECK (duration_weeks BETWEEN 1 AND 16),
   week_number   integer NOT NULL DEFAULT 1,
-  program_id    uuid REFERENCES programs(id) ON DELETE SET NULL,
+  program_id    uuid,  -- references football_training_programs; no FK constraint (table may be seeded separately)
   goals         jsonb,
   load_targets  jsonb,
   status        text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
