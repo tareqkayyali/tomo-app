@@ -177,11 +177,33 @@ async def classify_with_sonnet(
 
         data = json.loads(raw)
 
+        # Enforce v2 agent names — map any v1 names the LLM might return
+        _V1_TO_V2 = {
+            "output": "performance", "testing_benchmark": "performance",
+            "recovery": "performance", "training_program": "performance",
+            "timeline": "planning", "dual_load": "planning",
+            "mastery": "identity", "cv_identity": "identity",
+        }
+        _VALID_V2 = {"performance", "planning", "identity", "settings"}
+        raw_agent = data.get("agent", "performance").lower().strip()
+        safe_agent = _V1_TO_V2.get(raw_agent, raw_agent)
+        if safe_agent not in _VALID_V2:
+            logger.warning(f"Sonnet returned unknown agent '{raw_agent}', defaulting to performance")
+            safe_agent = "performance"
+
+        raw_second = data.get("requires_second_agent")
+        safe_second = None
+        if raw_second:
+            raw_second = raw_second.lower().strip()
+            safe_second = _V1_TO_V2.get(raw_second, raw_second)
+            if safe_second not in _VALID_V2:
+                safe_second = None
+
         result = SonnetClassificationResult(
-            agent=data.get("agent", "performance"),
+            agent=safe_agent,
             intent=data.get("intent", "unknown"),
             confidence=float(data.get("confidence", 0.8)),
-            requires_second_agent=data.get("requires_second_agent"),
+            requires_second_agent=safe_second,
             capsule_type=data.get("capsule_type"),
             classification_layer="sonnet",
             latency_ms=elapsed_ms,

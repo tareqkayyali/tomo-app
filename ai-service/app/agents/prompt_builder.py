@@ -1426,9 +1426,15 @@ def build_system_prompt(
 
     # v2: Performance agent uses intent-aware prompt trimming to stay under budget
     import inspect
-    if "intent_id" in inspect.signature(agent_static_fn).parameters:
-        agent_static = agent_static_fn(intent_id=intent_id or "")
-    else:
+    try:
+        sig = inspect.signature(agent_static_fn)
+        if "intent_id" in sig.parameters:
+            agent_static = agent_static_fn(intent_id=intent_id or "")
+        else:
+            agent_static = agent_static_fn()
+    except (ValueError, TypeError):
+        # inspect.signature can fail on built-ins or wrapped functions
+        logger.warning(f"Prompt builder: signature check failed for {agent_type}, using default call")
         agent_static = agent_static_fn()
 
     static_parts = [

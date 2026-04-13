@@ -67,14 +67,12 @@ export async function POST(req: NextRequest) {
         }
 
         // ── Capsule actions → Python AI service (v2: single write path) ──
-        // Previously executed in TS directly. Now forwarded to Python where
-        // the classifier handles them via the capsule fast-path ($0, no LLM).
-        // This ensures all writes go through one pipeline with safety gates,
-        // cost tracking, and audit logging.
+        // Forwarded to Python as confirmed_action for unified safety + audit pipeline.
         if (body.capsuleAction) {
           logger.info(`[capsule→python] Forwarding ${body.capsuleAction.toolName} to AI service`);
-          // Fall through to Python proxy below — capsuleAction is passed as confirmed_action
-          body.confirmedAction = body.capsuleAction;
+          // Normalize shape: strip capsule-specific 'type' field, keep only confirmedAction fields
+          const { toolName, toolInput, agentType } = body.capsuleAction;
+          body.confirmedAction = { toolName, toolInput, agentType };
         }
 
         // ── Python AI service — all non-capsule traffic ──
