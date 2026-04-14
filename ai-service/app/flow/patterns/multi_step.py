@@ -43,6 +43,72 @@ FOCUS_AREAS = [
     {"label": "Recovery", "value": "recovery", "description": "Active recovery and mobility"},
 ]
 
+# Synonyms mapped to a canonical focus value. Order: most specific first so
+# "sprint acceleration" → speed (not endurance via "aerobic" etc.). The goal is
+# to catch the athlete's stated intent from a free-text opener like
+# "I want to do some technical drills tomorrow" without waiting for a
+# pick_focus card.
+_FOCUS_SYNONYMS: list[tuple[str, str]] = [
+    # Technical
+    ("technical drill", "technical"),
+    ("technical", "technical"),
+    ("skill work", "technical"),
+    ("ball work", "technical"),
+    ("ball mastery", "technical"),
+    ("first touch", "technical"),
+    ("passing drill", "technical"),
+    ("shooting drill", "technical"),
+    ("skills session", "technical"),
+    ("skills", "technical"),
+    # Speed
+    ("acceleration", "speed"),
+    ("sprint", "speed"),
+    ("speed session", "speed"),
+    ("speed work", "speed"),
+    ("speed", "speed"),
+    ("max velocity", "speed"),
+    # Strength
+    ("gym session", "strength"),
+    ("gym", "strength"),
+    ("lift", "strength"),
+    ("weights", "strength"),
+    ("strength", "strength"),
+    ("resistance", "strength"),
+    # Agility
+    ("change of direction", "agility"),
+    ("cod drill", "agility"),
+    ("footwork", "agility"),
+    ("agility", "agility"),
+    # Endurance
+    ("conditioning", "endurance"),
+    ("aerobic", "endurance"),
+    ("cardio", "endurance"),
+    ("endurance", "endurance"),
+    ("long run", "endurance"),
+    # Recovery
+    ("active recovery", "recovery"),
+    ("mobility", "recovery"),
+    ("recovery", "recovery"),
+    ("foam roll", "recovery"),
+    ("stretching", "recovery"),
+]
+
+
+def _extract_focus_from_message(msg: str) -> Optional[str]:
+    """Best-effort parse of the user's stated training focus.
+
+    Returns a canonical focus value (one of FOCUS_AREAS values) or None.
+    Matching is substring-based on a lowered message against the ordered
+    synonym list so the first (most specific) hit wins.
+    """
+    if not msg:
+        return None
+    lowered = msg.lower()
+    for phrase, canonical in _FOCUS_SYNONYMS:
+        if phrase in lowered:
+            return canonical
+    return None
+
 
 async def execute_multi_step_start(config: FlowConfig, state: TomoChatState) -> dict:
     """Start a new multi-step flow. Creates FlowState and executes step 0.
@@ -78,6 +144,19 @@ async def execute_multi_step_start(config: FlowConfig, state: TomoChatState) -> 
     target_date = _extract_date_from_message(state)
     if target_date:
         flow.store("target_date", target_date)
+
+    # Extract stated focus from the opening message. If the user said
+    # "technical drills tomorrow" we should never ask them to pick a focus
+    # again, and the fork (existing sessions) should filter to matching events.
+    opening_msg = _get_user_message(state)
+    stated_focus = _extract_focus_from_message(opening_msg)
+    if stated_focus:
+        flow.store("selected_focus", stated_focus)
+        flow.store("focus_was_stated", True)
+        logger.info(
+            f"Multi-step: focus '{stated_focus}' extracted from opener "
+            f"(intent={flow.intent_id})"
+        )
 
     # Execute step 0 (and possibly auto-advance through tool/fork steps)
     result = await _execute_current_step(flow, state)
@@ -137,15 +216,21 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
 
     # ── Handle user selection for choice steps ──
     if current.card == "choice_card":
-        selection = _match_selection(user_message, flow)
-        if selection:
-            flow.store(f"step_{current.id}_selection", selection)
-            if current.id == "pick_focus":
-                flow.store("selected_focus", selection)
+        # If this is pick_focus and the athlete already stated a focus
+        # upfront, we should never be standing on this step in the first
+        # place. Skip it silently and let _execute_current_step auto-advance.
+        if current.id == "pick_focus" and flow.get("selected_focus"):
             flow.advance()
         else:
-            # User said something that doesn't match options -- re-present
-            return await _present_step(flow, state)
+            selection = _match_selection(user_message, flow)
+            if selection:
+                flow.store(f"step_{current.id}_selection", selection)
+                if current.id == "pick_focus":
+                    flow.store("selected_focus", selection)
+                flow.advance()
+            else:
+                # User said something that doesn't match options -- re-present
+                return await _present_step(flow, state)
 
     # Handle confirmation step
     elif current.card == "confirm_card":
@@ -215,6 +300,16 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
 
         # Choice card step: present options and wait for user
         if step.card == "choice_card":
+            # Skip pick_focus entirely if the athlete already stated a focus
+            # in the opening message ("I want technical drills tomorrow").
+            # Never ask them twice.
+            if step.id == "pick_focus" and flow.get("selected_focus"):
+                logger.info(
+                    f"Multi-step: skipping pick_focus, selected_focus="
+                    f"{flow.get('selected_focus')}"
+                )
+                flow.advance()
+                continue
             return await _present_step(flow, state)
 
         # Session plan card: build and present
@@ -271,8 +366,39 @@ async def _call_step_tool(step: StepDefinition, flow: FlowState, state: TomoChat
         return None
 
 
+def _event_matches_focus(event: dict, focus: str) -> bool:
+    """Does a calendar event match the athlete's stated training focus?
+
+    Checks event title/category against focus synonyms. Used so the fork
+    only offers existing sessions that actually line up with what the
+    athlete asked for.
+    """
+    if not focus:
+        return True
+    hay = " ".join([
+        str(event.get("title", "")),
+        str(event.get("category", "")),
+        str(event.get("subtype", "")),
+        str(event.get("notes", "")),
+    ]).lower()
+    if focus in hay:
+        return True
+    # Check focus synonyms
+    for phrase, canonical in _FOCUS_SYNONYMS:
+        if canonical == focus and phrase in hay:
+            return True
+    return False
+
+
 def _evaluate_fork(step: StepDefinition, flow: FlowState) -> dict:
-    """Evaluate a fork condition against context_carry data."""
+    """Evaluate a fork condition against context_carry data.
+
+    If the athlete stated a focus in their opening message
+    (`selected_focus` + `focus_was_stated`), we filter existing training
+    events to ones matching that focus. If nothing matches, we skip the
+    fork entirely and route straight to build_drills -- no point asking
+    "build for Speed Session?" when they said "technical drills".
+    """
     condition = step.condition
 
     if condition == "existing_training_sessions":
@@ -284,8 +410,23 @@ def _evaluate_fork(step: StepDefinition, flow: FlowState) -> dict:
             if e.get("event_type") in ("training", "match")
         ]
 
+        # If the athlete stated a focus, only offer events matching it.
+        stated_focus = flow.get("selected_focus") if flow.get("focus_was_stated") else None
+        if stated_focus:
+            matched = [e for e in training_events if _event_matches_focus(e, stated_focus)]
+            if not matched:
+                # No existing events line up with the stated focus --
+                # skip the fork and go straight to building a new session.
+                flow.store("fork_choice", "new")
+                logger.info(
+                    f"Multi-step: focus '{stated_focus}' stated, no matching "
+                    f"events -- skipping fork"
+                )
+                return {"needs_choice": False, "choice": "new"}
+            training_events = matched
+
         if training_events:
-            # Build choices from existing events
+            # Build choices from (optionally filtered) existing events
             options = []
             for ev in training_events:
                 title = ev.get("title", "Session")
@@ -302,11 +443,42 @@ def _evaluate_fork(step: StepDefinition, flow: FlowState) -> dict:
             })
             return {"needs_choice": True, "options": options}
         else:
-            # No existing sessions -- skip to focus picker
+            # No existing sessions -- skip to focus picker (or straight to
+            # build_drills if focus already stated)
             flow.store("fork_choice", "new")
             return {"needs_choice": False, "choice": "new"}
 
     return {"needs_choice": False}
+
+
+async def _warm_text(
+    step_kind: str,
+    flow_context: dict,
+    state: TomoChatState,
+    fallback_headline: str,
+    fallback_body: str = "",
+) -> tuple[str, str]:
+    """Try to generate a warm headline/body via Haiku. Fall back to static
+    text on any failure, disabled flag, or timeout. Always returns a tuple.
+    """
+    context = state.get("player_context")
+    try:
+        from app.flow.patterns.text_generator import generate_flow_step_text
+        result = await generate_flow_step_text(
+            step_kind=step_kind,
+            flow_context=flow_context,
+            player_name=getattr(context, "name", "") or "",
+            sport=getattr(context, "sport", "") or "",
+            position=getattr(context, "position", "") or "",
+            age_band=getattr(context, "age_band", "") or "",
+        )
+    except Exception as e:
+        logger.debug(f"Warm text helper failed: {e}")
+        result = None
+
+    if result and result.get("headline"):
+        return result["headline"], result.get("body", "") or fallback_body
+    return fallback_headline, fallback_body
 
 
 async def _present_step(flow: FlowState, state: TomoChatState) -> dict:
@@ -330,11 +502,28 @@ async def _present_step(flow: FlowState, state: TomoChatState) -> dict:
         "pick_focus": "What's the focus?",
         "fork": "What do you want to do?",
     }
-    headline = headline_map.get(step.id, "Pick one")
+    fallback_headline = headline_map.get(step.id, "Pick one")
+
+    # Warm text for pick_focus; fork is handled by _present_fork_choice.
+    if step.id == "pick_focus":
+        headline, body = await _warm_text(
+            step_kind="pick_focus",
+            flow_context={
+                "available_focuses": ", ".join(a["label"] for a in FOCUS_AREAS),
+                "target_date": flow.get("target_date", ""),
+                "readiness": flow.get("readiness", ""),
+            },
+            state=state,
+            fallback_headline=fallback_headline,
+            fallback_body="",
+        )
+    else:
+        headline = fallback_headline
+        body = ""
 
     structured = {
         "headline": headline,
-        "body": "",
+        "body": body,
         "cards": [{
             "type": "choice_card",
             "options": [
@@ -366,9 +555,22 @@ async def _present_fork_choice(flow: FlowState, fork_result: dict, state: TomoCh
     """Present a fork's choice options as a choice_card."""
     options = fork_result.get("options", [])
 
+    existing_titles = [o.get("label", "") for o in options if o.get("value") != "new"]
+    headline, body = await _warm_text(
+        step_kind="fork",
+        flow_context={
+            "existing_sessions": "; ".join(existing_titles) if existing_titles else "none",
+            "target_date": flow.get("target_date", ""),
+            "stated_focus": flow.get("selected_focus", "") if flow.get("focus_was_stated") else "",
+        },
+        state=state,
+        fallback_headline="What do you want to do?",
+        fallback_body="",
+    )
+
     structured = {
-        "headline": "What do you want to do?",
-        "body": "",
+        "headline": headline,
+        "body": body,
         "cards": [{
             "type": "choice_card",
             "options": [
@@ -437,12 +639,28 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
             "description": d.get("description", ""),
         })
 
-    headline = f"{focus.title()} session -- {len(drills)} drills"
+    fallback_headline = f"{focus.title()} session -- {len(drills)} drills"
     total_min = sum(d.get("duration_min", 0) for d in drills)
+    fallback_body = f"About {total_min} minutes total. Ready to lock this in?"
+
+    headline, body = await _warm_text(
+        step_kind="session_plan",
+        flow_context={
+            "focus": focus,
+            "drill_count": len(drills),
+            "total_minutes": total_min,
+            "intensity": result.get("intensity", "MODERATE"),
+            "target_date": flow.get("target_date", ""),
+            "readiness": flow.get("readiness", ""),
+        },
+        state=state,
+        fallback_headline=fallback_headline,
+        fallback_body=fallback_body,
+    )
 
     structured = {
         "headline": headline,
-        "body": f"About {total_min} minutes total. Ready to lock this in?",
+        "body": body,
         "cards": [{
             "type": "session_plan",
             "category": focus,
@@ -480,7 +698,7 @@ async def _present_confirm(flow: FlowState, state: TomoChatState) -> dict:
     focus = flow.get("selected_focus", "training")
     target_date = flow.get("target_date") or flow.get("today_date", "")
 
-    headline = f"Add {focus} session to your timeline?"
+    fallback_card_headline = f"Add {focus} session to your timeline?"
 
     # Build confirm card items
     items = []
@@ -496,13 +714,26 @@ async def _present_confirm(flow: FlowState, state: TomoChatState) -> dict:
     from app.flow.card_builders.schedule import _format_date
     date_display = _format_date(target_date) if target_date else ""
 
+    card_headline, card_body = await _warm_text(
+        step_kind="confirm",
+        flow_context={
+            "focus": focus,
+            "drill_count": len(drills.get("drills", [])),
+            "total_minutes": total_min,
+            "date": date_display,
+        },
+        state=state,
+        fallback_headline=fallback_card_headline,
+        fallback_body=f"{date_display} -- {total_min} minutes",
+    )
+
     structured = {
         "headline": "",
         "body": "",
         "cards": [{
             "type": "confirm_card",
-            "headline": headline,
-            "body": f"{date_display} -- {total_min} minutes",
+            "headline": card_headline,
+            "body": card_body,
             "items": items,
             "confirm_label": "Confirm",
             "cancel_label": "Cancel",
