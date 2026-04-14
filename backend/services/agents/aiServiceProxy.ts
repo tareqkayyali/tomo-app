@@ -210,11 +210,26 @@ export async function proxyToAIServiceSync(
 
     const data = await response.json();
     const elapsed = Date.now() - t0;
-    logger.info("[ai-proxy] Sync complete", { elapsed_ms: elapsed });
+
+    // If Python supervisor crashed, log the full traceback to Railway tomo-app logs.
+    // This is visible in Railway deploy logs for tomo-app even when Python logs aren't.
+    const structured = data.structured ?? null;
+    if (structured?._debug_error) {
+      logger.error("[ai-proxy] PYTHON SUPERVISOR CRASH", {
+        player_id: request.player_id,
+        message: request.message,
+        session_id: request.session_id,
+        debug_error: structured._debug_error,
+        debug_traceback: structured._debug_traceback,
+        elapsed_ms: elapsed,
+      });
+    } else {
+      logger.info("[ai-proxy] Sync complete", { elapsed_ms: elapsed });
+    }
 
     return {
       message: data.message,
-      structured: data.structured ?? null,
+      structured,
       sessionId: data.session_id || data.sessionId,
       refreshTargets: data.refresh_targets || data.refreshTargets || [],
       pendingConfirmation:
