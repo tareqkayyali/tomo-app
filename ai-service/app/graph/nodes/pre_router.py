@@ -36,7 +36,7 @@ logger = logging.getLogger("tomo-ai.pre_router")
 
 # Feature flag: set CLASSIFIER_VERSION=sonnet to use Sonnet as primary (Phase 2)
 # Default: shadow mode (Sonnet runs in background, Haiku+regex is primary)
-_CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "haiku")
+_CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "sonnet")
 # Shadow mode: set SONNET_SHADOW=true to enable shadow comparison logging
 _SONNET_SHADOW = os.environ.get("SONNET_SHADOW", "true").lower() == "true"
 

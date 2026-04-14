@@ -5,8 +5,7 @@ Unified intent classification node that supports both v1 and v2 classifiers:
   v1 (CLASSIFIER_VERSION=haiku): 3-layer Haiku+regex (existing pre_router_node)
   v2 (CLASSIFIER_VERSION=sonnet): 2-layer exact-match + Sonnet
 
-Feature-flagged for safe rollout. Default: v1 (haiku) until shadow mode
-confirms Sonnet routing is superior.
+Default: v2 (sonnet). Override with CLASSIFIER_VERSION=haiku to fall back.
 
 This node replaces pre_router_node when CLASSIFIER_VERSION=sonnet.
 """
@@ -30,7 +29,7 @@ from app.utils.message_helpers import get_msg_type, get_msg_content
 
 logger = logging.getLogger("tomo-ai.classifier_node")
 
-_CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "haiku")
+_CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "sonnet")
 
 # v1→v2 agent name mapping
 _V1_TO_V2 = {
