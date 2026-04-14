@@ -741,13 +741,17 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
     drills = result.get("drills", [])
     card_items = []
     for d in drills:
+        # Coerce drill id to str -- DB layer returns UUID objects which
+        # are not JSON serializable. Same defense applies to any other
+        # opaque id types the tool may return in the future.
+        raw_drill_id = d.get("id") or d.get("drill_id")
         card_items.append({
             "name": d.get("name", "Drill"),
             "category": d.get("category", "training"),
             "duration": d.get("duration_min", 10),
             "intensity": d.get("intensity", "MODERATE"),
             "reason": d.get("description", ""),
-            "drillId": d.get("id") or d.get("drill_id"),
+            "drillId": str(raw_drill_id) if raw_drill_id is not None else None,
         })
 
     fallback_headline = f"{focus.title()} session -- {len(drills)} drills"

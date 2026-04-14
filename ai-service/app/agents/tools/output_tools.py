@@ -320,7 +320,13 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
         drills = [
             {
-                "drill_id": row[0],
+                # Coerce UUID -> str at the tool boundary. The DB driver
+                # returns uuid.UUID objects which aren't JSON serializable,
+                # and every downstream consumer (multi_step card builder,
+                # LLM tool_message payload, format_response, mobile) needs
+                # a plain string. Root-cause fix here means no defensive
+                # coercion scattered across the pipeline.
+                "drill_id": str(row[0]) if row[0] is not None else None,
                 "name": row[1],
                 "category": row[2],
                 "duration_min": row[3] or 15,
@@ -392,7 +398,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             return {"error": f"Drill {drill_id} not found"}
 
         return {
-            "drill_id": row[0],
+            "drill_id": str(row[0]) if row[0] is not None else None,
             "name": row[1],
             "category": row[2],
             "duration_min": row[3] or 15,
@@ -428,7 +434,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
         programs = [
             {
-                "program_id": row[0],
+                "program_id": str(row[0]) if row[0] is not None else None,
                 "name": row[1],
                 "category": row[2],
                 "type": row[3],
@@ -584,7 +590,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                 phv_guidance = {}
 
         return {
-            "program_id": prog_row[0],
+            "program_id": str(prog_row[0]) if prog_row[0] is not None else None,
             "name": prog_row[1],
             "category": prog_row[2],
             "type": prog_row[3],
@@ -658,7 +664,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
         events = [
             {
-                "event_id": row[0],
+                "event_id": str(row[0]) if row[0] is not None else None,
                 "title": row[1],
                 "type": row[2],
                 "start": row[3],

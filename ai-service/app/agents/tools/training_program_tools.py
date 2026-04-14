@@ -81,7 +81,7 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
         programs = []
         for row in rows:
             program = {
-                "program_id": row[0],
+                "program_id": str(row[0]) if row[0] is not None else None,
                 "name": row[1],
                 "category": row[2],
                 "type": row[3],
@@ -196,7 +196,7 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
 
         programs = [
             {
-                "program_id": row[0],
+                "program_id": str(row[0]) if row[0] is not None else None,
                 "name": row[1],
                 "category": row[2],
                 "type": row[3],
@@ -246,7 +246,7 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
 
         blocks = [
             {
-                "block_id": row[0],
+                "block_id": str(row[0]) if row[0] is not None else None,
                 "name": row[1],
                 "phase": row[2],
                 "status": row[3],
