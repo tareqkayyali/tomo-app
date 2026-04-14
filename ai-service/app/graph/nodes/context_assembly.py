@@ -715,6 +715,14 @@ async def build_player_context(
             active_tab=active_tab,
             last_user_message=last_user_message,
             timezone=timezone_str,
+            temporal_context=_build_temporal_context(
+                current_time=now.strftime("%H:%M"),
+                today_events=[],
+                exams=[],
+                latest_checkin=None,
+                academic_load_score=0.0,
+                tz_name=timezone_str,
+            ),
         )
 
     tz = timezone_str or "UTC"
