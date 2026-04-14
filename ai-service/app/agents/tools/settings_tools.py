@@ -54,7 +54,7 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
 
         goals = [
             {
-                "id": row[0], "title": row[1], "description": row[2],
+                "id": str(row[0]), "title": row[1], "description": row[2],
                 "category": row[3], "target": _safe_float(row[4]),
                 "current": _safe_float(row[5]), "unit": row[6],
                 "deadline": row[7], "status": row[8], "created": row[9],
@@ -88,7 +88,7 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
 
         injuries = [
             {
-                "id": row[0], "body_area": row[1], "severity": row[2],
+                "id": str(row[0]), "body_area": row[1], "severity": row[2],
                 "description": row[3], "onset_date": row[4],
                 "expected_return": row[5], "status": row[6], "notes": row[7],
             }
@@ -301,7 +301,7 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
 
         drills = [
             {
-                "id": row[0], "name": row[1], "category": row[2],
+                "id": str(row[0]), "name": row[1], "category": row[2],
                 "duration_min": row[3] or 15,
                 "intensity": row[4], "description": row[5],
                 "primary_attribute": (row[6] or [None])[0] if row[6] else None,

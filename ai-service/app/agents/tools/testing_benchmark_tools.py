@@ -78,7 +78,7 @@ def make_testing_benchmark_tools(user_id: str, context: PlayerContext) -> list:
                 "unit": row[2],
                 "percentile": _safe_float(row[3]),
                 "date": row[4],
-                "id": row[5],
+                "id": str(row[5]),
             }
             for row in rows
         ]
@@ -102,7 +102,7 @@ def make_testing_benchmark_tools(user_id: str, context: PlayerContext) -> list:
 
         tests = [
             {
-                "id": row[0],
+                "id": str(row[0]),
                 "name": row[1],
                 "key": row[2],
                 "description": row[3],

@@ -185,7 +185,7 @@ def make_planning_tools(user_id: str, context: PlayerContext) -> list:
                 return {"error": f"Protocol {protocol_id} not found"}
 
             return {
-                "id": row[0], "name": row[1], "description": row[2],
+                "id": str(row[0]), "name": row[1], "description": row[2],
                 "severity": row[3], "trigger": row[4],
                 "action_type": row[5], "load_multiplier": row[6], "active": bool(row[7]),
             }
@@ -207,7 +207,7 @@ def make_planning_tools(user_id: str, context: PlayerContext) -> list:
                 rows = await result.fetchall()
 
             protocols = [
-                {"id": row[0], "name": row[1], "description": row[2], "severity": row[3], "active": bool(row[4])}
+                {"id": str(row[0]), "name": row[1], "description": row[2], "severity": row[3], "active": bool(row[4])}
                 for row in rows
             ]
 

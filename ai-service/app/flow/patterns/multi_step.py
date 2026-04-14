@@ -292,7 +292,7 @@ def _evaluate_fork(step: StepDefinition, flow: FlowState) -> dict:
                 time_str = _extract_time(ev.get("start_time", ""))
                 options.append({
                     "label": f"Build for {title} at {time_str}",
-                    "value": ev.get("id"),
+                    "value": str(ev.get("id", "")),  # str() — DB returns uuid.UUID, not JSON serializable
                     "description": f"Add drills to your {title.lower()}",
                 })
             options.append({

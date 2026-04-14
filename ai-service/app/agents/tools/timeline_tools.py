@@ -84,7 +84,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
 
         events = [
             {
-                "id": row[0],
+                "id": str(row[0]),  # str() — psycopg3 returns uuid.UUID, not JSON serializable
                 "title": row[1],
                 "event_type": row[2],
                 "start_time": row[3],
@@ -131,7 +131,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
             if d not in days:
                 days[d] = []
             days[d].append({
-                "id": row[0],
+                "id": str(row[0]),
                 "title": row[1],
                 "event_type": row[2],
                 "start_time": row[4],
@@ -274,7 +274,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
 
         events = [
             {
-                "id": row[0], "title": row[1], "type": row[2],
+                "id": str(row[0]), "title": row[1], "type": row[2],
                 "start": row[3], "end": row[4], "intensity": row[5],
             }
             for row in rows

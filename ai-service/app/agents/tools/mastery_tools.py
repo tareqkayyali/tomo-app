@@ -211,7 +211,7 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
 
         entries = [
             {
-                "id": row[0],
+                "id": str(row[0]),
                 "type": row[1],
                 "club": row[2],
                 "league_level": row[3],
