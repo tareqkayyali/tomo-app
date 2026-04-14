@@ -266,8 +266,10 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
     # MULTI_STEP (code-driven step tracker, ~$0.001/step)
     # ═══════════════════════════════════════════════════════════════════
 
-    # plan_training covers "build me a session", "plan my training", "create a workout"
-    # The classifier maps all session-building queries to plan_training.
+    # Session building — multi-step flow with focus picker + drill generation.
+    # Classifier exact-matches "build me a session" etc. to build_session.
+    # plan_training is kept as alias (Haiku classifier may still produce it).
+    "build_session": FlowConfig(pattern="multi_step", steps=_BUILD_SESSION_STEPS),
     "plan_training": FlowConfig(pattern="multi_step", steps=_BUILD_SESSION_STEPS),
 
     # ═══════════════════════════════════════════════════════════════════

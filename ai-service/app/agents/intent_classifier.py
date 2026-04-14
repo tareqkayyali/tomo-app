@@ -179,32 +179,36 @@ def _build_exact_match_map() -> dict[str, dict]:
           "how do my results compare", "percentile for my tests",
           "am i above average", "where do i rank"], "benchmark_comparison")
 
-    # Events / session building — MUST exact match, never fallthrough
-    _add(["add event", "create event", "new event", "add a session",
-          "build a session", "schedule training",
-          "build me a session", "build me a gym session",
+    # Session building — multi-step flow (build_session)
+    # These ask Tomo to BUILD/PLAN a session with drills and focus selection.
+    _add(["build a session", "build me a session", "build me a gym session",
           "build me a training session", "create a session",
           "create a training session", "plan a session",
-          "plan a training session", "schedule a session",
-          "schedule a workout", "add a training session",
-          "add training to my day", "set up a training session",
-          "set up a session", "add a workout",
-          "schedule a training session", "add session",
-          "new session", "create a workout",
-          # Sport-specific session types (33% fallthrough in traces)
-          "speed session", "acceleration session", "speed and acceleration session",
-          "gym session", "gym session plan", "plan a gym session",
+          "plan a training session", "plan me a session",
+          "plan me a gym session", "plan a gym session",
           "build a gym session", "build a speed session",
           "plan a speed session", "create a speed session",
+          "build me a speed session", "build me a conditioning session",
+          "set up a training session", "set up a session",
+          "set up gym session", "set up a gym session",
+          "create a workout", "schedule a workout",
+          "gym session plan",
+          # Sport-specific session building
+          "speed session", "acceleration session", "speed and acceleration session",
           "conditioning session", "recovery session",
           "strength session", "strength training session",
           "football session", "soccer session", "basketball session",
           "padel session", "tennis session",
           "club training session", "club session",
-          "morning session", "evening session", "afternoon session",
-          "build me a speed session", "build me a conditioning session",
-          "plan me a session", "plan me a gym session",
-          "set up gym session", "set up a gym session"], "create_event")
+          "morning session", "evening session", "afternoon session"], "build_session")
+
+    # Simple event creation — direct add with time/date (write_action)
+    # These are quick adds, not session building with drill selection.
+    _add(["add event", "create event", "new event", "add a session",
+          "schedule training", "schedule a session",
+          "add a training session", "add training to my day",
+          "schedule a training session", "add session",
+          "new session", "add a workout"], "create_event")
     _add(["add an exam", "new exam", "i have an exam"], "add_exam")
 
     # Study
@@ -322,7 +326,9 @@ CRITICAL RULES:
 5. qa_readiness is ONLY for checking scores/vitals (NOT recovery recs)
 6. leaderboard is ONLY for gamification (NOT performance comparison)
 7. log_test is ONLY for NEW test logging (NOT viewing/analyzing results)
-8. plan_training is DEPRECATED → use agent_fallthrough
+8. plan_training is DEPRECATED → use build_session for session building with drills
+9a. "build me a session", "plan a session", "build a gym session" → build_session (NOT create_event)
+9b. "add event at 5pm", "add gym tomorrow" (with specific time) → create_event
 9. Follow-up questions about previous agent response → agent_fallthrough
 10. "start training", "can I train", "ready to train" → qa_readiness (readiness check FIRST, not schedule)
 

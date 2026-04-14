@@ -114,16 +114,34 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
     if not current:
         return {}  # Flow complete, fall through
 
-    # Handle user selection for choice steps
+    # ── Check if user is responding to a pending fork choice ──
+    # The fork step auto-advances past itself and presents a choice card,
+    # but the current step is now pick_focus. We need to check if the user
+    # is still answering the fork before we try pick_focus matching.
+    fork_data = flow.get("step_fork_fork", {})
+    pending_fork = isinstance(fork_data, dict) and fork_data.get("needs_choice") and not flow.get("fork_choice")
+
+    if pending_fork:
+        selection = _match_selection(user_message, flow)
+        if selection:
+            flow.store("fork_choice", selection)
+            # If they picked an existing event, store the event_id
+            if selection != "new":
+                flow.store("target_event_id", selection)
+            # Don't advance -- current step (pick_focus) still needs to present
+            result = await _execute_current_step(flow, state)
+            return result
+        else:
+            # Couldn't match fork choice -- re-present fork options
+            return await _present_fork_choice(flow, fork_data, state)
+
+    # ── Handle user selection for choice steps ──
     if current.card == "choice_card":
         selection = _match_selection(user_message, flow)
         if selection:
             flow.store(f"step_{current.id}_selection", selection)
-            # Store specific selections for downstream use
             if current.id == "pick_focus":
                 flow.store("selected_focus", selection)
-            elif current.id == "fork":
-                flow.store("fork_choice", selection)
             flow.advance()
         else:
             # User said something that doesn't match options -- re-present
@@ -638,35 +656,58 @@ def _extract_date_from_message(state: TomoChatState) -> Optional[str]:
 
 
 def _match_selection(user_message: str, flow: FlowState) -> Optional[str]:
-    """Match user message to a choice option value."""
+    """Match user message to a choice option value.
+
+    Handles two scenarios:
+    1. Fork response: user picked from fork options (stored in context_carry)
+    2. Focus selection: user picked a training focus (speed, strength, etc.)
+    """
     msg_lower = user_message.lower().strip()
 
-    # Check step context for available options
     step = flow.current_step
     if not step:
         return None
 
-    # Check focus areas
+    # ── Check fork options first (stored from previous fork step) ──
+    # After the fork step advances, the fork result is in context_carry.
+    # The user might be responding to fork options even though current step
+    # is pick_focus (because fork auto-advanced past itself).
+    fork_data = flow.get("step_fork_fork", {})
+    if isinstance(fork_data, dict) and fork_data.get("options"):
+        for opt in fork_data["options"]:
+            label = opt.get("label", "").lower()
+            # Exact label match
+            if label and label in msg_lower:
+                return opt.get("value")
+            # Fuzzy: "build" + "gym" matches "Build for Gym Session at 5:00 PM"
+            label_words = set(label.split())
+            msg_words = set(msg_lower.split())
+            # If 3+ words overlap, it's a match
+            if len(label_words & msg_words) >= 3:
+                return opt.get("value")
+        # "new" / "different" / "add new" → new session
+        if any(w in msg_lower for w in ("new", "different", "add new", "another")):
+            return "new"
+        # If the user responded to the fork with something gym-related,
+        # and there's only one training event, default to it
+        if any(w in msg_lower for w in ("build", "workout", "gym", "session")):
+            training_options = [o for o in fork_data["options"] if o.get("value") != "new"]
+            if len(training_options) == 1:
+                return training_options[0].get("value")
+
+    # ── Check focus areas ──
     if step.id == "pick_focus":
         for area in FOCUS_AREAS:
             if area["value"] in msg_lower or area["label"].lower() in msg_lower:
                 return area["value"]
 
-    # Check fork options stored in context
-    fork_data = flow.get(f"step_fork_fork", {})
-    if isinstance(fork_data, dict):
-        for opt in fork_data.get("options", []):
-            if opt.get("label", "").lower() in msg_lower:
-                return opt.get("value")
+        # Numbered selection ("1", "2", etc.)
+        if msg_lower.isdigit():
+            idx = int(msg_lower) - 1
+            if 0 <= idx < len(FOCUS_AREAS):
+                return FOCUS_AREAS[idx]["value"]
 
-    # Check numbered selection ("1", "2", etc.)
-    if msg_lower.isdigit():
-        idx = int(msg_lower) - 1
-        if step.id == "pick_focus" and 0 <= idx < len(FOCUS_AREAS):
-            return FOCUS_AREAS[idx]["value"]
-
-    # Fuzzy: first word match
-    if step.id == "pick_focus":
+        # Fuzzy: first word match
         first_word = msg_lower.split()[0] if msg_lower else ""
         for area in FOCUS_AREAS:
             if first_word == area["value"] or first_word == area["label"].lower():

@@ -89,13 +89,26 @@ INTENT_REGISTRY: list[IntentDefinition] = [
         examples=["start speed program", "unassign program", "schedule my program"],
     ),
 
+    # ── Session Building (multi-step flow) ──
+    IntentDefinition(
+        id="build_session",
+        capsule_type=None,
+        agent_type="output",
+        description="Build a training session with drills — picks focus, generates drills, confirms",
+        examples=[
+            "build me a session", "build a gym session", "plan a session",
+            "build me a training session", "plan me a session for Thursday",
+            "build a speed session", "plan a gym session",
+        ],
+    ),
+
     # ── Calendar Events ──
     IntentDefinition(
         id="create_event",
         capsule_type="event_edit_capsule",
         agent_type="timeline",
-        description="Create a new calendar event (training, match, study, etc.)",
-        examples=["add event", "build a session", "schedule training tomorrow"],
+        description="Create a simple calendar event with specific time (NOT session building with drills)",
+        examples=["add event", "add gym at 5pm", "schedule training tomorrow at 6"],
     ),
     IntentDefinition(
         id="update_event",
