@@ -54,21 +54,11 @@ async def classifier_node(state: TomoChatState) -> dict:
     Reads CLASSIFIER_VERSION at RUNTIME (not module load) to avoid stale
     singleton cache issues where the graph compiles before env vars are set.
     """
-    # Runtime check — not cached module-level var
-    version = os.environ.get("CLASSIFIER_VERSION", "haiku").strip().lower()
-    # DIAGNOSTIC: Always log which path is taken + raw env var
-    logger.warning(
-        f"[CLASSIFIER-DIAG] version={repr(version)} | "
-        f"raw_env={repr(os.environ.get('CLASSIFIER_VERSION'))} | "
-        f"all_keys_with_class={[k for k in os.environ if 'CLASS' in k.upper()]}"
-    )
-    if version == "sonnet":
-        logger.warning("[CLASSIFIER] >>> SONNET V2 PATH ACTIVE <<<")
-        return await _classify_sonnet(state)
-    else:
-        logger.warning(f"[CLASSIFIER] >>> V1 HAIKU PATH (version={repr(version)}) <<<")
-        from app.graph.nodes.pre_router import pre_router_node
-        return await pre_router_node(state)
+    # V2 HARDCODED: Always use Sonnet classifier.
+    # The env var check was unreliable across Railway deploys.
+    # To revert to v1, change this to: return await pre_router_node(state)
+    logger.info("[CLASSIFIER] Sonnet v2 — hardcoded active")
+    return await _classify_sonnet(state)
 
 
 async def _classify_sonnet(state: TomoChatState) -> dict:
