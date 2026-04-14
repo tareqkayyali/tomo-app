@@ -88,32 +88,28 @@ export async function POST(req: NextRequest) {
 
         send("status", { status: "Thinking..." });
 
-        // Try SSE streaming first; fall back to sync if stream yields nothing
-        // (Railway's edge proxy can drop SSE connections between services)
-        let eventCount = 0;
+        // Use sync proxy (JSON request/response) instead of SSE streaming.
+        // Railway's public URL proxy drops SSE events between services,
+        // causing "stuck on Thinking..." indefinitely. Sync bypasses this.
+        // TODO: Restore SSE streaming once internal networking is fixed.
         try {
-          for await (const sse of proxyToAIServiceStream(aiRequest, (s) => send("status", { status: s }))) {
-            eventCount++;
-            send(sse.event, sse.data);
-          }
-        } catch (streamErr) {
-          logger.warn("[agent-stream] SSE stream failed, falling back to sync", {
-            error: streamErr instanceof Error ? streamErr.message : String(streamErr),
+          const pyResult = await proxyToAIServiceSync(aiRequest);
+          send("done", {
+            message: pyResult.message,
+            structured: pyResult.structured,
+            sessionId: pyResult.sessionId || sessionId,
+            refreshTargets: pyResult.refreshTargets || [],
+            pendingConfirmation: pyResult.pendingConfirmation || null,
+            context: {},
           });
+        } catch (syncErr) {
+          logger.error("[agent-stream] Sync proxy failed", {
+            error: syncErr instanceof Error ? syncErr.message : String(syncErr),
+          });
+          send("error", { error: "Something went wrong. Try again." });
         }
 
-        // If SSE yielded nothing (Railway dropped it), fall back to sync proxy
-        if (eventCount === 0) {
-          logger.warn("[agent-stream] SSE stream yielded 0 events, using sync fallback");
-          try {
-            const syncResult = await proxyToAIServiceSync(aiRequest);
-            send("done", syncResult);
-          } catch (syncErr) {
-            const msg = syncErr instanceof Error ? syncErr.message : "Sync fallback failed";
-            logger.error("[agent-stream] Sync fallback also failed", { error: msg });
-            send("error", { error: msg });
-          }
-        }
+        // SSE fallback removed — using sync proxy directly above.
 
         controller.close();
       } catch (err) {
