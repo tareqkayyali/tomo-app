@@ -610,25 +610,47 @@ _FLOW_READINESS_GATE_ENABLED = _os.environ.get("FLOW_READINESS_GATE_ENABLED", "f
 async def _retrieve_session_rag(
     focus: str,
     state: TomoChatState,
-) -> str:
+) -> tuple[str, dict]:
     """Fetch sports-science chunks scoped to the session focus + context.
 
-    Returns formatted RAG text (markdown) or empty string on any failure,
-    timeout, or disabled flag. Never raises -- callers must always have a
-    deterministic fallback.
+    Returns `(formatted_text, metadata_dict)`. Metadata keys match the
+    shape emitted by the graph's rag_retrieval node so that
+    `observability.build_post_execution_metadata` and the `ai_trace_log`
+    writer see the same fields whether RAG ran on the graph path or the
+    flow path -- no conditional handling downstream.
+
+    metadata_dict keys:
+        entity_count, chunk_count, graph_hops, sub_questions,
+        retrieval_cost_usd, latency_ms
+
+    On disabled / missing context / timeout / exception the metadata is
+    still returned with every field zeroed, plus a `skipped` or `error`
+    discriminator so traces can distinguish "retrieval ran but returned
+    empty" from "retrieval was skipped" from "retrieval failed."
+
+    Never raises -- callers must always have a deterministic fallback.
 
     Uses the shared `_reformulate_query` helper from rag_retrieval.py so
     there's a single source of truth for how build_session queries are
     expanded (enforces intent registry -> query rule once).
     """
+    empty_meta: dict = {
+        "entity_count": 0,
+        "chunk_count": 0,
+        "graph_hops": 0,
+        "sub_questions": 0,
+        "retrieval_cost_usd": 0.0,
+        "latency_ms": 0.0,
+    }
+
     if not _FLOW_RAG_ENABLED:
-        return ""
+        return "", {**empty_meta, "skipped": True, "reason": "flag_disabled"}
     if not focus:
         focus = "general"  # retrieve anyway -- any grounding is better than none
 
     context = state.get("player_context")
     if not context:
-        return ""
+        return "", {**empty_meta, "skipped": True, "reason": "no_player_context"}
 
     import asyncio
     try:
@@ -655,25 +677,37 @@ async def _retrieve_session_rag(
         elapsed_ms = (_time.monotonic() - t0) * 1000
 
         chunk_count = getattr(result, "chunk_count", 0)
+        entity_count = getattr(result, "entity_count", 0)
+        graph_hops = getattr(result, "graph_hops", 0)
+        sub_questions = getattr(result, "sub_questions", 0)
         cost = getattr(result, "retrieval_cost_usd", 0.0)
+
         logger.info(
             f"build_session rag chunks={chunk_count} "
             f"cost=${cost:.5f} latency={elapsed_ms:.0f}ms focus={focus}"
         )
 
-        return getattr(result, "formatted_text", "") or ""
+        return getattr(result, "formatted_text", "") or "", {
+            "entity_count": entity_count,
+            "chunk_count": chunk_count,
+            "graph_hops": graph_hops,
+            "sub_questions": sub_questions,
+            "retrieval_cost_usd": cost,
+            "latency_ms": elapsed_ms,
+        }
 
     except asyncio.TimeoutError:
+        elapsed_ms = _FLOW_RAG_TIMEOUT_S * 1000
         logger.warning(
             f"build_session rag timeout "
             f"(>{_FLOW_RAG_TIMEOUT_S}s) focus={focus} -- proceeding without RAG"
         )
-        return ""
+        return "", {**empty_meta, "latency_ms": elapsed_ms, "error": "timeout"}
     except Exception as e:
         logger.warning(
             f"build_session rag failed focus={focus}: {e} -- proceeding without RAG"
         )
-        return ""
+        return "", {**empty_meta, "error": str(e)[:200]}
 
 
 async def _present_step(flow: FlowState, state: TomoChatState) -> dict:
@@ -887,7 +921,11 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
 
     # Retrieve sport-science grounding for this focus. Empty string on
     # failure / disabled -- warm-text path degrades to the baseline.
-    rag_text = await _retrieve_session_rag(focus, state)
+    # rag_meta is threaded back into the flow controller return dict so
+    # `observability.build_post_execution_metadata` sees the same fields
+    # it expects from the graph's rag_retrieval node -- keeps
+    # ai_trace_log unified across flow-handled and graph-handled paths.
+    rag_text, rag_meta = await _retrieve_session_rag(focus, state)
 
     headline, body = await _warm_text(
         step_kind="session_plan",
@@ -946,9 +984,20 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
         "final_cards": structured["cards"],
         "_flow_pattern": "multi_step",
         "route_decision": "flow_handled",
-        "total_cost_usd": 0.0,
+        # Roll RAG retrieval cost into the turn's total so ai_trace_log
+        # reflects real spend. get_training_session is $0 (DB read), so
+        # the whole turn cost == rag cost.
+        "total_cost_usd": float(rag_meta.get("retrieval_cost_usd", 0.0) or 0.0),
         "total_tokens": 0,
         "tool_calls": [{"name": "get_training_session", "result": "success"}],
+        # Telemetry: emit rag_metadata + rag_context into LangGraph state
+        # so persist_node -> observability.build_post_execution_metadata
+        # can flatten them into ai_trace_log.rag_used / rag_chunk_count /
+        # rag_cost_usd / rag_latency_ms. Without this the insights audit
+        # reads rag_chunk_count=0 even when retrieval succeeded, which is
+        # the telemetry gap that prompted the April 2026 audit finding.
+        "rag_metadata": rag_meta,
+        "rag_context": rag_text,
     }
 
 
