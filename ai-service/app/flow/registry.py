@@ -44,11 +44,25 @@ class FlowConfig:
 
 
 # ---- Build Session Steps (shared by build_session + plan_training) ---------
+#
+# Flow order (Apr 2026 rearchitecture):
+#   1. readiness_gate — deterministic safety check (RED / ACWR>1.5 → recovery_first card)
+#   2. check_calendar — fetch tomorrow's (or target_date's) events (silent tool step)
+#   3. fork          — ALWAYS visible: shows what's scheduled + "Add new session" option
+#                      (even when calendar empty — "Tomorrow's open, let's build fresh")
+#   4. pick_focus    — only if athlete didn't state one in the opener
+#   5. build_drills  — session_plan card (RAG-grounded when possible)
+#   6. pick_time     — only for NEW fresh sessions (skipped when attaching to existing event)
+#   7. confirm       — confirm_card; on accept we actually execute confirm_tool:
+#                      - existing event → update_event.notes with drill list
+#                      - new session    → create_event with title/date/start_time
 _BUILD_SESSION_STEPS = [
+    {"id": "readiness_gate", "card": "safety_gate", "check": "readiness_and_load"},
     {"id": "check_calendar", "tool": "get_today_events", "tool_args_from": {"date": "target_date"}},
-    {"id": "fork", "condition": "existing_training_sessions"},
+    {"id": "fork", "card": "choice_card", "condition": "existing_training_sessions"},
     {"id": "pick_focus", "card": "choice_card"},
     {"id": "build_drills", "card": "session_plan", "tool": "get_training_session", "tool_args_from": {"category": "selected_focus"}},
+    {"id": "pick_time", "card": "time_picker"},
     {"id": "confirm", "card": "confirm_card", "confirm_tool": "create_event"},
 ]
 

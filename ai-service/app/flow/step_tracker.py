@@ -35,6 +35,7 @@ class StepDefinition:
     static_options: Optional[list[dict]] = None  # Static choice options
     confirm_tool: Optional[str] = None  # Write tool for confirm step
     tool_args_from: Optional[dict[str, str]] = None  # Map tool args from context_carry keys
+    check: Optional[str] = None         # Deterministic safety/condition check name (e.g. "readiness_and_load")
 
 
 @dataclass

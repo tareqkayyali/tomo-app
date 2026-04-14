@@ -234,8 +234,36 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
             # Couldn't match fork choice -- re-present fork options
             return await _present_fork_choice(flow, fork_data, state)
 
+    # ── Handle safety_gate response ──
+    if current.card == "safety_gate":
+        lower = user_message.lower().strip()
+        # Recovery route
+        if "recovery" in lower or "light" in lower or "rest" in lower:
+            flow.store("selected_focus", "recovery")
+            flow.store("focus_was_stated", True)
+            flow.store("readiness_override_accepted", True)  # unblocks the gate
+            flow.advance()
+        # Override ("build anyway" / "yes" / "proceed")
+        elif (
+            "override" in lower or "anyway" in lower or "build anyway" in lower
+            or "push" in lower or _is_confirmation(user_message)
+        ):
+            flow.store("readiness_override_accepted", True)
+            flow.advance()
+        # Cancel
+        elif _is_rejection(user_message):
+            await clear_flow_state(
+                state.get("session_id", ""),
+                state.get("user_id", ""),
+            )
+            return _build_cancel_response()
+        else:
+            # Couldn't match -- re-present the gate
+            gate_data = flow.get("readiness_gate_data", {}) or {}
+            return await _present_safety_gate(flow, gate_data, state)
+
     # ── Handle user selection for choice steps ──
-    if current.card == "choice_card":
+    elif current.card == "choice_card":
         # If this is pick_focus and the athlete already stated a focus
         # upfront, we should never be standing on this step in the first
         # place. Skip it silently and let _execute_current_step auto-advance.
@@ -247,24 +275,44 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
                 flow.store(f"step_{current.id}_selection", selection)
                 if current.id == "pick_focus":
                     flow.store("selected_focus", selection)
+                # Fork step: record the choice (existing event_id or "new")
+                if current.id == "fork":
+                    flow.store("fork_choice", selection)
+                    if selection != "new":
+                        flow.store("target_event_id", selection)
                 flow.advance()
             else:
                 # User said something that doesn't match options -- re-present
                 return await _present_step(flow, state)
 
-    # Handle confirmation step
-    elif current.card == "confirm_card":
-        if _is_confirmation(user_message):
+    # ── Handle time picker response ──
+    elif current.card == "time_picker":
+        # Attaching to an existing event -- no time needed, just advance
+        # so the fallthrough to _execute_current_step lands on confirm.
+        if flow.get("target_event_id"):
             flow.advance()
         else:
-            # Not confirmed, re-present or cancel
-            if _is_rejection(user_message):
-                await clear_flow_state(
-                    state.get("session_id", ""),
-                    state.get("user_id", ""),
-                )
-                return _build_cancel_response()
-            return await _present_step(flow, state)
+            selected_time = _match_time(user_message)
+            if selected_time:
+                flow.store("selected_time", selected_time)
+                flow.advance()
+            else:
+                return await _present_time_picker(flow, state)
+
+    # ── Handle confirmation step: actually EXECUTE the write tool ──
+    elif current.card == "confirm_card":
+        if _is_confirmation(user_message):
+            confirm_result = await _execute_confirm_tool(flow, state)
+            flow.store("confirm_result", confirm_result)
+            flow.advance()
+        elif _is_rejection(user_message):
+            await clear_flow_state(
+                state.get("session_id", ""),
+                state.get("user_id", ""),
+            )
+            return _build_cancel_response()
+        else:
+            return await _present_confirm(flow, state)
 
     # Execute from current step forward
     result = await _execute_current_step(flow, state)
@@ -281,23 +329,36 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
     """Execute the current step and auto-advance through tool/fork steps.
 
     Stops when:
-      - A choice_card or confirm_card needs user input
+      - A choice_card / confirm_card / safety_gate / time_picker needs user input
       - The flow is complete
       - An error occurs
     """
-    max_auto_advance = 5  # Safety limit
+    max_auto_advance = 8  # Safety limit (extended for new step types)
 
     for _ in range(max_auto_advance):
         step = flow.current_step
         if not step:
-            # Flow complete
+            # Flow complete -- build completion response then clear state
+            response = _build_completion_response(flow)
             await clear_flow_state(
                 state.get("session_id", ""),
                 state.get("user_id", ""),
             )
-            return _build_completion_response(flow)
+            return response
 
-        # Tool step: call tool, store result, auto-advance
+        # ── Safety gate: deterministic readiness / ACWR check ──
+        # No LLM, no tool call. Pure context read. Blocks high-intensity
+        # drill building when RED readiness or ACWR > 1.5, unless the
+        # athlete has already explicitly selected recovery focus.
+        if step.card == "safety_gate":
+            gate = _evaluate_readiness_gate(flow, state)
+            if gate.get("block") and not flow.get("readiness_override_accepted"):
+                flow.store("readiness_gate_data", gate)
+                return await _present_safety_gate(flow, gate, state)
+            flow.advance()
+            continue
+
+        # ── Tool step (tool only, no card): call tool, store, advance ──
         if step.tool and not step.card:
             tool_result = await _call_step_tool(step, flow, state)
             if tool_result is None:
@@ -306,23 +367,34 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
             flow.advance()
             continue
 
-        # Fork step: evaluate condition, auto-advance
-        if step.condition:
+        # ── Fork step (condition + choice_card): evaluate and present ──
+        # The fork evaluator now ALWAYS returns the scheduled events as
+        # options when any exist; the pre-filter that auto-skipped the
+        # fork based on stated focus has been removed so athletes always
+        # see what's on their calendar before Tomo creates anything new.
+        if step.condition and step.card == "choice_card":
+            # Skip fork entirely if we already recorded a fork_choice
+            # earlier in this conversation turn.
+            if flow.get("fork_choice"):
+                flow.advance()
+                continue
+
             fork_result = _evaluate_fork(step, flow)
             flow.store(f"step_{step.id}_fork", fork_result)
-            flow.advance()
 
-            # If fork produces a choice, present it
-            if isinstance(fork_result, dict) and fork_result.get("needs_choice"):
-                # Insert a choice presentation at the current step
-                return await _present_fork_choice(flow, fork_result, state)
-            continue
+            # Empty calendar → auto-advance silently; build_drills card
+            # will carry the "Tomorrow's open — building fresh" message
+            # via flow_context.
+            if not fork_result.get("needs_choice"):
+                flow.store("fork_choice", fork_result.get("choice", "new"))
+                flow.store("calendar_empty", True)
+                flow.advance()
+                continue
 
-        # Choice card step: present options and wait for user
+            return await _present_fork_choice(flow, fork_result, state)
+
+        # ── Regular choice card (pick_focus) ──
         if step.card == "choice_card":
-            # Skip pick_focus entirely if the athlete already stated a focus
-            # in the opening message ("I want technical drills tomorrow").
-            # Never ask them twice.
             if step.id == "pick_focus" and flow.get("selected_focus"):
                 logger.info(
                     f"Multi-step: skipping pick_focus, selected_focus="
@@ -332,11 +404,23 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
                 continue
             return await _present_step(flow, state)
 
-        # Session plan card: build and present
+        # ── Session plan card ──
         if step.card == "session_plan":
             return await _build_session_step(step, flow, state)
 
-        # Confirm card step: present confirmation and wait
+        # ── Time picker (new) ──
+        # Only runs for fresh sessions. When attaching drills to an
+        # existing calendar event we skip this step entirely.
+        if step.card == "time_picker":
+            if flow.get("target_event_id"):
+                flow.advance()
+                continue
+            if flow.get("selected_time"):
+                flow.advance()
+                continue
+            return await _present_time_picker(flow, state)
+
+        # ── Confirm card ──
         if step.card == "confirm_card":
             return await _present_confirm(flow, state)
 
@@ -413,16 +497,15 @@ def _event_matches_focus(event: dict, focus: str) -> bool:
 def _evaluate_fork(step: StepDefinition, flow: FlowState) -> dict:
     """Evaluate a fork condition against context_carry data.
 
-    If the athlete stated a focus in their opening message
-    (`selected_focus` + `focus_was_stated`), we filter existing training
-    events to ones matching that focus. If nothing matches, we skip the
-    fork entirely and route straight to build_drills -- no point asking
-    "build for Speed Session?" when they said "technical drills".
+    (April 2026 rearchitecture) The old stated-focus pre-filter is gone.
+    Athletes ALWAYS see what's on their calendar for the target date so
+    they can choose whether to attach drills to an existing session
+    (update_event.notes) or book a new one (create_event). The only
+    case we auto-advance silently is a completely empty calendar.
     """
     condition = step.condition
 
     if condition == "existing_training_sessions":
-        # Check if get_today_events found training sessions
         events_result = flow.get("step_check_calendar_result", {})
         events = events_result.get("events", [])
         training_events = [
@@ -430,43 +513,27 @@ def _evaluate_fork(step: StepDefinition, flow: FlowState) -> dict:
             if e.get("event_type") in ("training", "match")
         ]
 
-        # If the athlete stated a focus, only offer events matching it.
-        stated_focus = flow.get("selected_focus") if flow.get("focus_was_stated") else None
-        if stated_focus:
-            matched = [e for e in training_events if _event_matches_focus(e, stated_focus)]
-            if not matched:
-                # No existing events line up with the stated focus --
-                # skip the fork and go straight to building a new session.
-                flow.store("fork_choice", "new")
-                logger.info(
-                    f"Multi-step: focus '{stated_focus}' stated, no matching "
-                    f"events -- skipping fork"
-                )
-                return {"needs_choice": False, "choice": "new"}
-            training_events = matched
-
         if training_events:
-            # Build choices from (optionally filtered) existing events
             options = []
             for ev in training_events:
                 title = ev.get("title", "Session")
                 time_str = _extract_time(ev.get("start_time", ""))
+                time_suffix = f" at {time_str}" if time_str else ""
                 options.append({
-                    "label": f"Build for {title} at {time_str}",
+                    "label": f"Add drills to {title}{time_suffix}",
                     "value": str(ev.get("id", "")),  # str() — DB returns uuid.UUID, not JSON serializable
-                    "description": f"Add drills to your {title.lower()}",
+                    "description": f"Attach the drill list to your {title.lower()}",
                 })
             options.append({
-                "label": "Add new session",
+                "label": "Book a new session instead",
                 "value": "new",
-                "description": "Create a brand new training session",
+                "description": "Create a brand new training slot",
             })
             return {"needs_choice": True, "options": options}
-        else:
-            # No existing sessions -- skip to focus picker (or straight to
-            # build_drills if focus already stated)
-            flow.store("fork_choice", "new")
-            return {"needs_choice": False, "choice": "new"}
+
+        # Calendar genuinely empty for target_date -- skip silently,
+        # build_drills will surface the "your day is open" framing.
+        return {"needs_choice": False, "choice": "new", "calendar_empty": True}
 
     return {"needs_choice": False}
 
@@ -512,7 +579,7 @@ async def _warm_text(
 import os as _os
 
 _FLOW_RAG_ENABLED = _os.environ.get("FLOW_RAG_ENABLED", "true").lower() == "true"
-_FLOW_RAG_TIMEOUT_S = 1.5
+_FLOW_RAG_TIMEOUT_S = 2.5  # bumped from 1.5s -- RAG grounding is now mandatory for build_session
 
 
 async def _retrieve_session_rag(
@@ -531,8 +598,8 @@ async def _retrieve_session_rag(
     """
     if not _FLOW_RAG_ENABLED:
         return ""
-    if not focus or focus == "general":
-        return ""
+    if not focus:
+        focus = "general"  # retrieve anyway -- any grounding is better than none
 
     context = state.get("player_context")
     if not context:
@@ -754,9 +821,33 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
             "drillId": str(raw_drill_id) if raw_drill_id is not None else None,
         })
 
-    fallback_headline = f"{focus.title()} session -- {len(drills)} drills"
     total_min = sum(d.get("duration_min", 0) for d in drills)
-    fallback_body = f"About {total_min} minutes total. Ready to lock this in?"
+
+    # Layer C context signals — athlete name, stated intent, readiness —
+    # so the warm-text path can personalize instead of dumping tone rules.
+    athlete_name = (getattr(context, "name", "") or "").split(" ")[0] or ""
+    calendar_empty = bool(flow.get("calendar_empty"))
+    attaching_existing = bool(flow.get("target_event_id"))
+    existing_title = ""
+    if attaching_existing:
+        evs = (flow.get("step_check_calendar_result", {}) or {}).get("events", []) or []
+        for ev in evs:
+            if str(ev.get("id", "")) == str(flow.get("target_event_id")):
+                existing_title = ev.get("title", "") or ""
+                break
+
+    # Fallback headline + body are tight (< 180 chars combined). Drill
+    # details live in card items, never in the body. Context-aware:
+    # calendar_empty / attaching_existing / fresh path each get their own.
+    if attaching_existing:
+        fallback_headline = f"Drills ready for your {existing_title or focus + ' session'}"
+        fallback_body = f"{len(drills)} drills, {total_min} min. Confirm to save them to that session."
+    elif calendar_empty:
+        fallback_headline = f"Your day's open -- here's a fresh {focus} session"
+        fallback_body = f"{len(drills)} drills, {total_min} min. Pick a time next."
+    else:
+        fallback_headline = f"{focus.title()} session -- {len(drills)} drills"
+        fallback_body = f"{total_min} min total. Review, then confirm."
 
     # Normalize readiness to the Green/Yellow/Red vocabulary mobile expects
     _readiness_raw = (flow.get("readiness", "") or "").strip().lower()
@@ -782,12 +873,20 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
             "intensity": result.get("intensity", "MODERATE"),
             "target_date": flow.get("target_date", ""),
             "readiness": flow.get("readiness", ""),
+            "athlete_name": athlete_name,
+            "calendar_empty": calendar_empty,
+            "attaching_existing": attaching_existing,
+            "existing_event_title": existing_title,
         },
         state=state,
         fallback_headline=fallback_headline,
         fallback_body=fallback_body,
         rag_context=rag_text,
     )
+
+    # Layer C2: hard cap body length. Drill details live in card items.
+    if body and len(body) > 500:
+        body = body[:497].rstrip() + "..."
 
     structured = {
         "headline": headline,
@@ -801,8 +900,11 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
             "readiness": card_readiness,
             "items": card_items,
         }],
+        # Chips tuned to the new flow: if attaching to existing event we
+        # go straight to confirm next; if fresh, the next step is a time
+        # picker. Either way "Looks good" advances the flow.
         "chips": [
-            {"label": "Lock this in", "message": "Yes, lock it in"},
+            {"label": "Looks good", "message": "Looks good"},
             {"label": "Make it lighter", "message": "Can you make it lighter?"},
         ],
     }
@@ -826,12 +928,16 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
 
 
 async def _present_confirm(flow: FlowState, state: TomoChatState) -> dict:
-    """Present a confirmation card for the built session."""
+    """Present a confirmation card for the built session.
+
+    Headline + body are context-aware: attaching drills to an existing
+    event reads differently from booking a brand-new slot.
+    """
     drills = flow.get("session_drills", {})
     focus = flow.get("selected_focus", "training")
     target_date = flow.get("target_date") or flow.get("today_date", "")
-
-    fallback_card_headline = f"Add {focus} session to your timeline?"
+    target_event_id = flow.get("target_event_id")
+    selected_time = flow.get("selected_time", "")
 
     # Build confirm card items
     items = []
@@ -847,6 +953,23 @@ async def _present_confirm(flow: FlowState, state: TomoChatState) -> dict:
     from app.flow.card_builders.schedule import _format_date
     date_display = _format_date(target_date) if target_date else ""
 
+    # Existing-event title lookup for a more personal headline
+    existing_title = ""
+    if target_event_id:
+        evs = (flow.get("step_check_calendar_result", {}) or {}).get("events", []) or []
+        for ev in evs:
+            if str(ev.get("id", "")) == str(target_event_id):
+                existing_title = ev.get("title", "") or ""
+                break
+
+    if target_event_id:
+        fallback_card_headline = f"Save these drills to your {existing_title or focus + ' session'}?"
+        fallback_card_body = f"{len(drills.get('drills', []))} drills, {total_min} min -- attaches to your scheduled session."
+    else:
+        when = f"{date_display}{' at ' + selected_time if selected_time else ''}"
+        fallback_card_headline = f"Book {focus} session for {when}?"
+        fallback_card_body = f"{len(drills.get('drills', []))} drills, {total_min} min -- adds a new event to your timeline."
+
     card_headline, card_body = await _warm_text(
         step_kind="confirm",
         flow_context={
@@ -854,10 +977,13 @@ async def _present_confirm(flow: FlowState, state: TomoChatState) -> dict:
             "drill_count": len(drills.get("drills", [])),
             "total_minutes": total_min,
             "date": date_display,
+            "selected_time": selected_time,
+            "attaching_existing": bool(target_event_id),
+            "existing_event_title": existing_title,
         },
         state=state,
         fallback_headline=fallback_card_headline,
-        fallback_body=f"{date_display} -- {total_min} minutes",
+        fallback_body=fallback_card_body,
     )
 
     structured = {
@@ -876,6 +1002,9 @@ async def _present_confirm(flow: FlowState, state: TomoChatState) -> dict:
                 "focus": focus,
                 "target_date": target_date,
                 "drill_count": len(drills.get("drills", [])),
+                "attaching_existing": bool(target_event_id),
+                "target_event_id": target_event_id or "",
+                "selected_time": selected_time,
             },
         }],
         "chips": [],
@@ -898,12 +1027,59 @@ async def _present_confirm(flow: FlowState, state: TomoChatState) -> dict:
 
 
 def _build_completion_response(flow: FlowState) -> dict:
-    """Build the final response when all steps are complete."""
+    """Build the final response when all steps are complete.
+
+    Now that `confirm_tool` actually executes, this response reflects
+    the REAL outcome: either the created event, the updated-notes
+    status, or the write error if the bridge call failed.
+    """
     focus = flow.get("selected_focus", "training")
+    confirm_result = flow.get("confirm_result") or {}
+    target_event_id = flow.get("target_event_id")
+    drills = flow.get("session_drills", {}) or {}
+    drill_count = len(drills.get("drills", []))
+    target_date = flow.get("target_date", "")
+    selected_time = flow.get("selected_time", "")
+
+    # Write failed -- surface the error, let athlete retry
+    if isinstance(confirm_result, dict) and confirm_result.get("error"):
+        err_msg = str(confirm_result.get("error"))[:140]
+        structured = {
+            "headline": "Couldn't lock it in",
+            "body": f"Hit a snag writing that to your calendar: {err_msg}. Want to try again?",
+            "cards": [],
+            "chips": [
+                {"label": "Try again", "message": "Build me a training session"},
+                {"label": "Show schedule", "message": "What's on today?"},
+            ],
+        }
+        return {
+            "final_response": json.dumps(structured),
+            "final_cards": [],
+            "_flow_pattern": "multi_step",
+            "route_decision": "flow_handled",
+            "total_cost_usd": 0.0,
+            "total_tokens": 0,
+        }
+
+    if target_event_id:
+        headline = f"Locked in -- {drill_count} drills added to your {focus} session"
+        body = (
+            "Your scheduled session now has the drill list saved to its notes. "
+            "Show up, put the work in, and come tell me how it went."
+        )
+    else:
+        date_display = target_date or "your timeline"
+        time_display = f" at {selected_time}" if selected_time else ""
+        headline = f"{focus.title()} session booked"
+        body = (
+            f"Locked in for {date_display}{time_display} -- {drill_count} drills ready. "
+            "Good luck, come tell me how it went."
+        )
 
     structured = {
-        "headline": f"{focus.title()} session locked in",
-        "body": "Show up, put the work in, and come tell me how it went.",
+        "headline": headline,
+        "body": body,
         "cards": [],
         "chips": [
             {"label": "Show schedule", "message": "What's on today?"},
@@ -919,6 +1095,295 @@ def _build_completion_response(flow: FlowState) -> dict:
         "total_cost_usd": 0.0,
         "total_tokens": 0,
     }
+
+
+# ── Readiness safety gate ──────────────────────────────────────────────
+# Deterministic, context-only check. Blocks high-intensity drill building
+# when the athlete is RED or ACWR is in the danger zone. The athlete can
+# always override -- the gate is advisory, never final.
+
+def _evaluate_readiness_gate(flow: FlowState, state: TomoChatState) -> dict:
+    """Return {"block": True, ...} if the athlete should be routed to
+    recovery-first before any drill building, else {"block": False}.
+
+    RED readiness or ACWR > 1.5 trigger the block. An athlete who has
+    explicitly selected recovery focus bypasses the gate.
+    """
+    context = state.get("player_context")
+    if not context:
+        return {"block": False}
+
+    se = getattr(context, "snapshot_enrichment", None)
+    if not se:
+        return {"block": False}
+
+    stated_focus = (flow.get("selected_focus") or "").lower()
+    if stated_focus == "recovery":
+        return {"block": False}
+
+    readiness_rag = (getattr(se, "readiness_rag", "") or "").upper().strip()
+    acwr = getattr(se, "acwr", None)
+
+    if readiness_rag == "RED":
+        return {
+            "block": True,
+            "reason": "red_readiness",
+            "readiness_rag": "Red",
+            "acwr": acwr,
+            "title": "Your body is in the red today",
+            "body": (
+                "Your readiness is flagged red -- pushing a hard session now "
+                "could set back the whole week. A recovery-first protocol is the "
+                "smart call. You can still override if your coach is directing it."
+            ),
+        }
+
+    try:
+        acwr_val = float(acwr) if acwr is not None else None
+    except (TypeError, ValueError):
+        acwr_val = None
+
+    if acwr_val is not None and acwr_val > 1.5:
+        return {
+            "block": True,
+            "reason": "high_acwr",
+            "readiness_rag": readiness_rag.title() if readiness_rag else None,
+            "acwr": acwr_val,
+            "title": "Your load is in the danger zone",
+            "body": (
+                f"Your ACWR is {acwr_val:.2f} -- well above the 1.5 danger line. "
+                "A lighter session or active recovery is what the data is asking "
+                "for. You can still override if your coach is directing it."
+            ),
+        }
+
+    return {"block": False}
+
+
+async def _present_safety_gate(flow: FlowState, gate: dict, state: TomoChatState) -> dict:
+    """Render the readiness safety gate as a dedicated card."""
+    structured = {
+        "headline": gate.get("title", "Heads up"),
+        "body": gate.get("body", ""),
+        "cards": [{
+            "type": "safety_gate",
+            "headline": gate.get("title", "Heads up"),
+            "body": gate.get("body", ""),
+            "reason": gate.get("reason", ""),
+            "readiness": gate.get("readiness_rag"),
+            "acwr": gate.get("acwr"),
+            "options": [
+                {"label": "Build a recovery session", "value": "recovery"},
+                {"label": "Override -- build anyway", "value": "override"},
+            ],
+        }],
+        "chips": [
+            {"label": "Build recovery", "message": "Build me a recovery session"},
+            {"label": "Override anyway", "message": "Override and build anyway"},
+        ],
+    }
+
+    await save_flow_state(
+        state.get("session_id", ""),
+        state.get("user_id", ""),
+        flow,
+    )
+
+    return {
+        "final_response": json.dumps(structured),
+        "final_cards": structured["cards"],
+        "_flow_pattern": "multi_step",
+        "route_decision": "flow_handled",
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+    }
+
+
+# ── Time picker (new step for fresh sessions) ───────────────────────────
+
+_TIME_PICKER_OPTIONS = [
+    {"label": "Morning (7:00 AM)", "value": "07:00"},
+    {"label": "Late morning (10:00 AM)", "value": "10:00"},
+    {"label": "Afternoon (3:00 PM)", "value": "15:00"},
+    {"label": "Early evening (5:00 PM)", "value": "17:00"},
+    {"label": "Evening (7:00 PM)", "value": "19:00"},
+]
+
+
+async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
+    """Render the time picker card for a brand-new fresh session."""
+    target_date = flow.get("target_date", "")
+    date_hint = f" for {target_date}" if target_date else ""
+
+    structured = {
+        "headline": f"When do you want to run it{date_hint}?",
+        "body": "Pick a slot that fits around school and recovery.",
+        "cards": [{
+            "type": "time_picker",
+            "options": _TIME_PICKER_OPTIONS,
+        }],
+        "chips": [],
+    }
+
+    await save_flow_state(
+        state.get("session_id", ""),
+        state.get("user_id", ""),
+        flow,
+    )
+
+    return {
+        "final_response": json.dumps(structured),
+        "final_cards": structured["cards"],
+        "_flow_pattern": "multi_step",
+        "route_decision": "flow_handled",
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+    }
+
+
+def _match_time(msg: str) -> Optional[str]:
+    """Best-effort parse of a time selection. Returns HH:MM or None."""
+    import re
+    if not msg:
+        return None
+    m = msg.lower().strip()
+
+    # Exact label/value match against preset options
+    for opt in _TIME_PICKER_OPTIONS:
+        if opt["value"] == m or opt["label"].lower() == m:
+            return opt["value"]
+    for opt in _TIME_PICKER_OPTIONS:
+        if opt["value"] in m or opt["label"].lower() in m:
+            return opt["value"]
+
+    # HH:MM explicit
+    hm = re.search(r"\b(\d{1,2}):(\d{2})\b", m)
+    if hm:
+        h = int(hm.group(1))
+        mm = int(hm.group(2))
+        if 0 <= h < 24 and 0 <= mm < 60:
+            return f"{h:02d}:{mm:02d}"
+
+    # "7am", "5 pm", "7 o'clock"
+    ampm = re.search(r"\b(\d{1,2})\s*(am|pm)\b", m)
+    if ampm:
+        h = int(ampm.group(1))
+        period = ampm.group(2)
+        if period == "pm" and h < 12:
+            h += 12
+        if period == "am" and h == 12:
+            h = 0
+        if 0 <= h < 24:
+            return f"{h:02d}:00"
+
+    # Keyword-only
+    if "morning" in m:
+        return "07:00"
+    if "afternoon" in m:
+        return "15:00"
+    if "evening" in m:
+        return "17:00"
+    if "night" in m:
+        return "19:00"
+    return None
+
+
+def _add_minutes(hhmm: str, minutes: int) -> str:
+    """Add minutes to an HH:MM clock string, clamped to 24h."""
+    from datetime import datetime, timedelta
+    try:
+        t = datetime.strptime(hhmm, "%H:%M")
+        return (t + timedelta(minutes=max(0, int(minutes)))).strftime("%H:%M")
+    except (ValueError, TypeError):
+        return hhmm
+
+
+# ── confirm_tool execution ──────────────────────────────────────────────
+# This is the critical step the previous build was missing: when the
+# athlete says "yes, lock it in", we actually PERSIST the session either
+# by (a) updating an existing calendar_events.notes column with the drill
+# list, or (b) creating a brand-new training event.
+
+async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
+    """Execute the write tool for the build_session flow.
+
+    - target_event_id set  → update_event with notes=drill_markdown
+    - no target_event_id   → create_event with title/date/start_time/notes
+
+    Returns the raw tool result (or an {"error": ...} dict on failure).
+    Callers store this in flow.confirm_result for the completion card.
+    """
+    user_id = state.get("user_id")
+    context = state.get("player_context")
+    if not user_id or not context:
+        return {"error": "missing user context"}
+
+    try:
+        from app.agents.tools.timeline_tools import make_timeline_tools
+        tools = make_timeline_tools(user_id, context)
+    except Exception as e:
+        logger.error(f"confirm_tool: failed to build timeline tools: {e}", exc_info=True)
+        return {"error": "timeline tools unavailable"}
+
+    drills_blob = flow.get("session_drills", {}) or {}
+    drill_list = drills_blob.get("drills", []) if isinstance(drills_blob, dict) else []
+    focus = flow.get("selected_focus") or "training"
+    target_date = flow.get("target_date") or getattr(context, "today_date", "") or ""
+    target_event_id = flow.get("target_event_id")
+
+    # Build a plain-text drill list for the notes column. Capped to a
+    # reasonable length so we never blow up the calendar_events.notes
+    # column or any downstream consumer.
+    header_line = f"{focus.title()} session -- built by Tomo"
+    drill_lines = [header_line]
+    total_min = 0
+    for i, d in enumerate(drill_list, start=1):
+        if not isinstance(d, dict):
+            continue
+        name = str(d.get("name", "Drill"))
+        dur = int(d.get("duration_min", 0) or 0)
+        intensity = str(d.get("intensity", "MODERATE"))
+        drill_lines.append(f"{i}. {name} ({dur}min, {intensity})")
+        total_min += dur
+    notes_blob = "\n".join(drill_lines)[:2000]
+
+    if target_event_id:
+        update_tool = next((t for t in tools if t.name == "update_event"), None)
+        if not update_tool:
+            return {"error": "update_event unavailable"}
+        try:
+            return await update_tool.ainvoke({
+                "event_id": target_event_id,
+                "notes": notes_blob,
+            })
+        except Exception as e:
+            logger.error(f"update_event failed: {e}", exc_info=True)
+            return {"error": f"update_event failed: {str(e)[:120]}"}
+
+    # Fresh session creation
+    create_tool = next((t for t in tools if t.name == "create_event"), None)
+    if not create_tool:
+        return {"error": "create_event unavailable"}
+
+    start_time = flow.get("selected_time") or "17:00"
+    end_time = _add_minutes(start_time, total_min or 45)
+    intensity_raw = str(drills_blob.get("intensity", "MODERATE") or "MODERATE").upper()
+    if intensity_raw not in ("LIGHT", "MODERATE", "HARD"):
+        intensity_raw = "MODERATE"
+
+    try:
+        return await create_tool.ainvoke({
+            "title": f"{focus.title()} Session",
+            "event_type": "training",
+            "date": target_date,
+            "start_time": start_time,
+            "end_time": end_time,
+            "intensity": intensity_raw,
+            "notes": notes_blob,
+        })
+    except Exception as e:
+        logger.error(f"create_event failed: {e}", exc_info=True)
+        return {"error": f"create_event failed: {str(e)[:120]}"}
 
 
 def _build_cancel_response() -> dict:
