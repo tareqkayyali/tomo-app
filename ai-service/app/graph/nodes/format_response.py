@@ -854,6 +854,13 @@ async def format_response_node(state: TomoChatState) -> dict:
 
     Returns state update with final_response and final_cards.
     """
+    # Case 0: Flow controller already built the response -- pass through.
+    # capsule_direct and future patterns set final_response directly.
+    flow_pattern = state.get("_flow_pattern")
+    if flow_pattern and state.get("final_response"):
+        logger.info(f"Format pass-through: flow_pattern={flow_pattern}")
+        return {}  # Empty dict = no state updates needed (already set by flow controller)
+
     agent_response = state.get("agent_response", "")
     pending_write = state.get("pending_write_action")
     write_confirmed = state.get("write_confirmed", False)

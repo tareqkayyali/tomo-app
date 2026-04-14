@@ -3,27 +3,30 @@ Tomo AI Service — LangGraph Supervisor Graph
 The main orchestration graph that wires all Phase 1-4 components together.
 
 Graph flow:
-  ┌──────────────────────────────────────────────────────────────────┐
-  │  START                                                          │
-  │    │                                                            │
-  │    ▼                                                            │
-  │  context_assembly ─── Populates player_context + aib_summary    │
-  │    │                                                            │
-  │    ▼                                                            │
-  │  pre_router ────────── Intent classify + agent route            │
-  │    │                                                            │
-  │    ├── capsule ──── format_response ──── persist ──── END       │
-  │    │                                                            │
-  │    ├── confirm ──── execute_confirmed ── validate ──┐           │
-  │    │                                                │           │
-  │    └── ai ──── rag_retrieval ── agent_dispatch ─────┤           │
-  │                                                     │           │
-  │                                        validate ── format       │
-  │                                              │                  │
-  │                                           persist               │
-  │                                              │                  │
-  │                                             END                 │
-  └──────────────────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  START                                                              │
+  │    │                                                                │
+  │    ▼                                                                │
+  │  context_assembly ─── Populates player_context + aib_summary        │
+  │    │                                                                │
+  │    ▼                                                                │
+  │  classifier ────────── Intent classify + agent route                │
+  │    │                                                                │
+  │    ▼                                                                │
+  │  flow_controller ───── Code-driven response routing                 │
+  │    │                                                                │
+  │    ├── flow_handled ── format_response ── persist ── END  ($0)      │
+  │    │                                                                │
+  │    ├── confirm ──────── execute_confirmed ── validate ──┐           │
+  │    │                                                    │           │
+  │    └── ai ──── rag_retrieval ── planner ── agent ───────┤           │
+  │                                                         │           │
+  │                                           validate ── format        │
+  │                                                │                    │
+  │                                             persist                 │
+  │                                                │                    │
+  │                                               END                   │
+  └──────────────────────────────────────────────────────────────────────┘
 
 Built on LangGraph StateGraph with TomoChatState.
 """
@@ -47,6 +50,7 @@ from app.graph.nodes.agent_dispatch import agent_dispatch_node, execute_confirme
 from app.graph.nodes.validate import validate_node
 from app.graph.nodes.format_response import format_response_node
 from app.graph.nodes.persist import persist_node
+from app.flow.controller import flow_controller_node, route_after_flow_controller
 
 # Feature flag: use v2 classifier node (Sonnet) vs v1 pre_router (Haiku+regex)
 _CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "haiku")
@@ -56,21 +60,13 @@ logger = logging.getLogger("tomo-ai.supervisor")
 
 # ── Routing Functions ──────────────────────────────────────────────
 
-def route_after_classifier(state: TomoChatState) -> Literal["capsule", "confirm", "ai"]:
+def route_after_classifier(state: TomoChatState) -> Literal["flow_controller"]:
     """
-    Conditional edge after classifier node.
-    Determines whether to go to capsule fast-path, confirm path, or full AI.
+    After classifier, always go to flow_controller.
+    The flow controller decides whether to handle the request directly
+    (capsule_direct, data_display) or fall through to the agent pipeline.
     """
-    # Check if this is a write action confirmation
-    if state.get("write_confirmed") and state.get("pending_write_action"):
-        return "confirm"
-
-    route_decision = state.get("route_decision", "ai")
-
-    if route_decision == "capsule":
-        return "capsule"
-
-    return "ai"
+    return "flow_controller"
 
 
 def route_after_validate(state: TomoChatState) -> Literal["format_response"]:
@@ -95,6 +91,7 @@ def build_supervisor_graph() -> StateGraph:
     graph.add_node("context_assembly", context_assembly_node)
     graph.add_node("rag_retrieval", rag_retrieval_node)
     graph.add_node("classifier", classifier_node)  # Runtime: sonnet or pre_router
+    graph.add_node("flow_controller", flow_controller_node)  # Code-driven response routing
     graph.add_node("planner", planner_node)           # v2: conversation planner
     graph.add_node("agent_dispatch", agent_dispatch_node)
     graph.add_node("execute_confirmed", execute_confirmed_action)
@@ -112,12 +109,18 @@ def build_supervisor_graph() -> StateGraph:
     # Capsule/confirm paths skip RAG entirely (saves ~$0.003 per skip).
     graph.add_edge("context_assembly", "classifier")
 
-    # ── Conditional edge: pre_router → {capsule | confirm | rag → ai} ──
+    # ── Classifier → Flow Controller (always) ──
+    # Flow controller checks FLOW_REGISTRY. If the intent has a registered
+    # pattern (capsule_direct, data_display, etc.), it handles the response
+    # directly. Otherwise falls through to the existing agent pipeline.
+    graph.add_edge("classifier", "flow_controller")
+
+    # ── Conditional edge: flow_controller → {flow_handled | confirm | ai} ──
     graph.add_conditional_edges(
-        "classifier",
-        route_after_classifier,
+        "flow_controller",
+        route_after_flow_controller,
         {
-            "capsule": "format_response",       # Capsule: skip agent + RAG, go straight to format
+            "flow_handled": "format_response",   # Flow controller built the response, skip agent
             "confirm": "execute_confirmed",      # Confirmed write: skip RAG, execute the pending action
             "ai": "rag_retrieval",              # Full AI: RAG first, then agent dispatch
         },
@@ -272,6 +275,8 @@ async def run_supervisor(
         "_workflow_steps": None,
         "_conversation_plan": None,
         "_refresh_targets": [],
+        # Initialize flow controller
+        "_flow_pattern": None,
         # Initialize observability (computed by persist_node for LangSmith)
         "_observability": None,
     }

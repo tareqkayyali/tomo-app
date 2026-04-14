@@ -89,5 +89,8 @@ class TomoChatState(MessagesState):
     _conversation_plan: Optional[dict[str, Any]]  # Full ConversationPlan dict from planner
     _refresh_targets: list[str]  # UI refresh targets from agent execution
 
+    # ── Flow Controller (populated by flow_controller_node) ──
+    _flow_pattern: Optional[str]  # "capsule_direct" | "data_display" | "multi_step" | None
+
     # ── Observability (computed by persist_node for LangSmith) ──
     _observability: Optional[dict[str, Any]]
