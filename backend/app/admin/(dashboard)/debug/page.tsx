@@ -247,7 +247,7 @@ export default function DebugPage() {
       <div className="flex flex-wrap gap-3 items-end">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Time Window</label>
-          <Select value={hours} onValueChange={setHours}>
+          <Select value={hours} onValueChange={(v) => v && setHours(v)}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
@@ -262,7 +262,7 @@ export default function DebugPage() {
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Limit</label>
-          <Select value={limit} onValueChange={setLimit}>
+          <Select value={limit} onValueChange={(v) => v && setLimit(v)}>
             <SelectTrigger className="w-24">
               <SelectValue />
             </SelectTrigger>
@@ -287,7 +287,7 @@ export default function DebugPage() {
           <>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Severity</label>
-              <Select value={severity} onValueChange={setSeverity}>
+              <Select value={severity} onValueChange={(v) => v && setSeverity(v)}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -312,7 +312,7 @@ export default function DebugPage() {
         {tab === "requests" && (
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Status</label>
-            <Select value={status} onValueChange={setStatus}>
+            <Select value={status} onValueChange={(v) => v && setStatus(v)}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
