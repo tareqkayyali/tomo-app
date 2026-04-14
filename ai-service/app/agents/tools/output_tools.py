@@ -408,15 +408,19 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         from app.db.supabase import get_pool
         pool = get_pool()
 
-        async with pool.connection() as conn:
-            result = await conn.execute(
-                """SELECT id, name, category, type, description, difficulty,
-                          duration_minutes, tags, position_emphasis, equipment
-                   FROM football_training_programs
-                   ORDER BY name
-                   LIMIT 10""",
-            )
-            rows = await result.fetchall()
+        try:
+            async with pool.connection() as conn:
+                result = await conn.execute(
+                    """SELECT id, name, category, type, description, difficulty,
+                              duration_minutes, tags, position_emphasis, equipment
+                       FROM football_training_programs
+                       ORDER BY name
+                       LIMIT 10""",
+                )
+                rows = await result.fetchall()
+        except Exception as e:
+            logger.warning(f"get_training_program_recommendations: football_training_programs table not found: {e}")
+            rows = []
 
         programs = [
             {
@@ -543,15 +547,19 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         from app.db.supabase import get_pool
         pool = get_pool()
 
-        async with pool.connection() as conn:
-            prog_result = await conn.execute(
-                """SELECT id, name, category, type, description, difficulty,
-                          duration_minutes, tags, position_emphasis, equipment,
-                          prescriptions, phv_guidance
-                   FROM football_training_programs WHERE id = %s""",
-                (program_id,),
-            )
-            prog_row = await prog_result.fetchone()
+        try:
+            async with pool.connection() as conn:
+                prog_result = await conn.execute(
+                    """SELECT id, name, category, type, description, difficulty,
+                              duration_minutes, tags, position_emphasis, equipment,
+                              prescriptions, phv_guidance
+                       FROM football_training_programs WHERE id = %s""",
+                    (program_id,),
+                )
+                prog_row = await prog_result.fetchone()
+        except Exception as e:
+            logger.warning(f"get_program_by_id: football_training_programs table not found: {e}")
+            return {"error": f"Program {program_id} not found (table unavailable)"}
 
         if not prog_row:
             return {"error": f"Program {program_id} not found"}
@@ -592,32 +600,23 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
     async def rate_drill(
         drill_id: str,
         rating: int = 3,
-        difficulty: int = 0,
-        completion_status: str = "completed",
-        effort: int = 0,
         notes: str = "",
     ) -> dict:
-        """Rate a drill after completing it. Rating: 1-5 scale. Difficulty: 1-5 (optional). Effort: 1-10 (optional). Completion: skipped/partial/completed. This is a WRITE action."""
+        """Rate a drill after completing it. Rating: 1-5 scale. This is a WRITE action."""
         from app.db.supabase import get_pool
         pool = get_pool()
 
         clamped_rating = max(1, min(5, round(rating)))
-        clamped_difficulty = max(1, min(5, round(difficulty))) if difficulty else None
-        clamped_effort = max(1, min(10, round(effort))) if effort else None
 
         async with pool.connection() as conn:
             result = await conn.execute(
-                """INSERT INTO drill_ratings (user_id, drill_id, date, rating, difficulty, completion_status, effort, notes)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                   RETURNING id, drill_id, rating, date::text""",
+                """INSERT INTO user_drill_history (user_id, drill_id, completed_at, rating, notes)
+                   VALUES (%s, %s, NOW(), %s, %s)
+                   RETURNING id, drill_id, rating, completed_at::text""",
                 (
                     user_id,
                     drill_id,
-                    context.today_date,
                     clamped_rating,
-                    clamped_difficulty,
-                    completion_status if completion_status in ("skipped", "partial", "completed") else "completed",
-                    clamped_effort,
                     notes or None,
                 ),
             )
@@ -631,7 +630,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             "id": str(row[0]),
             "drill_id": str(row[1]),
             "rating": row[2],
-            "date": row[3],
+            "completed_at": row[3],
         }
 
     @tool
@@ -647,7 +646,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                    FROM calendar_events
                    WHERE user_id = %s
                      AND start_at::date = %s::date
-                     AND event_type IN ('training', 'gym', 'club_training', 'match')
+                     AND event_type IN ('training', 'match')
                    ORDER BY start_at""",
                 (user_id, context.today_date),
             )

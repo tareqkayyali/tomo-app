@@ -80,33 +80,53 @@ def make_dual_load_tools(user_id: str, context: PlayerContext) -> list:
                    FROM calendar_events
                    WHERE user_id = %s
                      AND start_at::date = %s::date
-                     AND event_type IN ('training', 'gym', 'club_training', 'match', 'recovery')
+                     AND event_type IN ('training', 'match', 'recovery')
                    ORDER BY start_at""",
                 (user_id, context.today_date),
             )
             events = await events_result.fetchall()
 
-            # Get cognitive window definitions
-            cw_result = await conn.execute(
-                """SELECT window_type, label, optimal_delay_minutes, description
-                   FROM cognitive_windows
-                   WHERE enabled = TRUE""",
-            )
-            windows = await cw_result.fetchall()
-
+        # Hardcoded cognitive window definitions (cognitive_windows table does not exist)
         window_map = {
-            row[0]: {
-                "cognitive_state": row[1],
-                "delay_minutes": row[2],
-                "description": row[3],
-            }
-            for row in windows
+            "post_moderate": {
+                "cognitive_state": "Post-Moderate Training",
+                "delay_minutes": 30,
+                "description": "30-90 min after moderate training is optimal for focused study",
+            },
+            "post_hard": {
+                "cognitive_state": "Post-Hard Training",
+                "delay_minutes": 120,
+                "description": "2+ hours after high intensity before cognitive work",
+            },
+            "morning": {
+                "cognitive_state": "Morning Window",
+                "delay_minutes": 0,
+                "description": "8-11 AM is typically peak cognitive performance",
+            },
+            "post_cardio": {
+                "cognitive_state": "Post-Cardio",
+                "delay_minutes": 45,
+                "description": "45-60 min after cardio session for focused study",
+            },
+            "post_hiit": {
+                "cognitive_state": "Post-HIIT",
+                "delay_minutes": 90,
+                "description": "90+ min after HIIT/match for cognitive work",
+            },
+            "post_strength": {
+                "cognitive_state": "Post-Strength",
+                "delay_minutes": 60,
+                "description": "60 min after strength training for focused study",
+            },
+            "rest_day": {
+                "cognitive_state": "Rest Day",
+                "delay_minutes": 0,
+                "description": "Full cognitive capacity available on rest days",
+            },
         }
 
         # Map event types to cognitive window types
         EVENT_TO_WINDOW = {
-            "gym": "post_strength",
-            "club_training": "post_cardio",
             "training": "post_cardio",
             "match": "post_hiit",
             "recovery": "rest_day",

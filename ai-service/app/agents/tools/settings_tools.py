@@ -50,7 +50,7 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
                 rows = await result.fetchall()
         except Exception as e:
             logger.warning(f"get_goals query failed (table may not exist): {e}")
-            return {"goals": [], "total": 0, "note": "Goals feature not yet available"}
+            return {"goals": [], "total": 0, "message": "Goals feature coming soon"}
 
         goals = [
             {
@@ -111,11 +111,11 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         try:
             async with pool.connection() as conn:
                 result = await conn.execute(
-                    """SELECT meal_type, description, calories, protein_g, carbs_g, fat_g,
-                              logged_at::date::text, logged_at::time::text
+                    """SELECT meal_type, notes as description, calories, protein_g, carbs_g, fat_g,
+                              date::text, created_at::time::text
                        FROM nutrition_logs
-                       WHERE user_id = %s AND logged_at >= %s::date
-                       ORDER BY logged_at DESC""",
+                       WHERE user_id = %s AND date >= %s::date
+                       ORDER BY date DESC, created_at DESC""",
                     (user_id, since),
                 )
                 rows = await result.fetchall()

@@ -173,9 +173,10 @@ def make_planning_tools(user_id: str, context: PlayerContext) -> list:
         if protocol_id:
             async with pool.connection() as conn:
                 result = await conn.execute(
-                    """SELECT id, name, description, severity, trigger_condition,
-                              action_type, action_params, is_active
-                       FROM pd_protocols WHERE id = %s""",
+                    """SELECT protocol_id as id, name, description,
+                              evidence_grade as severity, conditions::text as trigger_condition,
+                              intensity_cap as action_type, load_multiplier, is_enabled as is_active
+                       FROM pd_protocols WHERE protocol_id = %s""",
                     (protocol_id,),
                 )
                 row = await result.fetchone()
@@ -186,7 +187,7 @@ def make_planning_tools(user_id: str, context: PlayerContext) -> list:
             return {
                 "id": row[0], "name": row[1], "description": row[2],
                 "severity": row[3], "trigger": row[4],
-                "action_type": row[5], "action_params": row[6], "active": bool(row[7]),
+                "action_type": row[5], "load_multiplier": row[6], "active": bool(row[7]),
             }
         else:
             # List applicable protocols from snapshot
@@ -199,8 +200,8 @@ def make_planning_tools(user_id: str, context: PlayerContext) -> list:
             async with pool.connection() as conn:
                 placeholders = ",".join(["%s"] * len(protocol_ids))
                 result = await conn.execute(
-                    f"""SELECT id, name, description, severity, is_active
-                       FROM pd_protocols WHERE id IN ({placeholders})""",
+                    f"""SELECT protocol_id as id, name, description, evidence_grade as severity, is_enabled as is_active
+                       FROM pd_protocols WHERE protocol_id IN ({placeholders})""",
                     protocol_ids,
                 )
                 rows = await result.fetchall()

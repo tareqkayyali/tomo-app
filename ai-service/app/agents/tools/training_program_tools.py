@@ -128,11 +128,12 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
         async with pool.connection() as conn:
             # Check for active training blocks
             block_result = await conn.execute(
-                """SELECT id, name, phase, week_number, duration_weeks,
-                          start_date::text, end_date::text, goals,
+                """SELECT id, sport, block_type as phase,
+                          start_date::text, end_date::text, focus as goals,
+                          week_count as duration_weeks, deload_week,
                           created_at::text
                    FROM training_blocks
-                   WHERE user_id = %s AND status = 'active'
+                   WHERE user_id = %s
                    ORDER BY created_at DESC LIMIT 1""",
                 (user_id,),
             )
@@ -148,13 +149,14 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
         return {
             "has_active_block": True,
             "block_id": block[0],
-            "name": block[1],
+            "sport": block[1],
             "phase": block[2],
-            "week_number": block[3],
-            "duration_weeks": block[4],
-            "start_date": block[5],
-            "end_date": block[6],
-            "goals": block[7],
+            "start_date": block[3],
+            "end_date": block[4],
+            "goals": block[5],
+            "duration_weeks": block[6],
+            "deload_week": block[7],
+            "created_at": block[8],
             "acwr": se.acwr if se else None,
             "readiness": context.readiness_score,
         }
