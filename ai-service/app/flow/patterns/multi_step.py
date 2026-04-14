@@ -188,6 +188,20 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
         )
         return _build_cancel_response()
 
+    # ── Mid-flow drill detail question (Layer C1) ──
+    # Athletes reviewing a session_plan often ask "show me drill details
+    # for X" or "what is the Y drill". Before the restart signal or any
+    # step-specific handling, try to answer the question inline using
+    # the drill data we already fetched for session_drills. This keeps
+    # the flow state intact so they can continue confirming.
+    drill_hit = _detect_drill_question(user_message, flow)
+    if drill_hit:
+        logger.info(
+            f"Multi-step: inline drill-detail question for "
+            f"{drill_hit.get('name', '?')!r}, preserving flow state"
+        )
+        return await _build_drill_detail_response(flow, state, drill_hit)
+
     # ── Mid-flow restart signal ──
     # If the athlete sends something that is clearly a greeting or the
     # start of a totally new conversation (not a response to the current
@@ -1623,11 +1637,17 @@ _RESTART_GREETING_PATTERNS = (
 
 # Action verbs that clearly signal a NEW intent, not a response to the
 # current step. Matched against the start of the message.
+#
+# "show me" / "tell me" were REMOVED (April 2026) because they fire on
+# legitimate mid-flow questions like "show me drill details for X" or
+# "tell me about the dynamic stretching drill". The drill-detail
+# passthrough at the top of execute_multi_step_continuation now handles
+# those inline without restarting the flow.
 _RESTART_VERB_PREFIXES = (
-    "show me", "show my", "what's my", "whats my", "what is my",
+    "show my", "what's my", "whats my", "what is my",
     "how am i", "how's my", "hows my",
     "log ", "check ", "add ", "create ", "delete ", "cancel ",
-    "tell me", "what's on", "whats on", "what is on",
+    "what's on", "whats on", "what is on",
 )
 
 
@@ -1676,6 +1696,149 @@ def _is_restart_signal(msg: str, flow: FlowState) -> bool:
             return True
 
     return False
+
+
+# ── Mid-flow drill detail passthrough (Layer C1) ────────────────────────
+# When an athlete asks about a drill while reviewing a session_plan, we
+# answer inline using the data we already have in session_drills. The
+# flow state stays exactly where it was so the confirmation path is
+# uninterrupted.
+
+# Patterns that look like drill-detail questions. Any of these AND a
+# fuzzy match against a drill name in session_drills triggers the inline
+# passthrough.
+_DRILL_QUESTION_PATTERNS = (
+    "drill detail", "drill details",
+    "show me drill", "show me the drill", "show me details",
+    "tell me about", "tell me more about", "more about",
+    "what is the", "what's the", "whats the",
+    "explain the", "explain this", "explain that",
+    "how does the", "how does this",
+    "describe the", "describe this",
+    "what about the", "more on the",
+    "info on the", "info about",
+    "show me more on",
+)
+
+
+def _detect_drill_question(msg: str, flow: FlowState) -> Optional[dict]:
+    """If the message looks like a drill-detail question AND the drill
+    name fuzzy-matches something in session_drills, return that drill.
+
+    Returns the drill dict (from session_drills.drills[*]) or None.
+    """
+    if not msg:
+        return None
+
+    drills_blob = flow.get("session_drills") or {}
+    if not isinstance(drills_blob, dict):
+        return None
+    drills = drills_blob.get("drills", []) or []
+    if not drills:
+        return None
+
+    lowered = msg.lower().strip()
+
+    # 1. Must contain at least one drill-question pattern
+    has_pattern = any(p in lowered for p in _DRILL_QUESTION_PATTERNS)
+    if not has_pattern:
+        return None
+
+    # 2. Fuzzy match drill name against the message
+    # First try exact substring match on the full name
+    best = None
+    best_score = 0
+    for d in drills:
+        if not isinstance(d, dict):
+            continue
+        name = str(d.get("name", "")).lower().strip()
+        if not name:
+            continue
+        if name in lowered:
+            return d  # exact match wins
+        # Word-overlap score for fuzzy matches like "dynamic stretching"
+        # matching "Dynamic Stretching Circuit"
+        name_words = set(w for w in name.split() if len(w) > 3)
+        msg_words = set(lowered.split())
+        overlap = len(name_words & msg_words)
+        if overlap > best_score and overlap >= 2:
+            best = d
+            best_score = overlap
+    return best
+
+
+async def _build_drill_detail_response(
+    flow: FlowState,
+    state: TomoChatState,
+    drill: dict,
+) -> dict:
+    """Answer an inline drill-detail question without advancing the flow.
+
+    Returns a text response (no card) with chips that match the chips
+    of the current flow step so the athlete can resume cleanly. Flow
+    state is re-saved at the exact step they were on.
+    """
+    name = str(drill.get("name", "This drill"))
+    category = str(drill.get("category", "training"))
+    duration = drill.get("duration_min", 0) or 0
+    intensity = str(drill.get("intensity", "MODERATE"))
+    description = str(drill.get("description", "")).strip()
+
+    # Compose a tight detail body. Description may be empty for some
+    # drills; we still give the athlete the basics.
+    lines = [
+        f"{name}",
+        f"{duration} min - {intensity.lower()} intensity - {category}",
+    ]
+    if description:
+        # Cap description length so we stay in-bubble
+        desc = description[:400]
+        if len(description) > 400:
+            desc = desc.rstrip() + "..."
+        lines.append("")
+        lines.append(desc)
+    body = "\n".join(lines)
+
+    # Resume chips: match the current step so the flow feels intact.
+    current = flow.current_step
+    if current and current.card == "time_picker":
+        chips = [
+            {"label": "Looks good", "message": "Looks good"},
+            {"label": "Pick a time", "message": "Pick a time"},
+        ]
+    elif current and current.card == "confirm_card":
+        chips = [
+            {"label": "Confirm", "message": "Yes, lock it in"},
+            {"label": "Cancel", "message": "Cancel"},
+        ]
+    else:
+        chips = [
+            {"label": "Looks good", "message": "Looks good"},
+            {"label": "Make it lighter", "message": "Can you make it lighter?"},
+        ]
+
+    structured = {
+        "headline": f"About {name}",
+        "body": body,
+        "cards": [],
+        "chips": chips,
+    }
+
+    # Re-save state at the current step (no advance).
+    await save_flow_state(
+        state.get("session_id", ""),
+        state.get("user_id", ""),
+        flow,
+    )
+
+    return {
+        "final_response": json.dumps(structured),
+        "final_cards": [],
+        "_flow_pattern": "multi_step",
+        "route_decision": "flow_handled",
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+    }
 
 
 def _extract_time(time_str: str) -> str:
