@@ -636,20 +636,22 @@ def _format_confirm_date(date_str: str) -> str:
 
 
 def _build_done_headline(results: list[dict]) -> str:
-    """Build natural-language headline from confirmed action results."""
+    """Build warm, coaching-style headline from confirmed action results.
+
+    These headlines are the FIRST thing the athlete sees after confirming an action.
+    They must feel like a friend acknowledging the decision, not a system notification.
+    """
     if not results:
-        return "Done"
+        return "You're set"
 
     first = results[0]
     tool_name = first.get("tool", "")
     result_data = first.get("result", {})
 
-    # Try extracting event details for natural language headline
+    # Try extracting event details for personalized headline
     if isinstance(result_data, dict):
-        # Handle nested event response from TS backend
         event_data = result_data.get("event", result_data)
         title = event_data.get("name") or event_data.get("title") or ""
-        # Use actual time (may have been auto-repositioned)
         if result_data.get("autoRepositioned"):
             suggested = result_data.get("suggestedTime", {})
             start_time = suggested.get("startTime", "")
@@ -657,24 +659,33 @@ def _build_done_headline(results: list[dict]) -> str:
             start_time = event_data.get("startTime") or event_data.get("start_time") or ""
         if title and start_time:
             time_display = _format_12h(start_time) if ":" in start_time and len(start_time) <= 5 else start_time
-            return f"{title} locked in for {time_display}"
+            # Warm, coaching-style confirmation
+            title_lower = title.lower()
+            if "recovery" in title_lower:
+                return f"Smart move -- recovery at {time_display}"
+            elif "speed" in title_lower or "acceleration" in title_lower:
+                return f"Speed work locked in for {time_display} -- let's go"
+            elif "gym" in title_lower or "strength" in title_lower:
+                return f"Gym session set for {time_display} -- bring it"
+            else:
+                return f"{title} at {time_display} -- you're set"
         if title:
-            return f"{title} confirmed"
+            return f"{title} -- done"
 
-    # Fallback: natural language from tool name
+    # Warm fallback headlines by action type
     tool_headlines = {
-        "create_event": "Locked in",
-        "update_event": "Updated -- you're set",
-        "delete_event": "Removed -- all clear",
-        "log_check_in": "Check-in saved",
-        "log_test_result": "Result saved",
-        "log_recovery_session": "Recovery session added -- smart move",
-        "create_training_block": "Training block started -- let's go",
-        "trigger_deload_week": "Deload week is on -- your body will thank you",
-        "flag_injury_concern": "Noted -- keeping an eye on it",
+        "create_event": "Got it -- you're all set",
+        "update_event": "Updated -- looking better",
+        "delete_event": "Cleared out -- all good",
+        "log_check_in": "Check-in logged -- good to see you",
+        "log_test_result": "Result saved -- let's see how you're tracking",
+        "log_recovery_session": "Recovery locked in -- smart call",
+        "create_training_block": "Block started -- here we go",
+        "trigger_deload_week": "Deload week on -- your body will thank you",
+        "flag_injury_concern": "Noted -- I'll keep that in mind",
         "log_injury": "Logged -- take care of yourself",
-        "set_goal": "Goal locked in",
-        "propose_mode_change": "Mode switched -- you're set",
+        "set_goal": "Goal set -- let's chase it",
+        "propose_mode_change": "Mode switched -- adjusted for you",
     }
     return tool_headlines.get(tool_name, "Done -- you're good")
 
@@ -730,7 +741,25 @@ def _build_confirmed_response(results: list[dict]) -> dict:
             "type": "text_card", "headline": headline, "body": "All good."
         }
         cards = [done_card]
-        body = auto_reposition_note
+
+        # Build warm body — not empty, not transactional
+        if auto_reposition_note:
+            body = auto_reposition_note
+        else:
+            # Context-aware warm body based on action type
+            primary_tool = results[0].get("tool", "") if results else ""
+            _warm_bodies = {
+                "create_event": "Show up, put the work in, and come tell me how it went.",
+                "update_event": "Schedule's looking cleaner now.",
+                "delete_event": "Cleared some space -- sometimes that's the smartest move.",
+                "log_check_in": "Good to have you here. That data helps me help you.",
+                "log_test_result": "Every test tells a story -- let's see yours.",
+                "log_recovery_session": "Recovery is how you get faster. Respect the process.",
+                "create_training_block": "Consistency is where the magic is. Let's build.",
+                "trigger_deload_week": "Backing off now means coming back stronger. Trust it.",
+                "set_goal": "Now we've got something to chase together.",
+            }
+            body = _warm_bodies.get(primary_tool, "")
     else:
         # Warm error — never robotic "X of Y actions"
         failed = [r for r in results if not r.get("success")]
