@@ -16,6 +16,7 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { logger } from "@/lib/logger";
 import {
   proxyToAIServiceStream,
+  proxyToAIServiceSync,
   type AIServiceRequest,
 } from "@/services/agents/aiServiceProxy";
 import {
@@ -87,8 +88,31 @@ export async function POST(req: NextRequest) {
 
         send("status", { status: "Thinking..." });
 
-        for await (const sse of proxyToAIServiceStream(aiRequest, (s) => send("status", { status: s }))) {
-          send(sse.event, sse.data);
+        // Try SSE streaming first; fall back to sync if stream yields nothing
+        // (Railway's edge proxy can drop SSE connections between services)
+        let eventCount = 0;
+        try {
+          for await (const sse of proxyToAIServiceStream(aiRequest, (s) => send("status", { status: s }))) {
+            eventCount++;
+            send(sse.event, sse.data);
+          }
+        } catch (streamErr) {
+          logger.warn("[agent-stream] SSE stream failed, falling back to sync", {
+            error: streamErr instanceof Error ? streamErr.message : String(streamErr),
+          });
+        }
+
+        // If SSE yielded nothing (Railway dropped it), fall back to sync proxy
+        if (eventCount === 0) {
+          logger.warn("[agent-stream] SSE stream yielded 0 events, using sync fallback");
+          try {
+            const syncResult = await proxyToAIServiceSync(aiRequest);
+            send("done", syncResult);
+          } catch (syncErr) {
+            const msg = syncErr instanceof Error ? syncErr.message : "Sync fallback failed";
+            logger.error("[agent-stream] Sync fallback also failed", { error: msg });
+            send("error", { error: msg });
+          }
         }
 
         controller.close();

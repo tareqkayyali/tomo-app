@@ -7,7 +7,7 @@
  *   - "true" → Python serves response; TS orchestrator bypassed
  *
  * Internal networking: Uses Railway private networking (<5ms latency)
- *   - Production: http://tomo-ai.railway.internal:8000
+ *   - Production: http://tomoai.railway.internal:8000
  *   - Local dev:  http://localhost:8000
  */
 
@@ -50,7 +50,7 @@ function getAIServiceUrl(): string {
   return (
     process.env.AI_SERVICE_URL ||
     (process.env.RAILWAY_ENVIRONMENT
-      ? "http://tomo-ai.railway.internal:8000"
+      ? "http://tomoai.railway.internal:8000"
       : "http://localhost:8000")
   );
 }
@@ -128,6 +128,11 @@ export async function* proxyToAIServiceStream(
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    // CRITICAL: These must persist across chunk boundaries.
+    // A single SSE message (event + data + blank line) can arrive
+    // split across multiple read() chunks.
+    let currentEvent = "";
+    let currentData = "";
 
     while (true) {
       const { done, value } = await reader.read();
@@ -136,9 +141,6 @@ export async function* proxyToAIServiceStream(
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-      let currentEvent = "";
-      let currentData = "";
 
       for (const line of lines) {
         if (line.startsWith("event: ")) {

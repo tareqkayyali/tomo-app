@@ -143,8 +143,8 @@ export async function POST(req: NextRequest) {
             })) {
               controller.enqueue(encoder.encode(formatSSE(sse.event, sse.data)));
 
-              // Accumulate the response event for safety post-check
-              if (sse.event === "response" && sse.data?.message) {
+              // Accumulate the done event for safety post-check
+              if (sse.event === "done" && sse.data?.message) {
                 accumulatedMessage += sse.data.message;
               }
             }
