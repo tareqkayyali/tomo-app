@@ -9,8 +9,18 @@ Includes APScheduler for LangSmith feedback loop:
 """
 
 import os
+import sys
 import logging
 from contextlib import asynccontextmanager
+
+# Force unbuffered stdout/stderr so Railway captures logs in real time.
+# Without this, Python buffers output in containers (no TTY) and logs
+# only appear when the buffer fills or the process exits.
+os.environ["PYTHONUNBUFFERED"] = "1"
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(line_buffering=True)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
