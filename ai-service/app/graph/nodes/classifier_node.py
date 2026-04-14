@@ -29,7 +29,7 @@ from app.utils.message_helpers import get_msg_type, get_msg_content
 
 logger = logging.getLogger("tomo-ai.classifier_node")
 
-_CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "sonnet")
+_CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "haiku")
 
 # v1→v2 agent name mapping
 _V1_TO_V2 = {

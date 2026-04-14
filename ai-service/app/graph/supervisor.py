@@ -53,7 +53,7 @@ from app.graph.nodes.persist import persist_node
 from app.flow.controller import flow_controller_node, route_after_flow_controller
 
 # Feature flag: use v2 classifier node (Sonnet) vs v1 pre_router (Haiku+regex)
-_CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "sonnet")
+_CLASSIFIER_VERSION = os.environ.get("CLASSIFIER_VERSION", "haiku")
 
 logger = logging.getLogger("tomo-ai.supervisor")
 
