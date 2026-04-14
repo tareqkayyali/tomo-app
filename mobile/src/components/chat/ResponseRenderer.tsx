@@ -1112,7 +1112,11 @@ function ChoiceCardComponent({
             key={i}
             activeOpacity={0.6}
             onPress={() => {
-              const msg = opt.value || opt.label;
+              // Send the human-readable label as the chat message.
+              // Backend matches options by label. Never send raw value
+              // fields (UUIDs, enum keys) — they'd render as garbage in
+              // the user's chat bubble.
+              const msg = opt.label;
               if (msg && onChipPress) onChipPress(msg);
             }}
             style={styles.choiceRow}
