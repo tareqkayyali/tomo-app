@@ -246,20 +246,76 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         sport = (context.sport or "football").lower()
         position = context.position or "General"
 
+        # Map session category to DB query strategy:
+        # DB categories are: warmup, training, cooldown, recovery, activation
+        # Session types (speed, strength, technical) map to attribute_keys, not category
+        _CATEGORY_TO_ATTRIBUTES = {
+            "speed": ["pace", "sprint", "acceleration", "agility"],
+            "strength": ["strength", "power", "endurance"],
+            "technical": ["dribbling", "passing", "shooting", "first_touch"],
+            "agility": ["agility", "reaction", "lateral"],
+            "endurance": ["endurance", "stamina", "conditioning"],
+        }
+        target_attrs = _CATEGORY_TO_ATTRIBUTES.get(category.lower(), [])
+
         async with pool.connection() as conn:
-            result = await conn.execute(
-                """SELECT id, name, category, duration_minutes, intensity,
-                          description, attribute_keys, sport_id
-                   FROM training_drills
-                   WHERE (sport_id = %s OR sport_id = 'all')
-                     AND (intensity = %s OR intensity = 'light')
-                     AND category ILIKE %s
-                     AND active = true
-                   ORDER BY RANDOM()
-                   LIMIT 8""",
-                (sport, intensity.lower(), f"%{category}%"),
-            )
+            if target_attrs and category.lower() not in ("recovery", "warmup", "cooldown", "activation"):
+                # Query by attribute_keys for training-type sessions
+                # attribute_keys is JSONB array — check if ANY target attribute overlaps
+                attr_conditions = " OR ".join(
+                    [f"attribute_keys @> '[\"{attr}\"]'::jsonb" for attr in target_attrs]
+                )
+                result = await conn.execute(
+                    f"""SELECT id, name, category, duration_minutes, intensity,
+                              description, attribute_keys, sport_id
+                       FROM training_drills
+                       WHERE (sport_id = %s OR sport_id = 'all')
+                         AND (intensity = %s OR intensity = 'light')
+                         AND ({attr_conditions})
+                         AND active = true
+                       ORDER BY RANDOM()
+                       LIMIT 6""",
+                    (sport, intensity.lower()),
+                )
+            else:
+                # Direct category match for recovery, warmup, cooldown
+                result = await conn.execute(
+                    """SELECT id, name, category, duration_minutes, intensity,
+                              description, attribute_keys, sport_id
+                       FROM training_drills
+                       WHERE (sport_id = %s OR sport_id = 'all')
+                         AND (intensity = %s OR intensity = 'light')
+                         AND category = %s
+                         AND active = true
+                       ORDER BY RANDOM()
+                       LIMIT 6""",
+                    (sport, intensity.lower(), category.lower()),
+                )
             rows = await result.fetchall()
+
+            # Always add warmup + cooldown drills if this is a training session
+            if category.lower() not in ("recovery", "warmup", "cooldown"):
+                warmup_result = await conn.execute(
+                    """SELECT id, name, category, duration_minutes, intensity,
+                              description, attribute_keys, sport_id
+                       FROM training_drills
+                       WHERE (sport_id = %s OR sport_id = 'all')
+                         AND category = 'warmup' AND active = true
+                       ORDER BY RANDOM() LIMIT 1""",
+                    (sport,),
+                )
+                cooldown_result = await conn.execute(
+                    """SELECT id, name, category, duration_minutes, intensity,
+                              description, attribute_keys, sport_id
+                       FROM training_drills
+                       WHERE (sport_id = %s OR sport_id = 'all')
+                         AND category = 'cooldown' AND active = true
+                       ORDER BY RANDOM() LIMIT 1""",
+                    (sport,),
+                )
+                warmup_rows = await warmup_result.fetchall()
+                cooldown_rows = await cooldown_result.fetchall()
+                rows = list(warmup_rows) + list(rows) + list(cooldown_rows)
 
         drills = [
             {
