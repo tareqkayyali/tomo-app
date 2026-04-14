@@ -325,12 +325,23 @@ async def run_supervisor(
         return result
     except Exception as e:
         import json as _json
+        import traceback as _tb
+        import sys as _sys
+
+        # Force-print to stderr so Railway sees it regardless of buffering
+        error_tb = _tb.format_exc()
+        print(f"[SUPERVISOR CRASH] {e}\n{error_tb}", file=_sys.stderr, flush=True)
+        _sys.stderr.flush()
         logger.error(f"Supervisor execution failed: {e}", exc_info=True)
+
         error_response = {
             "headline": "Hey -- ran into something",
             "body": "Something tripped up on my end. Mind sending that again?",
             "cards": [],
             "chips": [{"label": "Try again", "message": "Can you try that again?"}],
+            # Include traceback in debug field — stripped before mobile rendering
+            "_debug_error": str(e),
+            "_debug_traceback": error_tb,
         }
         return {
             "final_response": _json.dumps(error_response),

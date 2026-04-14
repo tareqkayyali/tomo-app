@@ -50,26 +50,45 @@ async def root():
 async def chat_test():
     """Diagnostic: run a chat through the full supervisor and return the result or error traceback."""
     import traceback
+    import json
+    from fastapi import Request
+
     try:
         from app.graph.supervisor import run_supervisor
-        result = await run_supervisor(
+
+        # Turn 1: greeting (fresh session — should work)
+        result1 = await run_supervisor(
             user_id="d31a0590-3e2c-4749-acb8-1da7c644d554",
-            session_id="health-chat-test",
+            session_id="health-chat-test-v2",
+            message="hey tomo",
+            active_tab="Chat",
+            timezone="Asia/Riyadh",
+        )
+        r1 = json.loads(result1.get("final_response", "{}"))
+
+        # Turn 2: plan session (WITH history from turn 1 — this is what crashes)
+        result2 = await run_supervisor(
+            user_id="d31a0590-3e2c-4749-acb8-1da7c644d554",
+            session_id="health-chat-test-v2",
             message="I want to plan a session",
             active_tab="Chat",
             timezone="Asia/Riyadh",
         )
-        import json
-        resp = result.get("final_response", "")
-        structured = json.loads(resp) if resp else {}
+        r2 = json.loads(result2.get("final_response", "{}"))
+
         return {
             "status": "ok",
-            "headline": structured.get("headline", ""),
-            "cards": [c.get("type") for c in structured.get("cards", [])],
-            "flow_pattern": result.get("_flow_pattern"),
-            "agent": result.get("selected_agent"),
-            "intent": result.get("intent_id"),
-            "cost": result.get("total_cost_usd", 0),
+            "turn1": {
+                "headline": r1.get("headline", ""),
+                "debug_error": r1.get("_debug_error"),
+            },
+            "turn2": {
+                "headline": r2.get("headline", ""),
+                "cards": [c.get("type") for c in r2.get("cards", [])],
+                "debug_error": r2.get("_debug_error"),
+                "debug_traceback": r2.get("_debug_traceback"),
+                "flow_pattern": result2.get("_flow_pattern"),
+            },
         }
     except Exception as e:
         return {
