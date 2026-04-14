@@ -350,7 +350,12 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
         # No LLM, no tool call. Pure context read. Blocks high-intensity
         # drill building when RED readiness or ACWR > 1.5, unless the
         # athlete has already explicitly selected recovery focus.
+        # Gated behind FLOW_READINESS_GATE_ENABLED (default off) so we
+        # can iterate on the guardrail UX without a redeploy.
         if step.card == "safety_gate":
+            if not _FLOW_READINESS_GATE_ENABLED:
+                flow.advance()
+                continue
             gate = _evaluate_readiness_gate(flow, state)
             if gate.get("block") and not flow.get("readiness_override_accepted"):
                 flow.store("readiness_gate_data", gate)
@@ -580,6 +585,12 @@ import os as _os
 
 _FLOW_RAG_ENABLED = _os.environ.get("FLOW_RAG_ENABLED", "true").lower() == "true"
 _FLOW_RAG_TIMEOUT_S = 2.5  # bumped from 1.5s -- RAG grounding is now mandatory for build_session
+
+# Readiness safety gate: deterministic block on RED / ACWR>1.5 with a
+# recovery-first card. Temporarily bypassed by default (April 2026) while
+# we iterate on the guardrail UX; flip this env to "true" to re-enable
+# without a code change.
+_FLOW_READINESS_GATE_ENABLED = _os.environ.get("FLOW_READINESS_GATE_ENABLED", "false").lower() == "true"
 
 
 async def _retrieve_session_rag(
@@ -1161,10 +1172,15 @@ def _evaluate_readiness_gate(flow: FlowState, state: TomoChatState) -> dict:
 
 
 async def _present_safety_gate(flow: FlowState, gate: dict, state: TomoChatState) -> dict:
-    """Render the readiness safety gate as a dedicated card."""
+    """Render the readiness safety gate as a dedicated card.
+
+    Outer headline/body are intentionally empty -- the mobile renderer
+    draws BOTH the message bubble AND the card, so echoing the same
+    copy in both produces the duplicated text we saw in prod.
+    """
     structured = {
-        "headline": gate.get("title", "Heads up"),
-        "body": gate.get("body", ""),
+        "headline": "",
+        "body": "",
         "cards": [{
             "type": "safety_gate",
             "headline": gate.get("title", "Heads up"),
