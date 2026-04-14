@@ -49,16 +49,115 @@ _V1_TO_V2 = {
 
 async def classifier_node(state: TomoChatState) -> dict:
     """
-    Unified classifier node.
+    v2 Classifier: Layer 1 exact match ($0) → Layer 2 Sonnet (~$0.003).
 
-    Reads CLASSIFIER_VERSION at RUNTIME (not module load) to avoid stale
-    singleton cache issues where the graph compiles before env vars are set.
+    Layer 1 catches greetings, schedule views, navigation, quick status — $0.
+    Layer 2 Sonnet handles everything else with full conversation context.
     """
-    # V2 HARDCODED: Always use Sonnet classifier.
-    # The env var check was unreliable across Railway deploys.
-    # To revert to v1, change this to: return await pre_router_node(state)
-    logger.info("[CLASSIFIER] Sonnet v2 — hardcoded active")
-    return await _classify_sonnet(state)
+    context = state.get("player_context")
+    if not context:
+        logger.error("classifier_node: no player_context")
+        return {
+            "route_decision": "ai",
+            "selected_agent": "performance",
+            "routing_confidence": 0.0,
+            "classification_layer": "error",
+            "intent_id": "unknown",
+        }
+
+    # Extract user message
+    messages = state.get("messages", [])
+    user_message = ""
+    for msg in reversed(messages):
+        if get_msg_type(msg) == "human":
+            user_message = get_msg_content(msg)
+            break
+
+    if not user_message:
+        return {
+            "route_decision": "ai",
+            "selected_agent": "performance",
+            "routing_confidence": 0.0,
+            "classification_layer": "error",
+            "intent_id": "unknown",
+        }
+
+    # Check agent lock (conversation continuity)
+    last_agent = state.get("selected_agent")
+    if last_agent:
+        from app.agents.router import should_keep_agent_lock
+        if should_keep_agent_lock(user_message, last_agent, None):
+            mapped = _V1_TO_V2.get(last_agent, last_agent)
+            logger.info(f"[CLASSIFIER] Agent lock: {mapped}")
+            return {
+                "route_decision": "ai",
+                "selected_agent": mapped,
+                "routing_confidence": 0.85,
+                "classification_layer": "agent_lock",
+                "intent_id": "agent_lock",
+            }
+
+    # ── Layer 1: Exact match ($0, 0ms) ────────────────────────────
+    # _EXACT_MATCH_MAP is populated at intent_classifier module load.
+    normalized = _normalize(user_message)
+    exact_hit = _EXACT_MATCH_MAP.get(normalized)
+    if exact_hit:
+        intent_id = exact_hit["intent_id"]
+        agent = _intent_to_v2_agent(intent_id)
+        capsule_intents = {
+            "greeting", "navigate", "qa_readiness", "qa_load",
+            "qa_today_schedule", "qa_week_schedule", "qa_streak",
+            "check_in", "log_test",
+        }
+        is_capsule = intent_id in capsule_intents
+        logger.info(f"[CLASSIFIER] Layer 1 exact match: {intent_id} → {agent} ($0)")
+        return {
+            "route_decision": "capsule" if is_capsule else "ai",
+            "capsule_type": intent_id if is_capsule else None,
+            "selected_agent": agent,
+            "routing_confidence": 1.0,
+            "classification_layer": "exact_match",
+            "intent_id": intent_id,
+        }
+
+    # ── Layer 2: Sonnet classifier (~$0.003, ~300ms) ──────────────
+    conv_summary = ""
+    recent = []
+    for msg in messages[-6:]:
+        role = get_msg_type(msg)
+        content = get_msg_content(msg)[:150]
+        if role in ("human", "ai"):
+            recent.append(f"{role}: {content}")
+    if recent:
+        conv_summary = "\n".join(recent[-4:])
+
+    sonnet_result = await classify_with_sonnet(
+        message=user_message,
+        conversation_summary=conv_summary,
+        active_tab=state.get("active_tab", "Chat"),
+        last_agent=last_agent,
+        context=context,
+    )
+
+    logger.info(
+        f"[CLASSIFIER] Layer 2 Sonnet: {sonnet_result.intent} → {sonnet_result.agent} "
+        f"(conf={sonnet_result.confidence:.2f}, ${sonnet_result.cost_usd:.4f})"
+    )
+
+    result = {
+        "route_decision": "ai",
+        "capsule_type": sonnet_result.capsule_type,
+        "selected_agent": sonnet_result.agent,
+        "routing_confidence": sonnet_result.confidence,
+        "classification_layer": sonnet_result.classification_layer,
+        "intent_id": sonnet_result.intent,
+        "total_cost_usd": state.get("total_cost_usd", 0.0) + sonnet_result.cost_usd,
+    }
+
+    if sonnet_result.requires_second_agent:
+        result["_secondary_agents"] = [sonnet_result.requires_second_agent]
+
+    return result
 
 
 async def _classify_sonnet(state: TomoChatState) -> dict:

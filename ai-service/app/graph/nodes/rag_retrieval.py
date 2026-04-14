@@ -61,8 +61,8 @@ RAG_SKIP_INTENTS = frozenset({
     "clear_notifications",
     # UI features — gamification, not coaching
     "leaderboard",
-    # Event creation — deterministic write, no grounding
-    "create_event",
+    # Event creation — add_exam is deterministic, but create_event benefits from
+    # load/schedule context so it's NOT skipped (removed from skip list in v2).
     "add_exam",
     # Study planning — deterministic schedule generation
     "plan_study",

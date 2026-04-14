@@ -1326,25 +1326,30 @@ DATE RULES:
 - All follow-up messages about a specific day refer to THAT day until the user explicitly switches.
 - All times in 12-hour format (5:00 PM, not 17:00)."""]
 
-    # ── Today's schedule (full event details) ──
+    # ── Today's schedule (full event details with IDs for update_event) ──
     if ctx.today_events:
         today_lines = [f"TODAY'S SCHEDULE ({ctx.today_date}):"]
         for e in ctx.today_events:
             time_str = _format_event_time(e.start_at, e.end_at)
             intensity_tag = f" [{e.intensity}]" if e.intensity else ""
-            today_lines.append(f"  • {time_str} — {e.title} ({e.event_type}){intensity_tag}")
+            today_lines.append(
+                f"  • {time_str} — {e.title} ({e.event_type}){intensity_tag} [event_id={e.id}]"
+            )
+        today_lines.append(
+            "  NOTE: Use event_id when calling update_event or delete_event on these sessions."
+        )
         parts.append("\n".join(today_lines))
     else:
         parts.append("TODAY'S SCHEDULE: No events scheduled")
 
-    # ── Upcoming week (next 7 days — training, matches, exams, everything) ──
+    # ── Upcoming week (next 7 days with IDs) ──
     if ctx.upcoming_events:
         upcoming_lines = ["UPCOMING WEEK:"]
         for e in ctx.upcoming_events[:15]:  # cap to avoid prompt bloat
             date_str = _format_event_date(e.start_at)
             time_str = _format_event_time(e.start_at, e.end_at)
             intensity_tag = f" [{e.intensity}]" if e.intensity else ""
-            upcoming_lines.append(f"  • {date_str} {time_str} — {e.title} ({e.event_type}){intensity_tag}")
+            upcoming_lines.append(f"  • {date_str} {time_str} — {e.title} ({e.event_type}){intensity_tag} [event_id={e.id}]")
         parts.append("\n".join(upcoming_lines))
 
     # ── Upcoming exams (separate call-out for planning) ──

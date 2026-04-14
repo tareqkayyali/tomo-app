@@ -761,24 +761,39 @@ def _build_confirmed_response(results: list[dict]) -> dict:
             }
             body = _warm_bodies.get(primary_tool, "")
     else:
-        # Warm error — never robotic "X of Y actions"
+        # Warm error — coaching-first, never robotic
         failed = [r for r in results if not r.get("success")]
         error_detail = ""
         tool_name = ""
         if failed:
             err = failed[0].get("error", "")
             tool_name = failed[0].get("tool", "").replace("_", " ")
-            if "connection" in str(err).lower() or "connect" in str(err).lower():
-                error_detail = f"Tried to {tool_name} but the server's not responding right now. Worth another shot in a sec."
-            elif "404" in str(err) or "not found" in str(err).lower():
-                error_detail = f"That {tool_name} feature is still being set up on my end. Should be ready soon."
-            elif "400" in str(err) or "validation" in str(err).lower():
-                error_detail = f"Something didn't line up with the {tool_name} details. Want to try with different info?"
-            else:
-                error_detail = f"Ran into something unexpected trying to {tool_name}. Want to give it another go?"
 
-        headline = f"Didn't quite land" if not tool_name else f"Couldn't get the {tool_name} through"
-        body = error_detail or "Something tripped up on my end. Want to try again?"
+            # Coaching-first error messages — maintain the vibe even when things fail
+            if "connection" in str(err).lower() or "connect" in str(err).lower():
+                error_detail = (
+                    "My system's being slow right now — but the plan's still solid. "
+                    "Give it another tap and it should go through."
+                )
+            elif "404" in str(err) or "not found" in str(err).lower():
+                error_detail = (
+                    "I can't update that directly right now, but here's what I'd do: "
+                    "keep that session in your calendar and adjust the focus when you get there. "
+                    "Your body knows what it needs."
+                )
+            elif "400" in str(err) or "validation" in str(err).lower():
+                error_detail = (
+                    "Something didn't quite line up with the details. "
+                    "Want to try a different approach?"
+                )
+            else:
+                error_detail = (
+                    "Hit a snag on my end — nothing on your side. "
+                    "Give it another go or tell me what else you need."
+                )
+
+        headline = "Didn't quite land — but we're good" if not tool_name else f"Couldn't quite get that through"
+        body = error_detail or "Something tripped up on my end. We'll get it next time."
 
         # Build a retry confirm_card so the user can tap CONFIRM again
         # instead of the "Try again" chip which restarts the full LLM pipeline.
