@@ -674,22 +674,39 @@ def _match_selection(user_message: str, flow: FlowState) -> Optional[str]:
     # is pick_focus (because fork auto-advanced past itself).
     fork_data = flow.get("step_fork_fork", {})
     if isinstance(fork_data, dict) and fork_data.get("options"):
+        raw_msg = user_message.strip()
+
+        # 1. Exact value match (mobile sends the value field directly, e.g. a UUID)
+        for opt in fork_data["options"]:
+            if raw_msg == opt.get("value", ""):
+                return opt.get("value")
+
+        # 2. Exact label match (user typed the label)
         for opt in fork_data["options"]:
             label = opt.get("label", "").lower()
-            # Exact label match
+            if label and label == msg_lower:
+                return opt.get("value")
+
+        # 3. Label contains match (partial label text)
+        for opt in fork_data["options"]:
+            label = opt.get("label", "").lower()
             if label and label in msg_lower:
                 return opt.get("value")
-            # Fuzzy: "build" + "gym" matches "Build for Gym Session at 5:00 PM"
+
+        # 4. Fuzzy: word overlap (3+ words from label appear in message)
+        for opt in fork_data["options"]:
+            label = opt.get("label", "").lower()
             label_words = set(label.split())
             msg_words = set(msg_lower.split())
-            # If 3+ words overlap, it's a match
             if len(label_words & msg_words) >= 3:
                 return opt.get("value")
-        # "new" / "different" / "add new" → new session
+
+        # 5. "new" / "different" / "add new" → new session
         if any(w in msg_lower for w in ("new", "different", "add new", "another")):
             return "new"
-        # If the user responded to the fork with something gym-related,
-        # and there's only one training event, default to it
+
+        # 6. If user responded with something gym-related and there's only
+        #    one training event, default to it
         if any(w in msg_lower for w in ("build", "workout", "gym", "session")):
             training_options = [o for o in fork_data["options"] if o.get("value") != "new"]
             if len(training_options) == 1:
@@ -697,17 +714,25 @@ def _match_selection(user_message: str, flow: FlowState) -> Optional[str]:
 
     # ── Check focus areas ──
     if step.id == "pick_focus":
+        raw_msg = user_message.strip()
+
+        # 1. Exact value match (mobile sends value field directly)
+        for area in FOCUS_AREAS:
+            if raw_msg == area["value"] or raw_msg.lower() == area["value"]:
+                return area["value"]
+
+        # 2. Label/value contained in message
         for area in FOCUS_AREAS:
             if area["value"] in msg_lower or area["label"].lower() in msg_lower:
                 return area["value"]
 
-        # Numbered selection ("1", "2", etc.)
+        # 3. Numbered selection ("1", "2", etc.)
         if msg_lower.isdigit():
             idx = int(msg_lower) - 1
             if 0 <= idx < len(FOCUS_AREAS):
                 return FOCUS_AREAS[idx]["value"]
 
-        # Fuzzy: first word match
+        # 4. Fuzzy: first word match
         first_word = msg_lower.split()[0] if msg_lower else ""
         for area in FOCUS_AREAS:
             if first_word == area["value"] or first_word == area["label"].lower():
