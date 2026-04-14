@@ -322,21 +322,21 @@ async def run_supervisor(
         except Exception as e:
             logger.debug(f"Observability trace skipped: {e}")
 
-        # Capture successful request to in-memory buffer
+        # Persist successful request to Supabase (cross-instance telemetry)
         try:
             import asyncio as _asyncio
-            from app.core.error_buffer import capture_request as _capture_request
-            _asyncio.create_task(_capture_request(
-                request_id=input_state.get("request_id", "-"),
+            from app.core.debug_logger import log_request as _log_request
+            _asyncio.create_task(_log_request(
                 user_id=user_id,
                 session_id=session_id,
                 message=message,
                 intent_id=result.get("intent_id", "-"),
                 agent=result.get("selected_agent", "-"),
-                pattern=result.get("_flow_pattern", "ai"),
+                flow_pattern=result.get("_flow_pattern", "ai"),
                 status="ok",
                 cost_usd=result.get("total_cost_usd", 0.0),
                 latency_ms=result.get("latency_ms", 0.0),
+                tokens_used=result.get("total_tokens", 0),
             ))
         except Exception:
             pass
@@ -353,19 +353,19 @@ async def run_supervisor(
         _sys.stderr.flush()
         logger.error(f"Supervisor execution failed: {e}", exc_info=True)
 
-        # Capture to in-memory error buffer (queryable via /health/errors)
+        # Persist error to Supabase (cross-instance, survives restarts)
         try:
             import asyncio as _asyncio
-            from app.core.error_buffer import capture_error as _capture_error
-            _asyncio.create_task(_capture_error(
+            from app.core.debug_logger import log_error as _log_error
+            _asyncio.create_task(_log_error(
                 error=str(e),
                 traceback=error_tb,
-                request_id=input_state.get("request_id", "-"),
+                node="supervisor",
                 user_id=user_id,
                 session_id=session_id,
-                node="supervisor",
-                message=message,
+                request_message=message[:500],
                 intent_id=input_state.get("intent_id", "-"),
+                severity="error",
             ))
         except Exception:
             pass  # Never let error capture block the response

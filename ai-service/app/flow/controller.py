@@ -80,17 +80,19 @@ async def flow_controller_node(state: TomoChatState) -> dict:
     except Exception as e:
         import traceback as _tb
         logger.warning(f"Active flow check failed (continuing): {e}", exc_info=True)
-        # Capture to error buffer for /health/errors visibility
+        # Persist to Supabase for cross-instance observability
         try:
             import asyncio as _asyncio
-            from app.core.error_buffer import capture_error as _capture_error
-            _asyncio.create_task(_capture_error(
+            from app.core.debug_logger import log_error as _log_error
+            _asyncio.create_task(_log_error(
                 error=str(e),
                 traceback=_tb.format_exc(),
-                session_id=state.get("session_id", "-"),
-                user_id=state.get("user_id", "-"),
                 node="flow_controller.active_flow_check",
-                message=str(state.get("messages", ["-"])[-1])[:120],
+                user_id=state.get("user_id", "-"),
+                session_id=state.get("session_id", "-"),
+                request_message=str(state.get("messages", ["-"])[-1])[:120],
+                intent_id=state.get("intent_id", "-"),
+                severity="warning",
             ))
         except Exception:
             pass

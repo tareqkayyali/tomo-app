@@ -4,8 +4,8 @@ Health check endpoints for Railway deployment monitoring.
 Endpoints:
   GET /health               — Primary health check (Railway uses this)
   GET /health/config        — v2 architecture env var diagnostic
-  GET /health/errors        — Last N errors from the in-memory buffer
-  GET /health/requests      — Last N requests from the in-memory buffer
+  GET /health/errors        — Last N errors from Supabase (cross-instance, persistent)
+  GET /health/requests      — Last N requests from Supabase (cross-instance, persistent)
   GET /health/debug         — Run a live chat turn with any user/message
   GET /health/chat-test     — Two-turn session test (hardcoded user)
   GET /                     — Root redirect
@@ -16,7 +16,6 @@ import os
 from fastapi import APIRouter, Query
 from app.config import get_settings
 from app.db.supabase import get_db_status
-from app.core.error_buffer import get_errors, get_requests
 
 router = APIRouter(tags=["health"])
 
@@ -57,35 +56,68 @@ async def root():
 
 
 @router.get("/health/errors")
-async def get_recent_errors(limit: int = Query(default=20, le=100)):
+async def get_recent_errors(
+    limit: int = Query(default=20, le=200),
+    user_id: str = Query(default=""),
+    severity: str = Query(default=""),
+    node: str = Query(default=""),
+    hours: int = Query(default=24, le=168),
+):
     """
-    Return the last N errors captured by the supervisor.
-    Each entry includes: ts, request_id, user_id (truncated), session_id (truncated),
-    node, message (truncated), intent_id, error, traceback.
+    Return the last N errors from Supabase ai_debug_errors.
+    Cross-instance and persistent — survives Railway restarts and deploys.
 
-    Use this to debug production crashes without Railway log access.
+    Query params:
+      limit   — Max errors to return (default 20, max 200)
+      user_id — Filter by specific user
+      severity — Filter by severity (error/warning)
+      node    — Filter by node (supervisor/flow_controller/etc)
+      hours   — How far back to look (default 24h, max 168h/1 week)
     """
-    errors = get_errors(limit=limit)
+    from app.core.debug_logger import get_recent_errors as _get_errors
+    errors = await _get_errors(
+        limit=limit,
+        user_id=user_id or None,
+        severity=severity or None,
+        node=node or None,
+        hours=hours,
+    )
     return {
         "count": len(errors),
         "limit": limit,
+        "hours": hours,
         "errors": errors,
     }
 
 
 @router.get("/health/requests")
-async def get_recent_requests(limit: int = Query(default=50, le=200)):
+async def get_recent_requests(
+    limit: int = Query(default=50, le=500),
+    user_id: str = Query(default=""),
+    status: str = Query(default=""),
+    hours: int = Query(default=24, le=168),
+):
     """
-    Return the last N requests processed by the supervisor.
-    Each entry includes: ts, request_id, user_id (truncated), session_id (truncated),
-    message (truncated), intent_id, agent, pattern, status, cost_usd, latency_ms.
+    Return the last N request telemetry records from Supabase ai_debug_requests.
+    Cross-instance and persistent — see ALL requests across Railway instances.
 
-    Use this to see what's flowing through the system in real time.
+    Query params:
+      limit   — Max requests to return (default 50, max 500)
+      user_id — Filter by specific user
+      status  — Filter by status (ok/error)
+      hours   — How far back to look (default 24h, max 168h/1 week)
     """
-    requests = get_requests(limit=limit)
+    from app.core.debug_logger import get_recent_requests as _get_requests
+    requests = await _get_requests(
+        limit=limit,
+        user_id=user_id or None,
+        status=status or None,
+        hours=hours,
+    )
     return {
         "count": len(requests),
         "limit": limit,
+        "hours": hours,
         "requests": requests,
     }
 

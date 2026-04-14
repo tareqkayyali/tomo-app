@@ -129,9 +129,10 @@ const navigation: NavGroup[] = [
     ],
   },
   {
-    label: "App Design",
+    label: "System Diagnostics",
     minRole: "super_admin",
     items: [
+      { name: "Debug Console", href: "/admin/debug" },
       { name: "Feature Flags", href: "/admin/feature-flags" },
     ],
   },
