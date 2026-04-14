@@ -45,7 +45,7 @@ class BenchmarkProfile(BaseModel):
 
 class TemporalContext(BaseModel):
     """Time-aware coaching context."""
-    time_of_day: str  # morning | afternoon | evening | night
+    time_of_day: str = "afternoon"  # morning | afternoon | evening | night
     is_match_day: bool = False
     match_details: Optional[str] = None
     is_exam_proximity: bool = False
