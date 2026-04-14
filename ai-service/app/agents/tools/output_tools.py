@@ -274,6 +274,34 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             for row in rows
         ]
 
+        # If no drills found in DB, provide a fallback template
+        # so the LLM always has content for the session_plan card
+        if not drills:
+            logger.info(f"No drills in DB for {sport}/{category}/{intensity} — using fallback template")
+            _FALLBACK_SESSIONS = {
+                "speed": [
+                    {"name": "Dynamic Warm-Up", "category": "warmup", "duration_min": 10, "intensity": "LIGHT", "description": "A-skips, high knees, leg swings, build-up sprints"},
+                    {"name": "Acceleration Sprints (10m)", "category": "speed", "duration_min": 8, "intensity": intensity, "description": "6 x 10m from standing start, 90s rest"},
+                    {"name": "Flying Sprints (20m)", "category": "speed", "duration_min": 8, "intensity": intensity, "description": "4 x 20m at 85-90% effort, 2min rest"},
+                    {"name": "Agility Ladder Drill", "category": "agility", "duration_min": 6, "intensity": "MODERATE", "description": "In-out, lateral shuffle, icky shuffle patterns"},
+                    {"name": "Cool-Down & Stretch", "category": "recovery", "duration_min": 8, "intensity": "LIGHT", "description": "Static stretch — quads, hamstrings, hip flexors, calves"},
+                ],
+                "strength": [
+                    {"name": "Warm-Up", "category": "warmup", "duration_min": 10, "intensity": "LIGHT", "description": "Light jog, dynamic stretching, activation bands"},
+                    {"name": "Goblet Squat", "category": "strength", "duration_min": 8, "intensity": intensity, "description": "4 x 8 reps, RPE 7, 90s rest"},
+                    {"name": "Romanian Deadlift", "category": "strength", "duration_min": 8, "intensity": intensity, "description": "3 x 10 reps, RPE 6, 90s rest"},
+                    {"name": "Split Squat", "category": "strength", "duration_min": 6, "intensity": intensity, "description": "3 x 8 each side, bodyweight or light DB"},
+                    {"name": "Cool-Down", "category": "recovery", "duration_min": 7, "intensity": "LIGHT", "description": "Foam roll + static stretch"},
+                ],
+                "recovery": [
+                    {"name": "Foam Rolling", "category": "recovery", "duration_min": 10, "intensity": "LIGHT", "description": "Full body — quads, IT band, glutes, upper back"},
+                    {"name": "Dynamic Mobility", "category": "recovery", "duration_min": 10, "intensity": "LIGHT", "description": "Hip circles, thoracic rotations, ankle mobility"},
+                    {"name": "Light Stretching", "category": "recovery", "duration_min": 10, "intensity": "LIGHT", "description": "Hold each stretch 30-45s, breathe through it"},
+                    {"name": "Breathing Reset", "category": "recovery", "duration_min": 5, "intensity": "LIGHT", "description": "Box breathing 4-4-4-4, lying down, eyes closed"},
+                ],
+            }
+            drills = _FALLBACK_SESSIONS.get(category.lower(), _FALLBACK_SESSIONS.get("recovery", []))
+
         return {
             "category": category,
             "intensity": intensity,

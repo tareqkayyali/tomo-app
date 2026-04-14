@@ -211,8 +211,12 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         notes: str = "",
         date: str = "",
     ) -> dict:
-        """Update an existing calendar event. Only provide fields you want to change. This is a WRITE action requiring confirmation."""
+        """Update an existing calendar event. Only provide fields you want to change. event_id MUST be a valid UUID from get_today_events results (the [event_id=...] field). This is a WRITE action requiring confirmation."""
         from app.agents.tools.bridge import bridge_patch
+
+        # Validate event_id looks like a UUID (not an event title)
+        if event_id and len(event_id) < 20:
+            return {"error": f"Invalid event_id '{event_id}'. Use the UUID from get_today_events [event_id=...] field, not the event title."}
 
         body: dict = {}
         if title:
@@ -222,11 +226,21 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         if end_time:
             body["endTime"] = end_time
         if intensity:
-            body["intensity"] = intensity
+            # Map to TS PATCH endpoint's expected format (lowercase: light/medium/hard)
+            _INTENSITY_MAP = {
+                "REST": "light", "LIGHT": "light", "MODERATE": "medium",
+                "HARD": "hard", "light": "light", "moderate": "medium",
+                "medium": "medium", "hard": "hard",
+            }
+            body["intensity"] = _INTENSITY_MAP.get(intensity.upper(), intensity.lower())
         if notes:
             body["notes"] = notes
         if date:
             body["date"] = date
+
+        # Always pass timezone for proper time conversion
+        tz = context.timezone or "UTC"
+        body["timezone"] = tz
 
         return await bridge_patch(f"/api/v1/calendar/events/{event_id}", body, user_id=user_id)
 

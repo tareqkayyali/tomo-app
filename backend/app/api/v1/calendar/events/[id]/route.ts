@@ -33,7 +33,7 @@ const patchEventSchema = z.object({
     .optional(),
   notes: z.string().optional(),
   name: z.string().min(1).max(200).optional(),
-  intensity: z.enum(["light", "medium", "hard"]).nullable().optional(),
+  intensity: z.enum(["REST", "LIGHT", "MODERATE", "HARD", "rest", "light", "moderate", "medium", "hard"]).nullable().optional(),
 });
 
 // ─── Helper: check if a date is locked for a user ──────────────────────────
