@@ -128,6 +128,7 @@ async def generate_sse_events(request: ChatRequest):
             "tools_called": len(result.get("tool_calls", [])),
             "validation_flags": result.get("validation_flags", []),
             "routing_confidence": result.get("routing_confidence", 0),
+            "flow_pattern": result.get("_flow_pattern"),
         }
         response["_telemetry"] = telemetry
 
@@ -225,5 +226,6 @@ async def chat_sync(request: ChatRequest):
             "agent": result.get("selected_agent"),
             "tools_called": len(result.get("tool_calls", [])),
             "validation_flags": result.get("validation_flags", []),
+            "flow_pattern": result.get("_flow_pattern"),
         },
     }

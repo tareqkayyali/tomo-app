@@ -115,13 +115,16 @@ def build_post_execution_metadata(state: dict) -> tuple[dict, list[str]]:
     # ── Path type ──
     route = state.get("route_decision", "ai")
     write_confirmed = state.get("write_confirmed", False)
+    flow_pattern = state.get("_flow_pattern")
     if write_confirmed:
         path_type = "confirmed_write"
-    elif route == "capsule":
-        path_type = "capsule"
+    elif route in ("capsule", "flow_handled") or flow_pattern:
+        # flow_controller sets route_decision="flow_handled" for capsule_direct/data_display
+        path_type = flow_pattern or "capsule"
     else:
         path_type = "full_ai"
     metadata["path_type"] = path_type
+    metadata["flow_pattern"] = flow_pattern
     tags.append(f"path:{path_type}")
 
     # ── Agent type ──
@@ -164,7 +167,7 @@ def build_post_execution_metadata(state: dict) -> tuple[dict, list[str]]:
     # ── Cost + bucket ──
     cost = state.get("total_cost_usd", 0.0) or 0.0
     metadata["total_cost_usd"] = cost
-    if route == "capsule":
+    if route in ("capsule", "flow_handled") or flow_pattern in ("capsule_direct",):
         cost_bucket = "free"
     elif cost < 0.001:
         cost_bucket = "cheap"

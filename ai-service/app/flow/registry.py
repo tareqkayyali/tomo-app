@@ -266,7 +266,8 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
     # MULTI_STEP (code-driven step tracker, ~$0.001/step)
     # ═══════════════════════════════════════════════════════════════════
 
-    "build_session": FlowConfig(pattern="multi_step", steps=_BUILD_SESSION_STEPS),
+    # plan_training covers "build me a session", "plan my training", "create a workout"
+    # The classifier maps all session-building queries to plan_training.
     "plan_training": FlowConfig(pattern="multi_step", steps=_BUILD_SESSION_STEPS),
 
     # ═══════════════════════════════════════════════════════════════════
