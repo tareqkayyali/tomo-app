@@ -255,7 +255,7 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         cache_read = usage.get("cache_read_input_tokens", 0)
         total_tokens += input_tokens + output_tokens
         # Cache reads are free, only charge non-cached input
-        total_cost += ((input_tokens - cache_read) * HAIKU_INPUT_COST_PER_TOKEN) + \
+        total_cost += (max(0, input_tokens - cache_read) * HAIKU_INPUT_COST_PER_TOKEN) + \
                       (output_tokens * HAIKU_OUTPUT_COST_PER_TOKEN)
 
         logger.info(
@@ -443,7 +443,7 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
             output_tokens = usage.get("output_tokens", 0)
             cache_read = usage.get("cache_read_input_tokens", 0)
             total_tokens += input_tokens + output_tokens
-            total_cost += ((input_tokens - cache_read) * HAIKU_INPUT_COST_PER_TOKEN) + \
+            total_cost += (max(0, input_tokens - cache_read) * HAIKU_INPUT_COST_PER_TOKEN) + \
                           (output_tokens * HAIKU_OUTPUT_COST_PER_TOKEN)
 
             if isinstance(synthesis_response.content, str):
