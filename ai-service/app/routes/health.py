@@ -1,12 +1,22 @@
 """
 Health check endpoints for Railway deployment monitoring.
+
+Endpoints:
+  GET /health               — Primary health check (Railway uses this)
+  GET /health/config        — v2 architecture env var diagnostic
+  GET /health/errors        — Last N errors from the in-memory buffer
+  GET /health/requests      — Last N requests from the in-memory buffer
+  GET /health/debug         — Run a live chat turn with any user/message
+  GET /health/chat-test     — Two-turn session test (hardcoded user)
+  GET /                     — Root redirect
 """
 
 import os
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from app.config import get_settings
 from app.db.supabase import get_db_status
+from app.core.error_buffer import get_errors, get_requests
 
 router = APIRouter(tags=["health"])
 
@@ -44,6 +54,88 @@ async def config_check():
 async def root():
     """Root endpoint — redirects to health."""
     return {"service": "tomo-ai", "status": "ok", "docs": "/docs"}
+
+
+@router.get("/health/errors")
+async def get_recent_errors(limit: int = Query(default=20, le=100)):
+    """
+    Return the last N errors captured by the supervisor.
+    Each entry includes: ts, request_id, user_id (truncated), session_id (truncated),
+    node, message (truncated), intent_id, error, traceback.
+
+    Use this to debug production crashes without Railway log access.
+    """
+    errors = get_errors(limit=limit)
+    return {
+        "count": len(errors),
+        "limit": limit,
+        "errors": errors,
+    }
+
+
+@router.get("/health/requests")
+async def get_recent_requests(limit: int = Query(default=50, le=200)):
+    """
+    Return the last N requests processed by the supervisor.
+    Each entry includes: ts, request_id, user_id (truncated), session_id (truncated),
+    message (truncated), intent_id, agent, pattern, status, cost_usd, latency_ms.
+
+    Use this to see what's flowing through the system in real time.
+    """
+    requests = get_requests(limit=limit)
+    return {
+        "count": len(requests),
+        "limit": limit,
+        "requests": requests,
+    }
+
+
+@router.get("/health/debug")
+async def debug_chat(
+    message: str = Query(default="hey tomo"),
+    user_id: str = Query(default="d31a0590-3e2c-4749-acb8-1da7c644d554"),
+    session_id: str = Query(default="debug-session"),
+    active_tab: str = Query(default="Chat"),
+    timezone: str = Query(default="Asia/Riyadh"),
+):
+    """
+    Run a single chat turn with any user_id + message and return the full result.
+    Includes _debug_error and _debug_traceback if the turn crashes.
+
+    Usage:
+      /health/debug?message=Build+me+a+session&user_id=REAL_USER_ID
+    """
+    import traceback
+    import json
+
+    try:
+        from app.graph.supervisor import run_supervisor
+        result = await run_supervisor(
+            user_id=user_id,
+            session_id=session_id,
+            message=message,
+            active_tab=active_tab,
+            timezone=timezone,
+        )
+        response = json.loads(result.get("final_response", "{}"))
+        return {
+            "status": "ok",
+            "intent_id": result.get("intent_id"),
+            "selected_agent": result.get("selected_agent"),
+            "flow_pattern": result.get("_flow_pattern"),
+            "headline": response.get("headline", ""),
+            "cards": [c.get("type") for c in response.get("cards", [])],
+            "debug_error": response.get("_debug_error"),
+            "debug_traceback": response.get("_debug_traceback"),
+            "cost_usd": result.get("total_cost_usd", 0),
+            "latency_ms": result.get("latency_ms", 0),
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+        }
 
 
 @router.get("/health/chat-test")

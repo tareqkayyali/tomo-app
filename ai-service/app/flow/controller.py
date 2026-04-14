@@ -78,7 +78,22 @@ async def flow_controller_node(state: TomoChatState) -> dict:
                     result["route_decision"] = "flow_handled"
                     return result
     except Exception as e:
-        logger.warning(f"Active flow check failed (continuing): {e}")
+        import traceback as _tb
+        logger.warning(f"Active flow check failed (continuing): {e}", exc_info=True)
+        # Capture to error buffer for /health/errors visibility
+        try:
+            import asyncio as _asyncio
+            from app.core.error_buffer import capture_error as _capture_error
+            _asyncio.create_task(_capture_error(
+                error=str(e),
+                traceback=_tb.format_exc(),
+                session_id=state.get("session_id", "-"),
+                user_id=state.get("user_id", "-"),
+                node="flow_controller.active_flow_check",
+                message=str(state.get("messages", ["-"])[-1])[:120],
+            ))
+        except Exception:
+            pass
 
     # ── 2. Check FLOW_REGISTRY for new intent ──
     intent_id = state.get("intent_id")

@@ -322,6 +322,25 @@ async def run_supervisor(
         except Exception as e:
             logger.debug(f"Observability trace skipped: {e}")
 
+        # Capture successful request to in-memory buffer
+        try:
+            import asyncio as _asyncio
+            from app.core.error_buffer import capture_request as _capture_request
+            _asyncio.create_task(_capture_request(
+                request_id=input_state.get("request_id", "-"),
+                user_id=user_id,
+                session_id=session_id,
+                message=message,
+                intent_id=result.get("intent_id", "-"),
+                agent=result.get("selected_agent", "-"),
+                pattern=result.get("_flow_pattern", "ai"),
+                status="ok",
+                cost_usd=result.get("total_cost_usd", 0.0),
+                latency_ms=result.get("latency_ms", 0.0),
+            ))
+        except Exception:
+            pass
+
         return result
     except Exception as e:
         import json as _json
@@ -333,6 +352,23 @@ async def run_supervisor(
         print(f"[SUPERVISOR CRASH] {e}\n{error_tb}", file=_sys.stderr, flush=True)
         _sys.stderr.flush()
         logger.error(f"Supervisor execution failed: {e}", exc_info=True)
+
+        # Capture to in-memory error buffer (queryable via /health/errors)
+        try:
+            import asyncio as _asyncio
+            from app.core.error_buffer import capture_error as _capture_error
+            _asyncio.create_task(_capture_error(
+                error=str(e),
+                traceback=error_tb,
+                request_id=input_state.get("request_id", "-"),
+                user_id=user_id,
+                session_id=session_id,
+                node="supervisor",
+                message=message,
+                intent_id=input_state.get("intent_id", "-"),
+            ))
+        except Exception:
+            pass  # Never let error capture block the response
 
         error_response = {
             "headline": "Hey -- ran into something",
