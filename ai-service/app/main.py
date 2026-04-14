@@ -8,6 +8,7 @@ Includes APScheduler for LangSmith feedback loop:
   - Layer 3: Monthly digest (1st of month 03:00 UTC)
 """
 
+import asyncio
 import os
 import sys
 import logging
@@ -151,6 +152,41 @@ async def lifespan(app: FastAPI):
     logger.info(
         f"Tomo AI Service started | env={settings.environment} | port={settings.port}"
     )
+
+    # ── RAG client warmup ──────────────────────────────────────────
+    # Fire a single synthetic retrieve() so Voyage AI + Cohere + pgvector
+    # TLS/DNS/HTTP handshakes are paid before the first real user request.
+    # Cold-start measured ~2970ms vs warm ~1800ms on Railway (delta ~1170ms
+    # of client warmup). Burns ~$0.0001 per container boot.
+    # Kill-switch: FLOW_RAG_WARMUP_ENABLED=false
+    if os.environ.get("FLOW_RAG_WARMUP_ENABLED", "true").lower() == "true":
+        async def _rag_warmup() -> None:
+            try:
+                import time as _t
+                from app.rag.retriever import retrieve
+
+                t0 = _t.perf_counter()
+                # player_context=None keeps the warmup minimal -- we only
+                # need the Voyage/Cohere/pgvector clients warm, not a
+                # personalized result.
+                await retrieve(
+                    "warmup technical drill progressions",
+                    player_context=None,
+                    top_k=2,
+                )
+                elapsed_ms = (_t.perf_counter() - t0) * 1000
+                logger.info(f"[RAG WARMUP] completed in {elapsed_ms:.0f}ms")
+            except Exception as e:
+                # Warmup failures must never block startup -- RAG will
+                # cold-start on first real request as before.
+                logger.warning(f"[RAG WARMUP] failed (non-fatal): {e}")
+
+        # Schedule warmup without blocking startup -- uvicorn can begin
+        # accepting traffic immediately; warmup finishes in the background.
+        try:
+            asyncio.create_task(_rag_warmup())
+        except Exception as e:
+            logger.warning(f"[RAG WARMUP] scheduling failed (non-fatal): {e}")
 
     yield
 

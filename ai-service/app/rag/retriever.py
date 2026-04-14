@@ -253,66 +253,98 @@ async def _retrieve_single(
     return results, cost
 
 
+async def _expand_one_entity(
+    ent: KnowledgeEntity,
+) -> list[RetrievalResult]:
+    """Expand a single entity via 1-hop (always) + 2-hop (condition/concept only).
+
+    Runs per-entity 1-hop and 2-hop concurrently via asyncio.gather so each
+    entity's DB round-trips overlap instead of blocking sequentially.
+    """
+    results: list[RetrievalResult] = []
+    if not ent.id:
+        return results
+
+    is_deep = ent.entity_type.value in ("condition", "concept")
+
+    async def _one_hop() -> list[RetrievalResult]:
+        try:
+            neighbors = await traverse_from_entity(ent.id, direction="both", limit=8)
+            return [
+                RetrievalResult(
+                    source="graph_traversal",
+                    entity=n.related_entity,
+                    graph_path=[n],
+                    score=n.weight * (ent.similarity or 0.5),
+                    text_for_rerank=f"{n.relation_type}: {ent.display_name} → {n.related_entity.display_name}. {n.related_entity.description}",
+                )
+                for n in neighbors
+            ]
+        except Exception as e:
+            logger.warning(f"Graph traversal failed for {ent.name}: {e}")
+            return []
+
+    async def _two_hop() -> list[RetrievalResult]:
+        if not is_deep:
+            return []
+        try:
+            hops = await traverse_2hop(
+                ent.id,
+                hop1_relations=["CONTRAINDICATED_FOR", "RECOMMENDED_FOR", "TRIGGERS"],
+                hop2_relations=["SAFE_ALTERNATIVE_TO", "RECOMMENDED_FOR", "AFFECTS"],
+                limit=10,
+            )
+            return [
+                RetrievalResult(
+                    source="graph_traversal",
+                    entity=KnowledgeEntity(
+                        id=hop["hop2_entity_id"],
+                        entity_type=hop["hop2_entity_type"],
+                        name=hop["hop2_entity_name"],
+                        display_name=hop["hop2_entity_name"],
+                        description=hop.get("hop2_description", ""),
+                    ),
+                    graph_path=[],
+                    score=hop["total_weight"] * (ent.similarity or 0.5),
+                    text_for_rerank=(
+                        f"Chain: {ent.display_name} → {hop['hop1_relation']} → "
+                        f"{hop['hop1_entity_name']} → {hop['hop2_relation']} → "
+                        f"{hop['hop2_entity_name']}. {hop.get('hop2_description', '')}"
+                    ),
+                )
+                for hop in hops
+            ]
+        except Exception as e:
+            logger.warning(f"2-hop traversal failed for {ent.name}: {e}")
+            return []
+
+    one_hop_res, two_hop_res = await asyncio.gather(_one_hop(), _two_hop())
+    results.extend(one_hop_res)
+    results.extend(two_hop_res)
+    return results
+
+
 async def _graph_expand(
     entities: list[KnowledgeEntity],
 ) -> list[RetrievalResult]:
     """
     Expand top entities via 1-hop graph traversal.
     For condition/concept entities, also do 2-hop for multi-hop chains.
+
+    All entities expand concurrently via asyncio.gather — previously this ran
+    sequentially which added ~150–300ms per call (3 entities × ~50–100ms each).
     """
-    results: list[RetrievalResult] = []
+    if not entities:
+        return []
 
-    for ent in entities:
-        if not ent.id:
-            continue
-
-        # 1-hop: all relation types
-        try:
-            neighbors = await traverse_from_entity(
-                ent.id, direction="both", limit=8
-            )
-            for n in neighbors:
-                results.append(RetrievalResult(
-                    source="graph_traversal",
-                    entity=n.related_entity,
-                    graph_path=[n],
-                    score=n.weight * (ent.similarity or 0.5),
-                    text_for_rerank=f"{n.relation_type}: {ent.display_name} → {n.related_entity.display_name}. {n.related_entity.description}",
-                ))
-        except Exception as e:
-            logger.warning(f"Graph traversal failed for {ent.name}: {e}")
-
-        # 2-hop for conditions/concepts (e.g., PHV → exercises → alternatives)
-        if ent.entity_type.value in ("condition", "concept"):
-            try:
-                hops = await traverse_2hop(
-                    ent.id,
-                    hop1_relations=["CONTRAINDICATED_FOR", "RECOMMENDED_FOR", "TRIGGERS"],
-                    hop2_relations=["SAFE_ALTERNATIVE_TO", "RECOMMENDED_FOR", "AFFECTS"],
-                    limit=10,
-                )
-                for hop in hops:
-                    results.append(RetrievalResult(
-                        source="graph_traversal",
-                        entity=KnowledgeEntity(
-                            id=hop["hop2_entity_id"],
-                            entity_type=hop["hop2_entity_type"],
-                            name=hop["hop2_entity_name"],
-                            display_name=hop["hop2_entity_name"],
-                            description=hop.get("hop2_description", ""),
-                        ),
-                        graph_path=[],  # Simplified — full path in text
-                        score=hop["total_weight"] * (ent.similarity or 0.5),
-                        text_for_rerank=(
-                            f"Chain: {ent.display_name} → {hop['hop1_relation']} → "
-                            f"{hop['hop1_entity_name']} → {hop['hop2_relation']} → "
-                            f"{hop['hop2_entity_name']}. {hop.get('hop2_description', '')}"
-                        ),
-                    ))
-            except Exception as e:
-                logger.warning(f"2-hop traversal failed for {ent.name}: {e}")
-
-    return results
+    per_entity = await asyncio.gather(
+        *(_expand_one_entity(ent) for ent in entities),
+        return_exceptions=False,
+    )
+    flat: list[RetrievalResult] = []
+    for chunk in per_entity:
+        flat.extend(chunk)
+    return flat
 
 
 def _deduplicate(results: list[RetrievalResult]) -> list[RetrievalResult]:

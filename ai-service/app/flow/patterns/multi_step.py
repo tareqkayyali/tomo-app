@@ -598,7 +598,16 @@ async def _warm_text(
 import os as _os
 
 _FLOW_RAG_ENABLED = _os.environ.get("FLOW_RAG_ENABLED", "true").lower() == "true"
-_FLOW_RAG_TIMEOUT_S = 2.5  # bumped from 1.5s -- RAG grounding is now mandatory for build_session
+# Timeout budget for the RAG retrieval step inside the build_session flow.
+# Default 3.5s -- measured cold-start on Railway is ~2970ms (Voyage+Cohere
+# TLS/DNS warmup on first container call), warm ~1800ms. 3.5s gives a safety
+# margin above cold without letting a stalled Voyage/Cohere call block the
+# flow indefinitely. Overridable via FLOW_RAG_TIMEOUT_S env var for hot-fix
+# tuning without a code push.
+try:
+    _FLOW_RAG_TIMEOUT_S = float(_os.environ.get("FLOW_RAG_TIMEOUT_S", "3.5"))
+except (TypeError, ValueError):
+    _FLOW_RAG_TIMEOUT_S = 3.5
 
 # Readiness safety gate: deterministic block on RED / ACWR>1.5 with a
 # recovery-first card. Temporarily bypassed by default (April 2026) while
