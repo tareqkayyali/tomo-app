@@ -1,13 +1,8 @@
 /**
  * POST /api/v1/chat/agent-stream
  *
- * Streaming chat endpoint — proxies ALL traffic to the Python AI service.
- * Capsule actions are forwarded to Python as confirmed_action (v2 single write path).
- *
- * Events:
- *   event: status  → { status: "Checking your readiness..." }
- *   event: done    → { message, structured, sessionId, refreshTargets, pendingConfirmation, context }
- *   event: error   → { error: "..." }
+ * SSE streaming chat endpoint. Thin proxy to Python AI service.
+ * Auth + rate limit + forward. ALL logic in Python.
  */
 
 import { NextRequest } from "next/server";
@@ -15,7 +10,6 @@ import { requireAuth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { logger } from "@/lib/logger";
 import {
-  proxyToAIServiceStream,
   proxyToAIServiceSync,
   type AIServiceRequest,
 } from "@/services/agents/aiServiceProxy";
@@ -55,28 +49,24 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        // Pre-flight guardrails REMOVED — will be CMS-configurable.
-
-        // ── Session management ──
+        // Session management (non-blocking)
         let sessionId: string | null = null;
         try {
           const session = await getOrCreateSession(auth.user.id, body.sessionId);
           sessionId = session.id;
           await saveMessage(session.id, auth.user.id, "user", message);
         } catch (sessionErr) {
-          logger.warn("[agent-stream] Session management unavailable", { error: sessionErr instanceof Error ? sessionErr.message : String(sessionErr) });
+          logger.warn("[agent-stream] Session mgmt unavailable", {
+            error: sessionErr instanceof Error ? sessionErr.message : String(sessionErr),
+          });
         }
 
-        // ── Capsule actions → Python AI service (v2: single write path) ──
-        // Forwarded to Python as confirmed_action for unified safety + audit pipeline.
+        // Capsule normalization
         if (body.capsuleAction) {
-          logger.info(`[capsule→python] Forwarding ${body.capsuleAction.toolName} to AI service`);
-          // Normalize shape: strip capsule-specific 'type' field, keep only confirmedAction fields
           const { toolName, toolInput, agentType } = body.capsuleAction;
           body.confirmedAction = { toolName, toolInput, agentType };
         }
 
-        // ── Python AI service — all non-capsule traffic ──
         const aiRequest: AIServiceRequest = {
           message,
           session_id: sessionId,
@@ -88,10 +78,6 @@ export async function POST(req: NextRequest) {
 
         send("status", { status: "Thinking..." });
 
-        // Use sync proxy (JSON request/response) instead of SSE streaming.
-        // Railway's public URL proxy drops SSE events between services,
-        // causing "stuck on Thinking..." indefinitely. Sync bypasses this.
-        // TODO: Restore SSE streaming once internal networking is fixed.
         try {
           const pyResult = await proxyToAIServiceSync(aiRequest);
           send("done", {
@@ -102,14 +88,12 @@ export async function POST(req: NextRequest) {
             pendingConfirmation: pyResult.pendingConfirmation || null,
             context: {},
           });
-        } catch (syncErr) {
-          logger.error("[agent-stream] Sync proxy failed", {
-            error: syncErr instanceof Error ? syncErr.message : String(syncErr),
+        } catch (proxyErr) {
+          logger.error("[agent-stream] Python proxy failed", {
+            error: proxyErr instanceof Error ? proxyErr.message : String(proxyErr),
           });
           send("error", { error: "Something went wrong. Try again." });
         }
-
-        // SSE fallback removed — using sync proxy directly above.
 
         controller.close();
       } catch (err) {
