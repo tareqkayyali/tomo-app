@@ -123,15 +123,20 @@ async def generate_flow_step_text(
         # Step-specific instruction
         step_guide = {
             "fork": (
-                "You are asking the athlete to pick which existing session to "
-                "build for, or start a new one. Headline is a short coaching "
-                "question. Body is one sentence acknowledging what's on their "
-                "plate today."
+                "You are asking the athlete: do they want to build onto an "
+                "existing scheduled session, or create a brand new one. "
+                "DO NOT assume a training theme (do not say 'speed work', "
+                "'gym', 'technical', etc.). DO NOT mention morning or evening. "
+                "Stay neutral about session type. Headline must be a short "
+                "generic question about picking existing vs new. Body can be "
+                "one short sentence of encouragement, no specifics."
             ),
             "pick_focus": (
                 "You are asking the athlete what training focus they want. "
-                "Headline is a short coaching question. Body is one sentence "
-                "framing the choice with energy."
+                "The options are speed, strength, technical, agility, "
+                "endurance, or recovery. Headline is a short coaching "
+                "question asking them to choose a focus. Body is one sentence "
+                "framing the choice with energy. Do not assume any focus."
             ),
             "session_plan": (
                 "You are presenting the drills you built. Headline names the "

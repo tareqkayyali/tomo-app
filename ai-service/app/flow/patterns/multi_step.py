@@ -188,6 +188,26 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
         )
         return _build_cancel_response()
 
+    # ── Mid-flow restart signal ──
+    # If the athlete sends something that is clearly a greeting or the
+    # start of a totally new conversation (not a response to the current
+    # step), clear the flow and let the main classifier handle it fresh.
+    # Without this, "Hey tomo" sent while a fork is pending re-serves the
+    # same fork card, producing the loop the user saw in prod.
+    if _is_restart_signal(user_message, flow):
+        logger.info(
+            f"Multi-step: restart signal detected ({user_message!r}), "
+            f"clearing flow {flow.intent_id}"
+        )
+        await clear_flow_state(
+            state.get("session_id", ""),
+            state.get("user_id", ""),
+        )
+        # Return empty dict so the flow_controller falls through to the
+        # normal classifier pipeline. The user's message is classified
+        # as a fresh turn.
+        return {}
+
     # Process user response for the current step
     current = flow.current_step
     if not current:
@@ -555,16 +575,20 @@ async def _present_fork_choice(flow: FlowState, fork_result: dict, state: TomoCh
     """Present a fork's choice options as a choice_card."""
     options = fork_result.get("options", [])
 
-    existing_titles = [o.get("label", "") for o in options if o.get("value") != "new"]
+    # IMPORTANT: Do NOT pass existing session titles to Haiku -- it will
+    # hallucinate a theme (e.g. "Speed work morning or evening?" when all
+    # existing events happen to be Speed sessions). Pass counts only so
+    # the headline stays neutral about what kind of session the athlete
+    # actually wants.
+    existing_count = sum(1 for o in options if o.get("value") != "new")
     headline, body = await _warm_text(
         step_kind="fork",
         flow_context={
-            "existing_sessions": "; ".join(existing_titles) if existing_titles else "none",
+            "existing_session_count": existing_count,
             "target_date": flow.get("target_date", ""),
-            "stated_focus": flow.get("selected_focus", "") if flow.get("focus_was_stated") else "",
         },
         state=state,
-        fallback_headline="What do you want to do?",
+        fallback_headline="Build on what's scheduled, or add something new?",
         fallback_body="",
     )
 
@@ -858,12 +882,30 @@ def _extract_date_from_message(state: TomoChatState) -> Optional[str]:
 
     today_dt = datetime.strptime(today, "%Y-%m-%d")
 
-    # "today"
-    if "today" in msg:
+    # "day after tomorrow" / "after tomorrow" — check BEFORE plain "tomorrow"
+    if "day after tomorrow" in msg or "after tomorrow" in msg or "day after tmrw" in msg:
+        return (today_dt + timedelta(days=2)).strftime("%Y-%m-%d")
+
+    # "in N days" / "N days from now"
+    days_match = re.search(r"in (\d+) days?", msg) or re.search(r"(\d+) days? from now", msg)
+    if days_match:
+        try:
+            n = int(days_match.group(1))
+            if 0 <= n <= 60:
+                return (today_dt + timedelta(days=n)).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+
+    # "next week" → 7 days out
+    if "next week" in msg:
+        return (today_dt + timedelta(days=7)).strftime("%Y-%m-%d")
+
+    # "today" / "tonight"
+    if "today" in msg or "tonight" in msg or "this evening" in msg or "this morning" in msg:
         return today
 
-    # "tomorrow"
-    if "tomorrow" in msg:
+    # "tomorrow" (plain — must come AFTER "after tomorrow" check above)
+    if "tomorrow" in msg or "tmrw" in msg:
         return (today_dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     # Day names
@@ -977,6 +1019,73 @@ def _is_rejection(msg: str) -> bool:
     """Check if user message is a rejection."""
     rejections = {"no", "nah", "cancel", "nevermind", "stop", "skip"}
     return msg.lower().strip() in rejections
+
+
+# Obvious greetings / social bids — if seen mid-flow, the athlete is not
+# responding to the current step and the flow should bail out so the main
+# classifier can handle the message as a fresh turn.
+_RESTART_GREETING_PATTERNS = (
+    "hey tomo", "hi tomo", "hello tomo", "yo tomo", "sup tomo",
+    "hey", "hi", "hello", "yo", "sup", "howdy",
+    "good morning", "good afternoon", "good evening",
+    "what's up", "whats up", "wassup",
+)
+
+# Action verbs that clearly signal a NEW intent, not a response to the
+# current step. Matched against the start of the message.
+_RESTART_VERB_PREFIXES = (
+    "show me", "show my", "what's my", "whats my", "what is my",
+    "how am i", "how's my", "hows my",
+    "log ", "check ", "add ", "create ", "delete ", "cancel ",
+    "tell me", "what's on", "whats on", "what is on",
+)
+
+
+def _is_restart_signal(msg: str, flow: FlowState) -> bool:
+    """Is this message clearly NOT a response to the current flow step?
+
+    We only bail out on HIGH-CONFIDENCE signals so we never drop legit
+    responses (option labels, confirmations, rejections).
+
+    Rules (in order):
+      1. Never a restart if it exactly matches a fork option label or
+         a FOCUS_AREA label -- those are valid in-flow responses.
+      2. Never a restart if it's a confirmation or rejection.
+      3. Restart if the message is a bare greeting token (<= 4 words and
+         the FIRST word matches a greeting pattern).
+      4. Restart if the message starts with a new-intent verb prefix.
+    """
+    cleaned = msg.lower().strip()
+    if not cleaned:
+        return False
+
+    # 1. Don't hijack valid in-flow responses.
+    fork_data = flow.get("step_fork_fork", {})
+    if isinstance(fork_data, dict):
+        for opt in fork_data.get("options", []) or []:
+            if (opt.get("label", "") or "").lower() == cleaned:
+                return False
+    for area in FOCUS_AREAS:
+        if area["label"].lower() == cleaned or area["value"] == cleaned:
+            return False
+
+    # 2. Don't hijack confirm/reject
+    if _is_confirmation(msg) or _is_rejection(msg):
+        return False
+
+    # 3. Bare greetings (short messages starting with a greeting token)
+    words = cleaned.split()
+    if len(words) <= 4:
+        for pat in _RESTART_GREETING_PATTERNS:
+            if cleaned == pat or cleaned.startswith(pat + " ") or cleaned.startswith(pat + ","):
+                return True
+
+    # 4. Message starts with a clearly new-intent verb
+    for prefix in _RESTART_VERB_PREFIXES:
+        if cleaned.startswith(prefix):
+            return True
+
+    return False
 
 
 def _extract_time(time_str: str) -> str:
