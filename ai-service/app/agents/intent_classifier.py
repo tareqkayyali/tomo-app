@@ -109,6 +109,33 @@ def _build_exact_match_map() -> dict[str, dict]:
           "hey coach", "hi coach", "hello coach",
           "what's good", "how's it going"], "greeting")
 
+    # Smalltalk → route to output agent; tier detection happens in agent_dispatch
+    # ($0 classification for common social-reciprocity / mood phrases)
+    _add([
+        # Positive mood
+        "feeling good", "feeling great", "feeling amazing", "feeling fresh",
+        "i'm good", "im good", "i'm great", "im great",
+        "i'm amazing", "im amazing", "i'm fine", "im fine",
+        "doing well", "doing good", "doing great", "doing fine",
+        "pretty good", "all good", "feeling alright",
+        "i'm alright", "im alright",
+        # Neutral mood
+        "not bad", "i'm ok", "im ok", "i'm okay", "im okay",
+        "alright", "okay", "fine", "meh", "eh", "so so",
+        # Negative mood
+        "feeling tired", "tired today", "i'm tired", "im tired",
+        "feeling bored", "bored", "i'm bored", "im bored",
+        "feeling dead", "dead today", "i'm dead", "im dead",
+        "feeling drained", "feeling flat", "feeling low",
+        "rough day", "tough day", "bad day",
+        # Reciprocal bids
+        "and you", "and you?", "what about you", "what about you?",
+        "you?", "how about you", "how about you?",
+        "how are you", "how are you?", "hows it going with you",
+        "how's it going with you", "yourself?", "yourself",
+        "good you?", "good how about you",
+    ], "smalltalk")
+
     # Test log
     _add(["log a test", "record my sprint", "add my cmj score", "log test",
           "record a test", "log my test", "test log"], "log_test")
@@ -282,33 +309,40 @@ def try_exact_match(message: str) -> Optional[ClassificationResult]:
     """
     Layer 1: Exact match against 150+ chip action patterns.
     Returns immediately if matched. $0 cost, 0 latency.
+
+    Order: exact map FIRST, fallthrough patterns SECOND. Exact match wins
+    so that smalltalk phrases like "what about you", "and you?", "okay"
+    aren't stolen by the `^what about` / `^and ` / `^okay` fallthrough
+    patterns (which exist to catch conversational continuations in
+    longer free-text messages, not 3-word smalltalk).
     """
     normalized = _normalize(message)
 
-    # Check fallthrough patterns first — these skip to Layer 3
+    # 1. Exact map -- if the WHOLE message is a known phrase, use it.
+    match = _EXACT_MATCH_MAP.get(normalized)
+    if match:
+        intent_id = match["intent_id"]
+        intent_def = INTENT_BY_ID.get(intent_id)
+        if intent_def:
+            return ClassificationResult(
+                intent_id=intent_id,
+                capsule_type=intent_def.capsule_type,
+                agent_type=intent_def.agent_type,
+                confidence=1.0,
+                extracted_params=match.get("params", {}),
+                classification_layer="exact_match",
+                latency_ms=0.0,
+            )
+
+    # 2. Fallthrough patterns -- conversational continuations, pain/injury
+    # context, specific-program mentions. Skip to Layer 2/3 so full LLM
+    # handles them (cannot be answered by a fast-path intent).
     for pattern in FALLTHROUGH_PATTERNS:
         if pattern.search(normalized):
             return None  # Skip to Layer 2/3
 
-    # Exact match lookup
-    match = _EXACT_MATCH_MAP.get(normalized)
-    if not match:
-        return None
-
-    intent_id = match["intent_id"]
-    intent_def = INTENT_BY_ID.get(intent_id)
-    if not intent_def:
-        return None
-
-    return ClassificationResult(
-        intent_id=intent_id,
-        capsule_type=intent_def.capsule_type,
-        agent_type=intent_def.agent_type,
-        confidence=1.0,
-        extracted_params=match.get("params", {}),
-        classification_layer="exact_match",
-        latency_ms=0.0,
-    )
+    # 3. No exact match and no fallthrough -- let Layer 2 try Haiku.
+    return None
 
 
 # ── Layer 2: Haiku Classifier ────────────────────────────────────────
@@ -331,6 +365,37 @@ CRITICAL RULES:
 9b. "add event at 5pm", "add gym tomorrow" (with specific time) → create_event
 9. Follow-up questions about previous agent response → agent_fallthrough
 10. "start training", "can I train", "ready to train" → qa_readiness (readiness check FIRST, not schedule)
+11. Social/emotional statements WITHOUT action verbs
+    ("feeling great", "tired today", "bored", "what about you?", "and you?")
+    → smalltalk (NOT agent_fallthrough, NOT check_in, NOT greeting)
+    check_in is ONLY for explicit wellness logging.
+12. Plans / considerations WITHOUT explicit action verbs
+    ("thinking about", "considering", "maybe I'll", "might do",
+    "probably will", "leaning toward") → agent_fallthrough
+    Do not force into build_session unless the user says "build",
+    "create", "plan", "schedule", or "make".
+13. Open questions about training philosophy, progression, or technique
+    that reference no specific entity → agent_fallthrough
+    (e.g. "how should I be warming up before sprints?")
+14. Emotional / mood statements that describe the body without asking for
+    a log ("i feel slow", "legs are dead", "body is heavy")
+    → agent_fallthrough (NOT check_in -- check_in is explicit logging only).
+
+EXAMPLES:
+User: "I'm thinking about technical drills tomorrow"
+→ {{"intent_id": "agent_fallthrough", "confidence": 0.9, "params": {{}}}}
+
+User: "Build me a technical session for tomorrow"
+→ {{"intent_id": "build_session", "confidence": 1.0, "params": {{"focus": "technical", "date": "tomorrow"}}}}
+
+User: "Feeling great buddy, what about you?"
+→ {{"intent_id": "smalltalk", "confidence": 0.95, "params": {{}}}}
+
+User: "Legs are dead today"
+→ {{"intent_id": "agent_fallthrough", "confidence": 0.85, "params": {{}}}}
+
+User: "Log my sprint test"
+→ {{"intent_id": "log_test", "confidence": 1.0, "params": {{"testType": "sprint"}}}}
 
 {context_summary}
 

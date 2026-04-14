@@ -40,6 +40,8 @@ MIN_MESSAGE_LENGTH = 8
 RAG_SKIP_INTENTS = frozenset({
     # Greetings — zero-cost greeting handler, no knowledge needed
     "greeting",
+    # Smalltalk — mood chatter, reciprocal bids. No sports-science grounding needed.
+    "smalltalk",
     # Navigation — UI routing only
     "navigate",
     # Deterministic data lookups — tool call returns DB data, no grounding needed
@@ -98,6 +100,11 @@ QUERY_EXPANSIONS = {
     "phv_calculate": "Peak Height Velocity growth maturation PHV stage youth development growth plate",
     "strengths_gaps": "athlete strengths weaknesses gap analysis performance testing benchmarks",
     "injury_mode": "injury management return to play rehabilitation load modification recovery timeline",
+    # Session building -- multi_step flow bypasses the RAG node, but we
+    # also call _reformulate_query from multi_step._build_session_step so
+    # the enriched query uses these terms too (single source of truth).
+    "build_session": "training session design drill selection progression periodization youth athlete sport-specific block",
+    "plan_training": "training plan periodization block progression youth athlete volume intensity recovery",
 }
 
 # ── Plain-language synonym map for query reformulation ───────────────

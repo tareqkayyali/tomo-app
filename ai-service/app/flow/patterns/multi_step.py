@@ -477,9 +477,14 @@ async def _warm_text(
     state: TomoChatState,
     fallback_headline: str,
     fallback_body: str = "",
+    rag_context: str = "",
 ) -> tuple[str, str]:
     """Try to generate a warm headline/body via Haiku. Fall back to static
     text on any failure, disabled flag, or timeout. Always returns a tuple.
+
+    Optionally grounds the text in `rag_context` (sports-science chunks) for
+    session_plan and confirm step kinds. RAG is fire-and-forget: if it's
+    empty the call behaves identically to the pre-RAG path.
     """
     context = state.get("player_context")
     try:
@@ -491,6 +496,7 @@ async def _warm_text(
             sport=getattr(context, "sport", "") or "",
             position=getattr(context, "position", "") or "",
             age_band=getattr(context, "age_band", "") or "",
+            rag_context=rag_context,
         )
     except Exception as e:
         logger.debug(f"Warm text helper failed: {e}")
@@ -499,6 +505,83 @@ async def _warm_text(
     if result and result.get("headline"):
         return result["headline"], result.get("body", "") or fallback_body
     return fallback_headline, fallback_body
+
+
+# ── RAG retrieval for build_session flow ────────────────────────────
+# Gated behind FLOW_RAG_ENABLED so we can kill-switch without a redeploy.
+import os as _os
+
+_FLOW_RAG_ENABLED = _os.environ.get("FLOW_RAG_ENABLED", "true").lower() == "true"
+_FLOW_RAG_TIMEOUT_S = 1.5
+
+
+async def _retrieve_session_rag(
+    focus: str,
+    state: TomoChatState,
+) -> str:
+    """Fetch sports-science chunks scoped to the session focus + context.
+
+    Returns formatted RAG text (markdown) or empty string on any failure,
+    timeout, or disabled flag. Never raises -- callers must always have a
+    deterministic fallback.
+
+    Uses the shared `_reformulate_query` helper from rag_retrieval.py so
+    there's a single source of truth for how build_session queries are
+    expanded (enforces intent registry -> query rule once).
+    """
+    if not _FLOW_RAG_ENABLED:
+        return ""
+    if not focus or focus == "general":
+        return ""
+
+    context = state.get("player_context")
+    if not context:
+        return ""
+
+    import asyncio
+    try:
+        import time as _time
+        from app.graph.nodes.rag_retrieval import _reformulate_query
+        from app.rag.retriever import retrieve
+
+        sport = (getattr(context, "sport", "") or "").strip()
+        position = (getattr(context, "position", "") or "").strip()
+        age_band = (getattr(context, "age_band", "") or "").strip()
+
+        # Natural-language base message -- _reformulate_query then layers
+        # on the build_session domain expansion + sport context.
+        base_msg = " ".join(
+            p for p in [f"{focus} session drills", sport, position, age_band] if p
+        )
+        query = _reformulate_query(base_msg, "build_session", context)
+
+        t0 = _time.monotonic()
+        result = await asyncio.wait_for(
+            retrieve(query=query, player_context=context, top_k=4),
+            timeout=_FLOW_RAG_TIMEOUT_S,
+        )
+        elapsed_ms = (_time.monotonic() - t0) * 1000
+
+        chunk_count = getattr(result, "chunk_count", 0)
+        cost = getattr(result, "retrieval_cost_usd", 0.0)
+        logger.info(
+            f"build_session rag chunks={chunk_count} "
+            f"cost=${cost:.5f} latency={elapsed_ms:.0f}ms focus={focus}"
+        )
+
+        return getattr(result, "formatted_text", "") or ""
+
+    except asyncio.TimeoutError:
+        logger.warning(
+            f"build_session rag timeout "
+            f"(>{_FLOW_RAG_TIMEOUT_S}s) focus={focus} -- proceeding without RAG"
+        )
+        return ""
+    except Exception as e:
+        logger.warning(
+            f"build_session rag failed focus={focus}: {e} -- proceeding without RAG"
+        )
+        return ""
 
 
 async def _present_step(flow: FlowState, state: TomoChatState) -> dict:
@@ -667,6 +750,10 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
     total_min = sum(d.get("duration_min", 0) for d in drills)
     fallback_body = f"About {total_min} minutes total. Ready to lock this in?"
 
+    # Retrieve sport-science grounding for this focus. Empty string on
+    # failure / disabled -- warm-text path degrades to the baseline.
+    rag_text = await _retrieve_session_rag(focus, state)
+
     headline, body = await _warm_text(
         step_kind="session_plan",
         flow_context={
@@ -680,6 +767,7 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
         state=state,
         fallback_headline=fallback_headline,
         fallback_body=fallback_body,
+        rag_context=rag_text,
     )
 
     structured = {

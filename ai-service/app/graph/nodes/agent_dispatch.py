@@ -33,6 +33,7 @@ from app.agents.tools import get_tools_for_agent
 from app.agents.tools.bridge import is_write_action, is_capsule_direct
 from app.agents.prompt_builder import build_system_prompt
 from app.agents.greeting_handler import detect_greeting_tier
+from app.agents.smalltalk_handler import detect_smalltalk_tier, build_smalltalk_guidance
 from app.utils.message_helpers import find_last_human_message
 
 logger = logging.getLogger("tomo-ai.agent_dispatch")
@@ -111,6 +112,15 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         tier = detect_greeting_tier(user_msg, context)
         intent_guidance = _build_greeting_guidance(tier)
         logger.info(f"Greeting energy tier: {tier} for '{user_msg[:40]}'")
+    # For smalltalk: detect mood tier and inject reciprocity guidance
+    elif intent_id == "smalltalk":
+        user_msg = find_last_human_message(state.get("messages", []))
+        tier = detect_smalltalk_tier(user_msg, context)
+        intent_guidance = build_smalltalk_guidance(tier)
+        logger.info(
+            f"smalltalk tier={tier} source=dispatch "
+            f"for '{user_msg[:40]}'"
+        )
     else:
         INTENT_GUIDANCE = {
             "qa_readiness": (

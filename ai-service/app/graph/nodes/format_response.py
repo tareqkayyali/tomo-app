@@ -1041,16 +1041,26 @@ async def format_response_node(state: TomoChatState) -> dict:
             "final_cards": structured.get("cards", []),
         }
 
-    # Case 5: Empty response
+    # Case 5: Empty response -- warm catch, no menu.
+    # The synthesis recovery returned empty; rather than serving a dead-end
+    # menu that terminates the thread, keep it open with a warm one-liner
+    # and zero chips. Reuses _build_text_response() so we share one code
+    # path for "warm text, no menu" responses (same idiom as Case 4).
+    import random as _random
+    _fallback_lines = [
+        "Hey -- I got lost on that one. What are you after?",
+        "Hmm, didn't land on anything useful. Say more?",
+        "That one slipped past me. What do you need right now?",
+        "Missed what you meant there. Give me a bit more?",
+        "Not sure I followed -- what's on your mind?",
+    ]
+    structured = _pulse_post_process(
+        _build_text_response(_random.choice(_fallback_lines)),
+        state,
+    )
+    # Force no chips -- even if pulse post-process added defaults.
+    structured["chips"] = []
     return {
-        "final_response": json.dumps({
-            "headline": "Hey -- what can I help with?",
-            "body": "I'm ready whenever you are. What's on your mind?",
-            "cards": [],
-            "chips": [
-                {"label": "How am I doing?", "message": "What's my readiness?"},
-                {"label": "Today's plan", "message": "What's on today?"},
-            ],
-        }),
-        "final_cards": [],
+        "final_response": json.dumps(structured),
+        "final_cards": structured.get("cards", []),
     }

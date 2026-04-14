@@ -91,6 +91,7 @@ async def generate_flow_step_text(
     position: str = "",
     age_band: str = "",
     timeout_s: float = 1.5,
+    rag_context: str = "",
 ) -> dict[str, str] | None:
     """Generate warm headline + body for a multi-step flow card.
 
@@ -150,12 +151,27 @@ async def generate_flow_step_text(
             ),
         }.get(step_kind, "Generate warm coaching text.")
 
+        # Inject RAG grounding when present -- lets session_plan / confirm
+        # steps reference sport-science language instead of generic text.
+        rag_block = ""
+        if rag_context and step_kind in ("session_plan", "confirm"):
+            # Truncate hard so it can't blow out the 120-token budget.
+            snippet = rag_context.strip()
+            if len(snippet) > 600:
+                snippet = snippet[:600]
+            rag_block = (
+                " GROUND IN THIS SPORTS-SCIENCE CONTEXT (cite naturally, "
+                "do not quote): "
+                f"{snippet}. "
+            )
+
         system = (
             "You are Tomo, an AI coach for young athletes. "
             f"Tone: {tone_hint}. "
             "No emoji. No corporate language. Never repeat the athlete's "
             "name more than once. "
-            f"{step_guide} "
+            f"{step_guide}"
+            f"{rag_block} "
             "Respond in JSON only: "
             '{"headline": "...", "body": "..."}. '
             "Headline max 8 words. Body max 18 words."

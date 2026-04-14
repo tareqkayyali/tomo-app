@@ -46,6 +46,25 @@ INTENT_REGISTRY: list[IntentDefinition] = [
         examples=["hey tomo", "hi", "hello", "good morning", "what's up"],
     ),
 
+    # ── Smalltalk (social reciprocity + mood statements, no tools needed) ──
+    IntentDefinition(
+        id="smalltalk",
+        capsule_type=None,
+        agent_type="output",
+        description=(
+            "Social / emotional statement WITHOUT an action verb -- mood reports, "
+            "reciprocal bids ('what about you?'), 'feeling tired', 'bored'. "
+            "Respond warmly with open-ended invitation, NEVER a menu. "
+            "NOT check_in (check_in is only explicit wellness logging)."
+        ),
+        examples=[
+            "feeling great buddy, what about you?",
+            "im good", "not bad", "tired today",
+            "bored", "meh", "pretty good",
+            "how are you", "and you?", "what about you",
+        ],
+    ),
+
     # ── Test & Check-in ──
     IntentDefinition(
         id="log_test",

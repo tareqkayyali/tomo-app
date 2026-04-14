@@ -305,6 +305,7 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
 
     # Open coaching -- full LLM creative response needed
     "greeting": FlowConfig(pattern="open_coaching"),
+    "smalltalk": FlowConfig(pattern="open_coaching"),
     "phv_query": FlowConfig(pattern="open_coaching"),
     "benchmark_comparison": FlowConfig(pattern="open_coaching"),
     "recommendations": FlowConfig(pattern="open_coaching"),
