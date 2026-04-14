@@ -209,31 +209,32 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         from app.db.supabase import get_pool
         pool = get_pool()
 
-        # ── RED RISK GUARD (hard enforcement) ────────────────────
-        # Check injury_risk_flag + ACWR from snapshot BEFORE processing.
-        # Even if LLM requests HARD intensity, this overrides to LIGHT.
+        # ── LOAD ADVISORY (advisory only — never block, never swap category) ──
+        # Check injury_risk_flag + ACWR and add advisory note to response.
+        # The athlete's choice is respected — we inform, we don't override.
         se = context.snapshot_enrichment
-        red_risk = False
+        load_advisory = ""
         risk_reasons: list[str] = []
 
         if se:
             if se.injury_risk_flag and se.injury_risk_flag.upper() == "RED":
-                red_risk = True
-                risk_reasons.append(f"injury_risk={se.injury_risk_flag}")
+                risk_reasons.append("injury risk is elevated")
             if se.acwr is not None and se.acwr > 1.5:
-                red_risk = True
-                risk_reasons.append(f"ACWR={se.acwr:.2f}")
+                risk_reasons.append(f"training load has been spiking")
+            if se.acwr is not None and se.acwr > 1.3:
+                risk_reasons.append("load is building")
 
-        if red_risk:
-            if intensity and intensity.upper() in ("HARD", "MODERATE"):
-                logger.warning(
-                    f"RED RISK GUARD: Overriding {intensity} to LIGHT "
-                    f"({', '.join(risk_reasons)})"
-                )
-            intensity = "LIGHT"
-            if category.lower() in ("speed", "strength", "agility"):
-                category = "recovery"
-        elif not intensity:
+        if risk_reasons:
+            load_advisory = (
+                f"Advisory: {', '.join(risk_reasons)}. "
+                "Consider keeping intensity controlled. The athlete chose this session — respect their decision."
+            )
+            logger.info(f"LOAD ADVISORY: {', '.join(risk_reasons)} — delivering requested {category}/{intensity}")
+            # Suggest lighter intensity but DON'T force it
+            if not intensity:
+                intensity = "MODERATE"  # Default to moderate when load is elevated, not LIGHT
+
+        if not intensity:
             # Auto-select intensity from readiness
             readiness = context.readiness_score
             if readiness == "Red":
@@ -358,7 +359,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             }
             drills = _FALLBACK_SESSIONS.get(category.lower(), _FALLBACK_SESSIONS.get("recovery", []))
 
-        return {
+        result = {
             "category": category,
             "intensity": intensity,
             "readiness": context.readiness_score,
@@ -367,6 +368,9 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             "total_duration_min": duration_min,
             "drills": drills,
         }
+        if load_advisory:
+            result["load_advisory"] = load_advisory
+        return result
 
     @tool
     async def get_drill_detail(drill_id: str) -> dict:
