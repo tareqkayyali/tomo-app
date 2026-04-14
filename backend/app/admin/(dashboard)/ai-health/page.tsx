@@ -380,6 +380,9 @@ export default function AIHealthPage() {
   const [tracesOffset, setTracesOffset] = useState(0);
   const TRACES_LIMIT = 50;
 
+  // Trace selection (for targeted insights)
+  const [selectedTraceIds, setSelectedTraceIds] = useState<Set<string>>(new Set());
+
   // Trace filters
   const [filterAgentType, setFilterAgentType] = useState("All");
   const [filterPathType, setFilterPathType] = useState("All");
@@ -493,6 +496,10 @@ export default function AIHealthPage() {
       const { from, to } = getTimeRange(timeRange, customFrom, customTo);
       const body: Record<string, unknown> = { from, to, filters: {} };
       if (filterAgentType !== "All") body.agent_type = filterAgentType;
+      // If traces are selected, run insights only on those
+      if (selectedTraceIds.size > 0) {
+        body.trace_ids = Array.from(selectedTraceIds);
+      }
 
       const res = await fetch("/api/v1/admin/ai-health/insights/filtered", {
         method: "POST",
@@ -1183,7 +1190,21 @@ export default function AIHealthPage() {
           ) : filteredTraces.length > 0 ? (
             <div className="border border-zinc-200 rounded-lg overflow-hidden">
               {/* Table Header */}
-              <div className="grid grid-cols-[72px_1fr_90px_100px_48px_72px_72px_48px] bg-zinc-100 text-[10px] font-medium text-zinc-500 uppercase tracking-wider px-3 py-2 border-b border-zinc-200">
+              <div className="grid grid-cols-[32px_72px_1fr_90px_100px_48px_72px_72px_48px] bg-zinc-100 text-[10px] font-medium text-zinc-500 uppercase tracking-wider px-3 py-2 border-b border-zinc-200">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    className="rounded border-zinc-300 cursor-pointer"
+                    checked={filteredTraces.length > 0 && selectedTraceIds.size === filteredTraces.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedTraceIds(new Set(filteredTraces.map((t) => t.id)));
+                      } else {
+                        setSelectedTraceIds(new Set());
+                      }
+                    }}
+                  />
+                </div>
                 <div>Time</div>
                 <div>Message</div>
                 <div>Agent</div>
@@ -1198,10 +1219,12 @@ export default function AIHealthPage() {
               {filteredTraces.map((trace) => (
                 <div key={trace.id}>
                   <div
-                    className={`grid grid-cols-[72px_1fr_90px_100px_48px_72px_72px_48px] px-3 py-2 text-xs cursor-pointer transition-colors ${
+                    className={`grid grid-cols-[32px_72px_1fr_90px_100px_48px_72px_72px_48px] px-3 py-2 text-xs cursor-pointer transition-colors ${
                       expandedTraceId === trace.id
                         ? "bg-zinc-50"
-                        : "hover:bg-zinc-50"
+                        : selectedTraceIds.has(trace.id)
+                          ? "bg-blue-50/50"
+                          : "hover:bg-zinc-50"
                     } border-b border-zinc-100`}
                     onClick={() =>
                       setExpandedTraceId(
@@ -1209,6 +1232,19 @@ export default function AIHealthPage() {
                       )
                     }
                   >
+                    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="rounded border-zinc-300 cursor-pointer"
+                        checked={selectedTraceIds.has(trace.id)}
+                        onChange={(e) => {
+                          const next = new Set(selectedTraceIds);
+                          if (e.target.checked) next.add(trace.id);
+                          else next.delete(trace.id);
+                          setSelectedTraceIds(next);
+                        }}
+                      />
+                    </div>
                     <div className="font-mono text-zinc-500">
                       {formatTime(trace.created_at)}
                     </div>
@@ -1353,6 +1389,60 @@ export default function AIHealthPage() {
                           )}
                       </div>
 
+                      {/* Export Trace Button */}
+                      <div className="mt-3 pt-2 border-t border-zinc-200 flex justify-end">
+                        <button
+                          className="text-[10px] text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded border border-blue-200 hover:bg-blue-50 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const traceExport = {
+                              id: trace.id,
+                              exported_at: new Date().toISOString(),
+                              created_at: trace.created_at,
+                              message: trace.message,
+                              assistant_response: trace.assistant_response,
+                              agent_type: trace.agent_type,
+                              intent_id: trace.intent_id,
+                              classification_layer: trace.classification_layer,
+                              routing_confidence: trace.routing_confidence,
+                              path_type: trace.path_type,
+                              tool_count: trace.tool_count,
+                              tool_names: trace.tool_names,
+                              total_cost_usd: trace.total_cost_usd,
+                              total_tokens: trace.total_tokens,
+                              latency_ms: trace.latency_ms,
+                              validation_passed: trace.validation_passed,
+                              validation_flags: trace.validation_flags,
+                              session_id: trace.session_id,
+                              user_id: trace.user_id,
+                              request_id: trace.request_id,
+                              rag_used: trace.rag_used,
+                              rag_chunk_count: trace.rag_chunk_count,
+                              sport: trace.sport,
+                              age_band: trace.age_band,
+                              readiness_rag: trace.readiness_rag,
+                              acwr: trace.acwr,
+                              phv_gate_fired: trace.phv_gate_fired,
+                              crisis_detected: trace.crisis_detected,
+                              turn_number: trace.turn_number,
+                              response_length_chars: trace.response_length_chars,
+                              cost_bucket: trace.cost_bucket,
+                              latency_bucket: trace.latency_bucket,
+                            };
+                            const blob = new Blob([JSON.stringify(traceExport, null, 2)], { type: "application/json" });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `tomo-trace-${trace.id.slice(0, 8)}-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            toast.success("Trace exported");
+                          }}
+                        >
+                          Export Trace JSON
+                        </button>
+                      </div>
+
                       {/* User Message */}
                       <div className="mt-3 pt-2 border-t border-zinc-200">
                         <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-medium">
@@ -1434,9 +1524,11 @@ export default function AIHealthPage() {
             >
               {filteredInsightsLoading
                 ? "Generating Insights..."
-                : hasActiveFilters
-                  ? "Run Insights on Filtered Traces"
-                  : "Run Insights on All Traces"}
+                : selectedTraceIds.size > 0
+                  ? `Run Insights on ${selectedTraceIds.size} Selected Trace${selectedTraceIds.size > 1 ? "s" : ""}`
+                  : hasActiveFilters
+                    ? "Run Insights on Filtered Traces"
+                    : "Run Insights on All Traces"}
             </Button>
             {filteredInsights && filteredInsights.length > 0 && (
               <Button

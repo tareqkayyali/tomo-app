@@ -671,6 +671,7 @@ class FilteredInsightsRequest(BaseModel):
     from_dt: Optional[str] = Field(None, alias="from")
     to_dt: Optional[str] = Field(None, alias="to")
     filters: Optional[dict] = None
+    trace_ids: Optional[list[str]] = None  # Run insights on specific selected traces
 
     model_config = {"populate_by_name": True}
 
@@ -704,6 +705,60 @@ async def get_filtered_insights(
     if validation_filter is not None:
         vp = bool(validation_filter)
 
+    # If specific trace IDs were provided, use those instead of filter-based query
+    if body.trace_ids and len(body.trace_ids) > 0:
+        cols_sql = ", ".join(f"t.{c}" for c in _INSIGHTS_TRACE_COLS)
+        placeholders = ", ".join(["%s"] * len(body.trace_ids))
+        try:
+            async with pool.connection() as conn:
+                result = await conn.execute(
+                    f"""SELECT {cols_sql},
+                               backfill.content AS _backfill_response
+                        FROM ai_trace_log t
+                        LEFT JOIN LATERAL (
+                            SELECT content FROM chat_messages
+                            WHERE session_id = t.session_id
+                              AND role = 'assistant'
+                              AND created_at BETWEEN t.created_at AND t.created_at + interval '60 seconds'
+                            ORDER BY created_at ASC LIMIT 1
+                        ) backfill ON t.assistant_response IS NULL
+                        WHERE t.id IN ({placeholders})
+                        ORDER BY t.created_at DESC""",
+                    body.trace_ids,
+                )
+                rows = await result.fetchall()
+        except Exception as e:
+            logger.error(f"Trace ID query failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Trace query failed: {str(e)[:300]}")
+
+        all_cols = _INSIGHTS_TRACE_COLS + ["_backfill_response"]
+        traces = []
+        for row in rows:
+            trace = dict(zip(all_cols, row))
+            if not trace.get("assistant_response") and trace.get("_backfill_response"):
+                trace["assistant_response"] = trace["_backfill_response"]
+            trace.pop("_backfill_response", None)
+            for key in ("total_cost_usd", "routing_confidence", "acwr", "rag_cost_usd", "data_confidence_score"):
+                if trace.get(key) is not None:
+                    try: trace[key] = float(trace[key])
+                    except (TypeError, ValueError): pass
+            for key in ("tool_count", "total_tokens", "latency_ms", "rag_latency_ms", "rag_entity_count",
+                         "rag_chunk_count", "checkin_staleness_days", "turn_number", "response_length_chars"):
+                if trace.get(key) is not None:
+                    try: trace[key] = int(trace[key])
+                    except (TypeError, ValueError): pass
+            traces.append(trace)
+
+        if not traces:
+            return {"insights": [], "traces_analyzed": 0, "message": "No matching traces found for provided IDs"}
+
+        try:
+            insights = await generate_insights(traces)
+            return {"insights": insights, "traces_analyzed": len(traces)}
+        except Exception as e:
+            logger.error(f"Selected traces insights failed: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Insights engine error: {str(e)[:300]}")
+
     where_clause, params = _build_trace_filters(
         dt_from, dt_to, agent_type, path_type,
         intent_id_filter, vp, cost_bucket_filter, latency_bucket_filter,
@@ -713,8 +768,6 @@ async def get_filtered_insights(
 
     try:
         async with pool.connection() as conn:
-            # Main trace query with LEFT JOIN to backfill assistant_response
-            # from chat_messages for traces recorded before the column was added.
             result = await conn.execute(
                 f"""SELECT {cols_sql},
                            backfill.content AS _backfill_response
