@@ -80,19 +80,54 @@ These intents are capsule-eligible (deterministic, no LLM needed):
 - Navigation requests (go to timeline, open mastery, etc.)
 - Quick status queries (my readiness, my load, today's schedule, my streak)
 If capsule-eligible, set capsule_type to the capsule name.
+Smalltalk / mood bids are NOT capsule — they route through open_coaching \
+for warm text, so classify them as intent=smalltalk with capsule_type=null.
+
+CRITICAL RULES — conversational vs action distinction:
+1. Statements without explicit action verbs are NOT build requests. \
+"thinking about technical drills tomorrow", "considering a rest day", \
+"maybe gym later", "might do some sprints" → open_coaching, NOT build_session. \
+Only classify as build_session when the user says "build", "create", "plan", \
+"make", "schedule", or "design" a session.
+2. Social-reciprocity bids and mood statements → smalltalk. \
+"feeling great buddy, what about you?", "i'm good thanks", "tired today", \
+"bored", "not bad you?", "legs are heavy" → smalltalk. \
+smalltalk is NOT check_in — check_in is ONLY explicit wellness logging \
+("log my check-in", "do my daily check-in").
+3. Open questions about training philosophy / technique with no specific \
+entity → open_coaching ("how should I warm up before sprints?").
+4. Mood / body-state descriptions ("legs dead", "body heavy", "feel slow") \
+without logging language → open_coaching, NOT check_in.
+
+EXAMPLES:
+User: "I'm thinking about technical drills tomorrow"
+→ {"agent":"performance","intent":"open_coaching","confidence":0.9,"requires_second_agent":null,"capsule_type":null}
+
+User: "Build me a technical session for tomorrow"
+→ {"agent":"performance","intent":"build_session","confidence":1.0,"requires_second_agent":"planning","capsule_type":null}
+
+User: "Feeling great buddy, what about you?"
+→ {"agent":"performance","intent":"smalltalk","confidence":0.95,"requires_second_agent":null,"capsule_type":null}
+
+User: "Legs are dead today"
+→ {"agent":"performance","intent":"open_coaching","confidence":0.85,"requires_second_agent":null,"capsule_type":null}
+
+User: "Log my sprint test"
+→ {"agent":"performance","intent":"log_test","confidence":1.0,"requires_second_agent":null,"capsule_type":"log_test"}
 
 INTENT IDs (use the most specific one):
-Performance: build_session, check_readiness, load_advice, recovery_guidance, \
-benchmark_comparison, log_test, test_trajectory, program_recommendation, \
-deload_assessment, injury_assessment, session_modification, phv_query
+Performance: build_session, open_coaching, check_readiness, load_advice, \
+recovery_guidance, benchmark_comparison, log_test, test_trajectory, \
+program_recommendation, deload_assessment, injury_assessment, \
+session_modification, phv_query
 Planning: add_event, view_schedule, edit_event, delete_event, plan_week, \
 plan_day, exam_planning, mode_switch, dual_load_check, study_planning
 Identity: show_cv, show_progress, career_update, achievement_check, \
 recruitment_query, coachability_check
 Settings: set_goal, log_injury, log_nutrition, log_sleep, update_profile, \
 wearable_sync, notification_config
-Capsule: greeting, navigate, qa_readiness, qa_load, qa_today_schedule, \
-qa_week_schedule, qa_streak, check_in, log_test
+Capsule: greeting, smalltalk, navigate, qa_readiness, qa_load, \
+qa_today_schedule, qa_week_schedule, qa_streak, check_in, log_test
 
 Respond with ONLY valid JSON (no markdown, no explanation):
 {"agent":"...","intent":"...","confidence":0.95,"requires_second_agent":null,"capsule_type":null}"""

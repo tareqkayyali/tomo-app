@@ -964,11 +964,51 @@ async def format_response_node(state: TomoChatState) -> dict:
                     if isinstance(it, dict) and "event_type" in it and "type" not in it:
                         it["type"] = it.pop("event_type")
 
-            # Session plan: must have drills
+            # Session plan: must have items. Accept legacy "drills" key
+            # from LLM agent output and legacy "total_duration_min" key,
+            # then normalize to the mobile SessionPlanCard contract
+            # (title, totalDuration, items[], readiness). This is the
+            # single normalization point for ALL session_plan emitters.
             elif card_type == "session_plan":
-                drills = card.get("drills") or []
-                if not isinstance(drills, list) or not drills:
+                items = card.get("items") or card.get("drills") or []
+                if not isinstance(items, list) or not items:
                     continue
+                # Normalize each item: duration_min -> duration
+                normalized_items = []
+                for it in items:
+                    if not isinstance(it, dict):
+                        continue
+                    norm = dict(it)
+                    if "duration" not in norm and "duration_min" in norm:
+                        norm["duration"] = norm.pop("duration_min")
+                    if "reason" not in norm and "description" in norm:
+                        norm["reason"] = norm.pop("description")
+                    if "drillId" not in norm and "drill_id" in norm:
+                        norm["drillId"] = norm.pop("drill_id")
+                    normalized_items.append(norm)
+                card["items"] = normalized_items
+                card.pop("drills", None)
+                # Normalize top-level duration field
+                if "totalDuration" not in card:
+                    if "total_duration_min" in card:
+                        card["totalDuration"] = card.pop("total_duration_min")
+                    elif "duration" in card and isinstance(card["duration"], (int, float)):
+                        card["totalDuration"] = card["duration"]
+                    else:
+                        card["totalDuration"] = sum(
+                            (it.get("duration") or 0) for it in normalized_items
+                        )
+                # Normalize readiness field
+                if "readiness" not in card and "readiness_level" in card:
+                    rl = (card.pop("readiness_level") or "").strip().lower()
+                    card["readiness"] = {
+                        "green": "Green", "yellow": "Yellow",
+                        "amber": "Yellow", "red": "Red",
+                    }.get(rl, "Green")
+                # Title is required by the mobile renderer
+                if not card.get("title"):
+                    cat = card.get("category") or "Training"
+                    card["title"] = f"{str(cat).title()} Session"
 
             # Program recommendation: must have programs
             elif card_type == "program_recommendation":

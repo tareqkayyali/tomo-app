@@ -734,21 +734,36 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
     flow.store("session_drills", result)
     flow.advance()
 
-    # Build session_plan card
+    # Build session_plan card -- field names MUST match the mobile
+    # SessionPlanCard component in ResponseRenderer.tsx (title,
+    # totalDuration, items, readiness, item.duration). Anything else
+    # renders a blank box on mobile.
     drills = result.get("drills", [])
-    card_drills = []
+    card_items = []
     for d in drills:
-        card_drills.append({
+        card_items.append({
             "name": d.get("name", "Drill"),
             "category": d.get("category", "training"),
-            "duration_min": d.get("duration_min", 10),
+            "duration": d.get("duration_min", 10),
             "intensity": d.get("intensity", "MODERATE"),
-            "description": d.get("description", ""),
+            "reason": d.get("description", ""),
+            "drillId": d.get("id") or d.get("drill_id"),
         })
 
     fallback_headline = f"{focus.title()} session -- {len(drills)} drills"
     total_min = sum(d.get("duration_min", 0) for d in drills)
     fallback_body = f"About {total_min} minutes total. Ready to lock this in?"
+
+    # Normalize readiness to the Green/Yellow/Red vocabulary mobile expects
+    _readiness_raw = (flow.get("readiness", "") or "").strip().lower()
+    if _readiness_raw in ("green", "g"):
+        card_readiness = "Green"
+    elif _readiness_raw in ("red", "r"):
+        card_readiness = "Red"
+    elif _readiness_raw in ("yellow", "amber", "y", "a"):
+        card_readiness = "Yellow"
+    else:
+        card_readiness = "Green"
 
     # Retrieve sport-science grounding for this focus. Empty string on
     # failure / disabled -- warm-text path degrades to the baseline.
@@ -775,10 +790,12 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
         "body": body,
         "cards": [{
             "type": "session_plan",
+            "title": f"{focus.title()} Session",
             "category": focus,
             "intensity": result.get("intensity", "MODERATE"),
-            "total_duration_min": total_min,
-            "drills": card_drills,
+            "totalDuration": total_min,
+            "readiness": card_readiness,
+            "items": card_items,
         }],
         "chips": [
             {"label": "Lock this in", "message": "Yes, lock it in"},
