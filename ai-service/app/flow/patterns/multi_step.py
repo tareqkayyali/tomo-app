@@ -1939,9 +1939,12 @@ async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
     # tapped option's LABEL verbatim as the next chat message, which
     # execute_multi_step_continuation matches via pending_slot_options.
 
-    # Build slot options from resolve_slot alternatives. Fall back to
-    # the static preset options if the scheduling engine returned none
-    # (e.g. athlete has zero free slots that day -- rare but possible).
+    # Build slot options STRICTLY from resolve_slot alternatives.
+    # NO static fallback: a generic "Morning / Afternoon / Evening"
+    # list on a fully-booked day serves options that all overlap real
+    # events, which is worse than an honest empty-state card. When
+    # the engine returns zero slots we flip the UX into "day is
+    # packed" mode with only the day-after pill as the escape hatch.
     slot_options: list[dict] = []
     for alt in resolution.alternatives:
         slot_options.append({
@@ -1949,15 +1952,6 @@ async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
             "value": alt.start_24,
             "description": "Open slot",
         })
-    if not slot_options:
-        slot_options = [
-            {
-                "label": opt["label"],
-                "value": opt["value"],
-                "description": "",
-            }
-            for opt in _TIME_PICKER_OPTIONS
-        ]
 
     # Persist the option list so the continuation handler can map
     # tapped labels (e.g. "6:00 PM - 7:15 PM") back to their start
@@ -1976,6 +1970,54 @@ async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
         {"label": "Try the day after", "message": "__try_day_after__"},
         {"label": "Cancel", "message": "cancel"},
     ]
+
+    # ── Empty-state: backend returned 0 viable slots ──
+    # Day is genuinely packed (or the engine's buffer rules ate every
+    # candidate). Don't emit a choice_card -- serve a clear message
+    # with the day-after pill as the only forward path.
+    if not slot_options:
+        if resolution.status == "conflict":
+            flow.store("selected_time", None)
+            headline = (
+                resolution.headline
+                or f"{_hhmm_to_12h(requested_time)} is taken"
+            )
+            body_text = (
+                f"{target_date or 'That day'} is packed -- no clean slots "
+                f"around your other sessions. Want to try the day after?"
+            )
+        else:
+            headline = (
+                f"{target_date or 'That day'} is packed"
+                if target_date else "That day is packed"
+            )
+            body_text = (
+                "No clean slots fit around your existing sessions. "
+                "Tap 'Try the day after' and I'll check the next day."
+            )
+        logger.info(
+            f"pick_time empty-state: 0 alternatives for {target_date} "
+            f"(requested_time={requested_time}, status={resolution.status})"
+        )
+        structured = {
+            "headline": headline,
+            "body": body_text,
+            "cards": [],
+            "chips": pills,
+        }
+        await save_flow_state(
+            state.get("session_id", ""),
+            state.get("user_id", ""),
+            flow,
+        )
+        return {
+            "final_response": json.dumps(structured),
+            "final_cards": [],
+            "_flow_pattern": "multi_step",
+            "route_decision": "flow_handled",
+            "total_cost_usd": 0.0,
+            "total_tokens": 0,
+        }
 
     if resolution.status == "conflict":
         # Clear the stale stated time so the athlete isn't re-matched

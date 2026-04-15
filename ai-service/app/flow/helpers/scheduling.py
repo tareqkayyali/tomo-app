@@ -32,10 +32,13 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Default duration used when we need to validate a slot BEFORE drills
-# are built. Generous enough for a typical football/padel/gym session.
-# _execute_confirm_tool later uses the REAL drill total for end_time,
-# so this only affects the slot-validation query shape.
-DEFAULT_SESSION_DURATION_MIN = 75
+# are built. Kept DELIBERATELY short (60 min) so the suggest-slots
+# engine can surface 1-hour gaps between school, matches, recovery,
+# and existing training blocks. Previous 75-min default eroded viable
+# gaps like 15:00-16:00 and 19:18-20:30 on busy days. The confirm step
+# recomputes end_time from the real drill total, so a shorter
+# validation window never leaks into the persisted event.
+DEFAULT_SESSION_DURATION_MIN = 60
 
 # How many alternative slots to request from the backend scheduling
 # engine. 6 strikes the right balance: enough to render a useful
@@ -172,6 +175,28 @@ def extract_time_from_message(msg: str) -> Optional[str]:
     return None
 
 
+async def _fetch_slots(
+    *, user_id: str, target_date: str, duration_min: int, timezone: str,
+) -> Optional[dict]:
+    """Single suggest-slots call. Returns the raw dict or None on error."""
+    from app.agents.tools.bridge import bridge_get
+    try:
+        return await bridge_get(
+            "/api/v1/calendar/suggest-slots",
+            params={
+                "date": target_date or "",
+                "eventType": "training",
+                "durationMin": str(duration_min),
+                "timezone": timezone or "UTC",
+                "limit": str(DEFAULT_SLOT_LIMIT),
+            },
+            user_id=user_id,
+        )
+    except Exception as e:
+        logger.warning(f"_fetch_slots: suggest-slots call failed: {e}")
+        return None
+
+
 async def resolve_slot(
     *,
     user_id: str,
@@ -192,22 +217,46 @@ async def resolve_slot(
     Never raises. On any internal exception the caller still gets a
     usable SlotResolution they can render.
     """
-    from app.agents.tools.bridge import bridge_get
+    # Progressive duration retry. Athletes' real calendars (school +
+    # matches + recovery buffers) often leave only 45-60 min windows.
+    # Try the requested duration first; if the engine returns < 3 slots
+    # we retry at a shorter duration to surface more alternatives,
+    # without ever violating the engine's buffer rules (it enforces
+    # them at every call). Keeps the card populated on busy days.
+    candidate_durations = [duration_min]
+    if duration_min > 45:
+        candidate_durations.append(45)
 
-    try:
-        result = await bridge_get(
-            "/api/v1/calendar/suggest-slots",
-            params={
-                "date": target_date or "",
-                "eventType": "training",
-                "durationMin": str(duration_min),
-                "timezone": timezone or "UTC",
-                "limit": str(DEFAULT_SLOT_LIMIT),
-            },
+    result: Optional[dict] = None
+    raw_slots: list = []
+    existing: list = []
+    best_duration = duration_min
+
+    for dur in candidate_durations:
+        r = await _fetch_slots(
             user_id=user_id,
+            target_date=target_date,
+            duration_min=dur,
+            timezone=timezone,
         )
-    except Exception as e:
-        logger.warning(f"resolve_slot: suggest-slots call failed: {e}")
+        if not isinstance(r, dict):
+            continue
+        slots = r.get("slots", []) or []
+        # Always keep the result with MORE slots. That way a retry at
+        # 45min that surfaces 2 slots replaces a first call that
+        # returned 0, even though neither hits the 3-slot "good enough"
+        # threshold. Ties prefer the LONGER duration (first iteration).
+        if result is None or len(slots) > len(raw_slots):
+            result = r
+            raw_slots = slots
+            existing = r.get("existingEvents", []) or []
+            best_duration = dur
+        if len(slots) >= 3:
+            # Good enough -- stop retrying.
+            break
+
+    if result is None:
+        logger.warning("resolve_slot: every suggest-slots retry failed")
         return SlotResolution(
             status="needs_pick",
             requested_time=requested_time,
@@ -216,9 +265,28 @@ async def resolve_slot(
             duration_min=duration_min,
             body="Couldn't read your schedule -- pick a rough slot.",
         )
+    duration_min = best_duration
 
-    raw_slots = result.get("slots", []) if isinstance(result, dict) else []
-    existing = result.get("existingEvents", []) if isinstance(result, dict) else []
+    # Diagnostic: log exactly what the backend returned so broken days
+    # ("8 events booked, engine returned 0 slots") are visible in
+    # Railway logs instead of silently producing an empty choice card.
+    logger.info(
+        f"resolve_slot: backend returned {len(raw_slots)} slot(s), "
+        f"{len(existing)} existing event(s) on {target_date} "
+        f"(duration {duration_min}min, requested {requested_time})"
+    )
+    if not raw_slots and existing:
+        # Tag every blocking event so we can diagnose which buffer
+        # or school-hour rule consumed the day. Kept at INFO because
+        # this is the "day is packed" signal operators need to see.
+        for ev in existing:
+            if isinstance(ev, dict):
+                logger.info(
+                    f"resolve_slot: blocking event on {target_date}: "
+                    f"{ev.get('name') or ev.get('title', '?')!r} "
+                    f"{ev.get('startTime', '?')}-{ev.get('endTime', '?')} "
+                    f"[{ev.get('type', '?')}]"
+                )
 
     alternatives: list[SlotAlternative] = []
     for s in raw_slots[:DEFAULT_SLOT_LIMIT]:
