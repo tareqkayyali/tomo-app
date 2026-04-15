@@ -227,6 +227,38 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
     if not current:
         return {}  # Flow complete, fall through
 
+    # ── Mid-flow date-change detector ──
+    # If the athlete drops a date anywhere in the flow ("I want it for
+    # tomorrow", "make it Wednesday"), we re-extract, update target_date,
+    # clear the stale calendar snapshot, and rewind to check_calendar so
+    # the fork/session_plan/confirm are rebuilt for the new date.
+    #
+    # Skipped when current step IS pick_date — that step has its own
+    # handler below which stores the selection explicitly.
+    if current.id != "pick_date":
+        new_date = _extract_date_from_message(state)
+        current_target = flow.get("target_date")
+        if new_date and new_date != current_target:
+            logger.info(
+                f"Multi-step: mid-flow date change "
+                f"{current_target!r} -> {new_date!r} (rewinding to check_calendar)"
+            )
+            flow.store("target_date", new_date)
+            # Wipe stale calendar snapshot + fork state so they rebuild
+            flow.store("step_check_calendar_result", None)
+            flow.store("step_fork_fork", None)
+            flow.store("fork_choice", None)
+            flow.store("target_event_id", None)
+            flow.store("calendar_empty", None)
+            # Rewind the step index to check_calendar so the flow
+            # re-runs get_today_events + fork against the new date.
+            for i, s in enumerate(flow.steps):
+                if s.id == "check_calendar":
+                    flow.current_step_index = i
+                    break
+            result = await _execute_current_step(flow, state)
+            return result
+
     # ── Check if user is responding to a pending fork choice ──
     # The fork step auto-advances past itself and presents a choice card,
     # but the current step is now pick_focus. We need to check if the user
@@ -278,10 +310,19 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
 
     # ── Handle user selection for choice steps ──
     elif current.card == "choice_card":
+        # pick_date: parse the athlete's date selection via the date
+        # extractor (handles "Today"/"Tomorrow"/"Wednesday"/free-text).
+        if current.id == "pick_date":
+            picked = _extract_date_from_message(state)
+            if picked:
+                flow.store("target_date", picked)
+                flow.advance()
+            else:
+                return await _present_date_picker(flow, state)
         # If this is pick_focus and the athlete already stated a focus
         # upfront, we should never be standing on this step in the first
         # place. Skip it silently and let _execute_current_step auto-advance.
-        if current.id == "pick_focus" and flow.get("selected_focus"):
+        elif current.id == "pick_focus" and flow.get("selected_focus"):
             flow.advance()
         else:
             selection = _match_selection(user_message, flow)
@@ -411,6 +452,16 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
                 continue
 
             return await _present_fork_choice(flow, fork_result, state)
+
+        # ── pick_date: ask "when?" when the opener had no date ──
+        # Auto-skips when target_date was extracted from the opener
+        # ("for tomorrow", "Wednesday"). Presents dynamic date options
+        # when the athlete said "create a training session" without a date.
+        if step.card == "choice_card" and step.id == "pick_date":
+            if flow.get("target_date"):
+                flow.advance()
+                continue
+            return await _present_date_picker(flow, state)
 
         # ── Regular choice card (pick_focus) ──
         if step.card == "choice_card":
@@ -717,6 +768,84 @@ async def _retrieve_session_rag(
             f"build_session rag failed focus={focus}: {e} -- proceeding without RAG"
         )
         return "", {**empty_meta, "error": str(e)[:200]}
+
+
+def _build_date_options(today_date: str) -> list[dict]:
+    """Build 5 dynamic date chips starting at today.
+
+    Labels use concrete day names ("Today", "Tomorrow", "Wednesday",
+    "Thursday", "Friday") so the existing `_extract_date_from_message`
+    handler parses them for free when mobile sends the label back.
+    """
+    from datetime import datetime, timedelta
+
+    try:
+        today_dt = datetime.strptime(today_date, "%Y-%m-%d")
+    except Exception:
+        # Degrade gracefully: no options rather than a crash
+        return []
+
+    day_names = [
+        "Monday", "Tuesday", "Wednesday", "Thursday",
+        "Friday", "Saturday", "Sunday",
+    ]
+    options = []
+    for offset in range(5):
+        d = today_dt + timedelta(days=offset)
+        if offset == 0:
+            label = "Today"
+            desc = d.strftime("%a %b %-d")
+        elif offset == 1:
+            label = "Tomorrow"
+            desc = d.strftime("%a %b %-d")
+        else:
+            label = day_names[d.weekday()]
+            desc = d.strftime("%b %-d")
+        options.append({
+            "label": label,
+            "value": d.strftime("%Y-%m-%d"),
+            "description": desc,
+        })
+    return options
+
+
+async def _present_date_picker(flow: FlowState, state: TomoChatState) -> dict:
+    """Present the pick_date choice_card with 5 upcoming days."""
+    today_date = flow.get("today_date", "") or ""
+    options = _build_date_options(today_date)
+
+    headline, body = await _warm_text(
+        step_kind="pick_date",
+        flow_context={},
+        state=state,
+        fallback_headline="When do you want to train?",
+        fallback_body="Pick a day and I'll build it around your schedule.",
+    )
+
+    structured = {
+        "headline": headline,
+        "body": body,
+        "cards": [{
+            "type": "choice_card",
+            "options": options,
+        }],
+        "chips": [],
+    }
+
+    await save_flow_state(
+        state.get("session_id", ""),
+        state.get("user_id", ""),
+        flow,
+    )
+
+    return {
+        "final_response": json.dumps(structured),
+        "final_cards": structured["cards"],
+        "_flow_pattern": "multi_step",
+        "route_decision": "flow_handled",
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+    }
 
 
 async def _present_step(flow: FlowState, state: TomoChatState) -> dict:
@@ -1646,7 +1775,10 @@ def _extract_date_from_message(state: TomoChatState) -> Optional[str]:
     if date_match:
         return date_match.group()
 
-    return today  # Default to today
+    # No date keyword found -- DO NOT silently default to today. Returning
+    # None forces the pick_date step to ask the athlete, preserving intent
+    # ("create a training session" should not assume today).
+    return None
 
 
 def _match_selection(user_message: str, flow: FlowState) -> Optional[str]:
@@ -1891,30 +2023,64 @@ async def _build_drill_detail_response(
 ) -> dict:
     """Answer an inline drill-detail question without advancing the flow.
 
-    Returns a text response (no card) with chips that match the chips
-    of the current flow step so the athlete can resume cleanly. Flow
-    state is re-saved at the exact step they were on.
+    Emits a proper `drill_card` (matches the DrillCard TypeScript interface
+    the mobile ResponseRenderer already ships). The card includes name,
+    description, duration, intensity, equipment pills, instructions and
+    tags. Flow state is re-saved at the exact step they were on so the
+    athlete can resume cleanly after reading the detail.
     """
     name = str(drill.get("name", "This drill"))
     category = str(drill.get("category", "training"))
-    duration = drill.get("duration_min", 0) or 0
-    intensity = str(drill.get("intensity", "MODERATE"))
+    duration = int(drill.get("duration_min", 0) or 0)
+
+    # Mobile DrillCard expects lowercase intensity: 'light'|'moderate'|'hard'
+    raw_intensity = str(drill.get("intensity", "MODERATE")).lower()
+    if raw_intensity in ("rest", "light"):
+        intensity = "light"
+    elif raw_intensity in ("hard", "high"):
+        intensity = "hard"
+    else:
+        intensity = "moderate"
+
     description = str(drill.get("description", "")).strip()
 
-    # Compose a tight detail body. Description may be empty for some
-    # drills; we still give the athlete the basics.
-    lines = [
-        f"{name}",
-        f"{duration} min - {intensity.lower()} intensity - {category}",
-    ]
-    if description:
-        # Cap description length so we stay in-bubble
-        desc = description[:400]
-        if len(description) > 400:
-            desc = desc.rstrip() + "..."
-        lines.append("")
-        lines.append(desc)
-    body = "\n".join(lines)
+    # Pull structured extras if present (drills from training_drills table
+    # may carry these; fallback template drills won't). Never crash on a
+    # missing field — DrillCard renders a minimal card with just name/desc.
+    equipment = drill.get("equipment") or []
+    if not isinstance(equipment, list):
+        equipment = []
+
+    instructions = drill.get("instructions") or drill.get("coaching_cues") or []
+    if isinstance(instructions, str):
+        # Split a prose instruction blob into bulleted steps if needed
+        instructions = [s.strip() for s in instructions.split("\n") if s.strip()]
+    if not isinstance(instructions, list):
+        instructions = []
+
+    tags = drill.get("tags") or []
+    if not isinstance(tags, list):
+        tags = []
+    # Always surface the category as a tag so athletes see what bucket
+    # this drill sits in (technical / endurance / recovery etc.)
+    if category and category.lower() not in [str(t).lower() for t in tags]:
+        tags = [category] + list(tags)
+
+    progression_count = int(drill.get("progression_count", 0) or 0)
+
+    drill_card = {
+        "type": "drill_card",
+        "drillId": str(drill.get("id") or drill.get("drill_id") or ""),
+        "name": name,
+        "description": description[:400] if description else "",
+        "category": category,
+        "duration": duration,
+        "intensity": intensity,
+        "equipment": [str(e) for e in equipment],
+        "instructions": [str(s) for s in instructions],
+        "tags": [str(t) for t in tags],
+        "progressionCount": progression_count,
+    }
 
     # Resume chips: match the current step so the flow feels intact.
     current = flow.current_step
@@ -1935,9 +2101,9 @@ async def _build_drill_detail_response(
         ]
 
     structured = {
-        "headline": f"About {name}",
-        "body": body,
-        "cards": [],
+        "headline": name,
+        "body": "",
+        "cards": [drill_card],
         "chips": chips,
     }
 
@@ -1950,7 +2116,7 @@ async def _build_drill_detail_response(
 
     return {
         "final_response": json.dumps(structured),
-        "final_cards": [],
+        "final_cards": [drill_card],
         "_flow_pattern": "multi_step",
         "route_decision": "flow_handled",
         "total_cost_usd": 0.0,

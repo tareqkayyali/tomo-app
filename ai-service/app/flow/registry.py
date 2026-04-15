@@ -57,6 +57,10 @@ class FlowConfig:
 #                      - existing event → update_event.notes with drill list
 #                      - new session    → create_event with title/date/start_time
 _BUILD_SESSION_STEPS = [
+    # pick_date auto-skips when target_date was extracted from the opener
+    # ("for tomorrow", "Wednesday", etc.). Only presents a choice_card when
+    # the athlete said "create a training session" without specifying when.
+    {"id": "pick_date", "card": "choice_card"},
     {"id": "readiness_gate", "card": "safety_gate", "check": "readiness_and_load"},
     {"id": "check_calendar", "tool": "get_today_events", "tool_args_from": {"date": "target_date"}},
     {"id": "fork", "card": "choice_card", "condition": "existing_training_sessions"},

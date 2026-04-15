@@ -124,6 +124,13 @@ async def generate_flow_step_text(
 
         # Step-specific instruction
         step_guide = {
+            "pick_date": (
+                "You are asking the athlete what day they want to train. "
+                "Keep it short and warm — like a friend texting. Do not "
+                "suggest a specific day. Do not assume a training theme. "
+                "Headline is a casual question about when. Body is one "
+                "short line of encouragement, no specifics."
+            ),
             "fork": (
                 "You are asking the athlete: do they want to build onto an "
                 "existing scheduled session, or create a brand new one. "
