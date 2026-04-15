@@ -170,6 +170,16 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     return realEvents.map((evt) => {
       if (evt.type !== 'training') return evt;
 
+      // Post migration 049: the server already populated `linkedPrograms`
+      // on every event via attachLinkedPrograms. Trust that and short-circuit.
+      const existing = (evt as any).linkedPrograms;
+      if (Array.isArray(existing) && existing.length > 0) {
+        return evt;
+      }
+
+      // Legacy fallback: derive from schedule_rules.training_categories by
+      // matching the event focus or name. Kept during the deprecation
+      // window so older events (pre-049) still render their links.
       const focus = (evt as any).sessionPlan?.focus as string | undefined;
       let matchedCat = undefined as typeof trainingCategories[number] | undefined;
 

@@ -41,15 +41,30 @@ interface Props {
 }
 
 /**
- * Find linked programs for a training event by matching event name
- * against training category labels.
+ * Find linked programs for a training event.
+ *
+ * Post migration 049: linked programs live on the event itself (carried
+ * over from the server via `attachLinkedPrograms`), so this is just a
+ * typed accessor. The old `trainingCategories` path is kept as a final
+ * fallback during the schedule_rules deprecation window but is no longer
+ * the primary source.
  */
 function getLinkedProgramsForEvent(
   event: CalendarEvent,
   categories: TrainingCategoryRule[],
 ): { programId: string; name: string; category?: string }[] {
   if (event.type !== 'training') return [];
-  // Match by event name containing category label, or category label containing event name
+
+  // 1. Server-populated linked programs (canonical source).
+  const fromEvent = (event as { linkedPrograms?: Array<{ programId: string; name: string; category?: string }> })
+    .linkedPrograms;
+  if (Array.isArray(fromEvent) && fromEvent.length > 0) {
+    return fromEvent;
+  }
+
+  // 2. Legacy fallback: match by training-category label.
+  // Remove this block once schedule_rules.preferences.linkedPrograms is
+  // deleted end-to-end (Phase 6 cleanup).
   const eventNameLower = event.name.toLowerCase();
   for (const cat of categories) {
     const catLabelLower = cat.label.toLowerCase();

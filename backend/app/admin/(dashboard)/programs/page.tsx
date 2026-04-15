@@ -51,6 +51,7 @@ interface ProgramRow {
   position_emphasis: string[];
   source: "hardcoded" | "database";
   description?: string;
+  chat_eligible?: boolean;
 }
 
 export default function ProgramsListPage() {
@@ -96,6 +97,31 @@ export default function ProgramsListPage() {
     if (res.ok) {
       toast.success("Program status updated");
       fetchPrograms();
+    }
+  }
+
+  async function handleChatToggle(id: string, next: boolean) {
+    // Optimistic update so the switch feels instant. Rollback on failure.
+    setPrograms((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, chat_eligible: next } : p))
+    );
+    try {
+      const res = await fetch(`/api/v1/admin/programs/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_eligible: next }),
+      });
+      if (!res.ok) {
+        throw new Error("Patch failed");
+      }
+      toast.success(next ? "Program now available in chat" : "Program hidden from chat");
+    } catch {
+      // Rollback
+      setPrograms((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, chat_eligible: !next } : p))
+      );
+      toast.error("Failed to update chat eligibility");
     }
   }
 
@@ -190,19 +216,20 @@ export default function ProgramsListPage() {
               <TableHead>Duration</TableHead>
               <TableHead>Positions</TableHead>
               <TableHead>Source</TableHead>
+              <TableHead className="text-center">Chat</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : programs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No programs found
                 </TableCell>
               </TableRow>
@@ -244,6 +271,12 @@ export default function ProgramsListPage() {
                     <Badge variant={prog.source === "database" ? "default" : "secondary"} className="text-xs">
                       {prog.source === "database" ? "DB" : "Built-in"}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Switch
+                      checked={prog.chat_eligible !== false}
+                      onCheckedChange={(v) => handleChatToggle(prog.id, v)}
+                    />
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

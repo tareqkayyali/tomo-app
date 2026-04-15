@@ -1,5 +1,14 @@
+/**
+ * Program Admin Service — v2 (post migration 049)
+ * ────────────────────────────────────────────────
+ * Reads/writes the canonical `public.training_programs` table. The
+ * hardcoded FOOTBALL_PROGRAMS merge is gone — the seed script
+ * (scripts/seeds/seed_training_programs.ts) is the ONE entry point
+ * that populates the DB from the TS source. Admins never see
+ * "hardcoded" vs "database" anymore; the DB is the source of truth.
+ */
+
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { FOOTBALL_PROGRAMS } from "@/services/programs/footballPrograms";
 import type {
   ProgramCreateInput,
   ProgramUpdateInput,
@@ -7,115 +16,82 @@ import type {
 } from "@/lib/validation/programSchemas";
 
 const db = () => supabaseAdmin();
-const TABLE = "football_training_programs";
+const TABLE = "training_programs";
 
-// ---------- List (merged: hardcoded + DB) ----------
+// ── List ────────────────────────────────────────────────────────────────
 
 export async function listPrograms(filters: ProgramFilters) {
   const { category, type, search, page, limit } = filters;
 
-  // 1. Get DB programs
-  let query = (db() as any)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query: any = (db() as any)
     .from(TABLE)
     .select("*", { count: "exact" })
+    .eq("active", true)
     .order("name", { ascending: true });
 
   if (category) query = query.eq("category", category);
   if (type) query = query.eq("type", type);
   if (search) query = query.ilike("name", `%${search}%`);
 
-  const { data: dbPrograms, error } = await query;
+  const offset = (page - 1) * limit;
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
   if (error) throw error;
 
-  const dbIds = new Set((dbPrograms ?? []).map((p: { id: string }) => p.id));
-
-  // 2. Get hardcoded programs (not yet in DB)
-  let hardcoded = FOOTBALL_PROGRAMS
-    .filter((p) => !dbIds.has(p.id))
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      category: p.category,
-      type: p.type,
-      description: p.description,
-      equipment: p.equipment,
-      duration_minutes: p.duration_minutes,
-      position_emphasis: p.position_emphasis,
-      difficulty: p.difficulty,
-      tags: p.tags,
-      prescriptions: p.prescriptions,
-      phv_guidance: p.phv_guidance,
-      source: "hardcoded" as const,
-    }));
-
-  // Apply filters to hardcoded too
-  if (category) hardcoded = hardcoded.filter((p) => p.category === category);
-  if (type) hardcoded = hardcoded.filter((p) => p.type === type);
-  if (search) {
-    const s = search.toLowerCase();
-    hardcoded = hardcoded.filter((p) => p.name.toLowerCase().includes(s));
-  }
-
-  // 3. Merge: DB programs first (editable), then hardcoded (read-only)
-  const dbWithSource = (dbPrograms ?? []).map((p: Record<string, unknown>) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const programs = ((data as any[]) || []).map((p: any) => ({
     ...p,
-    source: "database",
+    // `source` is kept for admin UI back-compat — everything is DB now.
+    source: "database" as const,
   }));
-  const allPrograms = [...dbWithSource, ...hardcoded].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-
-  // 4. Paginate
-  const total = allPrograms.length;
-  const offset = (page - 1) * limit;
-  const paginated = allPrograms.slice(offset, offset + limit);
 
   return {
-    programs: paginated,
-    total,
+    programs,
+    total: count ?? programs.length,
     page,
     limit,
   };
 }
 
-// ---------- Get Full ----------
+// ── Get Full ────────────────────────────────────────────────────────────
 
 export async function getProgramFull(id: string) {
-  // Check DB first
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db() as any)
     .from(TABLE)
     .select("*")
     .eq("id", id)
-    .single();
-
-  if (data) return { ...data, source: "database" };
-
-  // Fallback to hardcoded
-  const hardcoded = FOOTBALL_PROGRAMS.find((p) => p.id === id);
-  if (hardcoded) return { ...hardcoded, source: "hardcoded" };
+    .maybeSingle();
 
   if (error) throw error;
-  return null;
+  if (!data) return null;
+  return { ...data, source: "database" as const };
 }
 
-// ---------- Create ----------
+// ── Create ──────────────────────────────────────────────────────────────
 
 export async function createProgram(input: ProgramCreateInput) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db() as any)
     .from(TABLE)
     .insert({
-      id: input.id ?? undefined,
+      sport_id: (input as { sport_id?: string }).sport_id ?? "football",
       name: input.name,
       category: input.category,
       type: input.type,
       description: input.description ?? "",
       equipment: input.equipment ?? [],
       duration_minutes: input.duration_minutes ?? 30,
+      duration_weeks: (input as { duration_weeks?: number }).duration_weeks ?? 4,
       position_emphasis: input.position_emphasis ?? ["ALL"],
       difficulty: input.difficulty ?? "intermediate",
       tags: input.tags ?? [],
       prescriptions: input.prescriptions ?? {},
       phv_guidance: input.phv_guidance ?? {},
+      active: true,
+      chat_eligible: (input as { chat_eligible?: boolean }).chat_eligible ?? true,
     })
     .select()
     .single();
@@ -124,7 +100,7 @@ export async function createProgram(input: ProgramCreateInput) {
   return data;
 }
 
-// ---------- Update ----------
+// ── Update ──────────────────────────────────────────────────────────────
 
 export async function updateProgram(id: string, input: ProgramUpdateInput) {
   const payload: Record<string, unknown> = {};
@@ -134,12 +110,19 @@ export async function updateProgram(id: string, input: ProgramUpdateInput) {
   if (input.description !== undefined) payload.description = input.description;
   if (input.equipment !== undefined) payload.equipment = input.equipment;
   if (input.duration_minutes !== undefined) payload.duration_minutes = input.duration_minutes;
+  if ((input as { duration_weeks?: number }).duration_weeks !== undefined) {
+    payload.duration_weeks = (input as { duration_weeks?: number }).duration_weeks;
+  }
   if (input.position_emphasis !== undefined) payload.position_emphasis = input.position_emphasis;
   if (input.difficulty !== undefined) payload.difficulty = input.difficulty;
   if (input.tags !== undefined) payload.tags = input.tags;
   if (input.prescriptions !== undefined) payload.prescriptions = input.prescriptions;
   if (input.phv_guidance !== undefined) payload.phv_guidance = input.phv_guidance;
+  if ((input as { chat_eligible?: boolean }).chat_eligible !== undefined) {
+    payload.chat_eligible = (input as { chat_eligible?: boolean }).chat_eligible;
+  }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db() as any)
     .from(TABLE)
     .update(payload)
@@ -151,45 +134,49 @@ export async function updateProgram(id: string, input: ProgramUpdateInput) {
   return data;
 }
 
-// ---------- Delete ----------
+// ── Toggle chat eligibility (single-field PATCH shortcut) ───────────────
+
+export async function setChatEligibility(id: string, chatEligible: boolean) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (db() as any)
+    .from(TABLE)
+    .update({ chat_eligible: chatEligible })
+    .eq("id", id)
+    .select("id, chat_eligible")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+// ── Soft delete (flip active=false) ─────────────────────────────────────
 
 export async function deleteProgram(id: string) {
-  const { error } = await (db() as any).from(TABLE).delete().eq("id", id);
+  // Soft delete to preserve referential integrity with event_linked_programs.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db() as any)
+    .from(TABLE)
+    .update({ active: false })
+    .eq("id", id);
   if (error) throw error;
 }
 
-// ---------- Duplicate ----------
+// ── Duplicate ───────────────────────────────────────────────────────────
 
 export async function duplicateProgram(id: string) {
   const original = await getProgramFull(id);
   if (!original) throw new Error("Program not found");
 
-  const { id: _, created_at: __, updated_at: ___, source: ____, ...fields } = original;
+  const {
+    id: _id,
+    created_at: _ca,
+    updated_at: _ua,
+    source: _src,
+    ...fields
+  } = original as Record<string, unknown>;
 
   return createProgram({
-    ...fields,
-    name: `${fields.name} (Copy)`,
-  });
-}
-
-// ---------- Import hardcoded to DB ----------
-
-export async function importHardcodedToDb(programId: string) {
-  const hardcoded = FOOTBALL_PROGRAMS.find((p) => p.id === programId);
-  if (!hardcoded) throw new Error("Hardcoded program not found");
-
-  return createProgram({
-    id: hardcoded.id,
-    name: hardcoded.name,
-    category: hardcoded.category,
-    type: hardcoded.type,
-    description: hardcoded.description,
-    equipment: hardcoded.equipment,
-    duration_minutes: hardcoded.duration_minutes,
-    position_emphasis: hardcoded.position_emphasis,
-    difficulty: hardcoded.difficulty,
-    tags: hardcoded.tags,
-    prescriptions: hardcoded.prescriptions as Record<string, unknown>,
-    phv_guidance: hardcoded.phv_guidance as Record<string, unknown>,
+    ...(fields as unknown as ProgramCreateInput),
+    name: `${(fields as { name: string }).name} (Copy)`,
   });
 }

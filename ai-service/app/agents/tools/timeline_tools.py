@@ -187,8 +187,9 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         notes: str = "",
         description: str = "",
         session_plan: dict | None = None,
+        linked_program_slugs: list[str] | None = None,
     ) -> dict:
-        """Create a new calendar event. event_type: training, match, gym, study, exam, rest, personal_dev, club_training, recovery. Date: YYYY-MM-DD. Times: HH:MM (24h). Intensity: LIGHT/MODERATE/HARD. Optional session_plan: structured drill list (see session_plan schema in migration 046). This is a WRITE action requiring confirmation."""
+        """Create a new calendar event. event_type: training, match, gym, study, exam, rest, personal_dev, club_training, recovery. Date: YYYY-MM-DD. Times: HH:MM (24h). Intensity: LIGHT/MODERATE/HARD. Optional session_plan: structured drill list (see session_plan schema in migration 046). Optional linked_program_slugs: program slugs (e.g. POSITION_MATRIX entries) to auto-link on the new event at write time. Backend resolves slug -> training_programs.id and inserts event_linked_programs rows with linked_by='tomo'. This is a WRITE action requiring confirmation."""
         from app.agents.tools.bridge import bridge_post
 
         # Validate date is in the future
@@ -213,6 +214,12 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         }
         if session_plan:
             body["sessionPlan"] = session_plan
+        # Phase 5: auto-link prescribed programs at write time. Cap
+        # defensively; backend Zod schema also enforces .max(10).
+        if linked_program_slugs:
+            cleaned = [s for s in linked_program_slugs if isinstance(s, str) and s][:10]
+            if cleaned:
+                body["linkedProgramSlugs"] = cleaned
         return await bridge_post("/api/v1/calendar/events", body, user_id=user_id)
 
     @tool

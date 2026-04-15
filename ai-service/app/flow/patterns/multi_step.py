@@ -830,6 +830,100 @@ async def _retrieve_session_rag(
         return "", {**empty_meta, "error": str(e)[:200]}
 
 
+# ── Phase 5: Auto-link prescribed programs on build_session confirm ─
+# Pull the athlete's position_training_matrix row at build time and
+# forward the slug list to the backend create_event endpoint. The
+# backend resolves slug -> training_programs.id and inserts
+# event_linked_programs rows with linked_by='tomo' in the same request
+# as the event insert. ai-service stays UUID-agnostic.
+#
+# Gated behind FLOW_AUTO_LINK_ENABLED -- kill-switch without redeploy.
+# Fail-open: any exception returns an empty list and the event still
+# writes without links (matches calendarLinkedProgramsHelper.ts read
+# path fail-open convention).
+
+_FLOW_AUTO_LINK_ENABLED = _os.environ.get("FLOW_AUTO_LINK_ENABLED", "true").lower() == "true"
+_AUTO_LINK_MAX_SLUGS = 5
+
+
+async def _resolve_program_slugs_for_session(
+    focus: str,
+    state: TomoChatState,
+) -> list[str]:
+    """Return up to 5 program slugs to auto-link at confirm time.
+
+    Strategy:
+      1. Look up position_training_matrix by (sport_id, position),
+         falling back to position='ALL' if the athlete's position is
+         missing from the matrix.
+      2. Union mandatory_programs + recommended_programs (jsonb arrays
+         of slug strings), ordered dedupe with mandatory first.
+      3. Cap at _AUTO_LINK_MAX_SLUGS.
+
+    Category filtering by focus is deferred to the backend, which has
+    direct access to training_programs.category -- keeps the ai-service
+    ignorant of program taxonomy internals and avoids duplicating the
+    slug->category map from footballPrograms.ts.
+
+    Fail-open: any DB error, missing context, or disabled flag returns
+    [] and the caller proceeds without auto-link.
+    """
+    if not _FLOW_AUTO_LINK_ENABLED:
+        return []
+
+    context = state.get("player_context")
+    if not context:
+        return []
+
+    sport = (getattr(context, "sport", "") or "football").lower()
+    position = (getattr(context, "position", "") or "ALL").upper()
+
+    try:
+        from app.db.supabase import get_pool
+        pool = get_pool()
+        if pool is None:
+            return []
+
+        async with pool.connection() as conn:
+            # 1. Matrix lookup (position -> fallback ALL)
+            result = await conn.execute(
+                """SELECT mandatory_programs, recommended_programs
+                     FROM public.position_training_matrix
+                    WHERE sport_id = %s AND position = %s
+                    LIMIT 1""",
+                (sport, position),
+            )
+            row = await result.fetchone()
+            if not row and position != "ALL":
+                result = await conn.execute(
+                    """SELECT mandatory_programs, recommended_programs
+                         FROM public.position_training_matrix
+                        WHERE sport_id = %s AND position = 'ALL'
+                        LIMIT 1""",
+                    (sport,),
+                )
+                row = await result.fetchone()
+            if not row:
+                return []
+
+            mandatory = list(row[0] or [])
+            recommended = list(row[1] or [])
+
+            # 2. Ordered dedupe, mandatory first
+            slug_order: list[str] = []
+            seen: set[str] = set()
+            for s in mandatory + recommended:
+                if isinstance(s, str) and s and s not in seen:
+                    slug_order.append(s)
+                    seen.add(s)
+
+            # 3. Cap
+            return slug_order[:_AUTO_LINK_MAX_SLUGS]
+    except Exception as e:
+        logger.warning(f"build_session auto-link slug resolve failed: {e}")
+        return []
+
+
 def _build_date_options(today_date: str) -> list[dict]:
     """Build 5 dynamic date chips starting at today.
 
@@ -1112,6 +1206,21 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
     # Store drills for confirm step
     flow.store("session_drills", result)
     flow.advance()
+
+    # Phase 5: compute auto-link slug list from position_training_matrix
+    # and stash on the flow so _execute_confirm_tool can forward it to
+    # the backend create_event call. Empty list is a valid no-op.
+    try:
+        program_slugs = await _resolve_program_slugs_for_session(focus, state)
+    except Exception as e:
+        logger.warning(f"build_session auto-link slug resolve exception: {e}")
+        program_slugs = []
+    flow.store("session_program_slugs", program_slugs)
+    logger.info(
+        f"build_session auto-link candidates focus={focus} "
+        f"position={(getattr(context, 'position', '') or '')} "
+        f"count={len(program_slugs)} slugs={program_slugs}"
+    )
 
     # Build session_plan card -- field names MUST match the mobile
     # SessionPlanCard component in ResponseRenderer.tsx (title,
@@ -1878,6 +1987,20 @@ async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
     if intensity_raw not in ("LIGHT", "MODERATE", "HARD"):
         intensity_raw = "MODERATE"
 
+    # Phase 5: pull the pre-computed auto-link slug list and forward it
+    # so the backend can resolve -> insert event_linked_programs in the
+    # same request as the event insert. Create path only; the update
+    # branch above intentionally does NOT auto-link (preserves manual
+    # links on pre-existing sessions).
+    linked_program_slugs_raw = flow.get("session_program_slugs") or []
+    if not isinstance(linked_program_slugs_raw, list):
+        linked_program_slugs_raw = []
+    linked_program_slugs = [s for s in linked_program_slugs_raw if isinstance(s, str) and s]
+    logger.info(
+        f"build_session auto-link count={len(linked_program_slugs)} "
+        f"slugs={linked_program_slugs}"
+    )
+
     try:
         return await create_tool.ainvoke({
             "title": f"{focus.title()} Session",
@@ -1888,6 +2011,7 @@ async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
             "intensity": intensity_raw,
             "notes": "",
             "session_plan": session_plan_payload,
+            "linked_program_slugs": linked_program_slugs,
         })
     except Exception as e:
         logger.error(f"create_event failed: {e}", exc_info=True)

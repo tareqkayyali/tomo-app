@@ -8,6 +8,7 @@ import {
   localToUtc,
 } from "@/lib/calendarHelpers";
 import { attachJournalState } from "@/lib/calendarJournalHelper";
+import { attachLinkedPrograms, autoLinkPrescribedPrograms } from "@/lib/calendarLinkedProgramsHelper";
 import {
   validateEvent,
   autoPosition,
@@ -72,6 +73,12 @@ const calendarEventSchema = z.object({
     .passthrough()
     .nullable()
     .optional(),
+  // Phase 5: Tomo auto-link prescribed programs on create.
+  // Slug list forwarded from the ai-service build_session flow.
+  // Backend resolves slug -> training_programs.id via FOOTBALL_PROGRAMS
+  // name lookup and inserts event_linked_programs rows with
+  // linked_by='tomo' in the same request. Fail-open on any error.
+  linkedProgramSlugs: z.array(z.string().min(1).max(80)).max(10).optional(),
 });
 
 // ─── POST /api/v1/calendar/events ──────────────────────────────────────────
@@ -90,7 +97,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, date, startTime, endTime, intensity, notes, sport, sessionPlan } = parsed.data;
+    const { name, date, startTime, endTime, intensity, notes, sport, sessionPlan, linkedProgramSlugs } = parsed.data;
     const tz = (body as Record<string, unknown>).timezone as string || "UTC";
 
     // Resolve event type: prefer "type" (new), fall back to "eventType" (legacy)
@@ -227,6 +234,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // ── Phase 5: Tomo auto-link prescribed programs ───────────────
+    // When build_session forwards linkedProgramSlugs, resolve slugs ->
+    // training_programs.id and insert event_linked_programs rows with
+    // linked_by='tomo'. Fail-open: any error here is logged and
+    // swallowed; the event is already persisted and the user still
+    // sees it. Matches calendarLinkedProgramsHelper.ts read-path
+    // convention.
+    let autoLinkedCount = 0;
+    if (linkedProgramSlugs && linkedProgramSlugs.length > 0) {
+      try {
+        autoLinkedCount = await autoLinkPrescribedPrograms({
+          eventId: (event as { id: string }).id,
+          userId: auth.user.id,
+          slugs: linkedProgramSlugs,
+          sport: sport || "football",
+        });
+        console.log(
+          `[events POST] auto-linked ${autoLinkedCount} programs to event ${(event as { id: string }).id}`
+        );
+      } catch (e) {
+        console.warn(
+          "[events POST] auto-link failed (fail-open):",
+          e instanceof Error ? e.message : String(e)
+        );
+      }
+    }
+
     // Bridge to Layer 1 event stream for RIE (fire-and-forget)
     bridgeCalendarToEventStream({
       athleteId: auth.user.id,
@@ -248,6 +282,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         event: mappedEvent,
+        ...(autoLinkedCount > 0 && { autoLinkedProgramCount: autoLinkedCount }),
         ...(autoRepositioned && {
           autoRepositioned: true,
           originalTime,
@@ -302,7 +337,8 @@ export async function GET(req: NextRequest) {
       const mappedEvents = (rows || []).map((r) =>
         mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
       );
-      const events = await attachJournalState(mappedEvents, auth.user.id);
+      const withJournal = await attachJournalState(mappedEvents, auth.user.id);
+    const events = await attachLinkedPrograms(withJournal);
 
       return NextResponse.json(
         paginatedResponse(events, count ?? 0, params),
@@ -325,7 +361,8 @@ export async function GET(req: NextRequest) {
     const mappedEvents = (rows || []).map((r) =>
       mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
     );
-    const events = await attachJournalState(mappedEvents, auth.user.id);
+    const withJournal = await attachJournalState(mappedEvents, auth.user.id);
+    const events = await attachLinkedPrograms(withJournal);
 
     return NextResponse.json(
       { events },
@@ -355,7 +392,8 @@ export async function GET(req: NextRequest) {
       const mappedEvents = (rows || []).map((r) =>
         mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
       );
-      const events = await attachJournalState(mappedEvents, auth.user.id);
+      const withJournal = await attachJournalState(mappedEvents, auth.user.id);
+    const events = await attachLinkedPrograms(withJournal);
 
       return NextResponse.json(
         paginatedResponse(events, count ?? 0, params),
@@ -378,7 +416,8 @@ export async function GET(req: NextRequest) {
     const mappedEvents = (rows || []).map((r) =>
       mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
     );
-    const events = await attachJournalState(mappedEvents, auth.user.id);
+    const withJournal = await attachJournalState(mappedEvents, auth.user.id);
+    const events = await attachLinkedPrograms(withJournal);
 
     return NextResponse.json(
       { events },

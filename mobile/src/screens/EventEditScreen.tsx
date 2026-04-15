@@ -33,10 +33,17 @@ import {
 import { useTheme } from '../hooks/useTheme';
 import { emitRefresh } from '../utils/refreshBus';
 import type { ThemeColors } from '../theme/colors';
-import { updateCalendarEvent, deleteCalendarEvent, getJournalForEvent, searchPrograms } from '../services/api';
-import type { JournalEntry, ProgramSearchResult } from '../services/api';
+import {
+  updateCalendarEvent,
+  deleteCalendarEvent,
+  getJournalForEvent,
+  searchPrograms,
+  getEventLinkedPrograms,
+  linkProgramToEvent,
+  unlinkProgramFromEvent,
+} from '../services/api';
+import type { JournalEntry, ProgramSearchResult, EventLinkedProgram } from '../services/api';
 import { JournalSheet } from '../components/journal/JournalSheet';
-import { useScheduleRules } from '../hooks/useScheduleRules';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../navigation/types';
@@ -266,37 +273,90 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
     getJournalForEvent(params.eventId).then(({ journal: j }) => setJournal(j)).catch(() => {});
   }, [params.eventId, isJournalEligible]);
 
-  // ── Linked Programs (local state — saved on Save) ──
-  const [linkedPrograms, setLinkedPrograms] = useState<Array<{ programId: string; name: string; category?: string }>>(
-    (params as any).linkedPrograms ?? []
-  );
-  const [removedProgramIds, setRemovedProgramIds] = useState<string[]>([]);
-  const [addedPrograms, setAddedPrograms] = useState<Array<{ programId: string; name: string; category?: string }>>([]);
+  // ── Linked Programs (server-backed via event_linked_programs) ──
+  // Every link/unlink is a durable op — no "Save" needed. The Save button
+  // only applies to event fields (name/date/time/notes/intensity).
+  const [linkedPrograms, setLinkedPrograms] = useState<EventLinkedProgram[]>([]);
   const [showProgramSearch, setShowProgramSearch] = useState(false);
   const [programSearchQuery, setProgramSearchQuery] = useState('');
   const [programSearchResults, setProgramSearchResults] = useState<ProgramSearchResult[]>([]);
   const [programSearchLoading, setProgramSearchLoading] = useState(false);
-  const { rules, update: updateRules } = useScheduleRules();
 
-  const handleUnlinkProgram = useCallback((programId: string) => {
+  // Fetch linked programs from the event-scoped endpoint. If the screen was
+  // opened with `params.linkedPrograms` preloaded (from a calendar GET that
+  // already ran attachLinkedPrograms), seed state from it so the first render
+  // isn't empty — then reconcile with the server.
+  useEffect(() => {
+    const preload = (params as any).linkedPrograms;
+    if (Array.isArray(preload) && preload.length > 0) {
+      setLinkedPrograms(preload as EventLinkedProgram[]);
+    }
+    getEventLinkedPrograms(params.eventId)
+      .then(({ linkedPrograms: fresh }) => setLinkedPrograms(fresh || []))
+      .catch((e) => console.warn('[EventEdit] getEventLinkedPrograms failed:', e));
+  }, [params.eventId]);
+
+  const handleUnlinkProgram = useCallback(async (programId: string) => {
+    // Optimistic remove, rollback on failure.
+    const snapshot = linkedPrograms;
     setLinkedPrograms(prev => prev.filter(lp => lp.programId !== programId));
-    setAddedPrograms(prev => prev.filter(p => p.programId !== programId));
-    setRemovedProgramIds(prev => [...prev, programId]);
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
+    try {
+      await unlinkProgramFromEvent(params.eventId, programId);
+      emitRefresh('calendar');
+    } catch (e) {
+      console.warn('[EventEdit] unlinkProgram failed:', e);
+      setLinkedPrograms(snapshot);
+      if (Platform.OS === 'web') {
+        window.alert('Could not unlink program. Please try again.');
+      } else {
+        Alert.alert('Error', 'Could not unlink program. Please try again.');
+      }
+    }
+  }, [linkedPrograms, params.eventId]);
 
-  const handleLinkProgram = useCallback((program: ProgramSearchResult) => {
-    const alreadyLinked = linkedPrograms.some(lp => lp.programId === program.id)
-      || addedPrograms.some(p => p.programId === program.id);
-    if (alreadyLinked) return;
+  const handleLinkProgram = useCallback(async (program: ProgramSearchResult) => {
+    if (linkedPrograms.some(lp => lp.programId === program.id)) return;
 
-    const newLink = { programId: program.id, name: program.name, category: program.category };
-    setLinkedPrograms(prev => [...prev, { ...newLink, linkedAt: new Date().toISOString(), expiresAt: '' }]);
-    setAddedPrograms(prev => [...prev, newLink]);
+    // Optimistic add. We only have a subset of EventLinkedProgram fields
+    // from the search result — fill the rest with zero/default values and
+    // reconcile with the server response once it comes back.
+    const optimistic: EventLinkedProgram = {
+      id: `optimistic-${program.id}`,
+      programId: program.id,
+      name: program.name,
+      category: program.category || '',
+      type: '',
+      description: '',
+      durationMinutes: 0,
+      durationWeeks: (program as any).duration_weeks || 0,
+      difficulty: '',
+      tags: [],
+      linkedAt: new Date().toISOString(),
+      linkedBy: 'user',
+    };
+    setLinkedPrograms(prev => [...prev, optimistic]);
     setShowProgramSearch(false);
     setProgramSearchQuery('');
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [linkedPrograms, addedPrograms]);
+
+    try {
+      await linkProgramToEvent(params.eventId, program.id, 'user');
+      // Refetch the canonical list so the row has the real join id + any
+      // fields the server enriched (category/type/description etc.).
+      const { linkedPrograms: fresh } = await getEventLinkedPrograms(params.eventId);
+      setLinkedPrograms(fresh || []);
+      emitRefresh('calendar');
+    } catch (e) {
+      console.warn('[EventEdit] linkProgram failed:', e);
+      setLinkedPrograms(prev => prev.filter(lp => lp.programId !== program.id));
+      if (Platform.OS === 'web') {
+        window.alert('Could not link program. Please try again.');
+      } else {
+        Alert.alert('Error', 'Could not link program. Please try again.');
+      }
+    }
+  }, [linkedPrograms, params.eventId]);
 
   // Debounced program search
   useEffect(() => {
@@ -327,63 +387,11 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
       if (notes !== (params.notes || '')) patch.notes = notes;
       if (intensity !== (params.intensity || 'medium')) patch.intensity = intensity;
 
-      // Only call API if there are actual event field changes
+      // Only call API if there are actual event field changes.
+      // Linked programs are persisted immediately via handleLinkProgram /
+      // handleUnlinkProgram — no batching through Save anymore.
       if (Object.keys(patch).length > 0) {
         await updateCalendarEvent(params.eventId, patch);
-      }
-      // Also persist unlinked programs to schedule rules
-      if (removedProgramIds.length > 0) {
-        try {
-          const categories = rules?.preferences?.training_categories ?? [];
-          const updatedCats = categories.map((cat: any) => ({
-            ...cat,
-            linkedPrograms: (cat.linkedPrograms ?? []).filter(
-              (lp: any) => !removedProgramIds.includes(lp.programId)
-            ),
-          }));
-          await updateRules({ training_categories: updatedCats });
-        } catch (e) {
-          console.warn('[EventEdit] Failed to persist unlinked programs:', e);
-        }
-      }
-      // Persist newly linked programs to matching training category
-      if (addedPrograms.length > 0) {
-        try {
-          const categories = rules?.preferences?.training_categories ?? [];
-          const eventTitle = (name || params.name).toLowerCase();
-
-          // Find matching category: by label first, then first enabled training category
-          let matchIndex = categories.findIndex((cat: any) =>
-            cat.label.toLowerCase() === eventTitle
-          );
-          if (matchIndex === -1) {
-            // Fallback: first enabled category
-            matchIndex = categories.findIndex((cat: any) => cat.enabled);
-          }
-
-          if (matchIndex >= 0) {
-            const updatedCats = categories.map((cat: any, idx: number) => {
-              if (idx !== matchIndex) return cat;
-              const existingIds = new Set((cat.linkedPrograms ?? []).map((lp: any) => lp.programId));
-              const newLinks = addedPrograms
-                .filter(p => !existingIds.has(p.programId))
-                .map(p => ({
-                  programId: p.programId,
-                  name: p.name,
-                  category: p.category,
-                  linkedAt: new Date().toISOString(),
-                  expiresAt: '',
-                }));
-              return {
-                ...cat,
-                linkedPrograms: [...(cat.linkedPrograms ?? []), ...newLinks],
-              };
-            });
-            await updateRules({ training_categories: updatedCats });
-          }
-        } catch (e) {
-          console.warn('[EventEdit] Failed to persist linked programs:', e);
-        }
       }
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -402,7 +410,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
     } finally {
       setSaving(false);
     }
-  }, [saving, params, name, date, startTime, endTime, notes, intensity, navigation, removedProgramIds, addedPrograms, rules, updateRules]);
+  }, [saving, params, name, date, startTime, endTime, notes, intensity, navigation]);
 
   const handleDelete = useCallback(async () => {
     if (Platform.OS !== 'web') {

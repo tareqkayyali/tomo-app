@@ -631,6 +631,56 @@ export async function searchPrograms(
 }
 
 // ============================================
+// Event-scoped Linked Programs API
+// ============================================
+// Canonical home for linked programs (post migration 049). Replaces the
+// schedule_rules.preferences.training_categories[].linkedPrograms anti-pattern.
+// Each link/unlink is a durable op — no "Save" needed, the EventEditScreen
+// uses these directly so unlinking is immediate.
+
+export interface EventLinkedProgram {
+  id: string;           // join row id
+  programId: string;    // training_programs.id
+  name: string;
+  category: string;
+  type: string;
+  description: string;
+  durationMinutes: number;
+  durationWeeks: number;
+  difficulty: string;
+  tags: string[];
+  linkedAt: string;
+  linkedBy: 'user' | 'tomo' | 'admin';
+}
+
+export async function getEventLinkedPrograms(
+  eventId: string,
+): Promise<{ linkedPrograms: EventLinkedProgram[] }> {
+  return apiRequest(`/api/v1/calendar/events/${eventId}/linked-programs`);
+}
+
+export async function linkProgramToEvent(
+  eventId: string,
+  programId: string,
+  linkedBy: 'user' | 'tomo' | 'admin' = 'user',
+): Promise<{ link: { id: string; programId: string; linkedAt: string; linkedBy: string; name: string; category: string } }> {
+  return apiRequest(`/api/v1/calendar/events/${eventId}/linked-programs`, {
+    method: 'POST',
+    body: JSON.stringify({ programId, linkedBy }),
+  });
+}
+
+export async function unlinkProgramFromEvent(
+  eventId: string,
+  programId: string,
+): Promise<{ success: boolean }> {
+  return apiRequest(
+    `/api/v1/calendar/events/${eventId}/linked-programs?programId=${encodeURIComponent(programId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+// ============================================
 // Training Journal APIs
 // ============================================
 
