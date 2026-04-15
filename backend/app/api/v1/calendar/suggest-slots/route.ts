@@ -21,6 +21,11 @@ export async function GET(req: NextRequest) {
   const eventType = url.searchParams.get("eventType") || "training";
   const durationMin = parseInt(url.searchParams.get("durationMin") || "60", 10);
   const tz = url.searchParams.get("timezone") || "UTC";
+  // How many top slots the scheduling engine should return. Default 6
+  // so conflict-resolution cards can show a useful selection, not a
+  // single chip. Capped at 10 to keep the response tight.
+  const limitRaw = parseInt(url.searchParams.get("limit") || "6", 10);
+  const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 6, 1), 10);
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json(
@@ -96,7 +101,7 @@ export async function GET(req: NextRequest) {
       readinessLevel,
       config,
       dayOfWeek,
-      3
+      limit
     );
 
     // Format response with 12h times

@@ -31,6 +31,7 @@ from app.flow.step_tracker import (
 )
 from app.flow.helpers.scheduling import (
     extract_time_from_message,
+    parse_time_from_label,
     resolve_slot,
     SlotResolution,
     DEFAULT_SESSION_DURATION_MIN,
@@ -200,6 +201,12 @@ async def execute_multi_step_start(config: FlowConfig, state: TomoChatState) -> 
     stated_time = extract_time_from_message(opening_msg)
     if stated_time:
         flow.store("selected_time", stated_time)
+        # stated_time_original is the user's ORIGINAL request, preserved
+        # across conflict/date-shift retries. selected_time gets cleared
+        # on conflict (so we don't re-match it), but stated_time_original
+        # lets "Try the day after" restore the same HH:MM against the
+        # next day's calendar without re-parsing the opener.
+        flow.store("stated_time_original", stated_time)
         flow.store("time_was_stated", True)
         logger.info(
             f"Multi-step: time '{stated_time}' extracted from opener "
@@ -430,9 +437,82 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
         if flow.get("target_event_id"):
             flow.advance()
         else:
-            selected_time = _match_time(user_message)
+            msg_lower = user_message.lower().strip()
+
+            # ── "Try the day after" pill ──
+            # Bump target_date by +1 day, restore the athlete's ORIGINAL
+            # requested time (e.g. 5 PM), wipe the stale calendar snapshot
+            # + fork state, and rewind to check_calendar so the whole
+            # conflict-check re-runs against the new day. If 5 PM is
+            # clean on day+1 the flow auto-advances; if it's also taken,
+            # the athlete sees a fresh choice_card for that new day.
+            day_after_signals = (
+                "__try_day_after__",
+                "try the day after",
+                "day after",
+                "next day",
+                "the day after",
+            )
+            if any(sig in msg_lower for sig in day_after_signals):
+                current_target = flow.get("target_date") or ""
+                new_date = _shift_date_by_days(current_target, 1)
+                if new_date:
+                    logger.info(
+                        f"pick_time: day-after pill tapped, bumping "
+                        f"{current_target!r} -> {new_date!r} and retrying "
+                        f"stated_time_original="
+                        f"{flow.get('stated_time_original')!r}"
+                    )
+                    flow.store("target_date", new_date)
+                    # Restore original requested time so the day+1 path
+                    # re-validates the same slot the athlete actually
+                    # wanted, not whatever chip they last tapped.
+                    original = flow.get("stated_time_original")
+                    if original:
+                        flow.store("selected_time", original)
+                    # Wipe stale day-specific state so the flow rebuilds
+                    # calendar + fork + alternatives for the new day.
+                    flow.store("step_check_calendar_result", None)
+                    flow.store("step_fork_fork", None)
+                    flow.store("fork_choice", None)
+                    flow.store("target_event_id", None)
+                    flow.store("calendar_empty", None)
+                    flow.store("pending_slot_options", None)
+                    # Rewind to check_calendar so get_today_events runs
+                    # against the new date before pick_time re-resolves.
+                    for i, s in enumerate(flow.steps):
+                        if s.id == "check_calendar":
+                            flow.current_step_index = i
+                            break
+                    return await _execute_current_step(flow, state)
+
+            # ── Match tapped slot label against pending options ──
+            # Mobile sends the option label verbatim (e.g. "6:00 PM -
+            # 7:15 PM"). Deterministic match on the stored list is
+            # more reliable than regex parsing the label every time.
+            pending = flow.get("pending_slot_options") or []
+            selected_time = None
+            if isinstance(pending, list):
+                for opt in pending:
+                    label = (opt.get("label") or "").lower().strip()
+                    if label and label == msg_lower:
+                        selected_time = opt.get("value")
+                        break
+                if not selected_time:
+                    for opt in pending:
+                        label = (opt.get("label") or "").lower().strip()
+                        if label and label in msg_lower:
+                            selected_time = opt.get("value")
+                            break
+
+            # Fall back to structured time parsing (handles free-text
+            # "7 pm", "17:30", etc.)
+            if not selected_time:
+                selected_time = _match_time(user_message)
+
             if selected_time:
                 flow.store("selected_time", selected_time)
+                flow.store("pending_slot_options", None)
                 flow.advance()
             else:
                 return await _present_time_picker(flow, state)
@@ -1854,29 +1934,69 @@ async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
         return await _execute_current_step(flow, state)
 
     # ── Case 2/3: present picker (conflict or fresh pick) ──
-    chips: list[dict] = [
-        {"label": alt.label, "message": alt.start_24}
-        for alt in resolution.alternatives
-    ]
-    if not chips:
-        chips = [
-            {"label": opt["label"], "message": opt["value"]}
+    # Title → Card (slot options) → Pills (day-after / cancel).
+    # Mobile renders the card options as a tappable list and sends the
+    # tapped option's LABEL verbatim as the next chat message, which
+    # execute_multi_step_continuation matches via pending_slot_options.
+
+    # Build slot options from resolve_slot alternatives. Fall back to
+    # the static preset options if the scheduling engine returned none
+    # (e.g. athlete has zero free slots that day -- rare but possible).
+    slot_options: list[dict] = []
+    for alt in resolution.alternatives:
+        slot_options.append({
+            "label": alt.label,
+            "value": alt.start_24,
+            "description": "Open slot",
+        })
+    if not slot_options:
+        slot_options = [
+            {
+                "label": opt["label"],
+                "value": opt["value"],
+                "description": "",
+            }
             for opt in _TIME_PICKER_OPTIONS
         ]
 
+    # Persist the option list so the continuation handler can map
+    # tapped labels (e.g. "6:00 PM - 7:15 PM") back to their start
+    # times deterministically, without relying on regex parsing.
+    flow.store("pending_slot_options", [
+        {"label": o["label"], "value": o["value"]}
+        for o in slot_options
+    ])
+
+    # Day-after pill: bumps target_date by 1 and re-runs the whole
+    # calendar check + conflict resolver against the new day, so the
+    # athlete's original time (stored in stated_time_original) gets
+    # re-validated against the next day's schedule. Uses a sentinel
+    # message so the continuation handler can detect it unambiguously.
+    pills: list[dict] = [
+        {"label": "Try the day after", "message": "__try_day_after__"},
+        {"label": "Cancel", "message": "cancel"},
+    ]
+
     if resolution.status == "conflict":
         # Clear the stale stated time so the athlete isn't re-matched
-        # to it on their next reply; they must pick a fresh chip.
+        # to it on their next reply; they must pick a fresh option.
+        # stated_time_original stays intact for the day-after retry.
         flow.store("selected_time", None)
-        headline = resolution.headline or f"{_hhmm_to_12h(requested_time)} is taken"
+        headline = (
+            resolution.headline
+            or f"{_hhmm_to_12h(requested_time)} is taken"
+        )
         body_text = (
             resolution.body
-            or f"That slot overlaps another session. Pick a clean one."
+            or "That slot overlaps another session. Pick a clean one."
+        )
+        card_headline = (
+            f"Open slots on {target_date}" if target_date else "Open slots"
         )
         logger.info(
             f"pick_time conflict: {requested_time} overlaps "
             f"{resolution.conflict_event_title!r} -- offering "
-            f"{len(chips)} alternatives"
+            f"{len(slot_options)} alternatives"
         )
     else:
         # needs_pick
@@ -1886,12 +2006,21 @@ async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
             resolution.body
             or "Pick a slot that fits around school and recovery."
         )
+        card_headline = (
+            f"Open slots on {target_date}" if target_date else "Open slots"
+        )
+
+    cards = [{
+        "type": "choice_card",
+        "headline": card_headline,
+        "options": slot_options,
+    }]
 
     structured = {
         "headline": headline,
         "body": body_text,
-        "cards": [],
-        "chips": chips,
+        "cards": cards,
+        "chips": pills,
     }
 
     await save_flow_state(
@@ -1902,7 +2031,7 @@ async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
 
     return {
         "final_response": json.dumps(structured),
-        "final_cards": [],
+        "final_cards": cards,
         "_flow_pattern": "multi_step",
         "route_decision": "flow_handled",
         "total_cost_usd": 0.0,
@@ -1911,13 +2040,18 @@ async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
 
 
 def _match_time(msg: str) -> Optional[str]:
-    """Best-effort parse of a time selection. Returns HH:MM or None."""
-    import re
+    """Best-effort parse of a time selection. Returns HH:MM or None.
+
+    Delegates numeric parsing to `parse_time_from_label` (the single
+    source of truth in app.flow.helpers.scheduling) so slot labels like
+    "6:00 PM - 7:15 PM" resolve to the START time (18:00), not the
+    bare-regex mis-parse of "7:00" as "07:00".
+    """
     if not msg:
         return None
     m = msg.lower().strip()
 
-    # Exact label/value match against preset options
+    # 1. Exact / substring match against preset picker options
     for opt in _TIME_PICKER_OPTIONS:
         if opt["value"] == m or opt["label"].lower() == m:
             return opt["value"]
@@ -1925,27 +2059,14 @@ def _match_time(msg: str) -> Optional[str]:
         if opt["value"] in m or opt["label"].lower() in m:
             return opt["value"]
 
-    # HH:MM explicit
-    hm = re.search(r"\b(\d{1,2}):(\d{2})\b", m)
-    if hm:
-        h = int(hm.group(1))
-        mm = int(hm.group(2))
-        if 0 <= h < 24 and 0 <= mm < 60:
-            return f"{h:02d}:{mm:02d}"
+    # 2. Structured time parse (PM-aware, first-match-wins so a
+    #    label like "6:00 PM - 7:15 PM" returns the 18:00 start).
+    parsed = parse_time_from_label(m)
+    if parsed:
+        return parsed
 
-    # "7am", "5 pm", "7 o'clock"
-    ampm = re.search(r"\b(\d{1,2})\s*(am|pm)\b", m)
-    if ampm:
-        h = int(ampm.group(1))
-        period = ampm.group(2)
-        if period == "pm" and h < 12:
-            h += 12
-        if period == "am" and h == 12:
-            h = 0
-        if 0 <= h < 24:
-            return f"{h:02d}:00"
-
-    # Keyword-only
+    # 3. Natural-language keyword fallback (kept last so explicit
+    #    times in the message always win).
     if "morning" in m:
         return "07:00"
     if "afternoon" in m:
@@ -1955,6 +2076,22 @@ def _match_time(msg: str) -> Optional[str]:
     if "night" in m:
         return "19:00"
     return None
+
+
+def _shift_date_by_days(iso_date: str, days: int) -> Optional[str]:
+    """Return `iso_date` (YYYY-MM-DD) shifted by `days`. None on error.
+
+    Used by the "Try the day after" pill so the athlete can push their
+    originally-requested time onto the next day without re-typing it.
+    """
+    if not iso_date:
+        return None
+    from datetime import date, timedelta
+    try:
+        d = date.fromisoformat(iso_date)
+        return (d + timedelta(days=days)).isoformat()
+    except (ValueError, TypeError):
+        return None
 
 
 def _add_minutes(hhmm: str, minutes: int) -> str:

@@ -37,6 +37,12 @@ logger = logging.getLogger(__name__)
 # so this only affects the slot-validation query shape.
 DEFAULT_SESSION_DURATION_MIN = 75
 
+# How many alternative slots to request from the backend scheduling
+# engine. 6 strikes the right balance: enough to render a useful
+# choice card (cover morning/midday/afternoon/evening), few enough to
+# keep the card scannable on a phone screen.
+DEFAULT_SLOT_LIMIT = 6
+
 
 # ── Public data classes ─────────────────────────────────────────────
 
@@ -65,13 +71,63 @@ class SlotResolution:
 
 # ── Public functions ────────────────────────────────────────────────
 
+def parse_time_from_label(label: str) -> Optional[str]:
+    """Find the first time (24h HH:MM) in an arbitrary label.
+
+    Used when the athlete taps a slot option like "6:00 PM - 7:15 PM"
+    and the continuation handler needs to pull the START time. This
+    is the search-based counterpart of `_extract_hhmm_any` (which is
+    anchored and only matches a clean single-token time).
+
+    Returns None if no time is found.
+    """
+    if not label:
+        return None
+    s = str(label)
+
+    # 1. "H:MM am/pm" -- first match wins, so "6:00 PM - 7:15 PM"
+    #    returns the 18:00 start, not the 19:15 end.
+    m = re.search(r"\b(\d{1,2}):(\d{2})\s*(am|pm)\b", s, re.IGNORECASE)
+    if m:
+        h = int(m.group(1))
+        mm = int(m.group(2))
+        period = m.group(3).lower()
+        if period == "pm" and h < 12:
+            h += 12
+        if period == "am" and h == 12:
+            h = 0
+        if 0 <= h < 24 and 0 <= mm < 60:
+            return f"{h:02d}:{mm:02d}"
+
+    # 2. "H am/pm" without minutes
+    m = re.search(r"\b(\d{1,2})\s*(am|pm)\b", s, re.IGNORECASE)
+    if m:
+        h = int(m.group(1))
+        period = m.group(2).lower()
+        if period == "pm" and h < 12:
+            h += 12
+        if period == "am" and h == 12:
+            h = 0
+        if 0 <= h < 24:
+            return f"{h:02d}:00"
+
+    # 3. Bare "HH:MM" (24h). Only accepted AFTER the am/pm attempts
+    #    so "7:00 pm" never gets parsed as "07:00".
+    m = re.search(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", s)
+    if m:
+        h = int(m.group(1))
+        mm = int(m.group(2))
+        return f"{h:02d}:{mm:02d}"
+
+    return None
+
+
 def extract_time_from_message(msg: str) -> Optional[str]:
     """Best-effort parse of a time reference out of a full opener.
 
-    Returns "HH:MM" (24h) or None. This is the counterpart of
-    `_extract_date_from_message` / `_extract_focus_from_message` in
-    multi_step.py, kept in this module so non-build_session flows can
-    reuse the exact same logic.
+    Tries `parse_time_from_label` first (handles "5 pm", "17:30",
+    "6:00 PM - 7:15 PM"), then falls back to "at H" heuristics and
+    natural-language keywords ("this evening").
 
     Examples:
         "build me a sprint session tomorrow at 5 pm" -> "17:00"
@@ -83,26 +139,12 @@ def extract_time_from_message(msg: str) -> Optional[str]:
         return None
     m = msg.lower()
 
-    # 1. Explicit HH:MM
-    hm = re.search(r"\b(\d{1,2}):(\d{2})\b", m)
-    if hm:
-        h, mm = int(hm.group(1)), int(hm.group(2))
-        if 0 <= h < 24 and 0 <= mm < 60:
-            return f"{h:02d}:{mm:02d}"
+    # 1. Try structured time parsing (handles "5 pm", "17:30", "6:00 PM").
+    t = parse_time_from_label(m)
+    if t:
+        return t
 
-    # 2. "5 pm", "5pm", "5 o'clock pm", "at 5pm"
-    ampm = re.search(r"\b(\d{1,2})\s*(?:o'?clock\s*)?(am|pm)\b", m)
-    if ampm:
-        h = int(ampm.group(1))
-        period = ampm.group(2)
-        if period == "pm" and h < 12:
-            h += 12
-        if period == "am" and h == 12:
-            h = 0
-        if 0 <= h < 24:
-            return f"{h:02d}:00"
-
-    # 3. "at 17" (bare 24h, no minutes, must be after "at")
+    # 2. "at 17" (bare 24h, no minutes, must be after "at")
     at_h = re.search(r"\bat\s+(\d{1,2})\b(?!\s*[:\d])", m)
     if at_h:
         h = int(at_h.group(1))
@@ -115,7 +157,7 @@ def extract_time_from_message(msg: str) -> Optional[str]:
         if 8 <= h <= 11:
             return f"{h:02d}:00"
 
-    # 4. Keyword-only fall-through (kept last so explicit times win).
+    # 3. Keyword-only fall-through (kept last so explicit times win).
     if "early morning" in m:
         return "06:00"
     if "morning" in m:
@@ -160,6 +202,7 @@ async def resolve_slot(
                 "eventType": "training",
                 "durationMin": str(duration_min),
                 "timezone": timezone or "UTC",
+                "limit": str(DEFAULT_SLOT_LIMIT),
             },
             user_id=user_id,
         )
@@ -178,7 +221,7 @@ async def resolve_slot(
     existing = result.get("existingEvents", []) if isinstance(result, dict) else []
 
     alternatives: list[SlotAlternative] = []
-    for s in raw_slots[:5]:
+    for s in raw_slots[:DEFAULT_SLOT_LIMIT]:
         start_24 = s.get("startTime24") or ""
         end_24 = s.get("endTime24") or ""
         display = ""
