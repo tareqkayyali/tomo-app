@@ -27,6 +27,7 @@ from typing import Optional
 
 import anthropic
 
+from app.agents.intent_registry import build_classifier_intent_list
 from app.config import get_settings
 from app.models.context import PlayerContext
 
@@ -50,8 +51,16 @@ class SonnetClassificationResult:
 
 # ── Sonnet Classifier Prompt ──────────────────────────────────────────
 
-# Static system prompt (~400 tokens, cached after first call)
-CLASSIFIER_SYSTEM_PROMPT = """\
+# Static system prompt (~400 tokens, cached after first call).
+#
+# The intent vocabulary is pulled from intent_registry.build_classifier_intent_list()
+# at import time so this classifier and the Haiku classifier share a single
+# source of truth. Previously this file hardcoded a divergent vocabulary,
+# which caused Sonnet to emit phantom intent IDs (add_event, edit_event,
+# session_modification, check_readiness, red_risk_override) that the
+# downstream flow_controller / registry did not recognise, falling through
+# to agent_fallthrough and wasting tokens + latency.
+CLASSIFIER_SYSTEM_PROMPT_TEMPLATE = """\
 You are the Tomo intent router. Tomo is an AI coaching platform for youth athletes.
 Given a conversation and the latest user message, classify it into exactly one primary agent.
 
@@ -115,22 +124,20 @@ User: "Legs are dead today"
 User: "Log my sprint test"
 → {"agent":"performance","intent":"log_test","confidence":1.0,"requires_second_agent":null,"capsule_type":"log_test"}
 
-INTENT IDs (use the most specific one):
-Performance: build_session, open_coaching, check_readiness, load_advice, \
-recovery_guidance, benchmark_comparison, log_test, test_trajectory, \
-program_recommendation, deload_assessment, injury_assessment, \
-session_modification, phv_query
-Planning: add_event, view_schedule, edit_event, delete_event, plan_week, \
-plan_day, exam_planning, mode_switch, dual_load_check, study_planning
-Identity: show_cv, show_progress, career_update, achievement_check, \
-recruitment_query, coachability_check
-Settings: set_goal, log_injury, log_nutrition, log_sleep, update_profile, \
-wearable_sync, notification_config
-Capsule: greeting, smalltalk, navigate, qa_readiness, qa_load, \
-qa_today_schedule, qa_week_schedule, qa_streak, check_in, log_test
+INTENT IDs — you MUST choose exactly one from this canonical registry list
+(do NOT invent intent IDs; if nothing fits, return "agent_fallthrough"):
+__INTENT_LIST__
 
 Respond with ONLY valid JSON (no markdown, no explanation):
 {"agent":"...","intent":"...","confidence":0.95,"requires_second_agent":null,"capsule_type":null}"""
+
+
+# Build the final prompt at import time by interpolating the registry list.
+# Using a sentinel token (not .format()) so literal JSON braces in the
+# EXAMPLES block don't need to be escaped.
+CLASSIFIER_SYSTEM_PROMPT = CLASSIFIER_SYSTEM_PROMPT_TEMPLATE.replace(
+    "__INTENT_LIST__", build_classifier_intent_list()
+)
 
 
 # ── Sonnet Classification ─────────────────────────────────────────────
