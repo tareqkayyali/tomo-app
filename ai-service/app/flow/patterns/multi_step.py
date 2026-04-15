@@ -1490,11 +1490,11 @@ async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
     structured = {
         "headline": f"When do you want to run it{date_hint}?",
         "body": "Pick a slot that fits around school and recovery.",
-        "cards": [{
-            "type": "time_picker",
-            "options": _TIME_PICKER_OPTIONS,
-        }],
-        "chips": [],
+        "cards": [],
+        "chips": [
+            {"label": opt["label"], "message": opt["value"]}
+            for opt in _TIME_PICKER_OPTIONS
+        ],
     }
 
     await save_flow_state(
@@ -1505,7 +1505,7 @@ async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
 
     return {
         "final_response": json.dumps(structured),
-        "final_cards": structured["cards"],
+        "final_cards": [],
         "_flow_pattern": "multi_step",
         "route_decision": "flow_handled",
         "total_cost_usd": 0.0,
