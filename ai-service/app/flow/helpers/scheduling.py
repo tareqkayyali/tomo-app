@@ -234,12 +234,22 @@ async def resolve_slot(
             duration_min=duration_min,
         )
 
-    ev_title = str(conflict.get("title") or "another session")
+    ev_title = str(
+        conflict.get("name")
+        or conflict.get("title")
+        or "another session"
+    )
     ev_start_hhmm = _extract_hhmm_any(
-        conflict.get("start_at") or conflict.get("startAt") or ""
+        conflict.get("startTime")
+        or conflict.get("start_at")
+        or conflict.get("startAt")
+        or ""
     )
     ev_end_hhmm = _extract_hhmm_any(
-        conflict.get("end_at") or conflict.get("endAt") or ""
+        conflict.get("endTime")
+        or conflict.get("end_at")
+        or conflict.get("endAt")
+        or ""
     )
     ev_time_display = ""
     if ev_start_hhmm and ev_end_hhmm:
@@ -287,16 +297,62 @@ def _min_to_hhmm(mm: int) -> str:
     return f"{mm // 60:02d}:{mm % 60:02d}"
 
 
-def _extract_hhmm_any(iso_or_hhmm: str) -> Optional[str]:
-    """Pull 'HH:MM' out of an ISO datetime or a plain time string."""
-    if not iso_or_hhmm:
+def _extract_hhmm_any(value: str) -> Optional[str]:
+    """Pull 'HH:MM' (24h) out of any time representation.
+
+    Supports:
+      - ISO datetime:           "2026-04-16T18:00:00Z"  -> "18:00"
+      - 24h plain:              "18:00"                 -> "18:00"
+      - 12h with AM/PM:         "6:00 PM" / "6:48 pm"   -> "18:00"
+      - 12h hour-only AM/PM:    "6 PM"                  -> "18:00"
+
+    The 12h form is the shape the backend /calendar/suggest-slots
+    endpoint emits (via format12h in schedulingEngine), so every
+    scheduling helper MUST speak it natively — no pre-normalization.
+    """
+    if not value:
         return None
-    m = re.search(r"T(\d{2}):(\d{2})", iso_or_hhmm)
+    s = str(value).strip()
+
+    # 1. ISO datetime "...T18:00..."
+    m = re.search(r"T(\d{2}):(\d{2})", s)
     if m:
         return f"{m.group(1)}:{m.group(2)}"
-    m2 = re.match(r"^(\d{1,2}):(\d{2})", iso_or_hhmm)
-    if m2:
-        return f"{int(m2.group(1)):02d}:{m2.group(2)}"
+
+    # 2. 12h with AM/PM, e.g. "6:00 PM", "6:48 pm", "12:30 AM"
+    m = re.match(r"^\s*(\d{1,2}):(\d{2})\s*(am|pm)\s*$", s, re.IGNORECASE)
+    if m:
+        h = int(m.group(1))
+        mm = int(m.group(2))
+        period = m.group(3).lower()
+        if period == "pm" and h < 12:
+            h += 12
+        if period == "am" and h == 12:
+            h = 0
+        if 0 <= h < 24 and 0 <= mm < 60:
+            return f"{h:02d}:{mm:02d}"
+
+    # 3. 12h hour-only with AM/PM, e.g. "6 PM"
+    m = re.match(r"^\s*(\d{1,2})\s*(am|pm)\s*$", s, re.IGNORECASE)
+    if m:
+        h = int(m.group(1))
+        period = m.group(2).lower()
+        if period == "pm" and h < 12:
+            h += 12
+        if period == "am" and h == 12:
+            h = 0
+        if 0 <= h < 24:
+            return f"{h:02d}:00"
+
+    # 4. Bare 24h "HH:MM" (must be last so "6:00" without AM/PM doesn't
+    #    get mis-read as 12h — bare 6:00 is 06:00).
+    m = re.match(r"^(\d{1,2}):(\d{2})$", s)
+    if m:
+        h = int(m.group(1))
+        mm = int(m.group(2))
+        if 0 <= h < 24 and 0 <= mm < 60:
+            return f"{h:02d}:{mm:02d}"
+
     return None
 
 
@@ -315,15 +371,28 @@ def _to_12h(hhmm: Optional[str]) -> str:
 def _find_overlap(
     events: list, req_start_min: int, req_end_min: int
 ) -> Optional[dict]:
-    """Return the first event that overlaps [req_start_min, req_end_min)."""
+    """Return the first event that overlaps [req_start_min, req_end_min).
+
+    Handles the backend /calendar/suggest-slots response shape where
+    events arrive as `{name, startTime: "6:00 PM", endTime: "6:48 PM"}`
+    AS WELL AS ISO/24h shapes used by other calendar endpoints. The
+    helper is intentionally liberal so every scheduling flow can
+    consume any calendar event dict without pre-normalizing.
+    """
     for ev in events:
         if not isinstance(ev, dict):
             continue
         ev_start = _extract_minutes_any(
-            ev.get("start_at") or ev.get("startAt") or ""
+            ev.get("startTime")
+            or ev.get("start_at")
+            or ev.get("startAt")
+            or ""
         )
         ev_end = _extract_minutes_any(
-            ev.get("end_at") or ev.get("endAt") or ""
+            ev.get("endTime")
+            or ev.get("end_at")
+            or ev.get("endAt")
+            or ""
         )
         if ev_start is None or ev_end is None:
             continue
@@ -332,8 +401,8 @@ def _find_overlap(
     return None
 
 
-def _extract_minutes_any(iso_or_hhmm: str) -> Optional[int]:
-    hhmm = _extract_hhmm_any(iso_or_hhmm)
+def _extract_minutes_any(value: str) -> Optional[int]:
+    hhmm = _extract_hhmm_any(value)
     if hhmm is None:
         return None
     return _hhmm_to_min(hhmm)

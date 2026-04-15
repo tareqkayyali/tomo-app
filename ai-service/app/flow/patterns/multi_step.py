@@ -527,10 +527,12 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
 
             # Empty calendar → auto-advance silently; build_drills card
             # will carry the "Tomorrow's open — building fresh" message
-            # via flow_context.
+            # via flow_context. Trust the fork evaluator's own
+            # `calendar_empty` signal (don't hard-code True — the calendar
+            # may have events that simply don't match the stated focus).
             if not fork_result.get("needs_choice"):
                 flow.store("fork_choice", fork_result.get("choice", "new"))
-                flow.store("calendar_empty", True)
+                flow.store("calendar_empty", bool(fork_result.get("calendar_empty", False)))
                 flow.advance()
                 continue
 
@@ -1342,16 +1344,24 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
 
     # Fallback headline + body are tight (< 180 chars combined). Drill
     # details live in card items, never in the body. Context-aware:
-    # calendar_empty / attaching_existing / fresh path each get their own.
+    # attaching_existing vs fresh-slot path each get their own.
+    #
+    # Note (Apr 15 2026 slot-first reorder): by the time build_drills
+    # runs, pick_time has already locked `selected_time`, so the body
+    # text now says "ready to save" instead of "when do you want it".
+    # The old "Tell me when you want it" copy became a lie the moment
+    # we moved pick_time to run BEFORE drills.
+    locked_time_12h = _hhmm_to_12h(flow.get("selected_time") or "") if flow.get("selected_time") else ""
+    slot_suffix = f" for {locked_time_12h}" if locked_time_12h else ""
     if attaching_existing:
         fallback_headline = f"Got your {focus} dialled in"
         fallback_body = f"{len(drills)} drills, {total_min} min. Say the word and I'll save them."
     elif calendar_empty:
         fallback_headline = f"Here's a clean {focus} block"
-        fallback_body = f"{len(drills)} drills, {total_min} min. Tell me when you want it."
+        fallback_body = f"{len(drills)} drills, {total_min} min{slot_suffix}. Ready to lock it in?"
     else:
         fallback_headline = f"Your {focus} is ready"
-        fallback_body = f"{len(drills)} drills, {total_min} min. Scan it, then we roll."
+        fallback_body = f"{len(drills)} drills, {total_min} min{slot_suffix}. Scan it, then confirm."
 
     # Normalize readiness to the Green/Yellow/Red vocabulary mobile expects
     _readiness_raw = (flow.get("readiness", "") or "").strip().lower()
