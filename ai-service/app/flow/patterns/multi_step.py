@@ -110,6 +110,31 @@ def _extract_focus_from_message(msg: str) -> Optional[str]:
     return None
 
 
+def _infer_intensity(msg: str, focus: Optional[str]) -> str:
+    """Best-effort intensity label from the opener + chosen focus.
+
+    Used by the safety gate to decide whether a HARD-intensity rule
+    applies. Returns "HARD" | "MODERATE" | "LIGHT" | "" (unknown).
+    """
+    lowered = (msg or "").lower()
+    if any(k in lowered for k in ("hard", "heavy", "max", "intense", "all out", "all-out", "flat out")):
+        return "HARD"
+    if any(k in lowered for k in ("light", "easy", "recovery", "mobility", "chill")):
+        return "LIGHT"
+    if any(k in lowered for k in ("moderate", "tempo", "steady")):
+        return "MODERATE"
+    # Focus-derived fallback: strength/speed/technical default to HARD-ish,
+    # recovery to LIGHT, endurance/agility to MODERATE.
+    f = (focus or "").lower()
+    if f in ("strength", "speed", "technical"):
+        return "HARD"
+    if f == "recovery":
+        return "LIGHT"
+    if f in ("endurance", "agility"):
+        return "MODERATE"
+    return ""
+
+
 async def execute_multi_step_start(config: FlowConfig, state: TomoChatState) -> dict:
     """Start a new multi-step flow. Creates FlowState and executes step 0.
 
@@ -157,6 +182,41 @@ async def execute_multi_step_start(config: FlowConfig, state: TomoChatState) -> 
             f"Multi-step: focus '{stated_focus}' extracted from opener "
             f"(intent={flow.intent_id})"
         )
+
+    # ── CMS-backed safety gate pre-check ──
+    # Runs BEFORE any steps execute. Reads the admin-configured rules
+    # from public.safety_gate_config via a 60s cache. If the gate
+    # refuses the request (pain keyword, red readiness + hard, weekly
+    # load cap, etc.) we short-circuit with the admin's block copy
+    # and do not persist any flow state.
+    try:
+        from app.services import safety_gate as safety_gate_service
+
+        gate_verdict = await safety_gate_service.evaluate(
+            user_message=opening_msg or "",
+            intent_id=flow.intent_id,
+            context=context,
+            requested_intensity=_infer_intensity(opening_msg, stated_focus),
+        )
+        if not gate_verdict.allow:
+            logger.info(
+                f"safety_gate: blocked intent={flow.intent_id} "
+                f"rule={gate_verdict.rule} -> {gate_verdict.suggested_intensity}"
+            )
+            block = safety_gate_service.build_block_response(gate_verdict)
+            return {
+                "final_response": json.dumps(block),
+                "final_cards": block.get("cards", []),
+                "_flow_pattern": "multi_step",
+                "_safety_gate_triggered": True,
+                "_safety_gate_rule": gate_verdict.rule,
+                "route_decision": "flow_handled",
+                "total_cost_usd": 0.0,
+                "total_tokens": 0,
+            }
+    except Exception as e:
+        # Never let the gate crash the flow -- degrade to allow.
+        logger.error(f"safety_gate: pre-check failed, allowing: {e}", exc_info=True)
 
     # Execute step 0 (and possibly auto-advance through tool/fork steps)
     result = await _execute_current_step(flow, state)

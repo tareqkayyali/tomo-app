@@ -93,6 +93,14 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
     tools = get_tools_for_agent(agent_type, user_id, context, secondary_agents)
     tool_map = {t.name: t for t in tools}
 
+    # 2. Warm the CMS-managed safety gate cache so build_safety_gate_policy_block
+    # can inject admin-configured rules into the dynamic prompt. Silent on failure.
+    try:
+        from app.services import safety_gate as _sg
+        await _sg.get_config()
+    except Exception as _sg_err:
+        logger.debug(f"safety_gate warmup skipped: {_sg_err}")
+
     # 2. Build 2-block system prompt (v2: passes intent_id for prompt trimming)
     intent_id = state.get("intent_id", "unknown")
     static_block, dynamic_block = build_system_prompt(

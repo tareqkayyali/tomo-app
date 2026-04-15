@@ -1568,6 +1568,53 @@ Let's talk about what tomorrow looks like instead." """
 # MAIN ASSEMBLY FUNCTION
 # ══════════════════════════════════════════════════════════════════════
 
+def build_safety_gate_policy_block() -> str:
+    """Inject the CMS-managed safety gate policy into the dynamic prompt.
+
+    Reads from the cached safety_gate_config singleton so admins control
+    how the open-coaching agent talks about intensity limits, readiness,
+    and pain triggers — without touching code. Silent when disabled.
+    """
+    try:
+        # Sync read of the module cache populated by the async loader. If
+        # nothing has been cached yet we skip the block this turn (next
+        # request will have it); avoids blocking the prompt build path on
+        # a DB round trip.
+        from app.services.safety_gate import _CACHE, _DEFAULT_CONFIG
+        cfg = _CACHE.get("config") or _DEFAULT_CONFIG
+        if not cfg.get("enabled", True):
+            return ""
+
+        lines = [
+            "<safety_gate_policy>",
+            "Admin-configured wellbeing rules. Reflect these in your coaching advice:",
+        ]
+        if cfg.get("block_hard_on_red"):
+            lines.append("- RED readiness: never encourage HARD intensity. Offer a light recovery block instead.")
+        if cfg.get("block_moderate_on_red"):
+            lines.append("- RED readiness: moderate intensity is also off the table today.")
+        if cfg.get("block_hard_on_yellow"):
+            lines.append("- YELLOW readiness: steer away from HARD intensity; moderate is the ceiling.")
+        max_hard = int(cfg.get("max_hard_per_week") or 0)
+        if max_hard > 0:
+            lines.append(f"- Weekly hard cap: {max_hard} HARD sessions per rolling 7-day window.")
+        min_rest = int(cfg.get("min_rest_hours_after_hard") or 0)
+        if min_rest > 0:
+            lines.append(f"- Minimum rest between HARD sessions: {min_rest} hours.")
+        kws = cfg.get("pain_keywords") or []
+        if kws:
+            lines.append(
+                "- If the athlete mentions pain/injury language, pause training advice and "
+                "point them toward their physio or coach."
+            )
+        lines.append("</safety_gate_policy>")
+        if len(lines) <= 3:
+            return ""  # nothing actionable
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 def build_system_prompt(
     agent_type: str,
     context: PlayerContext,
@@ -1624,6 +1671,7 @@ def build_system_prompt(
         build_schedule_rule_block(context),       # Schedule rules
         build_recs_block(context),               # Active recommendations
         build_wearable_status_block(context),    # WHOOP connection status
+        build_safety_gate_policy_block(),        # CMS-managed safety policy
     ]
 
     # Conversation context (if provided)
