@@ -157,23 +157,37 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     handleUpdateEvent,
   } = calendar;
 
-  // Enrich training events with linked programs from schedule rules
+  // Enrich training events with linked programs from schedule rules.
+  // Matching strategy (strict — no catch-all fallback):
+  //   1. If the event has a structured sessionPlan.focus (AI-built), match
+  //      on that exactly against the category label.
+  //   2. Otherwise, fall back to substring matching on the event name.
+  //   3. If nothing matches, leave the event untouched — do NOT attach
+  //      every category's programs (that was the cross-category bleed bug).
   const trainingCategories = rules?.preferences?.training_categories ?? [];
   const events = useMemo(() => {
     if (trainingCategories.length === 0) return realEvents;
     return realEvents.map((evt) => {
       if (evt.type !== 'training') return evt;
-      // Find the training category that matches this event name
-      const matchedCat = trainingCategories.find(
-        (cat) => cat.label && evt.name.toLowerCase().includes(cat.label.toLowerCase())
-      );
+
+      const focus = (evt as any).sessionPlan?.focus as string | undefined;
+      let matchedCat = undefined as typeof trainingCategories[number] | undefined;
+
+      if (focus) {
+        const focusLower = focus.toLowerCase();
+        matchedCat = trainingCategories.find(
+          (cat) => cat.label && cat.label.toLowerCase() === focusLower
+        );
+      }
+
+      if (!matchedCat) {
+        matchedCat = trainingCategories.find(
+          (cat) => cat.label && evt.name.toLowerCase().includes(cat.label.toLowerCase())
+        );
+      }
+
       if (matchedCat?.linkedPrograms?.length) {
         return { ...evt, linkedPrograms: matchedCat.linkedPrograms };
-      }
-      // Also try matching all categories' linked programs for generic "training" events
-      const allLinked = trainingCategories.flatMap((cat) => cat.linkedPrograms ?? []);
-      if (allLinked.length > 0 && !matchedCat) {
-        return { ...evt, linkedPrograms: allLinked };
       }
       return evt;
     });
