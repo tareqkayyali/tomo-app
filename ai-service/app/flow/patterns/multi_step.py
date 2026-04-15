@@ -908,14 +908,14 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
     # details live in card items, never in the body. Context-aware:
     # calendar_empty / attaching_existing / fresh path each get their own.
     if attaching_existing:
-        fallback_headline = f"Drills ready for your {existing_title or focus + ' session'}"
-        fallback_body = f"{len(drills)} drills, {total_min} min. Confirm to save them to that session."
+        fallback_headline = f"Got your {focus} dialled in"
+        fallback_body = f"{len(drills)} drills, {total_min} min. Say the word and I'll save them."
     elif calendar_empty:
-        fallback_headline = f"Your day's open -- here's a fresh {focus} session"
-        fallback_body = f"{len(drills)} drills, {total_min} min. Pick a time next."
+        fallback_headline = f"Here's a clean {focus} block"
+        fallback_body = f"{len(drills)} drills, {total_min} min. Tell me when you want it."
     else:
-        fallback_headline = f"{focus.title()} session -- {len(drills)} drills"
-        fallback_body = f"{total_min} min total. Review, then confirm."
+        fallback_headline = f"Your {focus} is ready"
+        fallback_body = f"{len(drills)} drills, {total_min} min. Scan it, then we roll."
 
     # Normalize readiness to the Green/Yellow/Red vocabulary mobile expects
     _readiness_raw = (flow.get("readiness", "") or "").strip().lower()
@@ -1194,18 +1194,18 @@ def _build_completion_response(flow: FlowState) -> dict:
         }
 
     if target_event_id:
-        headline = f"Locked in -- {drill_count} drills added to your {focus} session"
+        headline = f"Done — {drill_count} drills on your {focus} session"
         body = (
-            "Your scheduled session now has the drill list saved to its notes. "
-            "Show up, put the work in, and come tell me how it went."
+            "Your session's got everything it needs. "
+            "Go put the work in and tell me how it felt after."
         )
     else:
         date_display = target_date or "your timeline"
         time_display = f" at {selected_time}" if selected_time else ""
-        headline = f"{focus.title()} session booked"
+        headline = f"You're set for {focus}"
         body = (
-            f"Locked in for {date_display}{time_display} -- {drill_count} drills ready. "
-            "Good luck, come tell me how it went."
+            f"Booked {date_display}{time_display} with {drill_count} drills. "
+            "Show up, trust it, come tell me how it went."
         )
 
     structured = {
@@ -1532,8 +1532,8 @@ async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
 def _build_cancel_response() -> dict:
     """Response when user cancels the multi-step flow."""
     structured = {
-        "headline": "No worries -- cancelled",
-        "body": "What else can I help with?",
+        "headline": "All good, scrapped it",
+        "body": "What's actually on your mind?",
         "cards": [],
         "chips": [
             {"label": "Build session", "message": "Build me a training session"},

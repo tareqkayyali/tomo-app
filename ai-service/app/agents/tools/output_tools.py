@@ -294,8 +294,25 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                 )
             rows = await result.fetchall()
 
-            # Always add warmup + cooldown drills if this is a training session
-            if category.lower() not in ("recovery", "warmup", "cooldown"):
+            # If the training query returned nothing, short-circuit to
+            # the fallback template BEFORE appending warmup/cooldown
+            # bookends. Previously the unconditional bookend append
+            # below would inflate `rows` to 2 items (just warmup +
+            # cooldown) even when the core training content was empty,
+            # and the `if not drills` fallback check later never fired.
+            # Result: athletes who picked "Endurance" got a session
+            # that was literally just a stretch + a jog, zero actual
+            # endurance work.
+            training_rows_empty = (
+                not rows
+                and category.lower() not in ("recovery", "warmup", "cooldown", "activation")
+            )
+
+            # Always add warmup + cooldown drills if this is a training
+            # session AND we actually got real training rows. When we
+            # fall through to a fallback template below the template
+            # brings its own bookends, so skipping here avoids doubling.
+            if not training_rows_empty and category.lower() not in ("recovery", "warmup", "cooldown"):
                 warmup_result = await conn.execute(
                     """SELECT id, name, category, duration_minutes, intensity,
                               description, attribute_keys, sport_id
@@ -337,17 +354,26 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             for row in rows
         ]
 
-        # If no drills found in DB, provide a fallback template
-        # so the LLM always has content for the session_plan card
+        # If no drills found in DB, provide a fallback template so the
+        # LLM always has content for the session_plan card. Each template
+        # is self-contained (includes its own warmup + cooldown) because
+        # the bookend append above is skipped when we land here.
+        #
+        # Evidence-based defaults -- not generic filler. The templates
+        # are scoped by training category so the athlete gets the
+        # actual work they asked for, not a mobility reroute.
         if not drills:
-            logger.info(f"No drills in DB for {sport}/{category}/{intensity} — using fallback template")
+            logger.info(
+                f"No drills in DB for {sport}/{category}/{intensity} "
+                f"-- using fallback template"
+            )
             _FALLBACK_SESSIONS = {
                 "speed": [
                     {"name": "Dynamic Warm-Up", "category": "warmup", "duration_min": 10, "intensity": "LIGHT", "description": "A-skips, high knees, leg swings, build-up sprints"},
                     {"name": "Acceleration Sprints (10m)", "category": "speed", "duration_min": 8, "intensity": intensity, "description": "6 x 10m from standing start, 90s rest"},
                     {"name": "Flying Sprints (20m)", "category": "speed", "duration_min": 8, "intensity": intensity, "description": "4 x 20m at 85-90% effort, 2min rest"},
                     {"name": "Agility Ladder Drill", "category": "agility", "duration_min": 6, "intensity": "MODERATE", "description": "In-out, lateral shuffle, icky shuffle patterns"},
-                    {"name": "Cool-Down & Stretch", "category": "recovery", "duration_min": 8, "intensity": "LIGHT", "description": "Static stretch — quads, hamstrings, hip flexors, calves"},
+                    {"name": "Cool-Down & Stretch", "category": "recovery", "duration_min": 8, "intensity": "LIGHT", "description": "Static stretch -- quads, hamstrings, hip flexors, calves"},
                 ],
                 "strength": [
                     {"name": "Warm-Up", "category": "warmup", "duration_min": 10, "intensity": "LIGHT", "description": "Light jog, dynamic stretching, activation bands"},
@@ -356,14 +382,48 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                     {"name": "Split Squat", "category": "strength", "duration_min": 6, "intensity": intensity, "description": "3 x 8 each side, bodyweight or light DB"},
                     {"name": "Cool-Down", "category": "recovery", "duration_min": 7, "intensity": "LIGHT", "description": "Foam roll + static stretch"},
                 ],
+                "endurance": [
+                    {"name": "Dynamic Warm-Up Jog", "category": "warmup", "duration_min": 10, "intensity": "LIGHT", "description": "5 min easy jog + leg swings, lunges, A-skips to raise core temp"},
+                    {"name": "Tempo Run Intervals", "category": "endurance", "duration_min": 12, "intensity": intensity, "description": "4 x 3 min at sustained threshold pace, 60s jog recovery between reps"},
+                    {"name": "Fartlek Pace Play", "category": "endurance", "duration_min": 10, "intensity": "MODERATE", "description": "10 min continuous run alternating 30s surge / 60s cruise, sport-specific movement patterns"},
+                    {"name": "Aerobic Capacity Build", "category": "endurance", "duration_min": 8, "intensity": "MODERATE", "description": "8 min steady-state at conversation pace, focus on relaxed shoulders and rhythmic breathing"},
+                    {"name": "Cool-Down Jog + Stretch", "category": "recovery", "duration_min": 8, "intensity": "LIGHT", "description": "3 min easy jog to flush, then static stretch hamstrings, quads, calves, hips"},
+                ],
+                "technical": [
+                    {"name": "Ball-Touch Warm-Up", "category": "warmup", "duration_min": 10, "intensity": "LIGHT", "description": "Light jog + 200 controlled touches (inside, outside, sole, laces) to wake up feet and hips"},
+                    {"name": "Passing & Receiving Circuit", "category": "technical", "duration_min": 10, "intensity": "MODERATE", "description": "Partner or wall passes, both feet, first-touch control into space, 3 sets of 2 min"},
+                    {"name": "1v1 Shadow Moves", "category": "technical", "duration_min": 10, "intensity": intensity, "description": "Cone-based 1v1 footwork -- step-over, cut-back, drop-shoulder. Quality over speed"},
+                    {"name": "Finishing / Execution Reps", "category": "technical", "duration_min": 8, "intensity": intensity, "description": "10 reps of sport-specific finish (shot, serve, layup) from match-realistic angles"},
+                    {"name": "Cool-Down Technical Reset", "category": "recovery", "duration_min": 7, "intensity": "LIGHT", "description": "Slow-tempo touches + mobility flow -- ankles, hips, thoracic spine"},
+                ],
+                "agility": [
+                    {"name": "Dynamic Prep", "category": "warmup", "duration_min": 8, "intensity": "LIGHT", "description": "Ankle pops, A-skips, carioca, lateral shuffles to prime change-of-direction tissue"},
+                    {"name": "Ladder Footwork", "category": "agility", "duration_min": 8, "intensity": "MODERATE", "description": "In-out, icky shuffle, lateral run, carioca -- 2 sets each, focus on foot-ground contact time"},
+                    {"name": "5-10-5 Shuttle", "category": "agility", "duration_min": 8, "intensity": intensity, "description": "6 reps of the pro-agility shuttle, full recovery between reps, both directions"},
+                    {"name": "Reactive Cut Drill", "category": "agility", "duration_min": 8, "intensity": intensity, "description": "React to coach's pointer or call, 30s work / 30s rest x 6 -- trains unplanned cuts"},
+                    {"name": "Cool-Down & Hip Mobility", "category": "recovery", "duration_min": 8, "intensity": "LIGHT", "description": "Walking lunges, 90/90 hip rotations, pigeon stretch -- restore hip range"},
+                ],
+                "general": [
+                    {"name": "Dynamic Warm-Up", "category": "warmup", "duration_min": 10, "intensity": "LIGHT", "description": "Movement flow -- lunges, inchworms, leg swings, high knees. Raise temp and range"},
+                    {"name": "Movement Prep", "category": "activation", "duration_min": 8, "intensity": "MODERATE", "description": "Band pull-aparts, glute bridges, shoulder taps -- switch on stabilizers before load"},
+                    {"name": "Main Session Block", "category": "training", "duration_min": 15, "intensity": intensity, "description": "Sport-specific work block -- strength, conditioning, or technical, scaled to readiness"},
+                    {"name": "Conditioning Finisher", "category": "conditioning", "duration_min": 5, "intensity": intensity, "description": "3 rounds of short, hard work -- shuttles, burpees, or hill sprints"},
+                    {"name": "Cool-Down & Stretch", "category": "recovery", "duration_min": 7, "intensity": "LIGHT", "description": "Walk it out, static stretch, deep breathing to reset parasympathetic"},
+                ],
                 "recovery": [
-                    {"name": "Foam Rolling", "category": "recovery", "duration_min": 10, "intensity": "LIGHT", "description": "Full body — quads, IT band, glutes, upper back"},
+                    {"name": "Foam Rolling", "category": "recovery", "duration_min": 10, "intensity": "LIGHT", "description": "Full body -- quads, IT band, glutes, upper back"},
                     {"name": "Dynamic Mobility", "category": "recovery", "duration_min": 10, "intensity": "LIGHT", "description": "Hip circles, thoracic rotations, ankle mobility"},
                     {"name": "Light Stretching", "category": "recovery", "duration_min": 10, "intensity": "LIGHT", "description": "Hold each stretch 30-45s, breathe through it"},
                     {"name": "Breathing Reset", "category": "recovery", "duration_min": 5, "intensity": "LIGHT", "description": "Box breathing 4-4-4-4, lying down, eyes closed"},
                 ],
             }
-            drills = _FALLBACK_SESSIONS.get(category.lower(), _FALLBACK_SESSIONS.get("recovery", []))
+            # Fall back to "general" (not "recovery") so an unknown
+            # category still delivers actual training content instead
+            # of rerouting the athlete into a mobility session.
+            drills = _FALLBACK_SESSIONS.get(
+                category.lower(),
+                _FALLBACK_SESSIONS.get("general", []),
+            )
 
         result = {
             "category": category,

@@ -300,23 +300,35 @@ async def generate_insights(traces: list[dict]) -> list[dict]:
     # ── 8 Domain-Specific Questions ──────────────────────────────────
 
     questions = [
-        {
-            "category": "safety",
-            "question": "Did Tomo catch every high-risk athlete and respond with appropriate safety guidance?",
-            "data": {
-                "total_sessions": total,
-                "red_injury_athletes": len(red_athletes),
-                "danger_acwr_athletes": len(danger_acwr),
-                "red_with_danger_acwr": len([t for t in red_athletes if t.get("acwr_bucket") == "danger"]),
-                "red_with_zero_tools": len([t for t in red_athletes if (t.get("tool_count") or 0) == 0]),
-                "phv_mid_athletes": len(phv_mid),
-                "phv_gate_fired_count": len([t for t in phv_mid if t.get("phv_gate_fired")]),
-                "stale_checkin_over_7d": len(stale_critical),
-                "stale_with_red_risk": len([t for t in stale_critical if t.get("injury_risk") == "RED"]),
-                "sample_messages": [t.get("message", "")[:100] for t in red_athletes[:5]],
-            },
-            "relevant_traces": red_athletes + danger_acwr + phv_mid,
-        },
+        # ── Athlete Safety (TEMPORARILY DISABLED) ──────────────────────
+        # The safety-gate system (RED athlete interventions, ACWR
+        # throttling, PHV-mid gate enforcement) is on the roadmap but
+        # not yet shipped. Every insights run was flagging "safety
+        # failure" because the features it measures don't exist yet --
+        # that noise drowned out the real findings the user acts on.
+        #
+        # This block is commented out (not deleted) so re-enabling is
+        # a one-line revert once the safety-gate system lands. At that
+        # point, restore this question and re-run the audit to confirm
+        # the safety signals fire correctly.
+        #
+        # {
+        #     "category": "safety",
+        #     "question": "Did Tomo catch every high-risk athlete and respond with appropriate safety guidance?",
+        #     "data": {
+        #         "total_sessions": total,
+        #         "red_injury_athletes": len(red_athletes),
+        #         "danger_acwr_athletes": len(danger_acwr),
+        #         "red_with_danger_acwr": len([t for t in red_athletes if t.get("acwr_bucket") == "danger"]),
+        #         "red_with_zero_tools": len([t for t in red_athletes if (t.get("tool_count") or 0) == 0]),
+        #         "phv_mid_athletes": len(phv_mid),
+        #         "phv_gate_fired_count": len([t for t in phv_mid if t.get("phv_gate_fired")]),
+        #         "stale_checkin_over_7d": len(stale_critical),
+        #         "stale_with_red_risk": len([t for t in stale_critical if t.get("injury_risk") == "RED"]),
+        #         "sample_messages": [t.get("message", "")[:100] for t in red_athletes[:5]],
+        #     },
+        #     "relevant_traces": red_athletes + danger_acwr + phv_mid,
+        # },
         {
             "category": "coaching",
             "question": "Is Tomo's RAG pipeline actually grounding athlete responses in sports science?",
