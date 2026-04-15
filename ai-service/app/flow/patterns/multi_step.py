@@ -29,6 +29,13 @@ from app.flow.step_tracker import (
     save_flow_state,
     clear_flow_state,
 )
+from app.flow.helpers.scheduling import (
+    extract_time_from_message,
+    resolve_slot,
+    SlotResolution,
+    DEFAULT_SESSION_DURATION_MIN,
+    _to_12h as _hhmm_to_12h,
+)
 from app.models.state import TomoChatState
 
 logger = logging.getLogger("tomo-ai.flow.multi_step")
@@ -180,6 +187,22 @@ async def execute_multi_step_start(config: FlowConfig, state: TomoChatState) -> 
         flow.store("focus_was_stated", True)
         logger.info(
             f"Multi-step: focus '{stated_focus}' extracted from opener "
+            f"(intent={flow.intent_id})"
+        )
+
+    # Extract stated time from the opener ("at 5 pm", "17:00", "this
+    # evening"). Stored as selected_time; _present_time_picker validates
+    # it against the real calendar via resolve_slot. If clean -> the
+    # picker auto-advances silently. If conflict -> the athlete sees a
+    # clear "5pm is taken by Endurance Session" explanation with
+    # alternative slots BEFORE any drills are generated. Standardized
+    # so every timeline/scheduling flow reuses the same extractor.
+    stated_time = extract_time_from_message(opening_msg)
+    if stated_time:
+        flow.store("selected_time", stated_time)
+        flow.store("time_was_stated", True)
+        logger.info(
+            f"Multi-step: time '{stated_time}' extracted from opener "
             f"(intent={flow.intent_id})"
         )
 
@@ -538,14 +561,18 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
         if step.card == "session_plan":
             return await _build_session_step(step, flow, state)
 
-        # ── Time picker (new) ──
-        # Only runs for fresh sessions. When attaching drills to an
-        # existing calendar event we skip this step entirely.
+        # ── Time picker (slot-first ordering, Apr 15 2026) ──
+        # Runs BEFORE build_drills so no drills are generated until the
+        # slot is locked. When attaching drills to an existing calendar
+        # event we skip entirely (the event already carries a time).
+        # Otherwise we always delegate to _present_time_picker, which
+        # internally:
+        #   - auto-advances if the opener stated a time AND it's clean
+        #   - presents alternatives + conflict message if the stated
+        #     time overlaps an existing event
+        #   - presents the normal suggest-slots picker if no time stated
         if step.card == "time_picker":
             if flow.get("target_event_id"):
-                flow.advance()
-                continue
-            if flow.get("selected_time"):
                 flow.advance()
                 continue
             return await _present_time_picker(flow, state)
@@ -1771,79 +1798,87 @@ _TIME_PICKER_OPTIONS = [
 
 
 async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
-    """Render the time picker for a brand-new fresh session.
+    """Slot-first time picker.
 
-    Calls the backend /calendar/suggest-slots endpoint which uses the real
-    schedulingEngine (respects school hours, buffers, existing events,
-    readiness). Falls back to the static preset list only if that call
-    fails — never leaves the user stuck.
+    This runs BEFORE build_drills in the new flow order. Responsibilities:
+
+      1. If opener stated a time AND it's clean -> auto-advance silently.
+      2. If opener stated a time AND it conflicts with an existing event ->
+         present a conflict card with alternatives ("5pm is taken by
+         Endurance Session -- here are clean slots nearby").
+      3. If no time stated -> present the normal suggest-slots picker.
+
+    Standardized via `app.flow.helpers.scheduling.resolve_slot` so every
+    timeline/scheduling flow reuses the same conflict-check logic.
+    Drills aren't built yet, so duration validation uses a generous
+    default (DEFAULT_SESSION_DURATION_MIN). _execute_confirm_tool later
+    uses the real drill total for the create_event end_time.
     """
     target_date = flow.get("target_date", "")
-    date_hint = f" for {target_date}" if target_date else ""
+    requested_time = flow.get("selected_time") or None
 
-    # Compute total session duration from the drills we already built.
-    drills_blob = flow.get("session_drills", {}) or {}
-    drill_list = drills_blob.get("drills", []) if isinstance(drills_blob, dict) else []
-    total_min = 0
-    for d in drill_list:
-        if isinstance(d, dict):
-            total_min += int(d.get("duration_min", 0) or 0)
-    if total_min <= 0:
-        total_min = 45  # sensible default if somehow drills are empty
+    context = state.get("player_context")
+    tz = getattr(context, "timezone", None) or "UTC"
 
-    # Persist duration so _execute_confirm_tool can trust it later.
-    flow.store("session_total_min", total_min)
+    # Use a generous default duration for the slot-validation query.
+    # Confirm step recomputes end_time from actual drills.
+    duration_min = DEFAULT_SESSION_DURATION_MIN
+    flow.store("session_total_min", duration_min)
 
-    # Call backend suggest-slots (schedule engine: school hours, buffer,
-    # existing-event conflict, readiness-aware). Degrade gracefully on error.
-    chips: list[dict] = []
-    body_text = "Pick a slot that fits around school and recovery."
-    try:
-        from app.agents.tools.bridge import bridge_get
-        context = state.get("player_context")
-        tz = getattr(context, "timezone", None) or "UTC"
-        result = await bridge_get(
-            "/api/v1/calendar/suggest-slots",
-            params={
-                "date": target_date or "",
-                "eventType": "training",
-                "durationMin": str(total_min),
-                "timezone": tz,
-            },
-            user_id=state.get("user_id", ""),
+    resolution: SlotResolution = await resolve_slot(
+        user_id=state.get("user_id", ""),
+        target_date=target_date,
+        requested_time=requested_time,
+        duration_min=duration_min,
+        timezone=tz,
+    )
+
+    # ── Case 1: stated time is clean → auto-advance ──
+    if resolution.status == "confirmed":
+        flow.store("selected_time", resolution.start_24)
+        logger.info(
+            f"pick_time auto-confirmed {resolution.start_24} "
+            f"({duration_min}min) on {target_date}"
         )
-        slots = result.get("slots", []) if isinstance(result, dict) else []
-        for slot in slots[:5]:
-            start_24 = slot.get("startTime24")
-            start_12 = slot.get("start")
-            end_12 = slot.get("end")
-            if not start_24:
-                continue
-            label = f"{start_12} - {end_12}" if start_12 and end_12 else start_24
-            chips.append({"label": label, "message": start_24})
+        flow.advance()
+        return await _execute_current_step(flow, state)
 
-        # Surface existing-event count in the body text so the athlete
-        # understands why certain times are excluded.
-        existing = result.get("existingEvents", []) if isinstance(result, dict) else []
-        if existing:
-            count = len(existing)
-            body_text = (
-                f"{count} thing{'s' if count != 1 else ''} already on {target_date or 'that day'}. "
-                f"Here's what fits around {'them' if count != 1 else 'it'}."
-            )
-    except Exception as e:
-        logger.warning(f"suggest-slots call failed, falling back to presets: {e}")
-
-    # Fallback: static presets if the backend returned nothing.
+    # ── Case 2/3: present picker (conflict or fresh pick) ──
+    chips: list[dict] = [
+        {"label": alt.label, "message": alt.start_24}
+        for alt in resolution.alternatives
+    ]
     if not chips:
         chips = [
             {"label": opt["label"], "message": opt["value"]}
             for opt in _TIME_PICKER_OPTIONS
         ]
-        body_text = "Couldn't read your schedule — pick a rough slot."
+
+    if resolution.status == "conflict":
+        # Clear the stale stated time so the athlete isn't re-matched
+        # to it on their next reply; they must pick a fresh chip.
+        flow.store("selected_time", None)
+        headline = resolution.headline or f"{_hhmm_to_12h(requested_time)} is taken"
+        body_text = (
+            resolution.body
+            or f"That slot overlaps another session. Pick a clean one."
+        )
+        logger.info(
+            f"pick_time conflict: {requested_time} overlaps "
+            f"{resolution.conflict_event_title!r} -- offering "
+            f"{len(chips)} alternatives"
+        )
+    else:
+        # needs_pick
+        date_hint = f" for {target_date}" if target_date else ""
+        headline = f"When do you want to run it{date_hint}?"
+        body_text = (
+            resolution.body
+            or "Pick a slot that fits around school and recovery."
+        )
 
     structured = {
-        "headline": f"When do you want to run it{date_hint}?",
+        "headline": headline,
         "body": body_text,
         "cards": [],
         "chips": chips,
