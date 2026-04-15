@@ -627,11 +627,17 @@ def _event_matches_focus(event: dict, focus: str) -> bool:
 def _evaluate_fork(step: StepDefinition, flow: FlowState) -> dict:
     """Evaluate a fork condition against context_carry data.
 
-    (April 2026 rearchitecture) The old stated-focus pre-filter is gone.
-    Athletes ALWAYS see what's on their calendar for the target date so
-    they can choose whether to attach drills to an existing session
-    (update_event.notes) or book a new one (create_event). The only
-    case we auto-advance silently is a completely empty calendar.
+    Filters existing training events by the athlete's stated focus AND
+    time proximity to the stated time before offering attach options.
+    Mismatched focus (sprint drills into an endurance session) or very
+    different time (user asked 5pm, event at 9am) should never appear
+    as attach targets -- we auto-advance to the fresh-session path in
+    that case, matching what a coach would do.
+
+    Regression context: April 2026 rearchitecture dropped the focus
+    filter entirely, which meant "build me a sprint session at 5pm"
+    landed on a fork offering "Add drills to Endurance Session at 6pm".
+    F5 in AI_CHAT_AUDIT_2026-04-15.md. Filter restored Phase 5 patch.
     """
     condition = step.condition
 
@@ -643,9 +649,51 @@ def _evaluate_fork(step: StepDefinition, flow: FlowState) -> dict:
             if e.get("event_type") in ("training", "match")
         ]
 
-        if training_events:
+        # Filter by stated focus + time proximity. If the user said
+        # nothing about either (stated_focus / selected_time empty) the
+        # corresponding filter is a no-op, preserving the generic
+        # "pick any session" UX for vague asks.
+        stated_focus = (flow.get("selected_focus") or "").lower().strip()
+        selected_time = (flow.get("selected_time") or "").strip()
+
+        def _hhmm_to_minutes(hhmm: str) -> int | None:
+            """Parse HH:MM (24h) to minutes since midnight. None on failure."""
+            import re
+            m = re.match(r"^(\d{1,2}):(\d{2})", hhmm or "")
+            if not m:
+                return None
+            try:
+                return int(m.group(1)) * 60 + int(m.group(2))
+            except (TypeError, ValueError):
+                return None
+
+        selected_min = _hhmm_to_minutes(selected_time) if selected_time else None
+
+        def _keep(ev: dict) -> bool:
+            # Focus match -- skip events whose title/category/notes don't
+            # line up with what the athlete asked for. Sprint drills into
+            # an endurance session is a category error, not a merge.
+            if stated_focus and not _event_matches_focus(ev, stated_focus):
+                return False
+            # Time proximity -- only offer events within +/- 90 minutes
+            # of the stated time. Outside that window the user would be
+            # attaching to an unrelated slot.
+            if selected_min is not None:
+                ev_hhmm = ""
+                import re
+                m = re.search(r"(\d{2}:\d{2})", str(ev.get("start_time", "")))
+                if m:
+                    ev_hhmm = m.group(1)
+                ev_min = _hhmm_to_minutes(ev_hhmm) if ev_hhmm else None
+                if ev_min is not None and abs(ev_min - selected_min) > 90:
+                    return False
+            return True
+
+        matching_events = [e for e in training_events if _keep(e)]
+
+        if matching_events:
             options = []
-            for ev in training_events:
+            for ev in matching_events:
                 title = ev.get("title", "Session")
                 time_str = _extract_time(ev.get("start_time", ""))
                 time_suffix = f" at {time_str}" if time_str else ""
@@ -661,9 +709,17 @@ def _evaluate_fork(step: StepDefinition, flow: FlowState) -> dict:
             })
             return {"needs_choice": True, "options": options}
 
-        # Calendar genuinely empty for target_date -- skip silently,
-        # build_drills will surface the "your day is open" framing.
-        return {"needs_choice": False, "choice": "new", "calendar_empty": True}
+        # Either the calendar is genuinely empty OR every existing
+        # event was filtered out by focus/time mismatch. Both collapse
+        # to the same UX: skip the fork, go straight to build a fresh
+        # session. We flag `calendar_empty` only when it's literally
+        # empty so build_drills can still render the "day is open"
+        # framing for that case.
+        return {
+            "needs_choice": False,
+            "choice": "new",
+            "calendar_empty": len(training_events) == 0,
+        }
 
     return {"needs_choice": False}
 
