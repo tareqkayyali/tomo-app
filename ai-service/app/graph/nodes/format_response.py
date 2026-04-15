@@ -175,6 +175,19 @@ def _extract_time_from_iso(iso_str: str) -> str:
         return _format_12h(match.group(1)) if match else ""
 
 
+def _filter_active_and_upcoming(
+    events: list,
+    card_date: str,
+    state: TomoChatState | None,
+) -> list:
+    """Thin wrapper around the shared card_builders.schedule helper so the
+    format_response enforcement path and data_display follow the same rule.
+    """
+    from app.flow.card_builders.schedule import filter_active_and_upcoming
+    player_context = (state or {}).get("player_context") if state else None
+    return filter_active_and_upcoming(events, card_date, player_context)
+
+
 def _ensure_timeline_card(structured: dict, state: TomoChatState) -> dict:
     """
     Enforce schedule_list card for timeline agent responses.
@@ -208,8 +221,17 @@ def _ensure_timeline_card(structured: dict, state: TomoChatState) -> dict:
 
         # get_today_events result: {"date": "...", "events": [...], "total": N}
         if isinstance(data, dict) and "events" in data and "date" in data:
+            # When the card is for TODAY, filter to active + upcoming
+            # events only. No athlete wants to scroll past a 3 AM session
+            # they already finished.
+            raw_events = list(data.get("events") or [])
+            raw_events = _filter_active_and_upcoming(
+                raw_events,
+                data.get("date", ""),
+                state,
+            )
             items = []
-            for ev in data["events"]:
+            for ev in raw_events:
                 time_str = _extract_time_from_iso(ev.get("start_time", ""))
                 items.append({
                     "time": time_str or "—",
@@ -217,7 +239,14 @@ def _ensure_timeline_card(structured: dict, state: TomoChatState) -> dict:
                     "type": ev.get("event_type", "other"),
                 })
             if not items:
-                items = [{"time": "—", "title": "Rest day — nothing scheduled", "type": "rest"}]
+                # Either the day had no events OR every event is already done.
+                all_done = bool(data.get("events")) and not items
+                rest_label = (
+                    "Day's done — nothing left on the board"
+                    if all_done
+                    else "Rest day — nothing scheduled"
+                )
+                items = [{"time": "—", "title": rest_label, "type": "rest"}]
             schedule_card = {
                 "type": "schedule_list",
                 "date": _format_confirm_date(data["date"]),

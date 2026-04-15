@@ -1391,12 +1391,21 @@ def _build_completion_response(flow: FlowState) -> dict:
             "Show up, trust it, come tell me how it went."
         )
 
+    # Context-aware chips: the "Show schedule" chip must route to the
+    # SAME date we just wrote to. Hardcoding "What's on today?" after
+    # a tomorrow-booking sends the athlete to the wrong day's schedule.
+    today_iso = flow.get("today_date", "") or ""
+    if target_date and today_iso and target_date != today_iso:
+        schedule_label, schedule_msg = _chip_for_target_date(target_date, today_iso)
+    else:
+        schedule_label, schedule_msg = "Show today", "What's on today?"
+
     structured = {
         "headline": headline,
         "body": body,
         "cards": [],
         "chips": [
-            {"label": "Show schedule", "message": "What's on today?"},
+            {"label": schedule_label, "message": schedule_msg},
             {"label": "Check readiness", "message": "What's my readiness?"},
         ],
     }
@@ -1873,6 +1882,34 @@ def _build_error_response(step: StepDefinition) -> dict:
 
 
 # ---- Helpers ---------------------------------------------------------------
+
+def _chip_for_target_date(target_date: str, today_date: str) -> tuple[str, str]:
+    """Return (label, message) for a schedule chip that routes to the
+    same date the user just booked, not today.
+
+    - target_date == today_date  -> handled by caller
+    - target_date == tomorrow    -> "Show tomorrow" / "What's on tomorrow?"
+    - target_date == any other   -> "Show <Weekday>" / "What's on <weekday>?"
+                                    falling back to explicit ISO date if parsing fails.
+    """
+    from datetime import datetime
+    try:
+        td = datetime.strptime(target_date, "%Y-%m-%d")
+        today_dt = datetime.strptime(today_date, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return ("Show schedule", f"What's on {target_date}?")
+
+    delta = (td.date() - today_dt.date()).days
+    if delta == 1:
+        return ("Show tomorrow", "What's on tomorrow?")
+    if delta == -1:
+        return ("Show yesterday", "What was on yesterday?")
+    # 2-6 days ahead: reference by weekday
+    if 0 < delta <= 6:
+        weekday = td.strftime("%A")
+        return (f"Show {weekday}", f"What's on {weekday}?")
+    return ("Show schedule", f"What's on {target_date}?")
+
 
 def _get_user_message(state: TomoChatState) -> str:
     """Extract the latest user message from state."""

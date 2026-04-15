@@ -52,6 +52,50 @@ def _strip_emoji(text: str) -> str:
     ).strip()
 
 
+def filter_active_and_upcoming(events: list, card_date: str, context) -> list:
+    """Drop events that ended before the athlete's current local time, when
+    the card is for today. Future/past day cards are returned unchanged.
+
+    Shared between data_display and format_response timeline enforcement so
+    both code paths hide finished events consistently.
+    """
+    if not events or not isinstance(events, list) or not context:
+        return events
+    today_date = getattr(context, "today_date", None)
+    current_time = getattr(context, "current_time", None)
+    if not today_date or not current_time or card_date != today_date:
+        return events
+    try:
+        now_hhmm = datetime.strptime(current_time, "%H:%M")
+    except (ValueError, TypeError):
+        return events
+
+    kept: list = []
+    for ev in events:
+        start_iso = ev.get("start_time", "") or ""
+        end_iso = ev.get("end_time", "") or ""
+        try:
+            start_hhmm = datetime.strptime(start_iso[11:16], "%H:%M") if len(start_iso) >= 16 else None
+            end_hhmm = datetime.strptime(end_iso[11:16], "%H:%M") if len(end_iso) >= 16 else None
+        except (ValueError, TypeError):
+            kept.append(ev)
+            continue
+
+        # Drop if event clearly ended before now
+        if end_hhmm is not None and end_hhmm <= now_hhmm:
+            continue
+        # Keep if starts now or later
+        if start_hhmm is not None and start_hhmm >= now_hhmm:
+            kept.append(ev)
+            continue
+        # Keep active (start <= now < end)
+        if end_hhmm is not None and end_hhmm > now_hhmm:
+            kept.append(ev)
+            continue
+        # No end time and start in the past -> assume done, drop
+    return kept
+
+
 def build_schedule_card(data: dict) -> dict | None:
     """Build a schedule_list card from get_today_events result.
 

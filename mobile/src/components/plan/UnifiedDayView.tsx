@@ -331,6 +331,7 @@ export function UnifiedDayView({
                   notes: event.notes || '',
                   intensity: event.intensity || '',
                   linkedPrograms: (event as any).linkedPrograms || [],
+                  sessionPlan: (event as any).sessionPlan ?? null,
                 });
               }}
               onJournalPress={onJournalPress}

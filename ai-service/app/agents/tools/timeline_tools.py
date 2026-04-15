@@ -66,6 +66,15 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         pool = get_pool()
         tz = context.timezone or "UTC"
         target_date = date or context.today_date
+        if tz == "UTC":
+            # Loud warning so we catch the "every time is 3 AM" class of bugs
+            # in Railway logs. An athlete's tz should never fall back to UTC
+            # in production — the mobile client always sends Intl TZ.
+            logger.warning(
+                f"get_today_events: context.timezone is UTC -- "
+                f"schedule card will render times in UTC, not local. "
+                f"user_id={user_id[:8]}... date={target_date}"
+            )
         logger.info(f"get_today_events: timezone={tz}, date={target_date}")
 
         async with pool.connection() as conn:

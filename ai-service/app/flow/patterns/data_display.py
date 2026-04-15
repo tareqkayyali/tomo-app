@@ -137,6 +137,18 @@ async def execute_data_display(config: FlowConfig, state: TomoChatState) -> dict
         logger.warning(f"data_display: no builders for tool '{tool_name}'")
         return {}
 
+    # For today's schedule, hide events that already finished so the
+    # card shows active + upcoming only. Shared helper keeps format_response
+    # and data_display in lockstep.
+    if tool_name == "get_today_events" and isinstance(tool_result, dict):
+        from app.flow.card_builders.schedule import filter_active_and_upcoming
+        filtered = filter_active_and_upcoming(
+            tool_result.get("events", []) or [],
+            tool_result.get("date", ""),
+            context,
+        )
+        tool_result = {**tool_result, "events": filtered, "total": len(filtered)}
+
     card_result = builders["card"](tool_result)
 
     # Handle both single card and list of cards
