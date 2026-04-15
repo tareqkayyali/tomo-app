@@ -1603,21 +1603,32 @@ async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
     target_date = flow.get("target_date") or getattr(context, "today_date", "") or ""
     target_event_id = flow.get("target_event_id")
 
-    # Build a plain-text drill list for the notes column. Capped to a
-    # reasonable length so we never blow up the calendar_events.notes
-    # column or any downstream consumer.
-    header_line = f"{focus.title()} session -- built by Tomo"
-    drill_lines = [header_line]
+    # Build a structured session_plan JSONB payload. This is the source of
+    # truth for drill data — mobile renders it in the EventEditScreen Session
+    # Plan block. The notes field is left free for the athlete.
+    structured_drills: list[dict] = []
     total_min = 0
-    for i, d in enumerate(drill_list, start=1):
+    for d in drill_list:
         if not isinstance(d, dict):
             continue
         name = str(d.get("name", "Drill"))
         dur = int(d.get("duration_min", 0) or 0)
-        intensity = str(d.get("intensity", "MODERATE"))
-        drill_lines.append(f"{i}. {name} ({dur}min, {intensity})")
+        intensity = str(d.get("intensity", "MODERATE")).upper()
+        structured_drills.append({
+            "name": name,
+            "category": str(d.get("category", focus)),
+            "durationMin": dur,
+            "intensity": intensity,
+            "description": str(d.get("description", ""))[:400],
+        })
         total_min += dur
-    notes_blob = "\n".join(drill_lines)[:2000]
+
+    session_plan_payload = {
+        "builtBy": "tomo",
+        "focus": str(focus),
+        "totalMinutes": total_min,
+        "drills": structured_drills,
+    }
 
     if target_event_id:
         update_tool = next((t for t in tools if t.name == "update_event"), None)
@@ -1626,7 +1637,7 @@ async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
         try:
             return await update_tool.ainvoke({
                 "event_id": target_event_id,
-                "notes": notes_blob,
+                "session_plan": session_plan_payload,
             })
         except Exception as e:
             logger.error(f"update_event failed: {e}", exc_info=True)
@@ -1651,7 +1662,8 @@ async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
             "start_time": start_time,
             "end_time": end_time,
             "intensity": intensity_raw,
-            "notes": notes_blob,
+            "notes": "",
+            "session_plan": session_plan_payload,
         })
     except Exception as e:
         logger.error(f"create_event failed: {e}", exc_info=True)

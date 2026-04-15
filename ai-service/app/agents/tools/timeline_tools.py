@@ -172,8 +172,9 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         intensity: str = "MODERATE",
         notes: str = "",
         description: str = "",
+        session_plan: dict | None = None,
     ) -> dict:
-        """Create a new calendar event. event_type: training, match, gym, study, exam, rest, personal_dev, club_training, recovery. Date: YYYY-MM-DD. Times: HH:MM (24h). Intensity: LIGHT/MODERATE/HARD. This is a WRITE action requiring confirmation."""
+        """Create a new calendar event. event_type: training, match, gym, study, exam, rest, personal_dev, club_training, recovery. Date: YYYY-MM-DD. Times: HH:MM (24h). Intensity: LIGHT/MODERATE/HARD. Optional session_plan: structured drill list (see session_plan schema in migration 046). This is a WRITE action requiring confirmation."""
         from app.agents.tools.bridge import bridge_post
 
         # Validate date is in the future
@@ -186,20 +187,19 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
             return {"error": "Invalid date format. Use YYYY-MM-DD"}
 
         tz = context.timezone or "UTC"
-        return await bridge_post(
-            "/api/v1/calendar/events",
-            {
-                "name": title,
-                "type": _map_event_type(event_type),
-                "date": date,
-                "startTime": start_time,
-                "endTime": end_time or None,
-                "intensity": intensity,
-                "notes": notes or None,
-                "timezone": tz,
-            },
-            user_id=user_id,
-        )
+        body: dict = {
+            "name": title,
+            "type": _map_event_type(event_type),
+            "date": date,
+            "startTime": start_time,
+            "endTime": end_time or None,
+            "intensity": intensity,
+            "notes": notes or None,
+            "timezone": tz,
+        }
+        if session_plan:
+            body["sessionPlan"] = session_plan
+        return await bridge_post("/api/v1/calendar/events", body, user_id=user_id)
 
     @tool
     async def update_event(
@@ -210,8 +210,9 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         intensity: str = "",
         notes: str = "",
         date: str = "",
+        session_plan: dict | None = None,
     ) -> dict:
-        """Update an existing calendar event. Only provide fields you want to change. event_id MUST be a valid UUID from get_today_events results (the [event_id=...] field). This is a WRITE action requiring confirmation."""
+        """Update an existing calendar event. Only provide fields you want to change. event_id MUST be a valid UUID from get_today_events results (the [event_id=...] field). Optional session_plan: structured drill list (see session_plan schema in migration 046). This is a WRITE action requiring confirmation."""
         from app.agents.tools.bridge import bridge_patch
 
         # Validate event_id looks like a UUID (not an event title)
@@ -237,6 +238,8 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
             body["notes"] = notes
         if date:
             body["date"] = date
+        if session_plan is not None:
+            body["sessionPlan"] = session_plan
 
         # Always pass timezone for proper time conversion
         tz = context.timezone or "UTC"

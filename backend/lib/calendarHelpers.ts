@@ -122,6 +122,7 @@ export function mapDbRowToCalendarEvent(
     endTime,
     intensity: row.intensity || null,
     notes: row.notes || "",
+    sessionPlan: row.session_plan ?? null,
     createdAt: row.created_at,
   };
 }

@@ -595,6 +595,71 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
             />
           </View>
 
+          {/* ═══ Session Plan (read-only, built by Tomo) ═══ */}
+          {params.type === 'training' && (params as any).sessionPlan?.drills?.length > 0 && (
+            <View style={styles.group}>
+              <Text style={styles.groupLabel}>
+                Session Plan{(params as any).sessionPlan?.focus ? ` — ${(params as any).sessionPlan.focus}` : ''}
+              </Text>
+              {((params as any).sessionPlan.drills as any[]).map((d, idx) => {
+                const intensityLabel = d.intensity ? String(d.intensity).toLowerCase() : null;
+                const intensityColor =
+                  intensityLabel === 'hard' ? colors.error :
+                  intensityLabel === 'moderate' || intensityLabel === 'medium' ? colors.warning :
+                  intensityLabel === 'light' ? colors.success :
+                  colors.textMuted;
+                return (
+                  <View
+                    key={`${d.name}-${idx}`}
+                    style={[styles.linkedProgramRow, { backgroundColor: colors.glass }]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.linkedProgramName, { color: colors.textOnDark }]}>
+                        {d.name}
+                      </Text>
+                      {(d.category || d.description) && (
+                        <Text
+                          style={{ fontSize: 11, fontFamily: fontFamily.regular, color: colors.textMuted }}
+                          numberOfLines={2}
+                        >
+                          {d.description || d.category}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {typeof d.durationMin === 'number' && (
+                        <Text style={{ fontSize: 12, fontFamily: fontFamily.medium, color: colors.textMuted }}>
+                          {d.durationMin}m
+                        </Text>
+                      )}
+                      {intensityLabel && (
+                        <View
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 10,
+                            backgroundColor: intensityColor + '22',
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              fontFamily: fontFamily.semiBold,
+                              color: intensityColor,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {intensityLabel}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
           {/* ═══ Linked Programs ═══ */}
           {params.type === 'training' && (
             <View style={styles.group}>

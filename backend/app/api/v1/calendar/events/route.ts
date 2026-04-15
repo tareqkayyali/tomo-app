@@ -50,6 +50,28 @@ const calendarEventSchema = z.object({
     .nullable()
     .optional(),
   notes: z.string().max(500).nullable().optional(),
+  // Structured session plan (drill list built by the AI multi_step flow).
+  // Free-form JSONB validated at app layer; see migration 046.
+  sessionPlan: z
+    .object({
+      builtBy: z.string().optional(),
+      focus: z.string().optional(),
+      totalMinutes: z.number().optional(),
+      drills: z
+        .array(
+          z.object({
+            name: z.string(),
+            category: z.string().optional(),
+            durationMin: z.number().optional(),
+            intensity: z.string().optional(),
+            description: z.string().optional(),
+          })
+        )
+        .optional(),
+    })
+    .passthrough()
+    .nullable()
+    .optional(),
 });
 
 // ─── POST /api/v1/calendar/events ──────────────────────────────────────────
@@ -68,7 +90,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, date, startTime, endTime, intensity, notes, sport } = parsed.data;
+    const { name, date, startTime, endTime, intensity, notes, sport, sessionPlan } = parsed.data;
     const tz = (body as Record<string, unknown>).timezone as string || "UTC";
 
     // Resolve event type: prefer "type" (new), fall back to "eventType" (legacy)
@@ -185,13 +207,14 @@ export async function POST(req: NextRequest) {
       notes: notes || null,
     };
 
-    // Extended fields (intensity, sport, estimated_load_au) — columns added via migrations
+    // Extended fields (intensity, sport, estimated_load_au, session_plan) — columns added via migrations
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const insertData = {
       ...insertBase,
       intensity: intensity || null,
       sport: sport || null,
       estimated_load_au: estimatedLoad,
+      session_plan: sessionPlan ?? null,
     } as typeof insertBase;
 
     const { data: event, error } = await db

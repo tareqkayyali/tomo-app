@@ -303,6 +303,23 @@ export interface LinkedProgram {
 // Journal state for training/match/recovery events
 export type JournalState = 'empty' | 'pre_set' | 'complete';
 
+// Structured drill written by the AI multi_step build_session flow.
+// Persisted as JSONB on calendar_events.session_plan (migration 046).
+export interface SessionPlanDrill {
+  name: string;
+  category?: string;
+  durationMin?: number;
+  intensity?: 'LIGHT' | 'MODERATE' | 'HARD' | string;
+  description?: string;
+}
+
+export interface SessionPlan {
+  builtBy?: string;          // 'tomo' | 'manual'
+  focus?: string;            // 'endurance' | 'strength' | 'speed' | ...
+  totalMinutes?: number;
+  drills?: SessionPlanDrill[];
+}
+
 export interface CalendarEvent {
   id: string;
   userId: string;
@@ -316,6 +333,7 @@ export interface CalendarEvent {
   notes: string;
   createdAt: string;
   linkedPrograms?: LinkedProgram[];
+  sessionPlan?: SessionPlan | null;
   // Journal fields (only for training/match/recovery events)
   journalState?: JournalState | null;
   preTarget?: string | null;

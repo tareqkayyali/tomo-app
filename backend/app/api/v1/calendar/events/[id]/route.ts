@@ -34,6 +34,27 @@ const patchEventSchema = z.object({
   notes: z.string().optional(),
   name: z.string().min(1).max(200).optional(),
   intensity: z.enum(["REST", "LIGHT", "MODERATE", "HARD", "rest", "light", "moderate", "medium", "hard"]).nullable().optional(),
+  // Structured session plan (drill list). See migration 046.
+  sessionPlan: z
+    .object({
+      builtBy: z.string().optional(),
+      focus: z.string().optional(),
+      totalMinutes: z.number().optional(),
+      drills: z
+        .array(
+          z.object({
+            name: z.string(),
+            category: z.string().optional(),
+            durationMin: z.number().optional(),
+            intensity: z.string().optional(),
+            description: z.string().optional(),
+          })
+        )
+        .optional(),
+    })
+    .passthrough()
+    .nullable()
+    .optional(),
 });
 
 // ─── Helper: check if a date is locked for a user ──────────────────────────
@@ -98,7 +119,7 @@ export async function PATCH(
     }
 
     // If moving to a different date, check that date's lock too
-    const { startTime, endTime, date: newDate, notes, name, intensity } = parsed.data;
+    const { startTime, endTime, date: newDate, notes, name, intensity, sessionPlan } = parsed.data;
     const targetDate = newDate || currentDate;
 
     if (newDate && newDate !== currentDate) {
@@ -145,6 +166,10 @@ export async function PATCH(
 
     if (intensity !== undefined) {
       update.intensity = intensity;
+    }
+
+    if (sessionPlan !== undefined) {
+      update.session_plan = sessionPlan;
     }
 
     if (Object.keys(update).length === 0) {
