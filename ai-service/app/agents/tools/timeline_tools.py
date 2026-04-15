@@ -73,7 +73,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
                 """SELECT id, title, event_type,
                           (start_at AT TIME ZONE %s)::text,
                           (end_at AT TIME ZONE %s)::text,
-                          intensity, notes, sport
+                          intensity, notes, sport, session_plan
                    FROM calendar_events
                    WHERE user_id = %s
                      AND (start_at AT TIME ZONE %s)::date = %s::date
@@ -84,7 +84,7 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
 
         events = [
             {
-                "id": str(row[0]),  # str() — psycopg3 returns uuid.UUID, not JSON serializable
+                "id": str(row[0]),  # str() -- psycopg3 returns uuid.UUID, not JSON serializable
                 "title": row[1],
                 "event_type": row[2],
                 "start_time": row[3],
@@ -92,6 +92,11 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
                 "intensity": row[5],
                 "notes": row[6],
                 "sport": row[7],
+                # session_plan JSONB -- structured drill list for Tomo-built
+                # sessions. Multi-step flow reads this when attaching new
+                # drills to an existing event so it can merge rather than
+                # overwrite. None for events that were never AI-built.
+                "session_plan": row[8],
             }
             for row in rows
         ]

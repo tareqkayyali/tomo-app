@@ -969,6 +969,61 @@ async def _present_fork_choice(flow: FlowState, fork_result: dict, state: TomoCh
     }
 
 
+def _build_session_plan_chips(
+    *,
+    focus: str,
+    attaching_existing: bool,
+    total_min: int,
+    drill_count: int,
+) -> list[dict]:
+    """Build context-aware chips for the session_plan preview card.
+
+    Rationale: the old chips were always ["Looks good", "Make it lighter"],
+    which ignored whether we were creating a new event vs attaching to an
+    existing one, and ignored the focus. Context-aware chips give the
+    athlete shortcuts that reflect what they're actually looking at.
+
+    Behavior:
+      - Primary "advance" chip always first ("Looks good" / "Save it").
+      - Intensity swap chips only appear for non-recovery focus (you don't
+        make a recovery session "lighter").
+      - Attach vs fresh flows get different secondary chips because the
+        next step is different (confirm vs time picker).
+      - A focus-specific swap suggestion rounds out the row so athletes
+        can pivot without rebuilding from scratch.
+    """
+    focus_lower = (focus or "training").lower()
+    is_recovery = focus_lower in ("recovery", "rest", "active recovery", "mobility")
+
+    advance_label = "Save to session" if attaching_existing else "Looks good"
+    chips: list[dict] = [
+        {"label": advance_label, "message": "Looks good"},
+    ]
+
+    # Intensity swaps -- skip for recovery (makes no sense to make it lighter)
+    if not is_recovery:
+        chips.append({"label": "Make it lighter", "message": "Can you make it lighter?"})
+        # Heavier swap only if current volume is modest (<=30 min) so we
+        # don't push an already-heavy plan into overtraining territory.
+        if total_min and total_min <= 30:
+            chips.append({"label": "Go harder", "message": "Can you make it harder?"})
+
+    # Focus-specific swap suggestion (one alternative focus to pivot to)
+    FOCUS_SWAP = {
+        "endurance": ("Try speed instead", "Swap to speed work"),
+        "speed": ("Try endurance instead", "Swap to endurance"),
+        "strength": ("Try power instead", "Swap to power work"),
+        "power": ("Try strength instead", "Swap to strength"),
+        "technical": ("Add conditioning", "Add conditioning to this"),
+        "recovery": ("Light mobility", "Make it a mobility flow"),
+    }
+    swap = FOCUS_SWAP.get(focus_lower)
+    if swap and len(chips) < 4:
+        chips.append({"label": swap[0], "message": swap[1]})
+
+    return chips
+
+
 async def _build_session_step(step: StepDefinition, flow: FlowState, state: TomoChatState) -> dict:
     """Build a training session and present as session_plan card."""
     # Call get_training_session with selected focus
@@ -1101,13 +1156,12 @@ async def _build_session_step(step: StepDefinition, flow: FlowState, state: Tomo
             "readiness": card_readiness,
             "items": card_items,
         }],
-        # Chips tuned to the new flow: if attaching to existing event we
-        # go straight to confirm next; if fresh, the next step is a time
-        # picker. Either way "Looks good" advances the flow.
-        "chips": [
-            {"label": "Looks good", "message": "Looks good"},
-            {"label": "Make it lighter", "message": "Can you make it lighter?"},
-        ],
+        "chips": _build_session_plan_chips(
+            focus=focus,
+            attaching_existing=attaching_existing,
+            total_min=total_min,
+            drill_count=len(card_items),
+        ),
     }
 
     # Save state for confirm step
@@ -1698,10 +1752,47 @@ async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
         update_tool = next((t for t in tools if t.name == "update_event"), None)
         if not update_tool:
             return {"error": "update_event unavailable"}
+
+        # ── Merge with existing drills instead of overwriting ──
+        # The backend PATCH route replaces session_plan wholesale, so we
+        # do the merge client-side in the flow. Pull the existing event's
+        # session_plan from the cached calendar snapshot (step_check_calendar_result)
+        # and append new drills to the existing list. Always append, never
+        # replace -- avoids the "did Tomo just wipe my drills?!" data-loss
+        # risk. If the user wants to start over they delete manually.
+        existing_events = (flow.get("step_check_calendar_result", {}) or {}).get("events", []) or []
+        existing_event = next(
+            (ev for ev in existing_events if str(ev.get("id", "")) == str(target_event_id)),
+            None,
+        )
+        existing_plan = (existing_event or {}).get("session_plan") if existing_event else None
+        merged_drills: list[dict] = []
+        merged_total = 0
+        if isinstance(existing_plan, dict):
+            prior = existing_plan.get("drills", []) if isinstance(existing_plan.get("drills"), list) else []
+            for pd in prior:
+                if isinstance(pd, dict):
+                    merged_drills.append(pd)
+                    merged_total += int(pd.get("durationMin", 0) or 0)
+        merged_drills.extend(structured_drills)
+        merged_total += total_min
+
+        merged_payload = {
+            "builtBy": "tomo",
+            "focus": (existing_plan or {}).get("focus") or str(focus),
+            "totalMinutes": merged_total,
+            "drills": merged_drills,
+        }
+
+        logger.info(
+            f"_execute_confirm_tool: merging drills -- existing={len(merged_drills) - len(structured_drills)} "
+            f"new={len(structured_drills)} total={len(merged_drills)} totalMin={merged_total}"
+        )
+
         try:
             return await update_tool.ainvoke({
                 "event_id": target_event_id,
-                "session_plan": session_plan_payload,
+                "session_plan": merged_payload,
             })
         except Exception as e:
             logger.error(f"update_event failed: {e}", exc_info=True)

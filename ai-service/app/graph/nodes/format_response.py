@@ -253,6 +253,100 @@ def _ensure_timeline_card(structured: dict, state: TomoChatState) -> dict:
     return structured
 
 
+def _chips_from_top_card(structured: dict, state: TomoChatState) -> list[dict]:
+    """Build context-aware chips from the content of the top card.
+
+    Fires ONLY when the agent produced no chips AND a data card exists
+    AND the intent is not a conversation-open one (smalltalk/greeting).
+    Conservative by design: returning [] means the downstream fallbacks
+    (timeline defaults, check-in pill) take over.
+
+    The goal is to reference what the athlete is actually looking at in
+    the card -- e.g. if a stat_grid shows readiness/recovery, suggest a
+    follow-up that references the top metric instead of a generic menu.
+    """
+    if not state:
+        return []
+
+    # Never overwrite agent-specified empty chips for conversational intents
+    intent_id = state.get("intent_id", "") or ""
+    if intent_id in ("smalltalk", "greeting"):
+        return []
+
+    cards = structured.get("cards", []) or []
+    if not cards:
+        return []
+
+    top = cards[0]
+    card_type = top.get("type", "")
+
+    # ── Readiness card: chips reference the actual level ──
+    if card_type in ("readiness_card", "readiness"):
+        level_raw = str(top.get("level") or top.get("rag") or top.get("status") or "").upper()
+        if "RED" in level_raw:
+            return [
+                {"label": "Recovery tips", "message": "What recovery should I do today?"},
+                {"label": "Show schedule", "message": "What's on today?"},
+            ]
+        if "YELLOW" in level_raw or "AMBER" in level_raw:
+            return [
+                {"label": "Light session", "message": "Build me a light session"},
+                {"label": "Show schedule", "message": "What's on today?"},
+            ]
+        if "GREEN" in level_raw:
+            return [
+                {"label": "Build session", "message": "Build me a training session"},
+                {"label": "Show schedule", "message": "What's on today?"},
+            ]
+
+    # ── Stat grid: reference top metric label ──
+    if card_type == "stat_grid":
+        items = top.get("items", []) or []
+        if items:
+            first = items[0] if isinstance(items[0], dict) else {}
+            label = str(first.get("label") or "").strip()
+            if label:
+                return [
+                    {"label": f"More on {label.lower()}", "message": f"Tell me more about my {label.lower()}"},
+                    {"label": "Full breakdown", "message": "Show my full breakdown"},
+                ]
+
+    # ── Schedule list: reference first event ──
+    if card_type == "schedule_list":
+        events = top.get("events", []) or top.get("items", []) or []
+        if events:
+            first = events[0] if isinstance(events[0], dict) else {}
+            title = str(first.get("title") or first.get("label") or "").strip()
+            if title:
+                short = title[:24]
+                return [
+                    {"label": f"Move {short}", "message": f"Reschedule {title}"},
+                    {"label": "Add event", "message": "Add an event to my schedule"},
+                ]
+        return [
+            {"label": "Add event", "message": "Add an event to my schedule"},
+            {"label": "Show my week", "message": "What does my week look like?"},
+        ]
+
+    # ── Session plan: already handled by _build_session_plan_chips in
+    # multi_step. If a session_plan card slips through here with no chips,
+    # fall back to a sensible pair.
+    if card_type == "session_plan":
+        return [
+            {"label": "Looks good", "message": "Looks good"},
+            {"label": "Make it lighter", "message": "Can you make it lighter?"},
+        ]
+
+    # ── Week plan: navigation shortcuts ──
+    if card_type == "week_plan":
+        return [
+            {"label": "Next week", "message": "Show me next week"},
+            {"label": "Add event", "message": "Add an event to my schedule"},
+        ]
+
+    return []
+
+
 def _ensure_timeline_chips(structured: dict, state: TomoChatState) -> dict:
     """Add contextual chips for timeline agent responses when none exist."""
     if not state or state.get("selected_agent") != "timeline":
@@ -310,6 +404,16 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
         if isinstance(c, dict) and c.get("label") and c.get("message")
     ]
     structured["chips"] = valid_chips[:2]
+
+    # 2b. Card-content chip upgrade: if the agent produced no chips AND
+    # there's a data card to reference, build chips that point at the
+    # actual card content (e.g. readiness RED -> "Recovery tips",
+    # stat_grid top metric -> "More on readiness"). Conservative: only
+    # fires when chips are empty; never overwrites agent-specific chips.
+    if not structured["chips"]:
+        card_chips = _chips_from_top_card(structured, state)
+        if card_chips:
+            structured["chips"] = card_chips[:2]
 
     # 3. Reorder cards: data cards first, then text/advisory
     cards = structured.get("cards", [])

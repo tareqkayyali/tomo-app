@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Optional
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
@@ -26,18 +27,40 @@ from app.utils.message_helpers import get_msg_type, get_msg_content
 logger = logging.getLogger("tomo-ai.conversation_history")
 
 # ── Token Budget ──────────────────────────────────────────────────
-# 5K tokens for history (down from 12K). The full context window includes:
-#   History: ~5K tokens (this budget)
-#   System prompt: ~2K tokens (static block cached)
-#   Dynamic block: ~1.5K tokens (player context, safety, RAG, memory)
-#   Tool results: ~3K per tool call (up to 5 iterations)
-# Total: ~15-20K per turn — well within Haiku's 200K window while keeping latency low.
-TOKEN_BUDGET = 5000
-CHARS_PER_TOKEN = 4
-CHAR_BUDGET = TOKEN_BUDGET * CHARS_PER_TOKEN  # 20000 chars
+# Default: 8K tokens for history (was 5K). Compression for older messages
+# is deterministic ($0) so the bump only buys us MORE fidelity on recent
+# turns, not more cost. Env-var gated so we can tune per-tier without a
+# redeploy if latency spikes.
+#
+# The full context window includes:
+#   History:        ~8K tokens (this budget)
+#   System prompt:  ~2K tokens (static block cached)
+#   Dynamic block:  ~1.5K tokens (player context, safety, RAG, memory)
+#   Tool results:   ~3K per tool call (up to 5 iterations)
+# Total: ~18-25K per turn -- still well within Haiku's 200K window.
+def _int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        val = int(raw)
+        return val if val > 0 else default
+    except ValueError:
+        return default
 
-MAX_HISTORY_ROWS = 30  # Safety cap on DB query (was 50 — 30 is 15 turns max)
-KEEP_RECENT = 4        # Last 2 user-assistant pairs kept verbatim
+
+TOKEN_BUDGET = _int_env("CHAT_TOKEN_BUDGET", 8000)
+CHARS_PER_TOKEN = 4
+CHAR_BUDGET = TOKEN_BUDGET * CHARS_PER_TOKEN  # 32000 chars at default
+
+MAX_HISTORY_ROWS = _int_env("CHAT_MAX_HISTORY_ROWS", 30)  # Safety cap on DB query
+KEEP_RECENT = _int_env("CHAT_KEEP_RECENT", 4)             # Verbatim recent messages
+
+logger.info(
+    f"conversation_history config: TOKEN_BUDGET={TOKEN_BUDGET} "
+    f"CHAR_BUDGET={CHAR_BUDGET} MAX_HISTORY_ROWS={MAX_HISTORY_ROWS} "
+    f"KEEP_RECENT={KEEP_RECENT}"
+)
 
 
 async def load_conversation_history(
