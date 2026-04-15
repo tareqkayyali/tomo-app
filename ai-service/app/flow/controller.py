@@ -49,13 +49,16 @@ async def flow_controller_node(state: TomoChatState) -> dict:
     if not _FLOW_CONTROLLER_ENABLED:
         return {}
 
-    # Skip flow controller for confirmed write actions
-    if state.get("write_confirmed") and state.get("pending_write_action"):
-        return {}
-
     # ── 1. Check for active multi-step flow (continuation) ──
-    # This runs BEFORE registry lookup so in-progress flows aren't
-    # hijacked by the classifier re-classifying the user's choice.
+    # This runs BEFORE the write_confirmed short-circuit so multi-step
+    # flows handle their own confirm/cancel turns. The supervisor sets
+    # write_confirmed=True whenever the mobile echoes a confirmedAction
+    # payload -- if we short-circuit first, the confirmation turn falls
+    # through to execute_confirmed_action (agent_dispatch) instead of
+    # multi_step continuation, and the "multi_step_confirm" marker tool
+    # fails to resolve. The active-flow check naturally takes priority
+    # because the flow state is the source of truth, not the echoed
+    # confirmedAction payload.
     try:
         from app.flow.step_tracker import load_active_flow
 
@@ -97,7 +100,14 @@ async def flow_controller_node(state: TomoChatState) -> dict:
         except Exception:
             pass
 
-    # ── 2. Check FLOW_REGISTRY for new intent ──
+    # ── 2. Regular agent confirm path (non-multi_step writes) ──
+    # After the active-flow check: if there's no active flow but the
+    # supervisor injected a confirmedAction, let the route_after
+    # edge send this to the agent_dispatch confirm handler.
+    if state.get("write_confirmed") and state.get("pending_write_action"):
+        return {}
+
+    # ── 3. Check FLOW_REGISTRY for new intent ──
     intent_id = state.get("intent_id")
     if not intent_id:
         return {}

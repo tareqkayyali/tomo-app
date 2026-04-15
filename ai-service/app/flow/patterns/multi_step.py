@@ -1099,6 +1099,49 @@ async def _present_confirm(flow: FlowState, state: TomoChatState) -> dict:
         flow,
     )
 
+    # Emit pending_write_action so chat.py can wire it into the SSE
+    # response as `pendingConfirmation`. Without this, the mobile app
+    # never attaches a confirmAction to the DisplayMessage and the
+    # CONFIRM button's onPress handler is undefined -- the button
+    # silently no-ops when tapped.
+    #
+    # The shape mirrors the regular agent write-action payload from
+    # agent_dispatch.py so the existing mobile handler (HomeScreen
+    # confirmHandler + ChatBubble onConfirm) works with zero mobile
+    # changes. `preview` MUST be a phrase that _is_confirmation()
+    # matches -- "Confirm" lands in the canonical set at line 1672-1676.
+    #
+    # The _multi_step_flow marker lets flow_controller_node route the
+    # confirmation turn back into execute_multi_step_continuation
+    # instead of the regular execute_confirmed_action path (which
+    # would try to invoke a nonexistent "multi_step_confirm" tool).
+    flow_action = {
+        "toolName": "multi_step_confirm",
+        "toolInput": {
+            "flow_id": flow.flow_id,
+            "intent": flow.intent_id,
+            "focus": focus,
+            "target_date": target_date,
+            "target_event_id": target_event_id or "",
+            "selected_time": selected_time,
+        },
+        "agentType": "flow",
+        "toolCallId": f"flow_confirm_{flow.flow_id}",
+    }
+    pending_write_action = {
+        "actions": [flow_action],
+        "preview": "Confirm",
+        "primary_action": flow_action,
+        # Top-level fields the mobile HomeScreen handler reads when
+        # building the confirmedAction payload for the next turn.
+        "toolName": flow_action["toolName"],
+        "toolInput": flow_action["toolInput"],
+        "agentType": flow_action["agentType"],
+        # Marker used by flow_controller_node to route the confirmation
+        # turn into multi_step continuation instead of agent_dispatch.
+        "_multi_step_flow": True,
+    }
+
     return {
         "final_response": json.dumps(structured),
         "final_cards": structured["cards"],
@@ -1106,6 +1149,7 @@ async def _present_confirm(flow: FlowState, state: TomoChatState) -> dict:
         "route_decision": "flow_handled",
         "total_cost_usd": 0.0,
         "total_tokens": 0,
+        "pending_write_action": pending_write_action,
     }
 
 
@@ -1143,6 +1187,10 @@ def _build_completion_response(flow: FlowState) -> dict:
             "route_decision": "flow_handled",
             "total_cost_usd": 0.0,
             "total_tokens": 0,
+            # Clear pending write state so chat.py doesn't re-emit
+            # a stale confirmAction on the retry turn.
+            "pending_write_action": None,
+            "write_confirmed": False,
         }
 
     if target_event_id:
@@ -1177,6 +1225,13 @@ def _build_completion_response(flow: FlowState) -> dict:
         "route_decision": "flow_handled",
         "total_cost_usd": 0.0,
         "total_tokens": 0,
+        # Booking succeeded -- clear the pending write action the
+        # supervisor injected from confirmed_action so chat.py does
+        # not re-emit it as pendingConfirmation. Without this the
+        # mobile would stay stuck in confirm-button state after the
+        # session is booked.
+        "pending_write_action": None,
+        "write_confirmed": False,
     }
 
 
@@ -1493,6 +1548,10 @@ def _build_cancel_response() -> dict:
         "route_decision": "flow_handled",
         "total_cost_usd": 0.0,
         "total_tokens": 0,
+        # Explicitly clear the pending write action so chat.py doesn't
+        # re-emit it as pendingConfirmation on the next SSE event.
+        "pending_write_action": None,
+        "write_confirmed": False,
     }
 
 
