@@ -6,7 +6,7 @@ import {
   suggestBestTimes,
   format12h,
   minutesToTime,
-  DEFAULT_CONFIG,
+  getSchedulingConfigFromCMS,
 } from "@/services/schedulingEngine";
 import type { ScheduleEvent } from "@/services/schedulingEngine";
 
@@ -70,8 +70,8 @@ export async function GET(req: NextRequest) {
     // Get day of week (0=Sun, 6=Sat)
     const dayOfWeek = new Date(date).getDay();
 
-    // Build config with school schedule if available
-    const config = { ...DEFAULT_CONFIG };
+    // Build config from CMS scheduling_rules, then layer on school schedule
+    const config = await getSchedulingConfigFromCMS();
 
     // Get user schedule preferences for school hours
     const { data: prefs } = await db

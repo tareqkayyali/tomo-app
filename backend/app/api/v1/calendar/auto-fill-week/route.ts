@@ -16,7 +16,7 @@ import {
   autoPosition,
   timeToMinutes,
   minutesToTime,
-  DEFAULT_CONFIG,
+  getSchedulingConfigFromCMS,
 } from "@/services/schedulingEngine";
 import type { ScheduleEvent } from "@/services/schedulingEngine";
 import {
@@ -134,8 +134,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Position events using the scheduling engine (conflict-free placement)
-    const config = { ...DEFAULT_CONFIG, gapMinutes };
+    // 2. Position events using the scheduling engine (CMS rules + per-call gap override)
+    const config = { ...(await getSchedulingConfigFromCMS()), gapMinutes };
     const proposedEvents: ProposedEvent[] = [];
 
     // Group suggestions by date

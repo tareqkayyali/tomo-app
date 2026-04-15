@@ -63,6 +63,11 @@ export interface ScheduleEvent {
 }
 
 // ── Default Config ───────────────────────────────────────────────
+//
+// DEFAULT_CONFIG is the static fallback used when the CMS-managed
+// scheduling_rules row (migration 047) is unreachable. Prefer
+// `getSchedulingConfigFromCMS()` (below) for any new code path that
+// needs a live config — it loads from the DB via schedulingRulesLoader.
 
 export const DEFAULT_CONFIG: SchedulingConfig = {
   gapMinutes: 30,
@@ -72,6 +77,37 @@ export const DEFAULT_CONFIG: SchedulingConfig = {
   dayEndHour: 22,
   preferredTrainingWindow: { startMin: 930, endMin: 1140 }, // 3:30 PM - 7:00 PM
 };
+
+/**
+ * Build a SchedulingConfig from the CMS-managed scheduling_rules row.
+ * Translates the admin-editable shape into the engine's internal shape.
+ * Any missing field falls back to DEFAULT_CONFIG.
+ */
+export async function getSchedulingConfigFromCMS(): Promise<SchedulingConfig> {
+  // Import lazily so this module stays usable by non-Next.js consumers
+  // (unit tests, scripts) without pulling in Supabase.
+  const { getActiveSchedulingConfig } = await import("@/lib/schedulingRulesLoader");
+  const cms = await getActiveSchedulingConfig();
+  return {
+    gapMinutes: cms.buffers.default,
+    respectSchoolHours: DEFAULT_CONFIG.respectSchoolHours,
+    schoolSchedule: null, // set per-request from player_schedule_preferences
+    dayStartHour: cms.dayWindow.startHour,
+    dayEndHour: cms.dayWindow.endHour,
+    preferredTrainingWindow: {
+      startMin: cms.preferredTrainingWindow.startMin,
+      endMin: cms.preferredTrainingWindow.endMin,
+    },
+    ruleOverrides: {
+      gapAfterHighIntensity: cms.buffers.afterHighIntensity,
+      gapAfterMatch: cms.buffers.afterMatch,
+      gapBeforeMatch: cms.buffers.beforeMatch,
+      maxSessionsPerDay: cms.limits.maxSessionsPerDay,
+      noHardOnExamDay: cms.limits.noHardOnExamDay,
+      intensityCapOnExamDays: cms.limits.intensityCapOnExamDays,
+    },
+  };
+}
 
 // ── Helpers ──────────────────────────────────────────────────────
 

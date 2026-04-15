@@ -134,6 +134,7 @@ const navigation: NavGroup[] = [
     items: [
       { name: "Debug Console", href: "/admin/debug" },
       { name: "Feature Flags", href: "/admin/feature-flags" },
+      { name: "Scheduling Rules", href: "/admin/scheduling-rules" },
     ],
   },
 ];

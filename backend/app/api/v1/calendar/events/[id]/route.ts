@@ -8,7 +8,7 @@ import {
   autoPosition,
   timeToMinutes,
   minutesToTime,
-  DEFAULT_CONFIG,
+  getSchedulingConfigFromCMS,
 } from "@/services/schedulingEngine";
 import type { ScheduleEvent } from "@/services/schedulingEngine";
 import { bridgeCalendarToEventStream } from "@/services/events/calendarBridge";
@@ -214,7 +214,7 @@ export async function PATCH(
         };
       });
 
-      const config = { ...DEFAULT_CONFIG };
+      const config = await getSchedulingConfigFromCMS();
       const gapPref = (body as Record<string, unknown>).gapMinutes;
       if (typeof gapPref === "number" && gapPref >= 0 && gapPref <= 120) {
         config.gapMinutes = gapPref;

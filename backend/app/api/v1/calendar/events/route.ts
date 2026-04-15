@@ -13,7 +13,7 @@ import {
   autoPosition,
   timeToMinutes,
   minutesToTime,
-  DEFAULT_CONFIG,
+  getSchedulingConfigFromCMS,
 } from "@/services/schedulingEngine";
 import type { ScheduleEvent } from "@/services/schedulingEngine";
 import { estimateTotalLoad } from "@/services/events/computations/loadEstimator";
@@ -151,8 +151,8 @@ export async function POST(req: NextRequest) {
         };
       });
 
-      // Get user gap preference (default 30)
-      const config = { ...DEFAULT_CONFIG };
+      // CMS scheduling rules (live-editable via admin panel)
+      const config = await getSchedulingConfigFromCMS();
       const gapPref = (body as Record<string, unknown>).gapMinutes;
       if (typeof gapPref === "number" && gapPref >= 0 && gapPref <= 120) {
         config.gapMinutes = gapPref;
