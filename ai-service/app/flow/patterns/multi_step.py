@@ -1483,18 +1483,82 @@ _TIME_PICKER_OPTIONS = [
 
 
 async def _present_time_picker(flow: FlowState, state: TomoChatState) -> dict:
-    """Render the time picker card for a brand-new fresh session."""
+    """Render the time picker for a brand-new fresh session.
+
+    Calls the backend /calendar/suggest-slots endpoint which uses the real
+    schedulingEngine (respects school hours, buffers, existing events,
+    readiness). Falls back to the static preset list only if that call
+    fails — never leaves the user stuck.
+    """
     target_date = flow.get("target_date", "")
     date_hint = f" for {target_date}" if target_date else ""
 
-    structured = {
-        "headline": f"When do you want to run it{date_hint}?",
-        "body": "Pick a slot that fits around school and recovery.",
-        "cards": [],
-        "chips": [
+    # Compute total session duration from the drills we already built.
+    drills_blob = flow.get("session_drills", {}) or {}
+    drill_list = drills_blob.get("drills", []) if isinstance(drills_blob, dict) else []
+    total_min = 0
+    for d in drill_list:
+        if isinstance(d, dict):
+            total_min += int(d.get("duration_min", 0) or 0)
+    if total_min <= 0:
+        total_min = 45  # sensible default if somehow drills are empty
+
+    # Persist duration so _execute_confirm_tool can trust it later.
+    flow.store("session_total_min", total_min)
+
+    # Call backend suggest-slots (schedule engine: school hours, buffer,
+    # existing-event conflict, readiness-aware). Degrade gracefully on error.
+    chips: list[dict] = []
+    body_text = "Pick a slot that fits around school and recovery."
+    try:
+        from app.agents.tools.bridge import bridge_get
+        context = state.get("player_context")
+        tz = getattr(context, "timezone", None) or "UTC"
+        result = await bridge_get(
+            "/api/v1/calendar/suggest-slots",
+            params={
+                "date": target_date or "",
+                "eventType": "training",
+                "durationMin": str(total_min),
+                "timezone": tz,
+            },
+            user_id=state.get("user_id", ""),
+        )
+        slots = result.get("slots", []) if isinstance(result, dict) else []
+        for slot in slots[:5]:
+            start_24 = slot.get("startTime24")
+            start_12 = slot.get("start")
+            end_12 = slot.get("end")
+            if not start_24:
+                continue
+            label = f"{start_12} - {end_12}" if start_12 and end_12 else start_24
+            chips.append({"label": label, "message": start_24})
+
+        # Surface existing-event count in the body text so the athlete
+        # understands why certain times are excluded.
+        existing = result.get("existingEvents", []) if isinstance(result, dict) else []
+        if existing:
+            count = len(existing)
+            body_text = (
+                f"{count} thing{'s' if count != 1 else ''} already on {target_date or 'that day'}. "
+                f"Here's what fits around {'them' if count != 1 else 'it'}."
+            )
+    except Exception as e:
+        logger.warning(f"suggest-slots call failed, falling back to presets: {e}")
+
+    # Fallback: static presets if the backend returned nothing.
+    if not chips:
+        chips = [
             {"label": opt["label"], "message": opt["value"]}
             for opt in _TIME_PICKER_OPTIONS
-        ],
+        ]
+        body_text = "Couldn't read your schedule — pick a rough slot."
+
+    structured = {
+        "headline": f"When do you want to run it{date_hint}?",
+        "body": body_text,
+        "cards": [],
+        "chips": chips,
     }
 
     await save_flow_state(
