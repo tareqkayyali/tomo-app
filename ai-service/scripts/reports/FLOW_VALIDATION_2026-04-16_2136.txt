@@ -1,0 +1,93 @@
+========================================================================
+  TOMO AI — 4-Layer Flow Validation Report
+  Generated: 2026-04-16T21:36:24.821121
+========================================================================
+
+============================================================
+  Layer 1: Intent Classification Accuracy
+  561/561 passed (100%)
+============================================================
+
+  [exact_match] 418/418 passed
+
+  [fallthrough_safety] 6/6 passed
+
+  [date_extraction] 7/7 passed
+
+  [focus_extraction] 10/10 passed
+
+  [registry_coverage] 102/102 passed
+
+  [haiku_classification] 18/18 passed
+
+============================================================
+  Layer 2: Flow Pattern Validation
+  22/22 passed (100%)
+============================================================
+
+  [flow_pattern] 22/22 passed
+
+============================================================
+  Layer 3: End-to-End Pipeline Integration
+  20/20 passed (100%)
+============================================================
+
+  [e2e_pipeline] 20/20 passed
+
+============================================================
+  Layer 4: Capsule Action & Multi-Step Chain
+  12/13 passed (92%)
+============================================================
+
+  [write_action] 2/2 passed
+
+  [capsule_chain] 5/5 passed
+
+  [capsule_variants] 3/4 passed
+    FAIL: Variant: 'i want to do speed work' -> scheduling card
+      expected: scheduling_capsule|choice_card|session_plan
+      actual:   card_types=['confirm_card']
+
+  [data_display_chain] 2/2 passed
+
+============================================================
+  Layer 5: Response Format Validation
+  126/126 passed (100%)
+============================================================
+
+  [response_structure] 18/18 passed
+
+  [headline_present] 18/18 passed
+
+  [chips_capped] 18/18 passed
+
+  [chip_shape_valid] 13/13 passed
+
+  [no_body_headline_dup] 18/18 passed
+
+  [no_emoji] 18/18 passed
+
+  [card_type_valid] 13/13 passed
+
+  [card_present] 10/10 passed
+
+========================================================================
+  AGGREGATE
+========================================================================
+  Total tests: 742
+  Total passed: 741 (100%)
+  Total time: 139.1s
+  Total cost: $-0.0501
+
+========================================================================
+  DEPLOY GATE
+========================================================================
+  [PASS] Layer 1 (Intent Classification Accuracy): 100% (threshold: 95%)
+  [PASS] Layer 2 (Flow Pattern Validation): 100% (threshold: 90%)
+  [PASS] Layer 3 (End-to-End Pipeline Integration): 100% (threshold: 85%)
+  [PASS] Layer 4 (Capsule Action & Multi-Step Chain): 92% (threshold: 90%)
+  [PASS] Layer 5 (Response Format Validation): 100% (threshold: 85%)
+  [PASS] Overall: 100% (threshold: 90%)
+
+  DEPLOY GATE: PASSED
+========================================================================

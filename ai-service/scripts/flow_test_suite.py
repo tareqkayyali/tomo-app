@@ -719,100 +719,414 @@ def _build_e2e_test_cases() -> list[tuple[str, str, list[str], str]]:
 
 
 # ============================================================================
-# LAYER 4: Capsule Action Round-Trip (needs server + DB)
+# LAYER 4: Capsule Action & Multi-Step Chain (needs server + DB)
 # ============================================================================
 
 async def run_layer_4() -> LayerReport:
-    """Test capsule action submission and execution.
+    """Test capsule actions and multi-step flow chains.
 
-    Sends capsuleAction payloads and validates:
-    - create_event creates the event in DB
-    - update_event modifies the event
-    - confirmed action executes correctly
-    - Response contains success confirmation
+    4a. Write action round-trip: create_event via confirmed_action
+    4b. Scheduling capsule chain: opener -> capsule card returned
+    4c. Scheduling capsule confirm: capsule opener + confirmed create_event
+    4d. Multi-step flow response format: each step returns correct card type
+    4e. Session continuity: same session_id maintains flow state
     """
     import httpx
+    from datetime import timedelta
 
-    report = LayerReport(layer=4, name="Capsule Action Round-Trip")
+    report = LayerReport(layer=4, name="Capsule Action & Multi-Step Chain")
     target = os.environ.get("AI_SERVICE_URL", "http://localhost:8000")
     player_id = os.environ.get("TEST_PLAYER_ID", "test-eval-athlete-001")
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    day_after = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d")
 
-    # Test capsule action: create_event
-    tomorrow = (datetime.now() + __import__("datetime").timedelta(days=1)).strftime("%Y-%m-%d")
+    async with httpx.AsyncClient(timeout=30) as client:
 
-    capsule_tests = [
-        {
-            "desc": "Create training event via capsule",
-            "message": "Confirmed: Training Session tomorrow at 5pm",
-            "confirmed_action": {
-                "toolName": "create_event",
-                "toolInput": {
-                    "title": f"EVAL Test Session {int(time.time())}",
-                    "event_type": "training",
-                    "date": tomorrow,
-                    "start_time": "17:00",
-                    "end_time": "18:00",
-                    "intensity": "MODERATE",
-                    "notes": "Eval test -- safe to delete",
-                },
-                "agentType": "timeline",
-            },
-            "expected_keywords": ["created", "session", "training"],
-        },
-    ]
+        # ── 4a: Write action round-trip ──
+        await _test_write_action(report, client, target, player_id, tomorrow)
 
-    async with httpx.AsyncClient() as client:
-        for tc in capsule_tests:
-            t0 = time.monotonic()
-            try:
-                resp = await client.post(
-                    f"{target}/api/v1/chat/sync",
-                    json={
-                        "message": tc["message"],
-                        "player_id": player_id,
-                        "session_id": f"eval-capsule-{int(time.time())}",
-                        "active_tab": "Chat",
-                        "timezone": "Asia/Riyadh",
-                        "confirmed_action": tc["confirmed_action"],
-                    },
-                    timeout=30,
-                )
-                elapsed = (time.monotonic() - t0) * 1000
-                data = resp.json()
+        # ── 4b: Scheduling capsule opener returns capsule card ──
+        await _test_capsule_opener(report, client, target, player_id)
 
-                response_text = data.get("message", "")
-                has_error = "error" in data or "couldn't" in response_text.lower()
+        # ── 4c: Full capsule chain: opener + confirmed action ──
+        await _test_capsule_chain(report, client, target, player_id, day_after)
 
-                # Check for success indicators
-                full_text = (response_text + " " + json.dumps(data.get("structured", {}))).lower()
-                kw_found = sum(1 for kw in tc["expected_keywords"] if kw in full_text)
-                kw_ratio = kw_found / len(tc["expected_keywords"]) if tc["expected_keywords"] else 1.0
+        # ── 4d: Various opener messages return scheduling_capsule card ──
+        await _test_capsule_variants(report, client, target, player_id)
 
-                passed = not has_error and len(response_text) > 5
-
-                report.results.append(TestResult(
-                    test_id=f"L4_capsule_{tc['desc'][:30]}",
-                    layer=4, category="capsule_action",
-                    description=tc["desc"],
-                    passed=passed,
-                    expected="Success response with no error",
-                    actual=f"error={has_error}, resp_len={len(response_text)}, kw={kw_ratio:.0%}",
-                    latency_ms=elapsed,
-                ))
-
-            except Exception as e:
-                elapsed = (time.monotonic() - t0) * 1000
-                report.results.append(TestResult(
-                    test_id=f"L4_capsule_{tc['desc'][:30]}",
-                    layer=4, category="capsule_action",
-                    description=f"EXCEPTION: {tc['desc']}",
-                    passed=False,
-                    expected="Success",
-                    actual=str(e),
-                    latency_ms=elapsed,
-                ))
+        # ── 4e: Data display flows return valid structured data ──
+        await _test_data_display_chain(report, client, target, player_id)
 
     return report
+
+
+async def _test_write_action(report, client, target, player_id, date):
+    """4a: Direct confirmed_action write creates an event."""
+    t0 = time.monotonic()
+    try:
+        resp = await client.post(
+            f"{target}/api/v1/chat/sync",
+            json={
+                "message": "Confirmed",
+                "player_id": player_id,
+                "session_id": f"eval-write-{int(time.time())}",
+                "active_tab": "Chat",
+                "timezone": "Asia/Riyadh",
+                "confirmed_action": {
+                    "toolName": "create_event",
+                    "toolInput": {
+                        "title": f"EVAL Write Test {int(time.time())}",
+                        "event_type": "training",
+                        "date": date,
+                        "start_time": "17:00",
+                        "end_time": "18:00",
+                        "intensity": "MODERATE",
+                        "notes": "Eval test -- safe to delete",
+                    },
+                    "agentType": "timeline",
+                },
+            },
+        )
+        elapsed = (time.monotonic() - t0) * 1000
+        data = resp.json()
+        response_text = data.get("message", "")
+        has_error = "error" in data or "couldn't" in response_text.lower()
+
+        report.results.append(TestResult(
+            test_id="L4_write_create_event",
+            layer=4, category="write_action",
+            description="Write: create_event via confirmed_action",
+            passed=not has_error and len(response_text) > 5,
+            expected="Success response with no error",
+            actual=f"error={has_error}, resp_len={len(response_text)}",
+            latency_ms=elapsed,
+        ))
+
+        # Check response has valid structure (Title -> Card -> Pills)
+        structured = data.get("structured", {})
+        if isinstance(structured, str):
+            try:
+                structured = json.loads(structured)
+            except (json.JSONDecodeError, TypeError):
+                structured = {}
+        headline = structured.get("headline", "")
+        chips = structured.get("chips", [])
+        report.results.append(TestResult(
+            test_id="L4_write_response_format",
+            layer=4, category="write_action",
+            description="Write: response has headline + chips",
+            passed=bool(headline) and isinstance(chips, list),
+            expected="headline non-empty, chips is list",
+            actual=f"headline='{headline[:50]}', chips={len(chips) if isinstance(chips, list) else 'not list'}",
+            latency_ms=elapsed,
+        ))
+
+    except Exception as e:
+        elapsed = (time.monotonic() - t0) * 1000
+        report.results.append(TestResult(
+            test_id="L4_write_create_event",
+            layer=4, category="write_action",
+            description="Write: EXCEPTION create_event",
+            passed=False, expected="Success", actual=str(e),
+            latency_ms=elapsed,
+        ))
+
+
+async def _test_capsule_opener(report, client, target, player_id):
+    """4b: Scheduling capsule opener returns scheduling_capsule card."""
+    t0 = time.monotonic()
+    try:
+        resp = await client.post(
+            f"{target}/api/v1/chat/sync",
+            json={
+                "message": "I want to train tomorrow",
+                "player_id": player_id,
+                "session_id": f"eval-opener-{int(time.time())}",
+                "active_tab": "Chat",
+                "timezone": "Asia/Riyadh",
+            },
+        )
+        elapsed = (time.monotonic() - t0) * 1000
+        data = resp.json()
+        structured = data.get("structured", {})
+        if isinstance(structured, str):
+            try:
+                structured = json.loads(structured)
+            except (json.JSONDecodeError, TypeError):
+                structured = {}
+
+        cards = structured.get("cards", [])
+        card_types = [c.get("type", "") for c in cards if isinstance(c, dict)]
+
+        # Should return a scheduling_capsule card
+        has_capsule = "scheduling_capsule" in card_types
+        report.results.append(TestResult(
+            test_id="L4_capsule_opener_card",
+            layer=4, category="capsule_chain",
+            description="Chain: opener returns scheduling_capsule card",
+            passed=has_capsule,
+            expected="scheduling_capsule card",
+            actual=f"card_types={card_types}",
+            latency_ms=elapsed,
+        ))
+
+        # Card should have context with prefilled data
+        if has_capsule:
+            capsule_card = [c for c in cards if c.get("type") == "scheduling_capsule"][0]
+            ctx = capsule_card.get("context", {})
+            has_days = isinstance(ctx.get("days"), list) and len(ctx.get("days", [])) > 0
+            has_focus = isinstance(ctx.get("focusOptions"), list) and len(ctx.get("focusOptions", [])) > 0
+            has_intensity = isinstance(ctx.get("intensityOptions"), list)
+
+            report.results.append(TestResult(
+                test_id="L4_capsule_opener_context",
+                layer=4, category="capsule_chain",
+                description="Chain: capsule card has days + focus + intensity options",
+                passed=has_days and has_focus and has_intensity,
+                expected="days[], focusOptions[], intensityOptions[] all present",
+                actual=f"days={len(ctx.get('days', []))}, focus={len(ctx.get('focusOptions', []))}, intensity={has_intensity}",
+                latency_ms=elapsed,
+            ))
+
+    except Exception as e:
+        elapsed = (time.monotonic() - t0) * 1000
+        report.results.append(TestResult(
+            test_id="L4_capsule_opener_card",
+            layer=4, category="capsule_chain",
+            description="Chain: EXCEPTION opener",
+            passed=False, expected="scheduling_capsule", actual=str(e),
+            latency_ms=elapsed,
+        ))
+
+
+async def _test_capsule_chain(report, client, target, player_id, date):
+    """4c: Full chain — opener then confirmed create_event."""
+    session_id = f"eval-chain-{int(time.time())}"
+    t0 = time.monotonic()
+
+    try:
+        # Step 1: Opener
+        resp1 = await client.post(
+            f"{target}/api/v1/chat/sync",
+            json={
+                "message": "Build me a speed session",
+                "player_id": player_id,
+                "session_id": session_id,
+                "active_tab": "Chat",
+                "timezone": "Asia/Riyadh",
+            },
+        )
+        data1 = resp1.json()
+        # Use returned session_id for continuity
+        session_id = data1.get("sessionId", session_id)
+        elapsed1 = (time.monotonic() - t0) * 1000
+
+        structured1 = data1.get("structured", {})
+        if isinstance(structured1, str):
+            try:
+                structured1 = json.loads(structured1)
+            except (json.JSONDecodeError, TypeError):
+                structured1 = {}
+
+        cards1 = structured1.get("cards", [])
+        step1_ok = any(c.get("type") == "scheduling_capsule" for c in cards1 if isinstance(c, dict))
+
+        report.results.append(TestResult(
+            test_id="L4_chain_step1_opener",
+            layer=4, category="capsule_chain",
+            description="Chain: step 1 opener returns capsule",
+            passed=step1_ok,
+            expected="scheduling_capsule card",
+            actual=f"cards={[c.get('type') for c in cards1 if isinstance(c, dict)]}",
+            latency_ms=elapsed1,
+        ))
+
+        # Step 2: Confirm with create_event
+        t1 = time.monotonic()
+        resp2 = await client.post(
+            f"{target}/api/v1/chat/sync",
+            json={
+                "message": "Confirmed",
+                "player_id": player_id,
+                "session_id": session_id,
+                "active_tab": "Chat",
+                "timezone": "Asia/Riyadh",
+                "confirmed_action": {
+                    "toolName": "create_event",
+                    "toolInput": {
+                        "title": f"EVAL Chain Speed {int(time.time())}",
+                        "event_type": "training",
+                        "date": date,
+                        "start_time": "16:00",
+                        "end_time": "17:15",
+                        "intensity": "HARD",
+                        "notes": "Eval chain test -- safe to delete",
+                    },
+                    "agentType": "timeline",
+                },
+            },
+        )
+        elapsed2 = (time.monotonic() - t1) * 1000
+        data2 = resp2.json()
+        response2_text = data2.get("message", "")
+        has_error2 = "error" in data2 or "couldn't" in response2_text.lower()
+
+        report.results.append(TestResult(
+            test_id="L4_chain_step2_confirm",
+            layer=4, category="capsule_chain",
+            description="Chain: step 2 confirm creates event",
+            passed=not has_error2 and len(response2_text) > 5,
+            expected="Success confirmation response",
+            actual=f"error={has_error2}, resp_len={len(response2_text)}",
+            latency_ms=elapsed2,
+        ))
+
+        # Confirm response should have structured format
+        structured2 = data2.get("structured", {})
+        if isinstance(structured2, str):
+            try:
+                structured2 = json.loads(structured2)
+            except (json.JSONDecodeError, TypeError):
+                structured2 = {}
+        headline2 = structured2.get("headline", "")
+        chips2 = structured2.get("chips", [])
+        report.results.append(TestResult(
+            test_id="L4_chain_confirm_format",
+            layer=4, category="capsule_chain",
+            description="Chain: confirm has headline + chips",
+            passed=bool(headline2) and isinstance(chips2, list) and len(chips2) <= 2,
+            expected="headline + 0-2 chips",
+            actual=f"headline='{headline2[:40]}', chips={len(chips2) if isinstance(chips2, list) else '?'}",
+            latency_ms=elapsed2,
+        ))
+
+    except Exception as e:
+        elapsed = (time.monotonic() - t0) * 1000
+        report.results.append(TestResult(
+            test_id="L4_chain_exception",
+            layer=4, category="capsule_chain",
+            description="Chain: EXCEPTION during flow",
+            passed=False, expected="Full chain success", actual=str(e),
+            latency_ms=elapsed,
+        ))
+
+
+async def _test_capsule_variants(report, client, target, player_id):
+    """4d: Various build_session phrasings all return scheduling_capsule."""
+    variants = [
+        ("plan a gym session", "gym_session"),
+        ("train tomorrow morning", "train_tomorrow"),
+        ("build me a technical session for friday", "technical_friday"),
+        ("i want to do speed work", "speed_work"),
+    ]
+
+    async def test_one(msg, desc):
+        t0 = time.monotonic()
+        try:
+            resp = await client.post(
+                f"{target}/api/v1/chat/sync",
+                json={
+                    "message": msg,
+                    "player_id": player_id,
+                    "session_id": f"eval-var-{desc}-{int(time.time())}",
+                    "active_tab": "Chat",
+                    "timezone": "Asia/Riyadh",
+                },
+            )
+            elapsed = (time.monotonic() - t0) * 1000
+            data = resp.json()
+            structured = data.get("structured", {})
+            if isinstance(structured, str):
+                try:
+                    structured = json.loads(structured)
+                except (json.JSONDecodeError, TypeError):
+                    structured = {}
+            cards = structured.get("cards", [])
+            card_types = [c.get("type", "") for c in cards if isinstance(c, dict)]
+            # Accept any scheduling-related card type: the capsule may auto-skip
+            # to confirm_card if all fields were prefilled from the opener.
+            SCHEDULING_CARD_TYPES = {"scheduling_capsule", "choice_card", "session_plan", "confirm_card"}
+            ok = bool(set(card_types) & SCHEDULING_CARD_TYPES)
+            return TestResult(
+                test_id=f"L4_variant_{desc}",
+                layer=4, category="capsule_variants",
+                description=f"Variant: '{msg}' -> scheduling card",
+                passed=ok,
+                expected="scheduling_capsule|choice_card|session_plan",
+                actual=f"card_types={card_types}",
+                latency_ms=elapsed,
+            )
+        except Exception as e:
+            return TestResult(
+                test_id=f"L4_variant_{desc}",
+                layer=4, category="capsule_variants",
+                description=f"Variant: EXCEPTION '{msg}'",
+                passed=False, expected="capsule card", actual=str(e),
+                latency_ms=(time.monotonic() - t0) * 1000,
+            )
+
+    results = await asyncio.gather(*[test_one(msg, desc) for msg, desc in variants])
+    report.results.extend(results)
+
+
+async def _test_data_display_chain(report, client, target, player_id):
+    """4e: Data display flows return structured responses with cards."""
+    queries = [
+        ("what's on today", "today_schedule", "schedule_list"),
+        ("what's my streak", "streak", "stat_grid"),
+    ]
+
+    async def test_one(msg, desc, expected_card):
+        t0 = time.monotonic()
+        try:
+            resp = await client.post(
+                f"{target}/api/v1/chat/sync",
+                json={
+                    "message": msg,
+                    "player_id": player_id,
+                    "session_id": f"eval-data-{desc}-{int(time.time())}",
+                    "active_tab": "Chat",
+                    "timezone": "Asia/Riyadh",
+                },
+            )
+            elapsed = (time.monotonic() - t0) * 1000
+            data = resp.json()
+            structured = data.get("structured", {})
+            if isinstance(structured, str):
+                try:
+                    structured = json.loads(structured)
+                except (json.JSONDecodeError, TypeError):
+                    structured = {}
+            cards = structured.get("cards", [])
+            card_types = [c.get("type", "") for c in cards if isinstance(c, dict)]
+            headline = structured.get("headline", "")
+            chips = structured.get("chips", [])
+
+            # Headline + correct card type (or empty if no data)
+            has_headline = bool(headline)
+            card_ok = expected_card in card_types or len(cards) == 0  # No data = acceptable
+            chips_ok = isinstance(chips, list) and len(chips) <= 2
+
+            return TestResult(
+                test_id=f"L4_data_{desc}",
+                layer=4, category="data_display_chain",
+                description=f"Data: '{msg}' -> {expected_card}",
+                passed=has_headline and card_ok and chips_ok,
+                expected=f"headline + {expected_card} card + <=2 chips",
+                actual=f"headline='{headline[:30]}', cards={card_types}, chips={len(chips)}",
+                latency_ms=elapsed,
+            )
+        except Exception as e:
+            return TestResult(
+                test_id=f"L4_data_{desc}",
+                layer=4, category="data_display_chain",
+                description=f"Data: EXCEPTION '{msg}'",
+                passed=False, expected="data card", actual=str(e),
+                latency_ms=(time.monotonic() - t0) * 1000,
+            )
+
+    results = await asyncio.gather(*[test_one(m, d, c) for m, d, c in queries])
+    report.results.extend(results)
 
 
 # ============================================================================

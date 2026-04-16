@@ -1214,11 +1214,12 @@ async def format_response_node(state: TomoChatState) -> dict:
             "final_cards": structured.get("cards", []),
         }
 
-    # Case 5: Empty response -- warm catch, no menu.
-    # The synthesis recovery returned empty; rather than serving a dead-end
-    # menu that terminates the thread, keep it open with a warm one-liner
-    # and zero chips. Reuses _build_text_response() so we share one code
-    # path for "warm text, no menu" responses (same idiom as Case 4).
+    # Case 5: Empty response -- warm catch with soft recovery chips.
+    # The synthesis recovery returned empty; respond with a warm one-liner
+    # and 1-2 soft recovery chips so the athlete has a way forward.
+    # Younger athletes (U13/U15) rely on chip navigation -- zero chips
+    # leaves them stranded. These are intentionally open-ended, not
+    # transactional menus that terminate the conversation.
     import random as _random
     _fallback_lines = [
         "Hey -- I got lost on that one. What are you after?",
@@ -1231,8 +1232,24 @@ async def format_response_node(state: TomoChatState) -> dict:
         _build_text_response(_random.choice(_fallback_lines)),
         state,
     )
-    # Force no chips -- even if pulse post-process added defaults.
-    structured["chips"] = []
+    # Soft recovery chips -- open-ended, not transactional menus.
+    # Rotate between pairs so the same athlete doesn't see identical
+    # chips on consecutive errors.
+    _recovery_chip_pairs = [
+        [
+            {"label": "Check my readiness", "message": "How am I doing today?"},
+            {"label": "Today's plan", "message": "What's on my schedule today?"},
+        ],
+        [
+            {"label": "Build a session", "message": "Build me a training session"},
+            {"label": "How am I doing?", "message": "What's my readiness?"},
+        ],
+        [
+            {"label": "Show my week", "message": "What does my week look like?"},
+            {"label": "Check in", "message": "I want to check in"},
+        ],
+    ]
+    structured["chips"] = _random.choice(_recovery_chip_pairs)
     return {
         "final_response": json.dumps(structured),
         "final_cards": structured.get("cards", []),

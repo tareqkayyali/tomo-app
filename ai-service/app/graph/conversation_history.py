@@ -54,7 +54,7 @@ CHARS_PER_TOKEN = 4
 CHAR_BUDGET = TOKEN_BUDGET * CHARS_PER_TOKEN  # 32000 chars at default
 
 MAX_HISTORY_ROWS = _int_env("CHAT_MAX_HISTORY_ROWS", 30)  # Safety cap on DB query
-KEEP_RECENT = _int_env("CHAT_KEEP_RECENT", 4)             # Verbatim recent messages
+KEEP_RECENT = _int_env("CHAT_KEEP_RECENT", 6)             # Verbatim recent messages (3 user-assistant pairs)
 
 logger.info(
     f"conversation_history config: TOKEN_BUDGET={TOKEN_BUDGET} "
