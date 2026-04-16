@@ -139,4 +139,67 @@ Always activate these two skills at the start of every Tomo session:
 - No Laziness
 Find root causes. Avoid temporary fixes. Maintain senior-level engineering standards.
 
+9. **Zero Guessing — Mandatory Deep Troubleshooting Protocol**:
+
+NEVER guess, assume, or hypothesize about what might be wrong. Before writing a single line of fix code, you MUST complete this protocol:
+
+**Step 1: Verify infrastructure is running**
+- Check every service in the chain is actually running (`lsof -i :<port>`, `ps aux`)
+- Verify each service is reachable from the next (`curl` health endpoints)
+- Check env vars are loaded correctly in each service (read the actual config, not what you think it should be)
+
+**Step 2: Trace the exact code path — file by file**
+- Read EVERY file in the request chain from user action to final execution
+- Document the exact function calls, line numbers, and data shapes at each hop
+- Do NOT skip any layer. If the chain is: Mobile -> TS Backend -> Python -> TS Backend -> DB, read all 4 layers
+
+**Step 3: Identify every error-swallowing location**
+- Find every `try/catch` or `except` block in the chain
+- Document what each catch block returns to the caller (generic message? original error? nothing?)
+- Map which user-visible error messages correspond to which catch blocks
+
+**Step 4: Test with real data**
+- Use real user IDs from the database, not fake UUIDs
+- Send the exact payload shape the client sends (read the client code to get it)
+- Test at the lowest layer first (e.g., Python directly), then work upward
+- Capture the ACTUAL error response, not just "it failed"
+
+**Step 5: Only then diagnose**
+- State the root cause with evidence (file, line number, actual error message)
+- If the root cause is "service not running" or "env var not set," say that — don't patch code
+
+**What this protocol prevents:**
+- Patching code when the service is just down
+- Adding debug logging to production as a diagnostic step
+- Changing env vars on Railway when the user is hitting localhost
+- Making assumptions about which layer is failing
+- Multiple rounds of "try this fix" → "still broken" → "try another fix"
+
+**When to use this protocol:**
+- Any time something "doesn't work" and the error message is generic
+- Any time a feature works in one path (e.g., direct API call) but not another (e.g., mobile)
+- Any time the user reports the same issue after a "fix"
+- Any cross-service integration issue (mobile <-> backend <-> ai-service <-> database)
+
+## Service Chain Reference (for troubleshooting)
+
+The full request chain for AI Chat features:
+```
+Mobile (Expo)
+  -> EXPO_PUBLIC_API_URL (check mobile/.env)
+    -> TS Backend (port 3000 local, 8080 Railway)
+      -> proxy.ts (auth: Bearer token -> x-user-id header)
+        -> /api/v1/chat/agent/route.ts
+          -> aiServiceProxy.ts -> getAIServiceUrl()
+            -> Python ai-service (port 8000 local, tomoai.railway.internal:8000 Railway)
+              -> supervisor.py -> graph nodes
+                -> bridge.py -> TS Backend /api/v1/* (write operations)
+                  -> Supabase DB
+```
+
+Key env vars per layer:
+- **Mobile**: `EXPO_PUBLIC_API_URL` (must match machine IP for local dev)
+- **TS Backend**: `AI_SERVICE_URL` (unset locally = localhost:8000), `RAILWAY_ENVIRONMENT` (set only on Railway)
+- **Python ai-service**: `TS_BACKEND_URL` (localhost:3000 local), `SCHEDULING_CAPSULE_ENABLED`, `SUPABASE_DB_URL`
+- **Pydantic Settings**: New env vars MUST be declared as fields in `ai-service/app/config.py` or `extra_forbidden` rejects them
 
