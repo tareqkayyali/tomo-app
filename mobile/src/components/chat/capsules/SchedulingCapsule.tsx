@@ -29,6 +29,7 @@ import { CapsuleSubmitButton } from './shared/CapsuleSubmitButton';
 // ── Types ────────────────────────────────────────────────────────────
 
 interface ExistingEvent {
+  id: string;        // UUID from calendar_events table
   name: string;
   startTime: string; // "6:00 AM"
   endTime: string;   // "7:10 AM"
@@ -104,7 +105,7 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
 
   const [selectedDayIdx, setSelectedDayIdx] = useState(initialDayIdx);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
-  const [selectedExisting, setSelectedExisting] = useState<string | null>(null);
+  const [selectedExisting, setSelectedExisting] = useState<ExistingEvent | null>(null);
   const [title, setTitle] = useState(ctx?.prefilledTitle ?? 'Training Session');
   const [focus, setFocus] = useState(ctx?.prefilledFocus ?? '');
   const [intensity, setIntensity] = useState(ctx?.prefilledIntensity ?? 'MODERATE');
@@ -143,8 +144,8 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
   };
 
   // Select an existing training event (deselects slot)
-  const handleExistingSelect = (eventName: string) => {
-    setSelectedExisting(eventName);
+  const handleExistingSelect = (event: ExistingEvent) => {
+    setSelectedExisting(event);
     setSelectedSlot(null);
   };
 
@@ -192,11 +193,12 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
         agentType: 'timeline',
       });
     } else if (selectedExisting) {
-      // Update existing event title/intensity
+      // Update existing event with its UUID
       onSubmit({
         type: 'scheduling_capsule',
         toolName: 'update_event',
         toolInput: {
+          event_id: selectedExisting.id,
           title: title.trim(),
           intensity: safeIntensity,
           notes: focus ? `Focus: ${focus}` : '',
@@ -273,11 +275,11 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
             <Text style={styles.groupLabel}>YOUR DAY</Text>
             {selectedDay.existingEvents.map((ev, i) => {
               const isTraining = ev.type === 'training' || ev.type === 'match';
-              const isSelected = selectedExisting === ev.name;
+              const isSelected = selectedExisting?.id === ev.id;
               return (
                 <Pressable
-                  key={`${ev.name}-${i}`}
-                  onPress={isTraining ? () => handleExistingSelect(ev.name) : undefined}
+                  key={ev.id || `${ev.name}-${i}`}
+                  onPress={isTraining ? () => handleExistingSelect(ev) : undefined}
                   disabled={!isTraining}
                   style={[
                     styles.eventRow,

@@ -204,6 +204,7 @@ async def _fetch_days_parallel(
             if not isinstance(ev, dict):
                 continue
             existing_events.append({
+                "id": ev.get("id", ""),
                 "name": ev.get("name", ""),
                 "startTime": ev.get("startTime", ""),
                 "endTime": ev.get("endTime", ""),

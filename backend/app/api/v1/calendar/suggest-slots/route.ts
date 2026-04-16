@@ -120,6 +120,7 @@ export async function GET(req: NextRequest) {
         eventType,
         durationMin,
         existingEvents: existingEvents.map((e) => ({
+          id: e.id,
           name: e.name,
           startTime: e.startTime ? format12h(e.startTime) : null,
           endTime: e.endTime ? format12h(e.endTime) : null,
