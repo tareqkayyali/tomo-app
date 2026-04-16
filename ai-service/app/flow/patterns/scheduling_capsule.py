@@ -44,6 +44,10 @@ logger = logging.getLogger("tomo-ai.flow.scheduling_capsule")
 SCHEDULING_CAPSULE_ENABLED = (
     os.environ.get("SCHEDULING_CAPSULE_ENABLED", "false").lower() == "true"
 )
+logger.info(
+    f"scheduling_capsule module loaded: SCHEDULING_CAPSULE_ENABLED={SCHEDULING_CAPSULE_ENABLED} "
+    f"(raw env={os.environ.get('SCHEDULING_CAPSULE_ENABLED', '<not set>')})"
+)
 
 # How many days of schedule to pre-fetch. 5 covers a full school week.
 _LOOKAHEAD_DAYS = 5

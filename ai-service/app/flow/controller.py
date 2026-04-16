@@ -132,6 +132,7 @@ async def flow_controller_node(state: TomoChatState) -> dict:
             SCHEDULING_CAPSULE_ENABLED,
             execute_scheduling_capsule,
         )
+        logger.info(f"Flow controller: scheduling_capsule flag={SCHEDULING_CAPSULE_ENABLED} for intent={intent_id}")
         if SCHEDULING_CAPSULE_ENABLED:
             result = await execute_scheduling_capsule(config, state)
         else:
