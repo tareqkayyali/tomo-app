@@ -287,14 +287,20 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
     ),
 
     # ═══════════════════════════════════════════════════════════════════
-    # MULTI_STEP (code-driven step tracker, ~$0.001/step)
+    # SCHEDULING_CAPSULE (interactive card, $0, ~200ms pre-fetch)
     # ═══════════════════════════════════════════════════════════════════
-
-    # Session building — multi-step flow with focus picker + drill generation.
-    # Classifier exact-matches "build me a session" etc. to build_session.
-    # plan_training is kept as alias (Haiku classifier may still produce it).
-    "build_session": FlowConfig(pattern="multi_step", steps=_BUILD_SESSION_STEPS),
-    "plan_training": FlowConfig(pattern="multi_step", steps=_BUILD_SESSION_STEPS),
+    #
+    # Single interactive card replaces the 8-step multi_step flow.
+    # Pre-fetches 5 days of calendar data and renders a self-contained
+    # scheduling form on mobile. When SCHEDULING_CAPSULE_ENABLED=false
+    # (default), the controller falls through to multi_step as before.
+    #
+    # build_session + plan_training both route here. The controller
+    # checks the feature flag at runtime and falls back to multi_step
+    # when disabled, so multi_step._BUILD_SESSION_STEPS stays intact
+    # as the fallback path.
+    "build_session": FlowConfig(pattern="scheduling_capsule", steps=_BUILD_SESSION_STEPS),
+    "plan_training": FlowConfig(pattern="scheduling_capsule", steps=_BUILD_SESSION_STEPS),
 
     # ═══════════════════════════════════════════════════════════════════
     # WRITE_ACTION + OPEN_COACHING (fall through to existing agent pipeline)

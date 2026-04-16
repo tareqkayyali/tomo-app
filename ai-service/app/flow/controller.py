@@ -127,6 +127,18 @@ async def flow_controller_node(state: TomoChatState) -> dict:
         from app.flow.patterns.data_display import execute_data_display
         result = await execute_data_display(config, state)
 
+    elif pattern == "scheduling_capsule":
+        from app.flow.patterns.scheduling_capsule import (
+            SCHEDULING_CAPSULE_ENABLED,
+            execute_scheduling_capsule,
+        )
+        if SCHEDULING_CAPSULE_ENABLED:
+            result = await execute_scheduling_capsule(config, state)
+        else:
+            # Feature flag off: fall through to multi_step as before.
+            from app.flow.patterns.multi_step import execute_multi_step_start
+            result = await execute_multi_step_start(config, state)
+
     elif pattern == "multi_step":
         from app.flow.patterns.multi_step import execute_multi_step_start
         result = await execute_multi_step_start(config, state)
