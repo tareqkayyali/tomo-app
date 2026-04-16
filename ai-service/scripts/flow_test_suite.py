@@ -512,10 +512,15 @@ def _build_flow_pattern_tests() -> list[tuple[str, str, str, str]]:
         ("go to timeline", "capsule_direct", "navigation_capsule", "navigation capsule"),
         ("my programs", "capsule_direct", "program_action_capsule", "programs capsule"),
         ("edit my rules", "capsule_direct", "schedule_rules_capsule", "schedule rules capsule"),
-        ("plan my study", "capsule_direct", "study_schedule_capsule", "study capsule"),
         ("add an exam", "capsule_direct", "exam_capsule", "exam capsule"),
         ("calculate my phv", "capsule_direct", "phv_calculator_capsule", "phv capsule"),
         ("my strengths", "capsule_direct", "strengths_gaps_capsule", "strengths capsule"),
+
+        # ── study_scheduling_capsule ──
+        ("plan my study", "study_scheduling_capsule", "study_scheduling_capsule", "study scheduling capsule"),
+        ("study session", "study_scheduling_capsule", "study_scheduling_capsule", "study session capsule"),
+        ("study math tomorrow", "study_scheduling_capsule", "study_scheduling_capsule", "study subject+date"),
+        ("study routine", "study_scheduling_capsule", "study_scheduling_capsule", "regular study capsule"),
 
         # ── data_display ──
         ("what's my readiness", "data_display", "stat_grid", "readiness data display"),
@@ -754,7 +759,10 @@ async def run_layer_4() -> LayerReport:
         # ── 4d: Various opener messages return scheduling_capsule card ──
         await _test_capsule_variants(report, client, target, player_id)
 
-        # ── 4e: Data display flows return valid structured data ──
+        # ── 4e: Study scheduling capsule opener returns correct card ──
+        await _test_study_capsule(report, client, target, player_id)
+
+        # ── 4f: Data display flows return valid structured data ──
         await _test_data_display_chain(report, client, target, player_id)
 
     return report
@@ -1069,8 +1077,92 @@ async def _test_capsule_variants(report, client, target, player_id):
     report.results.extend(results)
 
 
+async def _test_study_capsule(report, client, target, player_id):
+    """4e: Study scheduling capsule returns correct card with context."""
+    variants = [
+        ("plan my study", "plan_study"),
+        ("study math tomorrow", "study_math"),
+        ("study session", "study_session"),
+        ("i need to study", "need_study"),
+    ]
+
+    async def test_one(msg, desc):
+        t0 = time.monotonic()
+        try:
+            resp = await client.post(
+                f"{target}/api/v1/chat/sync",
+                json={
+                    "message": msg,
+                    "player_id": player_id,
+                    "session_id": f"eval-study-{desc}-{int(time.time())}",
+                    "active_tab": "Chat",
+                    "timezone": "Asia/Riyadh",
+                },
+            )
+            elapsed = (time.monotonic() - t0) * 1000
+            data = resp.json()
+            structured = data.get("structured", {})
+            if isinstance(structured, str):
+                try:
+                    structured = json.loads(structured)
+                except (json.JSONDecodeError, TypeError):
+                    structured = {}
+            cards = structured.get("cards", [])
+            card_types = [c.get("type", "") for c in cards if isinstance(c, dict)]
+
+            # Should return study_scheduling_capsule card
+            ok = "study_scheduling_capsule" in card_types
+
+            # Check context fields if card present
+            context_ok = True
+            if ok:
+                capsule = [c for c in cards if c.get("type") == "study_scheduling_capsule"][0]
+                ctx = capsule.get("context", {})
+                context_ok = (
+                    isinstance(ctx.get("subjectOptions"), list)
+                    and isinstance(ctx.get("days"), list)
+                    and isinstance(ctx.get("schoolDays"), list)
+                    and isinstance(ctx.get("durationOptions"), list)
+                )
+
+            results = [
+                TestResult(
+                    test_id=f"L4_study_{desc}_card",
+                    layer=4, category="study_capsule",
+                    description=f"Study: '{msg}' -> study_scheduling_capsule",
+                    passed=ok,
+                    expected="study_scheduling_capsule card",
+                    actual=f"card_types={card_types}",
+                    latency_ms=elapsed,
+                ),
+            ]
+            if ok:
+                results.append(TestResult(
+                    test_id=f"L4_study_{desc}_context",
+                    layer=4, category="study_capsule",
+                    description=f"Study: '{msg}' has subjects+days+schoolDays",
+                    passed=context_ok,
+                    expected="subjectOptions, days, schoolDays, durationOptions",
+                    actual=f"context_keys={list(ctx.keys())[:8]}",
+                    latency_ms=elapsed,
+                ))
+            return results
+        except Exception as e:
+            return [TestResult(
+                test_id=f"L4_study_{desc}_exc",
+                layer=4, category="study_capsule",
+                description=f"Study: EXCEPTION '{msg}'",
+                passed=False, expected="study capsule", actual=str(e),
+                latency_ms=(time.monotonic() - t0) * 1000,
+            )]
+
+    all_results = await asyncio.gather(*[test_one(msg, desc) for msg, desc in variants])
+    for batch in all_results:
+        report.results.extend(batch)
+
+
 async def _test_data_display_chain(report, client, target, player_id):
-    """4e: Data display flows return structured responses with cards."""
+    """4f: Data display flows return structured responses with cards."""
     queries = [
         ("what's on today", "today_schedule", "schedule_list"),
         ("what's my streak", "streak", "stat_grid"),
@@ -1144,16 +1236,19 @@ VALID_CARD_TYPES = frozenset({
     # Capsule card types (rendered by CapsuleRenderer)
     "checkin_capsule", "test_log_capsule", "navigation_capsule",
     "program_action_capsule", "schedule_rules_capsule",
-    "study_schedule_capsule", "scheduling_capsule",
+    "study_schedule_capsule", "study_scheduling_capsule",
+    "regular_study_capsule", "scheduling_capsule",
+    "exam_capsule", "subject_capsule",
 })
 
 # Self-contained card types that carry their own headline/body,
 # so top-level headline being empty is acceptable.
 SELF_CONTAINED_CARD_TYPES = frozenset({
     "confirm_card", "choice_card", "scheduling_capsule",
+    "study_scheduling_capsule", "regular_study_capsule",
     "checkin_capsule", "test_log_capsule", "navigation_capsule",
     "program_action_capsule", "schedule_rules_capsule",
-    "study_schedule_capsule",
+    "study_schedule_capsule", "exam_capsule", "subject_capsule",
 })
 
 MAX_CHIPS = 2

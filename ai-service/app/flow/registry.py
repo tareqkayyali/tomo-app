@@ -165,13 +165,13 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
 
     # -- Study / Exams --
     "plan_study": FlowConfig(
-        pattern="capsule_direct",
-        capsule_type="study_schedule_capsule",
+        pattern="study_scheduling_capsule",
+        capsule_type="study_scheduling_capsule",
         headline="Plan your study",
     ),
     "plan_regular_study": FlowConfig(
-        pattern="capsule_direct",
-        capsule_type="regular_study_capsule",
+        pattern="study_scheduling_capsule",
+        capsule_type="study_scheduling_capsule",
         headline="Set up study routine",
     ),
     "add_exam": FlowConfig(

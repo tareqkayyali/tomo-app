@@ -235,7 +235,8 @@ def _build_exact_match_map() -> dict[str, dict]:
           "create a workout", "schedule a workout",
           "gym session plan",
           # Sport-specific session building
-          "speed session", "acceleration session", "speed and acceleration session",
+          "speed session", "speed work", "i want to do speed work",
+          "acceleration session", "speed and acceleration session",
           "conditioning session", "recovery session",
           "strength session", "strength training session",
           "football session", "soccer session", "basketball session",
@@ -275,9 +276,32 @@ def _build_exact_match_map() -> dict[str, dict]:
           "new session", "add a workout"], "create_event")
     _add(["add an exam", "new exam", "i have an exam"], "add_exam")
 
-    # Study
-    _add(["plan my study", "study schedule", "study plan"], "plan_study")
-    _add(["plan my regular study", "regular study", "study routine"], "plan_regular_study")
+    # Study -- date-qualified and subject-qualified variants
+    _add(["plan my study", "study schedule", "study plan",
+          "study session", "study tomorrow", "study today",
+          "study tonight", "i need to study", "i want to study",
+          "study math", "study physics", "study english",
+          "study biology", "study chemistry", "study science",
+          "study arabic", "study french", "study history",
+          "study for my exam", "study for exams",
+          "study tomorrow morning", "study after school",
+          "study on friday", "study on saturday",
+          "help me study", "plan study time",
+          "book a study session", "schedule study",
+          "when should i study", "find time to study",
+          # Subject + date combos
+          "study math tomorrow", "study physics tomorrow",
+          "study english tomorrow", "study biology tomorrow",
+          "study chemistry tomorrow", "study science tomorrow",
+          "study math today", "study physics today",
+          "study english today", "study math on friday",
+          "study math on saturday", "study math after school",
+          "i want to study math", "i want to study physics",
+          "i want to study tomorrow", "i need to study tomorrow",
+          "plan study for tomorrow", "schedule study tomorrow"], "plan_study")
+    _add(["plan my regular study", "regular study", "study routine",
+          "set up study blocks", "weekly study plan",
+          "recurring study"], "plan_regular_study")
 
     # Schedule
     _add(["edit my rules", "schedule rules", "schedule settings",
@@ -422,10 +446,17 @@ CRITICAL RULES:
     "workout in the morning") → build_session (NOT qa_readiness).
     qa_readiness is ONLY for "am I ready?" without a date target.
     If the user names a specific day/time, they want to SCHEDULE, not check readiness.
+16. Study desire ("study math", "i need to study", "study tomorrow",
+    "plan my study", "study session", "study for exams",
+    "study [subject] [date]") → plan_study (NOT build_session).
+    build_session is ONLY for physical training. study/exam/academic → plan_study.
 
 EXAMPLES:
 User: "I want to train tomorrow"
 → {{"intent_id": "build_session", "confidence": 0.95, "params": {{"date": "tomorrow"}}}}
+
+User: "Study math tomorrow"
+→ {{"intent_id": "plan_study", "confidence": 0.95, "params": {{"subject": "math", "date": "tomorrow"}}}}
 
 User: "I'm thinking about technical drills tomorrow"
 → {{"intent_id": "agent_fallthrough", "confidence": 0.9, "params": {{}}}}
