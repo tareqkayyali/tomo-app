@@ -141,8 +141,8 @@ def make_cv_identity_tools(user_id: str, context: PlayerContext) -> list:
             # Program adherence — completed vs assigned sessions (90 days)
             adherence_result = await conn.execute(
                 """SELECT
-                     COUNT(*) FILTER (WHERE event_type IN ('training', 'gym', 'club_training')) as total,
-                     COUNT(*) FILTER (WHERE event_type IN ('training', 'gym', 'club_training')
+                     COUNT(*) FILTER (WHERE event_type = 'training') as total,
+                     COUNT(*) FILTER (WHERE event_type = 'training'
                                       AND notes IS NOT NULL) as completed
                    FROM calendar_events
                    WHERE user_id = %s AND start_at >= (NOW() - INTERVAL '90 days')
@@ -151,13 +151,13 @@ def make_cv_identity_tools(user_id: str, context: PlayerContext) -> list:
             )
             adherence_row = await adherence_result.fetchone()
 
-            # Response rate: new drills rated / total drills attempted
+            # Response rate: drills rated / total drills attempted
             drill_result = await conn.execute(
                 """SELECT
                      COUNT(*) as attempted,
                      COUNT(*) FILTER (WHERE rating IS NOT NULL) as rated
-                   FROM drill_ratings
-                   WHERE user_id = %s AND created_at >= (NOW() - INTERVAL '90 days')""",
+                   FROM user_drill_history
+                   WHERE user_id = %s AND completed_at >= (NOW() - INTERVAL '90 days')""",
                 (user_id,),
             )
             drill_row = await drill_result.fetchone()
@@ -296,20 +296,22 @@ def make_cv_identity_tools(user_id: str, context: PlayerContext) -> list:
         pool = get_pool()
 
         async with pool.connection() as conn:
-            # Profile
+            # Profile (users table has no position column — use context)
             profile_result = await conn.execute(
-                """SELECT name, sport, position, age, gender, height_cm, weight_kg
+                """SELECT name, sport, age, display_name
                    FROM users WHERE id = %s""",
                 (user_id,),
             )
             profile = await profile_result.fetchone()
 
-            # Career history
+            # Career history (cv_career_entries — migration 024)
             career_result = await conn.execute(
-                """SELECT title, organization, start_date::text, end_date::text, description
-                   FROM career_entries
-                   WHERE user_id = %s
-                   ORDER BY start_date DESC""",
+                """SELECT club_name, entry_type, position, league_level,
+                          started_month, ended_month, is_current,
+                          appearances, goals, assists
+                   FROM cv_career_entries
+                   WHERE athlete_id = %s
+                   ORDER BY started_month DESC NULLS LAST""",
                 (user_id,),
             )
             career = await career_result.fetchall()
@@ -328,15 +330,18 @@ def make_cv_identity_tools(user_id: str, context: PlayerContext) -> list:
         profile_data = {
             "name": profile[0] if profile else context.name,
             "sport": profile[1] if profile else context.sport,
-            "position": profile[2] if profile else context.position,
-            "age": profile[3] if profile else None,
-            "gender": profile[4] if profile else None,
-            "height_cm": profile[5] if profile else None,
-            "weight_kg": profile[6] if profile else None,
-        } if profile else {"name": context.name, "sport": context.sport}
+            "position": context.position,  # position lives on athlete_snapshots, accessed via context
+            "age": profile[2] if profile else None,
+            "display_name": profile[3] if profile else None,
+        } if profile else {"name": context.name, "sport": context.sport, "position": context.position}
 
         career_data = [
-            {"title": r[0], "organization": r[1], "start": r[2], "end": r[3], "description": r[4]}
+            {
+                "club": r[0], "type": r[1], "position": r[2],
+                "league": r[3], "started": r[4], "ended": r[5],
+                "current": r[6], "appearances": r[7],
+                "goals": r[8], "assists": r[9],
+            }
             for r in career
         ]
 

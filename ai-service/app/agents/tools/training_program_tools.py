@@ -73,7 +73,7 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
                 """SELECT id, name, category, type, description, difficulty,
                           duration_minutes, tags, position_emphasis, equipment,
                           prescriptions
-                   FROM football_training_programs
+                   FROM training_programs
                    ORDER BY name""",
             )
             rows = await result.fetchall()
@@ -128,12 +128,12 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
         async with pool.connection() as conn:
             # Check for active training blocks
             block_result = await conn.execute(
-                """SELECT id, sport, block_type as phase,
-                          start_date::text, end_date::text, focus as goals,
-                          week_count as duration_weeks, deload_week,
+                """SELECT id, sport, name, phase,
+                          start_date::text, end_date::text,
+                          duration_weeks, week_number, status,
                           created_at::text
                    FROM training_blocks
-                   WHERE user_id = %s
+                   WHERE user_id = %s AND status = 'active'
                    ORDER BY created_at DESC LIMIT 1""",
                 (user_id,),
             )
@@ -150,13 +150,14 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
             "has_active_block": True,
             "block_id": block[0],
             "sport": block[1],
-            "phase": block[2],
-            "start_date": block[3],
-            "end_date": block[4],
-            "goals": block[5],
+            "name": block[2],
+            "phase": block[3],
+            "start_date": block[4],
+            "end_date": block[5],
             "duration_weeks": block[6],
-            "deload_week": block[7],
-            "created_at": block[8],
+            "week_number": block[7],
+            "status": block[8],
+            "created_at": block[9],
             "acwr": se.acwr if se else None,
             "readiness": context.readiness_score,
         }
@@ -175,7 +176,7 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
             result = await conn.execute(
                 """SELECT id, name, category, type, description, difficulty,
                           duration_minutes, tags, position_emphasis
-                   FROM football_training_programs
+                   FROM training_programs
                    WHERE %s = ANY(position_emphasis) OR 'ALL' = ANY(position_emphasis)
                    ORDER BY name""",
                 (position,),

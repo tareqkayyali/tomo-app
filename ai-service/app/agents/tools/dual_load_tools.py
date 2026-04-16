@@ -200,7 +200,7 @@ def make_dual_load_tools(user_id: str, context: PlayerContext) -> list:
                 """SELECT start_at::date::text AS train_date, event_type, intensity, title
                    FROM calendar_events
                    WHERE user_id = %s
-                     AND event_type IN ('training', 'gym', 'club_training', 'match')
+                     AND event_type IN ('training', 'match')
                      AND start_at >= NOW()
                      AND start_at <= %s::timestamp
                    ORDER BY calendar_events.start_at""",

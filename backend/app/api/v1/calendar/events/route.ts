@@ -21,6 +21,18 @@ import { estimateTotalLoad } from "@/services/events/computations/loadEstimator"
 import { bridgeCalendarToEventStream } from "@/services/events/calendarBridge";
 import { parsePagination, paginatedResponse, hasPaginationParams } from "@/lib/pagination";
 
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+/** Normalize intensity to DB CHECK constraint values: REST, LIGHT, MODERATE, HARD */
+function normalizeIntensity(raw: string): string {
+  const map: Record<string, string> = {
+    rest: "REST", light: "LIGHT", moderate: "MODERATE",
+    medium: "MODERATE", hard: "HARD",
+    REST: "REST", LIGHT: "LIGHT", MODERATE: "MODERATE", HARD: "HARD",
+  };
+  return map[raw] ?? raw.toUpperCase();
+}
+
 // ─── Validation ────────────────────────────────────────────────────────────
 
 const calendarEventSchema = z.object({
@@ -47,7 +59,7 @@ const calendarEventSchema = z.object({
     .nullable()
     .optional(),
   intensity: z
-    .enum(["REST", "LIGHT", "MODERATE", "HARD"])
+    .enum(["REST", "LIGHT", "MODERATE", "HARD", "rest", "light", "moderate", "medium", "hard"])
     .nullable()
     .optional(),
   notes: z.string().max(500).nullable().optional(),
@@ -218,7 +230,7 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const insertData = {
       ...insertBase,
-      intensity: intensity || null,
+      intensity: intensity ? normalizeIntensity(intensity) : null,
       sport: sport || null,
       estimated_load_au: estimatedLoad,
       session_plan: sessionPlan ?? null,

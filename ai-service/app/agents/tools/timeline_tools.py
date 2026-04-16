@@ -248,13 +248,8 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         if end_time:
             body["endTime"] = end_time
         if intensity:
-            # Map to TS PATCH endpoint's expected format (lowercase: light/medium/hard)
-            _INTENSITY_MAP = {
-                "REST": "light", "LIGHT": "light", "MODERATE": "medium",
-                "HARD": "hard", "light": "light", "moderate": "medium",
-                "medium": "medium", "hard": "hard",
-            }
-            body["intensity"] = _INTENSITY_MAP.get(intensity.upper(), intensity.lower())
+            # DB CHECK constraint requires uppercase: REST, LIGHT, MODERATE, HARD
+            body["intensity"] = intensity.upper()
         if notes:
             body["notes"] = notes
         if date:

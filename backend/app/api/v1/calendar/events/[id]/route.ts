@@ -14,6 +14,18 @@ import type { ScheduleEvent } from "@/services/schedulingEngine";
 import { bridgeCalendarToEventStream } from "@/services/events/calendarBridge";
 import { estimateTotalLoad } from "@/services/events/computations/loadEstimator";
 
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+/** Normalize intensity to DB CHECK constraint values: REST, LIGHT, MODERATE, HARD */
+function normalizeIntensity(raw: string): string {
+  const map: Record<string, string> = {
+    rest: "REST", light: "LIGHT", moderate: "MODERATE",
+    medium: "MODERATE", hard: "HARD",
+    REST: "REST", LIGHT: "LIGHT", MODERATE: "MODERATE", HARD: "HARD",
+  };
+  return map[raw] ?? raw.toUpperCase();
+}
+
 // ─── Validation ────────────────────────────────────────────────────────────
 
 const patchEventSchema = z.object({
@@ -161,11 +173,11 @@ export async function PATCH(
     }
 
     if (name !== undefined) {
-      update.name = name;
+      update.title = name;
     }
 
     if (intensity !== undefined) {
-      update.intensity = intensity;
+      update.intensity = intensity ? normalizeIntensity(intensity) : null;
     }
 
     if (sessionPlan !== undefined) {

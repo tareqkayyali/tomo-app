@@ -39,7 +39,7 @@ export async function PUT(
   // Verify the event exists and belongs to this user
   const { data: existing, error: fetchError } = await db
     .from("calendar_events")
-    .select("id, title, intensity, user_id")
+    .select("id, title, intensity, notes, user_id")
     .eq("id", eventId)
     .single();
 
@@ -60,27 +60,23 @@ export async function PUT(
   const previousIntensity = (existing as any).intensity;
 
   // Build update payload
+  // calendar_events columns: intensity, estimated_load_au, notes
+  // No: updated_at, load_au, metadata (these do not exist on the table)
   const updatePayload: Record<string, any> = {
     intensity,
-    updated_at: new Date().toISOString(),
   };
 
-  // Optionally set load_au if provided
+  // Column is estimated_load_au (not load_au)
   if (typeof load_au === "number" && load_au >= 0) {
-    updatePayload.load_au = load_au;
+    updatePayload.estimated_load_au = load_au;
   }
 
-  // Store override metadata
-  updatePayload.metadata = {
-    ...((existing as any).metadata || {}),
-    load_override: {
-      previous_intensity: previousIntensity,
-      new_intensity: intensity,
-      reason: reason || "agent_override",
-      overridden_at: new Date().toISOString(),
-      source: "training_program_agent",
-    },
-  };
+  // Store override context in notes since calendar_events has no metadata column
+  const overrideNote = `Override: ${previousIntensity} -> ${intensity} (${reason || "agent_override"})`;
+  const existingNotes = (existing as any).notes || "";
+  updatePayload.notes = existingNotes
+    ? `${existingNotes}\n${overrideNote}`
+    : overrideNote;
 
   const { data: updated, error: updateError } = await db
     .from("calendar_events")

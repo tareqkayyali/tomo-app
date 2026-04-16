@@ -259,7 +259,7 @@ def make_recovery_tools(user_id: str, context: PlayerContext) -> list:
                    FROM calendar_events
                    WHERE user_id = %s
                      AND start_at >= %s::timestamp
-                     AND event_type IN ('training', 'gym', 'club_training', 'match', 'recovery')
+                     AND event_type IN ('training', 'match', 'recovery')
                    ORDER BY start_at DESC""",
                 (user_id, since),
             )

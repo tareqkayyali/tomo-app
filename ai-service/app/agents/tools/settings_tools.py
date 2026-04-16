@@ -74,11 +74,12 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         try:
             async with pool.connection() as conn:
                 result = await conn.execute(
-                    """SELECT id, body_area, severity, description, onset_date::text,
-                              expected_return_date::text, status, notes
+                    """SELECT id, pain_location, current_stage,
+                              injury_date::text, notes, cleared_at::text,
+                              stage_started_at::text
                        FROM return_to_play
-                       WHERE user_id = %s AND status = 'active'
-                       ORDER BY severity DESC""",
+                       WHERE user_id = %s AND cleared_at IS NULL
+                       ORDER BY injury_date DESC""",
                     (user_id,),
                 )
                 rows = await result.fetchall()
@@ -88,9 +89,10 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
 
         injuries = [
             {
-                "id": str(row[0]), "body_area": row[1], "severity": row[2],
-                "description": row[3], "onset_date": row[4],
-                "expected_return": row[5], "status": row[6], "notes": row[7],
+                "id": str(row[0]), "pain_location": row[1],
+                "current_stage": row[2], "injury_date": row[3],
+                "notes": row[4], "cleared_at": row[5],
+                "stage_started_at": row[6],
             }
             for row in rows
         ]
@@ -98,7 +100,7 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
         return {
             "injuries": injuries,
             "total_active": len(injuries),
-            "has_severe": any(i["severity"] >= 3 for i in injuries if i["severity"]),
+            "has_severe": any(i["current_stage"] and i["current_stage"] <= 2 for i in injuries),
         }
 
     @tool

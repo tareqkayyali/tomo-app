@@ -242,7 +242,7 @@ def make_mastery_tools(user_id: str, context: PlayerContext) -> list:
         is_current: bool = False,
         achievements: list[str] | None = None,
     ) -> dict:
-        """Add a new career history entry. Types: club, competition, award, certification. club_name is the team/org name. started_month/ended_month format: YYYY-MM. This is a WRITE action."""
+        """Add a new career history entry. Types: club, academy, national_team, trial, camp, showcase. club_name is the team/org name. started_month/ended_month format: YYYY-MM. This is a WRITE action."""
         from app.agents.tools.bridge import bridge_post
         return await bridge_post(
             "/api/v1/cv/career",

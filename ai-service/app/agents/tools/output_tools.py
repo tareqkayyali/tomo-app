@@ -483,13 +483,13 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                 result = await conn.execute(
                     """SELECT id, name, category, type, description, difficulty,
                               duration_minutes, tags, position_emphasis, equipment
-                       FROM football_training_programs
+                       FROM training_programs
                        ORDER BY name
                        LIMIT 10""",
                 )
                 rows = await result.fetchall()
         except Exception as e:
-            logger.warning(f"get_training_program_recommendations: football_training_programs table not found: {e}")
+            logger.warning(f"get_training_program_recommendations: training_programs table not found: {e}")
             rows = []
 
         programs = [
@@ -575,41 +575,36 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         pool = get_pool()
 
         async with pool.connection() as conn:
+            # Programs come from athlete_recommendations (rec_type='program')
+            # or from training_programs table directly
             result = await conn.execute(
-                """SELECT program_recommendations
-                   FROM athlete_snapshots
-                   WHERE athlete_id = %s""",
+                """SELECT rec_id, title, body_short, priority, status, context
+                   FROM athlete_recommendations
+                   WHERE athlete_id = %s
+                     AND rec_type = 'program'
+                     AND status IN ('active', 'pending')
+                   ORDER BY priority ASC, created_at DESC
+                   LIMIT 5""",
                 (user_id,),
             )
-            row = await result.fetchone()
+            rows = await result.fetchall()
 
-        if not row or not row[0]:
+        if not rows:
             return {"programs": [], "total": 0}
 
-        raw = row[0]
-        if isinstance(raw, str):
-            try:
-                raw = json.loads(raw)
-            except (json.JSONDecodeError, TypeError):
-                return {"programs": [], "total": 0}
+        programs = [
+            {
+                "rec_id": str(row[0]),
+                "name": row[1],
+                "description": row[2],
+                "priority": row[3],
+                "status": row[4],
+                "context": row[5] if isinstance(row[5], dict) else {},
+            }
+            for row in rows
+        ]
 
-        # Handle both formats: raw list or { programs: [...] }
-        programs = raw if isinstance(raw, list) else (raw.get("programs", []) if isinstance(raw, dict) else [])
-
-        # Normalize program objects
-        normalized = []
-        for p in programs[:5]:
-            if isinstance(p, dict):
-                normalized.append({
-                    "program_id": p.get("id") or p.get("program_id", ""),
-                    "name": p.get("name", "Unknown"),
-                    "category": p.get("category", ""),
-                    "description": p.get("description", ""),
-                    "difficulty": p.get("difficulty", ""),
-                    "tags": p.get("tags", []),
-                })
-
-        return {"programs": normalized, "total": len(programs)}
+        return {"programs": programs, "total": len(programs)}
 
     @tool
     async def get_program_by_id(program_id: str) -> dict:
@@ -623,12 +618,12 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                     """SELECT id, name, category, type, description, difficulty,
                               duration_minutes, tags, position_emphasis, equipment,
                               prescriptions, phv_guidance
-                       FROM football_training_programs WHERE id = %s""",
+                       FROM training_programs WHERE id = %s""",
                     (program_id,),
                 )
                 prog_row = await prog_result.fetchone()
         except Exception as e:
-            logger.warning(f"get_program_by_id: football_training_programs table not found: {e}")
+            logger.warning(f"get_program_by_id: training_programs table not found: {e}")
             return {"error": f"Program {program_id} not found (table unavailable)"}
 
         if not prog_row:
