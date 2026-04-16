@@ -164,7 +164,21 @@ def _build_exact_match_map() -> dict[str, dict]:
           "my agenda", "today's agenda", "what's happening today",
           "any sessions today", "any events today",
           "what's lined up today", "what have i got today",
-          "plans for today", "am i busy today"], "qa_today_schedule")
+          "plans for today", "am i busy today",
+          # Tomorrow schedule — same intent, data_display extracts date from message
+          "tomorrow's schedule", "what's on tomorrow", "my events tomorrow",
+          "tomorrow's events", "what do i have tomorrow",
+          "my schedule tomorrow", "schedule for tomorrow",
+          "tomorrow schedule", "tomorrow's plan",
+          "what am i doing tomorrow", "anything on tomorrow",
+          "have i got anything tomorrow", "what's planned for tomorrow",
+          "tomorrow's agenda", "what's happening tomorrow",
+          "any sessions tomorrow", "any events tomorrow",
+          "what's lined up tomorrow", "what have i got tomorrow",
+          "plans for tomorrow", "am i busy tomorrow",
+          "show me tomorrow's schedule", "show tomorrow's schedule",
+          "show me tomorrow", "show tomorrow",
+          "what's tomorrow looking like", "what's tomorrow look like"], "qa_today_schedule")
     _add(["this week's schedule", "my week", "what's this week",
           "week schedule", "weekly schedule",
           "what's my week looking like", "my weekly plan",
@@ -227,7 +241,30 @@ def _build_exact_match_map() -> dict[str, dict]:
           "football session", "soccer session", "basketball session",
           "padel session", "tennis session",
           "club training session", "club session",
-          "morning session", "evening session", "afternoon session"], "build_session")
+          "morning session", "evening session", "afternoon session",
+          # Date-qualified training desire — scheduling intent, NOT readiness check
+          "i want to train tomorrow", "i want to train today",
+          "i want to train on monday", "i want to train on tuesday",
+          "i want to train on wednesday", "i want to train on thursday",
+          "i want to train on friday", "i want to train on saturday",
+          "i want to train on sunday",
+          "train tomorrow", "train today",
+          "training tomorrow", "training today",
+          "gym tomorrow", "gym today", "gym session tomorrow",
+          "i want to work out tomorrow", "i want to work out today",
+          "workout tomorrow", "workout today",
+          "let's train tomorrow", "lets train tomorrow",
+          "i want a session tomorrow", "i want a session today",
+          "session tomorrow", "session today",
+          "i want to do a session tomorrow", "i want to do a session today",
+          "can we plan a session for tomorrow",
+          "plan something for tomorrow", "plan something for today",
+          "i need to train tomorrow", "i need to train today",
+          "train in the morning", "train in the evening", "train in the afternoon",
+          "train after school", "train before school",
+          "i want to train this evening", "i want to train this morning",
+          "i want to train this afternoon", "i want to train tonight",
+          "i want to train later", "i want to train later today"], "build_session")
 
     # Simple event creation — direct add with time/date (write_action)
     # These are quick adds, not session building with drill selection.
@@ -380,8 +417,16 @@ CRITICAL RULES:
 14. Emotional / mood statements that describe the body without asking for
     a log ("i feel slow", "legs are dead", "body is heavy")
     → agent_fallthrough (NOT check_in -- check_in is explicit logging only).
+15. Training desire + date/time qualifier ("i want to train tomorrow",
+    "train today", "gym on friday", "session this evening",
+    "workout in the morning") → build_session (NOT qa_readiness).
+    qa_readiness is ONLY for "am I ready?" without a date target.
+    If the user names a specific day/time, they want to SCHEDULE, not check readiness.
 
 EXAMPLES:
+User: "I want to train tomorrow"
+→ {{"intent_id": "build_session", "confidence": 0.95, "params": {{"date": "tomorrow"}}}}
+
 User: "I'm thinking about technical drills tomorrow"
 → {{"intent_id": "agent_fallthrough", "confidence": 0.9, "params": {{}}}}
 

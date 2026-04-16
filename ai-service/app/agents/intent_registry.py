@@ -113,11 +113,13 @@ INTENT_REGISTRY: list[IntentDefinition] = [
         id="build_session",
         capsule_type=None,
         agent_type="output",
-        description="Build a training session with drills — picks focus, generates drills, confirms",
+        description="Build/schedule a training session — includes any training desire with a date/time (NOT readiness checks without a date)",
         examples=[
             "build me a session", "build a gym session", "plan a session",
             "build me a training session", "plan me a session for Thursday",
             "build a speed session", "plan a gym session",
+            "i want to train tomorrow", "train today", "gym tomorrow",
+            "session this evening", "workout in the morning",
         ],
     ),
 

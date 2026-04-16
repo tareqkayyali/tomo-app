@@ -101,10 +101,11 @@ async def execute_data_display(config: FlowConfig, state: TomoChatState) -> dict
     """Execute the data_display flow pattern.
 
     1. Create the tool via factory
-    2. Call the tool (DB query)
-    3. Build card from tool result
-    4. Build headline + chips deterministically
-    5. Return structured response
+    2. Extract tool args from user message (e.g. target date)
+    3. Call the tool (DB query) with extracted args
+    4. Build card from tool result
+    5. Build headline + chips deterministically
+    6. Return structured response
 
     Returns state update dict, or empty dict on failure (fall through to agent).
     """
@@ -122,8 +123,11 @@ async def execute_data_display(config: FlowConfig, state: TomoChatState) -> dict
         logger.error("data_display: missing user_id or player_context")
         return {}
 
+    # Extract tool args from user message (date, start_date, etc.)
+    tool_args = _extract_tool_args(tool_name, state, context)
+
     # 1. Create the tool via factory and find by name
-    tool_result = await _call_tool(tool_name, user_id, context)
+    tool_result = await _call_tool(tool_name, user_id, context, tool_args=tool_args)
     if tool_result is None:
         return {}  # Fall through to agent pipeline
 
@@ -210,7 +214,7 @@ async def execute_data_display(config: FlowConfig, state: TomoChatState) -> dict
     }
 
 
-async def _call_tool(tool_name: str, user_id: str, context) -> dict | None:
+async def _call_tool(tool_name: str, user_id: str, context, tool_args: dict | None = None) -> dict | None:
     """Create and call a tool by name. Returns tool result or None on failure."""
     try:
         # Determine which factory to use based on tool name
@@ -241,8 +245,11 @@ async def _call_tool(tool_name: str, user_id: str, context) -> dict | None:
             logger.error(f"data_display: tool '{tool_name}' not found in factory output")
             return None
 
-        # Call the tool (LangChain @tool async invocation)
-        result = await target.ainvoke({})
+        # Call the tool (LangChain @tool async invocation) with extracted args
+        invoke_args = tool_args or {}
+        if invoke_args:
+            logger.info(f"data_display: calling {tool_name} with args={invoke_args}")
+        result = await target.ainvoke(invoke_args)
         return result
 
     except Exception as e:
@@ -297,6 +304,107 @@ def _build_error_response(tool_name: str, error_data: dict) -> dict:
         "total_cost_usd": 0.0,
         "total_tokens": 0,
     }
+
+
+def _extract_tool_args(tool_name: str, state: TomoChatState, context) -> dict:
+    """Extract tool arguments from the user message.
+
+    For schedule tools (get_today_events, get_week_schedule), extracts the
+    target date from temporal references like 'tomorrow', 'Monday', etc.
+    Without this, every schedule query defaults to today's date, so
+    'show me tomorrow's schedule' would incorrectly show today.
+    """
+    if tool_name not in ("get_today_events", "get_week_schedule"):
+        return {}
+
+    from app.utils.message_helpers import get_msg_type, get_msg_content
+    messages = state.get("messages", [])
+    user_message = ""
+    for msg in reversed(messages):
+        if get_msg_type(msg) == "human":
+            user_message = get_msg_content(msg)
+            break
+
+    if not user_message:
+        return {}
+
+    today = getattr(context, "today_date", None)
+    if not today:
+        return {}
+
+    extracted_date = _extract_date_from_message(user_message, today)
+    if not extracted_date:
+        return {}
+
+    # For get_today_events, the param is 'date'; for get_week_schedule, 'start_date'
+    if tool_name == "get_today_events":
+        return {"date": extracted_date}
+    elif tool_name == "get_week_schedule":
+        return {"start_date": extracted_date}
+    return {}
+
+
+def _extract_date_from_message(msg: str, today: str) -> str | None:
+    """Extract a date reference from a user message.
+
+    Reuses the same temporal parsing logic as the scheduling capsule
+    (scheduling_capsule.py:_extract_date) to ensure consistent behavior
+    across all flows. Returns YYYY-MM-DD or None if no date found.
+    """
+    import re
+    from datetime import datetime, timedelta
+
+    lowered = msg.lower()
+
+    try:
+        today_dt = datetime.strptime(today, "%Y-%m-%d")
+    except ValueError:
+        return None
+
+    # "day after tomorrow"
+    if "day after tomorrow" in lowered or "after tomorrow" in lowered:
+        return (today_dt + timedelta(days=2)).strftime("%Y-%m-%d")
+
+    # "in N days"
+    days_match = (
+        re.search(r"in (\d+) days?", lowered)
+        or re.search(r"(\d+) days? from now", lowered)
+    )
+    if days_match:
+        try:
+            n = int(days_match.group(1))
+            if 0 <= n <= 60:
+                return (today_dt + timedelta(days=n)).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+
+    # "next week"
+    if "next week" in lowered:
+        return (today_dt + timedelta(days=7)).strftime("%Y-%m-%d")
+
+    # "tomorrow" / "tmrw" — BEFORE "today" check because "today" is
+    # substring of many phrases that don't mean today
+    if "tomorrow" in lowered or "tmrw" in lowered:
+        return (today_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    # "today" / "tonight" / "this morning" — return None (use default)
+    # because the tool already defaults to today
+    if any(k in lowered for k in ("today", "tonight", "this evening", "this morning")):
+        return None
+
+    # Named days: "monday", "tuesday", etc.
+    day_map = {
+        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+        "friday": 4, "saturday": 5, "sunday": 6,
+    }
+    for day_name, day_num in day_map.items():
+        if day_name in lowered:
+            days_ahead = (day_num - today_dt.weekday()) % 7
+            if days_ahead == 0:
+                days_ahead = 7  # Next occurrence, not today
+            return (today_dt + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+
+    return None
 
 
 def state_get_original_message(tool_name: str) -> str:

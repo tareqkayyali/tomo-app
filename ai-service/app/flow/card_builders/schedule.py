@@ -52,6 +52,25 @@ def _strip_emoji(text: str) -> str:
     ).strip()
 
 
+def _date_to_day_label(date_str: str) -> str:
+    """Convert a YYYY-MM-DD date to a relative label: 'today', 'tomorrow',
+    or the weekday name. Falls back to 'today' if the date is not parseable
+    or matches today."""
+    if not date_str:
+        return "today"
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        now = datetime.now()
+        delta = (dt.date() - now.date()).days
+        if delta == 0:
+            return "today"
+        if delta == 1:
+            return "tomorrow"
+        return dt.strftime("%A")  # e.g. "Monday"
+    except (ValueError, TypeError):
+        return "today"
+
+
 def filter_active_and_upcoming(events: list, card_date: str, context) -> list:
     """Drop events that ended before the athlete's current local time, when
     the card is for today. Future/past day cards are returned unchanged.
@@ -169,16 +188,20 @@ def build_week_schedule_cards(data: dict) -> list[dict]:
 
 
 def build_schedule_headline(data: dict) -> str:
-    """Deterministic headline from today's schedule data."""
+    """Deterministic headline from schedule data. Date-aware -- says
+    'today', 'tomorrow', or the day name depending on the query date."""
     total = data.get("total", 0)
+    date_str = data.get("date", "")
+    day_label = _date_to_day_label(date_str)
+
     if total == 0:
-        return "Rest day -- nothing on the books"
+        return f"Rest day -- nothing on the books{' ' + day_label if day_label != 'today' else ''}"
     elif total == 1:
         event = data["events"][0] if data.get("events") else {}
         title = event.get("title", "session")
-        return f"One thing today -- {title.lower()}"
+        return f"One thing {day_label} -- {title.lower()}"
     else:
-        return f"{total} things on today"
+        return f"{total} things on {day_label}"
 
 
 def build_week_headline(data: dict) -> str:
@@ -198,15 +221,22 @@ def build_week_headline(data: dict) -> str:
 def build_schedule_chips(data: dict) -> list[dict]:
     """Context-aware chips for daily schedule."""
     total = data.get("total", 0)
+    date_str = data.get("date", "")
+    day_label = _date_to_day_label(date_str)
+    show_tomorrow = day_label == "today"
+
     if total == 0:
-        return [
-            {"label": "Add training", "message": "Add a training session today"},
-            {"label": "Show my week", "message": "What does my week look like?"},
-        ]
-    return [
+        chips = [{"label": "Add training", "message": f"Add a training session {day_label}"}]
+        if show_tomorrow:
+            chips.append({"label": "Show tomorrow", "message": "What's on tomorrow?"})
+        else:
+            chips.append({"label": "Show my week", "message": "What does my week look like?"})
+        return chips
+    chips = [
         {"label": "Add event", "message": "Add an event to my schedule"},
         {"label": "Check collisions", "message": "Check for any schedule conflicts"},
     ]
+    return chips
 
 
 def build_week_chips() -> list[dict]:
