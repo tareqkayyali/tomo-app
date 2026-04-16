@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "info"
 
+    # Feature flags
+    flow_controller_enabled: bool = True
+    scheduling_capsule_enabled: bool = False
+    flow_rag_enabled: bool = True
+    flow_step_text_gen_enabled: bool = True
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
