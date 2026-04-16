@@ -40,14 +40,15 @@ from app.models.state import TomoChatState
 
 logger = logging.getLogger("tomo-ai.flow.scheduling_capsule")
 
-# Feature flag: opt-in until validated in production.
-SCHEDULING_CAPSULE_ENABLED = (
-    os.environ.get("SCHEDULING_CAPSULE_ENABLED", "false").lower() == "true"
-)
-logger.info(
-    f"scheduling_capsule module loaded: SCHEDULING_CAPSULE_ENABLED={SCHEDULING_CAPSULE_ENABLED} "
-    f"(raw env={os.environ.get('SCHEDULING_CAPSULE_ENABLED', '<not set>')})"
-)
+def is_scheduling_capsule_enabled() -> bool:
+    """Runtime feature flag — reads os.environ on every call.
+
+    Module-level constants cache the value at import time, which means
+    Railway env var changes don't take effect until the next deploy AND
+    the module is re-imported. This function reads the env var fresh on
+    every request so the flag is always current for the running process.
+    """
+    return os.environ.get("SCHEDULING_CAPSULE_ENABLED", "false").lower() == "true"
 
 # How many days of schedule to pre-fetch. 5 covers a full school week.
 _LOOKAHEAD_DAYS = 5

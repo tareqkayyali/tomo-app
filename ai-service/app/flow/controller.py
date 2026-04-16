@@ -59,8 +59,14 @@ async def flow_controller_node(state: TomoChatState) -> dict:
     # fails to resolve. The active-flow check naturally takes priority
     # because the flow state is the source of truth, not the echoed
     # confirmedAction payload.
+    #
+    # EXCEPTION: when scheduling_capsule is enabled, stale multi_step
+    # flows for build_session / plan_training must be expired so the
+    # new capsule takes over. Without this, a user who started a
+    # build_session in the old multi_step flow would be stuck in it
+    # for the full 60-minute TTL even after the flag is turned on.
     try:
-        from app.flow.step_tracker import load_active_flow
+        from app.flow.step_tracker import load_active_flow, clear_flow_state
 
         session_id = state.get("session_id", "")
         user_id = state.get("user_id", "")
@@ -68,22 +74,49 @@ async def flow_controller_node(state: TomoChatState) -> dict:
         if session_id and user_id:
             active_flow = await load_active_flow(session_id, user_id)
             if active_flow:
-                from app.flow.patterns.multi_step import execute_multi_step_continuation
-                result = await execute_multi_step_continuation(active_flow, state)
-
-                if result and result.get("_flow_pattern"):
-                    elapsed = (time.monotonic() - t0) * 1000
-                    logger.info(
-                        f"Flow controller: multi_step continuation "
-                        f"step={active_flow.current_step_index} "
-                        f"({elapsed:.1f}ms)"
-                    )
-                    result["route_decision"] = "flow_handled"
-                    return result
+                # If scheduling_capsule is now enabled and this is a
+                # stale multi_step flow for an intent that should use the
+                # capsule, expire it and let the registry route fresh.
+                _scheduling_capsule_intents = {"build_session", "plan_training"}
+                if active_flow.intent_id in _scheduling_capsule_intents:
+                    from app.flow.patterns.scheduling_capsule import is_scheduling_capsule_enabled
+                    if is_scheduling_capsule_enabled():
+                        logger.info(
+                            f"Flow controller: expiring stale multi_step flow "
+                            f"for {active_flow.intent_id} (scheduling_capsule enabled)"
+                        )
+                        await clear_flow_state(session_id, user_id)
+                        # Fall through to section 3 (registry lookup)
+                        # which will route to scheduling_capsule.
+                    else:
+                        # Flag off — continue the multi_step flow normally.
+                        from app.flow.patterns.multi_step import execute_multi_step_continuation
+                        result = await execute_multi_step_continuation(active_flow, state)
+                        if result and result.get("_flow_pattern"):
+                            elapsed = (time.monotonic() - t0) * 1000
+                            logger.info(
+                                f"Flow controller: multi_step continuation "
+                                f"step={active_flow.current_step_index} "
+                                f"({elapsed:.1f}ms)"
+                            )
+                            result["route_decision"] = "flow_handled"
+                            return result
+                else:
+                    # Non-scheduling multi_step flow — continue normally.
+                    from app.flow.patterns.multi_step import execute_multi_step_continuation
+                    result = await execute_multi_step_continuation(active_flow, state)
+                    if result and result.get("_flow_pattern"):
+                        elapsed = (time.monotonic() - t0) * 1000
+                        logger.info(
+                            f"Flow controller: multi_step continuation "
+                            f"step={active_flow.current_step_index} "
+                            f"({elapsed:.1f}ms)"
+                        )
+                        result["route_decision"] = "flow_handled"
+                        return result
     except Exception as e:
         import traceback as _tb
         logger.warning(f"Active flow check failed (continuing): {e}", exc_info=True)
-        # Persist to Supabase for cross-instance observability
         try:
             import asyncio as _asyncio
             from app.core.debug_logger import log_error as _log_error
@@ -129,11 +162,10 @@ async def flow_controller_node(state: TomoChatState) -> dict:
 
     elif pattern == "scheduling_capsule":
         from app.flow.patterns.scheduling_capsule import (
-            SCHEDULING_CAPSULE_ENABLED,
+            is_scheduling_capsule_enabled,
             execute_scheduling_capsule,
         )
-        logger.info(f"Flow controller: scheduling_capsule flag={SCHEDULING_CAPSULE_ENABLED} for intent={intent_id}")
-        if SCHEDULING_CAPSULE_ENABLED:
+        if is_scheduling_capsule_enabled():
             result = await execute_scheduling_capsule(config, state)
         else:
             # Feature flag off: fall through to multi_step as before.

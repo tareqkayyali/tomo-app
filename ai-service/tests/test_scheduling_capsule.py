@@ -325,13 +325,29 @@ class TestExecuteSchedulingCapsule:
 # ── 5. Feature flag test ───────────────────────────────────────────
 
 class TestFeatureFlag:
-    """SCHEDULING_CAPSULE_ENABLED controls routing in controller."""
+    """is_scheduling_capsule_enabled() controls routing in controller."""
 
     def test_flag_defaults_false(self):
         """Default is false (opt-in until validated)."""
-        from app.flow.patterns.scheduling_capsule import SCHEDULING_CAPSULE_ENABLED
+        from app.flow.patterns.scheduling_capsule import is_scheduling_capsule_enabled
         # In test env, env var is not set, so default is false
-        assert SCHEDULING_CAPSULE_ENABLED is False
+        assert is_scheduling_capsule_enabled() is False
+
+    def test_flag_reads_env_at_runtime(self):
+        """Flag reads os.environ on every call, not cached at import."""
+        import os
+        from app.flow.patterns.scheduling_capsule import is_scheduling_capsule_enabled
+        old = os.environ.get("SCHEDULING_CAPSULE_ENABLED")
+        try:
+            os.environ["SCHEDULING_CAPSULE_ENABLED"] = "true"
+            assert is_scheduling_capsule_enabled() is True
+            os.environ["SCHEDULING_CAPSULE_ENABLED"] = "false"
+            assert is_scheduling_capsule_enabled() is False
+        finally:
+            if old is None:
+                os.environ.pop("SCHEDULING_CAPSULE_ENABLED", None)
+            else:
+                os.environ["SCHEDULING_CAPSULE_ENABLED"] = old
 
 
 # ── 6. Day label helpers ───────────────────────────────────────────
