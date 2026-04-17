@@ -409,6 +409,15 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
                 flow.advance()
             else:
                 return await _present_date_picker(flow, state)
+        # pick_week: map "This week"/"Next week"/"Week after" to a Monday
+        # date and store as week_start. All downstream steps read it.
+        elif current.id == "pick_week":
+            week_start = _resolve_week_start_from_message(user_message, flow)
+            if week_start:
+                flow.store("week_start", week_start)
+                flow.advance()
+            else:
+                return await _present_week_scope_choice(flow, state)
         # If this is pick_focus and the athlete already stated a focus
         # upfront, we should never be standing on this step in the first
         # place. Skip it silently and let _execute_current_step auto-advance.
@@ -517,6 +526,53 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
             else:
                 return await _present_time_picker(flow, state)
 
+    # ── Week planner capsule responses ──
+    # Mobile submits the capsule payload via `confirmed_action.toolInput`.
+    # Parse → store on flow state → advance. Falls back to re-presenting
+    # the same card when the payload is malformed.
+    elif current.card == "training_mix_capsule":
+        submitted = _extract_capsule_payload(state)
+        mix = _coerce_training_mix(submitted)
+        if mix is not None:
+            flow.store("training_mix", mix)
+            flow.advance()
+        else:
+            return await _present_training_mix_capsule(flow, state)
+
+    elif current.card == "study_plan_capsule":
+        submitted = _extract_capsule_payload(state)
+        mix = _coerce_study_mix(submitted)
+        if mix is not None:
+            flow.store("study_mix", mix)
+            flow.advance()
+        else:
+            return await _present_study_plan_capsule(flow, state)
+
+    elif current.card == "week_plan_preview_capsule":
+        # Two interactions on this card:
+        #   1. Edit a single session inline — mobile posts edit payload,
+        #      we validate via /validate-edit and mutate draft_plan_items.
+        #   2. Accept → advance to confirm_week_plan card.
+        submitted = _extract_capsule_payload(state)
+        action = (submitted or {}).get("action") or ""
+        if action == "edit_item":
+            edit_result = await _apply_draft_edit(flow, state, submitted)
+            if edit_result.get("ok"):
+                return await _present_week_plan_preview_capsule(flow, state)
+            # Validation failed — re-render with error on the card.
+            flow.store("draft_edit_error", edit_result.get("message", "Edit rejected."))
+            return await _present_week_plan_preview_capsule(flow, state)
+        if action == "accept" or _is_confirmation(user_message):
+            flow.advance()
+        elif _is_rejection(user_message):
+            await clear_flow_state(
+                state.get("session_id", ""),
+                state.get("user_id", ""),
+            )
+            return _build_cancel_response()
+        else:
+            return await _present_week_plan_preview_capsule(flow, state)
+
     # ── Handle confirmation step: actually EXECUTE the write tool ──
     elif current.card == "confirm_card":
         if _is_confirmation(user_message):
@@ -530,6 +586,8 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
             )
             return _build_cancel_response()
         else:
+            if current.id == "confirm_week_plan":
+                return await _present_week_plan_confirm(flow, state)
             return await _present_confirm(flow, state)
 
     # Execute from current step forward
@@ -628,6 +686,13 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
                 continue
             return await _present_date_picker(flow, state)
 
+        # ── pick_week (week planner): render week-scope choice ──
+        if step.card == "choice_card" and step.id == "pick_week":
+            if flow.get("week_start"):
+                flow.advance()
+                continue
+            return await _present_week_scope_choice(flow, state)
+
         # ── Regular choice card (pick_focus) ──
         if step.card == "choice_card":
             if step.id == "pick_focus" and flow.get("selected_focus"):
@@ -661,7 +726,28 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
 
         # ── Confirm card ──
         if step.card == "confirm_card":
+            # Week-plan flow uses confirm_card as its final step but with a
+            # different confirm_tool. The card body is the preview emitted
+            # by the prior step; we still need user input ("yes"/"no") here.
+            if step.id == "confirm_week_plan":
+                return await _present_week_plan_confirm(flow, state)
             return await _present_confirm(flow, state)
+
+        # ── Week planner card types ──
+        if step.card == "training_mix_capsule":
+            if step.id == "pick_training_mix" and flow.get("training_mix"):
+                flow.advance()
+                continue
+            return await _present_training_mix_capsule(flow, state)
+
+        if step.card == "study_plan_capsule":
+            if step.id == "pick_study_plan" and flow.get("study_mix"):
+                flow.advance()
+                continue
+            return await _present_study_plan_capsule(flow, state)
+
+        if step.card == "week_plan_preview_capsule":
+            return await _present_week_plan_preview_capsule(flow, state)
 
         # Unknown step type -- skip
         logger.warning(f"Unknown step type: {step}")
@@ -686,6 +772,14 @@ async def _call_step_tool(step: StepDefinition, flow: FlowState, state: TomoChat
         for arg_name, carry_key in step.tool_args_from.items():
             tool_args[arg_name] = flow.get(carry_key, "")
 
+    # ── Week-plan bridge calls — no LangChain tool, hit the TS endpoint
+    # directly. Lives here (not inside a LangChain @tool) because these
+    # endpoints are owned by the planner flow, not by any agent's toolbox.
+    if tool_name == "get_week_plan_suggestions":
+        return await _fetch_week_plan_suggestions(flow, user_id)
+    if tool_name == "build_week_plan_draft":
+        return await _fetch_week_plan_draft(flow, user_id)
+
     try:
         if tool_name in ("get_today_events",):
             from app.agents.tools.timeline_tools import make_timeline_tools
@@ -707,6 +801,51 @@ async def _call_step_tool(step: StepDefinition, flow: FlowState, state: TomoChat
     except Exception as e:
         logger.error(f"Multi-step tool call failed: {e}", exc_info=True)
         return None
+
+
+# ── Week-plan helpers ───────────────────────────────────────────────────────
+# Thin bridges to the TS endpoints under /api/v1/week-plan. Kept inline so
+# the multi_step flow owns its own side effects — no LangChain tool wiring.
+
+async def _fetch_week_plan_suggestions(flow: FlowState, user_id: str) -> dict | None:
+    """GET /api/v1/week-plan/suggest — seed training/study mix defaults."""
+    from app.agents.tools.bridge import bridge_get
+    week_start = flow.get("week_start") or ""
+    if not week_start:
+        return None
+    result = await bridge_get(
+        "/api/v1/week-plan/suggest",
+        params={"weekStart": week_start},
+        user_id=user_id,
+    )
+    if isinstance(result, dict) and not result.get("error"):
+        # Stash the suggestions on context_carry so the pickers use them.
+        flow.store("suggested_training_mix", result.get("trainingMix", []))
+        flow.store("suggested_study_mix", result.get("studyMix", []))
+        flow.store("suggestion_notes", result.get("notes", []))
+        flow.store("suggestion_source", result.get("source", ""))
+    return result
+
+
+async def _fetch_week_plan_draft(flow: FlowState, user_id: str) -> dict | None:
+    """POST /api/v1/week-plan/draft — run the deterministic builder."""
+    from app.agents.tools.bridge import bridge_post
+    payload = {
+        "weekStart": flow.get("week_start", ""),
+        "timezone": flow.get("timezone", "UTC"),
+        "trainingMix": flow.get("training_mix", []),
+        "studyMix": flow.get("study_mix", []),
+    }
+    result = await bridge_post(
+        "/api/v1/week-plan/draft",
+        payload,
+        user_id=user_id,
+    )
+    if isinstance(result, dict) and not result.get("error"):
+        flow.store("draft_plan_items", result.get("planItems", []))
+        flow.store("draft_summary", result.get("summary", {}))
+        flow.store("draft_warnings", result.get("warnings", []))
+    return result
 
 
 def _event_matches_focus(event: dict, focus: str) -> bool:
@@ -2146,6 +2285,400 @@ def _add_minutes(hhmm: str, minutes: int) -> str:
         return hhmm
 
 
+# ── Week planner helpers ────────────────────────────────────────────────
+
+def _resolve_week_start_from_message(msg: str, flow: FlowState) -> str | None:
+    """Map 'This week' / 'Next week' / 'Week after' selections to the
+    Monday of that week (ISO YYYY-MM-DD). Everything else → None."""
+    from datetime import datetime, timedelta
+    lowered = (msg or "").lower().strip()
+    today_iso = flow.get("today_date") or ""
+    try:
+        today = datetime.strptime(today_iso, "%Y-%m-%d") if today_iso else datetime.utcnow()
+    except ValueError:
+        today = datetime.utcnow()
+    # Monday of current week = today - weekday() days (Mon=0..Sun=6).
+    monday = today - timedelta(days=today.weekday())
+
+    offset_weeks = None
+    if "next week" in lowered or "next" in lowered:
+        offset_weeks = 1
+    elif "week after" in lowered or "two weeks" in lowered or "after" in lowered:
+        offset_weeks = 2
+    elif "this week" in lowered or "current" in lowered or "this" in lowered:
+        offset_weeks = 0
+    if offset_weeks is None:
+        return None
+    return (monday + timedelta(weeks=offset_weeks)).strftime("%Y-%m-%d")
+
+
+async def _present_week_scope_choice(flow: FlowState, state: TomoChatState) -> dict:
+    """Render the pick_week choice_card for the week planner."""
+    options = [
+        {"label": "This week", "value": "this", "description": "Starting today"},
+        {"label": "Next week", "value": "next", "description": "Starts Monday"},
+        {"label": "Week after", "value": "after", "description": "Two weeks out"},
+    ]
+    structured = {
+        "headline": "Which week?",
+        "body": "Pick the week to plan out.",
+        "cards": [{
+            "type": "choice_card",
+            "options": options,
+        }],
+        "chips": [],
+    }
+    await save_flow_state(
+        state.get("session_id", ""),
+        state.get("user_id", ""),
+        flow,
+    )
+    return {
+        "final_response": json.dumps(structured),
+        "final_cards": structured["cards"],
+        "_flow_pattern": "multi_step",
+        "route_decision": "flow_handled",
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+    }
+
+
+def _extract_capsule_payload(state: TomoChatState) -> dict | None:
+    """Pull the capsule's submitted payload from `confirmed_action.toolInput`.
+    Returns None when the state has no confirmed action (e.g. user typed
+    a free-text response instead of tapping a capsule button)."""
+    action = state.get("confirmed_action") if isinstance(state.get("confirmed_action"), dict) else None
+    if not action:
+        return None
+    tool_input = action.get("toolInput") if isinstance(action.get("toolInput"), dict) else None
+    return tool_input
+
+
+_CATEGORY_IDS = {
+    "club", "gym", "personal", "recovery",
+    "individual_technical", "tactical", "match_competition", "mental_performance",
+}
+
+
+def _coerce_training_mix(payload: dict | None) -> list | None:
+    """Validate + shape the submitted training mix. Returns None when the
+    payload is missing required fields so the card can re-prompt."""
+    if not isinstance(payload, dict):
+        return None
+    raw = payload.get("trainingMix")
+    if not isinstance(raw, list):
+        return None
+    cleaned: list[dict] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        cat = item.get("category")
+        if cat not in _CATEGORY_IDS:
+            continue
+        sessions = int(item.get("sessionsPerWeek") or 0)
+        duration = int(item.get("durationMin") or 60)
+        placement = item.get("placement") if item.get("placement") in ("fixed", "flexible") else "flexible"
+        fixed_days = item.get("fixedDays") if isinstance(item.get("fixedDays"), list) else []
+        preferred = item.get("preferredTime") if item.get("preferredTime") in ("morning", "afternoon", "evening") else None
+        shaped = {
+            "category": cat,
+            "sessionsPerWeek": max(0, min(5, sessions)),
+            "durationMin": max(15, min(180, duration)),
+            "placement": placement,
+            "fixedDays": [int(d) for d in fixed_days if isinstance(d, (int, float)) and 0 <= int(d) <= 6],
+        }
+        if preferred:
+            shaped["preferredTime"] = preferred
+        cleaned.append(shaped)
+    return cleaned
+
+
+def _coerce_study_mix(payload: dict | None) -> list | None:
+    """Validate + shape the submitted study mix."""
+    if not isinstance(payload, dict):
+        return None
+    raw = payload.get("studyMix")
+    if not isinstance(raw, list):
+        return None
+    cleaned: list[dict] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        subject = str(item.get("subject") or "").strip()
+        if not subject:
+            continue
+        sessions = int(item.get("sessionsPerWeek") or 0)
+        duration = int(item.get("durationMin") or 45)
+        placement = item.get("placement") if item.get("placement") in ("fixed", "flexible") else "flexible"
+        fixed_days = item.get("fixedDays") if isinstance(item.get("fixedDays"), list) else []
+        preferred = item.get("preferredTime") if item.get("preferredTime") in ("morning", "afternoon", "evening") else None
+        is_exam = bool(item.get("isExamSubject"))
+        shaped = {
+            "subject": subject[:60],
+            "sessionsPerWeek": max(0, min(5, sessions)),
+            "durationMin": max(15, min(180, duration)),
+            "placement": placement,
+            "fixedDays": [int(d) for d in fixed_days if isinstance(d, (int, float)) and 0 <= int(d) <= 6],
+            "isExamSubject": is_exam,
+        }
+        if preferred:
+            shaped["preferredTime"] = preferred
+        cleaned.append(shaped)
+    return cleaned
+
+
+async def _apply_draft_edit(flow: FlowState, state: TomoChatState, payload: dict) -> dict:
+    """Validate + apply an inline edit to one item in the draft plan.
+    Calls /api/v1/week-plan/validate-edit to enforce buffers + school
+    hours + day bounds with the server's live snapshot. Mutates the
+    in-memory draft on success."""
+    from app.agents.tools.bridge import bridge_post
+
+    plan_items = flow.get("draft_plan_items") or []
+    if not isinstance(plan_items, list) or len(plan_items) == 0:
+        return {"ok": False, "message": "No draft to edit."}
+
+    try:
+        edit_index = int(payload.get("itemIndex"))
+    except (TypeError, ValueError):
+        return {"ok": False, "message": "Invalid item index."}
+    if edit_index < 0 or edit_index >= len(plan_items):
+        return {"ok": False, "message": "Item out of range."}
+
+    proposed = payload.get("proposed") if isinstance(payload.get("proposed"), dict) else {}
+    if not proposed:
+        return {"ok": False, "message": "No edit proposed."}
+
+    validation = await bridge_post(
+        "/api/v1/week-plan/validate-edit",
+        {
+            "weekStart": flow.get("week_start", ""),
+            "timezone": flow.get("timezone", "UTC"),
+            "planItems": plan_items,
+            "editIndex": edit_index,
+            "proposed": proposed,
+        },
+        user_id=state.get("user_id", ""),
+    )
+    if not isinstance(validation, dict) or validation.get("ok") is not True:
+        return {
+            "ok": False,
+            "message": (validation or {}).get("message") or "That edit doesn't fit.",
+        }
+
+    # Apply on the draft.
+    item = dict(plan_items[edit_index])
+    item["date"] = proposed.get("date") or item["date"]
+    item["startTime"] = proposed.get("startTime") or item["startTime"]
+    item["endTime"] = validation.get("endTime") or item.get("endTime")
+    item["durationMin"] = int(proposed.get("durationMin") or item.get("durationMin", 0))
+    if proposed.get("intensity") in ("LIGHT", "MODERATE", "HARD"):
+        item["intensity"] = proposed["intensity"]
+    if proposed.get("title"):
+        item["title"] = str(proposed["title"])[:200]
+    plan_items[edit_index] = item
+    # Sort chronologically so the preview stays readable.
+    plan_items.sort(key=lambda x: (x.get("date", ""), x.get("startTime", "")))
+    flow.store("draft_plan_items", plan_items)
+    return {"ok": True}
+
+
+# ── Week planner presenters ─────────────────────────────────────────────
+# Four steps use capsule cards defined by the Week Planner: the training
+# mix picker, the study plan picker, the preview, and the final confirm.
+# Each emits a structured card the mobile renders natively; server keeps
+# the generated draft on flow state so the athlete can edit any item
+# without rebuilding the plan from scratch.
+
+async def _present_training_mix_capsule(flow: FlowState, state: TomoChatState) -> dict:
+    """Render the training_mix_capsule with catalog defaults seeded from
+    /api/v1/week-plan/suggest. Mobile lets the athlete edit sessions/week,
+    duration, and fixed vs flexible days per category."""
+    suggested = flow.get("suggested_training_mix") or []
+    notes = flow.get("suggestion_notes") or []
+
+    structured = {
+        "headline": "Training mix",
+        "body": "Set how many of each you want this week — duration, and whether days are fixed or flexible.",
+        "cards": [{
+            "type": "training_mix_capsule",
+            "weekStart": flow.get("week_start", ""),
+            "categories": suggested,
+            "notes": notes,
+        }],
+        "chips": [],
+    }
+
+    await save_flow_state(
+        state.get("session_id", ""),
+        state.get("user_id", ""),
+        flow,
+    )
+    return {
+        "final_response": json.dumps(structured),
+        "final_cards": structured["cards"],
+        "_flow_pattern": "multi_step",
+        "route_decision": "flow_handled",
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+    }
+
+
+async def _present_study_plan_capsule(flow: FlowState, state: TomoChatState) -> dict:
+    """Render the study_plan_capsule. Seeds from suggest → player's
+    subjects + exam boost. Athlete can add subjects, set frequency, duration."""
+    suggested = flow.get("suggested_study_mix") or []
+    structured = {
+        "headline": "Study plan",
+        "body": "Pick the subjects to schedule and how many sessions per subject.",
+        "cards": [{
+            "type": "study_plan_capsule",
+            "weekStart": flow.get("week_start", ""),
+            "subjects": suggested,
+        }],
+        "chips": [],
+    }
+    await save_flow_state(
+        state.get("session_id", ""),
+        state.get("user_id", ""),
+        flow,
+    )
+    return {
+        "final_response": json.dumps(structured),
+        "final_cards": structured["cards"],
+        "_flow_pattern": "multi_step",
+        "route_decision": "flow_handled",
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+    }
+
+
+async def _present_week_plan_preview_capsule(flow: FlowState, state: TomoChatState) -> dict:
+    """Render the preview: the placed week plus warnings + per-session edit
+    affordance. The athlete can tap any session, change title / time / date
+    / duration / intensity, and the card posts back to the same flow —
+    we validate via /api/v1/week-plan/validate-edit and mutate the
+    in-memory draft before the next preview render."""
+    plan_items = flow.get("draft_plan_items") or []
+    summary = flow.get("draft_summary") or {}
+    warnings = flow.get("draft_warnings") or []
+
+    # If the builder returned an error or empty plan, escalate immediately.
+    if not plan_items:
+        structured = {
+            "headline": "Couldn't build your week",
+            "body": _summarise_warnings(warnings) or "The builder returned no sessions. Try reducing the mix or switching to flexible placement.",
+            "cards": [],
+            "chips": [
+                {"label": "Change training mix", "message": "let me change the training mix"},
+                {"label": "Cancel", "message": "cancel"},
+            ],
+        }
+        await save_flow_state(
+            state.get("session_id", ""),
+            state.get("user_id", ""),
+            flow,
+        )
+        return {
+            "final_response": json.dumps(structured),
+            "final_cards": [],
+            "_flow_pattern": "multi_step",
+            "route_decision": "flow_handled",
+            "total_cost_usd": 0.0,
+            "total_tokens": 0,
+        }
+
+    structured = {
+        "headline": _build_preview_headline(summary),
+        "body": _summarise_warnings(warnings),
+        "cards": [{
+            "type": "week_plan_preview_capsule",
+            "weekStart": flow.get("week_start", ""),
+            "planItems": plan_items,
+            "summary": summary,
+            "warnings": warnings,
+        }],
+        "chips": [],
+    }
+
+    await save_flow_state(
+        state.get("session_id", ""),
+        state.get("user_id", ""),
+        flow,
+    )
+    return {
+        "final_response": json.dumps(structured),
+        "final_cards": structured["cards"],
+        "_flow_pattern": "multi_step",
+        "route_decision": "flow_handled",
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+    }
+
+
+async def _present_week_plan_confirm(flow: FlowState, state: TomoChatState) -> dict:
+    """Final "lock it in?" gate. The preview is already shown; this is the
+    atomic confirm_card that triggers the commit bridge when accepted."""
+    summary = flow.get("draft_summary") or {}
+    training = int(summary.get("trainingSessions", 0))
+    study = int(summary.get("studySessions", 0))
+    total_min = int(summary.get("totalMinutes", 0))
+    total_h = total_min // 60
+    total_m = total_min % 60
+    hours_label = f"{total_h}h {total_m}m" if total_m else f"{total_h}h"
+
+    structured = {
+        "headline": "Lock in your week?",
+        "body": f"{training} training + {study} study · {hours_label}",
+        "cards": [{
+            "type": "confirm_card",
+            "title": "Generate Week Plan",
+            "summary": [
+                {"label": "Training sessions", "value": str(training)},
+                {"label": "Study sessions", "value": str(study)},
+                {"label": "Total time", "value": hours_label},
+            ],
+            "confirmLabel": "Confirm",
+            "cancelLabel": "Cancel",
+        }],
+        "chips": [],
+    }
+    await save_flow_state(
+        state.get("session_id", ""),
+        state.get("user_id", ""),
+        flow,
+    )
+    return {
+        "final_response": json.dumps(structured),
+        "final_cards": structured["cards"],
+        "_flow_pattern": "multi_step",
+        "route_decision": "flow_handled",
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+    }
+
+
+def _build_preview_headline(summary: dict) -> str:
+    training = int(summary.get("trainingSessions", 0))
+    study = int(summary.get("studySessions", 0))
+    total_min = int(summary.get("totalMinutes", 0))
+    hours = round(total_min / 60, 1)
+    if training == 0 and study == 0:
+        return "Your week"
+    return f"{training} training + {study} study · {hours}h"
+
+
+def _summarise_warnings(warnings: list) -> str:
+    if not warnings:
+        return ""
+    # Keep it short — show the first two, the UI card lists the rest.
+    first_two = warnings[:2]
+    return " ".join(
+        w.get("message", "") if isinstance(w, dict) else str(w)
+        for w in first_two
+    ).strip()
+
+
 # ── confirm_tool execution ──────────────────────────────────────────────
 # This is the critical step the previous build was missing: when the
 # athlete says "yes, lock it in", we actually PERSIST the session either
@@ -2153,10 +2686,10 @@ def _add_minutes(hhmm: str, minutes: int) -> str:
 # list, or (b) creating a brand-new training event.
 
 async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
-    """Execute the write tool for the build_session flow.
+    """Execute the write tool for the multi-step flow.
 
-    - target_event_id set  → update_event with notes=drill_markdown
-    - no target_event_id   → create_event with title/date/start_time/notes
+    build_session    → create_event OR update_event with drill session_plan
+    build_week_plan  → bridge POST /api/v1/week-plan/commit (batch insert)
 
     Returns the raw tool result (or an {"error": ...} dict on failure).
     Callers store this in flow.confirm_result for the completion card.
@@ -2165,6 +2698,28 @@ async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
     context = state.get("player_context")
     if not user_id or not context:
         return {"error": "missing user context"}
+
+    # Week planner branch — commit via the dedicated endpoint. Keeps the
+    # build_session path below untouched.
+    if flow.intent_id == "build_week_plan":
+        from app.agents.tools.bridge import bridge_post
+        plan_items = flow.get("draft_plan_items") or []
+        if not plan_items:
+            return {"error": "no plan to commit — draft is empty"}
+        payload = {
+            "weekStart": flow.get("week_start", ""),
+            "timezone": flow.get("timezone", "UTC"),
+            "planItems": plan_items,
+            "inputs": {
+                "trainingMix": flow.get("training_mix", []),
+                "studyMix": flow.get("study_mix", []),
+            },
+        }
+        return await bridge_post(
+            "/api/v1/week-plan/commit",
+            payload,
+            user_id=user_id,
+        )
 
     try:
         from app.agents.tools.timeline_tools import make_timeline_tools

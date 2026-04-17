@@ -191,7 +191,6 @@ WRITE_ACTIONS: set[str] = {
     # Planning writes
     "propose_mode_change",
     "create_training_block", "update_block_phase", "override_session_load",
-    "generate_integrated_weekly_plan",
     # Schedule writes
     "update_schedule_rules", "toggle_league_mode", "toggle_exam_period",
     "set_academic_priority_period", "set_academic_stress_level",

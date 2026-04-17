@@ -284,35 +284,12 @@ def make_dual_load_tools(user_id: str, context: PlayerContext) -> list:
             user_id=user_id,
         )
 
-    @tool
-    async def generate_integrated_weekly_plan(
-        balance_ratio: float = 0.5,
-        include_study_blocks: bool = True,
-    ) -> dict:
-        """Generate an integrated weekly plan that balances training and academics. Respects ACWR gates AND exam proximity simultaneously. balance_ratio: 0.0 = all training, 1.0 = all study, 0.5 = balanced. This is a WRITE action."""
-        from app.agents.tools.bridge import bridge_post
-
-        se = context.snapshot_enrichment
-        acwr = se.acwr if se else None
-        dli = se.dual_load_index if se else 0
-
-        # Auto-adjust balance if load is high
-        effective_ratio = balance_ratio
-        if dli and dli >= 70:
-            effective_ratio = max(balance_ratio, 0.7)
-        elif dli and dli >= 50:
-            effective_ratio = max(balance_ratio, 0.5)
-
-        return await bridge_post(
-            "/api/v1/dual-load/integrated-plan",
-            {
-                "balance_ratio": effective_ratio,
-                "include_study_blocks": include_study_blocks,
-                "acwr": acwr,
-                "dual_load_index": dli,
-            },
-            user_id=user_id,
-        )
+    # `generate_integrated_weekly_plan` was removed 2026-04-17.
+    # Its payload to /api/v1/dual-load/integrated-plan was metadata-only
+    # (balance_ratio, acwr, dli) while the endpoint required `week_start` +
+    # `plan_items[]`. The new 5-step `build_week_plan` multi_step flow
+    # collects the real inputs, runs weekPlanBuilder, and commits through
+    # /api/v1/week-plan/commit.
 
     @tool
     async def set_academic_stress_level(
@@ -339,6 +316,5 @@ def make_dual_load_tools(user_id: str, context: PlayerContext) -> list:
         get_cognitive_readiness_windows,
         get_exam_collision_forecast,
         set_academic_priority_period,
-        generate_integrated_weekly_plan,
         set_academic_stress_level,
     ]

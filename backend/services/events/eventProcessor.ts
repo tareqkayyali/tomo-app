@@ -42,6 +42,7 @@ const PROGRAM_REFRESH_TRIGGERS = new Set<string>([
   EVENT_TYPES.ACADEMIC_EVENT,      // Exam period → dual load
   EVENT_TYPES.STUDY_SESSION_LOG,   // Academic load → dual load
   EVENT_TYPES.MODE_CHANGE,         // Mode change → load caps change
+  EVENT_TYPES.WEEK_PLAN_CREATED,   // New week plan → recompute rec feed for the week
 ]);
 
 /**
@@ -134,6 +135,12 @@ export async function processEvent(event: AthleteEvent): Promise<void> {
       case EVENT_TYPES.PLAN_COMMITTED:
       case EVENT_TYPES.DLI_AMBER:
       case EVENT_TYPES.DLI_RED:
+        break;
+
+      // Week planner — the commit endpoint already wrote athlete_week_plans +
+      // calendar_events before emitting, so the handler only needs the default
+      // downstream processing (snapshot + rec refresh).
+      case EVENT_TYPES.WEEK_PLAN_CREATED:
         break;
 
       // Passive events — logged in event stream, snapshot meta update only

@@ -609,6 +609,95 @@ export interface ConflictResolutionCapsule {
   totalEvents: number;
 }
 
+// ── Week Planner Capsules ────────────────────────────────────────
+
+export type WeekPlanCategoryId =
+  | 'club'
+  | 'gym'
+  | 'personal'
+  | 'recovery'
+  | 'individual_technical'
+  | 'tactical'
+  | 'match_competition'
+  | 'mental_performance';
+
+export type WeekPlanPlacement = 'fixed' | 'flexible';
+export type WeekPlanPreferredTime = 'morning' | 'afternoon' | 'evening';
+
+export interface TrainingMixItem {
+  category: WeekPlanCategoryId;
+  sessionsPerWeek: number;
+  durationMin: number;
+  placement: WeekPlanPlacement;
+  fixedDays?: number[];
+  preferredTime?: WeekPlanPreferredTime;
+  label?: string;
+  defaultMode?: string;
+  defaultSessionsPerWeek?: number;
+  defaultDurationMin?: number;
+  defaultPreferredTime?: WeekPlanPreferredTime;
+}
+
+export interface StudyMixItem {
+  subject: string;
+  sessionsPerWeek: number;
+  durationMin: number;
+  placement: WeekPlanPlacement;
+  fixedDays?: number[];
+  preferredTime?: WeekPlanPreferredTime;
+  isExamSubject?: boolean;
+}
+
+export interface TrainingMixCapsule {
+  type: 'training_mix_capsule';
+  weekStart: string;
+  categories: TrainingMixItem[];
+  notes?: Array<{ level: 'info' | 'warn'; text: string }>;
+}
+
+export interface StudyPlanCapsule {
+  type: 'study_plan_capsule';
+  weekStart: string;
+  subjects: StudyMixItem[];
+}
+
+export interface WeekPlanPreviewItem {
+  title: string;
+  category: string;
+  subject?: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMin: number;
+  eventType: 'training' | 'match' | 'study' | 'recovery';
+  intensity: 'LIGHT' | 'MODERATE' | 'HARD';
+  placementReason: string;
+  predictedLoadAu: number;
+}
+
+export interface WeekPlanSummary {
+  trainingSessions: number;
+  studySessions: number;
+  totalMinutes: number;
+  hardSessions: number;
+  predictedLoadAu: number;
+}
+
+export interface WeekPlanWarning {
+  code: string;
+  category: string;
+  message: string;
+  date?: string;
+}
+
+export interface WeekPlanPreviewCapsule {
+  type: 'week_plan_preview_capsule';
+  weekStart: string;
+  planItems: WeekPlanPreviewItem[];
+  summary: WeekPlanSummary;
+  warnings: WeekPlanWarning[];
+}
+
 // ── Training Journal Capsules ────────────────────────────────────
 
 export interface TrainingJournalPreCapsule {
@@ -739,6 +828,9 @@ export type VisualCard =
   | TrainingJournalPostCapsule
   | RegularStudyCapsule
   | SchedulingCapsule
+  | TrainingMixCapsule
+  | StudyPlanCapsule
+  | WeekPlanPreviewCapsule
   | ProgramRecommendationCard
   | WeekSchedule
   | WeekPlan

@@ -77,6 +77,36 @@ _BUILD_SESSION_STEPS = [
 ]
 
 
+# ---- Build Week Plan Steps -------------------------------------------------
+#
+# 5-step week planner that orchestrates training + study together.
+#
+#   1. pick_week            — choose which week (This / Next)
+#   2. load_suggestions     — silent bridge call: /api/v1/week-plan/suggest
+#                             Seeds the pickers with catalog defaults or
+#                             compliance-adapted deltas from the prior week.
+#   3. pick_training_mix    — capsule: sessions/week + duration + fixed/flex
+#                             per category. Defaults come from step 2.
+#   4. pick_study_plan      — capsule: per-subject sessions/week + duration.
+#   5. build_draft          — silent bridge call: /api/v1/week-plan/draft
+#                             Runs weekPlanBuilder against live state.
+#   6. review_week_plan     — capsule showing the placed plan with tappable
+#                             per-session Edit affordance. Confirm button
+#                             fires the confirm_tool.
+#   7. confirm_week_plan    — confirm_tool=commit_week_plan → bridge to
+#                             /api/v1/week-plan/commit (batch insert +
+#                             snapshot + event).
+_BUILD_WEEK_PLAN_STEPS = [
+    {"id": "pick_week", "card": "choice_card"},
+    {"id": "load_suggestions", "tool": "get_week_plan_suggestions"},
+    {"id": "pick_training_mix", "card": "training_mix_capsule"},
+    {"id": "pick_study_plan", "card": "study_plan_capsule"},
+    {"id": "build_draft", "tool": "build_week_plan_draft"},
+    {"id": "review_week_plan", "card": "week_plan_preview_capsule"},
+    {"id": "confirm_week_plan", "card": "confirm_card", "confirm_tool": "commit_week_plan"},
+]
+
+
 # ---- Flow Registry ---------------------------------------------------------
 # Single source of truth: intent_id -> FlowConfig
 # Intents NOT listed here fall through to the existing agent pipeline.
@@ -302,6 +332,7 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
     # as the fallback path.
     "build_session": FlowConfig(pattern="scheduling_capsule", steps=_BUILD_SESSION_STEPS),
     "plan_training": FlowConfig(pattern="scheduling_capsule", steps=_BUILD_SESSION_STEPS),
+    "build_week_plan": FlowConfig(pattern="multi_step", steps=_BUILD_WEEK_PLAN_STEPS),
 
     # ═══════════════════════════════════════════════════════════════════
     # WRITE_ACTION + OPEN_COACHING (fall through to existing agent pipeline)
@@ -326,7 +357,6 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
     "flag_injury": FlowConfig(pattern="write_action"),
     "academic_stress": FlowConfig(pattern="write_action"),
     "academic_priority": FlowConfig(pattern="write_action"),
-    "integrated_plan": FlowConfig(pattern="write_action"),
     "recruitment_visibility": FlowConfig(pattern="write_action"),
     "verified_achievement": FlowConfig(pattern="write_action"),
     "create_block": FlowConfig(pattern="write_action"),

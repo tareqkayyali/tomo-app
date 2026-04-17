@@ -56,6 +56,9 @@ export const EVENT_TYPES = {
   PLAN_COMMITTED: 'PLAN_COMMITTED',
   DLI_AMBER: 'DLI_AMBER',
   DLI_RED: 'DLI_RED',
+
+  // Week Planner
+  WEEK_PLAN_CREATED: 'WEEK_PLAN_CREATED',
 } as const;
 
 export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES];

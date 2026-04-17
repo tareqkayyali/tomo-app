@@ -664,11 +664,22 @@ INTENT_REGISTRY: list[IntentDefinition] = [
         examples=["activate exam mode", "academic priority", "study mode on"],
     ),
     IntentDefinition(
-        id="integrated_plan",
-        capsule_type=None,
-        agent_type="dual_load",
-        description="Generate an integrated weekly plan balancing training and academics",
-        examples=["plan my week with exams", "balanced weekly plan", "integrated training and study plan"],
+        id="build_week_plan",
+        capsule_type="week_plan_preview_capsule",
+        agent_type="timeline",
+        description="Walk through a 5-step week planner that schedules training and study sessions together — collects training mix per category, study subjects, then previews + lets the athlete edit before confirming.",
+        examples=[
+            "plan my week",
+            "build my week",
+            "set up my week",
+            "week planner",
+            "build me a complete week plan",
+            "plan my week with exams",
+            "balanced weekly plan",
+            "integrated training and study plan",
+            "plan next week",
+            "build next week's plan",
+        ],
     ),
     IntentDefinition(
         id="academic_stress",
@@ -821,7 +832,7 @@ WRITE_ACTIONS: set[str] = {
     "trigger_deload_week", "log_recovery_session", "flag_injury_concern",
     "create_test_session",
     # Sprint 2 — Dual-Load
-    "set_academic_priority_period", "generate_integrated_weekly_plan", "set_academic_stress_level",
+    "set_academic_priority_period", "set_academic_stress_level",
     # Sprint 3 — CV & Identity
     "set_recruitment_visibility", "generate_cv_export", "add_verified_achievement",
     # Sprint 4 — Training Program

@@ -151,7 +151,7 @@ def get_all_tool_names() -> dict[str, list[str]]:
         "dual_load": [
             "get_dual_load_dashboard", "get_cognitive_readiness_windows",
             "get_exam_collision_forecast", "set_academic_priority_period",
-            "generate_integrated_weekly_plan", "set_academic_stress_level",
+            "set_academic_stress_level",
         ],
         "cv_identity": [
             "get_5_layer_identity", "get_coachability_index", "get_development_velocity",

@@ -54,6 +54,7 @@ export type EventPayload =
   | PlanProposedPayload
   | PlanCommittedPayload
   | DliAlertPayload
+  | WeekPlanCreatedPayload
   | Record<string, unknown>;    // fallback for extensibility
 
 // ---------------------------------------------------------------------------
@@ -276,6 +277,26 @@ export interface DliAlertPayload {
   previous_zone: string | null;
   training_load_component: number;
   academic_load_component: number;
+}
+
+// ---------------------------------------------------------------------------
+// Week Planner Payload
+// ---------------------------------------------------------------------------
+
+/**
+ * Emitted when an athlete commits a week plan via the planner flow.
+ * Snapshot + rec refresh consume it; the actual plan row is written by the
+ * /api/v1/week-plan/commit endpoint before this event is emitted.
+ */
+export interface WeekPlanCreatedPayload {
+  week_plan_id: string;
+  week_start: string;                   // YYYY-MM-DD (Monday)
+  calendar_event_ids: string[];         // events inserted by this plan
+  training_sessions: number;
+  study_sessions: number;
+  total_minutes: number;
+  hard_sessions: number;
+  predicted_load_au: number;
 }
 
 // ---------------------------------------------------------------------------

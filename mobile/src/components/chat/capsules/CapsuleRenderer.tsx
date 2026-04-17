@@ -35,6 +35,9 @@ import { TrainingJournalPreCapsuleComponent } from './TrainingJournalPreCapsule'
 import { TrainingJournalPostCapsuleComponent } from './TrainingJournalPostCapsule';
 import { RegularStudyCapsuleComponent } from './RegularStudyCapsule';
 import { SchedulingCapsuleComponent } from './SchedulingCapsule';
+import { TrainingMixCapsuleComponent } from './TrainingMixCapsule';
+import { StudyPlanCapsuleComponent } from './StudyPlanCapsule';
+import { WeekPlanPreviewCapsuleComponent } from './WeekPlanPreviewCapsule';
 
 interface CapsuleRendererProps {
   card: VisualCard;
@@ -106,6 +109,12 @@ export function CapsuleRenderer({ card, onSubmit, onNavigate }: CapsuleRendererP
       return <TrainingJournalPostCapsuleComponent card={card} onSubmit={onSubmit} />;
     case 'scheduling_capsule':
       return <SchedulingCapsuleComponent card={card} onSubmit={onSubmit} />;
+    case 'training_mix_capsule':
+      return <TrainingMixCapsuleComponent card={card} onSubmit={onSubmit} />;
+    case 'study_plan_capsule':
+      return <StudyPlanCapsuleComponent card={card} onSubmit={onSubmit} />;
+    case 'week_plan_preview_capsule':
+      return <WeekPlanPreviewCapsuleComponent card={card} onSubmit={onSubmit} />;
     default:
       return null;
   }
@@ -144,5 +153,8 @@ export function isCapsuleCard(type: string): boolean {
     'training_journal_post_capsule',
     'regular_study_capsule',
     'scheduling_capsule',
+    'training_mix_capsule',
+    'study_plan_capsule',
+    'week_plan_preview_capsule',
   ].includes(type);
 }

@@ -67,6 +67,9 @@ const patchEventSchema = z.object({
     .passthrough()
     .nullable()
     .optional(),
+  // Week-planner adherence: athlete toggles this when they finish (or undo)
+  // a session. Drives week_plan compliance_rate computation on the cron job.
+  completed: z.boolean().optional(),
 });
 
 // ─── Helper: check if a date is locked for a user ──────────────────────────
@@ -131,7 +134,7 @@ export async function PATCH(
     }
 
     // If moving to a different date, check that date's lock too
-    const { startTime, endTime, date: newDate, notes, name, intensity, sessionPlan } = parsed.data;
+    const { startTime, endTime, date: newDate, notes, name, intensity, sessionPlan, completed } = parsed.data;
     const targetDate = newDate || currentDate;
 
     if (newDate && newDate !== currentDate) {
@@ -182,6 +185,19 @@ export async function PATCH(
 
     if (sessionPlan !== undefined) {
       update.session_plan = sessionPlan;
+    }
+
+    if (completed !== undefined) {
+      update.completed = completed;
+      // Set completed_at only on the false→true transition; clear it on undo.
+      // The DB column is nullable, so writing null resets it cleanly.
+      // Cast around generated DB types until migration 056 regen.
+      const wasCompleted = Boolean((existing as { completed?: boolean }).completed);
+      if (completed && !wasCompleted) {
+        update.completed_at = new Date().toISOString();
+      } else if (!completed && wasCompleted) {
+        update.completed_at = null;
+      }
     }
 
     if (Object.keys(update).length === 0) {
