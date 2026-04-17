@@ -30,7 +30,8 @@ export const GrowthCardSection = memo(function GrowthCardSection({
   const showVelocity = (config.show_growth_velocity as boolean) ?? true;
 
   const snapshot = bootData.snapshot ?? {};
-  const stage = (snapshot.phv_stage as string) ?? 'none';
+  const rawStage = (snapshot.phv_stage as string) ?? 'none';
+  const stage = rawStage.toLowerCase();
   const stageConfig = PHV_STAGE_LABELS[stage] ?? PHV_STAGE_LABELS.none;
   const predictedHeight = snapshot.predicted_adult_height as number | undefined;
   const growthVelocity = snapshot.growth_velocity_cm_year as number | undefined;

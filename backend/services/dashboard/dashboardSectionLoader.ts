@@ -169,16 +169,34 @@ export async function resolveDashboardLayout(
       // Visibility condition evaluation
       return evaluateVisibility(section, snapshot);
     })
-    .map(section => ({
-      section_key: section.section_key,
-      display_name: section.display_name,
-      component_type: section.component_type,
-      sort_order: section.sort_order,
-      config: section.config,
-      coaching_text: section.coaching_text
-        ? interpolateText(section.coaching_text, snapshot)
-        : null,
-    }));
+    .map(section => {
+      // Interpolate template fields inside config (headline_template, body_template)
+      // so the mobile client receives resolved values.
+      const resolvedConfig = { ...section.config };
+      if (typeof resolvedConfig.headline_template === 'string') {
+        resolvedConfig.headline_template = interpolateText(
+          resolvedConfig.headline_template,
+          snapshot,
+        );
+      }
+      if (typeof resolvedConfig.body_template === 'string') {
+        resolvedConfig.body_template = interpolateText(
+          resolvedConfig.body_template,
+          snapshot,
+        );
+      }
+
+      return {
+        section_key: section.section_key,
+        display_name: section.display_name,
+        component_type: section.component_type,
+        sort_order: section.sort_order,
+        config: resolvedConfig,
+        coaching_text: section.coaching_text
+          ? interpolateText(section.coaching_text, snapshot)
+          : null,
+      };
+    });
 }
 
 /**

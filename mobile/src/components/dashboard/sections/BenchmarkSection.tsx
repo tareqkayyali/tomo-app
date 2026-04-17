@@ -33,6 +33,16 @@ export const BenchmarkSection = memo(function BenchmarkSection({
     .sort((a, b) => a[1].percentile - b[1].percentile)
     .slice(0, maxItems);
 
+  function ordinalSuffix(n: number): string {
+    const rem100 = n % 100;
+    if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+    const rem10 = n % 10;
+    if (rem10 === 1) return `${n}st`;
+    if (rem10 === 2) return `${n}nd`;
+    if (rem10 === 3) return `${n}rd`;
+    return `${n}th`;
+  }
+
   function getBarColor(pct: number): string {
     if (pct >= 70) return '#7a9b76';
     if (pct >= 40) return '#c49a3c';
@@ -61,7 +71,7 @@ export const BenchmarkSection = memo(function BenchmarkSection({
               </Text>
               {showPercentile && (
                 <Text style={[styles.percentile, { color: barColor }]}>
-                  {pct}th
+                  {ordinalSuffix(pct)}
                 </Text>
               )}
             </View>

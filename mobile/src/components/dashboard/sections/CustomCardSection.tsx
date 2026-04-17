@@ -27,11 +27,26 @@ export const CustomCardSection = memo(function CustomCardSection({
   const headline = (config.headline_template as string) ?? '';
   const body = (config.body_template as string) ?? '';
 
-  // Simple client-side interpolation for config templates
+  // Client-side interpolation for config templates.
+  // Build a derived context with common computed fields that the server-side
+  // flat context provides (first_name, coaching_summary, etc.) so templates
+  // resolve correctly even when the raw boot payload doesn't carry them.
   const snapshot = bootData.snapshot ?? {};
+  const derivedContext: Record<string, unknown> = {
+    first_name: (bootData as any).name?.split(' ')[0] ?? 'Athlete',
+    coaching_summary: (bootData as any).signalContext?.coaching ?? '',
+    sport: (bootData as any).sport ?? '',
+    position: (bootData as any).position ?? '',
+    streak: (bootData as any).streak ?? 0,
+    current_streak: (bootData as any).streak ?? 0,
+  };
+
   function interpolate(template: string): string {
     return template.replace(/\{(\w+)\}/g, (match, field) => {
-      // Check boot data top-level first
+      // Check derived context first (computed fields like first_name)
+      const derivedVal = derivedContext[field];
+      if (derivedVal !== undefined && derivedVal !== null && derivedVal !== '') return String(derivedVal);
+      // Then boot data top-level
       const bootVal = (bootData as any)[field];
       if (bootVal !== undefined && bootVal !== null) return String(bootVal);
       // Then snapshot
