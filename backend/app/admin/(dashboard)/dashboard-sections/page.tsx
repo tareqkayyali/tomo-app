@@ -18,7 +18,7 @@ import { toast } from "sonner";
 // ── Component type display config ──
 
 const COMPONENT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  signal_hero:     { label: "Signal Hero",     color: "#A05A4A" },
+  signal_hero:     { label: "Athlete Mode",    color: "#30D158" },
   status_ring:     { label: "Status Ring",     color: "#7a9b76" },
   kpi_row:         { label: "KPI Row",         color: "#5A8A9F" },
   sparkline_row:   { label: "Sparkline Row",   color: "#8A6A30" },

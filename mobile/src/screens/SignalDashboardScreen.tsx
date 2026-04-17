@@ -1,11 +1,12 @@
 /**
- * Signal Dashboard Screen — Signal-First Daily Command Centre
+ * Signal Dashboard Screen — Mode-First Daily Command Centre
  *
  * ── SECTIONS ──
- * 1. SignalHero — Arc icon (left), signal name, pills (trigger data), coaching
+ * 1. AthleteModeHero — Current mode display, quick mode switcher, panel pills
  * 2. Daily Recs — Expandable RIE recommendation cards (diverse types)
- * 3. Up Next — Future timeline activities with contextual AI hints
- * 4. Slide-up Panels — Program, Metrics, Progress (overlays)
+ * 3. CMS Sections — Dynamic sections from dashboard_sections table
+ * 4. Up Next — Future timeline activities with contextual AI hints
+ * 5. Slide-up Panels — Program, Metrics, Progress (overlays)
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -24,7 +25,7 @@ import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { useNavigation } from '@react-navigation/native';
 
 // Dashboard components
-import { SignalHero } from '../components/dashboard/SignalHero';
+import { AthleteModeHero } from '../components/dashboard/AthleteModeHero';
 import { TodaysPlanCard } from '../components/dashboard/TodaysPlanCard';
 import { DailyRecommendations } from '../components/dashboard/DailyRecommendations';
 import { DashboardSectionRenderer } from '../components/dashboard/sections';
@@ -131,6 +132,7 @@ export function SignalDashboardScreen() {
   const signal = bootData?.signalContext ?? NEUTRAL_SIGNAL;
   const recentVitals = bootData?.recentVitals ?? [];
   const todayEvents = bootData?.todayEvents ?? [];
+  const currentMode = bootData?.planningContext?.athlete_mode ?? (bootData?.snapshot as any)?.athlete_mode ?? 'balanced';
 
   // Filter to only upcoming events (start time > now)
   const upcomingEvents = useMemo(() => {
@@ -195,13 +197,19 @@ export function SignalDashboardScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Signal Hero — arc icon, signal name, pills (trigger data baked in), coaching */}
+        {/* Athlete Mode Hero — current mode, quick switcher, panel pills */}
         {/* CMS-gated: only renders when signal_hero section is enabled in dashboard_sections */}
         {enabledTypes.has('signal_hero') && (
-          <SignalHero
-            signal={signal}
+          <AthleteModeHero
+            currentMode={currentMode}
+            signal={{
+              color: signal.color,
+              showUrgencyBadge: signal.showUrgencyBadge,
+              urgencyLabel: signal.urgencyLabel,
+            }}
             activePanel={activePanel}
             onPanelPress={setActivePanel}
+            onModeChanged={refreshBoot}
           />
         )}
 

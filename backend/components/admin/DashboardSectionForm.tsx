@@ -40,7 +40,7 @@ interface DashboardSectionData {
 }
 
 const COMPONENT_TYPES = [
-  { value: "signal_hero", label: "Signal Hero" },
+  { value: "signal_hero", label: "Athlete Mode (Hero)" },
   { value: "status_ring", label: "Status Ring" },
   { value: "kpi_row", label: "KPI Row" },
   { value: "sparkline_row", label: "Sparkline Row" },

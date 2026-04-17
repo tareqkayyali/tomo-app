@@ -273,6 +273,15 @@ export interface BootData {
     positionNote: string;
   }[];
 
+  // ── Planning Context (360 planning fields) ──
+  planningContext: {
+    athlete_mode: string;
+    dual_load_zone: string | null;
+    applicable_protocol_ids: string[] | null;
+    exam_proximity_score: number | null;
+    data_confidence_score: number | null;
+  } | null;
+
   // ── Dashboard Layout (CMS-managed) ──
   dashboardLayout: {
     section_key: string;
