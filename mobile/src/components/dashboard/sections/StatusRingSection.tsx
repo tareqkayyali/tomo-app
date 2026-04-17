@@ -59,7 +59,7 @@ export const StatusRingSection = memo(function StatusRingSection({
 
   // Trend arrow from yesterday
   const yesterdayValue = bootData.yesterdayVitals
-    ? (bootData.yesterdayVitals as any)[metric.replace('readiness_score', 'readiness_score')] ?? null
+    ? (bootData.yesterdayVitals as any)[metric] ?? null
     : null;
   const delta = yesterdayValue !== null ? value - yesterdayValue : null;
   const trendArrow = delta !== null ? (delta > 0 ? '+' : delta < 0 ? '' : '') : '';

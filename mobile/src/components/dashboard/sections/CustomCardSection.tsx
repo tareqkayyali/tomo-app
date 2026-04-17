@@ -33,7 +33,7 @@ export const CustomCardSection = memo(function CustomCardSection({
   // resolve correctly even when the raw boot payload doesn't carry them.
   const snapshot = bootData.snapshot ?? {};
   const derivedContext: Record<string, unknown> = {
-    first_name: (bootData as any).name?.split(' ')[0] ?? 'Athlete',
+    first_name: (bootData as any).name?.split(' ')[0] || 'Athlete',
     coaching_summary: (bootData as any).signalContext?.coaching ?? '',
     sport: (bootData as any).sport ?? '',
     position: (bootData as any).position ?? '',

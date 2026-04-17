@@ -282,6 +282,17 @@ export interface BootData {
     data_confidence_score: number | null;
   } | null;
 
+  // ── Performance Director Context ──
+  pdContext: {
+    activeProtocols: {
+      id: string;
+      protocolKey: string;
+      name: string;
+      severity: string;
+      actions: string[];
+    }[];
+  } | null;
+
   // ── Dashboard Layout (CMS-managed) ──
   dashboardLayout: {
     section_key: string;

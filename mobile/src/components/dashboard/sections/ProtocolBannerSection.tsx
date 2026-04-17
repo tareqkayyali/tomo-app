@@ -26,8 +26,8 @@ export const ProtocolBannerSection = memo(function ProtocolBannerSection({
   const { colors } = useTheme();
   const showSeverity = (config.show_severity as boolean) ?? true;
 
-  const pdContext = (bootData as any).pdContext;
-  if (!pdContext || !pdContext.activeProtocols || pdContext.activeProtocols.length === 0) {
+  const pdContext = bootData.pdContext;
+  if (!pdContext || !Array.isArray(pdContext.activeProtocols) || pdContext.activeProtocols.length === 0) {
     return null;
   }
 

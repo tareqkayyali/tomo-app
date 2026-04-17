@@ -32,6 +32,7 @@ import {
   LayoutAnimation,
   UIManager,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -41,6 +42,7 @@ import Animated, {
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useScheduleRules, DEFAULT_PREFERENCES } from '../hooks/useScheduleRules';
+import { emitRefresh } from '../utils/refreshBus';
 import type {
   PlayerSchedulePreferences,
   TrainingCategoryRule,
@@ -90,8 +92,16 @@ const SCENARIO_DISPLAY: Record<string, { label: string }> = {
 export function MyRulesScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const { rules, loading, dirty, saving, setLocal, save, discard } = useScheduleRules();
+  const { rules, loading, dirty, saving, setLocal, save, discard, refresh } = useScheduleRules();
   const { profile } = useAuth();
+
+  // Refresh rules data when screen gains focus (e.g. coming back from Dashboard
+  // where mode may have been changed via AthleteModeHero)
+  useFocusEffect(
+    useCallback(() => {
+      if (!dirty) refresh();
+    }, [dirty, refresh])
+  );
 
   const athleteMode = rules?.preferences?.athlete_mode ?? 'balanced';
 
@@ -239,6 +249,9 @@ export function MyRulesScreen({ navigation }: Props) {
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setShowSaved(true);
         setTimeout(() => setShowSaved(false), 2000);
+        // Notify all downstream consumers (Dashboard, Own It, etc.)
+        // that rules changed — triggers boot refresh via wildcard listener
+        emitRefresh('rules');
         try {
           await syncAutoBlocks({
             schoolDays: prefs.school_days as number[],

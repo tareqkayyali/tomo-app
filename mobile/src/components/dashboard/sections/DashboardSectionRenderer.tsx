@@ -69,7 +69,7 @@ export const DashboardSectionRenderer = memo(function DashboardSectionRenderer({
   layout,
   bootData,
 }: DashboardSectionRendererProps) {
-  if (!layout || layout.length === 0) return null;
+  if (!layout || !Array.isArray(layout) || layout.length === 0) return null;
 
   return (
     <View style={styles.container}>

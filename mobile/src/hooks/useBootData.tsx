@@ -39,8 +39,12 @@ export function BootProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [bootData, setBootData] = useState<BootData | null>(null);
   const [isBootLoading, setIsBootLoading] = useState(true);
-  const fetchingRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
+
+  // Version counter — every fetch increments this. When a fetch completes,
+  // it only applies its result if no newer fetch has started since.
+  // This replaces the old fetchingRef mutex that silently dropped refreshes.
+  const fetchVersionRef = useRef(0);
 
   // ── Core: wipe + re-fetch whenever user identity changes ────────────
   useEffect(() => {
@@ -51,7 +55,7 @@ export function BootProvider({ children }: { children: ReactNode }) {
     if (prevUid !== newUid) {
       setBootData(null);
       setIsBootLoading(true);
-      fetchingRef.current = false; // cancel any in-flight fetch for old user
+      fetchVersionRef.current++; // invalidate any in-flight fetch for old user
       currentUserIdRef.current = newUid;
     }
 
@@ -76,44 +80,47 @@ export function BootProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
 
     // Always fetch fresh data for the new user
+    const version = ++fetchVersionRef.current;
     const fetchForUser = async () => {
-      if (fetchingRef.current) return;
-      fetchingRef.current = true;
       try {
         const data = await getBootData();
-        // Guard: if user changed while we were fetching, discard the result
+        // Guard: discard if user changed or a newer fetch superseded this one
         if (currentUserIdRef.current !== newUid) return;
+        if (fetchVersionRef.current !== version) return;
         setBootData(data);
         setIsBootLoading(false);
         // Cache for next launch
         AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch(() => {});
       } catch (err) {
         if (currentUserIdRef.current !== newUid) return;
+        if (fetchVersionRef.current !== version) return;
         console.warn('[boot] fetch failed:', err);
         setIsBootLoading(false);
-      } finally {
-        fetchingRef.current = false;
       }
     };
 
     fetchForUser();
   }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Refresh on data changes (checkin, test logged, event created) ───
+  // ── Refresh on data changes (checkin, test logged, event created, mode change) ───
+  // Never blocks — multiple concurrent calls are safe. Only the latest
+  // fetch result is applied (stale responses from earlier calls are discarded).
   const refreshBoot = useCallback(async () => {
     const uid = currentUserIdRef.current;
-    if (!uid || fetchingRef.current) return;
-    fetchingRef.current = true;
+    if (!uid) return;
+    const version = ++fetchVersionRef.current;
     try {
       const data = await getBootData();
-      if (currentUserIdRef.current !== uid) return; // user changed mid-fetch
+      // Only apply if user hasn't changed and no newer fetch has started
+      if (currentUserIdRef.current !== uid) return;
+      if (fetchVersionRef.current !== version) return;
       setBootData(data);
       const cacheKey = `${CACHE_KEY_PREFIX}${uid}`;
       AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch(() => {});
     } catch (err) {
+      if (currentUserIdRef.current !== uid) return;
+      if (fetchVersionRef.current !== version) return;
       console.warn('[boot] refresh failed:', err);
-    } finally {
-      fetchingRef.current = false;
     }
   }, []);
 

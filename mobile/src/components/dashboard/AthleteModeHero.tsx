@@ -71,6 +71,18 @@ export function AthleteModeHero({
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
 
+  // Optimistic mode — shows the selected mode immediately while the
+  // backend PATCH + boot refresh completes. Cleared once bootData confirms.
+  const [optimisticMode, setOptimisticMode] = useState<string | null>(null);
+  const effectiveMode = optimisticMode ?? currentMode;
+
+  // Clear optimistic override once bootData catches up
+  useEffect(() => {
+    if (optimisticMode && currentMode === optimisticMode) {
+      setOptimisticMode(null);
+    }
+  }, [currentMode, optimisticMode]);
+
   // Fetch available modes from CMS
   const fetchModes = useCallback(async () => {
     try {
@@ -90,19 +102,21 @@ export function AthleteModeHero({
     fetchModes();
   }, [fetchModes]);
 
-  // Current mode definition
+  // Current mode definition (uses effective mode = optimistic or confirmed)
   const activeMode = useMemo(() => {
-    return modes.find((m) => m.id === currentMode) ?? null;
-  }, [modes, currentMode]);
+    return modes.find((m) => m.id === effectiveMode) ?? null;
+  }, [modes, effectiveMode]);
 
-  const modeColor = activeMode?.color ?? MODE_FALLBACK_COLORS[currentMode] ?? '#7a9b76';
+  const modeColor = activeMode?.color ?? MODE_FALLBACK_COLORS[effectiveMode] ?? '#7a9b76';
 
-  // Handle mode switch
+  // Handle mode switch — optimistic UI + server persist + boot refresh
   const handleModeChange = useCallback(
     async (newModeId: string) => {
-      if (newModeId === currentMode || switching) return;
+      if (newModeId === effectiveMode || switching) return;
       if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+      // Instant visual update — no waiting for server round-trip
+      setOptimisticMode(newModeId);
       setSwitching(true);
       try {
         // PATCH schedule rules — backend emits MODE_CHANGE event,
@@ -113,11 +127,13 @@ export function AthleteModeHero({
         onModeChanged();
       } catch (err) {
         console.warn('[AthleteModeHero] Mode change failed:', err);
+        // Revert optimistic update on failure
+        setOptimisticMode(null);
       } finally {
         setSwitching(false);
       }
     },
-    [currentMode, switching, onModeChanged],
+    [effectiveMode, switching, onModeChanged],
   );
 
   return (
@@ -136,7 +152,7 @@ export function AthleteModeHero({
         <View style={[styles.modeIndicator, { backgroundColor: modeColor }]} />
         <View style={styles.modeInfo}>
           <Text style={[styles.modeLabel, { color: modeColor }]}>
-            {activeMode?.label ?? currentMode.charAt(0).toUpperCase() + currentMode.slice(1)}
+            {activeMode?.label ?? effectiveMode.charAt(0).toUpperCase() + effectiveMode.slice(1)}
           </Text>
           <Text style={styles.modeSubtitle}>Current Mode</Text>
         </View>
@@ -157,7 +173,7 @@ export function AthleteModeHero({
       ) : modes.length > 0 ? (
         <View style={styles.modeCards}>
           {modes.map((mode) => {
-            const isActive = mode.id === currentMode;
+            const isActive = mode.id === effectiveMode;
             const cardColor = mode.color ?? MODE_FALLBACK_COLORS[mode.id] ?? '#666';
 
             return (
