@@ -37,8 +37,14 @@ export interface SectionProps {
 /**
  * Component registry — maps component_type to React component.
  *
- * signal_hero is intentionally excluded — it's rendered separately
- * in SignalDashboardScreen as the hero section (special layout treatment).
+ * Three types are intentionally excluded — they're rendered separately
+ * by SignalDashboardScreen with special layout treatment:
+ *   signal_hero  — hero slot at top of screen
+ *   daily_recs   — between hero and CMS sections
+ *   up_next      — timeline section after CMS sections
+ *
+ * Their CMS rows control visibility (toggle on/off), but rendering
+ * is handled by the screen, not by this renderer.
  */
 const SECTION_COMPONENTS: Record<string, React.ComponentType<SectionProps>> = {
   status_ring: StatusRingSection,
@@ -68,8 +74,10 @@ export const DashboardSectionRenderer = memo(function DashboardSectionRenderer({
   return (
     <View style={styles.container}>
       {layout.map((section) => {
-        // Skip signal_hero — rendered separately in the hero slot
+        // Skip screen-level types — rendered by SignalDashboardScreen directly
         if (section.component_type === 'signal_hero') return null;
+        if (section.component_type === 'daily_recs') return null;
+        if (section.component_type === 'up_next') return null;
 
         const Component = SECTION_COMPONENTS[section.component_type];
         if (!Component) return null; // Unknown type — graceful skip

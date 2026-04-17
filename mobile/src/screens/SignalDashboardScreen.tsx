@@ -146,6 +146,18 @@ export function SignalDashboardScreen() {
     }));
   }, [bootData?.dashboardRecs]);
 
+  // Build a set of enabled component_types from CMS layout.
+  // Screen-level components (signal_hero, daily_recs, up_next) use this
+  // to check if the CMS has them enabled — if the type is absent from the
+  // boot layout, the section is hidden.
+  const enabledTypes = useMemo(() => {
+    const types = new Set<string>();
+    (bootData?.dashboardLayout ?? []).forEach((s: { component_type: string }) => {
+      types.add(s.component_type);
+    });
+    return types;
+  }, [bootData?.dashboardLayout]);
+
   if (isBootLoading && !bootData) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: '#0F1219' }]} edges={['top']}>
@@ -184,17 +196,23 @@ export function SignalDashboardScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Signal Hero — arc icon, signal name, pills (trigger data baked in), coaching */}
-        <SignalHero
-          signal={signal}
-          activePanel={activePanel}
-          onPanelPress={setActivePanel}
-        />
+        {/* CMS-gated: only renders when signal_hero section is enabled in dashboard_sections */}
+        {enabledTypes.has('signal_hero') && (
+          <SignalHero
+            signal={signal}
+            activePanel={activePanel}
+            onPanelPress={setActivePanel}
+          />
+        )}
 
         {/* Daily Recommendations from RIE */}
-        <DailyRecommendations
-          recs={bootData?.dashboardRecs ?? []}
-          signalColor={signal.color}
-        />
+        {/* CMS-gated: only renders when daily_recs section is enabled in dashboard_sections */}
+        {enabledTypes.has('daily_recs') && (
+          <DailyRecommendations
+            recs={bootData?.dashboardRecs ?? []}
+            signalColor={signal.color}
+          />
+        )}
 
         {/* CMS-Driven Dashboard Sections */}
         {bootData && Array.isArray(bootData.dashboardLayout) && bootData.dashboardLayout.length > 0 && (
@@ -207,85 +225,88 @@ export function SignalDashboardScreen() {
         )}
 
         {/* Up Next — future timeline activities with contextual hints */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>
-            {signal.adaptedPlan ? "TODAY\u2019S PLAN" : "UP NEXT"}
-          </Text>
+        {/* CMS-gated: only renders when up_next section is enabled in dashboard_sections */}
+        {enabledTypes.has('up_next') && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>
+              {signal.adaptedPlan ? "TODAY\u2019S PLAN" : "UP NEXT"}
+            </Text>
 
-          {/* Adapted session from signal (if signal overrides) */}
-          {signal.adaptedPlan && (
-            <TodaysPlanCard
-              sessionName={signal.adaptedPlan.sessionName}
-              sessionMeta={signal.adaptedPlan.sessionMeta}
-              signalColor={signal.color}
-            />
-          )}
+            {/* Adapted session from signal (if signal overrides) */}
+            {signal.adaptedPlan && (
+              <TodaysPlanCard
+                sessionName={signal.adaptedPlan.sessionName}
+                sessionMeta={signal.adaptedPlan.sessionMeta}
+                signalColor={signal.color}
+              />
+            )}
 
-          {/* Upcoming activities only (after current time) */}
-          {upcomingEvents.length > 0 ? (
-            <View style={styles.timelineSection}>
-              {upcomingEvents.map((event: any, i: number) => {
-                const hint = getActivityHint(event, signal.key, activeRecs);
-                const isNext = i === 0;
-                return (
-                  <View
-                    key={event.id ?? i}
-                    style={[
-                      styles.timelineCard,
-                      isNext && styles.timelineCardNext,
-                    ]}
-                  >
-                    {/* Time column */}
-                    <View style={styles.timeColumn}>
-                      <Text style={[styles.timelineTime, isNext && { color: signal.color }]}>
-                        {formatEventTime(event.startAt)}
-                      </Text>
-                    </View>
-
-                    {/* Content */}
-                    <View style={styles.timelineContent}>
-                      <View style={styles.timelineHeader}>
-                        <Text style={[styles.timelineTitle, isNext && { color: '#E5EBE8' }]}>
-                          {event.title}
+            {/* Upcoming activities only (after current time) */}
+            {upcomingEvents.length > 0 ? (
+              <View style={styles.timelineSection}>
+                {upcomingEvents.map((event: any, i: number) => {
+                  const hint = getActivityHint(event, signal.key, activeRecs);
+                  const isNext = i === 0;
+                  return (
+                    <View
+                      key={event.id ?? i}
+                      style={[
+                        styles.timelineCard,
+                        isNext && styles.timelineCardNext,
+                      ]}
+                    >
+                      {/* Time column */}
+                      <View style={styles.timeColumn}>
+                        <Text style={[styles.timelineTime, isNext && { color: signal.color }]}>
+                          {formatEventTime(event.startAt)}
                         </Text>
-                        <View style={[
-                          styles.timelineTypeBadge,
-                          { backgroundColor: isNext ? `${signal.color}20` : 'rgba(255,255,255,0.05)' },
-                        ]}>
-                          <Text style={[
-                            styles.timelineTypeText,
-                            { color: isNext ? signal.color : 'rgba(255,255,255,0.35)' },
-                          ]}>
-                            {EVENT_TYPE_LABELS[event.type] ?? event.type}
-                          </Text>
-                        </View>
                       </View>
 
-                      {/* Contextual AI hint — only for next activity */}
-                      {isNext && hint && (
-                        <Text style={[styles.timelineHint, { color: `${signal.color}B3` }]}>
-                          {hint}
-                        </Text>
-                      )}
+                      {/* Content */}
+                      <View style={styles.timelineContent}>
+                        <View style={styles.timelineHeader}>
+                          <Text style={[styles.timelineTitle, isNext && { color: '#E5EBE8' }]}>
+                            {event.title}
+                          </Text>
+                          <View style={[
+                            styles.timelineTypeBadge,
+                            { backgroundColor: isNext ? `${signal.color}20` : 'rgba(255,255,255,0.05)' },
+                          ]}>
+                            <Text style={[
+                              styles.timelineTypeText,
+                              { color: isNext ? signal.color : 'rgba(255,255,255,0.35)' },
+                            ]}>
+                              {EVENT_TYPE_LABELS[event.type] ?? event.type}
+                            </Text>
+                          </View>
+                        </View>
 
-                      {event.intensity && (
-                        <Text style={styles.timelineIntensity}>
-                          Intensity {event.intensity}/10
-                        </Text>
-                      )}
+                        {/* Contextual AI hint — only for next activity */}
+                        {isNext && hint && (
+                          <Text style={[styles.timelineHint, { color: `${signal.color}B3` }]}>
+                            {hint}
+                          </Text>
+                        )}
+
+                        {event.intensity && (
+                          <Text style={styles.timelineIntensity}>
+                            Intensity {event.intensity}/10
+                          </Text>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : !signal.adaptedPlan ? (
-            <View style={styles.emptyPlan}>
-              <Text style={styles.emptyPlanText}>
-                No upcoming activities today. You&apos;re all caught up.
-              </Text>
-            </View>
-          ) : null}
-        </View>
+                  );
+                })}
+              </View>
+            ) : !signal.adaptedPlan ? (
+              <View style={styles.emptyPlan}>
+                <Text style={styles.emptyPlanText}>
+                  No upcoming activities today. You&apos;re all caught up.
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        )}
       </ScrollView>
 
       {/* Slide-up Panels */}

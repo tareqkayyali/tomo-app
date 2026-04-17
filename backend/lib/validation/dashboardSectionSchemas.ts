@@ -31,6 +31,8 @@ export const componentTypeEnum = z.enum([
   'engagement_bar',
   'protocol_banner',
   'custom_card',
+  'daily_recs',
+  'up_next',
 ]);
 
 // ---------------------------------------------------------------------------

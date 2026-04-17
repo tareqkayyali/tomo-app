@@ -30,6 +30,8 @@ const COMPONENT_TYPE_LABELS: Record<string, { label: string; color: string }> = 
   engagement_bar:  { label: "Engagement Bar",  color: "#6A5A8A" },
   protocol_banner: { label: "Protocol Banner", color: "#8A4A4A" },
   custom_card:     { label: "Custom Card",     color: "#5A8A6A" },
+  daily_recs:      { label: "Daily Recs",      color: "#4A8A6A" },
+  up_next:         { label: "Up Next",         color: "#6A7A5A" },
 };
 
 interface DashboardSection {

@@ -52,6 +52,8 @@ const COMPONENT_TYPES = [
   { value: "engagement_bar", label: "Engagement Bar" },
   { value: "protocol_banner", label: "Protocol Banner" },
   { value: "custom_card", label: "Custom Card" },
+  { value: "daily_recs", label: "Daily Recommendations" },
+  { value: "up_next", label: "Up Next / Timeline" },
 ];
 
 const OPERATORS = [
