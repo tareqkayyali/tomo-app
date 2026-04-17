@@ -34,6 +34,17 @@ const COMPONENT_TYPE_LABELS: Record<string, { label: string; color: string }> = 
   up_next:         { label: "Up Next",         color: "#6A7A5A" },
 };
 
+// Screen-level sections are rendered at fixed positions in the mobile app.
+// Their sort_order only matters for CMS table display — reordering them
+// has no effect on screen position.
+const SCREEN_LEVEL_TYPES = new Set(["signal_hero", "daily_recs", "up_next"]);
+
+const ZONE_LABELS: Record<string, { zone: string; position: string }> = {
+  signal_hero: { zone: "Zone 1", position: "Top of screen" },
+  daily_recs:  { zone: "Zone 2", position: "Below hero" },
+  up_next:     { zone: "Zone 4", position: "Bottom of screen" },
+};
+
 interface DashboardSection {
   id: string;
   section_key: string;
@@ -165,7 +176,8 @@ export default function DashboardSectionsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard Sections</h1>
           <p className="text-muted-foreground">
             {enabledCount} of {totalCount} section{totalCount !== 1 ? "s" : ""} enabled
-            {" "}&mdash; controls the mobile dashboard layout
+            {" "}&mdash; controls the mobile dashboard layout.
+            Pinned sections (&#128274;) render at fixed screen positions.
           </p>
         </div>
         <Button onClick={() => router.push("/admin/dashboard-sections/new")}>
@@ -216,6 +228,8 @@ export default function DashboardSectionsPage() {
                 const conditionCount = hasVisibility
                   ? ((s.visibility as any)?.conditions?.length ?? 0)
                   : 0;
+                const isPinned = SCREEN_LEVEL_TYPES.has(s.component_type);
+                const zoneInfo = ZONE_LABELS[s.component_type] ?? null;
 
                 return (
                   <TableRow
@@ -231,6 +245,11 @@ export default function DashboardSectionsPage() {
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
                         <span className="font-mono text-sm w-8">{s.sort_order}</span>
+                        {isPinned ? (
+                          <span className="text-xs text-muted-foreground" title={zoneInfo?.position ?? "Pinned"}>
+                            &#128274;
+                          </span>
+                        ) : (
                         <div className="flex flex-col gap-0.5">
                           <button
                             className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
@@ -249,6 +268,7 @@ export default function DashboardSectionsPage() {
                             &darr;
                           </button>
                         </div>
+                        )}
                       </div>
                     </TableCell>
 
@@ -269,16 +289,31 @@ export default function DashboardSectionsPage() {
 
                     {/* Component Type Badge */}
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className="text-xs"
-                        style={{
-                          borderColor: typeConfig.color,
-                          color: typeConfig.color,
-                        }}
-                      >
-                        {typeConfig.label}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          variant="outline"
+                          className="text-xs"
+                          style={{
+                            borderColor: typeConfig.color,
+                            color: typeConfig.color,
+                          }}
+                        >
+                          {typeConfig.label}
+                        </Badge>
+                        {zoneInfo && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0"
+                            style={{
+                              borderColor: "rgba(255,255,255,0.15)",
+                              color: "rgba(255,255,255,0.40)",
+                            }}
+                            title={zoneInfo.position}
+                          >
+                            {zoneInfo.zone}
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
 
                     {/* Visibility */}

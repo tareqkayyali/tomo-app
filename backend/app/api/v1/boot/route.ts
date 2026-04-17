@@ -142,10 +142,10 @@ export async function GET(request: NextRequest) {
         .order("start_at", { ascending: false })
         .limit(5),
 
-      // 11. Schedule preferences — for sleep window derivation
+      // 11. Schedule preferences — for sleep window + athlete_mode (source of truth)
       (db as any)
         .from("player_schedule_preferences")
-        .select("sleep_start, sleep_end")
+        .select("sleep_start, sleep_end, athlete_mode")
         .eq("user_id", userId)
         .maybeSingle(),
 
@@ -240,7 +240,16 @@ export async function GET(request: NextRequest) {
     });
 
     // Planning context (360 planning fields)
-    const planningContext = planningContextRes.status === "fulfilled" ? (planningContextRes.value as any) ?? null : null;
+    // athlete_mode comes from player_schedule_preferences (source of truth),
+    // NOT from athlete_snapshots (which may be stale). Other planning fields
+    // still come from the snapshot.
+    const planningRaw = planningContextRes.status === "fulfilled" ? (planningContextRes.value as any) ?? null : null;
+    const prefsAthleteMode = schedulePrefs?.athlete_mode ?? null;
+    const planningContext = planningRaw
+      ? { ...planningRaw, athlete_mode: prefsAthleteMode ?? planningRaw.athlete_mode ?? 'balanced' }
+      : prefsAthleteMode
+        ? { athlete_mode: prefsAthleteMode }
+        : null;
 
     // Recent vitals (7 days) for Dashboard signal sparklines
     const recentVitalsRaw = recentVitalsRes.status === "fulfilled" ? (recentVitalsRes.value as any)?.data ?? [] : [];

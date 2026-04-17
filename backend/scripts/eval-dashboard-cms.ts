@@ -239,6 +239,31 @@ async function runEval() {
   assert('daily_recs has a sort_order', dailyRecsOrder !== undefined, `got ${dailyRecsOrder}`);
   assert('up_next has a sort_order', upNextOrder !== undefined, `got ${upNextOrder}`);
 
+  // ── Sort order zone alignment ──
+  // Screen rendering order: signal_hero → daily_recs → Zone 3 sections → up_next
+  // CMS sort_order MUST reflect this: signal_hero < daily_recs < min(Zone3) < ... < max(Zone3) < up_next
+  const zone3Sections = (ordered ?? [])
+    .filter((s: any) => !['signal_hero', 'daily_recs', 'up_next'].includes(s.component_type));
+  const zone3SortOrders = zone3Sections.map((s: any) => s.sort_order);
+  const minZone3 = Math.min(...zone3SortOrders);
+  const maxZone3 = Math.max(...zone3SortOrders);
+
+  assert('signal_hero sort_order < daily_recs sort_order (Zone 1 < Zone 2)',
+    signalHeroOrder < dailyRecsOrder,
+    `signal_hero=${signalHeroOrder}, daily_recs=${dailyRecsOrder}`);
+
+  assert('daily_recs sort_order < first Zone 3 section (Zone 2 < Zone 3)',
+    dailyRecsOrder < minZone3,
+    `daily_recs=${dailyRecsOrder}, minZone3=${minZone3}`);
+
+  assert('up_next sort_order > last Zone 3 section (Zone 4 > Zone 3)',
+    upNextOrder > maxZone3,
+    `up_next=${upNextOrder}, maxZone3=${maxZone3}`);
+
+  assert('CMS table order matches screen rendering order',
+    signalHeroOrder < dailyRecsOrder && dailyRecsOrder < minZone3 && maxZone3 < upNextOrder,
+    'Sort orders do not reflect the actual screen zone layout');
+
   // ─────────────────────────────────────────────────────────
   // Phase 8: Visibility Condition Integrity
   // ─────────────────────────────────────────────────────────
@@ -455,6 +480,56 @@ async function runEval() {
     .select('athlete_id')
     .limit(0);
   assert('athlete_mode_history table exists (audit trail)', !historyErr, historyErr?.message);
+
+  // ─────────────────────────────────────────────────────────
+  // Phase 13: Mode Source of Truth
+  // ─────────────────────────────────────────────────────────
+  console.log('\nPhase 13: Mode Source of Truth\n');
+
+  // The boot API must read athlete_mode from player_schedule_preferences,
+  // not from athlete_snapshots. This prevents the Rules page showing one
+  // mode and the dashboard showing a different (stale) mode.
+
+  // Verify boot route.ts reads athlete_mode from schedule prefs
+  const fs = await import('fs');
+  const path = await import('path');
+  const bootRoutePath = path.resolve(__dirname, '../app/api/v1/boot/route.ts');
+  const bootRouteCode = fs.readFileSync(bootRoutePath, 'utf-8');
+
+  // Check that schedule_prefs query includes athlete_mode
+  assert('Boot API selects athlete_mode from player_schedule_preferences',
+    bootRouteCode.includes('select("sleep_start, sleep_end, athlete_mode")') ||
+    bootRouteCode.includes("select('sleep_start, sleep_end, athlete_mode')"),
+    'boot/route.ts does not select athlete_mode from player_schedule_preferences');
+
+  // Check that planningContext uses prefsAthleteMode
+  assert('Boot API uses preferences athlete_mode as source of truth',
+    bootRouteCode.includes('prefsAthleteMode') && bootRouteCode.includes('schedulePrefs?.athlete_mode'),
+    'boot/route.ts does not derive athlete_mode from schedule preferences');
+
+  // Verify mobile reads currentMode from planningContext
+  const mobileDashPath = path.resolve(__dirname, '../../mobile/src/screens/SignalDashboardScreen.tsx');
+  const mobileDashCode = fs.readFileSync(mobileDashPath, 'utf-8');
+
+  assert('Mobile reads currentMode from planningContext.athlete_mode',
+    mobileDashCode.includes('planningContext?.athlete_mode'),
+    'SignalDashboardScreen.tsx does not read athlete_mode from planningContext');
+
+  // ── CMS admin table zone indicators ──
+  const adminPagePath = path.resolve(__dirname, '../app/admin/(dashboard)/dashboard-sections/page.tsx');
+  const adminPageCode = fs.readFileSync(adminPagePath, 'utf-8');
+
+  assert('Admin table has SCREEN_LEVEL_TYPES set',
+    adminPageCode.includes('SCREEN_LEVEL_TYPES'),
+    'page.tsx missing SCREEN_LEVEL_TYPES');
+
+  assert('Admin table has ZONE_LABELS',
+    adminPageCode.includes('ZONE_LABELS'),
+    'page.tsx missing ZONE_LABELS');
+
+  assert('Admin table shows pinned indicator for screen-level sections',
+    adminPageCode.includes('isPinned'),
+    'page.tsx missing isPinned logic');
 
   // ─────────────────────────────────────────────────────────
   // Results
