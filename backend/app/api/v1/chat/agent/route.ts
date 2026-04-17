@@ -19,6 +19,12 @@ import {
   getOrCreateSession,
   saveMessage,
 } from "@/services/agents/sessionService";
+import {
+  runQualityPipeline,
+  mapPythonAgent,
+  computeFellThrough,
+} from "@/services/quality";
+import { randomUUID } from "node:crypto";
 
 function formatSSE(event: string, data: any): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -95,6 +101,21 @@ export async function POST(req: NextRequest) {
                 pendingConfirmation: pyResult.pendingConfirmation || null,
                 context: {},
               })));
+
+              // Quality + safety pipeline — fire-and-forget after response handed to user.
+              void runQualityPipeline({
+                traceId: randomUUID(),
+                turnId: randomUUID(),
+                sessionId: pyResult.sessionId || sessionId,
+                userId: auth.user.id,
+                userMessage: body.message.trim(),
+                assistantResponse: pyResult.message || "",
+                activeTab: body.activeTab ?? null,
+                agent: mapPythonAgent(pyResult.telemetry?.agent),
+                hasRag: pyResult.telemetry?.has_rag ?? false,
+                intentConfidence: pyResult.telemetry?.routing_confidence ?? null,
+                fellThrough: computeFellThrough(pyResult.telemetry?.classification_layer),
+              });
             } catch (proxyErr) {
               logger.error("[chat-stream] Python proxy failed", {
                 error: proxyErr instanceof Error ? proxyErr.message : String(proxyErr),
@@ -126,6 +147,22 @@ export async function POST(req: NextRequest) {
 
     // Sync path — forward to Python and return response directly
     const pyResult = await proxyToAIServiceSync(aiRequest);
+
+    // Quality + safety pipeline — fire-and-forget after we have the result.
+    void runQualityPipeline({
+      traceId: randomUUID(),
+      turnId: randomUUID(),
+      sessionId: pyResult.sessionId || sessionId,
+      userId: auth.user.id,
+      userMessage: body.message.trim(),
+      assistantResponse: pyResult.message || "",
+      activeTab: body.activeTab ?? null,
+      agent: mapPythonAgent(pyResult.telemetry?.agent),
+      hasRag: pyResult.telemetry?.has_rag ?? false,
+      intentConfidence: pyResult.telemetry?.routing_confidence ?? null,
+      fellThrough: computeFellThrough(pyResult.telemetry?.classification_layer),
+    });
+
     return NextResponse.json(pyResult);
 
   } catch (err) {

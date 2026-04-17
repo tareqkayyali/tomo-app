@@ -119,7 +119,9 @@ async def generate_sse_events(request: ChatRequest):
             "context": context_data,
         }
 
-        # Add telemetry in debug header
+        # Add telemetry in debug header. Consumed by the TS quality pipeline
+        # in backend/services/quality/ — do not remove fields without updating
+        # the AIServiceResponse type in backend/services/agents/aiServiceProxy.ts.
         telemetry = {
             "cost_usd": result.get("total_cost_usd", 0),
             "tokens": result.get("total_tokens", 0),
@@ -128,6 +130,8 @@ async def generate_sse_events(request: ChatRequest):
             "tools_called": len(result.get("tool_calls", [])),
             "validation_flags": result.get("validation_flags", []),
             "routing_confidence": result.get("routing_confidence", 0),
+            "classification_layer": result.get("classification_layer"),
+            "has_rag": bool(result.get("rag_context")),
             "flow_pattern": result.get("_flow_pattern"),
         }
         response["_telemetry"] = telemetry
@@ -220,12 +224,17 @@ async def chat_sync(request: ChatRequest):
         "refreshTargets": result.get("_refresh_targets", []),
         "pendingConfirmation": result.get("pending_write_action") or None,
         "context": context_data,
+        # Kept in sync with the streaming `_telemetry` block above. Consumed
+        # by the TS quality pipeline — see aiServiceProxy.ts AIServiceResponse.
         "_telemetry": {
             "cost_usd": result.get("total_cost_usd", 0),
             "tokens": result.get("total_tokens", 0),
             "agent": result.get("selected_agent"),
             "tools_called": len(result.get("tool_calls", [])),
             "validation_flags": result.get("validation_flags", []),
+            "routing_confidence": result.get("routing_confidence", 0),
+            "classification_layer": result.get("classification_layer"),
+            "has_rag": bool(result.get("rag_context")),
             "flow_pattern": result.get("_flow_pattern"),
         },
     }

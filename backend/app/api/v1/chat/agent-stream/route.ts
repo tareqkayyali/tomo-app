@@ -17,6 +17,12 @@ import {
   getOrCreateSession,
   saveMessage,
 } from "@/services/agents/sessionService";
+import {
+  runQualityPipeline,
+  mapPythonAgent,
+  computeFellThrough,
+} from "@/services/quality";
+import { randomUUID } from "node:crypto";
 
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
@@ -87,6 +93,21 @@ export async function POST(req: NextRequest) {
             refreshTargets: pyResult.refreshTargets || [],
             pendingConfirmation: pyResult.pendingConfirmation || null,
             context: {},
+          });
+
+          // Quality + safety pipeline — fire-and-forget after response sent.
+          void runQualityPipeline({
+            traceId: randomUUID(),
+            turnId: randomUUID(),
+            sessionId: pyResult.sessionId || sessionId,
+            userId: auth.user.id,
+            userMessage: message,
+            assistantResponse: pyResult.message || "",
+            activeTab: body.activeTab ?? null,
+            agent: mapPythonAgent(pyResult.telemetry?.agent),
+            hasRag: pyResult.telemetry?.has_rag ?? false,
+            intentConfidence: pyResult.telemetry?.routing_confidence ?? null,
+            fellThrough: computeFellThrough(pyResult.telemetry?.classification_layer),
           });
         } catch (proxyErr) {
           logger.error("[agent-stream] Python proxy failed", {

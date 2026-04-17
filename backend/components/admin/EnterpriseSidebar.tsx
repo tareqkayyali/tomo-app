@@ -119,6 +119,18 @@ const navigation: NavGroup[] = [
     ],
   },
   {
+    label: "Chat Quality",
+    minRole: "institutional_pd",
+    items: [
+      { name: "Overview", href: "/admin/enterprise/quality" },
+      { name: "Safety Audit Flags", href: "/admin/enterprise/quality/safety-flags" },
+      { name: "Judge Disagreements", href: "/admin/enterprise/quality/disagreements" },
+      { name: "Drift Alerts", href: "/admin/enterprise/quality/drift" },
+      { name: "Shadow Runs", href: "/admin/enterprise/quality/shadow-runs" },
+      { name: "Golden Test Set", href: "/admin/enterprise/quality/golden-set" },
+    ],
+  },
+  {
     label: "AI & Recommendations",
     minRole: "institutional_pd",
     items: [

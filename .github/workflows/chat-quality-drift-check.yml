@@ -1,0 +1,46 @@
+name: Chat Quality — Drift Check
+
+on:
+  schedule:
+    # Nightly at 03:00 UTC. 28d baseline vs 7d recent — one pass per day is plenty.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: chat-quality-drift
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: POST /api/v1/cron/quality-drift-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call drift-check endpoint
+        env:
+          APP_URL: ${{ secrets.CHAT_QUALITY_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CHAT_QUALITY_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::CHAT_QUALITY_BASE_URL and CHAT_QUALITY_CRON_SECRET must be set as repo secrets"
+            exit 1
+          fi
+
+          RESPONSE=$(mktemp)
+          STATUS=$(curl -sS -o "$RESPONSE" -w "%{http_code}" \
+            -X POST "$APP_URL/api/v1/cron/quality-drift-check" \
+            -H "X-Cron-Secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 240)
+
+          echo "HTTP $STATUS"
+          echo "--- response body ---"
+          cat "$RESPONSE"
+          echo
+          echo "---------------------"
+
+          if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 300 ]; then
+            echo "::error::drift-check returned HTTP $STATUS"
+            exit 1
+          fi

@@ -34,12 +34,31 @@ export interface AIServiceRequest {
   } | null;
 }
 
+/**
+ * Telemetry emitted by the Python ai-service on every turn. Kept in sync
+ * with the `_telemetry` dict in ai-service/app/routes/chat.py. Optional
+ * fields are defensive — old envelopes may not include all keys.
+ */
+export interface AIServiceTelemetry {
+  cost_usd?: number;
+  tokens?: number;
+  latency_ms?: number;
+  agent?: string;                    // performance | planning | identity | settings | unknown
+  tools_called?: number;
+  validation_flags?: string[];
+  routing_confidence?: number;       // 0..1 from the intent classifier
+  classification_layer?: string | null;  // e.g. "exact_match" | "agent_lock" | "error"
+  has_rag?: boolean;                 // true if RAG retrieval ran
+  flow_pattern?: string | null;
+}
+
 export interface AIServiceResponse {
   message: string;
   structured: any | null;
   sessionId: string;
   refreshTargets: string[];
   pendingConfirmation: any | null;
+  telemetry?: AIServiceTelemetry;
 }
 
 type AIServiceMode = "false" | "shadow" | "true";
@@ -234,6 +253,7 @@ export async function proxyToAIServiceSync(
       refreshTargets: data.refresh_targets || data.refreshTargets || [],
       pendingConfirmation:
         data.pending_confirmation || data.pendingConfirmation || null,
+      telemetry: data._telemetry ?? undefined,
     };
   } catch (err) {
     const errorMsg =
