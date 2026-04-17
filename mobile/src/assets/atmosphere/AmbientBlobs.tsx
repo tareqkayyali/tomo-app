@@ -7,6 +7,7 @@
  */
 import React, { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { colors as themeColors } from '../../theme/colors';
 import Svg, {
   Defs,
   RadialGradient,
@@ -38,8 +39,8 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 const BLOB_DURATION = 18000; // 18s full cycle — slow, ambient
 
 const AmbientBlobs: React.FC<AmbientBlobsProps> = memo(({
-  warmColor = '#7A9B76',
-  coolColor = '#5A6B7C',
+  warmColor = themeColors.accent,
+  coolColor = themeColors.textSecondary,
   opacity = 0.04,
 }) => {
   const translateY1 = useSharedValue(0);

@@ -19,7 +19,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { fontFamily, spacing, borderRadius } from '../../theme';
-import { getApiUrl } from '../../services/apiConfig';
+import { API_BASE_URL } from '../../services/apiConfig';
 import type { ThemeColors } from '../../theme/colors';
 
 interface ModeDefinition {
@@ -45,7 +45,7 @@ export function ModeSelector({ currentMode, onModeChange, disabled }: ModeSelect
 
   const fetchModes = useCallback(async () => {
     try {
-      const base = getApiUrl();
+      const base = API_BASE_URL;
       const res = await fetch(`${base}/api/v1/content/modes`);
       if (res.ok) {
         const data = await res.json();
@@ -157,7 +157,7 @@ function createStyles(colors: ThemeColors) {
       width: 90,
       height: 90,
       borderRadius: borderRadius.lg,
-      backgroundColor: colors.bgElevated,
+      backgroundColor: colors.backgroundElevated,
       borderWidth: 2,
       borderColor: 'transparent',
       justifyContent: 'center',

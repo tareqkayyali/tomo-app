@@ -71,7 +71,7 @@ const TomoCard: React.FC<TomoCardProps> = memo(({
     const base: ViewStyle = {
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.chalkGhost,
+      borderColor: colors.border,
       borderRadius: borderRadius.lg,
       padding: 18,
       overflow: 'hidden',

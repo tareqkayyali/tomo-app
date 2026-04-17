@@ -408,7 +408,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
         {warnings.length > 0 && (
           <View style={styles.warningBanner}>
             <View style={styles.warningHeader}>
-              <SmartIcon name="warning-outline" size={18} color="#5A6B7C" />
+              <SmartIcon name="warning-outline" size={18} color={colors.textSecondary} />
               <Text style={styles.warningTitle}>Some sessions could not be placed</Text>
             </View>
             {warnings.map((w, i) => (

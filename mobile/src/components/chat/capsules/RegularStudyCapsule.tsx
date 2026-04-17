@@ -87,7 +87,7 @@ export function RegularStudyCapsuleComponent({ card, onSubmit }: Props) {
         <Text style={styles.heading}>Regular Study Schedule</Text>
 
         <View style={styles.planBanner}>
-          <SmartIcon name="book-outline" size={16} color="#7A9B76" />
+          <SmartIcon name="book-outline" size={16} color={colors.accent} />
           <View style={{ flex: 1 }}>
             <Text style={styles.planBannerTitle}>
               Active · {card.existingSessionCount} sessions scheduled

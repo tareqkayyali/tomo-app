@@ -23,7 +23,6 @@ import {
 } from '../../components';
 import type { UpcomingExam } from '../../components';
 import { SpineTimeline } from '../../components/calendar/SpineTimeline';
-import { DayLockButton } from '../../components/calendar/DayLockButton';
 import { ScrollFadeOverlay } from '../../components/ScrollFadeOverlay';
 import { SuggestionsBanner } from '../../components/SuggestionsBanner';
 import { DayStrip } from './DayStrip';
@@ -76,6 +75,7 @@ export interface UnifiedDayViewProps {
   onSuggestionResolved?: (id: string, status: string) => void;
   upcomingExams?: UpcomingExam[];
   completedEvents?: Set<string>;
+  skippedEvents?: Set<string>;
   onComplete?: (id: string) => void;
   onSkip?: (id: string) => void;
   onUndo?: (id: string) => void;
@@ -125,11 +125,13 @@ export function UnifiedDayView({
   onCheckinPress,
   onJournalPress,
   examSchedule,
+  skippedEvents,
 }: UnifiedDayViewProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const emptyCompleted = useMemo(() => new Set<string>(), []);
+  const emptySkipped = useMemo(() => new Set<string>(), []);
   const noop = () => {};
 
   // Zoom controls for timeline (pinch-to-zoom on native)
@@ -305,13 +307,14 @@ export function UnifiedDayView({
                     notes: event.notes || '',
                     intensity: event.intensity || '',
                     linkedPrograms: (event as any).linkedPrograms || [],
+                    sessionPlan: (event as any).sessionPlan ?? null,
                   });
                 }}
                 onJournalPress={onJournalPress}
                 onEventComplete={onComplete}
                 onEventSkip={onSkip}
                 completedIds={completedEvents ?? emptyCompleted}
-                skippedIds={new Set()}
+                skippedIds={skippedEvents ?? emptySkipped}
                 zoomLevel={zoomLevel}
               />
             </View>
@@ -338,7 +341,7 @@ export function UnifiedDayView({
               onEventComplete={onComplete}
               onEventSkip={onSkip}
               completedIds={completedEvents ?? emptyCompleted}
-              skippedIds={new Set()}
+              skippedIds={skippedEvents ?? emptySkipped}
               zoomLevel={zoomLevel}
             />
           </View>

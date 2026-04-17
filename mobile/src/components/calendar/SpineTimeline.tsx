@@ -111,10 +111,14 @@ export function SpineTimeline({
         const isFirst = idx === 0;
         const isLast = idx === sorted.length - 1;
 
+        // Zoom-scaled dimensions
+        const dotSize = scaledSpacing(14);
+        const spineWidth = scaledSpacing(32);
+
         return (
-          <View key={event.id} style={styles.eventRow}>
+          <View key={event.id} style={[styles.eventRow, { minHeight: scaledSpacing(100) }]}>
             {/* ── Spine column ── */}
-            <View style={styles.spineCol}>
+            <View style={[styles.spineCol, { width: spineWidth }]}>
               {/* Top line segment */}
               <View
                 style={[
@@ -130,6 +134,9 @@ export function SpineTimeline({
                 style={[
                   styles.glowDot,
                   {
+                    width: dotSize,
+                    height: dotSize,
+                    borderRadius: dotSize / 2,
                     backgroundColor: isDone ? colors.textMuted : eventColor,
                     shadowColor: isDone ? 'transparent' : eventColor,
                     shadowOpacity: isDone ? 0 : 0.6,
@@ -154,6 +161,7 @@ export function SpineTimeline({
             <Pressable
               style={({ pressed }) => [
                 styles.cardWrapper,
+                { marginBottom: scaledSpacing(spacing.sm) },
                 pressed && { opacity: 0.85 },
                 isDone && { opacity: 0.5 },
               ]}
@@ -161,13 +169,13 @@ export function SpineTimeline({
             >
               <GlassCard>
                 {/* Time range */}
-                <Text style={[styles.timeRange, { color: eventColor }]}>
+                <Text style={[styles.timeRange, { color: eventColor, fontSize: scaledFont(13) }]}>
                   {formatTime(event.startTime)} — {formatTime(event.endTime)}
                 </Text>
 
                 {/* Title + Journal badge */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={[styles.eventTitle, { color: colors.textOnDark, flex: 1 }]} numberOfLines={1}>
+                  <Text style={[styles.eventTitle, { color: colors.textOnDark, flex: 1, fontSize: scaledFont(16) }]} numberOfLines={1}>
                     {event.name}
                   </Text>
                   {JOURNAL_TYPES.has(event.type) && (
@@ -213,7 +221,7 @@ export function SpineTimeline({
 
                 {/* Notes / description */}
                 {event.notes ? (
-                  <Text style={[styles.eventDesc, { color: colors.textMuted }]} numberOfLines={1}>
+                  <Text style={[styles.eventDesc, { color: colors.textMuted, fontSize: scaledFont(13) }]} numberOfLines={1}>
                     {event.notes}
                   </Text>
                 ) : null}

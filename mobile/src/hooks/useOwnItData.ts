@@ -56,6 +56,12 @@ function groupRecs(recs: RIERecommendation[]) {
     if (SPORTS_TYPES.includes(r.recType)) sports.push(r);
     else if (STUDY_TYPES.includes(r.recType)) study.push(r);
     else if (UPDATE_TYPES.includes(r.recType)) updates.push(r);
+    else {
+      // Unknown rec type from backend — default to sports category
+      // so new types are visible without requiring a mobile deploy
+      console.warn(`[useOwnItData] Unknown recType "${r.recType}" — defaulting to sports`);
+      sports.push(r);
+    }
   }
 
   // Sort each group by priority (P1 first)
@@ -97,8 +103,8 @@ export function useOwnItData() {
       setHasFetchedOnce(true);
 
       // Cache both
-      if (snap) AsyncStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(snap)).catch(() => {});
-      AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(recommendations)).catch(() => {});
+      if (snap) AsyncStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(snap)).catch((e) => console.warn('[useOwnItData] cache write failed:', e));
+      AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(recommendations)).catch((e) => console.warn('[useOwnItData] cache write failed:', e));
     } catch (err: any) {
       setError(err?.message || 'Failed to load data');
     } finally {
@@ -134,20 +140,23 @@ export function useOwnItData() {
         // New recs were generated — re-fetch to show them
         const freshRecs = await getRecommendations(15);
         setRecs(freshRecs);
-        AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(freshRecs)).catch(() => {});
+        AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(freshRecs)).catch((e) => console.warn('[useOwnItData] cache write failed:', e));
       } else if (!result.refreshed && result.reason === 'not_stale' && recs.length === 0) {
         // Recs were generated recently but we have none locally — try re-fetch
         const freshRecs = await getRecommendations(15);
         if (freshRecs.length > 0) {
           setRecs(freshRecs);
-          AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(freshRecs)).catch(() => {});
+          AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(freshRecs)).catch((e) => console.warn('[useOwnItData] cache write failed:', e));
         } else {
           // Truly empty — force a new refresh
           const forced = await refreshRecommendations({ force: true });
           if (forced.refreshed && (forced.count ?? 0) > 0) {
             const newest = await getRecommendations(15);
             setRecs(newest);
-            AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(newest)).catch(() => {});
+            AsyncStorage.setItem(RECS_CACHE_KEY, JSON.stringify(newest)).catch((e) => console.warn('[useOwnItData] cache write failed:', e));
+          } else {
+            // Forced refresh returned 0 recs — surface message to user
+            setRefreshError('No recommendations could be generated yet. Complete a check-in or log a session to get started.');
           }
         }
       }

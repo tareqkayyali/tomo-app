@@ -29,9 +29,13 @@ export interface PlayerSchedulePreferences {
   sleep_start: string;    // HH:MM — bedtime (e.g. "22:00")
   sleep_end: string;      // HH:MM — wake time (e.g. "06:00")
 
-  // Day bounds (derived from sleep, overridable)
-  day_bounds_start: string; // HH:MM — earliest schedulable time
-  day_bounds_end: string;   // HH:MM — latest schedulable time
+  // Day bounds — weekday (derived from sleep, overridable)
+  day_bounds_start: string; // HH:MM — earliest schedulable time (weekdays)
+  day_bounds_end: string;   // HH:MM — latest schedulable time (weekdays)
+
+  // Day bounds — weekend (optional; falls back to day_bounds_* when null)
+  weekend_bounds_start: string | null;
+  weekend_bounds_end: string | null;
 
   // Study
   study_days: DayOfWeek[];
@@ -127,6 +131,7 @@ export interface EffectiveRules {
   };
   scenario: ScenarioId;
   dayBounds: { startHour: number; endHour: number };
+  weekendBounds: { startHour: number; endHour: number };
 }
 
 export interface ExamStudyBlock {
@@ -402,6 +407,8 @@ export const DEFAULT_PREFERENCES: PlayerSchedulePreferences = {
   sleep_end: "06:00",
   day_bounds_start: "06:00",
   day_bounds_end: "22:00",
+  weekend_bounds_start: null,
+  weekend_bounds_end: null,
   study_days: [0, 1, 2, 3] as DayOfWeek[],
   study_start: "16:00",
   study_duration_min: 90,
@@ -574,6 +581,10 @@ export function getEffectiveRules(
       startHour: parseHour(prefs.day_bounds_start || "06:00"),
       endHour: parseHour(prefs.day_bounds_end || "22:00"),
     },
+    weekendBounds: {
+      startHour: parseHour(prefs.weekend_bounds_start || prefs.day_bounds_start || "06:00"),
+      endHour: parseHour(prefs.weekend_bounds_end || prefs.day_bounds_end || "22:00"),
+    },
   };
 }
 
@@ -642,13 +653,23 @@ export function buildRuleContext(
     }
   }
 
+  // Available hours
+  const wkdStart = prefs.day_bounds_start || "06:00";
+  const wkdEnd = prefs.day_bounds_end || "22:00";
+  const wkndStart = prefs.weekend_bounds_start || wkdStart;
+  const wkndEnd = prefs.weekend_bounds_end || wkdEnd;
+  lines.push("\nAVAILABLE HOURS:");
+  lines.push(`  Weekdays: ${wkdStart} — ${wkdEnd}`);
+  lines.push(`  Weekends: ${wkndStart} — ${wkndEnd}`);
+
   // Hard constraints
   lines.push("\nDO NOT schedule:");
   lines.push("  — Any activity inside school hours (LOCKED)");
   lines.push("  — Any activity inside exam time blocks (LOCKED)");
   lines.push("  — HARD training within 2h of a match");
   lines.push("  — HARD training on exam days");
-  lines.push("  — Events before 06:00 or after 22:00");
+  lines.push(`  — Events before ${wkdStart} or after ${wkdEnd} on weekdays`);
+  lines.push(`  — Events before ${wkndStart} or after ${wkndEnd} on weekends`);
   lines.push("  — More than 2 training sessions on the same day");
 
   lines.push("━━ END RULES ━━");
@@ -884,6 +905,10 @@ export function getEffectiveRulesWithMode(
       startHour: parseHour(prefs.day_bounds_start || "06:00"),
       endHour: parseHour(prefs.day_bounds_end || "22:00"),
     },
+    weekendBounds: {
+      startHour: parseHour(prefs.weekend_bounds_start || prefs.day_bounds_start || "06:00"),
+      endHour: parseHour(prefs.weekend_bounds_end || prefs.day_bounds_end || "22:00"),
+    },
   };
 }
 
@@ -918,6 +943,10 @@ export function buildModeRuleContext(
   if (modeParams.intensityCapOnExamDays) {
     lines.push(`  Exam day intensity cap: ${modeParams.intensityCapOnExamDays}`);
   }
+
+  lines.push(`\nAVAILABLE HOURS:`);
+  lines.push(`  Weekdays: ${prefs.day_bounds_start || "06:00"} — ${prefs.day_bounds_end || "22:00"}`);
+  lines.push(`  Weekends: ${prefs.weekend_bounds_start || prefs.day_bounds_start || "06:00"} — ${prefs.weekend_bounds_end || prefs.day_bounds_end || "22:00"}`);
 
   lines.push(`\nBUFFERS:`);
   lines.push(`  Default: ${effective.buffers.default} min`);

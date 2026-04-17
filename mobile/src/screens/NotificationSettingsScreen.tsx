@@ -126,7 +126,6 @@ export function NotificationSettingsScreen() {
       if (Platform.OS === 'web') {
         window.alert('Could not save preference. Please try again.');
       } else {
-        const { Alert } = require('react-native');
         Alert.alert('Error', 'Could not save preference. Please try again.');
       }
     }
@@ -206,7 +205,7 @@ export function NotificationSettingsScreen() {
                       value={prefs[cat.key] as boolean}
                       onValueChange={(val) => savePrefs({ [cat.key]: val })}
                       trackColor={{ false: colors.border, true: cat.color }}
-                      thumbColor="#F5F3ED"
+                      thumbColor={colors.textPrimary}
                     />
                   )}
                 </View>

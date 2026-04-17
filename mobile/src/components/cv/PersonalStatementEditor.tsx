@@ -145,7 +145,7 @@ export function PersonalStatementEditor({
 
       {statementStatus === 'approved' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-          <SmartIcon name="checkmark-circle" size={12} color="#7A9B76" />
+          <SmartIcon name="checkmark-circle" size={12} color={colors.accent} />
           <Text style={{ color: colors.accent, fontFamily: fontFamily.medium, fontSize: 10 }}>
             Approved{lastGenerated ? ` · ${new Date(lastGenerated).toLocaleDateString()}` : ''}
           </Text>

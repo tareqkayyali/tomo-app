@@ -214,7 +214,8 @@ export function useCalendarData(): CalendarData {
         // Clear cache so next fetch is fresh
         cacheRef.current = {};
         return true;
-      } catch {
+      } catch (err) {
+        console.error('[useCalendarData] update FAILED:', eventId, err);
         return false;
       }
     },

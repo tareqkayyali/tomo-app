@@ -47,7 +47,9 @@ interface DayItem {
 export function DayStrip({ selectedDate, onSelect }: DayStripProps) {
   const { colors } = useTheme();
   const listRef = useRef<FlatList>(null);
-  const today = useMemo(() => new Date(), []);
+  // Keyed by date string so it refreshes past midnight
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const today = useMemo(() => new Date(), [todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const days: DayItem[] = useMemo(() => {
     const result: DayItem[] = [];

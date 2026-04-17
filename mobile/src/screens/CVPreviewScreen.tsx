@@ -165,7 +165,7 @@ export function CVPreviewScreen({ cvType = 'club', onBack }: Props) {
 
             {exportStatus && (
               <View style={[s.statusBadge, { backgroundColor: colors.accentSoft, borderColor: colors.accentBorder }]}>
-                <SmartIcon name="checkmark-circle" size={14} color="#7A9B76" />
+                <SmartIcon name="checkmark-circle" size={14} color={colors.accent} />
                 <Text style={{ color: colors.accent, fontFamily: fontFamily.medium, fontSize: 12 }}>{exportStatus}</Text>
               </View>
             )}
@@ -205,10 +205,10 @@ export function CVPreviewScreen({ cvType = 'club', onBack }: Props) {
             onPress={handleDownloadPDF}
             disabled={isExporting}>
             {isExporting ? (
-              <ActivityIndicator size="small" color="#F5F3ED" />
+              <ActivityIndicator size="small" color={colors.textPrimary} />
             ) : (
               <>
-                <SmartIcon name="download-outline" size={16} color="#F5F3ED" />
+                <SmartIcon name="download-outline" size={16} color={colors.textPrimary} />
                 <Text style={[s.actionText, { color: colors.textPrimary }]}>Download PDF</Text>
               </>
             )}

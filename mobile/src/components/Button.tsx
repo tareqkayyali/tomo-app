@@ -266,7 +266,7 @@ function createVariantStyles(colors: ThemeColors) {
     outline: {
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: colors.chalkGhost,
+      borderColor: colors.border,
     },
     ghost: {
       backgroundColor: 'transparent',

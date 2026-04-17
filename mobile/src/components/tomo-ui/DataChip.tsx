@@ -31,7 +31,7 @@ const DataChip: React.FC<DataChipProps> = memo(({
   return (
     <Animated.View
       entering={FadeIn.delay(enterDelay).duration(animation.duration.normal)}
-      style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.chalkGhost }]}
+      style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border }]}
     >
       <Text style={[styles.value, { color: accentColor ?? colors.chalk }]}>{value}</Text>
       <Text style={[styles.label, { color: colors.chalkDim }]}>{label}</Text>

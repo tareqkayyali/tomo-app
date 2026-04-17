@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, Pressable, Modal, ScrollView,
-  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
+  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
 } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
@@ -147,8 +147,11 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
       emitRefresh('notifications');
       onClose();
     } catch (err) {
+      const msg = (err as Error).message ?? 'Failed to save target';
       if (Platform.OS === 'web') {
-        window.alert?.((err as Error).message ?? 'Failed to save target');
+        window.alert?.(msg);
+      } else {
+        Alert.alert('Save failed', msg);
       }
     } finally {
       setSubmitting(false);
@@ -169,8 +172,11 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
       emitRefresh('notifications');
       onClose();
     } catch (err) {
+      const msg = (err as Error).message ?? 'Failed to save reflection';
       if (Platform.OS === 'web') {
-        window.alert?.((err as Error).message ?? 'Failed to save reflection');
+        window.alert?.(msg);
+      } else {
+        Alert.alert('Save failed', msg);
       }
     } finally {
       setSubmitting(false);
@@ -268,7 +274,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                         disabled={!canSavePre || submitting}
                       >
                         {submitting ? (
-                          <ActivityIndicator size="small" color="#F5F3ED" />
+                          <ActivityIndicator size="small" color={colors.textPrimary} />
                         ) : (
                           <Text style={ms.submitText}>Set target</Text>
                         )}
@@ -334,7 +340,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                             disabled={!canSavePost || submitting}
                           >
                             {submitting ? (
-                              <ActivityIndicator size="small" color="#F5F3ED" />
+                              <ActivityIndicator size="small" color={colors.textPrimary} />
                             ) : (
                               <Text style={ms.submitText}>Log reflection</Text>
                             )}

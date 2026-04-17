@@ -53,7 +53,7 @@ export function DayLockButton({ isLocked, isLoading, onToggle }: DayLockButtonPr
         {isLocked ? 'Day Locked' : 'Lock Day'}
       </Text>
       {isLocked && (
-        <SmartIcon name="checkmark" size={12} color="#F5F3ED" />
+        <SmartIcon name="checkmark" size={12} color={colors.textPrimary} />
       )}
     </Pressable>
   );

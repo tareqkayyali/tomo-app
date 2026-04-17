@@ -661,6 +661,31 @@ export interface RegularStudyCapsule {
   existingSessionCount?: number;
 }
 
+// ── Scheduling Capsule (interactive session booking) ────────────
+export interface SchedulingCapsule {
+  type: 'scheduling_capsule';
+  context?: {
+    prefilledTitle?: string;
+    prefilledDate?: string;
+    prefilledFocus?: string;
+    prefilledTime?: string;
+    prefilledIntensity?: string;
+    days: Array<{
+      date: string;
+      label: string;
+      dayOfWeek: string;
+      existingEvents: Array<{ id: string; name: string; startTime: string; endTime: string; type: string }>;
+      availableSlots: Array<{ start24: string; end24: string; label: string; score: number }>;
+    }>;
+    focusOptions: Array<{ id: string; label: string }>;
+    intensityOptions: Array<{ id: string; label: string }>;
+    trainingCategories?: Array<{ id: string; label: string }>;
+    readinessLevel?: string;
+    sport?: string;
+    durationMin?: number;
+  };
+}
+
 // ── Capsule Action — sent from frontend on capsule submit ────────
 
 export interface CapsuleAction {
@@ -713,6 +738,7 @@ export type VisualCard =
   | TrainingJournalPreCapsule
   | TrainingJournalPostCapsule
   | RegularStudyCapsule
+  | SchedulingCapsule
   | ProgramRecommendationCard
   | WeekSchedule
   | WeekPlan

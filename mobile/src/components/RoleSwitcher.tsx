@@ -106,7 +106,7 @@ function RoleSegment({
           end={{ x: 1, y: 1 }}
           style={styles.segmentActive}
         >
-          <SmartIcon name={roleDef.icon} size={13} color="#F5F3ED" />
+          <SmartIcon name={roleDef.icon} size={13} color={themeColors.textPrimary} />
           <Text style={styles.segmentTextActive}>{roleDef.label}</Text>
         </LinearGradient>
       ) : (

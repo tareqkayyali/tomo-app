@@ -7,15 +7,13 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
-import { SmartIcon } from '../components/SmartIcon';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { SkeletonCard, ErrorState } from '../components';
 import type { UpcomingExam } from '../components';
 import { UnifiedDayView } from '../components/plan/UnifiedDayView';
-// StudyPlanView and TrainingPlanView are now accessed via header buttons (separate screens)
-import { spacing, layout, shadows, fontFamily, borderRadius } from '../theme';
+import { spacing, layout } from '../theme';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
 import { useAuth } from '../hooks/useAuth';
@@ -25,59 +23,22 @@ import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { QuickAccessBar } from '../components/QuickAccessBar';
 import { useQuickActions } from '../hooks/useQuickActions';
-import { SuggestionsBanner } from '../components/SuggestionsBanner';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { useCalendarData } from '../hooks/useCalendarData';
 import { useDayLock } from '../hooks/useDayLock';
 import { toDateStr } from '../utils/calendarHelpers';
-import { createCalendarEvent, autoFillWeek } from '../services/api';
-import type { ReadinessLevel, Checkin } from '../types';
-import { getReadinessScore } from '../services/readinessScore';
+import type { CalendarEvent } from '../types';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainTabParamList, MainStackParamList } from '../navigation/types';
-import { useSubTabRegistry } from '../hooks/useSubTabContext';
-import { usePageConfig } from '../hooks/usePageConfig';
 import { useScheduleRules } from '../hooks/useScheduleRules';
 import { useFocusEffect } from '@react-navigation/native';
 import { JournalSheet } from '../components/journal/JournalSheet';
-import type { CalendarEvent } from '../types';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-// Default readiness when no check-in exists
-const DEFAULT_READINESS: { score: number; level: ReadinessLevel } = {
-  score: 0,
-  level: 'GREEN',
-};
-
-/**
- * Compute readiness from today's check-in (if available).
- * Returns default GREEN/0 if no check-in exists yet.
- */
-function getReadinessFromCheckins(checkins: Checkin[]): { score: number; level: ReadinessLevel } {
-  const todayStr = toDateStr(new Date());
-  const todayCheckin = checkins.find((c) => c.date === todayStr);
-  if (!todayCheckin) return DEFAULT_READINESS;
-
-  // If the backend already computed a readiness level, use it
-  if (todayCheckin.readinessLevel) {
-    const result = getReadinessScore({
-      energy: todayCheckin.energy,
-      soreness: todayCheckin.soreness,
-      sleepHours: todayCheckin.sleepHours,
-      mood: todayCheckin.mood ?? 5,
-      effort: todayCheckin.effortYesterday ?? 5,
-      pain: todayCheckin.painFlag,
-    });
-    return { score: result.score, level: result.level };
-  }
-
-  return DEFAULT_READINESS;
-}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -107,7 +68,6 @@ function addDays(date: Date, days: number): Date {
 export function TrainingScreen({ navigation }: TrainingScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const pageConfig = usePageConfig('timeline');
 
   const { profile, role } = useAuth();
   const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
@@ -132,17 +92,9 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   const [completedEvents, setCompletedEvents] = useState<Set<string>>(
     () => new Set<string>(),
   );
-
-  // Gap setting — cycles through 15 / 30 / 45 / 60
-  const GAP_OPTIONS = [15, 30, 45, 60] as const;
-  const [gapMinutes, setGapMinutes] = useState(30);
-  const cycleGap = useCallback(() => {
-    setGapMinutes((prev) => {
-      const idx = GAP_OPTIONS.indexOf(prev as any);
-      return GAP_OPTIONS[(idx + 1) % GAP_OPTIONS.length];
-    });
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
+  const [skippedEvents, setSkippedEvents] = useState<Set<string>>(
+    () => new Set<string>(),
+  );
 
   // ─── Calendar data hook (must come before callbacks that reference it) ───
   const calendar = useCalendarData();
@@ -202,12 +154,6 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
       return evt;
     });
   }, [realEvents, trainingCategories]);
-
-  // Compute readiness from today's check-in
-  const readiness = useMemo(
-    () => getReadinessFromCheckins(checkins),
-    [checkins],
-  );
 
   // Track whether initial load is done
   const hasLoadedOnce = useRef(false);
@@ -283,11 +229,16 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   }, []);
 
   const handleSkipEvent = useCallback((eventId: string) => {
-    setCompletedEvents((prev) => new Set(prev).add(eventId));
+    setSkippedEvents((prev) => new Set(prev).add(eventId));
   }, []);
 
   const handleUndoEvent = useCallback((eventId: string) => {
     setCompletedEvents((prev) => {
+      const next = new Set(prev);
+      next.delete(eventId);
+      return next;
+    });
+    setSkippedEvents((prev) => {
       const next = new Set(prev);
       next.delete(eventId);
       return next;
@@ -331,31 +282,6 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     });
   }, [selectedDay, selectedDayStr, isToday]);
 
-  // ─── Training / Academic hours for balance ───
-
-  const trainingHours = useMemo(
-    () => dayEvents.filter((e) => e.type === 'training' || e.type === 'match').length * 1.5,
-    [dayEvents],
-  );
-
-  const academicHours = useMemo(
-    () => dayEvents.filter((e) => e.type === 'study_block' || e.type === 'exam').length * 1,
-    [dayEvents],
-  );
-
-  // ─── AI insight text ───
-
-  const aiInsightText = useMemo(() => {
-    const hasExam = dayEvents.some((e) => e.type === 'exam');
-    if (hasExam)
-      return 'Exam detected \u2014 Tomo has optimized your training load and added study blocks to help you prepare.';
-    const plan = calendar.plan;
-    const explanation = plan?.decisionExplanation;
-    if (typeof explanation === 'string') return explanation;
-    if (explanation?.summary) return explanation.summary;
-    return undefined;
-  }, [dayEvents, calendar.plan]);
-
   // ─── Upcoming exams (next 14 days) ───
 
   const upcomingExams = useMemo(() => {
@@ -377,10 +303,6 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   const hasCheckedInToday = useMemo(() => {
     return checkins.some((c) => c.date === todayStr);
   }, [checkins, todayStr]);
-
-  // ─── Header text ───
-
-  const weekdayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
   // ─── Loading state ───
 
@@ -434,8 +356,8 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
 
       {/* ─── Unified Day View (includes day nav, spine timeline, FAB) ─── */}
       <UnifiedDayView
-        role="player"
-        isOwner={true}
+        role={role === 'coach' ? 'coach' : role === 'parent' ? 'parent' : 'player'}
+        isOwner={role === 'player'}
         events={dayEvents as CalendarEvent[]}
         selectedDay={selectedDay}
         dayLabel={dayLabel}
@@ -465,6 +387,7 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
         onSuggestionResolved={handleResolved}
         upcomingExams={examModeEnabled ? upcomingExams : []}
         completedEvents={completedEvents}
+        skippedEvents={skippedEvents}
         onComplete={handleCompleteEvent}
         onSkip={handleSkipEvent}
         onUndo={handleUndoEvent}

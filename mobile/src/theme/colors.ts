@@ -1,14 +1,17 @@
 /**
- * TOMO Color Palette v7 — Japanese 4-Color (Kon/Kinari/Moegi/Blue-Gray)
+ * TOMO Color Palette v8 — Japanese 4-Color (Kon/Kinari/Moegi/Blue-Gray)
  *
- * 1. #1A1D2E — Deep indigo (Kon 紺) — ALL backgrounds
+ * 1. #12141F — Deep indigo (Kon 紺) — ALL backgrounds
  * 2. #F5F3ED — Warm cream (Kinari 生成) — ALL text
  * 3. #7A9B76 — Moegi sage green (萌黄) — ALL accents
- * 4. #5A6B7C — Muted blue-gray — ALL secondary/inactive
+ * 4. #7A8A9A — Muted blue-gray — ALL secondary/inactive
  *
- * Surface variants: #252938 (cards), #2A2F42 (elevated/inputs)
+ * Card philosophy: near-transparent surfaces (3-5% cream overlay) with
+ * visible 10% cream border frames. Cards breathe with the background
+ * rather than sitting as opaque grey blocks.
+ *
  * Sage variants: #5F7F5B (pressed), #9AB896 (light)
- * Borders: rgba(245,243,237,0.08) ONLY
+ * Borders: rgba(245,243,237,0.10) — visible line frames
  */
 
 // ─── ThemeColors type ────────────────────────────────────────────────
@@ -206,7 +209,7 @@ export type ThemeColors = {
 export const darkColors: ThemeColors = {
   // Core (Tomo 友 — Navy + Sage)
   background: '#12141F',
-  backgroundElevated: '#292D3A',
+  backgroundElevated: 'rgba(245,243,237,0.05)',
   accent: '#7A9B76',
   accentDark: '#5F7F5B',
   accentLight: '#9AB896',
@@ -214,16 +217,16 @@ export const darkColors: ThemeColors = {
   // Text (warm off-white hierarchy)
   textPrimary: '#F5F3ED',        // Titles, card headings — bright
   textBody: '#C8C4BA',           // Card body/detail text — readable mid-cream
-  textSecondary: '#5A6B7C',      // Timestamps, subtitles — muted blue-gray
+  textSecondary: '#7A8A9A',      // Timestamps, subtitles — lightened blue-gray (WCAG AA on dark bg)
   textDisabled: 'rgba(245,243,237,0.15)',
   textOnAccent: '#F5F3ED',
   textLink: '#7A9B76',
 
   // Borders & Surfaces
-  border: 'rgba(245,243,237,0.08)',
-  borderLight: 'rgba(245,243,237,0.04)',
-  surface: '#232632',
-  inputBackground: '#292D3A',
+  border: 'rgba(245,243,237,0.10)',           // Visible line frame
+  borderLight: 'rgba(245,243,237,0.06)',
+  surface: 'rgba(245,243,237,0.03)',           // Near-transparent card bg
+  inputBackground: 'rgba(245,243,237,0.05)',   // Slightly more presence for inputs
 
   // --- Tomo 友 Semantic Opacity Tokens ---
   accentSubtle: 'rgba(122,155,118,0.08)',
@@ -233,7 +236,7 @@ export const darkColors: ThemeColors = {
   secondarySubtle: 'rgba(90,107,124,0.12)',
   secondaryMuted: 'rgba(90,107,124,0.18)',
   creamSubtle: 'rgba(245,243,237,0.06)',
-  creamMuted: 'rgba(245,243,237,0.08)',
+  creamMuted: 'rgba(245,243,237,0.10)',
   creamSoft: 'rgba(245,243,237,0.10)',
   creamOverlay: 'rgba(245,243,237,0.20)',
 
@@ -241,7 +244,7 @@ export const darkColors: ThemeColors = {
   success: '#7A9B76',
   warning: '#F39C12',
   error: '#E74C3C',
-  info: '#5A6B7C',
+  info: '#7A8A9A',
 
   // Readiness
   readinessGreen: '#7A9B76',
@@ -276,8 +279,8 @@ export const darkColors: ThemeColors = {
   shadowDark: 'rgba(0, 0, 0, 0.50)',
 
   // Skeleton
-  skeletonBase: '#232632',
-  skeletonHighlight: '#323850',
+  skeletonBase: 'rgba(245,243,237,0.03)',
+  skeletonHighlight: 'rgba(245,243,237,0.08)',
 
   // Ghost Calendar
   ghostBorder: 'rgba(245, 243, 237, 0.15)',
@@ -294,29 +297,29 @@ export const darkColors: ThemeColors = {
   textHeader: '#F5F3ED',
   textOnDark: '#F5F3ED',
   textOnLight: '#F5F3ED',
-  textInactive: '#5A6B7C',
+  textInactive: '#7A8A9A',
   textMuted: 'rgba(245,243,237,0.5)',
-  cardLight: '#232632',
-  cardMuted: 'rgba(37, 41, 56, 0.60)',
+  cardLight: 'rgba(245,243,237,0.03)',
+  cardMuted: 'rgba(245,243,237,0.02)',
   divider: 'rgba(245,243,237,0.08)',
   borderAccent: 'rgba(122, 155, 118, 0.30)',
   glowOrange: 'rgba(122, 155, 118, 0.20)',
   glowCyan: 'rgba(122, 155, 118, 0.15)',
-  glass: '#232632',
-  glassBorder: 'rgba(245,243,237,0.08)',
-  glassHighlight: 'rgba(245,243,237,0.04)',
-  surfaceElevated: '#232632',
+  glass: 'rgba(245,243,237,0.03)',
+  glassBorder: 'rgba(245,243,237,0.10)',
+  glassHighlight: 'rgba(245,243,237,0.06)',
+  surfaceElevated: 'rgba(245,243,237,0.05)',
   chipBackground: 'rgba(245,243,237,0.06)',
   chipText: '#7A9B76',
   navBackground: '#12141F',
   gradientOrangeCyan: ['#7A9B76', '#5F7F5B'],
   gradientOrange: ['#7A9B76', '#9AB896'],
   gradientCyan: ['#5F7F5B', '#7A9B76'],
-  gradientDark: ['#12141F', '#232632'],
+  gradientDark: ['#12141F', '#1A1D2B'],
   gradientGlass: ['rgba(245,243,237,0.04)', 'rgba(245,243,237,0.01)'],
-  pastelTerracotta: '#232632',
-  pastelPeach: '#232632',
-  logout: '#5A6B7C',
+  pastelTerracotta: 'rgba(245,243,237,0.03)',
+  pastelPeach: 'rgba(245,243,237,0.03)',
+  logout: '#7A8A9A',
   archetypePhoenix: '#7A9B76',
   archetypeTitan: '#5A6B7C',
   archetypeBlade: '#7A9B76',
@@ -347,9 +350,9 @@ export const darkColors: ThemeColors = {
   chalkDim: 'rgba(245,243,237,0.5)',
   chalkFaint: 'rgba(245,243,237,0.15)',
   chalkGhost: 'rgba(245,243,237,0.06)',
-  surfaceWarm: '#232632',
-  cardWarm: '#232632',
-  borderWarm: 'rgba(245,243,237,0.08)',
+  surfaceWarm: 'rgba(245,243,237,0.03)',
+  cardWarm: 'rgba(245,243,237,0.03)',
+  borderWarm: 'rgba(245,243,237,0.10)',
   /** Sage green — Tomo 友 primary accent */
   electricGreen: '#7A9B76',
   electricGreenMuted: '#5F7F5B',

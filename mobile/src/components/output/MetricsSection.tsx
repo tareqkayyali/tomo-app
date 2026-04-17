@@ -297,9 +297,9 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
               disabled={submitting || !pendingValue.trim()}
             >
               {submitting ? (
-                <ActivityIndicator color="#F5F3ED" size="small" />
+                <ActivityIndicator color={colors.textPrimary} size="small" />
               ) : (
-                <SmartIcon name="checkmark" size={20} color="#F5F3ED" />
+                <SmartIcon name="checkmark" size={20} color={colors.textPrimary} />
               )}
             </Pressable>
           </View>

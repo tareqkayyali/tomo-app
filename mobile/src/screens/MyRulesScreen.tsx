@@ -1,13 +1,17 @@
 /**
  * MyRulesScreen — Single source of truth for all scheduling constraints.
  *
- * 3 collapsible sections:
- *   A) Core Rules — School, Sleep, Gaps, League toggle
- *   B) Study Rules — Subjects, Exam mode, Exam dates
- *   C) Training Rules — Categories (Club, Gym, Personal, Custom)
+ * Accordion card layout (one card expanded at a time):
+ *   1. Athlete Mode — CMS-managed mode selector (Balanced/League/Study/Rest)
+ *   2. School — School days + hours (locked blocks)
+ *   3. Sleep — Bedtime + wake time
+ *   4. Available Hours — Weekday + Weekend bounds for schedulable time
+ *   5. Study — Subject selection (pills + add)
+ *   6. Training — Toggle rows with inline expand for editing
  *
+ * Session gaps managed via CMS-unified settings (not player-facing).
  * Explicit Save button — no auto-save. User edits locally, then taps Save.
- * Proper date picker modal for exam dates (calendar grid).
+ * Theme: surface (3% cream overlay) cards, border (10% cream) frames, Poppins typography.
  */
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
@@ -25,6 +29,8 @@ import {
   Platform,
   Modal,
   KeyboardAvoidingView,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
@@ -49,55 +55,60 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 type Props = NativeStackScreenProps<MainStackParamList, 'MyRules'>;
 
-// ── Day names ──
+// ── Constants ──
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
-// ── Gap chip options ──
-const GAP_OPTIONS = [15, 30, 45, 60];
-const DURATION_OPTIONS = [30, 45, 60, 90];
-
-// ── Scenario display ──
-const SCENARIO_DISPLAY: Record<string, { label: string; color: string; icon: string }> = {
-  normal: { label: 'Normal Mode', color: colors.accent, icon: 'checkmark-circle' },
-  league_active: { label: 'League Season', color: colors.accent, icon: 'trophy' },
-  exam_period: { label: 'Exam Period', color: colors.warning, icon: 'school' },
-  league_and_exam: { label: 'League + Exams', color: colors.warning, icon: 'warning' },
-};
-
-// ── Section colors ──
-const SECTION_COLORS = {
-  core: colors.info,
-  study: colors.warning,
-  training: colors.accent,
-};
-
-// ── Month names ──
+const DAY_NAMES_FULL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Accordion section IDs
+type SectionId = 'mode' | 'school' | 'sleep' | 'hours' | 'study' | 'training';
+
+// ── Mode display ──
+const MODE_DISPLAY: Record<string, { label: string; color: string; icon: string }> = {
+  balanced: { label: 'Balanced', color: colors.accent, icon: 'options-outline' },
+  league: { label: 'League Season', color: colors.accent, icon: 'trophy-outline' },
+  study: { label: 'Study Focus', color: colors.warning, icon: 'school-outline' },
+  rest: { label: 'Rest & Recovery', color: colors.textSecondary, icon: 'bed-outline' },
+};
+
+const SCENARIO_DISPLAY: Record<string, { label: string }> = {
+  normal: { label: 'Normal' },
+  league_active: { label: 'League Season' },
+  exam_period: { label: 'Exam Period' },
+  league_and_exam: { label: 'League + Exams' },
+};
+
+// ═══ MAIN COMPONENT ═══
 
 export function MyRulesScreen({ navigation }: Props) {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const s = useMemo(() => createStyles(colors), [colors]);
   const { rules, loading, dirty, saving, setLocal, save, discard } = useScheduleRules();
   const { profile } = useAuth();
 
-  // Section collapse state — study auto-expands when athlete_mode is 'study'
   const athleteMode = rules?.preferences?.athlete_mode ?? 'balanced';
-  const [coreOpen, setCoreOpen] = useState(true);
-  const [studyOpen, setStudyOpen] = useState(false);
-  const [trainingOpen, setTrainingOpen] = useState(false);
 
-  // Auto-expand study section when in study mode
-  useEffect(() => {
-    if (athleteMode === 'study') {
-      setStudyOpen(true);
-    }
-  }, [athleteMode]);
+  // ── Accordion state — one section open at a time ──
+  const [openSection, setOpenSection] = useState<SectionId>('mode');
+
+  const toggleSection = useCallback((id: SectionId) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setOpenSection(id);
+  }, []);
+
+  // ── Training category expand state (one at a time inside Training card) ──
+  const [expandedCatId, setExpandedCatId] = useState<string | null>(null);
 
   const hasMigrated = useRef(false);
 
-  // Cross-platform input modal state
+  // Cross-platform input modal
   const [inputModal, setInputModal] = useState<{
     visible: boolean;
     title: string;
@@ -114,7 +125,7 @@ export function MyRulesScreen({ navigation }: Props) {
     [],
   );
 
-  // Date picker modal state
+  // Date picker modal
   const [datePickerState, setDatePickerState] = useState<{
     visible: boolean;
     title: string;
@@ -136,7 +147,7 @@ export function MyRulesScreen({ navigation }: Props) {
   const rawPrefs = rules?.preferences ?? DEFAULT_PREFERENCES;
   const scenario = rules?.scenario ?? 'normal';
 
-  // ── Profile → Rules migration (one-time) ──
+  // ── Profile -> Rules migration (one-time) ──
   const prefs = useMemo(() => {
     const p = { ...rawPrefs };
     if ((!p.study_subjects || p.study_subjects.length === 0) && profile?.studySubjects?.length) {
@@ -153,7 +164,6 @@ export function MyRulesScreen({ navigation }: Props) {
     return p;
   }, [rawPrefs, profile?.studySubjects, profile?.examSchedule]);
 
-  // Persist migrated data once
   useEffect(() => {
     if (hasMigrated.current) return;
     const patches: Partial<PlayerSchedulePreferences> = {};
@@ -173,12 +183,11 @@ export function MyRulesScreen({ navigation }: Props) {
     }
     if (Object.keys(patches).length > 0) {
       hasMigrated.current = true;
-      // Use setLocal for migration — will be saved with explicit save
       setLocal(patches);
     }
   }, [prefs, rawPrefs, profile, setLocal]);
 
-  // ── Local edit (no API call) ──
+  // ── Local edit ──
   const edit = useCallback(
     (patch: Partial<PlayerSchedulePreferences>) => {
       setLocal(patch);
@@ -187,24 +196,51 @@ export function MyRulesScreen({ navigation }: Props) {
     [setLocal],
   );
 
-  // Saved toast state (visible on web too)
+  // ── Training category helpers ──
+  const updateCategory = useCallback(
+    (updated: TrainingCategoryRule) => {
+      const cats = [...(prefs.training_categories ?? [])];
+      const idx = cats.findIndex((c) => c.id === updated.id);
+      if (idx >= 0) cats[idx] = updated;
+      edit({ training_categories: cats });
+    },
+    [prefs.training_categories, edit],
+  );
+
+  const addCategory = useCallback(() => {
+    showInputModal('New Training Type', 'e.g. Swimming, Yoga, Boxing', (name) => {
+      const id = name.toLowerCase().replace(/\s+/g, '_');
+      const newCat: TrainingCategoryRule = {
+        id,
+        label: name,
+        icon: 'fitness-outline',
+        color: colors.accent,
+        enabled: true,
+        mode: 'days_per_week',
+        fixedDays: [],
+        daysPerWeek: 2,
+        sessionDuration: 60,
+        preferredTime: 'afternoon',
+      };
+      edit({ training_categories: [...(prefs.training_categories ?? []), newCat] });
+      setExpandedCatId(id);
+    });
+  }, [prefs.training_categories, edit, showInputModal, colors.accent]);
+
+  // ── Save / discard ──
   const [showSaved, setShowSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // ── Save handler ──
   const handleSave = useCallback(async () => {
     setSaveError(null);
-
     try {
       const success = await save();
       if (success) {
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setShowSaved(true);
         setTimeout(() => setShowSaved(false), 2000);
-
-        // Auto-sync school + sleep blocks in calendar (non-fatal)
         try {
-          const result = await syncAutoBlocks({
+          await syncAutoBlocks({
             schoolDays: prefs.school_days as number[],
             schoolStart: prefs.school_start,
             schoolEnd: prefs.school_end,
@@ -214,20 +250,8 @@ export function MyRulesScreen({ navigation }: Props) {
         } catch (err) {
           console.warn('[MyRules] Auto-block sync failed (non-fatal):', err);
         }
-
-        // Post-save warning: exam mode on but missing exam dates
-        if (prefs.exam_period_active && prefs.study_subjects.length > 0) {
-          const scheduledSubjects = new Set(prefs.exam_schedule.map((e) => e.subject));
-          const missing = prefs.study_subjects.filter((s) => !scheduledSubjects.has(s));
-          if (missing.length > 0) {
-            setTimeout(() => {
-              setSaveError(`Heads up: ${missing.join(', ')} still need exam dates`);
-              setTimeout(() => setSaveError(null), 4000);
-            }, 2200);
-          }
-        }
       } else {
-        setSaveError('Save failed — check console');
+        setSaveError('Save failed');
         if (Platform.OS === 'web') {
           window.alert('Could not save your rules. Please try again.');
         } else {
@@ -238,198 +262,254 @@ export function MyRulesScreen({ navigation }: Props) {
       console.error('[MyRules] Save threw:', err);
       setSaveError(String(err));
     }
-  }, [save, dirty, prefs]);
+  }, [save, prefs]);
 
-  // ── Discard handler ──
   const handleDiscard = useCallback(() => {
     discard();
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, [discard]);
 
-  // ── Back — always navigates, with fallback ──
   const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      // Fallback: navigate to main tabs if can't go back (e.g. deep link)
-      (navigation as any).navigate('MainTabs');
-    }
+    if (navigation.canGoBack()) navigation.goBack();
+    else (navigation as any).navigate('MainTabs');
   };
 
   if (loading && !rules) {
     return (
-      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <SafeAreaView style={[s.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={colors.accent1} />
       </SafeAreaView>
     );
   }
 
+  const modeInfo = MODE_DISPLAY[athleteMode] ?? MODE_DISPLAY.balanced;
+  const categories = prefs.training_categories ?? [];
+
+  // ── Build training category summary text ──
+  const catSummary = (cat: TrainingCategoryRule): string => {
+    if (!cat.enabled) return 'Off';
+    if (cat.mode === 'fixed_days' && cat.fixedDays.length > 0) {
+      return `${cat.fixedDays.map((d) => DAY_NAMES_FULL[d]).join(', ')} · ${cat.sessionDuration}m`;
+    }
+    return `${cat.daysPerWeek}x/week · ${cat.sessionDuration}m`;
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={s.container}>
       {/* ── Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-          <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
+      <View style={s.header}>
+        <TouchableOpacity onPress={handleBack} style={s.backBtn}>
+          <SmartIcon name="arrow-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Rules</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={s.headerTitle}>My Rules</Text>
+        </View>
         {showSaved && (
-          <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.savedBadge}>
-            <SmartIcon name="checkmark" size={12} color="#F5F3ED" />
-            <Text style={styles.savedText}>Saved!</Text>
+          <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={s.savedBadge}>
+            <SmartIcon name="checkmark" size={12} color={colors.textPrimary} />
+            <Text style={s.savedText}>Saved</Text>
           </Animated.View>
         )}
         {saveError && (
           <Text style={{ color: colors.error, fontSize: 11, fontFamily: fontFamily.medium }}>{saveError}</Text>
         )}
-        {dirty && (
-          <View style={styles.headerActions}>
-            <TouchableOpacity onPress={handleDiscard} style={styles.discardBtn}>
-              <Text style={[styles.discardText, { color: colors.textInactive }]}>Discard</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSave}
-              style={[styles.saveBtn, { backgroundColor: colors.accent1, opacity: saving ? 0.6 : 1 }]}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#F5F3ED" />
-              ) : (
-                <>
-                  <SmartIcon name="checkmark" size={16} color="#F5F3ED" />
-                  <Text style={styles.saveBtnText}>Save</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* ═══ Athlete Mode Selector ═══ */}
-        <ModeSelector
-          currentMode={prefs.athlete_mode ?? 'balanced'}
-          onModeChange={(modeId) => setLocal({ athlete_mode: modeId } as any)}
-          disabled={saving}
-        />
+      {/* ── Save bar ── */}
+      {dirty && (
+        <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={s.saveBar}>
+          <TouchableOpacity onPress={handleDiscard} style={s.discardBtn}>
+            <Text style={[s.discardText, { color: colors.textSecondary }]}>Discard</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleSave}
+            style={[s.saveBtn, { opacity: saving ? 0.6 : 1 }]}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={colors.textPrimary} />
+            ) : (
+              <>
+                <SmartIcon name="checkmark" size={14} color={colors.textPrimary} />
+                <Text style={s.saveBtnText}>Save</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+      )}
 
-        {/* ═══ SECTION A: Core Rules ═══ */}
-        <SectionHeader
-          title="Core"
-          icon="settings-outline"
-          color={SECTION_COLORS.core}
-          open={coreOpen}
-          onToggle={() => setCoreOpen((p) => !p)}
-        />
-        {coreOpen && (
-          <View style={styles.sectionBody}>
-            {/* School Hours */}
-            <SettingRow label="School Days" icon="school-outline" colors={colors}>
-              <DayPicker
-                selected={prefs.school_days}
-                onChange={(days) => edit({ school_days: days })}
-                colors={colors}
-                accent={SECTION_COLORS.core}
-              />
-            </SettingRow>
-            <SettingRow label="School Hours" icon="time-outline" colors={colors}>
-              <View style={styles.timeRow}>
-                <TimeChip
-                  value={prefs.school_start}
-                  onChange={(v) => edit({ school_start: v })}
-                  colors={colors}
-                />
-                <Text style={styles.timeSep}>&rarr;</Text>
-                <TimeChip
-                  value={prefs.school_end}
-                  onChange={(v) => edit({ school_end: v })}
-                  colors={colors}
-                />
-              </View>
-            </SettingRow>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
-            {/* Sleep */}
-            <SettingRow label="Sleep" icon="moon-outline" colors={colors}>
-              <View style={styles.timeRow}>
-                <TimeChip
-                  value={prefs.sleep_start}
-                  onChange={(v) => {
-                    edit({ sleep_start: v });
-                  }}
-                  colors={colors}
-                  label="Bed"
-                />
-                <Text style={styles.timeSep}>&rarr;</Text>
-                <TimeChip
-                  value={prefs.sleep_end}
-                  onChange={(v) => {
-                    edit({ sleep_end: v });
-                  }}
-                  colors={colors}
-                  label="Wake"
-                />
-              </View>
-            </SettingRow>
+        {/* ═══ 1. ATHLETE MODE ═══ */}
+        <AccordionCard
+          id="mode"
+          title="Athlete Mode"
+          icon="options-outline"
+          iconColor={modeInfo.color}
+          subtitle={modeInfo.label}
+          isOpen={openSection === 'mode'}
+          onToggle={() => toggleSection('mode')}
+          colors={colors}
+        >
+          <ModeSelector
+            currentMode={prefs.athlete_mode ?? 'balanced'}
+            onModeChange={(modeId) => setLocal({ athlete_mode: modeId } as any)}
+            disabled={saving}
+          />
+        </AccordionCard>
 
-            {/* Available Hours */}
-            <SettingRow label="Available Hours" icon="sunny-outline" colors={colors}>
-              <View style={styles.timeRow}>
-                <TimeChip
-                  value={prefs.day_bounds_start}
-                  onChange={(v) => edit({ day_bounds_start: v })}
-                  colors={colors}
-                  label="From"
-                />
-                <Text style={styles.timeSep}>&rarr;</Text>
-                <TimeChip
-                  value={prefs.day_bounds_end}
-                  onChange={(v) => edit({ day_bounds_end: v })}
-                  colors={colors}
-                  label="Until"
-                />
-              </View>
-            </SettingRow>
+        {/* ═══ 2. SCHOOL ═══ */}
+        <AccordionCard
+          id="school"
+          title="School"
+          icon="school-outline"
+          iconColor={colors.accent}
+          subtitle={`${prefs.school_days.length} days · ${prefs.school_start} - ${prefs.school_end}`}
+          isOpen={openSection === 'school'}
+          onToggle={() => toggleSection('school')}
+          colors={colors}
+        >
+          <SettingRow label="School Days" icon="calendar-outline" colors={colors}>
+            <DayPicker
+              selected={prefs.school_days}
+              onChange={(days) => edit({ school_days: days })}
+              colors={colors}
+              accent={colors.accent}
+            />
+          </SettingRow>
+          <SettingRow label="School Hours" icon="time-outline" colors={colors}>
+            <View style={s.timeRow}>
+              <TimeChip value={prefs.school_start} onChange={(v) => edit({ school_start: v })} colors={colors} label="Start" />
+              <Text style={s.timeSep}>&rarr;</Text>
+              <TimeChip value={prefs.school_end} onChange={(v) => edit({ school_end: v })} colors={colors} label="End" />
+            </View>
+          </SettingRow>
+        </AccordionCard>
 
-            {/* Gaps */}
-            <SettingRow label="Session Gaps" icon="timer-outline" colors={colors}>
-              <ChipRow
-                options={GAP_OPTIONS}
-                selected={prefs.buffer_default_min}
-                onChange={(v) => edit({ buffer_default_min: v })}
-                suffix="m"
-                colors={colors}
-                accent={SECTION_COLORS.core}
-              />
-            </SettingRow>
+        {/* ═══ 3. SLEEP ═══ */}
+        <AccordionCard
+          id="sleep"
+          title="Sleep"
+          icon="moon-outline"
+          iconColor={colors.textSecondary}
+          subtitle={`${prefs.sleep_start} - ${prefs.sleep_end}`}
+          isOpen={openSection === 'sleep'}
+          onToggle={() => toggleSection('sleep')}
+          colors={colors}
+        >
+          <SettingRow label="Bedtime & Wake" icon="bed-outline" colors={colors}>
+            <View style={s.timeRow}>
+              <TimeChip value={prefs.sleep_start} onChange={(v) => edit({ sleep_start: v })} colors={colors} label="Bed" />
+              <Text style={s.timeSep}>&rarr;</Text>
+              <TimeChip value={prefs.sleep_end} onChange={(v) => edit({ sleep_end: v })} colors={colors} label="Wake" />
+            </View>
+          </SettingRow>
+        </AccordionCard>
 
-          </View>
-        )}
+        {/* ═══ 4. AVAILABLE HOURS ═══ */}
+        <AccordionCard
+          id="hours"
+          title="Available Hours"
+          icon="sunny-outline"
+          iconColor={colors.accent}
+          subtitle={`Weekdays ${prefs.day_bounds_start} - ${prefs.day_bounds_end}`}
+          isOpen={openSection === 'hours'}
+          onToggle={() => toggleSection('hours')}
+          colors={colors}
+        >
+          <Text style={s.cardHint}>
+            The time window Tomo uses for scheduling training, study, and events.
+          </Text>
+          <SettingRow label="Weekdays" icon="briefcase-outline" colors={colors}>
+            <View style={s.timeRow}>
+              <TimeChip value={prefs.day_bounds_start} onChange={(v) => edit({ day_bounds_start: v })} colors={colors} label="From" />
+              <Text style={s.timeSep}>&rarr;</Text>
+              <TimeChip value={prefs.day_bounds_end} onChange={(v) => edit({ day_bounds_end: v })} colors={colors} label="Until" />
+            </View>
+          </SettingRow>
+          <SettingRow label="Weekends" icon="sunny-outline" colors={colors}>
+            <View style={s.timeRow}>
+              <TimeChip value={prefs.weekend_bounds_start ?? prefs.day_bounds_start} onChange={(v) => edit({ weekend_bounds_start: v })} colors={colors} label="From" />
+              <Text style={s.timeSep}>&rarr;</Text>
+              <TimeChip value={prefs.weekend_bounds_end ?? prefs.day_bounds_end} onChange={(v) => edit({ weekend_bounds_end: v })} colors={colors} label="Until" />
+            </View>
+          </SettingRow>
+        </AccordionCard>
 
-        {/* Study, Training & League settings moved to their respective plan views */}
+        {/* ═══ 5. STUDY ═══ */}
+        <AccordionCard
+          id="study"
+          title="Study"
+          icon="book-outline"
+          iconColor={colors.warning}
+          subtitle={prefs.study_subjects.length > 0 ? `${prefs.study_subjects.length} subjects` : 'No subjects'}
+          isOpen={openSection === 'study'}
+          onToggle={() => toggleSection('study')}
+          colors={colors}
+        >
+          <Text style={s.cardHint}>
+            Select the subjects you study. Tomo uses these for exam planning and study scheduling.
+          </Text>
+          <SubjectPills
+            subjects={prefs.study_subjects}
+            onChange={(subjects) => edit({ study_subjects: subjects })}
+            colors={colors}
+            accent={colors.warning}
+            onRequestAdd={() => {
+              showInputModal('Add Subject', 'e.g. Math, Physics, English', (name) => {
+                if (!prefs.study_subjects.includes(name)) {
+                  edit({ study_subjects: [...prefs.study_subjects, name] });
+                }
+              });
+            }}
+          />
+        </AccordionCard>
 
-        {/* Bottom spacer for scenario banner */}
+        {/* ═══ 6. TRAINING ═══ */}
+        <AccordionCard
+          id="training"
+          title="Training"
+          icon="barbell-outline"
+          iconColor={colors.accent}
+          subtitle={`${categories.filter((c) => c.enabled).length} active types`}
+          isOpen={openSection === 'training'}
+          onToggle={() => toggleSection('training')}
+          colors={colors}
+        >
+          {categories.map((cat) => (
+            <TrainingTypeRow
+              key={cat.id}
+              category={cat}
+              summary={catSummary(cat)}
+              isExpanded={expandedCatId === cat.id}
+              onToggleExpand={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setExpandedCatId((prev) => (prev === cat.id ? null : cat.id));
+              }}
+              onUpdate={updateCategory}
+              colors={colors}
+            />
+          ))}
+          <TouchableOpacity onPress={addCategory} style={s.addTypeBtn}>
+            <SmartIcon name="add-circle-outline" size={18} color={colors.accent} />
+            <Text style={[s.addTypeText, { color: colors.accent }]}>Add Training Type</Text>
+          </TouchableOpacity>
+        </AccordionCard>
+
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* ── Scenario Banner ── */}
-      <View style={[styles.scenarioBanner, { borderTopColor: colors.border }]}>
-        <View style={styles.scenarioInner}>
-          <SmartIcon
-            name={(SCENARIO_DISPLAY[scenario]?.icon ?? 'help-circle') as any}
-            size={16}
-            color={SCENARIO_DISPLAY[scenario]?.color ?? colors.textInactive}
-          />
-          <Text
-            style={[
-              styles.scenarioLabel,
-              { color: SCENARIO_DISPLAY[scenario]?.color ?? colors.textInactive },
-            ]}
-          >
-            {SCENARIO_DISPLAY[scenario]?.label ?? 'Unknown'}
-          </Text>
-        </View>
+      {/* ── Mode Banner ── */}
+      <View style={s.banner}>
+        <SmartIcon name={modeInfo.icon as any} size={14} color={modeInfo.color} />
+        <Text style={[s.bannerLabel, { color: modeInfo.color }]}>{modeInfo.label}</Text>
+        <View style={s.bannerDot} />
+        <Text style={[s.bannerSub, { color: colors.textSecondary }]}>
+          {SCENARIO_DISPLAY[scenario]?.label ?? 'Normal'}
+        </Text>
       </View>
 
-      {/* ── Cross-platform Input Modal ── */}
+      {/* ── Modals ── */}
       <InputModal
         visible={inputModal.visible}
         title={inputModal.title}
@@ -443,8 +523,6 @@ export function MyRulesScreen({ navigation }: Props) {
         }}
         onCancel={() => setInputModal((prev) => ({ ...prev, visible: false }))}
       />
-
-      {/* ── Date Picker Modal ── */}
       <DatePickerModal
         visible={datePickerState.visible}
         title={datePickerState.title}
@@ -464,56 +542,94 @@ export function MyRulesScreen({ navigation }: Props) {
 // ── Subcomponents ────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════
 
-// ── Section Header (collapsible) ──
-function SectionHeader({
+// ── Accordion Card ──
+function AccordionCard({
+  id,
   title,
   icon,
-  color,
-  open,
+  iconColor,
+  subtitle,
+  isOpen,
   onToggle,
+  colors,
+  children,
 }: {
+  id: string;
   title: string;
   icon: string;
-  color: string;
-  open: boolean;
+  iconColor: string;
+  subtitle: string;
+  isOpen: boolean;
   onToggle: () => void;
+  colors: ThemeColors;
+  children: React.ReactNode;
 }) {
   return (
-    <TouchableOpacity style={sectionStyles.header} onPress={onToggle} activeOpacity={0.7}>
-      <View style={[sectionStyles.iconCircle, { backgroundColor: color + '20' }]}>
-        <SmartIcon name={icon as any} size={16} color={color} />
-      </View>
-      <Text style={[sectionStyles.title, { color }]}>{title}</Text>
-      <SmartIcon
-        name={open ? 'chevron-up' : 'chevron-down'}
-        size={18}
-        color={color}
-        style={{ marginLeft: 'auto' }}
-      />
-    </TouchableOpacity>
+    <View style={[accordionStyles.card, { backgroundColor: colors.surface, borderColor: isOpen ? iconColor + '40' : colors.creamSubtle }]}>
+      <TouchableOpacity
+        onPress={onToggle}
+        style={accordionStyles.header}
+        activeOpacity={0.7}
+      >
+        <View style={[accordionStyles.iconCircle, { backgroundColor: iconColor + '15' }]}>
+          <SmartIcon name={icon as any} size={16} color={iconColor} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[accordionStyles.title, { color: colors.textPrimary }]}>{title}</Text>
+          {!isOpen && (
+            <Text style={[accordionStyles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          )}
+        </View>
+        <SmartIcon
+          name={isOpen ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={colors.textSecondary}
+        />
+      </TouchableOpacity>
+      {isOpen && (
+        <View style={accordionStyles.body}>
+          {children}
+        </View>
+      )}
+    </View>
   );
 }
 
-const sectionStyles = StyleSheet.create({
+const accordionStyles = StyleSheet.create({
+  card: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: spacing.md,
     paddingVertical: 14,
-    paddingHorizontal: 4,
-    gap: 10,
   },
   iconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     fontSize: 15,
-    fontFamily: fontFamily.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontFamily: fontFamily.semiBold,
+  },
+  subtitle: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    marginTop: 1,
+  },
+  body: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
 });
 
@@ -532,7 +648,7 @@ function SettingRow({
   return (
     <View style={rowStyles.container}>
       <View style={rowStyles.labelRow}>
-        <SmartIcon name={icon as any} size={14} color={colors.textInactive} />
+        <SmartIcon name={icon as any} size={13} color={colors.textSecondary} />
         <Text style={[rowStyles.label, { color: colors.textSecondary }]}>{label}</Text>
       </View>
       <View style={rowStyles.content}>{children}</View>
@@ -542,7 +658,7 @@ function SettingRow({
 
 const rowStyles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   labelRow: {
     flexDirection: 'row',
@@ -551,7 +667,7 @@ const rowStyles = StyleSheet.create({
     marginBottom: 8,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fontFamily.medium,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -579,26 +695,18 @@ function DayPicker({
           <TouchableOpacity
             key={i}
             onPress={() => {
-              if (isSelected) {
-                onChange(selected.filter((d) => d !== i) as DayOfWeek[]);
-              } else {
-                onChange([...selected, i as DayOfWeek].sort());
-              }
+              if (isSelected) onChange(selected.filter((d) => d !== i) as DayOfWeek[]);
+              else onChange([...selected, i as DayOfWeek].sort());
             }}
             style={[
               dayPickerStyles.pill,
               {
-                backgroundColor: isSelected ? accent + '25' : colors.cardLight,
-                borderColor: isSelected ? accent : 'transparent',
+                backgroundColor: isSelected ? accent + '20' : colors.chipBackground,
+                borderColor: isSelected ? accent : colors.glassBorder,
               },
             ]}
           >
-            <Text
-              style={[
-                dayPickerStyles.pillText,
-                { color: isSelected ? accent : colors.textInactive },
-              ]}
-            >
+            <Text style={[dayPickerStyles.pillText, { color: isSelected ? accent : colors.textSecondary }]}>
               {label}
             </Text>
           </TouchableOpacity>
@@ -615,7 +723,7 @@ const dayPickerStyles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
   },
   pillText: {
     fontSize: 13,
@@ -623,7 +731,7 @@ const dayPickerStyles = StyleSheet.create({
   },
 });
 
-// ── Time Chip (with +/- stepper arrows) ──
+// ── Time Chip (stepper) ──
 function TimeChip({
   value,
   onChange,
@@ -647,23 +755,23 @@ function TimeChip({
 
   return (
     <View style={timeStyles.stepperRow}>
-      {label && <Text style={[timeStyles.chipLabel, { color: colors.textInactive, marginRight: 4 }]}>{label}</Text>}
+      {label && <Text style={[timeStyles.chipLabel, { color: colors.textSecondary }]}>{label}</Text>}
       <TouchableOpacity
         onPress={() => stepTime(-1)}
-        style={[timeStyles.stepBtn, { backgroundColor: colors.cardLight }]}
+        style={[timeStyles.stepBtn, { backgroundColor: colors.chipBackground, borderColor: colors.glassBorder }]}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       >
-        <SmartIcon name="chevron-back" size={14} color={colors.textInactive} />
+        <SmartIcon name="chevron-back" size={12} color={colors.textSecondary} />
       </TouchableOpacity>
-      <View style={[timeStyles.chip, { backgroundColor: colors.cardLight }]}>
-        <Text style={[timeStyles.chipValue, { color: colors.textOnDark }]}>{value}</Text>
+      <View style={[timeStyles.chip, { backgroundColor: colors.chipBackground, borderColor: colors.glassBorder }]}>
+        <Text style={[timeStyles.chipValue, { color: colors.textPrimary }]}>{value}</Text>
       </View>
       <TouchableOpacity
         onPress={() => stepTime(1)}
-        style={[timeStyles.stepBtn, { backgroundColor: colors.cardLight }]}
+        style={[timeStyles.stepBtn, { backgroundColor: colors.chipBackground, borderColor: colors.glassBorder }]}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       >
-        <SmartIcon name="chevron-forward" size={14} color={colors.textInactive} />
+        <SmartIcon name="chevron-forward" size={12} color={colors.textSecondary} />
       </TouchableOpacity>
     </View>
   );
@@ -679,6 +787,7 @@ const timeStyles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -688,87 +797,16 @@ const timeStyles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
   },
   chipLabel: {
     fontSize: 11,
     fontFamily: fontFamily.regular,
+    marginRight: 4,
   },
   chipValue: {
     fontSize: 15,
-    fontFamily: fontFamily.semiBold,
-  },
-});
-
-// ── Date chip styles (for tappable date fields) ──
-const dateChipStyles = StyleSheet.create({
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  text: {
-    fontSize: 15,
-    fontFamily: fontFamily.semiBold,
-  },
-});
-
-// ── Chip Row (single select) ──
-function ChipRow({
-  options,
-  selected,
-  onChange,
-  suffix,
-  colors,
-  accent,
-}: {
-  options: number[];
-  selected: number;
-  onChange: (v: number) => void;
-  suffix: string;
-  colors: ThemeColors;
-  accent: string;
-}) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 8 }}>
-      {options.map((opt) => {
-        const active = opt === selected;
-        return (
-          <TouchableOpacity
-            key={opt}
-            onPress={() => onChange(opt)}
-            style={[
-              chipStyles.chip,
-              {
-                backgroundColor: active ? accent + '25' : colors.cardLight,
-                borderColor: active ? accent : 'transparent',
-              },
-            ]}
-          >
-            <Text
-              style={[chipStyles.chipText, { color: active ? accent : colors.textInactive }]}
-            >
-              {opt}{suffix}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
-
-const chipStyles = StyleSheet.create({
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1.5,
-  },
-  chipText: {
-    fontSize: 14,
     fontFamily: fontFamily.semiBold,
   },
 });
@@ -788,7 +826,7 @@ function SubjectPills({
   onRequestAdd: () => void;
 }) {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
       {subjects.map((sub) => (
         <TouchableOpacity
           key={sub}
@@ -800,23 +838,19 @@ function SubjectPills({
             } else {
               Alert.alert('Remove Subject', `Remove "${sub}"?`, [
                 { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Remove',
-                  style: 'destructive',
-                  onPress: () => onChange(subjects.filter((s) => s !== sub)),
-                },
+                { text: 'Remove', style: 'destructive', onPress: () => onChange(subjects.filter((s) => s !== sub)) },
               ]);
             }
           }}
-          style={[subjectStyles.pill, { backgroundColor: accent + '20', borderColor: accent + '40' }]}
+          style={[subjectStyles.pill, { backgroundColor: accent + '15', borderColor: accent + '30' }]}
         >
           <Text style={[subjectStyles.pillText, { color: accent }]}>{sub}</Text>
           <SmartIcon name="close-circle" size={14} color={accent + '80'} style={{ marginLeft: 4 }} />
         </TouchableOpacity>
       ))}
-      <TouchableOpacity onPress={onRequestAdd} style={[subjectStyles.addPill, { borderColor: colors.border }]}>
-        <SmartIcon name="add" size={14} color={colors.textInactive} />
-        <Text style={[subjectStyles.addText, { color: colors.textInactive }]}>Add</Text>
+      <TouchableOpacity onPress={onRequestAdd} style={[subjectStyles.addPill, { borderColor: colors.glassBorder }]}>
+        <SmartIcon name="add" size={14} color={colors.textSecondary} />
+        <Text style={[subjectStyles.addText, { color: colors.textSecondary }]}>Add</Text>
       </TouchableOpacity>
     </View>
   );
@@ -828,7 +862,7 @@ const subjectStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 14,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
   },
   pillText: {
@@ -841,7 +875,7 @@ const subjectStyles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 14,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
     borderStyle: 'dashed',
   },
@@ -851,151 +885,224 @@ const subjectStyles = StyleSheet.create({
   },
 });
 
-// ── Exam Schedule List ──
-function ExamScheduleList({
-  entries,
-  subjects,
-  onChange,
+// ── Training Type Row (Instagram-style toggle row with inline expand) ──
+function TrainingTypeRow({
+  category: cat,
+  summary,
+  isExpanded,
+  onToggleExpand,
+  onUpdate,
   colors,
-  onRequestDate,
 }: {
-  entries: ExamScheduleEntry[];
-  subjects: string[];
-  onChange: (entries: ExamScheduleEntry[]) => void;
+  category: TrainingCategoryRule;
+  summary: string;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onUpdate: (cat: TrainingCategoryRule) => void;
   colors: ThemeColors;
-  onRequestDate: (title: string, currentDate: string | null, onSelect: (date: string) => void) => void;
 }) {
-  const [showSubjectPicker, setShowSubjectPicker] = useState(false);
-
-  const addExam = () => {
-    if (subjects.length === 0) {
-      if (Platform.OS === 'web') window.alert('Add subjects first in the Study Subjects section above.');
-      else Alert.alert('No Subjects', 'Add subjects first in the Study Subjects section above.');
-      return;
-    }
-    setShowSubjectPicker(true);
-  };
-
-  const handleSubjectSelected = (subject: string) => {
-    setShowSubjectPicker(false);
-    onRequestDate(`${subject} exam date`, null, (date) => {
-      const entry: ExamScheduleEntry = {
-        id: `exam_${Date.now()}`,
-        subject,
-        examType: 'final',
-        examDate: date,
-      };
-      onChange([...entries, entry]);
-    });
-  };
-
   return (
-    <View style={{ marginTop: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
-        <SmartIcon name="calendar-outline" size={14} color={colors.textInactive} />
-        <Text style={{ fontSize: 12, fontFamily: fontFamily.medium, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Exam Dates
-        </Text>
-      </View>
-      {entries.map((entry) => (
-        <View key={entry.id} style={[examStyles.card, { backgroundColor: colors.cardLight }]}>
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            onPress={() => {
-              onRequestDate(`${entry.subject} exam date`, entry.examDate, (date) => {
-                onChange(entries.map((e) => e.id === entry.id ? { ...e, examDate: date } : e));
-              });
-            }}
-          >
-            <Text style={[examStyles.subject, { color: colors.textOnDark }]}>{entry.subject}</Text>
-            <View style={examStyles.dateRow}>
-              <SmartIcon name="calendar-outline" size={12} color={colors.warning} />
-              <Text style={[examStyles.date, { color: colors.warning }]}>{entry.examDate}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => onChange(entries.filter((e) => e.id !== entry.id))}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <SmartIcon name="close-circle" size={20} color={colors.error} />
-          </TouchableOpacity>
+    <View style={[trainingStyles.row, { borderColor: isExpanded ? cat.color + '30' : colors.glassBorder }]}>
+      {/* Summary row — always visible */}
+      <TouchableOpacity onPress={onToggleExpand} style={trainingStyles.summaryRow} activeOpacity={0.7}>
+        <View style={[trainingStyles.colorBar, { backgroundColor: cat.enabled ? cat.color : colors.textSecondary + '40' }]} />
+        <View style={[trainingStyles.iconCircle, { backgroundColor: cat.color + '15' }]}>
+          <SmartIcon name={cat.icon as any} size={14} color={cat.color} />
         </View>
-      ))}
-      {/* Subject picker for new exam */}
-      {showSubjectPicker && (
-        <View style={[examStyles.subjectPicker, { backgroundColor: colors.backgroundElevated, borderColor: colors.border }]}>
-          <Text style={{ fontSize: 12, fontFamily: fontFamily.semiBold, color: colors.textMuted, marginBottom: 8 }}>
-            Select subject:
-          </Text>
-          {subjects.map((subj) => (
+        <View style={{ flex: 1 }}>
+          <Text style={[trainingStyles.name, { color: colors.textPrimary }]}>{cat.label}</Text>
+          <Text style={[trainingStyles.summary, { color: colors.textSecondary }]}>{summary}</Text>
+        </View>
+        <Switch
+          value={cat.enabled}
+          onValueChange={(v) => onUpdate({ ...cat, enabled: v })}
+          trackColor={{ false: colors.border, true: cat.color + '60' }}
+          thumbColor={cat.enabled ? cat.color : colors.textSecondary}
+          style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+        />
+      </TouchableOpacity>
+
+      {/* Expanded detail — editing controls */}
+      {isExpanded && cat.enabled && (
+        <View style={trainingStyles.detail}>
+          {/* Schedule mode */}
+          <View style={trainingStyles.modeRow}>
             <TouchableOpacity
-              key={subj}
-              style={[examStyles.subjectOption, { backgroundColor: colors.cardLight }]}
-              onPress={() => handleSubjectSelected(subj)}
+              onPress={() => onUpdate({ ...cat, mode: 'fixed_days' })}
+              style={[
+                trainingStyles.modeChip,
+                {
+                  backgroundColor: cat.mode === 'fixed_days' ? cat.color + '15' : 'transparent',
+                  borderColor: cat.mode === 'fixed_days' ? cat.color : colors.glassBorder,
+                },
+              ]}
             >
-              <Text style={{ fontSize: 14, fontFamily: fontFamily.medium, color: colors.textOnDark }}>{subj}</Text>
-              <SmartIcon name="chevron-forward" size={14} color={colors.textMuted} />
+              <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: cat.mode === 'fixed_days' ? cat.color : colors.textSecondary }}>
+                Fixed Days
+              </Text>
             </TouchableOpacity>
-          ))}
-          <TouchableOpacity onPress={() => setShowSubjectPicker(false)} style={{ alignSelf: 'center', marginTop: 8 }}>
-            <Text style={{ fontSize: 12, fontFamily: fontFamily.medium, color: colors.textMuted }}>Cancel</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onUpdate({ ...cat, mode: 'days_per_week' })}
+              style={[
+                trainingStyles.modeChip,
+                {
+                  backgroundColor: cat.mode === 'days_per_week' ? cat.color + '15' : 'transparent',
+                  borderColor: cat.mode === 'days_per_week' ? cat.color : colors.glassBorder,
+                },
+              ]}
+            >
+              <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: cat.mode === 'days_per_week' ? cat.color : colors.textSecondary }}>
+                X per Week
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Day selection */}
+          {cat.mode === 'fixed_days' ? (
+            <View style={{ flexDirection: 'row', gap: 4, marginTop: 10 }}>
+              {DAY_LABELS.map((label, i) => {
+                const sel = cat.fixedDays.includes(i);
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => {
+                      const days = sel ? cat.fixedDays.filter((d) => d !== i) : [...cat.fixedDays, i].sort();
+                      onUpdate({ ...cat, fixedDays: days });
+                    }}
+                    style={[
+                      trainingStyles.dayDot,
+                      {
+                        backgroundColor: sel ? cat.color + '25' : 'transparent',
+                        borderColor: sel ? cat.color : colors.glassBorder,
+                      },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 10, fontFamily: fontFamily.semiBold, color: sel ? cat.color : colors.textSecondary }}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+              <TouchableOpacity
+                onPress={() => onUpdate({ ...cat, daysPerWeek: Math.max(1, cat.daysPerWeek - 1) })}
+                style={[trainingStyles.stepper, { borderColor: colors.glassBorder }]}
+              >
+                <SmartIcon name="remove" size={14} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: cat.color }}>
+                {cat.daysPerWeek}x
+              </Text>
+              <TouchableOpacity
+                onPress={() => onUpdate({ ...cat, daysPerWeek: Math.min(7, cat.daysPerWeek + 1) })}
+                style={[trainingStyles.stepper, { borderColor: colors.glassBorder }]}
+              >
+                <SmartIcon name="add" size={14} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: fontFamily.regular }}>per week</Text>
+            </View>
+          )}
+
+          {/* Duration */}
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
+            {[60, 75, 90, 120].map((dur) => (
+              <TouchableOpacity
+                key={dur}
+                onPress={() => onUpdate({ ...cat, sessionDuration: dur })}
+                style={[
+                  trainingStyles.durChip,
+                  {
+                    backgroundColor: cat.sessionDuration === dur ? cat.color + '15' : 'transparent',
+                    borderColor: cat.sessionDuration === dur ? cat.color : colors.glassBorder,
+                  },
+                ]}
+              >
+                <Text style={{ fontSize: 12, fontFamily: fontFamily.semiBold, color: cat.sessionDuration === dur ? cat.color : colors.textSecondary }}>
+                  {dur}m
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       )}
-
-      <TouchableOpacity onPress={addExam} style={examStyles.addBtn}>
-        <SmartIcon name="add-circle-outline" size={16} color={colors.warning} />
-        <Text style={[examStyles.addText, { color: colors.warning }]}>Add Exam</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
-const examStyles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 6,
-  },
-  subjectPicker: {
-    padding: 12,
-    borderRadius: 12,
+const trainingStyles = StyleSheet.create({
+  row: {
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     marginBottom: 8,
+    overflow: 'hidden',
   },
-  subjectOption: {
+  summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 4,
+    gap: 10,
+    paddingRight: 8,
+    paddingVertical: 10,
   },
-  subject: {
+  colorBar: {
+    width: 3,
+    alignSelf: 'stretch',
+    borderTopLeftRadius: borderRadius.lg,
+    borderBottomLeftRadius: borderRadius.lg,
+  },
+  iconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  name: {
     fontSize: 14,
     fontFamily: fontFamily.semiBold,
   },
-  dateRow: {
+  summary: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    marginTop: 1,
+  },
+  detail: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: 4,
+  },
+  modeRow: {
     flexDirection: 'row',
+    gap: 8,
+  },
+  modeChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  dayDot: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
-    gap: 4,
-    marginTop: 3,
+    justifyContent: 'center',
+    borderWidth: 1,
   },
-  date: {
-    fontSize: 12,
-    fontFamily: fontFamily.medium,
-  },
-  addBtn: {
-    flexDirection: 'row',
+  stepper: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
+    justifyContent: 'center',
   },
-  addText: {
-    fontSize: 13,
-    fontFamily: fontFamily.medium,
+  durChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
   },
 });
 
@@ -1031,45 +1138,31 @@ function InputModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={modalStyles.overlay}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={modalStyles.overlay}>
         <TouchableOpacity style={modalStyles.backdrop} activeOpacity={1} onPress={onCancel} />
-        <View style={[modalStyles.card, { backgroundColor: colors.cardLight }]}>
-          <Text style={[modalStyles.title, { color: colors.textOnDark }]}>{title}</Text>
+        <View style={[modalStyles.card, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
+          <Text style={[modalStyles.title, { color: colors.textPrimary }]}>{title}</Text>
           <TextInput
             ref={inputRef}
             value={text}
             onChangeText={setText}
             placeholder={placeholder}
-            placeholderTextColor={colors.textInactive}
+            placeholderTextColor={colors.textSecondary}
             keyboardType={keyboardType ?? 'default'}
             autoCapitalize="words"
             returnKeyType="done"
-            onSubmitEditing={() => {
-              if (text.trim()) onSubmit(text.trim());
-            }}
-            style={[
-              modalStyles.input,
-              {
-                color: colors.textOnDark,
-                borderColor: colors.border,
-                backgroundColor: colors.background,
-              },
-            ]}
+            onSubmitEditing={() => { if (text.trim()) onSubmit(text.trim()); }}
+            style={[modalStyles.input, { color: colors.textPrimary, borderColor: colors.glassBorder, backgroundColor: colors.background }]}
           />
           <View style={modalStyles.btnRow}>
             <TouchableOpacity onPress={onCancel} style={modalStyles.cancelBtn}>
-              <Text style={[modalStyles.cancelText, { color: colors.textInactive }]}>Cancel</Text>
+              <Text style={[modalStyles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => {
-                if (text.trim()) onSubmit(text.trim());
-              }}
-              style={[modalStyles.submitBtn, { backgroundColor: colors.accent1 }]}
+              onPress={() => { if (text.trim()) onSubmit(text.trim()); }}
+              style={[modalStyles.submitBtn, { backgroundColor: colors.accentSoft, borderColor: colors.accentBorder }]}
             >
-              <Text style={modalStyles.submitText}>Add</Text>
+              <Text style={[modalStyles.submitText, { color: colors.accent }]}>Add</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1079,62 +1172,19 @@ function InputModal({
 }
 
 const modalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
-  card: {
-    width: '85%',
-    maxWidth: 340,
-    borderRadius: 16,
-    padding: 20,
-    zIndex: 1,
-  },
-  title: {
-    fontSize: 17,
-    fontFamily: fontFamily.bold,
-    marginBottom: 14,
-  },
-  input: {
-    height: 44,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    fontFamily: fontFamily.regular,
-  },
-  btnRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 16,
-  },
-  cancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  cancelText: {
-    fontSize: 14,
-    fontFamily: fontFamily.medium,
-  },
-  submitBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  submitText: {
-    fontSize: 14,
-    fontFamily: fontFamily.semiBold,
-    color: colors.textPrimary,
-  },
+  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  card: { width: '85%', maxWidth: 340, borderRadius: borderRadius.lg, borderWidth: 1, padding: spacing.lg, zIndex: 1 },
+  title: { fontSize: 17, fontFamily: fontFamily.bold, marginBottom: 14 },
+  input: { height: 44, borderWidth: 1, borderRadius: borderRadius.lg, paddingHorizontal: 14, fontSize: 15, fontFamily: fontFamily.regular },
+  btnRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
+  cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
+  cancelText: { fontSize: 14, fontFamily: fontFamily.medium },
+  submitBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: borderRadius.lg, borderWidth: 1 },
+  submitText: { fontSize: 14, fontFamily: fontFamily.semiBold },
 });
 
-// ── Date Picker Modal (calendar grid) ──
+// ── Date Picker Modal ──
 function DatePickerModal({
   visible,
   title,
@@ -1160,7 +1210,6 @@ function DatePickerModal({
   const [viewMonth, setViewMonth] = useState(initial.month);
   const [pickedDay, setPickedDay] = useState(initial.day);
 
-  // Reset when opening
   useEffect(() => {
     if (visible) {
       const p = parseDate(selectedDate || '');
@@ -1172,60 +1221,40 @@ function DatePickerModal({
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
-
-  const prevMonth = () => {
-    if (viewMonth === 0) { setViewMonth(11); setViewYear((y) => y - 1); }
-    else setViewMonth((m) => m - 1);
-  };
-  const nextMonth = () => {
-    if (viewMonth === 11) { setViewMonth(0); setViewYear((y) => y + 1); }
-    else setViewMonth((m) => m + 1);
-  };
-
-  const formatSelected = () => {
-    return `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(pickedDay).padStart(2, '0')}`;
-  };
+  const prevMonth = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear((y) => y - 1); } else setViewMonth((m) => m - 1); };
+  const nextMonth = () => { if (viewMonth === 11) { setViewMonth(0); setViewYear((y) => y + 1); } else setViewMonth((m) => m + 1); };
+  const formatSelected = () => `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(pickedDay).padStart(2, '0')}`;
 
   const todayStr = (() => {
     const t = new Date();
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
   })();
 
-  // Build calendar grid
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstDayOfWeek; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  // Pad to complete the last row
   while (cells.length % 7 !== 0) cells.push(null);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={dpStyles.overlay}>
         <TouchableOpacity style={dpStyles.backdrop} activeOpacity={1} onPress={onCancel} />
-        <View style={[dpStyles.card, { backgroundColor: colors.cardLight }]}>
-          <Text style={[dpStyles.title, { color: colors.textOnDark }]}>{title}</Text>
-
-          {/* Month/Year nav */}
+        <View style={[dpStyles.card, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
+          <Text style={[dpStyles.title, { color: colors.textPrimary }]}>{title}</Text>
           <View style={dpStyles.monthNav}>
-            <TouchableOpacity onPress={prevMonth} style={dpStyles.navBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <SmartIcon name="chevron-back" size={20} color={colors.textOnDark} />
+            <TouchableOpacity onPress={prevMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <SmartIcon name="chevron-back" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={[dpStyles.monthLabel, { color: colors.textOnDark }]}>
-              {MONTHS[viewMonth]} {viewYear}
-            </Text>
-            <TouchableOpacity onPress={nextMonth} style={dpStyles.navBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <SmartIcon name="chevron-forward" size={20} color={colors.textOnDark} />
+            <Text style={[dpStyles.monthLabel, { color: colors.textPrimary }]}>{MONTHS[viewMonth]} {viewYear}</Text>
+            <TouchableOpacity onPress={nextMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <SmartIcon name="chevron-forward" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
-
-          {/* Day headers */}
           <View style={dpStyles.dayHeaderRow}>
             {DAY_LABELS.map((l, i) => (
-              <Text key={i} style={[dpStyles.dayHeader, { color: colors.textInactive }]}>{l}</Text>
+              <Text key={i} style={[dpStyles.dayHeader, { color: colors.textSecondary }]}>{l}</Text>
             ))}
           </View>
-
-          {/* Calendar grid */}
           <View style={dpStyles.grid}>
             {cells.map((day, idx) => {
               if (day === null) return <View key={idx} style={dpStyles.cell} />;
@@ -1237,33 +1266,22 @@ function DatePickerModal({
                   key={idx}
                   style={[
                     dpStyles.cell,
-                    isSelected && { backgroundColor: colors.warning, borderRadius: 18 },
-                    isToday && !isSelected && { borderWidth: 1.5, borderColor: colors.secondaryMuted, borderRadius: 18 },
+                    isSelected && { backgroundColor: colors.accent, borderRadius: 18 },
+                    isToday && !isSelected && { borderWidth: 1, borderColor: colors.glassBorder, borderRadius: 18 },
                   ]}
                   onPress={() => setPickedDay(day)}
                 >
-                  <Text style={[
-                    dpStyles.cellText,
-                    { color: isSelected ? colors.textPrimary : colors.textOnDark },
-                    isToday && !isSelected && { color: colors.warning },
-                  ]}>
-                    {day}
-                  </Text>
+                  <Text style={[dpStyles.cellText, { color: isSelected ? colors.textPrimary : colors.textBody }, isToday && !isSelected && { color: colors.accent }]}>{day}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-
-          {/* Actions */}
           <View style={dpStyles.actions}>
             <TouchableOpacity onPress={onCancel} style={dpStyles.cancelBtn}>
-              <Text style={[dpStyles.cancelText, { color: colors.textInactive }]}>Cancel</Text>
+              <Text style={[dpStyles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => onSelect(formatSelected())}
-              style={[dpStyles.selectBtn, { backgroundColor: colors.warning }]}
-            >
-              <Text style={dpStyles.selectText}>Select</Text>
+            <TouchableOpacity onPress={() => onSelect(formatSelected())} style={[dpStyles.selectBtn, { backgroundColor: colors.accentSoft, borderColor: colors.accentBorder }]}>
+              <Text style={[dpStyles.selectText, { color: colors.accent }]}>Select</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1273,297 +1291,22 @@ function DatePickerModal({
 }
 
 const dpStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
-  card: {
-    width: '90%',
-    maxWidth: 360,
-    borderRadius: 16,
-    padding: 20,
-    zIndex: 1,
-  },
-  title: {
-    fontSize: 17,
-    fontFamily: fontFamily.bold,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  navBtn: {
-    padding: 4,
-  },
-  monthLabel: {
-    fontSize: 16,
-    fontFamily: fontFamily.semiBold,
-  },
-  dayHeaderRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  dayHeader: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 12,
-    fontFamily: fontFamily.semiBold,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  cell: {
-    width: '14.285%',
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cellText: {
-    fontSize: 14,
-    fontFamily: fontFamily.medium,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 16,
-  },
-  cancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  cancelText: {
-    fontSize: 14,
-    fontFamily: fontFamily.medium,
-  },
-  selectBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  selectText: {
-    fontSize: 14,
-    fontFamily: fontFamily.semiBold,
-    color: colors.textPrimary,
-  },
-});
-
-// ── Training Category Card ──
-function TrainingCategoryCard({
-  category,
-  onUpdate,
-  colors,
-}: {
-  category: TrainingCategoryRule;
-  onUpdate: (cat: TrainingCategoryRule) => void;
-  colors: ThemeColors;
-}) {
-  const cat = category;
-
-  return (
-    <View style={[catStyles.card, { backgroundColor: colors.cardLight, borderLeftColor: cat.color }]}>
-      <View style={catStyles.headerRow}>
-        <View style={[catStyles.iconCircle, { backgroundColor: cat.color + '20' }]}>
-          <SmartIcon name={cat.icon as any} size={16} color={cat.color} />
-        </View>
-        <Text style={[catStyles.label, { color: colors.textOnDark }]}>{cat.label}</Text>
-        <Switch
-          value={cat.enabled}
-          onValueChange={(v) => onUpdate({ ...cat, enabled: v })}
-          trackColor={{ false: colors.border, true: cat.color + '80' }}
-          thumbColor={cat.enabled ? cat.color : colors.textInactive}
-          style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-        />
-      </View>
-
-      {cat.enabled && (
-        <View style={catStyles.details}>
-          {/* Mode */}
-          <View style={catStyles.modeRow}>
-            <TouchableOpacity
-              onPress={() => onUpdate({ ...cat, mode: 'fixed_days' })}
-              style={[
-                catStyles.modeChip,
-                {
-                  backgroundColor: cat.mode === 'fixed_days' ? cat.color + '20' : 'transparent',
-                  borderColor: cat.mode === 'fixed_days' ? cat.color : colors.border,
-                },
-              ]}
-            >
-              <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: cat.mode === 'fixed_days' ? cat.color : colors.textInactive }}>
-                Fixed Days
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => onUpdate({ ...cat, mode: 'days_per_week' })}
-              style={[
-                catStyles.modeChip,
-                {
-                  backgroundColor: cat.mode === 'days_per_week' ? cat.color + '20' : 'transparent',
-                  borderColor: cat.mode === 'days_per_week' ? cat.color : colors.border,
-                },
-              ]}
-            >
-              <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: cat.mode === 'days_per_week' ? cat.color : colors.textInactive }}>
-                X per Week
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Days */}
-          {cat.mode === 'fixed_days' ? (
-            <View style={{ flexDirection: 'row', gap: 4, marginTop: 8 }}>
-              {DAY_LABELS.map((label, i) => {
-                const sel = cat.fixedDays.includes(i);
-                return (
-                  <TouchableOpacity
-                    key={i}
-                    onPress={() => {
-                      const days = sel
-                        ? cat.fixedDays.filter((d) => d !== i)
-                        : [...cat.fixedDays, i].sort();
-                      onUpdate({ ...cat, fixedDays: days });
-                    }}
-                    style={[
-                      catStyles.dayDot,
-                      {
-                        backgroundColor: sel ? cat.color + '30' : 'transparent',
-                        borderColor: sel ? cat.color : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 10, fontFamily: fontFamily.semiBold, color: sel ? cat.color : colors.textInactive }}>
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-              <TouchableOpacity
-                onPress={() => onUpdate({ ...cat, daysPerWeek: Math.max(1, cat.daysPerWeek - 1) })}
-                style={[catStyles.stepper, { borderColor: colors.border }]}
-              >
-                <SmartIcon name="remove" size={14} color={colors.textInactive} />
-              </TouchableOpacity>
-              <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: cat.color }}>
-                {cat.daysPerWeek}x
-              </Text>
-              <TouchableOpacity
-                onPress={() => onUpdate({ ...cat, daysPerWeek: Math.min(7, cat.daysPerWeek + 1) })}
-                style={[catStyles.stepper, { borderColor: colors.border }]}
-              >
-                <SmartIcon name="add" size={14} color={colors.textInactive} />
-              </TouchableOpacity>
-              <Text style={{ fontSize: 11, color: colors.textInactive, fontFamily: fontFamily.regular }}>
-                per week
-              </Text>
-            </View>
-          )}
-
-          {/* Duration */}
-          <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
-            {[60, 75, 90, 120].map((dur) => (
-              <TouchableOpacity
-                key={dur}
-                onPress={() => onUpdate({ ...cat, sessionDuration: dur })}
-                style={[
-                  catStyles.durChip,
-                  {
-                    backgroundColor: cat.sessionDuration === dur ? cat.color + '20' : 'transparent',
-                    borderColor: cat.sessionDuration === dur ? cat.color : colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontFamily: fontFamily.semiBold,
-                    color: cat.sessionDuration === dur ? cat.color : colors.textInactive,
-                  }}
-                >
-                  {dur}m
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-    </View>
-  );
-}
-
-const catStyles = StyleSheet.create({
-  card: {
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderLeftWidth: 3,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  iconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: fontFamily.semiBold,
-  },
-  details: {
-    marginTop: 10,
-    paddingLeft: 40,
-  },
-  modeRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  modeChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  dayDot: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-  },
-  stepper: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  durChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
+  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  card: { width: '90%', maxWidth: 360, borderRadius: borderRadius.lg, borderWidth: 1, padding: spacing.lg, zIndex: 1 },
+  title: { fontSize: 17, fontFamily: fontFamily.bold, marginBottom: 16, textAlign: 'center' },
+  monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  monthLabel: { fontSize: 16, fontFamily: fontFamily.semiBold },
+  dayHeaderRow: { flexDirection: 'row', marginBottom: 4 },
+  dayHeader: { flex: 1, textAlign: 'center', fontSize: 12, fontFamily: fontFamily.semiBold },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  cell: { width: '14.285%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
+  cellText: { fontSize: 14, fontFamily: fontFamily.medium },
+  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
+  cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
+  cancelText: { fontSize: 14, fontFamily: fontFamily.medium },
+  selectBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: borderRadius.lg, borderWidth: 1 },
+  selectText: { fontSize: 14, fontFamily: fontFamily.semiBold },
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1580,36 +1323,43 @@ function createStyles(colors: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.sm,
       gap: spacing.sm,
     },
     backBtn: {
       padding: 4,
     },
     headerTitle: {
-      fontSize: 22,
+      fontSize: 20,
       fontFamily: fontFamily.bold,
-      color: colors.textOnDark,
-      flex: 1,
+      color: colors.textPrimary,
     },
     savedBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      backgroundColor: colors.accent,
+      backgroundColor: colors.accentSoft,
+      borderWidth: 1,
+      borderColor: colors.accentBorder,
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: borderRadius.full,
     },
     savedText: {
-      color: colors.textPrimary,
+      color: colors.accent,
       fontSize: 11,
       fontFamily: fontFamily.semiBold,
     },
-    headerActions: {
+    saveBar: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'flex-end',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.xs,
       gap: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.creamSubtle,
     },
     discardBtn: {
       paddingHorizontal: 12,
@@ -1625,69 +1375,84 @@ function createStyles(colors: ThemeColors) {
       gap: 4,
       paddingHorizontal: 14,
       paddingVertical: 8,
-      borderRadius: borderRadius.md,
+      borderRadius: borderRadius.lg,
+      backgroundColor: colors.accentSoft,
+      borderWidth: 1,
+      borderColor: colors.accentBorder,
     },
     saveBtnText: {
-      color: colors.textPrimary,
-      fontSize: 14,
+      color: colors.accent,
+      fontSize: 13,
       fontFamily: fontFamily.semiBold,
     },
     scroll: {
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm,
       paddingBottom: 100,
-    },
-    sectionBody: {
-      paddingLeft: 8,
-      paddingBottom: 8,
     },
     timeRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 8,
     },
     timeSep: {
-      fontSize: 16,
-      color: colors.textInactive,
+      fontSize: 14,
+      color: colors.textSecondary,
       fontFamily: fontFamily.regular,
     },
-    readOnlyTime: {
-      fontSize: 14,
+    cardHint: {
+      fontSize: 12,
+      fontFamily: fontFamily.regular,
+      color: colors.textSecondary,
+      marginBottom: 12,
+      lineHeight: 16,
+    },
+    addTypeBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 10,
+      marginTop: 4,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.glassBorder,
+      borderRadius: borderRadius.lg,
+    },
+    addTypeText: {
+      fontSize: 13,
       fontFamily: fontFamily.medium,
     },
 
-    // Scenario banner
-    scenarioBanner: {
+    // Bottom banner
+    banner: {
       position: 'absolute',
       bottom: 0,
       left: 0,
       right: 0,
-      borderTopWidth: 1,
-      padding: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: spacing.sm,
       paddingBottom: 34,
       backgroundColor: colors.background,
-      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: colors.creamSubtle,
     },
-    scenarioInner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    scenarioLabel: {
-      fontSize: 14,
-      fontFamily: fontFamily.bold,
-    },
-
-    // Add category
-    addCategoryBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingVertical: 12,
-      justifyContent: 'center',
-    },
-    addCategoryText: {
-      fontSize: 14,
+    bannerLabel: {
+      fontSize: 13,
       fontFamily: fontFamily.semiBold,
+    },
+    bannerDot: {
+      width: 3,
+      height: 3,
+      borderRadius: 1.5,
+      backgroundColor: colors.textSecondary,
+    },
+    bannerSub: {
+      fontSize: 11,
+      fontFamily: fontFamily.regular,
     },
   });
 }

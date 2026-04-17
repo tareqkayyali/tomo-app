@@ -690,7 +690,7 @@ export function PlayerCVScreen() {
               <Text style={[ss.avatarText, { color: colors.accent }]}>{(cv.identity.full_name || 'P').charAt(0).toUpperCase()}</Text>
             )}
             <View style={ss.cameraOverlay}>
-              <SmartIcon name="camera" size={12} color="#F5F3ED" />
+              <SmartIcon name="camera" size={12} color={colors.textPrimary} />
             </View>
           </TouchableOpacity>
 

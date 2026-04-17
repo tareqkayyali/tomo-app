@@ -197,7 +197,7 @@ export function HexagonRadar({
             <Polygon
               points={benchmarkPointsStr}
               fill="none"
-              stroke="#5A6B7C"
+              stroke={colors.textSecondary}
               strokeWidth={2}
               strokeOpacity={0.85}
               strokeDasharray="6,4"

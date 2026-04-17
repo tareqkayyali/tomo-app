@@ -131,10 +131,10 @@ export function SuggestionCard({ suggestion, onResolved }: SuggestionCardProps) 
           ]}
         >
           {loading === 'accepted' ? (
-            <ActivityIndicator size="small" color="#F5F3ED" />
+            <ActivityIndicator size="small" color={colors.textPrimary} />
           ) : (
             <>
-              <SmartIcon name="checkmark" size={16} color="#F5F3ED" />
+              <SmartIcon name="checkmark" size={16} color={colors.textPrimary} />
               <Text style={styles.actionText}>Accept</Text>
             </>
           )}

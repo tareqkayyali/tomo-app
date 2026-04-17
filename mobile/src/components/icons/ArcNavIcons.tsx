@@ -6,6 +6,7 @@
 
 import React from 'react';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
+import { colors } from '../../theme/colors';
 
 interface NavIconProps {
   size?: number;
@@ -13,8 +14,8 @@ interface NavIconProps {
   active?: boolean;
 }
 
-const ACTIVE = '#7A9B76';
-const INACTIVE = '#5A6B7C';
+const ACTIVE = colors.accent;
+const INACTIVE = colors.textSecondary;
 
 function c(active: boolean | undefined, color: string | undefined) {
   if (color) return color;

@@ -363,10 +363,10 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
                       ]}
                     >
                       {saving ? (
-                        <ActivityIndicator size="small" color="#F5F3ED" />
+                        <ActivityIndicator size="small" color={colors.textPrimary} />
                       ) : (
                         <>
-                          <SmartIcon name="checkmark" size={18} color="#F5F3ED" />
+                          <SmartIcon name="checkmark" size={18} color={colors.textPrimary} />
                           <Text style={styles.confirmBtnText}>Create & Link</Text>
                         </>
                       )}

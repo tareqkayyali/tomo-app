@@ -260,7 +260,7 @@ export function ReactionTestScreen({ navigation }: Props) {
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <SmartIcon name="play" size={22} color="#F5F3ED" />
+              <SmartIcon name="play" size={22} color={colors.textPrimary} />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -327,7 +327,7 @@ export function ReactionTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <SmartIcon name="checkmark-circle" size={80} color="#7A9B76" />
+            <SmartIcon name="checkmark-circle" size={80} color={colors.success} />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}

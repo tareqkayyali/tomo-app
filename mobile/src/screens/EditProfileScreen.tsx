@@ -77,14 +77,6 @@ const NEXT_60_DAYS = generateNextDays(60);
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function addMinutesToTime(time: string, minutes: number): string {
-  const [h, m] = time.split(':').map(Number);
-  const totalMin = h * 60 + m + minutes;
-  const newH = Math.floor(totalMin / 60) % 24;
-  const newM = totalMin % 60;
-  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
-}
-
 /**
  * Generate calendar events for the next 30 days from school schedule + training types.
  * Returns an array of CalendarEventInput ready to POST.
@@ -209,12 +201,20 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
 
   const addExam = useCallback(() => {
     if (!newExamSubject || !newExamDate) {
-      Alert.alert('Missing Info', 'Please select a subject and date for the exam.');
+      if (Platform.OS === 'web') {
+        window.alert('Please select a subject and date for the exam.');
+      } else {
+        Alert.alert('Missing Info', 'Please select a subject and date for the exam.');
+      }
       return;
     }
     const duplicate = exams.some((e) => e.subject === newExamSubject && e.examDate === newExamDate);
     if (duplicate) {
-      Alert.alert('Duplicate', 'You already have an exam for this subject on this date.');
+      if (Platform.OS === 'web') {
+        window.alert('You already have an exam for this subject on this date.');
+      } else {
+        Alert.alert('Duplicate', 'You already have an exam for this subject on this date.');
+      }
       return;
     }
     const entry: ExamEntry = {
@@ -248,7 +248,11 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
   const addTrainingType = useCallback(() => {
     const trimmedName = newTrainingName.trim();
     if (!trimmedName) {
-      Alert.alert('Missing Name', 'Please enter a name for this training type.');
+      if (Platform.OS === 'web') {
+        window.alert('Please enter a name for this training type.');
+      } else {
+        Alert.alert('Missing Name', 'Please enter a name for this training type.');
+      }
       return;
     }
     const newType: CustomTrainingType = {
@@ -488,7 +492,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                     onPress={() => toggleSubject(subj)}
                   >
                     <Text style={[styles.chipText, { color: colors.textPrimary }]}>{subj}</Text>
-                    <SmartIcon name="close" size={14} color="#F5F3ED" style={{ marginLeft: 4 }} />
+                    <SmartIcon name="close" size={14} color={colors.textPrimary} style={{ marginLeft: 4 }} />
                   </TouchableOpacity>
                 ))}
               <TouchableOpacity
@@ -542,7 +546,11 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                 style={[styles.addExamBtn, { borderColor: colors.accent1 }]}
                 onPress={() => {
                   if (subjects.length === 0) {
-                    Alert.alert('No Subjects', 'Please select at least one subject first.');
+                    if (Platform.OS === 'web') {
+                      window.alert('Please select at least one subject first.');
+                    } else {
+                      Alert.alert('No Subjects', 'Please select at least one subject first.');
+                    }
                     return;
                   }
                   setNewExamSubject(subjects[0]);
@@ -607,7 +615,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                     <Text style={{ color: colors.textInactive, fontSize: 14 }}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={addExam} style={[styles.confirmBtn, { backgroundColor: colors.accent1 }]}>
-                    <SmartIcon name="checkmark" size={18} color="#F5F3ED" />
+                    <SmartIcon name="checkmark" size={18} color={colors.textPrimary} />
                     <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>Add</Text>
                   </TouchableOpacity>
                 </View>
@@ -738,7 +746,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
                     <Text style={{ color: colors.textInactive, fontSize: 14 }}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={addTrainingType} style={[styles.confirmBtn, { backgroundColor: colors.accent1 }]}>
-                    <SmartIcon name="checkmark" size={18} color="#F5F3ED" />
+                    <SmartIcon name="checkmark" size={18} color={colors.textPrimary} />
                     <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>Add</Text>
                   </TouchableOpacity>
                 </View>

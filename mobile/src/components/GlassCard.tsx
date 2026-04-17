@@ -1,6 +1,6 @@
 /**
- * GlassCard — Clean dark card with v0 surface styling.
- * Uses colors.surface (#141414) + colors.chalkGhost border.
+ * GlassCard — Near-transparent card with visible border frame.
+ * Uses colors.surface (3% cream overlay) + colors.border (10% cream line).
  */
 
 import React from 'react';
@@ -23,7 +23,7 @@ export function GlassCard({ children, style, noPadding }: GlassCardProps) {
           backgroundColor: colors.surface,
           borderRadius: borderRadius.lg,
           borderWidth: 1,
-          borderColor: colors.chalkGhost,
+          borderColor: colors.border,
           padding: spacing.lg,
         },
         noPadding && { padding: 0 },

@@ -255,7 +255,7 @@ export function AgilityTestScreen({ navigation }: Props) {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: colors.accentSoft }]}>
-            <SmartIcon name="swap-horizontal-outline" size={40} color="#7A9B76" />
+            <SmartIcon name="swap-horizontal-outline" size={40} color={colors.accent} />
           </View>
           <Text style={styles.title}>Agility Shuffle</Text>
           <Text style={styles.subtitle}>React to directional cues as fast as possible</Text>
@@ -283,7 +283,7 @@ export function AgilityTestScreen({ navigation }: Props) {
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <SmartIcon name="play" size={22} color="#F5F3ED" />
+              <SmartIcon name="play" size={22} color={colors.textPrimary} />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -331,7 +331,7 @@ export function AgilityTestScreen({ navigation }: Props) {
             <SmartIcon
               name={currentDirection === 'left' ? 'arrow-back' : 'arrow-forward'}
               size={120}
-              color="#7A9B76"
+              color={colors.accent}
             />
             <Text style={styles.directionLabel}>
               {currentDirection.toUpperCase()}!
@@ -352,7 +352,7 @@ export function AgilityTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <SmartIcon name="checkmark-circle" size={80} color="#7A9B76" />
+            <SmartIcon name="checkmark-circle" size={80} color={colors.accent} />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}

@@ -450,7 +450,7 @@ export function PreviewScreen() {
           <View key={t.label} style={ss.tabBarItem}>
             {t.active ? (
               <LinearGradient colors={[colors.accent1, colors.accent2]} style={ss.centerTab}>
-                <SmartIcon name={t.icon} size={20} color="#F5F3ED" />
+                <SmartIcon name={t.icon} size={20} color={colors.textPrimary} />
               </LinearGradient>
             ) : (
               <SmartIcon name={t.icon} size={22} color={colors.textInactive} />

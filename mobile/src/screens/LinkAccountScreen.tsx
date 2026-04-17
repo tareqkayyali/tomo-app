@@ -3,7 +3,7 @@
  * Clean, centered UI with a 6-character code input and confirmation.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,10 +22,11 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { acceptInviteCode } from '../services/api';
 import { spacing, borderRadius, layout } from '../theme';
-import { colors } from '../theme/colors';
+import type { ThemeColors } from '../theme/colors';
 
 export function LinkAccountScreen() {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<any>();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -133,74 +134,76 @@ export function LinkAccountScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  inner: {
-    flex: 1,
-    padding: layout.screenMargin,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  icon: {
-    marginBottom: spacing.lg,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: spacing.xxl,
-    paddingHorizontal: spacing.lg,
-  },
-  codeInput: {
-    width: '80%',
-    maxWidth: 280,
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: 6,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 2,
-    marginBottom: spacing.lg,
-  },
-  submitButton: {
-    width: '80%',
-    maxWidth: 280,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 48,
-  },
-  submitText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  successIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  doneButton: {
-    paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.lg,
-  },
-  doneButtonText: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    inner: {
+      flex: 1,
+      padding: layout.screenMargin,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    icon: {
+      marginBottom: spacing.lg,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      textAlign: 'center',
+      marginBottom: spacing.sm,
+    },
+    subtitle: {
+      fontSize: 15,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: spacing.xxl,
+      paddingHorizontal: spacing.lg,
+    },
+    codeInput: {
+      width: '80%',
+      maxWidth: 280,
+      fontSize: 28,
+      fontWeight: '700',
+      letterSpacing: 6,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderRadius: borderRadius.lg,
+      borderWidth: 2,
+      marginBottom: spacing.lg,
+    },
+    submitButton: {
+      width: '80%',
+      maxWidth: 280,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: 48,
+    },
+    submitText: {
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    successIcon: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.lg,
+    },
+    doneButton: {
+      paddingHorizontal: spacing.xxl,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.md,
+      marginTop: spacing.lg,
+    },
+    doneButtonText: {
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
+}

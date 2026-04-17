@@ -15,7 +15,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getScheduleRules, updateScheduleRules } from '../services/api';
 import type { ScheduleRulesResponse } from '../services/api';
-import { getApiUrl } from '../services/apiConfig';
+import { API_BASE_URL } from '../services/apiConfig';
 import { colors } from '../theme/colors';
 
 // ── Types (mirrors backend scheduleRuleEngine) ──────────────────
@@ -61,9 +61,13 @@ export interface PlayerSchedulePreferences {
   sleep_start: string;
   sleep_end: string;
 
-  // Day bounds
+  // Day bounds — weekday
   day_bounds_start: string;
   day_bounds_end: string;
+
+  // Day bounds — weekend (null = falls back to day_bounds_*)
+  weekend_bounds_start: string | null;
+  weekend_bounds_end: string | null;
 
   // Study
   study_days: DayOfWeek[];
@@ -122,13 +126,14 @@ export interface EffectiveRules {
     recoveryDayAfterMatch: boolean;
   };
   dayBounds: { startHour: number; endHour: number };
+  weekendBounds: { startHour: number; endHour: number };
   ruleCount: number;
 }
 
 export interface ScheduleRulesData {
   preferences: PlayerSchedulePreferences;
   scenario: string;
-  athleteMode: string;
+  athleteMode?: string;
   effectiveRules: EffectiveRules;
 }
 
@@ -181,6 +186,8 @@ export const DEFAULT_PREFERENCES: PlayerSchedulePreferences = {
   sleep_end: '06:00',
   day_bounds_start: '06:00',
   day_bounds_end: '22:00',
+  weekend_bounds_start: null,
+  weekend_bounds_end: null,
   study_days: [0, 1, 2, 3],
   study_start: '16:00',
   study_duration_min: 45,
@@ -211,6 +218,7 @@ const SAVEABLE_FIELDS = [
   'school_days', 'school_start', 'school_end',
   'sleep_start', 'sleep_end',
   'day_bounds_start', 'day_bounds_end',
+  'weekend_bounds_start', 'weekend_bounds_end',
   'study_days', 'study_start', 'study_duration_min',
   'gym_days', 'gym_start', 'gym_duration_min',
   'personal_dev_days', 'personal_dev_start',
@@ -227,7 +235,7 @@ const SAVEABLE_FIELDS = [
 
 async function fetchCmsTrainingCategories(): Promise<TrainingCategoryRule[] | null> {
   try {
-    const base = getApiUrl();
+    const base = API_BASE_URL;
     const res = await fetch(`${base}/api/v1/content/training-categories`);
     if (!res.ok) return null;
     const data = await res.json();
@@ -292,7 +300,11 @@ export function useScheduleRules() {
       setRules({
         preferences: prefs,
         scenario: data.scenario,
-        effectiveRules: data.effectiveRules,
+        athleteMode: data.athleteMode ?? undefined,
+        effectiveRules: {
+          ...data.effectiveRules,
+          weekendBounds: data.effectiveRules.weekendBounds ?? data.effectiveRules.dayBounds,
+        },
       });
       setDirty(false);
     } catch (err) {
@@ -316,6 +328,7 @@ export function useScheduleRules() {
             recoveryDayAfterMatch: true,
           },
           dayBounds: { startHour: 6, endHour: 22 },
+          weekendBounds: { startHour: 6, endHour: 22 },
           ruleCount: 0,
         },
       });

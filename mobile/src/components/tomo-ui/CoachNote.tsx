@@ -87,7 +87,7 @@ const CoachNote: React.FC<CoachNoteProps> = memo(({
   return (
     <Animated.View
       entering={FadeIn.delay(enterDelay).duration(animation.duration.normal)}
-      style={[styles.container, { backgroundColor: colors.surfaceWarm, borderColor: colors.chalkGhost }]}
+      style={[styles.container, { backgroundColor: colors.surfaceWarm, borderColor: colors.border }]}
     >
       {/* Header row */}
       <View style={styles.header}>

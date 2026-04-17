@@ -277,7 +277,7 @@ export function SprintTestScreen({ navigation }: Props) {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: colors.accentSoft }]}>
-            <SmartIcon name="speedometer-outline" size={40} color="#7A9B76" />
+            <SmartIcon name="speedometer-outline" size={40} color={colors.success} />
           </View>
           <Text style={styles.title}>Sprint Speed</Text>
           <Text style={styles.subtitle}>Time your sprint with phone accelerometer</Text>
@@ -305,7 +305,7 @@ export function SprintTestScreen({ navigation }: Props) {
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <SmartIcon name="play" size={22} color="#F5F3ED" />
+              <SmartIcon name="play" size={22} color={colors.textPrimary} />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -358,7 +358,7 @@ export function SprintTestScreen({ navigation }: Props) {
 
             <Pressable onPress={handleStop} style={styles.stopWrap}>
               <View style={styles.stopButton}>
-                <SmartIcon name="stop" size={32} color="#F5F3ED" />
+                <SmartIcon name="stop" size={32} color={colors.textPrimary} />
                 <Text style={styles.stopText}>STOP</Text>
               </View>
             </Pressable>
@@ -367,7 +367,7 @@ export function SprintTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <SmartIcon name="checkmark-circle" size={80} color="#7A9B76" />
+            <SmartIcon name="checkmark-circle" size={80} color={colors.success} />
             <Text style={styles.doneTime}>{formatTime(elapsedMs)}s</Text>
             <Text style={styles.doneLabel}>Done!</Text>
           </View>

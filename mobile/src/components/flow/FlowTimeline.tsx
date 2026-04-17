@@ -196,7 +196,7 @@ function TimelineEvent({
             )}
             {isCompleted && !readOnly && (
               <Pressable onPress={handleUndo} style={styles.undoBtn}>
-                <SmartIcon name="arrow-undo" size={14} color="#F5F3ED" />
+                <SmartIcon name="arrow-undo" size={14} color={colors.textPrimary} />
                 <Text style={styles.undoText}>UNDO</Text>
               </Pressable>
             )}

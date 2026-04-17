@@ -103,9 +103,9 @@ export function InlineTestInput({
           disabled={!canSave}
         >
           {submitting ? (
-            <ActivityIndicator color="#F5F3ED" size="small" />
+            <ActivityIndicator color={colors.textPrimary} size="small" />
           ) : (
-            <SmartIcon name="checkmark" size={18} color="#F5F3ED" />
+            <SmartIcon name="checkmark" size={18} color={colors.textPrimary} />
           )}
         </Pressable>
 

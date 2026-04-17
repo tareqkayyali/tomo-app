@@ -174,7 +174,7 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
 
     const computedEndTime = selectedSlot
       ? selectedSlot.end24
-      : addMinutes(selectedSlot?.start24 ?? '17:00', parseInt(duration) || 60);
+      : addMinutes('17:00', parseInt(duration) || 60);
 
     if (selectedSlot) {
       // Create new event at selected slot

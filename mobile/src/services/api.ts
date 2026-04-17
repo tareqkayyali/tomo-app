@@ -2517,10 +2517,12 @@ export async function registerPushToken(token: string, platform: string): Promis
 export interface ScheduleRulesResponse {
   preferences: Record<string, unknown>;
   scenario: string;
+  athleteMode?: string;
   effectiveRules: {
     buffers: { default: number; afterHighIntensity: number; afterMatch: number; beforeMatch: number };
     intensityCaps: { maxHardPerWeek: number; maxSessionsPerDay: number; noHardBeforeMatch: boolean; noHardOnExamDay: boolean; recoveryDayAfterMatch: boolean };
     dayBounds: { startHour: number; endHour: number };
+    weekendBounds?: { startHour: number; endHour: number };
     ruleCount: number;
   };
 }

@@ -295,7 +295,7 @@ export function WhoopDataScreen({ navigation }: Props) {
             <View style={styles.statusLeft}>
               <View style={[
                 styles.statusDot,
-                { backgroundColor: isConnected && data?.data_fresh ? colors.green : isConnected ? colors.orange : colors.textInactive }
+                { backgroundColor: isConnected && data?.data_fresh ? colors.readinessGreen : isConnected ? colors.warning : colors.textInactive }
               ]} />
               <View>
                 <Text style={styles.statusTitle}>
@@ -348,7 +348,7 @@ export function WhoopDataScreen({ navigation }: Props) {
 
           {data?.sync_error && (
             <View style={styles.errorBanner}>
-              <SmartIcon name="warning-outline" size={14} color={colors.orange} />
+              <SmartIcon name="warning-outline" size={14} color={colors.warning} />
               <Text style={styles.errorText}>{data.sync_error}</Text>
             </View>
           )}
@@ -482,12 +482,12 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: spacing.xs,
       paddingHorizontal: spacing.sm,
       borderRadius: borderRadius.sm,
-      backgroundColor: `${colors.orange}15`,
+      backgroundColor: `${colors.warning}15`,
     },
     errorText: {
       fontFamily: fontFamily.regular,
       fontSize: 12,
-      color: colors.orange,
+      color: colors.warning,
       flex: 1,
     },
 

@@ -26,13 +26,13 @@ import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 import { GlowWrapper, SkeletonCard, SkeletonCircle, SkeletonLine } from '../components';
 import { uploadProfilePhoto } from '../services/storage';
 import { updateUser } from '../services/api';
 import {
   spacing,
   borderRadius,
-  shadows,
   layout,
   fontFamily,
 } from '../theme';
@@ -40,13 +40,8 @@ import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useSportContext } from '../hooks/useSportContext';
-import { useFootballProgress } from '../hooks/useFootballProgress';
-import { usePadelProgress } from '../hooks/usePadelProgress';
 import { getArchetypeProfile } from '../services/archetypeProfile';
 import { useFadeIn } from '../hooks/useFadeIn';
-import { getPadelLevel } from '../services/padelCalculations';
-import { getFootballRatingLevel } from '../services/footballCalculations';
-import type { FootballPosition } from '../types/football';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
 
@@ -57,23 +52,6 @@ import type { MainStackParamList } from '../navigation/types';
 type ProfileScreenProps = {
   navigation: NativeStackNavigationProp<MainStackParamList, 'Profile'>;
 };
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getLevel(totalPoints: number): number {
-  if (totalPoints >= 5000) return 10;
-  if (totalPoints >= 3000) return 9;
-  if (totalPoints >= 2000) return 8;
-  if (totalPoints >= 1500) return 7;
-  if (totalPoints >= 1000) return 6;
-  if (totalPoints >= 600) return 5;
-  if (totalPoints >= 350) return 4;
-  if (totalPoints >= 150) return 3;
-  if (totalPoints >= 50) return 2;
-  return 1;
-}
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -122,20 +100,11 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { profile, user, logout, isLoading } = useAuth();
   const { activeSport } = useSportContext();
 
-  // ── Real data hooks (called unconditionally per rules of hooks) ──
-  const userId = profile?.uid || profile?.id || '';
-  const age = (profile as any)?.age ?? 16;
-  const position: FootballPosition = (profile as any)?.position || 'CM';
-  const { card: footballCard } = useFootballProgress(userId, age, position);
-  const { shotRatings } = usePadelProgress();
-
   const archetypeProfile = useMemo(
     () => getArchetypeProfile(profile?.archetype),
     [profile?.archetype],
   );
 
-  const totalPoints = profile?.totalPoints ?? 0;
-  const level = getLevel(totalPoints);
   const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
   const [photoUri, setPhotoUri] = useState<string | null>(
     profile?.photoUrl || null,
@@ -256,19 +225,10 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
     }
   };
 
-  const handleComingSoon = (feature: string) => {
-    if (Platform.OS === 'web') {
-      window.alert(`${feature} will be available in a future update.`);
-    } else {
-      Alert.alert('Coming Soon', `${feature} will be available in a future update.`);
-    }
-  };
-
   // Stagger
   const fadeIn0 = useFadeIn(0);
-  const fadeIn1 = useFadeIn(1);
-  const fadeIn2 = useFadeIn(2);
-  const fadeIn3 = useFadeIn(3);
+  const fadeIn2 = useFadeIn(1);
+  const fadeIn3 = useFadeIn(2);
 
   // Loading skeleton
   if (isLoading) {
@@ -280,11 +240,8 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             <SkeletonLine width="50%" height={20} style={{ marginTop: spacing.md }} />
             <SkeletonLine width="35%" height={14} style={{ marginTop: spacing.sm }} />
           </View>
-          <View style={styles.statsRow}>
-            <SkeletonCard style={{ flex: 1 }} />
-            <SkeletonCard style={{ flex: 1 }} />
-          </View>
           <SkeletonCard />
+          <SkeletonCard style={{ marginTop: spacing.md }} />
         </ScrollView>
       </View>
     );
@@ -400,7 +357,9 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         </Animated.View>
 
         <Pressable onPress={handleVersionTap}>
-          <Text style={styles.version}>TOMO v1.0.0</Text>
+          <Text style={styles.version}>
+            TOMO v{Constants.expoConfig?.version ?? '1.0.0'}
+          </Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -484,73 +443,6 @@ function createStyles(colors: ThemeColors, typography: Record<string, TextStyle>
       ...typography.metadataSmall,
       color: colors.textInactive,
       marginTop: spacing.xs,
-    },
-
-    // ── Stat Cards ──────────────────────────────────────────────────
-    statsRow: {
-      flexDirection: 'row',
-      gap: spacing.md,
-      marginBottom: spacing.xl,
-    },
-    statCard: {
-      flex: 1,
-      borderRadius: borderRadius.lg,
-      padding: spacing.lg,
-      alignItems: 'center',
-      gap: spacing.sm,
-      backgroundColor: colors.cardLight,
-      ...shadows.sm,
-    },
-    statValue: {
-      fontFamily: fontFamily.bold,
-      fontSize: 28,
-      lineHeight: 34,
-      color: colors.textOnLight,
-    },
-    statLabel: {
-      ...typography.metadataSmall,
-      color: colors.textMuted,
-    },
-
-    // ── Padel Rating Card ─────────────────────────────────────────
-    padelCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.cardLight,
-      borderRadius: borderRadius.lg,
-      padding: spacing.lg,
-      marginBottom: spacing.xl,
-      gap: spacing.md,
-      ...shadows.sm,
-    },
-    padelTierDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-    },
-    padelCardInfo: {
-      flex: 1,
-    },
-    padelRatingNum: {
-      fontFamily: fontFamily.bold,
-      fontSize: 24,
-      color: colors.accent1,
-    },
-    padelLevelText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 13,
-      color: colors.textOnDark,
-      marginTop: 1,
-    },
-    padelTierBadge: {
-      backgroundColor: colors.creamSubtle,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 10,
-    },
-    padelTierText: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 12,
     },
 
     // ── Menu ────────────────────────────────────────────────────────

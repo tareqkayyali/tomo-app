@@ -52,7 +52,7 @@ export function SwipeableNotificationCard({
 
       return (
         <Animated.View style={[styles.swipeAction, styles.dismissAction, { transform: [{ translateX }] }]}>
-          <SmartIcon name="close-circle" size={22} color="#F5F3ED" />
+          <SmartIcon name="close-circle" size={22} color={colors.textPrimary} />
           <Text style={styles.swipeText}>Dismiss</Text>
         </Animated.View>
       );
@@ -71,7 +71,7 @@ export function SwipeableNotificationCard({
 
       return (
         <Animated.View style={[styles.swipeAction, styles.readAction, { transform: [{ translateX }] }]}>
-          <SmartIcon name="checkmark-circle" size={22} color="#F5F3ED" />
+          <SmartIcon name="checkmark-circle" size={22} color={colors.textPrimary} />
           <Text style={styles.swipeText}>Read</Text>
         </Animated.View>
       );

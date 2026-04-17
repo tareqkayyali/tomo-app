@@ -43,8 +43,9 @@ export function useCheckinStatus(): {
       } else {
         setIsStale(false);
       }
-    } catch {
+    } catch (err) {
       // On error, assume needs check-in (safe fallback)
+      console.error('[useCheckinStatus] fetch error:', err);
       setNeedsCheckin(true);
       setIsStale(false);
       setCheckinAgeHours(null);

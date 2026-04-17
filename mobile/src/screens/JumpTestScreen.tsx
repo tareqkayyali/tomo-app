@@ -307,7 +307,7 @@ export function JumpTestScreen({ navigation }: Props) {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: 'rgba(123,97,255,0.15)' }]}>
-            <SmartIcon name="arrow-up-outline" size={40} color="#5A6B7C" />
+            <SmartIcon name="arrow-up-outline" size={40} color={colors.textSecondary} />
           </View>
           <Text style={styles.title}>Jump Height</Text>
           <Text style={styles.subtitle}>Measure your vertical jump using phone sensors</Text>
@@ -335,7 +335,7 @@ export function JumpTestScreen({ navigation }: Props) {
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
             >
-              <SmartIcon name="play" size={22} color="#F5F3ED" />
+              <SmartIcon name="play" size={22} color={colors.textPrimary} />
               <Text style={styles.startText}>Start Test</Text>
             </LinearGradient>
           </Pressable>
@@ -394,7 +394,7 @@ export function JumpTestScreen({ navigation }: Props) {
             <SmartIcon
               name={phase === 'jumping' ? 'rocket-outline' : 'fitness-outline'}
               size={80}
-              color="#5A6B7C"
+              color={colors.textSecondary}
             />
             <Text style={styles.jumpNow}>
               {phase === 'jumping' ? 'In the air!' : 'JUMP!'}
@@ -423,7 +423,7 @@ export function JumpTestScreen({ navigation }: Props) {
 
         {phase === 'done' && (
           <View style={styles.doneWrap}>
-            <SmartIcon name="checkmark-circle" size={80} color="#7A9B76" />
+            <SmartIcon name="checkmark-circle" size={80} color={colors.success} />
             <Text style={styles.doneText}>Done!</Text>
           </View>
         )}

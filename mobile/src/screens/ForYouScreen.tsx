@@ -19,12 +19,10 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { SkeletonCard, ErrorState } from '../components';
-import { TomoIcon } from '../components/tomo-ui';
 import { animation } from '../theme/spacing';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
@@ -51,6 +49,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
 import { apiRequest } from '../services/api';
 import type { NotificationData } from '../components/notifications/NotificationCard';
+import { CATEGORY_CONFIG } from '../components/notifications/constants';
 
 import { colors } from '../theme/colors';
 
@@ -90,17 +89,6 @@ const OWN_IT_LOADING_MESSAGES = [
   { title: 'Final Personalization', subtitle: 'Tailoring everything to you...', icon: 'person-outline' as const },
 ];
 
-// ── Category display config (matches NotificationCard) ───────────────
-const CAT_CONFIG: Record<string, { color: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  critical: { color: colors.textSecondary, icon: 'flash' },
-  training: { color: colors.accent, icon: 'calendar' },
-  coaching: { color: colors.accent, icon: 'star' },
-  academic: { color: colors.textSecondary, icon: 'book' },
-  triangle: { color: colors.textSecondary, icon: 'diamond' },
-  cv:       { color: colors.textSecondary, icon: 'person-circle' },
-  system:   { color: colors.textSecondary, icon: 'information-circle' },
-};
-
 function timeAgoShort(dateStr: string): string {
   const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
   if (mins < 1) return 'now';
@@ -115,9 +103,11 @@ function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; 
   const { centerUnreadCount } = useNotifications();
   const { profile } = useAuth();
   const [items, setItems] = React.useState<NotificationData[]>([]);
+  const [fetchError, setFetchError] = React.useState(false);
 
   React.useEffect(() => {
     if (!profile) return;
+    setFetchError(false);
     apiRequest<{ notifications: NotificationData[] }>('/api/v1/notifications?source=center&limit=20')
       .then((res) => {
         const now = Date.now();
@@ -152,10 +142,13 @@ function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; 
           .slice(0, 3);
         setItems(filtered);
       })
-      .catch((err) => console.warn('[LatestNotificationsCard] fetch error:', err));
+      .catch((err) => {
+        console.error('[LatestNotificationsCard] fetch error:', err);
+        setFetchError(true);
+      });
   }, [profile?.id, refreshKey]);
 
-  if (items.length === 0) return null;
+  if (fetchError || items.length === 0) return null;
 
   // Sort: critical first, then by created_at desc
   const sorted = [...items].sort((a, b) => {
@@ -174,7 +167,7 @@ function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; 
         borderWidth: 1,
         borderColor: sorted[0]?.category === 'critical' ? colors.secondaryMuted : 'rgba(245,243,237,0.07)',
         borderLeftWidth: 3,
-        borderLeftColor: CAT_CONFIG[sorted[0]?.category]?.color ?? colors.accent1,
+        borderLeftColor: CATEGORY_CONFIG[sorted[0]?.category as keyof typeof CATEGORY_CONFIG]?.color ?? colors.accent1,
         padding: spacing.md,
         opacity: pressed ? 0.85 : 1,
       })}
@@ -199,7 +192,7 @@ function LatestNotificationsCard({ navigation, refreshKey }: { navigation: any; 
 
       {/* Notification rows */}
       {sorted.map((n, i) => {
-        const cat = CAT_CONFIG[n.category] ?? CAT_CONFIG.system;
+        const cat = CATEGORY_CONFIG[n.category as keyof typeof CATEGORY_CONFIG] ?? CATEGORY_CONFIG.system;
         return (
           <View
             key={n.id}

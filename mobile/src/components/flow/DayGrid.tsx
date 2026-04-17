@@ -914,7 +914,7 @@ function StaticEventBlock({
                 gap: 3,
               }}
             >
-              <SmartIcon name="checkmark" size={10} color="#F5F3ED" />
+              <SmartIcon name="checkmark" size={10} color={colors.textPrimary} />
               <Text style={{ color: colors.textPrimary, fontSize: 9, fontWeight: '700' }}>DONE</Text>
             </Pressable>
             <Pressable

@@ -25,6 +25,7 @@ export function useSuggestions() {
   useEffect(() => {
     let isMounted = true;
     (async () => {
+      if (!isMounted) return;
       await fetchSuggestions();
     })();
     return () => { isMounted = false; };

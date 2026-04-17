@@ -46,7 +46,8 @@ type RecType =
   | 'ACADEMIC'
   | 'CV_OPPORTUNITY'
   | 'TRIANGLE_ALERT'
-  | 'MOTIVATION';
+  | 'MOTIVATION'
+  | 'JOURNAL_NUDGE';
 
 export interface RecAction {
   type: string;
@@ -100,6 +101,7 @@ function getRecTypeConfig(colors: { accent: string; warning: string; info: strin
     CV_OPPORTUNITY: { color: colors.info, icon: 'document-text-outline', glow: 'subtle', badgeVariant: 'outline', label: 'CV' },
     TRIANGLE_ALERT: { color: colors.error, icon: 'people-outline', glow: 'orange', badgeVariant: 'error', label: 'Alert' },
     MOTIVATION: { color: colors.accent, icon: 'flame-outline', glow: 'orange', badgeVariant: 'chip', label: 'Motivation' },
+    JOURNAL_NUDGE: { color: colors.info, icon: 'book-outline', glow: 'subtle', badgeVariant: 'info', label: 'Journal' },
   };
 }
 
@@ -262,7 +264,8 @@ function getDualLoadData(
 export function RecCard({ rec, index, onAction }: RecCardProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const config = getRecTypeConfig(colors)[rec.recType];
+  const configMap = getRecTypeConfig(colors);
+  const config = configMap[rec.recType] ?? configMap.MOTIVATION; // fallback for unknown types
   const [expanded, setExpanded] = useState(false);
 
   const hasRag = (rec.retrievedChunkIds?.length ?? 0) > 0;

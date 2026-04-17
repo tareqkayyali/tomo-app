@@ -95,7 +95,7 @@ const PillarCard: React.FC<PillarCardProps> = memo(({
       onPressOut={onPress ? handlePressOut : undefined}
       style={[
         styles.container,
-        { backgroundColor: colors.surface, borderColor: colors.chalkGhost },
+        { backgroundColor: colors.surface, borderColor: colors.border },
         pressStyle,
       ]}
     >

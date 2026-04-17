@@ -274,7 +274,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
         toggleAppleWatch();
       }
     },
-    [whoopStatus, connectWhoop, handleDisconnectWhoop, toggleAppleWatch],
+    [whoopStatus, connectWhoop, toggleAppleWatch],
   );
 
   // ── Render ────────────────────────────────────────────────────────
@@ -337,7 +337,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                     {w.emoji ? (
                       <Text style={{ fontSize: 22 }}>{w.emoji}</Text>
                     ) : (
-                      <SmartIcon name={w.icon as any} size={22} color="#F5F3ED" />
+                      <SmartIcon name={w.icon as any} size={22} color={colors.textPrimary} />
                     )}
                   </View>
                   <View style={{ flex: 1 }}>

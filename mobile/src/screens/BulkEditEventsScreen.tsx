@@ -243,10 +243,10 @@ export function BulkEditEventsScreen() {
             style={[styles.deleteButton, deleting && { opacity: 0.5 }]}
           >
             {deleting ? (
-              <ActivityIndicator size="small" color="#F5F3ED" />
+              <ActivityIndicator size="small" color={colors.textPrimary} />
             ) : (
               <>
-                <SmartIcon name="trash-outline" size={16} color="#F5F3ED" />
+                <SmartIcon name="trash-outline" size={16} color={colors.textPrimary} />
                 <Text style={styles.deleteButtonText}>Delete</Text>
               </>
             )}

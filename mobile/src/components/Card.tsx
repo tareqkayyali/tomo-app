@@ -138,7 +138,7 @@ function createVariantStyles(colors: ThemeColors) {
       backgroundColor: colors.surface,
       borderRadius: borderRadius.lg,
       borderWidth: 1,
-      borderColor: colors.chalkGhost,
+      borderColor: colors.border,
     },
     blob: {
       backgroundColor: colors.surface,
@@ -147,7 +147,7 @@ function createVariantStyles(colors: ThemeColors) {
       borderBottomLeftRadius: borderRadius.blobMid,
       borderBottomRightRadius: borderRadius.blobMax,
       borderWidth: 1,
-      borderColor: colors.chalkGhost,
+      borderColor: colors.border,
     },
     blobTeardrop: {
       backgroundColor: colors.surface,
@@ -156,7 +156,7 @@ function createVariantStyles(colors: ThemeColors) {
       borderBottomLeftRadius: borderRadius.blobMin,
       borderBottomRightRadius: borderRadius.blobMid,
       borderWidth: 1,
-      borderColor: colors.chalkGhost,
+      borderColor: colors.border,
     },
     blobCurved: {
       backgroundColor: colors.surface,
@@ -165,26 +165,26 @@ function createVariantStyles(colors: ThemeColors) {
       borderBottomLeftRadius: borderRadius.blobMax,
       borderBottomRightRadius: borderRadius.blobMin,
       borderWidth: 1,
-      borderColor: colors.chalkGhost,
+      borderColor: colors.border,
     },
     muted: {
       backgroundColor: colors.surface,
       borderRadius: borderRadius.lg,
       borderWidth: 1,
-      borderColor: colors.chalkGhost,
+      borderColor: colors.border,
     },
     elevated: {
       backgroundColor: colors.surface,
       borderRadius: borderRadius.lg,
       borderWidth: 1,
-      borderColor: colors.chalkGhost,
+      borderColor: colors.border,
       ...shadows.md,
     },
     outlined: {
       backgroundColor: 'transparent',
       borderRadius: borderRadius.lg,
       borderWidth: 1,
-      borderColor: colors.chalkGhost,
+      borderColor: colors.border,
     },
   });
 }

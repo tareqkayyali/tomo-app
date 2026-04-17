@@ -41,7 +41,7 @@ export function StudyScheduleCapsuleComponent({ card, onSubmit }: Props) {
         {/* Existing study plan info */}
         {card.hasStudyPlan && (
           <View style={styles.planBanner}>
-            <SmartIcon name="calendar-outline" size={16} color="#7A9B76" />
+            <SmartIcon name="calendar-outline" size={16} color={colors.accent} />
             <View style={{ flex: 1 }}>
               <Text style={styles.planBannerTitle}>
                 Active study plan · {card.studyPlanBlockCount} sessions
