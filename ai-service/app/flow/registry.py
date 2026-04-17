@@ -144,9 +144,10 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
         headline="Schedule settings",
     ),
     "check_conflicts": FlowConfig(
-        pattern="capsule_direct",
+        pattern="data_display",
+        tool="detect_load_collision",
         capsule_type="conflict_resolution_capsule",
-        headline="Checking for conflicts",
+        headline="Schedule check",
     ),
     "ghost_suggestions": FlowConfig(
         pattern="capsule_direct",

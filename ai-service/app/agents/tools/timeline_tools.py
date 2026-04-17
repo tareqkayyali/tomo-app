@@ -26,6 +26,43 @@ def _safe_float(v, default=None):
         return default
 
 
+def _extract_hhmm(timestamp_text: str | None) -> str | None:
+    """Pull HH:MM (24h) out of a timestamp string like '2026-04-17 17:30:00'."""
+    if not timestamp_text:
+        return None
+    import re as _re
+    match = _re.search(r"(\d{2}):(\d{2})", timestamp_text)
+    if not match:
+        return None
+    return f"{match.group(1)}:{match.group(2)}"
+
+
+def _to_12h(timestamp_text: str | None) -> str:
+    """Format a timestamp string's clock component as 12h (e.g., '5:30 PM'). Returns '' if unparseable."""
+    hhmm = _extract_hhmm(timestamp_text)
+    if not hhmm:
+        return ""
+    h, m = int(hhmm[:2]), int(hhmm[3:5])
+    period = "PM" if h >= 12 else "AM"
+    h12 = h % 12 or 12
+    return f"{h12}:{m:02d} {period}"
+
+
+def _shape_event(e: dict) -> dict:
+    """Convert an internal event dict to the mobile capsule event shape."""
+    shaped = {
+        "id": e.get("id", ""),
+        "title": e.get("title", "Untitled"),
+        "eventType": e.get("event_type", "other"),
+        "localStart": _to_12h(e.get("start")),
+        "localEnd": _to_12h(e.get("end")),
+    }
+    intensity = e.get("intensity")
+    if intensity:
+        shaped["intensity"] = intensity
+    return shaped
+
+
 # TS backend Zod-validated event types
 _VALID_EVENT_TYPES = {"training", "match", "recovery", "study_block", "study", "exam", "other"}
 
@@ -270,75 +307,172 @@ def make_timeline_tools(user_id: str, context: PlayerContext) -> list:
         return await bridge_delete(f"/api/v1/calendar/events/{event_id}", user_id=user_id)
 
     @tool
-    async def detect_load_collision(date: str = "") -> dict:
-        """Detect scheduling conflicts and load collisions for a specific date or today. Checks for overlapping events, excessive load, and rule violations (e.g., HARD after HARD, training during school)."""
+    async def detect_load_collision(date: str = "", days: int = 1) -> dict:
+        """Detect scheduling conflicts and load collisions. By default checks a single day (today unless `date` is given). Pass `days>1` to scan a contiguous range starting from that date. Flags overlapping events, excessive load (2+ HARD in one day, >3 events), RED readiness + HARD clash, and training scheduled inside school hours."""
         from app.db.supabase import get_pool
+
         pool = get_pool()
         tz = context.timezone or "UTC"
-        target_date = date or context.today_date
+        start_date = date or context.today_date
+        days = max(1, min(int(days or 1), 14))
 
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        except ValueError:
+            return {
+                "date": start_date,
+                "days_checked": days,
+                "total_events": 0,
+                "conflicts": [],
+                "events": 0,
+                "clashes": [],
+                "warnings": [],
+                "has_issues": False,
+            }
+
+        date_list = [(start_dt + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
+        end_date = date_list[-1]
+
+        # Pull all events in range in one query
         async with pool.connection() as conn:
             result = await conn.execute(
                 """SELECT id, title, event_type,
                           (start_at AT TIME ZONE %s)::text,
                           (end_at AT TIME ZONE %s)::text,
-                          intensity
+                          intensity,
+                          (start_at AT TIME ZONE %s)::date::text
                    FROM calendar_events
                    WHERE user_id = %s
-                     AND (start_at AT TIME ZONE %s)::date = %s::date
+                     AND (start_at AT TIME ZONE %s)::date >= %s::date
+                     AND (start_at AT TIME ZONE %s)::date <= %s::date
                    ORDER BY calendar_events.start_at""",
-                (tz, tz, user_id, tz, target_date),
+                (tz, tz, tz, user_id, tz, start_date, tz, end_date),
             )
             rows = await result.fetchall()
 
-        events = [
-            {
-                "id": str(row[0]), "title": row[1], "type": row[2],
-                "start": row[3], "end": row[4], "intensity": row[5],
+        # Group events by date
+        events_by_date: dict[str, list[dict]] = {d: [] for d in date_list}
+        for row in rows:
+            ev = {
+                "id": str(row[0]),
+                "title": row[1] or "Untitled",
+                "event_type": row[2] or "other",
+                "start": row[3],
+                "end": row[4],
+                "intensity": row[5],
             }
-            for row in rows
-        ]
+            day_key = row[6]
+            if day_key in events_by_date:
+                events_by_date[day_key].append(ev)
 
-        clashes = []
-        warnings = []
-
-        # Check for time overlaps
-        for i, a in enumerate(events):
-            for b in events[i + 1:]:
-                if a["end"] and b["start"] and a["end"] > b["start"]:
-                    clashes.append({
-                        "event_a": a["title"],
-                        "event_b": b["title"],
-                        "overlap": f"{a['end']} overlaps {b['start']}",
-                    })
-
-        # Check for load issues
-        hard_count = sum(1 for e in events if e["intensity"] == "HARD")
-        if hard_count >= 2:
-            warnings.append("Two or more HARD sessions in one day — risk of overload")
-
-        total_events = len(events)
-        if total_events > 3:
-            warnings.append(f"{total_events} events scheduled — consider reducing")
-
-        # Check readiness constraint
-        if context.readiness_score == "Red" and any(e["intensity"] == "HARD" for e in events):
-            warnings.append("RED readiness with HARD session — should be LIGHT or REST only")
-
-        # Check school hours (if schedule prefs available)
         prefs = context.schedule_preferences
-        for e in events:
-            if e["start"] and prefs.school_start <= e["start"] <= prefs.school_end:
-                weekday = datetime.strptime(target_date, "%Y-%m-%d").isoweekday()
-                if weekday in prefs.school_days:
-                    warnings.append(f"'{e['title']}' scheduled during school hours ({prefs.school_start}-{prefs.school_end})")
+        readiness_red = getattr(context, "readiness_score", None) == "Red"
+        total_events = sum(len(v) for v in events_by_date.values())
+
+        conflicts: list[dict] = []
+        legacy_clashes: list[dict] = []
+        legacy_warnings: list[str] = []
+
+        for day in date_list:
+            day_events = events_by_date.get(day, [])
+            if not day_events:
+                continue
+
+            # Same-day overlaps
+            for i, a in enumerate(day_events):
+                for b in day_events[i + 1:]:
+                    if a.get("end") and b.get("start") and a["end"] > b["start"]:
+                        clash_events = [_shape_event(a), _shape_event(b)]
+                        conflicts.append({
+                            "date": day,
+                            "issue": f"'{a['title']}' overlaps '{b['title']}'",
+                            "severity": "danger",
+                            "events": clash_events,
+                            "suggestions": [
+                                {"label": "Reschedule later", "action": f"Move '{b['title']}' on {day} to a clean slot"},
+                                {"label": "Drop one", "action": f"Remove '{b['title']}' on {day}"},
+                            ],
+                        })
+                        legacy_clashes.append({
+                            "event_a": a["title"],
+                            "event_b": b["title"],
+                            "overlap": f"{a['end']} overlaps {b['start']}",
+                        })
+
+            # HARD stacking
+            hard_events = [e for e in day_events if e.get("intensity") == "HARD"]
+            if len(hard_events) >= 2:
+                conflicts.append({
+                    "date": day,
+                    "issue": f"{len(hard_events)} HARD sessions in one day — overload risk",
+                    "severity": "warning",
+                    "events": [_shape_event(e) for e in hard_events],
+                    "suggestions": [
+                        {"label": "Swap one to LIGHT", "action": f"Lower one HARD session on {day} to LIGHT"},
+                        {"label": "Move to rest day", "action": f"Move one HARD session from {day} to a rest day"},
+                    ],
+                })
+                legacy_warnings.append(f"{day}: two or more HARD sessions — risk of overload")
+
+            # RED + HARD
+            if readiness_red and hard_events:
+                conflicts.append({
+                    "date": day,
+                    "issue": "RED readiness with HARD session — should be LIGHT or REST only",
+                    "severity": "danger",
+                    "events": [_shape_event(e) for e in hard_events],
+                    "suggestions": [
+                        {"label": "Downgrade to LIGHT", "action": f"Change HARD session on {day} to LIGHT"},
+                        {"label": "Take a rest day", "action": f"Turn {day} into a rest day"},
+                    ],
+                })
+                legacy_warnings.append(f"{day}: RED readiness with HARD session — downgrade or rest")
+
+            # Too many events
+            if len(day_events) > 3:
+                conflicts.append({
+                    "date": day,
+                    "issue": f"{len(day_events)} events scheduled — consider reducing",
+                    "severity": "warning",
+                    "events": [_shape_event(e) for e in day_events],
+                    "suggestions": [
+                        {"label": "Trim schedule", "action": f"Help me reduce load on {day}"},
+                    ],
+                })
+                legacy_warnings.append(f"{day}: {len(day_events)} events scheduled — consider reducing")
+
+            # School-hour encroachment (only on school days)
+            try:
+                weekday = datetime.strptime(day, "%Y-%m-%d").isoweekday()
+            except ValueError:
+                weekday = None
+            school_days = getattr(prefs, "school_days", None) if prefs else None
+            school_start = getattr(prefs, "school_start", None) if prefs else None
+            school_end = getattr(prefs, "school_end", None) if prefs else None
+            if school_days and school_start and school_end and weekday in school_days:
+                for e in day_events:
+                    start_time = _extract_hhmm(e.get("start"))
+                    if start_time and school_start <= start_time <= school_end:
+                        conflicts.append({
+                            "date": day,
+                            "issue": f"'{e['title']}' during school hours ({school_start}-{school_end})",
+                            "severity": "warning",
+                            "events": [_shape_event(e)],
+                            "suggestions": [
+                                {"label": "Move after school", "action": f"Reschedule '{e['title']}' on {day} to after school"},
+                            ],
+                        })
+                        legacy_warnings.append(f"{day}: '{e['title']}' scheduled during school hours")
 
         return {
-            "date": target_date,
-            "events": len(events),
-            "clashes": clashes,
-            "warnings": warnings,
-            "has_issues": len(clashes) > 0 or len(warnings) > 0,
+            "date": start_date,
+            "days_checked": days,
+            "total_events": total_events,
+            "conflicts": conflicts,
+            "events": len(events_by_date.get(start_date, [])),
+            "clashes": legacy_clashes,
+            "warnings": legacy_warnings,
+            "has_issues": len(conflicts) > 0,
         }
 
     @tool

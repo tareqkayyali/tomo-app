@@ -14,12 +14,16 @@ interface Props {
 }
 
 export function ConflictResolutionCapsuleComponent({ card, onAction }: Props) {
-  if (card.conflicts.length === 0) {
+  const conflicts = Array.isArray(card.conflicts) ? card.conflicts : [];
+  const daysChecked = card.daysChecked ?? 7;
+  const totalEvents = card.totalEvents ?? 0;
+
+  if (conflicts.length === 0) {
     return (
       <View style={styles.container}>
         <Text style={styles.heading}>No conflicts found</Text>
         <Text style={styles.subtext}>
-          Your schedule looks clean for the next {card.daysChecked} days ({card.totalEvents} events checked).
+          Your schedule looks clean for the next {daysChecked} days ({totalEvents} events checked).
         </Text>
       </View>
     );
@@ -27,55 +31,55 @@ export function ConflictResolutionCapsuleComponent({ card, onAction }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>{card.conflicts.length} Conflict{card.conflicts.length > 1 ? 's' : ''} Found</Text>
+      <Text style={styles.heading}>{conflicts.length} Conflict{conflicts.length > 1 ? 's' : ''} Found</Text>
       <Text style={styles.subtext}>
-        Checked {card.totalEvents} events over {card.daysChecked} days
+        Checked {totalEvents} events over {daysChecked} days
       </Text>
 
-      {card.conflicts.map((conflict, i) => (
-        <View key={i} style={[styles.conflictCard, conflict.severity === 'danger' ? styles.dangerBorder : styles.warningBorder]}>
-          {/* Date + severity */}
-          <View style={styles.conflictHeader}>
-            <Text style={styles.conflictDate}>{formatDate(conflict.date)}</Text>
-            <View style={[styles.severityBadge, conflict.severity === 'danger' ? styles.dangerBadge : styles.warningBadge]}>
-              <Text style={styles.severityText}>
-                {conflict.severity === 'danger' ? 'High Risk' : 'Watch'}
-              </Text>
+      {conflicts.map((conflict, i) => {
+        const events = Array.isArray(conflict.events) ? conflict.events : [];
+        const suggestions = Array.isArray(conflict.suggestions) ? conflict.suggestions : [];
+        return (
+          <View key={i} style={[styles.conflictCard, conflict.severity === 'danger' ? styles.dangerBorder : styles.warningBorder]}>
+            <View style={styles.conflictHeader}>
+              <Text style={styles.conflictDate}>{formatDate(conflict.date)}</Text>
+              <View style={[styles.severityBadge, conflict.severity === 'danger' ? styles.dangerBadge : styles.warningBadge]}>
+                <Text style={styles.severityText}>
+                  {conflict.severity === 'danger' ? 'High Risk' : 'Watch'}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.issueText}>{conflict.issue}</Text>
+
+            <View style={styles.eventList}>
+              {events.map((event, j) => (
+                <View key={j} style={styles.eventRow}>
+                  <Text style={styles.eventTime}>{event.localStart}–{event.localEnd}</Text>
+                  <Text style={styles.eventTitle}>{event.title}</Text>
+                  {event.intensity && (
+                    <Text style={[styles.intensityBadge, event.intensity === 'HARD' ? styles.hardIntensity : styles.modIntensity]}>
+                      {event.intensity}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.suggestionsRow}>
+              {suggestions.map((suggestion, k) => (
+                <Pressable
+                  key={k}
+                  onPress={() => onAction(suggestion.action)}
+                  style={({ pressed }) => [styles.suggestionChip, pressed && styles.chipPressed]}
+                >
+                  <Text style={styles.suggestionText}>{suggestion.label}</Text>
+                </Pressable>
+              ))}
             </View>
           </View>
-
-          {/* Issue description */}
-          <Text style={styles.issueText}>{conflict.issue}</Text>
-
-          {/* Clashing events */}
-          <View style={styles.eventList}>
-            {conflict.events.map((event, j) => (
-              <View key={j} style={styles.eventRow}>
-                <Text style={styles.eventTime}>{event.localStart}–{event.localEnd}</Text>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                {event.intensity && (
-                  <Text style={[styles.intensityBadge, event.intensity === 'HARD' ? styles.hardIntensity : styles.modIntensity]}>
-                    {event.intensity}
-                  </Text>
-                )}
-              </View>
-            ))}
-          </View>
-
-          {/* Resolution suggestions */}
-          <View style={styles.suggestionsRow}>
-            {conflict.suggestions.map((suggestion, k) => (
-              <Pressable
-                key={k}
-                onPress={() => onAction(suggestion.action)}
-                style={({ pressed }) => [styles.suggestionChip, pressed && styles.chipPressed]}
-              >
-                <Text style={styles.suggestionText}>{suggestion.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }

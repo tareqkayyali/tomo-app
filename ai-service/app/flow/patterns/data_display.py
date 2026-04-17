@@ -64,6 +64,11 @@ def _register_builders():
         build_test_history_headline,
         build_test_history_chips,
     )
+    from app.flow.card_builders.conflicts import (
+        build_conflicts_card,
+        build_conflicts_headline,
+        build_conflicts_chips,
+    )
 
     _TOOL_BUILDERS["get_readiness_detail"] = {
         "card": build_readiness_card,
@@ -94,6 +99,11 @@ def _register_builders():
         "card": build_test_history_card,
         "headline": build_test_history_headline,
         "chips": build_test_history_chips,
+    }
+    _TOOL_BUILDERS["detect_load_collision"] = {
+        "card": build_conflicts_card,
+        "headline": build_conflicts_headline,
+        "chips": build_conflicts_chips,
     }
 
 
@@ -221,7 +231,7 @@ async def _call_tool(tool_name: str, user_id: str, context, tool_args: dict | No
         if tool_name in ("get_readiness_detail", "get_dual_load_score"):
             from app.agents.tools.output_tools import make_output_tools
             tools = make_output_tools(user_id, context)
-        elif tool_name in ("get_today_events", "get_week_schedule"):
+        elif tool_name in ("get_today_events", "get_week_schedule", "detect_load_collision"):
             from app.agents.tools.timeline_tools import make_timeline_tools
             tools = make_timeline_tools(user_id, context)
         elif tool_name in ("get_consistency_score",):
@@ -268,6 +278,7 @@ def _build_error_response(tool_name: str, error_data: dict) -> dict:
         "get_consistency_score": "Couldn't load your streak",
         "get_dual_load_score": "Couldn't load your training load",
         "get_test_results": "No test results found",
+        "detect_load_collision": "Couldn't check conflicts",
     }
 
     headline = error_headlines.get(tool_name, "Couldn't get that data")
@@ -280,6 +291,7 @@ def _build_error_response(tool_name: str, error_data: dict) -> dict:
         "get_consistency_score": "Check in to start building your streak.",
         "get_dual_load_score": "Need a few days of data to calculate your load.",
         "get_test_results": "Log a test to start tracking your progress.",
+        "detect_load_collision": "Try again in a sec -- might just be a hiccup.",
     }
     body = error_bodies.get(tool_name, suggestion or "Something didn't connect.")
 
@@ -314,6 +326,12 @@ def _extract_tool_args(tool_name: str, state: TomoChatState, context) -> dict:
     Without this, every schedule query defaults to today's date, so
     'show me tomorrow's schedule' would incorrectly show today.
     """
+    # detect_load_collision via the check_conflicts intent defaults to a 7-day scan
+    # matching the mobile capsule UI ("Checked N events over X days").
+    if tool_name == "detect_load_collision":
+        today = getattr(context, "today_date", None)
+        return {"date": today, "days": 7} if today else {"days": 7}
+
     if tool_name not in ("get_today_events", "get_week_schedule"):
         return {}
 
@@ -416,4 +434,5 @@ def state_get_original_message(tool_name: str) -> str:
         "get_consistency_score": "What's my streak?",
         "get_dual_load_score": "What's my training load?",
         "get_test_results": "Show my test history",
+        "detect_load_collision": "Check for any schedule conflicts",
     }.get(tool_name, "Can you try that again?")
