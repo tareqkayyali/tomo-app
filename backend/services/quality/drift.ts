@@ -52,42 +52,6 @@ interface DailyRow {
   actionability: number | null;
 }
 
-/** Raw chat_quality_scores row shape needed to compute DailyRow values. */
-interface RawScoreRow {
-  created_at: string;
-  sport: string | null;
-  age_band: string | null;
-  agent: string | null;
-  has_rag: boolean | null;
-  [key: string]: unknown;
-}
-
-/** Trimmed mean of available A/B/C scores for one dimension. Null if all null. */
-function trimmedDim(r: RawScoreRow, dim: string): number | null {
-  const vals = [r[`a_${dim}`], r[`b_${dim}`], r[`c_${dim}`]]
-    .filter((v): v is number => typeof v === "number");
-  if (vals.length === 0) return null;
-  return vals.reduce((s, v) => s + v, 0) / vals.length;
-}
-
-function toDailyRow(r: RawScoreRow): DailyRow {
-  return {
-    day: r.created_at,
-    sport: r.sport,
-    age_band: r.age_band,
-    agent: r.agent,
-    has_rag: r.has_rag ?? false,
-    faithfulness: trimmedDim(r, "faithfulness"),
-    answer_quality: trimmedDim(r, "answer_quality"),
-    tone: trimmedDim(r, "tone"),
-    age_fit: trimmedDim(r, "age_fit"),
-    conversational: trimmedDim(r, "conversational"),
-    empathy: trimmedDim(r, "empathy"),
-    personalization: trimmedDim(r, "personalization"),
-    actionability: trimmedDim(r, "actionability"),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Pure math helpers
 // ---------------------------------------------------------------------------
@@ -131,29 +95,14 @@ export async function runDriftDetection(): Promise<DriftDetectionResult> {
     Date.now() - (BASELINE_WINDOW_DAYS + RECENT_WINDOW_DAYS) * 86400000
   ).toISOString();
 
-  // Read chat_quality_scores directly rather than the daily view — keeps the
-  // code independent of PostgREST's schema cache and lets us compute trimmed
-  // dimension means in TS. The daily view still exists for admin SQL use.
-  const columns = [
-    "created_at", "sport", "age_band", "agent", "has_rag",
-    "a_faithfulness", "b_faithfulness", "c_faithfulness",
-    "a_answer_quality", "b_answer_quality", "c_answer_quality",
-    "a_tone", "b_tone", "c_tone",
-    "a_age_fit", "b_age_fit", "c_age_fit",
-    "a_conversational", "b_conversational", "c_conversational",
-    "a_empathy", "b_empathy", "c_empathy",
-    "a_personalization", "b_personalization", "c_personalization",
-    "a_actionability", "b_actionability", "c_actionability",
-  ].join(", ");
-
   const { data, error } = await db
-    .from("chat_quality_scores")
-    .select(columns)
-    .gte("created_at", cutoff);
+    .from("v_quality_scores_daily_by_segment")
+    .select("*")
+    .gte("day", cutoff);
 
   if (error) throw new Error(`drift load failed: ${error.message}`);
 
-  const rows = ((data ?? []) as RawScoreRow[]).map(toDailyRow);
+  const rows = (data ?? []) as DailyRow[];
   logger.info("[drift] rows loaded", { count: rows.length });
 
   const segments = enumerateSegments(rows);

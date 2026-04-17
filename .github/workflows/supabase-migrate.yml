@@ -1,0 +1,90 @@
+name: Supabase Migrate (manual)
+
+# Manual-trigger only. Applies pending Supabase schema migrations to the
+# linked production project via the Supabase CLI. Matches the `supabase db
+# push` local flow so PostgREST reloads its schema cache cleanly.
+#
+# Use for: schema DDL (CREATE/ALTER TABLE, CREATE VIEW, CREATE INDEX, RLS).
+# Do NOT use for: data migrations (INSERT/UPDATE) — use SQL Editor for those.
+#
+# Secrets required (Settings → Secrets and variables → Actions):
+#   SUPABASE_ACCESS_TOKEN — https://supabase.com/dashboard/account/tokens
+#   SUPABASE_PROJECT_REF  — 20-char project ref (e.g. ydtnhxqwvtnypjisaavm)
+#   SUPABASE_DB_PASSWORD  — database password from Project Settings → Database
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — show what would be applied, then exit"
+        type: boolean
+        default: true
+      confirm:
+        description: "Type 'apply' to actually run migrations (ignored if dry_run=true)"
+        type: string
+        default: ""
+
+concurrency:
+  group: supabase-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: supabase db push
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard — confirm required for non-dry-run
+        if: ${{ inputs.dry_run == false }}
+        run: |
+          if [ "${{ inputs.confirm }}" != "apply" ]; then
+            echo "::error::non-dry-run requires confirm='apply' input"
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+
+      - name: Show pending migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          echo "=== local migrations (repo) ==="
+          ls -la supabase/migrations/ || true
+          echo
+          echo "=== remote migration state ==="
+          supabase migration list --linked || true
+
+      - name: Dry-run (diff only)
+        if: ${{ inputs.dry_run == true }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          echo "Dry run — no changes will be applied."
+          echo "To apply, re-run with dry_run=false + confirm=apply."
+          supabase db push --linked --dry-run
+
+      - name: Apply migrations
+        if: ${{ inputs.dry_run == false }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase db push --linked
+          echo
+          echo "Migrations applied. PostgREST schema cache reloads automatically."
