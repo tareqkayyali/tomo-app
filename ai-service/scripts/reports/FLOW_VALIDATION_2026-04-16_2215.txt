@@ -1,0 +1,92 @@
+========================================================================
+  TOMO AI — 4-Layer Flow Validation Report
+  Generated: 2026-04-16T22:15:08.940686
+========================================================================
+
+============================================================
+  Layer 1: Intent Classification Accuracy
+  611/611 passed (100%)
+============================================================
+
+  [exact_match] 468/468 passed
+
+  [fallthrough_safety] 6/6 passed
+
+  [date_extraction] 7/7 passed
+
+  [focus_extraction] 10/10 passed
+
+  [registry_coverage] 102/102 passed
+
+  [haiku_classification] 18/18 passed
+
+============================================================
+  Layer 2: Flow Pattern Validation
+  25/25 passed (100%)
+============================================================
+
+  [flow_pattern] 25/25 passed
+
+============================================================
+  Layer 3: End-to-End Pipeline Integration
+  20/20 passed (100%)
+============================================================
+
+  [e2e_pipeline] 20/20 passed
+
+============================================================
+  Layer 4: Capsule Action & Multi-Step Chain
+  21/21 passed (100%)
+============================================================
+
+  [write_action] 2/2 passed
+
+  [capsule_chain] 5/5 passed
+
+  [capsule_variants] 4/4 passed
+
+  [study_capsule] 8/8 passed
+
+  [data_display_chain] 2/2 passed
+
+============================================================
+  Layer 5: Response Format Validation
+  126/126 passed (100%)
+============================================================
+
+  [response_structure] 18/18 passed
+
+  [headline_present] 18/18 passed
+
+  [chips_capped] 18/18 passed
+
+  [chip_shape_valid] 13/13 passed
+
+  [no_body_headline_dup] 18/18 passed
+
+  [no_emoji] 18/18 passed
+
+  [card_type_valid] 13/13 passed
+
+  [card_present] 10/10 passed
+
+========================================================================
+  AGGREGATE
+========================================================================
+  Total tests: 803
+  Total passed: 803 (100%)
+  Total time: 134.5s
+  Total cost: $-0.0607
+
+========================================================================
+  DEPLOY GATE
+========================================================================
+  [PASS] Layer 1 (Intent Classification Accuracy): 100% (threshold: 95%)
+  [PASS] Layer 2 (Flow Pattern Validation): 100% (threshold: 90%)
+  [PASS] Layer 3 (End-to-End Pipeline Integration): 100% (threshold: 85%)
+  [PASS] Layer 4 (Capsule Action & Multi-Step Chain): 100% (threshold: 90%)
+  [PASS] Layer 5 (Response Format Validation): 100% (threshold: 85%)
+  [PASS] Overall: 100% (threshold: 90%)
+
+  DEPLOY GATE: PASSED
+========================================================================

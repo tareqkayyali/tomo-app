@@ -1,0 +1,109 @@
+========================================================================
+  TOMO AI — 4-Layer Flow Validation Report
+  Generated: 2026-04-16T20:41:17.212626
+========================================================================
+
+============================================================
+  Layer 1: Intent Classification Accuracy
+  543/561 passed (97%)
+============================================================
+
+  [exact_match] 418/418 passed
+
+  [fallthrough_safety] 6/6 passed
+
+  [date_extraction] 7/7 passed
+
+  [focus_extraction] 10/10 passed
+
+  [registry_coverage] 102/102 passed
+
+  [haiku_classification] 0/18 passed
+    FAIL: Haiku SKIPPED: 'can you help me plan a session for thursday evening' -> build_session
+      expected: build_session
+      actual:   SKIPPED
+      reason:   Haiku unavailable: 1 validation error for TemporalContext
+time_of_day
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+    FAIL: Haiku SKIPPED: 'set up a quick gym session for after school' -> build_session
+      expected: build_session
+      actual:   SKIPPED
+      reason:   Haiku unavailable: 1 validation error for TemporalContext
+time_of_day
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+    FAIL: Haiku SKIPPED: 'i need a training session for the weekend' -> build_session
+      expected: build_session
+      actual:   SKIPPED
+      reason:   Haiku unavailable: 1 validation error for TemporalContext
+time_of_day
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+    FAIL: Haiku SKIPPED: 'am i good to go for training' -> qa_readiness
+      expected: qa_readiness
+      actual:   SKIPPED
+      reason:   Haiku unavailable: 1 validation error for TemporalContext
+time_of_day
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+    FAIL: Haiku SKIPPED: 'how's my body feeling according to the data' -> qa_readiness
+      expected: qa_readiness
+      actual:   SKIPPED
+      reason:   Haiku unavailable: 1 validation error for TemporalContext
+time_of_day
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+    FAIL: Haiku SKIPPED: 'what's happening on friday' -> qa_today_schedule
+      expected: qa_today_schedule
+      actual:   SKIPPED
+      reason:   Haiku unavailable: 1 validation error for TemporalContext
+time_of_day
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+    FAIL: Haiku SKIPPED: 'do i have anything planned for the weekend' -> qa_week_schedule
+      expected: qa_week_schedule
+      actual:   SKIPPED
+      reason:   Haiku unavailable: 1 validation error for TemporalContext
+time_of_day
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+    FAIL: Haiku SKIPPED: 'my hamstrings are really tight after yesterday' -> agent_fallthrough
+      expected: agent_fallthrough
+      actual:   SKIPPED
+      reason:   Haiku unavailable: 1 validation error for TemporalContext
+time_of_day
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+    FAIL: Haiku SKIPPED: 'should i do some recovery work today' -> load_advice_request
+      expected: load_advice_request
+      actual:   SKIPPED
+      reason:   Haiku unavailable: 1 validation error for TemporalContext
+time_of_day
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+    FAIL: Haiku SKIPPED: 'what's good bro' -> greeting
+      expected: greeting
+      actual:   SKIPPED
+      reason:   Haiku unavailable: 1 validation error for TemporalContext
+time_of_day
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+    ... and 8 more failures
+
+========================================================================
+  AGGREGATE
+========================================================================
+  Total tests: 561
+  Total passed: 543 (97%)
+  Total time: 0.5s
+  Total cost: $0.0000
+
+========================================================================
+  DEPLOY GATE
+========================================================================
+  [PASS] Layer 1 (Intent Classification Accuracy): 97% (threshold: 95%)
+  [PASS] Overall: 97% (threshold: 90%)
+
+  DEPLOY GATE: PASSED
+========================================================================

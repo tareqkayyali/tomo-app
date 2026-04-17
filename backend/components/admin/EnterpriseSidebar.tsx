@@ -95,6 +95,13 @@ const navigation: NavGroup[] = [
     ],
   },
   {
+    label: "Dashboard CMS",
+    minRole: "institutional_pd",
+    items: [
+      { name: "Dashboard Sections", href: "/admin/dashboard-sections" },
+    ],
+  },
+  {
     label: "Planning Intelligence",
     minRole: "institutional_pd",
     items: [

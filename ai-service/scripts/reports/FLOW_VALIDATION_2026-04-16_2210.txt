@@ -1,0 +1,31 @@
+========================================================================
+  TOMO AI — 4-Layer Flow Validation Report
+  Generated: 2026-04-16T22:10:44.940307
+========================================================================
+
+============================================================
+  Layer 2: Flow Pattern Validation
+  24/25 passed (96%)
+============================================================
+
+  [flow_pattern] 24/25 passed
+    FAIL: Flow: 'study math tomorrow' -> study_scheduling_capsule/study_scheduling_capsule
+      expected: pattern=study_scheduling_capsule, card=study_scheduling_capsule
+      actual:   pattern=None, cards=['schedule_list', 'choice_card']
+
+========================================================================
+  AGGREGATE
+========================================================================
+  Total tests: 25
+  Total passed: 24 (96%)
+  Total time: 47.3s
+  Total cost: $-0.0181
+
+========================================================================
+  DEPLOY GATE
+========================================================================
+  [PASS] Layer 2 (Flow Pattern Validation): 96% (threshold: 90%)
+  [PASS] Overall: 96% (threshold: 90%)
+
+  DEPLOY GATE: PASSED
+========================================================================

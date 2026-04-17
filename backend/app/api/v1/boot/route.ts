@@ -22,6 +22,7 @@ import {
 import { evaluatePDProtocols } from "@/services/pdil";
 import { evaluateSignal } from "@/services/signals";
 import type { RecentVitalEntry, YesterdayVitals } from "@/services/signals";
+import { resolveDashboardLayout } from "@/services/dashboard/dashboardSectionLoader";
 
 export async function GET(request: NextRequest) {
   try {
@@ -393,6 +394,43 @@ export async function GET(request: NextRequest) {
       // signalContext stays null — Dashboard shows neutral state
     }
 
+    // ── Dashboard Layout Resolution ──
+    // Resolve CMS-managed dashboard sections against athlete snapshot.
+    // Filters by visibility conditions + sport. Returns ordered layout.
+    let dashboardLayout: Array<{
+      section_key: string;
+      display_name: string;
+      component_type: string;
+      sort_order: number;
+      config: Record<string, unknown>;
+      coaching_text: string | null;
+    }> = [];
+    try {
+      const snapshotFlat = {
+        ...(snapshot as Record<string, unknown> ?? {}),
+        readiness_score: (snapshot as any)?.readiness_score,
+        readiness_rag: (snapshot as any)?.readiness_rag,
+        energy: latestCheckin?.energy,
+        soreness: latestCheckin?.soreness,
+        mood: latestCheckin?.mood,
+        sleep_hours: whoopSleep?.value ?? latestCheckin?.sleep_hours,
+        academic_stress: latestCheckin?.academic_stress,
+        has_active_protocol: (pdContext?.activeProtocols?.length ?? 0) > 0,
+        dual_load_index: (snapshot as any)?.dual_load_index ?? 0,
+        phv_stage: (snapshot as any)?.phv_stage ?? 'none',
+        first_name: profile?.name?.split(' ')[0] ?? 'Athlete',
+        current_streak: profile?.current_streak ?? 0,
+        coaching_summary: signalContext?.coaching ?? '',
+      };
+      dashboardLayout = await resolveDashboardLayout(
+        snapshotFlat,
+        profile?.sport ?? undefined,
+      );
+    } catch (err) {
+      console.warn('[boot] Dashboard layout resolution failed, returning empty:', err);
+      // dashboardLayout stays [] — mobile renders fallback hardcoded layout
+    }
+
     // ── Shape response ──
     const bootPayload = {
       name: profile?.name ?? "Athlete",
@@ -576,6 +614,12 @@ export async function GET(request: NextRequest) {
       // ── Yesterday's Vitals ──
       // For Dashboard delta calculations in trigger rows.
       yesterdayVitals,
+
+      // ── Dashboard Layout (CMS-managed) ──
+      // Ordered array of sections the athlete should see, filtered by
+      // visibility conditions and sport. Config + coaching_text are resolved.
+      // Empty array = mobile falls back to hardcoded default layout.
+      dashboardLayout,
 
       fetchedAt: new Date().toISOString(),
     };

@@ -1,0 +1,37 @@
+========================================================================
+  TOMO AI — 4-Layer Flow Validation Report
+  Generated: 2026-04-16T20:50:08.380167
+========================================================================
+
+============================================================
+  Layer 3: End-to-End Pipeline Integration
+  17/20 passed (85%)
+============================================================
+
+  [e2e_pipeline] 17/20 passed
+    FAIL: E2E: 'what's my readiness score' -> *
+      expected: agent=*, keywords=['readiness']
+      actual:   agent=performance, kw_ratio=0%, resp_len=47
+    FAIL: E2E: 'how's my ACWR' -> *
+      expected: agent=*, keywords=['acwr']
+      actual:   agent=performance, kw_ratio=0%, resp_len=30
+    FAIL: E2E: 'go to timeline' -> *
+      expected: agent=*, keywords=['timeline']
+      actual:   agent=settings, kw_ratio=0%, resp_len=20
+
+========================================================================
+  AGGREGATE
+========================================================================
+  Total tests: 20
+  Total passed: 17 (85%)
+  Total time: 29.7s
+  Total cost: $-0.0552
+
+========================================================================
+  DEPLOY GATE
+========================================================================
+  [PASS] Layer 3 (End-to-End Pipeline Integration): 85% (threshold: 85%)
+  [FAIL] Overall: 85% (threshold: 90%)
+
+  DEPLOY GATE: FAILED
+========================================================================

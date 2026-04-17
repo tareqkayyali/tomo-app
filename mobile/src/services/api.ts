@@ -273,6 +273,16 @@ export interface BootData {
     positionNote: string;
   }[];
 
+  // ── Dashboard Layout (CMS-managed) ──
+  dashboardLayout: {
+    section_key: string;
+    display_name: string;
+    component_type: string;
+    sort_order: number;
+    config: Record<string, unknown>;
+    coaching_text: string | null;
+  }[];
+
   fetchedAt: string;
 }
 

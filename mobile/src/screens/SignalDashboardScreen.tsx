@@ -27,6 +27,7 @@ import { useNavigation } from '@react-navigation/native';
 import { SignalHero } from '../components/dashboard/SignalHero';
 import { TodaysPlanCard } from '../components/dashboard/TodaysPlanCard';
 import { DailyRecommendations } from '../components/dashboard/DailyRecommendations';
+import { DashboardSectionRenderer } from '../components/dashboard/sections';
 import { ProgramPanel } from '../components/dashboard/panels/ProgramPanel';
 import { MetricsPanel } from '../components/dashboard/panels/MetricsPanel';
 import { ProgressPanel } from '../components/dashboard/panels/ProgressPanel';
@@ -194,6 +195,16 @@ export function SignalDashboardScreen() {
           recs={bootData?.dashboardRecs ?? []}
           signalColor={signal.color}
         />
+
+        {/* CMS-Driven Dashboard Sections */}
+        {bootData && Array.isArray(bootData.dashboardLayout) && bootData.dashboardLayout.length > 0 && (
+          <View style={styles.section}>
+            <DashboardSectionRenderer
+              layout={bootData.dashboardLayout}
+              bootData={bootData}
+            />
+          </View>
+        )}
 
         {/* Up Next — future timeline activities with contextual hints */}
         <View style={styles.section}>

@@ -1,0 +1,65 @@
+========================================================================
+  TOMO AI — 4-Layer Flow Validation Report
+  Generated: 2026-04-16T20:53:24.039389
+========================================================================
+
+============================================================
+  Layer 1: Intent Classification Accuracy
+  561/561 passed (100%)
+============================================================
+
+  [exact_match] 418/418 passed
+
+  [fallthrough_safety] 6/6 passed
+
+  [date_extraction] 7/7 passed
+
+  [focus_extraction] 10/10 passed
+
+  [registry_coverage] 102/102 passed
+
+  [haiku_classification] 18/18 passed
+
+============================================================
+  Layer 2: Flow Pattern Validation
+  21/22 passed (95%)
+============================================================
+
+  [flow_pattern] 21/22 passed
+    FAIL: Flow: 'this week's schedule' -> data_display/week_schedule
+      expected: pattern=data_display, card=week_schedule
+      actual:   pattern=data_display, cards=['schedule_list']
+
+============================================================
+  Layer 3: End-to-End Pipeline Integration
+  20/20 passed (100%)
+============================================================
+
+  [e2e_pipeline] 20/20 passed
+
+============================================================
+  Layer 4: Capsule Action Round-Trip
+  1/1 passed (100%)
+============================================================
+
+  [capsule_action] 1/1 passed
+
+========================================================================
+  AGGREGATE
+========================================================================
+  Total tests: 604
+  Total passed: 603 (100%)
+  Total time: 83.6s
+  Total cost: $-0.0660
+
+========================================================================
+  DEPLOY GATE
+========================================================================
+  [PASS] Layer 1 (Intent Classification Accuracy): 100% (threshold: 95%)
+  [PASS] Layer 2 (Flow Pattern Validation): 95% (threshold: 90%)
+  [PASS] Layer 3 (End-to-End Pipeline Integration): 100% (threshold: 85%)
+  [PASS] Layer 4 (Capsule Action Round-Trip): 100% (threshold: 90%)
+  [PASS] Overall: 100% (threshold: 90%)
+
+  DEPLOY GATE: PASSED
+========================================================================

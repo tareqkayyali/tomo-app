@@ -1,0 +1,42 @@
+========================================================================
+  TOMO AI — 4-Layer Flow Validation Report
+  Generated: 2026-04-16T21:05:06.258421
+========================================================================
+
+============================================================
+  Layer 5: Response Format Validation
+  126/126 passed (100%)
+============================================================
+
+  [response_structure] 18/18 passed
+
+  [headline_present] 18/18 passed
+
+  [chips_capped] 18/18 passed
+
+  [chip_shape_valid] 13/13 passed
+
+  [no_body_headline_dup] 18/18 passed
+
+  [no_emoji] 18/18 passed
+
+  [card_type_valid] 13/13 passed
+
+  [card_present] 10/10 passed
+
+========================================================================
+  AGGREGATE
+========================================================================
+  Total tests: 126
+  Total passed: 126 (100%)
+  Total time: 23.6s
+  Total cost: $0.0000
+
+========================================================================
+  DEPLOY GATE
+========================================================================
+  [PASS] Layer 5 (Response Format Validation): 100% (threshold: 85%)
+  [PASS] Overall: 100% (threshold: 90%)
+
+  DEPLOY GATE: PASSED
+========================================================================

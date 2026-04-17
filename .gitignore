@@ -6,6 +6,9 @@ node_modules/
 .env.local
 .env.vercel
 .env.seed
+.env.production
+.env.production.backup
+*.env.production.backup
 
 # OS
 .DS_Store
