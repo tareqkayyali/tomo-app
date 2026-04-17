@@ -85,6 +85,13 @@ export async function proxy(req: NextRequest) {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
   }
 
+  // Chat Quality cron endpoints — verified by X-Cron-Secret via cronAuth.ts.
+  // Covers /api/v1/cron/quality-drift-check, /auto-repair-scan,
+  // /shadow-evaluate, /golden-set-curate.
+  if (pathname.startsWith("/api/v1/cron/")) {
+    return addCorsHeaders(NextResponse.next({ request: req }), origin);
+  }
+
   // Event processor webhook uses its own secret auth (Supabase Database Webhook)
   if (pathname === "/api/v1/events/process") {
     return addCorsHeaders(NextResponse.next({ request: req }), origin);
