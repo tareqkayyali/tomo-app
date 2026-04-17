@@ -1,5 +1,9 @@
 # Dependencies
 node_modules/
+# The Expo web export bundles its runtime assets under this path — they
+# must ship with the build, so override the node_modules rule there.
+!backend/public/webapp/assets/node_modules/
+!backend/public/webapp/assets/node_modules/**
 
 # Environment
 .env
