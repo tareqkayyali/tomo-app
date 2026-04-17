@@ -20,8 +20,10 @@ import {
   DEFAULT_PREFERENCES,
   detectScenario,
   getEffectiveRules,
+  getEffectiveRulesWithMode,
   type PlayerSchedulePreferences,
 } from "@/services/scheduling/scheduleRuleEngine";
+import { getModeDefinition } from "@/services/scheduling/modeConfig";
 import { emitEventSafe } from "@/services/events/eventEmitter";
 
 // All columns that can be written via PATCH
@@ -115,12 +117,25 @@ export async function GET(req: NextRequest) {
   };
 
   const scenario = detectScenario(merged);
-  const effective = getEffectiveRules(merged, scenario);
+  const athleteMode = (merged as any).athlete_mode ?? "balanced";
+
+  // Use CMS mode-aware rules when mode params are available; fall back to legacy scenario-based rules
+  let effective;
+  try {
+    const modeDef = await getModeDefinition(athleteMode);
+    if (modeDef?.params) {
+      effective = getEffectiveRulesWithMode(merged, modeDef.params, athleteMode);
+    } else {
+      effective = getEffectiveRules(merged, scenario);
+    }
+  } catch {
+    effective = getEffectiveRules(merged, scenario);
+  }
 
   return NextResponse.json({
     preferences: merged,
     scenario,
-    athleteMode: (merged as any).athlete_mode ?? "balanced",
+    athleteMode,
     effectiveRules: {
       buffers: effective.buffers,
       intensityCaps: effective.intensityCaps,

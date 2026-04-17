@@ -13,9 +13,11 @@ import {
   DEFAULT_PREFERENCES,
   detectScenario,
   getEffectiveRules,
+  getEffectiveRulesWithMode,
   type EffectiveRules,
   type PlayerSchedulePreferences,
 } from "@/services/scheduling/scheduleRuleEngine";
+import { getModeDefinition } from "@/services/scheduling/modeConfig";
 import {
   findAvailableSlots,
   timeToMinutes,
@@ -93,7 +95,20 @@ export async function validateBatch(
 
   const prefs: PlayerSchedulePreferences = { ...DEFAULT_PREFERENCES, ...(prefsRow ?? {}) };
   const scenario = detectScenario(prefs);
-  const effective = getEffectiveRules(prefs, scenario);
+
+  // Use CMS mode-aware rules when mode params are available
+  const athleteMode = (prefs as any).athlete_mode ?? "balanced";
+  let effective: EffectiveRules;
+  try {
+    const modeDef = await getModeDefinition(athleteMode);
+    if (modeDef?.params) {
+      effective = getEffectiveRulesWithMode(prefs, modeDef.params, athleteMode);
+    } else {
+      effective = getEffectiveRules(prefs, scenario);
+    }
+  } catch {
+    effective = getEffectiveRules(prefs, scenario);
+  }
   const schedulingConfig = configFromEffectiveRules(effective, {
     days: prefs.school_days as number[],
     startTime: prefs.school_start,

@@ -13,6 +13,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { InlineProgram, Prescription } from "./footballPrograms";
 import { getRecommendationConfig } from "@/services/recommendations/recommendationConfig";
 import { buildSelectColumns, mapRowToState } from "./snapshotFieldRegistry";
+import { getModeDefinition, type ModeParams } from "@/services/scheduling/modeConfig";
 
 // ── Types ──
 
@@ -187,6 +188,36 @@ export async function applyGuardrails(
     loadCap = Math.min(loadCap, g.trainingAge.cap);
     rules.push(`Training age ${snapshot.trainingAgeWeeks}w: beginner, reduced volume for adaptation`);
     blockedCategories.push(...g.trainingAge.blockedCategories);
+  }
+
+  // ── Rule 9: Athlete Mode Load Cap ──
+  // CMS-managed mode params override load caps (e.g. rest mode caps at 50%, study caps at 70%)
+  const athleteMode = (snapshot as any).athleteMode ?? (snapshot as any).athlete_mode ?? null;
+  if (athleteMode && typeof athleteMode === 'string') {
+    try {
+      const modeDef = await getModeDefinition(athleteMode);
+      if (modeDef?.params) {
+        const mp = modeDef.params;
+        // Apply mode-specific load cap multiplier
+        if (mp.loadCapMultiplier < 1.0) {
+          loadCap = Math.min(loadCap, mp.loadCapMultiplier);
+          rules.push(`Mode "${athleteMode}": load capped at ${Math.round(mp.loadCapMultiplier * 100)}%`);
+        }
+        // Rest mode blocks high-intensity categories
+        if (athleteMode === 'rest') {
+          const restBlocked = ['plyometric', 'speed', 'explosive', 'match_prep'];
+          blockedCategories.push(...restBlocked);
+          rules.push(`Mode "rest": blocking high-intensity categories (${restBlocked.join(', ')})`);
+        }
+        // Drop personal dev programs if mode says so
+        if (mp.dropPersonalDev) {
+          blockedCategories.push('personal_dev', 'mental_skills');
+          rules.push(`Mode "${athleteMode}": dropping personal development categories`);
+        }
+      }
+    } catch {
+      // Graceful degradation — if mode lookup fails, skip rule 9
+    }
   }
 
   // ── Custom Attributes (legacy) ──

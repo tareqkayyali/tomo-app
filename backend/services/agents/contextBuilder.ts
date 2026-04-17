@@ -21,6 +21,7 @@ import {
   type PlayerSchedulePreferences,
   type ScenarioId,
 } from "@/services/scheduling/scheduleRuleEngine";
+import { getModeDefinition, type ModeParams } from "@/services/scheduling/modeConfig";
 
 export interface PlayerContext {
   // Identity
@@ -597,9 +598,21 @@ export async function buildPlayerContext(
         }))
     : [];
 
+  // Resolve CMS mode params for the athlete's active mode
+  const activeModeId = (snapshot as any)?.athlete_mode ?? null;
+  let resolvedModeParams: ModeParams | null = null;
+  if (activeModeId) {
+    try {
+      const modeDef = await getModeDefinition(activeModeId);
+      resolvedModeParams = modeDef?.params ?? null;
+    } catch {
+      // Graceful degradation — if CMS lookup fails, proceed without mode params
+    }
+  }
+
   const planningContext = snapshot ? {
-    activeMode: (snapshot as any).athlete_mode ?? null,
-    modeParams: null, // Populated from CMS when needed, not stored on snapshot
+    activeMode: activeModeId,
+    modeParams: resolvedModeParams as Record<string, unknown> | null,
     applicableProtocols: applicableIds,
     applicableProtocolDetails,
     dualLoadZone: (snapshot as any).dual_load_zone ?? null,

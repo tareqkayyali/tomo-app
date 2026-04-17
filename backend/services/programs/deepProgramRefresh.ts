@@ -545,6 +545,27 @@ Today's events: ${ctx.todayEvents.length > 0
     ? ctx.todayEvents.map(e => `${e.title} (${e.event_type})`).join(', ')
     : 'Nothing scheduled'}`);
 
+  // ── Athlete Mode context (from CMS-managed mode definitions)
+  const pc = ctx.planningContext;
+  if (pc?.activeMode) {
+    const mp = pc.modeParams as Record<string, unknown> | null;
+    const modeLines: string[] = [`--- ATHLETE MODE ---`, `Active mode: ${String(pc.activeMode).toUpperCase()}`];
+    if (mp) {
+      if (mp.loadCapMultiplier != null) modeLines.push(`Load cap multiplier: ${mp.loadCapMultiplier}`);
+      if (mp.aiCoachingTone) modeLines.push(`Coaching tone: ${mp.aiCoachingTone}`);
+      if (mp.maxHardPerWeek != null) modeLines.push(`Max HARD sessions/week: ${mp.maxHardPerWeek}`);
+      if (mp.studyTrainingBalanceRatio != null) modeLines.push(`Study/Training balance: ${Math.round((mp.studyTrainingBalanceRatio as number) * 100)}% study / ${Math.round((1 - (mp.studyTrainingBalanceRatio as number)) * 100)}% training`);
+      if (mp.dropPersonalDev) modeLines.push(`Personal development: DROPPED by mode`);
+      if (mp.intensityCapOnExamDays) modeLines.push(`Exam day intensity cap: ${mp.intensityCapOnExamDays}`);
+      const boosts = mp.priorityBoosts as Array<{ category: string; delta: number }> | undefined;
+      if (boosts && boosts.length > 0) {
+        modeLines.push(`Priority boosts: ${boosts.map(b => `${b.category} ${b.delta > 0 ? '+' : ''}${b.delta}`).join(', ')}`);
+      }
+    }
+    modeLines.push(`\nRESPECT THE ATHLETE MODE when selecting programs. If load cap < 1.0, reduce volumes. If coaching tone is "academic" or "supportive", prefer lighter programs.`);
+    sections.push(modeLines.join('\n'));
+  }
+
   // ── Excluded Programs (user dismissed or completed)
   if (excludedProgramIds.length > 0) {
     sections.push(`--- EXCLUDED PROGRAMS (DO NOT SELECT THESE — user marked as done/not relevant) ---

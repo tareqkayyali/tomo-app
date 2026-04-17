@@ -23,6 +23,7 @@ import { evaluatePDProtocols } from "@/services/pdil";
 import { evaluateSignal } from "@/services/signals";
 import type { RecentVitalEntry, YesterdayVitals } from "@/services/signals";
 import { resolveDashboardLayout } from "@/services/dashboard/dashboardSectionLoader";
+import { getModeDefinition, type ModeParams } from "@/services/scheduling/modeConfig";
 
 export async function GET(request: NextRequest) {
   try {
@@ -251,6 +252,28 @@ export async function GET(request: NextRequest) {
         ? { athlete_mode: prefsAthleteMode }
         : null;
 
+    // Apply mode priority boosts to recommendation ordering
+    // CMS mode params can boost/demote recommendation categories (e.g. study mode boosts ACADEMIC recs)
+    const effectiveAthleteMode = planningContext?.athlete_mode ?? 'balanced';
+    let boostedRecs = [...activeRecs];
+    try {
+      const modeDef = await getModeDefinition(effectiveAthleteMode);
+      if (modeDef?.params?.priorityBoosts && modeDef.params.priorityBoosts.length > 0) {
+        const boostMap = new Map(modeDef.params.priorityBoosts.map((b: { category: string; delta: number }) => [b.category.toUpperCase(), b.delta]));
+        boostedRecs = boostedRecs.map((r: any) => {
+          const recType = (r.rec_type ?? r.recType ?? '').toUpperCase();
+          const delta = boostMap.get(recType) ?? 0;
+          if (delta === 0) return r;
+          // Lower priority number = higher importance; negative delta = boost (raise importance)
+          return { ...r, priority: Math.max(1, (r.priority ?? 3) - delta) };
+        });
+        // Re-sort by effective priority (lower = more important)
+        boostedRecs.sort((a: any, b: any) => (a.priority ?? 3) - (b.priority ?? 3));
+      }
+    } catch {
+      // Graceful degradation — use original ordering if mode lookup fails
+    }
+
     // Recent vitals (7 days) for Dashboard signal sparklines
     const recentVitalsRaw = recentVitalsRes.status === "fulfilled" ? (recentVitalsRes.value as any)?.data ?? [] : [];
     const recentVitals: RecentVitalEntry[] = recentVitalsRaw.map((v: any) => ({
@@ -473,14 +496,14 @@ export async function GET(request: NextRequest) {
           }
         : null,
 
-      activeRecs: activeRecs.slice(0, 3).map((r: any) => ({
+      activeRecs: boostedRecs.slice(0, 3).map((r: any) => ({
         type: r.rec_type ?? r.recType,
         priority: r.priority,
         title: r.title,
         bodyShort: r.body_short ?? r.bodyShort ?? null,
       })),
 
-      dashboardRecs: activeRecs.slice(0, 6).map((r: any) => ({
+      dashboardRecs: boostedRecs.slice(0, 6).map((r: any) => ({
         recId: r.rec_id ?? r.recId,
         type: r.rec_type ?? r.recType,
         priority: r.priority,

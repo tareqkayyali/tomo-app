@@ -40,7 +40,8 @@ import {
   type ActionChip,
 } from "./responseFormatter";
 import { isAffirmation, type ConversationMessage, type ConversationState } from "./sessionService";
-import { buildRuleContext } from "@/services/scheduling/scheduleRuleEngine";
+import { buildRuleContext, buildModeRuleContext } from "@/services/scheduling/scheduleRuleEngine";
+import type { ModeParams } from "@/services/scheduling/modeConfig";
 import { withRetry } from "@/lib/aiRetry";
 import { trackedClaudeCall, type TrackedCallMeta } from "@/lib/trackedClaudeCall";
 import { classifyIntent } from "./intentClassifier";
@@ -1012,7 +1013,12 @@ If the user message contains [drillId:UUID], extract that UUID and pass it direc
   if (tc.suggestion) temporalBlock += `\n- Auto-suggestion: ${tc.suggestion}`;
 
   // Build schedule rule context (Layer 2.5 — adds ~400 tokens)
-  const scheduleRuleBlock = `\n\n${buildRuleContext(context.schedulePreferences, context.activeScenario)}`;
+  // Use mode-aware rules when CMS mode params are available; fall back to legacy scenario-based rules
+  const modeParams = context.planningContext?.modeParams as ModeParams | null;
+  const modeId = context.planningContext?.activeMode as string | null;
+  const scheduleRuleBlock = (modeParams && modeId)
+    ? `\n\n${buildModeRuleContext(context.schedulePreferences, modeParams, modeId)}`
+    : `\n\n${buildRuleContext(context.schedulePreferences, context.activeScenario)}`;
 
   // Build Layer 4 recommendation context block (RIE — adds ~200 tokens)
   // Group by rec_type so Claude can easily filter by topic relevance
