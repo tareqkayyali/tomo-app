@@ -333,11 +333,24 @@ def _build_exact_match_map() -> dict[str, dict]:
           "plan today", "let's plan my day", "let's plan today",
           "help me plan today", "what should i do today",
           "organize my day", "plan out my day"], "qa_today_schedule")
-    # Week planning → qa_week_schedule (already timeline agent)
+    # Week planning → build_week_plan (multi-step planner flow).
+    # These are IMPERATIVE phrases ("plan my week", "help me plan…") — the
+    # athlete is asking to *create* a plan, not view an existing schedule.
+    # View-only phrases ("show my week", "plans this week", "am i busy
+    # this week") stay mapped to qa_week_schedule above at line ~188.
+    # This was previously routed to qa_week_schedule before build_week_plan
+    # existed, which silently showed the existing calendar instead of
+    # opening the planner (bug observed 2026-04-18: "help me plan my week"
+    # rendered a read-only schedule).
     _add(["plan my week", "plan for this week", "plan this week",
           "let's plan the week", "let's plan my week",
-          "help me plan my week", "organize my week",
-          "plan out my week", "plan for the week"], "qa_week_schedule")
+          "help me plan my week", "help me plan the week",
+          "help me plan next week", "organize my week",
+          "plan out my week", "plan for the week",
+          "plan next week", "plan the week",
+          "build my week", "build this week",
+          "build next week", "set up my week",
+          "set up next week"], "build_week_plan")
 
     # Cross-feature
     _add(["daily briefing", "morning brief", "what's my day"], "today_briefing")
