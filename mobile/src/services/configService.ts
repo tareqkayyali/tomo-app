@@ -86,58 +86,39 @@ export interface ConfigBundle {
   pages: PageConfigRow[];
   flags: FeatureFlagRow[];
   component_styles: ComponentStyles;
-  proactive_dashboard: DashboardConfig | null;
+  chat_pills: ChatPillsConfig | null;
   fetched_at: string;
 }
 
-// ═══ PROACTIVE DASHBOARD CONFIG (CMS-managed) ═══
+// ═══ CHAT PILLS CONFIG (CMS-managed) ═══
+// See docs/CHAT_PILLS_RFC.md and backend/lib/chatPills/types.ts for the
+// canonical contract. Keep these two definitions in sync.
 
-export interface DashboardConfig {
-  greeting: { enabled: boolean; showEmoji: boolean; customPrefix?: string };
-  pills: DashboardPillConfig[];
-  todaySection: {
-    enabled: boolean;
-    maxEvents: number;
-    showEventTime: boolean;
-    showRestDayMessage: boolean;
-    restDayMessage: string;
+export interface ChatPill {
+  id: string;
+  label: string;
+  message: string;
+  enabled: boolean;
+  allowInEmptyState: boolean;
+  allowInResponse: boolean;
+  tags: string[];
+  excludeTags: string[];
+  priority: number;
+}
+
+export interface ChatPillsConfig {
+  version: 1;
+  emptyState: {
+    mode: 'fixed' | 'dynamic';
+    fixedIds: string[];
+    defaultFallbackIds: string[];
   };
-  flags: DashboardFlagConfig[];
-  chips: DashboardChipConfig[];
-  newUserMessage: string;
-}
-
-export interface DashboardPillConfig {
-  id: string;
-  label: string;
-  emoji: string;
-  dataSource: string;
-  format: string;
-  enabled: boolean;
-  emptyValue: string;
-  colorRules?: { green?: string; yellow?: string; red?: string };
-  tapAction?: string;
-  tapHint?: string;
-  sortOrder: number;
-}
-
-export interface DashboardFlagConfig {
-  id: string;
-  condition: string;
-  icon: string;
-  message: string;
-  color: string;
-  priority: number;
-  enabled: boolean;
-}
-
-export interface DashboardChipConfig {
-  id: string;
-  label: string;
-  message: string;
-  condition?: string;
-  priority: number;
-  enabled: boolean;
+  inResponse: {
+    enabled: boolean;
+    maxPerResponse: number;
+    shadowMode: boolean;
+  };
+  library: ChatPill[];
 }
 
 // ═══ FETCH HELPERS ═══

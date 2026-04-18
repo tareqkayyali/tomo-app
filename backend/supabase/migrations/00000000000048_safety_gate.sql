@@ -14,6 +14,14 @@
 --   5. Single source of truth — ai-service reads this row via a 60s
 --      cache. No env vars, no hardcoded thresholds, no drift.
 
+-- ── Prerequisite: users.is_admin ────────────────────────────────────
+-- Added here (idempotent) so the admin RLS policies below can reference
+-- it. In production this column was added out-of-band; `IF NOT EXISTS`
+-- makes this a safe no-op there. On fresh local resets it closes the
+-- gap that previously caused migration 048 to fail.
+-- Also consumed by migration 049 and by lib/admin/apiAuth.ts.
+alter table public.users add column if not exists is_admin boolean not null default false;
+
 create table if not exists public.safety_gate_config (
   id uuid primary key default gen_random_uuid(),
   -- Master kill-switch. When false the gate is inert (allow=true always).

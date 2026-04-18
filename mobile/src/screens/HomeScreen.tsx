@@ -67,7 +67,8 @@ import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { QuickAccessBar } from '../components/QuickAccessBar';
-import { ProactiveDashboard } from '../components/chat/ProactiveDashboard';
+import { NextBlockLine } from '../components/chat/NextBlockLine';
+import { ChatActionPills } from '../components/chat/ChatActionPills';
 import { useBootData } from '../hooks/useBootData';
 // useFavorites removed — favorites feature deprecated
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
@@ -260,22 +261,6 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       paddingHorizontal: spacing.lg,
     },
-    emptySubtitle: {
-      fontFamily: fontFamily.regular,
-      fontSize: 15,
-      lineHeight: 22,
-      color: colors.textInactive,
-      textAlign: 'center',
-      paddingHorizontal: spacing.lg,
-    },
-    chipsContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'center',
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.md,
-      gap: spacing.sm,
-    },
     chip: {
       backgroundColor: colors.chipBackground,
       paddingVertical: 10,
@@ -291,23 +276,6 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fontFamily.note,
       fontSize: 14,
       color: colors.textOnDark,
-    },
-    capsuleChip: {
-      backgroundColor: colors.accentSubtle,
-      paddingVertical: 10,
-      paddingHorizontal: spacing.md,
-      borderRadius: borderRadius.full,
-      borderWidth: 1,
-      borderColor: colors.accentBorder,
-    },
-    capsuleChipPressed: {
-      opacity: 0.7,
-      backgroundColor: colors.accentSoft,
-    },
-    capsuleChipText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 13,
-      color: colors.accent2,
     },
 
     // ── Chat Messages (ChatGPT-style) ───────────────────────────────
@@ -692,56 +660,9 @@ const SuggestionChip = React.memo(function SuggestionChip({
   );
 });
 
-// ── Capsule quick-action pool for empty chat screen ─────────────────
-const CAPSULE_ACTIONS = [
-  { label: 'Log a test', message: 'I want to log a new test' },
-  { label: 'Check in', message: 'check in' },
-  { label: 'Add event', message: 'I want to add a training session' },
-  { label: 'My strengths', message: 'what are my strengths and gaps?' },
-  { label: 'Leaderboard', message: 'show me the leaderboard' },
-  { label: 'My rules', message: 'edit my schedule rules' },
-  { label: 'Plan training', message: 'plan my training week' },
-  { label: 'Plan study', message: 'plan my study schedule' },
-  { label: 'Check conflicts', message: 'check for any schedule conflicts' },
-  { label: 'My programs', message: 'my programs' },
-  { label: 'Growth stage', message: 'calculate my growth stage' },
-  { label: 'Notifications', message: 'notification settings' },
-  { label: 'My readiness', message: "what's my readiness?" },
-  { label: 'My streak', message: 'my streak' },
-  { label: 'Edit CV', message: 'edit my CV profile' },
-  { label: 'My timeline', message: 'help me manage my timeline' },
-];
-
-function pickRandom<T>(arr: T[], count: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
-}
-
-const RandomCapsuleChips = React.memo(function RandomCapsuleChips({
-  onPress,
-}: {
-  onPress: (message: string) => void;
-}) {
-  const styles = useHomeStyles();
-  const [picks] = useState(() => pickRandom(CAPSULE_ACTIONS, 3));
-
-  return (
-    <View style={styles.chipsContainer}>
-      {picks.map((item, i) => (
-        <Pressable
-          key={`${item.label}-${i}`}
-          onPress={() => onPress(item.message)}
-          style={({ pressed }) => [
-            styles.capsuleChip,
-            pressed && styles.capsuleChipPressed,
-          ]}
-        >
-          <Text style={styles.capsuleChipText}>{item.label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-});
+// Pill inventory moved to CMS — see backend/lib/chatPills/defaults.ts and the
+// Chat Pills admin page (/admin/chat-pills). ChatActionPills.tsx resolves
+// which 4 pills to render at runtime from the config bundle.
 
 // ── Chat Loading Screen — delegates to shared TomoLoader ─────────────
 const ChatLoadingScreen = React.memo(function ChatLoadingScreen() {
@@ -1968,24 +1889,20 @@ export function HomeScreen() {
         )}
 
         {/* ─── Chat Area ───────────────────────────────────────────── */}
+        {/*
+            Empty-state layout (see docs/CHAT_PILLS_RFC.md §4.2):
+              Quote  →  Next Block line  →  4 Chat Action Pills
+            Rendered unconditionally — QuoteCard falls back to a hardcoded
+            quote if ContentBundle is empty, NextBlockLine handles null
+            bootData, and ChatActionPills pads from CMS fallback IDs.
+          */}
         {!showSavedChats && isEmpty ? (
           <Pressable style={styles.emptyContainer} onPress={Keyboard.dismiss}>
-            {bootData ? (
-              <View style={styles.emptyCenter}>
-                <ProactiveDashboard bootData={bootData} onChipPress={handleChipPress} onViewNotifications={() => navigation.navigate('Notifications' as any)} />
-              </View>
-            ) : (
-              <>
-                <View style={styles.emptyCenter}>
-                  {/* ── Motivational Quote (fallback when boot data unavailable) ── */}
-                  <QuoteCard quote={currentQuote} />
-                  <Text style={styles.emptySubtitle}>
-                    {pageConfig?.metadata?.emptyStates?.['chat_subtitle'] || 'Ask about training, recovery, nutrition, or how you\'re feeling.'}
-                  </Text>
-                </View>
-                <RandomCapsuleChips onPress={handleChipPress} />
-              </>
-            )}
+            <View style={styles.emptyCenter}>
+              <QuoteCard quote={currentQuote} />
+              <NextBlockLine bootData={bootData} />
+            </View>
+            <ChatActionPills onPress={handleChipPress} />
           </Pressable>
         ) : !showSavedChats ? (
           <>

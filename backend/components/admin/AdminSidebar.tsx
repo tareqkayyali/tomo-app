@@ -43,6 +43,7 @@ const navigation = [
     label: "Content",
     items: [
       { name: "Content Items", href: "/admin/content", icon: "📝" },
+      { name: "Quotes", href: "/admin/quotes", icon: "💬" },
     ],
   },
   {
@@ -73,7 +74,7 @@ const navigation = [
     label: "App Design",
     items: [
       { name: "Brand Colors", href: "/admin/design/brand", icon: "🎨" },
-      { name: "Proactive Dashboard", href: "/admin/proactive-dashboard", icon: "📊" },
+      { name: "Chat Pills", href: "/admin/chat-pills", icon: "💊" },
       { name: "DNA Card Tiers", href: "/admin/dna-card", icon: "🃏" },
       { name: "Feature Flags", href: "/admin/feature-flags", icon: "🚩" },
       { name: "Scheduling Rules", href: "/admin/scheduling-rules", icon: "" },
