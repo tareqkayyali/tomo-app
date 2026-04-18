@@ -659,12 +659,18 @@ export interface Relationship {
   player: { id: string; name: string; email: string; role: string };
 }
 
+// Triangle compliance authority tier. T1 <13 (COPPA), T2 13-15
+// (GDPR-K 16 EU-wide), T3 ≥16, UNKNOWN = no DOB. Derived server-side
+// in getLinkedPlayers (P1.1, migration 063).
+export type AgeTier = 'T1' | 'T2' | 'T3' | 'UNKNOWN';
+
 export interface PlayerSummary {
   id: string;
   name: string;
   email: string;
   sport: Sport;
   age?: number;
+  ageTier?: AgeTier;
   currentStreak: number;
   totalPoints: number;
   // Snapshot-powered fields (role-filtered via Data Fabric Layer 2)

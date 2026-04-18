@@ -106,6 +106,7 @@ export function ParentChildrenScreen() {
             navigation.navigate('ParentChildDetail', {
               childId: item.id,
               childName: item.name,
+              ageTier: item.ageTier,
             })
           }
           style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}

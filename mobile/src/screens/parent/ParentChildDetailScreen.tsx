@@ -32,6 +32,11 @@ import { GlassCard } from '../../components/GlassCard';
 import { toDateStr } from '../../utils/calendarHelpers';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
+import {
+  parentModeForTier,
+  capabilitiesForMode,
+  type ParentMode,
+} from '../../utils/parentMode';
 
 type Props = NativeStackScreenProps<ParentStackParamList, 'ParentChildDetail'>;
 
@@ -50,9 +55,24 @@ function addDays(date: Date, days: number): Date {
 }
 
 export function ParentChildDetailScreen({ route, navigation }: Props) {
-  const { childId, childName } = route.params;
+  const { childId, childName, ageTier } = route.params;
   const { colors } = useTheme();
   const { snapshot, isLive } = useTriangleSnapshot(childId);
+
+  // P4.2 — dual-mode rendering. Guardian (T1/T2/UNKNOWN) vs Supporter
+  // (T3). All capability flags live in capabilitiesForMode() so the
+  // Guardian/Supporter matrix stays readable at a glance.
+  const mode: ParentMode = parentModeForTier(ageTier);
+  const caps = capabilitiesForMode(mode);
+
+  // T3 supporter mode defaults: the Exams tab is Guardian-only (adds
+  // exams to the child's calendar which requires parent authority).
+  // Supporters see Mastery + Timeline only. When the athlete later
+  // opts in via visibility preferences the tab set can expand.
+  const availableTabs = useMemo(
+    () => (mode === 'supporter' ? TABS.filter((t) => t.key !== 'exams') : TABS),
+    [mode]
+  );
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('timeline');
 
@@ -129,19 +149,25 @@ export function ParentChildDetailScreen({ route, navigation }: Props) {
   const activeTabRef = useRef(activeTab);
   useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
 
+  // Snapshot `availableTabs` into a ref so the panResponder (created
+  // once via useRef) sees the latest list after a mode change.
+  const availableTabsRef = useRef(availableTabs);
+  useEffect(() => { availableTabsRef.current = availableTabs; }, [availableTabs]);
+
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_evt, gs) =>
         Math.abs(gs.dx) > 30 && Math.abs(gs.dy) < Math.abs(gs.dx) * 0.5,
       onPanResponderRelease: (_evt, gs) => {
         if (Math.abs(gs.dx) < 60) return;
-        const currentIdx = TABS.findIndex(t => t.key === activeTabRef.current);
+        const tabs = availableTabsRef.current;
+        const currentIdx = tabs.findIndex(t => t.key === activeTabRef.current);
         if (currentIdx === -1) return;
         const nextIdx = gs.dx < 0
-          ? Math.min(currentIdx + 1, TABS.length - 1)
+          ? Math.min(currentIdx + 1, tabs.length - 1)
           : Math.max(currentIdx - 1, 0);
         if (nextIdx !== currentIdx) {
-          setActiveTab(TABS[nextIdx].key);
+          setActiveTab(tabs[nextIdx].key);
           if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
       },
@@ -184,23 +210,37 @@ export function ParentChildDetailScreen({ route, navigation }: Props) {
               </View>
             </View>
 
-            {/* Action buttons */}
-            <View style={styles.actionButtons}>
-              <Pressable
-                onPress={() => navigation.navigate('ParentAddExam', { childId, childName })}
-                style={[styles.actionBtn, { backgroundColor: colors.warning + '18' }]}
-              >
-                <SmartIcon name="school-outline" size={14} color={colors.warning} />
-                <Text style={[styles.actionBtnText, { color: colors.warning }]}>Exam</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => navigation.navigate('ParentAddStudy', { childId, childName })}
-                style={[styles.actionBtn, { backgroundColor: colors.accent2 + '18' }]}
-              >
-                <SmartIcon name="book-outline" size={14} color={colors.accent2} />
-                <Text style={[styles.actionBtnText, { color: colors.accent2 }]}>Study</Text>
-              </Pressable>
-            </View>
+            {/* Action buttons — Guardian-only. Supporter (T3) parents
+                don't have authority to add exams/study blocks directly;
+                the athlete manages their own plan. */}
+            {caps.canAddExams || caps.canAddStudyBlocks ? (
+              <View style={styles.actionButtons}>
+                {caps.canAddExams && (
+                  <Pressable
+                    onPress={() => navigation.navigate('ParentAddExam', { childId, childName })}
+                    style={[styles.actionBtn, { backgroundColor: colors.warning + '18' }]}
+                  >
+                    <SmartIcon name="school-outline" size={14} color={colors.warning} />
+                    <Text style={[styles.actionBtnText, { color: colors.warning }]}>Exam</Text>
+                  </Pressable>
+                )}
+                {caps.canAddStudyBlocks && (
+                  <Pressable
+                    onPress={() => navigation.navigate('ParentAddStudy', { childId, childName })}
+                    style={[styles.actionBtn, { backgroundColor: colors.accent2 + '18' }]}
+                  >
+                    <SmartIcon name="book-outline" size={14} color={colors.accent2} />
+                    <Text style={[styles.actionBtnText, { color: colors.accent2 }]}>Study</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : (
+              // Supporter mode: show a small read-only role label so the
+              // UX doesn't look broken ("where are the buttons?").
+              <View style={[styles.modeTag, { backgroundColor: colors.accent1 + '18' }]}>
+                <Text style={[styles.modeTagText, { color: colors.accent1 }]}>Supporter</Text>
+              </View>
+            )}
           </View>
 
           {/* Snapshot metrics */}
@@ -232,8 +272,9 @@ export function ParentChildDetailScreen({ route, navigation }: Props) {
       </View>
 
       {/* ─── Tab Bar ─── */}
+      {/* availableTabs is Guardian=all, Supporter=no-Exams (P4.2) */}
       <View style={[styles.tabBar, { borderBottomColor: colors.borderLight }]}>
-        {TABS.map((tab) => {
+        {availableTabs.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
             <Pressable
@@ -361,6 +402,18 @@ const styles = StyleSheet.create({
   actionBtnText: {
     fontSize: 11,
     fontFamily: fontFamily.semiBold,
+  },
+  // P4.2 — Supporter mode role tag (shown when no action buttons render)
+  modeTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  modeTagText: {
+    fontSize: 11,
+    fontFamily: fontFamily.semiBold,
+    letterSpacing: 0.5,
   },
 
   // Snapshot
