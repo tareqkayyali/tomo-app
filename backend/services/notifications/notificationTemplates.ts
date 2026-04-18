@@ -48,6 +48,8 @@ export type NotificationType =
   | 'COACH_ASSESSMENT_ADDED'
   | 'PARENT_SCHEDULE_FLAG'
   | 'TRIANGLE_ALIGNMENT_CHANGE'
+  | 'EVENT_ANNOTATION'
+  | 'EVENT_ANNOTATION_URGENT'
   // CV
   | 'CV_SHARE_VIEWED'
   | 'CV_UPDATE_AVAILABLE'
@@ -441,6 +443,37 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     chips: [{ label: 'Triangle conflict', style: 'purple' }],
     primary_action: { label: 'View resolution', deep_link: 'tomo://own-it?filter=triangle' },
     expiry: { ttl_hours: 168 },
+    can_dismiss: true,
+  },
+
+  // Coach/parent annotation attached to a calendar event (P2.1).
+  // Non-urgent: respects fatigue guard + quiet hours + context priority.
+  EVENT_ANNOTATION: {
+    type: 'EVENT_ANNOTATION',
+    category: 'triangle',
+    priority: 3,
+    title: '{author_name} added a note on your {event_title}',
+    body: '"{body_excerpt}"',
+    chips: [{ label: '{author_role}', style: 'purple' }],
+    primary_action: { label: 'View event', deep_link: 'tomo://timeline?event={event_id}' },
+    expiry: { ttl_hours: 168 },
+    can_dismiss: true,
+  },
+
+  // Urgent variant: bypasses fatigue guard + quiet hours, priority 5.
+  // Used when the annotation author flags the note `urgent=true`.
+  EVENT_ANNOTATION_URGENT: {
+    type: 'EVENT_ANNOTATION_URGENT',
+    category: 'triangle',
+    priority: 5,
+    title: 'URGENT from {author_name} — {event_title}',
+    body: '"{body_excerpt}"',
+    chips: [
+      { label: 'Urgent', style: 'red' },
+      { label: '{author_role}', style: 'purple' },
+    ],
+    primary_action: { label: 'Open now', deep_link: 'tomo://timeline?event={event_id}' },
+    expiry: { ttl_hours: 2 },
     can_dismiss: true,
   },
 

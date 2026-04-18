@@ -33,6 +33,11 @@ export interface CreateNotificationInput {
   vars: Record<string, string | number>;
   sourceRef?: { type: string; id: string };
   expiresAt?: string; // ISO timestamp override
+  // When true, skip the fatigue guard + context-driven priority adjustment.
+  // Reserved for truly urgent paths (e.g. coach/parent urgent event
+  // annotations per P2.1). Every use is logged and admin-capped to
+  // 3 urgent pushes / athlete / sender / day at the API layer.
+  bypassFatigue?: boolean;
 }
 
 interface NotificationRecord {
@@ -64,7 +69,7 @@ interface NotificationRecord {
 export async function createNotification(
   input: CreateNotificationInput,
 ): Promise<string | null> {
-  const { athleteId, type, vars, sourceRef, expiresAt } = input;
+  const { athleteId, type, vars, sourceRef, expiresAt, bypassFatigue } = input;
   const template = NOTIFICATION_TEMPLATES[type];
   if (!template) {
     console.error(`[notif-engine] Unknown notification type: ${type}`);
@@ -77,7 +82,9 @@ export async function createNotification(
   }
 
   const db = notifDb();
-  const groupKey = resolveGroupKey(type, athleteId, vars);
+  // Urgent paths skip grouping so each urgent note fires its own push
+  // (no dedup collapse). Non-urgent paths still dedup by group_key.
+  const groupKey = bypassFatigue ? null : resolveGroupKey(type, athleteId, vars);
 
   // Grouping: if a live notification with same group_key exists, update it
   if (groupKey) {
@@ -88,16 +95,24 @@ export async function createNotification(
     }
   }
 
-  // Fatigue guard: check dismissal pattern
-  if (await isFatigued(db, athleteId, type)) {
+  // Fatigue guard: check dismissal pattern.
+  // Bypass path (bypassFatigue=true) skips this — reserved for urgent
+  // annotations etc., rate-limited at the API layer.
+  if (!bypassFatigue && await isFatigued(db, athleteId, type)) {
     return null;
   }
 
-  // Context engine: adjust priority based on readiness, calendar, time-of-day
-  const { priority: adjustedPriority, suppress } = await adjustPriorityByContext(
-    athleteId, type, template.category, template.priority
-  );
-  if (suppress) return null;
+  // Context engine: adjust priority based on readiness, calendar, time-of-day.
+  // Bypass path keeps the template priority verbatim and ignores
+  // suppression so urgent notes reach the athlete even in quiet hours.
+  let adjustedPriority = template.priority;
+  if (!bypassFatigue) {
+    const ctx = await adjustPriorityByContext(
+      athleteId, type, template.category, template.priority
+    );
+    if (ctx.suppress) return null;
+    adjustedPriority = ctx.priority;
+  }
 
   // Resolve expiry
   const resolvedExpiry = expiresAt ?? resolveExpiry(template, vars);
