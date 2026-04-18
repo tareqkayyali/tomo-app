@@ -342,8 +342,11 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
             flow.store("calendar_empty", None)
             # Rewind the step index to check_calendar so the flow
             # re-runs get_today_events + fork against the new date.
+            # steps are plain dicts (FlowConfig.steps from registry.py),
+            # so use dict access, not attribute access.
             for i, s in enumerate(flow.steps):
-                if s.id == "check_calendar":
+                step_id = s.get("id") if isinstance(s, dict) else getattr(s, "id", None)
+                if step_id == "check_calendar":
                     flow.current_step_index = i
                     break
             result = await _execute_current_step(flow, state)

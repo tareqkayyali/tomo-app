@@ -182,9 +182,32 @@ def evaluate_phv_safety(scenario: EvalScenario, result: ScenarioResult) -> EvalR
 
 # ── 2. Routing Accuracy Evaluator ───────────────────────────────────────────
 
+# Scenarios were written against the v1 agent vocabulary; the Sonnet
+# classifier emits v2 names. Normalize both sides before comparison so a
+# correct v2 route doesn't count as a miss.
+_V1_TO_V2_AGENT = {
+    "output": "performance",
+    "testing_benchmark": "performance",
+    "recovery": "performance",
+    "training_program": "performance",
+    "timeline": "planning",
+    "dual_load": "planning",
+    "mastery": "identity",
+    "cv_identity": "identity",
+}
+
+
+def _normalize_agent(name: str) -> str:
+    name = (name or "").lower().strip()
+    return _V1_TO_V2_AGENT.get(name, name)
+
+
 def evaluate_routing_accuracy(scenario: EvalScenario, result: ScenarioResult) -> EvalResult:
     """
     Score: 1.0 if expected_agent matches actual routed agent, 0.0 otherwise.
+    Compares agent names after normalizing v1 → v2 so legacy scenarios
+    (expected=timeline/output/mastery) still match against the v2 classifier
+    (actual=planning/performance/identity).
     """
     if not scenario.expected_agent:
         return EvalResult(
@@ -192,18 +215,20 @@ def evaluate_routing_accuracy(scenario: EvalScenario, result: ScenarioResult) ->
             reasoning="No routing expectation — skipped",
         )
 
-    actual = result.agent_routed.lower().strip() if result.agent_routed else ""
-    expected = scenario.expected_agent.lower().strip()
+    raw_actual = (result.agent_routed or "").lower().strip()
+    raw_expected = scenario.expected_agent.lower().strip()
+    actual = _normalize_agent(raw_actual)
+    expected = _normalize_agent(raw_expected)
 
-    if actual == expected:
+    if actual and actual == expected:
         return EvalResult(
             evaluator="routing_accuracy", score=1.0, passed=True,
-            reasoning=f"Correctly routed to {expected}",
+            reasoning=f"Correctly routed to {raw_actual or raw_expected}",
         )
 
     return EvalResult(
         evaluator="routing_accuracy", score=0.0, passed=False,
-        reasoning=f"Expected agent '{expected}', got '{actual}'",
+        reasoning=f"Expected agent '{raw_expected}' (={expected}), got '{raw_actual}' (={actual})",
     )
 
 
@@ -301,11 +326,13 @@ def evaluate_context_continuity(
             reasoning="Not a multi-turn scenario — skipped",
         )
 
-    # Check turn 1 routing
+    # Check turn 1 routing (normalize v1 ↔ v2)
     turn1_correct = True
     if scenario.expected_agent:
-        actual1 = result_turn1.agent_routed.lower().strip() if result_turn1.agent_routed else ""
-        turn1_correct = actual1 == scenario.expected_agent.lower().strip()
+        turn1_correct = (
+            _normalize_agent(result_turn1.agent_routed)
+            == _normalize_agent(scenario.expected_agent)
+        )
 
     if not result_turn2:
         score = 1.0 if turn1_correct else 0.0
@@ -314,11 +341,13 @@ def evaluate_context_continuity(
             reasoning=f"Turn 1 routing: {'correct' if turn1_correct else 'wrong'} (follow-up not tested)",
         )
 
-    # Check turn 2 routing
+    # Check turn 2 routing (normalize v1 ↔ v2)
     turn2_correct = True
     if scenario.follow_up_expected_agent:
-        actual2 = result_turn2.agent_routed.lower().strip() if result_turn2.agent_routed else ""
-        turn2_correct = actual2 == scenario.follow_up_expected_agent.lower().strip()
+        turn2_correct = (
+            _normalize_agent(result_turn2.agent_routed)
+            == _normalize_agent(scenario.follow_up_expected_agent)
+        )
 
     if turn1_correct and turn2_correct:
         score = 1.0

@@ -43,14 +43,14 @@ export type ThemeColors = {
   // navy-ish palette for card surfaces + cooler off-white text. Centralised
   // here so the panels stay visually consistent and future theming is a
   // single-file change.
-  panelOuter: string;         // Dashboard screen outer background
-  panelSheet: string;         // SlideUpPanel sheet background
-  panelSurface: string;       // Card surface inside panels
-  panelBorder: string;        // Card border (7% white)
-  panelBorderSoft: string;    // Subtle borders / dividers (6% white)
-  panelLabel: string;         // Tiny uppercase section labels (18% white)
-  panelTextPrimary: string;   // Bright cool-white headings on panels
-  panelTextSecondary: string; // Muted secondary text on panels
+  panelOuter: string;         // Dashboard screen outer background (Kon indigo)
+  panelSheet: string;         // SlideUpPanel sheet background (matches bg)
+  panelSurface: string;       // Card surface inside panels (3% cream overlay)
+  panelBorder: string;        // Card border (10% cream frame)
+  panelBorderSoft: string;    // Subtle borders / dividers (6% cream)
+  panelLabel: string;         // Tiny uppercase section labels (25% cream)
+  panelTextPrimary: string;   // Warm cream headings on panels (Kinari)
+  panelTextSecondary: string; // Muted secondary text on panels (blue-gray)
   panelTextMuted: string;     // Very muted / empty-state body text on panels
 
   // --- Tomo 友 Semantic Opacity Tokens ---
@@ -243,16 +243,20 @@ export const darkColors: ThemeColors = {
   surface: 'rgba(245,243,237,0.03)',           // Near-transparent card bg
   inputBackground: 'rgba(245,243,237,0.05)',   // Slightly more presence for inputs
 
-  // Dashboard Panel palette
-  panelOuter: '#0F1219',
-  panelSheet: '#0D1117',
-  panelSurface: '#1B1F2E',
-  panelBorder: 'rgba(255,255,255,0.07)',
-  panelBorderSoft: 'rgba(255,255,255,0.06)',
-  panelLabel: 'rgba(255,255,255,0.18)',
-  panelTextPrimary: '#E5EBE8',
-  panelTextSecondary: '#7A8D7E',
-  panelTextMuted: '#4A5E50',
+  // Dashboard Panel palette — aligned to the canonical Tomo 友 cream-overlay
+  // card philosophy (near-transparent surfaces, visible cream borders, warm
+  // cream text). Values mirror the Core/Border/Text tokens above so the
+  // Dashboard panels "breathe with the background" instead of sitting as
+  // opaque navy blocks.
+  panelOuter: '#12141F',                       // = background (Kon indigo)
+  panelSheet: '#12141F',                       // slide-up sheet matches bg
+  panelSurface: 'rgba(245,243,237,0.03)',      // = surface (3% cream overlay)
+  panelBorder: 'rgba(245,243,237,0.10)',       // = border (10% cream frame)
+  panelBorderSoft: 'rgba(245,243,237,0.06)',   // = borderLight (6% cream)
+  panelLabel: 'rgba(245,243,237,0.25)',        // uppercase tiny labels — cream at 25% for legibility
+  panelTextPrimary: '#F5F3ED',                 // = textPrimary (Kinari cream)
+  panelTextSecondary: '#7A8A9A',               // = textSecondary (blue-gray)
+  panelTextMuted: 'rgba(245,243,237,0.15)',    // = textDisabled
 
   // --- Tomo 友 Semantic Opacity Tokens ---
   accentSubtle: 'rgba(122,155,118,0.08)',

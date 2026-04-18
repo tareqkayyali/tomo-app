@@ -333,12 +333,18 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
     # scheduling form on mobile. When SCHEDULING_CAPSULE_ENABLED=false
     # (default), the controller falls through to multi_step as before.
     #
-    # build_session + plan_training both route here. The controller
-    # checks the feature flag at runtime and falls back to multi_step
-    # when disabled, so multi_step._BUILD_SESSION_STEPS stays intact
-    # as the fallback path.
+    # build_session is the one true scheduling entrypoint — it has an
+    # explicit intent to create a single session (drills, slot, confirm).
+    # plan_training is DEPRECATED (see intent_registry.py:180) and must
+    # fall through to open_coaching so the Sonnet classifier's planning
+    # agent answers training-philosophy / plan-my-week queries with
+    # sport-specific coaching text instead of silently rendering a
+    # scheduling card with no coaching body. Repro prior to this fix:
+    # "plan my training for tomorrow" returned a capsule card with
+    # body="", zero coaching_specificity, routing_confidence=0.9 — the
+    # athlete asked a coaching question and got a blank scheduler.
     "build_session": FlowConfig(pattern="scheduling_capsule", steps=_BUILD_SESSION_STEPS),
-    "plan_training": FlowConfig(pattern="scheduling_capsule", steps=_BUILD_SESSION_STEPS),
+    "plan_training": FlowConfig(pattern="open_coaching"),
     "build_week_plan": FlowConfig(pattern="multi_step", steps=_BUILD_WEEK_PLAN_STEPS),
 
     # ═══════════════════════════════════════════════════════════════════

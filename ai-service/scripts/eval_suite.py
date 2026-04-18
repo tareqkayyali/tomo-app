@@ -75,7 +75,14 @@ logger = logging.getLogger("eval_suite")
 # ── Configuration ────────────────────────────────────────────────────────────
 
 DEFAULT_TARGET = os.environ.get("AI_SERVICE_URL", "http://localhost:8000")
-DEFAULT_PLAYER_ID = os.environ.get("TEST_PLAYER_ID", "test-eval-athlete-001")
+# Must be a valid UUID — context_assembly issues UUID-typed SQL queries
+# (athlete_intelligence_briefs.athlete_id, etc.). A human-readable sentinel
+# like "test-eval-athlete-001" makes psycopg raise InvalidTextRepresentation
+# inside context_assembly, which used to crash the supervisor and zero-out
+# all routing/coaching scores before any scenario ran.
+DEFAULT_PLAYER_ID = os.environ.get(
+    "TEST_PLAYER_ID", "00000000-0000-0000-0000-000000000001"
+)
 TIMEOUT_S = 30
 MAX_CONCURRENT = 5  # Parallel API calls
 

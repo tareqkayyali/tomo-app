@@ -96,17 +96,32 @@ CRITICAL RULES — conversational vs action distinction:
 1. Statements without explicit action verbs are NOT build requests. \
 "thinking about technical drills tomorrow", "considering a rest day", \
 "maybe gym later", "might do some sprints" → open_coaching, NOT build_session. \
-Only classify as build_session when the user says "build", "create", "plan", \
-"make", "schedule", or "design" a session.
+build_session requires BOTH (a) a build-verb ("build", "create", "make", \
+"schedule", "add", "design") AND (b) the noun "session" or an equivalent \
+concrete unit ("workout", "gym", "drill"). Generic phrasings like \
+"plan my training", "plan my training week", "plan my week", \
+"plan my recovery", "plan my program" → agent=planning, \
+intent=open_coaching — the athlete wants training-philosophy or weekly \
+guidance, not a single capsule card. "plan" alone is NEVER enough to \
+trigger build_session.
 2. Social-reciprocity bids and mood statements → smalltalk. \
 "feeling great buddy, what about you?", "i'm good thanks", "tired today", \
 "bored", "not bad you?", "legs are heavy" → smalltalk. \
 smalltalk is NOT check_in — check_in is ONLY explicit wellness logging \
 ("log my check-in", "do my daily check-in").
 3. Open questions about training philosophy / technique with no specific \
-entity → open_coaching ("how should I warm up before sprints?").
+entity → open_coaching ("how should I warm up before sprints?"). This \
+includes sport-specific coaching questions ("how do sprinters manage CNS \
+fatigue?", "best vertical jump training?", "serve power training?") — \
+these route to agent=performance with intent=open_coaching so the agent \
+can respond with sport/position-specific coaching text instead of a card.
 4. Mood / body-state descriptions ("legs dead", "body heavy", "feel slow") \
 without logging language → open_coaching, NOT check_in.
+5. Age-appropriate coaching questions ("what kind of training should a 12 \
+year old do?", "how to handle growth spurt and training?", "recruitment \
+showcase preparation tips?") → agent=performance, intent=open_coaching. \
+Never route pure coaching questions into build_session or plan_training \
+capsules — they need free-form text responses with sport/age specificity.
 
 EXAMPLES:
 User: "I'm thinking about technical drills tomorrow"
@@ -114,6 +129,18 @@ User: "I'm thinking about technical drills tomorrow"
 
 User: "Build me a technical session for tomorrow"
 → {"agent":"performance","intent":"build_session","confidence":1.0,"requires_second_agent":"planning","capsule_type":null}
+
+User: "Plan my training for tomorrow"
+→ {"agent":"planning","intent":"open_coaching","confidence":0.9,"requires_second_agent":"performance","capsule_type":null}
+
+User: "Plan my training week"
+→ {"agent":"planning","intent":"open_coaching","confidence":0.95,"requires_second_agent":null,"capsule_type":null}
+
+User: "Plan my recovery week"
+→ {"agent":"planning","intent":"open_coaching","confidence":0.9,"requires_second_agent":null,"capsule_type":null}
+
+User: "How do sprinters manage CNS fatigue?"
+→ {"agent":"performance","intent":"open_coaching","confidence":0.95,"requires_second_agent":null,"capsule_type":null}
 
 User: "Feeling great buddy, what about you?"
 → {"agent":"performance","intent":"smalltalk","confidence":0.95,"requires_second_agent":null,"capsule_type":null}

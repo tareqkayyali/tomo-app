@@ -39,11 +39,12 @@ PHV_SAFETY_WARNING = """
 
 Just a heads up — your body's in a big growth phase right now. Some of these exercises carry extra risk while you're growing this fast. Here are safer alternatives that still build serious strength:
 
-- Goblet squat instead of barbell squat (safer for your joints)
-- Soft-landing box steps instead of depth/drop jumps
-- Light dumbbells or kettlebells instead of Olympic lifts
-- 85% effort drills instead of maximal sprints
-- Trap bar or partial range instead of heavy deadlifts
+- Goblet squat or bodyweight squat instead of barbell squat (safer for your joints, same technique gains)
+- Low box step-up with soft landing instead of depth/drop jumps (keeps the plyometric stimulus low-impact)
+- Medicine ball throws or resistance band work instead of Olympic lifts (builds power without axial load)
+- Tempo runs at 70% effort or sub-maximal 85% drills instead of maximal sprints
+- Trap bar or partial-range bodyweight patterns instead of heavy deadlifts
+- RPE-based sub-maximal testing instead of 1RM testing (track progress without the spinal load)
 
 Your call — but I'd go with the alternatives for now. We'll get to the heavy stuff once your growth spurt settles."""
 
@@ -95,6 +96,22 @@ async def validate_node(state: TomoChatState) -> dict:
             f"{tone_violations[:3]}"  # log first 3
         )
 
+    # Youth jargon leakage check — logs specific acronyms that slipped into
+    # a response for a young athlete. Advisory only; never rewrites the text.
+    age_band = ""
+    if context:
+        age_band = (getattr(context, "age_band", "") or "").upper()
+    is_young = age_band in ("U13", "U15", "U17")
+    if is_young:
+        leaked = [t for t in _YOUTH_JARGON_TERMS
+                  if re.search(rf"\b{re.escape(t)}\b", agent_response, re.I)]
+        if leaked:
+            flags.append("youth_jargon_leak")
+            logger.warning(
+                f"YOUTH JARGON LEAK ({age_band}): {leaked} — "
+                f"consider plain-language rewrite in upstream prompt."
+            )
+
     # ── Layer 3: Format Validation ───────────────────────────────
 
     # Check if response is valid JSON (expected format)
@@ -139,7 +156,19 @@ BANNED_PATTERNS = [
     re.compile(r"based on (your|the) (data|metrics|performance)", re.I),
     re.compile(r"I recommend that you", re.I),
     re.compile(r"studies (show|suggest|indicate)", re.I),
+    # Youth-age jargon: naming acronyms in isolation without plain-language
+    # context feels clinical to a 14–17 year old. These are advisory hits —
+    # they are logged so we can audit tone, but never block the response.
+    re.compile(r"\bacute[\s:/\\-]+chronic(?:\s+workload)?\b", re.I),
+    re.compile(r"\bacute[\s:/\\-]+chronic\s+ratio\b", re.I),
 ]
+
+
+# Jargon terms that are OK in educational contexts but should prompt
+# a tone flag when dropped in a coaching answer with no plain-language
+# scaffolding. Kept separate from BANNED_PATTERNS so we can be more
+# nuanced about when to warn vs log.
+_YOUTH_JARGON_TERMS = ("ACWR", "PHV", "acute:chronic", "acute/chronic")
 
 
 def _validate_tone(text: str) -> list[str]:

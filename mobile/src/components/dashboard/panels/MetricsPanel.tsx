@@ -152,7 +152,12 @@ export function MetricsPanel({
           </Text>
           {hrvDelta ? <Text style={[styles.metricDelta, { color: signalColor }]}>{hrvDelta}</Text> : null}
         </View>
-        <HrvSparkline vitals={recentVitals} color={signalColor} baseline={hrvBaseline} />
+        <HrvSparkline
+          vitals={recentVitals}
+          color={signalColor}
+          baseline={hrvBaseline}
+          hideEmptyState={hrvToday != null}
+        />
       </DashboardCard>
     ),
     metrics_sleep: () => (
@@ -231,10 +236,19 @@ function HrvSparkline({
   vitals,
   color,
   baseline,
+  hideEmptyState,
 }: {
   vitals: any[];
   color: string;
   baseline?: number | null;
+  /**
+   * When the HRV card already shows a live value above (from
+   * `snapshot.hrv_today_ms`), we don't want to also render "Not enough HRV
+   * data yet" below it — that combination misleads the athlete into thinking
+   * their HRV is both present and absent. Caller sets this true when the
+   * live value is available.
+   */
+  hideEmptyState?: boolean;
 }) {
   const { colors } = useTheme();
   const values = (vitals ?? [])
@@ -243,6 +257,7 @@ function HrvSparkline({
     .reverse(); // oldest first
 
   if (values.length < 2) {
+    if (hideEmptyState) return null;
     return (
       <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.panelTextMuted }}>
         Not enough HRV data yet
@@ -284,7 +299,6 @@ function SleepBars({ vitals }: { vitals: any[] }) {
       barGap={8}
       rx={4}
       colorFn={(v) => (v < 7 ? '#c49a3c' : '#7a9b76')}
-      opacityFn={() => 0.25}
       maxOverride={10}
     />
   );
@@ -379,7 +393,7 @@ function MiniSparkColumn({ label, values, color }: { label: string; values: numb
       </Text>
       <Sparkline values={values} color={color} width={width} height={height} strokeWidth={1.2} padY={0.5} />
       <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: colors.panelTextSecondary, marginTop: 2 }}>
-        {values[values.length - 1]}/5
+        {Math.min(Math.max(values[values.length - 1], 0), 10)}/10
       </Text>
     </View>
   );

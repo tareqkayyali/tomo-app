@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
       programRecsRes,
       coachProgrammesRes,
       planningContextRes,
+      recentHrvRes,
     ] = await Promise.allSettled([
       // 1. User profile
       (db as any)
@@ -211,6 +212,17 @@ export async function GET(request: NextRequest) {
           .maybeSingle();
         return data;
       })(),
+
+      // 19. Recent HRV (7 days) — from health_data so Dashboard sparkline populates
+      // for athletes whose HRV comes from a wearable rather than the check-in form.
+      db
+        .from("health_data")
+        .select("date, value")
+        .eq("user_id", userId)
+        .eq("metric_type", "hrv")
+        .gte("date", new Date(now.getTime() - 7 * 86400000).toLocaleDateString("en-CA", { timeZone: tz }))
+        .order("date", { ascending: false })
+        .limit(7),
     ]);
 
     // ── Extract results with graceful fallbacks ──
@@ -276,10 +288,18 @@ export async function GET(request: NextRequest) {
 
     // Recent vitals (7 days) for Dashboard signal sparklines
     const recentVitalsRaw = recentVitalsRes.status === "fulfilled" ? (recentVitalsRes.value as any)?.data ?? [] : [];
+    // Build date → HRV map from health_data so the Dashboard HRV sparkline
+    // populates for athletes whose HRV comes from a wearable (not check-ins).
+    const recentHrvRaw = recentHrvRes.status === "fulfilled" ? (recentHrvRes.value as any)?.data ?? [] : [];
+    const hrvByDate = new Map<string, number>();
+    for (const row of recentHrvRaw as Array<{ date: string; value: number | string }>) {
+      const n = typeof row.value === "number" ? row.value : Number(row.value);
+      if (Number.isFinite(n)) hrvByDate.set(row.date, n);
+    }
     const recentVitals: RecentVitalEntry[] = recentVitalsRaw.map((v: any) => ({
       date:           v.date,
       sleep_hours:    v.sleep_hours ?? null,
-      hrv_morning_ms: null,  // Not in checkins — will be enriched from health_data if available
+      hrv_morning_ms: hrvByDate.get(v.date) ?? null,
       energy:         v.energy ?? null,
       soreness:       v.soreness ?? null,
       mood:           v.mood ?? null,

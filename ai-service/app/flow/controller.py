@@ -77,7 +77,7 @@ async def flow_controller_node(state: TomoChatState) -> dict:
                 # If scheduling_capsule is now enabled and this is a
                 # stale multi_step flow for an intent that should use the
                 # capsule, expire it and let the registry route fresh.
-                _scheduling_capsule_intents = {"build_session", "plan_training"}
+                _scheduling_capsule_intents = {"build_session"}
                 if active_flow.intent_id in _scheduling_capsule_intents:
                     from app.flow.patterns.scheduling_capsule import is_scheduling_capsule_enabled
                     if is_scheduling_capsule_enabled():

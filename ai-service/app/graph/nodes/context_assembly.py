@@ -370,21 +370,28 @@ async def _fetch_aib(pool, user_id: str) -> Optional[str]:
     """
     Fetch the latest Athlete Intelligence Brief.
     Returns the pre-synthesized text summary or None if no AIB exists.
+    Returns None (never raises) for non-UUID ids or any DB error so the
+    supervisor graph never dies on a transient AIB fetch — the eval harness
+    and shadow/test callers pass non-UUID athlete ids.
     """
-    async with pool.connection() as conn:
-        result = await conn.execute(
-            """
-            SELECT summary_text
-            FROM athlete_intelligence_briefs
-            WHERE athlete_id = %s
-              AND is_current = true
-            ORDER BY generated_at DESC
-            LIMIT 1
-            """,
-            (user_id,),
-        )
-        row = await result.fetchone()
-        return row[0] if row else None
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """
+                SELECT summary_text
+                FROM athlete_intelligence_briefs
+                WHERE athlete_id = %s
+                  AND is_current = true
+                ORDER BY generated_at DESC
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            row = await result.fetchone()
+            return row[0] if row else None
+    except Exception as e:
+        logger.debug(f"_fetch_aib skipped for {user_id}: {e}")
+        return None
 
 
 async def _fetch_pd_protocols(pool) -> list[dict]:
@@ -1026,8 +1033,18 @@ async def context_assembly_node(state: TomoChatState) -> dict:
     if pool:
         aib_task = _fetch_aib(pool, user_id)
         context, aib_summary, memory_ctx = await asyncio.gather(
-            context_task, aib_task, memory_task
+            context_task, aib_task, memory_task,
+            return_exceptions=True,
         )
+        if isinstance(context, BaseException):
+            logger.warning(f"context_task failed for {user_id}: {context}")
+            context = None
+        if isinstance(aib_summary, BaseException):
+            logger.debug(f"aib_task failed for {user_id}: {aib_summary}")
+            aib_summary = None
+        if isinstance(memory_ctx, BaseException):
+            logger.debug(f"memory_task failed for {user_id}: {memory_ctx}")
+            memory_ctx = None
     else:
         context = await context_task
         aib_summary = None

@@ -297,6 +297,12 @@ def _intent_to_v2_agent(intent_id: str) -> str:
         "qa_today_schedule", "qa_week_schedule", "add_event", "view_schedule",
         "edit_event", "delete_event", "plan_week", "plan_day",
         "exam_planning", "mode_switch", "dual_load_check", "study_planning",
+        # plan_training is deprecated but Sonnet still emits it; it should
+        # surface as the planning agent so routing telemetry matches the
+        # planning-agent coaching response produced via open_coaching.
+        "plan_training", "build_week_plan", "exam_schedule", "plan_study",
+        "plan_regular_study", "check_conflicts", "bulk_edit_events",
+        "day_lock", "ghost_suggestions", "schedule_rules",
     ):
         return "planning"
 

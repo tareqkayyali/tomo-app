@@ -46,10 +46,13 @@ export function ProgressPanel({ isOpen, onClose, snapshot, dailyLoad, benchmarkS
   const { colors } = useTheme();
   const cvCompleteness = snapshot?.cv_completeness ?? 0;
   const streak = snapshot?.streak_days ?? 0;
+  // Wellness check-in values (energy / mood / soreness) are captured on a
+  // 1-10 scale. `wellness_7day_avg` is the mean of those values, so it's
+  // also 0-10. Multiply by 10 to render as a 0-100 percentage.
   const wellness = Number(snapshot?.wellness_7day_avg);
   const wellnessPct =
-    Number.isFinite(wellness) && wellness >= 0 && wellness <= 5
-      ? (wellness * 20).toFixed(0)
+    Number.isFinite(wellness) && wellness >= 0 && wellness <= 10
+      ? (wellness * 10).toFixed(0)
       : null;
 
   const renderers: Record<string, () => React.ReactNode> = {

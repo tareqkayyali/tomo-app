@@ -113,13 +113,21 @@ INTENT_REGISTRY: list[IntentDefinition] = [
         id="build_session",
         capsule_type=None,
         agent_type="output",
-        description="Build/schedule a training session — includes any training desire with a date/time (NOT readiness checks without a date)",
+        description=(
+            "Build/schedule a specific training session with drills and a slot. "
+            "REQUIRES both an explicit build verb (build, create, make, schedule, "
+            "add, design) AND the noun 'session' / 'workout' / concrete slot. "
+            "Generic 'plan my training', 'plan my week', 'plan my recovery' DO NOT "
+            "belong here — they are open coaching questions answered by the "
+            "planning agent, not a single-session capsule."
+        ),
         examples=[
-            "build me a session", "build a gym session", "plan a session",
-            "build me a training session", "plan me a session for Thursday",
-            "build a speed session", "plan a gym session",
-            "i want to train tomorrow", "train today", "gym tomorrow",
-            "session this evening", "workout in the morning",
+            "build me a session", "build a gym session",
+            "build me a training session", "schedule a session for Thursday",
+            "create a speed session", "add a gym session tomorrow",
+            "design a finishing session", "make a recovery session for Friday",
+            "gym tomorrow at 5pm", "session this evening at 6",
+            "workout tomorrow morning at 7",
         ],
     ),
 
@@ -175,10 +183,23 @@ INTENT_REGISTRY: list[IntentDefinition] = [
     # ── Training & Study Plans ──
     IntentDefinition(
         id="plan_training",
-        capsule_type="training_schedule_capsule",
-        agent_type="timeline",
-        description="Generate a training plan/schedule (DEPRECATED — route to agent_fallthrough)",
-        examples=["plan my training", "create a workout plan"],
+        capsule_type=None,
+        agent_type="planning",
+        description=(
+            "Open-coaching conversation about training planning (weekly/block "
+            "structure, recovery timing, periodization philosophy). Never "
+            "rendered as a scheduling capsule — the response is text from the "
+            "planning agent. Prefer build_session when the athlete asks for a "
+            "single specific session with a slot."
+        ),
+        examples=[
+            "plan my training",
+            "plan my training week",
+            "plan my training for tomorrow",
+            "plan my recovery week",
+            "how should I plan my training",
+            "what's the best training plan for exam period",
+        ],
     ),
     IntentDefinition(
         id="plan_study",
