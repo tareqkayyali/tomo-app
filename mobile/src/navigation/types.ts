@@ -14,6 +14,14 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
 };
 
+// Phase 2 onboarding. Post-auth; player role only.
+export type OnboardingStackParamList = {
+  Sport: undefined;
+  Position: { sport: 'football' | 'soccer' | 'basketball' | 'tennis' | 'padel' };
+  HeightWeight: undefined;
+  Goal: undefined;
+};
+
 export type MainTabParamList = {
   Plan: undefined;
   Chat: { prefillMessage?: string; autoSend?: boolean } | undefined;

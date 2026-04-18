@@ -7248,13 +7248,19 @@ export type Database = {
       users: {
         Row: {
           age: number | null
+          analytics_opt_in: boolean
+          analytics_opt_in_at: string | null
           archetype: string | null
           avatar_url: string | null
           connected_wearables: Json | null
+          consent_given_at: string | null
+          consent_revoked_at: string | null
+          consent_status: string
           created_at: string
           current_streak: number
           custom_training_types: Json | null
           date_of_birth: string | null
+          date_of_birth_set_at: string | null
           days_since_rest: number
           display_name: string | null
           display_role: string | null
@@ -7280,6 +7286,7 @@ export type Database = {
           name: string
           nationality: string | null
           onboarding_complete: boolean
+          onboarding_state: Json | null
           parent_guardian_email: string | null
           parent_guardian_name: string | null
           parent_guardian_phone: string | null
@@ -7290,9 +7297,12 @@ export type Database = {
           position: string | null
           preferred_foot: string | null
           primary_goal: string | null
+          privacy_accepted_at: string | null
+          privacy_version: string | null
           recruitment_visibility_level: string | null
           recruitment_visible: boolean | null
           region: string | null
+          region_code: string | null
           role: string
           school_hours: number | null
           school_schedule: Json | null
@@ -7304,6 +7314,8 @@ export type Database = {
           study_plan_config: Json | null
           study_subjects: Json | null
           team_id: string | null
+          tos_accepted_at: string | null
+          tos_version: string | null
           total_points: number
           training_preferences: Json | null
           updated_at: string
@@ -7313,13 +7325,19 @@ export type Database = {
         }
         Insert: {
           age?: number | null
+          analytics_opt_in?: boolean
+          analytics_opt_in_at?: string | null
           archetype?: string | null
           avatar_url?: string | null
           connected_wearables?: Json | null
+          consent_given_at?: string | null
+          consent_revoked_at?: string | null
+          consent_status?: string
           created_at?: string
           current_streak?: number
           custom_training_types?: Json | null
           date_of_birth?: string | null
+          date_of_birth_set_at?: string | null
           days_since_rest?: number
           display_name?: string | null
           display_role?: string | null
@@ -7345,6 +7363,7 @@ export type Database = {
           name?: string
           nationality?: string | null
           onboarding_complete?: boolean
+          onboarding_state?: Json | null
           parent_guardian_email?: string | null
           parent_guardian_name?: string | null
           parent_guardian_phone?: string | null
@@ -7355,9 +7374,12 @@ export type Database = {
           position?: string | null
           preferred_foot?: string | null
           primary_goal?: string | null
+          privacy_accepted_at?: string | null
+          privacy_version?: string | null
           recruitment_visibility_level?: string | null
           recruitment_visible?: boolean | null
           region?: string | null
+          region_code?: string | null
           role?: string
           school_hours?: number | null
           school_schedule?: Json | null
@@ -7369,6 +7391,8 @@ export type Database = {
           study_plan_config?: Json | null
           study_subjects?: Json | null
           team_id?: string | null
+          tos_accepted_at?: string | null
+          tos_version?: string | null
           total_points?: number
           training_preferences?: Json | null
           updated_at?: string
@@ -7378,13 +7402,19 @@ export type Database = {
         }
         Update: {
           age?: number | null
+          analytics_opt_in?: boolean
+          analytics_opt_in_at?: string | null
           archetype?: string | null
           avatar_url?: string | null
           connected_wearables?: Json | null
+          consent_given_at?: string | null
+          consent_revoked_at?: string | null
+          consent_status?: string
           created_at?: string
           current_streak?: number
           custom_training_types?: Json | null
           date_of_birth?: string | null
+          date_of_birth_set_at?: string | null
           days_since_rest?: number
           display_name?: string | null
           display_role?: string | null
@@ -7410,6 +7440,7 @@ export type Database = {
           name?: string
           nationality?: string | null
           onboarding_complete?: boolean
+          onboarding_state?: Json | null
           parent_guardian_email?: string | null
           parent_guardian_name?: string | null
           parent_guardian_phone?: string | null
@@ -7420,9 +7451,12 @@ export type Database = {
           position?: string | null
           preferred_foot?: string | null
           primary_goal?: string | null
+          privacy_accepted_at?: string | null
+          privacy_version?: string | null
           recruitment_visibility_level?: string | null
           recruitment_visible?: boolean | null
           region?: string | null
+          region_code?: string | null
           role?: string
           school_hours?: number | null
           school_schedule?: Json | null
@@ -7434,6 +7468,8 @@ export type Database = {
           study_plan_config?: Json | null
           study_subjects?: Json | null
           team_id?: string | null
+          tos_accepted_at?: string | null
+          tos_version?: string | null
           total_points?: number
           training_preferences?: Json | null
           updated_at?: string

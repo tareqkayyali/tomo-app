@@ -509,6 +509,75 @@ export async function registerUser(userData: RegisterUserPayload): Promise<Regis
 }
 
 // ============================================
+// Onboarding APIs (Phase 2)
+// ============================================
+
+export type OnboardingStep = 'sport' | 'position' | 'heightWeight' | 'goal';
+
+export type OnboardingAnswers = {
+  sport?: 'football' | 'soccer' | 'basketball' | 'tennis' | 'padel';
+  position?: string;
+  heightCm?: number;
+  weightKg?: number;
+  primaryGoal?: 'get_better' | 'stay_consistent' | 'recover' | 'get_recruited' | 'have_fun';
+};
+
+export type OnboardingState = {
+  step: OnboardingStep;
+  answers: OnboardingAnswers;
+  updatedAt: string;
+};
+
+/**
+ * Save a single step's answers. Server merges into the existing
+ * users.onboarding_state JSONB. Returns the full merged state.
+ */
+export async function saveOnboardingProgress(
+  step: OnboardingStep,
+  answers: OnboardingAnswers
+): Promise<OnboardingState> {
+  const res = await apiRequest<{ state: OnboardingState; alreadyComplete?: boolean }>(
+    '/api/v1/user/onboarding/progress',
+    {
+      method: 'POST',
+      body: JSON.stringify({ step, answers }),
+    }
+  );
+  return res.state;
+}
+
+/**
+ * Load current onboarding state so the mobile navigator can resume
+ * at the last unanswered step.
+ */
+export async function getOnboardingProgress(): Promise<{
+  state: OnboardingState | null;
+  onboardingComplete: boolean;
+}> {
+  return apiRequest<{ state: OnboardingState | null; onboardingComplete: boolean }>(
+    '/api/v1/user/onboarding/progress'
+  );
+}
+
+/**
+ * Finalize onboarding: materialises answers into top-level columns,
+ * seeds My Rules, fires the PHV event, flips onboarding_complete.
+ * The client may optionally pass the last screen's answers in the
+ * body as insurance against a lost /progress save.
+ */
+export async function finalizeOnboarding(
+  answers?: OnboardingAnswers
+): Promise<{ user: unknown; ageBand?: string }> {
+  return apiRequest<{ user: unknown; ageBand?: string }>(
+    '/api/v1/user/onboarding/finalize',
+    {
+      method: 'POST',
+      body: JSON.stringify(answers ?? {}),
+    }
+  );
+}
+
+// ============================================
 // Leaderboard APIs
 // ============================================
 

@@ -22,7 +22,7 @@ import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
 import { CoachNavigator } from './CoachNavigator';
 import { ParentNavigator } from './ParentNavigator';
-import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { OnboardingNavigator } from './OnboardingNavigator';
 import { ParentOnboardingScreen } from '../screens/parent/ParentOnboardingScreen';
 import { CoachOnboardingScreen } from '../screens/coach/CoachOnboardingScreen';
 import { PreviewScreen } from '../screens/PreviewScreen';
@@ -134,7 +134,9 @@ export function RootNavigator() {
           ) : role === 'coach' ? (
             <Stack.Screen name="CoachOnboarding" component={CoachOnboardingScreen} />
           ) : (
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            // Phase 2: 4-screen player onboarding (Sport → Position → HeightWeight → Goal)
+            // replaces the legacy single OnboardingScreen.
+            <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
           )
         ) : (
           getMainScreen()
