@@ -147,6 +147,9 @@ export function WeekPlanPreviewCapsuleComponent({ card, onSubmit }: Props) {
 
       {warnings.length > 0 && (
         <View style={styles.warningsBlock}>
+          <Text style={styles.warningsHeader}>
+            Couldn&apos;t fit {warnings.length} session{warnings.length > 1 ? 's' : ''}
+          </Text>
           {warnings.slice(0, 3).map((w, i) => (
             <Text key={i} style={styles.warningText}>
               • {w.message}
@@ -162,30 +165,47 @@ export function WeekPlanPreviewCapsuleComponent({ card, onSubmit }: Props) {
         {byDate.dates.map((date) => (
           <View key={date} style={styles.daySection}>
             <Text style={styles.dayHeader}>{formatDate(date)}</Text>
-            {byDate.grouped[date].map(({ item, index }) => (
-              <Pressable
-                key={`${date}-${index}`}
-                onPress={() => setEditIndex(index)}
-                style={({ pressed }) => [
-                  styles.sessionRow,
-                  pressed && styles.sessionRowPressed,
-                ]}
-              >
-                <View style={styles.sessionTimeBlock}>
-                  <Text style={styles.sessionTime}>{formatTime12h(item.startTime)}</Text>
-                  <Text style={styles.sessionTime}>{formatTime12h(item.endTime)}</Text>
-                </View>
-                <View style={styles.sessionBody}>
-                  <Text style={styles.sessionTitle}>{item.title}</Text>
-                  <Text style={styles.sessionMeta}>
-                    {item.category}
-                    {item.intensity ? ` · ${item.intensity}` : ''}
-                    {` · ${item.durationMin}m`}
-                  </Text>
-                </View>
-                <Text style={styles.editHint}>Edit</Text>
-              </Pressable>
-            ))}
+            {byDate.grouped[date].map(({ item, index }) => {
+              const status = (item.status ?? 'clean') as 'clean' | 'adjusted' | 'dropped';
+              const adj = Array.isArray(item.adjustments) ? item.adjustments : [];
+              return (
+                <Pressable
+                  key={`${date}-${index}`}
+                  onPress={() => setEditIndex(index)}
+                  style={({ pressed }) => [
+                    styles.sessionRow,
+                    pressed && styles.sessionRowPressed,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.statusDot,
+                      status === 'clean' && styles.statusDotClean,
+                      status === 'adjusted' && styles.statusDotAdjusted,
+                      status === 'dropped' && styles.statusDotDropped,
+                    ]}
+                  />
+                  <View style={styles.sessionTimeBlock}>
+                    <Text style={styles.sessionTime}>{formatTime12h(item.startTime)}</Text>
+                    <Text style={styles.sessionTime}>{formatTime12h(item.endTime)}</Text>
+                  </View>
+                  <View style={styles.sessionBody}>
+                    <Text style={styles.sessionTitle}>{item.title}</Text>
+                    <Text style={styles.sessionMeta}>
+                      {item.category}
+                      {item.intensity ? ` · ${item.intensity}` : ''}
+                      {` · ${item.durationMin}m`}
+                    </Text>
+                    {status === 'adjusted' && adj[0] ? (
+                      <Text style={styles.adjustmentNote}>
+                        {adj[0].reason}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.editHint}>Edit</Text>
+                </Pressable>
+              );
+            })}
           </View>
         ))}
       </ScrollView>
@@ -292,11 +312,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   warningsBlock: {
-    gap: 2,
+    gap: 4,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.md,
     backgroundColor: colors.secondaryMuted,
     paddingHorizontal: spacing.sm,
+  },
+  warningsHeader: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 12,
+    color: colors.warning,
   },
   warningText: {
     fontFamily: fontFamily.regular,
@@ -328,6 +353,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     backgroundColor: colors.background,
     borderRadius: borderRadius.md,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusDotClean: {
+    backgroundColor: colors.accent1,
+  },
+  statusDotAdjusted: {
+    backgroundColor: colors.warning,
+  },
+  statusDotDropped: {
+    backgroundColor: colors.textSecondary,
+  },
+  adjustmentNote: {
+    fontFamily: fontFamily.regular,
+    fontSize: 11,
+    color: colors.warning,
+    marginTop: 2,
   },
   sessionRowPressed: {
     opacity: 0.7,

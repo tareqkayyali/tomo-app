@@ -18,6 +18,10 @@ import {
   type WeekPlanBuilderInput,
 } from "@/services/weekPlan/weekPlanBuilder";
 import { loadWeekPlanContext } from "@/services/weekPlan/weekPlanContext";
+import {
+  resolveCategoryPriority,
+  detectScenario,
+} from "@/services/weekPlan/priorityResolver";
 
 const CATEGORY_IDS = [
   "club",
@@ -98,6 +102,18 @@ export async function POST(req: NextRequest) {
     timezone: body.timezone ?? "UTC",
   });
 
+  // Resolve category priority from CMS BEFORE running the builder so the
+  // repair engine has deterministic swap direction. Scenario comes from
+  // live prefs; priority boosts from the selected mode.
+  const scenario = detectScenario({
+    league_is_active: ctx.playerPrefs.leagueActive,
+    exam_period_active: ctx.playerPrefs.examPeriodActive,
+  });
+  const priority = await resolveCategoryPriority({
+    scenario,
+    modeId: body.modeId ?? "balanced",
+  });
+
   const input: WeekPlanBuilderInput = {
     weekStart: body.weekStart,
     trainingMix: body.trainingMix,
@@ -109,6 +125,7 @@ export async function POST(req: NextRequest) {
     dayLocks: ctx.dayLocks,
     config: ctx.config,
     modeId: body.modeId,
+    priority,
   };
 
   const result = buildWeekPlan(input);

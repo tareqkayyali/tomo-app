@@ -21,6 +21,16 @@ import {
   type ScheduleEvent,
 } from "@/services/schedulingEngine";
 import { estimateLoad } from "@/services/events/computations/loadEstimator";
+import type { ResolvedPriority } from "./priorityResolver";
+import {
+  runRepair,
+  type UnplacedCandidate,
+  type Adjustment,
+  type ItemStatus,
+  type RepairablePlanItem,
+} from "./repairEngine";
+
+export type { Adjustment, ItemStatus } from "./repairEngine";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -95,6 +105,15 @@ export interface WeekPlanBuilderInput {
   // league→2, balanced→existing scenario logic. Doesn't persist as
   // the athlete's global mode.
   modeId?: string;
+  /**
+   * Resolved category priority (from scheduling_rules CMS + mode
+   * priorityBoosts). Used by the repair engine to decide swap
+   * direction. Callers resolve via resolveCategoryPriority() before
+   * invoking the builder; tests can pass a hand-built ResolvedPriority.
+   * When omitted the repair engine is disabled and unplaced items drop
+   * immediately (matches pre-repair behavior).
+   */
+  priority?: ResolvedPriority;
 }
 
 export type EventType = "training" | "match" | "study" | "recovery";
@@ -113,6 +132,13 @@ export interface PlanItem {
   intensity: Intensity;
   placementReason: PlacementReason;
   predictedLoadAu: number;
+  /**
+   * clean   — placed on preferred day + preferred time
+   * adjusted — repair engine moved or swapped; see `adjustments[]`
+   * dropped — couldn't place after 3 repair attempts (listed in warnings)
+   */
+  status?: ItemStatus;
+  adjustments?: Adjustment[];
 }
 
 export interface PlanWarning {
@@ -222,13 +248,16 @@ export function buildWeekPlan(input: WeekPlanBuilderInput): WeekPlanBuilderOutpu
   );
 
   const planItems: PlanItem[] = [];
+  // Collected during the greedy pass. The repair engine gets a crack
+  // at these before we call it "dropped".
+  const unplaced: UnplacedCandidate[] = [];
 
   for (const cand of candidates) {
     // 1. Determine target days.
     const targetDates = resolveTargetDates(cand, weekDates, input.dayLocks, warnings);
-    if (targetDates.length === 0) continue;
 
-    // 2. Intensity gate (may downgrade or drop).
+    // 2. Intensity gate (may downgrade or drop). Applied even if the
+    // item never makes it to placement — cap is a weekly property.
     let intensity = cand.intensity;
     if (intensity === "HARD") {
       if (hardPlaced >= maxHardPerWeek) {
@@ -244,6 +273,15 @@ export function buildWeekPlan(input: WeekPlanBuilderInput): WeekPlanBuilderOutpu
           });
         }
       }
+    }
+
+    // If no target dates are available (e.g. all locked), escalate to
+    // the repair queue — it may be able to find an alternative day.
+    if (targetDates.length === 0) {
+      unplaced.push(
+        toUnplacedCandidate(cand, intensity, weekDates, input.dayLocks),
+      );
+      continue;
     }
 
     // 3. Try each target day until one works.
@@ -281,6 +319,7 @@ export function buildWeekPlan(input: WeekPlanBuilderInput): WeekPlanBuilderOutpu
           intensity,
           placementReason: cand.placement === "fixed" ? "fixed" : "auto",
           predictedLoadAu: loadAu,
+          status: "clean",
         };
         planItems.push(item);
         placedByDate[date].push({
@@ -298,6 +337,54 @@ export function buildWeekPlan(input: WeekPlanBuilderInput): WeekPlanBuilderOutpu
     }
 
     if (!placed) {
+      // Don't warn yet — the repair engine gets first shot.
+      unplaced.push(
+        toUnplacedCandidate(cand, intensity, weekDates, input.dayLocks),
+      );
+    }
+  }
+
+  // ── Repair phase ────────────────────────────────────────────────
+  // Run only if (a) there's something to repair AND (b) we have a
+  // resolved priority order to drive swaps. Without a priority list we
+  // can't decide swap direction safely — fall back to the old "drop
+  // with a warning" behavior for backward compatibility.
+  let finalItems: PlanItem[] = planItems;
+  if (unplaced.length > 0 && input.priority) {
+    const initialRepairable: RepairablePlanItem[] = planItems.map((p) => ({
+      ...p,
+      status: (p.status ?? "clean") as ItemStatus,
+    }));
+    const repairOutcome = runRepair({
+      weekDates,
+      unplaced,
+      placedItems: initialRepairable,
+      existingByDate,
+      stagedByDate: placedByDate,
+      playerPrefs: input.playerPrefs,
+      config,
+      priority: input.priority,
+    });
+
+    // Recompute predictedLoadAu on every returned item — the repair
+    // engine doesn't know the estimateLoad formula.
+    finalItems = repairOutcome.placedItems.map((item) => {
+      if (item.predictedLoadAu > 0) return item;
+      const est = estimateLoad({
+        event_type: item.eventType,
+        intensity: item.eventType === "study" ? null : item.intensity,
+        duration_min: item.durationMin,
+      });
+      return {
+        ...item,
+        predictedLoadAu: est.training_load_au + est.academic_load_au,
+      };
+    });
+    for (const w of repairOutcome.warnings) warnings.push(w);
+  } else if (unplaced.length > 0) {
+    // No priority supplied — legacy drop behavior so we never silently
+    // lose a candidate without a warning.
+    for (const cand of unplaced) {
       warnings.push({
         code: cand.placement === "fixed"
           ? "fixed_day_unavailable"
@@ -311,14 +398,45 @@ export function buildWeekPlan(input: WeekPlanBuilderInput): WeekPlanBuilderOutpu
   }
 
   // Sort plan items chronologically for display.
-  planItems.sort((a, b) => {
+  finalItems.sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date);
     return a.startTime.localeCompare(b.startTime);
   });
 
-  const summary = buildSummary(planItems);
+  const summary = buildSummary(finalItems);
 
-  return { planItems, summary, warnings };
+  return { planItems: finalItems, summary, warnings };
+}
+
+
+/**
+ * Shape a greedy-phase Candidate into the structure the repair engine
+ * consumes. The repair engine treats allowedWeekdays + dayLocks as hard
+ * constraints; placement stays as-is (flexible items can day-shift,
+ * fixed items can only time-shift or get swapped in).
+ */
+function toUnplacedCandidate(
+  cand: Candidate,
+  intensity: Intensity,
+  weekDates: string[],
+  dayLocks: string[],
+): UnplacedCandidate {
+  const locks = new Set(dayLocks);
+  const allowedWeekdays = cand.placement === "fixed" && cand.fixedDays.length > 0
+    ? cand.fixedDays
+    : [0, 1, 2, 3, 4, 5, 6];
+  return {
+    title: cand.title,
+    category: cand.category,
+    subject: cand.subject,
+    durationMin: cand.durationMin,
+    placement: cand.placement,
+    allowedWeekdays,
+    preferredStartMin: cand.preferredStartMin,
+    eventType: cand.eventType,
+    intensity,
+    dayLocks: locks,
+  };
 }
 
 // ── Candidate expansion ──────────────────────────────────────────

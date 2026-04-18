@@ -684,6 +684,15 @@ export interface StudyPlanCapsule {
   subjects: StudyMixItem[];
 }
 
+export interface WeekPlanItemAdjustment {
+  move: 'time_shift' | 'day_shift' | 'swap';
+  from: { date: string; startTime: string };
+  to: { date: string; startTime: string };
+  reason: string;
+}
+
+export type WeekPlanItemStatus = 'clean' | 'adjusted' | 'dropped';
+
 export interface WeekPlanPreviewItem {
   title: string;
   category: string;
@@ -696,6 +705,8 @@ export interface WeekPlanPreviewItem {
   intensity: 'LIGHT' | 'MODERATE' | 'HARD';
   placementReason: string;
   predictedLoadAu: number;
+  status?: WeekPlanItemStatus;
+  adjustments?: WeekPlanItemAdjustment[];
 }
 
 export interface WeekPlanSummary {
