@@ -11,6 +11,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const VALID_SCOPES = new Set(["full", "messages_only", "visibility_only"]);
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type UntypedDb = { from: (table: string) => any };
 
 export async function GET(req: NextRequest) {

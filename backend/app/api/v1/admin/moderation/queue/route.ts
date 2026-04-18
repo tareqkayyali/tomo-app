@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/apiAuth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type UntypedDb = { from: (table: string) => any };
 
 // GET /api/v1/admin/moderation/queue

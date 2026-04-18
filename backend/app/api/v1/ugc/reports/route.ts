@@ -16,6 +16,7 @@ const VALID_REASONS = new Set([
   "spam", "harassment", "sexual", "self_harm", "minor_safety", "misinformation", "other",
 ]);
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type UntypedDb = { from: (table: string) => any };
 
 export async function POST(req: NextRequest) {

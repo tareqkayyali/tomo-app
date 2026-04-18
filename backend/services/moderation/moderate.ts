@@ -18,8 +18,6 @@
 // moderation_state='hidden', queue row inserted with state='auto_hidden',
 // author never sees the content echoed back.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 // ── Types ──────────────────────────────────────────────────────────
 
 export type Severity = "low" | "med" | "high" | "critical";
@@ -191,6 +189,10 @@ export async function moderate(
 // Pure function version of the write (db is injected) so callers can
 // compose it with their own insert-in-transaction pattern.
 
+// Narrow untyped client for tables added in migration 066 that are
+// not yet in types/database.ts. Regenerate with
+// `npx supabase gen types typescript --local > types/database.ts`.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type UntypedDb = { from: (table: string) => any };
 
 export async function writeQueueRow(

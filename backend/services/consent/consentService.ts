@@ -32,6 +32,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 // running migrations locally. Scope of this cast is deliberately tight —
 // callers still pass through supabaseAdmin() for type inference on
 // existing tables.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type UntypedDb = { from: (table: string) => any };
 
 export type ConsentType =
