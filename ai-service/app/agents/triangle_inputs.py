@@ -142,3 +142,147 @@ async def build_triangle_inputs_block(
         athlete_id, event_id=event_id, domain=domain
     )
     return render_triangle_inputs_block(inputs)
+
+
+# ── Conflict Mediation block (P3.3) ──────────────────────────────────
+#
+# Rendered ONLY for sessions whose seed_kind='conflict_mediation'.
+# Injected AFTER the coaching persona and BEFORE output rules so the
+# persona layer shapes the voice but mediation intent dominates the
+# response structure. Strictly advisory to the LLM — the deterministic
+# PHV/ACWR/RED filter still runs post-generation regardless of what
+# the coach or parent said.
+
+
+def render_conflict_mediation_block(seed_context: Optional[dict]) -> str:
+    """
+    Pure renderer. Takes the seed_context JSONB from chat_sessions and
+    produces the mediation prompt section. Returns '' when the seed is
+    missing, the wrong kind, or shaped unexpectedly — fail-closed so a
+    broken seed never breaks the underlying coaching response.
+    """
+    if not seed_context or not isinstance(seed_context, dict):
+        return ""
+    if seed_context.get("kind") != "conflict_mediation":
+        return ""
+
+    event = seed_context.get("event") or {}
+    conflict = seed_context.get("conflict") or {}
+    annotations = seed_context.get("annotations") or []
+    safety = seed_context.get("safety_snapshot") or {}
+    snap_at = seed_context.get("snapshot_snapshot_at")
+
+    # Collate annotations by author_role for the mediation pitch.
+    coach_notes: list[str] = []
+    parent_notes: list[str] = []
+    other_notes: list[str] = []
+    for a in annotations:
+        if not isinstance(a, dict):
+            continue
+        body = (a.get("body") or "").strip().replace("\n", " ")
+        if not body:
+            continue
+        if len(body) > 200:
+            body = body[:197] + "…"
+        role = a.get("author_role")
+        if role == "coach":
+            coach_notes.append(body)
+        elif role == "parent":
+            parent_notes.append(body)
+        else:
+            other_notes.append(f"[{role}] {body}")
+
+    lines: list[str] = [
+        "=== CONFLICT MEDIATION MODE ===",
+        "This session was opened from the Ask Tomo pill because the event has a coach",
+        "vs parent disagreement. Your job is FACTUAL NARRATIVE, not a verdict:",
+        "  - Cite what each adult actually said, verbatim (paraphrase only if long).",
+        "  - Ground your reasoning in the physiology signals below (PHV stage,",
+        "    ACWR, readiness) and the schedule context of the event.",
+        "  - Offer ONE recommended path + two alternatives. Never tell the athlete",
+        "    who is 'right'.",
+        "  - Safety gates (PHV contraindications, ACWR > 1.5, RED readiness) are",
+        "    absolute — if an option is safety-blocked, say so and drop it from",
+        "    the menu regardless of what coach or parent wrote.",
+        "",
+    ]
+
+    # Event header
+    title = event.get("title") or "this session"
+    start = event.get("start_time") or ""
+    axis = conflict.get("axis") or "unknown"
+    rationale = conflict.get("rationale") or ""
+    lines.append(f"EVENT: {title}" + (f" at {start}" if start else ""))
+    lines.append(f"CONFLICT AXIS: {axis}" + (f" — {rationale}" if rationale else ""))
+
+    if coach_notes:
+        lines.append("")
+        lines.append("COACH SAID:")
+        for b in coach_notes:
+            lines.append(f"  - \"{b}\"")
+    if parent_notes:
+        lines.append("")
+        lines.append("PARENT SAID:")
+        for b in parent_notes:
+            lines.append(f"  - \"{b}\"")
+    if other_notes:
+        lines.append("")
+        lines.append("OTHER CONTEXT:")
+        for n in other_notes:
+            lines.append(f"  - {n}")
+
+    # Pinned safety snapshot — use this, not live snapshot, for the
+    # mediation response. Transcript reproducibility.
+    if safety:
+        phv = safety.get("phv_stage")
+        acwr = safety.get("acwr")
+        readiness = safety.get("readiness_rag")
+        bits: list[str] = []
+        if phv:
+            bits.append(f"growth stage={phv}")
+        if acwr is not None:
+            bits.append(f"ACWR={acwr:.2f}" if isinstance(acwr, (int, float)) else f"ACWR={acwr}")
+        if readiness:
+            bits.append(f"readiness={readiness}")
+        if bits:
+            lines.append("")
+            lines.append("PINNED SAFETY SIGNALS:")
+            lines.append("  " + ", ".join(bits))
+    if snap_at:
+        lines.append(f"(snapshot pinned at {snap_at})")
+
+    return "\n".join(lines)
+
+
+async def fetch_session_seed_context(session_id: str) -> Optional[dict]:
+    """
+    Load seed_context + seed_kind for a chat session via the TS backend.
+    Returns None when session has no seed (baseline path) or on any
+    fetch failure (fail-closed — coaching continues without mediation).
+    """
+    if not session_id:
+        return None
+    try:
+        result = await bridge_get(
+            f"/api/v1/chat/sessions/{session_id}",
+            user_id=None,  # service-role path; session endpoint doesn't require user filter
+        )
+    except Exception as e:
+        logger.warning(f"fetch_session_seed_context: bridge_get threw {e!r}")
+        return None
+
+    if not isinstance(result, dict) or "error" in result:
+        return None
+    # Endpoint returns {session: {...}} or {seed_context, seed_kind} —
+    # support both shapes defensively.
+    session = result.get("session") if isinstance(result.get("session"), dict) else result
+    if not isinstance(session, dict):
+        return None
+    seed_kind = session.get("seed_kind")
+    seed_context = session.get("seed_context")
+    if not seed_kind or not isinstance(seed_context, dict):
+        return None
+    # Caller discriminates on seed_context['kind']; ensure it's set.
+    if "kind" not in seed_context:
+        seed_context = {**seed_context, "kind": seed_kind}
+    return seed_context

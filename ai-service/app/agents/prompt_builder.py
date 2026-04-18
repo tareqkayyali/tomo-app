@@ -1623,6 +1623,7 @@ def build_system_prompt(
     secondary_agents: Optional[list[str]] = None,
     intent_id: Optional[str] = None,
     triangle_inputs_block: Optional[str] = None,
+    conflict_mediation_block: Optional[str] = None,
 ) -> tuple[str, str]:
     """
     Build the 2-block system prompt.
@@ -1639,6 +1640,13 @@ def build_system_prompt(
     app.agents.triangle_inputs.build_triangle_inputs_block() and
     pass it here. When None, the section is omitted — baseline
     behaviour preserved (AI Chat Baseline Protection).
+
+    conflict_mediation_block (P3.3, 2026-04-18): optional pre-rendered
+    Conflict Mediation section. Set only when the current chat session
+    has seed_kind='conflict_mediation'. Appended at the END of the
+    dynamic block so mediation intent dominates response structure
+    (persona shaping from static block still applies). None by default;
+    non-mediation sessions are unaffected.
     """
     # ── Block 1: Static (coaching identity + format + agent prompt) ──
     # NOTE: GUARDRAIL_BLOCK removed — guardrails will be CMS-configurable.
@@ -1698,6 +1706,12 @@ def build_system_prompt(
         dynamic_parts.append(
             f"You also have access to tools from: {agents_str} to handle this request fully."
         )
+
+    # Conflict Mediation (P3.3) — appended last so it dominates response
+    # structure. Only set when the caller has detected seed_kind=
+    # 'conflict_mediation' on the session. Empty string → no-op.
+    if conflict_mediation_block:
+        dynamic_parts.append(conflict_mediation_block)
 
     # Filter empty blocks and join
     dynamic_block = "\n\n".join(part for part in dynamic_parts if part)
