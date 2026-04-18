@@ -39,6 +39,7 @@ import {
   type SessionPlan,
   type ActionChip,
 } from "./responseFormatter";
+import { applyChipInjection } from "./chipInject";
 import { isAffirmation, type ConversationMessage, type ConversationState } from "./sessionService";
 import { buildRuleContext, buildModeRuleContext } from "@/services/scheduling/scheduleRuleEngine";
 import type { ModeParams } from "@/services/scheduling/modeConfig";
@@ -590,6 +591,12 @@ export async function orchestrate(
         injectSessionPlanChips(structured);
       }
 
+      // CMS chip injection (shadow / active / no-op depending on
+      // `chat_pills.inResponse` flags). Mutates `structured.chips` when
+      // active; logs-only when shadow. Always safe — swallows all errors.
+      // See docs/CHAT_PILLS_RFC.md §4.5 and services/agents/chipInject.ts.
+      await applyChipInjection(structured, context);
+
       // When structured JSON is parsed, extract a clean short message
       // instead of sending raw JSON text to the frontend
       const cleanMessage = structured
@@ -670,6 +677,7 @@ export async function orchestrate(
               },
             ],
             chips: [],
+            contextTags: ["response:text", "always"],
           };
         } else if (warningText) {
           // Append warnings as a coach note card
@@ -793,6 +801,7 @@ export async function orchestrate(
               : "Log your test result",
             cards: [capsuleCard],
             chips: [],
+            contextTags: ["response:benchmark", "metric_missing"],
           },
           refreshTargets: [],
           agentType: primaryAgent,

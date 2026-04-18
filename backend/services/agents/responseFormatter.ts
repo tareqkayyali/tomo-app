@@ -519,6 +519,19 @@ export interface TomoResponse {
   headline: string;
   cards: VisualCard[];
   chips?: ActionChip[];
+  /**
+   * Response context tags, drawn from the finite taxonomy in
+   * lib/chatPills/tagTaxonomy.ts. Emitted by each builder/handler to
+   * describe the response shape and local signals (readiness score,
+   * has_clash, empty list, etc.). The orchestrator appends additional
+   * tags derived from PlayerContext (exam_soon, stale_checkin, …).
+   *
+   * When `chat_pills.inResponse.enabled=true`, these tags drive the CMS
+   * chip resolver (see chipInject.ts). When disabled, tags are still
+   * emitted but only logged in shadow mode — hardcoded `chips` are
+   * served as the baseline.
+   */
+  contextTags?: string[];
   confirm?: ConfirmAction;
 }
 
@@ -531,7 +544,15 @@ export function buildReadinessResponse(data: {
   sleep: number;
   recommendation: string;
 }): TomoResponse {
+  const scoreLower = data.score.toLowerCase();
+  const readinessTag =
+    scoreLower === "green" || scoreLower === "good"
+      ? "readiness:green"
+      : scoreLower === "red" || scoreLower === "poor"
+        ? "readiness:red"
+        : "readiness:yellow";
   return {
+    contextTags: ["response:readiness", readinessTag],
     headline: `You're ${data.score} today`,
     cards: [
       {
@@ -575,6 +596,11 @@ export function buildScheduleResponse(data: {
 }): TomoResponse {
   const hasClash = data.items.some((i) => i.clash);
   return {
+    contextTags: hasClash
+      ? ["response:clash_fix", "has_clash"]
+      : data.items.length === 0
+        ? ["response:schedule", "rest_day"]
+        : ["response:schedule"],
     headline: hasClash ? "⚠️ Schedule clash detected" : `${data.items.length} events on ${data.date}`,
     cards: [
       {
@@ -599,6 +625,7 @@ export function buildClashFixResponse(data: {
   clashes: ClashItem[];
 }): TomoResponse {
   return {
+    contextTags: ["response:clash_fix", "has_clash"],
     headline: `${data.clashes.length} clash${data.clashes.length > 1 ? "es" : ""} found`,
     cards: [
       {
@@ -620,6 +647,7 @@ export function buildExamWeekResponse(data: {
   recommendation: string;
 }): TomoResponse {
   return {
+    contextTags: ["response:exam_week", "exam_soon"],
     headline: data.headline,
     cards: [
       {
@@ -648,7 +676,13 @@ export function buildBenchmarkResponse(data: {
     ageBand: string;
   }>;
 }): TomoResponse {
+  const hasWeak = data.metrics.some((m) => m.percentile < 40);
+  const hasStrong = data.metrics.some((m) => m.percentile >= 75);
+  const tags: string[] = ["response:benchmark", "has_benchmarks"];
+  if (hasWeak) tags.push("benchmark_weak");
+  if (hasStrong) tags.push("benchmark_strong");
   return {
+    contextTags: tags,
     headline: "Your benchmarks",
     cards: data.metrics.map((m) => ({
       type: "benchmark_bar" as const,
@@ -756,6 +790,7 @@ export function buildTextResponse(
       : firstSentence;
 
   return {
+    contextTags: ["response:text"],
     headline,
     cards: [
       {

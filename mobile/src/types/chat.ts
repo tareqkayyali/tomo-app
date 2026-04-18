@@ -938,6 +938,12 @@ export interface TomoResponse {
   body?: string;
   cards: VisualCard[];
   chips?: ActionChip[];
+  /**
+   * Response context tags from the finite taxonomy in
+   * backend/lib/chatPills/tagTaxonomy.ts. Mobile does not consume them;
+   * kept optional for backend/mobile type parity.
+   */
+  contextTags?: string[];
   confirm?: ConfirmAction;
 }
 

@@ -9,6 +9,7 @@ interface FormattedResponse {
   headline: string;
   cards: any[];
   chips: any[];
+  contextTags?: string[];
 }
 
 export function formatQuickAction(
@@ -35,6 +36,7 @@ export function formatQuickAction(
         headline: "Here's what I found",
         cards: [{ type: "text_card", emoji: "📊", headline: "Result", body: JSON.stringify(result).slice(0, 300) }],
         chips: [],
+        contextTags: ["response:text", "always"],
       };
   }
 }
@@ -79,6 +81,13 @@ function formatReadiness(result: any, context: PlayerContext): FormattedResponse
     ? `${emoji} Readiness: ${rag || "Unknown"}${dateLabel}`
     : `${emoji} No check-in today`;
 
+  const readinessTag =
+    rag === "GREEN" ? "readiness:green" :
+    rag === "YELLOW" ? "readiness:yellow" :
+    rag === "RED" ? "readiness:red" : null;
+  const tags: string[] = ["response:readiness"];
+  if (readinessTag) tags.push(readinessTag);
+  if (!checkIn || !isToday) tags.push("needs_checkin");
   return {
     headline,
     cards: [{ type: "stat_grid", items }],
@@ -86,6 +95,7 @@ function formatReadiness(result: any, context: PlayerContext): FormattedResponse
       ...(!checkIn || !isToday ? [{ label: "Log check-in", action: "I want to check in" }] : []),
       { label: "Get training plan", action: "What should I train today?" },
     ],
+    contextTags: tags,
   };
 }
 
@@ -106,6 +116,10 @@ function formatConsistency(result: any): FormattedResponse {
     }],
     chips: [
       { label: "View mastery", action: "Go to mastery" },
+    ],
+    contextTags: [
+      "response:text",
+      streak >= 7 ? "streak_milestone" : "returning_user",
     ],
   };
 }
@@ -146,6 +160,11 @@ function formatDualLoad(result: any): FormattedResponse {
     chips: [
       { label: "View schedule", action: "Show my schedule today" },
     ],
+    contextTags: [
+      "response:text",
+      acwrNum != null && acwrNum > 1.3 ? "acwr_high" : acwrNum != null && acwrNum < 0.8 ? "acwr_low" : "always",
+      typeof dual === "number" && dual >= 65 ? "dual_load_high" : null,
+    ].filter(Boolean) as string[],
   };
 }
 
@@ -160,6 +179,7 @@ function formatTodayEvents(result: any, context: PlayerContext): FormattedRespon
         { label: "Add training", action: "I want to add a training session" },
         { label: "View week", action: "Show my week schedule" },
       ],
+      contextTags: ["response:schedule", "rest_day"],
     };
   }
 
@@ -181,6 +201,10 @@ function formatTodayEvents(result: any, context: PlayerContext): FormattedRespon
     chips: [
       { label: "Add event", action: "I want to add an event" },
       { label: "View week", action: "Show my week schedule" },
+    ],
+    contextTags: [
+      "response:schedule",
+      events.some((e: any) => (e.event_type ?? e.eventType) === "match" || (e.event_type ?? e.eventType) === "competition") ? "match_today" : "training_today",
     ],
   };
 }
@@ -267,6 +291,7 @@ function formatWeekSchedule(result: any): FormattedResponse {
       { label: "Edit my rules", action: "Edit my schedule rules" },
       { label: "Check conflicts", action: "Check for any schedule conflicts" },
     ],
+    contextTags: ["response:schedule", totalEvents === 0 ? "empty_week" : "training_today"],
   };
 }
 
@@ -280,6 +305,7 @@ function formatTestResults(result: any): FormattedResponse {
       chips: [
         { label: "Log a test", action: "I want to log a test" },
       ],
+      contextTags: ["response:benchmark", "metric_missing"],
     };
   }
 
@@ -308,5 +334,6 @@ function formatTestResults(result: any): FormattedResponse {
       { label: "Log a test", action: "I want to log a test" },
       { label: "Compare to peers", action: "Compare my benchmarks to peers" },
     ],
+    contextTags: ["response:benchmark", "has_benchmarks"],
   };
 }

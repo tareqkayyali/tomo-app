@@ -56,6 +56,7 @@ async function handleLogTest(
       headline: `Log your ${testName} result`,
       cards: [capsuleCard],
       chips: [],
+      contextTags: ["response:benchmark", "metric_missing"],
     },
     refreshTargets: [],
     agentType: "output",
@@ -76,6 +77,7 @@ async function handleCheckIn(
         lastCheckinDate: undefined,
       }],
       chips: [],
+      contextTags: ["response:readiness", "needs_checkin"],
     },
     refreshTargets: [],
     agentType: "output",
@@ -122,6 +124,7 @@ async function handleNavigate(
           headline: `Opening ${nav.label}`,
           cards: [{ type: "navigation_capsule" as const, icon: nav.icon, target: nav.tabName, label: nav.label, description: nav.description, deepLink: { tabName: nav.tabName } }],
           chips: [],
+          contextTags: ["response:text", "always"],
         },
         refreshTargets: [],
         agentType: "output",
@@ -137,6 +140,7 @@ async function handleNavigate(
           headline: `Opening ${nav.label}`,
           cards: [{ type: "navigation_capsule" as const, icon: nav.icon, target: nav.tabName, label: nav.label, description: nav.description, deepLink: { tabName: nav.tabName } }],
           chips: [],
+          contextTags: ["response:text", "always"],
         },
         refreshTargets: [],
         agentType: "output",
@@ -214,7 +218,7 @@ async function handleShowPrograms(
 
       return {
         message: "Your programs",
-        structured: { headline: "Your programs", cards: programCards, chips: [{ label: "Recommend more", action: "What programs do you recommend for me?" }] },
+        structured: { headline: "Your programs", cards: programCards, chips: [{ label: "Recommend more", action: "What programs do you recommend for me?" }], contextTags: ["response:programs", "has_programs"] },
         refreshTargets: [],
         agentType: "output",
       };
@@ -244,6 +248,7 @@ async function handleShowPrograms(
             { label: "Build me a session", action: "Build me a training session for today" },
             { label: "Focus on speed", action: "I want to improve my sprint speed" },
           ],
+          contextTags: ["response:programs", "recommendation_ready", "no_programs"],
         },
         refreshTargets: [],
         agentType: "output",
@@ -278,7 +283,7 @@ async function handleManagePrograms(
     if (programs.length > 0) {
       return {
         message: "Your programs",
-        structured: { headline: "📋 Your Programs", cards: [{ type: "program_interact_capsule" as const, programs }], chips: [] },
+        structured: { headline: "📋 Your Programs", cards: [{ type: "program_interact_capsule" as const, programs }], chips: [], contextTags: ["response:programs", "has_programs"] },
         refreshTargets: [],
         agentType: "output",
       };
@@ -306,6 +311,7 @@ async function handleTimelineCapabilities(
         { label: "📊 View my week", action: "Show me this week's schedule" },
         { label: "⚡ Check conflicts", action: "Check for any schedule conflicts" },
       ],
+      contextTags: ["response:text", "always"],
     },
     refreshTargets: [],
     agentType: "timeline",
@@ -336,6 +342,9 @@ async function handleCheckConflicts(
           { label: "Add training", action: "I want to add a training session" },
           { label: "View my week", action: "Show me this week's full schedule" },
         ],
+        contextTags: data.collisions?.length > 0
+          ? ["response:clash_fix", "has_clash"]
+          : ["response:schedule", "always"],
       },
       refreshTargets: [],
       agentType: "timeline",
@@ -368,6 +377,7 @@ async function handleGhostSuggestions(
           })),
         }],
         chips: [],
+        contextTags: ["response:schedule", "schedule_gap"],
       },
       refreshTargets: [],
       agentType: "timeline",
@@ -397,6 +407,7 @@ async function handleDayLock(
         headline: isLocked ? "🔒 Day Locked" : "🔓 Day Unlocked",
         cards: [{ type: "day_lock_capsule" as const, date: targetDate, locked: isLocked }],
         chips: [],
+        contextTags: ["response:text", "always"],
       },
       refreshTargets: [],
       agentType: "timeline",
@@ -423,6 +434,7 @@ async function handleWhoopSync(
         headline: connected ? "⌚ Whoop Sync" : "⌚ Whoop Not Connected",
         cards: [{ type: "whoop_sync_capsule" as const, connected, lastSyncAt }],
         chips: connected ? [] : [{ label: "Go to Settings", action: "Navigate to settings to connect Whoop" }],
+        contextTags: ["response:text", "always"],
       },
       refreshTargets: [],
       agentType: "output",
@@ -459,6 +471,7 @@ async function handleLeaderboard(
           ...(boardType === "global" ? [{ label: "🔥 Streak board", action: "Show me the streak leaderboard" }] : []),
           ...(boardType === "streaks" ? [{ label: "🏆 Points board", action: "Show me the global leaderboard" }] : []),
         ],
+        contextTags: ["response:text", (context.currentStreak ?? 0) >= 7 ? "streak_milestone" : "returning_user"],
       },
       refreshTargets: [],
       agentType: "mastery",
@@ -500,6 +513,7 @@ async function handlePhvQuery(
             ],
           }],
           chips: [{ label: "Recalculate", action: "Calculate my growth stage" }],
+          contextTags: ["response:text", "growth"],
         },
         refreshTargets: [],
         agentType: "output",
@@ -536,6 +550,7 @@ async function handlePhvCalculate(
           previousStage: s?.phv_stage ?? undefined,
         }],
         chips: [],
+        contextTags: ["response:text", "growth"],
       },
       refreshTargets: [],
       agentType: "output",
@@ -575,6 +590,12 @@ async function handleStrengthsGaps(
             { label: "Log a test", action: "I want to log a new test" },
             { label: "Get drills for gaps", action: "Give me drills to improve my weak areas" },
           ],
+          contextTags: [
+            "response:benchmark",
+            "has_benchmarks",
+            ...((profile.gaps ?? []).length > 0 ? ["benchmark_weak"] : []),
+            ...((profile.strengths ?? []).length > 0 ? ["benchmark_strong"] : []),
+          ],
         },
         refreshTargets: [],
         agentType: "output",
@@ -590,7 +611,7 @@ async function handleStrengthsGaps(
 async function handlePadelShots(): Promise<OrchestratorResult | null> {
   return {
     message: "Log padel session",
-    structured: { headline: "🎾 Log Padel Session", cards: [{ type: "padel_shot_capsule" as const, shotTypes: [] }], chips: [] },
+    structured: { headline: "🎾 Log Padel Session", cards: [{ type: "padel_shot_capsule" as const, shotTypes: [] }], chips: [], contextTags: ["response:text", "always"] },
     refreshTargets: [], agentType: "output",
   };
 }
@@ -598,7 +619,7 @@ async function handlePadelShots(): Promise<OrchestratorResult | null> {
 async function handleBlazepods(): Promise<OrchestratorResult | null> {
   return {
     message: "Log BlazePods session",
-    structured: { headline: "⚡ Log BlazePods Session", cards: [{ type: "blazepods_capsule" as const, drillTypes: [] }], chips: [] },
+    structured: { headline: "⚡ Log BlazePods Session", cards: [{ type: "blazepods_capsule" as const, drillTypes: [] }], chips: [], contextTags: ["response:text", "always"] },
     refreshTargets: [], agentType: "output",
   };
 }
@@ -613,6 +634,7 @@ async function handleNotificationSettings(): Promise<OrchestratorResult | null> 
         current: { dailyReminder: true, dailyReminderTime: "07:00", streakReminders: true, milestoneAlerts: true, redDayGuidance: true, weeklySummary: true },
       }],
       chips: [],
+      contextTags: ["response:text", "always"],
     },
     refreshTargets: [], agentType: "output",
   };
@@ -630,7 +652,7 @@ async function handleAddExam(
     const studySubjects = p?.study_subjects ?? [];
     return {
       message: "Add an exam",
-      structured: { headline: "Add Exam", cards: [{ type: "exam_capsule" as const, existingExams, studySubjects }], chips: [] },
+      structured: { headline: "Add Exam", cards: [{ type: "exam_capsule" as const, existingExams, studySubjects }], chips: [], contextTags: ["response:text", "exam_soon"] },
       refreshTargets: [], agentType: "timeline",
     };
   } catch { return null; }
@@ -644,7 +666,7 @@ async function handleManageSubjects(
     const { data: prefs } = await db.from("player_schedule_preferences").select("study_subjects").eq("user_id", context.userId).single();
     return {
       message: "Manage study subjects",
-      structured: { headline: "Study Subjects", cards: [{ type: "subject_capsule" as const, currentSubjects: (prefs as any)?.study_subjects ?? [] }], chips: [] },
+      structured: { headline: "Study Subjects", cards: [{ type: "subject_capsule" as const, currentSubjects: (prefs as any)?.study_subjects ?? [] }], chips: [], contextTags: ["response:text", "always"] },
       refreshTargets: [], agentType: "timeline",
     };
   } catch { return null; }
@@ -663,7 +685,7 @@ async function handleTrainingCategories(
     }));
     return {
       message: "Manage training categories",
-      structured: { headline: "Training Categories", cards: [{ type: "training_category_capsule" as const, currentCategories: cats }], chips: [] },
+      structured: { headline: "Training Categories", cards: [{ type: "training_category_capsule" as const, currentCategories: cats }], chips: [], contextTags: ["response:schedule", "training_today"] },
       refreshTargets: [], agentType: "timeline",
     };
   } catch { return null; }
@@ -706,6 +728,7 @@ async function handleCreateEvent(
         trainingCategories: trainingCategories.length > 0 ? trainingCategories : undefined,
       }],
       chips: [],
+      contextTags: ["response:schedule", "training_today"],
     },
     refreshTargets: [],
     agentType: "timeline",
@@ -743,6 +766,7 @@ async function handleDeleteEvent(
           })),
         }],
         chips: [],
+        contextTags: ["response:schedule", "always"],
       },
       refreshTargets: [],
       agentType: "timeline",
@@ -777,7 +801,7 @@ async function handleEditCv(
 
     return {
       message: "Edit your profile",
-      structured: { headline: "Edit your profile", cards: [{ type: "cv_edit_capsule" as const, fields }], chips: [] },
+      structured: { headline: "Edit your profile", cards: [{ type: "cv_edit_capsule" as const, fields }], chips: [], contextTags: ["response:text", "cv_incomplete", "returning_user"] },
       refreshTargets: [],
       agentType: "mastery",
     };
@@ -803,6 +827,7 @@ async function handleExamSchedule(
         prefilledDate: hints.date, prefilledStartTime: hints.startTime, prefilledEndTime: hints.endTime,
       }],
       chips: [{ label: "Set exam period", action: "I want to set my exam period dates and subjects" }],
+      contextTags: ["response:exam_week", "exam_soon"],
     },
     refreshTargets: [],
     agentType: "timeline",
@@ -841,6 +866,7 @@ async function handleScheduleRules(
           { label: "Edit subjects", action: "manage my study subjects" },
           { label: "Add training category", action: "add a new training category" },
         ],
+        contextTags: ["response:schedule", "always"],
       },
       refreshTargets: [],
       agentType: "timeline",
@@ -875,6 +901,7 @@ async function handlePlanTraining(
           { label: "Edit my rules", action: "edit my schedule rules" },
           { label: "View my week", action: "what's on my schedule this week?" },
         ],
+        contextTags: ["response:session_plan", "training_today"],
       },
       refreshTargets: [],
       agentType: "timeline",
@@ -939,6 +966,7 @@ async function handlePlanStudy(
           { label: "Edit subjects", action: "manage my study subjects" },
           { label: "Edit my rules", action: "edit my schedule rules" },
         ],
+        contextTags: ["response:text", exams.length > 0 ? "exam_soon" : "always"],
       },
       refreshTargets: [],
       agentType: "timeline",
@@ -1087,6 +1115,7 @@ async function handleBulkEditEvents(
             { label: "Add training", action: "I want to add a training session" },
             { label: "Plan my week", action: "plan my training week" },
           ],
+          contextTags: ["response:schedule", "empty_week"],
         },
         refreshTargets: [],
         agentType: "timeline",
@@ -1106,6 +1135,7 @@ async function handleBulkEditEvents(
           { label: "View my week", action: "what's on my schedule this week?" },
           { label: "Add training", action: "I want to add a training session" },
         ],
+        contextTags: ["response:schedule", "training_today"],
       },
       refreshTargets: [],
       agentType: "timeline",
@@ -1188,6 +1218,7 @@ async function handleJournalPre(
         chips: [
           { label: "View timeline", action: "what's on my schedule today?" },
         ],
+        contextTags: ["response:session_plan", "training_today"],
       },
       refreshTargets: [],
       agentType: "output",
@@ -1254,6 +1285,7 @@ async function handleJournalPost(
         chips: [
           { label: "View timeline", action: "what's on my schedule today?" },
         ],
+        contextTags: ["response:session_plan", "training_today"],
       },
       refreshTargets: [],
       agentType: "output",
