@@ -38,6 +38,21 @@ export type ThemeColors = {
   surface: string;            // Card background
   inputBackground: string;    // Input fields
 
+  // --- Dashboard Panel palette (distinct from the main Kon/Kinari surface set) ---
+  // The three slide-up panels (Program / Metrics / Progress) use a darker
+  // navy-ish palette for card surfaces + cooler off-white text. Centralised
+  // here so the panels stay visually consistent and future theming is a
+  // single-file change.
+  panelOuter: string;         // Dashboard screen outer background
+  panelSheet: string;         // SlideUpPanel sheet background
+  panelSurface: string;       // Card surface inside panels
+  panelBorder: string;        // Card border (7% white)
+  panelBorderSoft: string;    // Subtle borders / dividers (6% white)
+  panelLabel: string;         // Tiny uppercase section labels (18% white)
+  panelTextPrimary: string;   // Bright cool-white headings on panels
+  panelTextSecondary: string; // Muted secondary text on panels
+  panelTextMuted: string;     // Very muted / empty-state body text on panels
+
   // --- Tomo 友 Semantic Opacity Tokens ---
   // Use these instead of hardcoding rgba() values
   accentSubtle: string;       // Sage 8% — subtle accent bg (chips, hints)
@@ -227,6 +242,17 @@ export const darkColors: ThemeColors = {
   borderLight: 'rgba(245,243,237,0.06)',
   surface: 'rgba(245,243,237,0.03)',           // Near-transparent card bg
   inputBackground: 'rgba(245,243,237,0.05)',   // Slightly more presence for inputs
+
+  // Dashboard Panel palette
+  panelOuter: '#0F1219',
+  panelSheet: '#0D1117',
+  panelSurface: '#1B1F2E',
+  panelBorder: 'rgba(255,255,255,0.07)',
+  panelBorderSoft: 'rgba(255,255,255,0.06)',
+  panelLabel: 'rgba(255,255,255,0.18)',
+  panelTextPrimary: '#E5EBE8',
+  panelTextSecondary: '#7A8D7E',
+  panelTextMuted: '#4A5E50',
 
   // --- Tomo 友 Semantic Opacity Tokens ---
   accentSubtle: 'rgba(122,155,118,0.08)',

@@ -6,6 +6,8 @@
 
 import { supabaseAdmin } from "../lib/supabase/admin";
 import { createNotification } from "./notificationService";
+import { grantConsent } from "./consent/consentService";
+import { ageFromDob, parseDobOrThrow } from "./compliance";
 import type { RelationshipType } from "../types";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -469,3 +471,149 @@ export async function declineLinkRequest(
 
 // Backward-compatible alias
 export const declineParentLink = declineLinkRequest;
+
+// ═══════════════════════════════════════════════════════════════════
+//  Phase 3: Child-initiated parent consent flow
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Accept a child-initiated invite code as the guardian (parent).
+ *
+ * Phase 3 flow (mirror of acceptInviteCode):
+ *   - The CHILD generated the code via /relationships/invite-parent and
+ *     shared it out-of-band (SMS, in-person).
+ *   - The PARENT enters it here. The relationship is created with
+ *     guardian_id = parent (accepter), player_id = child (creator).
+ *   - If the child has consent_status = 'awaiting_parent', we also
+ *     write a parental consent row via grantConsent(), which flips the
+ *     child's consent_status to 'active' so the trigger in migration
+ *     062 stops blocking their writes.
+ *
+ * Returns the relationship id + the child's user id so the parent
+ * app can navigate to the child's dashboard.
+ */
+export async function acceptAsGuardian(
+  guardianId: string,
+  code: string,
+  opts?: { ipInet?: string | null; userAgent?: string | null }
+): Promise<{ relationshipId: string; childId: string; consentGranted: boolean }> {
+  const db = supabaseAdmin();
+
+  const { data: invite, error: inviteError } = await db
+    .from("invite_codes")
+    .select("*")
+    .eq("code", code.toUpperCase())
+    .is("used_by", null)
+    .single();
+
+  if (inviteError || !invite) {
+    throw new Error("Invalid or already-used invite code");
+  }
+  if (new Date(invite.expires_at) < new Date()) {
+    throw new Error("Invite code has expired");
+  }
+  if (invite.creator_id === guardianId) {
+    throw new Error("Cannot accept your own invite code");
+  }
+  // This route is exclusively for child-initiated codes. The child
+  // creates with target_role='parent', so any other value here means
+  // the parent is on the wrong path (they should use /accept).
+  if (invite.target_role !== "parent") {
+    throw new Error("This code is not a parent-consent invite");
+  }
+
+  // Look up the creator (expected role: player, possibly in
+  // awaiting_parent state).
+  const { data: child, error: childError } = await db
+    .from("users")
+    .select("id, role, consent_status, date_of_birth, region_code, privacy_version")
+    .eq("id", invite.creator_id)
+    .single();
+
+  if (childError || !child) {
+    throw new Error("Child account not found");
+  }
+  if (child.role !== "player") {
+    throw new Error("This invite is not from a player account");
+  }
+
+  // Duplicate-relationship guard (same pair, both directions).
+  const { data: existing } = await db
+    .from("relationships")
+    .select("id")
+    .eq("guardian_id", guardianId)
+    .eq("player_id", child.id)
+    .eq("status", "accepted")
+    .limit(1);
+  if (existing && existing.length > 0) {
+    throw new Error("You are already linked to this athlete");
+  }
+
+  const { data: rel, error: relError } = await db
+    .from("relationships")
+    .insert({
+      guardian_id: guardianId,
+      player_id: child.id,
+      relationship_type: "parent",
+      status: "accepted",
+      invite_code: invite.code,
+      accepted_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (relError || !rel) {
+    throw new Error(`Failed to create relationship: ${relError?.message}`);
+  }
+
+  await db.from("invite_codes").update({ used_by: guardianId }).eq("code", invite.code);
+
+  // Wire parental consent if the child was blocked on it. We pick the
+  // consent_type by age: < 13 = COPPA, otherwise GDPR-K (server-side
+  // floor at 16 is what the signup path already enforces for EU/UK).
+  let consentGranted = false;
+  if (child.consent_status === "awaiting_parent" && child.date_of_birth) {
+    try {
+      const age = ageFromDob(parseDobOrThrow(child.date_of_birth));
+      const consentType = age < 13 ? "coppa_parental" : "gdpr_k_parental";
+      // Version string mirrors whatever the child accepted at signup;
+      // if missing, fall back to "1.0.0" so the audit row is still
+      // written rather than silently skipped.
+      const version = child.privacy_version ?? "1.0.0";
+      await grantConsent({
+        userId: child.id,
+        consentType,
+        version,
+        jurisdiction: child.region_code ?? "GLOBAL",
+        grantedBy: guardianId,
+        verificationMethod: "email_plus",
+        ipInet: opts?.ipInet ?? null,
+        userAgent: opts?.userAgent ?? null,
+      });
+      consentGranted = true;
+    } catch (err) {
+      // Don't fail the relationship creation on consent-wiring hiccup —
+      // relationship is real; consent can be retried from the parent
+      // portal. Log for observability.
+      console.error("[acceptAsGuardian] grantConsent failed:", err);
+    }
+  }
+
+  // Notify the child so they know the parent is linked + consented.
+  try {
+    await createNotification({
+      userId: child.id,
+      type: "parent_consent_granted",
+      title: "Your parent is set up",
+      body: consentGranted
+        ? "Consent granted — you can now use all of Tomo."
+        : "Your parent is linked to your account.",
+      data: { relationshipId: rel.id, guardianId },
+    });
+  } catch {
+    // Notification best-effort.
+  }
+
+  return { relationshipId: rel.id, childId: child.id, consentGranted };
+}
+

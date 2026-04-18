@@ -1,50 +1,204 @@
 /**
  * MetricsPanel — Biometric overview slide-up panel.
  *
- * Shows: HRV sparkline, Sleep bars, ACWR zone indicator.
+ * Shows: HRV sparkline (with baseline), sleep bars, ACWR zone indicator,
+ * readiness trend, wellness mini-trends (energy / mood / soreness),
+ * 7-day training load.
+ *
  * Data sourced from boot data recentVitals + snapshot.
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Polyline, Rect, Line, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SlideUpPanel } from './SlideUpPanel';
+import { DashboardCard } from './DashboardCard';
 import { fontFamily } from '../../../theme/typography';
+import { useTheme } from '../../../hooks/useTheme';
+import { Sparkline, BarChart, ZoneBar, type Zone } from '../../charts';
+import type { DashboardLayoutSection } from '../../../services/api';
 
 interface MetricsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   snapshot: Record<string, any> | null;
-  recentVitals: { date: string; sleep_hours: number | null; hrv_morning_ms: number | null; energy: number | null; soreness: number | null; mood: number | null; readiness_score?: number | null }[];
+  recentVitals: {
+    date: string;
+    sleep_hours: number | null;
+    hrv_morning_ms: number | null;
+    energy: number | null;
+    soreness: number | null;
+    mood: number | null;
+    readiness_score?: number | null;
+  }[];
   dailyLoad?: { date: string; trainingLoadAu: number; sessionCount: number }[];
   signalColor: string;
+  freshness?: { label: string; onRefresh: () => void } | null;
+  /** Whether a wearable is connected. When false, the sync row invites the athlete to connect one. */
+  isWearableConnected?: boolean;
+  /** Invoked when the athlete taps the sync row. Expected to call the Whoop/Terra sync + refreshBoot. */
+  onSyncVitals?: () => Promise<void>;
+  /** Called when the athlete taps the sync row without a wearable connected (deep-links to Settings). */
+  onOpenSettings?: () => void;
+  /**
+   * CMS-managed sub-section ordering from `bootData.panelLayouts.metrics`.
+   * When undefined/empty we fall back to the default hardcoded order below.
+   */
+  panelLayout?: DashboardLayoutSection[];
 }
 
-export function MetricsPanel({ isOpen, onClose, snapshot, recentVitals, dailyLoad, signalColor }: MetricsPanelProps) {
+/** Default rendering order, used when CMS returns nothing. */
+const DEFAULT_METRICS_ORDER = [
+  'metrics_sync_row',
+  'metrics_hrv',
+  'metrics_sleep',
+  'metrics_acwr',
+  'metrics_readiness_trend',
+  'metrics_wellness_trends',
+  'metrics_training_load',
+];
+
+export function MetricsPanel({
+  isOpen,
+  onClose,
+  snapshot,
+  recentVitals,
+  dailyLoad,
+  signalColor,
+  freshness,
+  isWearableConnected,
+  onSyncVitals,
+  onOpenSettings,
+  panelLayout,
+}: MetricsPanelProps) {
+  const { colors } = useTheme();
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncPress = async () => {
+    if (!onSyncVitals || isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await onSyncVitals();
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const hrvToday = snapshot?.hrv_today_ms ?? null;
   const hrvBaseline = snapshot?.hrv_baseline_ms ?? null;
   const acwr = snapshot?.acwr ?? null;
 
-  // Compute HRV delta
   let hrvDelta = '';
   if (hrvToday && hrvBaseline && hrvBaseline > 0) {
     const pct = Math.round(((hrvToday / hrvBaseline) - 1) * 100);
     hrvDelta = `${pct >= 0 ? '+' : ''}${pct}% vs baseline`;
   }
 
-  // Compute sleep avg
-  const sleepValues = (recentVitals ?? []).map(v => v.sleep_hours).filter((v): v is number => v != null);
-  const sleepAvg = sleepValues.length > 0 ? (sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length).toFixed(1) : '—';
+  const sleepValues = (recentVitals ?? []).map((v) => v.sleep_hours).filter((v): v is number => v != null);
+  const sleepAvg =
+    sleepValues.length > 0
+      ? (sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length).toFixed(1)
+      : '—';
 
   // ACWR zone
   let acwrZone = 'Unknown';
-  let acwrZoneColor = '#4A5E50';
+  let acwrZoneColor = colors.panelTextMuted;
   if (acwr != null) {
-    if (acwr < 0.8) { acwrZone = 'Detraining'; acwrZoneColor = '#5A8A9F'; }
-    else if (acwr <= 1.3) { acwrZone = 'Sweet Spot'; acwrZoneColor = '#7a9b76'; }
-    else if (acwr <= 1.5) { acwrZone = 'Caution'; acwrZoneColor = '#c49a3c'; }
-    else { acwrZone = 'Danger'; acwrZoneColor = '#A05A4A'; }
+    if (acwr < 0.8) {
+      acwrZone = 'Detraining';
+      acwrZoneColor = '#5A8A9F';
+    } else if (acwr <= 1.3) {
+      acwrZone = 'Sweet Spot';
+      acwrZoneColor = colors.readinessGreen;
+    } else if (acwr <= 1.5) {
+      acwrZone = 'Caution';
+      acwrZoneColor = colors.warning;
+    } else {
+      acwrZone = 'Danger';
+      acwrZoneColor = colors.error;
+    }
   }
+
+  const renderers: Record<string, () => React.ReactNode> = {
+    metrics_sync_row: () =>
+      isWearableConnected ? (
+        <TouchableOpacity
+          onPress={handleSyncPress}
+          disabled={isSyncing || !onSyncVitals}
+          activeOpacity={0.7}
+          style={[styles.syncRow, { borderColor: `${signalColor}40` }]}
+        >
+          <Text style={[styles.syncLabel, { color: signalColor }]}>
+            {isSyncing ? 'Syncing vitals…' : 'Sync vitals now'}
+          </Text>
+          {isSyncing && <ActivityIndicator size="small" color={signalColor} />}
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          onPress={onOpenSettings}
+          disabled={!onOpenSettings}
+          activeOpacity={0.7}
+          style={[styles.syncRow, { borderColor: colors.panelBorderSoft }]}
+        >
+          <Text style={[styles.syncLabelMuted, { color: colors.panelTextSecondary }]}>
+            Connect a wearable to auto-sync HRV & sleep
+          </Text>
+        </TouchableOpacity>
+      ),
+    metrics_hrv: () => (
+      <DashboardCard label="HRV">
+        <View style={styles.metricRow}>
+          <Text style={[styles.metricValue, { color: colors.panelTextPrimary }]}>
+            {hrvToday != null ? `${Math.round(hrvToday)}ms` : '—'}
+          </Text>
+          {hrvDelta ? <Text style={[styles.metricDelta, { color: signalColor }]}>{hrvDelta}</Text> : null}
+        </View>
+        <HrvSparkline vitals={recentVitals} color={signalColor} baseline={hrvBaseline} />
+      </DashboardCard>
+    ),
+    metrics_sleep: () => (
+      <DashboardCard label="SLEEP">
+        <View style={styles.metricRow}>
+          <Text style={[styles.metricValue, { color: colors.panelTextPrimary }]}>{sleepAvg}h avg</Text>
+          <Text style={[styles.metricDeltaMuted, { color: colors.panelTextSecondary }]}>
+            {sleepValues.filter((v) => v >= 7).length}/{sleepValues.length} nights ≥7h
+          </Text>
+        </View>
+        <SleepBars vitals={recentVitals} />
+      </DashboardCard>
+    ),
+    metrics_acwr: () => (
+      <DashboardCard label="ACWR">
+        <View style={styles.metricRow}>
+          <Text style={[styles.metricValue, { color: colors.panelTextPrimary }]}>
+            {acwr != null ? acwr.toFixed(2) : '—'}
+          </Text>
+          <View style={[styles.zoneBadge, { backgroundColor: acwrZoneColor + '20' }]}>
+            <Text style={[styles.zoneText, { color: acwrZoneColor }]}>{acwrZone}</Text>
+          </View>
+        </View>
+        {acwr != null && (
+          <View style={{ marginTop: 8 }}>
+            <ZoneBar
+              value={acwr}
+              max={2.0}
+              width={280}
+              zones={ACWR_ZONES}
+              markerColor={colors.panelTextPrimary}
+              tickLabels={[0, 0.8, 1.3, 2.0]}
+              tickColor={colors.panelTextMuted}
+            />
+          </View>
+        )}
+      </DashboardCard>
+    ),
+    metrics_readiness_trend: () => <ReadinessTrend vitals={recentVitals} signalColor={signalColor} />,
+    metrics_wellness_trends: () => <VitalsMiniTrends vitals={recentVitals} />,
+    metrics_training_load: () => <TrainingLoadSection dailyLoad={dailyLoad} signalColor={signalColor} />,
+  };
+
+  const order = panelLayout && panelLayout.length > 0
+    ? panelLayout.map((s) => s.component_type)
+    : DEFAULT_METRICS_ORDER;
 
   return (
     <SlideUpPanel
@@ -52,353 +206,241 @@ export function MetricsPanel({ isOpen, onClose, snapshot, recentVitals, dailyLoa
       onClose={onClose}
       title="Metrics"
       subtitle="7-day biometric overview"
+      freshness={freshness}
     >
-      {/* HRV Section */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.cardLabel}>HRV</Text>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricValue}>{hrvToday != null ? `${Math.round(hrvToday)}ms` : '—'}</Text>
-          {hrvDelta ? <Text style={[styles.metricDelta, { color: signalColor }]}>{hrvDelta}</Text> : null}
-        </View>
-        {/* Mini sparkline placeholder — uses recentVitals HRV when available */}
-        <View style={styles.sparklineContainer}>
-          <HrvSparkline vitals={recentVitals} color={signalColor} baseline={hrvBaseline} />
-        </View>
-      </View>
-
-      {/* Sleep Section */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.cardLabel}>SLEEP</Text>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricValue}>{sleepAvg}h avg</Text>
-          <Text style={styles.metricDeltaMuted}>
-            {sleepValues.filter(v => v >= 7).length}/{sleepValues.length} nights ≥7h
-          </Text>
-        </View>
-        <SleepBars vitals={recentVitals} />
-      </View>
-
-      {/* ACWR Section */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.cardLabel}>ACWR</Text>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricValue}>{acwr != null ? acwr.toFixed(2) : '—'}</Text>
-          <View style={[styles.zoneBadge, { backgroundColor: acwrZoneColor + '20' }]}>
-            <Text style={[styles.zoneText, { color: acwrZoneColor }]}>{acwrZone}</Text>
-          </View>
-        </View>
-        {acwr != null && <AcwrZoneBar acwr={acwr} />}
-      </View>
-
-      {/* Readiness Trend */}
-      <ReadinessTrend vitals={recentVitals} signalColor={signalColor} />
-
-      {/* Energy / Mood / Soreness Mini Trends */}
-      <VitalsMiniTrends vitals={recentVitals} />
-
-      {/* Training Load */}
-      <TrainingLoadSection dailyLoad={dailyLoad} signalColor={signalColor} />
+      {order.map((type) => {
+        const render = renderers[type];
+        if (!render) return null;
+        return <React.Fragment key={type}>{render()}</React.Fragment>;
+      })}
     </SlideUpPanel>
   );
 }
 
+// ACWR zone definitions. Colours are deliberate semantic choices (detraining
+// blue, sweet-spot sage, caution amber, danger red) — not theme tokens.
+const ACWR_ZONES: Zone[] = [
+  { from: 0, to: 0.8, color: '#5A8A9F', tintHex: '30', roundLeft: true },
+  { from: 0.8, to: 1.3, color: '#7a9b76' },
+  { from: 1.3, to: 1.5, color: '#c49a3c' },
+  { from: 1.5, to: 2.0, color: '#A05A4A', roundRight: true },
+];
+
 // ── HRV Sparkline with Baseline Overlay ──
-function HrvSparkline({ vitals, color, baseline }: { vitals: any[]; color: string; baseline?: number | null }) {
+function HrvSparkline({
+  vitals,
+  color,
+  baseline,
+}: {
+  vitals: any[];
+  color: string;
+  baseline?: number | null;
+}) {
+  const { colors } = useTheme();
   const values = (vitals ?? [])
-    .map(v => v.hrv_morning_ms)
+    .map((v) => v.hrv_morning_ms)
     .filter((v): v is number => v != null)
     .reverse(); // oldest first
 
   if (values.length < 2) {
-    return <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: '#4A5E50' }}>Not enough HRV data yet</Text>;
+    return (
+      <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.panelTextMuted }}>
+        Not enough HRV data yet
+      </Text>
+    );
   }
 
-  const width = 280;
-  const height = 28;
-  const min = Math.min(...values, baseline ?? Infinity) - 5;
-  const max = Math.max(...values, baseline ?? -Infinity) + 5;
-  const range = max - min || 1;
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * width;
-    const y = height - ((v - min) / range) * height;
-    return `${x},${y}`;
-  }).join(' ');
-
-  const baselineY = baseline != null ? height - ((baseline - min) / range) * height : null;
-
   return (
-    <Svg width={width} height={height}>
-      {baselineY != null && (
-        <Line
-          x1={0} y1={baselineY} x2={width} y2={baselineY}
-          stroke="rgba(255,255,255,0.15)"
-          strokeWidth={1}
-          strokeDasharray="4,3"
-        />
-      )}
-      <Polyline points={points} stroke={color} strokeWidth={1.5} fill="none" strokeLinejoin="round" />
-    </Svg>
+    <View style={{ marginTop: 4 }}>
+      <Sparkline values={values} color={color} width={280} height={28} baseline={baseline ?? null} />
+    </View>
   );
 }
 
 // ── Sleep Bars ──
 function SleepBars({ vitals }: { vitals: any[] }) {
+  const { colors } = useTheme();
   const values = (vitals ?? [])
-    .map(v => v.sleep_hours)
+    .map((v) => v.sleep_hours)
     .filter((v): v is number => v != null)
     .reverse()
     .slice(-7);
 
   if (values.length === 0) {
-    return <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: '#4A5E50' }}>No sleep data yet</Text>;
+    return (
+      <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.panelTextMuted }}>
+        No sleep data yet
+      </Text>
+    );
   }
 
-  const maxH = 10;
-  const barWidth = 24;
-  const barGap = 8;
-  const chartHeight = 40;
-
   return (
-    <Svg width={(barWidth + barGap) * values.length} height={chartHeight + 12}>
-      {values.map((h, i) => {
-        const barH = (Math.min(h, maxH) / maxH) * chartHeight;
-        const color = h < 7 ? '#c49a3c' : '#7a9b76';
-        return (
-          <React.Fragment key={i}>
-            <Rect
-              x={i * (barWidth + barGap)}
-              y={chartHeight - barH}
-              width={barWidth}
-              height={barH}
-              rx={4}
-              fill={color + '40'}
-            />
-          </React.Fragment>
-        );
-      })}
-    </Svg>
-  );
-}
-
-// ── ACWR Zone Bar ──
-function AcwrZoneBar({ acwr }: { acwr: number }) {
-  const width = 280;
-  const height = 8;
-  // Zone ranges: 0-0.8 (detraining), 0.8-1.3 (sweet spot), 1.3-1.5 (caution), 1.5-2.0 (danger)
-  const maxAcwr = 2.0;
-  const markerX = Math.min(acwr / maxAcwr, 1) * width;
-
-  return (
-    <View style={{ marginTop: 8 }}>
-      <Svg width={width} height={height + 12}>
-        {/* Detraining zone */}
-        <Rect x={0} y={2} width={(0.8 / maxAcwr) * width} height={height} rx={4} fill="#5A8A9F30" />
-        {/* Sweet spot */}
-        <Rect x={(0.8 / maxAcwr) * width} y={2} width={(0.5 / maxAcwr) * width} height={height} rx={0} fill="#7a9b7640" />
-        {/* Caution */}
-        <Rect x={(1.3 / maxAcwr) * width} y={2} width={(0.2 / maxAcwr) * width} height={height} rx={0} fill="#c49a3c40" />
-        {/* Danger */}
-        <Rect x={(1.5 / maxAcwr) * width} y={2} width={(0.5 / maxAcwr) * width} height={height} rx={4} fill="#A05A4A40" />
-        {/* Marker */}
-        <Line x1={markerX} y1={0} x2={markerX} y2={height + 4} stroke="#E5EBE8" strokeWidth={2} strokeLinecap="round" />
-      </Svg>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 }}>
-        <Text style={{ fontFamily: fontFamily.regular, fontSize: 7, color: '#4A5E50' }}>0</Text>
-        <Text style={{ fontFamily: fontFamily.regular, fontSize: 7, color: '#4A5E50' }}>0.8</Text>
-        <Text style={{ fontFamily: fontFamily.regular, fontSize: 7, color: '#4A5E50' }}>1.3</Text>
-        <Text style={{ fontFamily: fontFamily.regular, fontSize: 7, color: '#4A5E50' }}>2.0</Text>
-      </View>
-    </View>
+    <BarChart
+      values={values}
+      color="#7a9b76"
+      width={(24 + 8) * values.length}
+      height={40}
+      barWidth={24}
+      barGap={8}
+      rx={4}
+      colorFn={(v) => (v < 7 ? '#c49a3c' : '#7a9b76')}
+      opacityFn={() => 0.25}
+      maxOverride={10}
+    />
   );
 }
 
 // ── Readiness Trend (7-day sparkline) ──
 function ReadinessTrend({ vitals, signalColor }: { vitals: any[]; signalColor: string }) {
+  const { colors } = useTheme();
   const values = (vitals ?? [])
-    .map(v => v.readiness_score)
+    .map((v) => v.readiness_score)
     .filter((v): v is number => v != null)
     .reverse();
 
   if (values.length < 2) return null;
 
   const latestReadiness = values[values.length - 1];
-  const width = 280;
-  const height = 28;
-  const min = Math.min(...values) - 5;
-  const max = Math.max(...values) + 5;
-  const range = max - min || 1;
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * width;
-    const y = height - ((v - min) / range) * height;
-    return `${x},${y}`;
-  }).join(' ');
 
   return (
-    <View style={metricStyles.sectionCard}>
-      <Text style={metricStyles.cardLabel}>READINESS TREND</Text>
-      <View style={metricStyles.metricRow}>
-        <Text style={metricStyles.metricValue}>{Math.round(latestReadiness)}</Text>
-        <Text style={[metricStyles.metricDeltaMuted]}>latest score</Text>
+    <DashboardCard label="READINESS TREND">
+      <View style={styles.metricRow}>
+        <Text style={[styles.metricValue, { color: colors.panelTextPrimary }]}>
+          {Math.round(latestReadiness)}
+        </Text>
+        <Text style={[styles.metricDeltaMuted, { color: colors.panelTextSecondary }]}>
+          latest score
+        </Text>
       </View>
-      <Svg width={width} height={height}>
-        <Polyline points={points} stroke={signalColor} strokeWidth={1.5} fill="none" strokeLinejoin="round" />
-      </Svg>
-    </View>
+      <Sparkline values={values} color={signalColor} width={280} height={28} />
+    </DashboardCard>
   );
 }
 
 // ── Energy / Mood / Soreness Mini Trends ──
 function VitalsMiniTrends({ vitals }: { vitals: any[] }) {
-  const energy = (vitals ?? []).map(v => v.energy).filter((v): v is number => v != null).reverse();
-  const mood = (vitals ?? []).map(v => v.mood).filter((v): v is number => v != null).reverse();
-  const soreness = (vitals ?? []).map(v => v.soreness).filter((v): v is number => v != null).reverse();
+  const energy = (vitals ?? []).map((v) => v.energy).filter((v): v is number => v != null).reverse();
+  const mood = (vitals ?? []).map((v) => v.mood).filter((v): v is number => v != null).reverse();
+  const soreness = (vitals ?? []).map((v) => v.soreness).filter((v): v is number => v != null).reverse();
 
   if (energy.length < 2 && mood.length < 2 && soreness.length < 2) return null;
 
   return (
-    <View style={metricStyles.sectionCard}>
-      <Text style={metricStyles.cardLabel}>WELLNESS TRENDS</Text>
+    <DashboardCard label="WELLNESS TRENDS">
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <MiniSparkColumn label="Energy" values={energy} color="#7a9b76" />
         <MiniSparkColumn label="Mood" values={mood} color="#5A8A9F" />
         <MiniSparkColumn label="Soreness" values={soreness} color="#c49a3c" />
       </View>
-    </View>
+    </DashboardCard>
   );
 }
 
 function MiniSparkColumn({ label, values, color }: { label: string; values: number[]; color: string }) {
+  const { colors } = useTheme();
   const width = 80;
   const height = 20;
 
   if (values.length < 2) {
     return (
       <View style={{ alignItems: 'center', flex: 1 }}>
-        <Text style={{ fontFamily: fontFamily.medium, fontSize: 8, color: 'rgba(255,255,255,0.18)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{label}</Text>
-        <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: '#4A5E50' }}>--</Text>
+        <Text
+          style={{
+            fontFamily: fontFamily.medium,
+            fontSize: 8,
+            color: colors.panelLabel,
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+            marginBottom: 4,
+          }}
+        >
+          {label}
+        </Text>
+        <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: colors.panelTextMuted }}>
+          --
+        </Text>
       </View>
     );
   }
 
-  const min = Math.min(...values) - 0.5;
-  const max = Math.max(...values) + 0.5;
-  const range = max - min || 1;
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * width;
-    const y = height - ((v - min) / range) * height;
-    return `${x},${y}`;
-  }).join(' ');
-
   return (
     <View style={{ alignItems: 'center', flex: 1 }}>
-      <Text style={{ fontFamily: fontFamily.medium, fontSize: 8, color: 'rgba(255,255,255,0.18)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{label}</Text>
-      <Svg width={width} height={height}>
-        <Polyline points={points} stroke={color} strokeWidth={1.2} fill="none" strokeLinejoin="round" />
-      </Svg>
-      <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: '#7A8D7E', marginTop: 2 }}>{values[values.length - 1]}/5</Text>
+      <Text
+        style={{
+          fontFamily: fontFamily.medium,
+          fontSize: 8,
+          color: colors.panelLabel,
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </Text>
+      <Sparkline values={values} color={color} width={width} height={height} strokeWidth={1.2} padY={0.5} />
+      <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: colors.panelTextSecondary, marginTop: 2 }}>
+        {values[values.length - 1]}/5
+      </Text>
     </View>
   );
 }
 
-// ── Training Load Section ──
-function TrainingLoadSection({ dailyLoad, signalColor }: { dailyLoad?: { date: string; trainingLoadAu: number; sessionCount: number }[]; signalColor: string }) {
+// ── Training Load Section (7-day bars with weekday labels) ──
+function TrainingLoadSection({
+  dailyLoad,
+  signalColor,
+}: {
+  dailyLoad?: { date: string; trainingLoadAu: number; sessionCount: number }[];
+  signalColor: string;
+}) {
+  const { colors } = useTheme();
   const data = (dailyLoad ?? []).slice(-7);
   if (data.length === 0) return null;
 
-  const maxLoad = Math.max(...data.map(d => d.trainingLoadAu), 1);
   const barWidth = 24;
   const barGap = 8;
   const chartHeight = 40;
+  const chartWidth = (barWidth + barGap) * data.length;
+  const values = data.map((d) => d.trainingLoadAu);
 
   return (
-    <View style={metricStyles.sectionCard}>
-      <Text style={metricStyles.cardLabel}>TRAINING LOAD</Text>
-      <Text style={metricStyles.metricDeltaMuted}>Last 7 days (AU)</Text>
+    <DashboardCard label="TRAINING LOAD">
+      <Text style={[styles.metricDeltaMuted, { color: colors.panelTextSecondary }]}>Last 7 days (AU)</Text>
       <View style={{ marginTop: 8 }}>
-        <Svg width={(barWidth + barGap) * data.length} height={chartHeight + 16}>
-          {data.map((d, i) => {
-            const barH = (d.trainingLoadAu / maxLoad) * chartHeight;
-            const dayLabel = new Date(d.date).toLocaleDateString('en', { weekday: 'narrow' });
-            return (
-              <React.Fragment key={i}>
-                <Rect
-                  x={i * (barWidth + barGap)}
-                  y={chartHeight - barH}
-                  width={barWidth}
-                  height={barH}
-                  rx={4}
-                  fill={signalColor + '50'}
-                />
-              </React.Fragment>
-            );
-          })}
-        </Svg>
+        <BarChart
+          values={values}
+          color={`${signalColor}50`}
+          width={chartWidth}
+          height={chartHeight}
+          barWidth={barWidth}
+          barGap={barGap}
+          rx={4}
+        />
         <View style={{ flexDirection: 'row' }}>
           {data.map((d, i) => {
             const dayLabel = new Date(d.date).toLocaleDateString('en', { weekday: 'narrow' });
             return (
-              <Text key={i} style={{ width: barWidth + barGap, textAlign: 'center', fontFamily: fontFamily.regular, fontSize: 7, color: '#4A5E50' }}>{dayLabel}</Text>
+              <Text
+                key={i}
+                style={{
+                  width: barWidth + barGap,
+                  textAlign: 'center',
+                  fontFamily: fontFamily.regular,
+                  fontSize: 7,
+                  color: colors.panelTextMuted,
+                }}
+              >
+                {dayLabel}
+              </Text>
             );
           })}
         </View>
       </View>
-    </View>
+    </DashboardCard>
   );
 }
 
-// Reference to main styles for sub-components
-const metricStyles = StyleSheet.create({
-  sectionCard: {
-    backgroundColor: '#1B1F2E',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-    marginBottom: 10,
-  },
-  cardLabel: {
-    fontFamily: fontFamily.medium,
-    fontSize: 9,
-    letterSpacing: 2,
-    color: 'rgba(255,255,255,0.18)',
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: 8,
-  },
-  metricValue: {
-    fontFamily: fontFamily.bold,
-    fontSize: 20,
-    color: '#E5EBE8',
-  },
-  metricDeltaMuted: {
-    fontFamily: fontFamily.regular,
-    fontSize: 10,
-    color: '#7A8D7E',
-  },
-});
-
 const styles = StyleSheet.create({
-  sectionCard: {
-    backgroundColor: '#1B1F2E',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-    marginBottom: 10,
-  },
-  cardLabel: {
-    fontFamily: fontFamily.medium,
-    fontSize: 9,
-    letterSpacing: 2,
-    color: 'rgba(255,255,255,0.18)',
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
   metricRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -408,7 +450,6 @@ const styles = StyleSheet.create({
   metricValue: {
     fontFamily: fontFamily.bold,
     fontSize: 20,
-    color: '#E5EBE8',
   },
   metricDelta: {
     fontFamily: fontFamily.medium,
@@ -417,10 +458,6 @@ const styles = StyleSheet.create({
   metricDeltaMuted: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: '#7A8D7E',
-  },
-  sparklineContainer: {
-    marginTop: 4,
   },
   zoneBadge: {
     borderRadius: 8,
@@ -428,7 +465,30 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   zoneText: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  syncRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  syncLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: 12,
+    letterSpacing: 0.3,
+  },
+  syncLabelMuted: {
+    fontFamily: fontFamily.regular,
+    fontSize: 11,
+    flex: 1,
   },
 });

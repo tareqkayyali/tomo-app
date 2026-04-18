@@ -6,7 +6,7 @@
  * Top row matches the Plan/Timeline screen pattern.
  */
 
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,6 @@ import {
   RefreshControl,
   ActivityIndicator,
   Platform,
-  Animated,
-  LayoutChangeEvent,
   TouchableOpacity,
   Alert,
 } from 'react-native';
@@ -53,6 +51,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainTabParamList, MainStackParamList } from '../navigation/types';
 import { useSubTabRegistry } from '../hooks/useSubTabContext';
 import { usePageConfig } from '../hooks/usePageConfig';
+import { UnderlineTabSwitcher } from '../components/UnderlineTabSwitcher';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -81,86 +80,6 @@ const LTAD_MAP: Record<string, LTADStage> = {
   'post-phv-recent': 'Train to Compete',
   'post-phv-stable': 'Train to Win',
 };
-
-/** Animated underline tab switcher — same pattern as PlanTabSwitcher */
-function OutputTabSwitcher({
-  activeTab,
-  onTabChange,
-  colors,
-  tabLabels,
-}: {
-  activeTab: Tab;
-  onTabChange: (tab: Tab) => void;
-  colors: ThemeColors;
-  /** CMS-driven label overrides keyed by tab key */
-  tabLabels?: Record<string, string>;
-}) {
-  const tabWidths = useRef<number[]>([0, 0, 0]);
-  const tabOffsets = useRef<number[]>([0, 0, 0]);
-  const indicatorX = useRef(new Animated.Value(0)).current;
-  const indicatorW = useRef(new Animated.Value(0)).current;
-
-  const activeIndex = OUTPUT_TABS.findIndex((t) => t.key === activeTab);
-
-  useEffect(() => {
-    const x = tabOffsets.current[activeIndex] || 0;
-    const w = tabWidths.current[activeIndex] || 0;
-    Animated.parallel([
-      Animated.spring(indicatorX, { toValue: x, useNativeDriver: false, tension: 300, friction: 30 }),
-      Animated.spring(indicatorW, { toValue: w, useNativeDriver: false, tension: 300, friction: 30 }),
-    ]).start();
-  }, [activeIndex]);
-
-  const handleLayout = (index: number) => (e: LayoutChangeEvent) => {
-    const { x, width } = e.nativeEvent.layout;
-    tabWidths.current[index] = width;
-    tabOffsets.current[index] = x;
-    if (index === activeIndex) {
-      indicatorX.setValue(x);
-      indicatorW.setValue(width);
-    }
-  };
-
-  return (
-    <View style={{ marginBottom: spacing.sm, paddingHorizontal: spacing.md }}>
-      <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
-        {OUTPUT_TABS.map((tab, i) => {
-          const isActive = tab.key === activeTab;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              onPress={() => onTabChange(tab.key)}
-              onLayout={handleLayout(i)}
-              style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12 }}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={{
-                  fontFamily: isActive ? fontFamily.semiBold : fontFamily.medium,
-                  fontSize: 14,
-                  color: isActive ? colors.accent1 : colors.textInactive,
-                }}
-              >
-                {tabLabels?.[tab.key] || tab.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      <Animated.View
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          height: 2,
-          backgroundColor: colors.accent1,
-          borderRadius: 1,
-          left: indicatorX,
-          width: indicatorW,
-        }}
-      />
-    </View>
-  );
-}
 
 // ── Component ────────────────────────────────────────────────────────────
 
@@ -322,7 +241,15 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       </View>
 
       {/* ── Tab Switcher (underline style — matches Timeline) ── */}
-      <OutputTabSwitcher activeTab={activeTab} onTabChange={setActiveTab} colors={colors} tabLabels={pageConfig?.metadata?.tabLabels} />
+      <UnderlineTabSwitcher<Tab>
+        tabs={OUTPUT_TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        accentColor={colors.accent1}
+        inactiveColor={colors.textInactive}
+        borderColor={colors.borderLight}
+        tabLabels={pageConfig?.metadata?.tabLabels as Partial<Record<Tab, string>> | undefined}
+      />
 
       {/* ── PHV Banner (shows on all sub-tabs) ── */}
       {data && (

@@ -23,7 +23,12 @@ export type OnboardingStackParamList = {
 };
 
 export type MainTabParamList = {
-  Plan: undefined;
+  /**
+   * Plan (Timeline) tab.
+   * Optional `date` (YYYY-MM-DD) focuses the day view on that date on mount /
+   * when the param changes — used by the Dashboard week-strip deep link.
+   */
+  Plan: { date?: string } | undefined;
   Chat: { prefillMessage?: string; autoSend?: boolean } | undefined;
   Dashboard: undefined;
 };
@@ -101,6 +106,8 @@ export type MainStackParamList = {
   Notifications: undefined;
   LinkAccount: undefined;
   WhoopData: undefined;
+  // GDPR Art. 17 deletion flow
+  DeleteAccount: undefined;
 };
 
 // ── Coach Navigation ─────────────────────────────────────────────────────

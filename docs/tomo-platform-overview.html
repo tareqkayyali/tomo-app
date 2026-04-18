@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tomo Platform Overview</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0A0A0A;
+    --surface: #111111;
+    --elevated: #181818;
+    --border: #222222;
+    --chalk: #E8E4DF;
+    --chalk-dim: #9B9590;
+    --green: #7a9b76;
+    --orange: #c49a3c;
+    --red: #A05A4A;
+    --cyan: #5A8A9F;
+    --accent: #2ECC71;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: white;
+    color: #1a1a1a;
+    font-size: 10.5pt;
+    line-height: 1.55;
+  }
+
+  @page {
+    size: A4;
+    margin: 22mm 20mm 22mm 20mm;
+    @bottom-center {
+      content: counter(page);
+      font-family: 'Inter', sans-serif;
+      font-size: 8pt;
+      color: #999;
+    }
+  }
+
+  /* ── Cover Page ── */
+  .cover {
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 700px;
+    text-align: center;
+    padding: 60px 40px;
+  }
+  .cover-logo {
+    font-size: 56pt;
+    font-weight: 700;
+    letter-spacing: -2px;
+    color: #0A0A0A;
+    margin-bottom: 8px;
+  }
+  .cover-sub {
+    font-size: 13pt;
+    font-weight: 400;
+    color: #666;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 60px;
+  }
+  .cover-title {
+    font-size: 22pt;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 12px;
+  }
+  .cover-desc {
+    font-size: 11pt;
+    color: #666;
+    max-width: 420px;
+    line-height: 1.6;
+    margin-bottom: 80px;
+  }
+  .cover-meta {
+    font-size: 9pt;
+    color: #999;
+  }
+
+  /* ── Table of Contents ── */
+  .toc {
+    page-break-after: always;
+    padding-top: 20px;
+  }
+  .toc h2 {
+    font-size: 18pt;
+    font-weight: 600;
+    margin-bottom: 24px;
+    color: #1a1a1a;
+  }
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px dotted #ddd;
+    font-size: 10.5pt;
+  }
+  .toc-item.section {
+    font-weight: 600;
+    padding-top: 14px;
+    border-bottom: none;
+    color: #1a1a1a;
+  }
+  .toc-item.sub {
+    padding-left: 20px;
+    font-weight: 400;
+    color: #444;
+  }
+
+  /* ── Headings ── */
+  h1 {
+    font-size: 20pt;
+    font-weight: 700;
+    color: #0A0A0A;
+    margin: 0 0 6px 0;
+    padding-top: 8px;
+    page-break-after: avoid;
+  }
+  h1 .num {
+    color: #2ECC71;
+    margin-right: 8px;
+  }
+  h2 {
+    font-size: 13pt;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 22px 0 8px 0;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #333;
+    margin: 14px 0 6px 0;
+    page-break-after: avoid;
+  }
+
+  .section-intro {
+    font-size: 10.5pt;
+    color: #555;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  /* ── Section divider ── */
+  .section-break {
+    page-break-before: always;
+    border-top: 3px solid #0A0A0A;
+    padding-top: 12px;
+    margin-top: 0;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: #f8f8f8;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 10px 0;
+    page-break-inside: avoid;
+  }
+  .card-title {
+    font-weight: 600;
+    font-size: 10.5pt;
+    margin-bottom: 4px;
+    color: #1a1a1a;
+  }
+  .card p, .card li {
+    font-size: 10pt;
+    color: #444;
+    line-height: 1.5;
+  }
+
+  /* ── Feature Grid ── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 10px 0;
+  }
+  .feature-item {
+    background: #f8f8f8;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 12px 14px;
+    page-break-inside: avoid;
+  }
+  .feature-item .label {
+    font-weight: 600;
+    font-size: 9.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #2ECC71;
+    margin-bottom: 4px;
+  }
+  .feature-item p {
+    font-size: 10pt;
+    color: #444;
+    line-height: 1.45;
+  }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #0A0A0A;
+    color: white;
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 10px;
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+    color: #333;
+  }
+  tr:nth-child(even) td {
+    background: #fafafa;
+  }
+
+  /* ── Lists ── */
+  ul, ol {
+    margin: 6px 0 6px 20px;
+  }
+  li {
+    margin: 3px 0;
+    font-size: 10pt;
+    color: #333;
+  }
+
+  /* ── Pills / Badges ── */
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 8pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .pill-green { background: #e6f4e6; color: #2d7a2d; }
+  .pill-yellow { background: #fef3cd; color: #856404; }
+  .pill-red { background: #f5d5d0; color: #8b3a2d; }
+  .pill-cyan { background: #d6eef5; color: #2a6f85; }
+  .pill-gray { background: #eee; color: #666; }
+
+  /* ── Flow diagram (text-based) ── */
+  .flow {
+    background: #f4f4f4;
+    border-left: 3px solid #2ECC71;
+    padding: 12px 16px;
+    margin: 10px 0;
+    font-family: 'Inter', monospace;
+    font-size: 9pt;
+    line-height: 1.7;
+    color: #333;
+    page-break-inside: avoid;
+  }
+
+  /* ── Callout boxes ── */
+  .callout {
+    border-left: 3px solid #2ECC71;
+    padding: 10px 14px;
+    margin: 12px 0;
+    background: #f0faf0;
+    border-radius: 0 6px 6px 0;
+    page-break-inside: avoid;
+  }
+  .callout.warning {
+    border-left-color: #c49a3c;
+    background: #fefbf0;
+  }
+  .callout.safety {
+    border-left-color: #A05A4A;
+    background: #fdf5f3;
+  }
+  .callout strong {
+    font-size: 10pt;
+  }
+  .callout p {
+    font-size: 9.5pt;
+    color: #444;
+    margin-top: 4px;
+  }
+
+  .spacer { height: 20px; }
+  .small-spacer { height: 10px; }
+
+  strong { color: #1a1a1a; }
+  em { font-style: italic; color: #555; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ COVER ════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">tomo</div>
+  <div class="cover-sub">AI Coaching Platform</div>
+  <div class="cover-title">Platform Overview for Athletes</div>
+  <div class="cover-desc">
+    A complete guide to every feature, screen, and intelligent system in Tomo --
+    what you see, what you can do, and how it all works together to help you
+    train smarter, recover better, and grow as an athlete.
+  </div>
+  <div class="cover-meta">
+    Version 2.0 &middot; April 2026<br>
+    Confidential &mdash; For Internal &amp; Stakeholder Use
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ TOC ════════════════════════════════════════════ -->
+<div class="toc">
+  <h2>Contents</h2>
+
+  <div class="toc-item section">1. What is Tomo?</div>
+  <div class="toc-item section">2. App Structure at a Glance</div>
+  <div class="toc-item section">3. Your Daily Journey</div>
+  <div class="toc-item sub">3.1 Morning: Open the App</div>
+  <div class="toc-item sub">3.2 Check In</div>
+  <div class="toc-item sub">3.3 Dashboard -- Your Command Centre</div>
+  <div class="toc-item sub">3.4 Plan Your Day</div>
+  <div class="toc-item sub">3.5 Train</div>
+  <div class="toc-item sub">3.6 Study</div>
+  <div class="toc-item sub">3.7 Reflect &amp; Wind Down</div>
+  <div class="toc-item section">4. The Three Tabs</div>
+  <div class="toc-item sub">4.1 Plan (Timeline)</div>
+  <div class="toc-item sub">4.2 Tomo Chat (AI Coach)</div>
+  <div class="toc-item sub">4.3 Dashboard (Trend)</div>
+  <div class="toc-item section">5. Athlete Modes</div>
+  <div class="toc-item section">6. Intelligent Systems Behind the Scenes</div>
+  <div class="toc-item sub">6.1 Readiness Engine</div>
+  <div class="toc-item sub">6.2 Schedule Rule Engine</div>
+  <div class="toc-item sub">6.3 Recommendation Intelligence</div>
+  <div class="toc-item sub">6.4 Program Guardrails</div>
+  <div class="toc-item sub">6.5 Protocol Layer (PDIL)</div>
+  <div class="toc-item sub">6.6 Notification Engine</div>
+  <div class="toc-item section">7. AI Chat -- How Tomo Understands You</div>
+  <div class="toc-item section">8. Testing &amp; Performance Tracking</div>
+  <div class="toc-item section">9. Programs &amp; Training</div>
+  <div class="toc-item section">10. Wearable Integration</div>
+  <div class="toc-item section">11. Player CV &amp; Identity</div>
+  <div class="toc-item section">12. Gamification &amp; Streaks</div>
+  <div class="toc-item section">13. How Everything Connects</div>
+</div>
+
+<!-- ══════════════════════════════════════ SECTION 1 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">1</span> What is Tomo?</h1>
+</div>
+
+<p class="section-intro">
+  Tomo is an AI-powered coaching platform built for young athletes (ages 13-25). It combines daily wellness tracking, intelligent scheduling, personalized training programs, and a conversational AI coach into a single app that adapts to your life -- balancing sport, school, recovery, and personal growth.
+</p>
+
+<p>At its core, Tomo does three things:</p>
+
+<div class="feature-grid">
+  <div class="feature-item">
+    <div class="label">Understands You</div>
+    <p>Every check-in, test, session, and wearable reading builds a real-time picture of your readiness, load, and development trajectory.</p>
+  </div>
+  <div class="feature-item">
+    <div class="label">Advises You</div>
+    <p>AI-powered recommendations tell you what to train, when to rest, and how to balance academics -- personalized to your sport, position, age, and current state.</p>
+  </div>
+  <div class="feature-item">
+    <div class="label">Protects You</div>
+    <p>9 safety guardrails automatically cap training load, block risky exercises during growth spurts, and flag injury risk before problems happen.</p>
+  </div>
+  <div class="feature-item">
+    <div class="label">Grows With You</div>
+    <p>Longitudinal tracking of speed, strength, endurance, agility, and mastery pillars builds your athlete identity and professional CV over time.</p>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════ SECTION 2 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">2</span> App Structure at a Glance</h1>
+</div>
+
+<p class="section-intro">The app has three main tabs, plus a set of supporting screens accessible from headers and navigation links.</p>
+
+<table>
+  <tr>
+    <th>Tab</th>
+    <th>Name</th>
+    <th>Purpose</th>
+  </tr>
+  <tr>
+    <td><strong>Left</strong></td>
+    <td>Plan (Timeline)</td>
+    <td>Your daily schedule -- training blocks, study sessions, exams, recovery. Navigate day-by-day.</td>
+  </tr>
+  <tr>
+    <td><strong>Centre</strong></td>
+    <td>Tomo Chat</td>
+    <td>AI coaching assistant. Ask anything, log tests, build sessions, manage your calendar. Raised button with Tomo logo.</td>
+  </tr>
+  <tr>
+    <td><strong>Right</strong></td>
+    <td>Dashboard (Trend)</td>
+    <td>Your command centre. Readiness signal, mode selector, recommendations, performance metrics, weekly trends.</td>
+  </tr>
+</table>
+
+<h3>Supporting Screens</h3>
+<table>
+  <tr><th>Screen</th><th>Access Point</th><th>What It Does</th></tr>
+  <tr><td>Check-In</td><td>Header button (red dot if overdue)</td><td>7-step daily wellness wizard</td></tr>
+  <tr><td>Profile</td><td>Header avatar</td><td>Level, points, streak, settings, wearables</td></tr>
+  <tr><td>My Rules</td><td>Dashboard or Profile</td><td>Configure school hours, sleep, training categories, athlete mode</td></tr>
+  <tr><td>Notifications</td><td>Header bell icon</td><td>Priority-sorted alerts by category</td></tr>
+  <tr><td>Add Event</td><td>FAB button on Plan tab</td><td>Quick event creation (training, match, study, exam)</td></tr>
+  <tr><td>Drill Detail</td><td>Chat or Programs</td><td>Execute a drill with timer, sets, and rest periods</td></tr>
+  <tr><td>Player CV</td><td>Chat or Profile</td><td>Build and export your professional athlete CV</td></tr>
+  <tr><td>PHV Calculator</td><td>Chat or Profile</td><td>Calculate your growth maturity stage</td></tr>
+</table>
+
+
+<!-- ══════════════════════════════════════ SECTION 3 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">3</span> Your Daily Journey</h1>
+</div>
+
+<p class="section-intro">Here is what a typical day looks like for a Tomo athlete, from waking up to winding down.</p>
+
+<h2>3.1 Morning: Open the App</h2>
+<p>When you open Tomo, the app loads your entire state in one shot. Behind the scenes, 18 parallel queries run to fetch your profile, snapshot, schedule, check-in history, recommendations, benchmarks, wearable data, and more. This takes under 2 seconds.</p>
+
+<p>You land on the <strong>Dashboard</strong> -- your daily command centre. At the top, you see your <strong>Athlete Mode</strong> (Balanced, League, Study, or Rest) and the readiness signal derived from yesterday's data.</p>
+
+<div class="callout">
+  <strong>If you haven't checked in yet</strong>
+  <p>The dashboard shows a BASELINE signal (grey) and the check-in button in the header shows a red dot. Your first action should always be to check in.</p>
+</div>
+
+<h2>3.2 Check In</h2>
+<p>The daily check-in is a 7-step wellness wizard that takes about 30 seconds:</p>
+
+<table>
+  <tr><th>Step</th><th>What You Rate</th><th>How</th></tr>
+  <tr><td>1</td><td>Sleep quality</td><td>Emoji scale (1-10)</td></tr>
+  <tr><td>2</td><td>Energy level</td><td>Emoji scale (1-10)</td></tr>
+  <tr><td>3</td><td>Stress level</td><td>Emoji scale (1-10)</td></tr>
+  <tr><td>4</td><td>Soreness</td><td>Emoji scale (1-10)</td></tr>
+  <tr><td>5</td><td>Pain flag</td><td>Yes / No (safety trigger)</td></tr>
+  <tr><td>6</td><td>Mood</td><td>Emoji scale (1-10)</td></tr>
+  <tr><td>7</td><td>Motivation</td><td>Emoji scale (1-10)</td></tr>
+</table>
+
+<p>Tapping an emoji auto-advances to the next step. On completion, a confetti animation plays and your <strong>readiness score</strong> is computed instantly:</p>
+
+<div class="feature-grid">
+  <div class="feature-item">
+    <div class="label" style="color:#2d7a2d;">Green -- Good to Go</div>
+    <p>Full training is safe. All systems are recovered. Train at full intensity.</p>
+  </div>
+  <div class="feature-item">
+    <div class="label" style="color:#856404;">Yellow -- Proceed with Care</div>
+    <p>Some stress markers are elevated. Training is fine but high-intensity work should be moderated.</p>
+  </div>
+  <div class="feature-item">
+    <div class="label" style="color:#8b3a2d;">Red -- Recovery Priority</div>
+    <p>Multiple markers are suppressed. High-intensity training is blocked. Focus on mobility, light movement, and recovery.</p>
+  </div>
+</div>
+
+<div class="callout safety">
+  <strong>Pain Flag Safety Gate</strong>
+  <p>If you report pain at step 5, Tomo immediately triggers a REST recommendation and flags injury risk. Your readiness drops to RED regardless of other scores, and high-intensity programs are blocked until the next clean check-in.</p>
+</div>
+
+<h2>3.3 Dashboard -- Your Command Centre</h2>
+<p>After check-in, the Dashboard updates in real-time. It is built from CMS-managed sections that your coach or performance director can reorder, enable, or disable. The standard layout has four zones:</p>
+
+<table>
+  <tr><th>Zone</th><th>Section</th><th>What You See</th></tr>
+  <tr><td>1</td><td>Athlete Mode Hero</td><td>Current mode pill (Balanced/League/Study/Rest), quick-switch pills, signal badge</td></tr>
+  <tr><td>2</td><td>Daily Recommendations</td><td>Priority-sorted recommendation cards (expandable): readiness, load warnings, recovery, development, academic, motivation</td></tr>
+  <tr><td>3</td><td>CMS Sections</td><td>Welcome card, protocol alerts, growth tracking, readiness ring, core vitals (KPI row), weekly trend sparklines, dual load index, benchmark progress, AI recommendations, upcoming events, consistency streak bar</td></tr>
+  <tr><td>4</td><td>Up Next</td><td>Your next scheduled activities with contextual AI hints</td></tr>
+</table>
+
+<h3>The Readiness Ring</h3>
+<p>A circular animated ring shows your readiness score (0-100). Green ring for scores above 70, yellow for 40-70, red below 40. Below the ring, a trend indicator shows how today compares to yesterday (e.g. "+8 vs yesterday").</p>
+
+<h3>Core Vitals Row</h3>
+<p>Compact KPI tiles showing your key numbers at a glance: sleep hours, HRV, energy, soreness, ACWR, and dual load index. Each tile includes a sparkline showing the 7-day trend.</p>
+
+<h2>3.4 Plan Your Day</h2>
+<p>Switch to the <strong>Plan</strong> tab to see your full daily timeline. Events are laid out vertically by time:</p>
+<ul>
+  <li><strong>School blocks</strong> -- locked, shown in grey, cannot be moved</li>
+  <li><strong>Training sessions</strong> -- club, gym, or personal, with intensity badges</li>
+  <li><strong>Study blocks</strong> -- scheduled study time with subject tags</li>
+  <li><strong>Matches</strong> -- fixture events with pre/post buffers</li>
+  <li><strong>Recovery</strong> -- auto-generated after matches or when readiness is RED</li>
+</ul>
+
+<p>Tap any event to edit it. Tap a gap in the timeline to add a new event. Use the floating action button (+) to quickly create training, study, or other blocks.</p>
+
+<div class="callout">
+  <strong>Smart Conflict Detection</strong>
+  <p>If you try to schedule a HARD session the day before a match, or squeeze two sessions into a time slot that violates your buffer rules, Tomo flags the conflict and suggests alternative times.</p>
+</div>
+
+<h2>3.5 Train</h2>
+<p>When it is time to train, Tomo can build you a personalized session. Ask Tomo Chat "build me a session" or tap the training block on your timeline. The AI considers your readiness, position, benchmark gaps, and current load to select drills and set appropriate volumes.</p>
+
+<p>During a drill, the <strong>Drill Detail</strong> screen provides a guided timer: countdown to start, active phase (counting down each set), rest phases between sets, and a completion screen where you log touches, reaction times, and RPE.</p>
+
+<h2>3.6 Study</h2>
+<p>Tomo treats academics as seriously as training. The exam planner lets you input exam dates and subjects, and Tomo generates a study schedule that respects your training load. In <strong>Study Mode</strong>, study blocks are extended by 50% and training intensity is capped on exam days.</p>
+
+<h2>3.7 Reflect &amp; Wind Down</h2>
+<p>After sessions, Tomo may nudge you to log feedback (workout quality, fatigue level, notes). Journal entries build your coaching profile and contribute to your CV narrative. The notification engine tracks whether you have reflected and gently prompts you if you have not.</p>
+
+
+<!-- ══════════════════════════════════════ SECTION 4 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">4</span> The Three Tabs in Detail</h1>
+</div>
+
+<h2>4.1 Plan (Timeline Tab)</h2>
+<p>The Timeline is your single-day planning view. Key features:</p>
+<ul>
+  <li><strong>Day navigation</strong> -- left/right arrows to move between days</li>
+  <li><strong>Readiness badge</strong> -- Green/Yellow/Red indicator at top</li>
+  <li><strong>Balance bar</strong> -- visual breakdown of sleep, stress, and fatigue</li>
+  <li><strong>AI coaching card</strong> -- context-aware tip for the day</li>
+  <li><strong>Lock-In card</strong> -- daily commitment pledge for accountability</li>
+  <li><strong>Event blocks</strong> -- colour-coded by type (training, study, exam, recovery, match)</li>
+  <li><strong>Exam planner</strong> -- visible when exam period is active in your rules</li>
+</ul>
+
+<h2>4.2 Tomo Chat (AI Coach)</h2>
+<p>The centre tab is your AI coaching assistant. Tomo understands 60+ intents across three specialised agents:</p>
+
+<div class="feature-grid">
+  <div class="feature-item">
+    <div class="label">Timeline Agent</div>
+    <p>Calendar operations: "What's my schedule this week?", "Add gym tomorrow at 5pm", "Move my study block to Thursday", "Any conflicts this week?"</p>
+  </div>
+  <div class="feature-item">
+    <div class="label">Output Agent</div>
+    <p>Performance and health: "What's my readiness?", "Log a sprint test", "Build me a technical session", "Show my strengths and gaps", "Calculate my PHV"</p>
+  </div>
+  <div class="feature-item">
+    <div class="label">Mastery Agent</div>
+    <p>Development and identity: "Show my achievements", "How consistent have I been?", "Update my CV", "What's my test trajectory?"</p>
+  </div>
+</div>
+
+<p>Chat features include:</p>
+<ul>
+  <li><strong>Suggestion chips</strong> -- tap to send pre-built messages</li>
+  <li><strong>Voice input</strong> -- speak your message instead of typing</li>
+  <li><strong>Streaming responses</strong> -- real-time typewriter effect</li>
+  <li><strong>Confirmation cards</strong> -- for write actions (create event, log test), Tomo shows a preview card and asks you to confirm before saving</li>
+  <li><strong>Rich response cards</strong> -- stat grids, schedule views, benchmark comparisons, program recommendations</li>
+  <li><strong>Session continuity</strong> -- Tomo remembers your conversation context within a session</li>
+</ul>
+
+<h2>4.3 Dashboard (Trend Tab)</h2>
+<p>The Dashboard is your at-a-glance command centre. It renders up to 14 section types, managed by your performance director via CMS:</p>
+
+<table>
+  <tr><th>Section</th><th>Type</th><th>What It Shows</th></tr>
+  <tr><td>Athlete Mode Hero</td><td>signal_hero</td><td>Active mode, quick-switch pills, signal urgency badge</td></tr>
+  <tr><td>Daily Recommendations</td><td>daily_recs</td><td>Top 6 priority-sorted recommendation cards</td></tr>
+  <tr><td>Welcome Card</td><td>custom_card</td><td>Personalised greeting with name interpolation</td></tr>
+  <tr><td>Protocol Banner</td><td>protocol_banner</td><td>Active safety protocols (mandatory/advisory/info)</td></tr>
+  <tr><td>Growth Tracking</td><td>growth_card</td><td>Development narrative from AI</td></tr>
+  <tr><td>Readiness Ring</td><td>status_ring</td><td>Animated score ring with yesterday comparison</td></tr>
+  <tr><td>Core Vitals</td><td>kpi_row</td><td>Compact KPI tiles (sleep, HRV, energy, soreness, ACWR)</td></tr>
+  <tr><td>Weekly Trends</td><td>sparkline_row</td><td>7-day sparkline charts for key metrics</td></tr>
+  <tr><td>Dual Load Index</td><td>dual_load</td><td>Combined academic + athletic load gauge (0-100)</td></tr>
+  <tr><td>Benchmark Progress</td><td>benchmark</td><td>Overall percentile and position-specific test gaps</td></tr>
+  <tr><td>AI Recommendations</td><td>rec_list</td><td>Expandable AI recommendation cards</td></tr>
+  <tr><td>Upcoming Events</td><td>event_list</td><td>Next scheduled events from calendar</td></tr>
+  <tr><td>Consistency Streak</td><td>engagement_bar</td><td>Visual streak progress bar</td></tr>
+  <tr><td>Up Next Timeline</td><td>up_next</td><td>Today's remaining schedule with AI context</td></tr>
+</table>
+
+
+<!-- ══════════════════════════════════════ SECTION 5 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">5</span> Athlete Modes</h1>
+</div>
+
+<p class="section-intro">
+  Athlete Mode is a single setting that cascades through every system in Tomo. When you switch modes, your schedule rules, training intensity caps, program recommendations, AI coaching tone, and dashboard priorities all adjust automatically.
+</p>
+
+<table>
+  <tr><th>Mode</th><th>When to Use</th><th>What Changes</th></tr>
+  <tr>
+    <td><strong>Balanced</strong></td>
+    <td>Normal weeks with no special pressures</td>
+    <td>Default settings. Full training intensity. Standard study/training balance. Coaching tone: balanced.</td>
+  </tr>
+  <tr>
+    <td><strong>League Season</strong></td>
+    <td>During competitive fixture weeks</td>
+    <td>Recovery days auto-added after matches. Max HARD sessions reduced. Post-match buffers enforced. Gym days may reduce. Coaching tone: performance-focused.</td>
+  </tr>
+  <tr>
+    <td><strong>Study Focus</strong></td>
+    <td>During exam preparation periods</td>
+    <td>Study blocks extended by 50%. Training intensity capped on exam days. Academic recommendations boosted to top priority. Personal development sessions dropped. Coaching tone: academic/supportive.</td>
+  </tr>
+  <tr>
+    <td><strong>Rest &amp; Recovery</strong></td>
+    <td>After illness, injury, or planned deload</td>
+    <td>Load cap at 50%. High-intensity categories blocked (plyometrics, speed, explosive). Recovery and mobility prioritised. Coaching tone: supportive.</td>
+  </tr>
+</table>
+
+<h3>What Each Mode Controls (12 Parameters)</h3>
+
+<table>
+  <tr><th>Parameter</th><th>Balanced</th><th>League</th><th>Study</th><th>Rest</th></tr>
+  <tr><td>Max HARD sessions/week</td><td>3</td><td>2</td><td>2</td><td>1</td></tr>
+  <tr><td>Max sessions/day</td><td>2</td><td>2</td><td>2</td><td>1</td></tr>
+  <tr><td>Study duration multiplier</td><td>1.0x</td><td>1.0x</td><td>1.5x</td><td>1.0x</td></tr>
+  <tr><td>Gym days reduction</td><td>None</td><td>Cap at 3</td><td>Cap at 2</td><td>Cap at 1</td></tr>
+  <tr><td>Drop personal dev</td><td>No</td><td>No</td><td>Yes</td><td>No</td></tr>
+  <tr><td>Exam day intensity cap</td><td>None</td><td>None</td><td>LIGHT</td><td>REST</td></tr>
+  <tr><td>Recovery after match</td><td>No</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+  <tr><td>Load cap multiplier</td><td>1.0</td><td>0.85</td><td>0.7</td><td>0.5</td></tr>
+  <tr><td>AI coaching tone</td><td>Balanced</td><td>Performance</td><td>Academic</td><td>Supportive</td></tr>
+  <tr><td>Priority boosts</td><td>None</td><td>+Recovery</td><td>+Academic</td><td>+Recovery</td></tr>
+</table>
+
+<h3>Where Mode is Applied (All 8 Systems)</h3>
+<ol>
+  <li><strong>Schedule Rule Engine</strong> -- adjusts gym days, study duration, personal dev, intensity caps</li>
+  <li><strong>Schedule Validation</strong> -- enforces mode rules when creating/editing events</li>
+  <li><strong>AI Orchestrator</strong> -- injects mode-aware rules and coaching tone into the AI system prompt</li>
+  <li><strong>Program Guardrails</strong> -- applies mode load cap and blocks categories (e.g. rest blocks plyometrics)</li>
+  <li><strong>Deep Program Refresh</strong> -- AI program selection respects mode load cap and coaching tone</li>
+  <li><strong>Boot Recommendations</strong> -- mode priority boosts re-sort recommendation ordering</li>
+  <li><strong>Load Warning Computer</strong> -- rest mode lowers warning thresholds</li>
+  <li><strong>Recovery Computer</strong> -- league mode forces post-match recovery</li>
+</ol>
+
+
+<!-- ══════════════════════════════════════ SECTION 6 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">6</span> Intelligent Systems Behind the Scenes</h1>
+</div>
+
+<p class="section-intro">
+  You do not see these systems directly, but they power every recommendation, every safety guard, and every personalized response you receive.
+</p>
+
+<h2>6.1 Readiness Engine</h2>
+<p>Your readiness is computed from your daily check-in, wearable data (if connected), and historical trends. The engine produces a score (0-100) and a RAG status (Red/Amber/Green) that determines what training is safe today.</p>
+
+<div class="flow">
+Check-in (7 inputs) + Wearable data (HRV, sleep, HR) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Readiness Score (0-100) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> RAG Status: GREEN (&ge;70) | YELLOW (40-69) | RED (&lt;40) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Intensity Recommendation: HARD | MODERATE | LIGHT | REST
+</div>
+
+<h2>6.2 Schedule Rule Engine</h2>
+<p>A pure rules engine that governs all scheduling decisions. It uses a strict priority order:</p>
+
+<table>
+  <tr><th>Priority</th><th>Category</th><th>Notes</th></tr>
+  <tr><td>P1</td><td>School</td><td>Non-negotiable, locked blocks</td></tr>
+  <tr><td>P1</td><td>Exams</td><td>Non-negotiable, locked blocks</td></tr>
+  <tr><td>P2</td><td>Match</td><td>League/fixture, time set by club</td></tr>
+  <tr><td>P3</td><td>Recovery</td><td>Mandatory post-match or RED readiness</td></tr>
+  <tr><td>P4</td><td>Club Training</td><td>Coach-set times</td></tr>
+  <tr><td>P5</td><td>Gym</td><td>Individual strength &amp; conditioning</td></tr>
+  <tr><td>P6</td><td>Study</td><td>Daily academic block</td></tr>
+  <tr><td>P7</td><td>Personal Dev</td><td>Film study, tactical review, mental skills</td></tr>
+</table>
+
+<p>Hard constraints enforced at all times:</p>
+<ul>
+  <li>Maximum 3 HARD sessions per week (adjustable by mode)</li>
+  <li>Maximum 2 sessions per day</li>
+  <li>No HARD training the day before a match</li>
+  <li>No HARD training on exam days</li>
+  <li>Mandatory recovery day after matches</li>
+  <li>30-minute default buffer between events; 45 min after high intensity; 120 min before a match</li>
+</ul>
+
+<h2>6.3 Recommendation Intelligence Engine (RIE)</h2>
+<p>Nine specialized "computers" generate personalized recommendations:</p>
+
+<table>
+  <tr><th>Computer</th><th>What It Produces</th></tr>
+  <tr><td>Readiness</td><td>Energy/soreness/sleep analysis, recovery urgency</td></tr>
+  <tr><td>Recovery</td><td>Sleep debt detection, HRV suppression alerts, soreness trend warnings</td></tr>
+  <tr><td>Load Warning</td><td>ACWR monitoring, dual load detection, overtraining risk</td></tr>
+  <tr><td>Academic</td><td>Exam proximity alerts, study planning guidance</td></tr>
+  <tr><td>Motivation</td><td>Streak maintenance nudges, consistency tracking</td></tr>
+  <tr><td>Development</td><td>Benchmark gap analysis, targeted program suggestions</td></tr>
+  <tr><td>Triangle Alert</td><td>Combined readiness + load + wellness risk flags</td></tr>
+  <tr><td>CV Opportunity</td><td>Performance highlights, personal records, recruitment narrative</td></tr>
+  <tr><td>Journal Nudge</td><td>Pre/post-session reflection prompts</td></tr>
+</table>
+
+<p>Recommendations are priority-sorted (P1 = critical, P4 = informational) and filtered by your athlete mode. In Study mode, academic recommendations are boosted to the top; in League mode, recovery recommendations take priority.</p>
+
+<h2>6.4 Program Guardrails (9 Safety Rules)</h2>
+<p>Every training program you see has passed through 9 deterministic safety checks:</p>
+
+<table>
+  <tr><th>#</th><th>Rule</th><th>What It Does</th></tr>
+  <tr><td>1</td><td>ACWR Load Gate</td><td>If your training load ratio is dangerously high (&gt;1.5), caps volume at 60%</td></tr>
+  <tr><td>2</td><td>Readiness Gate</td><td>RED readiness caps load at 50% and blocks explosive/HARD categories</td></tr>
+  <tr><td>3</td><td>HRV Suppression</td><td>If HRV is &lt;85% of your baseline, reduces load proportionally</td></tr>
+  <tr><td>4</td><td>Sleep Quality</td><td>Poor sleep (&lt;24h ago) reduces training volume by 20%</td></tr>
+  <tr><td>5</td><td>Dual Load</td><td>High combined academic + athletic load caps training at 70%</td></tr>
+  <tr><td>6</td><td>Injury Risk</td><td>High injury risk: 60% load cap + injury prevention becomes mandatory</td></tr>
+  <tr><td>7</td><td>Wellness Trend</td><td>Declining wellness over 7 days triggers volume reduction</td></tr>
+  <tr><td>8</td><td>Training Age</td><td>Beginners (&lt;12 weeks) get 60% load cap and blocked from advanced exercises</td></tr>
+  <tr><td>9</td><td>Athlete Mode</td><td>Mode-specific load cap (rest mode = 50%) and category blocking</td></tr>
+</table>
+
+<div class="callout safety">
+  <strong>These rules cannot be overridden</strong>
+  <p>Guardrails are applied after program selection (whether by AI or by a coach). Even if the AI recommends a high-intensity program, the guardrails will automatically reduce volumes or block it entirely if your current state makes it unsafe.</p>
+</div>
+
+<h2>6.5 Protocol Layer (PDIL)</h2>
+<p>The Performance Director Intelligence Layer evaluates CMS-authored "protocols" against your current state. Protocols are condition-based rules that your coach or performance director sets up -- for example:</p>
+<ul>
+  <li>"If ACWR &gt; 1.3 AND readiness is RED, enforce REST-only training and notify athlete"</li>
+  <li>"If PHV stage is mid-PHV, block barbell squats and Olympic lifts"</li>
+  <li>"If exam_proximity_score &gt; 80, cap intensity at LIGHT"</li>
+</ul>
+<p>Protocols can be mandatory (cannot train at all until resolved), advisory (training allowed with modifications), or informational. Safety-critical protocols force the AI to use a more careful model for responses.</p>
+
+<h2>6.6 Notification Engine</h2>
+<p>Notifications are generated automatically by event handlers and delivered to your notification centre. Key features:</p>
+<ul>
+  <li><strong>7 categories</strong>: Critical, Readiness, Recovery, Load Management, Achievements, Recommendations, Journal</li>
+  <li><strong>Deduplication</strong>: Same alert type is updated, not duplicated (no "10 readiness RED" spam)</li>
+  <li><strong>Fatigue guard</strong>: If you dismiss a notification type 3 times in 24 hours, Tomo stops sending it</li>
+  <li><strong>Auto-expiry</strong>: Notifications resolve when the underlying condition changes (ACWR drops, readiness improves)</li>
+  <li><strong>Actionable</strong>: Each notification has a primary action (e.g. "Log check-in", "See program", "Review recovery plan")</li>
+</ul>
+
+
+<!-- ══════════════════════════════════════ SECTION 7 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">7</span> AI Chat -- How Tomo Understands You</h1>
+</div>
+
+<p class="section-intro">
+  Tomo Chat is not a generic chatbot. It is a three-agent system grounded in your real-time data, schedule rules, and performance context.
+</p>
+
+<h2>How a Message is Processed</h2>
+<div class="flow">
+You type a message <br>
+&nbsp;&nbsp;--> Layer 1: Exact match (~170 phrases, instant, $0) <br>
+&nbsp;&nbsp;--> Layer 2: Haiku AI classification (~60 intents, ~200ms) <br>
+&nbsp;&nbsp;--> Layer 3: Full orchestrator with tools (complex queries) <br>
+&nbsp;&nbsp;--> Route to Timeline / Output / Mastery agent <br>
+&nbsp;&nbsp;--> Agent calls tools (get_readiness, create_event, log_test...) <br>
+&nbsp;&nbsp;--> Format response (headline + stat cards, no wall of text) <br>
+&nbsp;&nbsp;--> Stream back to you
+</div>
+
+<h2>What Tomo Knows When Responding</h2>
+<p>Every time Tomo responds, the AI has access to:</p>
+<ul>
+  <li>Your sport, position, age band, and gender</li>
+  <li>Current readiness score and RAG status</li>
+  <li>Today's schedule and upcoming events (7 days)</li>
+  <li>ACWR and load metrics</li>
+  <li>Benchmark percentiles, strengths, and gaps</li>
+  <li>Active recommendations from the RIE</li>
+  <li>Your schedule rules and available hours</li>
+  <li>Your athlete mode and its parameters</li>
+  <li>Active PDIL protocols and safety flags</li>
+  <li>Wearable data (HRV, sleep, heart rate)</li>
+  <li>Conversation history from the current session</li>
+</ul>
+
+<h2>What You Can Ask</h2>
+<table>
+  <tr><th>Category</th><th>Example Messages</th></tr>
+  <tr><td>Readiness</td><td>"What's my readiness?", "How am I doing?", "Am I ready to train?"</td></tr>
+  <tr><td>Schedule</td><td>"What's today?", "Plan my week", "Add gym Thursday at 5pm"</td></tr>
+  <tr><td>Training</td><td>"Build me a session", "Show me drills for speed", "What should I train?"</td></tr>
+  <tr><td>Testing</td><td>"Log a sprint test", "Record my jump", "What's my 30m time?"</td></tr>
+  <tr><td>Performance</td><td>"Show my strengths and gaps", "Where do I rank?", "What's my ACWR?"</td></tr>
+  <tr><td>Programs</td><td>"Show my programs", "What programs are recommended?"</td></tr>
+  <tr><td>Academic</td><td>"Plan my study week", "I have exams in 2 weeks"</td></tr>
+  <tr><td>Recovery</td><td>"I'm feeling tired", "Legs are dead", "Should I rest today?"</td></tr>
+  <tr><td>CV/Identity</td><td>"Update my CV", "Show my achievements", "What's my consistency?"</td></tr>
+  <tr><td>Growth</td><td>"Calculate my PHV", "Am I in a growth spurt?"</td></tr>
+</table>
+
+<h2>Safety in Chat</h2>
+<ul>
+  <li><strong>Write actions require confirmation</strong>: Creating events, logging check-ins, and saving tests show a preview card. You must confirm before anything is saved.</li>
+  <li><strong>RED readiness blocks intensity</strong>: If you ask to build a HARD session while RED, Tomo will refuse and suggest recovery activities instead.</li>
+  <li><strong>PHV safety</strong>: For athletes in mid-PHV (growth spurt), Tomo appends safety warnings about high-impact exercises.</li>
+  <li><strong>Gen Z tone</strong>: Responses are calibrated to your age band. U13 gets simpler language, U17 gets direct coaching, U19+ gets professional performance advice.</li>
+</ul>
+
+
+<!-- ══════════════════════════════════════ SECTION 8 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">8</span> Testing &amp; Performance Tracking</h1>
+</div>
+
+<p class="section-intro">
+  Tomo offers both phone-based tests (using your device's sensors) and manual test entry. All results feed into your benchmark profile and influence program recommendations.
+</p>
+
+<h2>Phone-Based Tests</h2>
+<table>
+  <tr><th>Test</th><th>What It Measures</th><th>How</th></tr>
+  <tr><td>Sprint</td><td>10m, 20m, 30m, flying 20m times</td><td>Accelerometer-based motion detection</td></tr>
+  <tr><td>Jump (CMJ)</td><td>Counter-movement jump height</td><td>Accelerometer flight time calculation</td></tr>
+  <tr><td>Agility</td><td>505, T-test, 5-10-5, Illinois, Arrowhead</td><td>On-screen cues + motion detection</td></tr>
+  <tr><td>Balance</td><td>Single-leg stability time</td><td>Gyroscope-based wobble detection</td></tr>
+  <tr><td>Reaction</td><td>Visual/auditory reaction time</td><td>On-screen stimulus + tap timing</td></tr>
+</table>
+
+<h2>Manual Test Entry</h2>
+<p>You can log results from any test via Tomo Chat ("log my sprint test") or via the fitness tests screen in your profile. Each result is automatically compared against normative data for your age band and position.</p>
+
+<h2>Benchmark Profile</h2>
+<p>Your test results build a benchmark profile showing:</p>
+<ul>
+  <li><strong>Overall percentile</strong> -- how you compare to peers at your age and position</li>
+  <li><strong>Strengths</strong> -- test categories where you rank above average (highlighted green)</li>
+  <li><strong>Gaps</strong> -- categories where you need development (highlighted for targeted programs)</li>
+  <li><strong>Trajectory</strong> -- improvement arc over time for each test type</li>
+</ul>
+
+<p>The benchmark profile directly drives the AI program selection -- weak areas receive higher-priority programs.</p>
+
+
+<!-- ══════════════════════════════════════ SECTION 9 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">9</span> Programs &amp; Training</h1>
+</div>
+
+<p class="section-intro">
+  Tomo's training program system combines a 31-program catalog with AI-powered personalisation and deterministic safety guardrails.
+</p>
+
+<h2>How Programs Are Selected</h2>
+<div class="flow">
+1. AI analyses your full context (tests, vitals, PHV, readiness, load, position) <br>
+2. Selects 8-15 best-fit programs from 31-program catalogue <br>
+3. Assigns priority: mandatory (3-5), high (3-5), medium (2-5) <br>
+4. Personalises impact statements using YOUR data <br>
+5. 9 guardrail rules applied -- volumes adjusted, unsafe programs blocked <br>
+6. Final list cached for 24 hours, shown in Programs panel
+</div>
+
+<h2>Program Categories</h2>
+<ul>
+  <li>Speed and acceleration</li>
+  <li>Strength and conditioning</li>
+  <li>Agility and change of direction</li>
+  <li>Plyometric and explosive power</li>
+  <li>Endurance and aerobic base</li>
+  <li>Injury prevention (Nordic, ACL, ankle, groin, hip)</li>
+  <li>Mobility and flexibility</li>
+  <li>Position-specific drills</li>
+  <li>Match preparation</li>
+  <li>Recovery and deload</li>
+</ul>
+
+<h2>Position Matrix</h2>
+<p>Each position has a training matrix defining mandatory programs (must do), recommended programs (should do), and weekly structure (how many sessions of each type per week). For example, a football winger has mandatory speed/acceleration work but lower strength emphasis than a centre-back.</p>
+
+<h2>Coach-Assigned Programmes</h2>
+<p>Your coach can publish programmes targeted at you specifically, your position group, or all athletes. These appear alongside AI-recommended programs but are marked as coach-assigned. The same 9 guardrails still apply.</p>
+
+
+<!-- ══════════════════════════════════════ SECTION 10 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">10</span> Wearable Integration</h1>
+</div>
+
+<p class="section-intro">
+  Tomo integrates with wearable devices to enrich your data picture with objective measurements.
+</p>
+
+<h2>WHOOP</h2>
+<ul>
+  <li><strong>Connection</strong>: OAuth flow from Settings screen. One-tap authorise.</li>
+  <li><strong>Data synced</strong>: Sleep hours, sleep quality, HRV (morning), resting heart rate, recovery score, strain score</li>
+  <li><strong>Priority</strong>: When WHOOP data is available, it takes priority over manual check-in values for sleep. Displayed as "Source: Whoop" in your vitals.</li>
+  <li><strong>Sync</strong>: Automatic on app launch. Manual sync button available in Settings.</li>
+  <li><strong>Data transparency</strong>: Full Whoop data view accessible from Settings to see exactly what was synced.</li>
+</ul>
+
+<h2>Apple Watch (HealthKit)</h2>
+<ul>
+  <li><strong>Connection</strong>: HealthKit permission from Settings screen.</li>
+  <li><strong>Data synced</strong>: Steps, heart rate, workouts (type, duration, calories), sleep analysis</li>
+</ul>
+
+<p>Wearable data feeds directly into the readiness engine, HRV suppression guardrail, and sleep quality assessments. If your WHOOP shows HRV at 65% of baseline, the program guardrails automatically reduce your training load without you needing to do anything.</p>
+
+
+<!-- ══════════════════════════════════════ SECTION 11 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">11</span> Player CV &amp; Identity</h1>
+</div>
+
+<p class="section-intro">
+  Your performance data, achievements, and reflections build a professional athlete CV that you can export and share.
+</p>
+
+<h2>CV Sections</h2>
+<table>
+  <tr><th>Section</th><th>Content</th><th>Source</th></tr>
+  <tr><td>Personal Statement</td><td>AI-generated or manually written narrative about who you are as an athlete</td><td>AI draft + manual edit</td></tr>
+  <tr><td>Career History</td><td>Club entries with dates, appearances, goals</td><td>Manual entry</td></tr>
+  <tr><td>Education</td><td>Academic qualifications and institution</td><td>Manual entry</td></tr>
+  <tr><td>Performance Data</td><td>Benchmark percentiles, test scores, training age</td><td>Auto from tests</td></tr>
+  <tr><td>Media</td><td>Video links (highlights, full match, training footage)</td><td>Manual upload</td></tr>
+  <tr><td>References</td><td>Coach/academy director testimonials</td><td>Manual entry</td></tr>
+  <tr><td>Character Traits</td><td>Leadership, languages, awards, camp attendance</td><td>Manual entry</td></tr>
+</table>
+
+<p>Two CV variants are available: <strong>Club</strong> (for trials and scouting) and <strong>University</strong> (for academic sporting scholarships). Both can be exported to PDF or shared via a link.</p>
+
+
+<!-- ══════════════════════════════════════ SECTION 12 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">12</span> Gamification &amp; Streaks</h1>
+</div>
+
+<p class="section-intro">
+  Tomo uses a points, levels, and streak system to keep you consistently engaged without making it feel like a chore.
+</p>
+
+<h2>Points &amp; Levels</h2>
+<p>You earn points for completing check-ins, logging sessions, running tests, and engaging with recommendations. Points accumulate toward levels, and each level unlocks new features or visual milestones displayed on your profile.</p>
+
+<h2>Streak System</h2>
+<table>
+  <tr><th>Tier</th><th>Days</th><th>Status</th></tr>
+  <tr><td>Started</td><td>1-3</td><td>Just getting going</td></tr>
+  <tr><td>Building</td><td>4-7</td><td>Building the habit</td></tr>
+  <tr><td>Consistent</td><td>8-14</td><td>Consistently showing up</td></tr>
+  <tr><td>Dedicated</td><td>15-30</td><td>Real commitment</td></tr>
+  <tr><td>Veteran</td><td>31-60</td><td>Part of your routine</td></tr>
+  <tr><td>Legend</td><td>60+</td><td>Elite consistency</td></tr>
+</table>
+
+<p>Your streak is displayed on the Dashboard (engagement bar section) and on your Profile. Freeze tokens allow you to protect your streak on rest days or when travelling.</p>
+
+
+<!-- ══════════════════════════════════════ SECTION 13 ══════════════════════════════════════ -->
+<div class="section-break">
+  <h1><span class="num">13</span> How Everything Connects</h1>
+</div>
+
+<p class="section-intro">
+  Tomo is not a collection of separate features. Every action you take triggers a chain of updates that ripple across the entire platform. Here is how a single event flows through the system.
+</p>
+
+<h2>Example: You Complete a Training Session</h2>
+
+<div class="flow">
+1. You log the session (via Chat or Timeline) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Event handler processes SESSION_LOG <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Daily load updated (ACWR recalculated) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Session count and training age updated <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Athlete snapshot (Layer 2) rewritten <br><br>
+
+2. Notifications fire (async) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> If ACWR now &gt; 1.3: "Load Warning" notification created <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Journal nudge: "How did the session go?" <br><br>
+
+3. Next time you open the app (boot) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Fresh snapshot loaded <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> PDIL re-evaluates protocols against new load <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Guardrails update: future programs adjusted for ACWR <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Signal evaluates: load warning pill may appear on dashboard <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Recommendations re-sorted by new priorities <br><br>
+
+4. You ask Tomo Chat "am I overtraining?" <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Agent sees updated ACWR in context <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Responds with load analysis + recovery recommendation <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Suggests deload if ACWR is in danger zone
+</div>
+
+<h2>Example: You Switch to Study Mode</h2>
+
+<div class="flow">
+1. You tap "Study" on the mode selector <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> PATCH to schedule preferences <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Mode change event processed <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Snapshot updated with new mode <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Dashboard refreshes instantly (optimistic UI) <br><br>
+
+2. All downstream systems cascade <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Schedule rules: study blocks extend 50%, gym days reduce <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Validation: new events checked against study mode caps <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> AI: coaching tone shifts to "academic", study-focused <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Guardrails: load cap drops to 70% <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Programs: AI selects lighter programs, blocks plyometrics <br>
+&nbsp;&nbsp;&nbsp;&nbsp;--> Recommendations: ACADEMIC recs boosted to top of list
+</div>
+
+<h2>The Athlete Snapshot -- Single Source of Truth</h2>
+<p>At the centre of everything is the <strong>athlete snapshot</strong> -- a single database row containing ~80 computed fields that represent your current state. Every event (check-in, session, test, wearable sync) updates the snapshot. Every downstream system (guardrails, recommendations, signals, AI, protocols) reads from it.</p>
+
+<p>This means there is no stale data, no conflicting views, and no system that "doesn't know" about your latest check-in. One truth, everywhere, always current.</p>
+
+<div class="callout">
+  <strong>The Safety Promise</strong>
+  <p>If anything goes wrong in the system (a database query fails, the AI service is unreachable, a protocol evaluation errors out), Tomo defaults to the most conservative option: lower load caps, stricter intensity limits, and supportive coaching. The system is designed to fail safe, never fail dangerous.</p>
+</div>
+
+<div class="spacer"></div>
+<div class="spacer"></div>
+
+<p style="text-align: center; color: #999; font-size: 9pt;">
+  &mdash; End of Document &mdash;<br>
+  Tomo Platform Overview v2.0 &middot; April 2026<br>
+  Generated for internal and stakeholder reference.
+</p>
+
+</body>
+</html>

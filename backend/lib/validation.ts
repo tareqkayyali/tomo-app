@@ -58,6 +58,53 @@ export const resolveSuggestionSchema = z.object({
   playerNotes: z.string().max(500).optional(),
 });
 
+// ── Phase 2: per-step onboarding persistence ─────────────────────
+// The new player flow is 4 screens after AgeGate+Account: sport,
+// position, heightWeight, goal. Every screen writes the user's
+// answer to users.onboarding_state via /progress so a crash or
+// app-switch resumes at the last unanswered step. Final submit
+// goes through /finalize which materialises the answers into
+// top-level users columns, fires the PHV event, and seeds My Rules.
+
+export const ONBOARDING_STEPS = ['sport', 'position', 'heightWeight', 'goal'] as const;
+export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
+
+// A single step's answer shape. Each screen writes only its own
+// fields; the server merges into the existing jsonb state.
+export const onboardingAnswersSchema = z.object({
+  sport: z.enum(["football", "soccer", "basketball", "tennis", "padel"]).optional(),
+  position: z.string().max(32).optional(),
+  heightCm: z.number().min(100).max(230).optional(),
+  weightKg: z.number().min(25).max(180).optional(),
+  primaryGoal: z
+    .enum(["get_better", "stay_consistent", "recover", "get_recruited", "have_fun"])
+    .optional(),
+});
+
+export const onboardingProgressSchema = z.object({
+  step: z.enum(ONBOARDING_STEPS),
+  answers: onboardingAnswersSchema,
+});
+
+// Finalize is strict: every required field must be present. We read
+// the accumulated state and validate it here rather than trusting
+// the client to re-send everything. Extra keys tolerated.
+export const onboardingFinalizeSchema = z
+  .object({
+    sport: z.enum(["football", "soccer", "basketball", "tennis", "padel"]),
+    position: z.string().min(1).max(32),
+    heightCm: z.number().min(100).max(230),
+    weightKg: z.number().min(25).max(180),
+    primaryGoal: z.enum(["get_better", "stay_consistent", "recover", "get_recruited", "have_fun"]),
+  })
+  .passthrough();
+
+export type OnboardingProgressInput = z.infer<typeof onboardingProgressSchema>;
+export type OnboardingFinalizeInput = z.infer<typeof onboardingFinalizeSchema>;
+
+// Legacy schema retained for /onboarding route backward-compat during
+// the mobile rollout. New mobile clients hit /onboarding/progress +
+// /onboarding/finalize instead.
 export const onboardingSchema = z.object({
   sport: z.enum(["football", "soccer", "basketball", "tennis", "padel"]).optional(),
   age: z.number().int().min(8).max(50).optional(),

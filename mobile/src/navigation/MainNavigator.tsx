@@ -43,6 +43,7 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 import { PrivacySettingsScreen } from '../screens/PrivacySettingsScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import DeleteAccountScreen from '../screens/settings/DeleteAccountScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { WorkoutFeedbackScreen } from '../screens/WorkoutFeedbackScreen';
 import { AddEventScreen } from '../screens/AddEventScreen';
@@ -382,6 +383,11 @@ export function MainNavigator() {
       <Stack.Screen
         name="ChangePassword"
         component={ChangePasswordScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="DeleteAccount"
+        component={DeleteAccountScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

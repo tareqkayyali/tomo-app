@@ -40,6 +40,7 @@ interface DashboardSectionData {
 }
 
 const COMPONENT_TYPES = [
+  // Screen-level
   { value: "signal_hero", label: "Athlete Mode (Hero)" },
   { value: "status_ring", label: "Status Ring" },
   { value: "kpi_row", label: "KPI Row" },
@@ -54,6 +55,36 @@ const COMPONENT_TYPES = [
   { value: "custom_card", label: "Custom Card" },
   { value: "daily_recs", label: "Daily Recommendations" },
   { value: "up_next", label: "Up Next / Timeline" },
+  { value: "welcome_card", label: "Welcome Card" },
+  { value: "daily_recommendations", label: "Daily Recommendations (v2)" },
+  { value: "up_next_timeline", label: "Up Next Timeline" },
+  // Program panel
+  { value: "program_today_session", label: "Program · Today's Session" },
+  { value: "program_my_programs",   label: "Program · My Programs" },
+  { value: "program_ai_recs",       label: "Program · AI Recommendations" },
+  { value: "program_week_strip",    label: "Program · Week Strip" },
+  // Metrics panel
+  { value: "metrics_sync_row",          label: "Metrics · Sync Vitals Row" },
+  { value: "metrics_hrv",               label: "Metrics · HRV" },
+  { value: "metrics_sleep",             label: "Metrics · Sleep" },
+  { value: "metrics_acwr",              label: "Metrics · ACWR" },
+  { value: "metrics_readiness_trend",   label: "Metrics · Readiness Trend" },
+  { value: "metrics_wellness_trends",   label: "Metrics · Wellness Trends" },
+  { value: "metrics_training_load",     label: "Metrics · Training Load" },
+  // Progress panel
+  { value: "progress_cv_ring",            label: "Progress · Performance Identity" },
+  { value: "progress_this_month",         label: "Progress · This Month" },
+  { value: "progress_training_load_28d",  label: "Progress · Training Load 28d" },
+  { value: "progress_consistency",        label: "Progress · Consistency" },
+  { value: "progress_benchmark",          label: "Progress · Benchmark" },
+];
+
+/** Panel scope — NULL = screen-level (Dashboard scroll view), otherwise rendered inside that slide-up panel. */
+const PANEL_KEYS: { value: string; label: string }[] = [
+  { value: "none",     label: "Screen (Dashboard scroll view)" },
+  { value: "program",  label: "Program panel" },
+  { value: "metrics",  label: "Metrics panel" },
+  { value: "progress", label: "Progress panel" },
 ];
 
 const OPERATORS = [
@@ -93,6 +124,7 @@ export default function DashboardSectionForm({ sectionId }: DashboardSectionForm
   const [sectionKey, setSectionKey] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [componentType, setComponentType] = useState("custom_card");
+  const [panelKey, setPanelKey] = useState<string>("none"); // "none" | "program" | "metrics" | "progress"
   const [sortOrder, setSortOrder] = useState(500);
   const [isEnabled, setIsEnabled] = useState(true);
   const [coachingText, setCoachingText] = useState("");
@@ -124,6 +156,7 @@ export default function DashboardSectionForm({ sectionId }: DashboardSectionForm
       setSectionKey(data.section_key ?? "");
       setDisplayName(data.display_name ?? "");
       setComponentType(data.component_type ?? "custom_card");
+      setPanelKey(data.panel_key ?? "none");
       setSortOrder(data.sort_order ?? 0);
       setIsEnabled(data.is_enabled ?? true);
       setCoachingText(data.coaching_text ?? "");
@@ -217,6 +250,7 @@ export default function DashboardSectionForm({ sectionId }: DashboardSectionForm
       section_key: sectionKey.trim().toLowerCase().replace(/\s+/g, "_"),
       display_name: displayName.trim(),
       component_type: componentType,
+      panel_key: panelKey === "none" ? null : panelKey,
       sort_order: sortOrder,
       is_enabled: isEnabled,
       config,
@@ -326,6 +360,27 @@ export default function DashboardSectionForm({ sectionId }: DashboardSectionForm
           </div>
 
           <div className="space-y-2">
+            <Label>Panel Scope</Label>
+            <Select value={panelKey} onValueChange={(v) => setPanelKey(v ?? "none")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PANEL_KEYS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Where this section renders. Screen = Dashboard scroll view. Panel = inside the matching slide-up.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
             <Label htmlFor="sort_order">Sort Order</Label>
             <Input
               id="sort_order"
@@ -336,9 +391,10 @@ export default function DashboardSectionForm({ sectionId }: DashboardSectionForm
               max={10000}
             />
             <p className="text-xs text-muted-foreground">
-              Lower = higher on screen. Use increments of 100.
+              Lower = higher on screen / earlier in the panel. Use increments of 100.
             </p>
           </div>
+          <div />
         </div>
 
         <div className="flex items-center gap-3">

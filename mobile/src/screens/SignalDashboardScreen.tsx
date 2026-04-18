@@ -9,8 +9,8 @@
  * 5. Slide-up Panels — Program, Metrics, Progress (overlays)
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBootData } from '../hooks/useBootData';
@@ -22,6 +22,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { useAuth } from '../hooks/useAuth';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
+import { useConnectedSources } from '../hooks/useConnectedSources';
 import { useNavigation } from '@react-navigation/native';
 
 // Dashboard components
@@ -71,6 +72,34 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 function formatEventTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Returns a user-facing "Updated Nm/h ago · tap to refresh" label when the
+ * underlying snapshot (or payload) is older than 5 minutes. Prefers the
+ * server-authoritative `snapshot.snapshot_at` (when the snapshot was last
+ * recomputed on the server) and falls back to the payload's client-fetch
+ * timestamp so the stamp still works if the snapshot field is missing.
+ *
+ * Returns null when fresh or when both timestamps are missing/invalid
+ * (fail open — no stamp beats a broken one).
+ */
+const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+
+function formatStaleLabel(
+  snapshotAt: string | undefined | null,
+  fetchedAt: string | undefined | null,
+): string | null {
+  const primary = snapshotAt ? Date.parse(snapshotAt) : NaN;
+  const fallback = fetchedAt ? Date.parse(fetchedAt) : NaN;
+  const whenMs = Number.isFinite(primary) ? primary : Number.isFinite(fallback) ? fallback : NaN;
+  if (!Number.isFinite(whenMs)) return null;
+  const ageMs = Date.now() - whenMs;
+  if (ageMs < STALE_THRESHOLD_MS) return null;
+  const minutes = Math.floor(ageMs / 60000);
+  if (minutes < 60) return `Updated ${minutes}m ago · tap to refresh`;
+  const hours = Math.floor(minutes / 60);
+  return `Updated ${hours}h ago · tap to refresh`;
 }
 
 /** Generate a contextual hint for the upcoming activity based on type + signal state */
@@ -160,9 +189,67 @@ export function SignalDashboardScreen() {
     return types;
   }, [bootData?.dashboardLayout]);
 
+  // Freshness stamp — rendered in panel headers only when the underlying
+  // snapshot is >5 min stale. Prefer the server-authoritative `snapshot_at`
+  // from the snapshot itself; fall back to the payload's client-fetch
+  // timestamp when the snapshot field is missing.
+  const snapshotAt = (bootData?.snapshot as any)?.snapshot_at as string | undefined;
+  const staleLabel = formatStaleLabel(snapshotAt, bootData?.fetchedAt);
+  const freshness = useMemo(
+    () => (staleLabel ? { label: staleLabel, onRefresh: refreshBoot } : null),
+    [staleLabel, refreshBoot]
+  );
+
+  // Auto-refetch once when a panel opens if data is already stale. Version-counter
+  // guards in useBootData make overlapping refreshBoot() calls safe.
+  useEffect(() => {
+    if (activePanel && staleLabel) {
+      refreshBoot();
+    }
+  }, [activePanel, staleLabel, refreshBoot]);
+
+  // Wearable sync for the MetricsPanel "Sync vitals now" action.
+  const { sources: connectedSources } = useConnectedSources();
+  const isWearableConnected = connectedSources.includes('whoop');
+
+  const onSyncVitals = useCallback(async () => {
+    try {
+      const { syncWhoop } = await import('../services/api');
+      const result = await syncWhoop();
+      // Wait briefly for any async writes to settle, then refresh boot data.
+      await new Promise((r) => setTimeout(r, 1500));
+      await refreshBoot();
+      if ((result?.health_data_errors ?? 0) > 0) {
+        const msg = `Synced but ${result.health_data_errors} vitals failed to save. Try again.`;
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Partial Sync', msg);
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Could not sync wearable data. Please try again.';
+      console.warn('[Dashboard] Vitals sync failed:', msg);
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Sync Failed', msg);
+      await refreshBoot();
+    }
+  }, [refreshBoot]);
+
+  const onOpenSettings = useCallback(() => {
+    navigation.navigate('Settings' as any);
+  }, [navigation]);
+
+  // Week-strip day tap in ProgramPanel: close the panel and deep-link to
+  // the Plan (Timeline) tab focused on that date.
+  const onProgramDayPress = useCallback(
+    (dateISO: string) => {
+      setActivePanel(null);
+      navigation.navigate('Plan' as any, { date: dateISO });
+    },
+    [navigation]
+  );
+
   if (isBootLoading && !bootData) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: '#0F1219' }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.panelOuter }]} edges={['top']}>
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Dashboard</Text>
           <View style={styles.headerRight}>
@@ -326,6 +413,9 @@ export function SignalDashboardScreen() {
         coachProgrammes={bootData?.coachProgrammes}
         recommendedPrograms={bootData?.recommendedPrograms}
         signalColor={signal.color}
+        freshness={freshness}
+        onDayPress={onProgramDayPress}
+        panelLayout={bootData?.panelLayouts?.program}
       />
       <MetricsPanel
         isOpen={activePanel === 'metrics'}
@@ -334,6 +424,11 @@ export function SignalDashboardScreen() {
         recentVitals={recentVitals}
         dailyLoad={bootData?.dailyLoad}
         signalColor={signal.color}
+        freshness={freshness}
+        isWearableConnected={isWearableConnected}
+        onSyncVitals={onSyncVitals}
+        onOpenSettings={onOpenSettings}
+        panelLayout={bootData?.panelLayouts?.metrics}
       />
       <ProgressPanel
         isOpen={activePanel === 'progress'}
@@ -342,6 +437,8 @@ export function SignalDashboardScreen() {
         dailyLoad={bootData?.dailyLoad}
         benchmarkSummary={bootData?.benchmarkSummary}
         signalColor={signal.color}
+        freshness={freshness}
+        panelLayout={bootData?.panelLayouts?.progress}
       />
     </SafeAreaView>
   );

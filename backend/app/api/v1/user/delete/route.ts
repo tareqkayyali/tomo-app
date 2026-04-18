@@ -1,49 +1,107 @@
 /**
- * DELETE /api/v1/user/delete
+ * POST /api/v1/user/delete
  *
- * GDPR data deletion endpoint. Deletes the authenticated user's account
- * and all associated data (CASCADE from users table).
+ * GDPR Art. 17 deletion REQUEST. Does NOT delete immediately — creates
+ * a deletion_request row with a grace period (30 days for GDPR, 45 for
+ * CCPA, 90 for PDPL). During the grace period all writes are blocked
+ * and the account is unusable. Users can cancel via
+ * POST /api/v1/user/delete/cancel before the scheduled_purge_at.
  *
- * Auth: Required (handled by proxy.ts — route is under /api/v1/user/).
+ * Idempotent: re-requesting when a pending request exists returns the
+ * existing request (200 OK, not a 409) so mobile retries don't explode.
  *
- * Response:
- *   200: { success: true, message: "Account and all data deleted" }
- *   401: { error: "Unauthorized" }
- *   500: { error: "Deletion failed" | "Internal server error" }
+ * Body (all optional):
+ *   {
+ *     jurisdiction?: 'GDPR' | 'CCPA' | 'PDPL',
+ *     // customGraceDays only honoured when caller is service_role
+ *     reason?: string,
+ *   }
+ *
+ * Responses:
+ *   200 { request: {...}, message: "Deletion scheduled" }
+ *   401 Unauthorized
+ *   400 Invalid input
+ *   500 Internal error
+ *
+ * Historical DELETE handler (immediate nuke) replaced by this
+ * request-based flow as of migration 064. See the PR description for
+ * the migration playbook.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { requireAuth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import {
+  requestDeletion,
+  DeletionError,
+  type Jurisdiction,
+} from '@/services/deletion/deletionService';
 
-export async function DELETE(req: NextRequest) {
+const VALID_JURISDICTIONS: ReadonlyArray<Jurisdiction> = ['GDPR', 'CCPA', 'PDPL'];
+
+function parseJurisdiction(input: unknown): Jurisdiction {
+  if (typeof input !== 'string') return 'GDPR';
+  const up = input.toUpperCase();
+  return (VALID_JURISDICTIONS as ReadonlyArray<string>).includes(up)
+    ? (up as Jurisdiction)
+    : 'GDPR';
+}
+
+export async function POST(req: NextRequest) {
+  const auth = requireAuth(req);
+  if ('error' in auth) return auth.error;
+
+  let body: Record<string, unknown> = {};
   try {
-    const userId = req.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    // Empty body is fine — caller is accepting defaults.
+  }
+
+  const jurisdiction = parseJurisdiction(body.jurisdiction);
+
+  try {
+    const request = await requestDeletion({
+      userId: auth.user.id,
+      jurisdiction,
+      method: 'user_self_service',
+    });
+
+    return NextResponse.json({
+      request: {
+        id: request.id,
+        status: request.status,
+        jurisdiction: request.jurisdiction,
+        requestedAt: request.requested_at,
+        scheduledPurgeAt: request.scheduled_purge_at,
+        gracePeriodDays: request.grace_period_days,
+      },
+      message: `Your account is scheduled for permanent deletion on ${new Date(
+        request.scheduled_purge_at
+      ).toUTCString()}. You can cancel any time before then.`,
+    });
+  } catch (err) {
+    if (err instanceof DeletionError) {
+      return NextResponse.json(
+        { error: err.message, code: err.code },
+        { status: err.httpStatus }
+      );
     }
-
-    const db = supabaseAdmin();
-
-    // Delete user row — CASCADE will delete all related data
-    // (checkins, plans, calendar_events, chat_messages, athlete_events, etc.)
-    const { error } = await db.from('users').delete().eq('id', userId);
-
-    if (error) {
-      logger.error('GDPR deletion failed', { userId, error: error.message });
-      return NextResponse.json({ error: 'Deletion failed' }, { status: 500 });
-    }
-
-    // Also delete from Supabase Auth
-    const { error: authError } = await db.auth.admin.deleteUser(userId);
-    if (authError) {
-      logger.warn('Auth user deletion failed (data already deleted)', { userId, error: authError.message });
-    }
-
-    logger.info('GDPR deletion completed', { userId });
-    return NextResponse.json({ success: true, message: 'Account and all data deleted' });
-  } catch (err: any) {
-    logger.error('GDPR deletion error', { error: err.message });
+    logger.error('POST /api/v1/user/delete: unexpected error', {
+      userId: auth.user.id,
+      error: (err as Error)?.message,
+    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+/**
+ * DELETE /api/v1/user/delete
+ *
+ * Legacy verb — identical semantics to POST for backwards compat with
+ * mobile clients that already use DELETE against this path. Still
+ * routes through the request-based pipeline; it never purges inline.
+ */
+export async function DELETE(req: NextRequest) {
+  return POST(req);
 }

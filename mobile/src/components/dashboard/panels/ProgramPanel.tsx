@@ -12,7 +12,10 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
 import Svg, { Path, Rect, Line, Circle, Polyline } from 'react-native-svg';
 import { SlideUpPanel } from './SlideUpPanel';
+import { DashboardCard } from './DashboardCard';
 import { fontFamily } from '../../../theme/typography';
+import { useTheme } from '../../../hooks/useTheme';
+import type { DashboardLayoutSection } from '../../../services/api';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -53,6 +56,43 @@ interface ProgramPanelProps {
   coachProgrammes?: CoachProgramme[];
   recommendedPrograms?: RecommendedProgram[];
   signalColor: string;
+  freshness?: { label: string; onRefresh: () => void } | null;
+  /**
+   * Tapping a day in the "This Week" strip fires with that day's date
+   * (YYYY-MM-DD). Caller is expected to close the panel and deep-link to the
+   * Plan/Timeline tab for that date.
+   */
+  onDayPress?: (dateISO: string) => void;
+  /**
+   * CMS-managed sub-section ordering from `bootData.panelLayouts.program`.
+   * When undefined/empty we fall back to the default hardcoded order below.
+   */
+  panelLayout?: DashboardLayoutSection[];
+}
+
+/** Default rendering order, used when CMS returns nothing. */
+const DEFAULT_PROGRAM_ORDER = [
+  'program_today_session',
+  'program_my_programs',
+  'program_ai_recs',
+  'program_week_strip',
+];
+
+/**
+ * Returns the ISO date (YYYY-MM-DD) for the given weekday index of the
+ * current week, where 0 = Monday … 6 = Sunday.
+ */
+function weekdayDateISO(weekdayIndex: number): string {
+  const now = new Date();
+  const todayMondayIdx = (now.getDay() + 6) % 7; // JS: Sun=0 → shift so Mon=0
+  const diff = weekdayIndex - todayMondayIdx;
+  const target = new Date(now);
+  target.setDate(now.getDate() + diff);
+  // Local-timezone YYYY-MM-DD (don't use toISOString — that shifts by UTC offset)
+  const y = target.getFullYear();
+  const m = String(target.getMonth() + 1).padStart(2, '0');
+  const d = String(target.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -152,6 +192,9 @@ export function ProgramPanel({
   coachProgrammes,
   recommendedPrograms,
   signalColor,
+  freshness,
+  onDayPress,
+  panelLayout,
 }: ProgramPanelProps) {
   const programs = activePrograms ?? [];
   const coachProgs = coachProgrammes ?? [];
@@ -171,26 +214,20 @@ export function ProgramPanel({
   const priorityPrograms = recommended.filter(p => p.priority === 'mandatory' || p.priority === 'high');
   const suggestedPrograms = recommended.filter(p => p.priority === 'medium');
 
-  return (
-    <SlideUpPanel
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Training Programs"
-      subtitle="Active programs & AI recommendations"
-    >
-      {/* ── Today's Adapted Session (from Signal) ── */}
-      {adaptedPlan && (
-        <View style={styles.sectionCard}>
-          <View style={styles.cardLabelRow}>
-            <View style={[styles.liveIndicator, { backgroundColor: signalColor }]} />
-            <Text style={[styles.cardLabel, { color: signalColor }]}>TODAY&apos;S SESSION</Text>
-          </View>
-          <Text style={styles.sessionName}>{adaptedPlan.sessionName}</Text>
-          <Text style={styles.sessionMeta}>{adaptedPlan.sessionMeta}</Text>
+  const renderTodaySession = () =>
+    adaptedPlan ? (
+      <DashboardCard>
+        <View style={styles.cardLabelRow}>
+          <View style={[styles.liveIndicator, { backgroundColor: signalColor }]} />
+          <Text style={[styles.cardLabel, { color: signalColor }]}>TODAY&apos;S SESSION</Text>
         </View>
-      )}
+        <Text style={styles.sessionName}>{adaptedPlan.sessionName}</Text>
+        <Text style={styles.sessionMeta}>{adaptedPlan.sessionMeta}</Text>
+      </DashboardCard>
+    ) : null;
 
-      {/* ── Active Programs (Coach / Self-Assigned) ── */}
+  const renderMyPrograms = () => (
+    <>
       <Text style={styles.sectionTitle}>
         {hasPrograms ? 'MY PROGRAMS' : 'MY PROGRAMS'}
       </Text>
@@ -322,7 +359,20 @@ export function ProgramPanel({
         </>
       )}
 
-      {/* ── AI Recommended Programs ── */}
+    </>
+  );
+
+  const renderAiRecs = () => (
+    <>
+      {!hasRecs && (
+        <DashboardCard label="AI RECOMMENDATIONS" style={{ marginTop: 14 }}>
+          <Text style={styles.emptyStateTitle}>Nothing priority-flagged right now.</Text>
+          <Text style={styles.emptyStateBody}>
+            Keep logging check-ins and tests — recommendations appear once Tomo has enough data to personalise them to your sport and position.
+          </Text>
+        </DashboardCard>
+      )}
+
       {hasRecs && (
         <>
           {/* Priority Programs (Mandatory + High) */}
@@ -370,14 +420,24 @@ export function ProgramPanel({
         </>
       )}
 
-      {/* ── This Week Calendar ── */}
-      <View style={[styles.sectionCard, { marginTop: 14 }]}>
-        <Text style={styles.cardLabel}>THIS WEEK</Text>
-        <View style={styles.weekRow}>
+    </>
+  );
+
+  const renderWeekStrip = () => (
+    <DashboardCard label="THIS WEEK" style={{ marginTop: 14 }}>
+      <View style={styles.weekRow}>
           {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
             const isToday = i === (new Date().getDay() + 6) % 7; // Mon=0
+            const dateISO = weekdayDateISO(i);
             return (
-              <View key={i} style={styles.dayCell}>
+              <TouchableOpacity
+                key={i}
+                style={styles.dayCell}
+                onPress={() => onDayPress?.(dateISO)}
+                activeOpacity={0.6}
+                accessibilityRole="button"
+                accessibilityLabel={`Open Timeline for ${dateISO}`}
+              >
                 <Text style={[styles.dayLabel, isToday && { color: signalColor }]}>{day}</Text>
                 <View style={[
                   styles.dayCircle,
@@ -390,11 +450,37 @@ export function ProgramPanel({
                 {isToday && (
                   <Text style={[styles.daySubLabel, { color: signalColor }]}>now</Text>
                 )}
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
-      </View>
+      </DashboardCard>
+  );
+
+  const renderers: Record<string, () => React.ReactNode> = {
+    program_today_session: renderTodaySession,
+    program_my_programs: renderMyPrograms,
+    program_ai_recs: renderAiRecs,
+    program_week_strip: renderWeekStrip,
+  };
+
+  const order = panelLayout && panelLayout.length > 0
+    ? panelLayout.map((s) => s.component_type)
+    : DEFAULT_PROGRAM_ORDER;
+
+  return (
+    <SlideUpPanel
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Training Programs"
+      subtitle="Active programs & AI recommendations"
+      freshness={freshness}
+    >
+      {order.map((type) => {
+        const render = renderers[type];
+        if (!render) return null;
+        return <React.Fragment key={type}>{render()}</React.Fragment>;
+      })}
     </SlideUpPanel>
   );
 }
@@ -863,5 +949,17 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 7,
     marginTop: 2,
+  },
+  emptyStateTitle: {
+    fontFamily: fontFamily.medium,
+    fontSize: 12,
+    color: '#E5EBE8',
+    marginBottom: 4,
+  },
+  emptyStateBody: {
+    fontFamily: fontFamily.regular,
+    fontSize: 11,
+    color: '#7A8D7E',
+    lineHeight: 16,
   },
 });

@@ -16,6 +16,8 @@ import { logger } from '@/lib/logger';
 // Types
 // ---------------------------------------------------------------------------
 
+export type DashboardPanelKey = 'program' | 'metrics' | 'progress';
+
 export interface DashboardSection {
   id: string;
   section_key: string;
@@ -34,6 +36,12 @@ export interface DashboardSection {
   coaching_text: string | null;
   sport_filter: string[] | null;
   is_enabled: boolean;
+  /**
+   * Panel scope. NULL = screen-level section (rendered on the Dashboard
+   * scroll view itself). Non-null = the section belongs inside one of the
+   * slide-up panels (program / metrics / progress).
+   */
+  panel_key: DashboardPanelKey | null;
   created_at: string;
   updated_at: string;
   updated_by: string | null;
@@ -152,16 +160,27 @@ function interpolateText(
  *
  * @param snapshot - Athlete's current snapshot (flat key-value from readSnapshot)
  * @param sport - Athlete's sport (for sport_filter scoping)
+ * @param panelKey - Panel scope. Omit or pass `null` for screen-level rows
+ *                   (where `panel_key IS NULL`). Pass a panel name to fetch the
+ *                   resolved sub-section list for that panel.
  * @returns Ordered array of resolved sections the athlete should see
  */
 export async function resolveDashboardLayout(
   snapshot: Record<string, unknown>,
-  sport?: string
+  sport?: string,
+  panelKey?: DashboardPanelKey | null,
 ): Promise<ResolvedDashboardSection[]> {
   const allSections = await loadSections();
 
   return allSections
     .filter(section => {
+      // Panel scope: default (undefined/null) returns screen-level rows only.
+      // A panel name restricts to that panel's sub-sections.
+      if (panelKey == null) {
+        if (section.panel_key != null) return false;
+      } else {
+        if (section.panel_key !== panelKey) return false;
+      }
       // Sport filter: NULL = all sports, array = only these sports
       if (section.sport_filter && sport) {
         if (!section.sport_filter.includes(sport)) return false;

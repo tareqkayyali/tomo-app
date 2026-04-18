@@ -24,6 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Line } from 'react-native-svg';
 import { fontFamily } from '../../../theme/typography';
+import { useTheme } from '../../../hooks/useTheme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PANEL_HEIGHT = SCREEN_HEIGHT * 0.78;
@@ -34,9 +35,16 @@ interface SlideUpPanelProps {
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  /**
+   * Optional freshness stamp rendered under the subtitle.
+   * Caller decides when to show/hide (e.g. only when data is >5min stale).
+   * Tapping the row calls `onRefresh`.
+   */
+  freshness?: { label: string; onRefresh: () => void } | null;
 }
 
-export function SlideUpPanel({ isOpen, onClose, title, subtitle, children }: SlideUpPanelProps) {
+export function SlideUpPanel({ isOpen, onClose, title, subtitle, children, freshness }: SlideUpPanelProps) {
+  const { colors } = useTheme();
   const translateY = useSharedValue(PANEL_HEIGHT);
   const backdropOpacity = useSharedValue(0);
 
@@ -69,22 +77,29 @@ export function SlideUpPanel({ isOpen, onClose, title, subtitle, children }: Sli
       </Animated.View>
 
       {/* Panel */}
-      <Animated.View style={[styles.panel, panelStyle]}>
+      <Animated.View style={[styles.panel, { backgroundColor: colors.panelSheet }, panelStyle]}>
         {/* Drag handle */}
         <View style={styles.handleRow}>
           <View style={styles.handle} />
         </View>
 
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: colors.panelBorderSoft }]}>
           <View style={styles.headerText}>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
+            <Text style={[styles.title, { color: colors.panelTextPrimary }]}>{title}</Text>
+            <Text style={[styles.subtitle, { color: colors.panelTextSecondary }]}>{subtitle}</Text>
+            {freshness && (
+              <TouchableOpacity onPress={freshness.onRefresh} activeOpacity={0.6} style={styles.freshnessRow}>
+                <Text style={[styles.freshnessText, { color: colors.panelTextSecondary }]}>
+                  {freshness.label}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
             <Svg viewBox="0 0 10 10" width={10} height={10}>
-              <Line x1={1} y1={1} x2={9} y2={9} stroke="#E5EBE8" strokeWidth={1.5} strokeLinecap="round" />
-              <Line x1={9} y1={1} x2={1} y2={9} stroke="#E5EBE8" strokeWidth={1.5} strokeLinecap="round" />
+              <Line x1={1} y1={1} x2={9} y2={9} stroke={colors.panelTextPrimary} strokeWidth={1.5} strokeLinecap="round" />
+              <Line x1={9} y1={1} x2={1} y2={9} stroke={colors.panelTextPrimary} strokeWidth={1.5} strokeLinecap="round" />
             </Svg>
           </TouchableOpacity>
         </View>
@@ -114,7 +129,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: PANEL_HEIGHT,
-    backgroundColor: '#0D1117',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     zIndex: 50,
@@ -137,7 +151,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   headerText: {
     flex: 1,
@@ -145,13 +158,21 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamily.semiBold,
     fontSize: 13,
-    color: '#E5EBE8',
   },
   subtitle: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: '#7A8D7E',
     marginTop: 1,
+  },
+  freshnessRow: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  freshnessText: {
+    fontFamily: fontFamily.regular,
+    fontSize: 10,
+    textDecorationLine: 'underline',
+    textDecorationColor: 'rgba(122,141,126,0.4)',
   },
   closeBtn: {
     width: 28,

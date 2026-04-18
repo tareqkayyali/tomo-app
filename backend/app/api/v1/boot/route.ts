@@ -428,15 +428,23 @@ export async function GET(request: NextRequest) {
 
     // ── Dashboard Layout Resolution ──
     // Resolve CMS-managed dashboard sections against athlete snapshot.
-    // Filters by visibility conditions + sport. Returns ordered layout.
-    let dashboardLayout: Array<{
+    // Filters by visibility conditions + sport. Returns ordered layouts for
+    // the Dashboard scroll view (screen-level) and the three slide-up panels
+    // (Program / Metrics / Progress) in a single parallel fan-out.
+    type ResolvedLayout = Array<{
       section_key: string;
       display_name: string;
       component_type: string;
       sort_order: number;
       config: Record<string, unknown>;
       coaching_text: string | null;
-    }> = [];
+    }>;
+    let dashboardLayout: ResolvedLayout = [];
+    let panelLayouts: { program: ResolvedLayout; metrics: ResolvedLayout; progress: ResolvedLayout } = {
+      program: [],
+      metrics: [],
+      progress: [],
+    };
     try {
       const snapshotFlat = {
         ...(snapshot as Record<string, unknown> ?? {}),
@@ -454,13 +462,22 @@ export async function GET(request: NextRequest) {
         current_streak: profile?.current_streak ?? 0,
         coaching_summary: signalContext?.coaching ?? '',
       };
-      dashboardLayout = await resolveDashboardLayout(
-        snapshotFlat,
-        profile?.sport ?? undefined,
-      );
+      const sport = profile?.sport ?? undefined;
+      const [screenLayout, programLayout, metricsLayout, progressLayout] = await Promise.all([
+        resolveDashboardLayout(snapshotFlat, sport),
+        resolveDashboardLayout(snapshotFlat, sport, 'program'),
+        resolveDashboardLayout(snapshotFlat, sport, 'metrics'),
+        resolveDashboardLayout(snapshotFlat, sport, 'progress'),
+      ]);
+      dashboardLayout = screenLayout;
+      panelLayouts = {
+        program: programLayout,
+        metrics: metricsLayout,
+        progress: progressLayout,
+      };
     } catch (err) {
       console.warn('[boot] Dashboard layout resolution failed, returning empty:', err);
-      // dashboardLayout stays [] — mobile renders fallback hardcoded layout
+      // Layouts stay empty — mobile renders fallback hardcoded layouts
     }
 
     // ── Shape response ──
@@ -648,10 +665,17 @@ export async function GET(request: NextRequest) {
       yesterdayVitals,
 
       // ── Dashboard Layout (CMS-managed) ──
-      // Ordered array of sections the athlete should see, filtered by
-      // visibility conditions and sport. Config + coaching_text are resolved.
-      // Empty array = mobile falls back to hardcoded default layout.
+      // Ordered array of screen-level sections the athlete should see,
+      // filtered by visibility conditions and sport. Config + coaching_text
+      // are resolved. Empty array = mobile falls back to hardcoded default.
       dashboardLayout,
+
+      // ── Panel Layouts (CMS-managed, Wave 3b.1) ──
+      // Per-panel ordered arrays of sub-sections for the three slide-up
+      // panels (Program / Metrics / Progress). Mobile consumers iterate and
+      // render each component_type. Empty array per panel = fall back to
+      // hardcoded order for that panel.
+      panelLayouts,
 
       fetchedAt: new Date().toISOString(),
     };

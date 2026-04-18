@@ -293,17 +293,29 @@ export interface BootData {
     }[];
   } | null;
 
-  // ── Dashboard Layout (CMS-managed) ──
-  dashboardLayout: {
-    section_key: string;
-    display_name: string;
-    component_type: string;
-    sort_order: number;
-    config: Record<string, unknown>;
-    coaching_text: string | null;
-  }[];
+  // ── Dashboard Layout (CMS-managed, screen-level) ──
+  dashboardLayout: DashboardLayoutSection[];
+
+  // ── Panel Layouts (CMS-managed, Wave 3b.1) ──
+  // Per-panel ordered sub-sections for the three slide-up panels.
+  // Mobile iterates and dispatches each item by component_type; an empty
+  // array for any panel = use the panel's hardcoded fallback order.
+  panelLayouts?: {
+    program: DashboardLayoutSection[];
+    metrics: DashboardLayoutSection[];
+    progress: DashboardLayoutSection[];
+  };
 
   fetchedAt: string;
+}
+
+export interface DashboardLayoutSection {
+  section_key: string;
+  display_name: string;
+  component_type: string;
+  sort_order: number;
+  config: Record<string, unknown>;
+  coaching_text: string | null;
 }
 
 /**
