@@ -1622,6 +1622,7 @@ def build_system_prompt(
     conversation_context: Optional[str] = None,
     secondary_agents: Optional[list[str]] = None,
     intent_id: Optional[str] = None,
+    triangle_inputs_block: Optional[str] = None,
 ) -> tuple[str, str]:
     """
     Build the 2-block system prompt.
@@ -1631,6 +1632,13 @@ def build_system_prompt(
 
     static_block: Cacheable across requests for the same agent type.
     dynamic_block: Changes every request based on player context.
+
+    triangle_inputs_block (P2.4, 2026-04-18): optional pre-rendered
+    Triangle Input Registry section. Callers that want coach/parent
+    context injection pre-fetch via
+    app.agents.triangle_inputs.build_triangle_inputs_block() and
+    pass it here. When None, the section is omitted — baseline
+    behaviour preserved (AI Chat Baseline Protection).
     """
     # ── Block 1: Static (coaching identity + format + agent prompt) ──
     # NOTE: GUARDRAIL_BLOCK removed — guardrails will be CMS-configurable.
@@ -1658,6 +1666,11 @@ def build_system_prompt(
     static_block = "\n\n".join(p for p in static_parts if p)
 
     # ── Block 2: Dynamic (data context + signal conflict) ──
+    # P2.4 injection order (2026-04-18): TRIANGLE_INPUTS lands AFTER
+    # dual-load and BEFORE tone/snapshot/recs. This mirrors the locked
+    # SECTION_ORDER: Identity → Safety → Dual-Load → Load/Readiness →
+    # Triangle Inputs → RAG → Coaching Persona → Output Rules.
+    # triangle_inputs_block is None by default (baseline preserved).
     dynamic_parts = [
         build_signal_conflict_block(context),    # Signal conflict tier (soft/strong/hard_gate)
         build_ccrs_block(context),               # CCRS readiness data
@@ -1665,6 +1678,7 @@ def build_system_prompt(
         build_sport_context(context),            # Sport + position context
         build_phv_block(context),                # PHV growth stage context
         build_dual_load_block(context),          # Academic + athletic load data
+        triangle_inputs_block or "",             # Triangle Inputs (P2.4) — advisory only, safety gates still override
         build_tone_profile(context.age_band),    # Age-band communication style
         build_snapshot_context(context),          # Full snapshot data
         build_temporal_block(context),            # Date/time context
