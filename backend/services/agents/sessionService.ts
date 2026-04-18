@@ -94,10 +94,27 @@ export interface ConversationMessage {
 
 // ── Session CRUD ─────────────────────────────────────────────────
 
-export async function createSession(userId: string): Promise<ChatSession> {
+export type SeedKind = "event" | "program" | "suggestion" | "conflict_mediation";
+
+export interface SeedContextInput {
+  kind: SeedKind;
+  seedContext: Record<string, unknown>;
+}
+
+export async function createSession(
+  userId: string,
+  seed?: SeedContextInput
+): Promise<ChatSession> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payload: any = { user_id: userId };
+  if (seed) {
+    payload.seed_kind = seed.kind;
+    payload.seed_context = seed.seedContext;
+    payload.seeded_at = new Date().toISOString();
+  }
   const { data, error } = await supa()
     .from("chat_sessions")
-    .insert({ user_id: userId })
+    .insert(payload)
     .select()
     .single();
 
