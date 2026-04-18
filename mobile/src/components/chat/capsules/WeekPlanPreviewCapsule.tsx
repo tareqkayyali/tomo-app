@@ -82,6 +82,17 @@ export function WeekPlanPreviewCapsuleComponent({ card, onSubmit }: Props) {
   const items = Array.isArray(card.planItems) ? card.planItems : [];
   const warnings = Array.isArray(card.warnings) ? card.warnings : [];
   const [editIndex, setEditIndex] = useState<number | null>(null);
+  // Adjustment reasons collapse behind a tap on the yellow dot so the
+  // preview stays readable for clean placements. Keyed by `${date}-${index}`.
+  const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set());
+  const toggleReason = (key: string) => {
+    setExpandedReasons((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const byDate = useMemo(() => {
     const grouped: Record<string, Array<{ item: WeekPlanPreviewItem; index: number }>> = {};
@@ -168,21 +179,34 @@ export function WeekPlanPreviewCapsuleComponent({ card, onSubmit }: Props) {
             {byDate.grouped[date].map(({ item, index }) => {
               const status = (item.status ?? 'clean') as 'clean' | 'adjusted' | 'dropped';
               const adj = Array.isArray(item.adjustments) ? item.adjustments : [];
+              const hasReason = status !== 'clean' && adj.length > 0;
+              const rowKey = `${date}-${index}`;
+              const reasonOpen = hasReason && expandedReasons.has(rowKey);
               return (
                 <Pressable
-                  key={`${date}-${index}`}
+                  key={rowKey}
                   onPress={() => setEditIndex(index)}
                   style={({ pressed }) => [
                     styles.sessionRow,
                     pressed && styles.sessionRowPressed,
                   ]}
                 >
-                  <View
+                  {/*
+                    The status dot is its own Pressable so tapping it only
+                    toggles the adjustment reason — it doesn't fall through
+                    to the row's Edit action. Clean rows (green) aren't
+                    interactive since there's nothing to reveal.
+                  */}
+                  <Pressable
+                    disabled={!hasReason}
+                    onPress={() => hasReason && toggleReason(rowKey)}
+                    hitSlop={10}
                     style={[
                       styles.statusDot,
                       status === 'clean' && styles.statusDotClean,
                       status === 'adjusted' && styles.statusDotAdjusted,
                       status === 'dropped' && styles.statusDotDropped,
+                      reasonOpen && styles.statusDotOpen,
                     ]}
                   />
                   <View style={styles.sessionTimeBlock}>
@@ -196,10 +220,8 @@ export function WeekPlanPreviewCapsuleComponent({ card, onSubmit }: Props) {
                       {item.intensity ? ` · ${item.intensity}` : ''}
                       {` · ${item.durationMin}m`}
                     </Text>
-                    {status === 'adjusted' && adj[0] ? (
-                      <Text style={styles.adjustmentNote}>
-                        {adj[0].reason}
-                      </Text>
+                    {reasonOpen && adj[0] ? (
+                      <Text style={styles.adjustmentNote}>{adj[0].reason}</Text>
                     ) : null}
                   </View>
                   <Text style={styles.editHint}>Edit</Text>
@@ -367,6 +389,11 @@ const styles = StyleSheet.create({
   },
   statusDotDropped: {
     backgroundColor: colors.textSecondary,
+  },
+  statusDotOpen: {
+    // Subtle ring signals "tap to collapse" on adjusted/dropped rows.
+    transform: [{ scale: 1.25 }],
+    opacity: 0.9,
   },
   adjustmentNote: {
     fontFamily: fontFamily.regular,
