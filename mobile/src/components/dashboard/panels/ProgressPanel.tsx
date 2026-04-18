@@ -60,18 +60,18 @@ export function ProgressPanel({ isOpen, onClose, snapshot, dailyLoad, benchmarkS
       <DashboardCard label="PERFORMANCE IDENTITY">
         {cvCompleteness > 0 ? (
           <View style={styles.ringRow}>
-            <ProgressRing percent={cvCompleteness} color={signalColor} trackColor={colors.panelBorderSoft} />
+            <ProgressRing percent={cvCompleteness} color={signalColor} trackColor={colors.borderLight} />
             <View style={styles.ringStats}>
-              <Text style={[styles.ringPercent, { color: colors.panelTextPrimary }]}>{cvCompleteness}%</Text>
-              <Text style={[styles.ringLabel, { color: colors.panelTextSecondary }]}>Athletic CV</Text>
+              <Text style={[styles.ringPercent, { color: colors.textOnDark }]}>{cvCompleteness}%</Text>
+              <Text style={[styles.ringLabel, { color: colors.textMuted }]}>Athletic CV</Text>
             </View>
           </View>
         ) : (
           <View>
-            <Text style={[styles.emptyStateTitle, { color: colors.panelTextPrimary }]}>
+            <Text style={[styles.emptyStateTitle, { color: colors.textOnDark }]}>
               Your Athletic CV starts at zero.
             </Text>
-            <Text style={[styles.emptyStateBody, { color: colors.panelTextSecondary }]}>
+            <Text style={[styles.emptyStateBody, { color: colors.textMuted }]}>
               Complete a benchmark test or log a few check-ins to unlock your Performance Identity. Every session builds it up.
             </Text>
           </View>
@@ -81,13 +81,13 @@ export function ProgressPanel({ isOpen, onClose, snapshot, dailyLoad, benchmarkS
     progress_this_month: () => (
       <DashboardCard label="THIS MONTH">
         <View style={styles.statsGrid}>
-          <StatBlock label="Streak" value={`${streak}d`} color={signalColor} secondaryColor={colors.panelTextSecondary} />
-          <StatBlock label="Wellness Avg" value={wellnessPct ?? '—'} color={signalColor} secondaryColor={colors.panelTextSecondary} />
+          <StatBlock label="Streak" value={`${streak}d`} color={signalColor} secondaryColor={colors.textMuted} />
+          <StatBlock label="Wellness Avg" value={wellnessPct ?? '—'} color={signalColor} secondaryColor={colors.textMuted} />
           <StatBlock
             label="ACWR"
             value={snapshot?.acwr != null ? Number(snapshot.acwr).toFixed(2) : '—'}
             color={signalColor}
-            secondaryColor={colors.panelTextSecondary}
+            secondaryColor={colors.textMuted}
           />
         </View>
       </DashboardCard>
@@ -224,9 +224,9 @@ function ConsistencyHeatmap({
       <DotHeatmap
         cells={cells}
         activeColor={signalColor}
-        inactiveColor={colors.panelBorderSoft}
+        inactiveColor={colors.borderLight}
       />
-      <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: colors.panelTextSecondary, marginTop: 6 }}>
+      <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: colors.textMuted, marginTop: 6 }}>
         {activeDays}/28 days active
       </Text>
     </DashboardCard>
@@ -245,10 +245,10 @@ function BenchmarkProgress({
   if (!benchmarkSummary) {
     return (
       <DashboardCard label="BENCHMARK PROGRESS">
-        <Text style={[styles.emptyStateTitle, { color: colors.panelTextPrimary }]}>
+        <Text style={[styles.emptyStateTitle, { color: colors.textOnDark }]}>
           No benchmarks logged yet.
         </Text>
-        <Text style={[styles.emptyStateBody, { color: colors.panelTextSecondary }]}>
+        <Text style={[styles.emptyStateBody, { color: colors.textMuted }]}>
           Log a test from Output → My Metrics (sprint, jump, agility, etc.) to see where you stack up against your position.
         </Text>
       </DashboardCard>
@@ -260,15 +260,15 @@ function BenchmarkProgress({
   return (
     <DashboardCard label="BENCHMARK PROGRESS">
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-        <Text style={{ fontFamily: fontFamily.bold, fontSize: 20, color: colors.panelTextPrimary }}>{pct}th</Text>
-        <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.panelTextSecondary }}>
+        <Text style={{ fontFamily: fontFamily.bold, fontSize: 20, color: colors.textOnDark }}>{pct}th</Text>
+        <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.textMuted }}>
           percentile overall
         </Text>
       </View>
       <View
         style={{
           height: 4,
-          backgroundColor: colors.panelBorderSoft,
+          backgroundColor: colors.borderLight,
           borderRadius: 2,
           overflow: 'hidden',
           marginBottom: 10,
@@ -298,7 +298,7 @@ function BenchmarkProgress({
             >
               Top Strength
             </Text>
-            <Text style={{ fontFamily: fontFamily.regular, fontSize: 11, color: colors.panelTextPrimary }}>
+            <Text style={{ fontFamily: fontFamily.regular, fontSize: 11, color: colors.textOnDark }}>
               {benchmarkSummary.topStrength}
             </Text>
           </View>
@@ -317,7 +317,7 @@ function BenchmarkProgress({
             >
               Top Gap
             </Text>
-            <Text style={{ fontFamily: fontFamily.regular, fontSize: 11, color: colors.panelTextPrimary }}>
+            <Text style={{ fontFamily: fontFamily.regular, fontSize: 11, color: colors.textOnDark }}>
               {benchmarkSummary.topGap}
             </Text>
           </View>

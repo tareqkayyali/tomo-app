@@ -1050,6 +1050,34 @@ async def context_assembly_node(state: TomoChatState) -> dict:
         aib_summary = None
         memory_ctx = await memory_task
 
+    # Apply optional profile overrides (eval harness / pre-profile users).
+    # Only fills fields that are missing on the DB-backed context, so a
+    # real athlete with a seeded sport/position will NEVER be overwritten
+    # by stale override data carried on the request.
+    overrides = state.get("_profile_overrides") or {}
+    if context and overrides:
+        override_sport = (overrides.get("sport") or "").strip()
+        override_position = (overrides.get("position") or "").strip()
+        override_age = (overrides.get("age_band") or "").strip()
+        applied = []
+        # `sport` defaults to "football" on PlayerContext even when the
+        # DB has nothing — treat that default as "missing" so overrides
+        # still land for non-football eval players.
+        if override_sport and (not context.sport or context.sport == "football"):
+            if context.sport != override_sport:
+                context.sport = override_sport
+                applied.append(f"sport={override_sport}")
+        if override_position and not context.position:
+            context.position = override_position
+            applied.append(f"position={override_position}")
+        if override_age and not context.age_band:
+            context.age_band = override_age.upper()
+            applied.append(f"age_band={override_age.upper()}")
+        if applied:
+            logger.info(
+                f"Applied profile overrides for {user_id}: {', '.join(applied)}"
+            )
+
     # Format memory for prompt injection
     memory_text = memory_ctx.format_for_prompt() if memory_ctx else ""
 

@@ -101,7 +101,7 @@ export function MetricsPanel({
 
   // ACWR zone
   let acwrZone = 'Unknown';
-  let acwrZoneColor = colors.panelTextMuted;
+  let acwrZoneColor = colors.textDisabled;
   if (acwr != null) {
     if (acwr < 0.8) {
       acwrZone = 'Detraining';
@@ -137,9 +137,9 @@ export function MetricsPanel({
           onPress={onOpenSettings}
           disabled={!onOpenSettings}
           activeOpacity={0.7}
-          style={[styles.syncRow, { borderColor: colors.panelBorderSoft }]}
+          style={[styles.syncRow, { borderColor: colors.borderLight }]}
         >
-          <Text style={[styles.syncLabelMuted, { color: colors.panelTextSecondary }]}>
+          <Text style={[styles.syncLabelMuted, { color: colors.textMuted }]}>
             Connect a wearable to auto-sync HRV & sleep
           </Text>
         </TouchableOpacity>
@@ -147,7 +147,7 @@ export function MetricsPanel({
     metrics_hrv: () => (
       <DashboardCard label="HRV">
         <View style={styles.metricRow}>
-          <Text style={[styles.metricValue, { color: colors.panelTextPrimary }]}>
+          <Text style={[styles.metricValue, { color: colors.textOnDark }]}>
             {hrvToday != null ? `${Math.round(hrvToday)}ms` : '—'}
           </Text>
           {hrvDelta ? <Text style={[styles.metricDelta, { color: signalColor }]}>{hrvDelta}</Text> : null}
@@ -163,8 +163,8 @@ export function MetricsPanel({
     metrics_sleep: () => (
       <DashboardCard label="SLEEP">
         <View style={styles.metricRow}>
-          <Text style={[styles.metricValue, { color: colors.panelTextPrimary }]}>{sleepAvg}h avg</Text>
-          <Text style={[styles.metricDeltaMuted, { color: colors.panelTextSecondary }]}>
+          <Text style={[styles.metricValue, { color: colors.textOnDark }]}>{sleepAvg}h avg</Text>
+          <Text style={[styles.metricDeltaMuted, { color: colors.textMuted }]}>
             {sleepValues.filter((v) => v >= 7).length}/{sleepValues.length} nights ≥7h
           </Text>
         </View>
@@ -174,7 +174,7 @@ export function MetricsPanel({
     metrics_acwr: () => (
       <DashboardCard label="ACWR">
         <View style={styles.metricRow}>
-          <Text style={[styles.metricValue, { color: colors.panelTextPrimary }]}>
+          <Text style={[styles.metricValue, { color: colors.textOnDark }]}>
             {acwr != null ? acwr.toFixed(2) : '—'}
           </Text>
           <View style={[styles.zoneBadge, { backgroundColor: acwrZoneColor + '20' }]}>
@@ -188,9 +188,9 @@ export function MetricsPanel({
               max={2.0}
               width={280}
               zones={ACWR_ZONES}
-              markerColor={colors.panelTextPrimary}
+              markerColor={colors.textOnDark}
               tickLabels={[0, 0.8, 1.3, 2.0]}
-              tickColor={colors.panelTextMuted}
+              tickColor={colors.textDisabled}
             />
           </View>
         )}
@@ -259,7 +259,7 @@ function HrvSparkline({
   if (values.length < 2) {
     if (hideEmptyState) return null;
     return (
-      <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.panelTextMuted }}>
+      <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.textDisabled }}>
         Not enough HRV data yet
       </Text>
     );
@@ -283,7 +283,7 @@ function SleepBars({ vitals }: { vitals: any[] }) {
 
   if (values.length === 0) {
     return (
-      <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.panelTextMuted }}>
+      <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.textDisabled }}>
         No sleep data yet
       </Text>
     );
@@ -319,10 +319,10 @@ function ReadinessTrend({ vitals, signalColor }: { vitals: any[]; signalColor: s
   return (
     <DashboardCard label="READINESS TREND">
       <View style={styles.metricRow}>
-        <Text style={[styles.metricValue, { color: colors.panelTextPrimary }]}>
+        <Text style={[styles.metricValue, { color: colors.textOnDark }]}>
           {Math.round(latestReadiness)}
         </Text>
-        <Text style={[styles.metricDeltaMuted, { color: colors.panelTextSecondary }]}>
+        <Text style={[styles.metricDeltaMuted, { color: colors.textMuted }]}>
           latest score
         </Text>
       </View>
@@ -362,7 +362,7 @@ function MiniSparkColumn({ label, values, color }: { label: string; values: numb
           style={{
             fontFamily: fontFamily.medium,
             fontSize: 8,
-            color: colors.panelLabel,
+            color: colors.textMuted,
             letterSpacing: 1,
             textTransform: 'uppercase',
             marginBottom: 4,
@@ -370,7 +370,7 @@ function MiniSparkColumn({ label, values, color }: { label: string; values: numb
         >
           {label}
         </Text>
-        <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: colors.panelTextMuted }}>
+        <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: colors.textDisabled }}>
           --
         </Text>
       </View>
@@ -383,7 +383,7 @@ function MiniSparkColumn({ label, values, color }: { label: string; values: numb
         style={{
           fontFamily: fontFamily.medium,
           fontSize: 8,
-          color: colors.panelLabel,
+          color: colors.textMuted,
           letterSpacing: 1,
           textTransform: 'uppercase',
           marginBottom: 4,
@@ -392,7 +392,7 @@ function MiniSparkColumn({ label, values, color }: { label: string; values: numb
         {label}
       </Text>
       <Sparkline values={values} color={color} width={width} height={height} strokeWidth={1.2} padY={0.5} />
-      <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: colors.panelTextSecondary, marginTop: 2 }}>
+      <Text style={{ fontFamily: fontFamily.regular, fontSize: 9, color: colors.textMuted, marginTop: 2 }}>
         {Math.min(Math.max(values[values.length - 1], 0), 10)}/10
       </Text>
     </View>
@@ -419,7 +419,7 @@ function TrainingLoadSection({
 
   return (
     <DashboardCard label="TRAINING LOAD">
-      <Text style={[styles.metricDeltaMuted, { color: colors.panelTextSecondary }]}>Last 7 days (AU)</Text>
+      <Text style={[styles.metricDeltaMuted, { color: colors.textMuted }]}>Last 7 days (AU)</Text>
       <View style={{ marginTop: 8 }}>
         <BarChart
           values={values}
@@ -441,7 +441,7 @@ function TrainingLoadSection({
                   textAlign: 'center',
                   fontFamily: fontFamily.regular,
                   fontSize: 7,
-                  color: colors.panelTextMuted,
+                  color: colors.textDisabled,
                 }}
               >
                 {dayLabel}

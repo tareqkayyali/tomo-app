@@ -249,7 +249,7 @@ export function SignalDashboardScreen() {
 
   if (isBootLoading && !bootData) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.panelOuter }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Dashboard</Text>
           <View style={styles.headerRight}>

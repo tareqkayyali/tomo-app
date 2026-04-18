@@ -77,20 +77,20 @@ export function SlideUpPanel({ isOpen, onClose, title, subtitle, children, fresh
       </Animated.View>
 
       {/* Panel */}
-      <Animated.View style={[styles.panel, { backgroundColor: colors.panelSheet }, panelStyle]}>
+      <Animated.View style={[styles.panel, { backgroundColor: colors.background }, panelStyle]}>
         {/* Drag handle */}
         <View style={styles.handleRow}>
           <View style={styles.handle} />
         </View>
 
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.panelBorderSoft }]}>
+        <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
           <View style={styles.headerText}>
-            <Text style={[styles.title, { color: colors.panelTextPrimary }]}>{title}</Text>
-            <Text style={[styles.subtitle, { color: colors.panelTextSecondary }]}>{subtitle}</Text>
+            <Text style={[styles.title, { color: colors.textOnDark }]}>{title}</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>
             {freshness && (
               <TouchableOpacity onPress={freshness.onRefresh} activeOpacity={0.6} style={styles.freshnessRow}>
-                <Text style={[styles.freshnessText, { color: colors.panelTextSecondary }]}>
+                <Text style={[styles.freshnessText, { color: colors.textMuted }]}>
                   {freshness.label}
                 </Text>
               </TouchableOpacity>
@@ -98,8 +98,8 @@ export function SlideUpPanel({ isOpen, onClose, title, subtitle, children, fresh
           </View>
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
             <Svg viewBox="0 0 10 10" width={10} height={10}>
-              <Line x1={1} y1={1} x2={9} y2={9} stroke={colors.panelTextPrimary} strokeWidth={1.5} strokeLinecap="round" />
-              <Line x1={9} y1={1} x2={1} y2={9} stroke={colors.panelTextPrimary} strokeWidth={1.5} strokeLinecap="round" />
+              <Line x1={1} y1={1} x2={9} y2={9} stroke={colors.textOnDark} strokeWidth={1.5} strokeLinecap="round" />
+              <Line x1={9} y1={1} x2={1} y2={9} stroke={colors.textOnDark} strokeWidth={1.5} strokeLinecap="round" />
             </Svg>
           </TouchableOpacity>
         </View>

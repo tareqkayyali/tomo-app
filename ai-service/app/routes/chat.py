@@ -30,6 +30,25 @@ class ChatRequest(BaseModel):
     active_tab: Optional[str] = "Chat"
     timezone: Optional[str] = "UTC"
     confirmed_action: Optional[dict] = None
+    # Optional profile overrides — used only when the player's DB profile
+    # is missing or incomplete (eval harness, smoke tests, freshly-
+    # onboarded users before their first check-in). Production clients
+    # should leave these unset so the DB remains the source of truth.
+    sport: Optional[str] = None
+    position: Optional[str] = None
+    age_band: Optional[str] = None
+
+
+def _profile_overrides_from(request: "ChatRequest") -> Optional[dict]:
+    """Collect non-null profile overrides from a request. None when empty."""
+    overrides = {
+        k: v for k, v in {
+            "sport": request.sport,
+            "position": request.position,
+            "age_band": request.age_band,
+        }.items() if v
+    }
+    return overrides or None
 
 
 class ChatResponse(BaseModel):
@@ -65,6 +84,7 @@ async def generate_sse_events(request: ChatRequest):
             active_tab=request.active_tab or "Chat",
             timezone=request.timezone or "UTC",
             confirmed_action=request.confirmed_action,
+            profile_overrides=_profile_overrides_from(request),
         )
 
         # Extract response components from graph result
@@ -193,6 +213,7 @@ async def chat_sync(request: ChatRequest):
         active_tab=request.active_tab or "Chat",
         timezone=request.timezone or "UTC",
         confirmed_action=request.confirmed_action,
+        profile_overrides=_profile_overrides_from(request),
     )
 
     # Parse the final response

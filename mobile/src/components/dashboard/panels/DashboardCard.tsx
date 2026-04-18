@@ -30,7 +30,7 @@ export function DashboardCard({ label, style, children }: Props) {
   return (
     <GlassCard style={mergedStyle}>
       {label && (
-        <Text style={[styles.label, { color: colors.panelLabel }]}>{label}</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
       )}
       {children}
     </GlassCard>

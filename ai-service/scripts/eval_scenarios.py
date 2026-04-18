@@ -36,6 +36,12 @@ class EvalScenario:
     follow_up_expected_agent: Optional[str] = None  # Should stay on same agent
     # Tags
     tags: list[str] = field(default_factory=list)
+    # Optional profile overrides — forwarded to the chat/sync endpoint so
+    # the agent has enough context to produce sport/position/age-specific
+    # coaching language. Used by S3 coaching suite; ignored when None.
+    sport: Optional[str] = None
+    position: Optional[str] = None
+    age_band: Optional[str] = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -209,44 +215,45 @@ for sid, query, desc, forbidden, required in _PHV_COMBOS:
 
 _SPORT_QUERIES = {
     "football": [
-        ("s3_01", "What drills should I do as a CAM?", ["passing", "vision", "movement", "midfielder"]),
-        ("s3_02", "How should a striker train for speed?", ["sprint", "acceleration", "finishing"]),
-        ("s3_03", "Best exercises for a centre-back?", ["aerial", "tackle", "positioning", "defend"]),
-        ("s3_04", "How should a goalkeeper train differently?", ["reaction", "dive", "distribution", "goalkeeper"]),
+        ("s3_01", "What drills should I do as a CAM?", ["passing", "vision", "movement", "midfielder"], "CAM"),
+        ("s3_02", "How should a striker train for speed?", ["sprint", "acceleration", "finishing"], "ST"),
+        ("s3_03", "Best exercises for a centre-back?", ["aerial", "tackle", "positioning", "defend"], "CB"),
+        ("s3_04", "How should a goalkeeper train differently?", ["reaction", "dive", "distribution", "goalkeeper"], "GK"),
     ],
     "padel": [
-        ("s3_05", "How do I prevent wrist injuries in padel?", ["wrist", "grip", "forearm", "padel"]),
-        ("s3_06", "What conditioning do I need for padel?", ["lateral", "agility", "endurance", "padel"]),
-        ("s3_07", "How should I train for padel tournaments?", ["match", "recovery", "tournament", "padel"]),
-        ("s3_08", "Best strength exercises for padel players?", ["shoulder", "core", "leg", "padel"]),
+        ("s3_05", "How do I prevent wrist injuries in padel?", ["wrist", "grip", "forearm", "padel"], None),
+        ("s3_06", "What conditioning do I need for padel?", ["lateral", "agility", "endurance", "padel"], None),
+        ("s3_07", "How should I train for padel tournaments?", ["match", "recovery", "tournament", "padel"], None),
+        ("s3_08", "Best strength exercises for padel players?", ["shoulder", "core", "leg", "padel"], None),
     ],
     "athletics": [
-        ("s3_09", "How do sprinters manage CNS fatigue?", ["cns", "recovery", "sprint", "nervous system"]),
-        ("s3_10", "What's a good pre-season plan for 100m?", ["speed", "block", "acceleration", "sprint"]),
-        ("s3_11", "How should I periodize my sprint season?", ["periodiz", "phase", "competition", "peak"]),
-        ("s3_12", "Recovery protocol between sprint sessions?", ["48", "72", "cns", "recovery"]),
+        ("s3_09", "How do sprinters manage CNS fatigue?", ["cns", "recovery", "sprint", "nervous system"], "Sprinter"),
+        ("s3_10", "What's a good pre-season plan for 100m?", ["speed", "block", "acceleration", "sprint"], "Sprinter"),
+        ("s3_11", "How should I periodize my sprint season?", ["periodiz", "phase", "competition", "peak"], "Sprinter"),
+        ("s3_12", "Recovery protocol between sprint sessions?", ["48", "72", "cns", "recovery"], "Sprinter"),
     ],
     "basketball": [
-        ("s3_13", "What vertical jump training should I do?", ["vertical", "jump", "plyometric", "power"]),
-        ("s3_14", "How should guards train vs forwards?", ["guard", "forward", "position", "basketball"]),
-        ("s3_15", "Best agility drills for basketball?", ["change of direction", "lateral", "agility"]),
-        ("s3_16", "How to manage game-week load in basketball?", ["game", "load", "recovery", "basketball"]),
+        ("s3_13", "What vertical jump training should I do?", ["vertical", "jump", "plyometric", "power"], None),
+        ("s3_14", "How should guards train vs forwards?", ["guard", "forward", "position", "basketball"], None),
+        ("s3_15", "Best agility drills for basketball?", ["change of direction", "lateral", "agility"], None),
+        ("s3_16", "How to manage game-week load in basketball?", ["game", "load", "recovery", "basketball"], None),
     ],
     "tennis": [
-        ("s3_17", "How to prevent tennis elbow?", ["elbow", "wrist", "forearm", "tennis"]),
-        ("s3_18", "Serve power training for tennis?", ["serve", "shoulder", "rotational", "power"]),
-        ("s3_19", "How to handle tournament recovery in tennis?", ["match", "density", "recovery", "tournament"]),
-        ("s3_20", "Lateral movement training for tennis?", ["lateral", "agility", "footwork", "court"]),
+        ("s3_17", "How to prevent tennis elbow?", ["elbow", "wrist", "forearm", "tennis"], None),
+        ("s3_18", "Serve power training for tennis?", ["serve", "shoulder", "rotational", "power"], None),
+        ("s3_19", "How to handle tournament recovery in tennis?", ["match", "density", "recovery", "tournament"], None),
+        ("s3_20", "Lateral movement training for tennis?", ["lateral", "agility", "footwork", "court"], None),
     ],
 }
 
 S3_COACHING: list[EvalScenario] = []
 for sport, items in _SPORT_QUERIES.items():
-    for sid, query, keywords in items:
+    for sid, query, keywords, position in items:
         S3_COACHING.append(EvalScenario(
             id=sid, suite="s3_coaching", query=query,
             description=f"Coaching: {sport} specificity",
             expected_keywords=keywords, tags=["coaching", sport],
+            sport=sport, position=position, age_band="U17",
         ))
 
 # Age-appropriate queries (20 more)
@@ -273,11 +280,13 @@ _AGE_QUERIES = [
     ("s3_40", "adult", "Peak performance maintenance strategies?", ["peak", "maintain", "performance", "periodiz"]),
 ]
 
+_AGE_TO_BAND = {"u13": "U13", "u15": "U15", "u17": "U17", "u19": "U19", "adult": "SEN"}
 for sid, age, query, keywords in _AGE_QUERIES:
     S3_COACHING.append(EvalScenario(
         id=sid, suite="s3_coaching", query=query,
         description=f"Coaching: age-appropriate ({age})",
         expected_keywords=keywords, tags=["coaching", "age", age],
+        sport="football", age_band=_AGE_TO_BAND.get(age),
     ))
 
 

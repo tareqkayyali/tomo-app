@@ -177,6 +177,7 @@ async def run_supervisor(
     active_tab: str = "Chat",
     timezone: str = "UTC",
     confirmed_action: dict = None,
+    profile_overrides: dict | None = None,
 ) -> dict:
     """
     Execute the supervisor graph for a single chat turn.
@@ -285,6 +286,12 @@ async def run_supervisor(
     if confirmed_action:
         input_state["pending_write_action"] = confirmed_action
         input_state["write_confirmed"] = True
+
+    # Optional profile overrides (eval harness, pre-profile athletes).
+    # Context_assembly applies them only when the DB profile is empty,
+    # so real athletes aren't affected.
+    if profile_overrides:
+        input_state["_profile_overrides"] = profile_overrides
 
     # Pre-execution metadata attached to the LangSmith trace via config
     # (auto-tracer reads this and includes it on the root run)

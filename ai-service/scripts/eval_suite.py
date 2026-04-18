@@ -95,6 +95,9 @@ async def call_chat_sync(
     player_id: str,
     message: str,
     session_id: str | None = None,
+    sport: str | None = None,
+    position: str | None = None,
+    age_band: str | None = None,
 ) -> dict:
     """Call the /api/v1/chat/sync endpoint and return parsed response."""
     url = f"{target.rstrip('/')}/api/v1/chat/sync"
@@ -106,6 +109,12 @@ async def call_chat_sync(
         "active_tab": "Chat",
         "timezone": "UTC",
     }
+    if sport:
+        payload["sport"] = sport
+    if position:
+        payload["position"] = position
+    if age_band:
+        payload["age_band"] = age_band
 
     try:
         resp = await client.post(url, json=payload, timeout=TIMEOUT_S)
@@ -255,7 +264,12 @@ async def run_scenario(
         t0 = time.monotonic()
 
         # Call the API
-        raw = await call_chat_sync(client, target, player_id, scenario.query)
+        raw = await call_chat_sync(
+            client, target, player_id, scenario.query,
+            sport=scenario.sport,
+            position=scenario.position,
+            age_band=scenario.age_band,
+        )
         result = parse_api_response(raw)
 
         elapsed = (time.monotonic() - t0) * 1000
@@ -290,7 +304,12 @@ async def run_multi_turn_scenario(
 
     async with semaphore:
         # Turn 1
-        raw1 = await call_chat_sync(client, target, player_id, scenario.query, session_id)
+        raw1 = await call_chat_sync(
+            client, target, player_id, scenario.query, session_id,
+            sport=scenario.sport,
+            position=scenario.position,
+            age_band=scenario.age_band,
+        )
         result1 = parse_api_response(raw1)
         result1.scenario_id = scenario.id
         result1.suite = scenario.suite
@@ -302,7 +321,12 @@ async def run_multi_turn_scenario(
             return result1, None
 
         # Turn 2
-        raw2 = await call_chat_sync(client, target, player_id, scenario.follow_up, session_id)
+        raw2 = await call_chat_sync(
+            client, target, player_id, scenario.follow_up, session_id,
+            sport=scenario.sport,
+            position=scenario.position,
+            age_band=scenario.age_band,
+        )
         result2 = parse_api_response(raw2)
         result2.scenario_id = f"{scenario.id}_t2"
         result2.suite = scenario.suite

@@ -94,3 +94,8 @@ class TomoChatState(MessagesState):
 
     # ── Observability (computed by persist_node for LangSmith) ──
     _observability: Optional[dict[str, Any]]
+
+    # ── Optional profile overrides (eval harness / pre-profile users) ──
+    # Keys: sport, position, age_band. Applied in context_assembly only
+    # when the corresponding DB-profile field is empty.
+    _profile_overrides: Optional[dict[str, Any]]
