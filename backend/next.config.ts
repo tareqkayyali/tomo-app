@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Public static docs under /legal/* (privacy.html, terms.html) are
+  // intentionally world-readable across origins so the mobile web app
+  // (dev or prod) can read the tomo-version meta tag during signup.
+  async headers() {
+    return [
+      {
+        source: "/legal/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, OPTIONS" },
+          { key: "Cache-Control", value: "public, max-age=300" },
+        ],
+      },
+    ];
+  },
   // Serve Expo web export from /public/webapp/ for all frontend routes.
   // API (/api/*) and admin (/admin/*) routes are handled by Next.js as normal.
   async rewrites() {

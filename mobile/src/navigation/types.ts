@@ -9,6 +9,7 @@
 
 export type AuthStackParamList = {
   Login: undefined;
+  AgeGate: undefined;
   Signup: undefined;
   ForgotPassword: undefined;
 };

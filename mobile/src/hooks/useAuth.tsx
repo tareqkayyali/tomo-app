@@ -9,6 +9,7 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthChange, signIn, signUp, signOut, signInWithProvider, AuthUser } from '../services/auth';
 import { getUser, registerUser } from '../services/api';
+import { clearSignupState, loadSignupState } from '../services/signupState';
 import { initAnalytics, identify, setAnalyticsEnabled, resetAnalytics, track } from '../services/analytics';
 import { clearSavedChatsStorage, setSavedChatsUserId } from '../services/savedChats';
 import {
@@ -70,16 +71,21 @@ interface AuthContextType {
   setDevRole: (role: UserRole) => void;
   login: (email: string, password: string) => Promise<void>;
   socialLogin: (provider: 'google' | 'apple') => Promise<void>;
+  /**
+   * Register a new email/password account. `profileData` only carries
+   * profile fields — DOB + legal versions are sourced from the
+   * signupState helper written by AgeGateScreen, which is how those
+   * values survive the email-verification round-trip and OAuth
+   * redirect.
+   */
   register: (email: string, password: string, profileData: {
     name: string;
-    age?: number;
     sport?: Sport;
     role?: UserRole;
     displayRole?: string;
   }) => Promise<void>;
   completeRegistration: (profileData: {
     name: string;
-    age?: number;
     sport?: Sport;
     role?: UserRole;
     displayRole?: string;
@@ -239,14 +245,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Read the pending DOB + legal-versions stashed by AgeGateScreen.
+  // Throws a structured error the UI can show if the state is missing
+  // or expired — which means the user somehow reached Signup without
+  // completing the age gate.
+  async function readPendingSignupOrThrow() {
+    const s = await loadSignupState();
+    if (!s) {
+      const err = new Error('Your age verification has expired. Please start again.');
+      (err as Error & { code?: string }).code = 'SIGNUP_STATE_MISSING';
+      throw err;
+    }
+    return s;
+  }
+
   // Register (create Supabase account + backend profile)
   const register = useCallback(async (
     email: string,
     password: string,
-    profileData: { name: string; age?: number; sport?: Sport; role?: UserRole; displayRole?: string }
+    profileData: { name: string; sport?: Sport; role?: UserRole; displayRole?: string }
   ) => {
     setIsLoading(true);
     try {
+      const pending = await readPendingSignupOrThrow();
+
       // 1. Create Supabase account (also signs in if email confirmation is disabled)
       const authUser = await signUp(email, password);
       setUser(authUser);
@@ -255,13 +277,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await registerUser({
         name: profileData.name,
         displayName: profileData.name,
-        age: profileData.age,
         sport: profileData.sport,
         role: profileData.role,
         displayRole: profileData.displayRole,
+        dateOfBirth: pending.dateOfBirth,
+        tosVersion: pending.tosVersion,
+        privacyVersion: pending.privacyVersion,
+        regionCode: pending.regionCode ?? undefined,
       });
       setProfile(response.user);
       setNeedsRegistration(false);
+      await clearSignupState();
     } catch (error) {
       // Surface the actual error so the UI can show it
       throw error;
@@ -272,20 +298,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Complete registration for OAuth users (already authenticated, just need backend profile)
   const completeRegistration = useCallback(async (
-    profileData: { name: string; age?: number; sport?: Sport; role?: UserRole; displayRole?: string }
+    profileData: { name: string; sport?: Sport; role?: UserRole; displayRole?: string }
   ) => {
     setIsLoading(true);
     try {
+      const pending = await readPendingSignupOrThrow();
       const response = await registerUser({
         name: profileData.name,
         displayName: profileData.name,
-        age: profileData.age,
         sport: profileData.sport,
         role: profileData.role,
         displayRole: profileData.displayRole,
+        dateOfBirth: pending.dateOfBirth,
+        tosVersion: pending.tosVersion,
+        privacyVersion: pending.privacyVersion,
+        regionCode: pending.regionCode ?? undefined,
       });
       setProfile(response.user);
       setNeedsRegistration(false);
+      await clearSignupState();
     } catch (error) {
       throw error;
     } finally {

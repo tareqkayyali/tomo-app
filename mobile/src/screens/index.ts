@@ -12,6 +12,7 @@ export { ProfileScreen } from './ProfileScreen';
 // ─── Stack Screens (pushed from tabs) ─────────────────────────────
 export { LoginScreen } from './LoginScreen';
 export { SignupScreen } from './SignupScreen';
+export { AgeGateScreen } from './auth/AgeGateScreen';
 export { ForgotPasswordScreen } from './ForgotPasswordScreen';
 export { CheckinScreen } from './CheckinScreen';
 export { NotificationSettingsScreen } from './NotificationSettingsScreen';

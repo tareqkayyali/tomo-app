@@ -29,6 +29,7 @@ import {
 } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../services/supabase';
+import { loadSignupState } from '../services/signupState';
 import type { AuthStackParamList } from '../navigation/types';
 import type { Sport, UserRole } from '../types';
 
@@ -61,7 +62,6 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
   // Step 2: Profile
   const [selectedRole, setSelectedRole] = useState<UserRole>('player');
   const [name, setName] = useState('');
-  const [age, setAge] = useState('');
   const [sport, setSport] = useState<Sport | ''>('');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -69,6 +69,27 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
   // Track whether user signed up via OAuth (skip email/password step)
   const [isOAuthSignup, setIsOAuthSignup] = useState(false);
+  // Pending signup state from the age gate (DOB + legal versions). If
+  // this is missing the user bypassed AgeGate — send them back.
+  const [hasPendingSignup, setHasPendingSignup] = useState<boolean | null>(null);
+
+  // Verify the age gate completed; otherwise bounce to AgeGate.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const pending = await loadSignupState();
+      if (cancelled) return;
+      if (!pending) {
+        setHasPendingSignup(false);
+        navigation.replace('AgeGate');
+        return;
+      }
+      setHasPendingSignup(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigation]);
 
   // Auto-detect OAuth user arriving from LoginScreen (already authenticated, needs profile)
   // Pre-fill name from Google/Apple user metadata
@@ -110,15 +131,8 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
   const validateStep2 = () => {
     const newErrors: Record<string, string> = {};
     if (!name) newErrors.name = 'Name is required';
-    // Age and sport only required for players
+    // Sport only required for players (age comes from the age gate).
     if (selectedRole === 'player') {
-      if (!age) newErrors.age = 'Age is required';
-      else {
-        const ageNum = parseInt(age, 10);
-        if (isNaN(ageNum) || ageNum < 8 || ageNum > 25) {
-          newErrors.age = 'Age must be between 8 and 25';
-        }
-      }
       if (!sport) newErrors.sport = 'Please select a sport';
     }
     setErrors(newErrors);
@@ -159,9 +173,9 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
         name,
         role: selectedRole,
       };
-      // Only include age/sport for players
+      // Only include sport for players (age comes from the age gate
+      // via signupState; consumed inside register/completeRegistration).
       if (selectedRole === 'player') {
-        profileData.age = parseInt(age, 10);
         profileData.sport = sport as Sport;
       }
       if (isOAuthSignup) {
@@ -170,9 +184,24 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
         await register(email, password, profileData as any);
       }
     } catch (error) {
-      setSignupError((error as Error).message);
+      const err = error as Error & { code?: string };
+      if (err.code === 'SIGNUP_STATE_MISSING') {
+        navigation.replace('AgeGate');
+        return;
+      }
+      setSignupError(err.message);
     }
   };
+
+  // While we check for a valid age-gate handoff, render nothing so
+  // the user doesn't see a flash of the form before the redirect.
+  if (hasPendingSignup === null) {
+    return <SafeAreaView style={styles.container} />;
+  }
+  if (hasPendingSignup === false) {
+    // Redirect is in flight from the useEffect above; render nothing.
+    return <SafeAreaView style={styles.container} />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -319,18 +348,9 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
                 autoCapitalize="words"
               />
 
-              {/* Age & Sport only for players */}
+              {/* Sport only for players — age was captured on AgeGate */}
               {selectedRole === 'player' && (
                 <>
-                  <Input
-                    label="Age"
-                    placeholder="Your age"
-                    value={age}
-                    onChangeText={setAge}
-                    error={errors.age}
-                    keyboardType="number-pad"
-                  />
-
                   <Text style={styles.sportLabel}>Sport</Text>
                   {errors.sport && <Text style={styles.error}>{errors.sport}</Text>}
                   <View style={styles.sportGrid}>

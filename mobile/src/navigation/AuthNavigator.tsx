@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { LoginScreen, SignupScreen, ForgotPasswordScreen } from '../screens';
+import { LoginScreen, SignupScreen, AgeGateScreen, ForgotPasswordScreen } from '../screens';
 import { useAuth } from '../hooks/useAuth';
 import type { AuthStackParamList } from './types';
 import { colors } from '../theme';
@@ -20,8 +20,9 @@ export function AuthNavigator() {
   const { needsRegistration } = useAuth();
 
   // If the user just completed OAuth but has no backend profile,
-  // start directly on Signup (step 2) to avoid flashing LoginScreen.
-  const initialRoute = needsRegistration ? 'Signup' : 'Login';
+  // start directly on Signup — SignupScreen verifies the age-gate
+  // handoff and bounces back to AgeGate if it's missing.
+  const initialRoute: keyof AuthStackParamList = needsRegistration ? 'Signup' : 'Login';
 
   return (
     <Stack.Navigator
@@ -33,6 +34,7 @@ export function AuthNavigator() {
       }}
     >
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="AgeGate" component={AgeGateScreen} />
       <Stack.Screen name="Signup" component={SignupScreen} />
       <Stack.Screen
         name="ForgotPassword"

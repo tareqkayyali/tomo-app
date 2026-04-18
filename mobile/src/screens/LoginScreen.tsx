@@ -227,10 +227,10 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Sign Up CTA */}
+            {/* Sign Up CTA — starts at the age gate */}
             <TouchableOpacity
               style={styles.getStartedBtn}
-              onPress={() => navigation.navigate('Signup')}
+              onPress={() => navigation.navigate('AgeGate')}
               activeOpacity={0.7}
             >
               <SmartIcon name="person-add-outline" size={16} color={colors.accent2} />

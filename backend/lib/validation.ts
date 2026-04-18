@@ -11,12 +11,31 @@ export const checkinSchema = z.object({
   academicStress: z.number().min(1).max(10).nullable().optional(),
 });
 
+// ISO 8601 date (YYYY-MM-DD). Month + year precision is acceptable at
+// the age gate (day defaults to 01 on the client) but the column is a
+// proper DATE — keep the parse strict.
+const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, {
+  message: "date_of_birth must be YYYY-MM-DD",
+});
+
+// ISO 3166-1 alpha-2 country code, uppercase. Resolved by the
+// geo-region Edge Function before the age gate submits. The register
+// route re-checks the request IP and overrides if they disagree — this
+// field is a hint to the UI, never trusted as the security boundary.
+const iso3166Alpha2 = z.string().length(2).regex(/^[A-Z]{2}$/);
+
 export const registerSchema = z.object({
   name: z.string().min(1).max(100),
   sport: z.enum(["football", "soccer", "basketball", "tennis", "padel"]).optional(),
-  age: z.number().int().min(8).max(50).optional(),
+  dateOfBirth: isoDateSchema,
   role: z.enum(["player", "coach", "parent"]).optional().default("player"),
   displayRole: z.string().max(50).optional(),
+  // Legal acceptance — must match the current served versions or the
+  // route rejects with STALE_LEGAL_VERSION.
+  tosVersion: z.string().min(1).max(32),
+  privacyVersion: z.string().min(1).max(32),
+  // Region hint from the geo-region Edge Function.
+  regionCode: iso3166Alpha2.optional(),
 });
 
 export const inviteCodeSchema = z.object({
