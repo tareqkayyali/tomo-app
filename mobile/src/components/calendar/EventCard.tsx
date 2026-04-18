@@ -16,6 +16,7 @@ import { SmartIcon } from '../SmartIcon';
 import { colors, spacing, borderRadius, fontFamily } from '../../theme';
 import { getEventTypeColor, getSportDotColor, getSportLabel } from '../../utils/calendarHelpers';
 import type { CalendarEvent } from '../../types';
+import { ConflictPill } from './ConflictPill';
 
 interface LinkedProgramInfo {
   programId: string;
@@ -28,9 +29,23 @@ interface Props {
   onDelete?: (eventId: string) => Promise<boolean> | void;
   compact?: boolean;
   linkedPrograms?: LinkedProgramInfo[];
+  /**
+   * P3.4 — called when the ConflictPill successfully seeds an Ask Tomo
+   * mediation session. Parent screen navigates to the chat with the
+   * returned session id. Omit to hide the pill (e.g. in read-only
+   * surfaces like the coach portal).
+   */
+  onConflictSession?: (sessionId: string, eventId: string) => void;
 }
 
-export function EventCard({ event, onDelete, compact = false, linkedPrograms = [] }: Props) {
+export function EventCard({
+  event,
+  onDelete,
+  compact = false,
+  linkedPrograms = [],
+  onConflictSession,
+}: Props) {
+  const [conflictDismissed, setConflictDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const typeColor = getEventTypeColor(event.type);
@@ -164,6 +179,18 @@ export function EventCard({ event, onDelete, compact = false, linkedPrograms = [
                 {linkedPrograms.map((lp) => lp.name).join(', ')}
               </Text>
             </View>
+          )}
+
+          {/* P3.4 — Ask Tomo conflict mediation pill. Renders when the
+              server-side detectConflict() flagged disagreement on this
+              event. Hidden in coach/parent portals (no callback prop). */}
+          {onConflictSession && event.hasConflict && !conflictDismissed && (
+            <ConflictPill
+              eventId={String(event.id)}
+              axis={event.conflictAxis}
+              onSessionCreated={(sessionId) => onConflictSession(sessionId, String(event.id))}
+              onHide={() => setConflictDismissed(true)}
+            />
           )}
 
           {expanded && onDelete && (

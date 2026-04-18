@@ -9,6 +9,7 @@ import {
 } from "@/lib/calendarHelpers";
 import { attachJournalState } from "@/lib/calendarJournalHelper";
 import { attachLinkedPrograms, autoLinkPrescribedPrograms } from "@/lib/calendarLinkedProgramsHelper";
+import { attachConflictFlags } from "@/lib/calendarConflictHelper";
 import {
   validateEvent,
   autoPosition,
@@ -373,7 +374,8 @@ export async function GET(req: NextRequest) {
         mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
       );
       const withJournal = await attachJournalState(mappedEvents, auth.user.id);
-    const events = await attachLinkedPrograms(withJournal);
+    const withPrograms = await attachLinkedPrograms(withJournal);
+    const events = await attachConflictFlags(withPrograms);
 
       return NextResponse.json(
         paginatedResponse(events, count ?? 0, params),
@@ -397,7 +399,8 @@ export async function GET(req: NextRequest) {
       mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
     );
     const withJournal = await attachJournalState(mappedEvents, auth.user.id);
-    const events = await attachLinkedPrograms(withJournal);
+    const withPrograms = await attachLinkedPrograms(withJournal);
+    const events = await attachConflictFlags(withPrograms);
 
     return NextResponse.json(
       { events },
@@ -428,7 +431,8 @@ export async function GET(req: NextRequest) {
         mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
       );
       const withJournal = await attachJournalState(mappedEvents, auth.user.id);
-    const events = await attachLinkedPrograms(withJournal);
+    const withPrograms = await attachLinkedPrograms(withJournal);
+    const events = await attachConflictFlags(withPrograms);
 
       return NextResponse.json(
         paginatedResponse(events, count ?? 0, params),
@@ -452,7 +456,8 @@ export async function GET(req: NextRequest) {
       mapDbRowToCalendarEvent(r as Record<string, unknown>, tz)
     );
     const withJournal = await attachJournalState(mappedEvents, auth.user.id);
-    const events = await attachLinkedPrograms(withJournal);
+    const withPrograms = await attachLinkedPrograms(withJournal);
+    const events = await attachConflictFlags(withPrograms);
 
     return NextResponse.json(
       { events },

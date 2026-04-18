@@ -371,6 +371,11 @@ export interface CalendarEvent {
   completedAt?: string | null;
   // Provenance stamped by the week planner, etc. See CalendarEventMetadata.
   metadata?: CalendarEventMetadata;
+  // P3.4: present when the event carries a coach/parent disagreement
+  // detected by detectConflict(). When true, the ConflictPill renders
+  // and tapping it opens a seeded Ask Tomo mediation session.
+  hasConflict?: boolean;
+  conflictAxis?: 'intent' | 'timing' | 'load' | 'explicit' | 'unknown';
 }
 
 export interface CalendarEventInput {
