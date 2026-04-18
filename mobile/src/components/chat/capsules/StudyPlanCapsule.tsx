@@ -20,6 +20,7 @@ import type {
 } from '../../../types/chat';
 import { PillSelector } from './shared/PillSelector';
 import { CapsuleSubmitButton } from './shared/CapsuleSubmitButton';
+import { updateScheduleRules } from '../../../services/api';
 
 interface Props {
   card: StudyPlanCapsuleType;
@@ -51,6 +52,7 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
   );
   const [items, setItems] = useState<StudyMixItem[]>(initial);
   const [newSubject, setNewSubject] = useState('');
+  const [persistError, setPersistError] = useState<string | null>(null);
 
   const updateItem = (i: number, patch: Partial<StudyMixItem>) => {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
@@ -60,6 +62,30 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
   };
 
+  /**
+   * Persist the full subject list to player_schedule_preferences.study_subjects
+   * so subjects added inside this flow survive to the next session. The PATCH
+   * accepts the authoritative text[] — we send ALL known subjects (existing +
+   * the one just added), deduped, matching what the schedule-rules endpoint
+   * expects (backend/app/api/v1/schedule/rules/route.ts:41). Fire-and-forget
+   * at the UX level; a visible banner surfaces failures so the athlete knows
+   * the subject won't persist if it can't reach the server.
+   */
+  const persistStudySubjects = (nextItems: StudyMixItem[]) => {
+    const unique = Array.from(
+      new Set(
+        nextItems
+          .map((it) => it.subject.trim())
+          .filter((s) => s.length > 0),
+      ),
+    );
+    setPersistError(null);
+    updateScheduleRules({ study_subjects: unique }).catch((err) => {
+      const msg = err instanceof Error ? err.message : 'Could not save subject';
+      setPersistError(msg);
+    });
+  };
+
   const addSubject = () => {
     const subject = newSubject.trim();
     if (!subject) return;
@@ -67,8 +93,8 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
       setNewSubject('');
       return;
     }
-    setItems((prev) => [
-      ...prev,
+    const nextItems: StudyMixItem[] = [
+      ...items,
       {
         subject,
         sessionsPerWeek: 2,
@@ -76,15 +102,21 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
         placement: 'flexible',
         fixedDays: [],
       },
-    ]);
+    ];
+    setItems(nextItems);
     setNewSubject('');
+    persistStudySubjects(nextItems);
   };
 
   const handleSubmit = () => {
+    // Only schedule subjects the athlete has actually opted in to
+    // (sessionsPerWeek > 0). Keep the row on screen when 0 — that's
+    // the "included in library, just not this week" state.
+    const scheduled = items.filter((it) => it.sessionsPerWeek > 0);
     onSubmit({
       type: 'study_plan_capsule',
       toolName: '__submit_study_plan__',
-      toolInput: { studyMix: items },
+      toolInput: { studyMix: scheduled },
       agentType: 'timeline',
     });
   };
@@ -93,40 +125,63 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
     <View style={styles.container}>
       <Text style={styles.heading}>Study plan</Text>
 
+      {persistError && (
+        <Text style={styles.persistError}>
+          Couldn&apos;t save that subject for next time: {persistError}
+        </Text>
+      )}
+
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent} nestedScrollEnabled>
         {items.length === 0 && (
           <Text style={styles.emptyText}>
-            No subjects yet. Add one below or skip to jump straight to the preview.
+            No subjects yet. Add one below to get started.
           </Text>
         )}
-        {items.map((item, i) => (
-          <View key={`${item.subject}-${i}`} style={styles.row}>
-            <View style={styles.rowHeader}>
-              <Text style={styles.subject}>{item.subject}</Text>
-              {item.isExamSubject && (
-                <View style={styles.examBadge}>
-                  <Text style={styles.examBadgeText}>EXAM</Text>
-                </View>
-              )}
-              <Pressable onPress={() => removeItem(i)} hitSlop={8}>
-                <Text style={styles.removeText}>Remove</Text>
-              </Pressable>
-            </View>
+        {items.map((item, i) => {
+          const included = item.sessionsPerWeek > 0;
+          return (
+            <View
+              key={`${item.subject}-${i}`}
+              style={[styles.row, !included && styles.rowExcluded]}
+            >
+              <View style={styles.rowHeader}>
+                <Text style={[styles.subject, !included && styles.subjectExcluded]}>
+                  {item.subject}
+                </Text>
+                {item.isExamSubject && (
+                  <View style={styles.examBadge}>
+                    <Text style={styles.examBadgeText}>EXAM</Text>
+                  </View>
+                )}
+                <Pressable
+                  onPress={() => {
+                    const nextItems = items.filter((_, idx) => idx !== i);
+                    removeItem(i);
+                    persistStudySubjects(nextItems);
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.removeText}>Remove</Text>
+                </Pressable>
+              </View>
 
-            <PillSelector
-              label="Per week"
-              options={SESSION_PILLS}
-              selected={String(item.sessionsPerWeek)}
-              onSelect={(id) => updateItem(i, { sessionsPerWeek: parseInt(id, 10) })}
-            />
-            <PillSelector
-              label="Duration"
-              options={DURATION_PILLS}
-              selected={String(item.durationMin)}
-              onSelect={(id) => updateItem(i, { durationMin: parseInt(id, 10) })}
-            />
-          </View>
-        ))}
+              <PillSelector
+                label={included ? 'Sessions this week' : 'Not scheduled — tap a number to include'}
+                options={SESSION_PILLS}
+                selected={String(item.sessionsPerWeek)}
+                onSelect={(id) => updateItem(i, { sessionsPerWeek: parseInt(id, 10) })}
+              />
+              {included && (
+                <PillSelector
+                  label="Duration"
+                  options={DURATION_PILLS}
+                  selected={String(item.durationMin)}
+                  onSelect={(id) => updateItem(i, { durationMin: parseInt(id, 10) })}
+                />
+              )}
+            </View>
+          );
+        })}
       </ScrollView>
 
       <View style={styles.addRow}>
@@ -178,6 +233,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderLight,
+  },
+  rowExcluded: {
+    opacity: 0.55,
+  },
+  subjectExcluded: {
+    color: colors.textSecondary,
+  },
+  persistError: {
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+    color: colors.warning,
+    paddingHorizontal: spacing.xs,
   },
   rowHeader: {
     flexDirection: 'row',

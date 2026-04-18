@@ -42,7 +42,9 @@ export async function GET(req: NextRequest) {
       .order("sort_order", { ascending: true }),
     (db as any)
       .from("player_schedule_preferences")
-      .select("training_categories, study_subjects, exam_subjects, exam_period_active")
+      .select(
+        "training_categories, study_subjects, exam_subjects, exam_schedule, exam_period_active",
+      )
       .eq("user_id", auth.user.id)
       .maybeSingle(),
     // Prior completed plan — the most recent one before this week.
@@ -69,9 +71,22 @@ export async function GET(req: NextRequest) {
   const studySubjects: string[] = Array.isArray(prefs?.study_subjects)
     ? prefs.study_subjects
     : [];
-  const examSubjects: string[] = Array.isArray(prefs?.exam_subjects)
+  // Exam subjects live in TWO places depending on which capsule wrote them:
+  //   - player_schedule_preferences.exam_subjects (text[])
+  //   - player_schedule_preferences.exam_schedule (JSONB, {subject, ...}[])
+  // The ExamCapsule writes to exam_schedule only (see timelineAgent.ts:777
+  // add_exam), so we must merge both or exam-added subjects go missing.
+  const examSubjectsDirect: string[] = Array.isArray(prefs?.exam_subjects)
     ? prefs.exam_subjects
     : [];
+  const examScheduleSubjects: string[] = Array.isArray(prefs?.exam_schedule)
+    ? (prefs.exam_schedule as Array<{ subject?: string }>)
+        .map((e) => e?.subject)
+        .filter((s): s is string => typeof s === "string" && s.length > 0)
+    : [];
+  const examSubjects: string[] = Array.from(
+    new Set([...examSubjectsDirect, ...examScheduleSubjects]),
+  );
   const examPeriodActive = Boolean(prefs?.exam_period_active);
 
   const prior = priorRes?.data ?? null;
@@ -189,21 +204,39 @@ function buildBaselineStudyMix(
   examPeriodActive: boolean,
 ) {
   const examSet = new Set(examSubjects);
-  const subjects = studySubjects.length > 0
-    ? studySubjects
-    : Array.from(examSet);
-  return subjects.map((subject) => ({
-    subject,
-    sessionsPerWeek: examSet.has(subject) && examPeriodActive ? 3 : 2,
-    durationMin: 45,
-    placement: "flexible" as const,
-    fixedDays: [],
-    preferredTime: (examSet.has(subject) && examPeriodActive ? "morning" : "afternoon") as
-      | "morning"
-      | "afternoon"
-      | "evening",
-    isExamSubject: examSet.has(subject),
-  }));
+  // Union every known subject from every source, preserving insertion order
+  // so exam subjects (populated via ExamCapsule → exam_schedule) appear
+  // alongside study subjects (populated via SubjectCapsule → study_subjects).
+  // Without this union, athletes who set up exams but never opened the
+  // SubjectCapsule see an empty "No subjects yet" state.
+  const seen = new Set<string>();
+  const subjects: string[] = [];
+  for (const s of [...studySubjects, ...examSubjects]) {
+    const key = s.trim();
+    if (!key || seen.has(key.toLowerCase())) continue;
+    seen.add(key.toLowerCase());
+    subjects.push(key);
+  }
+  return subjects.map((subject) => {
+    const isExam = examSet.has(subject);
+    // Exam subjects auto-select with bumped frequency when the athlete is
+    // in exam mode; otherwise everything defaults to 0 (opt-in). That way
+    // the athlete sees their full subject list but only schedules what
+    // they actually want this week.
+    const defaultSessions = isExam && examPeriodActive ? 3 : 0;
+    return {
+      subject,
+      sessionsPerWeek: defaultSessions,
+      durationMin: 45,
+      placement: "flexible" as const,
+      fixedDays: [],
+      preferredTime: (isExam && examPeriodActive ? "morning" : "afternoon") as
+        | "morning"
+        | "afternoon"
+        | "evening",
+      isExamSubject: isExam,
+    };
+  });
 }
 
 function isRecord(v: unknown): boolean {

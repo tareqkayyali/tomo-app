@@ -2533,12 +2533,22 @@ async def _present_training_mix_capsule(flow: FlowState, state: TomoChatState) -
 
 
 async def _present_study_plan_capsule(flow: FlowState, state: TomoChatState) -> dict:
-    """Render the study_plan_capsule. Seeds from suggest → player's
-    subjects + exam boost. Athlete can add subjects, set frequency, duration."""
+    """Render the study_plan_capsule. Seeds from suggest → union of
+    player's study_subjects + exam_subjects + exam_schedule.subject.
+    Exam subjects arrive with a bumped default during exam periods;
+    all other subjects default to sessionsPerWeek=0 so the athlete
+    opts in per subject, per week. Adding a new subject also
+    persists it to player_schedule_preferences.study_subjects so it
+    survives the session."""
     suggested = flow.get("suggested_study_mix") or []
+    body = (
+        "Tap a number to schedule each subject this week. Add any subject that's missing."
+        if suggested
+        else "Add the subjects you want to schedule this week."
+    )
     structured = {
         "headline": "Study plan",
-        "body": "Pick the subjects to schedule and how many sessions per subject.",
+        "body": body,
         "cards": [{
             "type": "study_plan_capsule",
             "weekStart": flow.get("week_start", ""),
