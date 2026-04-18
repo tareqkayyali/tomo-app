@@ -2075,6 +2075,62 @@ export async function getCoachPlayers(): Promise<{ players: PlayerSummary[] }> {
   return apiRequest<{ players: PlayerSummary[] }>('/api/v1/coach/players');
 }
 
+// P4.1 — Coach Dashboard (3 pillars).
+export type CoachDashboardPillar = 'training' | 'metrics' | 'progress';
+
+export interface CoachDashboardMetricsRow {
+  playerId: string;
+  name: string;
+  sport: string;
+  ageTier: 'T1' | 'T2' | 'T3' | 'UNKNOWN';
+  readinessRag: string | null;
+  acwr: number | null;
+  dualLoadIndex: number | null;
+  wellnessTrend: string | null;
+  lastCheckinDate: string | null;
+}
+
+export interface CoachDashboardTrainingRow {
+  playerId: string;
+  name: string;
+  sport: string;
+  ageTier: 'T1' | 'T2' | 'T3' | 'UNKNOWN';
+  drafts: number;
+  pendingApproval: number;
+  published: number;
+  safetyFlagged: number;
+}
+
+export interface CoachDashboardProgressRow {
+  playerId: string;
+  name: string;
+  sport: string;
+  ageTier: 'T1' | 'T2' | 'T3' | 'UNKNOWN';
+  currentStreak: number;
+  totalPoints: number;
+  masteryDelta30d: number | null;
+  sessionsTotal: number | null;
+  lastSessionAt: string | null;
+}
+
+export type CoachDashboardRow =
+  | CoachDashboardMetricsRow
+  | CoachDashboardTrainingRow
+  | CoachDashboardProgressRow;
+
+export async function getCoachDashboard<TPillar extends CoachDashboardPillar>(
+  pillar: TPillar,
+): Promise<{
+  pillar: TPillar;
+  rows: TPillar extends 'metrics'
+    ? CoachDashboardMetricsRow[]
+    : TPillar extends 'training'
+      ? CoachDashboardTrainingRow[]
+      : CoachDashboardProgressRow[];
+}> {
+  return apiRequest(`/api/v1/coach/dashboard?pillar=${encodeURIComponent(pillar)}`);
+}
+
 /**
  * Get player readiness history (coach only)
  */

@@ -113,6 +113,7 @@ export type MainStackParamList = {
 // ── Coach Navigation ─────────────────────────────────────────────────────
 
 export type CoachTabParamList = {
+  CoachDashboard: undefined;
   Players: undefined;
   CoachProfile: undefined;
 };

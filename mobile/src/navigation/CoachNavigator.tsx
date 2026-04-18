@@ -21,6 +21,7 @@ import * as Haptics from 'expo-haptics';
 import { TomoIcon } from '../components/tomo-ui';
 
 // Screens — Tabs
+import { CoachDashboardScreen } from '../screens/coach/CoachDashboardScreen';
 import { CoachPlayersScreen } from '../screens/coach/CoachPlayersScreen';
 import { CoachPlayerDetailScreen } from '../screens/coach/CoachPlayerDetailScreen';
 import { CoachPlayerPlanScreen } from '../screens/coach/CoachPlayerPlanScreen';
@@ -51,18 +52,20 @@ const Stack = createNativeStackNavigator<CoachStackParamList>();
 type CoachTabName = keyof CoachTabParamList;
 
 const TAB_ICONS: Record<CoachTabName, keyof typeof Ionicons.glyphMap> = {
+  CoachDashboard: 'grid-outline',
   Players: 'people-outline',
   CoachProfile: 'person-circle-outline',
 };
 
 const TAB_LABELS: Record<CoachTabName, string> = {
+  CoachDashboard: 'Dashboard',
   Players: 'Players',
   CoachProfile: 'Profile',
 };
 
 // ── Tab Navigator ───────────────────────────────────────────────────
 
-const COACH_TAB_ORDER = ['Players', 'CoachProfile'] as const;
+const COACH_TAB_ORDER = ['CoachDashboard', 'Players', 'CoachProfile'] as const;
 
 function CoachTabNavigator() {
   const { colors } = useTheme();
@@ -93,7 +96,7 @@ function CoachTabNavigator() {
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
     <Tab.Navigator
-      initialRouteName="Players"
+      initialRouteName="CoachDashboard"
       screenListeners={({ navigation }) => {
         navRef.current = navigation;
         return { state: (e: any) => {
@@ -103,9 +106,15 @@ function CoachTabNavigator() {
       }}
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ color, focused }) => (
-          <TomoIcon name={route.name === 'Players' ? 'Users' : 'UserCircle'} size={layout.navIconSize} color={color} weight={focused ? 'fill' : 'regular'} />
-        ),
+        tabBarIcon: ({ color, focused }) => {
+          const iconName =
+            route.name === 'CoachDashboard' ? 'SquaresFour' :
+            route.name === 'Players' ? 'Users' :
+            'UserCircle';
+          return (
+            <TomoIcon name={iconName} size={layout.navIconSize} color={color} weight={focused ? 'fill' : 'regular'} />
+          );
+        },
         tabBarLabel: TAB_LABELS[route.name],
         tabBarActiveTintColor: colors.accent1,
         tabBarInactiveTintColor: colors.textInactive,
@@ -120,6 +129,7 @@ function CoachTabNavigator() {
         ],
       })}
     >
+      <Tab.Screen name="CoachDashboard" component={CoachDashboardScreen} />
       <Tab.Screen name="Players" component={CoachPlayersScreen} />
       <Tab.Screen name="CoachProfile" component={CoachProfileScreen} />
     </Tab.Navigator>
