@@ -65,9 +65,24 @@ interface Props {
   onTestLogged?: () => void;
   /** When set, logs tests via coach API (creates suggestion + notification for player) */
   targetPlayerId?: string;
+  /** Phase 4: sport for the empty-state CTA. Defaults to generic copy if unset. */
+  sport?: string | null;
 }
 
-export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props) {
+/**
+ * First-test suggestion per sport (matches seedWarmLanding in the
+ * backend so the Own It rec and the Metrics CTA point at the same
+ * thing). Keep synchronised.
+ */
+const FIRST_TEST_BY_SPORT: Record<string, { name: string; note: string }> = {
+  football: { name: '20-metre sprint', note: '30 seconds, no warm-up needed.' },
+  soccer: { name: '20-metre sprint', note: '30 seconds, no warm-up needed.' },
+  basketball: { name: 'Standing vertical jump', note: 'Jump as high as you can, three tries.' },
+  tennis: { name: 'T-test agility', note: 'A 3-direction sprint pattern.' },
+  padel: { name: 'T-test agility', note: 'A 3-direction sprint pattern.' },
+};
+
+export function MetricsSection({ metrics, onTestLogged, targetPlayerId, sport }: Props) {
   const { colors } = useTheme();
   const recentTests = metrics.recentTests ?? [];
   const rawTestGroups = metrics.rawTestGroups ?? [];
@@ -349,17 +364,32 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId }: Props)
       )}
 
       {/* ── Empty State ───────────────────────────────────────── */}
-      {metrics.categories.length === 0 && rawTestGroups.length === 0 && recentTests.length === 0 && (
-        <GlassCard>
-          <View style={styles.emptyState}>
-            <SmartIcon name="analytics-outline" size={40} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Test Data Yet</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-              Search above and log your first test to see your football DNA.
-            </Text>
-          </View>
-        </GlassCard>
-      )}
+      {metrics.categories.length === 0 && rawTestGroups.length === 0 && recentTests.length === 0 && (() => {
+        const suggestion = sport ? FIRST_TEST_BY_SPORT[sport] : null;
+        return (
+          <GlassCard>
+            <View style={styles.emptyState}>
+              <SmartIcon name="analytics-outline" size={40} color={colors.textMuted} />
+              <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
+                {suggestion ? 'Start with one test' : 'No Test Data Yet'}
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+                {suggestion ? (
+                  <>
+                    A great first test for you is a{' '}
+                    <Text style={{ color: colors.accent1, fontFamily: fontFamily.semiBold }}>
+                      {suggestion.name}
+                    </Text>
+                    . {suggestion.note} Search for it above to log your first result.
+                  </>
+                ) : (
+                  'Search above and log your first test to see your DNA.'
+                )}
+              </Text>
+            </View>
+          </GlassCard>
+        );
+      })()}
 
       {/* ── 7 Test Group Cards (with benchmarks) ──────────────── */}
       {metrics.categories.length > 0 && (

@@ -69,6 +69,7 @@ import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { QuickAccessBar } from '../components/QuickAccessBar';
 import { NextBlockLine } from '../components/chat/NextBlockLine';
 import { ChatActionPills } from '../components/chat/ChatActionPills';
+import { WarmWelcomeCard } from '../components/chat/WarmWelcomeCard';
 import { useBootData } from '../hooks/useBootData';
 // useFavorites removed — favorites feature deprecated
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
@@ -1898,6 +1899,11 @@ export function HomeScreen() {
           */}
         {!showSavedChats && isEmpty ? (
           <Pressable style={styles.emptyContainer} onPress={Keyboard.dismiss}>
+            <WarmWelcomeCard
+              profile={profile}
+              onCheckIn={() => navigation.navigate('Checkin' as any)}
+              onPlanWeek={() => navigation.navigate('Plan' as any)}
+            />
             <View style={styles.emptyCenter}>
               <QuoteCard quote={currentQuote} />
               <NextBlockLine bootData={bootData} />

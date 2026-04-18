@@ -162,6 +162,27 @@ export function MasteryContent({
 
   return (
     <View style={styles.container}>
+      {/* ── Identity row: name · age-band · sport ────────────────
+           Phase 4: gives the DNA card athlete context on first visit,
+           so a brand-new user with zero pillar scores still sees a
+           card that knows who they are.
+       */}
+      {(data.player.name || data.player.ageBand || data.player.sport) && (
+        <View style={styles.identityRow}>
+          <Text style={styles.identityText} numberOfLines={1} ellipsizeMode="tail">
+            {[
+              data.player.name?.split(/\s+/)[0] || null,
+              data.player.ageBand || null,
+              data.player.sport
+                ? data.player.sport.charAt(0).toUpperCase() + data.player.sport.slice(1)
+                : null,
+            ]
+              .filter(Boolean)
+              .join('  ·  ')}
+          </Text>
+        </View>
+      )}
+
       {/* ── DASHBOARD ZONE: Radar ── */}
       <View style={[styles.section, { paddingHorizontal: 0 }]}>
         {data.hasTestData ? (
@@ -415,6 +436,17 @@ export function MasteryContent({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 0, // RadarDashboardCard handles its own margins
+  },
+  identityRow: {
+    paddingHorizontal: layout.screenMargin,
+    marginBottom: spacing.md,
+  },
+  identityText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 13,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.textSecondary,
   },
   section: {
     marginBottom: spacing.xl,

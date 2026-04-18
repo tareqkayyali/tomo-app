@@ -421,7 +421,10 @@ function mapUserFromApi(raw: Record<string, unknown>): User {
     height: (raw.height as number | null) ?? null,
     weight: (raw.weight as number | null) ?? null,
     gender: (raw.gender as string | null) ?? null,
-    position: (raw.position as string | null) ?? null,
+    // Phase 2 finalize writes football players' position to
+    // users.football_position (not users.position). Prefer the
+    // sport-specific column, fall back to the generic.
+    position: ((raw.football_position as string | null) ?? (raw.position as string | null)) ?? null,
     playingStyle: (raw.playing_style as string | null) ?? null,
     weeklyTrainingDays: (raw.weekly_training_days as number) ?? undefined,
     typicalSessionLength: (raw.typical_session_length as number | null) ?? null,

@@ -321,7 +321,9 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
                 }}
               />
             )}
-            {activeTab === 'metrics' && <MetricsSection metrics={data.metrics} onTestLogged={refresh} />}
+            {activeTab === 'metrics' && (
+              <MetricsSection metrics={data.metrics} onTestLogged={refresh} sport={profile?.sport ?? null} />
+            )}
             {activeTab === 'programs' && (
               <ProgramsSection
                 programs={data.programs}
