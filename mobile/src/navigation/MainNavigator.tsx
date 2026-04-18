@@ -42,6 +42,7 @@ import { CheckinScreen } from '../screens/CheckinScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 import { PrivacySettingsScreen } from '../screens/PrivacySettingsScreen';
+import { VisibilityPreferencesScreen } from '../screens/settings/VisibilityPreferencesScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import DeleteAccountScreen from '../screens/settings/DeleteAccountScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
@@ -379,6 +380,11 @@ export function MainNavigator() {
         name="PrivacySettings"
         component={PrivacySettingsScreen}
         options={{ headerShown: true, title: 'Privacy', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
+        name="VisibilityPreferences"
+        component={VisibilityPreferencesScreen}
+        options={{ headerShown: true, title: 'Who sees what', ...stackHeaderOptions }}
       />
       <Stack.Screen
         name="ChangePassword"

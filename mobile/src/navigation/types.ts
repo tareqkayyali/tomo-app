@@ -54,6 +54,7 @@ export type MainStackParamList = {
     linkedPrograms?: Array<{ programId: string; name: string; category?: string }>;
   };
   PrivacySettings: undefined;
+  VisibilityPreferences: undefined;
   ChangePassword: undefined;
   Diagnostics: undefined;
   DrillDetail: { drillId: string };

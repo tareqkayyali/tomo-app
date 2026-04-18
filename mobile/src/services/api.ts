@@ -2297,6 +2297,45 @@ export async function getParentEducationProgress(
   );
 }
 
+// P4.4 — T3 athlete visibility preferences matrix.
+export type VisibilityDomain = 'training' | 'academic' | 'wellbeing' | 'safety' | 'logistics' | 'cv';
+
+export interface VisibilityPreferenceRow {
+  guardianId: string;
+  domain: VisibilityDomain;
+  visible: boolean;
+  parentApprovalRequired: boolean;
+  updatedAt: string;
+}
+
+export interface LinkedGuardian {
+  guardianId: string;
+  relationshipType: 'coach' | 'parent';
+  name: string | null;
+  email: string | null;
+}
+
+export async function getVisibilityPreferences(): Promise<{
+  guardians: LinkedGuardian[];
+  preferences: VisibilityPreferenceRow[];
+}> {
+  return apiRequest('/api/v1/visibility-preferences');
+}
+
+export async function putVisibilityPreferences(
+  preferences: Array<{
+    guardianId: string;
+    domain: VisibilityDomain;
+    visible: boolean;
+    parentApprovalRequired?: boolean;
+  }>,
+): Promise<{ ok: boolean; updated: number }> {
+  return apiRequest('/api/v1/visibility-preferences', {
+    method: 'PUT',
+    body: JSON.stringify({ preferences }),
+  });
+}
+
 /**
  * Get child's calendar events (parent only)
  */
