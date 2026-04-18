@@ -1,0 +1,49 @@
+name: Week Plan — Compute Compliance
+
+on:
+  schedule:
+    # Monday 01:00 UTC. Scans athlete_week_plans rows whose week ended
+    # on the previous Sunday, computes compliance_rate + outcome from
+    # calendar_events.completed, flips status active → completed.
+    # Idempotent; safe if GitHub Actions fires a rerun.
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: week-plan-compute-compliance
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: POST /api/v1/cron/compute-week-compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call compute-week-compliance endpoint
+        env:
+          APP_URL: ${{ secrets.CHAT_QUALITY_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CHAT_QUALITY_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::CHAT_QUALITY_BASE_URL and CHAT_QUALITY_CRON_SECRET must be set as repo secrets"
+            exit 1
+          fi
+
+          RESPONSE=$(mktemp)
+          STATUS=$(curl -sS -o "$RESPONSE" -w "%{http_code}" \
+            -X POST "$APP_URL/api/v1/cron/compute-week-compliance" \
+            -H "X-Cron-Secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 240)
+
+          echo "HTTP $STATUS"
+          echo "--- response body ---"
+          cat "$RESPONSE"
+          echo
+          echo "---------------------"
+
+          if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 300 ]; then
+            echo "::error::compute-week-compliance returned HTTP $STATUS"
+            exit 1
+          fi
