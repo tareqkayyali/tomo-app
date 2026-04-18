@@ -30,9 +30,21 @@ function resolveApiBaseUrl(): string {
     }
   }
 
-  // Allow forcing API URL via env var (useful for local testing)
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+  // Allow forcing API URL via env var (useful for local testing).
+  // Guardrail: in a *production* native build we ignore any LAN-local URL
+  // left in mobile/.env by accident (localhost / 10.x / 192.168.x / 172.16–31.x).
+  // Expo Go / __DEV__=false on a released TestFlight build should NEVER point
+  // at a laptop IP that may not even be reachable from the phone.
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl) {
+    const isLanLocal =
+      /^https?:\/\/(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(
+        envUrl
+      );
+    if (isLanLocal && !__DEV__) {
+      return PRODUCTION_API_URL;
+    }
+    return envUrl;
   }
 
   return PRODUCTION_API_URL;
