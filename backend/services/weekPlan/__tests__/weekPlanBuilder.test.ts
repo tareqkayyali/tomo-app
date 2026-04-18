@@ -87,6 +87,10 @@ const MON_2026_04_20 = "2026-04-20"; // verified Monday
 function baseInput(overrides: Partial<WeekPlanBuilderInput> = {}): WeekPlanBuilderInput {
   return {
     weekStart: MON_2026_04_20,
+    // Today is the Monday of the test week — the full week is plannable
+    // (no past-day filtering kicks in). Individual tests override to
+    // exercise "mid-week" past-day skip behavior.
+    today: MON_2026_04_20,
     trainingMix: [],
     studyMix: [],
     existingEvents: [],
@@ -281,6 +285,45 @@ test("summary totals align with individual items", () => {
   const summed = out.planItems.reduce((a, p) => a + p.durationMin, 0);
   expect(out.summary.totalMinutes).toBe(summed);
   expect(out.summary.trainingSessions + out.summary.studySessions).toBe(out.planItems.length);
+});
+
+test("no placement on past days when today is mid-week (this-week scenario)", () => {
+  // User picks "this week" on a Saturday. The week range stays Mon-Sun
+  // but the builder must not place anything on Mon-Fri. (Multiple
+  // sessions CAN still fit on Sat/Sun — we only guard against past
+  // dates, not total placement count.)
+  const out = buildWeekPlan(baseInput({
+    today: "2026-04-25",  // Saturday of the test week (Apr 20 – 26)
+    trainingMix: [
+      { category: "gym", sessionsPerWeek: 5, durationMin: 60, placement: "flexible" },
+    ],
+  }));
+  for (const it of out.planItems) {
+    if (it.date < "2026-04-25") {
+      throw new Error(`placed on past date ${it.date} when today=2026-04-25`);
+    }
+  }
+});
+
+test("fixed Monday + today is Tuesday → Monday session dropped, not placed", () => {
+  // Athlete wants gym Mondays, planning this week but today is Tuesday.
+  // The Monday slot is past — can't be placed. Should emit a warning
+  // instead of silently scheduling an event the athlete already missed.
+  const out = buildWeekPlan(baseInput({
+    today: "2026-04-21",  // Tuesday
+    trainingMix: [
+      { category: "gym", sessionsPerWeek: 1, durationMin: 60, placement: "fixed", fixedDays: [1] },
+    ],
+  }));
+  // No plan item should land on Monday (the only allowed day, now in the past).
+  for (const it of out.planItems) {
+    if (it.date === "2026-04-20") throw new Error("gym placed on past Monday");
+  }
+  // Warning should fire so the athlete knows the fixed day didn't fit.
+  const hasWarning = out.warnings.some((w) =>
+    w.code === "fixed_day_unavailable" || w.code === "dropped_session_no_slot"
+  );
+  if (!hasWarning) throw new Error(`expected a warning about the missed Monday, got ${JSON.stringify(out.warnings.map((w) => w.code))}`);
 });
 
 test("chronological sort: items returned in date + time order", () => {

@@ -114,8 +114,20 @@ export async function POST(req: NextRequest) {
     modeId: body.modeId ?? "balanced",
   });
 
+  // Today in the athlete's local timezone. The builder uses this to
+  // ban placement on past days (critical when "this week" is picked
+  // mid-week — without this guard the planner would schedule Monday
+  // sessions on a Saturday).
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: body.timezone ?? "UTC",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
   const input: WeekPlanBuilderInput = {
     weekStart: body.weekStart,
+    today,
     trainingMix: body.trainingMix,
     studyMix: body.studyMix,
     existingEvents: ctx.existingEvents,

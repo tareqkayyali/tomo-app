@@ -92,6 +92,14 @@ export interface PlayerPrefs {
 
 export interface WeekPlanBuilderInput {
   weekStart: string;            // YYYY-MM-DD, Monday
+  /**
+   * Today in the athlete's local timezone (YYYY-MM-DD). Used to ban
+   * placement on past days: if the athlete picks "this week" on a
+   * Saturday, the builder places ONLY on Saturday + Sunday. Past days
+   * remain visible in the plan's week range for context but never
+   * receive new sessions. Required; tests pass a fixed value.
+   */
+  today: string;
   trainingMix: TrainingMixItem[];
   studyMix: StudyMixItem[];
   existingEvents: ExistingEvent[];
@@ -218,6 +226,12 @@ export function buildWeekPlan(input: WeekPlanBuilderInput): WeekPlanBuilderOutpu
   const config = input.config ?? DEFAULT_CONFIG;
   const warnings: PlanWarning[] = [];
   const weekDates = enumerateWeek(input.weekStart); // 7 ISO dates, Monday-first
+  // placementDates ⊆ weekDates — today-onwards only. Nothing gets
+  // scheduled in the past even when the athlete picks "this week" mid-
+  // week. `weekDates` is still used for indexing existing events across
+  // the full Mon-Sun range so already-placed past events still block
+  // their slots (shouldn't happen for past days but defensive).
+  const placementDates = weekDates.filter((d) => d >= input.today);
 
   // Day-level staging. As we place items, we append them to
   // `placedByDate` so subsequent placements see the in-progress plan
@@ -253,8 +267,8 @@ export function buildWeekPlan(input: WeekPlanBuilderInput): WeekPlanBuilderOutpu
   const unplaced: UnplacedCandidate[] = [];
 
   for (const cand of candidates) {
-    // 1. Determine target days.
-    const targetDates = resolveTargetDates(cand, weekDates, input.dayLocks, warnings);
+    // 1. Determine target days (today-onwards only; past days excluded).
+    const targetDates = resolveTargetDates(cand, placementDates, input.dayLocks, warnings);
 
     // 2. Intensity gate (may downgrade or drop). Applied even if the
     // item never makes it to placement — cap is a weekly property.
@@ -356,7 +370,10 @@ export function buildWeekPlan(input: WeekPlanBuilderInput): WeekPlanBuilderOutpu
       status: (p.status ?? "clean") as ItemStatus,
     }));
     const repairOutcome = runRepair({
-      weekDates,
+      // Past dates never get new sessions — pass today-onwards only so
+      // the repair engine's day_shift and swap moves can't land on a
+      // missed day either.
+      weekDates: placementDates,
       unplaced,
       placedItems: initialRepairable,
       existingByDate,
