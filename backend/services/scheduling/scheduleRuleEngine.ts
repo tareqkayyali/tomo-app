@@ -78,6 +78,10 @@ export interface PlayerSchedulePreferences {
 
   // Study subjects
   study_subjects?: string[];
+
+  // Athlete Mode (Planning Intelligence)
+  athlete_mode?: string;
+  mode_params_override?: Record<string, unknown>;
 }
 
 export interface TrainingCategoryRule {
