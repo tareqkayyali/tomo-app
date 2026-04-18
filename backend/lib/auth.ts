@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { readMultipleSnapshots } from "@/services/events/snapshot/snapshotReader";
 import type { TriangleRole } from "@/services/events/types";
-import type { UserRole, RelationshipType, PlayerSummary } from "@/types";
+import type { UserRole, RelationshipType, PlayerSummary, AgeTier } from "@/types";
+import { ageTierFromDob } from "@/services/compliance/ageTier";
 
 export interface RequestUser {
   id: string;
@@ -130,11 +131,13 @@ export async function getLinkedPlayers(
 
   const playerIds = rels.map((r) => r.player_id);
 
-  // Fetch player profiles + snapshots in parallel
+  // Fetch player profiles + snapshots in parallel.
+  // Select date_of_birth so we can derive age_tier for downstream
+  // authority checks (parent supersedes coach at T1/T2, etc.).
   const [profilesRes, snapshots] = await Promise.all([
     db
       .from("users")
-      .select("id, name, email, sport, age, current_streak, total_points")
+      .select("id, name, email, sport, age, date_of_birth, current_streak, total_points")
       .in("id", playerIds),
     readMultipleSnapshots(playerIds, role),
   ]);
@@ -149,12 +152,15 @@ export async function getLinkedPlayers(
 
   return players.map((p) => {
     const snap = snapshotMap.get(p.id);
+    const dob = p.date_of_birth ? new Date(p.date_of_birth) : null;
+    const ageTier: AgeTier = ageTierFromDob(dob);
     return {
       id: p.id,
       name: p.name || "",
       email: p.email || "",
       sport: (p.sport || "football") as PlayerSummary["sport"],
       age: p.age ?? undefined,
+      ageTier,
       currentStreak: p.current_streak || 0,
       totalPoints: p.total_points || 0,
       // Snapshot-powered fields (role-filtered)
