@@ -527,9 +527,12 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
                 return await _present_time_picker(flow, state)
 
     # ── Week planner capsule responses ──
-    # Mobile submits the capsule payload via `confirmed_action.toolInput`.
-    # Parse → store on flow state → advance. Falls back to re-presenting
-    # the same card when the payload is malformed.
+    # Mobile submits capsule actions through the same pipeline used by
+    # every confirm flow: TS proxy → confirmed_action → supervisor stores
+    # it under state["pending_write_action"]. Our `_extract_capsule_payload`
+    # helper pulls from that exact key. Parse → store on flow state →
+    # advance. Falls back to re-presenting the same card if the payload
+    # is malformed.
     elif current.card == "training_mix_capsule":
         submitted = _extract_capsule_payload(state)
         mix = _coerce_training_mix(submitted)
@@ -2339,14 +2342,24 @@ async def _present_week_scope_choice(flow: FlowState, state: TomoChatState) -> d
 
 
 def _extract_capsule_payload(state: TomoChatState) -> dict | None:
-    """Pull the capsule's submitted payload from `confirmed_action.toolInput`.
-    Returns None when the state has no confirmed action (e.g. user typed
-    a free-text response instead of tapping a capsule button)."""
-    action = state.get("confirmed_action") if isinstance(state.get("confirmed_action"), dict) else None
+    """Pull the capsule's submitted payload.
+
+    The supervisor injects incoming `confirmed_action` (from the TS proxy)
+    into state under `pending_write_action` (see supervisor.py:286 — that's
+    the established key all confirm-action handlers read from). Every other
+    capsule read path uses that key; the week-planner handlers must too or
+    the flow silently re-renders the same card (bug observed 2026-04-18:
+    training_mix submit looped because this function read the wrong key).
+
+    Returns None when the state has no pending action (e.g. user typed
+    a free-text response instead of tapping a capsule button).
+    """
+    raw = state.get("pending_write_action")
+    action = raw if isinstance(raw, dict) else None
     if not action:
         return None
-    tool_input = action.get("toolInput") if isinstance(action.get("toolInput"), dict) else None
-    return tool_input
+    tool_input = action.get("toolInput")
+    return tool_input if isinstance(tool_input, dict) else None
 
 
 _CATEGORY_IDS = {
