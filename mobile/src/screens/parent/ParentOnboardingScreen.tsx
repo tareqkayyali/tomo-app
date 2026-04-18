@@ -25,10 +25,11 @@ import { useAuth } from '../../hooks/useAuth';
 import { Input } from '../../components/Input';
 import { linkChildByEmail, submitOnboarding } from '../../services/api';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
+import { ParentLinkByCodeScreen } from './ParentLinkByCodeScreen';
 
 import { colors } from '../../theme/colors';
 
-type Step = 'welcome' | 'email';
+type Step = 'welcome' | 'email' | 'code';
 
 export function ParentOnboardingScreen() {
   const { colors } = useTheme();
@@ -167,8 +168,37 @@ export function ParentOnboardingScreen() {
                   { backgroundColor: colors.accent1, opacity: pressed ? 0.85 : 1 },
                 ]}
               >
-                <Text style={[styles.primaryButtonText, { color: colors.textOnDark }]}>Let's Go</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.textOnDark }]}>Link by email</Text>
               </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setSlideDirection('right');
+                  setStep('code');
+                }}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  {
+                    borderColor: colors.accent1 + '4D',
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <SmartIcon name="key-outline" size={16} color={colors.accent1} />
+                <Text style={[styles.secondaryButtonText, { color: colors.accent1 }]}>
+                  I have a code from my child
+                </Text>
+              </Pressable>
+            </Animated.View>
+          )}
+
+          {/* ── Step 2b: Link by code (child-initiated consent flow) ── */}
+          {step === 'code' && (
+            <Animated.View entering={enterAnimation} style={styles.codeWrap}>
+              <Pressable onPress={goBackToWelcome} style={styles.backButton}>
+                <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
+              </Pressable>
+              <ParentLinkByCodeScreen />
             </Animated.View>
           )}
 
@@ -340,6 +370,24 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 17,
     fontFamily: fontFamily.bold,
+  },
+  secondaryButton: {
+    width: '100%',
+    height: 48,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontFamily: fontFamily.semiBold,
+  },
+  codeWrap: {
+    flex: 1,
   },
   skipButton: {
     marginTop: spacing.lg,

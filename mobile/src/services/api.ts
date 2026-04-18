@@ -438,6 +438,7 @@ function mapUserFromApi(raw: Record<string, unknown>): User {
     healthKitConnected: !!(raw.health_kit_connected),
     fcmToken: (raw.fcm_token as string | null) ?? null,
     parentalConsent: !!(raw.parental_consent),
+    consentStatus: (raw.consent_status as User['consentStatus']) ?? 'active',
     selectedSports: (raw.selected_sports as string[]) || [],
     photoUrl: (raw.photo_url as string | null) ?? null,
 
@@ -2025,6 +2026,39 @@ export async function revokeRelationship(relationshipId: string): Promise<{ succ
   return apiRequest<{ success: boolean }>(`/api/v1/relationships/${relationshipId}`, {
     method: 'DELETE',
   });
+}
+
+// ── Phase 3: child-initiated parent consent flow ──────────────────
+
+/**
+ * Player generates a 6-char code for their parent to enter. The
+ * parent enters it on their Tomo app at /relationships/accept-guardian
+ * which creates the relationship AND wires parental consent for the
+ * child (flipping consent_status from 'awaiting_parent' to 'active').
+ */
+export async function generateParentInviteCode(): Promise<{
+  code: string;
+  expiresAt: string;
+}> {
+  return apiRequest<{ code: string; expiresAt: string }>(
+    '/api/v1/relationships/invite-parent',
+    { method: 'POST', body: JSON.stringify({}) }
+  );
+}
+
+/**
+ * Parent accepts a child-initiated code. Creates the relationship and
+ * (if the child was awaiting consent) writes a parental consent row.
+ */
+export async function acceptAsGuardian(code: string): Promise<{
+  relationshipId: string;
+  childId: string;
+  consentGranted: boolean;
+}> {
+  return apiRequest<{ relationshipId: string; childId: string; consentGranted: boolean }>(
+    '/api/v1/relationships/accept-guardian',
+    { method: 'POST', body: JSON.stringify({ code }) }
+  );
 }
 
 // ============================================

@@ -89,6 +89,11 @@ export interface User {
   healthKitConnected?: boolean;
   fcmToken?: string | null;
   parentalConsent?: boolean;
+  // Phase 1/3: 'active' (default) | 'awaiting_parent' | 'revoked'. When
+  // 'awaiting_parent' the app is in sandbox mode and writes to sensitive
+  // tables (chat, check-ins, health) are blocked by migration 062.
+  consentStatus?: 'active' | 'awaiting_parent' | 'revoked';
+  dateOfBirth?: string | null;
   selectedSports?: string[];
   photoUrl?: string | null;
 

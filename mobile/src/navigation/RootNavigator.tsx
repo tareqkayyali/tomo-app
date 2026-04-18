@@ -25,6 +25,7 @@ import { ParentNavigator } from './ParentNavigator';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import { ParentOnboardingScreen } from '../screens/parent/ParentOnboardingScreen';
 import { CoachOnboardingScreen } from '../screens/coach/CoachOnboardingScreen';
+import { AwaitingConsentScreen } from '../screens/consent/AwaitingConsentScreen';
 import { PreviewScreen } from '../screens/PreviewScreen';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -83,7 +84,23 @@ export function RootNavigator() {
   // so the real app renders with mock data for theme previewing.
 
   const showAuth = !isPreviewMode && (!isAuthenticated || needsRegistration);
-  const showOnboarding = !isPreviewMode && isAuthenticated && !needsRegistration && profile && !profile.onboardingComplete;
+  // Phase 3: EU/UK 13-15 minors land in 'awaiting_parent' until the
+  // parent taps accept on ParentLinkByCodeScreen. Gate before
+  // onboarding so the child sees the "share this code" sandbox first
+  // and can complete onboarding afterwards.
+  const showAwaitingConsent =
+    !isPreviewMode &&
+    isAuthenticated &&
+    !needsRegistration &&
+    profile &&
+    profile.consentStatus === 'awaiting_parent';
+  const showOnboarding =
+    !isPreviewMode &&
+    isAuthenticated &&
+    !needsRegistration &&
+    profile &&
+    profile.consentStatus !== 'awaiting_parent' &&
+    !profile.onboardingComplete;
 
   // Determine which main navigator to show based on role
   const getMainScreen = () => {
@@ -128,6 +145,8 @@ export function RootNavigator() {
       >
         {showAuth ? (
           <Stack.Screen name="Auth" component={AuthNavigator} />
+        ) : showAwaitingConsent ? (
+          <Stack.Screen name="AwaitingConsent" component={AwaitingConsentScreen} />
         ) : showOnboarding ? (
           role === 'parent' ? (
             <Stack.Screen name="ParentOnboarding" component={ParentOnboardingScreen} />

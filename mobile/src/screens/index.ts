@@ -13,6 +13,8 @@ export { ProfileScreen } from './ProfileScreen';
 export { LoginScreen } from './LoginScreen';
 export { SignupScreen } from './SignupScreen';
 export { AgeGateScreen } from './auth/AgeGateScreen';
+export { AwaitingConsentScreen } from './consent/AwaitingConsentScreen';
+export { ParentLinkByCodeScreen } from './parent/ParentLinkByCodeScreen';
 export { ForgotPasswordScreen } from './ForgotPasswordScreen';
 export { CheckinScreen } from './CheckinScreen';
 export { NotificationSettingsScreen } from './NotificationSettingsScreen';

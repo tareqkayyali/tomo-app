@@ -20,6 +20,7 @@ import type { ScheduleEvent } from "@/services/schedulingEngine";
 import { estimateTotalLoad } from "@/services/events/computations/loadEstimator";
 import { bridgeCalendarToEventStream } from "@/services/events/calendarBridge";
 import { parsePagination, paginatedResponse, hasPaginationParams } from "@/lib/pagination";
+import { checkPHVSafety } from "@/services/safety/phvSafetyMiddleware";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -138,6 +139,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Day is locked" },
         { status: 423 }
+      );
+    }
+
+    // ── PHV safety guard (Mid-PHV athletes) ─────────────────────
+    // Server-enforced blocklist for heavy barbell + depth-drop work.
+    // Prompts alone don't guarantee the LLM obeys, so the guard lives
+    // on the write path.
+    const phvCheck = await checkPHVSafety(db, {
+      userId: auth.user.id,
+      eventType: dbEventType,
+      name,
+      notes: notes ?? null,
+    });
+    if (!phvCheck.ok) {
+      return NextResponse.json(
+        {
+          error: phvCheck.reason,
+          code: phvCheck.code,
+          suggestion: phvCheck.suggestion,
+          matchedKeyword: phvCheck.matchedKeyword,
+        },
+        { status: 400 }
       );
     }
 

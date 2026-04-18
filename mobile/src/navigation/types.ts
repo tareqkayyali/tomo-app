@@ -160,4 +160,6 @@ export type RootStackParamList = {
   Onboarding: undefined;
   ParentOnboarding: undefined;
   CoachOnboarding: undefined;
+  // Phase 3: child sandbox while parent consent is pending.
+  AwaitingConsent: undefined;
 };

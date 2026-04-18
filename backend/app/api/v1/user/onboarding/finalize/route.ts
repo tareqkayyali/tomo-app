@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { emitEventSafe } from "@/services/events/eventEmitter";
 import { ageBandFromAge, ageFromDob, parseDobOrThrow } from "@/services/compliance";
 import { seedSchedulePreferences } from "@/services/onboarding/seedSchedulePreferences";
+import { seedWarmLanding } from "@/services/onboarding/seedWarmLanding";
 
 /**
  * POST /api/v1/user/onboarding/finalize
@@ -112,7 +113,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Seed My Rules — players only.
+    // Seed My Rules + warm landing — players only. Both are
+    // non-fatal: a blank My Rules is recoverable via Settings, and a
+    // missed warm-landing just means empty Own It cards on first
+    // open. Blocking onboarding on a seed hiccup is worse.
     if ((user.role ?? "player") === "player") {
       try {
         await seedSchedulePreferences(db, {
@@ -122,6 +126,15 @@ export async function POST(req: NextRequest) {
         });
       } catch (seedErr) {
         console.error("[onboarding/finalize] seed My Rules failed:", seedErr);
+      }
+      try {
+        await seedWarmLanding(db, {
+          userId: auth.user.id,
+          sport: parsed.data.sport,
+          ageBand,
+        });
+      } catch (warmErr) {
+        console.error("[onboarding/finalize] seed warm landing failed:", warmErr);
       }
     }
 
