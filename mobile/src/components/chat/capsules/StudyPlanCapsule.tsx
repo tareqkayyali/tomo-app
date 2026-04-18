@@ -1,12 +1,17 @@
 /**
  * StudyPlanCapsule — Step 3 of the week planner.
  *
- * One row per study subject. Athlete sets sessions/week + duration.
- * Can add a new subject inline. Exam subjects are badged; their
- * defaults bump slightly when exam period is active (that boost is
- * applied server-side in /suggest before the card is rendered).
+ * Study is the simpler sibling of TrainingMixCapsule:
+ *   - One global duration that applies to every scheduled subject.
+ *   - Per-subject frequency (0 = not this week, 1–5 = include at that count).
+ *   - Add a subject inline; it joins the player's permanent library.
  *
- * Submits back as `{ studyMix: StudyMixItem[] }`.
+ * No EXAM differentiation, no per-row Remove (the library is permanent;
+ * you just don't schedule a subject by leaving it at 0).
+ *
+ * Submits `{ studyMix: StudyMixItem[] }` with only subjects the athlete
+ * opted in to this week. The global duration is applied to each item
+ * on submit.
  */
 
 import React, { useMemo, useState } from 'react';
@@ -20,7 +25,7 @@ import type {
 } from '../../../types/chat';
 import { PillSelector } from './shared/PillSelector';
 import { CapsuleSubmitButton } from './shared/CapsuleSubmitButton';
-import { updateScheduleRules } from '../../../services/api';
+import { updateStudySubjects } from '../../../services/api';
 
 interface Props {
   card: StudyPlanCapsuleType;
@@ -54,22 +59,35 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
   const [newSubject, setNewSubject] = useState('');
   const [persistError, setPersistError] = useState<string | null>(null);
 
+  // Global duration default — takes the most common duration from the
+  // suggestions so the athlete starts from a sensible value, then lets
+  // them override once for all subjects.
+  const [durationMin, setDurationMin] = useState<number>(() => {
+    const counts = new Map<number, number>();
+    for (const it of initial) {
+      const d = Number(it.durationMin) || 45;
+      counts.set(d, (counts.get(d) ?? 0) + 1);
+    }
+    let best = 45;
+    let bestCount = 0;
+    for (const [d, c] of counts) {
+      if (c > bestCount) {
+        best = d;
+        bestCount = c;
+      }
+    }
+    return best;
+  });
+
   const updateItem = (i: number, patch: Partial<StudyMixItem>) => {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   };
 
-  const removeItem = (i: number) => {
-    setItems((prev) => prev.filter((_, idx) => idx !== i));
-  };
-
   /**
    * Persist the full subject list to player_schedule_preferences.study_subjects
-   * so subjects added inside this flow survive to the next session. The PATCH
-   * accepts the authoritative text[] — we send ALL known subjects (existing +
-   * the one just added), deduped, matching what the schedule-rules endpoint
-   * expects (backend/app/api/v1/schedule/rules/route.ts:41). Fire-and-forget
-   * at the UX level; a visible banner surfaces failures so the athlete knows
-   * the subject won't persist if it can't reach the server.
+   * so subjects added inside this flow survive to the next session.
+   * Hits /api/v1/week-plan/subjects (supabaseAdmin-backed — no SUPABASE_DB_URL
+   * dependency unlike the legacy /api/v1/schedule/rules path).
    */
   const persistStudySubjects = (nextItems: StudyMixItem[]) => {
     const unique = Array.from(
@@ -80,7 +98,7 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
       ),
     );
     setPersistError(null);
-    updateScheduleRules({ study_subjects: unique }).catch((err) => {
+    updateStudySubjects(unique).catch((err) => {
       const msg = err instanceof Error ? err.message : 'Could not save subject';
       setPersistError(msg);
     });
@@ -97,8 +115,9 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
       ...items,
       {
         subject,
-        sessionsPerWeek: 2,
-        durationMin: 45,
+        // Default to not scheduled — athlete opts in by tapping a number.
+        sessionsPerWeek: 0,
+        durationMin,
         placement: 'flexible',
         fixedDays: [],
       },
@@ -109,10 +128,11 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
   };
 
   const handleSubmit = () => {
-    // Only schedule subjects the athlete has actually opted in to
-    // (sessionsPerWeek > 0). Keep the row on screen when 0 — that's
-    // the "included in library, just not this week" state.
-    const scheduled = items.filter((it) => it.sessionsPerWeek > 0);
+    // Apply the global duration to every scheduled subject. Subjects left
+    // at 0 stay in the library but aren't scheduled this week.
+    const scheduled = items
+      .filter((it) => it.sessionsPerWeek > 0)
+      .map((it) => ({ ...it, durationMin }));
     onSubmit({
       type: 'study_plan_capsule',
       toolName: '__submit_study_plan__',
@@ -127,9 +147,16 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
 
       {persistError && (
         <Text style={styles.persistError}>
-          Couldn&apos;t save that subject for next time: {persistError}
+          Couldn&apos;t save subject library: {persistError}
         </Text>
       )}
+
+      <PillSelector
+        label="Session duration (applies to all subjects)"
+        options={DURATION_PILLS}
+        selected={String(durationMin)}
+        onSelect={(id) => setDurationMin(parseInt(id, 10))}
+      />
 
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent} nestedScrollEnabled>
         {items.length === 0 && (
@@ -144,41 +171,15 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
               key={`${item.subject}-${i}`}
               style={[styles.row, !included && styles.rowExcluded]}
             >
-              <View style={styles.rowHeader}>
-                <Text style={[styles.subject, !included && styles.subjectExcluded]}>
-                  {item.subject}
-                </Text>
-                {item.isExamSubject && (
-                  <View style={styles.examBadge}>
-                    <Text style={styles.examBadgeText}>EXAM</Text>
-                  </View>
-                )}
-                <Pressable
-                  onPress={() => {
-                    const nextItems = items.filter((_, idx) => idx !== i);
-                    removeItem(i);
-                    persistStudySubjects(nextItems);
-                  }}
-                  hitSlop={8}
-                >
-                  <Text style={styles.removeText}>Remove</Text>
-                </Pressable>
-              </View>
-
+              <Text style={[styles.subject, !included && styles.subjectExcluded]}>
+                {item.subject}
+              </Text>
               <PillSelector
                 label={included ? 'Sessions this week' : 'Not scheduled — tap a number to include'}
                 options={SESSION_PILLS}
                 selected={String(item.sessionsPerWeek)}
                 onSelect={(id) => updateItem(i, { sessionsPerWeek: parseInt(id, 10) })}
               />
-              {included && (
-                <PillSelector
-                  label="Duration"
-                  options={DURATION_PILLS}
-                  selected={String(item.durationMin)}
-                  onSelect={(id) => updateItem(i, { durationMin: parseInt(id, 10) })}
-                />
-              )}
             </View>
           );
         })}
@@ -188,7 +189,7 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
         <TextInput
           value={newSubject}
           onChangeText={setNewSubject}
-          placeholder="Add subject"
+          placeholder="Add subject (e.g. Chemistry)"
           placeholderTextColor={colors.textInactive}
           style={styles.input}
           returnKeyType="done"
@@ -217,7 +218,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   list: {
-    maxHeight: 400,
+    maxHeight: 360,
   },
   listContent: {
     gap: spacing.sm,
@@ -237,6 +238,11 @@ const styles = StyleSheet.create({
   rowExcluded: {
     opacity: 0.55,
   },
+  subject: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 14,
+    color: colors.textPrimary,
+  },
   subjectExcluded: {
     color: colors.textSecondary,
   },
@@ -245,33 +251,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.warning,
     paddingHorizontal: spacing.xs,
-  },
-  rowHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  subject: {
-    flex: 1,
-    fontFamily: fontFamily.semiBold,
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  examBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.warning,
-  },
-  examBadgeText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 10,
-    color: colors.background,
-  },
-  removeText: {
-    fontFamily: fontFamily.medium,
-    fontSize: 12,
-    color: colors.textSecondary,
   },
   addRow: {
     flexDirection: 'row',

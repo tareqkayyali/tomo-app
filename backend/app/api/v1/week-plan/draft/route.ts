@@ -64,6 +64,10 @@ const bodySchema = z.object({
   timezone: z.string().optional(),
   trainingMix: trainingMixSchema,
   studyMix: studyMixSchema,
+  // Mode id from the week-scope capsule (e.g. 'balanced' | 'league'
+  // | 'study' | 'rest'). Forwarded to the builder as a scenario
+  // override — doesn't mutate the athlete's global athlete_mode.
+  modeId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -104,6 +108,7 @@ export async function POST(req: NextRequest) {
     acwr: ctx.acwr,
     dayLocks: ctx.dayLocks,
     config: ctx.config,
+    modeId: body.modeId,
   };
 
   const result = buildWeekPlan(input);

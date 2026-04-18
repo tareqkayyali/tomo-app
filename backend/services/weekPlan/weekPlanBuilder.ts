@@ -90,6 +90,11 @@ export interface WeekPlanBuilderInput {
   acwr: number | null;
   dayLocks: string[];           // YYYY-MM-DD locked
   config?: SchedulingConfig;    // overrides default (injected from CMS in prod)
+  // Mode id selected in the week-scope capsule (balanced | league | study
+  // | rest). When set, overrides scenarioMaxHard — rest→0, study→1,
+  // league→2, balanced→existing scenario logic. Doesn't persist as
+  // the athlete's global mode.
+  modeId?: string;
 }
 
 export type EventType = "training" | "match" | "study" | "recovery";
@@ -197,8 +202,10 @@ export function buildWeekPlan(input: WeekPlanBuilderInput): WeekPlanBuilderOutpu
   // Index existing events by date for fast lookup.
   const existingByDate = indexExistingByDate(input.existingEvents, weekDates);
 
-  // Scenario-derived hard-session cap for the week.
+  // Scenario-derived hard-session cap for the week. Mode (if picked in
+  // the week-scope capsule) takes precedence over scenario flags.
   const maxHardPerWeek = scenarioMaxHard(
+    input.modeId,
     input.playerPrefs.leagueActive,
     input.playerPrefs.examPeriodActive,
   );
@@ -589,7 +596,24 @@ function resolveTargetDates(
   return weekDates.filter((d) => !locks.has(d));
 }
 
-function scenarioMaxHard(leagueActive: boolean, examActive: boolean): number {
+function scenarioMaxHard(
+  modeId: string | undefined,
+  leagueActive: boolean,
+  examActive: boolean,
+): number {
+  // Mode-driven caps match the CMS athlete_modes.params.maxHardPerWeek:
+  //   balanced: 3, league: 2, study: 1, rest: 0.
+  // If no mode (legacy callers), fall back to the scenario flag logic.
+  switch (modeId) {
+    case "rest":
+      return 0;
+    case "study":
+      return 1;
+    case "league":
+      return 2;
+    case "balanced":
+      return 3;
+  }
   if (leagueActive && examActive) return 1;
   if (leagueActive || examActive) return 2;
   return 3;

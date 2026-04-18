@@ -611,6 +611,29 @@ export interface ConflictResolutionCapsule {
 
 // ── Week Planner Capsules ────────────────────────────────────────
 
+export interface WeekScopeOption {
+  id: 'this' | 'next' | 'after';
+  label: string;
+  description: string;
+}
+
+export interface WeekScopeMode {
+  id: string;
+  label: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+}
+
+export interface WeekScopeCapsule {
+  type: 'week_scope_capsule';
+  weeks: WeekScopeOption[];
+  modes: WeekScopeMode[];
+  currentMode: string | null;
+}
+
+
+
 export type WeekPlanCategoryId =
   | 'club'
   | 'gym'
@@ -828,6 +851,7 @@ export type VisualCard =
   | TrainingJournalPostCapsule
   | RegularStudyCapsule
   | SchedulingCapsule
+  | WeekScopeCapsule
   | TrainingMixCapsule
   | StudyPlanCapsule
   | WeekPlanPreviewCapsule

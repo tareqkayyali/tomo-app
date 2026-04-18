@@ -1797,6 +1797,8 @@ export function HomeScreen() {
     } else if (capsuleAction.toolName === 'generate_regular_study_plan') {
       const { subjects, planWeeks } = capsuleAction.toolInput;
       previewParts.push(`Generate ${planWeeks ?? 4}-week regular study plan for ${Array.isArray(subjects) ? subjects.join(', ') : 'subjects'}`);
+    } else if (capsuleAction.toolName === '__submit_week_scope__') {
+      previewParts.push('Week set');
     } else if (capsuleAction.toolName === '__submit_training_mix__') {
       previewParts.push('Training mix set');
     } else if (capsuleAction.toolName === '__submit_study_plan__') {

@@ -97,7 +97,11 @@ _BUILD_SESSION_STEPS = [
 #                             /api/v1/week-plan/commit (batch insert +
 #                             snapshot + event).
 _BUILD_WEEK_PLAN_STEPS = [
-    {"id": "pick_week", "card": "choice_card"},
+    # Step 1 combines the week scope AND the mode for this plan in a
+    # single card. Modes are sourced from athlete_modes (CMS). The mode
+    # only scopes THIS plan (passed to the builder as a cap override);
+    # it doesn't mutate the athlete's global mode.
+    {"id": "pick_week", "card": "week_scope_capsule"},
     {"id": "load_suggestions", "tool": "get_week_plan_suggestions"},
     {"id": "pick_training_mix", "card": "training_mix_capsule"},
     {"id": "pick_study_plan", "card": "study_plan_capsule"},

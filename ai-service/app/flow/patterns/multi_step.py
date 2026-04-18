@@ -409,15 +409,19 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
                 flow.advance()
             else:
                 return await _present_date_picker(flow, state)
-        # pick_week: map "This week"/"Next week"/"Week after" to a Monday
-        # date and store as week_start. All downstream steps read it.
+        # pick_week (legacy text path — the capsule branch below handles
+        # the normal submit flow). Kept for voice/text fallback if someone
+        # types "next week" instead of tapping the capsule.
         elif current.id == "pick_week":
             week_start = _resolve_week_start_from_message(user_message, flow)
             if week_start:
                 flow.store("week_start", week_start)
+                # Preserve the prior athlete_mode if already set, else default.
+                if not flow.get("athlete_mode"):
+                    flow.store("athlete_mode", "balanced")
                 flow.advance()
             else:
-                return await _present_week_scope_choice(flow, state)
+                return await _present_week_scope_capsule(flow, state)
         # If this is pick_focus and the athlete already stated a focus
         # upfront, we should never be standing on this step in the first
         # place. Skip it silently and let _execute_current_step auto-advance.
@@ -533,6 +537,16 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
     # helper pulls from that exact key. Parse → store on flow state →
     # advance. Falls back to re-presenting the same card if the payload
     # is malformed.
+    elif current.card == "week_scope_capsule":
+        submitted = _extract_capsule_payload(state)
+        resolution = _coerce_week_scope(submitted, flow)
+        if resolution is not None:
+            flow.store("week_start", resolution["week_start"])
+            flow.store("athlete_mode", resolution["athlete_mode"])
+            flow.advance()
+        else:
+            return await _present_week_scope_capsule(flow, state)
+
     elif current.card == "training_mix_capsule":
         submitted = _extract_capsule_payload(state)
         mix = _coerce_training_mix(submitted)
@@ -689,12 +703,12 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
                 continue
             return await _present_date_picker(flow, state)
 
-        # ── pick_week (week planner): render week-scope choice ──
-        if step.card == "choice_card" and step.id == "pick_week":
-            if flow.get("week_start"):
+        # ── pick_week (week planner): render the week + mode capsule ──
+        if step.card == "week_scope_capsule":
+            if flow.get("week_start") and flow.get("athlete_mode"):
                 flow.advance()
                 continue
-            return await _present_week_scope_choice(flow, state)
+            return await _present_week_scope_capsule(flow, state)
 
         # ── Regular choice card (pick_focus) ──
         if step.card == "choice_card":
@@ -833,6 +847,10 @@ async def _fetch_week_plan_draft(flow: FlowState, user_id: str) -> dict | None:
         "timezone": flow.get("timezone", "UTC"),
         "trainingMix": flow.get("training_mix", []),
         "studyMix": flow.get("study_mix", []),
+        # Mode scopes the plan (affects maxHardPerWeek etc.) — doesn't
+        # persist as the athlete's global mode. The builder applies it
+        # via scenarioMaxHard (weekPlanBuilder.ts).
+        "modeId": flow.get("athlete_mode", "balanced"),
     }
     result = await bridge_post(
         "/api/v1/week-plan/draft",
@@ -2286,8 +2304,9 @@ def _add_minutes(hhmm: str, minutes: int) -> str:
 # ── Week planner helpers ────────────────────────────────────────────────
 
 def _resolve_week_start_from_message(msg: str, flow: FlowState) -> str | None:
-    """Map 'This week' / 'Next week' / 'Week after' selections to the
-    Monday of that week (ISO YYYY-MM-DD). Everything else → None."""
+    """Map 'This week' / 'Next week' / 'Week after' (or their short-form
+    ids 'this' / 'next' / 'after') to the Monday of that week
+    (ISO YYYY-MM-DD). Everything else → None."""
     from datetime import datetime, timedelta
     lowered = (msg or "").lower().strip()
     today_iso = flow.get("today_date") or ""
@@ -2298,34 +2317,79 @@ def _resolve_week_start_from_message(msg: str, flow: FlowState) -> str | None:
     # Monday of current week = today - weekday() days (Mon=0..Sun=6).
     monday = today - timedelta(days=today.weekday())
 
-    offset_weeks = None
-    if "next week" in lowered or "next" in lowered:
-        offset_weeks = 1
-    elif "week after" in lowered or "two weeks" in lowered or "after" in lowered:
-        offset_weeks = 2
-    elif "this week" in lowered or "current" in lowered or "this" in lowered:
+    # Check exact short-form id first (from week_scope_capsule submit).
+    if lowered == "this":
         offset_weeks = 0
-    if offset_weeks is None:
+    elif lowered == "next":
+        offset_weeks = 1
+    elif lowered == "after":
+        offset_weeks = 2
+    # Fall back to substring matching for free-text ("next week please").
+    elif "week after" in lowered or "two weeks" in lowered:
+        offset_weeks = 2
+    elif "next week" in lowered:
+        offset_weeks = 1
+    elif "this week" in lowered or "current" in lowered:
+        offset_weeks = 0
+    else:
         return None
     return (monday + timedelta(weeks=offset_weeks)).strftime("%Y-%m-%d")
 
 
-async def _present_week_scope_choice(flow: FlowState, state: TomoChatState) -> dict:
-    """Render the pick_week choice_card for the week planner."""
-    options = [
-        {"label": "This week", "value": "this", "description": "Starting today"},
-        {"label": "Next week", "value": "next", "description": "Starts Monday"},
-        {"label": "Week after", "value": "after", "description": "Two weeks out"},
-    ]
+_WEEK_OPTIONS = [
+    {"id": "this", "label": "This week", "description": "Starting today"},
+    {"id": "next", "label": "Next week", "description": "Starts Monday"},
+    {"id": "after", "label": "Week after", "description": "Two weeks out"},
+]
+
+_FALLBACK_MODES = [
+    {"id": "balanced", "label": "Balanced", "description": "Equal focus on training and academics"},
+    {"id": "league", "label": "League", "description": "Competition focus — training intensity prioritized"},
+    {"id": "study", "label": "Study", "description": "Academic priority — reduced training load"},
+    {"id": "rest", "label": "Rest", "description": "Recovery focus — minimal training"},
+]
+
+
+async def _fetch_modes(user_id: str) -> tuple[list[dict], str]:
+    """Load athlete_modes catalog + current mode from the TS bridge."""
+    from app.agents.tools.bridge import bridge_get
+    try:
+        result = await bridge_get(
+            "/api/v1/week-plan/modes",
+            params=None,
+            user_id=user_id,
+        )
+    except Exception as e:
+        logger.warning(f"week_scope: modes fetch failed, using fallback: {e}")
+        return _FALLBACK_MODES, "balanced"
+    if not isinstance(result, dict) or result.get("error"):
+        return _FALLBACK_MODES, "balanced"
+    modes = result.get("modes")
+    if not isinstance(modes, list) or not modes:
+        modes = _FALLBACK_MODES
+    current = result.get("currentMode")
+    if not isinstance(current, str) or not current:
+        current = "balanced"
+    return modes, current
+
+
+async def _present_week_scope_capsule(flow: FlowState, state: TomoChatState) -> dict:
+    """Render the combined week-scope + mode picker as the opening step."""
+    user_id = state.get("user_id", "")
+    modes, current_mode = await _fetch_modes(user_id)
+
     structured = {
-        "headline": "Which week?",
-        "body": "Pick the week to plan out.",
+        "headline": "Plan your week",
+        "body": "Pick the week and the mode you want to plan under.",
         "cards": [{
-            "type": "choice_card",
-            "options": options,
+            "type": "week_scope_capsule",
+            "weeks": _WEEK_OPTIONS,
+            "modes": modes,
+            "currentMode": current_mode,
         }],
         "chips": [],
     }
+
     await save_flow_state(
         state.get("session_id", ""),
         state.get("user_id", ""),
@@ -2339,6 +2403,30 @@ async def _present_week_scope_choice(flow: FlowState, state: TomoChatState) -> d
         "total_cost_usd": 0.0,
         "total_tokens": 0,
     }
+
+
+_VALID_WEEK_CHOICES = {"this", "next", "after"}
+
+
+def _coerce_week_scope(
+    payload: dict | None,
+    flow: FlowState,
+) -> dict | None:
+    """Validate the week_scope_capsule submit and return {week_start, athlete_mode}
+    or None if the payload is malformed."""
+    if not isinstance(payload, dict):
+        return None
+    raw_week = payload.get("weekChoice")
+    raw_mode = payload.get("modeId")
+    if raw_week not in _VALID_WEEK_CHOICES:
+        return None
+    if not isinstance(raw_mode, str) or not raw_mode.strip():
+        raw_mode = "balanced"
+
+    week_start = _resolve_week_start_from_message(raw_week, flow)
+    if not week_start:
+        return None
+    return {"week_start": week_start, "athlete_mode": raw_mode.strip()}
 
 
 def _extract_capsule_payload(state: TomoChatState) -> dict | None:
@@ -2689,6 +2777,7 @@ async def _execute_confirm_tool(flow: FlowState, state: TomoChatState) -> dict:
             "inputs": {
                 "trainingMix": flow.get("training_mix", []),
                 "studyMix": flow.get("study_mix", []),
+                "modeId": flow.get("athlete_mode", "balanced"),
             },
         }
         return await bridge_post(

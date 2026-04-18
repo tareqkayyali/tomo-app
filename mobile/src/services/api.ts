@@ -2570,6 +2570,23 @@ export async function updateScheduleRules(
   });
 }
 
+/**
+ * Persist the athlete's study-subjects list to
+ * player_schedule_preferences.study_subjects. Avoids the
+ * /api/v1/schedule/rules path (which requires SUPABASE_DB_URL).
+ */
+export async function updateStudySubjects(
+  study_subjects: string[],
+): Promise<{ ok: boolean; study_subjects: string[] }> {
+  return apiRequest<{ ok: boolean; study_subjects: string[] }>(
+    '/api/v1/week-plan/subjects',
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ study_subjects }),
+    },
+  );
+}
+
 // ── Auto-Block (sync school hours to calendar) ─────────────────
 
 export async function syncAutoBlocks(params: {

@@ -42,6 +42,7 @@ const bodySchema = z.object({
   inputs: z.object({
     trainingMix: z.array(z.any()),
     studyMix: z.array(z.any()),
+    modeId: z.string().optional(),
   }),
 });
 
