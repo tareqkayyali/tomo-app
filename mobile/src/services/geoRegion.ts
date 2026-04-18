@@ -18,7 +18,7 @@ import Constants from 'expo-constants';
 export type GeoRegion = {
   regionCode: string | null;
   requiresParentalConsentUnder16: boolean;
-  source: 'cf-ipcountry' | 'ipapi' | 'unknown';
+  source: 'cf-ipcountry' | 'country.is' | 'ipinfo' | 'unknown';
 };
 
 const FALLBACK: GeoRegion = {

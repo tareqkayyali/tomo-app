@@ -16,11 +16,18 @@
 //      region_code = null, requires_parental_consent = false. The
 //      register route then defaults to the stricter branch if DOB is
 //      under 16 and region is unresolved in EU/UK-likely IPs.
-//   4. No external calls when Cloudflare already provides it. Supabase
-//      Edge Functions run behind Cloudflare which sets cf-ipcountry.
-//      We read that first; external ipapi.co call is a fallback only.
+//   4. Provider chain:
+//        (a) cf-ipcountry header (set when routed via Cloudflare —
+//            never by default on Supabase Edge Runtime, but cheap to
+//            probe in case the ingress changes)
+//        (b) api.country.is — HTTPS, free, no auth, ~150ms median.
+//            Picked after ipapi.co failed in production due to a
+//            Cloudflare bot challenge that 403s every unauthenticated
+//            call.
+//        (c) ipinfo.io/{ip}/country — secondary fallback if (b) is
+//            down or rate-limited. Also HTTPS, no auth, plain-text.
 //
-// Deployment: `npx supabase functions deploy geo-region --no-verify-jwt`
+// Deployment: `npx supabase functions deploy geo-region --no-verify-jwt --project-ref <ref>`
 // The endpoint is intentionally unauthenticated — it runs before the
 // user has a session. Rate-limit at the Supabase dashboard.
 
@@ -33,10 +40,15 @@ const EU_UK_COUNTRIES = new Set([
   "GB", // United Kingdom (post-Brexit, still covered by UK GDPR + AADC)
 ]);
 
+type GeoSource = "cf-ipcountry" | "country.is" | "ipinfo" | "unknown";
+
 type GeoResponse = {
   region_code: string | null;
   requires_parental_consent_under_16: boolean;
-  source: "cf-ipcountry" | "ipapi" | "unknown";
+  source: GeoSource;
+  // Lightweight diagnostic: IP prefix we attempted to resolve. Helps
+  // debug prod without leaking the full address.
+  ip_hint: string | null;
 };
 
 function readCloudflareCountry(headers: Headers): string | null {
@@ -47,24 +59,63 @@ function readCloudflareCountry(headers: Headers): string | null {
   return null;
 }
 
-async function lookupViaIpapi(ip: string): Promise<string | null> {
+function isValidIsoAlpha2(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const up = s.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(up) ? up : null;
+}
+
+async function lookupViaCountryIs(ip: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/country/`, {
+    const res = await fetch(`https://api.country.is/${encodeURIComponent(ip)}`, {
       signal: AbortSignal.timeout(1500),
+      headers: { accept: "application/json" },
     });
     if (!res.ok) return null;
-    const country = (await res.text()).trim().toUpperCase();
-    if (country.length === 2 && /^[A-Z]{2}$/.test(country)) return country;
-    return null;
+    const json = (await res.json()) as { country?: string };
+    return isValidIsoAlpha2(json.country);
   } catch {
     return null;
   }
 }
 
-function clientIp(headers: Headers): string | null {
+async function lookupViaIpinfo(ip: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://ipinfo.io/${encodeURIComponent(ip)}/country`, {
+      signal: AbortSignal.timeout(1500),
+      headers: { accept: "text/plain" },
+    });
+    if (!res.ok) return null;
+    return isValidIsoAlpha2(await res.text());
+  } catch {
+    return null;
+  }
+}
+
+function clientIp(req: Request): string | null {
+  const headers = req.headers;
   const fwd = headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return headers.get("x-real-ip");
+  if (fwd) {
+    const first = fwd.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  const real = headers.get("x-real-ip");
+  if (real) return real.trim();
+  // Deno's Deno.serve handler info is not available through this
+  // signature; leaving remoteAddr fallback off until we see a case
+  // where the headers above don't populate.
+  return null;
+}
+
+function ipHint(ip: string | null): string | null {
+  if (!ip) return null;
+  // Return only the first two octets (IPv4) or the first 4 groups
+  // (IPv6) — enough to narrow an investigation without logging the
+  // full address.
+  if (ip.includes(":")) {
+    return ip.split(":").slice(0, 4).join(":") + "::";
+  }
+  return ip.split(".").slice(0, 2).join(".") + ".x.x";
 }
 
 Deno.serve(async (req) => {
@@ -72,7 +123,7 @@ Deno.serve(async (req) => {
   const corsHeaders = {
     "access-control-allow-origin": origin,
     "access-control-allow-methods": "GET, OPTIONS",
-    "access-control-allow-headers": "content-type, authorization",
+    "access-control-allow-headers": "content-type, authorization, apikey",
     "content-type": "application/json",
   };
 
@@ -88,23 +139,28 @@ Deno.serve(async (req) => {
   }
 
   let code: string | null = null;
-  let source: GeoResponse["source"] = "unknown";
+  let source: GeoSource = "unknown";
 
   code = readCloudflareCountry(req.headers);
   if (code) source = "cf-ipcountry";
 
-  if (!code) {
-    const ip = clientIp(req.headers);
-    if (ip) {
-      code = await lookupViaIpapi(ip);
-      if (code) source = "ipapi";
-    }
+  const ip = clientIp(req);
+
+  if (!code && ip) {
+    code = await lookupViaCountryIs(ip);
+    if (code) source = "country.is";
+  }
+
+  if (!code && ip) {
+    code = await lookupViaIpinfo(ip);
+    if (code) source = "ipinfo";
   }
 
   const body: GeoResponse = {
     region_code: code,
     requires_parental_consent_under_16: code !== null && EU_UK_COUNTRIES.has(code),
     source,
+    ip_hint: ipHint(ip),
   };
 
   return new Response(JSON.stringify(body), { status: 200, headers: corsHeaders });
