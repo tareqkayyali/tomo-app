@@ -24,7 +24,7 @@
  *   500 Internal error
  *
  * Historical DELETE handler (immediate nuke) replaced by this
- * request-based flow as of migration 064. See the PR description for
+ * request-based flow as of migration 071. See the PR description for
  * the migration playbook.
  */
 

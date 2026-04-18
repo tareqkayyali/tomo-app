@@ -1,48 +1,43 @@
 /**
  * DashboardCard — Shared card surface for the three Dashboard slide-up panels.
  *
- * Uses the centralised `panel*` theme tokens so all card surfaces stay in
- * lock-step visually. Pass an optional `label` to render the small uppercase
- * section label at the top (replaces the old ad-hoc `cardLabel` pattern that
- * was duplicated across ProgramPanel / MetricsPanel / ProgressPanel).
+ * Delegates rendering to the canonical `GlassCard` primitive used on the
+ * Timeline and elsewhere, so all cards across the app share ONE surface
+ * treatment (`colors.surface` + `colors.border` + `borderRadius.lg` +
+ * `spacing.lg` padding).
+ *
+ * Adds an optional `label` slot for the small uppercase section labels that
+ * Dashboard panels use above their content (e.g. "HRV", "THIS MONTH"). When
+ * `label` is omitted, behaves identically to `<GlassCard>`.
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { Text, StyleSheet, ViewStyle } from 'react-native';
+import { GlassCard } from '../../GlassCard';
 import { fontFamily } from '../../../theme/typography';
+import { spacing } from '../../../theme';
 import { useTheme } from '../../../hooks/useTheme';
 
 interface Props {
   label?: string;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyle;
   children: React.ReactNode;
 }
 
 export function DashboardCard({ label, style, children }: Props) {
   const { colors } = useTheme();
+  const mergedStyle: ViewStyle = { marginBottom: spacing.sm, ...(style ?? {}) };
   return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: colors.panelSurface, borderColor: colors.panelBorder },
-        style,
-      ]}
-    >
+    <GlassCard style={mergedStyle}>
       {label && (
         <Text style={[styles.label, { color: colors.panelLabel }]}>{label}</Text>
       )}
       {children}
-    </View>
+    </GlassCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    marginBottom: 10,
-  },
   label: {
     fontFamily: fontFamily.medium,
     fontSize: 9,

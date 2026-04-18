@@ -236,11 +236,12 @@ create policy "Parents read linked athlete daily load"
   using (public.fn_guardian_can_read(athlete_id, auth.uid(), 'training'));
 
 -- ── training_journals ──────────────────────────────────────────────
+-- training_journals.user_id (not athlete_id) — see migration 023.
 drop policy if exists "Parents read linked athlete journals" on public.training_journals;
 create policy "Parents read linked athlete journals"
   on public.training_journals
   for select
-  using (public.fn_guardian_can_read(athlete_id, auth.uid(), 'training'));
+  using (public.fn_guardian_can_read(user_id, auth.uid(), 'training'));
 
 -- ═══════════════════════════════════════════════════════════════════
 --  Part 5: Triangle policies on unified data layer (service-role-only

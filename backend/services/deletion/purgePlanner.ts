@@ -3,7 +3,7 @@
  *
  * Given a target user_id and jurisdiction, returns the ordered list of
  * table × column × action entries the purge executor should perform.
- * The DB-side function `public.tomo_purge_user()` in migration 064 is
+ * The DB-side function `public.tomo_purge_user()` in migration 071 is
  * the production executor; this planner is the spec it mirrors, and
  * the surface unit tests assert against.
  *

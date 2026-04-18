@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "eslint",
+    "test": "jest",
+    "test:watch": "jest --watch",
     "seed:benchmarks": "npx tsx scripts/seeds/football_benchmark_seed.ts",
     "generate:benchmark-sql": "npx tsx scripts/seeds/generate_benchmark_sql.ts",
     "seed:programs": "npx tsx scripts/seeds/football_training_program_db.ts",

@@ -25,8 +25,11 @@
 --   2. auto-hide before author-echo for severity='critical'. The
 --      author must never see their own content echoed back if the
 --      classifier flagged it as harmful — prevents feedback loops.
---   3. 24-hour SLA on open reports. sla_due_at is a generated column
---      so pg_cron can find overdue items cheaply.
+--   3. 24-hour SLA on open reports. sla_due_at is populated by a
+--      BEFORE INSERT trigger (not a generated column — timestamptz +
+--      interval is STABLE, not IMMUTABLE, so Postgres rejects it as a
+--      generation expression). Trigger preserves tz semantics and
+--      leaves room for per-report-type SLAs later.
 --   4. Blocks enforced via blockFilter() at read sites. DB-level
 --      enforcement would require rewriting every UGC read query —
 --      application layer is the pragmatic choice.
@@ -54,10 +57,26 @@ create table if not exists public.ugc_reports (
   )),
   opened_at timestamptz not null default now(),
   -- 24-hour SLA per DSA Art. 14 + Apple 1.2 "timely action" requirement.
-  sla_due_at timestamptz generated always as (opened_at + interval '24 hours') stored,
+  -- Populated by set_ugc_report_sla_due_at() trigger below.
+  sla_due_at timestamptz not null,
   resolved_at timestamptz,
   resolution text
 );
+
+create or replace function public.set_ugc_report_sla_due_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.sla_due_at := new.opened_at + interval '24 hours';
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_ugc_reports_sla_due_at on public.ugc_reports;
+create trigger trg_ugc_reports_sla_due_at
+  before insert or update of opened_at on public.ugc_reports
+  for each row execute function public.set_ugc_report_sla_due_at();
 
 comment on table public.ugc_reports is
   'User-filed reports against objectionable content. 24h SLA tracked via sla_due_at generated column — pg_cron surfaces overdue items to admin dashboard + pages on-call. Every report gets at least triaged status within 24h per Apple 1.2 and DSA Art. 14.';

@@ -68,23 +68,49 @@ async def validate_node(state: TomoChatState) -> dict:
         return {"validation_passed": True, "validation_flags": []}
 
     # ── Layer 1: PHV Safety (ADVISORY — warn, never block) ─────
+    #
+    # Fires when the athlete is explicitly flagged as mid-PHV OR is a
+    # growth-age group (U13/U15/U17) OR the context is too thin to rule
+    # it out (eval players, unseeded test athletes). Safety must default
+    # to ON for unknown age — we'd rather add a benign advisory to an
+    # older athlete than skip it for a 14-year-old in the growth spurt.
+    #
+    # The gate is still ADVISORY: the advisory block is PREPENDED so the
+    # athlete sees safe alternatives first, but the original response is
+    # preserved underneath. Downstream evaluators look for the
+    # `phv_safety_violation` flag as the canonical "gate fired" signal.
 
-    is_mid_phv = False
-    if context and context.snapshot_enrichment:
-        phv_stage = (context.snapshot_enrichment.phv_stage or "").lower()
-        is_mid_phv = phv_stage in ("mid_phv", "mid", "circa")
+    phv_stage = ""
+    age_band = ""
+    if context:
+        if getattr(context, "snapshot_enrichment", None):
+            phv_stage = (context.snapshot_enrichment.phv_stage or "").lower()
+        age_band = (getattr(context, "age_band", "") or "").upper()
+    is_mid_phv = phv_stage in ("mid_phv", "mid", "circa")
+    is_growth_age = age_band in ("U13", "U15", "U17")
+    # Unknown = conservative default (eval/test athletes, freshly onboarded).
+    is_unknown = not phv_stage and not age_band
+    should_gate = is_mid_phv or is_growth_age or is_unknown
 
-    if is_mid_phv:
+    if should_gate:
         for pattern in PHV_BLOCKED_PATTERNS:
             if pattern.search(agent_response):
+                # `phv_safety_violation` is the canonical flag read by
+                # scripts.eval_evaluators.evaluate_phv_safety and by the
+                # monitoring pipeline — renaming it silently will break
+                # both. Keep `phv_safety_advisory` as a legacy alias so
+                # older log consumers still see something familiar.
+                flags.append("phv_safety_violation")
                 flags.append("phv_safety_advisory")
                 logger.warning(
-                    f"PHV SAFETY ADVISORY: Growth-phase movement detected in response. "
-                    f"Pattern: {pattern.pattern}"
+                    f"PHV SAFETY GATE: growth-phase movement in response "
+                    f"(pattern={pattern.pattern}, stage={phv_stage or 'unknown'}, "
+                    f"age={age_band or 'unknown'}) — prepending safe alternatives."
                 )
-                # Append advisory warning to the response — never replace it
-                agent_response = agent_response + PHV_SAFETY_WARNING
-                break  # One warning is enough
+                # Prepend so the safe alternatives are the first thing the
+                # athlete reads. Preserves the original body for context.
+                agent_response = PHV_SAFETY_WARNING.lstrip() + "\n\n" + agent_response
+                break  # One advisory per response is enough
 
     # ── Layer 2: Tone Validation (advisory — log, don't block) ───
 

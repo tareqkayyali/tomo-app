@@ -2,7 +2,7 @@
  * Deletion service — request / cancel / status / purge orchestration.
  *
  * Sits between the HTTP layer (backend/app/api/v1/user/delete/*) and
- * the DB (deletion_requests + SQL functions from migration 064). All
+ * the DB (deletion_requests + SQL functions from migration 071). All
  * I/O lives here; the pure planner in purgePlanner.ts has zero I/O.
  *
  * Every public function logs a structured event; no silent failures.
@@ -21,7 +21,7 @@ import {
 } from './purgePlanner';
 
 // The generated database.ts types haven't yet been regenerated against
-// migration 064 (deletion_requests / deletion_tombstones / deletion_
+// migration 071 (deletion_requests / deletion_tombstones / deletion_
 // purge_log) because that requires running `supabase gen types` after
 // `supabase db reset`. Until then we cast through `any` for the new
 // tables — matches the existing pattern in outputAgent.ts line 1104.
@@ -363,6 +363,33 @@ export async function forcePurgeNow(requestId: string): Promise<{ tombstoneId: s
   const tombstoneId = String(data ?? '');
   logger.info('deletionService.forcePurgeNow: ok', { requestId, tombstoneId });
   return { tombstoneId };
+}
+
+// ─── admin: lookup one request by id ───────────────────────────────
+
+export async function getDeletionRequestById(
+  requestId: string
+): Promise<DeletionRequestRow | null> {
+  if (!requestId) {
+    throw new DeletionError('INVALID_INPUT', 'requestId required');
+  }
+
+  const client = db();
+  const { data, error } = await client
+    .from('deletion_requests')
+    .select('*')
+    .eq('id', requestId)
+    .maybeSingle();
+
+  if (error) {
+    logger.error('deletionService.getDeletionRequestById: query failed', {
+      requestId,
+      error: error.message,
+    });
+    throw new DeletionError('INTERNAL', 'failed to read deletion request', 500);
+  }
+
+  return (data as DeletionRequestRow | null) ?? null;
 }
 
 // ─── admin: list all requests for review surface ───────────────────

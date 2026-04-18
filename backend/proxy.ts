@@ -32,7 +32,7 @@ async function assertAccountNotGone(
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!serviceKey || !supabaseUrl) {
     // If admin creds are missing we can't check. Fail open — the DB
-    // write-gate trigger (migration 064) is the authoritative stop.
+    // write-gate trigger (migration 071) is the authoritative stop.
     return null;
   }
 

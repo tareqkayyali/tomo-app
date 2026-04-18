@@ -4,15 +4,22 @@
  * Admin → Deletion Requests review surface.
  *
  * Lists GDPR Art. 17 / CCPA / PDPL deletion requests with their current
- * pipeline state. Non-destructive — this screen is read-only. Force-
- * purge and cancel-for-user actions are intentionally OUT OF SCOPE of
- * this PR; ops runs them via supabase SQL for now. A follow-up can add
- * the action buttons against the existing service functions.
+ * pipeline state. The daily pg_cron job handles due purges automatically;
+ * the Force Purge button here is the out-of-band escape hatch for
+ * regulator / forensic flows and is only enabled on status='pending'.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -70,11 +77,25 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toISOString().slice(0, 16).replace("T", " ");
 }
 
+interface ForcePurgeTarget {
+  requestId: string;
+  userLabel: string;
+}
+
+interface ForcePurgeResult {
+  kind: "success" | "error";
+  requestId: string;
+  message: string;
+}
+
 export default function DeletionRequestsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Status | "all">("all");
   const [error, setError] = useState<string | null>(null);
+  const [purgeTarget, setPurgeTarget] = useState<ForcePurgeTarget | null>(null);
+  const [purgeInFlight, setPurgeInFlight] = useState(false);
+  const [purgeResult, setPurgeResult] = useState<ForcePurgeResult | null>(null);
 
   const fetchRows = useCallback(async (status: Status | "all") => {
     setLoading(true);
@@ -104,6 +125,47 @@ export default function DeletionRequestsPage() {
     fetchRows(filter);
   }, [fetchRows, filter]);
 
+  const runForcePurge = useCallback(async () => {
+    if (!purgeTarget) return;
+    setPurgeInFlight(true);
+    try {
+      const res = await fetch(
+        `/api/v1/admin/deletion-requests/${purgeTarget.requestId}/force-purge`,
+        { method: "POST", credentials: "include" }
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const parts = [body?.error ?? `HTTP ${res.status}`];
+        if (body?.failureReason) parts.push(`Reason: ${body.failureReason}`);
+        if (typeof body?.failureCount === "number" && body.failureCount > 0) {
+          parts.push(`Failures: ${body.failureCount}`);
+        }
+        setPurgeResult({
+          kind: "error",
+          requestId: purgeTarget.requestId,
+          message: parts.join(" — "),
+        });
+      } else {
+        setPurgeResult({
+          kind: "success",
+          requestId: purgeTarget.requestId,
+          message: `Purged. Tombstone ${String(body?.tombstoneId ?? "").slice(0, 8)}…`,
+        });
+      }
+      setPurgeTarget(null);
+      await fetchRows(filter);
+    } catch (e) {
+      setPurgeResult({
+        kind: "error",
+        requestId: purgeTarget.requestId,
+        message: (e as Error)?.message ?? "Network error",
+      });
+      setPurgeTarget(null);
+    } finally {
+      setPurgeInFlight(false);
+    }
+  }, [purgeTarget, fetchRows, filter]);
+
   const counts = useMemo(() => {
     const c: Record<Status | "all", number> = {
       all: rows.length,
@@ -122,12 +184,14 @@ export default function DeletionRequestsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Deletion Requests</h1>
         <p className="text-muted-foreground">
-          GDPR Art. 17 / CCPA / PDPL right-to-erasure pipeline. Read-only
-          review surface — the daily pg_cron job ({" "}
+          GDPR Art. 17 / CCPA / PDPL right-to-erasure pipeline. The daily
+          pg_cron job ({" "}
           <code className="rounded bg-muted px-1">
             tomo-deletion-purge-daily
           </code>{" "}
-          at 03:15 UTC) handles due purges.
+          at 03:15 UTC) handles due purges. Use{" "}
+          <strong>Force purge now</strong> only for regulator / forensic
+          flows that require bypassing the grace window.
         </p>
       </div>
 
@@ -166,18 +230,19 @@ export default function DeletionRequestsPage() {
               <TableHead>Days remaining</TableHead>
               <TableHead>Failures</TableHead>
               <TableHead>Tombstone</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   No deletion requests.
                 </TableCell>
               </TableRow>
@@ -239,6 +304,24 @@ export default function DeletionRequestsPage() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
+                    <TableCell className="text-right">
+                      {r.status === "pending" ? (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() =>
+                            setPurgeTarget({
+                              requestId: r.id,
+                              userLabel: r.email ?? r.userId,
+                            })
+                          }
+                        >
+                          Force purge now
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -246,6 +329,77 @@ export default function DeletionRequestsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {purgeResult && (
+        <div
+          className={
+            purgeResult.kind === "success"
+              ? "rounded-md border border-emerald-600/40 bg-emerald-600/10 p-3 text-sm"
+              : "rounded-md border border-destructive p-3 text-sm text-destructive"
+          }
+        >
+          <div className="font-mono text-xs mb-1">
+            {purgeResult.requestId.slice(0, 8)}…
+          </div>
+          <div>{purgeResult.message}</div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2"
+            onClick={() => setPurgeResult(null)}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
+      <Dialog
+        open={purgeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !purgeInFlight) setPurgeTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Force purge now?</DialogTitle>
+            <DialogDescription>
+              This bypasses the grace-period window and invokes{" "}
+              <code className="rounded bg-muted px-1">tomo_purge_user()</code>{" "}
+              immediately. The user&apos;s auth row cascades to every
+              athlete-scoped table; audit tables are anonymised. This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {purgeTarget && (
+            <div className="rounded-md border p-3 text-sm space-y-1">
+              <div>
+                <span className="text-muted-foreground">User: </span>
+                <span className="font-mono">{purgeTarget.userLabel}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Request: </span>
+                <span className="font-mono">{purgeTarget.requestId}</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPurgeTarget(null)}
+              disabled={purgeInFlight}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={runForcePurge}
+              disabled={purgeInFlight}
+            >
+              {purgeInFlight ? "Purging…" : "Force purge"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
