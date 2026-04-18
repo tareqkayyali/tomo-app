@@ -141,6 +141,7 @@ export type ParentTabParamList = {
 export type ParentStackParamList = {
   ParentTabs: undefined;
   ParentChildDetail: { childId: string; childName: string; ageTier?: 'T1' | 'T2' | 'T3' | 'UNKNOWN' };
+  ParentEducationProgress: { childId: string; childName: string };
   ParentDailyView: { childId: string; childName: string; date: string };
   ParentAddStudy: { childId: string; childName: string };
   ParentAddExam: { childId: string; childName: string };

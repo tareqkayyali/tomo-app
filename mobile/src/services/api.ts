@@ -2266,6 +2266,37 @@ export async function getParentChildren(): Promise<{ children: PlayerSummary[] }
   return apiRequest<{ children: PlayerSummary[] }>('/api/v1/parent/children');
 }
 
+// P4.3 — Parent Education Progress (parent-safe view; no clinical jargon).
+export interface ParentEducationProgressResponse {
+  childId: string;
+  load: {
+    label: 'Balanced' | 'Building' | 'Stressed' | 'Alarming' | 'Insufficient data';
+    color: 'green' | 'amber' | 'red';
+    hint: string;
+  };
+  nextExam: { subject: string; date: string; daysUntil: number } | null;
+  streak: number | null;
+  digest: Array<{
+    icon: 'streak' | 'training' | 'study' | 'wellness' | 'milestone';
+    text: string;
+  }>;
+  week: {
+    trainingSessions: number;
+    trainingMinutes: number;
+    studySessions: number;
+    studyMinutes: number;
+    checkIns: number;
+  } | null;
+}
+
+export async function getParentEducationProgress(
+  childId: string,
+): Promise<ParentEducationProgressResponse> {
+  return apiRequest<ParentEducationProgressResponse>(
+    `/api/v1/parent/education/progress?child_id=${encodeURIComponent(childId)}`,
+  );
+}
+
 /**
  * Get child's calendar events (parent only)
  */

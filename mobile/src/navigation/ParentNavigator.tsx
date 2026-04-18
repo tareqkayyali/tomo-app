@@ -22,6 +22,7 @@ import { TomoIcon } from '../components/tomo-ui';
 
 import { ParentChildrenScreen } from '../screens/parent/ParentChildrenScreen';
 import { ParentChildDetailScreen } from '../screens/parent/ParentChildDetailScreen';
+import { ParentEducationProgressScreen } from '../screens/parent/ParentEducationProgressScreen';
 import { ParentCalendarScreen } from '../screens/parent/ParentCalendarScreen';
 import { ParentAddStudyScreen } from '../screens/parent/ParentAddStudyScreen';
 import { ParentAddExamScreen } from '../screens/parent/ParentAddExamScreen';
@@ -188,6 +189,11 @@ export function ParentNavigator() {
         name="ParentChildDetail"
         component={ParentChildDetailScreen}
         options={{ headerShown: true, title: 'Child Detail', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
+        name="ParentEducationProgress"
+        component={ParentEducationProgressScreen}
+        options={{ headerShown: true, title: 'Education Progress', ...stackHeaderOptions }}
       />
       <Stack.Screen
         name="ParentDailyView"
