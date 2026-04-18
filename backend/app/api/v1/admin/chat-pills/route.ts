@@ -11,7 +11,7 @@
  *      uniqueness and fixedIds / defaultFallbackIds must reference
  *      eligible library entries (see schema.ts superRefine).
  *
- * Auth: requireAdmin (is_admin flag on users).
+ * Auth: requireAdmin (enterprise RBAC, institutional_pd+).
  */
 
 import { NextRequest, NextResponse } from "next/server";

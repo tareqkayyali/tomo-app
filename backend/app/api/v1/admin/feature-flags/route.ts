@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin/apiAuth";
+import { requireEnterprise } from "@/lib/admin/enterpriseAuth";
 import { featureFlagCreateSchema } from "@/lib/validation/uiConfigSchemas";
 import { listFlags, createFlag } from "@/services/admin/featureFlagAdminService";
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin(req);
+  const auth = await requireEnterprise(req, "super_admin");
   if ("error" in auth) return auth.error;
 
   try {
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin(req);
+  const auth = await requireEnterprise(req, "super_admin");
   if ("error" in auth) return auth.error;
 
   const body = await req.json();

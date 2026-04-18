@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin/apiAuth";
+import { requireEnterprise } from "@/lib/admin/enterpriseAuth";
 import { featureFlagUpdateSchema } from "@/lib/validation/uiConfigSchemas";
 import {
   getFlag,
@@ -11,7 +11,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin(req);
+  const auth = await requireEnterprise(req, "super_admin");
   if ("error" in auth) return auth.error;
 
   const { id } = await params;
@@ -33,7 +33,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin(req);
+  const auth = await requireEnterprise(req, "super_admin");
   if ("error" in auth) return auth.error;
 
   const { id } = await params;
@@ -61,7 +61,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin(req);
+  const auth = await requireEnterprise(req, "super_admin");
   if ("error" in auth) return auth.error;
 
   const { id } = await params;

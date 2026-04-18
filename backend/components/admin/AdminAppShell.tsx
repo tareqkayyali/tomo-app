@@ -6,14 +6,7 @@ import { EnterpriseSidebar } from "@/components/admin/EnterpriseSidebar";
 import { EnterpriseHeader } from "@/components/admin/EnterpriseHeader";
 import { getEnterpriseUser } from "@/lib/admin/enterpriseAuth";
 
-/**
- * Enterprise CMS Layout
- * Server component that resolves the user's role + tenant context
- * and renders the role-filtered sidebar + org-aware header.
- *
- * Falls back to legacy is_admin check for backward compatibility.
- */
-export default async function EnterpriseLayout({
+export async function AdminAppShell({
   children,
 }: {
   children: React.ReactNode;
@@ -27,14 +20,12 @@ export default async function EnterpriseLayout({
     redirect("/admin/login");
   }
 
-  // Resolve enterprise user with org memberships
   const enterpriseUser = await getEnterpriseUser(user.id);
 
   if (!enterpriseUser) {
     redirect("/admin/login?error=no_cms_access");
   }
 
-  // Determine active tenant from cookie or default to primary
   const cookieStore = await cookies();
   const activeTenantCookie = cookieStore.get("cms_active_tenant")?.value;
 

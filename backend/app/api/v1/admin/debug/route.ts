@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin/apiAuth";
+import { requireEnterprise } from "@/lib/admin/enterpriseAuth";
 
 function getAIServiceUrl(): string {
   if (process.env.AI_SERVICE_URL) return process.env.AI_SERVICE_URL;
@@ -18,7 +18,7 @@ function getAIServiceUrl(): string {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin(req);
+  const auth = await requireEnterprise(req, "super_admin");
   if ("error" in auth) return auth.error;
 
   const { searchParams } = new URL(req.url);

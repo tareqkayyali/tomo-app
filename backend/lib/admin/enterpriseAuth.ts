@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { RequestUser } from "@/lib/auth";
 
 /**
- * Enterprise CMS Role-Based Auth
- * Replaces simple is_admin check with multi-tenant RBAC.
+ * Enterprise CMS Role-Based Auth — the single source of truth for admin access.
  *
  * Roles (hierarchical):
  *   super_admin       — Full access to all tenants, all features
@@ -91,46 +89,6 @@ export async function requireEnterprise(
     .eq("is_active", true);
 
   if (error || !memberships || memberships.length === 0) {
-    // Fallback: check legacy is_admin flag for backward compatibility
-    const { data: profile } = (await db
-      .from("users")
-      .select("is_admin")
-      .eq("id", auth.user.id)
-      .single()) as { data: { is_admin: boolean } | null; error: unknown };
-
-    if (profile?.is_admin) {
-      // Legacy admin — treat as super_admin on global tenant
-      const legacyUser: EnterpriseUser = {
-        id: auth.user.id,
-        email: auth.user.email || "",
-        memberships: [
-          {
-            id: "legacy",
-            tenant_id: "00000000-0000-0000-0000-000000000001",
-            tenant_name: "Tomo Global",
-            tenant_slug: "tomo-global",
-            tenant_tier: "global",
-            role: "super_admin",
-            permissions: {
-              can_manage_tenants: true,
-              can_manage_users: true,
-              can_edit_protocols: true,
-              can_edit_knowledge: true,
-              can_manage_athletes: true,
-              can_view_analytics: true,
-              can_manage_billing: true,
-            },
-            is_active: true,
-          },
-        ],
-        primaryRole: "super_admin",
-        primaryTenantId: "00000000-0000-0000-0000-000000000001",
-        primaryTenantName: "Tomo Global",
-        isSuperAdmin: true,
-      };
-      return { user: legacyUser };
-    }
-
     return {
       error: NextResponse.json(
         { error: "Enterprise CMS access required" },
@@ -260,44 +218,6 @@ export async function getEnterpriseUser(
     .eq("is_active", true);
 
   if (!memberships || memberships.length === 0) {
-    // Legacy fallback
-    const { data: profile } = (await db
-      .from("users")
-      .select("is_admin")
-      .eq("id", userId)
-      .single()) as { data: { is_admin: boolean } | null; error: unknown };
-
-    if (profile?.is_admin) {
-      return {
-        id: userId,
-        email: "",
-        memberships: [
-          {
-            id: "legacy",
-            tenant_id: "00000000-0000-0000-0000-000000000001",
-            tenant_name: "Tomo Global",
-            tenant_slug: "tomo-global",
-            tenant_tier: "global",
-            role: "super_admin",
-            permissions: {
-              can_manage_tenants: true,
-              can_manage_users: true,
-              can_edit_protocols: true,
-              can_edit_knowledge: true,
-              can_manage_athletes: true,
-              can_view_analytics: true,
-              can_manage_billing: true,
-            },
-            is_active: true,
-          },
-        ],
-        primaryRole: "super_admin",
-        primaryTenantId: "00000000-0000-0000-0000-000000000001",
-        primaryTenantName: "Tomo Global",
-        isSuperAdmin: true,
-      };
-    }
-
     return null;
   }
 

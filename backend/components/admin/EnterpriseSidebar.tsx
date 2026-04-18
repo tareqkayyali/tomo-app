@@ -28,12 +28,6 @@ interface NavGroup {
   items: NavItem[];
 }
 
-/**
- * Enterprise CMS sidebar with role-based navigation.
- * Items are filtered based on the user's highest role.
- * Super admins see everything; coaches see read-only modules.
- */
-
 const ROLE_HIERARCHY: Record<OrgRole, number> = {
   super_admin: 0,
   institutional_pd: 1,
@@ -42,6 +36,8 @@ const ROLE_HIERARCHY: Record<OrgRole, number> = {
   athlete: 4,
 };
 
+// New 6-section IA. URLs point at CURRENT page locations; Phase 1b relocates
+// pages to match the section prefixes (e.g. /admin/content/drills).
 const navigation: NavGroup[] = [
   {
     label: "Overview",
@@ -50,111 +46,71 @@ const navigation: NavGroup[] = [
     ],
   },
   {
-    label: "Organization",
-    minRole: "super_admin",
-    items: [
-      { name: "Organizations", href: "/admin/enterprise/organizations" },
-      { name: "Onboarding", href: "/admin/enterprise/onboarding" },
-    ],
-  },
-  {
-    label: "Knowledge Operations",
-    minRole: "institutional_pd",
-    items: [
-      { name: "Knowledge Base", href: "/admin/enterprise/knowledge" },
-      { name: "Knowledge Editor", href: "/admin/enterprise/knowledge/editor" },
-      { name: "Knowledge Graph", href: "/admin/enterprise/knowledge/graph" },
-    ],
-  },
-  {
-    label: "Performance Director",
-    minRole: "institutional_pd",
-    items: [
-      { name: "Protocols", href: "/admin/enterprise/protocols" },
-      { name: "Protocol Builder", href: "/admin/enterprise/protocols/builder" },
-      { name: "Protocol Inheritance", href: "/admin/enterprise/protocols/inheritance" },
-      { name: "Protocol Simulator", href: "/admin/enterprise/protocols/test" },
-    ],
-  },
-  {
-    label: "Training Content",
+    label: "Content Library",
     minRole: "coach",
     items: [
+      { name: "Sports", href: "/admin/sports", minRole: "institutional_pd" },
       { name: "Drills", href: "/admin/drills" },
       { name: "Programs", href: "/admin/programs" },
       { name: "Assessments", href: "/admin/assessments" },
       { name: "Normative Data", href: "/admin/normative-data" },
+      { name: "Quotes", href: "/admin/quotes" },
+      { name: "Notification Templates", href: "/admin/notifications/templates", minRole: "institutional_pd" },
+      { name: "Scheduled Notifications", href: "/admin/notifications/scheduled", minRole: "institutional_pd" },
+    ],
+  },
+  {
+    label: "AI & Knowledge",
+    minRole: "institutional_pd",
+    items: [
+      { name: "RAG Knowledge", href: "/admin/enterprise/knowledge" },
+      { name: "Knowledge Editor", href: "/admin/enterprise/knowledge/editor" },
+      { name: "Knowledge Graph", href: "/admin/enterprise/knowledge/graph" },
+      { name: "Chat Pills", href: "/admin/chat-pills" },
       { name: "Mastery Pillars", href: "/admin/mastery" },
-    ],
-  },
-  {
-    label: "Sport Configuration",
-    minRole: "institutional_pd",
-    items: [
-      { name: "Sports", href: "/admin/sports" },
-    ],
-  },
-  {
-    label: "Dashboard CMS",
-    minRole: "institutional_pd",
-    items: [
-      { name: "Dashboard Sections", href: "/admin/dashboard-sections" },
+      { name: "Athlete Modes", href: "/admin/modes" },
     ],
   },
   {
     label: "Planning Intelligence",
     minRole: "institutional_pd",
     items: [
-      { name: "Athlete Modes", href: "/admin/modes" },
       { name: "Planning Protocols", href: "/admin/planning-protocols" },
       { name: "Cognitive Windows", href: "/admin/cognitive-windows" },
+      { name: "Scheduling Rules", href: "/admin/scheduling-rules" },
+      { name: "PD Protocols", href: "/admin/enterprise/protocols" },
+      { name: "Protocol Builder", href: "/admin/enterprise/protocols/builder" },
+      { name: "Protocol Inheritance", href: "/admin/enterprise/protocols/inheritance" },
+      { name: "Protocol Simulator", href: "/admin/enterprise/protocols/test" },
     ],
   },
   {
-    label: "AI Evaluation",
+    label: "Quality & Safety",
     minRole: "institutional_pd",
     items: [
-      { name: "Eval Dashboard", href: "/admin/enterprise/evaluations" },
-      { name: "Conversation Browser", href: "/admin/enterprise/evaluations/conversations" },
-    ],
-  },
-  {
-    label: "Chat Quality",
-    minRole: "institutional_pd",
-    items: [
-      { name: "Overview", href: "/admin/enterprise/quality" },
-      { name: "Safety Audit Flags", href: "/admin/enterprise/quality/safety-flags" },
+      { name: "Chat Quality Hub", href: "/admin/enterprise/quality" },
+      { name: "Safety Flags", href: "/admin/enterprise/quality/safety-flags" },
       { name: "Judge Disagreements", href: "/admin/enterprise/quality/disagreements" },
       { name: "Drift Alerts", href: "/admin/enterprise/quality/drift" },
       { name: "Shadow Runs", href: "/admin/enterprise/quality/shadow-runs" },
       { name: "Golden Test Set", href: "/admin/enterprise/quality/golden-set" },
-    ],
-  },
-  {
-    label: "AI & Recommendations",
-    minRole: "institutional_pd",
-    items: [
-      { name: "Performance Intelligence", href: "/admin/performance-intelligence" },
-      { name: "ACWR Inspector", href: "/admin/acwr-inspector" },
-      { name: "AI Health", href: "/admin/ai-health" },
+      { name: "Eval Dashboard", href: "/admin/enterprise/evaluations" },
+      { name: "Conversation Browser", href: "/admin/enterprise/evaluations/conversations" },
       { name: "Safety Gate", href: "/admin/safety-gate" },
     ],
   },
   {
-    label: "Notifications",
+    label: "Operations",
     minRole: "institutional_pd",
     items: [
-      { name: "Templates", href: "/admin/notifications/templates" },
-      { name: "Scheduled Jobs", href: "/admin/notifications/scheduled" },
-    ],
-  },
-  {
-    label: "System Diagnostics",
-    minRole: "super_admin",
-    items: [
-      { name: "Debug Console", href: "/admin/debug" },
-      { name: "Feature Flags", href: "/admin/feature-flags" },
-      { name: "Scheduling Rules", href: "/admin/scheduling-rules" },
+      { name: "Organizations", href: "/admin/enterprise/organizations", minRole: "super_admin" },
+      { name: "Onboarding", href: "/admin/enterprise/onboarding", minRole: "super_admin" },
+      { name: "AI Health", href: "/admin/ai-health" },
+      { name: "ACWR Inspector", href: "/admin/acwr-inspector" },
+      { name: "Performance Intelligence", href: "/admin/performance-intelligence" },
+      { name: "Dashboard Sections", href: "/admin/dashboard-sections" },
+      { name: "Feature Flags", href: "/admin/feature-flags", minRole: "super_admin" },
+      { name: "Debug Console", href: "/admin/debug", minRole: "super_admin" },
     ],
   },
 ];
@@ -173,7 +129,6 @@ export function EnterpriseSidebar({
   const pathname = usePathname();
   const userLevel = ROLE_HIERARCHY[userRole] ?? 99;
 
-  // Filter nav groups and items by role
   const filteredNav = navigation
     .filter((group) => {
       const groupLevel = ROLE_HIERARCHY[group.minRole || "athlete"] ?? 99;

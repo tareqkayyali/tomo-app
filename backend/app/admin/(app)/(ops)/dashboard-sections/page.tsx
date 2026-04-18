@@ -18,6 +18,7 @@ import { toast } from "sonner";
 // ── Component type display config ──
 
 const COMPONENT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  // Screen-level
   signal_hero:     { label: "Athlete Mode",    color: "#30D158" },
   status_ring:     { label: "Status Ring",     color: "#7a9b76" },
   kpi_row:         { label: "KPI Row",         color: "#5A8A9F" },
@@ -32,7 +33,38 @@ const COMPONENT_TYPE_LABELS: Record<string, { label: string; color: string }> = 
   custom_card:     { label: "Custom Card",     color: "#5A8A6A" },
   daily_recs:      { label: "Daily Recs",      color: "#4A8A6A" },
   up_next:         { label: "Up Next",         color: "#6A7A5A" },
+  welcome_card:        { label: "Welcome Card",   color: "#4A8A6A" },
+  daily_recommendations:{ label: "Daily Recs (new)", color: "#4A8A6A" },
+  up_next_timeline:    { label: "Up Next Timeline", color: "#6A7A5A" },
+  // Program panel
+  program_today_session: { label: "Today's Session", color: "#7A9B76" },
+  program_my_programs:   { label: "My Programs",     color: "#7A9B76" },
+  program_ai_recs:       { label: "AI Recommendations", color: "#7A9B76" },
+  program_week_strip:    { label: "Week Strip",      color: "#7A9B76" },
+  // Metrics panel
+  metrics_sync_row:        { label: "Sync Vitals",    color: "#5A8A9F" },
+  metrics_hrv:             { label: "HRV",            color: "#5A8A9F" },
+  metrics_sleep:           { label: "Sleep",          color: "#5A8A9F" },
+  metrics_acwr:            { label: "ACWR",           color: "#5A8A9F" },
+  metrics_readiness_trend: { label: "Readiness Trend",color: "#5A8A9F" },
+  metrics_wellness_trends: { label: "Wellness Trends",color: "#5A8A9F" },
+  metrics_training_load:   { label: "Training Load",  color: "#5A8A9F" },
+  // Progress panel
+  progress_cv_ring:           { label: "Performance Identity", color: "#c49a3c" },
+  progress_this_month:        { label: "This Month",           color: "#c49a3c" },
+  progress_training_load_28d: { label: "Training Load 28d",    color: "#c49a3c" },
+  progress_consistency:       { label: "Consistency",          color: "#c49a3c" },
+  progress_benchmark:         { label: "Benchmark Progress",   color: "#c49a3c" },
 };
+
+// Display config for the panel filter tabs
+const PANEL_TAB_CONFIG: { key: string; label: string; color: string }[] = [
+  { key: "all",      label: "All",       color: "rgba(255,255,255,0.35)" },
+  { key: "screen",   label: "Screen",    color: "#30D158" },
+  { key: "program",  label: "Program",   color: "#7A9B76" },
+  { key: "metrics",  label: "Metrics",   color: "#5A8A9F" },
+  { key: "progress", label: "Progress",  color: "#c49a3c" },
+];
 
 // Screen-level sections are rendered at fixed positions in the mobile app.
 // Their sort_order only matters for CMS table display — reordering them
@@ -56,6 +88,8 @@ interface DashboardSection {
   coaching_text: string | null;
   sport_filter: string[] | null;
   is_enabled: boolean;
+  /** NULL = screen-level section, otherwise one of the panel keys. */
+  panel_key: "program" | "metrics" | "progress" | null;
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +98,7 @@ export default function DashboardSectionsPage() {
   const router = useRouter();
   const [sections, setSections] = useState<DashboardSection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [panelFilter, setPanelFilter] = useState<string>("all");
 
   const fetchSections = useCallback(async () => {
     setLoading(true);
@@ -139,13 +174,17 @@ export default function DashboardSectionsPage() {
     }
   }
 
-  // ── Move up/down (swap sort_order with adjacent) ──
-  async function handleMove(index: number, direction: "up" | "down") {
+  // ── Move up/down (swap sort_order with adjacent within the current panel filter) ──
+  async function handleMove(
+    list: DashboardSection[],
+    index: number,
+    direction: "up" | "down",
+  ) {
     const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= sections.length) return;
+    if (swapIndex < 0 || swapIndex >= list.length) return;
 
-    const a = sections[index];
-    const b = sections[swapIndex];
+    const a = list[index];
+    const b = list[swapIndex];
     const order = [
       { id: a.id, sort_order: b.sort_order },
       { id: b.id, sort_order: a.sort_order },
@@ -166,8 +205,14 @@ export default function DashboardSectionsPage() {
     }
   }
 
-  const enabledCount = sections.filter((s) => s.is_enabled).length;
-  const totalCount = sections.length;
+  const filteredSections = sections.filter((s) => {
+    if (panelFilter === "all") return true;
+    if (panelFilter === "screen") return s.panel_key === null;
+    return s.panel_key === panelFilter;
+  });
+
+  const enabledCount = filteredSections.filter((s) => s.is_enabled).length;
+  const totalCount = filteredSections.length;
 
   return (
     <div className="space-y-6">
@@ -185,6 +230,40 @@ export default function DashboardSectionsPage() {
         </Button>
       </div>
 
+      {/* Panel filter tabs */}
+      <div className="flex gap-1 border-b border-border">
+        {PANEL_TAB_CONFIG.map((tab) => {
+          const isActive = panelFilter === tab.key;
+          const count =
+            tab.key === "all"
+              ? sections.length
+              : tab.key === "screen"
+                ? sections.filter((s) => s.panel_key === null).length
+                : sections.filter((s) => s.panel_key === tab.key).length;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setPanelFilter(tab.key)}
+              className={`relative px-4 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              style={isActive ? { color: tab.color } : undefined}
+            >
+              {tab.label}{" "}
+              <span className="text-xs opacity-60">({count})</span>
+              {isActive && (
+                <span
+                  className="absolute bottom-0 left-0 right-0 h-[2px]"
+                  style={{ backgroundColor: tab.color }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -192,6 +271,7 @@ export default function DashboardSectionsPage() {
               <TableHead className="w-[80px]">Order</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Key</TableHead>
+              <TableHead className="w-[110px]">Panel</TableHead>
               <TableHead>Component</TableHead>
               <TableHead>Visibility</TableHead>
               <TableHead className="w-[100px]">Sport Filter</TableHead>
@@ -203,23 +283,25 @@ export default function DashboardSectionsPage() {
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="text-center py-8 text-muted-foreground"
                 >
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : sections.length === 0 ? (
+            ) : filteredSections.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="text-center py-8 text-muted-foreground"
                 >
-                  No dashboard sections found. Create one to get started.
+                  {panelFilter === "all"
+                    ? "No dashboard sections found. Create one to get started."
+                    : `No sections in the ${panelFilter} panel yet.`}
                 </TableCell>
               </TableRow>
             ) : (
-              sections.map((s, i) => {
+              filteredSections.map((s, i) => {
                 const typeConfig = COMPONENT_TYPE_LABELS[s.component_type] ?? {
                   label: s.component_type,
                   color: "#666",
@@ -254,15 +336,15 @@ export default function DashboardSectionsPage() {
                           <button
                             className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
                             disabled={i === 0}
-                            onClick={() => handleMove(i, "up")}
+                            onClick={() => handleMove(filteredSections, i, "up")}
                             title="Move up"
                           >
                             &uarr;
                           </button>
                           <button
                             className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
-                            disabled={i === sections.length - 1}
-                            onClick={() => handleMove(i, "down")}
+                            disabled={i === filteredSections.length - 1}
+                            onClick={() => handleMove(filteredSections, i, "down")}
                             title="Move down"
                           >
                             &darr;
@@ -285,6 +367,26 @@ export default function DashboardSectionsPage() {
                     {/* Section Key */}
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {s.section_key}
+                    </TableCell>
+
+                    {/* Panel Scope Badge */}
+                    <TableCell>
+                      {s.panel_key ? (
+                        <Badge
+                          variant="outline"
+                          className="text-xs capitalize"
+                          style={{
+                            borderColor:
+                              PANEL_TAB_CONFIG.find((t) => t.key === s.panel_key)?.color ?? "#666",
+                            color:
+                              PANEL_TAB_CONFIG.find((t) => t.key === s.panel_key)?.color ?? "#666",
+                          }}
+                        >
+                          {s.panel_key}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Screen</span>
+                      )}
                     </TableCell>
 
                     {/* Component Type Badge */}

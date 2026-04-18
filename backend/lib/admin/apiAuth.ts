@@ -1,33 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { NextRequest } from "next/server";
+import { requireEnterprise } from "@/lib/admin/enterpriseAuth";
+import type { NextResponse } from "next/server";
 import type { RequestUser } from "@/lib/auth";
 
 /**
  * Require admin access for API routes.
- * Checks the `is_admin` boolean column so users keep their normal role.
+ *
+ * Compatibility wrapper over `requireEnterprise(req, "institutional_pd")`.
+ * Preserves the legacy `{ user: RequestUser } | { error }` shape so existing
+ * callers don't need to change, while sourcing auth from enterprise RBAC
+ * (organization_memberships) instead of the deprecated users.is_admin flag.
+ *
+ * For routes that require super_admin, call requireEnterprise directly.
  */
 export async function requireAdmin(
   req: NextRequest
 ): Promise<{ user: RequestUser } | { error: NextResponse }> {
-  const auth = requireAuth(req);
+  const auth = await requireEnterprise(req, "institutional_pd");
   if ("error" in auth) return auth;
-
-  const db = supabaseAdmin();
-  const { data } = await db
-    .from("users")
-    .select("is_admin")
-    .eq("id", auth.user.id)
-    .single() as { data: { is_admin: boolean } | null; error: unknown };
-
-  if (!data || !data.is_admin) {
-    return {
-      error: NextResponse.json(
-        { error: "Admin access required" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return { user: auth.user };
+  return { user: { id: auth.user.id, email: auth.user.email } };
 }
