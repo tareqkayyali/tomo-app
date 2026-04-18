@@ -551,19 +551,21 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
     elif current.card == "week_plan_preview_capsule":
         # Two interactions on this card:
         #   1. Edit a single session inline — mobile posts edit payload,
-        #      we validate via /validate-edit and mutate draft_plan_items.
-        #   2. Accept → advance to confirm_week_plan card.
+        #      we validate via /validate-edit and mutate draft_plan_items,
+        #      then re-render. The card stays up.
+        #   2. Accept → run the commit bridge directly (no second confirm
+        #      card — the preview IS the confirm UI). Flow completes.
         submitted = _extract_capsule_payload(state)
         action = (submitted or {}).get("action") or ""
         if action == "edit_item":
             edit_result = await _apply_draft_edit(flow, state, submitted)
-            if edit_result.get("ok"):
-                return await _present_week_plan_preview_capsule(flow, state)
-            # Validation failed — re-render with error on the card.
-            flow.store("draft_edit_error", edit_result.get("message", "Edit rejected."))
+            if not edit_result.get("ok"):
+                flow.store("draft_edit_error", edit_result.get("message", "Edit rejected."))
             return await _present_week_plan_preview_capsule(flow, state)
         if action == "accept" or _is_confirmation(user_message):
-            flow.advance()
+            confirm_result = await _execute_confirm_tool(flow, state)
+            flow.store("confirm_result", confirm_result)
+            flow.advance()  # no more steps → _execute_current_step builds completion
         elif _is_rejection(user_message):
             await clear_flow_state(
                 state.get("session_id", ""),
@@ -586,8 +588,6 @@ async def execute_multi_step_continuation(flow: FlowState, state: TomoChatState)
             )
             return _build_cancel_response()
         else:
-            if current.id == "confirm_week_plan":
-                return await _present_week_plan_confirm(flow, state)
             return await _present_confirm(flow, state)
 
     # Execute from current step forward
@@ -726,11 +726,6 @@ async def _execute_current_step(flow: FlowState, state: TomoChatState) -> dict:
 
         # ── Confirm card ──
         if step.card == "confirm_card":
-            # Week-plan flow uses confirm_card as its final step but with a
-            # different confirm_tool. The card body is the preview emitted
-            # by the prior step; we still need user input ("yes"/"no") here.
-            if step.id == "confirm_week_plan":
-                return await _present_week_plan_confirm(flow, state)
             return await _present_confirm(flow, state)
 
         # ── Week planner card types ──
@@ -2601,48 +2596,6 @@ async def _present_week_plan_preview_capsule(flow: FlowState, state: TomoChatSta
         "chips": [],
     }
 
-    await save_flow_state(
-        state.get("session_id", ""),
-        state.get("user_id", ""),
-        flow,
-    )
-    return {
-        "final_response": json.dumps(structured),
-        "final_cards": structured["cards"],
-        "_flow_pattern": "multi_step",
-        "route_decision": "flow_handled",
-        "total_cost_usd": 0.0,
-        "total_tokens": 0,
-    }
-
-
-async def _present_week_plan_confirm(flow: FlowState, state: TomoChatState) -> dict:
-    """Final "lock it in?" gate. The preview is already shown; this is the
-    atomic confirm_card that triggers the commit bridge when accepted."""
-    summary = flow.get("draft_summary") or {}
-    training = int(summary.get("trainingSessions", 0))
-    study = int(summary.get("studySessions", 0))
-    total_min = int(summary.get("totalMinutes", 0))
-    total_h = total_min // 60
-    total_m = total_min % 60
-    hours_label = f"{total_h}h {total_m}m" if total_m else f"{total_h}h"
-
-    structured = {
-        "headline": "Lock in your week?",
-        "body": f"{training} training + {study} study · {hours_label}",
-        "cards": [{
-            "type": "confirm_card",
-            "title": "Generate Week Plan",
-            "summary": [
-                {"label": "Training sessions", "value": str(training)},
-                {"label": "Study sessions", "value": str(study)},
-                {"label": "Total time", "value": hours_label},
-            ],
-            "confirmLabel": "Confirm",
-            "cancelLabel": "Cancel",
-        }],
-        "chips": [],
-    }
     await save_flow_state(
         state.get("session_id", ""),
         state.get("user_id", ""),

@@ -102,8 +102,11 @@ _BUILD_WEEK_PLAN_STEPS = [
     {"id": "pick_training_mix", "card": "training_mix_capsule"},
     {"id": "pick_study_plan", "card": "study_plan_capsule"},
     {"id": "build_draft", "tool": "build_week_plan_draft"},
+    # The preview capsule IS the confirm UI — it shows the full plan + total
+    # + warnings + "Lock in the week" CTA. Tapping that button runs the
+    # commit tool directly (see week_plan_preview_capsule handler below).
+    # No separate confirm_card step — that was a redundant "are you sure?".
     {"id": "review_week_plan", "card": "week_plan_preview_capsule"},
-    {"id": "confirm_week_plan", "card": "confirm_card", "confirm_tool": "commit_week_plan"},
 ]
 
 

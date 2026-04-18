@@ -1797,6 +1797,19 @@ export function HomeScreen() {
     } else if (capsuleAction.toolName === 'generate_regular_study_plan') {
       const { subjects, planWeeks } = capsuleAction.toolInput;
       previewParts.push(`Generate ${planWeeks ?? 4}-week regular study plan for ${Array.isArray(subjects) ? subjects.join(', ') : 'subjects'}`);
+    } else if (capsuleAction.toolName === '__submit_training_mix__') {
+      previewParts.push('Training mix set');
+    } else if (capsuleAction.toolName === '__submit_study_plan__') {
+      previewParts.push('Study plan set');
+    } else if (capsuleAction.toolName === '__accept_week_plan__') {
+      previewParts.push('Lock it in');
+    } else if (capsuleAction.toolName === '__edit_week_plan_item__') {
+      previewParts.push('Update session');
+    } else if (capsuleAction.toolName.startsWith('__') && capsuleAction.toolName.endsWith('__')) {
+      // Synthetic capsule markers (double-underscore sentinels) are internal
+      // routing hints, never user-facing — suppress the raw name from the
+      // optimistic bubble and use a generic acknowledgement instead.
+      previewParts.push('Submitted');
     } else {
       // Generic fallback — humanize tool name
       previewParts.push(capsuleAction.toolName.replace(/_/g, ' '));
