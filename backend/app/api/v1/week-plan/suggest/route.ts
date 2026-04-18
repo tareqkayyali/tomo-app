@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     (db as any)
       .from("player_schedule_preferences")
       .select(
-        "training_categories, study_subjects, exam_subjects, exam_schedule, exam_period_active",
+        "training_categories, study_subjects, exam_subjects, exam_schedule, exam_period_active, week_start_day",
       )
       .eq("user_id", auth.user.id)
       .maybeSingle(),
@@ -88,6 +88,12 @@ export async function GET(req: NextRequest) {
     new Set([...examSubjectsDirect, ...examScheduleSubjects]),
   );
   const examPeriodActive = Boolean(prefs?.exam_period_active);
+  // My Rules week-start day (0=Sun..6=Sat). Defaults to 6 (Saturday)
+  // when not set — the column has a DB default too, this is
+  // belt-and-suspenders for legacy rows.
+  const weekStartDay = typeof prefs?.week_start_day === "number"
+    ? prefs.week_start_day
+    : 6;
 
   const prior = priorRes?.data ?? null;
   const baseline = buildBaselineTrainingMix(catalog, prefs?.training_categories);
@@ -96,6 +102,7 @@ export async function GET(req: NextRequest) {
   if (!prior || prior.status !== "completed" || prior.compliance_rate == null) {
     return NextResponse.json({
       weekStart,
+      weekStartDay,
       source: "catalog",
       trainingMix: baseline,
       studyMix: baselineStudy,
@@ -151,6 +158,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     weekStart,
+    weekStartDay,
     source: "adapted_from_prior",
     priorWeekStart: prior.week_start,
     priorComplianceRate: overallRate,
@@ -170,6 +178,7 @@ function mapPreferredTime(raw: string | null): "morning" | "afternoon" | "evenin
 function buildBaselineTrainingMix(
   catalog: Array<{
     category: string;
+    label: string;
     defaultMode: string;
     defaultSessionsPerWeek: number;
     defaultDurationMin: number;
@@ -177,25 +186,74 @@ function buildBaselineTrainingMix(
   }>,
   playerOverride: unknown,
 ) {
-  // If the player has configured `training_categories` JSONB on their prefs,
-  // respect their per-category frequencies/durations. Otherwise use catalog.
+  // My Rules is the source of truth. If the athlete has configured
+  // `training_categories` JSONB, respect their ENABLED list — only show
+  // categories they've turned on. Categories disabled in My Rules don't
+  // appear in the Training Mix capsule at all.
+  //
+  // Fallback: when the JSONB is missing or empty, use the CMS catalog
+  // (training_category_templates) so first-time athletes see a sensible
+  // starting palette.
   const override = isRecord(playerOverride) ? (playerOverride as Record<string, unknown>) : null;
+  const catalogById = new Map(catalog.map((c) => [c.category, c]));
 
-  return catalog.map((c) => {
-    const o = override?.[c.category];
-    const oo = isRecord(o) ? (o as Record<string, unknown>) : null;
-    return {
-      category: c.category,
-      sessionsPerWeek: numberOr(oo?.daysPerWeek, c.defaultSessionsPerWeek),
-      durationMin: numberOr(oo?.sessionDurationMin, c.defaultDurationMin),
-      placement:
-        (c.defaultMode === "fixed_days" ? "fixed" : "flexible") as
-          | "fixed"
-          | "flexible",
-      fixedDays: Array.isArray(oo?.fixedDays) ? (oo?.fixedDays as number[]) : [],
-      preferredTime: c.defaultPreferredTime,
-    };
-  });
+  // Path A — My Rules has entries → filter by enabled, use the player's
+  //           per-category frequency/duration/days.
+  if (override) {
+    const enabledEntries: Array<[string, Record<string, unknown>]> = [];
+    for (const [id, raw] of Object.entries(override)) {
+      if (!isRecord(raw)) continue;
+      const o = raw as Record<string, unknown>;
+      // Treat "enabled missing" as enabled — many legacy rows don't set
+      // the flag. If explicitly false, hide.
+      if (o.enabled === false) continue;
+      enabledEntries.push([id, o]);
+    }
+    if (enabledEntries.length > 0) {
+      return enabledEntries.map(([id, o]) => {
+        const c = catalogById.get(id);
+        return {
+          category: id,
+          // Prefer My Rules config; cascade to catalog defaults if a
+          // specific field isn't set; final fallback is a sensible
+          // baseline so the capsule never crashes.
+          sessionsPerWeek: numberOr(o.daysPerWeek, c?.defaultSessionsPerWeek ?? 2),
+          durationMin: numberOr(o.sessionDurationMin, c?.defaultDurationMin ?? 60),
+          placement: inferPlacement(o, c) as "fixed" | "flexible",
+          fixedDays: Array.isArray(o.fixedDays) ? (o.fixedDays as number[]) : [],
+          preferredTime: (c?.defaultPreferredTime ?? "afternoon") as
+            | "morning" | "afternoon" | "evening",
+          label: c?.label ?? id,
+        };
+      });
+    }
+  }
+
+  // Path B — My Rules empty/unset → cascade to CMS catalog defaults.
+  return catalog.map((c) => ({
+    category: c.category,
+    sessionsPerWeek: c.defaultSessionsPerWeek,
+    durationMin: c.defaultDurationMin,
+    placement: (c.defaultMode === "fixed_days" ? "fixed" : "flexible") as
+      | "fixed"
+      | "flexible",
+    fixedDays: [],
+    preferredTime: c.defaultPreferredTime,
+    label: c.label,
+  }));
+}
+
+/** Derive placement from a My Rules JSONB entry, falling back to the
+ *  catalog's defaultMode, finally to 'flexible'. */
+function inferPlacement(
+  o: Record<string, unknown>,
+  c?: { defaultMode: string },
+): "fixed" | "flexible" {
+  if (o.mode === "fixed_days" || o.placement === "fixed") return "fixed";
+  if (o.mode === "days_per_week" || o.placement === "flexible") return "flexible";
+  if (Array.isArray(o.fixedDays) && (o.fixedDays as unknown[]).length > 0) return "fixed";
+  if (c?.defaultMode === "fixed_days") return "fixed";
+  return "flexible";
 }
 
 function buildBaselineStudyMix(

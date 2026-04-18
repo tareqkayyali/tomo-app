@@ -2304,9 +2304,13 @@ def _add_minutes(hhmm: str, minutes: int) -> str:
 # ── Week planner helpers ────────────────────────────────────────────────
 
 def _resolve_week_start_from_message(msg: str, flow: FlowState) -> str | None:
-    """Map 'This week' / 'Next week' / 'Week after' (or their short-form
-    ids 'this' / 'next' / 'after') to the Monday of that week
-    (ISO YYYY-MM-DD). Everything else → None."""
+    """Map 'This week' / 'Next week' / 'Week after' (or short-form ids
+    'this' / 'next' / 'after') to the ISO date of the week's first day.
+
+    The first day is the athlete's My Rules `week_start_day` (0=Sun..
+    6=Sat). Falls back to 6 (Saturday) if the flow doesn't know — the
+    ME-academic default. Never hardcodes Monday.
+    """
     from datetime import datetime, timedelta
     lowered = (msg or "").lower().strip()
     today_iso = flow.get("today_date") or ""
@@ -2314,17 +2318,28 @@ def _resolve_week_start_from_message(msg: str, flow: FlowState) -> str | None:
         today = datetime.strptime(today_iso, "%Y-%m-%d") if today_iso else datetime.utcnow()
     except ValueError:
         today = datetime.utcnow()
-    # Monday of current week = today - weekday() days (Mon=0..Sun=6).
-    monday = today - timedelta(days=today.weekday())
 
-    # Check exact short-form id first (from week_scope_capsule submit).
+    # Python's weekday(): Mon=0..Sun=6. JS/our model: Sun=0..Sat=6.
+    # Convert Python's value to the JS convention once.
+    today_js_weekday = (today.weekday() + 1) % 7  # Mon=1, Sun=0
+    wsd_raw = flow.get("week_start_day")
+    try:
+        week_start_day = int(wsd_raw) if wsd_raw is not None else 6
+    except (TypeError, ValueError):
+        week_start_day = 6
+    if not (0 <= week_start_day <= 6):
+        week_start_day = 6
+
+    # Days back from today to reach the current week's start.
+    days_back = (today_js_weekday - week_start_day) % 7
+    current_week_start = today - timedelta(days=days_back)
+
     if lowered == "this":
         offset_weeks = 0
     elif lowered == "next":
         offset_weeks = 1
     elif lowered == "after":
         offset_weeks = 2
-    # Fall back to substring matching for free-text ("next week please").
     elif "week after" in lowered or "two weeks" in lowered:
         offset_weeks = 2
     elif "next week" in lowered:
@@ -2333,7 +2348,7 @@ def _resolve_week_start_from_message(msg: str, flow: FlowState) -> str | None:
         offset_weeks = 0
     else:
         return None
-    return (monday + timedelta(weeks=offset_weeks)).strftime("%Y-%m-%d")
+    return (current_week_start + timedelta(weeks=offset_weeks)).strftime("%Y-%m-%d")
 
 
 _WEEK_OPTIONS = [
@@ -2350,8 +2365,11 @@ _FALLBACK_MODES = [
 ]
 
 
-async def _fetch_modes(user_id: str) -> tuple[list[dict], str]:
-    """Load athlete_modes catalog + current mode from the TS bridge."""
+async def _fetch_modes(user_id: str) -> tuple[list[dict], str, int]:
+    """Load athlete_modes catalog + current mode + weekStartDay from the
+    TS bridge. The weekStartDay is the athlete's My Rules setting
+    (0=Sun..6=Sat) — the week-scope resolver uses it so "this week"
+    lands on the right day for ME athletes whose week is Sat-Fri."""
     from app.agents.tools.bridge import bridge_get
     try:
         result = await bridge_get(
@@ -2361,22 +2379,29 @@ async def _fetch_modes(user_id: str) -> tuple[list[dict], str]:
         )
     except Exception as e:
         logger.warning(f"week_scope: modes fetch failed, using fallback: {e}")
-        return _FALLBACK_MODES, "balanced"
+        return _FALLBACK_MODES, "balanced", 6
     if not isinstance(result, dict) or result.get("error"):
-        return _FALLBACK_MODES, "balanced"
+        return _FALLBACK_MODES, "balanced", 6
     modes = result.get("modes")
     if not isinstance(modes, list) or not modes:
         modes = _FALLBACK_MODES
     current = result.get("currentMode")
     if not isinstance(current, str) or not current:
         current = "balanced"
-    return modes, current
+    wsd_raw = result.get("weekStartDay")
+    wsd = int(wsd_raw) if isinstance(wsd_raw, (int, float)) and 0 <= int(wsd_raw) <= 6 else 6
+    return modes, current, wsd
 
 
 async def _present_week_scope_capsule(flow: FlowState, state: TomoChatState) -> dict:
     """Render the combined week-scope + mode picker as the opening step."""
     user_id = state.get("user_id", "")
-    modes, current_mode = await _fetch_modes(user_id)
+    modes, current_mode, week_start_day = await _fetch_modes(user_id)
+    # Cache the player's week_start_day on flow state — the continuation
+    # handler's _coerce_week_scope reads it when resolving "this" | "next"
+    # | "after" into a concrete Monday (or Saturday, or whatever day the
+    # athlete configured) date.
+    flow.store("week_start_day", week_start_day)
 
     structured = {
         "headline": "Plan your week",

@@ -123,6 +123,13 @@ export function mapDbRowToCalendarEvent(
     intensity: row.intensity || null,
     notes: row.notes || "",
     sessionPlan: row.session_plan ?? null,
+    // Structured provenance (migration 058). The week planner writes
+    // metadata.week_plan with the plan_id + any repair adjustments so
+    // the Timeline can narrate "moved from Tue because Tue was full"
+    // at tap time — see services/weekPlan/commit for producer side.
+    metadata: (row.metadata && typeof row.metadata === "object") ? row.metadata : {},
+    completed: Boolean(row.completed),
+    completedAt: row.completed_at ? String(row.completed_at) : null,
     createdAt: row.created_at,
   };
 }

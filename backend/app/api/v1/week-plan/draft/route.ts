@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import {
   buildWeekPlan,
@@ -88,10 +89,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Guard: weekStart must be a Monday — the whole flow assumes Mon-Sun.
-  if (!isMonday(body.weekStart)) {
+  // weekStart must match the athlete's configured week_start_day. Load
+  // from prefs here so Python can pass any date it resolved client-side
+  // (which in turn honored the same My Rules setting). Reject mismatches
+  // so we never silently schedule against the wrong 7-day window.
+  const prefs = await (supabaseAdmin() as any)
+    .from("player_schedule_preferences")
+    .select("week_start_day")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  const weekStartDay = typeof prefs?.data?.week_start_day === "number"
+    ? prefs.data.week_start_day
+    : 6;
+  if (weekdayOf(body.weekStart) !== weekStartDay) {
     return NextResponse.json(
-      { error: "weekStart must be a Monday" },
+      {
+        error: "weekStart does not match the athlete's configured week_start_day",
+        expectedWeekday: weekStartDay,
+        got: weekdayOf(body.weekStart),
+      },
       { status: 400 },
     );
   }
@@ -155,7 +171,8 @@ export async function POST(req: NextRequest) {
   });
 }
 
-function isMonday(iso: string): boolean {
+/** 0=Sun..6=Sat, via UTC to avoid local-tz drift. */
+function weekdayOf(iso: string): number {
   const [y, m, d] = iso.split("-").map((n) => parseInt(n, 10));
-  return new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1)).getUTCDay() === 1;
+  return new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1)).getUTCDay();
 }

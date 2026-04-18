@@ -1,21 +1,11 @@
 /**
  * GET  /api/v1/schedule/rules  — Load player schedule preferences + effective rules
  * PATCH /api/v1/schedule/rules — Update player schedule preferences
- *
- * Uses direct PostgreSQL connection (bypasses PostgREST schema cache).
- *
- * ACTUAL column types (verified via information_schema):
- *   - *_days columns: integer[] (NOT jsonb)
- *   - exam_subjects, study_subjects: text[] (NOT jsonb)
- *   - exam_start_date: date (NOT text)
- *   - training_categories, exam_schedule, mode_params_override, regular_study_config: jsonb
- *   - weekend_bounds_start, weekend_bounds_end: text (nullable)
- *   - all other text/int/bool columns: as expected
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { directQuery } from "@/lib/supabase/directDb";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   DEFAULT_PREFERENCES,
   detectScenario,
@@ -26,7 +16,26 @@ import {
 import { getModeDefinition } from "@/services/scheduling/modeConfig";
 import { emitEventSafe } from "@/services/events/eventEmitter";
 
-// All columns that can be written via PATCH
+const TABLE = "player_schedule_preferences";
+
+// DB columns are nullable (pre-defaults); domain type is non-null. This drops
+// nulls before merging so DEFAULT_PREFERENCES fills any gaps cleanly.
+function mergeWithDefaults(
+  row: Record<string, unknown> | null,
+): PlayerSchedulePreferences {
+  const patch: Partial<PlayerSchedulePreferences> = {};
+  if (row) {
+    for (const [key, value] of Object.entries(row)) {
+      if (value !== null) {
+        (patch as Record<string, unknown>)[key] = value;
+      }
+    }
+  }
+  return { ...DEFAULT_PREFERENCES, ...patch };
+}
+
+// Columns the PATCH endpoint accepts. PostgREST handles type serialization
+// (jsonb, integer[], text[], date) natively via the schema cache.
 const ALLOWED_FIELDS = new Set([
   "school_days", "school_start", "school_end",
   "sleep_start", "sleep_end",
@@ -42,57 +51,10 @@ const ALLOWED_FIELDS = new Set([
   "pre_exam_study_weeks", "days_per_subject",
   "training_categories", "exam_schedule", "study_subjects",
   "athlete_mode", "mode_params_override",
+  // First weekday of the athlete's training week (0=Sun..6=Sat).
+  // Default 6 (Saturday) — see migration 059.
+  "week_start_day",
 ]);
-
-// ── Column type classification (matches actual DB schema) ──
-
-// integer[] columns — pg driver sends JS arrays as PostgreSQL arrays
-const INT_ARRAY_FIELDS = new Set([
-  "school_days", "study_days", "gym_days", "personal_dev_days", "club_days",
-]);
-
-// text[] columns
-const TEXT_ARRAY_FIELDS = new Set([
-  "exam_subjects", "study_subjects",
-]);
-
-// jsonb columns — need JSON.stringify + ::jsonb cast
-const JSONB_FIELDS = new Set([
-  "training_categories", "exam_schedule", "mode_params_override",
-]);
-
-// date column — needs ::date cast
-const DATE_FIELDS = new Set([
-  "exam_start_date",
-]);
-
-/**
- * Build the SQL parameter placeholder and serialize the value
- * based on the actual column type in the database.
- */
-function sqlParam(
-  key: string,
-  value: unknown,
-  paramIdx: number,
-): { placeholder: string; serialized: unknown } {
-  if (JSONB_FIELDS.has(key)) {
-    return {
-      placeholder: `$${paramIdx}::jsonb`,
-      serialized: value === null ? null : JSON.stringify(value),
-    };
-  }
-  if (DATE_FIELDS.has(key)) {
-    return {
-      placeholder: value === null ? `$${paramIdx}` : `$${paramIdx}::date`,
-      serialized: value,
-    };
-  }
-  // integer[], text[], and all scalar types — pg driver handles natively
-  return {
-    placeholder: `$${paramIdx}`,
-    serialized: value,
-  };
-}
 
 // ── GET ────────────────────────────────────────────────────────
 
@@ -100,24 +62,21 @@ export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
 
-  let row: Record<string, unknown> | null = null;
-  try {
-    const rows = await directQuery(
-      `SELECT * FROM public.player_schedule_preferences WHERE user_id = $1 LIMIT 1`,
-      [auth.user.id],
-    );
-    row = rows[0] ?? null;
-  } catch (err) {
-    console.error("[schedule/rules GET] DB error:", err);
+  const db = supabaseAdmin();
+  const { data: row, error } = await db
+    .from(TABLE)
+    .select("*")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[schedule/rules GET] DB error:", error);
   }
 
-  const merged: PlayerSchedulePreferences = {
-    ...DEFAULT_PREFERENCES,
-    ...(row ?? {}),
-  };
+  const merged = mergeWithDefaults(row);
 
   const scenario = detectScenario(merged);
-  const athleteMode = (merged as any).athlete_mode ?? "balanced";
+  const athleteMode = merged.athlete_mode ?? "balanced";
 
   // Use CMS mode-aware rules when mode params are available; fall back to legacy scenario-based rules
   let effective;
@@ -155,7 +114,6 @@ export async function PATCH(req: NextRequest) {
 
     const body = await req.json();
 
-    // Filter to only allowed fields
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(body)) {
       if (ALLOWED_FIELDS.has(key)) {
@@ -167,89 +125,57 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
-    // Check if row exists
-    const existing = await directQuery(
-      `SELECT user_id FROM public.player_schedule_preferences WHERE user_id = $1 LIMIT 1`,
-      [auth.user.id],
-    );
+    const db = supabaseAdmin();
 
-    if (existing.length > 0) {
-      // UPDATE — build SET clause with correct type casts
-      const setClauses: string[] = [];
-      const values: unknown[] = [];
-      let paramIdx = 1;
+    let previousMode: string | null = null;
+    if (updates.athlete_mode) {
+      const { data: existing } = await db
+        .from(TABLE)
+        .select("athlete_mode")
+        .eq("user_id", auth.user.id)
+        .maybeSingle();
+      previousMode = existing?.athlete_mode ?? "balanced";
+    }
 
-      for (const [key, value] of Object.entries(updates)) {
-        const { placeholder, serialized } = sqlParam(key, value, paramIdx);
-        setClauses.push(`${key} = ${placeholder}`);
-        values.push(serialized);
-        paramIdx++;
-      }
+    const { data: row, error: upsertError } = await db
+      .from(TABLE)
+      .upsert(
+        { ...updates, user_id: auth.user.id, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      )
+      .select("*")
+      .single();
 
-      setClauses.push(`updated_at = now()`);
-      values.push(auth.user.id);
-
-      await directQuery(
-        `UPDATE public.player_schedule_preferences SET ${setClauses.join(", ")} WHERE user_id = $${paramIdx}`,
-        values,
-      );
-    } else {
-      // INSERT
-      const columns: string[] = ["user_id"];
-      const placeholders: string[] = ["$1"];
-      const values: unknown[] = [auth.user.id];
-      let paramIdx = 2;
-
-      for (const [key, value] of Object.entries(updates)) {
-        columns.push(key);
-        const { placeholder, serialized } = sqlParam(key, value, paramIdx);
-        placeholders.push(placeholder);
-        values.push(serialized);
-        paramIdx++;
-      }
-
-      await directQuery(
-        `INSERT INTO public.player_schedule_preferences (${columns.join(", ")}) VALUES (${placeholders.join(", ")})`,
-        values,
+    if (upsertError) {
+      console.error("[schedule/rules PATCH] Upsert failed:", upsertError);
+      return NextResponse.json(
+        { error: `Save failed: ${upsertError.message}` },
+        { status: 500 },
       );
     }
 
-    // Fetch updated row
-    const rows = await directQuery(
-      `SELECT * FROM public.player_schedule_preferences WHERE user_id = $1 LIMIT 1`,
-      [auth.user.id],
-    );
-    const row = rows[0] ?? null;
+    const merged = mergeWithDefaults(row);
 
-    const merged: PlayerSchedulePreferences = {
-      ...DEFAULT_PREFERENCES,
-      ...(row ?? {}),
-    };
-
-    // ── Emit MODE_CHANGE event if athlete_mode was updated ──
-    if (updates.athlete_mode) {
-      const previousMode = (row as any)?.athlete_mode ?? "balanced";
-      const newMode = updates.athlete_mode as string;
-      if (previousMode !== newMode) {
-        await emitEventSafe({
-          athleteId: auth.user.id,
-          eventType: "MODE_CHANGE",
-          source: "MANUAL",
-          payload: {
-            previous_mode: previousMode,
-            new_mode: newMode,
-            mode_params: {},
-            trigger: "manual",
-          },
-          createdBy: auth.user.id,
-        });
-      }
+    // Emit MODE_CHANGE event only when the mode actually changed
+    if (updates.athlete_mode && previousMode !== updates.athlete_mode) {
+      await emitEventSafe({
+        athleteId: auth.user.id,
+        eventType: "MODE_CHANGE",
+        source: "MANUAL",
+        payload: {
+          previous_mode: previousMode as string,
+          new_mode: updates.athlete_mode as string,
+          mode_params: {},
+          trigger: "manual",
+        },
+        createdBy: auth.user.id,
+      });
     }
 
     return NextResponse.json({
       updated: true,
       scenario: detectScenario(merged),
-      athleteMode: (merged as any).athlete_mode ?? "balanced",
+      athleteMode: merged.athlete_mode ?? "balanced",
     });
   } catch (err) {
     console.error("[schedule/rules PATCH] Unhandled error:", err);

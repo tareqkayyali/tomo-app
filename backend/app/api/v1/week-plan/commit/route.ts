@@ -20,6 +20,13 @@ import { emitEventSafe } from "@/services/events/eventEmitter";
 import { EVENT_TYPES, SOURCE_TYPES } from "@/services/events/constants";
 import type { WeekPlanCreatedPayload } from "@/services/events/types";
 
+const adjustmentSchema = z.object({
+  move: z.enum(["time_shift", "day_shift", "swap"]),
+  from: z.object({ date: z.string(), startTime: z.string() }),
+  to: z.object({ date: z.string(), startTime: z.string() }),
+  reason: z.string(),
+});
+
 const planItemSchema = z.object({
   title: z.string().min(1).max(200),
   category: z.string().min(1).max(60),
@@ -32,6 +39,11 @@ const planItemSchema = z.object({
   intensity: z.enum(["LIGHT", "MODERATE", "HARD"]),
   placementReason: z.string().optional(),
   predictedLoadAu: z.number().optional(),
+  // From the repair engine — used to stamp calendar_events.metadata so
+  // the Timeline can narrate moves on tap. Both optional: clean
+  // placements come through with status='clean' and no adjustments.
+  status: z.enum(["clean", "adjusted", "dropped"]).optional(),
+  adjustments: z.array(adjustmentSchema).optional(),
 });
 
 const bodySchema = z.object({
@@ -159,6 +171,43 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+
+  // ── 4b. Stamp metadata on each created event so the Timeline can
+  //     narrate "moved from Tue because Tue was full" on tap, and so
+  //     downstream analytics can link an event back to its plan.
+  //     Metadata shape is stable for consumers:
+  //       { week_plan: { week_plan_id, status, adjustments } }
+  //     We update in a single loop — each event gets a separate PATCH
+  //     rather than a noisy join. Adjustments + status are echoes from
+  //     the builder's output; clean placements get status='clean' and
+  //     no adjustments, so the narration path is silent for them.
+  await Promise.all(
+    (createdEvents ?? []).map(async (row, idx) => {
+      const source = body.planItems[idx];
+      if (!source) return;
+      const adjustments = Array.isArray(source.adjustments) && source.adjustments.length > 0
+        ? source.adjustments
+        : null;
+      const weekPlanMeta = {
+        week_plan_id: String(planRow.id),
+        status: source.status ?? "clean",
+        ...(adjustments ? { adjustments } : {}),
+      };
+      const { error: metaErr } = await (db as any)
+        .from("calendar_events")
+        .update({ metadata: { week_plan: weekPlanMeta } })
+        .eq("id", row.id);
+      if (metaErr) {
+        // Non-fatal — the event is still created and linked via
+        // athlete_week_plans.calendar_event_ids; only the Timeline's
+        // "why this moved" narration is lost.
+        console.error("[week-plan/commit] metadata stamp failed", {
+          eventId: row.id,
+          error: metaErr.message,
+        });
+      }
+    }),
+  );
 
   // ── 5. Emit WEEK_PLAN_CREATED ──
   const payload: WeekPlanCreatedPayload = {

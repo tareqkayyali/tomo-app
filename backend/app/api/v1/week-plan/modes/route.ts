@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       .order("sort_order", { ascending: true }),
     (db as any)
       .from("player_schedule_preferences")
-      .select("athlete_mode")
+      .select("athlete_mode, week_start_day")
       .eq("user_id", auth.user.id)
       .maybeSingle(),
   ]);
@@ -37,6 +37,13 @@ export async function GET(req: NextRequest) {
   }));
 
   const currentMode = prefsRes?.data?.athlete_mode ?? "balanced";
+  // Week start weekday. Per the My Rules golden rule: read the player's
+  // configured value first, fall back to Saturday (6) only when nothing
+  // is set. The column has a DB default of 6 (ME academic calendar),
+  // so in practice this is `??` belt-and-suspenders.
+  const weekStartDay = typeof prefsRes?.data?.week_start_day === "number"
+    ? prefsRes.data.week_start_day
+    : 6;
 
-  return NextResponse.json({ modes, currentMode });
+  return NextResponse.json({ modes, currentMode, weekStartDay });
 }
