@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontFamily: fontFamily.regular,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(245,243,237,0.45)',
     marginTop: 2,
   },
 });

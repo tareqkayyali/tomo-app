@@ -95,11 +95,11 @@ export function TodaysPlanCard({ sessionName, sessionMeta, signalColor, exercise
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1B1F2E',
-    borderRadius: 14,
-    padding: 13,
+    backgroundColor: 'rgba(245,243,237,0.03)',
+    borderRadius: 12,
+    padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+    borderColor: 'rgba(245,243,237,0.10)',
     marginBottom: 14,
   },
   headerRow: {
@@ -120,20 +120,20 @@ const styles = StyleSheet.create({
   sessionName: {
     fontFamily: fontFamily.medium,
     fontSize: 13,
-    color: '#E5EBE8',
+    color: '#F5F3ED',
     marginBottom: 2,
   },
   sessionMeta: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: '#7A8D7E',
+    color: 'rgba(245,243,237,0.5)',
   },
   // Exercise preview
   exerciseSection: {
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
+    borderTopColor: 'rgba(245,243,237,0.05)',
   },
   exerciseRow: {
     flexDirection: 'row',
@@ -144,17 +144,17 @@ const styles = StyleSheet.create({
   exerciseName: {
     fontFamily: fontFamily.regular,
     fontSize: 11,
-    color: '#E5EBE8',
+    color: '#F5F3ED',
   },
   exerciseSets: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: '#7A8D7E',
+    color: 'rgba(245,243,237,0.5)',
   },
   moreExercises: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: '#4A5E50',
+    color: 'rgba(245,243,237,0.3)',
     marginTop: 4,
   },
   // Week progress
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
+    borderTopColor: 'rgba(245,243,237,0.05)',
   },
   weekProgressHeader: {
     flexDirection: 'row',
@@ -173,16 +173,16 @@ const styles = StyleSheet.create({
   weekLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 10,
-    color: '#7A8D7E',
+    color: 'rgba(245,243,237,0.5)',
   },
   weekPercent: {
     fontFamily: fontFamily.medium,
     fontSize: 10,
-    color: '#7A8D7E',
+    color: 'rgba(245,243,237,0.5)',
   },
   weekBarTrack: {
     height: 3,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(245,243,237,0.06)',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
+    borderTopColor: 'rgba(245,243,237,0.05)',
     backgroundColor: 'rgba(196,154,60,0.06)',
     borderRadius: 8,
     padding: 10,

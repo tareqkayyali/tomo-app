@@ -54,6 +54,6 @@ const styles = StyleSheet.create({
   subLabel: {
     fontFamily: fontFamily.regular,
     fontSize: 8,
-    color: 'rgba(255,255,255,0.42)',
+    color: 'rgba(245,243,237,0.42)',
   },
 });

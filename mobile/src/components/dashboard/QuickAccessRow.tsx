@@ -78,8 +78,8 @@ export function QuickAccessRow({
           onPanelPress((activePanel === tab ? null : tab) as PanelId);
         }}
         accentColor={signalColor}
-        inactiveColor="rgba(255,255,255,0.40)"
-        borderColor="rgba(255,255,255,0.06)"
+        inactiveColor="rgba(245,243,237,0.40)"
+        borderColor="rgba(245,243,237,0.06)"
         paddingHorizontal={0}
         marginBottom={8}
       />
@@ -112,6 +112,6 @@ const styles = StyleSheet.create({
   dateText: {
     fontFamily: fontFamily.regular,
     fontSize: 9,
-    color: 'rgba(255,255,255,0.40)',
+    color: 'rgba(245,243,237,0.40)',
   },
 });

@@ -168,7 +168,7 @@ export function AthleteModeHero({
       {/* Mode selector cards */}
       {loading ? (
         <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color="rgba(255,255,255,0.3)" />
+          <ActivityIndicator size="small" color="rgba(245,243,237,0.3)" />
         </View>
       ) : modes.length > 0 ? (
         <View style={styles.modeCards}>
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   modeSubtitle: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginTop: 1,
@@ -279,9 +279,9 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(245,243,237,0.04)',
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(245,243,237,0.06)',
   },
   cardDot: {
     width: 6,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.50)',
+    color: 'rgba(245,243,237,0.50)',
   },
   loadingRow: {
     height: 44,

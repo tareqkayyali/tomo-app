@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 9,
     letterSpacing: 2,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
     textTransform: 'uppercase',
     marginBottom: 7,
   },
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   },
   rowBorder: {
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: 'rgba(245,243,237,0.04)',
   },
   leftBlock: {
     flex: 1,
@@ -83,12 +83,12 @@ const styles = StyleSheet.create({
   metricName: {
     fontFamily: fontFamily.medium,
     fontSize: 11,
-    color: '#E5EBE8',
+    color: '#F5F3ED',
   },
   baseline: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: 'rgba(255,255,255,0.40)',
+    color: 'rgba(245,243,237,0.40)',
     marginTop: 1,
   },
   rightBlock: {

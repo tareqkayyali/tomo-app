@@ -176,7 +176,7 @@ function DifficultyDots({ difficulty, color }: { difficulty: string; color: stri
             width: 4,
             height: 4,
             borderRadius: 2,
-            backgroundColor: i <= level ? color : 'rgba(255,255,255,0.10)',
+            backgroundColor: i <= level ? color : 'rgba(245,243,237,0.10)',
           }}
         />
       ))}
@@ -286,10 +286,10 @@ export function ProgramPanel({
       ) : (
         <View style={styles.emptyCard}>
           <Svg viewBox="0 0 24 24" width={20} height={20}>
-            <Rect x={5} y={3} width={14} height={18} rx={2} stroke="rgba(255,255,255,0.20)" strokeWidth={1.5} fill="none" />
-            <Line x1={9} y1={8} x2={15} y2={8} stroke="rgba(255,255,255,0.15)" strokeWidth={1.2} />
-            <Line x1={9} y1={12} x2={15} y2={12} stroke="rgba(255,255,255,0.15)" strokeWidth={1.2} />
-            <Line x1={9} y1={16} x2={13} y2={16} stroke="rgba(255,255,255,0.15)" strokeWidth={1.2} />
+            <Rect x={5} y={3} width={14} height={18} rx={2} stroke="rgba(245,243,237,0.20)" strokeWidth={1.5} fill="none" />
+            <Line x1={9} y1={8} x2={15} y2={8} stroke="rgba(245,243,237,0.15)" strokeWidth={1.2} />
+            <Line x1={9} y1={12} x2={15} y2={12} stroke="rgba(245,243,237,0.15)" strokeWidth={1.2} />
+            <Line x1={9} y1={16} x2={13} y2={16} stroke="rgba(245,243,237,0.15)" strokeWidth={1.2} />
           </Svg>
           <Text style={styles.emptyText}>
             No active programs yet. Check the AI recommendations below or browse all programs in Output.
@@ -603,11 +603,11 @@ function RecommendedProgramCard({
 
 const styles = StyleSheet.create({
   sectionCard: {
-    backgroundColor: '#1B1F2E',
+    backgroundColor: 'rgba(245,243,237,0.03)',
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+    borderColor: 'rgba(245,243,237,0.10)',
     marginBottom: 10,
   },
   cardLabelRow: {
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 9,
     letterSpacing: 2,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
     textTransform: 'uppercase',
     marginBottom: 8,
   },
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 9,
     letterSpacing: 2,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
     textTransform: 'uppercase',
     marginBottom: 8,
     marginTop: 6,
@@ -641,23 +641,23 @@ const styles = StyleSheet.create({
   sessionName: {
     fontFamily: fontFamily.semiBold,
     fontSize: 14,
-    color: '#E5EBE8',
+    color: '#F5F3ED',
     marginBottom: 3,
   },
   sessionMeta: {
     fontFamily: fontFamily.regular,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.50)',
+    color: 'rgba(245,243,237,0.50)',
   },
 
   // Active program cards
   activeProgramCard: {
-    backgroundColor: '#1B1F2E',
+    backgroundColor: 'rgba(245,243,237,0.03)',
     borderRadius: 14,
     flexDirection: 'row',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+    borderColor: 'rgba(245,243,237,0.10)',
     marginBottom: 8,
   },
   activeProgramBar: {
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
   activeProgramName: {
     fontFamily: fontFamily.semiBold,
     fontSize: 14,
-    color: '#E5EBE8',
+    color: '#F5F3ED',
     flex: 1,
   },
   activeProgramMeta: {
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
   startedText: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: 'rgba(255,255,255,0.40)',
+    color: 'rgba(245,243,237,0.40)',
   },
   progressSection: {
     marginTop: 10,
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 10,
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(245,243,237,0.45)',
   },
   progressPercent: {
     fontFamily: fontFamily.medium,
@@ -721,7 +721,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 3,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(245,243,237,0.06)',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -732,11 +732,11 @@ const styles = StyleSheet.create({
 
   // Empty state
   emptyCard: {
-    backgroundColor: '#1B1F2E',
+    backgroundColor: 'rgba(245,243,237,0.03)',
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+    borderColor: 'rgba(245,243,237,0.10)',
     marginBottom: 10,
     alignItems: 'center',
     gap: 10,
@@ -744,7 +744,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: fontFamily.regular,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.40)',
+    color: 'rgba(245,243,237,0.40)',
     lineHeight: 18,
     textAlign: 'center',
   },
@@ -771,12 +771,12 @@ const styles = StyleSheet.create({
 
   // Recommended program card
   recCard: {
-    backgroundColor: '#1B1F2E',
+    backgroundColor: 'rgba(245,243,237,0.03)',
     borderRadius: 14,
     flexDirection: 'row',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+    borderColor: 'rgba(245,243,237,0.10)',
     marginBottom: 8,
   },
   recPriorityBar: {
@@ -796,13 +796,13 @@ const styles = StyleSheet.create({
   recName: {
     fontFamily: fontFamily.semiBold,
     fontSize: 13,
-    color: '#E5EBE8',
+    color: '#F5F3ED',
     flex: 1,
   },
   chevron: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: 'rgba(255,255,255,0.25)',
+    color: 'rgba(245,243,237,0.25)',
   },
   recMetaRow: {
     flexDirection: 'row',
@@ -834,12 +834,12 @@ const styles = StyleSheet.create({
   recDuration: {
     fontFamily: fontFamily.medium,
     fontSize: 9,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
   },
   recImpact: {
     fontFamily: fontFamily.regular,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(245,243,237,0.55)',
     lineHeight: 17,
   },
 
@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
   },
   expandedDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(245,243,237,0.06)',
     marginBottom: 10,
   },
   expandedRow: {
@@ -859,14 +859,14 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semiBold,
     fontSize: 9,
     letterSpacing: 1,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
     textTransform: 'uppercase',
     marginBottom: 3,
   },
   expandedText: {
     fontFamily: fontFamily.regular,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.62)',
+    color: 'rgba(245,243,237,0.62)',
     lineHeight: 18,
   },
   detailsGrid: {
@@ -883,14 +883,14 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 8,
     letterSpacing: 1,
-    color: 'rgba(255,255,255,0.28)',
+    color: 'rgba(245,243,237,0.28)',
     textTransform: 'uppercase',
     marginBottom: 2,
   },
   detailValue: {
     fontFamily: fontFamily.semiBold,
     fontSize: 12,
-    color: '#E5EBE8',
+    color: '#F5F3ED',
     textTransform: 'capitalize',
   },
   tagsRow: {
@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
   recDescription: {
     fontFamily: fontFamily.regular,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.40)',
+    color: 'rgba(245,243,237,0.40)',
     lineHeight: 17,
     fontStyle: 'italic',
   },
@@ -929,14 +929,14 @@ const styles = StyleSheet.create({
   dayLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 9,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
     marginBottom: 4,
   },
   dayCircle: {
     width: 32,
     height: 32,
     borderRadius: 9,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(245,243,237,0.03)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -953,13 +953,13 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontFamily: fontFamily.medium,
     fontSize: 12,
-    color: '#E5EBE8',
+    color: '#F5F3ED',
     marginBottom: 4,
   },
   emptyStateBody: {
     fontFamily: fontFamily.regular,
     fontSize: 11,
-    color: '#7A8D7E',
+    color: 'rgba(245,243,237,0.5)',
     lineHeight: 16,
   },
 });

@@ -42,6 +42,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: 12,
     lineHeight: 19,
-    color: 'rgba(255,255,255,0.72)',  // Bumped from coachingColor for readability
+    color: 'rgba(245,243,237,0.72)',  // Bumped from coachingColor for readability
   },
 });

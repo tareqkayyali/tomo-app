@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(245,243,237,0.12)',
   },
   header: {
     flexDirection: 'row',
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(245,243,237,0.07)',
     alignItems: 'center',
     justifyContent: 'center',
   },

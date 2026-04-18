@@ -41,7 +41,7 @@ const NEUTRAL_SIGNAL = {
   displayName: 'BASELINE',
   subtitle: 'Check in to activate your signal',
   color: '#7a9b76',
-  heroBackground: '#0F1219',
+  heroBackground: '#12141F',
   arcOpacity: { large: 0.3, medium: 0.3, small: 0.3 },
   pillBackground: 'rgba(122,155,118,0.08)',
   barRgba: 'rgba(122,155,118,0.3)',
@@ -266,7 +266,7 @@ export function SignalDashboardScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#0F1219' }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Dashboard</Text>
         <View style={styles.headerRight}>
@@ -360,16 +360,16 @@ export function SignalDashboardScreen() {
                       {/* Content */}
                       <View style={styles.timelineContent}>
                         <View style={styles.timelineHeader}>
-                          <Text style={[styles.timelineTitle, isNext && { color: '#E5EBE8' }]}>
+                          <Text style={[styles.timelineTitle, isNext && { color: '#F5F3ED' }]}>
                             {event.title}
                           </Text>
                           <View style={[
                             styles.timelineTypeBadge,
-                            { backgroundColor: isNext ? `${signal.color}20` : 'rgba(255,255,255,0.05)' },
+                            { backgroundColor: isNext ? `${signal.color}20` : 'rgba(245,243,237,0.05)' },
                           ]}>
                             <Text style={[
                               styles.timelineTypeText,
-                              { color: isNext ? signal.color : 'rgba(255,255,255,0.35)' },
+                              { color: isNext ? signal.color : 'rgba(245,243,237,0.35)' },
                             ]}>
                               {EVENT_TYPE_LABELS[event.type] ?? event.type}
                             </Text>
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 9,
     letterSpacing: 2,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
     textTransform: 'uppercase',
     marginBottom: 10,
   },
@@ -489,10 +489,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: 'rgba(245,243,237,0.04)',
   },
   timelineCardNext: {
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    backgroundColor: 'rgba(245,243,237,0.02)',
     borderRadius: 12,
     paddingHorizontal: 10,
     marginHorizontal: -10,
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   timelineTime: {
     fontFamily: fontFamily.semiBold,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.40)',
+    color: 'rgba(245,243,237,0.40)',
   },
   timelineContent: {
     flex: 1,
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   timelineTitle: {
     fontFamily: fontFamily.medium,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.65)',
+    color: 'rgba(245,243,237,0.65)',
     flex: 1,
   },
   timelineTypeBadge: {
@@ -544,21 +544,22 @@ const styles = StyleSheet.create({
   timelineIntensity: {
     fontFamily: fontFamily.regular,
     fontSize: 10,
-    color: 'rgba(255,255,255,0.28)',
+    color: 'rgba(245,243,237,0.28)',
     marginTop: 2,
   },
   emptyPlan: {
-    backgroundColor: '#1B1F2E',
-    borderRadius: 14,
-    padding: 16,
+    // Canonical card surface — matches GlassCard / Timeline event cards.
+    backgroundColor: 'rgba(245,243,237,0.03)',
+    borderRadius: 12,
+    padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+    borderColor: 'rgba(245,243,237,0.10)',
     marginBottom: 14,
   },
   emptyPlanText: {
     fontFamily: fontFamily.regular,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(245,243,237,0.35)',
     lineHeight: 18,
     textAlign: 'center',
   },
@@ -571,6 +572,6 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: fontFamily.regular,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.40)',
+    color: 'rgba(245,243,237,0.40)',
   },
 });

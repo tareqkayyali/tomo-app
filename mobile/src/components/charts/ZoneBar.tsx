@@ -42,9 +42,9 @@ export function ZoneBar({
   zones,
   width,
   height = 8,
-  markerColor = '#E5EBE8',
+  markerColor = '#F5F3ED',
   tickLabels,
-  tickColor = '#4A5E50',
+  tickColor = 'rgba(245,243,237,0.5)',
 }: Props) {
   const markerX = Math.max(0, Math.min(value / max, 1)) * width;
 
