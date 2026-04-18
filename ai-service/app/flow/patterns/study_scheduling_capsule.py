@@ -203,6 +203,9 @@ async def _fetch_days_parallel(
 
     async def fetch_one(date_str: str) -> dict:
         try:
+            # mode=exhaustive → server returns every gap ≥ duration, sorted
+            # chronologically. Same rationale as the training capsule:
+            # athletes should see the whole day, not a top-K of 6.
             result = await bridge_get(
                 "/api/v1/calendar/suggest-slots",
                 params={
@@ -210,7 +213,7 @@ async def _fetch_days_parallel(
                     "eventType": "study",
                     "durationMin": str(_DEFAULT_STUDY_DURATION_MIN),
                     "timezone": timezone,
-                    "limit": str(_DEFAULT_SLOT_LIMIT),
+                    "mode": "exhaustive",
                 },
                 user_id=user_id,
             )
@@ -233,8 +236,10 @@ async def _fetch_days_parallel(
                 "type": ev.get("type", ""),
             })
 
+        # No client-side slice — server already returns every valid gap
+        # chronologically. The study picker shows the full day.
         available_slots = []
-        for s in raw_slots[:_DEFAULT_SLOT_LIMIT]:
+        for s in raw_slots:
             if not isinstance(s, dict):
                 continue
             start24 = s.get("startTime24", "")

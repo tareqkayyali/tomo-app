@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { mapDbRowToCalendarEvent, localToUtc } from "@/lib/calendarHelpers";
 import {
   suggestBestTimes,
+  findAvailableSlots,
   format12h,
   minutesToTime,
   getSchedulingConfigFromCMS,
@@ -11,6 +12,12 @@ import {
 import type { ScheduleEvent } from "@/services/schedulingEngine";
 
 // ─── GET /api/v1/calendar/suggest-slots ──────────────────────────────────
+//
+// Two modes:
+//   default     top-K by score (coaching "when should I train?" suggestions)
+//   exhaustive  every gap that fits durationMin, sorted chronologically.
+//               Used by the session-builder Open-Slots picker so the
+//               athlete sees the whole day, not a curated 6.
 
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
@@ -21,9 +28,8 @@ export async function GET(req: NextRequest) {
   const eventType = url.searchParams.get("eventType") || "training";
   const durationMin = parseInt(url.searchParams.get("durationMin") || "60", 10);
   const tz = url.searchParams.get("timezone") || "UTC";
-  // How many top slots the scheduling engine should return. Default 6
-  // so conflict-resolution cards can show a useful selection, not a
-  // single chip. Capped at 10 to keep the response tight.
+  const mode = url.searchParams.get("mode") === "exhaustive" ? "exhaustive" : "suggest";
+  // Legacy "top-K by score" mode cap. Ignored when mode=exhaustive.
   const limitRaw = parseInt(url.searchParams.get("limit") || "6", 10);
   const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 6, 1), 10);
 
@@ -94,15 +100,22 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    const slots = suggestBestTimes(
-      eventType,
-      durationMin,
-      existingEvents,
-      readinessLevel,
-      config,
-      dayOfWeek,
-      limit
-    );
+    const slots =
+      mode === "exhaustive"
+        ? // findAvailableSlots already sorts by score; re-sort chronologically
+          // so the picker displays earliest→latest instead of "best first".
+          findAvailableSlots(existingEvents, durationMin, config, dayOfWeek)
+            .slice()
+            .sort((a, b) => a.startMin - b.startMin)
+        : suggestBestTimes(
+            eventType,
+            durationMin,
+            existingEvents,
+            readinessLevel,
+            config,
+            dayOfWeek,
+            limit
+          );
 
     // Format response with 12h times
     const formattedSlots = slots.map((s) => ({
