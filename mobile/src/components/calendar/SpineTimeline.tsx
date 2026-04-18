@@ -226,6 +226,31 @@ export function SpineTimeline({
                   </Text>
                 ) : null}
 
+                {/*
+                  Week-planner repair reason. Stamped on the event's
+                  metadata by /api/v1/week-plan/commit when the planner
+                  had to move or swap this session to fit. Surfacing it
+                  here means athletes see WHY a session landed on a
+                  particular day long after the planning chat closes —
+                  not just "it's on Wednesday" but "Wed because Tue was
+                  full with Club training". Rendered as a subtle one-line
+                  note so clean placements don't show noise.
+                */}
+                {(() => {
+                  const adj = (event as any)?.metadata?.week_plan?.adjustments;
+                  if (!Array.isArray(adj) || adj.length === 0) return null;
+                  const reason = adj[0]?.reason;
+                  if (typeof reason !== 'string' || !reason) return null;
+                  return (
+                    <Text
+                      style={[styles.eventDesc, { color: colors.warning, fontSize: scaledFont(12) }]}
+                      numberOfLines={2}
+                    >
+                      {reason}
+                    </Text>
+                  );
+                })()}
+
                 {/* Linked Programs */}
                 {event.type === 'training' && (event as any).linkedPrograms?.length > 0 && (
                   <View style={styles.linkedProgramsRow}>

@@ -28,6 +28,7 @@ import { useCalendarData } from '../hooks/useCalendarData';
 import { useDayLock } from '../hooks/useDayLock';
 import { toDateStr } from '../utils/calendarHelpers';
 import type { CalendarEvent } from '../types';
+import { setCalendarEventCompleted } from '../services/api';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -49,6 +50,11 @@ type TrainingScreenProps = {
     BottomTabNavigationProp<MainTabParamList, 'Plan'>,
     NativeStackNavigationProp<MainStackParamList>
   >;
+  route: {
+    key: string;
+    name: 'Plan';
+    params?: { date?: string };
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -65,9 +71,10 @@ function addDays(date: Date, days: number): Date {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export function TrainingScreen({ navigation }: TrainingScreenProps) {
+export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const routeDate = route?.params?.date;
 
   const { profile, role } = useAuth();
   const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
@@ -213,6 +220,16 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
     }
   }, [setSelectedDate]);
 
+  // ─── Deep-link: focus the day view when nav passes a `date` param ───
+  // e.g. Dashboard week-strip taps `navigate('Plan', { date: '2026-04-20' })`.
+  useEffect(() => {
+    if (!routeDate) return;
+    const parsed = new Date(`${routeDate}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return;
+    setSelectedDay(parsed);
+    setSelectedDate(parsed);
+  }, [routeDate, setSelectedDate]);
+
   // ─── Pull to refresh ───
 
   const onRefresh = useCallback(() => {
@@ -223,16 +240,39 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
   }, [refresh, refreshSuggestions]);
 
   // ─── Event completion handlers ───
+  // Completion state is SERVER-AUTHORITATIVE via calendar_events.completed
+  // (migration 056). Hydrate initial state from the events we just fetched
+  // and persist every toggle to the backend so the weekly compliance cron
+  // has real data to compute against — without this hydration + persist
+  // the adaptive /suggest loop never sees adherence.
+  useEffect(() => {
+    const completedFromServer = new Set<string>();
+    for (const ev of realEvents) {
+      if ((ev as CalendarEvent).completed) completedFromServer.add(String(ev.id));
+    }
+    setCompletedEvents(completedFromServer);
+  }, [realEvents]);
 
   const handleCompleteEvent = useCallback((eventId: string) => {
+    // Optimistic — flip state immediately, roll back if the PATCH fails.
     setCompletedEvents((prev) => new Set(prev).add(eventId));
+    setCalendarEventCompleted(eventId, true).catch(() => {
+      setCompletedEvents((prev) => {
+        const next = new Set(prev);
+        next.delete(eventId);
+        return next;
+      });
+    });
   }, []);
 
   const handleSkipEvent = useCallback((eventId: string) => {
+    // Skip stays local for now — no DB column. The compliance computer
+    // treats anything without `completed=true` as skipped for its math.
     setSkippedEvents((prev) => new Set(prev).add(eventId));
   }, []);
 
   const handleUndoEvent = useCallback((eventId: string) => {
+    const wasCompleted = completedEvents.has(eventId);
     setCompletedEvents((prev) => {
       const next = new Set(prev);
       next.delete(eventId);
@@ -243,7 +283,12 @@ export function TrainingScreen({ navigation }: TrainingScreenProps) {
       next.delete(eventId);
       return next;
     });
-  }, []);
+    if (wasCompleted) {
+      setCalendarEventCompleted(eventId, false).catch(() => {
+        // Best-effort — local state already updated.
+      });
+    }
+  }, [completedEvents]);
 
   // ─── Day lock ───
 

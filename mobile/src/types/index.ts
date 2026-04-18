@@ -320,6 +320,27 @@ export interface SessionPlan {
   drills?: SessionPlanDrill[];
 }
 
+export interface CalendarEventAdjustment {
+  move: 'time_shift' | 'day_shift' | 'swap';
+  from: { date: string; startTime: string };
+  to: { date: string; startTime: string };
+  reason: string;
+}
+
+export interface CalendarEventMetadata {
+  // Stamped by /api/v1/week-plan/commit when the event was created via
+  // the planner. Lets Timeline narrate repair moves on tap long after
+  // the originating chat session closes.
+  week_plan?: {
+    week_plan_id: string;
+    status: 'clean' | 'adjusted' | 'dropped';
+    adjustments?: CalendarEventAdjustment[];
+  };
+  // Generic extension point for future creators (journal-linked,
+  // external integrations, …). Indexer uses .week_plan specifically.
+  [key: string]: unknown;
+}
+
 export interface CalendarEvent {
   id: string;
   userId: string;
@@ -338,6 +359,13 @@ export interface CalendarEvent {
   journalState?: JournalState | null;
   preTarget?: string | null;
   postOutcome?: string | null;
+  // Completion toggle — backed by calendar_events.completed + completed_at.
+  // Athletes mark sessions done via the Timeline row checkmark; drives
+  // the weekly compliance cron (see athlete_week_plans).
+  completed?: boolean;
+  completedAt?: string | null;
+  // Provenance stamped by the week planner, etc. See CalendarEventMetadata.
+  metadata?: CalendarEventMetadata;
 }
 
 export interface CalendarEventInput {

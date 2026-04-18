@@ -466,22 +466,46 @@ export async function updateUser(updates: Partial<User>): Promise<UserResponse> 
 
 /**
  * Register new user
+ *
+ * Requires date_of_birth + legal versions per Phase 1 compliance.
+ * Server rejects <13 with code UNDER_MIN_AGE and stale versions with
+ * STALE_LEGAL_VERSION — callers should surface these to the UI.
  */
-export async function registerUser(userData: {
+export type RegisterUserPayload = {
   name: string;
   displayName?: string;
-  age?: number;
   sport?: string;
   role?: UserRole;
   displayRole?: string;
-  region?: string;
-  teamId?: string;
-}): Promise<UserResponse> {
-  const raw = await apiRequest<{ user: Record<string, unknown> }>('/api/v1/user/register', {
+  dateOfBirth: string; // YYYY-MM-DD
+  tosVersion: string;
+  privacyVersion: string;
+  regionCode?: string;
+};
+
+export type RegisterUserResponse = UserResponse & {
+  ageBand?: string;
+  consentStatus?: 'active' | 'awaiting_parent' | 'revoked';
+  requiresParentalConsent?: boolean;
+};
+
+export async function registerUser(userData: RegisterUserPayload): Promise<RegisterUserResponse> {
+  const raw = await apiRequest<{
+    user: Record<string, unknown>;
+    ageBand?: string;
+    consentStatus?: 'active' | 'awaiting_parent' | 'revoked';
+    requiresParentalConsent?: boolean;
+  }>('/api/v1/user/register', {
     method: 'POST',
     body: JSON.stringify(userData),
   });
-  return mapUserResponse(raw);
+  const base = mapUserResponse(raw);
+  return {
+    ...base,
+    ageBand: raw.ageBand,
+    consentStatus: raw.consentStatus,
+    requiresParentalConsent: raw.requiresParentalConsent,
+  };
 }
 
 // ============================================
@@ -632,6 +656,23 @@ export async function updateCalendarEvent(
   return apiRequest<{ event: CalendarEvent }>(`/api/v1/calendar/events/${eventId}`, {
     method: 'PATCH',
     body: JSON.stringify({ ...patch, timezone: getUserTimezone() }),
+  });
+}
+
+/**
+ * Toggle a calendar event's completed flag. Server manages
+ * completed_at transition (sets on false→true, clears on undo).
+ * Drives the weekly compliance cron — without this being called,
+ * athlete_week_plans.compliance_rate stays null and adaptive /suggest
+ * defaults never kick in for week 2+.
+ */
+export async function setCalendarEventCompleted(
+  eventId: string,
+  completed: boolean,
+): Promise<{ event: CalendarEvent }> {
+  return apiRequest<{ event: CalendarEvent }>(`/api/v1/calendar/events/${eventId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ completed, timezone: getUserTimezone() }),
   });
 }
 
