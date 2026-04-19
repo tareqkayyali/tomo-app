@@ -112,7 +112,7 @@ def get_all_tool_names() -> dict[str, list[str]]:
             "get_dual_load_score", "log_check_in",
             "get_training_session", "get_drill_detail",
             "get_training_program_recommendations", "calculate_phv_stage",
-            "get_my_programs", "get_program_by_name", "get_program_by_id",
+            "get_my_programs", "get_program_by_name", "get_program_drill_breakdown", "get_program_by_id",
             "rate_drill", "get_today_training_for_journal",
             "get_pending_post_journal", "save_journal_pre", "save_journal_post",
         ],

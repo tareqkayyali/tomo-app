@@ -49,6 +49,75 @@ def _normalize_program_name(s: str) -> str:
     return " ".join(out.split())
 
 
+async def _load_athlete_gaps(user_id: str, limit: int = 5) -> list[dict]:
+    """Return the athlete's weakest benchmark metrics (percentile < 50) — the real gaps
+    a program should address. Pulled from player_benchmark_snapshots (the same source
+    the Metrics tab reads). Empty list on any missing/invalid state.
+    """
+    from app.db.supabase import get_pool
+    pool = get_pool()
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """SELECT DISTINCT ON (metric_key) metric_key, metric_label,
+                          percentile, zone, value, tested_at::text
+                   FROM player_benchmark_snapshots
+                   WHERE user_id = %s AND percentile IS NOT NULL AND percentile < 50
+                   ORDER BY metric_key, tested_at DESC""",
+                (user_id,),
+            )
+            rows = await result.fetchall()
+    except Exception as e:
+        logger.warning(f"_load_athlete_gaps: benchmark read failed: {e}")
+        return []
+
+    gaps = [
+        {
+            "metric": row[0],
+            "label": row[1],
+            "percentile": int(row[2]) if row[2] is not None else None,
+            "zone": row[3],
+            "value": _safe_float(row[4]),
+            "tested_at": row[5],
+        }
+        for row in rows
+    ]
+    gaps.sort(key=lambda g: g["percentile"] if g["percentile"] is not None else 100)
+    return gaps[:limit]
+
+
+def _match_gaps_to_program(program: dict, gaps: list[dict]) -> list[dict]:
+    """Return the subset of athlete gaps that the program is likely to address.
+    Uses program.tags + program.category as the matching signal — same taxonomy
+    used by the recommendation engine when ranking programs.
+    """
+    if not gaps:
+        return []
+    tags_raw = program.get("tags") or []
+    if not isinstance(tags_raw, list):
+        tags_raw = []
+    category = (program.get("category") or "").lower()
+
+    # Build a token bag: tags + category + split tokens (e.g. "combination_play" → {combination, play})
+    tokens: set[str] = set()
+    for t in tags_raw:
+        if isinstance(t, str):
+            tokens.add(t.lower())
+            tokens.update(t.lower().split("_"))
+    if category:
+        tokens.add(category)
+        tokens.update(category.split("_"))
+
+    matched: list[dict] = []
+    for g in gaps:
+        metric = (g.get("metric") or "").lower()
+        label = (g.get("label") or "").lower()
+        hay = metric + " " + label
+        if any(tok and tok in hay for tok in tokens):
+            matched.append(g)
+    return matched
+
+
 async def _load_snapshot_programs(user_id: str) -> list[dict]:
     """Read the athlete's AI-generated program recommendations from athlete_snapshots.program_recommendations.
 
@@ -705,6 +774,9 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             }
 
         matched = matches[0]
+        gaps = await _load_athlete_gaps(user_id)
+        targeted = _match_gaps_to_program(matched, gaps)
+
         return {
             "program_id": matched.get("programId"),
             "name": matched.get("name"),
@@ -722,7 +794,124 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             "reason": matched.get("reason"),
             "phv_warnings": matched.get("phvWarnings") or [],
             "prescription": matched.get("prescription") or {},
+            # Personalization: the athlete's actual benchmark gaps that this program targets.
+            # The LLM must weave these into the "why this matters for YOU" copy.
+            "athlete_context": {
+                "position": context.position,
+                "sport": context.sport,
+                "age_band": context.age_band,
+                "readiness_score": context.readiness_score,
+                "priority_in_plan": matched.get("priority"),
+            },
+            "targeted_gaps": targeted,
+            "other_gaps": [g for g in gaps if g not in targeted][:3],
             "other_matches": [m.get("name") for m in matches[1:5]],
+            "dataStatus": "ready",
+            "follow_up_tool": "get_program_drill_breakdown",  # LLM hint for drill-down chip
+        }
+
+    @tool
+    async def get_program_drill_breakdown(program_id: str = "", program_name: str = "") -> dict:
+        """Return a detailed drill/prescription breakdown for a single program — use when the athlete asks to see the drills, exercises, or the full session detail for a program (triggered by a 'See the drills' chip or 'show me the drills for X'). Accepts either program_id (slug from the snapshot) OR program_name (case-insensitive, tolerant of &/and/hyphens). Returns prescription dose, coaching cues, drill patterns parsed from the program description, equipment, PHV warnings, and the athlete's targeted gaps."""
+        if not program_id and not program_name:
+            return {"error": "Provide program_id or program_name"}
+
+        snapshot_programs = await _load_snapshot_programs(user_id)
+        if not snapshot_programs:
+            return {
+                "error": "No personalized program list yet",
+                "dataStatus": "generating",
+                "suggestion": "Ask the athlete to open the Programs tab to prompt generation, or log a test to accelerate it.",
+            }
+
+        # Resolve by id first (exact), then by fuzzy name
+        matched: dict | None = None
+        if program_id:
+            for p in snapshot_programs:
+                if (p.get("programId") or "").lower() == program_id.lower():
+                    matched = p
+                    break
+        if not matched and program_name:
+            q = _normalize_program_name(program_name)
+            for p in snapshot_programs:
+                candidate = _normalize_program_name(p.get("name") or "")
+                if candidate and (candidate == q or q in candidate or candidate in q):
+                    matched = p
+                    break
+
+        if not matched:
+            available = [p.get("name") for p in snapshot_programs if p.get("name")]
+            return {
+                "error": "Program not found in athlete's active list",
+                "available_programs": available,
+            }
+
+        prescription = matched.get("prescription") or {}
+        description = (matched.get("description") or "").strip()
+
+        # Parse drill patterns from the description — programs encode them as comma/semicolon
+        # separated phrases (e.g. "Wall passes, overlaps, underlaps, third-man runs.").
+        # Keep it simple and predictable; the LLM fills in context around these labels.
+        import re
+        # Strip trailing period, then take the first sentence if multi-sentence
+        first_sentence = description.split(".")[0] if description else ""
+        drill_patterns: list[str] = []
+        if first_sentence:
+            # Split on commas / " and " / semicolons, drop empty fragments
+            raw = re.split(r",|;|\band\b", first_sentence)
+            drill_patterns = [p.strip() for p in raw if p.strip() and len(p.strip()) > 2]
+        # If the description is a single phrase (no separators), fall back to it as a single drill.
+        if not drill_patterns and description:
+            drill_patterns = [first_sentence.strip() or description]
+
+        gaps = await _load_athlete_gaps(user_id)
+        targeted = _match_gaps_to_program(matched, gaps)
+
+        # Build a structured "session-like" breakdown the LLM can render as a session_plan
+        # card or rich text. Warm-up/cool-down are standard scaffolding the LLM adds.
+        drills = [
+            {
+                "pattern": pattern,
+                "sets": prescription.get("sets"),
+                "reps": prescription.get("reps"),
+                "intensity": prescription.get("intensity"),
+                "rpe": prescription.get("rpe"),
+                "rest": prescription.get("rest"),
+            }
+            for pattern in drill_patterns
+        ]
+
+        return {
+            "program_id": matched.get("programId"),
+            "name": matched.get("name"),
+            "category": matched.get("category"),
+            "type": matched.get("type"),
+            "priority": matched.get("priority"),
+            "description": description,
+            "impact": matched.get("impact"),
+            "reason": matched.get("reason"),
+            "duration_minutes": matched.get("durationMin"),
+            "duration_weeks": matched.get("durationWeeks"),
+            "difficulty": matched.get("difficulty"),
+            "frequency": prescription.get("frequency") or matched.get("frequency"),
+            "dose": {
+                "sets": prescription.get("sets"),
+                "reps": prescription.get("reps"),
+                "intensity": prescription.get("intensity"),
+                "rpe": prescription.get("rpe"),
+                "rest": prescription.get("rest"),
+            },
+            "coaching_cues": prescription.get("coachingCues") or [],
+            "drills": drills,
+            "equipment": matched.get("equipment") or [],
+            "position_note": matched.get("positionNote"),
+            "phv_warnings": matched.get("phvWarnings") or [],
+            "targeted_gaps": targeted,
+            "athlete_context": {
+                "position": context.position,
+                "sport": context.sport,
+                "age_band": context.age_band,
+            },
             "dataStatus": "ready",
         }
 
@@ -965,6 +1154,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         calculate_phv_stage,
         get_my_programs,
         get_program_by_name,
+        get_program_drill_breakdown,
         get_program_by_id,
         rate_drill,
         get_today_training_for_journal,
