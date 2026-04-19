@@ -38,6 +38,63 @@ def _row_to_dict(row, columns):
     return {col: row[i] for i, col in enumerate(columns)}
 
 
+def _normalize_program_name(s: str) -> str:
+    """Canonicalize a program name for fuzzy matching: lowercase, strip, unify & / and, drop punctuation."""
+    if not s:
+        return ""
+    out = s.lower().strip()
+    out = out.replace("&", "and")
+    for ch in ("-", "_", ".", ",", "'"):
+        out = out.replace(ch, " ")
+    return " ".join(out.split())
+
+
+async def _load_snapshot_programs(user_id: str) -> list[dict]:
+    """Read the athlete's AI-generated program recommendations from athlete_snapshots.program_recommendations.
+
+    Single source of truth: same JSONB the mobile Programs tab renders (see
+    backend/services/programs/deepProgramRefresh.ts → DeepProgramResult.programs).
+    Returns [] on any missing/invalid state — never raises.
+    """
+    from app.db.supabase import get_pool
+    pool = get_pool()
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """SELECT program_recommendations
+                   FROM athlete_snapshots
+                   WHERE athlete_id = %s
+                   LIMIT 1""",
+                (user_id,),
+            )
+            row = await result.fetchone()
+    except Exception as e:
+        logger.warning(f"_load_snapshot_programs: snapshot read failed: {e}")
+        return []
+
+    if not row or not row[0]:
+        return []
+
+    payload = row[0]
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    if not isinstance(payload, dict):
+        return []
+
+    programs = payload.get("programs") or []
+    if not isinstance(programs, list):
+        return []
+
+    out: list[dict] = []
+    for p in programs:
+        if isinstance(p, dict) and p.get("programId") and p.get("name"):
+            out.append(p)
+    return out
+
+
 def make_output_tools(user_id: str, context: PlayerContext) -> list:
     """Create output agent tools bound to a specific user context."""
 
@@ -570,64 +627,162 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
     @tool
     async def get_my_programs() -> dict:
-        """Get the athlete's currently active/enrolled programs. Shows programs they've been recommended via the snapshot recommendation engine."""
-        from app.db.supabase import get_pool
-        pool = get_pool()
+        """Get the athlete's currently active/recommended training programs — the exact same list shown in the mobile Programs tab. Sourced from athlete_snapshots.program_recommendations (AI-personalized by deepProgramRefresh)."""
+        snapshot_programs = await _load_snapshot_programs(user_id)
 
-        async with pool.connection() as conn:
-            # Programs come from athlete_recommendations (rec_type='program')
-            # or from training_programs table directly
-            result = await conn.execute(
-                """SELECT rec_id, title, body_short, priority, status, context
-                   FROM athlete_recommendations
-                   WHERE athlete_id = %s
-                     AND rec_type = 'program'
-                     AND status IN ('active', 'pending')
-                   ORDER BY priority ASC, created_at DESC
-                   LIMIT 5""",
-                (user_id,),
-            )
-            rows = await result.fetchall()
-
-        if not rows:
-            return {"programs": [], "total": 0}
+        if not snapshot_programs:
+            return {
+                "programs": [],
+                "total": 0,
+                "dataStatus": "generating",
+                "hint": (
+                    "No personalized program list yet — the athlete's Programs tab is still generating. "
+                    "Suggest completing a check-in or logging a test to accelerate personalization."
+                ),
+            }
 
         programs = [
             {
-                "rec_id": str(row[0]),
-                "name": row[1],
-                "description": row[2],
-                "priority": row[3],
-                "status": row[4],
-                "context": row[5] if isinstance(row[5], dict) else {},
+                "program_id": p.get("programId"),
+                "name": p.get("name"),
+                "category": p.get("category"),
+                "type": p.get("type"),
+                "priority": p.get("priority"),
+                "description": p.get("description"),
+                "impact": p.get("impact"),
+                "frequency": p.get("frequency"),
+                "duration_minutes": p.get("durationMin"),
+                "duration_weeks": p.get("durationWeeks"),
+                "difficulty": p.get("difficulty"),
+                "tags": p.get("tags") or [],
+                "position_note": p.get("positionNote"),
+                "reason": p.get("reason"),
+                "phv_warnings": p.get("phvWarnings") or [],
             }
-            for row in rows
+            for p in snapshot_programs
         ]
 
-        return {"programs": programs, "total": len(programs)}
+        return {
+            "programs": programs,
+            "total": len(programs),
+            "dataStatus": "ready",
+        }
+
+    @tool
+    async def get_program_by_name(program_name: str) -> dict:
+        """Look up a specific program from the athlete's active/recommended list by its name. Use this when the athlete refers to a program by title (e.g. 'explain my Combination Play & Link-Up program'). Case-insensitive; tolerant of '&' vs 'and', hyphens, and extra whitespace. Reads the same snapshot the Programs tab renders."""
+        if not program_name or not program_name.strip():
+            return {"error": "program_name is required"}
+
+        snapshot_programs = await _load_snapshot_programs(user_id)
+
+        if not snapshot_programs:
+            return {
+                "error": f"Program '{program_name}' not found — no personalized list yet",
+                "dataStatus": "generating",
+                "suggestion": "The athlete's program list is still generating. Ask them to open the Programs tab to prompt generation.",
+            }
+
+        query = _normalize_program_name(program_name)
+        exact: list[dict] = []
+        partial: list[dict] = []
+        for p in snapshot_programs:
+            candidate = _normalize_program_name(p.get("name") or "")
+            if not candidate:
+                continue
+            if candidate == query:
+                exact.append(p)
+            elif query in candidate or candidate in query:
+                partial.append(p)
+
+        matches = exact or partial
+        if not matches:
+            available = [p.get("name") for p in snapshot_programs if p.get("name")]
+            return {
+                "error": f"Program '{program_name}' is not in the athlete's active list",
+                "available_programs": available,
+                "suggestion": "Offer one of the available programs, or call get_catalog_program_by_name for discovery across the full catalog.",
+            }
+
+        matched = matches[0]
+        return {
+            "program_id": matched.get("programId"),
+            "name": matched.get("name"),
+            "category": matched.get("category"),
+            "type": matched.get("type"),
+            "priority": matched.get("priority"),
+            "description": matched.get("description"),
+            "impact": matched.get("impact"),
+            "frequency": matched.get("frequency"),
+            "duration_minutes": matched.get("durationMin"),
+            "duration_weeks": matched.get("durationWeeks"),
+            "difficulty": matched.get("difficulty"),
+            "tags": matched.get("tags") or [],
+            "position_note": matched.get("positionNote"),
+            "reason": matched.get("reason"),
+            "phv_warnings": matched.get("phvWarnings") or [],
+            "prescription": matched.get("prescription") or {},
+            "other_matches": [m.get("name") for m in matches[1:5]],
+            "dataStatus": "ready",
+        }
 
     @tool
     async def get_program_by_id(program_id: str) -> dict:
-        """Get full details for a specific program by ID. Includes description, prescriptions, PHV guidance."""
+        """Get full details for a specific program by ID. Accepts either the slug ID from the athlete's snapshot (e.g. 'tech_combination_play') or the DB UUID from training_programs. Cascades: snapshot first, then catalog."""
+        if not program_id or not program_id.strip():
+            return {"error": "program_id is required"}
+
+        # 1) Prefer the athlete's personalized snapshot (same source the UI renders).
+        snapshot_programs = await _load_snapshot_programs(user_id)
+        for p in snapshot_programs:
+            if (p.get("programId") or "").lower() == program_id.lower():
+                return {
+                    "program_id": p.get("programId"),
+                    "name": p.get("name"),
+                    "category": p.get("category"),
+                    "type": p.get("type"),
+                    "priority": p.get("priority"),
+                    "description": p.get("description"),
+                    "impact": p.get("impact"),
+                    "frequency": p.get("frequency"),
+                    "duration_minutes": p.get("durationMin"),
+                    "duration_weeks": p.get("durationWeeks"),
+                    "difficulty": p.get("difficulty"),
+                    "tags": p.get("tags") or [],
+                    "position_note": p.get("positionNote"),
+                    "reason": p.get("reason"),
+                    "phv_warnings": p.get("phvWarnings") or [],
+                    "prescription": p.get("prescription") or {},
+                    "source": "snapshot",
+                }
+
+        # 2) Fall back to the catalog. Only attempt UUID lookup when the value looks like a UUID
+        #    (psycopg3 raises InvalidTextRepresentation on non-UUID strings against a uuid column).
+        import re
+        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
         from app.db.supabase import get_pool
         pool = get_pool()
-
+        prog_row = None
         try:
             async with pool.connection() as conn:
-                prog_result = await conn.execute(
-                    """SELECT id, name, category, type, description, difficulty,
-                              duration_minutes, tags, position_emphasis, equipment,
-                              prescriptions, phv_guidance
-                       FROM training_programs WHERE id = %s""",
-                    (program_id,),
-                )
-                prog_row = await prog_result.fetchone()
+                if uuid_re.match(program_id):
+                    prog_result = await conn.execute(
+                        """SELECT id, name, category, type, description, difficulty,
+                                  duration_minutes, tags, position_emphasis, equipment,
+                                  prescriptions, phv_guidance
+                           FROM training_programs WHERE id = %s""",
+                        (program_id,),
+                    )
+                    prog_row = await prog_result.fetchone()
         except Exception as e:
-            logger.warning(f"get_program_by_id: training_programs table not found: {e}")
-            return {"error": f"Program {program_id} not found (table unavailable)"}
+            logger.warning(f"get_program_by_id: training_programs catalog lookup failed: {e}")
 
         if not prog_row:
-            return {"error": f"Program {program_id} not found"}
+            return {
+                "error": f"Program '{program_id}' not found in the athlete's active list or the catalog",
+                "suggestion": "If the athlete referenced the program by name, call get_program_by_name instead.",
+            }
 
         # Parse prescriptions from JSONB
         prescriptions = prog_row[10]
@@ -657,6 +812,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             "equipment": prog_row[9],
             "prescriptions": prescriptions,
             "phv_guidance": phv_guidance,
+            "source": "catalog",
         }
 
     # NOTE: get_test_catalog + log_test_result moved to testing_benchmark_tools.py (Sprint 1)
@@ -808,6 +964,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         get_training_program_recommendations,
         calculate_phv_stage,
         get_my_programs,
+        get_program_by_name,
         get_program_by_id,
         rate_drill,
         get_today_training_for_journal,
