@@ -122,7 +122,7 @@ export function UnderlineTabSwitcher<K extends string>({
 
   return (
     <View style={{ marginBottom, paddingHorizontal }}>
-      <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: borderColor }}>
+      <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: borderColor, position: 'relative' }}>
         {tabs.map((tab, i) => {
           const isActive = tab.key === activeTab;
           return (
@@ -149,18 +149,23 @@ export function UnderlineTabSwitcher<K extends string>({
             </TouchableOpacity>
           );
         })}
+        {/* Indicator sits INSIDE the row so its `left` coordinate system
+            matches the tabs' measured offsets (no paddingHorizontal skew).
+            `bottom: -1` overlaps the row's 1px bottom border so the active
+            segment visually replaces it. */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            bottom: -1,
+            height: 2,
+            backgroundColor: accentColor,
+            borderRadius: 1,
+            left: indicatorX,
+            width: indicatorW,
+          }}
+        />
       </View>
-      <Animated.View
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          height: 2,
-          backgroundColor: accentColor,
-          borderRadius: 1,
-          left: indicatorX,
-          width: indicatorW,
-        }}
-      />
     </View>
   );
 }
