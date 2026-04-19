@@ -45,10 +45,10 @@ Simplified flows tailored to each role — set up team/family, link athletes.
 
 ## 2. Player Experience
 
-The player interface has **5 main tabs** plus supporting screens.
+The player interface has **3 main tabs** plus supporting screens. The default landing tab is **Chat**.
 
-### Tab 1: Timeline
-*Daily calendar view with full schedule, readiness, and AI insights*
+### Tab 1: Plan
+*Daily calendar view with full schedule, readiness, and AI insights — `TrainingScreen.tsx`*
 
 | Feature | Description |
 |---------|-------------|
@@ -62,40 +62,8 @@ The player interface has **5 main tabs** plus supporting screens.
 | Add Event | FAB button to create Training, Match, Study, Exam, Recovery, or Other events |
 | AI Insights | Contextual advice card from the 3-agent orchestrator |
 
-### Tab 2: Output
-*Three sub-tabs for vitals, performance metrics, and training programs*
-
-#### My Vitals
-- Readiness hero card (score 0-100, GREEN/YELLOW/RED)
-- Mini stats: Energy, Mood, Sleep Hours, Soreness
-- 7 vital group cards (expandable):
-  - Recovery & Readiness (HRV, resting HR)
-  - Sleep (duration, deep/REM/light, efficiency)
-  - Cardiovascular Load (heart rate, VO2 max, calories)
-  - Activity & Movement (steps, exercise minutes, distance)
-  - Body & Growth (weight, body fat, height, PHV stage)
-  - Respiratory & Oxygen (respiratory rate, SpO2)
-  - Mental Load (stress, mood, academic load)
-- WHOOP Connected/Connect banner
-- Data source badges (WHOOP, HealthKit)
-
-#### My Metrics
-- 97+ tests across 11 categories (Speed, Power, Agility, Endurance, Strength, Flexibility, Reaction, Balance, Body Comp, Sport Skills, BlazePod)
-- Radar/spider chart showing attribute profile
-- Percentile rankings with color zones (below/developing/competent/advanced/elite)
-- Trend indicators per metric
-- Strengths and gaps identification
-
-#### My Programs
-- AI-generated training programs personalized to position, age, benchmarks, and gaps
-- Coach-assigned programs shown separately
-- Priority groups: Must Do / Recommended / Supplementary
-- Each program card shows: name, frequency, duration, difficulty, impact statement, coaching cues, prescription details
-- **Actions**: Mark as Done, Dismiss ("Not for me") — with inline confirmation
-- AI refreshes programs excluding dismissed ones
-
-### Tab 3: Tomo Chat (AI Command Center)
-*3-agent AI orchestrator for conversational coaching*
+### Tab 2: Chat (AI Command Center)
+*3-agent AI orchestrator for conversational coaching — `HomeScreen.tsx` (default tab)*
 
 - **Timeline Agent** — Calendar CRUD, schedule adjustments, conflict detection
 - **Output Agent** — Readiness analysis, drill recommendations, benchmarks
@@ -105,24 +73,41 @@ The player interface has **5 main tabs** plus supporting screens.
 - All write actions require user confirmation
 - Personalized motivational quotes
 
-### Tab 4: Mastery
-*Holistic progress tracking*
+### Tab 3: Dashboard
+*Mode-first daily command centre with readiness signals, recommendations, and four sub-views — `SignalDashboardScreen.tsx`*
 
+The Dashboard tab contains four sub-views, toggled via an underline tab switcher: **Dashboard / Programs / Metrics / Progress**.
+
+#### Dashboard (overview)
+- Athlete Mode hero card with current mode + quick mode switcher + panel pills
+- Today's Plan card
+- Daily Recommendations — expandable RIE recommendation cards (readiness, load, recovery, focus, motivation)
+- CMS-driven sections (status rings, sparkline rows, content items)
+- Up Next — future timeline activities with contextual AI hints
+
+#### Programs
+- AI-generated training programs personalized to position, age, benchmarks, and gaps
+- Coach-assigned programs shown separately
+- Priority groups: Must Do / Recommended / Supplementary
+- Each program card shows: name, frequency, duration, difficulty, impact statement, coaching cues, prescription details
+- **Actions**: Mark as Done, Dismiss ("Not for me") — with inline confirmation
+- AI refreshes programs excluding dismissed ones
+
+#### Metrics
+- 97+ tests across 11 categories (Speed, Power, Agility, Endurance, Strength, Flexibility, Reaction, Balance, Body Comp, Sport Skills, BlazePod)
+- Radar/spider chart showing attribute profile
+- Percentile rankings with color zones (below/developing/competent/advanced/elite)
+- Trend indicators per metric
+- Strengths and gaps identification
+- Vitals surfaced via status rings + sparkline rows (Recovery & Readiness, Sleep, Cardio Load, Activity, Body & Growth, Respiratory, Mental Load)
+- WHOOP Connected/Connect banner, data source badges (WHOOP, HealthKit)
+
+#### Progress
 - **DNA Card** — Player archetype (Phoenix, Titan, Blade, Surge) with personality traits
 - **7 Mastery Pillars** — Dual-layer benchmarks with mini trend charts
 - **Streak System** — Consecutive activity days with tier badges (New → Legend)
 - **Freeze Tokens** — Protect streak during rest days
 - **Milestone Badges** — Achievement unlocks grid
-
-### Tab 5: Own It
-*AI-powered personalized recommendations*
-
-- **Sports**: Readiness advisories, load warnings, recovery suggestions, development drills, motivation
-- **Academic**: Study block suggestions, exam prep tips
-- **Updates**: CV/recruiting opportunities, coach/parent alerts
-- Each recommendation shows title, summary, confidence score, evidence basis
-- Deep refresh triggers full Claude analysis (10-30 seconds)
-- Tap to navigate to relevant screen
 
 ### Supporting Screens
 
@@ -233,7 +218,7 @@ The triangle relationship model connects coaches, players, and parents.
 
 ### Triangle Alerts
 - Coach and parent can flag concerns via the TRIANGLE_ALERT recommendation type
-- These appear in the player's Own It tab as high-priority alerts
+- These appear in the player's Dashboard recommendations feed as high-priority alerts
 - Enable coordinated support for the athlete
 
 ### Communication Flow
