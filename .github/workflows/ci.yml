@@ -45,6 +45,9 @@ jobs:
       - name: Type check backend
         run: cd backend && npx tsc --noEmit
 
+      - name: Admin routes integrity — every sidebar href resolves to a page.tsx
+        run: cd backend && npm run check:admin-routes
+
   # ── Mobile typecheck — only when mobile/ files change ─────────────────────
   typecheck-mobile:
     name: Type Check Mobile

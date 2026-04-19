@@ -38,6 +38,14 @@ export const programCreateSchema = z.object({
   tags: z.array(z.string()).default([]),
   prescriptions: z.record(z.string(), z.unknown()).default({}),
   phv_guidance: z.record(z.string(), z.unknown()).default({}),
+  /**
+   * AI safety gate. When false, the AI chat agent must NOT recommend or
+   * return this program regardless of other filters. Load-bearing per the
+   * "AI Chat Baseline Protection" memory rule — toggled from the CMS so
+   * ops can hotfix bad programs out of the recommendation pool without a
+   * deploy. Defaults true on create; the UI exposes the toggle.
+   */
+  chat_eligible: z.boolean().default(true),
   id: z.string().optional(),
 });
 

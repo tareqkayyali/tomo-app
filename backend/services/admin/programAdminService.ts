@@ -91,7 +91,7 @@ export async function createProgram(input: ProgramCreateInput) {
       prescriptions: input.prescriptions ?? {},
       phv_guidance: input.phv_guidance ?? {},
       active: true,
-      chat_eligible: (input as { chat_eligible?: boolean }).chat_eligible ?? true,
+      chat_eligible: input.chat_eligible ?? true,
     })
     .select()
     .single();
@@ -118,9 +118,7 @@ export async function updateProgram(id: string, input: ProgramUpdateInput) {
   if (input.tags !== undefined) payload.tags = input.tags;
   if (input.prescriptions !== undefined) payload.prescriptions = input.prescriptions;
   if (input.phv_guidance !== undefined) payload.phv_guidance = input.phv_guidance;
-  if ((input as { chat_eligible?: boolean }).chat_eligible !== undefined) {
-    payload.chat_eligible = (input as { chat_eligible?: boolean }).chat_eligible;
-  }
+  if (input.chat_eligible !== undefined) payload.chat_eligible = input.chat_eligible;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db() as any)

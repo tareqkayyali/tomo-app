@@ -16,7 +16,8 @@
     "test:chat": "npx tsx scripts/chat-test-runner.ts",
     "test:chat:timeline": "npx tsx scripts/chat-test-runner.ts --page Timeline",
     "test:chat:verbose": "npx tsx scripts/chat-test-runner.ts --verbose",
-    "test:chat:prod": "npx tsx scripts/chat-test-runner.ts --prod"
+    "test:chat:prod": "npx tsx scripts/chat-test-runner.ts --prod",
+    "check:admin-routes": "npx tsx scripts/check-admin-routes.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

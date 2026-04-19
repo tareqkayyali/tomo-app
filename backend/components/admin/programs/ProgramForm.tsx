@@ -99,6 +99,11 @@ export function ProgramForm({ programId, initialData }: ProgramFormProps) {
   const [difficulty, setDifficulty] = useState((initialData?.difficulty as string) || "intermediate");
   const [sortOrder, setSortOrder] = useState((initialData?.sort_order as number) || 100);
   const [active, setActive] = useState((initialData?.active as boolean) ?? true);
+  // Load-bearing AI safety gate — when false the chat agent must not
+  // recommend this program regardless of other filters.
+  const [chatEligible, setChatEligible] = useState(
+    (initialData?.chat_eligible as boolean) ?? true
+  );
 
   // Arrays
   const [positionEmphasis, setPositionEmphasis] = useState<string[]>(
@@ -187,6 +192,7 @@ export function ProgramForm({ programId, initialData }: ProgramFormProps) {
       difficulty,
       sort_order: sortOrder,
       active,
+      chat_eligible: chatEligible,
       position_emphasis: positionEmphasis,
       equipment,
       tags,
@@ -316,9 +322,26 @@ export function ProgramForm({ programId, initialData }: ProgramFormProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Switch checked={active} onCheckedChange={setActive} />
-            <Label>Active</Label>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Switch checked={active} onCheckedChange={setActive} />
+              <Label>Active</Label>
+              <span className="text-xs text-muted-foreground">
+                — visible in the program catalog.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={chatEligible}
+                onCheckedChange={setChatEligible}
+              />
+              <Label>AI can recommend</Label>
+              <span className="text-xs text-muted-foreground">
+                — when off, the chat agent will not surface this program as a
+                recommendation, regardless of other filters. Use to quickly
+                remove unsafe or deprecated programs from the AI pool.
+              </span>
+            </div>
           </div>
         </CardContent>
       </Card>
