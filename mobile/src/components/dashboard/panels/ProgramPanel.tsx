@@ -9,7 +9,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager, ScrollView } from 'react-native';
 import Svg, { Path, Rect, Line, Circle, Polyline } from 'react-native-svg';
 import { SlideUpPanel } from './SlideUpPanel';
 import { DashboardCard } from './DashboardCard';
@@ -49,8 +49,8 @@ interface CoachProgramme {
 }
 
 interface ProgramPanelProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   adaptedPlan: { sessionName: string; sessionMeta: string } | null;
   activePrograms?: { programId: string; startedAt: string; metadata: Record<string, unknown> }[];
   coachProgrammes?: CoachProgramme[];
@@ -68,6 +68,11 @@ interface ProgramPanelProps {
    * When undefined/empty we fall back to the default hardcoded order below.
    */
   panelLayout?: DashboardLayoutSection[];
+  /**
+   * 'sheet' (default) renders inside a SlideUpPanel overlay.
+   * 'inline' renders the body directly in a ScrollView for tab-based embedding.
+   */
+  variant?: 'sheet' | 'inline';
 }
 
 /** Default rendering order, used when CMS returns nothing. */
@@ -185,8 +190,8 @@ function DifficultyDots({ difficulty, color }: { difficulty: string; color: stri
 }
 
 export function ProgramPanel({
-  isOpen,
-  onClose,
+  isOpen = false,
+  onClose = () => {},
   adaptedPlan,
   activePrograms,
   coachProgrammes,
@@ -195,6 +200,7 @@ export function ProgramPanel({
   freshness,
   onDayPress,
   panelLayout,
+  variant = 'sheet',
 }: ProgramPanelProps) {
   const programs = activePrograms ?? [];
   const coachProgs = coachProgrammes ?? [];
@@ -468,6 +474,24 @@ export function ProgramPanel({
     ? panelLayout.map((s) => s.component_type)
     : DEFAULT_PROGRAM_ORDER;
 
+  const body = order.map((type) => {
+    const render = renderers[type];
+    if (!render) return null;
+    return <React.Fragment key={type}>{render()}</React.Fragment>;
+  });
+
+  if (variant === 'inline') {
+    return (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {body}
+      </ScrollView>
+    );
+  }
+
   return (
     <SlideUpPanel
       isOpen={isOpen}
@@ -476,11 +500,7 @@ export function ProgramPanel({
       subtitle="Active programs & AI recommendations"
       freshness={freshness}
     >
-      {order.map((type) => {
-        const render = renderers[type];
-        if (!render) return null;
-        return <React.Fragment key={type}>{render()}</React.Fragment>;
-      })}
+      {body}
     </SlideUpPanel>
   );
 }

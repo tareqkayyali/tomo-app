@@ -12,7 +12,7 @@
  * No AI call, no DB write. Pure render-time personalisation.
  */
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
 import {
   colors,
@@ -26,10 +26,6 @@ import type { User } from '../../types';
 
 type Props = {
   profile: User | null;
-  /** Called when the user taps "Log today's check-in". */
-  onCheckIn?: () => void;
-  /** Called when the user taps "Plan my week". */
-  onPlanWeek?: () => void;
 };
 
 const POSITION_LABEL: Record<string, string> = {
@@ -78,7 +74,7 @@ function buildGreeting(profile: User | null): { title: string; body: string } {
   return { title, body };
 }
 
-export function WarmWelcomeCard({ profile, onCheckIn, onPlanWeek }: Props) {
+export function WarmWelcomeCard({ profile }: Props) {
   const { title, body } = useMemo(() => buildGreeting(profile), [profile]);
 
   return (
@@ -88,23 +84,6 @@ export function WarmWelcomeCard({ profile, onCheckIn, onPlanWeek }: Props) {
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
-
-      {(onCheckIn || onPlanWeek) && (
-        <View style={styles.chipRow}>
-          {onCheckIn && (
-            <Pressable style={styles.chip} onPress={onCheckIn}>
-              <SmartIcon name="heart-outline" size={14} color={colors.accent1} />
-              <Text style={styles.chipText}>Check in</Text>
-            </Pressable>
-          )}
-          {onPlanWeek && (
-            <Pressable style={styles.chip} onPress={onPlanWeek}>
-              <SmartIcon name="calendar-outline" size={14} color={colors.accent1} />
-              <Text style={styles.chipText}>Plan my week</Text>
-            </Pressable>
-          )}
-        </View>
-      )}
     </View>
   );
 }
@@ -139,27 +118,5 @@ const styles = StyleSheet.create({
     ...typography.bodyOnDark,
     color: colors.textSecondary,
     lineHeight: 20,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: `${colors.accent1}4D`,
-    backgroundColor: `${colors.accent1}1F`,
-  },
-  chipText: {
-    ...typography.caption,
-    fontFamily: fontFamily.medium,
-    color: colors.accent1,
   },
 });

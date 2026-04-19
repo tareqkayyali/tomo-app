@@ -58,6 +58,10 @@ interface AthleteModeHeroProps {
   activePanel: PanelId;
   onPanelPress: (panel: PanelId) => void;
   onModeChanged: () => void; // Triggers boot refresh
+  /** When true, the Program/Metrics/Progress panel pills are not rendered
+   *  (use this when the hero is shown inside a tab bar that already exposes
+   *  those panels as sibling tabs). */
+  hidePanelPills?: boolean;
 }
 
 export function AthleteModeHero({
@@ -66,6 +70,7 @@ export function AthleteModeHero({
   activePanel,
   onPanelPress,
   onModeChanged,
+  hidePanelPills = false,
 }: AthleteModeHeroProps) {
   const [modes, setModes] = useState<ModeDefinition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,13 +144,15 @@ export function AthleteModeHero({
   return (
     <View style={styles.container}>
       {/* Quick access pills (Program / Metrics / Progress) + date */}
-      <QuickAccessRow
-        activePanel={activePanel}
-        onPanelPress={onPanelPress}
-        signalColor={modeColor}
-        showUrgencyBadge={signal.showUrgencyBadge}
-        urgencyLabel={signal.urgencyLabel}
-      />
+      {!hidePanelPills && (
+        <QuickAccessRow
+          activePanel={activePanel}
+          onPanelPress={onPanelPress}
+          signalColor={modeColor}
+          showUrgencyBadge={signal.showUrgencyBadge}
+          urgencyLabel={signal.urgencyLabel}
+        />
+      )}
 
       {/* Current mode display */}
       <View style={styles.modeDisplay}>

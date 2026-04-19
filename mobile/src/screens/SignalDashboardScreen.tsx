@@ -20,6 +20,8 @@ import { spacing } from '../theme';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
+import { QuickAccessBar } from '../components/QuickAccessBar';
+import { UnderlineTabSwitcher } from '../components/UnderlineTabSwitcher';
 import { useAuth } from '../hooks/useAuth';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { useConnectedSources } from '../hooks/useConnectedSources';
@@ -35,6 +37,14 @@ import { MetricsPanel } from '../components/dashboard/panels/MetricsPanel';
 import { ProgressPanel } from '../components/dashboard/panels/ProgressPanel';
 
 type PanelId = 'training' | 'metrics' | 'progress' | null;
+type DashboardTabKey = 'dashboard' | 'program' | 'metrics' | 'progress';
+
+const DASHBOARD_TABS: { key: DashboardTabKey; label: string }[] = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'program', label: 'Training Programs' },
+  { key: 'metrics', label: 'Metrics' },
+  { key: 'progress', label: 'Progress' },
+];
 
 const NEUTRAL_SIGNAL = {
   key: 'BASELINE',
@@ -151,6 +161,7 @@ export function SignalDashboardScreen() {
   const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
 
   const [activePanel, setActivePanel] = useState<PanelId>(null);
+  const [activeTab, setActiveTab] = useState<DashboardTabKey>('dashboard');
 
   useFocusEffect(
     useCallback(() => {
@@ -247,16 +258,34 @@ export function SignalDashboardScreen() {
     [navigation]
   );
 
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <QuickAccessBar
+        actions={[
+          {
+            key: 'rules',
+            icon: 'options-outline',
+            label: 'My Rules',
+            onPress: () => navigation.navigate('MyRules'),
+            accentColor: colors.accent2,
+          },
+        ]}
+      />
+      <View style={styles.headerRight}>
+        <CheckinHeaderButton
+          needsCheckin={needsCheckin}
+          onPress={() => navigation.navigate('Checkin')}
+        />
+        <NotificationBell />
+        <HeaderProfileButton initial={initial} photoUrl={profile?.photoUrl} />
+      </View>
+    </View>
+  );
+
   if (isBootLoading && !bootData) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Dashboard</Text>
-          <View style={styles.headerRight}>
-            <NotificationBell />
-            <HeaderProfileButton initial={initial} photoUrl={profile?.photoUrl} />
-          </View>
-        </View>
+        {renderHeader()}
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.accent} size="small" />
           <Text style={styles.loadingText}>Loading your signal...</Text>
@@ -267,24 +296,25 @@ export function SignalDashboardScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Dashboard</Text>
-        <View style={styles.headerRight}>
-          <CheckinHeaderButton
-            needsCheckin={needsCheckin}
-            onPress={() => navigation.navigate('Checkin')}
-          />
-          <NotificationBell />
-          <HeaderProfileButton initial={initial} photoUrl={profile?.photoUrl} />
-        </View>
-      </View>
+      {renderHeader()}
 
+      <UnderlineTabSwitcher<DashboardTabKey>
+        tabs={DASHBOARD_TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        accentColor={colors.accent1}
+        inactiveColor={colors.textMuted}
+        borderColor={colors.borderLight}
+      />
+
+      {activeTab === 'dashboard' && (
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Athlete Mode Hero — current mode, quick switcher, panel pills */}
+        {/* Athlete Mode Hero — current mode, quick switcher. Panel pills hidden
+            because Program/Metrics/Progress are now siblings in the tab bar. */}
         {/* CMS-gated: only renders when signal_hero section is enabled in dashboard_sections */}
         {enabledTypes.has('signal_hero') && (
           <AthleteModeHero
@@ -297,6 +327,7 @@ export function SignalDashboardScreen() {
             activePanel={activePanel}
             onPanelPress={setActivePanel}
             onModeChanged={refreshBoot}
+            hidePanelPills
           />
         )}
 
@@ -403,43 +434,48 @@ export function SignalDashboardScreen() {
           </View>
         )}
       </ScrollView>
+      )}
 
-      {/* Slide-up Panels */}
-      <ProgramPanel
-        isOpen={activePanel === 'training'}
-        onClose={() => setActivePanel(null)}
-        adaptedPlan={signal.adaptedPlan}
-        activePrograms={bootData?.activePrograms}
-        coachProgrammes={bootData?.coachProgrammes}
-        recommendedPrograms={bootData?.recommendedPrograms}
-        signalColor={signal.color}
-        freshness={freshness}
-        onDayPress={onProgramDayPress}
-        panelLayout={bootData?.panelLayouts?.program}
-      />
-      <MetricsPanel
-        isOpen={activePanel === 'metrics'}
-        onClose={() => setActivePanel(null)}
-        snapshot={bootData?.snapshot ?? null}
-        recentVitals={recentVitals}
-        dailyLoad={bootData?.dailyLoad}
-        signalColor={signal.color}
-        freshness={freshness}
-        isWearableConnected={isWearableConnected}
-        onSyncVitals={onSyncVitals}
-        onOpenSettings={onOpenSettings}
-        panelLayout={bootData?.panelLayouts?.metrics}
-      />
-      <ProgressPanel
-        isOpen={activePanel === 'progress'}
-        onClose={() => setActivePanel(null)}
-        snapshot={bootData?.snapshot ?? null}
-        dailyLoad={bootData?.dailyLoad}
-        benchmarkSummary={bootData?.benchmarkSummary}
-        signalColor={signal.color}
-        freshness={freshness}
-        panelLayout={bootData?.panelLayouts?.progress}
-      />
+      {activeTab === 'program' && (
+        <ProgramPanel
+          variant="inline"
+          adaptedPlan={signal.adaptedPlan}
+          activePrograms={bootData?.activePrograms}
+          coachProgrammes={bootData?.coachProgrammes}
+          recommendedPrograms={bootData?.recommendedPrograms}
+          signalColor={signal.color}
+          freshness={freshness}
+          onDayPress={onProgramDayPress}
+          panelLayout={bootData?.panelLayouts?.program}
+        />
+      )}
+
+      {activeTab === 'metrics' && (
+        <MetricsPanel
+          variant="inline"
+          snapshot={bootData?.snapshot ?? null}
+          recentVitals={recentVitals}
+          dailyLoad={bootData?.dailyLoad}
+          signalColor={signal.color}
+          freshness={freshness}
+          isWearableConnected={isWearableConnected}
+          onSyncVitals={onSyncVitals}
+          onOpenSettings={onOpenSettings}
+          panelLayout={bootData?.panelLayouts?.metrics}
+        />
+      )}
+
+      {activeTab === 'progress' && (
+        <ProgressPanel
+          variant="inline"
+          snapshot={bootData?.snapshot ?? null}
+          dailyLoad={bootData?.dailyLoad}
+          benchmarkSummary={bootData?.benchmarkSummary}
+          signalColor={signal.color}
+          freshness={freshness}
+          panelLayout={bootData?.panelLayouts?.progress}
+        />
+      )}
     </SafeAreaView>
   );
 }

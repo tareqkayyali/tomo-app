@@ -254,13 +254,18 @@ function createStyles(colors: ThemeColors) {
     emptyContainer: {
       flex: 1,
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: 'stretch',
     },
     emptyCenter: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
       paddingHorizontal: spacing.lg,
+    },
+    quoteOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     chip: {
       backgroundColor: colors.chipBackground,
@@ -1865,6 +1870,7 @@ export function HomeScreen() {
           <QuickAccessBar actions={[
             { key: 'saved', icon: 'chatbubbles-outline', label: 'Saved Chats', onPress: () => setShowSavedChats(true) },
             { key: 'new', icon: 'create-outline', label: 'New Chat', onPress: handleNewChat },
+            { key: 'rules', icon: 'options-outline', label: 'My Rules', onPress: () => navigation.navigate('MyRules' as any) },
           ]} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
@@ -1899,16 +1905,15 @@ export function HomeScreen() {
           */}
         {!showSavedChats && isEmpty ? (
           <Pressable style={styles.emptyContainer} onPress={Keyboard.dismiss}>
-            <WarmWelcomeCard
-              profile={profile}
-              onCheckIn={() => navigation.navigate('Checkin' as any)}
-              onPlanWeek={() => navigation.navigate('Plan' as any)}
-            />
+            <WarmWelcomeCard profile={profile} />
+            <View style={styles.emptyCenter} />
             <View style={styles.emptyCenter}>
-              <QuoteCard quote={currentQuote} />
               <NextBlockLine bootData={bootData} />
             </View>
             <ChatActionPills onPress={handleChipPress} />
+            <View style={styles.quoteOverlay} pointerEvents="box-none">
+              <QuoteCard quote={currentQuote} />
+            </View>
           </Pressable>
         ) : !showSavedChats ? (
           <>

@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { SlideUpPanel } from './SlideUpPanel';
 import { DashboardCard } from './DashboardCard';
@@ -17,8 +17,8 @@ import { BarChart, DotHeatmap } from '../../charts';
 import type { DashboardLayoutSection } from '../../../services/api';
 
 interface ProgressPanelProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   snapshot: Record<string, any> | null;
   dailyLoad?: { date: string; trainingLoadAu: number; sessionCount: number }[];
   benchmarkSummary?: { overallPercentile: number; topStrength: string | null; topGap: string | null } | null;
@@ -31,6 +31,11 @@ interface ProgressPanelProps {
    * (admin can add new rows without crashing the client).
    */
   panelLayout?: DashboardLayoutSection[];
+  /**
+   * 'sheet' (default) renders inside a SlideUpPanel overlay.
+   * 'inline' renders the body directly in a ScrollView for tab-based embedding.
+   */
+  variant?: 'sheet' | 'inline';
 }
 
 /** Default rendering order, used when CMS returns nothing. */
@@ -42,7 +47,7 @@ const DEFAULT_PROGRESS_ORDER = [
   'progress_benchmark',
 ];
 
-export function ProgressPanel({ isOpen, onClose, snapshot, dailyLoad, benchmarkSummary, signalColor, freshness, panelLayout }: ProgressPanelProps) {
+export function ProgressPanel({ isOpen = false, onClose = () => {}, snapshot, dailyLoad, benchmarkSummary, signalColor, freshness, panelLayout, variant = 'sheet' }: ProgressPanelProps) {
   const { colors } = useTheme();
   const cvCompleteness = snapshot?.cv_completeness ?? 0;
   const streak = snapshot?.streak_days ?? 0;
@@ -101,6 +106,24 @@ export function ProgressPanel({ isOpen, onClose, snapshot, dailyLoad, benchmarkS
     ? panelLayout.map((s) => s.component_type)
     : DEFAULT_PROGRESS_ORDER;
 
+  const body = order.map((type) => {
+    const render = renderers[type];
+    if (!render) return null;
+    return <React.Fragment key={type}>{render()}</React.Fragment>;
+  });
+
+  if (variant === 'inline') {
+    return (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {body}
+      </ScrollView>
+    );
+  }
+
   return (
     <SlideUpPanel
       isOpen={isOpen}
@@ -109,11 +132,7 @@ export function ProgressPanel({ isOpen, onClose, snapshot, dailyLoad, benchmarkS
       subtitle="Performance identity & milestones"
       freshness={freshness}
     >
-      {order.map((type) => {
-        const render = renderers[type];
-        if (!render) return null;
-        return <React.Fragment key={type}>{render()}</React.Fragment>;
-      })}
+      {body}
     </SlideUpPanel>
   );
 }

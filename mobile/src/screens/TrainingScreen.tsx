@@ -85,8 +85,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   useFocusEffect(useCallback(() => { refreshRules(); }, [refreshRules]));
   const quickActions = useQuickActions(
     [
-      { key: 'study', icon: 'book-outline', label: 'Study', onPress: () => navigation.navigate('StudyPlanView' as any), accentColor: colors.accent2 },
-      { key: 'training', icon: 'barbell-outline', label: 'Training', onPress: () => navigation.navigate('TrainingPlanView' as any), accentColor: colors.accent1 },
       { key: 'rules', icon: 'options-outline', label: 'My Rules', onPress: () => navigation.navigate('MyRules'), accentColor: colors.accent2 },
       { key: 'bulk-edit', icon: 'copy-outline', label: 'Bulk Edit', onPress: () => navigation.navigate('BulkEditEvents' as any), accentColor: colors.accent1 },
     ],
