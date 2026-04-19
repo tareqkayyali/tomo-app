@@ -1,5 +1,5 @@
 /**
- * Agent Orchestrator — routes intent from Tomo Chat to the correct agent(s).
+ * Agent Orchestrator — routes intent from the Chat tab to the correct agent(s).
  * Handles multi-agent instructions, tool-use loops, and confirmation gates.
  *
  * Complements the existing chatService.ts — this is the "command center" layer

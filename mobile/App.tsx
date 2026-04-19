@@ -123,7 +123,7 @@ function App() {
 
 export default wrapWithSentry(App);
 
-// ── Dynamic Loading Screen (rotating messages like Own It / My Programs) ──
+// ── Dynamic Loading Screen (rotating messages, same pattern as Dashboard sub-views) ──
 
 const APP_LOADING_MESSAGES = [
   { title: 'Loading Your Profile', subtitle: 'Setting up your athlete dashboard...', icon: 'person-outline' as const },

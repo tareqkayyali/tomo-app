@@ -321,7 +321,7 @@ Memory files persist across conversations. The existing memory at `.claude/proje
 - Deployment architecture & exact deploy commands
 - Content CMS migration details
 - Supabase SQL safety policy
-- App tab structure (5 tabs with canonical names)
+- App tab structure (3 tabs with canonical names)
 - Chat AI 6-layer context pipeline architecture
 - Schedule rule engine details
 - UI theme & component system (colors, typography, spacing, patterns)
@@ -411,23 +411,21 @@ Action → POST /events/ingest → athlete_events (immutable log)
 
 ### AI Architecture
 ```
-Tomo Chat: 3-agent orchestrator (Timeline, Output, Mastery)
+Chat tab: 3-agent orchestrator (Timeline, Output, Mastery — backend agents)
   → contextBuilder.ts (10 parallel data fetches → PlayerContext)
   → Agent-specific system prompt + tools
   → Claude API → structured response
 
-Own It: deepRecRefresh.ts
+Dashboard recommendations: deepRecRefresh.ts
   → Same PlayerContext pipeline
   → Claude generates 4-6 diversified recs
   → Stored in athlete_recommendations table
 ```
 
-### App Tabs
-1. **Timeline** — `TrainingScreen.tsx` (Calendar, daily flow, AI insights)
-2. **Output** — `TestsScreen.tsx` (Vitals, Metrics, Programs sub-tabs)
-3. **Tomo Chat** — `HomeScreen.tsx` (AI Command Center)
-4. **Mastery** — `ProgressScreen.tsx` (DNA card, pillars, streaks)
-5. **Own It** — `ForYouScreen.tsx` (AI recommendations, readiness)
+### App Tabs (3 tabs, default route: Chat)
+1. **Plan** — `TrainingScreen.tsx` (calendar, daily flow, schedule, AI insights)
+2. **Chat** — `HomeScreen.tsx` (AI Command Center, default tab)
+3. **Dashboard** — `SignalDashboardScreen.tsx` (four sub-views: Dashboard overview / Programs / Metrics / Progress — absorbed the old Output, Mastery, and Own It tabs)
 
 ---
 
