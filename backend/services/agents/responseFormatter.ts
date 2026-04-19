@@ -1,5 +1,5 @@
 /**
- * Response Formatter — Structured visual response system for Tomo Chat.
+ * Response Formatter — Structured visual response system for the Chat tab.
  *
  * Converts Claude's JSON output into typed visual cards that the
  * frontend ResponseRenderer can display as rich UI components.

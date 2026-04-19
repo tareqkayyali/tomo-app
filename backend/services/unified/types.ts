@@ -290,7 +290,7 @@ export interface ActiveRecommendation {
  *   - benchmarkProfile: Cached benchmark percentiles
  *   - todayEvents:  Calendar events for today
  *   - upcomingEvents: Calendar events for next N days
- *   - activeRecommendations: Current Own It recs
+ *   - activeRecommendations: Current Dashboard recommendations feed
  *   - pdContext:    PDIL decisions (training modifiers, rec guardrails, AI context)
  *   - longitudinalMemory: Cross-session AI memory (AI-only)
  *   - ragChunks:    Knowledge chunks (AI-only)

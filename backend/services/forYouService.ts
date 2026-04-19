@@ -560,7 +560,7 @@ export async function generateForYouContent(
       .select("id")
       .eq("user_id", userId)
       .gte("date", weekAgoStr),
-    // Layer 4 — top P1+P2+P3 recs for Own It page
+    // Layer 4 — top P1+P2+P3 recs for the Dashboard recommendations feed
     getRecommendations(userId, { role: "ATHLETE", limit: 8 }).catch(() => [] as Recommendation[]),
   ]);
 

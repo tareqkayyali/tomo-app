@@ -617,7 +617,7 @@ export async function executeOutputTool(
           createdBy: userId,
         });
 
-        // Fire-and-forget: refresh Own It recs so stale "Check In" rec gets superseded
+        // Fire-and-forget: refresh dashboard recs so the stale "Check In" rec gets superseded
         triggerDeepRecRefreshAsync(userId, context.timezone);
 
         return {
@@ -1033,7 +1033,7 @@ export async function executeOutputTool(
           createdBy: userId,
         });
 
-        // Fire-and-forget: refresh Own It recs + Programs so they reflect the new test
+        // Fire-and-forget: refresh dashboard recs + Programs so they reflect the new test
         triggerDeepRecRefreshAsync(userId, context.timezone);
         triggerDeepProgramRefreshAsync(userId, context.timezone);
 

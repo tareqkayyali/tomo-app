@@ -2,7 +2,7 @@
  * Seed Warm Landing
  *
  * Phase 4: the moment onboarding finishes is where new users bail if
- * every tab is empty. This seeder writes three starter Own It
+ * every tab is empty. This seeder writes three starter dashboard
  * recommendations and one "your first week" training suggestion so
  * the first-session experience feels like Tomo already knows them —
  * no AI cost on landing.
