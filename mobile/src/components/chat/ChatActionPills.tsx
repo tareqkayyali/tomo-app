@@ -127,7 +127,7 @@ export const ChatActionPills = React.memo(function ChatActionPills({ onPress }: 
           onPress={() => handleTap(pill)}
           style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
         >
-          <Text style={styles.pillText} numberOfLines={1}>
+          <Text style={styles.pillText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
             {pill.label}
           </Text>
         </Pressable>
@@ -140,19 +140,22 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     row: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'center',
-      paddingHorizontal: spacing.lg,
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.md,
       paddingBottom: spacing.md,
-      gap: spacing.sm,
+      gap: 6,
     },
     pill: {
+      flex: 1,
       backgroundColor: colors.accentSubtle,
-      paddingVertical: 10,
-      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
+      paddingHorizontal: 8,
       borderRadius: borderRadius.full,
       borderWidth: 1,
       borderColor: colors.accentBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     pillPressed: {
       opacity: 0.7,
@@ -160,8 +163,9 @@ function createStyles(colors: ThemeColors) {
     },
     pillText: {
       fontFamily: fontFamily.medium,
-      fontSize: 13,
+      fontSize: 11,
       color: colors.accent2,
+      textAlign: 'center',
     },
   });
 }

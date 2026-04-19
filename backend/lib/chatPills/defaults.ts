@@ -30,7 +30,7 @@ export const DEFAULT_CHAT_PILLS_CONFIG: ChatPillsConfig = {
   library: [
     {
       id: "plan_study",
-      label: "Plan Study",
+      label: "Study",
       message: "plan my study schedule",
       enabled: true,
       allowInEmptyState: true,
@@ -41,7 +41,7 @@ export const DEFAULT_CHAT_PILLS_CONFIG: ChatPillsConfig = {
     },
     {
       id: "plan_training",
-      label: "Plan Training",
+      label: "Train",
       message: "plan my training week",
       enabled: true,
       allowInEmptyState: true,
@@ -63,7 +63,7 @@ export const DEFAULT_CHAT_PILLS_CONFIG: ChatPillsConfig = {
     },
     {
       id: "check_benchmarks",
-      label: "Check My Benchmarks",
+      label: "My Benchmarks",
       message: "show me my benchmarks",
       enabled: true,
       allowInEmptyState: true,
