@@ -1,24 +1,26 @@
 /**
- * ModeSelector — Horizontal card row for athlete mode switching.
+ * ModeSelector — Mode switcher matching the Dashboard AthleteModeHero layout.
  *
- * Displays CMS-managed modes (Balanced/League/Study/Rest) as tappable cards.
- * Fetches available modes from /api/v1/content/modes.
- * Selected mode shown with colored border + filled background.
+ * Shows the current mode with a colored indicator bar, large colored label,
+ * "CURRENT MODE" caption, description, and a row of 4 tappable mode cards
+ * (colored dot + label, active card has colored border + tinted background).
+ *
+ * Fetches CMS-managed modes from /api/v1/content/modes. Visual contract is
+ * identical to AthleteModeHero so MyRules and Dashboard stay consistent.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
-import { fontFamily, spacing, borderRadius } from '../../theme';
+import { fontFamily, borderRadius } from '../../theme';
 import { API_BASE_URL } from '../../services/apiConfig';
 import type { ThemeColors } from '../../theme/colors';
 
@@ -37,22 +39,29 @@ interface ModeSelectorProps {
   disabled?: boolean;
 }
 
+// Fallback colors when CMS mode has no color (mirrors AthleteModeHero)
+const MODE_FALLBACK_COLORS: Record<string, string> = {
+  balanced: '#30D158',
+  league: '#FF6B35',
+  study: '#00D9FF',
+  rest: '#AF52DE',
+};
+
 export function ModeSelector({ currentMode, onModeChange, disabled }: ModeSelectorProps) {
   const { colors } = useTheme();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [modes, setModes] = useState<ModeDefinition[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchModes = useCallback(async () => {
     try {
-      const base = API_BASE_URL;
-      const res = await fetch(`${base}/api/v1/content/modes`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/content/modes`);
       if (res.ok) {
         const data = await res.json();
         setModes(data.modes ?? []);
       }
     } catch {
-      // Silently fail — modes not critical for page load
+      // Modes endpoint failure is non-critical
     } finally {
       setLoading(false);
     }
@@ -71,6 +80,14 @@ export function ModeSelector({ currentMode, onModeChange, disabled }: ModeSelect
     [currentMode, onModeChange, disabled],
   );
 
+  const activeMode = useMemo(
+    () => modes.find((m) => m.id === currentMode) ?? null,
+    [modes, currentMode],
+  );
+
+  const modeColor =
+    activeMode?.color ?? MODE_FALLBACK_COLORS[currentMode] ?? colors.accent;
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -81,109 +98,145 @@ export function ModeSelector({ currentMode, onModeChange, disabled }: ModeSelect
 
   if (modes.length === 0) return null;
 
+  const activeLabel =
+    activeMode?.label ?? currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionLabel}>Athlete Mode</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.cardRow}
-      >
+      {/* Current mode display */}
+      <View style={styles.modeDisplay}>
+        <View style={[styles.modeIndicator, { backgroundColor: modeColor }]} />
+        <View style={styles.modeInfo}>
+          <Text style={[styles.modeLabel, { color: modeColor }]}>{activeLabel}</Text>
+          <Text style={[styles.modeSubtitle, { color: colors.textSecondary }]}>
+            Current Mode
+          </Text>
+        </View>
+      </View>
+
+      {/* Mode description */}
+      {activeMode?.description && (
+        <Text style={[styles.modeDescription, { color: `${modeColor}B3` }]}>
+          {activeMode.description}
+        </Text>
+      )}
+
+      {/* Mode cards row */}
+      <View style={styles.modeCards}>
         {modes.map((mode) => {
           const isActive = mode.id === currentMode;
-          const modeColor = mode.color ?? colors.accent1;
+          const cardColor = mode.color ?? MODE_FALLBACK_COLORS[mode.id] ?? colors.accent;
 
           return (
             <TouchableOpacity
               key={mode.id}
               onPress={() => handleSelect(mode.id)}
-              disabled={disabled}
+              disabled={disabled || isActive}
               activeOpacity={0.7}
               style={[
-                styles.card,
+                styles.modeCard,
+                {
+                  backgroundColor: colors.chipBackground,
+                  borderColor: colors.glassBorder,
+                },
                 isActive && {
-                  borderColor: modeColor,
-                  backgroundColor: `${modeColor}15`,
+                  borderColor: cardColor,
+                  backgroundColor: `${cardColor}15`,
                 },
               ]}
             >
+              <View
+                style={[
+                  styles.cardDot,
+                  { backgroundColor: isActive ? cardColor : `${cardColor}60` },
+                ]}
+              />
               <Text
                 style={[
                   styles.cardLabel,
-                  isActive && { color: modeColor, fontFamily: fontFamily.bold },
+                  { color: colors.textSecondary },
+                  isActive && { color: cardColor, fontFamily: fontFamily.semiBold },
                 ]}
+                numberOfLines={1}
               >
                 {mode.label}
               </Text>
-              {isActive && (
-                <View style={[styles.activeDot, { backgroundColor: modeColor }]} />
-              )}
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
-      {modes.find((m) => m.id === currentMode)?.description && (
-        <Text style={styles.modeDescription}>
-          {modes.find((m) => m.id === currentMode)?.description}
-        </Text>
-      )}
+      </View>
     </View>
   );
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(_colors: ThemeColors) {
   return StyleSheet.create({
     container: {
-      marginBottom: spacing.lg,
+      paddingTop: 2,
+      paddingBottom: 4,
     },
     loadingContainer: {
-      height: 80,
+      height: 120,
       justifyContent: 'center',
       alignItems: 'center',
     },
-    sectionLabel: {
-      fontSize: 13,
-      fontFamily: fontFamily.semiBold,
-      color: colors.textInactive,
+    modeDisplay: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 8,
+    },
+    modeIndicator: {
+      width: 4,
+      height: 36,
+      borderRadius: 2,
+    },
+    modeInfo: {
+      flex: 1,
+    },
+    modeLabel: {
+      fontFamily: fontFamily.bold,
+      fontSize: 24,
+      letterSpacing: -0.5,
+    },
+    modeSubtitle: {
+      fontFamily: fontFamily.regular,
+      fontSize: 10,
       textTransform: 'uppercase',
       letterSpacing: 1,
-      marginBottom: spacing.sm,
+      marginTop: 1,
     },
-    cardRow: {
-      gap: spacing.sm,
-      paddingRight: spacing.md,
-    },
-    card: {
-      width: 90,
-      height: 90,
-      borderRadius: borderRadius.lg,
-      backgroundColor: colors.backgroundElevated,
-      borderWidth: 2,
-      borderColor: 'transparent',
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: 4,
-    },
-    cardLabel: {
+    modeDescription: {
+      fontFamily: fontFamily.regular,
       fontSize: 12,
-      fontFamily: fontFamily.medium,
-      color: colors.textOnDark,
-      textAlign: 'center',
+      lineHeight: 17,
+      marginBottom: 14,
+      marginLeft: 16,
     },
-    activeDot: {
+    modeCards: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 6,
+    },
+    modeCard: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 10,
+      paddingHorizontal: 4,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1.5,
+    },
+    cardDot: {
       width: 6,
       height: 6,
       borderRadius: 3,
-      position: 'absolute',
-      top: 8,
-      right: 8,
     },
-    modeDescription: {
-      fontSize: 12,
-      fontFamily: fontFamily.regular,
-      color: colors.textInactive,
-      marginTop: spacing.xs,
-      lineHeight: 16,
+    cardLabel: {
+      fontFamily: fontFamily.medium,
+      fontSize: 11,
     },
   });
 }

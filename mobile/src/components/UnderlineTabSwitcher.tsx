@@ -3,10 +3,13 @@
  *
  * Used by:
  *   - Output screen (vitals / metrics / programs)
- *   - Dashboard (Program / Metrics / Progress)
+ *   - Dashboard (Dashboard / Programs / Metrics / Progress)
  *
- * Accepts a generic string-keyed tab list so callers stay type-safe with their
- * own tab union. The underline indicator springs between tabs on change.
+ * Accepts a generic string-keyed tab list so callers stay type-safe with
+ * their own tab union. The underline indicator springs between tabs on
+ * change, and its width equals the TEXT width (not the tab cell width) so
+ * the underline sits centred directly under the active label rather than
+ * spanning the full tab column.
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -54,34 +57,66 @@ export function UnderlineTabSwitcher<K extends string>({
   paddingHorizontal = spacing.md,
   marginBottom = spacing.sm,
 }: Props<K>) {
+  // Measured geometry — we track TAB cell x/width and TEXT width separately
+  // so the indicator can sit centred under the text rather than spanning
+  // the full tab column.
   const tabWidths = useRef<number[]>(tabs.map(() => 0));
   const tabOffsets = useRef<number[]>(tabs.map(() => 0));
+  const textWidths = useRef<number[]>(tabs.map(() => 0));
   const lastActiveX = useRef(0);
   const indicatorX = useRef(new Animated.Value(0)).current;
   const indicatorW = useRef(new Animated.Value(0)).current;
 
   const activeIndex = tabs.findIndex((t) => t.key === activeTab);
 
-  useEffect(() => {
-    // When no tab is active (e.g. overlay pattern where the active panel was
-    // dismissed), collapse width to 0 at the last known x so the indicator
-    // retracts in place instead of sticking on the previous selection.
-    const x = activeIndex >= 0 ? tabOffsets.current[activeIndex] || 0 : lastActiveX.current;
-    const w = activeIndex >= 0 ? tabWidths.current[activeIndex] || 0 : 0;
-    if (activeIndex >= 0) lastActiveX.current = x;
+  /** Compute indicator target: width = text width; x = tab centre − half text width. */
+  const computeTarget = (index: number): { x: number; w: number } => {
+    const tabX = tabOffsets.current[index] || 0;
+    const tabW = tabWidths.current[index] || 0;
+    const textW = textWidths.current[index] || 0;
+    // Fallback: if we haven't measured the text yet (first render), use tab width.
+    const w = textW > 0 ? textW : tabW;
+    const x = tabX + Math.max(0, (tabW - w) / 2);
+    return { x, w };
+  };
+
+  const animateTo = (x: number, w: number) => {
     Animated.parallel([
       Animated.spring(indicatorX, { toValue: x, useNativeDriver: false, tension: 300, friction: 30 }),
       Animated.spring(indicatorW, { toValue: w, useNativeDriver: false, tension: 300, friction: 30 }),
     ]).start();
+  };
+
+  useEffect(() => {
+    if (activeIndex < 0) {
+      // No tab active (overlay pattern where the active panel was dismissed):
+      // collapse width at last known x so the indicator retracts in place.
+      animateTo(lastActiveX.current, 0);
+      return;
+    }
+    const { x, w } = computeTarget(activeIndex);
+    lastActiveX.current = x;
+    animateTo(x, w);
   }, [activeIndex, indicatorX, indicatorW]);
 
-  const handleLayout = (index: number) => (e: LayoutChangeEvent) => {
+  const handleTabLayout = (index: number) => (e: LayoutChangeEvent) => {
     const { x, width } = e.nativeEvent.layout;
     tabWidths.current[index] = width;
     tabOffsets.current[index] = x;
     if (index === activeIndex) {
-      indicatorX.setValue(x);
-      indicatorW.setValue(width);
+      const t = computeTarget(index);
+      indicatorX.setValue(t.x);
+      indicatorW.setValue(t.w);
+    }
+  };
+
+  const handleTextLayout = (index: number) => (e: LayoutChangeEvent) => {
+    const { width } = e.nativeEvent.layout;
+    textWidths.current[index] = width;
+    if (index === activeIndex) {
+      const t = computeTarget(index);
+      indicatorX.setValue(t.x);
+      indicatorW.setValue(t.w);
     }
   };
 
@@ -94,7 +129,7 @@ export function UnderlineTabSwitcher<K extends string>({
             <TouchableOpacity
               key={tab.key}
               onPress={() => onTabChange(tab.key)}
-              onLayout={handleLayout(i)}
+              onLayout={handleTabLayout(i)}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12 }}
               activeOpacity={0.7}
             >
@@ -102,6 +137,7 @@ export function UnderlineTabSwitcher<K extends string>({
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.85}
+                onLayout={handleTextLayout(i)}
                 style={{
                   fontFamily: isActive ? fontFamily.semiBold : fontFamily.medium,
                   fontSize: 14,

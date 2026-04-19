@@ -10,10 +10,11 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Platform, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBootData } from '../hooks/useBootData';
+import { useOutputData } from '../hooks/useOutputData';
 import { useTheme } from '../hooks/useTheme';
 import { fontFamily } from '../theme/typography';
 import { spacing } from '../theme';
@@ -35,6 +36,12 @@ import { DashboardSectionRenderer } from '../components/dashboard/sections';
 import { ProgramPanel } from '../components/dashboard/panels/ProgramPanel';
 import { MetricsPanel } from '../components/dashboard/panels/MetricsPanel';
 import { ProgressPanel } from '../components/dashboard/panels/ProgressPanel';
+// Output sections — reused under the Programs + Metrics tabs to match the
+// Coach portal's ProgrammesTab / TestsTab layout (both delegated to these
+// sections already). Single source of truth for the athlete's own view
+// across Dashboard tabs and the Output screen.
+import { ProgramsSection } from '../components/output/ProgramsSection';
+import { MetricsSection } from '../components/output/MetricsSection';
 
 type PanelId = 'training' | 'metrics' | 'progress' | null;
 type DashboardTabKey = 'dashboard' | 'program' | 'metrics' | 'progress';
@@ -158,10 +165,16 @@ export function SignalDashboardScreen() {
   const { needsCheckin } = useCheckinStatus();
   const navigation = useNavigation<any>();
   const { bootData, isBootLoading, refreshBoot } = useBootData();
+  // Output data drives the Programs + Metrics tabs (same source the Output
+  // screen uses, and that the Coach portal's ProgrammesTab / TestsTab
+  // delegate to). We call it unconditionally so the data is ready the
+  // moment the athlete taps one of those tabs.
+  const { data: outputData, loading: outputLoading, error: outputError, refresh: refreshOutput, isDeepRefreshing: outputDeepRefreshing } = useOutputData();
   const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
 
   const [activePanel, setActivePanel] = useState<PanelId>(null);
   const [activeTab, setActiveTab] = useState<DashboardTabKey>('dashboard');
+  const [outputRefreshing, setOutputRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -437,32 +450,110 @@ export function SignalDashboardScreen() {
       )}
 
       {activeTab === 'program' && (
-        <ProgramPanel
-          variant="inline"
-          adaptedPlan={signal.adaptedPlan}
-          activePrograms={bootData?.activePrograms}
-          coachProgrammes={bootData?.coachProgrammes}
-          recommendedPrograms={bootData?.recommendedPrograms}
-          signalColor={signal.color}
-          freshness={freshness}
-          onDayPress={onProgramDayPress}
-          panelLayout={bootData?.panelLayouts?.program}
-        />
+        outputLoading && !outputData ? (
+          <View style={styles.tabLoading}>
+            <ActivityIndicator size="small" color={colors.accent} />
+          </View>
+        ) : outputError || !outputData ? (
+          <ScrollView
+            contentContainerStyle={styles.tabErrorContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={outputRefreshing}
+                onRefresh={async () => {
+                  setOutputRefreshing(true);
+                  await refreshOutput();
+                  setOutputRefreshing(false);
+                }}
+                tintColor={colors.accent}
+              />
+            }
+          >
+            <Text style={[styles.tabErrorTitle, { color: colors.textOnDark }]}>
+              Could not load programs
+            </Text>
+            <Text style={[styles.tabErrorBody, { color: colors.textMuted }]}>
+              Pull down to retry
+            </Text>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.tabContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={outputRefreshing}
+                onRefresh={async () => {
+                  setOutputRefreshing(true);
+                  await refreshOutput();
+                  setOutputRefreshing(false);
+                }}
+                tintColor={colors.accent}
+              />
+            }
+          >
+            <ProgramsSection
+              programs={outputData.programs}
+              gaps={outputData.metrics?.gaps}
+              isDeepRefreshing={outputDeepRefreshing}
+              onNavigateCheckin={() => navigation.navigate('Checkin' as any)}
+              onNavigateSettings={() => navigation.navigate('Settings' as any)}
+            />
+          </ScrollView>
+        )
       )}
 
       {activeTab === 'metrics' && (
-        <MetricsPanel
-          variant="inline"
-          snapshot={bootData?.snapshot ?? null}
-          recentVitals={recentVitals}
-          dailyLoad={bootData?.dailyLoad}
-          signalColor={signal.color}
-          freshness={freshness}
-          isWearableConnected={isWearableConnected}
-          onSyncVitals={onSyncVitals}
-          onOpenSettings={onOpenSettings}
-          panelLayout={bootData?.panelLayouts?.metrics}
-        />
+        outputLoading && !outputData ? (
+          <View style={styles.tabLoading}>
+            <ActivityIndicator size="small" color={colors.accent} />
+          </View>
+        ) : outputError || !outputData ? (
+          <ScrollView
+            contentContainerStyle={styles.tabErrorContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={outputRefreshing}
+                onRefresh={async () => {
+                  setOutputRefreshing(true);
+                  await refreshOutput();
+                  setOutputRefreshing(false);
+                }}
+                tintColor={colors.accent}
+              />
+            }
+          >
+            <Text style={[styles.tabErrorTitle, { color: colors.textOnDark }]}>
+              Could not load metrics
+            </Text>
+            <Text style={[styles.tabErrorBody, { color: colors.textMuted }]}>
+              Pull down to retry
+            </Text>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.tabContent}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl
+                refreshing={outputRefreshing}
+                onRefresh={async () => {
+                  setOutputRefreshing(true);
+                  await refreshOutput();
+                  setOutputRefreshing(false);
+                }}
+                tintColor={colors.accent}
+              />
+            }
+          >
+            <MetricsSection
+              metrics={outputData.metrics}
+              onTestLogged={() => refreshOutput()}
+              sport={bootData?.sport}
+            />
+          </ScrollView>
+        )
       )}
 
       {activeTab === 'progress' && (
@@ -483,6 +574,34 @@ export function SignalDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  // Tab content wrappers (Programs / Metrics — Coach-portal sections)
+  tabContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 120,
+    gap: 8,
+  },
+  tabLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabErrorContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    gap: 8,
+  },
+  tabErrorTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 16,
+  },
+  tabErrorBody: {
+    fontFamily: fontFamily.regular,
+    fontSize: 13,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
