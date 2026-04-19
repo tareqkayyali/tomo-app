@@ -99,6 +99,9 @@ export function UnderlineTabSwitcher<K extends string>({
               activeOpacity={0.7}
             >
               <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
                 style={{
                   fontFamily: isActive ? fontFamily.semiBold : fontFamily.medium,
                   fontSize: 14,

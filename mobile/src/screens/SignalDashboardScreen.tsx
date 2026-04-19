@@ -41,7 +41,7 @@ type DashboardTabKey = 'dashboard' | 'program' | 'metrics' | 'progress';
 
 const DASHBOARD_TABS: { key: DashboardTabKey; label: string }[] = [
   { key: 'dashboard', label: 'Dashboard' },
-  { key: 'program', label: 'Training Programs' },
+  { key: 'program', label: 'Programs' },
   { key: 'metrics', label: 'Metrics' },
   { key: 'progress', label: 'Progress' },
 ];
