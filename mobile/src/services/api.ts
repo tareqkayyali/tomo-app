@@ -285,11 +285,10 @@ export interface BootData {
   // ── Performance Director Context ──
   pdContext: {
     activeProtocols: {
-      id: string;
-      protocolKey: string;
-      name: string;
-      severity: string;
-      actions: string[];
+      name:            string;
+      category:        string;
+      priority:        number;
+      safety_critical: boolean;
     }[];
   } | null;
 
