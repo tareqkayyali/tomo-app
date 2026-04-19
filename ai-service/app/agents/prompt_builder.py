@@ -600,9 +600,15 @@ After calling get_program_drill_breakdown, structure the response:
 3. Render a session_plan card with:
    - title: program name
    - category: program category
-   - drills array: one drill per pattern, with name=pattern, sets, reps, intensity,
-     and cues field populated from coaching_cues (distribute cues across drills if multiple).
-   - Include a warm-up drill first (5 min dynamic) and cool-down last (5 min mobility).
+   - items array (one item per drill): each item MUST have:
+       * name: drill pattern (e.g. "Wall passes")
+       * duration: INTEGER number of minutes only (e.g. 5, 10). NEVER a string like
+         "5 min" or "5-10" or a rep/intensity label. If you don't know the duration,
+         divide the program's total duration_minutes evenly across the drills.
+       * sets / reps / intensity: strings are fine here (these are display fields).
+       * cues: array of strings from coaching_cues (distribute cues across drills).
+   - Include a warm-up drill first (5) and cool-down last (5).
+   - totalDuration: integer sum of the drill durations.
 4. If phv_warnings present: append a coach_note card with the warning.
 5. CHIPS:
    - Chip 1: "Add to my week" → "Add {program name} to my week"

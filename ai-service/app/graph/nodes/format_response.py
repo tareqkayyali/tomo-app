@@ -1106,6 +1106,25 @@ async def format_response_node(state: TomoChatState) -> dict:
                 items = card.get("items") or card.get("drills") or []
                 if not isinstance(items, list) or not items:
                     continue
+
+                # Coerce any drill-level "duration" to a numeric minute count.
+                # LLM output occasionally lands a string (e.g. "25 min", "5-10",
+                # "match pace") in the duration slot when the agent inlines
+                # prescription fields. We keep the string around as "duration_label"
+                # for display and materialize a clean numeric "duration_min" for
+                # totalDuration arithmetic. Non-numeric values resolve to 0 so
+                # sum() never crashes the whole response.
+                def _coerce_duration_min(v):
+                    if isinstance(v, bool):
+                        return 0
+                    if isinstance(v, (int, float)):
+                        return int(v)
+                    if isinstance(v, str):
+                        import re as _re
+                        m = _re.search(r"\d+", v)
+                        return int(m.group()) if m else 0
+                    return 0
+
                 # Normalize each item: duration_min -> duration
                 normalized_items = []
                 for it in items:
@@ -1118,19 +1137,26 @@ async def format_response_node(state: TomoChatState) -> dict:
                         norm["reason"] = norm.pop("description")
                     if "drillId" not in norm and "drill_id" in norm:
                         norm["drillId"] = norm.pop("drill_id")
+                    raw_duration = norm.get("duration")
+                    if isinstance(raw_duration, str) and raw_duration.strip():
+                        norm["duration_label"] = raw_duration
+                    norm["duration"] = _coerce_duration_min(raw_duration)
                     normalized_items.append(norm)
                 card["items"] = normalized_items
                 card.pop("drills", None)
                 # Normalize top-level duration field
                 if "totalDuration" not in card:
                     if "total_duration_min" in card:
-                        card["totalDuration"] = card.pop("total_duration_min")
-                    elif "duration" in card and isinstance(card["duration"], (int, float)):
-                        card["totalDuration"] = card["duration"]
+                        card["totalDuration"] = _coerce_duration_min(card.pop("total_duration_min"))
+                    elif "duration" in card:
+                        card["totalDuration"] = _coerce_duration_min(card["duration"])
                     else:
                         card["totalDuration"] = sum(
-                            (it.get("duration") or 0) for it in normalized_items
+                            _coerce_duration_min(it.get("duration"))
+                            for it in normalized_items
                         )
+                else:
+                    card["totalDuration"] = _coerce_duration_min(card["totalDuration"])
                 # Normalize readiness field
                 if "readiness" not in card and "readiness_level" in card:
                     rl = (card.pop("readiness_level") or "").strip().lower()
