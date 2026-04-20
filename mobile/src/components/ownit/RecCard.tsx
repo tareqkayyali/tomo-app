@@ -35,6 +35,7 @@ import {
   borderRadius,
   fontFamily,
 } from '../../theme';
+import { getAthleteZoneShortLabel } from '../../utils/zoneLabels';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -197,7 +198,17 @@ function getEvidencePills(
       const gaps = evidence.benchmark_gaps as string[] | null;
       if (gaps?.length) pills.push({ label: 'Gaps', value: `${gaps.length} tests`, color: tc.warning, icon: 'analytics-outline' });
       const percentile = evidence.overall_percentile as number | null;
-      if (percentile != null) pills.push({ label: 'Rank', value: `P${percentile}`, color: percentile > 50 ? tc.accent : tc.warning, icon: 'podium-outline' });
+      if (percentile != null) {
+        // Athlete-facing: show the tier label, not a raw P-number. Same
+        // reasoning as MetricsSection — rank framing is off-brand and the
+        // percentile is less precise than it reads. Admin CV views keep P{n}.
+        pills.push({
+          label: 'Tier',
+          value: getAthleteZoneShortLabel(percentile),
+          color: percentile > 50 ? tc.accent : tc.warning,
+          icon: 'podium-outline',
+        });
+      }
       break;
     }
     case 'TRIANGLE_ALERT': {

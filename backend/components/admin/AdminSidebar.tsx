@@ -30,6 +30,7 @@ const navigation = [
       { name: "Programmes", href: "/admin/programmes", icon: "📅" },
       { name: "Assessments", href: "/admin/assessments", icon: "📋" },
       { name: "Normative Data", href: "/admin/normative-data", icon: "📈" },
+      { name: "SD Wideners", href: "/admin/normative-wideners", icon: "📐" },
       { name: "Mastery Pillars", href: "/admin/mastery", icon: "🧬" },
     ],
   },

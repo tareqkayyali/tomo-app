@@ -53,6 +53,7 @@ const navigation: NavGroup[] = [
       { name: "Programs", href: "/admin/programs" },
       { name: "Position Matrix", href: "/admin/programs/position-matrix", minRole: "institutional_pd" },
       { name: "Normative Data", href: "/admin/normative-data" },
+      { name: "SD Wideners", href: "/admin/normative-wideners", minRole: "institutional_pd" },
       { name: "Content Items", href: "/admin/content-items" },
       { name: "Notifications", href: "/admin/notifications/templates", minRole: "institutional_pd" },
     ],

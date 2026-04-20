@@ -180,13 +180,15 @@ export function DualLayerMetricRow({ metric }: Props) {
         )}
       </View>
 
-      {/* Zone labels with norm values */}
+      {/* Zone labels — match the athlete-facing 5-tier vocabulary
+          (see utils/zoneLabels.ts). These are scale DIVIDERS, not the
+          athlete's current tier, so they read low → high. */}
       <View style={styles.zoneRow}>
         {[
-          { key: 'p10', label: 'Needs Attention' },
-          { key: 'p25', label: 'Developing' },
-          { key: 'p50', label: 'Solid' },
-          { key: 'p75', label: 'Strong' },
+          { key: 'p10', label: 'Foundation' },
+          { key: 'p25', label: 'Building' },
+          { key: 'p50', label: 'On Track' },
+          { key: 'p75', label: 'Advanced' },
           { key: 'p90', label: 'Elite' },
         ].map((z) => {
           const normVal = metric.norm?.[z.key as keyof typeof metric.norm];

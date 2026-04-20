@@ -7,34 +7,43 @@
  * Usage:  npx tsx scripts/seeds/football_benchmark_seed.ts
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as fs from "fs";
 import * as path from "path";
 
-// Load env from backend/.env.local (without dotenv dependency)
-const envPath = path.resolve(__dirname, "../../.env.local");
-if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, "utf-8");
-  for (const line of envContent.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx === -1) continue;
-    const key = trimmed.slice(0, eqIdx).trim();
-    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
-    if (!process.env[key]) process.env[key] = val;
+// Seed-only state. Populated by initSeedClient() when this file is executed
+// as a script (npx tsx …). Importers (benchmarkService, output routes) pick
+// up pure helpers like interpolatePercentile / getAgeBand without triggering
+// env loading or supabase client creation.
+let supabase: SupabaseClient;
+
+function initSeedClient(): void {
+  const envPath = path.resolve(__dirname, "../../.env.local");
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, "utf-8");
+    for (const line of envContent.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx === -1) continue;
+      const key = trimmed.slice(0, eqIdx).trim();
+      const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
+      if (!process.env[key]) process.env[key] = val;
+    }
   }
+
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local"
+    );
+    process.exit(1);
+  }
+
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 }
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local");
-  process.exit(1);
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -294,8 +303,32 @@ function applyLevelScale(
 // ── Percentile Helpers (exported for use in benchmarkService) ───────
 
 /**
- * Given a value, p50, and SD, interpolate a percentile (1–99)
- * using a normal distribution approximation.
+ * Standard normal CDF via Abramowitz & Stegun 7.1.26 erf approximation.
+ * Max error < 1.5e-7. Replaces the prior logistic(1.7·z) approximation,
+ * which under-stated true percentiles by ~1 pt at |z|≈2 (e.g. z=2.4
+ * → logistic 98.35 vs true 99.18).
+ */
+function normalCDF(z: number): number {
+  const sign = z >= 0 ? 1 : -1;
+  const absZ = Math.abs(z) / Math.SQRT2;
+  const a1 = 0.254829592;
+  const a2 = -0.284496736;
+  const a3 = 1.421413741;
+  const a4 = -1.453152027;
+  const a5 = 1.061405429;
+  const p = 0.3275911;
+  const t = 1 / (1 + p * absZ);
+  const y =
+    1 -
+    ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) *
+      t *
+      Math.exp(-absZ * absZ);
+  return 0.5 * (1 + sign * y);
+}
+
+/**
+ * Given a value, p50, and SD, interpolate a percentile (1–99) using the
+ * standard normal CDF. Clamped to [1, 99] because the UI cannot render P100.
  */
 export function interpolatePercentile(
   value: number,
@@ -304,13 +337,9 @@ export function interpolatePercentile(
   direction: "higher_better" | "lower_better"
 ): number {
   if (sd === 0) return 50;
-  // z-score: for lower_better, invert so that lower value = higher percentile
-  const z = direction === "higher_better"
-    ? (value - p50) / sd
-    : (p50 - value) / sd;
-
-  // Approximate CDF using logistic function (close to normal for |z| < 3)
-  const percentile = 100 / (1 + Math.exp(-1.7 * z));
+  const z =
+    direction === "higher_better" ? (value - p50) / sd : (p50 - value) / sd;
+  const percentile = normalCDF(z) * 100;
   return Math.max(1, Math.min(99, Math.round(percentile)));
 }
 
@@ -480,23 +509,25 @@ export async function seedFootballBenchmarks() {
     // If the RPC doesn't exist, fall back to direct REST call
     if (error && error.message.includes("exec_sql")) {
       // Use fetch directly against the Supabase REST SQL endpoint
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+      const res = await fetch(`${url}/rest/v1/rpc/exec_sql`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
+          apikey: key,
+          Authorization: `Bearer ${key}`,
         },
         body: JSON.stringify({ query: sql }),
       });
       if (!res.ok) {
         // Last resort: use the SQL HTTP API
-        const sqlRes = await fetch(`${SUPABASE_URL}/pg`, {
+        const sqlRes = await fetch(`${url}/pg`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
+            apikey: key,
+            Authorization: `Bearer ${key}`,
           },
           body: JSON.stringify({ query: sql }),
         });
@@ -529,6 +560,7 @@ export async function seedFootballBenchmarks() {
 
 // Run if executed directly
 if (require.main === module) {
+  initSeedClient();
   seedFootballBenchmarks()
     .then(() => process.exit(0))
     .catch((err) => {

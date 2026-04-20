@@ -33,7 +33,11 @@ import {
   type MyTestResult,
 } from '../../services/api';
 import type { OutputSnapshot, TestGroupCategory, RawTestGroup } from '../../services/api';
-import { getZoneColor, getZoneLabel, getGroupThemeColor } from './outputTypes';
+import { getGroupThemeColor } from './outputTypes';
+import {
+  getAthleteZoneColor,
+  getAthleteZoneLabel,
+} from '../../utils/zoneLabels';
 
 import { colors } from '../../theme/colors';
 
@@ -413,8 +417,11 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
 }) {
   const [expanded, setExpanded] = useState(false);
   const themeColor = getGroupThemeColor(category.colorTheme || 'orange');
-  const zoneColor = getZoneColor(category.categoryAvgPercentile);
-  const zoneLabel = getZoneLabel(category.categoryAvgPercentile);
+  // Athlete-facing zone vocabulary (see utils/zoneLabels.ts): 5-tier
+  // tier label instead of "P{n} · Elite" — numbers project false precision
+  // and push the athlete into rank-vs-peers framing.
+  const zoneColor = getAthleteZoneColor(category.categoryAvgPercentile);
+  const zoneLabel = getAthleteZoneLabel(category.categoryAvgPercentile);
 
   // Per-metric interaction state
   const [activeMetricKey, setActiveMetricKey] = useState<string | null>(null);
@@ -491,7 +498,7 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
           </View>
           <View style={[styles.zoneBadge, { backgroundColor: zoneColor + '22' }]}>
             <Text style={[styles.zoneBadgeText, { color: zoneColor }]}>
-              P{category.categoryAvgPercentile} · {zoneLabel}
+              {zoneLabel}
             </Text>
           </View>
           <SmartIcon

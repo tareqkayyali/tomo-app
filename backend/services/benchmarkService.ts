@@ -16,6 +16,12 @@ import {
   getAgeBand,
   getPercentileZone,
 } from "@/scripts/seeds/football_benchmark_seed";
+import {
+  getSdWidener,
+  resolveMaturityAdjustedAgeBand,
+  type ChronoAgeBand,
+  type PhvStage,
+} from "@/services/benchmarks/maturity";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -269,14 +275,50 @@ function db(): any {
 
 // ── Core Functions ──────────────────────────────────────────────────
 
-async function getPlayerProfile(userId: string) {
-  const { data } = await db()
-    .from("users")
-    .select("date_of_birth, position, gender, sport, age")
-    .eq("id", userId)
-    .single();
+interface PlayerProfileForBenchmark {
+  date_of_birth: string | null;
+  position: string | null;
+  gender: string | null;
+  sport: string;
+  age: number | null;
+  phv_stage: PhvStage;
+  phv_offset_years: number | null;
+}
 
-  return data as { date_of_birth: string | null; position: string | null; gender: string | null; sport: string; age: number | null } | null;
+async function getPlayerProfile(
+  userId: string
+): Promise<PlayerProfileForBenchmark | null> {
+  const [{ data: user }, { data: snapshot }] = await Promise.all([
+    db()
+      .from("users")
+      .select("date_of_birth, position, gender, sport, age")
+      .eq("id", userId)
+      .single(),
+    // athlete_snapshots.phv_stage: 'PRE' | 'CIRCA' | 'POST'; phv_offset_years
+    // is nullable. maybeSingle() so a missing snapshot doesn't throw — we
+    // gracefully fall back to chrono-age norms.
+    db()
+      .from("athlete_snapshots")
+      .select("phv_stage, phv_offset_years")
+      .eq("athlete_id", userId)
+      .maybeSingle(),
+  ]);
+
+  if (!user) return null;
+
+  return {
+    date_of_birth: user.date_of_birth,
+    position: user.position,
+    gender: user.gender,
+    sport: user.sport,
+    age: user.age,
+    phv_stage: (snapshot?.phv_stage as PhvStage) ?? null,
+    phv_offset_years:
+      typeof snapshot?.phv_offset_years === "number" ||
+      typeof snapshot?.phv_offset_years === "string"
+        ? Number(snapshot.phv_offset_years)
+        : null,
+  };
 }
 
 export async function calculatePercentile(
@@ -288,9 +330,20 @@ export async function calculatePercentile(
   const profile = await getPlayerProfile(userId);
   if (!profile) return null;
 
-  const ageBand = getAgeBand(profile.date_of_birth);
+  const chronoAgeBand = getAgeBand(profile.date_of_birth) as ChronoAgeBand;
   const position = profile.position || "ALL";
   const playerAge = getAgeFromDOB(profile.date_of_birth);
+
+  // Maturity adjustment: if PHV signal is present, pick a maturity-adjusted
+  // age band so an early/late maturer isn't over/under-rated purely due to
+  // biology. Falls back to chrono band when no PHV data exists.
+  const { effectiveBand, shiftApplied, reason: shiftReason } =
+    resolveMaturityAdjustedAgeBand({
+      chronoBand: chronoAgeBand,
+      phvStage: profile.phv_stage,
+      phvOffsetYears: profile.phv_offset_years,
+      chronoAge: playerAge,
+    });
 
   // Find the metric_name that maps to this metricKey
   const metricName = Object.entries(NORM_NAME_TO_METRIC_KEY)
@@ -327,7 +380,22 @@ export async function calculatePercentile(
 
   const means = norm.means as number[];
   const sds = norm.sds as number[];
-  const { mean, sd } = extractNormForAge(means, sds, playerAge, (norm.age_min as number) || 13, (norm.age_max as number) || 23);
+  // Index norms by the maturity-adjusted age, not the chronological one —
+  // this is the whole point of the adjustment. When no shift is applied,
+  // ageForLookup == playerAge.
+  const ageForLookup = playerAge + shiftApplied * 2; // 2yr per band step
+  const { mean, sd: rawSd } = extractNormForAge(
+    means,
+    sds,
+    ageForLookup,
+    (norm.age_min as number) || 13,
+    (norm.age_max as number) || 23
+  );
+
+  // Apply the SD widener for the effective age band. CMS-editable; cached
+  // 5 min. Multiplier=1.0 when no widener row exists (fail-open).
+  const widener = await getSdWidener(sportId, effectiveBand);
+  const sd = rawSd * widener.multiplier;
 
   const rawDir = norm.direction as string;
   const direction: "lower_better" | "higher_better" =
@@ -345,7 +413,7 @@ export async function calculatePercentile(
     value,
     percentile,
     zone,
-    ageBand,
+    ageBand: effectiveBand, // athlete-visible band reflects the adjusted one
     position,
     competitionLvl: "elite",
     norm: {
@@ -358,7 +426,10 @@ export async function calculatePercentile(
     message: buildMessage(zone, norm.metric_name as string, percentile),
   };
 
-  // Persist snapshot
+  // Persist snapshot — log everything needed to explain this percentile
+  // post-hoc: chronological band, maturity-adjusted band, PHV stage used,
+  // widener multiplier applied. If any one of these changes, the recorded
+  // percentile is still reproducible.
   await db().from("player_benchmark_snapshots").insert({
     user_id: userId,
     metric_key: result.metricKey,
@@ -366,12 +437,24 @@ export async function calculatePercentile(
     value,
     percentile,
     zone,
-    age_band_used: ageBand,
+    age_band_used: effectiveBand,
+    chrono_age_band_used: chronoAgeBand,
+    maturity_adjusted_age_band_used: shiftApplied !== 0 ? effectiveBand : null,
+    phv_stage_at_test: profile.phv_stage ?? null,
+    sd_widener_applied: widener.multiplier,
     position_used: position,
     competition_lvl: "elite",
     tested_at: options?.testedAt || new Date().toISOString().slice(0, 10),
     source: options?.source || "manual",
   });
+
+  // Surface the shift reason in dev logs so the CMS ops team can verify
+  // maturity adjustments are firing. Never logged to athlete UI.
+  if (shiftApplied !== 0) {
+    console.log(
+      `[benchmarkService] maturity-adjusted ${chronoAgeBand}→${effectiveBand} (shift ${shiftApplied}, reason: ${shiftReason}) for user ${userId}, metric ${metricKey}`
+    );
+  }
 
   return result;
 }
@@ -384,9 +467,20 @@ export async function getPlayerBenchmarkProfile(
   const profile = await getPlayerProfile(userId);
   if (!profile) return null;
 
-  const ageBand = getAgeBand(profile.date_of_birth);
+  const chronoAgeBand = getAgeBand(profile.date_of_birth) as ChronoAgeBand;
+  const playerAge = getAgeFromDOB(profile.date_of_birth);
+  // Same maturity adjustment as calculatePercentile — so the progress-bar
+  // thresholds the athlete sees match the stored percentile in the snapshot.
+  const { effectiveBand, shiftApplied } = resolveMaturityAdjustedAgeBand({
+    chronoBand: chronoAgeBand,
+    phvStage: profile.phv_stage,
+    phvOffsetYears: profile.phv_offset_years,
+    chronoAge: playerAge,
+  });
+  const ageBand = effectiveBand;
   const position = profile.position || "ALL";
   const gender = profile.gender || "male";
+  const widener = await getSdWidener(profile.sport || "football", effectiveBand);
 
   const { data: snapshots } = await db()
     .from("player_benchmark_snapshots")
@@ -432,8 +526,11 @@ export async function getPlayerBenchmarkProfile(
   }
   const allNorms = Array.from(normMap.values());
 
-  // Index norms by metric_key (translated from metric_name)
-  const playerAge = getAgeFromDOB(profile.date_of_birth);
+  // Index norms by metric_key (translated from metric_name). Use the
+  // maturity-adjusted age when indexing into the per-age arrays, and apply
+  // the SD widener — this keeps the visible progress-bar thresholds
+  // consistent with the percentile stored in the snapshot.
+  const ageForLookup = playerAge + shiftApplied * 2;
   const normsByMetric = new Map<string, {
     metricLabel: string; unit: string; direction: string; attributeKey: string;
     p10: number; p25: number; p50: number; p75: number; p90: number; sd: number;
@@ -447,7 +544,14 @@ export async function getPlayerBenchmarkProfile(
 
       const means = norm.means as number[];
       const sds = norm.sds as number[];
-      const { mean, sd } = extractNormForAge(means, sds, playerAge, (norm.age_min as number) || 13, (norm.age_max as number) || 23);
+      const { mean, sd: rawSd } = extractNormForAge(
+        means,
+        sds,
+        ageForLookup,
+        (norm.age_min as number) || 13,
+        (norm.age_max as number) || 23
+      );
+      const sd = rawSd * widener.multiplier;
       const points = computePercentilePoints(mean, sd, norm.direction as string);
 
       normsByMetric.set(metricKey, {
@@ -596,6 +700,11 @@ export async function getPositionNorms(
   };
   const age = ageMap[ageBand] ?? 18;
 
+  // Apply CMS-editable SD widener at the edge: every returned NormRow has
+  // the widened stdDev and widened p10/p25/p75/p90 thresholds, so all
+  // downstream consumers (computeRawPercentile, progress bars) stay in sync.
+  const widener = await getSdWidener(sid, ageBand);
+
   return Array.from(normMap.values()).flatMap((row) => {
     const metricName = row.metric_name as string;
     const metricKey = NORM_NAME_TO_METRIC_KEY[metricName];
@@ -603,7 +712,8 @@ export async function getPositionNorms(
 
     const means = row.means as number[];
     const sds = row.sds as number[];
-    const { mean, sd } = extractNormForAge(means, sds, age, (row.age_min as number) || 13, (row.age_max as number) || 23);
+    const { mean, sd: rawSd } = extractNormForAge(means, sds, age, (row.age_min as number) || 13, (row.age_max as number) || 23);
+    const sd = rawSd * widener.multiplier;
     const points = computePercentilePoints(mean, sd, row.direction as string);
     const rawDir = row.direction as string;
     const direction: "lower_better" | "higher_better" =

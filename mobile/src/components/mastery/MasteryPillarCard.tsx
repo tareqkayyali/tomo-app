@@ -24,6 +24,10 @@ import { fontFamily } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import type { MasteryPillar, MasteryMetric } from '../../services/api';
 import { colors } from '../../theme/colors';
+import {
+  getAthleteZoneColor,
+  getAthleteZoneLabel,
+} from '../../utils/zoneLabels';
 
 // Enable LayoutAnimation on Android
 if (
@@ -33,27 +37,12 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// ── Zone color helper ────────────────────────────────────────────────
-
-const ZONE_COLORS: Record<string, string> = {
-  elite: colors.accentDark,
-  good: colors.accent,
-  average: colors.info,
-  developing: colors.warning,
-  below: colors.error,
-};
-
-function getPercentileZone(percentile: number): string {
-  if (percentile >= 90) return 'elite';
-  if (percentile >= 75) return 'good';
-  if (percentile >= 40) return 'average';
-  if (percentile >= 20) return 'developing';
-  return 'below';
-}
-
+// Zone color — delegates to the shared athlete-zone vocabulary
+// (5-tier: Elite / Advanced / On Track / Building / Foundation Phase).
+// `null` = no test data yet → neutral info color for the placeholder badge.
 function getZoneColor(percentile: number | null): string {
   if (percentile === null) return colors.info;
-  return ZONE_COLORS[getPercentileZone(percentile)] || colors.info;
+  return getAthleteZoneColor(percentile);
 }
 
 // ── Compact metric chip (collapsed state) ────────────────────────────
@@ -184,7 +173,7 @@ export function MasteryPillarCard({ pillar, initialExpanded = false }: Props) {
                   ]}
                 >
                   <Text style={[styles.percentileText, { color: zoneColor }, getComponentStyle('pillar_value')]}>
-                    {pillar.avgPercentile >= 90 ? 'Elite' : pillar.avgPercentile >= 75 ? 'Strong' : pillar.avgPercentile >= 40 ? 'Solid' : pillar.avgPercentile >= 20 ? 'Dev' : 'Needs Attention'}
+                    {getAthleteZoneLabel(pillar.avgPercentile)}
                   </Text>
                 </View>
               )}
