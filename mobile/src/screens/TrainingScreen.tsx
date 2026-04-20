@@ -15,7 +15,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Dimensions, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
@@ -24,6 +24,10 @@ import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { SmartIcon } from '../components/SmartIcon';
+import { SessionCompletionSheet } from '../components/calendar/SessionCompletionSheet';
+import { skipCalendarEvent } from '../services/api';
+import { emitRefresh } from '../utils/refreshBus';
+import { fontFamily } from '../theme';
 import {
   CheckinRow,
   DayDial,
@@ -362,6 +366,56 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     [highlightedId, isCurrentlyRunning],
   );
 
+  // ─── Session completion (PR 6B) ──────────────────────────────────
+  // A past-dated event of a physical type (training/match/recovery) that
+  // hasn't been confirmed yet gets the "Mark done" / "Skip" action row
+  // beneath its FocusCard. Tapping "Mark done" opens the confirmation
+  // sheet with RPE/duration capture; tapping "Skip" fires
+  // POST /api/v1/calendar/events/:id/skip with no body.
+  const [completionSheetEvent, setCompletionSheetEvent] = useState<TimedEvent | null>(null);
+  const [busySkipId, setBusySkipId] = useState<string | null>(null);
+
+  const PHYSICAL_TYPES = useMemo(
+    () => new Set<string>(['training', 'match', 'recovery']),
+    [],
+  );
+
+  const isPastAndUnconfirmed = useCallback(
+    (e: TimedEvent): boolean => {
+      if (!PHYSICAL_TYPES.has(e.type)) return false;
+      const status = (e as { status?: string | null }).status ?? null;
+      if (status === 'completed' || status === 'skipped' || status === 'deleted') return false;
+      if ((e as { completed?: boolean }).completed === true) return false;
+      if (isCurrentlyRunning(e)) return false;
+      // Compute "past" from endTime on the selected date.
+      const endHour = parseHHMM(e.endTime);
+      if (!isToday) {
+        // On non-today screens, treat as past only when the whole date is past.
+        const sel = new Date(`${selectedDayStr}T00:00:00`).getTime();
+        const today0 = new Date(`${todayStr}T00:00:00`).getTime();
+        return sel < today0;
+      }
+      return endHour <= nowHour;
+    },
+    [PHYSICAL_TYPES, isCurrentlyRunning, isToday, nowHour, parseHHMM, selectedDayStr, todayStr],
+  );
+
+  const handleSkipPress = useCallback(
+    async (e: TimedEvent) => {
+      if (busySkipId) return;
+      setBusySkipId(e.id);
+      try {
+        await skipCalendarEvent(e.id);
+        emitRefresh('calendar');
+      } catch (err: any) {
+        Alert.alert('Could not save', err?.message ?? 'Please try again.');
+      } finally {
+        setBusySkipId(null);
+      }
+    },
+    [busySkipId],
+  );
+
   const toDial = useCallback(
     (e: CalendarEvent & { startTime: string; endTime: string }): DialEvent => ({
       id: e.id,
@@ -472,9 +526,11 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   const enterDial = useEnter(260);
   const enterCards = useEnter(380);
 
-  // ─── Dial size: cap at ~238 (30% smaller than the prior 340 max) ──
-  // Frees vertical space for the scrollable events list below.
-  const dialSize = useMemo(() => Math.min(Dimensions.get('window').width - 40, 340) * 0.7, []);
+  // ─── Dial size: cap at ~286 (20% larger than the prior 0.7 factor). ──
+  // All inner elements (R_OUTER/R_INNER/R_TRACK, ticks, hour labels via
+  // polar(R_OUTER + offsetR), arcs, now-pointer) are derived from `size`
+  // inside DayDial, so scaling `size` scales every element proportionally.
+  const dialSize = useMemo(() => Math.min(Dimensions.get('window').width - 40, 340) * 0.84, []);
 
   // ─── Loading gate ────────────────────────────────────────────────
   if (isLoading && !hasLoadedOnce.current) {
@@ -557,26 +613,62 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
             timedDayEvents.map((ev) => {
               const highlighted = ev.id === highlightedId;
               const running = highlighted && isCurrentlyRunning(ev);
+              const showActions = isPastAndUnconfirmed(ev);
               return (
-                <FocusCard
-                  key={ev.id}
-                  event={{
-                    id: ev.id,
-                    name: ev.name,
-                    type: toDialEventType(ev.type),
-                    startTime: ev.startTime,
-                    endTime: ev.endTime,
-                  }}
-                  label={eventCardLabel(ev)}
-                  accent={highlighted}
-                  pulse={running}
-                  onPress={() => openEventEdit(ev.id)}
-                />
+                <View key={ev.id}>
+                  <FocusCard
+                    event={{
+                      id: ev.id,
+                      name: ev.name,
+                      type: toDialEventType(ev.type),
+                      startTime: ev.startTime,
+                      endTime: ev.endTime,
+                    }}
+                    label={eventCardLabel(ev)}
+                    accent={highlighted}
+                    pulse={running}
+                    onPress={() => openEventEdit(ev.id)}
+                  />
+                  {showActions && (
+                    <View style={styles.completionActions}>
+                      <Pressable
+                        onPress={() => handleSkipPress(ev)}
+                        disabled={busySkipId === ev.id}
+                        style={[
+                          styles.completionSkip,
+                          { borderColor: colors.cream10 },
+                          busySkipId === ev.id && { opacity: 0.4 },
+                        ]}
+                      >
+                        <Text style={[styles.completionSkipText, { color: colors.muted }]}>
+                          {busySkipId === ev.id ? '…' : 'Skip'}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setCompletionSheetEvent(ev)}
+                        style={[styles.completionDone, { backgroundColor: colors.tomoSage }]}
+                      >
+                        <Text style={[styles.completionDoneText, { color: colors.background }]}>
+                          Mark done
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
               );
             })
           )}
         </ScrollView>
       </Animated.View>
+
+      <SessionCompletionSheet
+        visible={completionSheetEvent !== null}
+        event={completionSheetEvent as CalendarEvent | null}
+        onClose={() => setCompletionSheetEvent(null)}
+        onConfirmed={() => {
+          emitRefresh('calendar');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -641,6 +733,35 @@ function createStyles(colors: ThemeColors) {
     emptyState: {
       paddingTop: 24,
       alignItems: 'center',
+    },
+    completionActions: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 8,
+      marginLeft: 54, // aligns under the card body (past the icon column)
+    },
+    completionSkip: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 999,
+      borderWidth: 1,
+      alignItems: 'center',
+    },
+    completionSkipText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 12,
+      letterSpacing: 0.3,
+    },
+    completionDone: {
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 999,
+      alignItems: 'center',
+    },
+    completionDoneText: {
+      fontFamily: fontFamily.bold,
+      fontSize: 12,
+      letterSpacing: 0.3,
     },
     emptyDot: {
       width: 6,

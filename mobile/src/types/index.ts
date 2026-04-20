@@ -403,6 +403,10 @@ export interface CalendarEvent {
   // the weekly compliance cron (see athlete_week_plans).
   completed?: boolean;
   completedAt?: string | null;
+  // State-machine position from migration 086. 'scheduled' | 'completed' |
+  // 'skipped' | 'deleted'. When null (old data), callers should treat the
+  // row as 'scheduled' and rely on `completed` for compatibility.
+  status?: 'scheduled' | 'completed' | 'skipped' | 'deleted' | null;
   // Provenance stamped by the week planner, etc. See CalendarEventMetadata.
   metadata?: CalendarEventMetadata;
   // P3.4: present when the event carries a coach/parent disagreement

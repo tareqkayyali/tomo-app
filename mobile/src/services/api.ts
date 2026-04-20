@@ -796,6 +796,46 @@ export async function setCalendarEventCompleted(
   });
 }
 
+/**
+ * Confirm a scheduled session as completed with optional RPE / actual
+ * duration / notes. The backend resolves the effective intensity
+ * (RPE → intensity catalog if provided, else scheduled intensity) and
+ * emits a SESSION_LOG so downstream ATL/CTL/ACWR reflect actual load.
+ *
+ * Use this instead of setCalendarEventCompleted when the athlete taps
+ * "Mark done" from the activity card — it captures the richer data the
+ * state machine relies on.
+ */
+export async function confirmCalendarEventCompleted(
+  eventId: string,
+  params: { rpe?: number; duration?: number; notes?: string } = {},
+): Promise<{ event: CalendarEvent; already_completed?: boolean }> {
+  return apiRequest<{ event: CalendarEvent; already_completed?: boolean }>(
+    `/api/v1/calendar/events/${eventId}/complete`,
+    {
+      method: 'POST',
+      body: JSON.stringify(params),
+    },
+  );
+}
+
+/**
+ * Mark a scheduled session as skipped. Does NOT emit a SESSION_LOG —
+ * skipped events never contribute to ATL/CTL/ACWR.
+ */
+export async function skipCalendarEvent(
+  eventId: string,
+  params: { reason?: string } = {},
+): Promise<{ event: CalendarEvent; already_skipped?: boolean }> {
+  return apiRequest<{ event: CalendarEvent; already_skipped?: boolean }>(
+    `/api/v1/calendar/events/${eventId}/skip`,
+    {
+      method: 'POST',
+      body: JSON.stringify(params),
+    },
+  );
+}
+
 // ============================================
 // Program Search API
 // ============================================
@@ -3204,6 +3244,7 @@ export interface OutputSnapshot {
       coachId?: string;
       coachName?: string;
       assignedAt?: string;
+      source?: 'coach' | 'ai_recommended' | 'player_added';
     }>;
     weeklyPlanSuggestion: string | null;
     weeklyStructure?: Record<string, number>;
@@ -3730,11 +3771,20 @@ export async function getWhoopData(days: number = 7): Promise<WhoopDataResponse>
 
 export async function interactWithProgram(
   programId: string,
-  action: 'done' | 'dismissed' | 'active' | 'player_selected'
+  action: 'done' | 'dismissed' | 'active' | 'player_selected',
+  opts?: {
+    programSnapshot?: unknown;
+    source?: 'coach' | 'ai_recommended' | 'player_added';
+  }
 ): Promise<{ success: boolean; toggled?: 'on' | 'off' }> {
   return apiRequest('/api/v1/programs/interact', {
     method: 'POST',
-    body: JSON.stringify({ programId, action }),
+    body: JSON.stringify({
+      programId,
+      action,
+      ...(opts?.programSnapshot ? { programSnapshot: opts.programSnapshot } : {}),
+      ...(opts?.source ? { source: opts.source } : {}),
+    }),
   });
 }
 
@@ -3755,6 +3805,20 @@ export async function searchProgramCatalog(q?: string): Promise<{ programs: Prog
   return apiRequest<{ programs: ProgramCatalogItem[] }>(`/api/v1/programs${params.toString() ? '?' + params.toString() : ''}`);
 }
 
-export async function fetchActivePrograms(): Promise<{ programIds: string[]; playerSelectedIds?: string[] }> {
-  return apiRequest('/api/v1/programs/active');
+export interface ActiveProgramEntry {
+  programId: string;
+  program: OutputSnapshot['programs']['recommendations'][0] | null;
+  source: 'coach' | 'ai_recommended' | 'player_added' | null;
+  activatedAt: string;
+}
+
+export interface ActiveProgramsResponse {
+  active: ActiveProgramEntry[];
+  playerAdded: ActiveProgramEntry[];
+  programIds: string[];
+  playerSelectedIds: string[];
+}
+
+export async function fetchActivePrograms(): Promise<ActiveProgramsResponse> {
+  return apiRequest<ActiveProgramsResponse>('/api/v1/programs/active');
 }
