@@ -16,84 +16,90 @@ const STRENGTH_TESTS = ['back_squat_1rm', 'bench_press_1rm', 'deadlift_1rm', 'pu
 /**
  * Handle ASSESSMENT_RESULT events.
  * Updates mastery_scores, strength_benchmarks, or speed_profile depending on test type.
+ *
+ * HISTORICAL events (source=HISTORICAL, from Profile > Historical Data) skip
+ * current-profile mutations. A pre-Tomo 2022 sprint must not overwrite the
+ * current speed_profile. CV completeness still recomputes so trajectory is
+ * visible, but the snapshot/PHV/CV-staleness paths are no-ops.
  */
 export async function handleAssessmentResult(event: AthleteEvent): Promise<void> {
   const payload = event.payload as AssessmentResultPayload;
   const db = supabaseAdmin();
 
-  // Fetch current snapshot to merge scores
-  const { data: snapshot } = await db
-    .from('athlete_snapshots')
-    .select('mastery_scores, strength_benchmarks, speed_profile')
-    .eq('athlete_id', event.athlete_id)
-    .single();
+  const isHistorical = event.source === 'HISTORICAL';
 
-  const mastery = (snapshot?.mastery_scores as Record<string, number>) || {};
-  const strength = (snapshot?.strength_benchmarks as Record<string, number>) || {};
-  const speed = (snapshot?.speed_profile as Record<string, number>) || {};
+  if (!isHistorical) {
+    // Fetch current snapshot to merge scores
+    const { data: snapshot } = await db
+      .from('athlete_snapshots')
+      .select('mastery_scores, strength_benchmarks, speed_profile')
+      .eq('athlete_id', event.athlete_id)
+      .single();
 
-  const testType = payload.test_type;
-  const value = payload.primary_value;
+    const mastery = (snapshot?.mastery_scores as Record<string, number>) || {};
+    const strength = (snapshot?.strength_benchmarks as Record<string, number>) || {};
+    const speed = (snapshot?.speed_profile as Record<string, number>) || {};
 
-  // Route to appropriate profile field
-  if (SPEED_TESTS.includes(testType)) {
-    speed[testType] = value;
-  } else if (STRENGTH_TESTS.includes(testType)) {
-    strength[testType] = value;
-  }
+    const testType = payload.test_type;
+    const value = payload.primary_value;
 
-  // Always update mastery (percentile-based if available)
-  if (payload.percentile != null) {
-    mastery[testType] = payload.percentile;
-  } else {
-    // Store raw value as mastery score placeholder
-    mastery[testType] = value;
-  }
-
-  // Merge derived metrics
-  if (payload.derived_metrics) {
-    for (const [key, val] of Object.entries(payload.derived_metrics)) {
-      mastery[key] = val;
+    if (SPEED_TESTS.includes(testType)) {
+      speed[testType] = value;
+    } else if (STRENGTH_TESTS.includes(testType)) {
+      strength[testType] = value;
     }
+
+    if (payload.percentile != null) {
+      mastery[testType] = payload.percentile;
+    } else {
+      mastery[testType] = value;
+    }
+
+    if (payload.derived_metrics) {
+      for (const [key, val] of Object.entries(payload.derived_metrics)) {
+        mastery[key] = val;
+      }
+    }
+
+    await db
+      .from('athlete_snapshots')
+      .upsert({
+        athlete_id: event.athlete_id,
+        mastery_scores: mastery,
+        strength_benchmarks: strength,
+        speed_profile: speed,
+        snapshot_at: new Date().toISOString(),
+      }, { onConflict: 'athlete_id' });
   }
 
-  await db
-    .from('athlete_snapshots')
-    .upsert({
-      athlete_id: event.athlete_id,
-      mastery_scores: mastery,
-      strength_benchmarks: strength,
-      speed_profile: speed,
-      snapshot_at: new Date().toISOString(),
-    }, { onConflict: 'athlete_id' });
-
-  // If payload includes height/weight, trigger PHV recompute
-  if (payload.height_cm && payload.weight_kg) {
+  // Skip PHV recompute for historical events (pre-Tomo anthropometrics are stale).
+  if (!isHistorical && payload.height_cm && payload.weight_kg) {
     await updatePhvFromMeasurement(event.athlete_id, {
       height_cm: payload.height_cm,
       weight_kg: payload.weight_kg,
     });
   }
 
-  // Recompute CV — assessments affect speed/strength/mastery completeness
+  // Historical tests still count toward CV completeness trajectory.
   await recomputeCv(event.athlete_id);
 
-  // Flag CV statement as stale if it was previously approved
-  // (new test data may warrant regeneration)
-  try {
-    const { data: cvProfile } = await (db as any)
-      .from('cv_profiles')
-      .select('statement_status')
-      .eq('athlete_id', event.athlete_id)
-      .single();
-
-    if (cvProfile?.statement_status === 'approved') {
-      await (db as any)
+  // Historical events represent old data — do not flag the current CV as stale.
+  if (!isHistorical) {
+    try {
+      const { data: cvProfile } = await (db as any)
         .from('cv_profiles')
-        .update({ statement_status: 'needs_update', updated_at: new Date().toISOString() })
-        .eq('athlete_id', event.athlete_id);
-    }
-  } catch { /* cv_profiles may not exist yet — graceful */ }
+        .select('statement_status')
+        .eq('athlete_id', event.athlete_id)
+        .single();
+
+      if (cvProfile?.statement_status === 'approved') {
+        await (db as any)
+          .from('cv_profiles')
+          .update({ statement_status: 'needs_update', updated_at: new Date().toISOString() })
+          .eq('athlete_id', event.athlete_id);
+      }
+    } catch { /* cv_profiles may not exist yet — graceful */ }
+  }
 }
 
 /**

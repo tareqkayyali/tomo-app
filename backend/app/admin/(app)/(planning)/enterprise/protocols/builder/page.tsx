@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { PageGuide } from "@/components/admin/PageGuide";
 import { protocolsHelp } from "@/lib/cms-help/protocols";
+import ProtocolGeneratePanel from "@/components/admin/planning-protocols/ProtocolGeneratePanel";
 import {
   GripVertical,
   Plus,
@@ -1095,6 +1096,15 @@ function ProtocolBuilderInner() {
           </Button>
         </div>
       </div>
+
+      {/* ── Generate-from-description panel ─────────────────────── */}
+      {!isEditMode && (
+        <ProtocolGeneratePanel
+          onSaved={(protocolId) => {
+            router.replace(`/admin/enterprise/protocols/builder?id=${protocolId}`);
+          }}
+        />
+      )}
 
       {/* ── Metadata bar ────────────────────────────────────────── */}
       <Card className="p-4">

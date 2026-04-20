@@ -109,6 +109,40 @@ export interface User {
 
   // Wearable connections
   connectedWearables?: ConnectedWearables;
+
+  // Historical Data (Profile > Historical Data) — pre-Tomo context
+  trainingStartedAt?: string | null;      // YYYY-MM-DD
+  trainingHistoryNote?: string | null;    // <=280 chars
+}
+
+// Historical Data DTOs (Profile > Historical Data)
+export interface HistoricalInjury {
+  id: string;
+  bodyArea: string;
+  severity: 'minor' | 'moderate' | 'severe';
+  year: number;
+  weeksOut: number | null;
+  resolved: boolean;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HistoricalTestEntry {
+  id: string;
+  testType: string;
+  score: number;
+  date: string;
+  unit: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface HistoricalDataResponse {
+  trainingStartedAt: string | null;
+  trainingHistoryNote: string | null;
+  historicalTests: HistoricalTestEntry[];
+  injuries: HistoricalInjury[];
 }
 
 export interface ConnectedWearables {

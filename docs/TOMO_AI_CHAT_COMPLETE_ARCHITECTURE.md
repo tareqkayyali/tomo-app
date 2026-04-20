@@ -458,10 +458,8 @@ When no tiebreaker matches, the active UI tab determines the default agent:
 | Active Tab | Default Agent |
 |-----------|--------------|
 | Timeline | timeline |
-| Output | output |
-| Mastery | mastery |
-| OwnIt | output |
 | Chat | output |
+| Dashboard | output |
 
 ### Agent Lock (Conversation Continuity)
 
@@ -1199,7 +1197,7 @@ TomoChatState is a TypedDict (LangGraph-compatible) with ~30 fields that evolve 
 user_id: str
 session_id: str
 message: str
-active_tab: str          # "Chat", "Timeline", "Output", "Mastery", "OwnIt"
+active_tab: str          # "Timeline" | "Chat" | "Dashboard"
 timezone: str            # "US/Eastern", "Europe/London", etc.
 request_id: str          # UUID for tracing
 messages: list           # LangChain BaseMessage objects

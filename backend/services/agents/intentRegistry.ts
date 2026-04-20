@@ -357,7 +357,7 @@ export const INTENT_REGISTRY: IntentDefinition[] = [
     id: "recommendations",
     capsuleType: null,
     agentType: "output",
-    description: "View personalized Own It recommendations",
+    description: "View personalized Dashboard recommendations",
     examples: [
       "my recommendations", "what should I do", "own it tips",
       "for me", "for you recommendations", "what do you recommend",

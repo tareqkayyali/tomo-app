@@ -40,7 +40,7 @@ Tomo is an AI coaching platform for young athletes (ages 13–25) built on a **5
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    MOBILE APP (Expo/RN)                      │
-│  Timeline │ Output │ Tomo Chat │ Mastery │ Own It            │
+│  Timeline │ Chat │ Dashboard                                  │
 └─────────┬───────────────────────────────────────────────────┘
           │  REST API + SSE Streaming + Supabase Realtime
 ┌─────────▼───────────────────────────────────────────────────┐
@@ -335,7 +335,7 @@ class TomoChatState(MessagesState):
     # Request metadata
     user_id: str
     session_id: str
-    active_tab: str                    # "Chat" | "Timeline" | "Output" | "Mastery" | "OwnIt"
+    active_tab: str                    # "Timeline" | "Chat" | "Dashboard"
     timezone: str
     request_id: str                    # LangSmith trace correlation
 

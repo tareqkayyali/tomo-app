@@ -61,11 +61,12 @@ function buildExactMatchMap(): void {
     { text: "check in", intentId: "check_in" },
     { text: "I want to check in", intentId: "check_in" },
     { text: "log tonight's sleep", intentId: "check_in" },
-    // Navigation
+    // Navigation — 3-tab nav (Timeline | Chat | Dashboard)
     { text: "go to timeline", intentId: "navigate", params: { targetTab: "Timeline" } },
-    { text: "go to output", intentId: "navigate", params: { targetTab: "Output" } },
-    { text: "go to mastery", intentId: "navigate", params: { targetTab: "Mastery" } },
-    { text: "go to own it", intentId: "navigate", params: { targetTab: "OwnIt" } },
+    { text: "open timeline", intentId: "navigate", params: { targetTab: "Timeline" } },
+    { text: "go to dashboard", intentId: "navigate", params: { targetTab: "Dashboard" } },
+    { text: "open dashboard", intentId: "navigate", params: { targetTab: "Dashboard" } },
+    { text: "show my dashboard", intentId: "navigate", params: { targetTab: "Dashboard" } },
     // Quick actions
     { text: "what's my readiness", intentId: "qa_readiness" },
     { text: "what's my readiness?", intentId: "qa_readiness" },
@@ -254,7 +255,7 @@ CRITICAL RULES:
 Return JSON only: {"intent":"<id>","confidence":<0.0-1.0>,"params":{}}
 Extract params if mentioned: testType, date, eventType, targetTab, boardType.
 For boardType: "global" or "streaks".
-For targetTab: "Timeline", "Output", "Mastery", "OwnIt", "Home".
+For targetTab: "Timeline", "Chat", "Dashboard".
 Confidence 0.9+ for clear matches, 0.7-0.9 for likely matches, <0.7 for uncertain.`;
 
 function buildContextSummary(

@@ -46,6 +46,7 @@ import { VisibilityPreferencesScreen } from '../screens/settings/VisibilityPrefe
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import DeleteAccountScreen from '../screens/settings/DeleteAccountScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
+import { HistoricalDataScreen } from '../screens/HistoricalDataScreen';
 import { WorkoutFeedbackScreen } from '../screens/WorkoutFeedbackScreen';
 import { AddEventScreen } from '../screens/AddEventScreen';
 import { EventEditScreen } from '../screens/EventEditScreen';
@@ -400,6 +401,11 @@ export function MainNavigator() {
         name="History"
         component={HistoryScreen}
         options={{ headerShown: true, title: 'Check-in History', ...stackHeaderOptions }}
+      />
+      <Stack.Screen
+        name="HistoricalData"
+        component={HistoricalDataScreen}
+        options={{ headerShown: true, title: 'Historical Data', ...stackHeaderOptions }}
       />
       <Stack.Screen
         name="WorkoutFeedback"

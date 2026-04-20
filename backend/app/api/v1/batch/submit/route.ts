@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     const requests = [];
     for (const athleteId of athleteIds) {
       try {
-        const context = await buildPlayerContext(athleteId, "Output");
+        const context = await buildPlayerContext(athleteId, "Dashboard");
         const athleteSummary = `Name: ${context.name}, Sport: ${context.sport}, Age Band: ${context.ageBand}, Position: ${context.position ?? "unknown"}, Readiness: ${context.readinessScore ?? "unknown"}.`;
 
         if (batchType === "program_refresh") {

@@ -199,7 +199,7 @@ export async function deepProgramRefresh(
 
   try {
     // 1. Build full PlayerContext
-    const ctx = await buildPlayerContext(athleteId, 'Output', '', timezone);
+    const ctx = await buildPlayerContext(athleteId, 'Dashboard', '', timezone);
 
     // 1b. Fetch dismissed/done program IDs to exclude
     const { data: interactions } = await (supabaseAdmin() as any)

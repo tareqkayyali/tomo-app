@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   try {
     const context = await buildPlayerContext(
       auth.user.id,
-      searchParams.get("tab") ?? "Output",
+      searchParams.get("tab") ?? "Dashboard",
       undefined,
       searchParams.get("timezone") ?? undefined
     );

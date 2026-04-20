@@ -144,11 +144,14 @@ def _build_exact_match_map() -> dict[str, dict]:
     _add(["check in", "log my mood", "daily check in", "checkin",
           "check-in", "wellness check", "how am i feeling"], "check_in")
 
-    # Navigation
+    # Navigation — canonical 3-tab nav (Timeline | Chat | Dashboard)
     _add(["go to timeline", "open timeline", "show timeline"], "navigate", {"targetTab": "Timeline"})
-    _add(["go to output", "open output", "show output", "my vitals", "my metrics"], "navigate", {"targetTab": "Output"})
-    _add(["go to mastery", "open mastery", "show mastery"], "navigate", {"targetTab": "Mastery"})
-    _add(["go to own it", "open own it", "show own it", "for you"], "navigate", {"targetTab": "OwnIt"})
+    _add(
+        ["go to dashboard", "open dashboard", "show dashboard", "show my dashboard",
+         "my vitals", "my metrics", "for you", "show recommendations"],
+        "navigate",
+        {"targetTab": "Dashboard"},
+    )
 
     # Quick actions
     _add(["what's my readiness", "my readiness", "readiness score",

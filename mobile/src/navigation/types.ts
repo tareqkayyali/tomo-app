@@ -74,7 +74,9 @@ export type MainStackParamList = {
   FootballSkillDetail: { skill: string };
   FootballRating: undefined;
   PlayerCV: undefined;
-  FootballTestInput: { testId: string };
+  FootballTestInput: { testId: string; historical?: boolean };
+  // Historical Data (Profile > Historical Data — pre-Tomo context entry)
+  HistoricalData: undefined;
   // Rules screen
   MyRules: undefined;
   // Favorites screen

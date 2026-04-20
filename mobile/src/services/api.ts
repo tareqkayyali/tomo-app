@@ -145,6 +145,21 @@ export async function apiRequest<T>(
 // Boot — Pre-fetch athlete state during app loading
 // ============================================
 
+export interface BenchmarkDetail {
+  /** Display metric label, e.g. "10 m Sprint". */
+  metric: string;
+  /** Latest raw value in the metric's native unit. */
+  value: number;
+  /** Unit label, e.g. "s", "cm", "reps". */
+  unit: string;
+  /** 0–100 percentile vs position cohort (rounded integer). */
+  percentile: number;
+  /** Delta vs cohort p50, e.g. "+0.04 s vs cohort median" or "−3 cm vs cohort median". */
+  trend: string;
+  /** One-line coaching note, e.g. "Top 12% for your position" or "Priority: explosive power block". */
+  note: string;
+}
+
 export interface BootData {
   name: string;
   sport: string;
@@ -179,10 +194,27 @@ export interface BootData {
     overallPercentile: number;
     topStrength: string | null;
     topGap: string | null;
+    /** Full strength detail for Signal Dashboard Growth card — null when no benchmark data exists. */
+    topStrengthDetail: BenchmarkDetail | null;
+    /** Full gap detail for Signal Dashboard Growth card — null when no benchmark data exists. */
+    topGapDetail: BenchmarkDetail | null;
   } | null;
   /** Per-metric percentile snapshots — keyed by metricKey (e.g. "hrv_rmssd", "cmj", "sprint_30m") */
   metricPercentiles: Record<string, { percentile: number; zone: string; value: number }>;
   upcomingExams: { title: string; date: string }[];
+  /**
+   * Upcoming training + match events (next 14 days), oldest first.
+   * Exams live in `upcomingExams`; Signal Dashboard merges both for the
+   * "What's coming" timeline.
+   */
+  upcomingEvents: {
+    id: string;
+    title: string;
+    type: string;
+    startAt: string;
+    endAt: string | null;
+    intensity: number | string | null;
+  }[];
   currentActiveEvent: {
     id: string;
     title: string;
@@ -453,6 +485,9 @@ function mapUserFromApi(raw: Record<string, unknown>): User {
     customTrainingTypes: (raw.custom_training_types as User['customTrainingTypes']) || undefined,
     connectedWearables: (raw.connected_wearables as User['connectedWearables']) || undefined,
     dateOfBirth: (raw.date_of_birth as string | null) ?? null,
+    // Historical Data fields
+    trainingStartedAt: (raw.training_started_at as string | null) ?? null,
+    trainingHistoryNote: (raw.training_history_note as string | null) ?? null,
   } as User;
 }
 
@@ -1871,6 +1906,7 @@ export async function logTestResult(data: {
   unit?: string;
   date?: string;
   notes?: string;
+  source?: 'manual' | 'historical_self_reported';
 }): Promise<{
   result: { id: string; testType: string; score: number; date: string };
   benchmark?: BenchmarkResult | null;
@@ -1882,6 +1918,35 @@ export async function logTestResult(data: {
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+// ============================================
+// Historical Data APIs (Profile > Historical Data)
+// ============================================
+
+export async function getHistory(): Promise<import('../types').HistoricalDataResponse> {
+  return apiRequest<import('../types').HistoricalDataResponse>('/api/v1/history');
+}
+
+export async function addHistoricalInjury(data: {
+  bodyArea: string;
+  severity: 'minor' | 'moderate' | 'severe';
+  year: number;
+  weeksOut?: number | null;
+  resolved?: boolean;
+  note?: string | null;
+}): Promise<{ injury: import('../types').HistoricalInjury }> {
+  return apiRequest<{ injury: import('../types').HistoricalInjury }>(
+    '/api/v1/history/injuries',
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export async function deleteHistoricalInjury(id: string): Promise<{ deleted: boolean; id: string }> {
+  return apiRequest<{ deleted: boolean; id: string }>(
+    `/api/v1/history/injuries?id=${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  );
 }
 
 export async function deleteTestResult(metricKey: string): Promise<{ deleted: boolean }> {

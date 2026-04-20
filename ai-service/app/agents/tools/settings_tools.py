@@ -571,8 +571,8 @@ def make_settings_tools(user_id: str, context: PlayerContext) -> list:
 
     @tool
     async def navigate_to(target_tab: str) -> dict:
-        """Navigate the athlete to a specific app tab. Tabs: Timeline, Output, Mastery, OwnIt, Chat. Use when the athlete needs to see a specific screen."""
-        valid_tabs = {"Timeline", "Output", "Mastery", "OwnIt", "Chat"}
+        """Navigate the athlete to a specific app tab. Tabs: Timeline, Chat, Dashboard. Use when the athlete needs to see a specific screen."""
+        valid_tabs = {"Timeline", "Chat", "Dashboard"}
         if target_tab not in valid_tabs:
             return {"error": f"Invalid tab: {target_tab}. Valid: {', '.join(valid_tabs)}"}
         return {"navigate_to": target_tab, "action": "navigate"}

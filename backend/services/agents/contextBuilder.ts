@@ -71,7 +71,13 @@ export interface PlayerContext {
     gapAttributes: string[];
     strengthAttributes: string[];
   } | null;
-  recentTestScores: { testType: string; score: number; date: string }[];
+  recentTestScores: { testType: string; score: number; date: string; source?: string }[];
+
+  // ── Historical Data (Profile > Historical Data) ────────────────────
+  // Self-reported pre-Tomo context. Tagged "self-reported, confidence: medium"
+  // in every agent's dynamic prompt; never cited as a current benchmark.
+  // Null when the athlete hasn't entered any historical data.
+  historicalData: HistoricalData | null;
 
   // Temporal awareness (Layer 2)
   temporalContext: {
@@ -88,8 +94,8 @@ export interface PlayerContext {
   schedulePreferences: PlayerSchedulePreferences;
   activeScenario: ScenarioId;
 
-  // Context for routing
-  activeTab: "Timeline" | "Output" | "Mastery" | "OwnIt" | "Chat";
+  // Context for routing — canonical 3-tab nav (Timeline | Chat | Dashboard)
+  activeTab: "Timeline" | "Chat" | "Dashboard";
   lastUserMessage: string;
   timezone: string; // IANA timezone e.g. "Asia/Riyadh"
 
@@ -136,6 +142,29 @@ export interface ActiveRecommendation {
   title: string;
   bodyShort: string;
   confidence: number;
+}
+
+/**
+ * Athlete-declared pre-Tomo context.
+ * Populated from users.training_started_at/note, athlete_injury_history, and
+ * phone_test_sessions rows tagged source='historical_self_reported'.
+ */
+export interface HistoricalData {
+  trainingStartedAt: string | null;              // YYYY-MM-DD
+  yearsTraining: number | null;                   // computed, 1 decimal
+  trainingHistoryNote: string | null;
+  pastInjuries: Array<{
+    bodyArea: string;
+    severity: 'minor' | 'moderate' | 'severe';
+    year: number;
+    weeksOut: number | null;
+    resolved: boolean;
+  }>;
+  historicalTests: Array<{
+    testType: string;
+    score: number;
+    date: string;
+  }>;
 }
 
 /** Lightweight protocol detail for agent context (from pd_protocols) */
@@ -307,10 +336,11 @@ export async function buildPlayerContext(
     upcomingEventsRes,
     wearableConnRes,
     pdProtocolsRes,
+    injuryHistoryRes,
   ] = await Promise.allSettled([
     (db as any)
       .from("users")
-      .select("name, sport, age, role, school_hours, exam_periods, current_streak, longest_streak, position, gender, height_cm, weight_kg")
+      .select("name, sport, age, role, school_hours, exam_periods, current_streak, longest_streak, position, gender, height_cm, weight_kg, training_started_at, training_history_note")
       .eq("id", userId)
       .single(),
     db
@@ -349,7 +379,7 @@ export async function buildPlayerContext(
       .order("start_at"),
     db
       .from("phone_test_sessions")
-      .select("test_type, score, date")
+      .select("test_type, score, date, source")
       .eq("user_id", userId)
       .order("date", { ascending: false })
       .limit(20),
@@ -398,6 +428,13 @@ export async function buildPlayerContext(
       .from("pd_protocols")
       .select("protocol_id, name, category, load_multiplier, intensity_cap, contraindications, ai_system_injection, safety_critical")
       .eq("is_enabled", true),
+    // Historical Data: self-reported pre-Tomo injury history
+    (db as any)
+      .from("athlete_injury_history")
+      .select("body_area, severity, year, weeks_out, resolved")
+      .eq("user_id", userId)
+      .order("year", { ascending: false })
+      .limit(20),
   ]);
 
   const profile =
@@ -422,6 +459,7 @@ export async function buildPlayerContext(
           test_type: t.test_type,
           score: t.primary_value,
           date: t.date,
+          source: 'manual',
         }))
       : [];
   // Merge both test sources, deduplicate by test_type+date, sort by date desc
@@ -749,7 +787,56 @@ export async function buildPlayerContext(
       testType: t.test_type,
       score: t.score ?? 0,
       date: t.date,
+      source: t.source ?? 'manual',
     })),
+    historicalData: (() => {
+      const trainingStartedAt = (profile?.training_started_at as string | null) ?? null;
+      const trainingHistoryNote = (profile?.training_history_note as string | null) ?? null;
+
+      let yearsTraining: number | null = null;
+      if (trainingStartedAt) {
+        const startMs = new Date(`${trainingStartedAt}T00:00:00Z`).getTime();
+        if (!Number.isNaN(startMs)) {
+          const years = (Date.now() - startMs) / (365.25 * 86400000);
+          if (years >= 0) yearsTraining = Math.round(years * 10) / 10;
+        }
+      }
+
+      const pastInjuries =
+        injuryHistoryRes.status === "fulfilled"
+          ? ((injuryHistoryRes.value as any).data ?? []).map((r: any) => ({
+              bodyArea: r.body_area as string,
+              severity: r.severity as 'minor' | 'moderate' | 'severe',
+              year: r.year as number,
+              weeksOut: (r.weeks_out as number | null) ?? null,
+              resolved: !!r.resolved,
+            }))
+          : [];
+
+      const historicalTests = testResults
+        .filter((t: any) => t.source === 'historical_self_reported')
+        .map((t: any) => ({
+          testType: t.test_type as string,
+          score: (t.score as number) ?? 0,
+          date: t.date as string,
+        }));
+
+      const hasAny =
+        trainingStartedAt !== null ||
+        trainingHistoryNote !== null ||
+        pastInjuries.length > 0 ||
+        historicalTests.length > 0;
+
+      return hasAny
+        ? {
+            trainingStartedAt,
+            yearsTraining,
+            trainingHistoryNote,
+            pastInjuries,
+            historicalTests,
+          }
+        : null;
+    })(),
     schedulePreferences,
     activeScenario,
     temporalContext,
@@ -839,4 +926,57 @@ export function getDayBoundsISO(date: string, tz: string): [string, string] {
     toTimezoneISO(date, "00:00:00", tz),
     toTimezoneISO(date, "23:59:59", tz),
   ];
+}
+
+/**
+ * Render the "Athlete Background" block for agent dynamic prompts.
+ * Returns "" when no historical data exists — callers concatenate unconditionally.
+ *
+ * Wired into Timeline, Output, and Mastery agents per the "AI Chat Fixes Must
+ * Scale" rule: every agent reads the same pre-Tomo context, tagged as
+ * self-reported so the model never cites historical scores as current benchmarks.
+ */
+export function buildAthleteBackgroundBlock(context: PlayerContext): string {
+  const h = context.historicalData;
+  if (!h) return "";
+
+  const lines: string[] = ["", "## Athlete Background (self-reported, pre-Tomo)"];
+
+  if (h.trainingStartedAt && h.yearsTraining !== null) {
+    lines.push(
+      `- Training age: ${h.yearsTraining} years (self-reported; athlete started ${h.trainingStartedAt})`,
+    );
+  } else if (h.trainingStartedAt) {
+    lines.push(`- Athlete started training on ${h.trainingStartedAt}`);
+  }
+
+  if (h.trainingHistoryNote) {
+    lines.push(`- Athlete note: ${h.trainingHistoryNote}`);
+  }
+
+  if (h.pastInjuries.length > 0) {
+    lines.push("- Past injuries (self-reported, confidence: medium):");
+    for (const inj of h.pastInjuries.slice(0, 10)) {
+      const weeks = inj.weeksOut !== null ? `, ${inj.weeksOut}w out` : "";
+      const status = inj.resolved ? "resolved" : "ongoing";
+      lines.push(`  - ${inj.year} ${inj.bodyArea} (${inj.severity}${weeks}, ${status})`);
+    }
+  }
+
+  if (h.historicalTests.length > 0) {
+    lines.push(
+      "- Historical test trajectory (self-reported, lower authority than Tomo-tracked):",
+    );
+    for (const t of h.historicalTests.slice(0, 8)) {
+      lines.push(`  - ${t.date} ${t.testType}: ${t.score}`);
+    }
+  }
+
+  lines.push(
+    "",
+    "Treat historical data as directional context. Tomo-tracked tests (source: manual) are authoritative.",
+    "Do NOT cite self-reported scores as current benchmarks. Use past injuries for injury-aware programming and tone calibration.",
+  );
+
+  return lines.join("\n");
 }

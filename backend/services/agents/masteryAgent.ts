@@ -5,6 +5,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PlayerContext } from "./contextBuilder";
+import { buildAthleteBackgroundBlock } from "./contextBuilder";
 
 export const masteryTools = [
   {
@@ -277,5 +278,5 @@ export function buildMasteryDynamicPrompt(context: PlayerContext): string {
 PLAYER CONTEXT:
 - Name: ${context.name} | Sport: ${context.sport} | Age Band: ${context.ageBand ?? "Unknown"}
 - Today: ${context.todayDate} | Current time: ${context.currentTime}
-- Current streak: ${context.currentStreak} days`;
+- Current streak: ${context.currentStreak} days${buildAthleteBackgroundBlock(context)}`;
 }

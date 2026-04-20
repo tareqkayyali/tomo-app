@@ -1,12 +1,14 @@
 /**
  * Signal Dashboard Screen — Mode-First Daily Command Centre
  *
- * ── SECTIONS ──
- * 1. AthleteModeHero — Current mode display, quick mode switcher, panel pills
- * 2. Daily Recs — Expandable RIE recommendation cards (diverse types)
- * 3. CMS Sections — Dynamic sections from dashboard_sections table
- * 4. Up Next — Future timeline activities with contextual AI hints
- * 5. Slide-up Panels — Program, Metrics, Progress (overlays)
+ * ── DASHBOARD TAB SECTIONS ──
+ *   Rendered by <SignalDashboardTab/> (six-section snapshot layout):
+ *     FocusHero · WhatsComingTimeline · SleepTrendCard · BenchmarkGrid ·
+ *     WeeklyPulseStrip · TomoTakeCard
+ *
+ * ── OTHER TABS ──
+ *   Programs / Metrics / Progress are siblings in the underline tab switcher,
+ *   each delegating to existing Output sections + Progress panel.
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
@@ -28,11 +30,8 @@ import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { useConnectedSources } from '../hooks/useConnectedSources';
 import { useNavigation } from '@react-navigation/native';
 
-// Dashboard components
-import { AthleteModeHero } from '../components/dashboard/AthleteModeHero';
-import { TodaysPlanCard } from '../components/dashboard/TodaysPlanCard';
-import { DailyRecommendations } from '../components/dashboard/DailyRecommendations';
-import { DashboardSectionRenderer } from '../components/dashboard/sections';
+// Dashboard tab — rebuilt Signal Dashboard (spec: "Signal · Dashboard")
+import { SignalDashboardTab } from '../components/dashboard/signal/SignalDashboardTab';
 import { ProgramPanel } from '../components/dashboard/panels/ProgramPanel';
 import { MetricsPanel } from '../components/dashboard/panels/MetricsPanel';
 import { ProgressPanel } from '../components/dashboard/panels/ProgressPanel';
@@ -74,23 +73,6 @@ const NEUTRAL_SIGNAL = {
   evaluatedAt: new Date().toISOString(),
 };
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  training: 'Training',
-  match: 'Match',
-  gym: 'Gym',
-  recovery: 'Recovery',
-  study: 'Study',
-  exam: 'Exam',
-  sleep: 'Sleep',
-  club: 'Club Session',
-  personal: 'Personal',
-};
-
-function formatEventTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
-
 /**
  * Returns a user-facing "Updated Nm/h ago · tap to refresh" label when the
  * underlying snapshot (or payload) is older than 5 minutes. Prefers the
@@ -119,46 +101,6 @@ function formatStaleLabel(
   return `Updated ${hours}h ago · tap to refresh`;
 }
 
-/** Generate a contextual hint for the upcoming activity based on type + signal state */
-function getActivityHint(
-  event: { type: string; title: string; intensity: number | null },
-  signalKey: string,
-  activeRecs: { type: string; bodyShort: string | null }[],
-): string | null {
-  const type = event.type;
-  const isOverloaded = signalKey === 'OVERLOADED' || signalKey === 'RECOVERING' || signalKey === 'SLEEP_DEBT';
-  const hasRecoveryRec = activeRecs.some(r => r.type === 'RECOVERY' || r.type === 'READINESS');
-
-  if (type === 'sleep') {
-    if (hasRecoveryRec) {
-      return 'Start winding down early — recovery is a priority today. Limit screens 30 min before bed.';
-    }
-    return 'Prepare for quality sleep — dim lights, cool room, consistent routine.';
-  }
-  if (type === 'training' || type === 'gym' || type === 'club') {
-    if (isOverloaded) {
-      return 'Signal says recovery mode — keep this light. Technical work only, no max efforts.';
-    }
-    if (event.intensity && event.intensity >= 7) {
-      return 'High intensity planned — hydrate well beforehand and warm up thoroughly.';
-    }
-    return 'Stay present and focus on quality reps over volume.';
-  }
-  if (type === 'match') {
-    if (isOverloaded) {
-      return 'Your body is fatigued — focus on smart positioning and conserve energy for key moments.';
-    }
-    return 'Match day — activate with a dynamic warm-up 20 min before. Stay hydrated.';
-  }
-  if (type === 'study' || type === 'exam') {
-    return 'Balance is key — take a 5-min movement break every 45 minutes to stay sharp.';
-  }
-  if (type === 'recovery') {
-    return 'Active recovery session — gentle movement, stretching, and breathwork. No intensity.';
-  }
-  return null;
-}
-
 export function SignalDashboardScreen() {
   const { colors } = useTheme();
   const { profile } = useAuth();
@@ -183,35 +125,7 @@ export function SignalDashboardScreen() {
   );
 
   const signal = bootData?.signalContext ?? NEUTRAL_SIGNAL;
-  const recentVitals = bootData?.recentVitals ?? [];
-  const todayEvents = bootData?.todayEvents ?? [];
   const currentMode = bootData?.planningContext?.athlete_mode ?? (bootData?.snapshot as any)?.athlete_mode ?? 'balanced';
-
-  // Filter to only upcoming events (start time > now)
-  const upcomingEvents = useMemo(() => {
-    const now = new Date();
-    return todayEvents.filter((e: any) => new Date(e.startAt) > now);
-  }, [todayEvents]);
-
-  // Active recs for contextual hints
-  const activeRecs = useMemo(() => {
-    return (bootData?.dashboardRecs ?? []).map((r: any) => ({
-      type: r.type,
-      bodyShort: r.bodyShort,
-    }));
-  }, [bootData?.dashboardRecs]);
-
-  // Build a set of enabled component_types from CMS layout.
-  // Screen-level components (signal_hero, daily_recs, up_next) use this
-  // to check if the CMS has them enabled — if the type is absent from the
-  // boot layout, the section is hidden.
-  const enabledTypes = useMemo(() => {
-    const types = new Set<string>();
-    (bootData?.dashboardLayout ?? []).forEach((s: { component_type: string }) => {
-      types.add(s.component_type);
-    });
-    return types;
-  }, [bootData?.dashboardLayout]);
 
   // Freshness stamp — rendered in panel headers only when the underlying
   // snapshot is >5 min stale. Prefer the server-authoritative `snapshot_at`
@@ -326,126 +240,22 @@ export function SignalDashboardScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Athlete Mode Hero — current mode, quick switcher. Panel pills hidden
-            because Program/Metrics/Progress are now siblings in the tab bar. */}
-        {/* CMS-gated: only renders when signal_hero section is enabled in dashboard_sections */}
-        {enabledTypes.has('signal_hero') && (
-          <AthleteModeHero
-            currentMode={currentMode}
-            signal={{
-              color: signal.color,
-              showUrgencyBadge: signal.showUrgencyBadge,
-              urgencyLabel: signal.urgencyLabel,
-            }}
-            activePanel={activePanel}
-            onPanelPress={setActivePanel}
-            onModeChanged={refreshBoot}
-            hidePanelPills
-          />
-        )}
-
-        {/* Daily Recommendations from RIE */}
-        {/* CMS-gated: only renders when daily_recs section is enabled in dashboard_sections */}
-        {enabledTypes.has('daily_recs') && (
-          <DailyRecommendations
-            recs={bootData?.dashboardRecs ?? []}
-            signalColor={signal.color}
-          />
-        )}
-
-        {/* CMS-Driven Dashboard Sections */}
-        {bootData && Array.isArray(bootData.dashboardLayout) && bootData.dashboardLayout.length > 0 && (
-          <View style={styles.section}>
-            <DashboardSectionRenderer
-              layout={bootData.dashboardLayout}
-              bootData={bootData}
-            />
-          </View>
-        )}
-
-        {/* Up Next — future timeline activities with contextual hints */}
-        {/* CMS-gated: only renders when up_next section is enabled in dashboard_sections */}
-        {enabledTypes.has('up_next') && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>
-              {signal.adaptedPlan ? "TODAY\u2019S PLAN" : "UP NEXT"}
-            </Text>
-
-            {/* Adapted session from signal (if signal overrides) */}
-            {signal.adaptedPlan && (
-              <TodaysPlanCard
-                sessionName={signal.adaptedPlan.sessionName}
-                sessionMeta={signal.adaptedPlan.sessionMeta}
-                signalColor={signal.color}
-              />
-            )}
-
-            {/* Upcoming activities only (after current time) */}
-            {upcomingEvents.length > 0 ? (
-              <View style={styles.timelineSection}>
-                {upcomingEvents.map((event: any, i: number) => {
-                  const hint = getActivityHint(event, signal.key, activeRecs);
-                  const isNext = i === 0;
-                  return (
-                    <View
-                      key={event.id ?? i}
-                      style={[
-                        styles.timelineCard,
-                        isNext && styles.timelineCardNext,
-                      ]}
-                    >
-                      {/* Time column */}
-                      <View style={styles.timeColumn}>
-                        <Text style={[styles.timelineTime, isNext && { color: signal.color }]}>
-                          {formatEventTime(event.startAt)}
-                        </Text>
-                      </View>
-
-                      {/* Content */}
-                      <View style={styles.timelineContent}>
-                        <View style={styles.timelineHeader}>
-                          <Text style={[styles.timelineTitle, isNext && { color: '#F5F3ED' }]}>
-                            {event.title}
-                          </Text>
-                          <View style={[
-                            styles.timelineTypeBadge,
-                            { backgroundColor: isNext ? `${signal.color}20` : 'rgba(245,243,237,0.05)' },
-                          ]}>
-                            <Text style={[
-                              styles.timelineTypeText,
-                              { color: isNext ? signal.color : 'rgba(245,243,237,0.35)' },
-                            ]}>
-                              {EVENT_TYPE_LABELS[event.type] ?? event.type}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Contextual AI hint — only for next activity */}
-                        {isNext && hint && (
-                          <Text style={[styles.timelineHint, { color: `${signal.color}B3` }]}>
-                            {hint}
-                          </Text>
-                        )}
-
-                        {event.intensity && (
-                          <Text style={styles.timelineIntensity}>
-                            Intensity {event.intensity}/10
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : !signal.adaptedPlan ? (
-              <View style={styles.emptyPlan}>
-                <Text style={styles.emptyPlanText}>
-                  No upcoming activities today. You&apos;re all caught up.
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        )}
+        <SignalDashboardTab
+          bootData={bootData ?? null}
+          modeLabel={currentMode ?? 'balanced'}
+          signalCoaching={signal.coaching ?? ''}
+          onSleepPress={() => setActiveTab('metrics')}
+          onStrengthPress={() => setActiveTab('metrics')}
+          onGapPress={() => setActiveTab('metrics')}
+          onPulseCellPress={() => setActiveTab('metrics')}
+          onMilestonePress={(m) => {
+            try {
+              navigation.navigate('Main', { screen: 'Plan', params: { eventId: m.id } });
+            } catch {
+              // Graceful no-op if the caller nav isn't available.
+            }
+          }}
+        />
       </ScrollView>
       )}
 

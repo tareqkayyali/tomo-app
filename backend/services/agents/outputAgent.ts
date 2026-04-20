@@ -5,7 +5,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PlayerContext } from "./contextBuilder";
-import { getDayBoundsISO } from "./contextBuilder";
+import { getDayBoundsISO, buildAthleteBackgroundBlock } from "./contextBuilder";
 import {
   getRecommendedDrills,
   getDrillById,
@@ -1404,5 +1404,5 @@ ${benchmarkDesc ? `\nBENCHMARK PROFILE:\n${benchmarkDesc}` : ""}${vitalsDesc}${s
 
 PLAYER TEST HISTORY:
 Players CAN log test results directly through this chat.
-${testHistoryDesc}`;
+${testHistoryDesc}${buildAthleteBackgroundBlock(context)}`;
 }

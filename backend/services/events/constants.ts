@@ -76,6 +76,10 @@ export const SOURCE_TYPES = {
   SYSTEM: 'SYSTEM',
   COACH: 'COACH',
   PARENT: 'PARENT',
+  // Pre-Tomo, self-reported historical data (Profile > Historical Data).
+  // Handlers skip current-profile/load aggregation for HISTORICAL events so
+  // a 2022 sprint doesn't overwrite current speed_profile or pollute ACWR.
+  HISTORICAL: 'HISTORICAL',
 } as const;
 
 export type SourceType = typeof SOURCE_TYPES[keyof typeof SOURCE_TYPES];

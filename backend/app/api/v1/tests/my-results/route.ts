@@ -143,6 +143,10 @@ const testResultSchema = z.object({
   unit: z.string().max(20).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   notes: z.string().max(500).optional(),
+  // Historical Data: pre-Tomo self-reported tests (Profile > Historical Data).
+  // Flagged on the snapshot row + emitted as source=HISTORICAL so handlers
+  // skip current-profile, ACWR, and load aggregation updates.
+  source: z.enum(['manual', 'historical_self_reported']).default('manual'),
 });
 
 export async function POST(req: NextRequest) {
@@ -160,7 +164,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { testType, score, unit, date, notes } = parsed.data;
+    const { testType, score, unit, date, notes, source } = parsed.data;
+    const isHistorical = source === 'historical_self_reported';
+
+    // Historical tests must carry a past date.
+    if (isHistorical) {
+      if (!date) {
+        return NextResponse.json(
+          { error: "Historical tests require a date (YYYY-MM-DD)" },
+          { status: 400 },
+        );
+      }
+      const todayStr = new Date().toISOString().slice(0, 10);
+      if (date >= todayStr) {
+        return NextResponse.json(
+          { error: "Historical test date must be in the past" },
+          { status: 400 },
+        );
+      }
+    }
 
     const db = supabaseAdmin();
     const { data: row, error } = await db
@@ -171,6 +193,7 @@ export async function POST(req: NextRequest) {
         test_type: testType,
         score,
         raw_data: { unit, notes } as unknown as Json,
+        source,
       })
       .select()
       .single();
@@ -179,12 +202,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // ── Emit ASSESSMENT_RESULT event to Athlete Data Fabric (dual-write) ──
+    // ── Emit ASSESSMENT_RESULT event — HISTORICAL source so handlers skip
+    //    current-profile, ACWR, load, and PHV updates (see assessmentHandler).
     await emitEventSafe({
       athleteId: auth.user.id,
       eventType: 'ASSESSMENT_RESULT',
-      occurredAt: new Date().toISOString(),
-      source: 'MANUAL',
+      occurredAt: isHistorical
+        ? new Date(`${date}T12:00:00Z`).toISOString()
+        : new Date().toISOString(),
+      source: isHistorical ? 'HISTORICAL' : 'MANUAL',
       payload: {
         test_type: testType,
         primary_value: score,
@@ -198,7 +224,7 @@ export async function POST(req: NextRequest) {
     let benchmark = null;
     if (metricKey) {
       benchmark = await calculatePercentile(auth.user.id, metricKey, score, {
-        source: "manual",
+        source: isHistorical ? "historical_self_reported" : "manual",
         testedAt: date,
       });
     }

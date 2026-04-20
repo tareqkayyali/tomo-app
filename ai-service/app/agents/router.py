@@ -231,10 +231,8 @@ TIEBREAKER_RULES: list[tuple[re.Pattern, AgentType]] = [
 
 TAB_AGENT_AFFINITY: dict[str, AgentType] = {
     "Timeline": "timeline",
-    "Output": "output",
-    "Mastery": "mastery",
-    "OwnIt": "output",
     "Chat": "output",
+    "Dashboard": "output",
 }
 
 

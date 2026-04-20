@@ -90,31 +90,27 @@ async function handleNavigate(
 ): Promise<OrchestratorResult | null> {
   const lowerMsg = message.toLowerCase();
   const navMap: Record<string, { tabName: string; icon: string; label: string; description: string }> = {
-    "timeline":   { tabName: "Timeline", icon: "📅", label: "Timeline", description: "Your calendar and daily schedule" },
-    "calendar":   { tabName: "Timeline", icon: "📅", label: "Timeline", description: "Your calendar and daily schedule" },
-    "schedule":   { tabName: "Timeline", icon: "📅", label: "Timeline", description: "Your calendar and daily schedule" },
-    "output":     { tabName: "Output", icon: "📊", label: "Output", description: "Vitals, metrics, and programs" },
-    "vitals":     { tabName: "Output", icon: "📊", label: "My Vitals", description: "Readiness, sleep, and energy trends" },
-    "metrics":    { tabName: "Output", icon: "📊", label: "My Metrics", description: "Test scores and benchmarks" },
-    "programs":   { tabName: "Output", icon: "📊", label: "My Programs", description: "Training programs and recommendations" },
-    "tests":      { tabName: "Output", icon: "📊", label: "My Metrics", description: "Test scores and benchmarks" },
-    "mastery":    { tabName: "Mastery", icon: "🧬", label: "Mastery", description: "DNA card, pillars, and streaks" },
-    "progress":   { tabName: "Mastery", icon: "🧬", label: "Mastery", description: "DNA card, pillars, and streaks" },
-    "dna":        { tabName: "Mastery", icon: "🧬", label: "Mastery", description: "Your DNA card and identity" },
-    "own it":     { tabName: "OwnIt", icon: "🎯", label: "Own It", description: "Personalized recommendations and focus" },
-    "for you":    { tabName: "OwnIt", icon: "🎯", label: "Own It", description: "Personalized recommendations and focus" },
-    "recommendations": { tabName: "OwnIt", icon: "🎯", label: "Own It", description: "Personalized recommendations and focus" },
-    "chat":       { tabName: "Home", icon: "💬", label: "Tomo Chat", description: "AI command center" },
+    "timeline":         { tabName: "Timeline", icon: "📅", label: "Timeline", description: "Your calendar and daily schedule" },
+    "calendar":         { tabName: "Timeline", icon: "📅", label: "Timeline", description: "Your calendar and daily schedule" },
+    "schedule":         { tabName: "Timeline", icon: "📅", label: "Timeline", description: "Your calendar and daily schedule" },
+    "dashboard":        { tabName: "Dashboard", icon: "📊", label: "Dashboard", description: "Readiness signals, metrics, programs, and recommendations" },
+    "vitals":           { tabName: "Dashboard", icon: "📊", label: "My Vitals", description: "Readiness, sleep, and energy trends" },
+    "metrics":          { tabName: "Dashboard", icon: "📊", label: "My Metrics", description: "Test scores and benchmarks" },
+    "programs":         { tabName: "Dashboard", icon: "📊", label: "My Programs", description: "Training programs and recommendations" },
+    "tests":            { tabName: "Dashboard", icon: "📊", label: "My Metrics", description: "Test scores and benchmarks" },
+    "progress":         { tabName: "Dashboard", icon: "📊", label: "Progress", description: "DNA card, pillars, and streaks" },
+    "dna":              { tabName: "Dashboard", icon: "📊", label: "Progress", description: "Your DNA card and identity" },
+    "recommendations":  { tabName: "Dashboard", icon: "📊", label: "Recommendations", description: "Personalized recommendations and focus" },
+    "for you":          { tabName: "Dashboard", icon: "📊", label: "Recommendations", description: "Personalized recommendations and focus" },
+    "chat":             { tabName: "Chat", icon: "💬", label: "Chat", description: "AI command center" },
   };
 
   // If classifier extracted targetTab, use it
   if (params.targetTab) {
     const tabMap: Record<string, typeof navMap[string]> = {
       Timeline: navMap["timeline"],
-      Output: navMap["output"],
-      Mastery: navMap["mastery"],
-      OwnIt: navMap["own it"],
-      Home: navMap["chat"],
+      Dashboard: navMap["dashboard"],
+      Chat: navMap["chat"],
     };
     const nav = tabMap[params.targetTab];
     if (nav) {

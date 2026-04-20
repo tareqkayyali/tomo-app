@@ -5,7 +5,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PlayerContext } from "./contextBuilder";
-import { getDayBoundsISO, toTimezoneISO } from "./contextBuilder";
+import { getDayBoundsISO, toTimezoneISO, buildAthleteBackgroundBlock } from "./contextBuilder";
 import { estimateTotalLoad } from "@/services/events/computations/loadEstimator";
 import { bridgeCalendarToEventStream } from "@/services/events/calendarBridge";
 
@@ -954,5 +954,5 @@ PLAYER CONTEXT:
 - Athletic load (7d): ${context.snapshotEnrichment?.athleticLoad7day ?? 'N/A'} AU | Academic load (7d): ${context.snapshotEnrichment?.academicLoad7day ?? 'N/A'} AU
 - Dual load index: ${context.snapshotEnrichment?.dualLoadIndex ?? 'N/A'}/100${acwrWarning}
 - Day name to date mapping: Monday=${getNextWeekday(context.todayDate, 1)}, Tuesday=${getNextWeekday(context.todayDate, 2)}, Wednesday=${getNextWeekday(context.todayDate, 3)}, Thursday=${getNextWeekday(context.todayDate, 4)}, Friday=${getNextWeekday(context.todayDate, 5)}, Saturday=${getNextWeekday(context.todayDate, 6)}, Sunday=${getNextWeekday(context.todayDate, 0)}
-- When the user says "tomorrow", use date ${tomorrow}. When they say "today", use date ${context.todayDate}.`;
+- When the user says "tomorrow", use date ${tomorrow}. When they say "today", use date ${context.todayDate}.${buildAthleteBackgroundBlock(context)}`;
 }

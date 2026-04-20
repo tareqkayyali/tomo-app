@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEnterprise } from "@/lib/admin/enterpriseAuth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { markGenerationOutcome } from "@/services/admin/pdProtocolGenerator";
+import { runInlineDryRunPreview } from "@/services/pdil/protocolDryRun";
+import { triggerAffectedAthletesRefresh } from "@/services/pdil/protocolFanOut";
+import { clearProtocolCache } from "@/services/pdil";
 
 const VALID_CATEGORIES = [
   "safety",
@@ -235,13 +239,107 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ protocol: data }, { status: 201 });
+    // ─── Post-insert wiring ─────────────────────────────────────────
+    // Clear the PDIL in-memory cache so the next evaluator call reads
+    // the new row. Without this, the 5-minute cache TTL would delay
+    // the protocol's effect.
+    try {
+      clearProtocolCache();
+    } catch {
+      // non-fatal
+    }
+
+    // Close the generation audit loop if this save originated from the
+    // prompt-layer generator.
+    const generationId: string | undefined = body.generation_id;
+    if (generationId && typeof generationId === "string") {
+      const outcome = await computeGenerationOutcome(generationId, data);
+      await markGenerationOutcome(generationId, outcome, data.protocol_id);
+    }
+
+    // Run a bounded dry-run against 3 representative athletes so the PD
+    // gets immediate proof the protocol actually fires. Capped at 800ms;
+    // save never blocks on dry-run failure.
+    const scope = {
+      sport_filter: data.sport_filter ?? null,
+      phv_filter: data.phv_filter ?? null,
+      age_band_filter: data.age_band_filter ?? null,
+      position_filter: data.position_filter ?? null,
+    };
+
+    const [dryRun, fanOut] = await Promise.all([
+      runInlineDryRunPreview(data.protocol_id, scope, 3),
+      triggerAffectedAthletesRefresh(scope),
+    ]);
+
+    return NextResponse.json(
+      {
+        protocol: data,
+        dry_run: dryRun,
+        fan_out: fanOut,
+      },
+      { status: 201 },
+    );
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Failed to create protocol" },
       { status: 500 }
     );
   }
+}
+
+/**
+ * Compare a freshly saved protocol against the original generated draft.
+ * Byte-identical JSON → 'saved'. Any PD edit → 'edited_then_saved'.
+ */
+async function computeGenerationOutcome(
+  generationId: string,
+  savedProtocol: any,
+): Promise<"saved" | "edited_then_saved"> {
+  const db = supabaseAdmin() as any;
+  const { data: gen } = await db
+    .from("pd_protocol_generations")
+    .select("draft_protocol")
+    .eq("generation_id", generationId)
+    .single();
+
+  if (!gen || !gen.draft_protocol) return "saved";
+
+  const compareFields = [
+    "name",
+    "description",
+    "category",
+    "conditions",
+    "priority",
+    "load_multiplier",
+    "intensity_cap",
+    "contraindications",
+    "required_elements",
+    "session_cap_minutes",
+    "blocked_rec_categories",
+    "mandatory_rec_categories",
+    "priority_override",
+    "override_message",
+    "forced_rag_domains",
+    "blocked_rag_domains",
+    "rag_condition_tags",
+    "ai_system_injection",
+    "safety_critical",
+    "sport_filter",
+    "phv_filter",
+    "age_band_filter",
+    "position_filter",
+    "evidence_source",
+    "evidence_grade",
+  ];
+
+  const draft = gen.draft_protocol as Record<string, unknown>;
+  for (const field of compareFields) {
+    if (JSON.stringify(draft[field] ?? null) !== JSON.stringify(savedProtocol[field] ?? null)) {
+      return "edited_then_saved";
+    }
+  }
+  return "saved";
 }
 
 /**
@@ -430,7 +528,31 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ protocol: data });
+    // Keep PATCH wired to the same downstream refresh path as POST so an
+    // edited protocol reaches athletes immediately.
+    try {
+      clearProtocolCache();
+    } catch {
+      // non-fatal
+    }
+
+    const scope = {
+      sport_filter: data.sport_filter ?? null,
+      phv_filter: data.phv_filter ?? null,
+      age_band_filter: data.age_band_filter ?? null,
+      position_filter: data.position_filter ?? null,
+    };
+
+    const [dryRun, fanOut] = await Promise.all([
+      runInlineDryRunPreview(data.protocol_id, scope, 3),
+      triggerAffectedAthletesRefresh(scope),
+    ]);
+
+    return NextResponse.json({
+      protocol: data,
+      dry_run: dryRun,
+      fan_out: fanOut,
+    });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Failed to update protocol" },

@@ -230,12 +230,12 @@ function routeToAgents(
   const isRecoveryFollowUp = /recovery.*protocol|recovery.*plan|tell me more about.*rec|act on.*rec|recovery.*program|what.*should.*do.*recover/i.test(lower);
   const isRecommendationFollowUp = /tell me more about the "|recommendation.*and what i should/i.test(lower);
 
-  // Output signals — checked first so it's primary when both match
+  // Output signals — Dashboard tab covers readiness/metrics/programs/recs
   if (
     isProgramQuery ||
     isRecoveryFollowUp ||
     isRecommendationFollowUp ||
-    context.activeTab === "Output" ||
+    context.activeTab === "Dashboard" ||
     /readiness|tired|energy|sleep|recovery|vitals|how (do|am) i feel|check.?in|score|metric|compare|benchmark|percentile|rank|how.*stack up|vs other|test result|how fit|sprint|jump|sore|soreness|pain|drill|exercise|workout|warm.?up|cool.?down|practice plan|training plan|what.*(should|can) i train|weakness|weak|gap|strength|area.*(improve|work|develop)|where.*(need|lack)|my best|my worst/i.test(
       lower
     )
@@ -254,9 +254,8 @@ function routeToAgents(
     agents.add("timeline");
   }
 
-  // Mastery signals
+  // Mastery signals — keyword-only (no tab affinity; Dashboard covers progress too)
   if (
-    context.activeTab === "Mastery" ||
     /progress|improve|better|cv|profile|achievement|milestone|recruit|scout|trajectory|develop|history|pr|personal record|best|consistency|streak/i.test(
       lower
     )
@@ -268,8 +267,8 @@ function routeToAgents(
   if (agents.size === 0) {
     const tabMap: Record<string, "timeline" | "output" | "mastery"> = {
       Timeline: "timeline",
-      Output: "output",
-      Mastery: "mastery",
+      Dashboard: "output",
+      // Chat: no default agent — let keyword router decide; falls through to "output" below
     };
     const defaultAgent = tabMap[context.activeTab];
     if (defaultAgent) agents.add(defaultAgent);

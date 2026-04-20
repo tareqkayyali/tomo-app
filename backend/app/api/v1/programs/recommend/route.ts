@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
     currentStreak: profile.current_streak ?? 0,
     benchmarkProfile: null,
     recentTestScores: [],
+    historicalData: null,
     temporalContext: {
       timeOfDay: "afternoon",
       isMatchDay: false,

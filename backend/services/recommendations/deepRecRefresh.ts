@@ -241,7 +241,7 @@ export async function deepRecRefresh(
 
   try {
     // 1. Build full PlayerContext (12 parallel data fetches)
-    const ctx = await buildPlayerContext(athleteId, 'OwnIt', '', timezone);
+    const ctx = await buildPlayerContext(athleteId, 'Dashboard', '', timezone);
 
     // ── Phase 3: Deterministic fast-paths ($0 — skip Claude for predictable recs) ──
     const fastPathRecs = buildFastPathRecs(ctx, athleteId);

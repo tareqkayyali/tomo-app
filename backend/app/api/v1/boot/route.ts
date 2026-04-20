@@ -25,6 +25,68 @@ import type { RecentVitalEntry, YesterdayVitals } from "@/services/signals";
 import { resolveDashboardLayout } from "@/services/dashboard/dashboardSectionLoader";
 import { getModeDefinition, type ModeParams } from "@/services/scheduling/modeConfig";
 
+/**
+ * Composes the full benchmark detail block for Signal Dashboard strength/gap cards.
+ * Looks up the BenchmarkResult matching the chosen label and derives a trend string
+ * (delta vs cohort p50 with unit) + a coaching note whose tone depends on whether
+ * this is a strength or a gap. Returns null when no matching result is found.
+ */
+function composeBenchmarkDetail(
+  label: string | null,
+  results: Array<{
+    metricKey: string;
+    metricLabel: string;
+    unit: string;
+    direction: "lower_better" | "higher_better";
+    value: number;
+    percentile: number;
+    norm: { p10: number; p25: number; p50: number; p75: number; p90: number };
+  }> | undefined,
+  kind: "strength" | "gap",
+): {
+  metric: string;
+  value: number;
+  unit: string;
+  percentile: number;
+  trend: string;
+  note: string;
+} | null {
+  if (!label || !Array.isArray(results)) return null;
+  const r = results.find((x) => x.metricLabel === label);
+  if (!r) return null;
+
+  const p50 = r.norm?.p50 ?? r.value;
+  const delta = r.value - p50;
+  const absDelta = Math.abs(delta);
+  const decimals = r.unit === "cm" || r.unit === "reps" || r.unit === "m" ? 0 : 2;
+  const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
+  const formatted = absDelta.toFixed(decimals);
+  const unitLabel = r.unit ? ` ${r.unit}` : "";
+  const trend = delta === 0
+    ? `At cohort median`
+    : `${sign}${formatted}${unitLabel} vs cohort median`;
+
+  let note: string;
+  if (kind === "strength") {
+    if (r.percentile >= 90) note = `Top ${Math.max(1, 100 - Math.round(r.percentile))}% for your position`;
+    else if (r.percentile >= 75) note = `Above peers in your position`;
+    else note = `Solid for your position`;
+  } else {
+    if (r.percentile < 25) note = `Priority: dedicated ${r.metricLabel.toLowerCase()} block`;
+    else if (r.percentile < 50) note = `Below median — room to improve`;
+    else note = `Keep building — not a ceiling`;
+  }
+
+  return {
+    metric: r.metricLabel,
+    value: r.value,
+    unit: r.unit,
+    percentile: Math.round(r.percentile),
+    trend,
+    note,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const userId = request.headers.get("x-user-id");
@@ -75,6 +137,7 @@ export async function GET(request: NextRequest) {
       coachProgrammesRes,
       planningContextRes,
       recentHrvRes,
+      upcomingEventsRes,
     ] = await Promise.allSettled([
       // 1. User profile
       (db as any)
@@ -223,6 +286,18 @@ export async function GET(request: NextRequest) {
         .gte("date", new Date(now.getTime() - 7 * 86400000).toLocaleDateString("en-CA", { timeZone: tz }))
         .order("date", { ascending: false })
         .limit(7),
+
+      // 20. Upcoming training + match events (next 14 days) — powers Signal
+      // Dashboard "What's coming" timeline. Exams live in upcomingExams (query 7).
+      db
+        .from("calendar_events")
+        .select("id, title, event_type, start_at, end_at, intensity")
+        .eq("user_id", userId)
+        .in("event_type", ["training", "match"])
+        .gt("start_at", nowISO)
+        .lte("start_at", in14DaysEndISO)
+        .order("start_at")
+        .limit(20),
     ]);
 
     // ── Extract results with graceful fallbacks ──
@@ -241,6 +316,7 @@ export async function GET(request: NextRequest) {
     const whoopSleep = whoopSleepRes.status === "fulfilled" ? (whoopSleepRes.value as any)?.data ?? null : null;
     const activePrograms = activeProgramsRes.status === "fulfilled" ? (activeProgramsRes.value as any)?.data ?? [] : [];
     const cachedProgramRecs = programRecsRes.status === "fulfilled" ? (programRecsRes.value as any)?.data?.program_recommendations : null;
+    const upcomingEventsRaw = upcomingEventsRes.status === "fulfilled" ? (upcomingEventsRes.value as any)?.data ?? [] : [];
 
     // Filter coach programmes: only those targeting this player (by ID, position, or "all")
     const allCoachProgs = coachProgrammesRes.status === "fulfilled" ? (coachProgrammesRes.value as any)?.data ?? [] : [];
@@ -599,6 +675,16 @@ export async function GET(request: NextRequest) {
             overallPercentile: benchmarkProfile.overallPercentile,
             topStrength: benchmarkProfile.strengths?.[0] ?? null,
             topGap: benchmarkProfile.gaps?.[0] ?? null,
+            topStrengthDetail: composeBenchmarkDetail(
+              benchmarkProfile.strengths?.[0] ?? null,
+              benchmarkProfile.results,
+              "strength",
+            ),
+            topGapDetail: composeBenchmarkDetail(
+              benchmarkProfile.gaps?.[0] ?? null,
+              benchmarkProfile.results,
+              "gap",
+            ),
           }
         : null,
 
@@ -638,6 +724,17 @@ export async function GET(request: NextRequest) {
       upcomingExams: upcomingExams.map((e: any) => ({
         title: e.title,
         date: e.start_at,
+      })),
+
+      // ── Upcoming training + match events (next 14 days) ──
+      // Powers Signal Dashboard "What's coming" timeline alongside upcomingExams.
+      upcomingEvents: upcomingEventsRaw.map((e: any) => ({
+        id: e.id,
+        title: e.title,
+        type: e.event_type,
+        startAt: e.start_at,
+        endAt: e.end_at,
+        intensity: e.intensity,
       })),
 
       notificationCenter: {

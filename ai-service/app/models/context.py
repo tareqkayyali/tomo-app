@@ -271,8 +271,8 @@ class PlayerContext(BaseModel):
     schedule_preferences: Optional[SchedulePreferences] = None
     active_scenario: str = "normal"  # normal | league_active | exam_period | league_and_exam
 
-    # Context for routing
-    active_tab: str = "Chat"  # Timeline | Output | Mastery | OwnIt | Chat
+    # Context for routing — canonical 3-tab nav
+    active_tab: str = "Chat"  # Timeline | Chat | Dashboard
     last_user_message: str = ""
     timezone: str = "UTC"
 
