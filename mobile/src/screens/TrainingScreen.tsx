@@ -276,10 +276,17 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
 
   // For each week, the active pill index — only set if selectedDay falls
   // inside that week. Off-week pages render with no active pill.
+  // weekStart is at 00:00 local (from windowStart), so we normalize
+  // selectedDay to midnight too — otherwise time-of-day rolls the diff
+  // forward a full day (e.g. today @ 16:15 looked like tomorrow).
   const activeIdxFor = useCallback(
     (weekIdx: number) => {
       const weekStart = addDays(anchorWeekStart, weekIdx * 7);
-      const diff = Math.round((selectedDay.getTime() - weekStart.getTime()) / 86400000);
+      const selMidnight = new Date(selectedDay);
+      selMidnight.setHours(0, 0, 0, 0);
+      const diff = Math.round(
+        (selMidnight.getTime() - weekStart.getTime()) / 86400000,
+      );
       return diff >= 0 && diff <= 6 ? diff : -1;
     },
     [anchorWeekStart, selectedDay],
