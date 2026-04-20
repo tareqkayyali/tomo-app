@@ -26,6 +26,10 @@ import {
   acwrConfigSchema,
   ACWR_CONFIG_DEFAULT,
 } from '@/services/events/acwrConfig';
+import {
+  intensityCatalogSchema,
+  INTENSITY_CATALOG_DEFAULT,
+} from '@/services/events/intensityCatalogConfig';
 
 export interface ConfigRegistryEntry {
   key:       string;
@@ -52,6 +56,14 @@ export const CONFIG_REGISTRY: ConfigRegistryEntry[] = [
     schema:   acwrConfigSchema,
     default:  ACWR_CONFIG_DEFAULT,
     summary:  'Mode (hard_cap_only / full), ratio thresholds, zone multipliers, acute/chronic window sizes, load-channel weights (training vs academic), and injury-risk flag mapping.',
+  },
+  {
+    key:      'intensity_catalog_v1',
+    label:    'Intensity Catalog',
+    category: 'intensity',
+    schema:   intensityCatalogSchema,
+    default:  INTENSITY_CATALOG_DEFAULT,
+    summary:  'AU-per-hour rates by intensity bucket, academic AU rate, event-type overrides (match, recovery), program-difficulty and drill-intensity maps, WHOOP strain ladder, RPE → intensity mapping. Drives every load AU computation.',
   },
 ];
 

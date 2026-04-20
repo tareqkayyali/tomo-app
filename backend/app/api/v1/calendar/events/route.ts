@@ -19,6 +19,7 @@ import {
 } from "@/services/schedulingEngine";
 import type { ScheduleEvent } from "@/services/schedulingEngine";
 import { estimateTotalLoad } from "@/services/events/computations/loadEstimator";
+import { resolveCalendarIntensity } from "@/services/events/resolveCalendarIntensity";
 import { bridgeCalendarToEventStream } from "@/services/events/calendarBridge";
 import { parsePagination, paginatedResponse, hasPaginationParams } from "@/lib/pagination";
 import { checkPHVSafety } from "@/services/safety/phvSafetyMiddleware";
@@ -230,13 +231,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Compute estimated load from event metadata
+    // Resolve intensity via the cascade: explicit pick → event-type override
+    // → linked program's default_intensity → program difficulty map →
+    // catalog default (MODERATE). Prevents the class of bugs where athletes
+    // schedule without picking an intensity and SESSION_LOG later fires
+    // with intensity=null, leaving training_load_au=0 for every session.
+    const resolvedIntensity = await resolveCalendarIntensity({
+      db,
+      athleteId: auth.user.id,
+      eventType: dbEventType,
+      explicitIntensity: intensity ?? null,
+      linkedProgramSlugs: linkedProgramSlugs ?? null,
+      sport: sport ?? null,
+    });
+
+    // Compute estimated load from event metadata using the resolved intensity.
     const durationMin = finalEndAt
       ? (new Date(finalEndAt).getTime() - new Date(finalStartAt).getTime()) / 60000
       : 60;
     const estimatedLoad = estimateTotalLoad({
       event_type: dbEventType,
-      intensity: intensity ?? null,
+      intensity: resolvedIntensity,
       duration_min: durationMin,
     });
 
@@ -254,7 +269,8 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const insertData = {
       ...insertBase,
-      intensity: intensity ? normalizeIntensity(intensity) : null,
+      // resolvedIntensity is already the normalized canonical form (REST/LIGHT/MODERATE/HARD or null)
+      intensity: resolvedIntensity,
       sport: sport || null,
       estimated_load_au: estimatedLoad,
       session_plan: sessionPlan ?? null,

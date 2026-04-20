@@ -97,6 +97,13 @@ export function ProgramForm({ programId, initialData }: ProgramFormProps) {
   const [description, setDescription] = useState((initialData?.description as string) || "");
   const [durationMinutes, setDurationMinutes] = useState((initialData?.duration_minutes as number) || 30);
   const [difficulty, setDifficulty] = useState((initialData?.difficulty as string) || "intermediate");
+  // Physical intensity bucket used by the calendar intensity-resolver
+  // cascade. When an athlete schedules this program without explicitly
+  // picking an intensity, this value lands on calendar_events.intensity
+  // (so downstream ATL/CTL/ACWR never sees a null signal).
+  const [defaultIntensity, setDefaultIntensity] = useState<string>(
+    (initialData?.default_intensity as string) || "MODERATE",
+  );
   const [sortOrder, setSortOrder] = useState((initialData?.sort_order as number) || 100);
   const [active, setActive] = useState((initialData?.active as boolean) ?? true);
   // Load-bearing AI safety gate — when false the chat agent must not
@@ -190,6 +197,7 @@ export function ProgramForm({ programId, initialData }: ProgramFormProps) {
       description,
       duration_minutes: durationMinutes,
       difficulty,
+      default_intensity: defaultIntensity,
       sort_order: sortOrder,
       active,
       chat_eligible: chatEligible,
@@ -315,6 +323,21 @@ export function ProgramForm({ programId, initialData }: ProgramFormProps) {
                 </SelectContent>
               </Select>
               <FieldGuide {...programsHelp.list.fields!.difficulty} />
+            </div>
+            <div className="space-y-2">
+              <Label>Default Intensity</Label>
+              <Select value={defaultIntensity} onValueChange={(v) => v && setDefaultIntensity(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="REST">Rest</SelectItem>
+                  <SelectItem value="LIGHT">Light</SelectItem>
+                  <SelectItem value="MODERATE">Moderate</SelectItem>
+                  <SelectItem value="HARD">Hard</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Used when an athlete schedules this program without picking an intensity. Drives training load on the calendar event.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Sort Order</Label>
