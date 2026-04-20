@@ -10,6 +10,7 @@ import { calculateReadiness } from '@/services/readinessCalculator';
 import { recomputeWellnessTrend } from '../computations/wellnessTrend';
 import { upsertDailyVitals } from '../aggregations/dailyVitalsWriter';
 import { computeTrend, computeSleepDebt3d, computeSleepConsistency } from '@/services/snapshot/trendUtils';
+import { runRetroactiveCheckinConfirm } from '@/services/calendar/retroactiveConfirm';
 import type { AthleteEvent, WellnessCheckinPayload } from '../types';
 
 // CCRS module is optional — may not be deployed yet
@@ -89,6 +90,28 @@ export async function handleWellnessCheckin(event: AthleteEvent): Promise<void> 
   computeAndPersistCCRS?.(event.athlete_id).catch(err =>
     console.error('[WellnessHandler] CCRS computation failed:', err),
   );
+
+  // 8. Retroactive session confirmation from effort_yesterday.
+  // Yesterday's still-scheduled physical events auto-flip to completed
+  // (if effort high enough) or skipped (if low enough). Fail-open: any
+  // error here logs and swallows so the check-in submit never breaks.
+  if (typeof payload.effort_yesterday === 'number') {
+    try {
+      const result = await runRetroactiveCheckinConfirm({
+        athleteId:       event.athlete_id,
+        effortYesterday: payload.effort_yesterday,
+      });
+      if (result.action !== 'none' && (result.confirmedCount > 0 || result.skippedCount > 0)) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[WellnessHandler] retro ${result.action}: confirmed=${result.confirmedCount} skipped=${result.skippedCount} for athlete=${event.athlete_id}`,
+        );
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[WellnessHandler] retroactive confirm failed:', err);
+    }
+  }
 }
 
 /**

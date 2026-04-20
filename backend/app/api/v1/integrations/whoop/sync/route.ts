@@ -17,6 +17,7 @@ import {
 } from "@/services/integrations/whoopMapper";
 import { emitEventSafe } from "@/services/events/eventEmitter";
 import type { EventType, SourceType } from "@/services/events/constants";
+import { matchWorkoutToScheduled } from "@/services/calendar/wearableMatcher";
 
 // ── Health metric write helper ──
 // Bulk upserts health_data rows for enterprise-grade efficiency.
@@ -156,6 +157,32 @@ export async function POST(req: NextRequest) {
     const sleepEvents = mapSleepToRecords(sleeps);
     const sessionEvents = mapWorkoutsToSessionLogs(workouts);
     const syncEvents = mapCyclesToSync(cycles);
+
+    // Wearable → scheduled calendar-event matcher. Each scored workout
+    // can auto-complete one scheduled calendar event when the ±window
+    // overlap is unambiguous. Logs + swallows per-workout errors so a
+    // single failing match never derails the sync.
+    let wearableMatched = 0;
+    for (const w of workouts) {
+      if (w.score_state !== "SCORED" || !w.score) continue;
+      try {
+        const result = await matchWorkoutToScheduled({
+          athleteId: userId,
+          workout: { start: w.start, end: w.end, strain: w.score.strain },
+        });
+        if (result.matched) {
+          wearableMatched++;
+          console.log(
+            `[whoop/sync] Wearable auto-completed event ${result.event_id} intensity=${result.intensity} confidence=${result.confidence}`,
+          );
+        }
+      } catch (e) {
+        console.warn(
+          "[whoop/sync] wearable matcher error:",
+          e instanceof Error ? e.message : String(e),
+        );
+      }
+    }
 
     const allEvents = [
       ...vitalEvents,
