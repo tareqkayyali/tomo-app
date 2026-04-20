@@ -55,7 +55,7 @@
       "package": "com.tomo.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#12141F"
+        "backgroundColor": "#F5F3ED"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
