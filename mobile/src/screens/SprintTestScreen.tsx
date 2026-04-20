@@ -19,6 +19,7 @@ import {
   Vibration,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -274,7 +275,7 @@ export function SprintTestScreen({ navigation }: Props) {
   // ── Instructions ──
   if (phase === 'instructions') {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <PlayerScreen label="TEST" title="Sprint" onBack={() => navigation.goBack()}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: colors.accentSoft }]}>
             <SmartIcon name="speedometer-outline" size={40} color={colors.success} />
@@ -314,7 +315,7 @@ export function SprintTestScreen({ navigation }: Props) {
             <Text style={styles.backText}>Go Back</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 

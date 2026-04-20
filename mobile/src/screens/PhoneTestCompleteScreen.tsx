@@ -19,6 +19,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../components';
@@ -154,7 +155,7 @@ export function PhoneTestCompleteScreen({ navigation, route }: Props) {
   const fmtDuration = `${Math.floor(durationSeconds / 60)}:${String(durationSeconds % 60).padStart(2, '0')}`;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <PlayerScreen label="TEST" title="Complete" onBack={() => navigation.popToTop()} scroll={false}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -247,7 +248,7 @@ export function PhoneTestCompleteScreen({ navigation, route }: Props) {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

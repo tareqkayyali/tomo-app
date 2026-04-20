@@ -9,11 +9,10 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassCard } from '../components';
@@ -87,15 +86,18 @@ export function PhoneTestsListScreen({ navigation }: Props) {
   }, [navigation]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
+    <PlayerScreen
+      label="TESTS"
+      title="Phone tests"
+      onBack={() => navigation.goBack()}
+      scrollProps={{
+        refreshControl: (
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
-        }
-      >
-        {phoneTests.map((test, index) => (
+        ),
+      }}
+      contentStyle={styles.scrollContent}
+    >
+      {phoneTests.map((test, index) => (
           <Animated.View key={test.id} style={fadeIns[Math.min(index, 2)]}>
             <GlassCard style={styles.card}>
               <View style={styles.cardHeader}>
@@ -134,8 +136,7 @@ export function PhoneTestsListScreen({ navigation }: Props) {
             </GlassCard>
           </Animated.View>
         ))}
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

@@ -39,9 +39,12 @@ interface ModeSelectorProps {
   disabled?: boolean;
 }
 
-// Fallback colors when CMS mode has no color (mirrors AthleteModeHero)
+// Fallback colors when CMS mode has no color (mirrors AthleteModeHero).
+// Balanced uses the Tomo sphere's highlight shade (tomoSageDim, #9AB896) so
+// the "Balanced" label, pill, indicator bar, and bottom banner icon all
+// match the shiny sage used in the AI Chat sphere core gradient.
 const MODE_FALLBACK_COLORS: Record<string, string> = {
-  balanced: '#30D158',
+  balanced: '#9AB896',
   league: '#FF6B35',
   study: '#00D9FF',
   rest: '#AF52DE',
@@ -85,8 +88,13 @@ export function ModeSelector({ currentMode, onModeChange, disabled }: ModeSelect
     [modes, currentMode],
   );
 
+  // For 'balanced' we always force the Tomo sphere shine (tomoSageDim) —
+  // ignoring any CMS override — because the brand rule is that Balanced
+  // IS the canonical Tomo color. Other modes honour the CMS color first.
   const modeColor =
-    activeMode?.color ?? MODE_FALLBACK_COLORS[currentMode] ?? colors.accent;
+    currentMode === 'balanced'
+      ? MODE_FALLBACK_COLORS.balanced
+      : activeMode?.color ?? MODE_FALLBACK_COLORS[currentMode] ?? colors.accent;
 
   if (loading) {
     return (
@@ -125,7 +133,13 @@ export function ModeSelector({ currentMode, onModeChange, disabled }: ModeSelect
       <View style={styles.modeCards}>
         {modes.map((mode) => {
           const isActive = mode.id === currentMode;
-          const cardColor = mode.color ?? MODE_FALLBACK_COLORS[mode.id] ?? colors.accent;
+          // Same rule as modeColor above — Balanced is always the Tomo sage
+          // shine, regardless of CMS color overrides, to keep the pill dot +
+          // border consistent with the big label.
+          const cardColor =
+            mode.id === 'balanced'
+              ? MODE_FALLBACK_COLORS.balanced
+              : mode.color ?? MODE_FALLBACK_COLORS[mode.id] ?? colors.accent;
 
           return (
             <TouchableOpacity

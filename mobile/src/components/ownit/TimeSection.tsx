@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../SmartIcon';
 import { RecCard } from './RecCard';
 import { useTheme } from '../../hooks/useTheme';

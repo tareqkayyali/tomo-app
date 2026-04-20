@@ -17,7 +17,6 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -25,6 +24,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { getParentChildren, getChildStudyProfile } from '../../services/api';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { ParentTabParamList, ParentStackParamList } from '../../navigation/types';
@@ -149,16 +149,19 @@ export function ParentExamScreen(props: Props) {
   // ── Loading / empty states ──────────────────────────────────────────
 
   if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-        <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />
-      </SafeAreaView>
+    const body = <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />;
+    return isEmbedded ? (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>{body}</View>
+    ) : (
+      <PlayerScreen label="EXAMS" title="Exam schedule" onBack={() => navigation?.goBack?.()} scroll={false}>
+        {body}
+      </PlayerScreen>
     );
   }
 
   if (!isEmbedded && children.length === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <PlayerScreen label="EXAMS" title="Exam schedule" onBack={() => navigation?.goBack?.()} scroll={false}>
         <View style={styles.emptyContainer}>
           <SmartIcon name="lock-closed-outline" size={40} color={colors.textInactive} />
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
@@ -168,7 +171,7 @@ export function ParentExamScreen(props: Props) {
             Your child hasn't confirmed the link yet.
           </Text>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
@@ -176,17 +179,8 @@ export function ParentExamScreen(props: Props) {
 
   // ── Render ──────────────────────────────────────────────────────────
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={isEmbedded ? [] : ['top']}>
-      {/* Header — only show when standalone, not embedded */}
-      {!isEmbedded && (
-        <View style={styles.headerArea}>
-          <Text style={[styles.screenTitle, { color: colors.textOnDark }]}>
-            {firstName}'s Exams
-          </Text>
-        </View>
-      )}
-
+  const body = (
+    <>
       {/* Child selector — only show when standalone with multiple children */}
       {!isEmbedded && children.length > 1 && (
         <ScrollView
@@ -345,7 +339,19 @@ export function ParentExamScreen(props: Props) {
           <SmartIcon name="add" size={28} color={colors.textOnDark} />
         </Pressable>
       )}
-    </SafeAreaView>
+    </>
+  );
+
+  if (isEmbedded) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>{body}</View>
+    );
+  }
+
+  return (
+    <PlayerScreen label="EXAMS" title="Exam schedule" onBack={() => navigation?.goBack?.()} scroll={false}>
+      {body}
+    </PlayerScreen>
   );
 }
 

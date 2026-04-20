@@ -9,13 +9,11 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   Alert,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,6 +23,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { getParentChildren } from '../../services/api';
 import { GlassCard } from '../../components/GlassCard';
 import { NotificationBell } from '../../components/NotificationBell';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, borderRadius, fontFamily, layout } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
 import { colors } from '../../theme/colors';
@@ -38,7 +37,6 @@ export function ParentProfileScreen() {
   const [childCount, setChildCount] = useState(0);
 
   const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
-  const weekday = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
 
   useEffect(() => {
     (async () => {
@@ -65,18 +63,12 @@ export function ParentProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <View style={styles.headerArea}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>TOMO · {weekday}</Text>
-          <Text style={[styles.headerTitle, { color: colors.textOnDark }]}>Profile</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <NotificationBell />
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <PlayerScreen
+      label="PARENT"
+      title={profile?.name ?? 'Profile'}
+      right={<NotificationBell />}
+      contentStyle={styles.scrollContent}
+    >
         {/* Profile Card */}
         <GlassCard>
           <View style={styles.profileRow}>
@@ -156,8 +148,7 @@ export function ParentProfileScreen() {
             </View>
           </GlassCard>
         </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

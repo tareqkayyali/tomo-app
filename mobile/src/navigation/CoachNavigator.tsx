@@ -15,7 +15,7 @@ import { View, StyleSheet, Pressable, PanResponder, Platform } from 'react-nativ
 import { useNavigation } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import { TomoIcon } from '../components/tomo-ui';
@@ -204,32 +204,32 @@ export function CoachNavigator() {
       <Stack.Screen
         name="CoachPlayerDetail"
         component={CoachPlayerDetailScreen}
-        options={{ headerShown: true, title: 'Player Detail', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CoachPlayerPlan"
         component={CoachPlayerPlanScreen}
-        options={{ headerShown: true, title: 'Player Plan', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="RecommendEvent"
         component={RecommendEventScreen}
-        options={{ headerShown: true, title: 'Recommend', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CoachTestInput"
         component={CoachTestInputScreen}
-        options={{ headerShown: true, title: 'Submit Test', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CoachAddProgram"
         component={CoachAddProgramScreen}
-        options={{ headerShown: true, title: 'Add Program', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CoachInvite"
         component={CoachInviteScreen}
-        options={{ headerShown: true, title: 'Invite Player', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="Profile"

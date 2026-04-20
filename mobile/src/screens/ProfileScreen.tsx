@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import type { TextStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
@@ -44,6 +44,7 @@ import { getArchetypeProfile } from '../services/archetypeProfile';
 import { useFadeIn } from '../hooks/useFadeIn';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -233,26 +234,24 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   // Loading skeleton
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.headerSection}>
-            <SkeletonCircle size={120} />
-            <SkeletonLine width="50%" height={20} style={{ marginTop: spacing.md }} />
-            <SkeletonLine width="35%" height={14} style={{ marginTop: spacing.sm }} />
-          </View>
-          <SkeletonCard />
-          <SkeletonCard style={{ marginTop: spacing.md }} />
-        </ScrollView>
-      </View>
+      <PlayerScreen label="PROFILE" title="Profile" onBack={() => navigation.goBack()}>
+        <View style={styles.headerSection}>
+          <SkeletonCircle size={120} />
+          <SkeletonLine width="50%" height={20} style={{ marginTop: spacing.md }} />
+          <SkeletonLine width="35%" height={14} style={{ marginTop: spacing.sm }} />
+        </View>
+        <SkeletonCard />
+        <SkeletonCard style={{ marginTop: spacing.md }} />
+      </PlayerScreen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+    <PlayerScreen
+      label="PROFILE"
+      title={profile?.displayName || profile?.name || 'Profile'}
+      onBack={() => navigation.goBack()}
+    >
         {/* ═══════════════════════════════════════════════════════════
             Avatar + Name + Archetype
            ═══════════════════════════════════════════════════════════ */}
@@ -361,8 +360,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             TOMO v{Constants.expoConfig?.version ?? '1.0.0'}
           </Text>
         </Pressable>
-      </ScrollView>
-    </View>
+    </PlayerScreen>
   );
 }
 

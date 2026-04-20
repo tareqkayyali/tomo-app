@@ -5,7 +5,7 @@
 
 import React, { memo } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import TomoIcon from '../tomo-ui/TomoIcon';
 import { HexagonRadar, type RadarAttribute } from '../HexagonRadar';
 import { useTheme } from '../../hooks/useTheme';
 import { fontFamily } from '../../theme/typography';
@@ -21,11 +21,11 @@ interface RadarDashboardCardProps {
   onAttributeTap?: (key: string) => void;
 }
 
-const TIER_CONFIG: Record<CardTier, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
+const TIER_CONFIG: Record<CardTier, { label: string; icon: string }> = {
   bronze: { label: 'Bronze', icon: 'shield' },
   silver: { label: 'Silver', icon: 'shield' },
   gold: { label: 'Gold', icon: 'star' },
-  diamond: { label: 'Diamond', icon: 'diamond' },
+  diamond: { label: 'Diamond', icon: 'trophy' },
 };
 
 const RadarDashboardCard: React.FC<RadarDashboardCardProps> = memo(({
@@ -63,7 +63,7 @@ const RadarDashboardCard: React.FC<RadarDashboardCardProps> = memo(({
       {/* Tier badge */}
       <View style={styles.tierRow}>
         <View style={[styles.tierBadge, { backgroundColor: `${colors.accent}14` }]}>
-          <Ionicons name={tier.icon} size={14} color={colors.accent} />
+          <TomoIcon name={tier.icon} size={14} color={colors.accent} weight="fill" />
           <Text style={[styles.tierText, { color: colors.accent }]}>{tier.label}</Text>
         </View>
       </View>

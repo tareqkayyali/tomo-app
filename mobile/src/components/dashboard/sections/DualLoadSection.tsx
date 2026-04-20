@@ -10,8 +10,11 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
-import { borderRadius } from '../../../theme/spacing';
 import type { SectionProps } from './DashboardSectionRenderer';
+
+const GOOD = '#7A9B76';
+const WARN = '#C8A27A';
+const BAD = '#B08A7A';
 
 export const DualLoadSection = memo(function DualLoadSection({
   config,
@@ -26,19 +29,19 @@ export const DualLoadSection = memo(function DualLoadSection({
   const exams = bootData.upcomingExams ?? [];
   const nextExam = exams.length > 0 ? exams[0] : null;
 
-  // Color based on DLI zone
-  const barColor = dli >= 70 ? '#A05A4A' : dli >= 40 ? '#c49a3c' : '#7a9b76';
+  // Color based on DLI zone (overload = clay, borderline = amber, good = sage)
+  const barColor = dli >= 70 ? BAD : dli >= 40 ? WARN : GOOD;
   const barPct = Math.min(dli, 100);
 
   if (dli === 0 && exams.length === 0) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.title, { color: colors.chalk }]}>Dual Load Index</Text>
+    <View style={[styles.container, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
+      <Text style={[styles.title, { color: colors.tomoCream }]}>Dual Load Index</Text>
 
       {/* Bar gauge */}
       <View style={styles.barRow}>
-        <View style={[styles.barTrack, { backgroundColor: colors.chalkGhost }]}>
+        <View style={[styles.barTrack, { backgroundColor: colors.cream10 }]}>
           <View style={[styles.barFill, { width: `${barPct}%`, backgroundColor: barColor }]} />
         </View>
         <Text style={[styles.pctText, { color: barColor }]}>{dli}%</Text>
@@ -47,8 +50,8 @@ export const DualLoadSection = memo(function DualLoadSection({
       {/* Exam countdown */}
       {showExam && nextExam && (
         <View style={styles.examRow}>
-          <Text style={[styles.examLabel, { color: colors.chalkDim }]}>Next Exam</Text>
-          <Text style={[styles.examValue, { color: colors.chalk }]}>
+          <Text style={[styles.examLabel, { color: colors.muted }]}>Next Exam</Text>
+          <Text style={[styles.examValue, { color: colors.tomoCream }]}>
             {nextExam.title}
           </Text>
           <Text style={[styles.examDate, { color: barColor }]}>
@@ -58,7 +61,7 @@ export const DualLoadSection = memo(function DualLoadSection({
       )}
 
       {coachingText ? (
-        <Text style={[styles.coaching, { color: colors.chalkDim }]}>{coachingText}</Text>
+        <Text style={[styles.coaching, { color: colors.muted }]}>{coachingText}</Text>
       ) : null}
     </View>
   );
@@ -66,13 +69,14 @@ export const DualLoadSection = memo(function DualLoadSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 16,
   },
   title: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 14,
+    letterSpacing: -0.2,
     marginBottom: 12,
   },
   barRow: {
@@ -91,9 +95,9 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   pctText: {
-    fontFamily: fontFamily.display,
-    fontSize: 16,
-    minWidth: 40,
+    fontFamily: fontFamily.semiBold,
+    fontSize: 18,
+    minWidth: 44,
     textAlign: 'right',
   },
   examRow: {
@@ -103,22 +107,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   examLabel: {
-    fontFamily: fontFamily.note,
-    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   examValue: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 13,
     flex: 1,
   },
   examDate: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 13,
   },
   coaching: {
-    fontFamily: fontFamily.note,
+    fontFamily: fontFamily.regular,
     fontSize: 12,
     lineHeight: 17,
     marginTop: 10,

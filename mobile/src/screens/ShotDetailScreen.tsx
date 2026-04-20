@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SmartIcon } from '../components/SmartIcon';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
@@ -13,6 +13,7 @@ import { getShotRatingColor } from '../services/padelCalculations';
 import { useSportContext } from '../hooks/useSportContext';
 import { usePadelProgress } from '../hooks/usePadelProgress';
 import { GlassCard } from '../components/GlassCard';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { colors, fontFamily, borderRadius, spacing } from '../theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
@@ -95,7 +96,7 @@ function MiniLineChart({
   );
 }
 
-export function ShotDetailScreen({ route }: Props) {
+export function ShotDetailScreen({ route, navigation }: Props) {
   const { shotType } = route.params;
   const shot = shotType as ShotType;
   const { sportConfig } = useSportContext();
@@ -133,13 +134,20 @@ export function ShotDetailScreen({ route }: Props) {
     return `Focus on ${def.label.toLowerCase()} — currently rated ${weakest[1]}/10. ${def.description}`;
   }, [data, definition]);
 
-  if (!definition || !data) return null;
+  if (!definition || !data) {
+    return (
+      <PlayerScreen label="SHOT" title={definition?.name ?? 'Detail'} onBack={() => navigation.goBack()}>
+        <View />
+      </PlayerScreen>
+    );
+  }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
+    <PlayerScreen
+      label="SHOT"
+      title={definition?.name ?? 'Detail'}
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.content}
     >
       {/* Hero */}
       <Animated.View style={entrance0}>
@@ -228,7 +236,7 @@ export function ShotDetailScreen({ route }: Props) {
           <Text style={styles.tipText}>{coachTip}</Text>
         </GlassCard>
       </Animated.View>
-    </ScrollView>
+    </PlayerScreen>
   );
 }
 

@@ -29,9 +29,18 @@ import { useConnectedSources } from '../hooks/useConnectedSources';
 import { useNavigation } from '@react-navigation/native';
 
 // Dashboard components
-import { AthleteModeHero } from '../components/dashboard/AthleteModeHero';
+// Design port (April 2026): AthleteModeHero now sourced from playerDesign
+// primitives (matches the design spec: MODE label + Switch pill + icon +
+// title + description + subtitle). Legacy AthleteModeHero kept in
+// components/dashboard/ for coach/parent surfaces that still need the
+// inline mode-card selector.
+import { AthleteModeHero as ModeCard, IconBtn } from '../components/tomo-ui/playerDesign';
+import { SmartIcon } from '../components/SmartIcon';
 import { TodaysPlanCard } from '../components/dashboard/TodaysPlanCard';
 import { DailyRecommendations } from '../components/dashboard/DailyRecommendations';
+// CMS-driven dashboard sections — 30+ configurable section types rendered
+// from `bootData.dashboardLayout`. Kept on the Dashboard sub-tab so athletes
+// see every section the admin enables in the CMS.
 import { DashboardSectionRenderer } from '../components/dashboard/sections';
 import { ProgramPanel } from '../components/dashboard/panels/ProgramPanel';
 import { MetricsPanel } from '../components/dashboard/panels/MetricsPanel';
@@ -72,6 +81,22 @@ const NEUTRAL_SIGNAL = {
   signalId: 'default',
   priority: 999,
   evaluatedAt: new Date().toISOString(),
+};
+
+// Mode metadata — label, description, and icon for each athlete mode.
+// Matches the CMS `athlete_modes` table labels/descriptions so the display
+// stays consistent when the legacy selector fetches from /modes and when
+// the new ModeCard reads locally. Iconname resolves through the Bond icon
+// system (icons-manifest.ts).
+const MODE_META: Record<string, { label: string; description: string; iconName: string }> = {
+  balanced: { label: 'Balanced', description: 'Balanced training \u00b7 studies mix', iconName: 'balance' },
+  recovery: { label: 'Recovery', description: 'Deload week \u00b7 restoration focus', iconName: 'moon' },
+  build: { label: 'Build', description: 'Progressive load \u00b7 capacity building', iconName: 'trend' },
+  league: { label: 'League Week', description: 'Taper + sharpen \u00b7 match prep', iconName: 'target' },
+  'match-week': { label: 'Match Week', description: 'Taper + sharpen \u00b7 match prep', iconName: 'target' },
+  exam: { label: 'Exam Mode', description: 'Study-first \u00b7 lighter training', iconName: 'book' },
+  'exam-mode': { label: 'Exam Mode', description: 'Study-first \u00b7 lighter training', iconName: 'book' },
+  rest: { label: 'Rest', description: 'Full recovery \u00b7 no scheduled load', iconName: 'moon' },
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -273,17 +298,12 @@ export function SignalDashboardScreen() {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <QuickAccessBar
-        actions={[
-          {
-            key: 'rules',
-            icon: 'options-outline',
-            label: 'My Rules',
-            onPress: () => navigation.navigate('MyRules'),
-            accentColor: colors.accent2,
-          },
-        ]}
-      />
+      {/* Left cluster — matches Timeline / Chat tab pattern. */}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <IconBtn onPress={() => navigation.navigate('MyRules' as any)}>
+          <SmartIcon name="options-outline" size={18} color={colors.tomoCream} />
+        </IconBtn>
+      </View>
       <View style={styles.headerRight}>
         <CheckinHeaderButton
           needsCheckin={needsCheckin}
@@ -326,23 +346,27 @@ export function SignalDashboardScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Athlete Mode Hero — current mode, quick switcher. Panel pills hidden
-            because Program/Metrics/Progress are now siblings in the tab bar. */}
-        {/* CMS-gated: only renders when signal_hero section is enabled in dashboard_sections */}
-        {enabledTypes.has('signal_hero') && (
-          <AthleteModeHero
-            currentMode={currentMode}
-            signal={{
-              color: signal.color,
-              showUrgencyBadge: signal.showUrgencyBadge,
-              urgencyLabel: signal.urgencyLabel,
-            }}
-            activePanel={activePanel}
-            onPanelPress={setActivePanel}
-            onModeChanged={refreshBoot}
-            hidePanelPills
-          />
-        )}
+        {/* Mode Card — playerDesign primitive matching the design spec. */}
+        {enabledTypes.has('signal_hero') && (() => {
+          const meta = MODE_META[currentMode] ?? MODE_META.balanced;
+          // Footnote comes from the signal's contextual subtitle (e.g.
+          // "Match in 3 days \u00b7 sharpening window" when the signal
+          // carries that context). Falls back to undefined when only the
+          // neutral baseline message is present so the card stays clean.
+          const footnote =
+            signal.subtitle && signal.subtitle !== NEUTRAL_SIGNAL.subtitle ? signal.subtitle : undefined;
+          return (
+            <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+              <ModeCard
+                modeLabel={meta.label}
+                description={meta.description}
+                subtitle={footnote}
+                iconName={meta.iconName}
+                onSwitch={() => navigation.navigate('MyRules' as any)}
+              />
+            </View>
+          );
+        })()}
 
         {/* Daily Recommendations from RIE */}
         {/* CMS-gated: only renders when daily_recs section is enabled in dashboard_sections */}
@@ -353,7 +377,9 @@ export function SignalDashboardScreen() {
           />
         )}
 
-        {/* CMS-Driven Dashboard Sections */}
+        {/* CMS-Driven Dashboard Sections — renders every section the admin
+            enables in `dashboard_sections` (benchmark / dual_load / kpi_row
+            / sparkline_row / status_ring / protocol_banner / etc.). */}
         {bootData && Array.isArray(bootData.dashboardLayout) && bootData.dashboardLayout.length > 0 && (
           <View style={styles.section}>
             <DashboardSectionRenderer

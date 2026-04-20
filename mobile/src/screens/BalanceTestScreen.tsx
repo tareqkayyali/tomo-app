@@ -19,6 +19,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -249,7 +250,7 @@ export function BalanceTestScreen({ navigation }: Props) {
   // ── Instructions ──
   if (phase === 'instructions') {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <PlayerScreen label="TEST" title="Balance" onBack={() => navigation.goBack()}>
         <View style={styles.instructionsWrap}>
           <View style={[styles.iconCircle, { backgroundColor: colors.secondarySubtle }]}>
             <SmartIcon name="body-outline" size={40} color={colors.textSecondary} />
@@ -289,7 +290,7 @@ export function BalanceTestScreen({ navigation }: Props) {
             <Text style={styles.backText}>Go Back</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 

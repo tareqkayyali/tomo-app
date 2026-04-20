@@ -30,15 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { PageGuide } from "@/components/admin/PageGuide";
 import { protocolsHelp } from "@/lib/cms-help/protocols";
-import {
-  GripVertical,
-  Plus,
-  Save,
-  FlaskConical,
-  Trash2,
-  X,
-  ChevronLeft,
-} from "lucide-react";
+import { BondIcon } from "@/components/ui/bond-icon";
 
 /* ═══════════════════════════════════════════════════════════════════════
    TYPES
@@ -166,7 +158,7 @@ function ConditionGroupNode({ id, data }: { id: string; data: any }) {
     <div className={`rounded-lg border-2 ${borderColor} ${bgColor} bg-popover shadow-md min-w-[340px] max-w-[420px]`}>
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
         <div className="flex items-center gap-2">
-          <GripVertical className="size-3.5 text-muted-foreground" />
+          <BondIcon name="More" size={14} className="text-muted-foreground" />
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             IF
           </span>
@@ -199,7 +191,7 @@ function ConditionGroupNode({ id, data }: { id: string; data: any }) {
           onClick={groupData.onAddCondition}
           className="flex items-center gap-1 w-full px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
         >
-          <Plus className="size-3" />
+          <BondIcon name="Add" size={12} />
           Add condition
         </button>
       </div>
@@ -279,7 +271,7 @@ function ConditionRow({
         onClick={onRemove}
         className="opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-destructive transition-opacity"
       >
-        <X className="size-3" />
+        <BondIcon name="Close" size={12} />
       </button>
     </div>
   );
@@ -300,13 +292,13 @@ function ActionNode({ id, data }: { id: string; data: any }) {
 
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 bg-emerald-500/10">
         <div className="flex items-center gap-2">
-          <GripVertical className="size-3.5 text-muted-foreground" />
+          <BondIcon name="More" size={14} className="text-muted-foreground" />
           <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
             THEN: Modify
           </span>
         </div>
         <button onClick={action.onDelete} className="p-0.5 text-muted-foreground hover:text-destructive">
-          <Trash2 className="size-3.5" />
+          <BondIcon name="Trash" size={14} />
         </button>
       </div>
 
@@ -390,13 +382,13 @@ function OutputNode({ id, data }: { id: string; data: any }) {
 
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 bg-violet-500/10">
         <div className="flex items-center gap-2">
-          <GripVertical className="size-3.5 text-muted-foreground" />
+          <BondIcon name="More" size={14} className="text-muted-foreground" />
           <span className="text-xs font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
             OUTPUT
           </span>
         </div>
         <button onClick={output.onDelete} className="p-0.5 text-muted-foreground hover:text-destructive">
-          <Trash2 className="size-3.5" />
+          <BondIcon name="Trash" size={14} />
         </button>
       </div>
 
@@ -476,7 +468,7 @@ function TagInput({
           >
             {tag}
             <button onClick={() => onRemove(idx)} className="hover:text-destructive">
-              <X className="size-2.5" />
+              <BondIcon name="Close" size={10} />
             </button>
           </span>
         ))}
@@ -1077,7 +1069,7 @@ function ProtocolBuilderInner() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => router.push("/admin/enterprise/protocols")}>
-            <ChevronLeft className="size-4" />
+            <BondIcon name="Chevron-left" size={16} />
           </Button>
           <h1 className="text-xl font-bold">
             {isEditMode ? "Edit Protocol" : "New Protocol"}
@@ -1086,11 +1078,11 @@ function ProtocolBuilderInner() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
-            <FlaskConical className="size-3.5 mr-1.5" />
+            <BondIcon name="Flask" size={14} className="mr-1.5" />
             {testing ? "Testing..." : "Test"}
           </Button>
           <Button size="sm" onClick={handleSave} disabled={saving}>
-            <Save className="size-3.5 mr-1.5" />
+            <BondIcon name="Save" size={14} className="mr-1.5" />
             {saving ? "Saving..." : "Save"}
           </Button>
         </div>

@@ -14,13 +14,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../../components/SmartIcon';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ProgressScreen } from '../ProgressScreen';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { useTheme } from '../../hooks/useTheme';
 import { getParentChildren } from '../../services/api';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
@@ -54,17 +54,19 @@ export function ParentMasteryScreen({ navigation }: Props) {
     })();
   }, []);
 
+  const masteryTitle = selectedChild?.name ?? 'Progress';
+
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <PlayerScreen label="MASTERY" title={masteryTitle} onBack={() => navigation.goBack()} scroll={false}>
         <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   if (children.length === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <PlayerScreen label="MASTERY" title={masteryTitle} onBack={() => navigation.goBack()} scroll={false}>
         <View style={styles.emptyContainer}>
           <SmartIcon name="lock-closed-outline" size={40} color={colors.textInactive} />
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
@@ -74,21 +76,12 @@ export function ParentMasteryScreen({ navigation }: Props) {
             Your child hasn't confirmed the link yet.
           </Text>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
-  const firstName = selectedChild?.name?.split(' ')[0] || 'Child';
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.headerArea}>
-        <Text style={[styles.screenTitle, { color: colors.textOnDark }]}>
-          {firstName}'s Mastery
-        </Text>
-      </View>
-
+    <PlayerScreen label="MASTERY" title={masteryTitle} onBack={() => navigation.goBack()} scroll={false}>
       {/* Child selector */}
       {children.length > 1 && (
         <ScrollView
@@ -130,7 +123,7 @@ export function ParentMasteryScreen({ navigation }: Props) {
           targetPlayerName={selectedChild.name}
         />
       )}
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

@@ -15,11 +15,9 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
-  ScrollView,
   Alert,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
@@ -34,6 +32,7 @@ import {
 } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import type { AuthStackParamList } from '../navigation/types';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 type LoginScreenProps = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -99,16 +98,12 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <PlayerScreen label="WELCOME BACK" title="Sign in">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.scrollContent}>
           {/* ─── Hero Brand Section ─────────────────────────────── */}
           <View style={styles.heroSection}>
             {/* Wifi icon */}
@@ -243,9 +238,9 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
           <Text style={styles.footerText}>
             By continuing, you agree to our Terms & Privacy Policy
           </Text>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

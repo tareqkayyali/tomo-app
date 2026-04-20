@@ -11,12 +11,11 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -25,11 +24,7 @@ import Animated, {
   Easing,
   useAnimatedProps,
 } from 'react-native-reanimated';
-import { GlassCard, GradientButton, HeaderProfileButton, SkeletonCard } from '../components';
-import { NotificationBell } from '../components/NotificationBell';
-import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
-import { useCheckinStatus } from '../hooks/useCheckinStatus';
-import { QuickAccessBar } from '../components/QuickAccessBar';
+import { GlassCard, GradientButton, SkeletonCard } from '../components';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import {
   colors,
@@ -92,7 +87,6 @@ function getPercentileFromScore(score: number): number {
 
 export function DashboardScreen({ navigation }: DashboardScreenProps) {
   const { profile } = useAuth();
-  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [todayData, setTodayData] = useState<any>(null);
@@ -146,8 +140,6 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
     loadData();
   }, [loadData]);
 
-  const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
-
   // Readiness for Today's Focus
   const readiness = todayData?.readiness || 'Green';
   const focusTitle = readiness === 'Red'
@@ -167,30 +159,20 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
   ];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <QuickAccessBar actions={[
-          { key: 'settings', icon: 'settings-outline', label: 'Settings', onPress: () => navigation.navigate('Settings' as any) },
-          { key: 'history', icon: 'time-outline', label: 'History', onPress: () => navigation.navigate('History' as any) },
-          { key: 'more', icon: 'ellipsis-horizontal', label: 'More', onPress: () => {} },
-        ]} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
-          <NotificationBell />
-          <HeaderProfileButton initial={initial} photoUrl={profile?.photoUrl} />
-        </View>
-      </View>
-
-      <View style={{ flex: 1 }}>
-        <ScrollFadeOverlay />
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
-          }
-        >
+    <PlayerScreen
+      label="DASHBOARD"
+      title="Overview"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
+      scrollProps={{
+        refreshControl: (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
+        ),
+      }}
+    >
+      <ScrollFadeOverlay />
+      <View>
+        <View>
           {isLoading ? (
             <>
               <SkeletonCard />
@@ -273,7 +255,7 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
             </GlassCard>
           </Animated.View>
           )}
-        </ScrollView>
+        </View>
       </View>
 
       {/* ═══════ Message Tomo Bar ═══════ */}
@@ -285,7 +267,7 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
         <Text style={styles.messageBarText}>Message Tomo...</Text>
         <SmartIcon name="send" size={18} color={colors.accent1} />
       </Pressable>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

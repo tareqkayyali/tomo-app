@@ -25,6 +25,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTheme } from '../../hooks/useTheme';
 import { searchTestCatalog, submitPlayerTest, type TestCatalogItem } from '../../services/api';
 import { GlassCard } from '../../components/GlassCard';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { CoachStackParamList } from '../../navigation/types';
 import { colors } from '../../theme/colors';
@@ -182,10 +183,12 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
   const firstName = playerName.split(' ')[0];
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+    <PlayerScreen
+      label="TEST"
+      title="Submit"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.content}
+      scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
     >
       {/* Context banner */}
       <View style={[styles.contextBanner, { backgroundColor: colors.accent1 + '10' }]}>
@@ -353,7 +356,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
       )}
 
       <View style={{ height: spacing.xxl }} />
-    </ScrollView>
+    </PlayerScreen>
   );
 }
 

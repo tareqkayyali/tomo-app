@@ -23,8 +23,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
-  ScrollView,
   Pressable,
   ActivityIndicator,
   Alert,
@@ -32,6 +30,7 @@ import {
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 import { useTheme } from '../../hooks/useTheme';
@@ -278,24 +277,19 @@ export default function DeleteAccountScreen(): React.ReactElement {
   })();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Delete account</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-        {body}
-      </ScrollView>
-    </SafeAreaView>
+    <PlayerScreen
+      label="SETTINGS"
+      title="Delete account"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scroll}
+    >
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+      {body}
+    </PlayerScreen>
   );
 }
 

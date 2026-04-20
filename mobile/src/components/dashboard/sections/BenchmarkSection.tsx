@@ -11,8 +11,11 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
-import { borderRadius, spacing } from '../../../theme/spacing';
 import type { SectionProps } from './DashboardSectionRenderer';
+
+const GOOD = '#7A9B76';
+const WARN = '#C8A27A';
+const BAD = '#B08A7A';
 
 export const BenchmarkSection = memo(function BenchmarkSection({
   config,
@@ -44,9 +47,9 @@ export const BenchmarkSection = memo(function BenchmarkSection({
   }
 
   function getBarColor(pct: number): string {
-    if (pct >= 70) return '#7a9b76';
-    if (pct >= 40) return '#c49a3c';
-    return '#A05A4A';
+    if (pct >= 70) return GOOD;
+    if (pct >= 40) return WARN;
+    return BAD;
   }
 
   function formatMetricLabel(key: string): string {
@@ -56,8 +59,8 @@ export const BenchmarkSection = memo(function BenchmarkSection({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.title, { color: colors.chalk }]}>Benchmark Progress</Text>
+    <View style={[styles.container, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
+      <Text style={[styles.title, { color: colors.tomoCream }]}>Benchmark Progress</Text>
 
       {sorted.map(([key, data]) => {
         const pct = data.percentile;
@@ -66,7 +69,7 @@ export const BenchmarkSection = memo(function BenchmarkSection({
         return (
           <View key={key} style={styles.barRow}>
             <View style={styles.labelRow}>
-              <Text style={[styles.metricLabel, { color: colors.chalk }]}>
+              <Text style={[styles.metricLabel, { color: colors.tomoCream }]}>
                 {formatMetricLabel(key)}
               </Text>
               {showPercentile && (
@@ -75,7 +78,7 @@ export const BenchmarkSection = memo(function BenchmarkSection({
                 </Text>
               )}
             </View>
-            <View style={[styles.barTrack, { backgroundColor: colors.chalkGhost }]}>
+            <View style={[styles.barTrack, { backgroundColor: colors.cream10 }]}>
               <View style={[styles.barFill, { width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }]} />
             </View>
           </View>
@@ -87,13 +90,14 @@ export const BenchmarkSection = memo(function BenchmarkSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 16,
   },
   title: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 14,
+    letterSpacing: -0.2,
     marginBottom: 12,
   },
   barRow: {
@@ -106,11 +110,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   metricLabel: {
-    fontFamily: fontFamily.note,
+    fontFamily: fontFamily.regular,
     fontSize: 12,
   },
   percentile: {
-    fontFamily: fontFamily.display,
+    fontFamily: fontFamily.semiBold,
     fontSize: 13,
   },
   barTrack: {

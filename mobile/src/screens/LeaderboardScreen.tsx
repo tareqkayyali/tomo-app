@@ -17,10 +17,9 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated from 'react-native-reanimated';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { GlowWrapper, SkeletonCard, ErrorState, EmptyState } from '../components';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
@@ -50,6 +49,7 @@ import { SportSwitcher } from '../components/common/SportSwitcher';
 import { useFadeIn } from '../hooks/useFadeIn';
 import type { LeaderboardEntry, LeaderboardResponse } from '../types';
 import { colors } from '../theme/colors';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -498,10 +498,11 @@ export function LeaderboardScreen() {
   const rest = entries.slice(3);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* --- Header ---------------------------------------------------- */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Social</Text>
+    <PlayerScreen
+      label="LEADERBOARD"
+      title="Ranking"
+      scroll={false}
+      right={
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
           <NotificationBell />
@@ -510,8 +511,8 @@ export function LeaderboardScreen() {
             photoUrl={profile?.photoUrl}
           />
         </View>
-      </View>
-
+      }
+    >
       {/* Sport Switcher — auto-hides if user has only one sport */}
       <View style={styles.switcherWrap}>
         <SportSwitcher
@@ -652,6 +653,6 @@ export function LeaderboardScreen() {
         }}
         />
       </View>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }

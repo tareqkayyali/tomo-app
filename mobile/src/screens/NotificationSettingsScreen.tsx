@@ -16,7 +16,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { TomoLoader, NOTIFICATIONS_LOADER_MESSAGES } from '../components/TomoLoader';
 import { spacing, borderRadius, fontFamily } from '../theme';
@@ -24,6 +24,8 @@ import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { apiRequest } from '../services/api';
 import { colors } from '../theme/colors';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
+import { useNavigation } from '@react-navigation/native';
 
 import {
   registerForPushNotifications,
@@ -87,6 +89,7 @@ const WAKE_HOUR_OPTIONS = [
 
 export function NotificationSettingsScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [prefs, setPrefs] = useState<CenterPrefs>(DEFAULT_PREFS);
@@ -169,15 +172,19 @@ export function NotificationSettingsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <PlayerScreen label="SETTINGS" title="Notifications" onBack={() => navigation.goBack()} scroll={false}>
         <TomoLoader messages={NOTIFICATIONS_LOADER_MESSAGES} />
-      </View>
+      </PlayerScreen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <PlayerScreen
+      label="SETTINGS"
+      title="Notifications"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
+    >
         {/* Push Category Toggles */}
         <Text style={styles.sectionTitle}>Push Notification Categories</Text>
         <View style={styles.card}>
@@ -269,8 +276,7 @@ export function NotificationSettingsScreen() {
         <Text style={styles.footnote}>
           In-app notifications always appear regardless of push settings.
         </Text>
-      </ScrollView>
-    </View>
+    </PlayerScreen>
   );
 }
 

@@ -13,15 +13,15 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
   Linking,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SmartIcon } from '../../components/SmartIcon';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import {
   colors,
   spacing,
@@ -36,7 +36,15 @@ import { useAuth } from '../../hooks/useAuth';
 
 const CODE_LEN = 6;
 
-export function ParentLinkByCodeScreen() {
+interface ParentLinkByCodeScreenProps {
+  /** Override the default back behavior. Used when this screen is
+   *  embedded inside the parent onboarding wizard. */
+  onBack?: () => void;
+}
+
+export function ParentLinkByCodeScreen({ onBack }: ParentLinkByCodeScreenProps = {}) {
+  const navigation = useNavigation<any>();
+  const handleBack = onBack ?? (() => navigation.goBack());
   const { refreshProfile } = useAuth();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -73,7 +81,7 @@ export function ParentLinkByCodeScreen() {
 
   if (success) {
     return (
-      <SafeAreaView style={styles.container}>
+      <PlayerScreen label="LINK" title="Enter code" onBack={handleBack}>
         <View style={styles.successWrap}>
           <SmartIcon name="checkmark-circle-outline" size={56} color={colors.accent1} />
           <Text style={styles.successTitle}>You're all set</Text>
@@ -83,17 +91,17 @@ export function ParentLinkByCodeScreen() {
               : "Linked — your child's account is connected to yours."}
           </Text>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <PlayerScreen label="LINK" title="Enter code" onBack={handleBack} scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.kav}
       >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.scroll}>
           <View style={styles.iconWrap}>
             <SmartIcon name="shield-checkmark-outline" size={40} color={colors.accent1} />
           </View>
@@ -160,9 +168,9 @@ export function ParentLinkByCodeScreen() {
               {loading ? 'Linking...' : 'I consent and link'}
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 
@@ -191,12 +199,11 @@ const listStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   kav: { flex: 1 },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: layout.screenMargin,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
     maxWidth: layout.authMaxWidth,
     width: '100%',
@@ -301,12 +308,12 @@ const styles = StyleSheet.create({
     color: colors.background,
   },
 
-  // ── Success state ─────────────────────────────────────────────
+  // Success state
   successWrap: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: layout.screenMargin,
+    paddingTop: spacing.xxl,
     gap: spacing.md,
   },
   successTitle: {

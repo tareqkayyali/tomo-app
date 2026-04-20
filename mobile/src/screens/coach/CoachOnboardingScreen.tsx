@@ -25,6 +25,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 import { Input } from '../../components/Input';
 import { linkPlayerByEmail, submitOnboarding } from '../../services/api';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 
 import { colors } from '../../theme/colors';
@@ -131,7 +132,7 @@ export function CoachOnboardingScreen() {
   const enterAnimation = slideDirection === 'right' ? SlideInRight.duration(300) : SlideInLeft.duration(300);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <PlayerScreen label="WELCOME" title="Coach onboarding" scroll={false}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -297,7 +298,7 @@ export function CoachOnboardingScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

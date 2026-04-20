@@ -10,14 +10,14 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
-import { borderRadius, spacing } from '../../../theme/spacing';
+import { spacing } from '../../../theme/spacing';
 import type { SectionProps } from './DashboardSectionRenderer';
 
 const PHV_STAGE_LABELS: Record<string, { label: string; color: string }> = {
-  pre: { label: 'Pre-PHV', color: '#7a9b76' },
-  mid: { label: 'Mid-PHV', color: '#A05A4A' },
-  post: { label: 'Post-PHV', color: '#5A8A9F' },
-  none: { label: 'Not Set', color: '#666' },
+  pre: { label: 'Pre-PHV', color: '#7A9B76' },
+  mid: { label: 'Mid-PHV', color: '#C8A27A' },
+  post: { label: 'Post-PHV', color: '#8A9BB0' },
+  none: { label: 'Not Set', color: '#7A8A9A' },
 };
 
 export const GrowthCardSection = memo(function GrowthCardSection({
@@ -39,9 +39,9 @@ export const GrowthCardSection = memo(function GrowthCardSection({
   if (stage === 'none') return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: stageConfig.color }]}>
+    <View style={[styles.container, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.chalk }]}>Growth Tracking</Text>
+        <Text style={[styles.title, { color: colors.tomoCream }]}>Growth Tracking</Text>
         <Text style={[styles.stageBadge, { color: stageConfig.color }]}>
           {stageConfig.label}
         </Text>
@@ -50,20 +50,20 @@ export const GrowthCardSection = memo(function GrowthCardSection({
       <View style={styles.metricsRow}>
         {showPredicted && predictedHeight && (
           <View style={styles.metric}>
-            <Text style={[styles.metricValue, { color: colors.chalk }]}>
+            <Text style={[styles.metricValue, { color: colors.tomoCream }]}>
               {predictedHeight.toFixed(1)} cm
             </Text>
-            <Text style={[styles.metricLabel, { color: colors.chalkDim }]}>
+            <Text style={[styles.metricLabel, { color: colors.muted }]}>
               Predicted Height
             </Text>
           </View>
         )}
         {showVelocity && growthVelocity !== undefined && (
           <View style={styles.metric}>
-            <Text style={[styles.metricValue, { color: colors.chalk }]}>
+            <Text style={[styles.metricValue, { color: colors.tomoCream }]}>
               {growthVelocity.toFixed(1)} cm/yr
             </Text>
-            <Text style={[styles.metricLabel, { color: colors.chalkDim }]}>
+            <Text style={[styles.metricLabel, { color: colors.muted }]}>
               Growth Velocity
             </Text>
           </View>
@@ -71,7 +71,7 @@ export const GrowthCardSection = memo(function GrowthCardSection({
       </View>
 
       {coachingText ? (
-        <Text style={[styles.coaching, { color: colors.chalkDim }]}>{coachingText}</Text>
+        <Text style={[styles.coaching, { color: colors.muted }]}>{coachingText}</Text>
       ) : null}
     </View>
   );
@@ -79,9 +79,8 @@ export const GrowthCardSection = memo(function GrowthCardSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     borderWidth: 1,
-    borderLeftWidth: 3,
     padding: 16,
   },
   header: {
@@ -91,14 +90,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 14,
+    letterSpacing: -0.2,
   },
   stageBadge: {
-    fontFamily: fontFamily.display,
-    fontSize: 12,
+    fontFamily: fontFamily.semiBold,
+    fontSize: 9,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1.5,
   },
   metricsRow: {
     flexDirection: 'row',
@@ -108,18 +108,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   metricValue: {
-    fontFamily: fontFamily.display,
+    fontFamily: fontFamily.semiBold,
     fontSize: 18,
   },
   metricLabel: {
-    fontFamily: fontFamily.note,
+    fontFamily: fontFamily.regular,
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginTop: 2,
   },
   coaching: {
-    fontFamily: fontFamily.note,
+    fontFamily: fontFamily.regular,
     fontSize: 12,
     lineHeight: 17,
     marginTop: 10,

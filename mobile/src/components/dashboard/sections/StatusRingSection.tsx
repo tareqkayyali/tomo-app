@@ -19,7 +19,6 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
-import { borderRadius } from '../../../theme/spacing';
 import type { SectionProps } from './DashboardSectionRenderer';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -28,6 +27,10 @@ const RING_SIZE = 120;
 const STROKE_WIDTH = 8;
 const RADIUS = (RING_SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+const RING_GOOD = '#7A9B76';
+const RING_WARN = '#C8A27A';
+const RING_BAD = '#B08A7A';
 
 export const StatusRingSection = memo(function StatusRingSection({
   config,
@@ -45,7 +48,7 @@ export const StatusRingSection = memo(function StatusRingSection({
   const pct = Math.min(value / maxValue, 1);
 
   // Ring color based on value
-  const ringColor = value >= 70 ? '#7a9b76' : value >= 40 ? '#c49a3c' : '#A05A4A';
+  const ringColor = value >= 70 ? RING_GOOD : value >= 40 ? RING_WARN : RING_BAD;
 
   // Animated ring fill
   const progress = useSharedValue(0);
@@ -66,7 +69,7 @@ export const StatusRingSection = memo(function StatusRingSection({
   const trendText = delta !== null ? `${trendArrow}${delta}` : '';
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View style={[styles.container, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
       <View style={styles.ringWrap}>
         <Svg width={RING_SIZE} height={RING_SIZE} style={styles.svg}>
           {/* Background ring */}
@@ -74,7 +77,7 @@ export const StatusRingSection = memo(function StatusRingSection({
             cx={RING_SIZE / 2}
             cy={RING_SIZE / 2}
             r={RADIUS}
-            stroke={colors.chalkGhost}
+            stroke={colors.cream10}
             strokeWidth={STROKE_WIDTH}
             fill="transparent"
           />
@@ -95,18 +98,18 @@ export const StatusRingSection = memo(function StatusRingSection({
         </Svg>
         <View style={styles.ringCenter}>
           <Text style={[styles.scoreText, { color: ringColor }]}>{Math.round(value)}</Text>
-          <Text style={[styles.labelText, { color: colors.chalkDim }]}>{label}</Text>
+          <Text style={[styles.labelText, { color: 'rgba(245,243,237,0.35)' }]}>{label}</Text>
         </View>
       </View>
 
       {showTrend && trendText ? (
-        <Text style={[styles.trendText, { color: delta && delta > 0 ? '#7a9b76' : delta && delta < 0 ? '#A05A4A' : colors.chalkDim }]}>
+        <Text style={[styles.trendText, { color: delta && delta > 0 ? RING_GOOD : delta && delta < 0 ? RING_BAD : colors.muted }]}>
           {trendText} vs yesterday
         </Text>
       ) : null}
 
       {coachingText ? (
-        <Text style={[styles.coaching, { color: colors.chalkDim }]}>{coachingText}</Text>
+        <Text style={[styles.coaching, { color: colors.muted }]}>{coachingText}</Text>
       ) : null}
     </View>
   );
@@ -114,9 +117,9 @@ export const StatusRingSection = memo(function StatusRingSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
   },
   ringWrap: {
@@ -132,24 +135,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scoreText: {
-    fontFamily: fontFamily.display,
-    fontSize: 32,
+    fontFamily: fontFamily.semiBold,
+    fontSize: 22,
   },
   labelText: {
-    fontFamily: fontFamily.note,
-    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    fontSize: 9,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
   trendText: {
-    fontFamily: fontFamily.note,
+    fontFamily: fontFamily.regular,
     fontSize: 12,
     marginTop: 8,
   },
   coaching: {
-    fontFamily: fontFamily.note,
-    fontSize: 13,
-    lineHeight: 18,
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+    lineHeight: 17,
     marginTop: 8,
     textAlign: 'center',
   },

@@ -16,13 +16,13 @@ import {
   Platform,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
 import { useTheme } from '../hooks/useTheme';
 import { acceptInviteCode } from '../services/api';
 import { spacing, borderRadius, layout } from '../theme';
 import type { ThemeColors } from '../theme/colors';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 export function LinkAccountScreen() {
   const { colors } = useTheme();
@@ -54,7 +54,7 @@ export function LinkAccountScreen() {
 
   if (success) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <PlayerScreen label="ACCOUNT" title="Link account" onBack={() => navigation.goBack()} scroll={false}>
         <View style={styles.inner}>
           <View style={[styles.successIcon, { backgroundColor: colors.accentMuted }]}>
             <SmartIcon name="checkmark-circle" size={48} color={colors.accent} />
@@ -74,18 +74,17 @@ export function LinkAccountScreen() {
             <Text style={styles.doneButtonText}>Done</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <PlayerScreen label="ACCOUNT" title="Link account" onBack={() => navigation.goBack()} scroll={false}>
       <KeyboardAvoidingView
         style={styles.inner}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <SmartIcon name="link-outline" size={48} color={colors.accent1} style={styles.icon} />
-        <Text style={[styles.title, { color: colors.textOnDark }]}>Link Account</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>
           Enter the 6-character invite code from your coach or parent to link your accounts.
         </Text>
@@ -130,7 +129,7 @@ export function LinkAccountScreen() {
           )}
         </Pressable>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

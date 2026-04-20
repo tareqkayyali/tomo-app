@@ -11,6 +11,8 @@ import {
   Linking, Image, Share,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
+import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -504,6 +506,7 @@ function TraitModal({ visible, onClose, onSave, colors }: {
 
 export function PlayerCVScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const { user, profile, refreshProfile } = useAuth();
   const uid = user?.uid ?? '';
 
@@ -671,7 +674,12 @@ export function PlayerCVScreen() {
   const displayPhoto = photoUri || cv.identity.photo_url || (profile as any)?.photoUrl || null;
 
   return (
-    <SafeAreaView style={[ss.safe, { backgroundColor: colors.background }]}>
+    <PlayerScreen
+      label="PLAYER CV"
+      title={cv.identity.full_name || 'Player CV'}
+      onBack={() => navigation.goBack()}
+      scroll={false}
+    >
       <ScrollView style={ss.scroll} contentContainerStyle={ss.scrollContent}>
 
         {/* ── HEADER ── */}
@@ -975,7 +983,7 @@ export function PlayerCVScreen() {
 
       <TraitModal visible={traitModalVisible} onClose={() => setTraitModalVisible(false)}
         onSave={async (d) => { await addTrait(d); setTraitModalVisible(false); }} colors={colors} />
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

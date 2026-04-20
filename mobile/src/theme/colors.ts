@@ -203,6 +203,48 @@ export type ThemeColors = {
   pillarMentalBg: string;
   /** Brand gradient (orange → teal, for CTAs) */
   gradientBrand: [string, string];
+
+  // ─── Bond tokens (design handoff v1.1) ─────────────────────────
+  /**
+   * Canonical Bond palette. These mirror `tomo_handoff/tokens/colors.css`
+   * 1:1 so Bond-native components can reference the exact handoff names.
+   * Existing tokens (background, accent, accentLight, etc.) already equal
+   * ink / sage / sage-dim — these aliases add the missing clay, steel,
+   * and ink-hover values without changing existing consumers.
+   */
+  tomoInk: string;
+  tomoInkHover: string;
+  tomoCream: string;
+  tomoSage: string;
+  tomoSageDim: string;
+  tomoClay: string;
+  tomoSteel: string;
+
+  // ─── Player App design tokens (Phase 5 — from kyrai design bundle data.jsx) ──────
+  /** Sage opacity scale — for subtle backgrounds, borders, active states. */
+  sage08: string;
+  sage12: string;
+  sage15: string;
+  sage30: string;
+  /** Cream opacity scale — for cards, borders, dividers, overlays. */
+  cream03: string;
+  cream06: string;
+  cream08: string;
+  cream10: string;
+  cream15: string;
+  cream20: string;
+  cream50: string;
+  /** Text body tones from design. */
+  body: string;
+  muted: string;
+  mutedDim: string;
+  /** Event type accent colors (Player App). */
+  evTraining: string;
+  evMatch: string;
+  evRecovery: string;
+  evStudy: string;
+  evExam: string;
+  evOther: string;
 };
 
 // ─── Dark Colors (Brand Kit — primary context) ──────────────────────
@@ -383,6 +425,37 @@ export const darkColors: ThemeColors = {
   pillarMental: '#F5F3ED',
   pillarMentalBg: 'rgba(245,243,237,0.06)',
   gradientBrand: ['#7A9B76', '#5F7F5B'],
+
+  // ─── Bond tokens (design handoff v1.1) ─────────────────────────
+  tomoInk:      '#12141F',
+  tomoInkHover: '#1E202D',
+  tomoCream:    '#F5F3ED',
+  tomoSage:     '#7A9B76',
+  tomoSageDim:  '#9AB896',
+  tomoClay:     '#C8A27A',
+  tomoSteel:    '#8A9BB0',
+
+  // ─── Player App design tokens (Phase 5) ──────────────────────────
+  sage08:   'rgba(122,155,118,0.08)',
+  sage12:   'rgba(122,155,118,0.12)',
+  sage15:   'rgba(122,155,118,0.15)',
+  sage30:   'rgba(122,155,118,0.30)',
+  cream03:  'rgba(245,243,237,0.03)',
+  cream06:  'rgba(245,243,237,0.06)',
+  cream08:  'rgba(245,243,237,0.08)',
+  cream10:  'rgba(245,243,237,0.10)',
+  cream15:  'rgba(245,243,237,0.15)',
+  cream20:  'rgba(245,243,237,0.20)',
+  cream50:  'rgba(245,243,237,0.50)',
+  body:     '#C8C4BA',
+  muted:    '#7A8A9A',
+  mutedDim: 'rgba(122,138,154,0.6)',
+  evTraining: '#7A9B76',
+  evMatch:    '#C8A27A',
+  evRecovery: '#7AA59B',
+  evStudy:    '#8A9BB0',
+  evExam:     '#B08A7A',
+  evOther:    '#7A8A9A',
 };
 
 // ─── Light Colors (Brand Kit) ────────────────────────────────────────

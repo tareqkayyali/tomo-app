@@ -8,9 +8,7 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
@@ -20,6 +18,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { getParentChildren } from '../../services/api';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ParentTabParamList, ParentStackParamList } from '../../navigation/types';
@@ -52,10 +51,7 @@ export function ParentSettingsScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={[styles.screenTitle, { color: colors.textOnDark }]}>Settings</Text>
-
+    <PlayerScreen label="SETTINGS" title="Settings" onBack={() => navigation.goBack()} contentStyle={styles.scroll}>
         {/* Profile section */}
         <TouchableOpacity
           style={[styles.profileCard, { backgroundColor: colors.surface }]}
@@ -145,8 +141,7 @@ export function ParentSettingsScreen({ navigation }: Props) {
           <SmartIcon name="log-out-outline" size={20} color={colors.error} />
           <Text style={[styles.logoutText, { color: colors.error }]}>Log Out</Text>
         </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

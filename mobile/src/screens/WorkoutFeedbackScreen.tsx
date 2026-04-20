@@ -8,12 +8,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
-  ScrollView,
   Pressable,
   TextInput,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { Button, Card, GradientCard, Slider } from '../components';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { submitFeedback } from '../services/api';
@@ -57,7 +56,11 @@ export function WorkoutFeedbackScreen({ navigation }: { navigation: { goBack: ()
 
   if (submitted) {
     return (
-      <SafeAreaView style={styles.container}>
+      <PlayerScreen
+        label="SESSION"
+        title="Feedback"
+        onBack={() => navigation.goBack()}
+      >
         <View style={styles.successContainer}>
           <GradientCard style={styles.successCard}>
             <SmartIcon name="checkmark-circle" size={64} color="rgba(245,243,237,0.9)" />
@@ -65,13 +68,17 @@ export function WorkoutFeedbackScreen({ navigation }: { navigation: { goBack: ()
             <Text style={styles.successPoints}>+{pointsEarned} points earned</Text>
           </GradientCard>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <PlayerScreen
+      label="SESSION"
+      title="Feedback"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
+    >
         {/* Did you workout? */}
         <Card style={styles.card}>
           <Text style={styles.question}>Did you work out today?</Text>
@@ -173,8 +180,7 @@ export function WorkoutFeedbackScreen({ navigation }: { navigation: { goBack: ()
           size="large"
           icon="send"
         />
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

@@ -223,13 +223,13 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId, sport }:
       <View style={{ zIndex: 100 }}>
         <View style={[
           styles.searchBar,
-          { backgroundColor: colors.inputBackground || colors.backgroundElevated },
+          { backgroundColor: colors.cream06 },
         ]}>
-          <SmartIcon name="search" size={18} color={searchFocused ? colors.accent1 : colors.textInactive} />
+          <SmartIcon name="search" size={18} color={searchFocused ? colors.tomoSage : colors.muted} />
           <TextInput
-            style={[styles.searchInput, { color: colors.textOnDark }]}
+            style={[styles.searchInput, { color: colors.tomoCream }]}
             placeholder="Search tests... (sprint, jump, strength)"
-            placeholderTextColor={colors.textInactive}
+            placeholderTextColor={colors.muted}
             value={searchQuery}
             onChangeText={handleSearch}
             onFocus={handleSearchFocus}
@@ -237,39 +237,39 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId, sport }:
           />
           {searchQuery !== '' && (
             <Pressable onPress={() => { handleSearch(''); setSearchFocused(false); }}>
-              <SmartIcon name="close-circle" size={18} color={colors.textInactive} />
+              <SmartIcon name="close-circle" size={18} color={colors.muted} />
             </Pressable>
           )}
         </View>
 
         {showDropdown && (
-          <View style={[styles.dropdown, { backgroundColor: colors.backgroundElevated, borderColor: colors.glassBorder }]}>
+          <View style={[styles.dropdown, { backgroundColor: colors.cream06, borderColor: colors.cream10 }]}>
             {catalogLoading ? (
-              <ActivityIndicator color={colors.accent1} style={{ paddingVertical: 20 }} />
+              <ActivityIndicator color={colors.tomoSage} style={{ paddingVertical: 20 }} />
             ) : (
               catalogResults.slice(0, 8).map((item) => (
                 <Pressable
                   key={item.id}
                   style={({ pressed }) => [
                     styles.dropdownItem,
-                    { borderBottomColor: colors.glassBorder },
-                    pressed && { backgroundColor: colors.accent1 + '10' },
+                    { borderBottomColor: colors.cream10 },
+                    pressed && { backgroundColor: colors.tomoSage + '10' },
                   ]}
                   onPress={() => handleSelectTest(item)}
                 >
                   {item.emoji ? <Text style={{ fontSize: 18 }}>{item.emoji}</Text> : null}
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.dropdownName, { color: colors.textOnDark }]}>{item.name}</Text>
-                    <Text style={[styles.dropdownMeta, { color: colors.textInactive }]}>
+                    <Text style={[styles.dropdownName, { color: colors.tomoCream }]}>{item.name}</Text>
+                    <Text style={[styles.dropdownMeta, { color: colors.muted }]}>
                       {item.category} · {item.unit}
                     </Text>
                   </View>
-                  <SmartIcon name="add-circle" size={22} color={colors.accent1} />
+                  <SmartIcon name="add-circle" size={22} color={colors.tomoSage} />
                 </Pressable>
               ))
             )}
             {!catalogLoading && searchQuery && catalogResults.length === 0 && (
-              <Text style={[styles.dropdownEmpty, { color: colors.textInactive }]}>No tests found</Text>
+              <Text style={[styles.dropdownEmpty, { color: colors.muted }]}>No tests found</Text>
             )}
           </View>
         )}
@@ -281,40 +281,40 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId, sport }:
           <View style={styles.pendingHeader}>
             {pendingTest.emoji ? <Text style={{ fontSize: 20 }}>{pendingTest.emoji}</Text> : null}
             <View style={{ flex: 1 }}>
-              <Text style={[styles.pendingName, { color: colors.textOnDark }]}>{pendingTest.name}</Text>
-              <Text style={[styles.pendingMeta, { color: colors.textInactive }]}>
+              <Text style={[styles.pendingName, { color: colors.tomoCream }]}>{pendingTest.name}</Text>
+              <Text style={[styles.pendingMeta, { color: colors.muted }]}>
                 {pendingTest.category} · {pendingTest.direction === 'higher' ? '↑ Higher is better' : '↓ Lower is better'}
               </Text>
             </View>
             <Pressable onPress={() => setPendingTest(null)} hitSlop={8}>
-              <SmartIcon name="close" size={20} color={colors.textMuted} />
+              <SmartIcon name="close" size={20} color={colors.muted} />
             </Pressable>
           </View>
           <View style={styles.pendingInputRow}>
-            <View style={[styles.valueInputWrap, { backgroundColor: colors.inputBackground || colors.backgroundElevated, flex: 1 }]}>
+            <View style={[styles.valueInputWrap, { backgroundColor: colors.cream06, flex: 1 }]}>
               <TextInput
-                style={[styles.valueInput, { color: colors.textOnDark }]}
+                style={[styles.valueInput, { color: colors.tomoCream }]}
                 placeholder={`Value (${pendingTest.unit})`}
-                placeholderTextColor={colors.textInactive}
+                placeholderTextColor={colors.muted}
                 value={pendingValue}
                 onChangeText={setPendingValue}
                 keyboardType="decimal-pad"
                 autoFocus
               />
-              <Text style={[styles.unitLabel, { color: colors.textMuted }]}>{pendingTest.unit}</Text>
+              <Text style={[styles.unitLabel, { color: colors.muted }]}>{pendingTest.unit}</Text>
             </View>
             <Pressable
               style={[
                 styles.inlineSaveBtn,
-                { backgroundColor: colors.accent1, opacity: (submitting || !pendingValue.trim()) ? 0.5 : 1 },
+                { backgroundColor: colors.tomoSage, opacity: (submitting || !pendingValue.trim()) ? 0.5 : 1 },
               ]}
               onPress={handleSavePending}
               disabled={submitting || !pendingValue.trim()}
             >
               {submitting ? (
-                <ActivityIndicator color={colors.textPrimary} size="small" />
+                <ActivityIndicator color={colors.tomoCream} size="small" />
               ) : (
-                <SmartIcon name="checkmark" size={20} color={colors.textPrimary} />
+                <SmartIcon name="checkmark" size={20} color={colors.tomoCream} />
               )}
             </Pressable>
           </View>
@@ -325,36 +325,36 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId, sport }:
       {/* ── Raw Test Group Cards (when no benchmark snapshots) ── */}
       {rawTestGroups.length > 0 && metrics.categories.length === 0 && (
         <View style={{ gap: spacing.sm }}>
-          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Your Tests by Category</Text>
+          <Text style={[styles.sectionLabel, { color: colors.muted }]}>Your Tests by Category</Text>
           {rawTestGroups.map((group) => (
             <RawTestGroupCard key={group.groupId} group={group} colors={colors} onTestLogged={onTestLogged} logTest={doLogTest} />
           ))}
           {/* Ungrouped tests */}
           {ungroupedTests.length > 0 && (
             <>
-              <Text style={[styles.sectionLabel, { color: colors.textMuted, marginTop: spacing.xs }]}>Other Tests</Text>
+              <Text style={[styles.sectionLabel, { color: colors.muted, marginTop: spacing.xs }]}>Other Tests</Text>
               {ungroupedTests.map((t) => (
                 <GlassCard key={t.testType}>
                   <View style={styles.rawTestRow}>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <Text style={[styles.rawTestName, { color: colors.textOnDark }]}>
+                        <Text style={[styles.rawTestName, { color: colors.tomoCream }]}>
                           {t.testType.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                         </Text>
                         {(t as any).coachName && (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: colors.secondarySubtle, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 9999 }}>
-                            <SmartIcon name="person-circle-outline" size={10} color={colors.info} />
-                            <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.info }}>
+                            <SmartIcon name="person-circle-outline" size={10} color={colors.muted} />
+                            <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.muted }}>
                               Coach {(t as any).coachName}
                             </Text>
                           </View>
                         )}
                       </View>
-                      <Text style={[styles.rawTestMeta, { color: colors.textMuted }]}>
+                      <Text style={[styles.rawTestMeta, { color: colors.muted }]}>
                         {t.date}{t.unit ? ` · ${t.unit}` : ''}
                       </Text>
                     </View>
-                    <Text style={[styles.rawTestValue, { color: colors.accent1 }]}>{t.score}</Text>
+                    <Text style={[styles.rawTestValue, { color: colors.tomoSage }]}>{t.score}</Text>
                   </View>
                 </GlassCard>
               ))}
@@ -369,15 +369,15 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId, sport }:
         return (
           <GlassCard>
             <View style={styles.emptyState}>
-              <SmartIcon name="analytics-outline" size={40} color={colors.textMuted} />
-              <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
+              <SmartIcon name="analytics-outline" size={40} color={colors.muted} />
+              <Text style={[styles.emptyTitle, { color: colors.tomoCream }]}>
                 {suggestion ? 'Start with one test' : 'No Test Data Yet'}
               </Text>
-              <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+              <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
                 {suggestion ? (
                   <>
                     A great first test for you is a{' '}
-                    <Text style={{ color: colors.accent1, fontFamily: fontFamily.semiBold }}>
+                    <Text style={{ color: colors.tomoSage, fontFamily: fontFamily.semiBold }}>
                       {suggestion.name}
                     </Text>
                     . {suggestion.note} Search for it above to log your first result.
@@ -487,7 +487,7 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
         <View style={styles.groupHeader}>
           {category.emoji ? <Text style={styles.groupEmoji}>{category.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
-            <Text style={[styles.groupName, { color: colors.textOnDark }]}>{category.category}</Text>
+            <Text style={[styles.groupName, { color: colors.tomoCream }]}>{category.category}</Text>
           </View>
           <View style={[styles.zoneBadge, { backgroundColor: zoneColor + '22' }]}>
             <Text style={[styles.zoneBadgeText, { color: zoneColor }]}>
@@ -497,7 +497,7 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
           <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={colors.textMuted}
+            color={colors.muted}
             style={{ marginLeft: 4 }}
           />
         </View>
@@ -509,11 +509,11 @@ function TestGroupCard({ category, colors, onTestLogged, logTest }: {
         {expanded && (
           <View style={styles.expandedTests}>
             {category.athleteDescription && (
-              <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+              <Text style={[styles.groupDesc, { color: colors.muted }]}>
                 {category.athleteDescription}
               </Text>
             )}
-            <Text style={[styles.catSummary, { color: colors.textMuted }]}>
+            <Text style={[styles.catSummary, { color: colors.muted }]}>
               {category.categorySummary}
             </Text>
             {category.metrics.map((m) => (
@@ -597,7 +597,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
         <View style={styles.groupHeader}>
           {group.emoji ? <Text style={styles.groupEmoji}>{group.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
-            <Text style={[styles.groupName, { color: colors.textOnDark }]}>{group.displayName}</Text>
+            <Text style={[styles.groupName, { color: colors.tomoCream }]}>{group.displayName}</Text>
           </View>
           <View style={[styles.rawCountBadge, { backgroundColor: themeColor + '22' }]}>
             <Text style={[styles.rawCountText, { color: themeColor }]}>
@@ -607,7 +607,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
           <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={colors.textMuted}
+            color={colors.muted}
             style={{ marginLeft: 4 }}
           />
         </View>
@@ -618,7 +618,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
         {/* Expanded: description + all tests with values + action icons */}
         {expanded && (
           <View style={styles.expandedTests}>
-            <Text style={[styles.groupDesc, { color: colors.textMuted }]}>
+            <Text style={[styles.groupDesc, { color: colors.muted }]}>
               {group.athleteDescription}
             </Text>
             {group.tests.map((t) => (
@@ -626,17 +626,17 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
                 <View style={styles.rawExpandedRow}>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Text style={[styles.rawExpandedName, { color: colors.textOnDark }]}>{t.displayName}</Text>
+                      <Text style={[styles.rawExpandedName, { color: colors.tomoCream }]}>{t.displayName}</Text>
                       {(t as any).coachName && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: colors.secondarySubtle, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 9999 }}>
-                          <SmartIcon name="person-circle-outline" size={10} color={colors.info} />
-                          <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.info }}>
+                          <SmartIcon name="person-circle-outline" size={10} color={colors.muted} />
+                          <Text style={{ fontSize: 9, fontFamily: fontFamily.semiBold, color: colors.muted }}>
                             Coach {(t as any).coachName}
                           </Text>
                         </View>
                       )}
                     </View>
-                    <Text style={[styles.rawExpandedDate, { color: colors.textMuted }]}>{t.date}</Text>
+                    <Text style={[styles.rawExpandedDate, { color: colors.muted }]}>{t.date}</Text>
                   </View>
                   <View style={styles.rawActionIcons}>
                     <Pressable
@@ -651,7 +651,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
                       hitSlop={8}
                       style={styles.rawActionBtn}
                     >
-                      <SmartIcon name="time-outline" size={16} color={colors.textMuted} />
+                      <SmartIcon name="time-outline" size={16} color={colors.muted} />
                     </Pressable>
                     <Pressable
                       onPress={() => {
@@ -664,7 +664,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
                       hitSlop={8}
                       style={styles.rawActionBtn}
                     >
-                      <SmartIcon name="add-circle-outline" size={16} color={colors.accent1} />
+                      <SmartIcon name="add-circle-outline" size={16} color={colors.tomoSage} />
                     </Pressable>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
@@ -672,7 +672,7 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
                       {t.score}
                     </Text>
                     {t.unit ? (
-                      <Text style={[styles.rawExpandedUnit, { color: colors.textMuted }]}>{t.unit}</Text>
+                      <Text style={[styles.rawExpandedUnit, { color: colors.muted }]}>{t.unit}</Text>
                     ) : null}
                   </View>
                 </View>
@@ -706,9 +706,9 @@ function RawTestGroupCard({ group, colors, onTestLogged, logTest }: {
               </View>
             ))}
             {/* Hint to get benchmarks */}
-            <View style={[styles.benchmarkHint, { backgroundColor: colors.accent1 + '10' }]}>
-              <SmartIcon name="bulb-outline" size={14} color={colors.accent1} />
-              <Text style={[styles.benchmarkHintText, { color: colors.accent1 }]}>
+            <View style={[styles.benchmarkHint, { backgroundColor: colors.tomoSage + '10' }]}>
+              <SmartIcon name="bulb-outline" size={14} color={colors.tomoSage} />
+              <Text style={[styles.benchmarkHintText, { color: colors.tomoSage }]}>
                 Log more tests to unlock percentile rankings
               </Text>
             </View>
@@ -728,8 +728,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderWidth: 0,
-    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.cream10,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'web' ? 10 : 8,
   },
@@ -803,16 +804,16 @@ const styles = StyleSheet.create({
   // Radar hero
 
   // Raw tests
-  sectionLabel: { fontFamily: fontFamily.medium, fontSize: 12, letterSpacing: 0.8, textTransform: 'uppercase' as const },
+  sectionLabel: { fontFamily: fontFamily.regular, fontSize: 9, letterSpacing: 2, textTransform: 'uppercase' as const, color: 'rgba(245,243,237,0.35)' },
   rawTestRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   rawTestName: { fontFamily: fontFamily.semiBold, fontSize: 14 },
   rawTestMeta: { fontFamily: fontFamily.regular, fontSize: 11, marginTop: 2 },
-  rawTestValue: { fontFamily: fontFamily.bold, fontSize: 20 },
+  rawTestValue: { fontFamily: fontFamily.semiBold, fontSize: 20 },
 
   // Test group cards
   groupHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   groupEmoji: { fontSize: 20 },
-  groupName: { fontFamily: fontFamily.semiBold, fontSize: 15 },
+  groupName: { fontFamily: fontFamily.semiBold, fontSize: 14, letterSpacing: -0.2 },
   groupDesc: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 17, marginTop: 4, marginBottom: 2 },
   zoneBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   zoneBadgeText: { fontFamily: fontFamily.semiBold, fontSize: 11 },
@@ -840,7 +841,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.creamSubtle,
+    borderBottomColor: colors.cream10,
   },
   rawActionIcons: {
     flexDirection: 'row',
@@ -853,8 +854,8 @@ const styles = StyleSheet.create({
   },
   rawExpandedName: { fontFamily: fontFamily.medium, fontSize: 14 },
   rawExpandedDate: { fontFamily: fontFamily.regular, fontSize: 11, marginTop: 2 },
-  rawExpandedValue: { fontFamily: fontFamily.bold, fontSize: 18 },
-  rawExpandedUnit: { fontFamily: fontFamily.regular, fontSize: 10, marginTop: 1 },
+  rawExpandedValue: { fontFamily: fontFamily.semiBold, fontSize: 18 },
+  rawExpandedUnit: { fontFamily: fontFamily.regular, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase' as const, marginTop: 1 },
   benchmarkHint: {
     flexDirection: 'row',
     alignItems: 'center',

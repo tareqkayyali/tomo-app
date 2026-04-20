@@ -41,8 +41,8 @@ interface Props {
 const PRIORITY_COLORS: Record<string, string> = {
   mandatory: colors.error,
   high: colors.warning,
-  medium: colors.accent,
-  player_selected: colors.accent2,
+  medium: colors.tomoSage,
+  player_selected: colors.tomoSage,
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -67,7 +67,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  beginner: colors.accent,
+  beginner: colors.tomoSage,
   intermediate: colors.warning,
   advanced: colors.error,
 };
@@ -167,13 +167,13 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
     return (
       <GlassCard>
         <View style={styles.emptyState}>
-          <View style={[styles.emptyIconCircle, { backgroundColor: colors.accent2 + '12' }]}>
-            <SmartIcon name={loadingMsg.icon} size={28} color={colors.accent2} />
+          <View style={[styles.emptyIconCircle, { backgroundColor: colors.tomoSage + '12' }]}>
+            <SmartIcon name={loadingMsg.icon} size={28} color={colors.tomoSage} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
+          <Text style={[styles.emptyTitle, { color: colors.tomoCream }]}>
             {loadingMsg.title}
           </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+          <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
             {loadingMsg.subtitle}
           </Text>
 
@@ -183,11 +183,11 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               <Pressable
                 style={({ pressed }) => [
                   styles.ctaButton,
-                  { backgroundColor: colors.accent1, opacity: pressed ? 0.8 : 1 },
+                  { backgroundColor: colors.tomoSage, opacity: pressed ? 0.8 : 1 },
                 ]}
                 onPress={onNavigateCheckin}
               >
-                <SmartIcon name="checkmark-circle-outline" size={16} color={colors.textOnDark} />
+                <SmartIcon name="checkmark-circle-outline" size={16} color={colors.tomoCream} />
                 <Text style={styles.ctaButtonText}>Daily Check-in</Text>
               </Pressable>
             )}
@@ -195,11 +195,11 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               <Pressable
                 style={({ pressed }) => [
                   styles.ctaButton,
-                  { backgroundColor: colors.accent2, opacity: pressed ? 0.8 : 1 },
+                  { backgroundColor: colors.tomoSage, opacity: pressed ? 0.8 : 1 },
                 ]}
                 onPress={onForceRefresh}
               >
-                <SmartIcon name="refresh-outline" size={16} color={colors.textOnDark} />
+                <SmartIcon name="refresh-outline" size={16} color={colors.tomoCream} />
                 <Text style={styles.ctaButtonText}>Generate Now</Text>
               </Pressable>
             )}
@@ -214,24 +214,24 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
     return (
       <GlassCard>
         <View style={styles.emptyState}>
-          <View style={[styles.emptyIconCircle, { backgroundColor: colors.accent1 + '12' }]}>
-            <SmartIcon name="barbell-outline" size={28} color={colors.accent1} />
+          <View style={[styles.emptyIconCircle, { backgroundColor: colors.tomoSage + '12' }]}>
+            <SmartIcon name="barbell-outline" size={28} color={colors.tomoSage} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
+          <Text style={[styles.emptyTitle, { color: colors.tomoCream }]}>
             No Programs Yet
           </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+          <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
             Tap below to generate personalized training programs based on your profile.
           </Text>
           {onForceRefresh && (
             <Pressable
               style={({ pressed }) => [
                 styles.ctaButton,
-                { backgroundColor: colors.accent1, opacity: pressed ? 0.8 : 1, marginTop: 12 },
+                { backgroundColor: colors.tomoSage, opacity: pressed ? 0.8 : 1, marginTop: 12 },
               ]}
               onPress={onForceRefresh}
             >
-              <SmartIcon name="sparkles-outline" size={16} color={colors.textOnDark} />
+              <SmartIcon name="sparkles-outline" size={16} color={colors.tomoCream} />
               <Text style={styles.ctaButtonText}>Generate Programs</Text>
             </Pressable>
           )}
@@ -268,8 +268,8 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       {/* ── Deep Refresh Indicator ──────────────────────────────── */}
       {isDeepRefreshing && (
         <View style={[styles.refreshBanner, { backgroundColor: colors.accentSubtle }]}>
-          <SmartIcon name={(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).icon} size={16} color={colors.accent1} />
-          <Text style={[styles.refreshText, { color: colors.accent1 }]}>
+          <SmartIcon name={(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).icon} size={16} color={colors.tomoSage} />
+          <Text style={[styles.refreshText, { color: colors.tomoSage }]}>
             {(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).title}...
           </Text>
         </View>
@@ -277,11 +277,11 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
 
       {/* ── Program Search Bar ─────────────────────────────── */}
       <View style={styles.searchContainer}>
-        <SmartIcon name="search" size={16} color={searchFocused ? colors.accent1 : colors.textInactive} />
+        <SmartIcon name="search" size={16} color={searchFocused ? colors.tomoSage : colors.muted} />
         <TextInput
-          style={[styles.searchInput, { color: colors.textOnDark }]}
+          style={[styles.searchInput, { color: colors.tomoCream }]}
           placeholder="Search programs... (sprint, strength, agility)"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.muted}
           value={searchQuery}
           onChangeText={handleSearch}
           onFocus={() => setSearchFocused(true)}
@@ -289,14 +289,14 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
         />
         {searchQuery.length > 0 && (
           <Pressable onPress={() => { setSearchQuery(''); setSearchResults([]); }} hitSlop={8}>
-            <SmartIcon name="close-circle" size={16} color={colors.textMuted} />
+            <SmartIcon name="close-circle" size={16} color={colors.muted} />
           </Pressable>
         )}
       </View>
 
       {/* Search results dropdown */}
       {searchFocused && searchResults.length > 0 && (
-        <View style={[styles.searchDropdown, { backgroundColor: colors.backgroundElevated, borderColor: colors.border }]}>
+        <View style={[styles.searchDropdown, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
           {searchResults.map((prog) => (
             <Pressable
               key={prog.id}
@@ -305,22 +305,22 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               disabled={playerSelectedIds.includes(prog.id)}
             >
               <View style={{ flex: 1 }}>
-                <Text style={[styles.searchResultName, { color: colors.textOnDark }]} numberOfLines={1}>
+                <Text style={[styles.searchResultName, { color: colors.tomoCream }]} numberOfLines={1}>
                   {prog.name}
                 </Text>
-                <Text style={[styles.searchResultMeta, { color: colors.textMuted }]}>
+                <Text style={[styles.searchResultMeta, { color: colors.muted }]}>
                   {prog.type} · {prog.difficulty} · {prog.duration_minutes}min
                 </Text>
               </View>
               {playerSelectedIds.includes(prog.id) ? (
-                <View style={[styles.addBadge, { backgroundColor: colors.accent + '18' }]}>
-                  <SmartIcon name="checkmark" size={14} color={colors.accent} />
-                  <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.accent }}>Added</Text>
+                <View style={[styles.addBadge, { backgroundColor: colors.sage15 }]}>
+                  <SmartIcon name="checkmark" size={14} color={colors.tomoSage} />
+                  <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.tomoSage }}>Added</Text>
                 </View>
               ) : (
-                <View style={[styles.addBadge, { backgroundColor: colors.accent1 + '18' }]}>
-                  <SmartIcon name="add" size={14} color={colors.accent1} />
-                  <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.accent1 }}>Add</Text>
+                <View style={[styles.addBadge, { backgroundColor: colors.sage15 }]}>
+                  <SmartIcon name="add" size={14} color={colors.tomoSage} />
+                  <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.tomoSage }}>Add</Text>
                 </View>
               )}
             </Pressable>
@@ -335,17 +335,17 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
             <SmartIcon
               name={coachGroupExpanded ? 'chevron-down' : 'chevron-forward'}
               size={16}
-              color={colors.textMuted}
+              color={colors.muted}
             />
-            <View style={[styles.priorityDot, { backgroundColor: colors.info }]} />
-            <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>Coach Assigned</Text>
-            <View style={[styles.countBadge, { backgroundColor: `${colors.info}22` }]}>
-              <Text style={[styles.countBadgeText, { color: colors.info }]}>{coachAssigned.length}</Text>
+            <View style={[styles.priorityDot, { backgroundColor: colors.muted }]} />
+            <Text style={[styles.groupLabel, { color: colors.tomoCream }]}>Coach Assigned</Text>
+            <View style={[styles.countBadge, { backgroundColor: `${colors.muted}22` }]}>
+              <Text style={[styles.countBadgeText, { color: colors.muted }]}>{coachAssigned.length}</Text>
             </View>
           </Pressable>
           {coachGroupExpanded && (
             <>
-              <Text style={[styles.groupDesc, { color: colors.textBody }]}>
+              <Text style={[styles.groupDesc, { color: colors.muted }]}>
                 Programs assigned to you by your coach
               </Text>
               {coachAssigned.map((p: any) => (
@@ -363,19 +363,19 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
             <SmartIcon
               name={myPicksExpanded ? 'chevron-down' : 'chevron-forward'}
               size={16}
-              color={colors.textMuted}
+              color={colors.muted}
             />
-            <View style={[styles.priorityDot, { backgroundColor: colors.accent2 }]} />
-            <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>My Picks</Text>
-            <View style={[styles.countBadge, { backgroundColor: colors.accent2 + '22' }]}>
-              <Text style={[styles.countBadgeText, { color: colors.accent2 }]}>
+            <View style={[styles.priorityDot, { backgroundColor: colors.tomoSage }]} />
+            <Text style={[styles.groupLabel, { color: colors.tomoCream }]}>My Picks</Text>
+            <View style={[styles.countBadge, { backgroundColor: colors.tomoSage + '22' }]}>
+              <Text style={[styles.countBadgeText, { color: colors.tomoSage }]}>
                 {playerSelectedIds.length}
               </Text>
             </View>
           </Pressable>
           {myPicksExpanded && (
             <>
-              <Text style={[styles.groupDesc, { color: colors.textBody }]}>
+              <Text style={[styles.groupDesc, { color: colors.muted }]}>
                 Programs you added from the catalog
               </Text>
               {playerSelectedIds.map((psId) => {
@@ -449,7 +449,7 @@ function PriorityGroup({ label, programs, colors, onDone, onDismiss, activeIds =
   onToggleActive?: (programId: string) => void;
   onAddToCalendar?: (program: any) => void;
 }) {
-  const priorityColor = PRIORITY_COLORS[label] || colors.textSecondary;
+  const priorityColor = PRIORITY_COLORS[label] || colors.muted;
   const displayLabel = PRIORITY_LABELS[label] || label;
   const description = PRIORITY_DESCRIPTIONS[label] || '';
 
@@ -467,10 +467,10 @@ function PriorityGroup({ label, programs, colors, onDone, onDismiss, activeIds =
         <SmartIcon
           name={expanded ? 'chevron-down' : 'chevron-forward'}
           size={16}
-          color={colors.textMuted}
+          color={colors.muted}
         />
         <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
-        <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>{displayLabel}</Text>
+        <Text style={[styles.groupLabel, { color: colors.tomoCream }]}>{displayLabel}</Text>
         <View style={[styles.countBadge, { backgroundColor: priorityColor + '22' }]}>
           <Text style={[styles.countBadgeText, { color: priorityColor }]}>{programs.length}</Text>
         </View>
@@ -478,7 +478,7 @@ function PriorityGroup({ label, programs, colors, onDone, onDismiss, activeIds =
 
       {expanded && (
         <>
-          <Text style={[styles.groupDesc, { color: colors.textBody }]}>{description}</Text>
+          <Text style={[styles.groupDesc, { color: colors.muted }]}>{description}</Text>
 
           {visible.map((p) => (
             <ProgramCard key={p.programId} program={p} colors={colors} onDone={onDone} onDismiss={onDismiss} isActive={activeIds.includes(p.programId)} onToggleActive={onToggleActive} onAddToCalendar={onAddToCalendar} />
@@ -486,11 +486,11 @@ function PriorityGroup({ label, programs, colors, onDone, onDismiss, activeIds =
 
           {hasMore && !showAll && (
             <Pressable onPress={() => setShowAll(true)}>
-              <View style={[styles.showMoreBtn, { backgroundColor: colors.glass }]}>
-                <Text style={[styles.showMoreText, { color: colors.accent1 }]}>
+              <View style={[styles.showMoreBtn, { backgroundColor: colors.cream03, borderWidth: 1, borderColor: colors.cream10 }]}>
+                <Text style={[styles.showMoreText, { color: colors.tomoSage }]}>
                   Show {programs.length - 5} more
                 </Text>
-                <SmartIcon name="chevron-down" size={14} color={colors.accent1} />
+                <SmartIcon name="chevron-down" size={14} color={colors.tomoSage} />
               </View>
             </Pressable>
           )}
@@ -517,18 +517,18 @@ function ActiveGroup({ programs, colors, onDone, onToggleActive, onAddToCalendar
         <SmartIcon
           name={expanded ? 'chevron-down' : 'chevron-forward'}
           size={16}
-          color={colors.textMuted}
+          color={colors.muted}
         />
         <View style={[styles.priorityDot, { backgroundColor: colors.accent }]} />
-        <Text style={[styles.groupLabel, { color: colors.textOnDark }]}>{'Active Programs'}</Text>
-        <View style={[styles.countBadge, { backgroundColor: `${colors.success}22` }]}>
+        <Text style={[styles.groupLabel, { color: colors.tomoCream }]}>{'Active Programs'}</Text>
+        <View style={[styles.countBadge, { backgroundColor: colors.sage15 }]}>
           <Text style={[styles.countBadgeText, { color: colors.accent }]}>{programs.length}</Text>
         </View>
       </Pressable>
 
       {expanded && (
         <>
-          <Text style={[styles.groupDesc, { color: colors.textBody }]}>
+          <Text style={[styles.groupDesc, { color: colors.muted }]}>
             Programs you're currently working on
           </Text>
           {programs.map((p) => (
@@ -555,9 +555,9 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
   const navigation = useNavigation<any>();
   const [expanded, setExpanded] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'done' | 'dismissed' | null>(null);
-  const priorityColor = PRIORITY_COLORS[program.priority] || colors.textSecondary;
+  const priorityColor = PRIORITY_COLORS[program.priority] || colors.muted;
   const emoji = CATEGORY_EMOJI[program.category] || '';
-  const diffColor = DIFFICULTY_COLORS[program.difficulty] || colors.textSecondary;
+  const diffColor = DIFFICULTY_COLORS[program.difficulty] || colors.muted;
 
   const isCoachAssigned = (program as any).coachName || (program as any).coachId;
 
@@ -568,15 +568,15 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
         <View style={styles.cardHeader}>
           {emoji ? <Text style={styles.cardEmoji}>{emoji}</Text> : null}
           <View style={{ flex: 1 }}>
-            <Text style={[styles.programName, { color: colors.textOnDark }]} numberOfLines={1}>{program.name}</Text>
-            <Text style={[styles.programMeta, { color: colors.textMuted }]}>
+            <Text style={[styles.programName, { color: colors.tomoCream }]} numberOfLines={1}>{program.name}</Text>
+            <Text style={[styles.programMeta, { color: colors.muted }]}>
               {program.frequency} · {program.durationMin} min · {(program as any).durationWeeks || 4}wks
             </Text>
           </View>
           <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={colors.textMuted}
+            color={colors.muted}
           />
         </View>
 
@@ -599,8 +599,8 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   onToggleActive(program.programId);
                 }}
               >
-                <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={14} color={isActive ? colors.accent : colors.textBody} />
-                <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.textBody }]}>Active</Text>
+                <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={14} color={isActive ? colors.accent : colors.muted} />
+                <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.muted }]}>Active</Text>
               </Pressable>
             )}
             {onDone && (
@@ -615,8 +615,8 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   setConfirmAction('done');
                 }}
               >
-                <SmartIcon name="checkmark-circle-outline" size={14} color={colors.textBody} />
-                <Text style={[styles.cardActionText, { color: colors.textBody }]}>Done</Text>
+                <SmartIcon name="checkmark-circle-outline" size={14} color={colors.muted} />
+                <Text style={[styles.cardActionText, { color: colors.muted }]}>Done</Text>
               </Pressable>
             )}
             {onDismiss && !hideNotForMe && (
@@ -631,8 +631,8 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   setConfirmAction('dismissed');
                 }}
               >
-                <SmartIcon name="close-circle-outline" size={14} color={colors.textBody} />
-                <Text style={[styles.cardActionText, { color: colors.textBody }]}>Not for me</Text>
+                <SmartIcon name="close-circle-outline" size={14} color={colors.muted} />
+                <Text style={[styles.cardActionText, { color: colors.muted }]}>Not for me</Text>
               </Pressable>
             )}
           </View>
@@ -642,23 +642,23 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
         {confirmAction && (() => {
           const isDone = confirmAction === 'done';
           return (
-            <View style={[styles.confirmRow, { backgroundColor: isDone ? colors.accentSubtle : colors.accent1 + '10', borderRadius: borderRadius.sm, marginTop: spacing.sm }]}>
+            <View style={[styles.confirmRow, { backgroundColor: isDone ? colors.accentSubtle : colors.tomoSage + '10', borderRadius: borderRadius.sm, marginTop: spacing.sm }]}>
               <SmartIcon
                 name={isDone ? 'checkmark-circle' : 'close-circle'}
                 size={18}
-                color={isDone ? colors.accent : colors.accent1}
+                color={isDone ? colors.accent : colors.tomoSage}
               />
-              <Text style={[styles.confirmLabel, { color: colors.textOnDark }]} numberOfLines={1}>
+              <Text style={[styles.confirmLabel, { color: colors.tomoCream }]} numberOfLines={1}>
                 {isDone ? 'Mark as done?' : 'Remove this?'}
               </Text>
               <Pressable
-                style={({ pressed }) => [styles.confirmChip, { backgroundColor: colors.backgroundElevated, opacity: pressed ? 0.7 : 1 }]}
+                style={({ pressed }) => [styles.confirmChip, { backgroundColor: colors.cream06, opacity: pressed ? 0.7 : 1 }]}
                 onPress={(e) => { e.stopPropagation(); setConfirmAction(null); }}
               >
-                <Text style={[styles.confirmChipText, { color: colors.textInactive }]}>Cancel</Text>
+                <Text style={[styles.confirmChipText, { color: colors.muted }]}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={({ pressed }) => [styles.confirmChip, { backgroundColor: isDone ? colors.accent : colors.accent1, opacity: pressed ? 0.8 : 1 }]}
+                style={({ pressed }) => [styles.confirmChip, { backgroundColor: isDone ? colors.accent : colors.tomoSage, opacity: pressed ? 0.8 : 1 }]}
                 onPress={(e) => {
                   e.stopPropagation();
                   if (confirmAction === 'done' && onDone) onDone(program.programId);
@@ -666,7 +666,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   setConfirmAction(null);
                 }}
               >
-                <Text style={[styles.confirmChipText, { color: colors.textOnDark }]}>
+                <Text style={[styles.confirmChipText, { color: colors.tomoCream }]}>
                   {isDone ? 'Done' : 'Remove'}
                 </Text>
               </Pressable>
@@ -680,8 +680,8 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             {/* Coach badge */}
             {isCoachAssigned && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <SmartIcon name="person-circle-outline" size={14} color={colors.info} />
-                <Text style={{ fontSize: 11, fontFamily: fontFamily.semiBold, color: colors.info }}>
+                <SmartIcon name="person-circle-outline" size={14} color={colors.muted} />
+                <Text style={{ fontSize: 11, fontFamily: fontFamily.semiBold, color: colors.muted }}>
                   Assigned by Coach {(program as any).coachName || ''}
                 </Text>
               </View>
@@ -693,7 +693,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                 <Text style={[styles.diffText, { color: diffColor }]}>{program.difficulty}</Text>
               </View>
               <View style={[styles.typeBadge, { backgroundColor: program.type === 'physical' ? colors.accentSoft : colors.secondarySubtle }]}>
-                <Text style={[styles.typeText, { color: program.type === 'physical' ? colors.accent : colors.info }]}>
+                <Text style={[styles.typeText, { color: program.type === 'physical' ? colors.accent : colors.muted }]}>
                   {program.type}
                 </Text>
               </View>
@@ -709,9 +709,9 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
 
             {/* Position note */}
             {program.positionNote ? (
-              <View style={[styles.positionBadge, { backgroundColor: colors.accent1 + '12' }]}>
-                <SmartIcon name="football-outline" size={12} color={colors.accent1} />
-                <Text style={[styles.positionBadgeText, { color: colors.accent1 }]}>{program.positionNote}</Text>
+              <View style={[styles.positionBadge, { backgroundColor: colors.tomoSage + '12' }]}>
+                <SmartIcon name="football-outline" size={12} color={colors.tomoSage} />
+                <Text style={[styles.positionBadgeText, { color: colors.tomoSage }]}>{program.positionNote}</Text>
               </View>
             ) : null}
 
@@ -724,7 +724,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             )}
 
             {/* Description */}
-            <Text style={[styles.descriptionText, { color: colors.textBody }]}>
+            <Text style={[styles.descriptionText, { color: colors.muted }]}>
               {program.description}
             </Text>
 
@@ -739,20 +739,20 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
 
             {/* Why this program */}
             {program.reason && (
-              <View style={[styles.reasonBlock, { backgroundColor: colors.glass }]}>
+              <View style={[styles.reasonBlock, { backgroundColor: colors.cream03, borderWidth: 1, borderColor: colors.cream10 }]}>
                 <View style={styles.reasonHeader}>
-                  <SmartIcon name="bulb-outline" size={14} color={colors.accent1} />
-                  <Text style={[styles.reasonLabel, { color: colors.accent1 }]}>Why this program</Text>
+                  <SmartIcon name="bulb-outline" size={14} color={colors.tomoSage} />
+                  <Text style={[styles.reasonLabel, { color: colors.tomoSage }]}>Why this program</Text>
                 </View>
-                <Text style={[styles.reasonText, { color: colors.textOnDark }]}>{program.reason}</Text>
+                <Text style={[styles.reasonText, { color: colors.tomoCream }]}>{program.reason}</Text>
               </View>
             )}
 
             {/* Position note expanded */}
             {program.positionNote ? (
               <View style={styles.positionExpandedRow}>
-                <SmartIcon name="football-outline" size={14} color={colors.accent1} />
-                <Text style={[styles.positionExpandedText, { color: colors.textBody }]}>{program.positionNote}</Text>
+                <SmartIcon name="football-outline" size={14} color={colors.tomoSage} />
+                <Text style={[styles.positionExpandedText, { color: colors.muted }]}>{program.positionNote}</Text>
               </View>
             ) : null}
 
@@ -760,8 +760,8 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             {program.tags && program.tags.length > 0 && (
               <View style={styles.tagsRow}>
                 {program.tags.slice(0, 4).map((tag) => (
-                  <View key={tag} style={[styles.tagChip, { backgroundColor: colors.glassBorder + '40' }]}>
-                    <Text style={[styles.tagText, { color: colors.textMuted }]}>#{tag.replace(/_/g, '')}</Text>
+                  <View key={tag} style={[styles.tagChip, { backgroundColor: colors.cream06 }]}>
+                    <Text style={[styles.tagText, { color: colors.muted }]}>#{tag.replace(/_/g, '')}</Text>
                   </View>
                 ))}
               </View>
@@ -770,9 +770,9 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
             {/* Coaching cues */}
             {program.prescription.coachingCues.length > 0 && (
               <View style={styles.cuesBlock}>
-                <Text style={[styles.cuesTitle, { color: colors.textMuted }]}>Coaching cues</Text>
+                <Text style={[styles.cuesTitle, { color: colors.muted }]}>Coaching cues</Text>
                 {program.prescription.coachingCues.map((c, i) => (
-                  <Text key={i} style={[styles.cueText, { color: colors.textOnDark }]}>
+                  <Text key={i} style={[styles.cueText, { color: colors.tomoCream }]}>
                     {'\u2022'} {c}
                   </Text>
                 ))}
@@ -809,8 +809,8 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                 }}
                 style={[styles.askTomoButton, { backgroundColor: colors.accentMuted, borderColor: colors.accentBorder, borderWidth: 1 }]}
               >
-                <SmartIcon name="barbell-outline" size={16} color={colors.info} />
-                <Text style={[styles.askTomoText, { color: colors.info }]}>Add to Training</Text>
+                <SmartIcon name="barbell-outline" size={16} color={colors.muted} />
+                <Text style={[styles.askTomoText, { color: colors.muted }]}>Add to Training</Text>
               </Pressable>
             )}
 
@@ -834,9 +834,9 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
 
 function RxChip({ label, value, colors }: { label: string; value: string; colors: any }) {
   return (
-    <View style={[styles.rxChip, { backgroundColor: colors.glass }]}>
-      <Text style={[styles.rxLabel, { color: colors.textMuted }]}>{label}</Text>
-      <Text style={[styles.rxValue, { color: colors.textOnDark }]}>{value}</Text>
+    <View style={[styles.rxChip, { backgroundColor: colors.cream03, borderWidth: 1, borderColor: colors.cream10 }]}>
+      <Text style={[styles.rxLabel, { color: colors.muted }]}>{label}</Text>
+      <Text style={[styles.rxValue, { color: colors.tomoCream }]}>{value}</Text>
     </View>
   );
 }
@@ -853,8 +853,10 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.creamSubtle,
+    borderRadius: 14,
+    backgroundColor: colors.cream03,
+    borderWidth: 1,
+    borderColor: colors.cream10,
     marginBottom: spacing.xs,
   },
   searchInput: {
@@ -875,7 +877,7 @@ const styles = StyleSheet.create({
     padding: spacing.compact,
     gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.creamSubtle,
+    borderBottomColor: colors.cream10,
   },
   searchResultName: {
     fontFamily: fontFamily.medium,
@@ -915,7 +917,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  aiBadgeText: { fontFamily: fontFamily.semiBold, fontSize: 11, color: colors.info },
+  aiBadgeText: { fontFamily: fontFamily.semiBold, fontSize: 11, color: colors.tomoSage },
   heroSubtitle: { fontFamily: fontFamily.regular, fontSize: 13, marginBottom: spacing.md },
   statsRow: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md },
   statChip: { flex: 1, borderRadius: borderRadius.sm, paddingVertical: 8, alignItems: 'center' },
@@ -959,9 +961,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   priorityDot: { width: 8, height: 8, borderRadius: 4 },
-  groupLabel: { fontFamily: fontFamily.bold, fontSize: 15 },
+  groupLabel: { fontFamily: fontFamily.semiBold, fontSize: 14, letterSpacing: -0.2 },
   countBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  countBadgeText: { fontFamily: fontFamily.bold, fontSize: 12 },
+  countBadgeText: { fontFamily: fontFamily.semiBold, fontSize: 12 },
   groupDesc: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 17, marginBottom: 4 },
   showMoreBtn: {
     flexDirection: 'row',
@@ -1024,7 +1026,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     alignSelf: 'flex-start',
   },
-  warningText: { fontFamily: fontFamily.medium, fontSize: 11, color: colors.error },
+  warningText: { fontFamily: fontFamily.regular, fontSize: 11, color: colors.error },
 
   // Expanded
   expandedContent: { marginTop: spacing.sm, gap: spacing.sm },
@@ -1110,12 +1112,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   cardActionBtnDefault: {
-    backgroundColor: colors.chipBackground,
-    borderColor: colors.glassBorder,
+    backgroundColor: colors.cream06,
+    borderColor: colors.cream10,
   },
   cardActionBtnSelected: {
-    backgroundColor: 'rgba(122, 155, 118, 0.12)',
-    borderColor: colors.accent,
+    backgroundColor: colors.sage12,
+    borderColor: colors.sage30,
   },
   cardActionText: {
     fontFamily: fontFamily.medium,
@@ -1175,6 +1177,6 @@ const styles = StyleSheet.create({
   ctaButtonText: {
     fontFamily: fontFamily.semiBold,
     fontSize: 13,
-    color: colors.textPrimary,
+    color: colors.tomoCream,
   },
 });

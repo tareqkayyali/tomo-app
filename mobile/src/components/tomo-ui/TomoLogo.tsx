@@ -1,10 +1,18 @@
 /**
- * TomoLogo — v0 SignalArcs SVG logo with "tomo" wordmark.
- * 3 concentric arcs + center dot. Variants: icon, wordmark, full (with tagline).
+ * TomoLogo — Bond mark + "tomo" wordmark.
+ *
+ * Bond is the brand mark: two circles of radius 26 (in a 100-unit field),
+ * tangent at the center, each with a 5° aperture cut from its outer end.
+ * See tomo_handoff/brand-guide.md and tomo_handoff/react/Bond.tsx for the
+ * canonical definition; path coordinates below match that file exactly for
+ * aperture=5°.
+ *
+ * API preserved from the v0 SignalArcs logo so existing call-sites work
+ * unchanged: <TomoLogo variant="icon|wordmark|full" size="sm|md|lg"/>.
  */
 import React, { memo } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../hooks/useTheme';
 import { fontFamily } from '../../theme/typography';
 
@@ -16,30 +24,32 @@ export interface TomoLogoProps {
   size?: LogoSize;
 }
 
-const SIZE_MAP: Record<LogoSize, { svgSize: number; textSize: number; taglineSize: number; gap: number }> = {
-  sm: { svgSize: 24, textSize: 20, taglineSize: 8, gap: 6 },
-  md: { svgSize: 32, textSize: 24, taglineSize: 9, gap: 8 },
-  lg: { svgSize: 48, textSize: 36, taglineSize: 10, gap: 10 },
+// Bond aspect ratio: viewBox is -5 22 110 56 → 110 wide × 56 tall.
+// Sizing is keyed off the MARK HEIGHT so wordmark/text rhythm is preserved
+// with the old v0 logo which was square.
+const SIZE_MAP: Record<LogoSize, { markHeight: number; textSize: number; taglineSize: number; gap: number }> = {
+  sm: { markHeight: 24, textSize: 20, taglineSize: 8,  gap: 6 },
+  md: { markHeight: 32, textSize: 24, taglineSize: 9,  gap: 8 },
+  lg: { markHeight: 48, textSize: 36, taglineSize: 10, gap: 10 },
 };
 
-function SignalArcs({ size, color }: { size: number; color: string }) {
+const BOND_ASPECT = 110 / 56; // width / height
+
+function BondMark({ height, color }: { height: number; color: string }) {
+  const width = height * BOND_ASPECT;
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Center dot */}
-      <Circle cx={12} cy={18} r={2} fill={color} />
-      {/* Inner arc */}
+    <Svg width={width} height={height} viewBox="-5 22 110 56" fill="none">
       <Path
-        d="M 8 14 C 8 11.8 9.8 10 12 10 C 14.2 10 16 11.8 16 14"
+        d="M -1.9753 48.8659 A 26 26 0 1 1 -1.9753 51.1341"
         stroke={color}
-        strokeWidth={1.5}
+        strokeWidth={7}
         strokeLinecap="round"
         fill="none"
       />
-      {/* Middle arc */}
       <Path
-        d="M 5 11 C 5 7.1 8.1 4 12 4 C 15.9 4 19 7.1 19 11"
+        d="M 101.9753 51.1341 A 26 26 0 1 1 101.9753 48.8659"
         stroke={color}
-        strokeWidth={1.5}
+        strokeWidth={7}
         strokeLinecap="round"
         fill="none"
       />
@@ -53,21 +63,30 @@ const TomoLogo: React.FC<TomoLogoProps> = memo(({
 }) => {
   const { colors } = useTheme();
   const s = SIZE_MAP[size];
-  const accentColor = colors.electricGreen;
+  const markColor = colors.tomoSage;
 
   if (variant === 'icon') {
-    return <SignalArcs size={s.svgSize} color={accentColor} />;
+    return <BondMark height={s.markHeight} color={markColor} />;
   }
 
   return (
     <View style={styles.container}>
       <View style={[styles.row, { gap: s.gap }]}>
-        <SignalArcs size={s.svgSize} color={accentColor} />
-        <Text style={[styles.wordmark, { fontSize: s.textSize, color: colors.textPrimary }]}>
+        <BondMark height={s.markHeight} color={markColor} />
+        <Text
+          style={[
+            styles.wordmark,
+            {
+              fontSize: s.textSize,
+              color: colors.textPrimary,
+              letterSpacing: s.textSize * -0.035,
+            },
+          ]}
+        >
           tomo
         </Text>
       </View>
-      {(variant === 'full') && (
+      {variant === 'full' && (
         <Text style={[styles.tagline, { fontSize: s.taglineSize, color: colors.textDisabled }]}>
           TRAIN SMARTER
         </Text>
@@ -85,8 +104,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   wordmark: {
-    fontFamily: fontFamily.semiBold,
-    letterSpacing: -0.5,
+    fontFamily: fontFamily.medium,
   },
   tagline: {
     fontFamily: fontFamily.medium,

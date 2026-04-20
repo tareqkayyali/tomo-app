@@ -9,18 +9,19 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { colors, spacing, fontFamily, layout, borderRadius } from '../theme';
 import { API_BASE_URL, healthCheck } from '../services/api';
 import { getIdToken, getCurrentUser } from '../services/auth';
 
 export function DiagnosticsScreen() {
+  const navigation = useNavigation<any>();
   const [healthStatus, setHealthStatus] = useState<string | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const [tokenStatus, setTokenStatus] = useState<string | null>(null);
@@ -66,10 +67,12 @@ export function DiagnosticsScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.header}>Diagnostics</Text>
-
+    <PlayerScreen
+      label="SYSTEM"
+      title="Diagnostics"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.content}
+    >
         {/* API Base URL */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>API Base URL</Text>
@@ -124,8 +127,7 @@ export function DiagnosticsScreen() {
             </Text>
           )}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

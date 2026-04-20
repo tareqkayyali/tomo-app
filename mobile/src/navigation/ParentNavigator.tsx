@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { TomoIcon } from '../components/tomo-ui';
 
@@ -188,37 +188,37 @@ export function ParentNavigator() {
       <Stack.Screen
         name="ParentChildDetail"
         component={ParentChildDetailScreen}
-        options={{ headerShown: true, title: 'Child Detail', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ParentEducationProgress"
         component={ParentEducationProgressScreen}
-        options={{ headerShown: true, title: 'Education Progress', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ParentDailyView"
         component={ParentCalendarScreen as any}
-        options={{ headerShown: true, title: 'Daily View', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ParentAddStudy"
         component={ParentAddStudyScreen}
-        options={{ headerShown: true, title: 'Add Study Block', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ParentAddExam"
         component={ParentAddExamScreen}
-        options={{ headerShown: true, title: 'Add Exam', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="RecommendEvent"
         component={RecommendEventScreen}
-        options={{ headerShown: true, title: 'Recommend', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ParentInvite"
         component={ParentInviteScreen}
-        options={{ headerShown: true, title: 'Invite Code', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="Profile"

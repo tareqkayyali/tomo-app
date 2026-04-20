@@ -9,13 +9,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Input } from '../components';
@@ -32,6 +30,7 @@ import { supabase } from '../services/supabase';
 import { loadSignupState } from '../services/signupState';
 import type { AuthStackParamList } from '../navigation/types';
 import type { Sport, UserRole } from '../types';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 type SignupScreenProps = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
@@ -196,28 +195,24 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
   // While we check for a valid age-gate handoff, render nothing so
   // the user doesn't see a flash of the form before the redirect.
   if (hasPendingSignup === null) {
-    return <SafeAreaView style={styles.container} />;
+    return <PlayerScreen label="WELCOME" title="Create account"><View /></PlayerScreen>;
   }
   if (hasPendingSignup === false) {
     // Redirect is in flight from the useEffect above; render nothing.
-    return <SafeAreaView style={styles.container} />;
+    return <PlayerScreen label="WELCOME" title="Create account"><View /></PlayerScreen>;
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <PlayerScreen
+      label="WELCOME"
+      title="Create account"
+      caption={step === 1 ? 'Step 1: Account Details' : 'Step 2: About You'}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* ─── Header ──────────────────────────────────────────── */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>
-              {step === 1 ? 'Step 1: Account Details' : 'Step 2: About You'}
-            </Text>
-          </View>
-
+        <View style={styles.scrollContent}>
           {/* ─── Progress Indicator ──────────────────────────────── */}
           <View style={styles.progressContainer}>
             <View style={[styles.progressDot, step >= 1 && styles.progressDotActive]} />
@@ -414,9 +409,9 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
               <Text style={styles.link}>Sign In</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

@@ -17,8 +17,8 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -284,25 +284,20 @@ export function PHVCalculatorScreen() {
   const categoryInfo = result ? CATEGORY_DISPLAY[result.maturityCategory] : null;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.headerArea}>
-        <TouchableOpacity onPress={() => {
-          if (Platform.OS === 'web' && window.history.length > 1) {
-            window.history.back();
-          } else if (navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            (navigation as any).navigate('MainTabs');
-          }
-        }} style={styles.backButton} activeOpacity={0.7}>
-          <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Calculate Your Growth Stage</Text>
-        </View>
-      </View>
-
+    <PlayerScreen
+      label="CALCULATOR"
+      title="PHV"
+      onBack={() => {
+        if (Platform.OS === 'web' && window.history.length > 1) {
+          window.history.back();
+        } else if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          (navigation as any).navigate('MainTabs');
+        }
+      }}
+      scroll={false}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -609,7 +604,7 @@ export function PHVCalculatorScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

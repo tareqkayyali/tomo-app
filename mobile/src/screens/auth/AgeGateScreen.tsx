@@ -19,17 +19,16 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
-  ScrollView,
   Linking,
   Pressable,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SmartIcon } from '../../components/SmartIcon';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import {
   colors,
   spacing,
@@ -150,7 +149,7 @@ export function AgeGateScreen({ navigation }: Props) {
 
   if (blocked) {
     return (
-      <SafeAreaView style={styles.container}>
+      <PlayerScreen label="AGE" title="Verify age" scroll={false}>
         <View style={styles.blockedWrap}>
           <SmartIcon name="alert-circle-outline" size={56} color={colors.accent2} />
           <Text style={styles.blockedTitle}>Tomo is for athletes 13 and up.</Text>
@@ -165,19 +164,18 @@ export function AgeGateScreen({ navigation }: Props) {
             <Text style={styles.blockedLinkText}>Back to sign in</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <PlayerScreen label="AGE" title="Verify age" contentStyle={styles.scrollContent}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-            <Text style={styles.title}>When's your birthday?</Text>
+            <Text style={styles.heroTitle}>When's your birthday?</Text>
             <Text style={styles.subtitle}>
               Tomo uses this to keep your training safe for your age.
             </Text>
@@ -297,19 +295,17 @@ export function AgeGateScreen({ navigation }: Props) {
               <Text style={styles.link}>Sign In</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   keyboardView: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: layout.screenMargin,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xxl,
     maxWidth: layout.authMaxWidth,
     width: '100%',
@@ -320,7 +316,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     marginBottom: spacing.md,
   },
-  title: {
+  heroTitle: {
     fontFamily: fontFamily.bold,
     fontSize: 28,
     color: colors.textOnDark,

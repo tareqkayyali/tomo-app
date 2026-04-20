@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  SafeAreaView,
   ActivityIndicator,
   Platform,
 } from 'react-native';
@@ -20,6 +19,7 @@ import { SmartIcon } from '../../components/SmartIcon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { suggestStudyBlock } from '../../services/api';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
@@ -94,7 +94,7 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
 
   if (success) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <PlayerScreen label="STUDY" title="Add block" onBack={() => navigation.goBack()} scroll={false}>
         <View style={styles.successContainer}>
           <View style={[styles.successIcon, { backgroundColor: colors.success + '22' }]}>
             <SmartIcon name="checkmark-circle" size={64} color={colors.success} />
@@ -110,13 +110,13 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
             <Text style={[styles.doneButtonText, { color: colors.textOnDark }]}>Done</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <PlayerScreen label="STUDY" title="Add block" onBack={() => navigation.goBack()}>
+      <View style={styles.scroll}>
         <Text style={[styles.header, { color: colors.textOnDark }]}>
           Add Study Block for {childName}
         </Text>
@@ -273,8 +273,8 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
             <Text style={[styles.submitText, { color: colors.textOnDark }]}>Suggest Study Block</Text>
           )}
         </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+    </PlayerScreen>
   );
 }
 

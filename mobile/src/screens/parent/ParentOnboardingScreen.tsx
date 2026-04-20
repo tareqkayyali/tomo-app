@@ -14,15 +14,14 @@ import {
   Platform,
   Alert,
   KeyboardAvoidingView,
-  ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../../components/SmartIcon';
 import Animated, { SlideInRight, SlideInLeft } from 'react-native-reanimated';
 
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 import { Input } from '../../components/Input';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { linkChildByEmail, submitOnboarding } from '../../services/api';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import { ParentLinkByCodeScreen } from './ParentLinkByCodeScreen';
@@ -123,7 +122,12 @@ export function ParentOnboardingScreen() {
   const enterAnimation = slideDirection === 'right' ? SlideInRight.duration(300) : SlideInLeft.duration(300);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <PlayerScreen
+      label="WELCOME"
+      title="Parent onboarding"
+      contentStyle={styles.scrollContent}
+      scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -141,11 +145,7 @@ export function ParentOnboardingScreen() {
           />
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.stepsWrap}>
           {/* ── Step 1: Welcome ────────────────────── */}
           {step === 'welcome' && (
             <Animated.View entering={enterAnimation} style={styles.stepContainer}>
@@ -195,10 +195,7 @@ export function ParentOnboardingScreen() {
           {/* ── Step 2b: Link by code (child-initiated consent flow) ── */}
           {step === 'code' && (
             <Animated.View entering={enterAnimation} style={styles.codeWrap}>
-              <Pressable onPress={goBackToWelcome} style={styles.backButton}>
-                <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
-              </Pressable>
-              <ParentLinkByCodeScreen />
+              <ParentLinkByCodeScreen onBack={goBackToWelcome} />
             </Animated.View>
           )}
 
@@ -293,9 +290,9 @@ export function ParentOnboardingScreen() {
               </Pressable>
             </Animated.View>
           )}
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 
@@ -320,12 +317,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: layout.screenMargin,
-    paddingBottom: spacing.xxl,
     maxWidth: layout.authMaxWidth,
     alignSelf: 'center',
     width: '100%',
+  },
+  stepsWrap: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: layout.screenMargin,
+    paddingBottom: spacing.xxl,
   },
   stepContainer: {
     alignItems: 'center',

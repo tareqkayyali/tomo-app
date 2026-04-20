@@ -19,9 +19,9 @@ import {
   FlatList,
   TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import * as Haptics from 'expo-haptics';
 import {
   spacing,
@@ -341,7 +341,12 @@ export function RecommendEventScreen({ navigation, route }: Props) {
   // ─── Render ───────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <PlayerScreen
+      label="RECOMMEND"
+      title="Suggest event"
+      onBack={() => navigation.goBack()}
+      scroll={false}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -594,7 +599,7 @@ export function RecommendEventScreen({ navigation, route }: Props) {
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

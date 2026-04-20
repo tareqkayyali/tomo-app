@@ -19,8 +19,8 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import Animated, {
   FadeInRight,
   FadeOutLeft,
@@ -423,7 +423,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
   // ---- Completion view ----
   if (isComplete) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+      <PlayerScreen label="CHECK IN" title="How are you?" scroll={false}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl }}>
           <Animated.View style={[{
             width: 100,
@@ -536,69 +536,47 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
             colors={[colors.accent1, colors.accent2, colors.tierGold, colors.textPrimary]}
           />
         )}
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   // ---- Wizard ----
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
-      {/* Header: back + dot progress */}
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: spacing.lg,
-        paddingTop: spacing.md,
-        paddingBottom: spacing.sm,
-      }}>
-        <Pressable
-          onPress={goBack}
-          hitSlop={12}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: colors.inputBackground,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          accessibilityLabel="Go back"
-        >
-          <SmartIcon name={stepIndex === 0 ? 'close' : 'arrow-back'} size={20} color={colors.textInactive} />
-        </Pressable>
-
-        {/* Dot progress (Stories-style) */}
-        <View style={{
-          flex: 1,
-          flexDirection: 'row',
-          justifyContent: 'center',
-          gap: 6,
-          marginHorizontal: spacing.md,
-        }}>
-          {CHECKIN_STEPS.map((_, i) => (
-            <View
-              key={i}
-              style={{
-                flex: 1,
-                height: 3,
-                borderRadius: 2,
-                backgroundColor: i <= stepIndex ? colors.accent1 : colors.borderLight,
-                maxWidth: 40,
-              }}
-            />
-          ))}
-        </View>
-
-        {/* Skip button (only for skippable, non-last steps) */}
-        {currentStep.skippable && !isLastStep ? (
+    <PlayerScreen
+      label="CHECK IN"
+      title="How are you?"
+      onBack={goBack}
+      scroll={false}
+      right={
+        currentStep.skippable && !isLastStep ? (
           <Pressable onPress={goNext} hitSlop={12} accessibilityLabel="Skip question">
             <Text style={{ fontFamily: fontFamily.medium, fontSize: 14, color: colors.textMuted }}>
               Skip
             </Text>
           </Pressable>
-        ) : (
-          <View style={{ width: 36 }} />
-        )}
+        ) : undefined
+      }
+    >
+      {/* Dot progress (Stories-style) */}
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 6,
+        paddingHorizontal: spacing.lg,
+        paddingBottom: spacing.sm,
+      }}>
+        {CHECKIN_STEPS.map((_, i) => (
+          <View
+            key={i}
+            style={{
+              flex: 1,
+              height: 3,
+              borderRadius: 2,
+              backgroundColor: i <= stepIndex ? colors.accent1 : colors.borderLight,
+              maxWidth: 40,
+            }}
+          />
+        ))}
       </View>
 
       <ScrollView
@@ -704,7 +682,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
           </Pressable>
         </View>
       )}
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

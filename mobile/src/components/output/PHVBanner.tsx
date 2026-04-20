@@ -40,7 +40,7 @@ function stageLabel(stage: string | null): string {
 
 /** Color for offset value based on stage */
 function offsetColor(stage: string | null): string {
-  if (!stage) return colors.textSecondary;
+  if (!stage) return colors.muted;
   if (stage === 'at-phv') return colors.accent;
   if (stage.startsWith('post-phv')) return colors.accent;
   return colors.info;
@@ -58,10 +58,10 @@ export function PHVBanner({ phvOffset, phvStage, ltadStage, onCalculatePress }: 
           noPadding
         >
           <View style={styles.row}>
-            <Text style={[styles.label, { color: colors.textOnDark }]}>
+            <Text style={[styles.label, { color: colors.tomoCream }]}>
               Growth Stage
             </Text>
-            <Text style={[styles.ctaText, { color: colors.accent1 }]}>
+            <Text style={[styles.ctaText, { color: colors.tomoSage }]}>
               Calculate My PHV &rarr;
             </Text>
           </View>
@@ -77,18 +77,18 @@ export function PHVBanner({ phvOffset, phvStage, ltadStage, onCalculatePress }: 
   return (
     <GlassCard style={styles.container} noPadding>
       <View style={styles.row}>
-        <SmartIcon name="resize-outline" size={16} color={colors.textOnDark} style={{ marginRight: spacing.xs }} />
-        <Text style={[styles.offsetValue, { color: colors.textOnDark }]}>
+        <SmartIcon name="resize-outline" size={16} color={colors.tomoCream} style={{ marginRight: spacing.xs }} />
+        <Text style={[styles.offsetValue, { color: colors.tomoCream }]}>
           {phvOffset > 0 ? '+' : ''}{phvOffset} yrs
         </Text>
-        <View style={[styles.badge, { backgroundColor: colors.creamMuted }]}>
-          <Text style={[styles.badgeText, { color: colors.textOnDark }]}>{ltadStage || label}</Text>
+        <View style={[styles.badge, { backgroundColor: colors.cream10 }]}>
+          <Text style={[styles.badgeText, { color: colors.tomoCream }]}>{ltadStage || label}</Text>
         </View>
         <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={onCalculatePress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <View style={styles.recalcRow}>
-            <SmartIcon name="refresh-outline" size={14} color={colors.textOnDark} />
-            <Text style={[styles.recalcText, { color: colors.textOnDark }]}>Recalculate</Text>
+            <SmartIcon name="refresh-outline" size={14} color={colors.tomoCream} />
+            <Text style={[styles.recalcText, { color: colors.tomoCream }]}>Recalculate</Text>
           </View>
         </TouchableOpacity>
       </View>

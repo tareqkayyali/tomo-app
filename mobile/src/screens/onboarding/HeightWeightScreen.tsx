@@ -10,15 +10,14 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SmartIcon } from '../../components/SmartIcon';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import {
   colors,
   spacing,
@@ -69,17 +68,21 @@ export function HeightWeightScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <PlayerScreen
+      label="PROFILE"
+      title="Body"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scroll}
+      scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.kav}
       >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: '75%' }]} />
           </View>
           <Text style={styles.stepLabel}>Step 3 of 4</Text>
-          <Text style={styles.title}>How tall are you?</Text>
           <Text style={styles.subtitle}>
             This lets Tomo keep your training load safe for your growth stage.
           </Text>
@@ -143,19 +146,17 @@ export function HeightWeightScreen({ navigation }: Props) {
           >
             <Text style={styles.continueBtnText}>{loading ? 'Saving...' : 'Continue'}</Text>
           </TouchableOpacity>
-        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   kav: { flex: 1 },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: layout.screenMargin,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xxl,
     maxWidth: layout.authMaxWidth,
     width: '100%',

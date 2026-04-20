@@ -40,9 +40,12 @@ interface ModeDefinition {
   params: Record<string, unknown>;
 }
 
-// Fallback colors when CMS mode has no color
+// Fallback colors when CMS mode has no color. Balanced uses the Tomo
+// sphere's highlight shade (tomoSageDim, #9AB896) so the mode hero's big
+// label, indicator bar, and pill border all match the shiny sage used in
+// the AI Chat sphere's core gradient.
 const MODE_FALLBACK_COLORS: Record<string, string> = {
-  balanced: '#30D158',
+  balanced: '#9AB896',
   league: '#FF6B35',
   study: '#00D9FF',
   rest: '#AF52DE',
@@ -112,7 +115,13 @@ export function AthleteModeHero({
     return modes.find((m) => m.id === effectiveMode) ?? null;
   }, [modes, effectiveMode]);
 
-  const modeColor = activeMode?.color ?? MODE_FALLBACK_COLORS[effectiveMode] ?? '#7a9b76';
+  // For 'balanced' we always force the Tomo sphere shine (#9AB896) —
+  // ignoring any CMS override — so Balanced mode is visually the Tomo
+  // brand sage wherever it appears (hero, mode pills, bottom banner).
+  const modeColor =
+    effectiveMode === 'balanced'
+      ? MODE_FALLBACK_COLORS.balanced
+      : activeMode?.color ?? MODE_FALLBACK_COLORS[effectiveMode] ?? '#7a9b76';
 
   // Handle mode switch — optimistic UI + server persist + boot refresh
   const handleModeChange = useCallback(
@@ -181,7 +190,12 @@ export function AthleteModeHero({
         <View style={styles.modeCards}>
           {modes.map((mode) => {
             const isActive = mode.id === effectiveMode;
-            const cardColor = mode.color ?? MODE_FALLBACK_COLORS[mode.id] ?? '#666';
+            // Same rule as modeColor — Balanced is always the Tomo sage
+            // shine, regardless of CMS color overrides.
+            const cardColor =
+              mode.id === 'balanced'
+                ? MODE_FALLBACK_COLORS.balanced
+                : mode.color ?? MODE_FALLBACK_COLORS[mode.id] ?? '#666';
 
             return (
               <TouchableOpacity

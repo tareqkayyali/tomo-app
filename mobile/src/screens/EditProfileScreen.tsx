@@ -9,7 +9,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Alert,
@@ -18,6 +17,7 @@ import {
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
 import { Button, Card, ErrorState } from '../components';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { colors, spacing, typography, borderRadius, fontFamily } from '../theme';
 import { updateUser, createCalendarEvent } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
@@ -324,8 +324,12 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <PlayerScreen
+      label="PROFILE"
+      title="Edit"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
+    >
         {error !== '' && (
           <ErrorState message={error} compact />
         )}
@@ -763,8 +767,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
           size="large"
           icon="checkmark"
         />
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

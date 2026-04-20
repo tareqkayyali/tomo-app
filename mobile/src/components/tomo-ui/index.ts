@@ -5,8 +5,11 @@
  * glossy buttons, segmented readiness, Phosphor icons, circular progress.
  */
 
-export { default as TomoIcon, TOMO_ICON_MAP } from './TomoIcon';
+export { default as TomoIcon, SEMANTIC_TO_BOND } from './TomoIcon';
 export type { TomoIconProps } from './TomoIcon';
+
+export { default as Bond } from './Bond';
+export type { BondProps } from './Bond';
 
 export { default as TomoCard } from './TomoCard';
 export type { TomoCardProps } from './TomoCard';

@@ -14,7 +14,7 @@ import {
   UIManager,
   StyleSheet,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import TomoIcon from '../tomo-ui/TomoIcon';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 
 // Enable LayoutAnimation on Android
@@ -68,8 +68,8 @@ export function WhyPanel({ protocols, defaultExpanded = false }: WhyPanelProps) 
         ]}
       >
         <Text style={styles.headerText}>Why this plan?</Text>
-        <Ionicons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
+        <TomoIcon
+          name={expanded ? 'Chevron-up' : 'Chevron-down'}
           size={18}
           color={colors.textSecondary}
         />

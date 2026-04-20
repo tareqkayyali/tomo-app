@@ -15,8 +15,8 @@ import {
   RefreshControl,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { useIsFocused } from '@react-navigation/native';
 import Animated, {
   useSharedValue,
@@ -25,12 +25,6 @@ import Animated, {
   FadeIn,
 } from 'react-native-reanimated';
 import { SkeletonCard, ErrorState } from '../components';
-import { QuickAccessBar, type QuickAction } from '../components/QuickAccessBar';
-import { useQuickActions } from '../hooks/useQuickActions';
-import { HeaderProfileButton } from '../components/HeaderProfileButton';
-import { NotificationBell } from '../components/NotificationBell';
-import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
-import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import { MasteryContent } from '../components/mastery/MasteryContent';
 import { useMasteryData } from '../hooks/useMasteryData';
@@ -53,7 +47,6 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainTabParamList, MainStackParamList } from '../navigation/types';
-import { usePageConfig } from '../hooks/usePageConfig';
 import { CoachNote, TomoButton } from '../components/tomo-ui';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -112,9 +105,7 @@ export function ProgressScreen({
 }: ProgressScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const pageConfig = usePageConfig('mastery');
   const { profile } = useAuth();
-  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const isFocused = useIsFocused();
 
   // Primary data
@@ -200,85 +191,58 @@ export function ProgressScreen({
     navigation.navigate('Dashboard' as any);
   }, [navigation]);
 
-  // QuickAccessBar actions — page-specific + favorites + more
-  const quickActions = useQuickActions(
-    { key: 'metrics', icon: 'stats-chart-outline', label: 'My Metrics', onPress: goToMyMetrics, accentColor: colors.accent1 },
-    navigation,
-  );
-
-  // Shared header (matches Timeline & Output screens)
-  const renderHeader = () => (
-    <View style={styles.headerArea}>
-      {!isExternalView ? (
-        <QuickAccessBar actions={quickActions} />
-      ) : (
-        <Text style={[styles.externalLabel, { color: colors.textMuted }]}>
-          {(targetPlayerName || 'Player').toUpperCase()} · {(pageConfig?.metadata?.pageTitle || 'MASTERY').toUpperCase()}
-        </Text>
-      )}
-      <View style={styles.headerRight}>
-        <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
-        <NotificationBell />
-        <HeaderProfileButton
-          initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
-          photoUrl={profile?.photoUrl}
-        />
-      </View>
-    </View>
-  );
-
-  // Wrapper: use SafeAreaView for own screen, plain View for embedded
-  const Wrapper = isExternalView ? View : SafeAreaView;
-  const wrapperProps = isExternalView ? { style: styles.container } : { style: styles.container, edges: ['top'] as const };
-
   // ── Loading state ──
   if (isLoading) {
+    if (isExternalView) {
+      return (
+        <View style={styles.container}>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </ScrollView>
+        </View>
+      );
+    }
     return (
-      <Wrapper {...wrapperProps as any}>
-        {!isExternalView && renderHeader()}
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </ScrollView>
-      </Wrapper>
+      <PlayerScreen label="PROGRESS" title="Your journey" onBack={() => navigation.goBack()} contentStyle={styles.scrollContent}>
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </PlayerScreen>
     );
   }
 
   // ── Error state ──
   if (masteryError && !masteryData) {
+    if (isExternalView) {
+      return (
+        <View style={styles.container}>
+          <View style={{ flex: 1, justifyContent: 'center', padding: layout.screenMargin }}>
+            <ErrorState
+              message="Could not load mastery data. Pull to retry."
+              onRetry={refresh}
+            />
+          </View>
+        </View>
+      );
+    }
     return (
-      <Wrapper {...wrapperProps as any}>
-        {!isExternalView && renderHeader()}
+      <PlayerScreen label="PROGRESS" title="Your journey" onBack={() => navigation.goBack()} scroll={false}>
         <View style={{ flex: 1, justifyContent: 'center', padding: layout.screenMargin }}>
           <ErrorState
             message="Could not load mastery data. Pull to retry."
             onRetry={refresh}
           />
         </View>
-      </Wrapper>
+      </PlayerScreen>
     );
   }
 
-  return (
-    <Wrapper {...wrapperProps as any}>
-      {!isExternalView && renderHeader()}
-
-      <View style={{ flex: 1 }}>
-        <ScrollFadeOverlay />
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.accent1}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {masteryError && (
+  // Build content (shared between external and player screen)
+  const content = (
+    <>
+      {masteryError && (
             <ErrorState
               message="Showing cached data — unable to reach server."
               onRetry={refresh}
@@ -329,9 +293,48 @@ export function ProgressScreen({
               />
             )}
           </Animated.View>
-        </ScrollView>
+    </>
+  );
+
+  const scrollProps = {
+    refreshControl: (
+      <RefreshControl
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        tintColor={colors.accent1}
+      />
+    ),
+    keyboardShouldPersistTaps: 'handled' as const,
+  };
+
+  if (isExternalView) {
+    return (
+      <View style={styles.container}>
+        <View style={{ flex: 1 }}>
+          <ScrollFadeOverlay />
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            {...scrollProps}
+            showsVerticalScrollIndicator={false}
+          >
+            {content}
+          </ScrollView>
+        </View>
       </View>
-    </Wrapper>
+    );
+  }
+
+  return (
+    <PlayerScreen
+      label="PROGRESS"
+      title="Your journey"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
+      scrollProps={scrollProps}
+    >
+      <ScrollFadeOverlay />
+      {content}
+    </PlayerScreen>
   );
 }
 

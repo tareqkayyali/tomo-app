@@ -17,7 +17,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../SmartIcon';
 import { AskTomoChip } from '../mastery/AskTomoChip';
 import Animated, { FadeInDown } from 'react-native-reanimated';

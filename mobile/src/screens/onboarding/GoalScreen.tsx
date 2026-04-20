@@ -12,12 +12,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SmartIcon } from '../../components/SmartIcon';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import {
   colors,
   spacing,
@@ -42,7 +41,7 @@ const GOALS: { value: Goal; label: string; body: string; icon: string }[] = [
   { value: 'have_fun',       label: 'Have fun',          body: 'Enjoy the game, stay active.',        icon: 'happy-outline' },
 ];
 
-export function GoalScreen({}: Props) {
+export function GoalScreen({ navigation }: Props) {
   const [selected, setSelected] = useState<Goal | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,13 +69,16 @@ export function GoalScreen({}: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <PlayerScreen
+      label="GOAL"
+      title="What drives you?"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scroll}
+    >
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: '100%' }]} />
         </View>
         <Text style={styles.stepLabel}>Step 4 of 4</Text>
-        <Text style={styles.title}>What matters most to you?</Text>
         <Text style={styles.subtitle}>Your goal shapes the coaching Tomo gives you.</Text>
 
         {error !== null && (
@@ -124,17 +126,15 @@ export function GoalScreen({}: Props) {
             {loading ? 'Setting you up...' : 'Start training'}
           </Text>
         </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: layout.screenMargin,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xxl,
     maxWidth: layout.authMaxWidth,
     width: '100%',

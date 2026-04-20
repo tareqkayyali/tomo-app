@@ -18,18 +18,12 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { SkeletonCard, ErrorState } from '../components';
 import { animation } from '../theme/spacing';
-import { HeaderProfileButton } from '../components/HeaderProfileButton';
-import { NotificationBell } from '../components/NotificationBell';
-import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
-import { useCheckinStatus } from '../hooks/useCheckinStatus';
-import { QuickAccessBar } from '../components/QuickAccessBar';
-import { useQuickActions } from '../hooks/useQuickActions';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import { TimeSection } from '../components/ownit';
 import type { ForYouRecommendation } from '../components/ownit';
@@ -234,7 +228,6 @@ export function ForYouScreen() {
   const { colors } = useTheme();
   const pageConfig = usePageConfig('own_it');
   const navigation = useNavigation<any>();
-  const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const {
     snapshot,
     sportsRecs,
@@ -248,10 +241,6 @@ export function ForYouScreen() {
     forceRefresh,
     refreshError,
   } = useOwnItData();
-  const quickActions = useQuickActions(
-    { key: 'refresh', icon: 'refresh-outline', label: 'Refresh', onPress: forceRefresh, accentColor: colors.accent },
-    navigation,
-  );
 
   const { profile } = useAuth();
   const playerName = profile?.name?.split(' ')[0] || 'Athlete';
@@ -301,42 +290,21 @@ export function ForYouScreen() {
   }, [navigation]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-      {/* ── Header ── */}
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          paddingHorizontal: layout.screenMargin,
-          paddingTop: spacing.sm,
-          paddingBottom: spacing.sm,
-        }}
-      >
-        {/* Left — QuickAccessBar */}
-        <QuickAccessBar actions={quickActions} />
-
-        {/* Right — Actions */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
-          <NotificationBell />
-          <HeaderProfileButton />
-        </View>
-      </View>
-
-      {/* ── Content ── */}
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 120 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
+    <PlayerScreen
+      label="FOR YOU"
+      title="Recommended"
+      onBack={() => navigation.goBack()}
+      scrollProps={{
+        keyboardShouldPersistTaps: 'handled',
+        refreshControl: (
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={colors.accent1}
           />
-        }
-      >
+        ),
+      }}
+    >
         <ScrollFadeOverlay />
 
         {/* ── Coach Greeting ── */}
@@ -543,7 +511,6 @@ export function ForYouScreen() {
             </Text>
           </View>
         )}
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }

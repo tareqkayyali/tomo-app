@@ -8,18 +8,19 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
-  ScrollView,
   RefreshControl,
   Pressable,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
 import { Card, ReadinessBadge, SkeletonCard, ErrorState, EmptyState } from '../components';
 import { colors, spacing, typography, borderRadius, fontFamily } from '../theme';
 import { getCheckins } from '../services/api';
 import type { Checkin } from '../types';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 export function HistoryScreen() {
+  const navigation = useNavigation();
   const [checkins, setCheckins] = useState<Checkin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,13 +57,15 @@ export function HistoryScreen() {
   const last30Days = getLast30Days(checkins);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+    <PlayerScreen
+      label="HISTORY"
+      title="History"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
+      scrollProps={{
+        refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />,
+      }}
+    >
         {/* Mini Calendar */}
         {!isLoading && !error && checkins.length > 0 && (
           <Card style={styles.calendarCard}>
@@ -175,8 +178,7 @@ export function HistoryScreen() {
             </View>
           ))
         )}
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 
@@ -220,7 +222,6 @@ function formatDayName(dateStr: string): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,

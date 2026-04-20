@@ -11,14 +11,13 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
-import { borderRadius, spacing } from '../../../theme/spacing';
 import type { SectionProps } from './DashboardSectionRenderer';
 
 const PRIORITY_COLORS: Record<string, string> = {
-  P1: '#A05A4A',
-  P2: '#c49a3c',
-  P3: '#5A8A9F',
-  P4: '#7a9b76',
+  P1: '#B08A7A',
+  P2: '#C8A27A',
+  P3: '#8A9BB0',
+  P4: '#7A9B76',
 };
 
 export const RecListSection = memo(function RecListSection({
@@ -35,27 +34,34 @@ export const RecListSection = memo(function RecListSection({
   if (displayed.length === 0) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.title, { color: colors.chalk }]}>AI Recommendations</Text>
+    <View style={[styles.container, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
+      <Text style={[styles.title, { color: colors.tomoCream }]}>AI Recommendations</Text>
 
       {displayed.map((rec, i) => {
         const pKey = `P${rec.priority}`;
-        const pColor = PRIORITY_COLORS[pKey] ?? colors.chalkDim;
+        const pColor = PRIORITY_COLORS[pKey] ?? colors.muted;
+        const isHighlighted = i === 0;
 
         return (
           <View
             key={rec.recId ?? `rec-${i}`}
-            style={[styles.recCard, { borderLeftColor: pColor }]}
+            style={[
+              styles.recCard,
+              {
+                backgroundColor: isHighlighted ? colors.sage15 : colors.cream03,
+                borderColor: isHighlighted ? colors.sage30 : colors.cream10,
+              },
+            ]}
           >
             <View style={styles.recHeader}>
               <Text style={[styles.recPriority, { color: pColor }]}>{pKey}</Text>
-              <Text style={[styles.recType, { color: colors.chalkDim }]}>
+              <Text style={[styles.recType, { color: 'rgba(245,243,237,0.35)' }]}>
                 {rec.type?.replace(/_/g, ' ')}
               </Text>
             </View>
-            <Text style={[styles.recTitle, { color: colors.chalk }]}>{rec.title}</Text>
+            <Text style={[styles.recTitle, { color: colors.tomoCream }]}>{rec.title}</Text>
             {showReasoning && rec.bodyShort ? (
-              <Text style={[styles.recBody, { color: colors.chalkDim }]}>
+              <Text style={[styles.recBody, { color: colors.muted }]}>
                 {rec.bodyShort}
               </Text>
             ) : null}
@@ -68,45 +74,47 @@ export const RecListSection = memo(function RecListSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 16,
   },
   title: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 14,
+    letterSpacing: -0.2,
     marginBottom: 12,
   },
   recCard: {
-    borderLeftWidth: 3,
-    paddingLeft: 12,
-    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
     marginBottom: 8,
   },
   recHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   recPriority: {
-    fontFamily: fontFamily.display,
+    fontFamily: fontFamily.semiBold,
     fontSize: 11,
-  },
-  recType: {
-    fontFamily: fontFamily.note,
-    fontSize: 10,
-    textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
+  recType: {
+    fontFamily: fontFamily.regular,
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
   recTitle: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 13,
   },
   recBody: {
-    fontFamily: fontFamily.note,
+    fontFamily: fontFamily.regular,
     fontSize: 12,
     lineHeight: 17,
-    marginTop: 2,
+    marginTop: 4,
   },
 });

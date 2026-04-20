@@ -9,7 +9,7 @@
 
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from './SmartIcon';
 import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';

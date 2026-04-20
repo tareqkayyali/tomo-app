@@ -19,13 +19,14 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
 import { SmartIcon } from '../../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { GlassCard } from '../../components';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { RatingPathway } from '../../components/RatingPathway';
 import type { PathwayLevel } from '../../components/RatingPathway';
 
@@ -363,7 +364,9 @@ export function FootballRatingScreen({ navigation }: Props) {
 
   if (progressLoading || !hasData || !card) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background }} />
+      <PlayerScreen label="RATING" title="Football" onBack={() => navigation.goBack()}>
+        <View style={{ flex: 1, backgroundColor: colors.background }} />
+      </PlayerScreen>
     );
   }
 
@@ -473,10 +476,11 @@ export function FootballRatingScreen({ navigation }: Props) {
   const entrance5 = useSpringEntrance(5);
 
   return (
-    <ScrollView
-      style={s.screen}
-      contentContainerStyle={s.content}
-      showsVerticalScrollIndicator={false}
+    <PlayerScreen
+      label="RATING"
+      title="Football"
+      onBack={() => navigation.goBack()}
+      contentStyle={s.content}
     >
       {/* ═══════ 1. Overall Rating Hero ═══════ */}
       <Animated.View style={entrance0}>
@@ -706,7 +710,7 @@ export function FootballRatingScreen({ navigation }: Props) {
           )}
         </GlassCard>
       </Animated.View>
-    </ScrollView>
+    </PlayerScreen>
   );
 }
 

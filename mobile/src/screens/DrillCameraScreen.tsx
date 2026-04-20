@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { colors, spacing, fontFamily, borderRadius } from '../theme';
 import { uploadDrillVideo, getFileSize } from '../services/storage';
 import { useAuth } from '../hooks/useAuth';
@@ -129,58 +130,62 @@ export function DrillCameraScreen({ navigation, route }: Props) {
   // Permission denied
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.center} edges={['top']}>
-        <SmartIcon name="camera-outline" size={64} color={colors.textInactive} />
-        <Text style={styles.permTitle}>Camera Access Required</Text>
-        <Text style={styles.permSub}>
-          Tomo needs camera access to record your training drills so you can review your form.
-        </Text>
-        <Pressable style={styles.permButton} onPress={requestPermission}>
-          <Text style={styles.permButtonText}>Grant Access</Text>
-        </Pressable>
-        <Pressable onPress={() => navigation.goBack()} style={styles.skipButton}>
-          <Text style={styles.skipButtonText}>Skip</Text>
-        </Pressable>
-      </SafeAreaView>
+      <PlayerScreen label="DRILL" title="Record" onBack={() => navigation.goBack()} scroll={false}>
+        <View style={styles.center}>
+          <SmartIcon name="camera-outline" size={64} color={colors.textInactive} />
+          <Text style={styles.permTitle}>Camera Access Required</Text>
+          <Text style={styles.permSub}>
+            Tomo needs camera access to record your training drills so you can review your form.
+          </Text>
+          <Pressable style={styles.permButton} onPress={requestPermission}>
+            <Text style={styles.permButtonText}>Grant Access</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.goBack()} style={styles.skipButton}>
+            <Text style={styles.skipButtonText}>Skip</Text>
+          </Pressable>
+        </View>
+      </PlayerScreen>
     );
   }
 
   // Video recorded — show review screen
   if (videoUri) {
     return (
-      <SafeAreaView style={styles.center} edges={['top']}>
-        <SmartIcon name="videocam" size={64} color={colors.accent1} />
-        <Text style={styles.reviewTitle}>Recording Complete</Text>
-        <Text style={styles.reviewSub}>{drillName}</Text>
+      <PlayerScreen label="DRILL" title="Record" onBack={() => navigation.goBack()} scroll={false}>
+        <View style={styles.center}>
+          <SmartIcon name="videocam" size={64} color={colors.accent1} />
+          <Text style={styles.reviewTitle}>Recording Complete</Text>
+          <Text style={styles.reviewSub}>{drillName}</Text>
 
-        {uploading ? (
-          <View style={styles.uploadingWrap}>
-            <ActivityIndicator color={colors.accent1} size="large" />
-            <Text style={styles.uploadText}>
-              Uploading... {Math.round(uploadProgress * 100)}%
-            </Text>
-            <View style={styles.progressTrack}>
-              <View
-                style={[styles.progressFill, { width: `${uploadProgress * 100}%` }]}
-              />
+          {uploading ? (
+            <View style={styles.uploadingWrap}>
+              <ActivityIndicator color={colors.accent1} size="large" />
+              <Text style={styles.uploadText}>
+                Uploading... {Math.round(uploadProgress * 100)}%
+              </Text>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[styles.progressFill, { width: `${uploadProgress * 100}%` }]}
+                />
+              </View>
             </View>
-          </View>
-        ) : (
-          <View style={styles.reviewActions}>
-            <Pressable style={styles.saveButton} onPress={handleSaveVideo}>
-              <SmartIcon name="cloud-upload-outline" size={22} color={colors.textPrimary} />
-              <Text style={styles.saveButtonText}>Save Recording</Text>
-            </Pressable>
-            <Pressable style={styles.retakeButton} onPress={handleDiscard}>
-              <SmartIcon name="refresh-outline" size={20} color={colors.accent1} />
-              <Text style={styles.retakeText}>Retake</Text>
-            </Pressable>
-            <Pressable onPress={() => navigation.goBack()} style={styles.skipButton}>
-              <Text style={styles.skipButtonText}>Discard & Go Back</Text>
-            </Pressable>
-          </View>
-        )}
-      </SafeAreaView>
+          ) : (
+            <View style={styles.reviewActions}>
+              <Pressable style={styles.saveButton} onPress={handleSaveVideo}>
+                <SmartIcon name="cloud-upload-outline" size={22} color={colors.textPrimary} />
+                <Text style={styles.saveButtonText}>Save Recording</Text>
+              </Pressable>
+              <Pressable style={styles.retakeButton} onPress={handleDiscard}>
+                <SmartIcon name="refresh-outline" size={20} color={colors.accent1} />
+                <Text style={styles.retakeText}>Retake</Text>
+              </Pressable>
+              <Pressable onPress={() => navigation.goBack()} style={styles.skipButton}>
+                <Text style={styles.skipButtonText}>Discard & Go Back</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </PlayerScreen>
     );
   }
 

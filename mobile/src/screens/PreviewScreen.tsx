@@ -7,10 +7,12 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SmartIcon } from '../components/SmartIcon';
 import { useTheme } from '../hooks/useTheme';
+import { useNavigation } from '@react-navigation/native';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { fontFamily, spacing, borderRadius } from '../theme';
 
 import { colors } from '../theme/colors';
@@ -30,37 +32,25 @@ function SectionTitle({ icon, label, colors }: { icon: string; label: string; co
 
 export function PreviewScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState(0);
   const tabs = ['All', 'Timeline', 'Output', 'Chat', 'Mastery', 'Own It'];
 
   return (
-    <SafeAreaView style={[ss.root, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={ss.header}>
-        <View>
-          <Text style={[ss.headerSub, { color: colors.textMuted }]}>TOMO · THEME PREVIEW</Text>
-          <Text style={[ss.headerTitle, { color: colors.textOnDark }]}>Component Showcase</Text>
+    <PlayerScreen
+      label="PREVIEW"
+      title="Preview"
+      onBack={() => navigation.goBack()}
+      contentStyle={ss.scrollContent}
+    >
+        {/* Tab filter */}
+        <View style={ss.tabRow}>
+          {tabs.map((t, i) => (
+            <Pressable key={t} onPress={() => setActiveTab(i)} style={[ss.tab, activeTab === i && { borderBottomColor: colors.accent1, borderBottomWidth: 2 }]}>
+              <Text style={[ss.tabText, { color: activeTab === i ? colors.accent1 : colors.textMuted }]}>{t}</Text>
+            </Pressable>
+          ))}
         </View>
-        <View style={ss.headerRight}>
-          <View style={[ss.iconBtn, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
-            <SmartIcon name="notifications-outline" size={18} color={colors.textOnDark} />
-          </View>
-          <View style={[ss.iconBtn, { backgroundColor: colors.accent1 + '22', borderColor: colors.accent1 }]}>
-            <SmartIcon name="person" size={18} color={colors.accent1} />
-          </View>
-        </View>
-      </View>
-
-      {/* Tab filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ss.tabRow} contentContainerStyle={ss.tabRowContent}>
-        {tabs.map((t, i) => (
-          <Pressable key={t} onPress={() => setActiveTab(i)} style={[ss.tab, activeTab === i && { borderBottomColor: colors.accent1, borderBottomWidth: 2 }]}>
-            <Text style={[ss.tabText, { color: activeTab === i ? colors.accent1 : colors.textMuted }]}>{t}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      <ScrollView style={ss.scroll} contentContainerStyle={ss.scrollContent}>
 
         {/* ═══ TIMELINE TAB ═══ */}
         {(activeTab === 0 || activeTab === 1) && <>
@@ -436,30 +426,7 @@ export function PreviewScreen() {
         </>}
 
         <View style={{ height: 80 }} />
-      </ScrollView>
-
-      {/* Bottom Tab Bar */}
-      <View style={[ss.tabBar, { backgroundColor: colors.backgroundElevated, borderTopColor: colors.borderLight }]}>
-        {[
-          { icon: 'calendar-outline' as const, label: 'Timeline' },
-          { icon: 'flash-outline' as const, label: 'Output' },
-          { icon: 'chatbubble-outline' as const, label: 'Tomo', active: true },
-          { icon: 'stats-chart-outline' as const, label: 'Mastery' },
-          { icon: 'star-outline' as const, label: 'Own It' },
-        ].map((t) => (
-          <View key={t.label} style={ss.tabBarItem}>
-            {t.active ? (
-              <LinearGradient colors={[colors.accent1, colors.accent2]} style={ss.centerTab}>
-                <SmartIcon name={t.icon} size={20} color={colors.textPrimary} />
-              </LinearGradient>
-            ) : (
-              <SmartIcon name={t.icon} size={22} color={colors.textInactive} />
-            )}
-            <Text style={[ss.tabBarLabel, { color: t.active ? colors.accent1 : colors.textInactive }]}>{t.label}</Text>
-          </View>
-        ))}
-      </View>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

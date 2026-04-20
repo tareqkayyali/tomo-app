@@ -25,7 +25,7 @@ import {
   Switch,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { useNavigation } from '@react-navigation/native';
 import { TomoLoader, PLAN_LOADER_MESSAGES } from '../components/TomoLoader';
 import { useTheme } from '../hooks/useTheme';
@@ -426,15 +426,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
   // ── Render ─────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-      {/* Back header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 }}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
-        </Pressable>
-        <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 18, color: colors.textOnDark, flex: 1 }}>Study Plan</Text>
-      </View>
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <PlayerScreen label="STUDY" title="Plan" onBack={() => navigation.goBack()} contentStyle={styles.scroll}>
 
       {/* ─── Latest Saved Plan ─── */}
       {savedPlans.length > 0 && (() => {
@@ -903,8 +895,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
           </>
         );
       })()}
-    </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

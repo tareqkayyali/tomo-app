@@ -4,13 +4,14 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
 import { useSpringEntrance } from '../hooks/useAnimations';
 import { useTheme } from '../hooks/useTheme';
 import { PadelRatingPathway } from '../components/PadelRatingPathway';
 import { GlassCard } from '../components/GlassCard';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { usePadelProgress } from '../hooks/usePadelProgress';
 import { useProMilestones } from '../hooks/useContentHelpers';
 import { getPadelLevel } from '../services/padelCalculations';
@@ -87,7 +88,7 @@ function RatingHistoryChart({
   );
 }
 
-export function PadelRatingScreen(_props: Props) {
+export function PadelRatingScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const milestones = useProMilestones('men');
@@ -129,17 +130,20 @@ export function PadelRatingScreen(_props: Props) {
   // Loading state
   if (isLoading) {
     return (
-      <View style={[s.screen, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.accent1} />
-      </View>
+      <PlayerScreen label="RATING" title="Padel" onBack={() => navigation.goBack()}>
+        <View style={{ justifyContent: 'center', alignItems: 'center', paddingTop: 80 }}>
+          <ActivityIndicator size="large" color={colors.accent1} />
+        </View>
+      </PlayerScreen>
     );
   }
 
   return (
-    <ScrollView
-      style={s.screen}
-      contentContainerStyle={s.content}
-      showsVerticalScrollIndicator={false}
+    <PlayerScreen
+      label="RATING"
+      title="Padel"
+      onBack={() => navigation.goBack()}
+      contentStyle={s.content}
     >
       {/* Rating Trend Chart */}
       <Animated.View style={entrance0}>
@@ -198,7 +202,7 @@ export function PadelRatingScreen(_props: Props) {
           />
         </GlassCard>
       </Animated.View>
-    </ScrollView>
+    </PlayerScreen>
   );
 }
 

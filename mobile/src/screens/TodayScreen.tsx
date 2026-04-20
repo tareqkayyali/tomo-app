@@ -8,12 +8,12 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   RefreshControl,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import {
   Button,
   Card,
@@ -103,26 +103,28 @@ export function TodayScreen({ navigation }: TodayScreenProps) {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </ScrollView>
-      </SafeAreaView>
+      <PlayerScreen label="TODAY" title="Focus" onBack={() => navigation.goBack()} contentStyle={styles.scrollContent}>
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </PlayerScreen>
     );
   }
 
   const { checkin, plan, progress, needsCheckin } = data || {};
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
+    <PlayerScreen
+      label="TODAY"
+      title="Focus"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
+      scrollProps={{
+        refreshControl: (
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+        ),
+      }}
+    >
         {/* Header */}
         <Animated.View style={[styles.header, fadeIn0]}>
           <View>
@@ -277,8 +279,7 @@ export function TodayScreen({ navigation }: TodayScreenProps) {
           </GradientCard>
           </Animated.View>
         )}
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

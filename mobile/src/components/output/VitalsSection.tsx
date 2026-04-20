@@ -25,10 +25,10 @@ interface Props {
 
 // Freshness colors
 const FRESHNESS_COLORS: Record<string, string> = {
-  fresh: colors.accent,
-  aging: colors.textSecondary,
-  stale: colors.textSecondary,
-  no_data: colors.textSecondary,
+  fresh: colors.tomoSage,
+  aging: colors.muted,
+  stale: colors.muted,
+  no_data: colors.muted,
 };
 
 // ── Metric title builder ──────────────────────────────────────────────
@@ -59,8 +59,8 @@ export function VitalsSection({ vitals, isWhoopConnected = false, onSyncNow }: P
       {/* BLOCK 1: RIGHT NOW                                         */}
       {/* ═══════════════════════════════════════════════════════════ */}
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.textOnDark }]}>Right Now</Text>
-        <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>Latest readings</Text>
+        <Text style={[styles.sectionTitle, { color: colors.tomoCream }]}>Right Now</Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>Latest readings</Text>
       </View>
 
       {realTimeMetrics.map((m: any) => (
@@ -71,8 +71,8 @@ export function VitalsSection({ vitals, isWhoopConnected = false, onSyncNow }: P
       {/* BLOCK 2: THIS WEEK                                         */}
       {/* ═══════════════════════════════════════════════════════════ */}
       <View style={[styles.sectionHeader, { marginTop: spacing.lg }]}>
-        <Text style={[styles.sectionTitle, { color: colors.textOnDark }]}>This Week</Text>
-        <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>7-day insights</Text>
+        <Text style={[styles.sectionTitle, { color: colors.tomoCream }]}>This Week</Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>7-day insights</Text>
       </View>
 
       {/* Story Blocks */}
@@ -96,9 +96,9 @@ export function VitalsSection({ vitals, isWhoopConnected = false, onSyncNow }: P
       {!hasVitalData && !staleBanner?.show && realTimeMetrics.length === 0 && (
         <GlassCard>
           <View style={styles.emptyState}>
-            <SmartIcon name="watch-outline" size={40} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Vitals Yet</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+            <SmartIcon name="watch-outline" size={40} color={colors.muted} />
+            <Text style={[styles.emptyTitle, { color: colors.tomoCream }]}>No Vitals Yet</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
               Connect a wearable in Settings to start tracking your body data.
             </Text>
           </View>
@@ -137,7 +137,7 @@ function VitalCard({ metric, colors }: { metric: any; colors: any }) {
         <View style={[styles.cardHeader, isStale && { opacity: 0.6 }]}>
           {metric.emoji ? <Text style={styles.cardEmoji}>{metric.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
-            <Text style={[styles.cardTitle, { color: colors.textOnDark }]} numberOfLines={1}>
+            <Text style={[styles.cardTitle, { color: colors.tomoCream }]} numberOfLines={1}>
               {title}
             </Text>
           </View>
@@ -154,7 +154,7 @@ function VitalCard({ metric, colors }: { metric: any; colors: any }) {
           <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={colors.textMuted}
+            color={colors.muted}
           />
         </View>
 
@@ -164,17 +164,17 @@ function VitalCard({ metric, colors }: { metric: any; colors: any }) {
             {metric.freshness === 'no_data' ? 'No data' : metric.timeAgo}
           </Text>
           {metric.syncTimeAgo && metric.syncTimeAgo !== metric.timeAgo ? (
-            <Text style={[styles.cardBaseline, { color: colors.textMuted }]}> · Synced {metric.syncTimeAgo}</Text>
+            <Text style={[styles.cardBaseline, { color: colors.muted }]}> · Synced {metric.syncTimeAgo}</Text>
           ) : null}
           {baselineText ? (
-            <Text style={[styles.cardBaseline, { color: colors.textMuted }]}> · {baselineText}</Text>
+            <Text style={[styles.cardBaseline, { color: colors.muted }]}> · {baselineText}</Text>
           ) : null}
         </View>
 
         {/* Expanded content */}
         {expanded && (
           <View style={styles.expandedBody}>
-            <Text style={[styles.cardContext, { color: colors.textBody }]}>{context}</Text>
+            <Text style={[styles.cardContext, { color: colors.muted }]}>{context}</Text>
             <AskTomoButton
               prompt={`My ${metric.label} is ${metric.value != null ? metric.value : 'unavailable'}${metric.unit}${metric.zoneLabel ? ` (${metric.zoneLabel})` : ''}. ${baselineText || ''} What does this mean for my training today?`}
               colors={colors}
@@ -200,20 +200,20 @@ function StoryCard({ story, colors }: { story: VitalStoryBlock; colors: any }) {
         <View style={styles.cardHeader}>
           {story.emoji ? <Text style={styles.cardEmoji}>{story.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
-            <Text style={[styles.cardTitle, { color: colors.textOnDark }]}>{story.title}</Text>
+            <Text style={[styles.cardTitle, { color: colors.tomoCream }]}>{story.title}</Text>
           </View>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
           <Text style={[styles.statusLabel, { color: statusColor }]}>{statusLabel}</Text>
           <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={colors.textMuted}
+            color={colors.muted}
           />
         </View>
 
         {/* Collapsed preview */}
         {!expanded && (
-          <Text style={[styles.cardPreview, { color: colors.textMuted }]} numberOfLines={1}>
+          <Text style={[styles.cardPreview, { color: colors.muted }]} numberOfLines={1}>
             {story.narrative}
           </Text>
         )}
@@ -221,11 +221,11 @@ function StoryCard({ story, colors }: { story: VitalStoryBlock; colors: any }) {
         {/* Expanded content */}
         {expanded && (
           <View style={styles.expandedBody}>
-            <Text style={[styles.cardContext, { color: colors.textBody }]}>{story.narrative}</Text>
+            <Text style={[styles.cardContext, { color: colors.muted }]}>{story.narrative}</Text>
             <View style={styles.pillRow}>
               {story.contributingMetrics.map((m) => (
-                <View key={m} style={[styles.metricPill, { backgroundColor: colors.glass }]}>
-                  <Text style={[styles.metricPillText, { color: colors.textMuted }]}>{m.replace(/_/g, ' ')}</Text>
+                <View key={m} style={[styles.metricPill, { backgroundColor: colors.cream06 }]}>
+                  <Text style={[styles.metricPillText, { color: colors.muted }]}>{m.replace(/_/g, ' ')}</Text>
                 </View>
               ))}
             </View>
@@ -259,7 +259,7 @@ function VitalGroupCard({ group, phv, colors }: {
         <View style={styles.cardHeader}>
           {group.emoji ? <Text style={styles.cardEmoji}>{group.emoji}</Text> : null}
           <View style={{ flex: 1 }}>
-            <Text style={[styles.cardTitle, { color: colors.textOnDark }]}>{group.displayName}</Text>
+            <Text style={[styles.cardTitle, { color: colors.tomoCream }]}>{group.displayName}</Text>
           </View>
           {group.ragStatus !== 'none' && (
             <View style={[styles.statusDot, { backgroundColor: ragColor }]} />
@@ -267,7 +267,7 @@ function VitalGroupCard({ group, phv, colors }: {
           <SmartIcon
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={colors.textMuted}
+            color={colors.muted}
           />
         </View>
 
@@ -276,7 +276,7 @@ function VitalGroupCard({ group, phv, colors }: {
           <View style={styles.pillRow}>
             {previewMetrics.map((m) => (
               <View key={m.metric} style={[styles.previewChip, { backgroundColor: themeColor + '15' }]}>
-                <Text style={[styles.previewLabel, { color: colors.textMuted }]}>{m.label}</Text>
+                <Text style={[styles.previewLabel, { color: colors.muted }]}>{m.label}</Text>
                 <Text style={[styles.previewValue, { color: themeColor }]}>
                   {m.avg != null ? (Number.isInteger(m.avg) ? m.avg : m.avg.toFixed(1)) : '—'}{m.unit !== 'steps' ? m.unit : ''}
                 </Text>
@@ -291,7 +291,7 @@ function VitalGroupCard({ group, phv, colors }: {
         {/* Expanded: full metric list + description + Ask Tomo */}
         {expanded && (
           <View style={styles.expandedBody}>
-            <Text style={[styles.cardContext, { color: colors.textBody }]}>
+            <Text style={[styles.cardContext, { color: colors.muted }]}>
               {group.athleteDescription}
             </Text>
 
@@ -301,28 +301,28 @@ function VitalGroupCard({ group, phv, colors }: {
 
             {/* PHV/LTAD inside Body & Growth */}
             {phv && (
-              <View style={[styles.phvBanner, { backgroundColor: colors.accent + '15', borderColor: colors.accent + '33' }]}>
+              <View style={[styles.phvBanner, { backgroundColor: colors.sage08, borderColor: colors.sage30 }]}>
                 {phv.ltad.emoji ? <Text style={styles.phvEmoji}>{phv.ltad.emoji}</Text> : null}
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.phvTitle, { color: colors.textOnDark }]}>
+                  <Text style={[styles.phvTitle, { color: colors.tomoCream }]}>
                     {phv.ltad.stageName}
-                    <Text style={[styles.phvOffset, { color: colors.accent }]}>
+                    <Text style={[styles.phvOffset, { color: colors.tomoSage }]}>
                       {' '}PHV {phv.maturityOffset > 0 ? '+' : ''}{phv.maturityOffset.toFixed(1)}
                     </Text>
                   </Text>
-                  <Text style={[styles.phvDesc, { color: colors.textMuted }]}>
+                  <Text style={[styles.phvDesc, { color: colors.muted }]}>
                     {phv.ltad.description}
                   </Text>
-                  <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                  <View style={[styles.progressTrack, { backgroundColor: colors.cream10 }]}>
                     <View style={[styles.progressFill, {
                       width: `${phv.ltad.progressPercent}%`,
-                      backgroundColor: colors.accent,
+                      backgroundColor: colors.tomoSage,
                     }]} />
                   </View>
                   <View style={styles.pillRow}>
                     {phv.ltad.trainingFocus.map((f, i) => (
-                      <View key={i} style={[styles.metricPill, { backgroundColor: colors.border }]}>
-                        <Text style={[styles.metricPillText, { color: colors.textOnDark }]}>{f}</Text>
+                      <View key={i} style={[styles.metricPill, { backgroundColor: colors.cream10 }]}>
+                        <Text style={[styles.metricPillText, { color: colors.tomoCream }]}>{f}</Text>
                       </View>
                     ))}
                   </View>
@@ -352,7 +352,7 @@ function MetricRow({ metric, themeColor, colors }: {
       {metric.emoji ? <Text style={styles.metricRowEmoji}>{metric.emoji}</Text> : null}
       <View style={{ flex: 1 }}>
         <View style={styles.metricLabelRow}>
-          <Text style={[styles.metricLabel, { color: colors.textOnDark }]}>{metric.label}</Text>
+          <Text style={[styles.metricLabel, { color: colors.tomoCream }]}>{metric.label}</Text>
           {metric.zone && (
             <View style={[styles.zoneDotSmall, { backgroundColor: getZoneBadgeColor(metric.zone) }]} />
           )}
@@ -362,7 +362,7 @@ function MetricRow({ metric, themeColor, colors }: {
             </Text>
           )}
         </View>
-        <Text style={[styles.metricSummary, { color: colors.textMuted }]} numberOfLines={2}>
+        <Text style={[styles.metricSummary, { color: colors.muted }]} numberOfLines={2}>
           {metric.summary}
         </Text>
       </View>
@@ -386,8 +386,8 @@ const styles = StyleSheet.create({
 
   // Section headers
   sectionHeader: { marginBottom: spacing.xs },
-  sectionTitle: { fontFamily: fontFamily.semiBold, fontSize: 16 },
-  sectionSubtitle: { fontFamily: fontFamily.regular, fontSize: 12, marginTop: 2 },
+  sectionTitle: { fontFamily: fontFamily.semiBold, fontSize: 14, letterSpacing: -0.2 },
+  sectionSubtitle: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 17, marginTop: 2 },
 
   // Stale banner
   staleBanner: {
@@ -450,8 +450,8 @@ const styles = StyleSheet.create({
   zoneTextSmall: { fontFamily: fontFamily.medium, fontSize: 10 },
   metricSummary: { fontFamily: fontFamily.regular, fontSize: 11, lineHeight: 16, marginTop: 2 },
   metricValueCol: { alignItems: 'flex-end' },
-  metricValue: { fontFamily: fontFamily.bold, fontSize: 16 },
-  metricUnit: { fontFamily: fontFamily.regular, fontSize: 11 },
+  metricValue: { fontFamily: fontFamily.semiBold, fontSize: 18 },
+  metricUnit: { fontFamily: fontFamily.regular, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase' as const },
   metricTrend: { fontFamily: fontFamily.medium, fontSize: 11, marginTop: 2 },
 
   // PHV banner
