@@ -109,6 +109,28 @@ function buildTemplateContext(input: SignalEvaluationInput): TemplateContext {
   setIfPresent(ctx, 'consecutive_red_days', s?.consecutive_red_days);
   setIfPresent(ctx, 'injury_risk_flag', s?.injury_risk_flag);
 
+  // ── CCRS (Cascading Confidence Readiness Score) ──
+  // Added April 2026 when ACWR was decommissioned from AI/UX surfaces.
+  // Signals now key their narratives off CCRS instead of raw ACWR ratios.
+  const sAny = s as unknown as Record<string, unknown> | undefined;
+  setIfPresent(ctx, 'ccrs', sAny?.ccrs);
+  setIfPresent(ctx, 'ccrs_recommendation', sAny?.ccrs_recommendation);
+  setIfPresent(ctx, 'ccrs_confidence', sAny?.ccrs_confidence);
+  // Friendly label derived from the recommendation for use in coaching text.
+  const ccrsRec = typeof sAny?.ccrs_recommendation === 'string'
+    ? (sAny.ccrs_recommendation as string)
+    : null;
+  if (ccrsRec) {
+    const labels: Record<string, string> = {
+      full_load: 'full load',
+      moderate: 'moderate intensity',
+      reduced: 'reduced load',
+      recovery: 'recovery',
+      blocked: 'recovery only',
+    };
+    ctx['ccrs_recommendation_label'] = labels[ccrsRec] ?? ccrsRec;
+  }
+
   // ── Daily vitals ──
   setIfPresent(ctx, 'hrv_morning_ms', v?.hrv_morning_ms ?? v?.hrv_ms ?? s?.hrv_today_ms);
   setIfPresent(ctx, 'hrv_baseline_ms', s?.hrv_baseline_ms);

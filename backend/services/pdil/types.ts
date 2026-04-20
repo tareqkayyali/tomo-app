@@ -67,6 +67,9 @@ export type PDConditionField =
   | 'season_phase'                // 'pre_season' | 'in_season' | 'off_season'
   | 'wellness_7day_avg'           // 1.0–5.0 (7-day rolling wellness average)
   | 'consecutive_red_days'        // Number of consecutive RED readiness days
+  | 'ccrs'                        // Cascading Confidence Readiness Score (0–100)
+  | 'ccrs_recommendation'         // 'full_load' | 'moderate' | 'reduced' | 'recovery' | 'blocked'
+  | 'ccrs_confidence'             // 'very_high' | 'high' | 'medium' | 'low' | 'estimated'
 
   // ── Daily vitals (today's check-in + wearable data) ──
   | 'readiness_score'             // 0–100 (computed readiness)
@@ -558,6 +561,9 @@ export const PD_FIELD_METADATA: Record<PDConditionField, PDFieldMetadata> = {
   season_phase:           { field: 'season_phase', label: 'Season Phase', description: 'Current phase of the competitive season', type: 'string', options: ['pre_season', 'in_season', 'off_season'] },
   wellness_7day_avg:      { field: 'wellness_7day_avg', label: 'Wellness 7-Day Avg', description: 'Rolling 7-day average wellness score', type: 'number', range: { min: 1, max: 5 } },
   consecutive_red_days:   { field: 'consecutive_red_days', label: 'Consecutive RED Days', description: 'Number of consecutive RED readiness days', type: 'number', unit: 'days' },
+  ccrs:                   { field: 'ccrs', label: 'CCRS Score', description: 'Cascading Confidence Readiness Score (0–100)', type: 'number', range: { min: 0, max: 100 } },
+  ccrs_recommendation:    { field: 'ccrs_recommendation', label: 'CCRS Recommendation', description: 'Authoritative readiness recommendation derived from CCRS', type: 'string', options: ['full_load', 'moderate', 'reduced', 'recovery', 'blocked'] },
+  ccrs_confidence:        { field: 'ccrs_confidence', label: 'CCRS Confidence', description: 'Confidence tier for the CCRS score (data freshness)', type: 'string', options: ['very_high', 'high', 'medium', 'low', 'estimated'] },
 
   // Daily vitals
   readiness_score:        { field: 'readiness_score', label: 'Readiness Score', description: 'Computed readiness (0–100)', type: 'number', range: { min: 0, max: 100 } },

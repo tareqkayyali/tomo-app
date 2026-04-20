@@ -108,6 +108,9 @@ export function resolveField(
     case 'season_phase':          return s?.season_phase ?? undefined;
     case 'wellness_7day_avg':     return s?.wellness_7day_avg ?? undefined;
     case 'consecutive_red_days':  return s?.consecutive_red_days ?? undefined;
+    case 'ccrs':                  return (s as any)?.ccrs ?? undefined;
+    case 'ccrs_recommendation':   return (s as any)?.ccrs_recommendation ?? undefined;
+    case 'ccrs_confidence':       return (s as any)?.ccrs_confidence ?? undefined;
 
     // ── Daily vitals (today's check-in + wearable) ───────────────────────
     case 'readiness_score':       return v?.readiness_score ?? s?.readiness_score ?? undefined;
