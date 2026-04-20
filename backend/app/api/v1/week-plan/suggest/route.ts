@@ -191,42 +191,70 @@ function buildBaselineTrainingMix(
   // categories they've turned on. Categories disabled in My Rules don't
   // appear in the Training Mix capsule at all.
   //
+  // Shape compatibility:
+  //   - Canonical shape across the app is an ARRAY of entries
+  //     (migration 010 default, every other consumer in intentHandlers.ts /
+  //     timelineAgent.ts assumes Array.isArray). We handle this first.
+  //   - Legacy/alternate shape is an OBJECT keyed by category id. Still
+  //     honoured so no athlete who somehow has the old shape is dropped.
+  //
   // Fallback: when the JSONB is missing or empty, use the CMS catalog
   // (training_category_templates) so first-time athletes see a sensible
   // starting palette.
-  const override = isRecord(playerOverride) ? (playerOverride as Record<string, unknown>) : null;
   const catalogById = new Map(catalog.map((c) => [c.category, c]));
 
-  // Path A — My Rules has entries → filter by enabled, use the player's
-  //           per-category frequency/duration/days.
-  if (override) {
-    const enabledEntries: Array<[string, Record<string, unknown>]> = [];
-    for (const [id, raw] of Object.entries(override)) {
+  type OverrideEntry = { id: string; raw: Record<string, unknown> };
+  const entries: OverrideEntry[] = [];
+
+  if (Array.isArray(playerOverride)) {
+    for (const raw of playerOverride) {
       if (!isRecord(raw)) continue;
       const o = raw as Record<string, unknown>;
-      // Treat "enabled missing" as enabled — many legacy rows don't set
-      // the flag. If explicitly false, hide.
-      if (o.enabled === false) continue;
-      enabledEntries.push([id, o]);
+      const id = typeof o.id === "string" && o.id ? o.id : null;
+      if (!id) continue;
+      entries.push({ id, raw: o });
     }
-    if (enabledEntries.length > 0) {
-      return enabledEntries.map(([id, o]) => {
-        const c = catalogById.get(id);
-        return {
-          category: id,
-          // Prefer My Rules config; cascade to catalog defaults if a
-          // specific field isn't set; final fallback is a sensible
-          // baseline so the capsule never crashes.
-          sessionsPerWeek: numberOr(o.daysPerWeek, c?.defaultSessionsPerWeek ?? 2),
-          durationMin: numberOr(o.sessionDurationMin, c?.defaultDurationMin ?? 60),
-          placement: inferPlacement(o, c) as "fixed" | "flexible",
-          fixedDays: Array.isArray(o.fixedDays) ? (o.fixedDays as number[]) : [],
-          preferredTime: (c?.defaultPreferredTime ?? "afternoon") as
-            | "morning" | "afternoon" | "evening",
-          label: c?.label ?? id,
-        };
-      });
+  } else if (isRecord(playerOverride)) {
+    for (const [id, raw] of Object.entries(playerOverride as Record<string, unknown>)) {
+      if (!isRecord(raw)) continue;
+      entries.push({ id, raw: raw as Record<string, unknown> });
     }
+  }
+
+  // Path A — My Rules has entries → filter by enabled, use the player's
+  //           per-category frequency/duration/days/label/icon.
+  const enabledEntries = entries.filter(({ raw }) => raw.enabled !== false);
+  if (enabledEntries.length > 0) {
+    return enabledEntries.map(({ id, raw: o }) => {
+      const c = catalogById.get(id);
+      // Label resolution: athlete-configured label (custom categories) →
+      // catalog label → fall back to id. Icon/color likewise flow through
+      // so custom categories keep their identity in the capsule.
+      const label = typeof o.label === "string" && o.label
+        ? o.label
+        : (c?.label ?? id);
+      return {
+        category: id,
+        // Prefer My Rules config; cascade to catalog defaults if a
+        // specific field isn't set; final fallback is a sensible
+        // baseline so the capsule never crashes.
+        sessionsPerWeek: numberOr(
+          o.daysPerWeek ?? o.defaultSessionsPerWeek,
+          c?.defaultSessionsPerWeek ?? 2,
+        ),
+        durationMin: numberOr(
+          o.sessionDuration ?? o.sessionDurationMin ?? o.defaultDurationMin,
+          c?.defaultDurationMin ?? 60,
+        ),
+        placement: inferPlacement(o, c) as "fixed" | "flexible",
+        fixedDays: Array.isArray(o.fixedDays) ? (o.fixedDays as number[]) : [],
+        preferredTime: (typeof o.preferredTime === "string"
+          ? mapPreferredTime(o.preferredTime as string)
+          : (c?.defaultPreferredTime ?? "afternoon")) as
+          | "morning" | "afternoon" | "evening",
+        label,
+      };
+    });
   }
 
   // Path B — My Rules empty/unset → cascade to CMS catalog defaults.

@@ -2872,6 +2872,46 @@ export async function updateStudySubjects(
   );
 }
 
+export interface TrainingCategoryEntry {
+  id: string;
+  label: string;
+  icon?: string;
+  color?: string;
+  enabled?: boolean;
+  mode?: 'fixed_days' | 'days_per_week';
+  fixedDays?: number[];
+  daysPerWeek?: number;
+  sessionDuration?: number;
+  preferredTime?: 'morning' | 'afternoon' | 'evening';
+}
+
+/**
+ * Append a new training category to the athlete's My Rules. Powered by the
+ * inline "Add category" affordance on the Training Mix capsule. Server-side
+ * dedupes by label (case-insensitive). Uses supabaseAdmin, not the
+ * SUPABASE_DB_URL-dependent /schedule/rules path.
+ */
+export async function addTrainingCategory(params: {
+  label: string;
+  icon?: string;
+  color?: string;
+  daysPerWeek?: number;
+  sessionDuration?: number;
+  preferredTime?: 'morning' | 'afternoon' | 'evening';
+  mode?: 'fixed_days' | 'days_per_week';
+  fixedDays?: number[];
+}): Promise<{
+  ok: boolean;
+  action: 'created' | 'enabled_existing';
+  category?: TrainingCategoryEntry;
+  training_categories: TrainingCategoryEntry[];
+}> {
+  return apiRequest('/api/v1/week-plan/training-categories', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
 // ── Auto-Block (sync school hours to calendar) ─────────────────
 
 export async function syncAutoBlocks(params: {

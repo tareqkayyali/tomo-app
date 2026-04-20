@@ -9,7 +9,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
 import { colors } from '../../../theme/colors';
 import { spacing, borderRadius, fontFamily } from '../../../theme';
 import type {
@@ -20,6 +20,7 @@ import type {
 } from '../../../types/chat';
 import { PillSelector } from './shared/PillSelector';
 import { CapsuleSubmitButton } from './shared/CapsuleSubmitButton';
+import { addTrainingCategory } from '../../../services/api';
 
 interface Props {
   card: TrainingMixCapsuleType;
@@ -72,6 +73,9 @@ export function TrainingMixCapsuleComponent({ card, onSubmit }: Props) {
   }, [card.categories]);
 
   const [items, setItems] = useState<TrainingMixItem[]>(initial);
+  const [newCategoryLabel, setNewCategoryLabel] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const updateItem = (i: number, patch: Partial<TrainingMixItem>) => {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
@@ -86,13 +90,89 @@ export function TrainingMixCapsuleComponent({ card, onSubmit }: Props) {
     });
   };
 
+  const handleAddCategory = async () => {
+    const label = newCategoryLabel.trim();
+    if (!label || adding) return;
+
+    // Dedupe locally before the round-trip so the UI feels instant and we
+    // don't wait for the server to tell us it's a no-op.
+    const duplicate = items.some(
+      (it) =>
+        (it.label ?? CATEGORY_LABELS[it.category] ?? it.category)
+          .trim()
+          .toLowerCase() === label.toLowerCase(),
+    );
+    if (duplicate) {
+      setNewCategoryLabel('');
+      return;
+    }
+
+    setAdding(true);
+    setAddError(null);
+    try {
+      const res = await addTrainingCategory({ label });
+      const cat = res.category;
+      if (cat?.id && cat?.label) {
+        setItems((prev) => [
+          ...prev,
+          {
+            category: cat.id,
+            label: cat.label,
+            sessionsPerWeek: cat.daysPerWeek ?? 2,
+            durationMin: cat.sessionDuration ?? 60,
+            placement:
+              cat.mode === 'fixed_days' ||
+              (Array.isArray(cat.fixedDays) && cat.fixedDays.length > 0)
+                ? 'fixed'
+                : 'flexible',
+            fixedDays: cat.fixedDays ?? [],
+            preferredTime: cat.preferredTime ?? 'afternoon',
+          },
+        ]);
+      }
+      setNewCategoryLabel('');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not add category';
+      setAddError(msg);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const addRow = (
+    <View style={styles.addRow}>
+      <TextInput
+        value={newCategoryLabel}
+        onChangeText={setNewCategoryLabel}
+        placeholder="Add category (e.g. Speed & Agility)"
+        placeholderTextColor={colors.textInactive}
+        style={styles.input}
+        returnKeyType="done"
+        editable={!adding}
+        onSubmitEditing={handleAddCategory}
+      />
+      <Pressable
+        onPress={handleAddCategory}
+        disabled={adding || newCategoryLabel.trim().length === 0}
+        style={[
+          styles.addButton,
+          (adding || newCategoryLabel.trim().length === 0) && styles.addButtonDisabled,
+        ]}
+      >
+        <Text style={styles.addButtonText}>{adding ? '…' : 'Add'}</Text>
+      </Pressable>
+    </View>
+  );
+
   if (items.length === 0) {
     return (
       <View style={styles.container}>
         <Text style={styles.heading}>Training mix</Text>
         <Text style={styles.subtext}>
-          Your training categories aren&apos;t set up yet. Configure them in settings first.
+          No training categories yet. Add one below or skip to study only.
         </Text>
+        {addRow}
+        {addError && <Text style={styles.errorText}>{addError}</Text>}
         <CapsuleSubmitButton
           title="Skip training, study only"
           onPress={() => onSubmit({
@@ -201,6 +281,9 @@ export function TrainingMixCapsuleComponent({ card, onSubmit }: Props) {
         })}
       </ScrollView>
 
+      {addRow}
+      {addError && <Text style={styles.errorText}>{addError}</Text>}
+
       <CapsuleSubmitButton title="Next: study plan" onPress={handleSubmit} />
     </View>
   );
@@ -300,5 +383,41 @@ const styles = StyleSheet.create({
   },
   dayTextActive: {
     color: colors.textPrimary,
+  },
+  addRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: colors.inputBackground,
+    color: colors.textPrimary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderRadius: borderRadius.md,
+    fontFamily: fontFamily.regular,
+    fontSize: 14,
+  },
+  addButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.accent1,
+  },
+  addButtonDisabled: {
+    opacity: 0.5,
+  },
+  addButtonText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
+    color: colors.accent1,
+  },
+  errorText: {
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+    color: colors.warning,
+    paddingHorizontal: spacing.xs,
   },
 });

@@ -648,7 +648,10 @@ export type WeekPlanPlacement = 'fixed' | 'flexible';
 export type WeekPlanPreferredTime = 'morning' | 'afternoon' | 'evening';
 
 export interface TrainingMixItem {
-  category: WeekPlanCategoryId;
+  // WeekPlanCategoryId is the catalog-seeded set; athletes can add custom
+  // categories from the Training Mix capsule, so the runtime value may be
+  // any slug. The `string & {}` keeps IDE autocomplete on the known ids.
+  category: WeekPlanCategoryId | (string & {});
   sessionsPerWeek: number;
   durationMin: number;
   placement: WeekPlanPlacement;
