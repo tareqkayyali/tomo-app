@@ -9,8 +9,10 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { recomputeACWR } from '../computations/acwrComputation';
 import { recomputeDualLoad } from '../computations/dualLoadComputation';
 import { recomputeCv } from '../computations/cvComputation';
+import { estimateLoad } from '../computations/loadEstimator';
 import { computeTrainingScience } from '@/services/snapshot/trainingScienceComputed';
 import { computeTrend, computeTrendPct } from '@/services/snapshot/trendUtils';
+import { getLoadAttributionConfig } from '../loadAttributionConfig';
 import type { AthleteEvent, SessionLogPayload } from '../types';
 
 /**
@@ -23,6 +25,13 @@ export async function handleSessionLog(event: AthleteEvent): Promise<void> {
   const payload = event.payload as SessionLogPayload;
   const db = supabaseAdmin();
 
+  // Load attribution config — in particular the handler_au_fallback_enabled
+  // flag that controls whether we derive training_load_au from intensity +
+  // duration when the upstream emitter didn't pre-compute it. Flag is TRUE
+  // by default (PR 4 of the config-engine plan, April 2026) to stop the
+  // null-payload → 0-AU bug we saw in production.
+  const loadAttr = await getLoadAttributionConfig({ athleteId: event.athlete_id });
+
   const loadDate = event.occurred_at.slice(0, 10); // YYYY-MM-DD
 
   // ── Scheduled events: update projected load but skip session counts ──
@@ -30,7 +39,7 @@ export async function handleSessionLog(event: AthleteEvent): Promise<void> {
   // These represent future/projected load, not completed sessions.
   const scheduledPayload = payload as any;
   if (scheduledPayload.scheduled) {
-    const projectedLoad = scheduledPayload.training_load_au || 0;
+    const projectedLoad = resolveTrainingLoadAU(scheduledPayload, loadAttr.handler_au_fallback_enabled);
     const cancelled = scheduledPayload.cancelled === true;
 
     const { data: existing } = await db
@@ -74,7 +83,7 @@ export async function handleSessionLog(event: AthleteEvent): Promise<void> {
     return;
   }
 
-  const trainingLoadAU = payload.training_load_au || 0;
+  const trainingLoadAU = resolveTrainingLoadAU(payload as unknown as Record<string, unknown>, loadAttr.handler_au_fallback_enabled);
 
   // 1. UPSERT daily load bucket
   // Uses raw SQL via rpc because Supabase JS doesn't support ON CONFLICT DO UPDATE with addition
@@ -297,4 +306,44 @@ async function enrichSessionSnapshot(
       .from('athlete_snapshots')
       .upsert(enrichment, { onConflict: 'athlete_id' });
   }
+}
+
+/**
+ * Resolve training_load_au from a SESSION_LOG payload.
+ *
+ * Primary path: use the pre-computed payload.training_load_au if present
+ * and > 0. This is what every upstream emitter SHOULD supply (calendar
+ * bridge runs estimateLoad() before emitting).
+ *
+ * Defense path: if the primary value is missing or zero but the payload
+ * carries `intensity` + `duration_min`, compute AU from the intensity
+ * catalog. Prevents the silent-zero bug where a scheduled event without
+ * an explicit intensity reaches the handler and writes 0 to
+ * athlete_daily_load — which corrupts ATL/CTL/ACWR for the athlete
+ * without any visible error.
+ *
+ * Gated by load_attribution_v1.handler_au_fallback_enabled so ops can
+ * turn the defense off if it ever produces unexpected AU values during
+ * a tuning pass.
+ */
+function resolveTrainingLoadAU(
+  payload: Record<string, unknown>,
+  fallbackEnabled: boolean,
+): number {
+  const explicit = Number(payload.training_load_au) || 0;
+  if (explicit > 0) return explicit;
+
+  if (!fallbackEnabled) return 0;
+
+  const intensity = typeof payload.intensity === 'string' ? payload.intensity : null;
+  const duration = Number(payload.duration_min);
+  if (!intensity || !Number.isFinite(duration) || duration <= 0) return 0;
+
+  const eventType = typeof payload.event_type === 'string' ? payload.event_type : 'training';
+  const est = estimateLoad({
+    event_type: eventType,
+    intensity,
+    duration_min: duration,
+  });
+  return est.training_load_au;
 }

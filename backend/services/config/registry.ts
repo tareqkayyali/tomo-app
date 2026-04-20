@@ -30,6 +30,14 @@ import {
   intensityCatalogSchema,
   INTENSITY_CATALOG_DEFAULT,
 } from '@/services/events/intensityCatalogConfig';
+import {
+  loadAttributionSchema,
+  LOAD_ATTRIBUTION_DEFAULT,
+} from '@/services/events/loadAttributionConfig';
+import {
+  notificationConfigSchema,
+  NOTIFICATION_CONFIG_DEFAULT,
+} from '@/services/notifications/notificationConfig';
 
 export interface ConfigRegistryEntry {
   key:       string;
@@ -64,6 +72,22 @@ export const CONFIG_REGISTRY: ConfigRegistryEntry[] = [
     schema:   intensityCatalogSchema,
     default:  INTENSITY_CATALOG_DEFAULT,
     summary:  'AU-per-hour rates by intensity bucket, academic AU rate, event-type overrides (match, recovery), program-difficulty and drill-intensity maps, WHOOP strain ladder, RPE → intensity mapping. Drives every load AU computation.',
+  },
+  {
+    key:      'load_attribution_v1',
+    label:    'Load Attribution',
+    category: 'load',
+    schema:   loadAttributionSchema,
+    default:  LOAD_ATTRIBUTION_DEFAULT,
+    summary:  'Completion triggers (manual tap, check-in retroactive, wearable match) with confidence weights, auto-skip window, and whether scheduled events feed ATL/CTL. Also gates the sessionHandler AU fallback (compute AU from intensity + duration when payload omits it).',
+  },
+  {
+    key:      'notification_config_v1',
+    label:    'Notifications',
+    category: 'notifications',
+    schema:   notificationConfigSchema,
+    default:  NOTIFICATION_CONFIG_DEFAULT,
+    summary:  'Push timing, quiet hours, suppression rules (match/exam days, checkin-already-submitted, wearable-already-confirmed), notification templates and deep link format. Currently only session_confirmation is defined; other classes land as they ship.',
   },
 ];
 
