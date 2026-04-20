@@ -1,17 +1,26 @@
 /**
  * CCRS — Cascading Confidence Readiness Score
  *
- * Pure formula engine. ZERO imports, ZERO I/O, ZERO side effects.
- * Every function is deterministic: same inputs → same outputs.
+ * Pure formula engine. Every parameter is either in the signature or in
+ * the typed config object (see ccrsFormulaConfig.ts / acwrConfig.ts).
+ * NO runtime I/O inside these functions — callers pass resolved config.
  *
  * The cascade eliminates single points of failure:
  * - Bio stale? → Weight shifts to check-in
  * - No check-in? → Weight shifts to historical prior
  * - No baseline? → Confidence = estimated, historical leads
- * - ACWR > 2.0? → Hard cap at 40/100, recommendation = blocked
+ * - ACWR > hard_cap? → Score hard-capped, recommendation = blocked
  *
  * Weight sum is always 1.0 regardless of data availability.
+ *
+ * Every function accepts config optionally; when omitted, the hardcoded
+ * DEFAULT is used so legacy callers + tests keep working byte-for-byte.
  */
+
+import type { CCRSFormulaConfig } from './ccrsFormulaConfig';
+import { CCRS_FORMULA_DEFAULT, freshnessMultFromConfig } from './ccrsFormulaConfig';
+import type { ACWRConfig } from '@/services/events/acwrConfig';
+import { ACWR_CONFIG_DEFAULT } from '@/services/events/acwrConfig';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,13 +105,18 @@ export interface CCRSResult {
 // Sub-functions (all pure)
 // ---------------------------------------------------------------------------
 
-/** Freshness decay: confidence in biometric data by age (hours since recorded) */
-export function getFreshnessMult(data_age_hours: number): number {
-  if (data_age_hours < 8) return 1.00;
-  if (data_age_hours < 16) return 0.75;
-  if (data_age_hours < 24) return 0.45;
-  if (data_age_hours < 48) return 0.15;
-  return 0;
+/**
+ * Freshness decay: confidence in biometric data by age (hours since recorded).
+ *
+ * Reads the `freshness_decay` ladder from config. With DEFAULT the ladder
+ * is <8h=1.0, <16h=0.75, <24h=0.45, <48h=0.15, else 0 — identical to the
+ * pre-config hardcoded version.
+ */
+export function getFreshnessMult(
+  data_age_hours: number,
+  config: CCRSFormulaConfig = CCRS_FORMULA_DEFAULT,
+): number {
+  return freshnessMultFromConfig(config, data_age_hours);
 }
 
 /** HRV Z-score → 0–100 score (personal baseline normalization) */
@@ -139,21 +153,37 @@ export function getSleepScore(hours: number, athlete_age: number): number {
   return Math.max(0, 55 - (diff - 2.5) * 10);
 }
 
-/** Composite biometric score: HRV 45%, RHR 30%, Sleep 25% */
+/**
+ * Composite biometric score.
+ *
+ * Config controls the HRV/RHR/Sleep split (must sum to 1.0). Physiological
+ * subscores (getHRVScore etc.) are intentionally NOT configurable — they
+ * encode evidence-based curves, not business knobs.
+ */
 export function getBiometricScore(
   bio: BiometricInputs,
   baseline: AthleteBaseline,
   athlete_age: number,
+  config: CCRSFormulaConfig = CCRS_FORMULA_DEFAULT,
 ): number {
+  const { hrv_weight, rhr_weight, sleep_weight } = config.biometric_composite;
   const hrv = getHRVScore(bio.hrv_rmssd, baseline.hrv_mean_30d, baseline.hrv_sd_30d);
   const rhr = getRHRScore(bio.rhr_bpm, baseline.rhr_mean_30d);
   const sleep = getSleepScore(bio.sleep_hours, athlete_age);
-  return hrv * 0.45 + rhr * 0.30 + sleep * 0.25;
+  return hrv * hrv_weight + rhr * rhr_weight + sleep * sleep_weight;
 }
 
-/** Hooper 5-question wellness → 0–100 score (youth motivation weighted 1.2x) */
-export function getHooperScore(h: HooperInputs): number {
-  const motWeight = h.athlete_age < 18 ? 1.2 : 1.0;
+/**
+ * Hooper 5-question wellness → 0–100 score.
+ * Youth (under `youth_age_threshold`) gets motivation weighted higher since
+ * motivation is a stronger predictor of injury risk in developing athletes.
+ */
+export function getHooperScore(
+  h: HooperInputs,
+  config: CCRSFormulaConfig = CCRS_FORMULA_DEFAULT,
+): number {
+  const isYouth = h.athlete_age < config.hooper.youth_age_threshold;
+  const motWeight = isYouth ? config.hooper.youth_motivation_multiplier : 1.0;
   const raw =
     h.sleep_quality +
     h.energy_level +
@@ -167,18 +197,22 @@ export function getHooperScore(h: HooperInputs): number {
 /**
  * ACWR → multiplier + zone classification.
  *
- * Mode is env-driven (CCRS_ACWR_MODE):
- *   - 'hard_cap_only' (DEFAULT, April 2026): only ratio > 2.0 produces a
- *     non-unity multiplier. Anything ≤ 2.0 collapses to sweet_spot with
- *     multiplier 1.0 and hard_cap false. Academic load (×0.4 weight) was
- *     inflating ACWR into the 1.3–1.8 band without heavy training and
- *     biasing CCRS recommendations toward recovery.
- *   - 'full': legacy behaviour with caution/high_risk multipliers active.
+ * Mode comes from config.mode (CMS-controlled as of PR 2 of the
+ * config-engine plan; previously driven by the CCRS_ACWR_MODE env var).
  *
- * The 'blocked' branch (ratio > 2.0) remains active in both modes — this
- * is the catastrophic-overload safety net the user asked to preserve.
+ *   - 'hard_cap_only' (DEFAULT): only ratio > hard_cap_threshold produces
+ *     a non-unity multiplier. Anything below collapses to sweet_spot with
+ *     multiplier 1.0 and hard_cap false. Decouples day-to-day CCRS from
+ *     the academic-inflated mid-range ACWR readings we saw in April 2026.
+ *   - 'full': legacy behaviour with caution/high_risk zones active.
+ *
+ * The hard_cap branch (ratio > hard_cap_threshold, typically 2.0) remains
+ * active in both modes — catastrophic-overload safety net.
  */
-export function getACWRMultiplier(acwr_inputs: ACWRInputs): {
+export function getACWRMultiplier(
+  acwr_inputs: ACWRInputs,
+  config: ACWRConfig = ACWR_CONFIG_DEFAULT,
+): {
   multiplier: number;
   acwr_value: number;
   zone: 'undertraining' | 'sweet_spot' | 'caution' | 'high_risk' | 'blocked';
@@ -188,28 +222,35 @@ export function getACWRMultiplier(acwr_inputs: ACWRInputs): {
   const chronic_weekly = chronic_load_28d / 4;
   const ratio = chronic_weekly > 0 ? acute_load_7d / chronic_weekly : 1.0;
 
-  if (ratio > 2.0) return { multiplier: 0.40, acwr_value: ratio, zone: 'blocked', hard_cap: true };
+  const t = config.thresholds;
+  const m = config.multipliers;
 
-  const mode = process.env.CCRS_ACWR_MODE === 'full' ? 'full' : 'hard_cap_only';
-  if (mode === 'hard_cap_only') {
-    return { multiplier: 1.00, acwr_value: ratio, zone: 'sweet_spot', hard_cap: false };
+  if (ratio > t.hard_cap) {
+    return { multiplier: m.blocked, acwr_value: ratio, zone: 'blocked', hard_cap: true };
   }
 
-  if (ratio > 1.5) return { multiplier: 0.65, acwr_value: ratio, zone: 'high_risk', hard_cap: false };
-  if (ratio > 1.3) return { multiplier: 0.85, acwr_value: ratio, zone: 'caution', hard_cap: false };
-  if (ratio >= 0.8) return { multiplier: 1.00, acwr_value: ratio, zone: 'sweet_spot', hard_cap: false };
-  return { multiplier: 0.90, acwr_value: ratio, zone: 'undertraining', hard_cap: false };
+  if (config.mode === 'hard_cap_only') {
+    return { multiplier: m.sweet_spot, acwr_value: ratio, zone: 'sweet_spot', hard_cap: false };
+  }
+
+  if (ratio > t.danger_high) {
+    return { multiplier: m.high_risk, acwr_value: ratio, zone: 'high_risk', hard_cap: false };
+  }
+  if (ratio > t.caution_high) {
+    return { multiplier: m.caution, acwr_value: ratio, zone: 'caution', hard_cap: false };
+  }
+  if (ratio >= t.safe_low) {
+    return { multiplier: m.sweet_spot, acwr_value: ratio, zone: 'sweet_spot', hard_cap: false };
+  }
+  return { multiplier: m.undertraining, acwr_value: ratio, zone: 'undertraining', hard_cap: false };
 }
 
-/** PHV stage → safety multiplier (deterministic, cannot be bypassed) */
-export function getPHVMultiplier(stage: PHVStage): number {
-  switch (stage) {
-    case 'pre_phv': return 1.00;
-    case 'mid_phv': return 0.85;
-    case 'post_phv': return 0.95;
-    case 'adult': return 1.00;
-    case 'unknown': return 0.90;
-  }
+/** PHV stage → safety multiplier (deterministic, cannot be bypassed). */
+export function getPHVMultiplier(
+  stage: PHVStage,
+  config: CCRSFormulaConfig = CCRS_FORMULA_DEFAULT,
+): number {
+  return config.phv_multipliers[stage];
 }
 
 /**
@@ -219,32 +260,36 @@ export function getPHVMultiplier(stage: PHVStage): number {
  * or stale, the weight automatically redistributes to available sources.
  * Weights always sum to exactly 1.0.
  */
-export function getCascadeWeights(params: {
-  bio_available: boolean;
-  freshness_mult: number;
-  checkin_available: boolean;
-  coach_available: boolean;
-}): { biometric: number; hooper: number; historical: number; coach: number } {
+export function getCascadeWeights(
+  params: {
+    bio_available: boolean;
+    freshness_mult: number;
+    checkin_available: boolean;
+    coach_available: boolean;
+  },
+  config: CCRSFormulaConfig = CCRS_FORMULA_DEFAULT,
+): { biometric: number; hooper: number; historical: number; coach: number } {
   const { bio_available, freshness_mult: fm, checkin_available, coach_available } = params;
+  const cw = config.cascade_weights;
 
   let wb = 0;
   let wh = 0;
   let wc = 0;
 
   // Tier 1: biometric confidence (proportional to freshness)
-  if (bio_available && fm >= 0.75) {
-    wb = 0.55;
+  if (bio_available && fm >= cw.biometric_freshness_min) {
+    wb = cw.biometric_full;
   } else if (bio_available && fm > 0) {
-    wb = 0.55 * fm;
+    wb = cw.biometric_full * fm;
   } else {
     wb = 0;
   }
 
   // Tier 2: check-in (leads when bio is absent)
-  wh = checkin_available ? (wb > 0 ? 0.30 : 0.65) : 0;
+  wh = checkin_available ? (wb > 0 ? cw.hooper_with_biometric : cw.hooper_without_biometric) : 0;
 
   // Tier 4: coach context
-  wc = coach_available ? 0.08 : 0;
+  wc = coach_available ? cw.coach_when_available : 0;
 
   // Tier 3: historical fills remainder
   const wHist = Math.max(0, 1 - wb - wh - wc);
@@ -265,7 +310,15 @@ export function getCascadeWeights(params: {
 // Master formula
 // ---------------------------------------------------------------------------
 
-export function calculateCCRS(inputs: CCRSInputs): CCRSResult {
+export function calculateCCRS(
+  inputs: CCRSInputs,
+  configs: {
+    ccrs?: CCRSFormulaConfig;
+    acwr?: ACWRConfig;
+  } = {},
+): CCRSResult {
+  const cfg = configs.ccrs ?? CCRS_FORMULA_DEFAULT;
+  const acwrCfg = configs.acwr ?? ACWR_CONFIG_DEFAULT;
   const {
     biometric,
     baseline,
@@ -279,7 +332,7 @@ export function calculateCCRS(inputs: CCRSInputs): CCRSResult {
   const flags: AlertFlag[] = [];
 
   // Freshness
-  const fm = biometric ? getFreshnessMult(biometric.data_age_hours) : 0;
+  const fm = biometric ? getFreshnessMult(biometric.data_age_hours, cfg) : 0;
   if (!biometric || fm === 0) flags.push('NO_BIOMETRIC');
 
   // Cold start check
@@ -287,18 +340,21 @@ export function calculateCCRS(inputs: CCRSInputs): CCRSResult {
   if (baseline && !baselineReady) flags.push('COLD_START');
 
   // Biometric score
+  const alerts = cfg.alert_thresholds;
   let bs: number | null = null;
   if (biometric && baseline && baselineReady && fm > 0) {
-    bs = getBiometricScore(biometric, baseline, hooper?.athlete_age ?? 18);
-    if (bs < 50 && fm > 0.5) flags.push('HRV_SUPPRESSED');
-    if (biometric.sleep_hours < 6) flags.push('SLEEP_DEFICIT');
+    bs = getBiometricScore(biometric, baseline, hooper?.athlete_age ?? 18, cfg);
+    if (bs < alerts.hrv_suppressed_score_max && fm > alerts.hrv_suppressed_freshness_min) {
+      flags.push('HRV_SUPPRESSED');
+    }
+    if (biometric.sleep_hours < alerts.sleep_deficit_hours_max) flags.push('SLEEP_DEFICIT');
   }
 
   // Check-in score
   let hs: number | null = null;
   if (hooper) {
-    hs = getHooperScore(hooper);
-    if (hooper.motivation <= 2) flags.push('LOW_MOTIVATION');
+    hs = getHooperScore(hooper, cfg);
+    if (hooper.motivation <= alerts.low_motivation_max) flags.push('LOW_MOTIVATION');
   } else {
     flags.push('NO_CHECKIN');
   }
@@ -307,7 +363,7 @@ export function calculateCCRS(inputs: CCRSInputs): CCRSResult {
   let acwrMult = 1.0;
   let acwrValue: number | null = null;
   if (acwr) {
-    const acwrResult = getACWRMultiplier(acwr);
+    const acwrResult = getACWRMultiplier(acwr, acwrCfg);
     acwrMult = acwrResult.multiplier;
     acwrValue = acwrResult.acwr_value;
     if (acwrResult.zone === 'caution') flags.push('ACWR_SPIKE');
@@ -316,7 +372,7 @@ export function calculateCCRS(inputs: CCRSInputs): CCRSResult {
   }
 
   // PHV
-  const phvMult = getPHVMultiplier(phv_stage);
+  const phvMult = getPHVMultiplier(phv_stage, cfg);
   if (phv_stage === 'mid_phv') flags.push('PHV_CAP_ACTIVE');
 
   // Cascade weights
@@ -325,10 +381,10 @@ export function calculateCCRS(inputs: CCRSInputs): CCRSResult {
     freshness_mult: fm,
     checkin_available: hs !== null,
     coach_available: coach_phase_score !== null,
-  });
+  }, cfg);
 
   // Weighted raw score
-  const coachScore = coach_phase_score ?? 65;
+  const coachScore = coach_phase_score ?? cfg.coach_phase_default;
   const raw =
     weights.biometric * (bs ?? 0) * (bs !== null ? 1 : 0) +
     weights.hooper * (hs ?? 0) +
@@ -339,34 +395,39 @@ export function calculateCCRS(inputs: CCRSInputs): CCRSResult {
   let ccrs = raw * acwrMult * phvMult;
 
   // Hard caps
-  if (acwrValue !== null && acwrValue > 2.0) ccrs = Math.min(ccrs, 40);
+  if (acwrValue !== null && acwrValue > acwrCfg.thresholds.hard_cap) {
+    ccrs = Math.min(ccrs, cfg.hard_caps.acwr_blocked_score_cap);
+  }
   ccrs = Math.min(100, Math.max(0, ccrs));
 
   // Confidence (how much reliable signal we have)
+  const confSignal = cfg.confidence_signal_weights;
   const confScore =
     weights.biometric * fm +
     weights.hooper * (hs !== null ? 1 : 0) +
-    weights.historical * 0.6 +
-    weights.coach * 0.7;
+    weights.historical * confSignal.historical_weight +
+    weights.coach * confSignal.coach_weight;
 
+  const tiers = cfg.confidence_tiers;
   const confidence: Confidence = !baselineReady
     ? 'estimated'
-    : confScore > 0.75
+    : confScore > tiers.very_high_min
       ? 'very_high'
-      : confScore > 0.55
+      : confScore > tiers.high_min
         ? 'high'
-        : confScore > 0.35
+        : confScore > tiers.medium_min
           ? 'medium'
           : 'low';
 
   // Recommendation
+  const cutoffs = cfg.recommendation_cutoffs;
   const recommendation: Recommendation = flags.includes('ACWR_BLOCKED')
     ? 'blocked'
-    : ccrs >= 80
+    : ccrs >= cutoffs.full_load_min
       ? 'full_load'
-      : ccrs >= 65
+      : ccrs >= cutoffs.moderate_min
         ? 'moderate'
-        : ccrs >= 45
+        : ccrs >= cutoffs.reduced_min
           ? 'reduced'
           : 'recovery';
 

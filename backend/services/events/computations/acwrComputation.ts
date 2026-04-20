@@ -20,7 +20,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { ACWR_SAFE_LOW, ACWR_SAFE_HIGH, ACWR_DANGER_HIGH } from '../constants';
+import { getACWRConfig } from '../acwrConfig';
 
 export interface ACWRResult {
   acwr: number;
@@ -38,16 +38,21 @@ export interface ACWRResult {
  */
 export async function recomputeACWR(athleteId: string): Promise<ACWRResult> {
   const db = supabaseAdmin();
+  const config = await getACWRConfig({ athleteId });
 
-  const twentyEightDaysAgo = new Date(Date.now() - 28 * 86400000).toISOString().slice(0, 10);
+  const acuteDays   = config.windows.acute_days;
+  const chronicDays = config.windows.chronic_days;
 
-  // Read training_load_au only. academic_load_au still lives on the row
-  // for Dual Load Index / analytics consumers, but is NOT fed to ATL/CTL.
+  const chronicAgo = new Date(Date.now() - chronicDays * 86400000).toISOString().slice(0, 10);
+
+  // Read both load columns — training feeds ATL/CTL (per load_channels.training_weight),
+  // academic multiplies in only if config.load_channels.academic_weight > 0
+  // (default 0.0 since migration 5952593 / physical-only).
   const { data: dailyLoads } = await db
     .from('athlete_daily_load')
-    .select('load_date, training_load_au')
+    .select('load_date, training_load_au, academic_load_au')
     .eq('athlete_id', athleteId)
-    .gte('load_date', twentyEightDaysAgo)
+    .gte('load_date', chronicAgo)
     .order('load_date', { ascending: false });
 
   if (!dailyLoads || dailyLoads.length === 0) {
@@ -62,30 +67,35 @@ export async function recomputeACWR(athleteId: string): Promise<ACWRResult> {
     return result;
   }
 
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const acuteAgo = new Date(Date.now() - acuteDays * 86400000).toISOString().slice(0, 10);
 
-  const physicalLoad = (d: any): number => d.training_load_au || 0;
+  const { training_weight, academic_weight } = config.load_channels;
+  const blendedLoad = (d: any): number =>
+    (d.training_load_au || 0) * training_weight + (d.academic_load_au || 0) * academic_weight;
 
-  // Acute: last 7 days
-  const acuteLoads = dailyLoads.filter((d: any) => d.load_date >= sevenDaysAgo);
-  const acuteSum = acuteLoads.reduce((sum: number, d: any) => sum + physicalLoad(d), 0);
-  const atl = acuteSum / 7;
+  // Acute window
+  const acuteLoads = dailyLoads.filter((d: any) => d.load_date >= acuteAgo);
+  const acuteSum = acuteLoads.reduce((sum: number, d: any) => sum + blendedLoad(d), 0);
+  const atl = acuteSum / acuteDays;
 
-  // Chronic: last 28 days
-  const chronicSum = dailyLoads.reduce((sum: number, d: any) => sum + physicalLoad(d), 0);
-  const ctl = chronicSum / 28;
+  // Chronic window
+  const chronicSum = dailyLoads.reduce((sum: number, d: any) => sum + blendedLoad(d), 0);
+  const ctl = chronicSum / chronicDays;
 
   // ACWR ratio
   const acwr = ctl > 0 ? Math.round((atl / ctl) * 100) / 100 : 0;
 
-  // Raw 7-day physical sum (same as acuteSum now, kept for the snapshot column)
-  const athleticOnly7d = acuteSum;
+  // 7-day physical-only sum (unaffected by load_channels blending — always
+  // pure training_load_au). Used by dashboards that want "what was your
+  // actual training volume this week".
+  const athleticOnly7d = acuteLoads.reduce((sum: number, d: any) => sum + (d.training_load_au || 0), 0);
 
-  // Injury risk classification
+  // Injury risk classification — thresholds from config
+  const riskCfg = config.injury_risk_flag;
   let injuryRiskFlag: 'GREEN' | 'AMBER' | 'RED' = 'GREEN';
-  if (acwr > ACWR_DANGER_HIGH) {
+  if (acwr > riskCfg.red_above) {
     injuryRiskFlag = 'RED';
-  } else if (acwr > ACWR_SAFE_HIGH || acwr < ACWR_SAFE_LOW) {
+  } else if (acwr > riskCfg.amber_above || acwr < riskCfg.amber_below) {
     injuryRiskFlag = 'AMBER';
   }
 

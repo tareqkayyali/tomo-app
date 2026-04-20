@@ -20,6 +20,8 @@ import {
   type HooperInputs,
   type ACWRInputs,
 } from './ccrsFormula';
+import { getCCRSConfig } from './ccrsFormulaConfig';
+import { getACWRConfig } from '@/services/events/acwrConfig';
 
 /**
  * Assemble all inputs, compute CCRS, and persist the result.
@@ -122,13 +124,12 @@ export async function computeAndPersistCCRS(athleteId: string): Promise<CCRSResu
     });
   }
 
-  // ── ACWR passed through ONLY for the >2.0 hard-cap safety net ──
-  // getACWRMultiplier runs in 'hard_cap_only' mode by default (see
-  // ccrsFormula.ts), so ratios ≤ 2.0 collapse to sweet_spot with
-  // multiplier 1.0 and no flag. This preserves catastrophic-overload
-  // protection without letting academic-inflated mid-range values
-  // (1.3–1.8) drag CCRS into recovery/reduced recommendations.
-  // Set env CCRS_ACWR_MODE=full to restore pre-decommission behaviour.
+  // ── ACWR pass-through ──
+  // Ratio semantics are controlled by the ACWR config row
+  // (acwr_config_v1). In 'hard_cap_only' mode (default), anything ≤
+  // hard_cap_threshold collapses to sweet_spot with multiplier 1.0. The
+  // hard-cap branch fires above the threshold regardless of mode,
+  // producing ACWR_BLOCKED and capping CCRS at the configured score.
   let acwr: ACWRInputs | null = null;
   if (snapshot.atl_7day != null && snapshot.ctl_28day != null) {
     acwr = {
@@ -137,12 +138,18 @@ export async function computeAndPersistCCRS(athleteId: string): Promise<CCRSResu
     };
   }
 
-  // ── Historical score (14-day rolling CCRS average, default 62) ──
+  // ── Resolve config (5-min cached) for the athlete's rollout cohort ──
+  const [ccrsCfg, acwrCfg] = await Promise.all([
+    getCCRSConfig({ athleteId }),
+    getACWRConfig({ athleteId }),
+  ]);
+
+  // ── Historical score (14-day rolling CCRS average, default from config) ──
   const recentScores = recentScoresRes.data;
   const historicalAvg =
     recentScores && recentScores.length > 0
       ? recentScores.reduce((s: number, r: any) => s + r.ccrs, 0) / recentScores.length
-      : 62; // population prior for new athletes
+      : ccrsCfg.historical_default;
 
   // ── PHV stage ──
   const phvStage = phv?.phvStage === 'mid_phv'
@@ -164,7 +171,7 @@ export async function computeAndPersistCCRS(athleteId: string): Promise<CCRSResu
     historical_score: historicalAvg,
   };
 
-  const result = calculateCCRS(inputs);
+  const result = calculateCCRS(inputs, { ccrs: ccrsCfg, acwr: acwrCfg });
 
   // ── Persist to snapshot ──
   const today = now.toISOString().slice(0, 10);

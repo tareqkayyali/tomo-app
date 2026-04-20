@@ -29,17 +29,11 @@ export const ACWR_PROGRAM_GUARDRAIL_ENABLED =
   process.env.ACWR_PROGRAM_GUARDRAIL_ENABLED === "true";
 
 /**
- * Mode for `getACWRMultiplier` in ccrsFormula.ts.
- *   - `hard_cap_only` (default): only ACWR > 2.0 produces a non-unity
- *     multiplier and the ACWR_BLOCKED alert flag. Anything ≤ 2.0 returns
- *     `{ multiplier: 1.0, zone: 'sweet_spot', hard_cap: false }` with no
- *     flag raised.
- *   - `full`: legacy behaviour — caution (>1.3), high_risk (>1.5), and
- *     blocked (>2.0) all produce multipliers and flags.
+ * CCRS_ACWR_MODE env var was removed in the config-engine PR 2 (April 2026)
+ * and replaced by the `mode` field on the `acwr_config_v1` row in
+ * `system_config`. See `services/events/acwrConfig.ts`. Flip it via
+ * /admin/config/acwr_config_v1 instead of an env var deploy.
  *
- * Default is `hard_cap_only` to preserve the catastrophic-overload safety
- * net while eliminating the false positives driven by academic inflation.
+ * Intentionally not re-exported here so any remaining import breaks at
+ * tsc time instead of silently reading a dead env var.
  */
-export type CCRSACWRMode = "hard_cap_only" | "full";
-export const CCRS_ACWR_MODE: CCRSACWRMode =
-  process.env.CCRS_ACWR_MODE === "full" ? "full" : "hard_cap_only";
