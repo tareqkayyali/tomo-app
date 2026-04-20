@@ -164,7 +164,20 @@ export function getHooperScore(h: HooperInputs): number {
   return Math.min(100, (raw / max) * 100);
 }
 
-/** ACWR → multiplier + zone classification */
+/**
+ * ACWR → multiplier + zone classification.
+ *
+ * Mode is env-driven (CCRS_ACWR_MODE):
+ *   - 'hard_cap_only' (DEFAULT, April 2026): only ratio > 2.0 produces a
+ *     non-unity multiplier. Anything ≤ 2.0 collapses to sweet_spot with
+ *     multiplier 1.0 and hard_cap false. Academic load (×0.4 weight) was
+ *     inflating ACWR into the 1.3–1.8 band without heavy training and
+ *     biasing CCRS recommendations toward recovery.
+ *   - 'full': legacy behaviour with caution/high_risk multipliers active.
+ *
+ * The 'blocked' branch (ratio > 2.0) remains active in both modes — this
+ * is the catastrophic-overload safety net the user asked to preserve.
+ */
 export function getACWRMultiplier(acwr_inputs: ACWRInputs): {
   multiplier: number;
   acwr_value: number;
@@ -176,6 +189,12 @@ export function getACWRMultiplier(acwr_inputs: ACWRInputs): {
   const ratio = chronic_weekly > 0 ? acute_load_7d / chronic_weekly : 1.0;
 
   if (ratio > 2.0) return { multiplier: 0.40, acwr_value: ratio, zone: 'blocked', hard_cap: true };
+
+  const mode = process.env.CCRS_ACWR_MODE === 'full' ? 'full' : 'hard_cap_only';
+  if (mode === 'hard_cap_only') {
+    return { multiplier: 1.00, acwr_value: ratio, zone: 'sweet_spot', hard_cap: false };
+  }
+
   if (ratio > 1.5) return { multiplier: 0.65, acwr_value: ratio, zone: 'high_risk', hard_cap: false };
   if (ratio > 1.3) return { multiplier: 0.85, acwr_value: ratio, zone: 'caution', hard_cap: false };
   if (ratio >= 0.8) return { multiplier: 1.00, acwr_value: ratio, zone: 'sweet_spot', hard_cap: false };

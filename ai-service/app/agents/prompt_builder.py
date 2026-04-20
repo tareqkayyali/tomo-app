@@ -15,6 +15,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+from app.config import get_settings
 from app.models.context import PlayerContext, SnapshotEnrichment
 
 logger = logging.getLogger("tomo-ai.prompt")
@@ -1098,7 +1099,8 @@ def build_ccrs_block(ctx: PlayerContext) -> str:
     rec = se.ccrs_recommendation or "unknown"
     flags = se.ccrs_alert_flags or []
     freshness = se.data_freshness or "UNKNOWN"
-    acwr = se.acwr
+    acwr_enabled = get_settings().acwr_ai_enabled
+    acwr = se.acwr if acwr_enabled else None
 
     # Map recommendation to athlete-friendly label
     rec_labels = {
@@ -1110,9 +1112,11 @@ def build_ccrs_block(ctx: PlayerContext) -> str:
     }
     rec_label = rec_labels.get(rec, rec)
 
-    # Map ACWR to plain language (NEVER show raw number to athlete)
-    load_label = "normal"
-    if acwr is not None:
+    # Training-load narrative for the LLM. With ACWR decommissioned, the
+    # label is derived from the CCRS recommendation (which already absorbs
+    # the ACWR >2.0 hard-cap signal via ACWR_BLOCKED). Raw ACWR is only
+    # used when the rollback flag is on.
+    if acwr_enabled and acwr is not None:
         if acwr > 1.5:
             load_label = "spiked hard — body needs to settle"
         elif acwr > 1.3:
@@ -1123,6 +1127,15 @@ def build_ccrs_block(ctx: PlayerContext) -> str:
             load_label = "in a good spot"
         else:
             load_label = "light recently — room to push"
+    else:
+        ccrs_load_labels = {
+            "full_load": "in a good spot",
+            "moderate": "manageable — adjust intensity",
+            "reduced": "been stacking a lot lately",
+            "recovery": "body needs to settle",
+            "blocked": "spiked hard — body needs to settle",
+        }
+        load_label = ccrs_load_labels.get(rec, "normal")
 
     # Build block — plain language for LLM context
     block = f"""READINESS (internal reference — NEVER show these numbers to the athlete):
@@ -1174,7 +1187,16 @@ def build_dual_load_block(ctx: PlayerContext) -> str:
             and ctx.readiness_components.academic_stress is not None
             and ctx.readiness_components.academic_stress >= 4
         )
-        has_elevated_load = se and se.acwr is not None and se.acwr > 1.0
+        # ACWR-based fallback is gated — see config.acwr_ai_enabled.
+        # When ACWR is decommissioned, we fall back to CCRS recommendation
+        # as the elevated-load signal.
+        if get_settings().acwr_ai_enabled:
+            has_elevated_load = se and se.acwr is not None and se.acwr > 1.0
+        else:
+            has_elevated_load = bool(
+                se
+                and se.ccrs_recommendation in ("reduced", "recovery", "blocked")
+            )
 
         if (has_exams or high_academic_stress) and has_elevated_load:
             acad_score = getattr(ctx, "academic_load_score", 0) or 0
@@ -1437,16 +1459,28 @@ DATE RULES:
 
     se = ctx.snapshot_enrichment
     if se:
-        parts.append(f"""
-SNAPSHOT DATA:
-- Injury Risk: {se.injury_risk_flag or 'N/A'}
-- ACWR (7:28): {se.acwr} | ATL-7d: {se.atl_7day} | CTL-28d: {se.ctl_28day} | Projected: {se.projected_acwr}
-- HRV: baseline {se.hrv_baseline_ms}ms, today {se.hrv_today_ms}ms | Trend: {se.hrv_trend_7d_pct}%
-- Sleep Quality: {se.sleep_quality} | Wellness 7d: {se.wellness_7day_avg} ({se.wellness_trend})
-- Recovery Score: {se.recovery_score} | SpO2: {se.spo2_pct}%
-- Sessions: {se.sessions_total} | Training Age: {se.training_age_weeks}wk | Streak: {se.streak_days}d
-- PHV Stage: {se.phv_stage} | Offset: {se.phv_offset_years}yr
-- Triangle RAG: {se.triangle_rag} | Readiness RAG: {se.readiness_rag}""")
+        # ACWR line is gated — see config.acwr_ai_enabled. CCRS carries
+        # the day-to-day load signal; ATL/CTL shown only when the rollback
+        # flag is active.
+        snapshot_lines = [
+            "",
+            "SNAPSHOT DATA:",
+            f"- Injury Risk: {se.injury_risk_flag or 'N/A'}",
+        ]
+        if get_settings().acwr_ai_enabled:
+            snapshot_lines.append(
+                f"- ACWR (7:28): {se.acwr} | ATL-7d: {se.atl_7day} | "
+                f"CTL-28d: {se.ctl_28day} | Projected: {se.projected_acwr}"
+            )
+        snapshot_lines.extend([
+            f"- HRV: baseline {se.hrv_baseline_ms}ms, today {se.hrv_today_ms}ms | Trend: {se.hrv_trend_7d_pct}%",
+            f"- Sleep Quality: {se.sleep_quality} | Wellness 7d: {se.wellness_7day_avg} ({se.wellness_trend})",
+            f"- Recovery Score: {se.recovery_score} | SpO2: {se.spo2_pct}%",
+            f"- Sessions: {se.sessions_total} | Training Age: {se.training_age_weeks}wk | Streak: {se.streak_days}d",
+            f"- PHV Stage: {se.phv_stage} | Offset: {se.phv_offset_years}yr",
+            f"- Triangle RAG: {se.triangle_rag} | Readiness RAG: {se.readiness_rag}",
+        ])
+        parts.append("\n".join(snapshot_lines))
 
     if ctx.recent_test_scores:
         scores = ctx.recent_test_scores[:5]
@@ -1496,12 +1530,28 @@ development recommendations."""
 # SIGNAL CONFLICT DETECTION (deterministic — runs before LLM)
 # ══════════════════════════════════════════════════════════════════════
 
-def _classify_objective_load(acwr: float | None, injury_risk: str | None) -> str:
-    """Classify objective load status from ACWR and injury risk flag."""
-    if acwr is not None and acwr >= 1.5:
-        return "high"
-    if acwr is not None and acwr >= 1.2:
-        return "elevated"
+def _classify_objective_load(
+    acwr: float | None,
+    injury_risk: str | None,
+    ccrs_recommendation: str | None = None,
+) -> str:
+    """
+    Classify objective load status. With ACWR decommissioned (see
+    config.acwr_ai_enabled), the primary signal is the CCRS
+    recommendation — which already absorbs the ACWR >2.0 hard-cap via
+    ACWR_BLOCKED. Injury risk RED/AMBER still elevates. Raw ACWR is used
+    only when the rollback flag is on.
+    """
+    if get_settings().acwr_ai_enabled:
+        if acwr is not None and acwr >= 1.5:
+            return "high"
+        if acwr is not None and acwr >= 1.2:
+            return "elevated"
+    else:
+        if ccrs_recommendation == "blocked":
+            return "high"
+        if ccrs_recommendation in ("recovery", "reduced"):
+            return "elevated"
     if injury_risk and injury_risk.upper() in ("RED", "AMBER"):
         return "elevated"
     return "normal"
@@ -1529,21 +1579,23 @@ def detect_signal_conflict(ctx: PlayerContext) -> dict:
               "objective": str, "subjective": str, "pain": bool}
     """
     se = ctx.snapshot_enrichment
-    acwr = se.acwr if se else None
+    acwr_enabled = get_settings().acwr_ai_enabled
+    acwr = se.acwr if (se and acwr_enabled) else None
     injury_risk = se.injury_risk_flag if se else None
     readiness = se.ccrs if se else None
+    ccrs_rec = se.ccrs_recommendation if se else None
     rc = ctx.readiness_components
     pain_present = bool(rc and rc.pain_flag)
     injury_flag = bool(injury_risk and injury_risk.upper() == "RED")
 
-    objective = _classify_objective_load(acwr, injury_risk)
+    objective = _classify_objective_load(acwr, injury_risk, ccrs_rec)
     subjective = _classify_subjective_feel(ctx)
 
     # Pattern F: injury flag → hard gate
     if injury_flag:
         pattern, tier = "F", "hard_gate"
-    # ACWR danger zone (≥1.5)
-    elif acwr is not None and acwr >= 1.5:
+    # Danger zone: ACWR ≥ 1.5 (rollback only) OR CCRS recommendation blocked
+    elif objective == "high":
         if subjective == "tired" and pain_present:
             pattern, tier = "E", "strong"
         elif subjective == "tired":

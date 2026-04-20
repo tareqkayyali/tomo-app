@@ -14,6 +14,7 @@ import type { InlineProgram, Prescription } from "./footballPrograms";
 import { getRecommendationConfig } from "@/services/recommendations/recommendationConfig";
 import { buildSelectColumns, mapRowToState } from "./snapshotFieldRegistry";
 import { getModeDefinition, type ModeParams } from "@/services/scheduling/modeConfig";
+import { ACWR_PROGRAM_GUARDRAIL_ENABLED } from "@/lib/acwrFlags";
 
 // ── Types ──
 
@@ -98,8 +99,17 @@ export async function applyGuardrails(
   let loadCap = 1.0;
   const blockedCategories: string[] = [];
 
-  // ── Rule 1: ACWR Load Gate ──
-  if (g.acwr.enabled && snapshot.acwr != null) {
+  // ── Rule 1: ACWR Load Gate (DECOMMISSIONED April 2026) ──
+  // ACWR is gated behind both (a) the CMS-managed `guardrails.acwr.enabled`
+  // flag (default false) and (b) the ACWR_PROGRAM_GUARDRAIL_ENABLED env
+  // override. The catastrophic-overload safety net lives in ccrsFormula
+  // (ACWR > 2.0 → ccrs_recommendation='blocked') — day-to-day load capping
+  // is handled by readiness RAG (Rule 2), HRV suppression (Rule 3), and
+  // wellness trend (Rule 7).
+  if (
+    (g.acwr.enabled || ACWR_PROGRAM_GUARDRAIL_ENABLED) &&
+    snapshot.acwr != null
+  ) {
     if (snapshot.acwr > g.acwr.dangerThreshold) {
       loadCap = Math.min(loadCap, g.acwr.dangerCap);
       rules.push(`ACWR ${snapshot.acwr.toFixed(2)} > ${g.acwr.dangerThreshold} (danger): load capped at ${Math.round(g.acwr.dangerCap * 100)}%`);

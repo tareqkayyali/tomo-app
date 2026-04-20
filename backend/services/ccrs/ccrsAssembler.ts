@@ -122,11 +122,20 @@ export async function computeAndPersistCCRS(athleteId: string): Promise<CCRSResu
     });
   }
 
-  // ── ACWR excluded from CCRS (Apr 2026) ──
-  // ACWR still computes independently on the snapshot for visibility,
-  // but is not factored into CCRS until load accuracy is validated.
-  // Academic load (×0.4 weight) was inflating ACWR to RED without heavy training.
-  const acwr: ACWRInputs | null = null;
+  // ── ACWR passed through ONLY for the >2.0 hard-cap safety net ──
+  // getACWRMultiplier runs in 'hard_cap_only' mode by default (see
+  // ccrsFormula.ts), so ratios ≤ 2.0 collapse to sweet_spot with
+  // multiplier 1.0 and no flag. This preserves catastrophic-overload
+  // protection without letting academic-inflated mid-range values
+  // (1.3–1.8) drag CCRS into recovery/reduced recommendations.
+  // Set env CCRS_ACWR_MODE=full to restore pre-decommission behaviour.
+  let acwr: ACWRInputs | null = null;
+  if (snapshot.atl_7day != null && snapshot.ctl_28day != null) {
+    acwr = {
+      acute_load_7d: Number(snapshot.atl_7day),
+      chronic_load_28d: Number(snapshot.ctl_28day),
+    };
+  }
 
   // ── Historical score (14-day rolling CCRS average, default 62) ──
   const recentScores = recentScoresRes.data;

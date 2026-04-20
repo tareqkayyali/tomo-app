@@ -510,11 +510,15 @@ def _build_snapshot_enrichment(
         else _safe_float(snapshot.get("hrv_today_ms"))
     )
 
-    # Compute projected ACWR
+    # Compute projected ACWR — gated behind config.acwr_ai_enabled.
+    # ACWR is decommissioned from AI surfaces; projected_acwr is only
+    # computed when the rollback flag is active so coach dashboards that
+    # currently don't consume it aren't paying for the math.
+    from app.config import get_settings
     ctl = _safe_float(snapshot.get("ctl_28day"), 0)
     atl = _safe_float(snapshot.get("atl_7day"), 0)
     projected_acwr = None
-    if ctl > 0:
+    if get_settings().acwr_ai_enabled and ctl > 0:
         projected_acwr = round((atl + projected_load_sum / 7) / ctl, 2)
 
     return SnapshotEnrichment(

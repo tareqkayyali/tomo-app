@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 
 from langchain_core.tools import tool
 
+from app.config import get_settings
 from app.models.context import PlayerContext
 
 logger = logging.getLogger("tomo-ai.tools.training_program")
@@ -49,15 +50,29 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
             return str(getattr(se, "phv_stage", "")).upper() in ("MID", "CIRCA", "MID_PHV", "CIRCA_PHV")
         return False
 
-    def _acwr_warning() -> str | None:
-        """Return advisory warning if ACWR is elevated. Never blocks — player decides."""
+    def _load_warning() -> str | None:
+        """Return advisory warning if load signals are elevated. Never blocks — player decides."""
         se = context.snapshot_enrichment
-        if se and se.acwr is not None:
+        if not se:
+            return None
+        acwr_enabled = get_settings().acwr_ai_enabled
+        # Rollback path — legacy ACWR-driven advisories
+        if acwr_enabled and se.acwr is not None:
             if se.acwr > 1.5:
                 return f"Heads up — your training load is very high right now (ACWR {se.acwr:.2f}). I'd recommend a lighter session or recovery day, but it's your call."
             if se.acwr > 1.3:
                 return f"Your training load is elevated (ACWR {se.acwr:.2f}). Consider keeping intensity moderate today."
+        # Default path — CCRS-driven advisories
+        rec = (se.ccrs_recommendation or "").lower()
+        if rec == "blocked":
+            return "Heads up — your readiness signals are flashing hard. I'd recommend a lighter session or recovery day, but it's your call."
+        if rec == "recovery":
+            return "Your body's asking for recovery today. I'd keep this light — but it's your call."
+        if rec == "reduced":
+            return "Readiness is a bit down. Consider keeping intensity moderate today."
         return None
+
+    _acwr_warning = _load_warning
 
     @tool
     async def get_phv_appropriate_programs() -> dict:
@@ -139,14 +154,20 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
             )
             block = await block_result.fetchone()
 
-        if not block:
-            return {
-                "has_active_block": False,
-                "acwr": se.acwr if se else None,
-                "suggestion": "No active training block. Ask me to create a periodized training plan.",
-            }
+        acwr_enabled = get_settings().acwr_ai_enabled
+        acwr_val = (se.acwr if se else None) if acwr_enabled else None
 
-        return {
+        if not block:
+            payload = {
+                "has_active_block": False,
+                "suggestion": "No active training block. Ask me to create a periodized training plan.",
+                "ccrs_recommendation": se.ccrs_recommendation if se else None,
+            }
+            if acwr_enabled:
+                payload["acwr"] = acwr_val
+            return payload
+
+        payload = {
             "has_active_block": True,
             "block_id": block[0],
             "sport": block[1],
@@ -158,9 +179,12 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
             "week_number": block[7],
             "status": block[8],
             "created_at": block[9],
-            "acwr": se.acwr if se else None,
             "readiness": context.readiness_score,
+            "ccrs_recommendation": se.ccrs_recommendation if se else None,
         }
+        if acwr_enabled:
+            payload["acwr"] = acwr_val
+        return payload
 
     @tool
     async def get_position_program_recommendations() -> dict:
@@ -213,15 +237,18 @@ def make_training_program_tools(user_id: str, context: PlayerContext) -> list:
             for row in rows
         ]
 
+        acwr_enabled = get_settings().acwr_ai_enabled
         result = {
             "sport": context.sport,
             "position": position,
             "programs": programs[:8],
             "gap_attributes": gap_attributes[:5],
-            "acwr": se.acwr if se else None,
             "readiness": context.readiness_score,
+            "ccrs_recommendation": se.ccrs_recommendation if se else None,
             "phv_active": _is_mid_phv(),
         }
+        if acwr_enabled:
+            result["acwr"] = se.acwr if se else None
         warning = _acwr_warning()
         if warning:
             result["load_advisory"] = warning

@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, date as date_type
 
 from langchain_core.tools import tool
 
+from app.config import get_settings
 from app.models.context import PlayerContext
 
 logger = logging.getLogger("tomo-ai.tools.output")
@@ -271,7 +272,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
     @tool
     async def get_dual_load_score() -> dict:
-        """Get the athlete's current dual load index (athletic + academic balance), ACWR, ATL, CTL, injury risk, and projected load. Use when athlete asks about load, overload, ACWR, or training volume."""
+        """Get the athlete's current dual load index (athletic + academic balance), CCRS, injury risk, and projected load. Use when athlete asks about load, overload, or training volume."""
         se = context.snapshot_enrichment
         if not se:
             return {"error": "No snapshot data available", "suggestion": "Complete a check-in to populate load data"}
@@ -280,12 +281,11 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         zone = "LOW" if dli < 40 else "MODERATE" if dli < 70 else "HIGH"
         modifier = "1.0x" if dli < 40 else "0.85x" if dli < 70 else "0.75x"
 
-        return {
-            "acwr": se.acwr,
-            "atl_7day": se.atl_7day,
-            "ctl_28day": se.ctl_28day,
+        payload: dict = {
             "injury_risk": se.injury_risk_flag,
-            "projected_acwr": se.projected_acwr,
+            "ccrs": se.ccrs,
+            "ccrs_recommendation": se.ccrs_recommendation,
+            "ccrs_confidence": se.ccrs_confidence,
             "dual_load_index": dli,
             "dual_load_zone": zone,
             "intensity_modifier": modifier,
@@ -294,6 +294,14 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             "training_monotony": se.training_monotony,
             "training_strain": se.training_strain,
         }
+        if get_settings().acwr_ai_enabled:
+            payload.update({
+                "acwr": se.acwr,
+                "atl_7day": se.atl_7day,
+                "ctl_28day": se.ctl_28day,
+                "projected_acwr": se.projected_acwr,
+            })
+        return payload
 
     @tool
     async def log_check_in(
@@ -343,12 +351,21 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         risk_reasons: list[str] = []
 
         if se:
+            acwr_enabled = get_settings().acwr_ai_enabled
             if se.injury_risk_flag and se.injury_risk_flag.upper() == "RED":
                 risk_reasons.append("injury risk is elevated")
-            if se.acwr is not None and se.acwr > 1.5:
-                risk_reasons.append(f"training load has been spiking")
-            if se.acwr is not None and se.acwr > 1.3:
+            if acwr_enabled and se.acwr is not None and se.acwr > 1.5:
+                risk_reasons.append("training load has been spiking")
+            elif acwr_enabled and se.acwr is not None and se.acwr > 1.3:
                 risk_reasons.append("load is building")
+            else:
+                rec = (se.ccrs_recommendation or "").lower()
+                if rec == "blocked":
+                    risk_reasons.append("readiness signals are flashing")
+                elif rec == "recovery":
+                    risk_reasons.append("body's asking for recovery")
+                elif rec == "reduced":
+                    risk_reasons.append("readiness is down")
 
         if risk_reasons:
             load_advisory = (

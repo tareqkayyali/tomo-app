@@ -20,6 +20,7 @@ import hashlib
 from datetime import datetime, timezone
 from typing import Optional
 
+from app.config import get_settings
 from app.db.supabase import get_pool
 from app.models.context import PlayerContext, SnapshotEnrichment
 
@@ -27,7 +28,7 @@ logger = logging.getLogger("tomo-ai.aib")
 
 # ── AIB System Prompt ────────────────────────────────────────────────
 
-AIB_SYSTEM_PROMPT = """You are an elite sports scientist and youth athletic development specialist.
+AIB_SYSTEM_PROMPT_WITH_ACWR = """You are an elite sports scientist and youth athletic development specialist.
 Your task is to synthesize raw athlete data into a concise coaching intelligence brief.
 
 The brief MUST contain exactly 6 sections:
@@ -46,7 +47,45 @@ Rules:
 - Write in present tense, coaching voice
 - If data is missing, say "Data pending" — never fabricate values"""
 
-AIB_USER_TEMPLATE = """Generate an Athlete Intelligence Brief for:
+
+# Post-decommission system prompt — ACWR is not surfaced to the AIB
+# pipeline. The load/readiness narrative is driven by CCRS + injury risk
+# + wellness trend. Academic dual-load remains visible via DLI and
+# exam-proximity fields already in the user template.
+AIB_SYSTEM_PROMPT_CCRS = """You are an elite sports scientist and youth athletic development specialist.
+Your task is to synthesize raw athlete data into a concise coaching intelligence brief.
+
+The brief MUST contain exactly 6 sections:
+1. **Readiness & Recovery** — CCRS score and recommendation, HRV trends, sleep quality, recovery needs
+2. **Load & Dual-Load** — CCRS-driven load guidance, injury risk assessment, athletic vs academic balance
+3. **Performance Profile** — Key strengths, gaps, recent test improvements, benchmark percentiles
+4. **Development Context** — PHV stage implications, training age, age-band considerations
+5. **Behavioral Signals** — Engagement patterns, journal consistency, coaching preference, plan compliance
+6. **Coaching Priorities** — Top 3 actionable priorities for the next interaction
+
+Rules:
+- Ground load guidance in the CCRS recommendation (full_load / moderate / reduced / recovery / blocked), not in raw ratios
+- Flag RED/AMBER items prominently
+- Use sport-specific language appropriate to the athlete's sport and position
+- Keep total brief under 400 words
+- Write in present tense, coaching voice
+- If data is missing, say "Data pending" — never fabricate values
+- Never reference ACWR, ATL, CTL, or any raw load-ratio number"""
+
+
+def _system_prompt() -> str:
+    return (
+        AIB_SYSTEM_PROMPT_WITH_ACWR
+        if get_settings().acwr_ai_enabled
+        else AIB_SYSTEM_PROMPT_CCRS
+    )
+
+
+# Back-compat alias so external callers/logging referencing AIB_SYSTEM_PROMPT
+# keep working; resolved lazily via _system_prompt() at send time.
+AIB_SYSTEM_PROMPT = AIB_SYSTEM_PROMPT_WITH_ACWR
+
+AIB_USER_TEMPLATE_WITH_ACWR = """Generate an Athlete Intelligence Brief for:
 
 **Athlete**: {name} ({sport}, {position})
 **Age Band**: {age_band} | **Gender**: {gender}
@@ -92,6 +131,60 @@ AIB_USER_TEMPLATE = """Generate an Athlete Intelligence Brief for:
 - Data Confidence: {data_confidence_score}"""
 
 
+# Post-decommission template. ACWR/ATL/CTL/projected_acwr/training_monotony
+# /training_strain omitted — the AIB ignores raw load ratios and leans on
+# CCRS + injury risk + dual-load for the Load section.
+AIB_USER_TEMPLATE_CCRS = """Generate an Athlete Intelligence Brief for:
+
+**Athlete**: {name} ({sport}, {position})
+**Age Band**: {age_band} | **Gender**: {gender}
+**Date**: {today_date} | **Time**: {current_time}
+
+**Readiness**: {readiness_score} (checked in: {checkin_date})
+{readiness_detail}
+
+**CCRS**:
+- Score: {ccrs} | Recommendation: {ccrs_recommendation} | Confidence: {ccrs_confidence}
+- Alert Flags: {ccrs_alert_flags}
+- Data Freshness: {data_freshness}
+
+**Load & Dual-Load**:
+- Injury Risk: {injury_risk_flag}
+- Athletic Load 7d: {athletic_load_7day} | Academic Load 7d: {academic_load_7day}
+- Dual Load Index: {dual_load_index}
+
+**Wellness & Vitals**:
+- HRV Baseline: {hrv_baseline_ms}ms | Today: {hrv_today_ms}ms | Trend: {hrv_trend_7d_pct}%
+- Sleep Quality: {sleep_quality} | Sleep Debt 3d: {sleep_debt_3d}
+- Wellness 7d Avg: {wellness_7day_avg} | Trend: {wellness_trend}
+- Recovery Score: {recovery_score} | SpO2: {spo2_pct}%
+
+**Performance**:
+- Sessions: {sessions_total} | Training Age: {training_age_weeks}wk | Streak: {streak_days}d
+- CV Completeness: {cv_completeness}%
+- Coachability: {coachability_index}
+
+**Development**:
+- PHV Stage: {phv_stage} | Offset: {phv_offset_years}yr
+- Triangle RAG: {triangle_rag} | Readiness RAG: {readiness_rag}
+
+**Engagement**:
+- Journal Completeness 7d: {journal_completeness_7d} | Streak: {journal_streak_days}d
+- Plan Compliance 7d: {plan_compliance_7d}
+- Checkin Consistency 7d: {checkin_consistency_7d}
+- Rec Action Rate 30d: {rec_action_rate_30d}
+- Coaching Preference: {coaching_preference}
+
+**Context**:
+- Matches Next 7d: {matches_next_7d} | Exams Next 14d: {exams_next_14d}
+- Season Phase: {season_phase}
+- Active Mode: {athlete_mode} | Dual Load Zone: {dual_load_zone}
+- Data Confidence: {data_confidence_score}"""
+
+
+AIB_USER_TEMPLATE = AIB_USER_TEMPLATE_WITH_ACWR
+
+
 def _format_aib_prompt(context: PlayerContext) -> str:
     """Format the AIB user prompt from PlayerContext."""
     se = context.snapshot_enrichment
@@ -112,7 +205,8 @@ def _format_aib_prompt(context: PlayerContext) -> str:
         return f"{val}{suffix}"
 
     if se:
-        return AIB_USER_TEMPLATE.format(
+        acwr_enabled = get_settings().acwr_ai_enabled
+        common_kwargs = dict(
             name=context.name,
             sport=context.sport,
             position=context.position or "N/A",
@@ -123,17 +217,10 @@ def _format_aib_prompt(context: PlayerContext) -> str:
             readiness_score=context.readiness_score or "No checkin",
             checkin_date=context.checkin_date or "N/A",
             readiness_detail=readiness_detail or "No checkin data",
-            acwr=_v(se.acwr),
-            atl_7day=_v(se.atl_7day),
-            ctl_28day=_v(se.ctl_28day),
             injury_risk_flag=_v(se.injury_risk_flag),
             athletic_load_7day=_v(se.athletic_load_7day),
             academic_load_7day=_v(se.academic_load_7day),
             dual_load_index=_v(se.dual_load_index),
-            projected_load_7day=_v(se.projected_load_7day),
-            projected_acwr=_v(se.projected_acwr),
-            training_monotony=_v(se.training_monotony),
-            training_strain=_v(se.training_strain),
             hrv_baseline_ms=_v(se.hrv_baseline_ms),
             hrv_today_ms=_v(se.hrv_today_ms),
             hrv_trend_7d_pct=_v(se.hrv_trend_7d_pct),
@@ -165,6 +252,26 @@ def _format_aib_prompt(context: PlayerContext) -> str:
             dual_load_zone=_v(se.dual_load_zone),
             data_confidence_score=_v(se.data_confidence_score),
         )
+        if acwr_enabled:
+            return AIB_USER_TEMPLATE_WITH_ACWR.format(
+                acwr=_v(se.acwr),
+                atl_7day=_v(se.atl_7day),
+                ctl_28day=_v(se.ctl_28day),
+                projected_load_7day=_v(se.projected_load_7day),
+                projected_acwr=_v(se.projected_acwr),
+                training_monotony=_v(se.training_monotony),
+                training_strain=_v(se.training_strain),
+                **common_kwargs,
+            )
+        flags = ", ".join(se.ccrs_alert_flags) if se.ccrs_alert_flags else "None"
+        return AIB_USER_TEMPLATE_CCRS.format(
+            ccrs=_v(se.ccrs),
+            ccrs_recommendation=_v(se.ccrs_recommendation),
+            ccrs_confidence=_v(se.ccrs_confidence),
+            ccrs_alert_flags=flags,
+            data_freshness=_v(se.data_freshness),
+            **common_kwargs,
+        )
     else:
         # No snapshot — minimal AIB from checkin data only
         return f"""Generate an Athlete Intelligence Brief for:
@@ -189,9 +296,13 @@ def _compute_snapshot_hash(context: PlayerContext) -> str:
     if not se:
         return "no-snapshot"
 
-    # Hash key snapshot fields that would change the coaching narrative
+    # Hash key snapshot fields that would change the coaching narrative.
+    # With ACWR decommissioned, CCRS recommendation is the primary load
+    # driver. Including both makes the hash bump under either mode so
+    # rolling the flag forces a fresh AIB on next request.
     key_fields = (
-        f"{se.acwr}|{se.readiness_rag}|{se.injury_risk_flag}|"
+        f"{se.acwr}|{se.ccrs}|{se.ccrs_recommendation}|"
+        f"{se.readiness_rag}|{se.injury_risk_flag}|"
         f"{se.wellness_trend}|{se.phv_stage}|{se.streak_days}|"
         f"{se.checkin_consistency_7d}|{se.plan_compliance_7d}|"
         f"{se.athlete_mode}|{se.dual_load_zone}"
@@ -220,7 +331,7 @@ async def generate_aib(context: PlayerContext) -> Optional[str]:
 
         prompt = _format_aib_prompt(context)
         response = await llm.ainvoke([
-            {"role": "system", "content": AIB_SYSTEM_PROMPT},
+            {"role": "system", "content": _system_prompt()},
             {"role": "user", "content": prompt},
         ])
 

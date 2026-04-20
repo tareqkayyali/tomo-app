@@ -11,6 +11,7 @@ import logging
 
 from langchain_core.tools import tool
 
+from app.config import get_settings
 from app.models.context import PlayerContext
 
 logger = logging.getLogger("tomo-ai.tools.planning")
@@ -37,7 +38,7 @@ def make_planning_tools(user_id: str, context: PlayerContext) -> list:
         result = {
             "active_mode": pc.active_mode if pc else (se.athlete_mode if se else "balanced"),
             "readiness": context.readiness_score,
-            "acwr": se.acwr if se else None,
+            "ccrs_recommendation": se.ccrs_recommendation if se else None,
             "injury_risk": se.injury_risk_flag if se else None,
             "dual_load_zone": se.dual_load_zone if se else None,
             "data_confidence": se.data_confidence_score if se else None,
@@ -154,15 +155,18 @@ def make_planning_tools(user_id: str, context: PlayerContext) -> list:
         ]
 
         se = context.snapshot_enrichment
-        return {
+        payload: dict = {
             "week_start": today,
             "week_end": end,
             "events": events,
             "total_events": len(events),
             "current_mode": se.athlete_mode if se else "balanced",
             "readiness": context.readiness_score,
-            "acwr": se.acwr if se else None,
+            "ccrs_recommendation": se.ccrs_recommendation if se else None,
         }
+        if get_settings().acwr_ai_enabled:
+            payload["acwr"] = se.acwr if se else None
+        return payload
 
     @tool
     async def get_protocol_details(protocol_id: str = "") -> dict:

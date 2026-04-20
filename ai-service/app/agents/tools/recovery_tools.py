@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 
 from langchain_core.tools import tool
 
+from app.config import get_settings
 from app.models.context import PlayerContext
 
 logger = logging.getLogger("tomo-ai.tools.recovery")
@@ -36,35 +37,44 @@ def make_recovery_tools(user_id: str, context: PlayerContext) -> list:
 
     @tool
     async def get_recovery_status() -> dict:
-        """Get current recovery status — readiness, ACWR, injury risk, load trends, sleep quality, soreness trend. Use when athlete asks about recovery, soreness, tiredness, or whether they should train."""
+        """Get current recovery status — readiness, CCRS, injury risk, load trends, sleep quality, soreness trend. Use when athlete asks about recovery, soreness, tiredness, or whether they should train."""
         se = context.snapshot_enrichment
         if not se:
             return {"error": "No snapshot data available", "suggestion": "Complete a check-in to populate recovery data"}
 
-        # Determine recovery recommendation
-        acwr = se.acwr or 0
+        acwr_enabled = get_settings().acwr_ai_enabled
+        acwr = (se.acwr or 0) if acwr_enabled else None
         injury_risk = (se.injury_risk_flag or "GREEN").upper()
         readiness = context.readiness_score or "Green"
+        ccrs_rec = (se.ccrs_recommendation or "").lower()
 
-        if injury_risk == "RED" or acwr > 1.5:
+        # Recommendation resolution order:
+        #   1. Injury risk RED → CAUTION (unchanged, authoritative)
+        #   2. ACWR-driven paths only when the rollback flag is on
+        #   3. CCRS recommendation drives the day-to-day call
+        #   4. Check-in readiness as final fallback
+        if injury_risk == "RED" or (acwr_enabled and acwr is not None and acwr > 1.5):
             recommendation = "CAUTION"
             advice = "Your body's carrying a lot right now. A full recovery day would be smart — but your call."
-        elif readiness == "Red" or acwr > 1.3:
+        elif ccrs_rec == "blocked":
+            recommendation = "CAUTION"
+            advice = "Readiness signals are flashing — a full recovery day would be smart, but your call."
+        elif ccrs_rec == "recovery" or readiness == "Red" or (acwr_enabled and acwr is not None and acwr > 1.3):
             recommendation = "RECOVERY_ONLY"
             advice = "Light recovery work only — foam rolling, stretching, gentle mobility."
-        elif readiness == "Yellow" or acwr > 1.2:
+        elif ccrs_rec == "reduced" or readiness == "Yellow" or (acwr_enabled and acwr is not None and acwr > 1.2):
             recommendation = "REDUCED"
             advice = "You can train but keep intensity LIGHT to MODERATE. Focus on technique over volume."
         else:
             recommendation = "FULL_LOAD"
             advice = "Recovery looks good. You're cleared for full training intensity."
 
-        return {
+        payload: dict = {
             "readiness": readiness,
-            "acwr": acwr,
             "injury_risk_flag": injury_risk,
-            "atl_7day": se.atl_7day,
-            "ctl_28day": se.ctl_28day,
+            "ccrs": se.ccrs,
+            "ccrs_recommendation": se.ccrs_recommendation,
+            "ccrs_confidence": se.ccrs_confidence,
             "recovery_score": se.recovery_score,
             "sleep_quality": se.sleep_quality,
             "hrv_today": se.hrv_today_ms,
@@ -75,14 +85,22 @@ def make_recovery_tools(user_id: str, context: PlayerContext) -> list:
             "recommendation": recommendation,
             "advice": advice,
         }
+        if acwr_enabled:
+            payload.update({
+                "acwr": acwr,
+                "atl_7day": se.atl_7day,
+                "ctl_28day": se.ctl_28day,
+            })
+        return payload
 
     @tool
     async def get_deload_recommendation() -> dict:
-        """Analyze whether the athlete needs a deload week. Considers ACWR trend, monotony, strain, injury risk, and readiness history. Use when athlete mentions fatigue, overtraining, or asks if they need a break."""
+        """Analyze whether the athlete needs a deload week. Considers CCRS trend, monotony, strain, injury risk, and readiness history. Use when athlete mentions fatigue, overtraining, or asks if they need a break."""
         from app.db.supabase import get_pool
         pool = get_pool()
 
         se = context.snapshot_enrichment
+        acwr_enabled = get_settings().acwr_ai_enabled
 
         # Get 14-day check-in trend for readiness pattern
         async with pool.connection() as conn:
@@ -109,24 +127,33 @@ def make_recovery_tools(user_id: str, context: PlayerContext) -> list:
         red_days = sum(1 for c in checkin_trend if c["readiness"] == "Red")
         yellow_days = sum(1 for c in checkin_trend if c["readiness"] == "Yellow")
 
-        acwr = se.acwr if se else None
+        acwr = se.acwr if (se and acwr_enabled) else None
         monotony = se.training_monotony if se else None
         strain = se.training_strain if se else None
         injury_risk = (se.injury_risk_flag or "GREEN").upper() if se else "UNKNOWN"
+        ccrs_rec = (se.ccrs_recommendation or "").lower() if se else ""
 
         # Deload decision logic
         needs_deload = False
         urgency = "low"
         reasons: list[str] = []
 
-        if acwr is not None and acwr > 1.5:
+        if acwr_enabled and acwr is not None and acwr > 1.5:
             needs_deload = True
             urgency = "critical"
             reasons.append(f"ACWR critically high ({acwr:.2f})")
-        elif acwr is not None and acwr > 1.3:
+        elif acwr_enabled and acwr is not None and acwr > 1.3:
             needs_deload = True
             urgency = "high"
             reasons.append(f"ACWR elevated ({acwr:.2f})")
+        elif ccrs_rec == "blocked":
+            needs_deload = True
+            urgency = "critical"
+            reasons.append("CCRS recommendation: blocked (catastrophic-load safety cap)")
+        elif ccrs_rec == "recovery":
+            needs_deload = True
+            urgency = "high"
+            reasons.append("CCRS recommendation: recovery only")
 
         if injury_risk == "RED":
             needs_deload = True

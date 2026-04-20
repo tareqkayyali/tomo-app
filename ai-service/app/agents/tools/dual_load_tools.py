@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 
 from langchain_core.tools import tool
 
+from app.config import get_settings
 from app.models.context import PlayerContext
 
 logger = logging.getLogger("tomo-ai.tools.dual_load")
@@ -47,18 +48,16 @@ def make_dual_load_tools(user_id: str, context: PlayerContext) -> list:
         pc = context.planning_context
         exam_proximity = pc.exam_proximity_score if pc else None
 
-        return {
+        payload: dict = {
             "dual_load_index": dli,
             "zone": zone,
             "intensity_modifier": modifier,
             "athletic_load_7day": se.athletic_load_7day,
             "academic_load_7day": se.academic_load_7day,
-            "acwr": se.acwr,
-            "ctl_28day": se.ctl_28day,
-            "atl_7day": se.atl_7day,
             "exam_proximity_score": exam_proximity,
             "dual_load_zone": pc.dual_load_zone if pc else None,
             "readiness": context.readiness_score,
+            "ccrs_recommendation": se.ccrs_recommendation,
             "academic_stress": context.readiness_components.academic_stress if context.readiness_components else None,
             "recommendation": (
                 "Reduce training volume and prioritize sleep" if dli >= 70
@@ -66,6 +65,13 @@ def make_dual_load_tools(user_id: str, context: PlayerContext) -> list:
                 else "Load balanced — full training intensity available"
             ),
         }
+        if get_settings().acwr_ai_enabled:
+            payload.update({
+                "acwr": se.acwr,
+                "ctl_28day": se.ctl_28day,
+                "atl_7day": se.atl_7day,
+            })
+        return payload
 
     @tool
     async def get_cognitive_readiness_windows() -> dict:

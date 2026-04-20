@@ -237,7 +237,12 @@ export const BUILT_IN_RULES: Rule[] = [
 export const DEFAULTS: RecommendationEngineConfig = {
   guardrails: {
     acwr: {
-      enabled: true,
+      // Decommissioned April 2026: academic load (×0.4) was inflating ACWR
+      // into danger/high zones without heavy training, biasing program
+      // recommendations toward capped volume. Readiness RAG + CCRS carry
+      // the safety logic now. Flip to true via CMS config or set env
+      // ACWR_PROGRAM_GUARDRAIL_ENABLED=true to restore.
+      enabled: false,
       dangerThreshold: 1.5,
       highThreshold: 1.3,
       detrainingThreshold: 0.8,

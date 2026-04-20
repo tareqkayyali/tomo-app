@@ -24,6 +24,7 @@ import logging
 from typing import Optional
 
 from app.agents.tools.bridge import bridge_get
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -192,16 +193,27 @@ def render_conflict_mediation_block(seed_context: Optional[dict]) -> str:
         else:
             other_notes.append(f"[{role}] {body}")
 
+    acwr_enabled = get_settings().acwr_ai_enabled
+    physiology_ref = (
+        "PHV stage, ACWR, readiness"
+        if acwr_enabled
+        else "PHV stage, readiness, CCRS recommendation"
+    )
+    safety_gates = (
+        "PHV contraindications, ACWR > 1.5, RED readiness"
+        if acwr_enabled
+        else "PHV contraindications, CCRS 'blocked' recommendation, RED readiness"
+    )
     lines: list[str] = [
         "=== CONFLICT MEDIATION MODE ===",
         "This session was opened from the Ask Tomo pill because the event has a coach",
         "vs parent disagreement. Your job is FACTUAL NARRATIVE, not a verdict:",
         "  - Cite what each adult actually said, verbatim (paraphrase only if long).",
-        "  - Ground your reasoning in the physiology signals below (PHV stage,",
-        "    ACWR, readiness) and the schedule context of the event.",
+        f"  - Ground your reasoning in the physiology signals below ({physiology_ref})",
+        "    and the schedule context of the event.",
         "  - Offer ONE recommended path + two alternatives. Never tell the athlete",
         "    who is 'right'.",
-        "  - Safety gates (PHV contraindications, ACWR > 1.5, RED readiness) are",
+        f"  - Safety gates ({safety_gates}) are",
         "    absolute — if an option is safety-blocked, say so and drop it from",
         "    the menu regardless of what coach or parent wrote.",
         "",
@@ -235,8 +247,9 @@ def render_conflict_mediation_block(seed_context: Optional[dict]) -> str:
     # mediation response. Transcript reproducibility.
     if safety:
         phv = safety.get("phv_stage")
-        acwr = safety.get("acwr")
+        acwr = safety.get("acwr") if acwr_enabled else None
         readiness = safety.get("readiness_rag")
+        ccrs_rec = safety.get("ccrs_recommendation")
         bits: list[str] = []
         if phv:
             bits.append(f"growth stage={phv}")
@@ -244,6 +257,8 @@ def render_conflict_mediation_block(seed_context: Optional[dict]) -> str:
             bits.append(f"ACWR={acwr:.2f}" if isinstance(acwr, (int, float)) else f"ACWR={acwr}")
         if readiness:
             bits.append(f"readiness={readiness}")
+        if ccrs_rec and not acwr_enabled:
+            bits.append(f"CCRS={ccrs_rec}")
         if bits:
             lines.append("")
             lines.append("PINNED SAFETY SIGNALS:")

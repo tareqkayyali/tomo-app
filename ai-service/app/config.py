@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     scheduling_capsule_enabled: bool = False
     flow_rag_enabled: bool = True
     flow_step_text_gen_enabled: bool = True
+    # ACWR decommissioning (April 2026): when False, ACWR is stripped from all
+    # AI-facing surfaces (system prompts, brief templates, tool outputs) and
+    # only survives as a silent input to CCRS's >2.0 hard-cap safety net.
+    # Flip to True to restore pre-decommission behaviour (rollback path).
+    # ACWR still computes on the snapshot for coach/analyst transparency.
+    acwr_ai_enabled: bool = False
 
     model_config = {
         "env_file": ".env",
