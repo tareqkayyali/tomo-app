@@ -7,17 +7,19 @@ import {
   ACWR_DANGER_HIGH,
 } from "@/services/events/constants";
 
-const ACADEMIC_WEIGHT = 0.4;
-
 /**
  * GET /api/v1/admin/acwr-inspector?athlete_id=UUID
  *
  * Returns the full ACWR calculation breakdown for an athlete:
- * - 28-day daily load table (training + academic + combined)
+ * - 28-day daily load table (training only — academic shown separately for context)
  * - 7-day acute window highlighted
  * - Intermediate sums and averages
  * - Final ACWR, ATL, CTL, risk flag
  * - Current snapshot values for comparison
+ *
+ * PHYSICAL-ONLY (April 2026). Mirrors `acwrComputation.ts` — the ratio is
+ * computed from `training_load_au` only. `academic_load_au` is shown per-day
+ * for debugging context but is NOT folded into the acute/chronic sums.
  */
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
@@ -69,25 +71,25 @@ export async function GET(req: NextRequest) {
   const dailyBreakdown = rows.map((d: any) => {
     const training = Number(d.training_load_au) || 0;
     const academic = Number(d.academic_load_au) || 0;
-    const combined = training + academic * ACADEMIC_WEIGHT;
     const isAcuteWindow = d.load_date >= sevenDaysAgo;
 
     return {
       date: d.load_date,
       training_au: Math.round(training * 10) / 10,
       academic_au: Math.round(academic * 10) / 10,
-      academic_weighted: Math.round(academic * ACADEMIC_WEIGHT * 10) / 10,
-      combined_au: Math.round(combined * 10) / 10,
+      // Kept for backward compatibility with the admin UI; ratio no longer
+      // uses the blended value. Always equals training for clarity.
+      combined_au: Math.round(training * 10) / 10,
       session_count: d.session_count ?? 0,
       is_acute_window: isAcuteWindow,
     };
   });
 
-  // 4. Calculate sums
+  // 4. Calculate sums — training only
   const acuteRows = dailyBreakdown.filter((d) => d.is_acute_window);
-  const acuteSum = acuteRows.reduce((s, d) => s + d.combined_au, 0);
-  const chronicSum = dailyBreakdown.reduce((s, d) => s + d.combined_au, 0);
-  const trainingOnly7d = acuteRows.reduce((s, d) => s + d.training_au, 0);
+  const acuteSum = acuteRows.reduce((s, d) => s + d.training_au, 0);
+  const chronicSum = dailyBreakdown.reduce((s, d) => s + d.training_au, 0);
+  const trainingOnly7d = acuteSum;
   const academicOnly7d = acuteRows.reduce((s, d) => s + d.academic_au, 0);
 
   const atl = acuteSum / 7;
@@ -129,7 +131,7 @@ export async function GET(req: NextRequest) {
       chronic_sum: Math.round(chronicSum * 10) / 10,
       acute_days_with_data: acuteRows.length,
       chronic_days_with_data: dailyBreakdown.length,
-      academic_weight: ACADEMIC_WEIGHT,
+      academic_weight: 0, // physical-only formula since April 2026
     },
     thresholds: {
       safe_low: ACWR_SAFE_LOW,

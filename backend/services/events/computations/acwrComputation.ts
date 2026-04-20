@@ -4,22 +4,23 @@
  * Uses pre-aggregated athlete_daily_load table for fast computation.
  * Reads 28 rows max per athlete (one per day) instead of scanning all session events.
  *
- * Combined load = training_load_au + (academic_load_au × ACADEMIC_WEIGHT)
- * Academic stress contributes 40% of its AU value to total athlete load.
- * This reflects that study/exams add to total stress but at lower physical impact.
+ * PHYSICAL-ONLY (April 2026). ATL/CTL/ACWR are computed from training_load_au
+ * exclusively. Academic load is preserved on `athlete_daily_load.academic_load_au`
+ * and surfaced via the Dual Load Index, `academic_load_7day`, `exam_proximity_score`,
+ * and the check-in `academic_stress` field — none of which contaminate this
+ * sports-science ratio.
  *
- * Safe zone: 0.8–1.3. Above 1.5 = high injury risk.
+ * Rationale: the prior blend (`training + academic × 0.4`) treated 1h of study
+ * as 4 AU and "School Hours 8 AM–3 PM" as ~28 AU/school-day, which swamped
+ * real training load and inflated ACWR into the caution/danger/blocked zones
+ * during exam weeks for athletes who weren't physically overloaded.
+ *
+ * Safe zone: 0.8–1.3. Above 1.5 = elevated injury risk (reference:
+ * Gabbett 2016; Bowen et al. 2020). >2.0 triggers the CCRS hard-cap.
  */
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { ACWR_SAFE_LOW, ACWR_SAFE_HIGH, ACWR_DANGER_HIGH } from '../constants';
-
-/**
- * Academic load weight factor for ACWR.
- * 1 hour study = 10 AU × 0.4 = 4 AU towards ACWR.
- * Training load always counts at full weight (1.0).
- */
-const ACADEMIC_WEIGHT = 0.4;
 
 export interface ACWRResult {
   acwr: number;
@@ -31,18 +32,20 @@ export interface ACWRResult {
 
 /**
  * Recompute ACWR from the athlete_daily_load pre-aggregation table.
- * Combines training load (full weight) + academic load (40% weight).
- * Updates the snapshot with ACWR, ATL, CTL, and injury risk flag.
+ * Uses `training_load_au` only — academic load is intentionally excluded
+ * (see file header). Updates the snapshot with ACWR, ATL, CTL, and
+ * injury risk flag.
  */
 export async function recomputeACWR(athleteId: string): Promise<ACWRResult> {
   const db = supabaseAdmin();
 
   const twentyEightDaysAgo = new Date(Date.now() - 28 * 86400000).toISOString().slice(0, 10);
 
-  // Read BOTH training and academic load columns
+  // Read training_load_au only. academic_load_au still lives on the row
+  // for Dual Load Index / analytics consumers, but is NOT fed to ATL/CTL.
   const { data: dailyLoads } = await db
     .from('athlete_daily_load')
-    .select('load_date, training_load_au, academic_load_au')
+    .select('load_date, training_load_au')
     .eq('athlete_id', athleteId)
     .gte('load_date', twentyEightDaysAgo)
     .order('load_date', { ascending: false });
@@ -61,24 +64,22 @@ export async function recomputeACWR(athleteId: string): Promise<ACWRResult> {
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
-  // Combined load per day = training + (academic × weight)
-  const combinedLoad = (d: any): number =>
-    (d.training_load_au || 0) + (d.academic_load_au || 0) * ACADEMIC_WEIGHT;
+  const physicalLoad = (d: any): number => d.training_load_au || 0;
 
   // Acute: last 7 days
   const acuteLoads = dailyLoads.filter((d: any) => d.load_date >= sevenDaysAgo);
-  const acuteSum = acuteLoads.reduce((sum: number, d: any) => sum + combinedLoad(d), 0);
+  const acuteSum = acuteLoads.reduce((sum: number, d: any) => sum + physicalLoad(d), 0);
   const atl = acuteSum / 7;
 
   // Chronic: last 28 days
-  const chronicSum = dailyLoads.reduce((sum: number, d: any) => sum + combinedLoad(d), 0);
+  const chronicSum = dailyLoads.reduce((sum: number, d: any) => sum + physicalLoad(d), 0);
   const ctl = chronicSum / 28;
 
   // ACWR ratio
   const acwr = ctl > 0 ? Math.round((atl / ctl) * 100) / 100 : 0;
 
-  // Raw athletic-only sum (for display purposes)
-  const athleticOnly7d = acuteLoads.reduce((sum: number, d: any) => sum + (d.training_load_au || 0), 0);
+  // Raw 7-day physical sum (same as acuteSum now, kept for the snapshot column)
+  const athleticOnly7d = acuteSum;
 
   // Injury risk classification
   let injuryRiskFlag: 'GREEN' | 'AMBER' | 'RED' = 'GREEN';
