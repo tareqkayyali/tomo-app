@@ -899,6 +899,90 @@ function TypingDots() {
   );
 }
 
+/**
+ * UpcomingRibbon — "Upcoming — {type} — {time}" mini-row shown above the
+ * quick-action chips on the empty Chat state. Pulls the next event from
+ * boot data; renders nothing when there's no upcoming event.
+ */
+type UpcomingEvent = {
+  id: string;
+  title: string;
+  type: string;
+  startAt: string;
+};
+
+const UPCOMING_TYPE_LABELS: Record<string, string> = {
+  training: 'Training',
+  match: 'Match',
+  gym: 'Gym',
+  recovery: 'Recovery',
+  study: 'Study',
+  exam: 'Exam',
+  sleep: 'Sleep',
+  club: 'Club',
+  personal: 'Personal',
+};
+
+const UpcomingRibbon = React.memo(function UpcomingRibbon({
+  event,
+  mutedColor,
+  accentColor,
+}: {
+  event: UpcomingEvent | null;
+  mutedColor: string;
+  accentColor: string;
+}) {
+  if (!event) return null;
+  const when = new Date(event.startAt);
+  const time = when.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const label = UPCOMING_TYPE_LABELS[event.type] ?? event.title;
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        paddingVertical: 8,
+      }}
+    >
+      <SmartIcon name="calendar-outline" size={14} color={mutedColor} />
+      <Text
+        style={{
+          fontFamily: 'Poppins_400Regular',
+          fontSize: 13,
+          color: mutedColor,
+          letterSpacing: -0.1,
+        }}
+      >
+        Upcoming
+      </Text>
+      <Text style={{ color: mutedColor, fontFamily: 'Poppins_400Regular' }}>—</Text>
+      <Text
+        style={{
+          fontFamily: 'Poppins_500Medium',
+          fontSize: 13,
+          color: accentColor,
+          letterSpacing: -0.1,
+        }}
+      >
+        {label}
+      </Text>
+      <Text style={{ color: mutedColor, fontFamily: 'Poppins_400Regular' }}>—</Text>
+      <Text
+        style={{
+          fontFamily: 'Poppins_400Regular',
+          fontSize: 13,
+          color: mutedColor,
+          letterSpacing: -0.1,
+        }}
+      >
+        {time}
+      </Text>
+    </View>
+  );
+});
+
 /** Motivational Quote Card */
 const QuoteCard = React.memo(function QuoteCard({ quote }: { quote: Quote }) {
   const styles = useHomeStyles();
@@ -1927,45 +2011,76 @@ export function HomeScreen() {
         {/* ─── Chat Area ───────────────────────────────────────────── */}
         {!showSavedChats && isEmpty ? (
           <Pressable style={styles.emptyContainer} onPress={Keyboard.dismiss}>
-            {/* ChatOrb + "Tomo" + subtitle — 1:1 port of PageChat design */}
-            <View style={{ alignItems: 'center', paddingTop: 40, paddingBottom: 14 }}>
-              <ChatOrb size={96} />
+            {/* "tomo" wordmark — centered near top */}
+            <View style={{ alignItems: 'center', paddingTop: 60, paddingBottom: 24 }}>
+              <Text
+                style={{
+                  fontFamily: 'Poppins_400Regular',
+                  fontSize: 34,
+                  color: colors.tomoCream,
+                  letterSpacing: -1,
+                }}
+              >
+                tomo
+              </Text>
+            </View>
+
+            {/* Motivational quote — centered, personalised via useAllQuotes */}
+            <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28 }}>
               <Text
                 style={{
                   fontFamily: 'Poppins_500Medium',
-                  fontSize: 18,
+                  fontSize: 22,
+                  lineHeight: 30,
                   color: colors.tomoCream,
+                  textAlign: 'center',
                   letterSpacing: -0.3,
-                  marginTop: 14,
                 }}
               >
-                Tomo
+                <Text style={{ color: colors.tomoSage }}>“</Text>
+                {currentQuote.text}
+                <Text style={{ color: colors.tomoSage }}>”</Text>
               </Text>
               <Text
                 style={{
                   fontFamily: 'Poppins_400Regular',
-                  fontSize: 11,
+                  fontSize: 13,
                   color: colors.muted,
-                  marginTop: 2,
+                  textAlign: 'center',
+                  marginTop: 18,
                 }}
               >
-                Your coach. Always on.
+                — {currentQuote.author}
               </Text>
             </View>
-            {/* flex spacer pushes chips + input to the bottom */}
-            <View style={{ flex: 1 }} />
-            {/* Quick action chips — horizontal scroll, 4 fixed prompts */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 10, gap: 6 }}
+
+            {/* Upcoming ribbon — shows next event from boot data */}
+            <UpcomingRibbon
+              event={
+                bootData?.todayEvents?.find((e) => new Date(e.startAt) > new Date())
+                  ?? bootData?.tomorrowFirstEvent
+                  ?? null
+              }
+              mutedColor={colors.muted}
+              accentColor={colors.tomoCream}
+            />
+
+            {/* Quick action chips — Study / Train / Plan My Week / My Benchmarks */}
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                paddingHorizontal: 14,
+                paddingTop: 18,
+                paddingBottom: 10,
+                gap: 8,
+              }}
             >
-              {['Plan tomorrow', "I'm feeling off", 'Match in 3 days — talk me through it', "What's my streak?"].map(
-                (q) => (
-                  <QuickActionChip key={q} label={q} onPress={() => handleChipPress(q)} />
-                ),
-              )}
-            </ScrollView>
+              {['Study', 'Train', 'Plan My Week', 'My Benchmarks'].map((q) => (
+                <QuickActionChip key={q} label={q} onPress={() => handleChipPress(q)} />
+              ))}
+            </View>
           </Pressable>
         ) : !showSavedChats ? (
           <>

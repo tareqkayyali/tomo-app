@@ -280,12 +280,7 @@ function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
-      <View
-        style={[
-          styles.tabBarPill,
-          { backgroundColor: colors.cream03, borderColor: colors.cream10 },
-        ]}
-      >
+      <View style={[styles.tabBarRow, { borderTopColor: colors.cream10 }]}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
           const tabName = route.name as TabName;
@@ -669,11 +664,13 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 28,
   },
-  tabBarPill: {
+  // Thin divider line above the tab row — replaces the old rounded-pill
+  // container. Buttons stay identical; the bar just reads as part of the
+  // page rather than a floating card.
+  tabBarRow: {
     flexDirection: 'row',
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 4,
   },
   tabPillBtn: {
     flex: 1,
