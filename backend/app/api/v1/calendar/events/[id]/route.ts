@@ -195,8 +195,20 @@ export async function PATCH(
       const wasCompleted = Boolean((existing as { completed?: boolean }).completed);
       if (completed && !wasCompleted) {
         update.completed_at = new Date().toISOString();
+        // State machine sync (migration 086). Keep `status` + new columns
+        // in lockstep with the legacy `completed` boolean so future readers
+        // (bridge, CCRS, dashboards) see one consistent source of truth.
+        update.status = 'completed';
+        update.completion_source = 'manual';
+        update.confidence_score = 1.00;
       } else if (!completed && wasCompleted) {
         update.completed_at = null;
+        update.status = 'scheduled';
+        update.completion_source = null;
+        update.confidence_score = null;
+        update.reported_rpe = null;
+        update.reported_duration = null;
+        update.effective_intensity = null;
       }
     }
 
