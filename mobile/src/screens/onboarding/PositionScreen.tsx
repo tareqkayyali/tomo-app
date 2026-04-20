@@ -10,12 +10,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SmartIcon } from '../../components/SmartIcon';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import {
   colors,
   spacing,
@@ -90,13 +89,16 @@ export function PositionScreen({ navigation, route }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <PlayerScreen
+      label="POSITION"
+      title="Your position"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scroll}
+    >
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: '50%' }]} />
         </View>
         <Text style={styles.stepLabel}>Step 2 of 4</Text>
-        <Text style={styles.title}>Where do you play?</Text>
         <Text style={styles.subtitle}>Your main position.</Text>
 
         {error !== null && (
@@ -136,17 +138,15 @@ export function PositionScreen({ navigation, route }: Props) {
         >
           <Text style={styles.continueBtnText}>{loading ? 'Saving...' : 'Continue'}</Text>
         </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: layout.screenMargin,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xxl,
     maxWidth: layout.authMaxWidth,
     width: '100%',

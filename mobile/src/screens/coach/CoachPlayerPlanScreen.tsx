@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { UnifiedDayView } from '../../components/plan/UnifiedDayView';
 import { SkeletonCard, ErrorState } from '../../components';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { usePlayerCalendarData } from '../../hooks/usePlayerCalendarData';
 import { useTheme } from '../../hooks/useTheme';
 import { toDateStr } from '../../utils/calendarHelpers';
@@ -120,7 +121,7 @@ export function CoachPlayerPlanScreen({ route, navigation }: Props) {
   // ─── Render ───────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <PlayerScreen label="PLAN" title={playerName ?? 'Plan'} onBack={() => navigation.goBack()} scroll={false}>
       {backendError && (
         <ErrorState
           message="Could not load data. Pull to retry."
@@ -145,7 +146,7 @@ export function CoachPlayerPlanScreen({ route, navigation }: Props) {
         onNextDay={goToNextDay}
         onToday={goToToday}
       />
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

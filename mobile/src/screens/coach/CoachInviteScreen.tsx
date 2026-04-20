@@ -17,13 +17,16 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { SmartIcon } from '../../components/SmartIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 import { useTheme } from '../../hooks/useTheme';
 import { generateInviteCode } from '../../services/api';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 
 export function CoachInviteScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const [code, setCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -68,9 +71,8 @@ export function CoachInviteScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <PlayerScreen label="INVITE" title="Invite player" onBack={() => navigation.goBack()} scroll={false}>
       <View style={styles.inner}>
-        <Text style={[styles.title, { color: colors.textOnDark }]}>Invite a Player</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>
           Generate a code and share it with your player so they can link their account.
         </Text>
@@ -139,7 +141,7 @@ export function CoachInviteScreen() {
           </View>
         )}
       </View>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

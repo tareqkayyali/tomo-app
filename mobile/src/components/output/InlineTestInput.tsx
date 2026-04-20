@@ -20,6 +20,7 @@ import { SmartIcon } from '../SmartIcon';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
+import { colors } from '../../theme/colors';
 
 interface InlineTestInputProps {
   testType: string;
@@ -71,18 +72,18 @@ export function InlineTestInput({
   const canSave = value.trim().length > 0 && !submitting;
 
   return (
-    <View style={[styles.container, { borderLeftColor: colors.accent1 }]}>
+    <View style={styles.container}>
       <View style={styles.row}>
         <View
           style={[
             styles.inputWrap,
-            { backgroundColor: colors.inputBackground || colors.backgroundElevated },
+            { backgroundColor: colors.inputBackground || colors.cream06 },
           ]}
         >
           <TextInput
-            style={[styles.input, { color: colors.textOnDark }]}
+            style={[styles.input, { color: colors.tomoCream }]}
             placeholder={currentValue != null ? `Current: ${currentValue}` : `Value`}
-            placeholderTextColor={colors.textInactive}
+            placeholderTextColor={colors.muted}
             value={value}
             onChangeText={setValue}
             keyboardType="decimal-pad"
@@ -90,32 +91,32 @@ export function InlineTestInput({
             returnKeyType="done"
             onSubmitEditing={canSave ? handleSave : undefined}
           />
-          <Text style={[styles.unitLabel, { color: colors.textMuted }]}>{unit}</Text>
+          <Text style={[styles.unitLabel, { color: colors.muted }]}>{unit}</Text>
         </View>
 
         {/* Save */}
         <Pressable
           style={[
             styles.actionBtn,
-            { backgroundColor: colors.accent1, opacity: canSave ? 1 : 0.5 },
+            { backgroundColor: colors.tomoSage, opacity: canSave ? 1 : 0.5 },
           ]}
           onPress={handleSave}
           disabled={!canSave}
         >
           {submitting ? (
-            <ActivityIndicator color={colors.textPrimary} size="small" />
+            <ActivityIndicator color={colors.tomoCream} size="small" />
           ) : (
-            <SmartIcon name="checkmark" size={18} color={colors.textPrimary} />
+            <SmartIcon name="checkmark" size={18} color={colors.tomoCream} />
           )}
         </Pressable>
 
         {/* Cancel */}
         <Pressable
-          style={[styles.actionBtn, { backgroundColor: colors.backgroundElevated }]}
+          style={[styles.actionBtn, { backgroundColor: colors.cream06 }]}
           onPress={onCancel}
           disabled={submitting}
         >
-          <SmartIcon name="close" size={18} color={colors.textMuted} />
+          <SmartIcon name="close" size={18} color={colors.muted} />
         </Pressable>
       </View>
     </View>
@@ -124,9 +125,11 @@ export function InlineTestInput({
 
 const styles = StyleSheet.create({
   container: {
-    borderLeftWidth: 2,
-    paddingLeft: spacing.compact,
-    marginLeft: spacing.sm,
+    backgroundColor: colors.cream03,
+    borderWidth: 1,
+    borderColor: colors.cream10,
+    borderRadius: 14,
+    padding: 16,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },

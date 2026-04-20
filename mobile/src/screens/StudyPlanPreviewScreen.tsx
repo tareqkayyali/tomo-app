@@ -14,12 +14,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { useTheme } from '../hooks/useTheme';
 import { useScheduleRules } from '../hooks/useScheduleRules';
 import { createCalendarEvent, getCalendarEventsByRange, deleteCalendarEvent } from '../services/api';
@@ -389,20 +389,17 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
   const accentColor = planType === 'training' ? colors.accent1 : colors.warning;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {planType === 'training' ? 'Training Plan' : 'Study Plan'}
-        </Text>
+    <PlayerScreen
+      label="STUDY"
+      title="Plan preview"
+      onBack={() => navigation.goBack()}
+      right={
         <View style={[styles.countBadge, { backgroundColor: accentColor }]}>
           <Text style={styles.countBadgeText}>{blocks.length}</Text>
         </View>
-      </View>
-
+      }
+      scroll={false}
+    >
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Warnings */}
         {warnings.length > 0 && (
@@ -644,7 +641,7 @@ export function StudyPlanPreviewScreen({ navigation, route }: Props) {
           )}
         </View>
       )}
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

@@ -26,7 +26,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from './SmartIcon';
 import { HexagonRadar, type RadarAttribute } from './HexagonRadar';
 import { useScaleOnPress, useSpringEntrance } from '../hooks/useAnimations';

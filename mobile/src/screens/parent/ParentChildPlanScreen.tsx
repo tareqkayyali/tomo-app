@@ -15,7 +15,6 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { SmartIcon } from '../../components/SmartIcon';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -24,6 +23,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { UnifiedDayView } from '../../components/plan/UnifiedDayView';
 import { ErrorState } from '../../components';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { usePlayerCalendarData } from '../../hooks/usePlayerCalendarData';
 import { useTheme } from '../../hooks/useTheme';
 import { getParentChildren } from '../../services/api';
@@ -163,17 +163,19 @@ export function ParentChildPlanScreen({ navigation }: Props) {
 
   // ─── Loading / empty states ───────────────────────────────────────
 
+  const planTitle = selectedChild?.name ?? 'Plan';
+
   if (childrenLoading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <PlayerScreen label="PLAN" title={planTitle} onBack={() => navigation.goBack()} scroll={false}>
         <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   if (children.length === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <PlayerScreen label="PLAN" title={planTitle} onBack={() => navigation.goBack()} scroll={false}>
         <View style={styles.emptyContainer}>
           <SmartIcon name="lock-closed-outline" size={40} color={colors.textInactive} />
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
@@ -183,21 +185,14 @@ export function ParentChildPlanScreen({ navigation }: Props) {
             Your child hasn't confirmed the link yet. Once they accept, their schedule will appear here.
           </Text>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   // ─── Render ───────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* ─── Header + Child selector ─── */}
-      <View style={styles.headerArea}>
-        <Text style={[styles.screenTitle, { color: colors.textOnDark }]}>
-          {selectedChild?.name ? `${selectedChild.name.split(' ')[0]}'s Plan` : 'Plan'}
-        </Text>
-      </View>
-
+    <PlayerScreen label="PLAN" title={planTitle} onBack={() => navigation.goBack()} scroll={false}>
       {children.length > 1 && (
         <ScrollView
           horizontal
@@ -270,7 +265,7 @@ export function ParentChildPlanScreen({ navigation }: Props) {
           onToday={goToToday}
         />
       )}
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

@@ -11,19 +11,18 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
-import { borderRadius, spacing } from '../../../theme/spacing';
 import type { SectionProps } from './DashboardSectionRenderer';
 
 const TYPE_COLORS: Record<string, string> = {
-  training: '#7a9b76',
-  match: '#A05A4A',
-  gym: '#5A8A9F',
-  recovery: '#6A5A8A',
-  study: '#c49a3c',
-  exam: '#8A4A4A',
-  club: '#4A7A8A',
-  sleep: '#5A6A8A',
-  personal: '#8A6A30',
+  training: '#7A9B76',
+  match: '#C8A27A',
+  gym: '#8A9BB0',
+  recovery: '#7AA59B',
+  study: '#8A9BB0',
+  exam: '#B08A7A',
+  club: '#8A9BB0',
+  sleep: '#8A9BB0',
+  personal: '#7A8A9A',
 };
 
 function formatTime(iso: string): string {
@@ -43,23 +42,23 @@ export const EventListSection = memo(function EventListSection({
   if (displayed.length === 0) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.title, { color: colors.chalk }]}>Today</Text>
+    <View style={[styles.container, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
+      <Text style={[styles.title, { color: colors.tomoCream }]}>Today</Text>
 
       {displayed.map((ev, i) => {
-        const typeColor = TYPE_COLORS[ev.type] ?? colors.chalkDim;
+        const typeColor = TYPE_COLORS[ev.type] ?? colors.muted;
 
         return (
-          <View key={ev.id} style={[styles.eventRow, i < displayed.length - 1 && styles.eventBorder]}>
+          <View key={ev.id} style={[styles.eventRow, i < displayed.length - 1 && { borderBottomColor: colors.cream10, borderBottomWidth: StyleSheet.hairlineWidth }]}>
             <View style={[styles.typeDot, { backgroundColor: typeColor }]} />
-            <Text style={[styles.time, { color: colors.chalkDim }]}>
+            <Text style={[styles.time, { color: colors.muted }]}>
               {formatTime(ev.startAt)}
             </Text>
-            <Text style={[styles.eventTitle, { color: colors.chalk }]} numberOfLines={1}>
+            <Text style={[styles.eventTitle, { color: colors.tomoCream }]} numberOfLines={1}>
               {ev.title}
             </Text>
             {ev.endAt && (
-              <Text style={[styles.endTime, { color: colors.chalkDim }]}>
+              <Text style={[styles.endTime, { color: colors.muted }]}>
                 {formatTime(ev.endAt)}
               </Text>
             )}
@@ -68,12 +67,12 @@ export const EventListSection = memo(function EventListSection({
       })}
 
       {bootData.tomorrowFirstEvent && (
-        <View style={[styles.tomorrowRow, { borderTopColor: colors.border }]}>
-          <Text style={[styles.tomorrowLabel, { color: colors.chalkDim }]}>Tomorrow</Text>
-          <Text style={[styles.eventTitle, { color: colors.chalk }]} numberOfLines={1}>
+        <View style={[styles.tomorrowRow, { borderTopColor: colors.cream10 }]}>
+          <Text style={[styles.tomorrowLabel, { color: 'rgba(245,243,237,0.35)' }]}>Tomorrow</Text>
+          <Text style={[styles.eventTitle, { color: colors.tomoCream }]} numberOfLines={1}>
             {bootData.tomorrowFirstEvent.title}
           </Text>
-          <Text style={[styles.time, { color: colors.chalkDim }]}>
+          <Text style={[styles.time, { color: colors.muted }]}>
             {formatTime(bootData.tomorrowFirstEvent.startAt)}
           </Text>
         </View>
@@ -84,13 +83,14 @@ export const EventListSection = memo(function EventListSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 16,
   },
   title: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 14,
+    letterSpacing: -0.2,
     marginBottom: 12,
   },
   eventRow: {
@@ -99,27 +99,23 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
   },
-  eventBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(245,243,237,0.06)',
-  },
   typeDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
   time: {
-    fontFamily: fontFamily.note,
+    fontFamily: fontFamily.regular,
     fontSize: 12,
     minWidth: 42,
   },
   eventTitle: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 13,
     flex: 1,
   },
   endTime: {
-    fontFamily: fontFamily.note,
+    fontFamily: fontFamily.regular,
     fontSize: 11,
   },
   tomorrowRow: {
@@ -131,9 +127,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   tomorrowLabel: {
-    fontFamily: fontFamily.note,
-    fontSize: 10,
+    fontFamily: fontFamily.regular,
+    fontSize: 9,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1.5,
   },
 });

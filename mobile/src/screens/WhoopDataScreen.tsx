@@ -18,7 +18,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
@@ -248,18 +248,16 @@ export function WhoopDataScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <SafeAreaView edges={['top']} style={styles.container}>
-        <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Whoop Data</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+      <PlayerScreen
+        label="INTEGRATIONS"
+        title="Whoop"
+        onBack={() => navigation.goBack()}
+        scroll={false}
+      >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent1} />
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
@@ -268,16 +266,12 @@ export function WhoopDataScreen({ navigation }: Props) {
   const totalPoints = data?.total_data_points ?? 0;
 
   return (
-    <SafeAreaView edges={['top']} style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Whoop Data</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
+    <PlayerScreen
+      label="INTEGRATIONS"
+      title="Whoop"
+      onBack={() => navigation.goBack()}
+      scroll={false}
+    >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -379,7 +373,7 @@ export function WhoopDataScreen({ navigation }: Props) {
           </Animated.View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

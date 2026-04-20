@@ -7,7 +7,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform, ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { SmartIcon } from '../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
@@ -211,26 +211,23 @@ export function BulkEditEventsScreen() {
   }, [selectedIds, fetchEvents]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
-          <SmartIcon name="arrow-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Bulk Edit Events</Text>
-        <View style={styles.headerActions}>
-          {selectedIds.size > 0 ? (
-            <Pressable onPress={deselectAll}>
-              <Text style={[styles.headerAction, { color: colors.textInactive }]}>Clear</Text>
-            </Pressable>
-          ) : (
-            <Pressable onPress={selectAll}>
-              <Text style={[styles.headerAction, { color: colors.accent1 }]}>Select All</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-
+    <PlayerScreen
+      label="CALENDAR"
+      title="Bulk edit"
+      onBack={() => navigation.goBack()}
+      right={
+        selectedIds.size > 0 ? (
+          <Pressable onPress={deselectAll}>
+            <Text style={[styles.headerAction, { color: colors.textInactive }]}>Clear</Text>
+          </Pressable>
+        ) : (
+          <Pressable onPress={selectAll}>
+            <Text style={[styles.headerAction, { color: colors.accent1 }]}>Select All</Text>
+          </Pressable>
+        )
+      }
+      scroll={false}
+    >
       {/* Selection count bar */}
       {selectedIds.size > 0 && (
         <View style={[styles.selectionBar, { backgroundColor: colors.backgroundElevated }]}>
@@ -324,7 +321,7 @@ export function BulkEditEventsScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from './SmartIcon';
 import { useTheme } from '../hooks/useTheme';
 import { fontFamily, spacing, borderRadius } from '../theme';

@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  SafeAreaView,
   ActivityIndicator,
   Platform,
 } from 'react-native';
@@ -20,6 +19,7 @@ import { SmartIcon } from '../../components/SmartIcon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { suggestExam } from '../../services/api';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
@@ -101,7 +101,7 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
 
   if (success) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <PlayerScreen label="EXAMS" title="Add exam" onBack={() => navigation.goBack()} scroll={false}>
         <View style={styles.successContainer}>
           <View style={[styles.successIcon, { backgroundColor: colors.error + '22' }]}>
             <SmartIcon name="document-text" size={64} color={colors.error} />
@@ -117,13 +117,13 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
             <Text style={[styles.doneButtonText, { color: colors.textOnDark }]}>Done</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <PlayerScreen label="EXAMS" title="Add exam" onBack={() => navigation.goBack()}>
+      <View style={styles.scroll}>
         <Text style={[styles.header, { color: colors.textOnDark }]}>
           Add Exam for {childName}
         </Text>
@@ -250,8 +250,8 @@ export function ParentAddExamScreen({ route, navigation }: Props) {
             <Text style={[styles.submitText, { color: colors.textOnDark }]}>Add Exam</Text>
           )}
         </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+    </PlayerScreen>
   );
 }
 

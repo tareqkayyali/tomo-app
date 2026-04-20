@@ -12,14 +12,13 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import {
   getParentEducationProgress,
@@ -30,7 +29,7 @@ import type { ParentStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<ParentStackParamList, 'ParentEducationProgress'>;
 
-export function ParentEducationProgressScreen({ route }: Props) {
+export function ParentEducationProgressScreen({ route, navigation }: Props) {
   const { childId, childName } = route.params;
   const { colors } = useTheme();
   const [data, setData] = useState<ParentEducationProgressResponse | null>(null);
@@ -68,18 +67,14 @@ export function ParentEducationProgressScreen({ route }: Props) {
     colors.textSecondary;
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={styles.headerArea}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>{childName}</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          This week at school and in training.
-        </Text>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
+    <PlayerScreen
+      label="EDUCATION"
+      title="Progress"
+      caption={`${childName} · this week at school and in training.`}
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scroll}
+      scrollProps={{ refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> }}
+    >
         {loading && !refreshing && (
           <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 32 }} />
         )}
@@ -166,8 +161,7 @@ export function ParentEducationProgressScreen({ route }: Props) {
             )}
           </>
         )}
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

@@ -18,7 +18,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -27,7 +27,7 @@ import Animated, {
   SlideInRight,
   SlideInLeft,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Button, Input } from '../components';
@@ -867,7 +867,7 @@ export function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles_s.container}>
+    <PlayerScreen label="WELCOME" title="Let's set up" scroll={false}>
       {/* ─── Animated Progress Bar ─────────────────────────────────── */}
       <View style={styles_s.progressBar}>
         <Animated.View style={[styles_s.progressFill, progressStyle]} />
@@ -931,7 +931,7 @@ export function OnboardingScreen() {
           />
         )}
       </View>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

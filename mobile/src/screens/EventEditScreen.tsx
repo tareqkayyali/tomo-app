@@ -20,9 +20,9 @@ import {
   FlatList,
   TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import * as Haptics from 'expo-haptics';
 import {
   spacing,
@@ -450,26 +450,21 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
   }, [name, params.eventId, navigation]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <PlayerScreen
+      label="CALENDAR"
+      title="Edit event"
+      onBack={() => navigation.goBack()}
+      right={
+        <Pressable onPress={handleDelete} hitSlop={12}>
+          <SmartIcon name="trash-outline" size={22} color={colors.error} />
+        </Pressable>
+      }
+      scroll={false}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* ─── Header ─── */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => navigation.goBack()}
-            hitSlop={12}
-            style={styles.headerBack}
-          >
-            <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Edit Event</Text>
-          <Pressable onPress={handleDelete} hitSlop={12}>
-            <SmartIcon name="trash-outline" size={22} color={colors.error} />
-          </Pressable>
-        </View>
-
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -929,7 +924,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
           }}
         />
       )}
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

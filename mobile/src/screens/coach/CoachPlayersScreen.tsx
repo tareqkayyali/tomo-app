@@ -29,6 +29,7 @@ import { GlassCard } from '../../components/GlassCard';
 import { QuickAccessBar } from '../../components/QuickAccessBar';
 import { NotificationBell } from '../../components/NotificationBell';
 import { HeaderProfileButton } from '../../components/HeaderProfileButton';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { useAuth } from '../../hooks/useAuth';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { CoachStackParamList } from '../../navigation/types';
@@ -167,33 +168,14 @@ export function CoachPlayersScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <PlayerScreen label="COACH" title="Players" scroll={false}>
         <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: spacing.xxl }} />
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* ── Header ──────────────────────────────────────── */}
-      <View style={styles.headerArea}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>
-            TOMO · {weekday}
-          </Text>
-          <Text style={[styles.headerTitle, { color: colors.textOnDark }]}>My Players</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <QuickAccessBar actions={quickActions} />
-          <NotificationBell />
-          <HeaderProfileButton
-            initial={initial}
-            photoUrl={profile?.photoUrl ?? undefined}
-            onPress={() => (navigation as any).navigate('CoachProfile')}
-          />
-        </View>
-      </View>
-
+    <PlayerScreen label="COACH" title="Players" scroll={false}>
       {/* ── Player List / Empty State ───────────────────── */}
       {players.length === 0 ? (
         <View style={styles.emptyState}>
@@ -234,7 +216,7 @@ export function CoachPlayersScreen() {
           }
         />
       )}
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

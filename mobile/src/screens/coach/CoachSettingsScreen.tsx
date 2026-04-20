@@ -13,7 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,6 +21,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 import { getCoachPlayers } from '../../services/api';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { CoachStackParamList } from '../../navigation/types';
 
@@ -76,10 +77,7 @@ export function CoachSettingsScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.title, { color: colors.textOnDark }]}>Settings</Text>
-
+    <PlayerScreen label="SETTINGS" title="Settings" onBack={() => navigation.goBack()} contentStyle={styles.content}>
         {/* Profile Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>PROFILE</Text>
@@ -136,8 +134,7 @@ export function CoachSettingsScreen() {
           <SmartIcon name="log-out-outline" size={20} color={colors.error} />
           <Text style={[styles.logoutText, { color: colors.error }]}>Logout</Text>
         </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

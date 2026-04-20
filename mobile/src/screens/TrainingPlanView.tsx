@@ -26,7 +26,7 @@ import {
   TextInput,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { TomoLoader, PLAN_LOADER_MESSAGES } from '../components/TomoLoader';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
@@ -324,15 +324,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
   // ── Render ─────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-      {/* Back header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 }}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
-        </Pressable>
-        <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 18, color: colors.textOnDark, flex: 1 }}>Training Plan</Text>
-      </View>
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <PlayerScreen label="TRAINING" title="Plan" onBack={() => navigation.goBack()} contentStyle={styles.scroll}>
 
       {/* ─── Plan duration stepper ─── */}
       <View style={styles.section}>
@@ -444,8 +436,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
           {isGenerating ? 'Checking calendar...' : 'Generate Training Plan'}
         </Text>
       </TouchableOpacity>
-    </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

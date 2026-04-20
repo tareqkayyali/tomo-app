@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../SmartIcon';
 import { GlassCard } from '../GlassCard';
 import { GlowWrapper } from '../GlowWrapper';

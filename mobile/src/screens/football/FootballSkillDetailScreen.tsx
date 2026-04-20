@@ -14,7 +14,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, StyleSheet, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Svg, { Path, Circle as SvgCircle, Polyline } from 'react-native-svg';
 import { SmartIcon } from '../../components/SmartIcon';
@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSpringEntrance, useBarFill } from '../../hooks/useAnimations';
 import { useTheme } from '../../hooks/useTheme';
 import { GlassCard } from '../../components/GlassCard';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import type { FootballSkill } from '../../types/football';
 import { useAuth } from '../../hooks/useAuth';
 import { useSportContext } from '../../hooks/useSportContext';
@@ -281,7 +282,7 @@ function MiniLineChart({
 
 // ═══ MAIN COMPONENT ═══
 
-export function FootballSkillDetailScreen({ route }: Props) {
+export function FootballSkillDetailScreen({ route, navigation }: Props) {
   const { skill: skillParam } = route.params;
   const skillKey = skillParam as FootballSkill;
   const { colors } = useTheme();
@@ -304,15 +305,17 @@ export function FootballSkillDetailScreen({ route }: Props) {
 
   if (!skillData || !config) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
-        <SmartIcon name="analytics-outline" size={48} color={colors.textMuted} />
-        <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 16, color: colors.textOnDark, textAlign: 'center', marginTop: 16 }}>
-          Skill Detail Coming Soon
-        </Text>
-        <Text style={{ fontFamily: fontFamily.regular, fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
-          Complete more training sessions and fitness tests to unlock detailed skill analysis.
-        </Text>
-      </View>
+      <PlayerScreen label="SKILL" title={config?.name ?? 'Detail'} onBack={() => navigation.goBack()}>
+        <View style={{ justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingTop: 80 }}>
+          <SmartIcon name="analytics-outline" size={48} color={colors.textMuted} />
+          <Text style={{ fontFamily: fontFamily.semiBold, fontSize: 16, color: colors.textOnDark, textAlign: 'center', marginTop: 16 }}>
+            Skill Detail Coming Soon
+          </Text>
+          <Text style={{ fontFamily: fontFamily.regular, fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+            Complete more training sessions and fitness tests to unlock detailed skill analysis.
+          </Text>
+        </View>
+      </PlayerScreen>
     );
   }
 
@@ -344,10 +347,11 @@ export function FootballSkillDetailScreen({ route }: Props) {
   const entrance4 = useSpringEntrance(4);
 
   return (
-    <ScrollView
-      style={s.screen}
-      contentContainerStyle={s.content}
-      showsVerticalScrollIndicator={false}
+    <PlayerScreen
+      label="SKILL"
+      title={config?.name ?? 'Detail'}
+      onBack={() => navigation.goBack()}
+      contentStyle={s.content}
     >
       {/* ═══════ 1. Skill Header ═══════ */}
       <Animated.View style={entrance0}>
@@ -531,7 +535,7 @@ export function FootballSkillDetailScreen({ route }: Props) {
           )}
         </GlassCard>
       </Animated.View>
-    </ScrollView>
+    </PlayerScreen>
   );
 }
 

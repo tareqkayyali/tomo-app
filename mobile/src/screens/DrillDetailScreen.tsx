@@ -15,14 +15,13 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   Vibration,
   Alert,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   colors,
@@ -187,12 +186,12 @@ export function DrillDetailScreen({ navigation, route }: Props) {
 
   if (phase === 'setup') {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
+      <PlayerScreen
+        label="DRILL"
+        title={drill?.name || 'Detail'}
+        onBack={() => navigation.goBack()}
+        contentStyle={styles.content}
+      >
           {/* Header */}
           <View style={[styles.iconCircle, { backgroundColor: drill.color + '18' }]}>
             <SmartIcon name={drill.icon as any} size={40} color={drill.color} />
@@ -241,8 +240,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
             <SmartIcon name="videocam-outline" size={20} color={colors.accent1} />
             <Text style={styles.recordButtonLabel}>Record Yourself</Text>
           </Pressable>
-        </ScrollView>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 

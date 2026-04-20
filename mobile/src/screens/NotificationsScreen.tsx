@@ -14,9 +14,8 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
@@ -32,6 +31,7 @@ import { spacing, borderRadius, layout, fontFamily } from '../theme';
 import type { AppNotification, NotificationType } from '../types';
 import { DrillNotificationCard } from '../components/player/DrillNotificationCard';
 import { colors } from '../theme/colors';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 const ICON_MAP: Record<NotificationType, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   suggestion_received: { icon: 'bulb-outline', color: colors.accent },
@@ -306,24 +306,33 @@ export function NotificationsScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.accent1} />
-      </View>
+      <PlayerScreen
+        label="ACTIVITY"
+        title="Notifications"
+        onBack={() => navigation.goBack()}
+        scroll={false}
+      >
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.accent1} />
+        </View>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.textOnDark }]}>Notifications</Text>
-        {hasUnread && (
-          <Pressable onPress={handleMarkAllRead}>
+    <PlayerScreen
+      label="ACTIVITY"
+      title="Notifications"
+      onBack={() => navigation.goBack()}
+      scroll={false}
+      right={
+        hasUnread ? (
+          <Pressable onPress={handleMarkAllRead} hitSlop={8}>
             <Text style={[styles.markAllText, { color: colors.accent1 }]}>Mark All Read</Text>
           </Pressable>
-        )}
-      </View>
-
+        ) : undefined
+      }
+    >
       <FlatList
         data={notifications}
         keyExtractor={(item) => item.id}
@@ -341,7 +350,7 @@ export function NotificationsScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

@@ -9,11 +9,10 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { Card } from '../components';
 import { useBlazePodDrills, type BlazePodDrill } from '../hooks/useContentHelpers';
 import {
@@ -42,13 +41,12 @@ export function BlazePodDrillsScreen({ navigation }: BlazePodDrillsScreenProps) 
   const drills = useBlazePodDrills();
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.header}>Reactive Drills</Text>
+    <PlayerScreen
+      label="DRILLS"
+      title="BlazePod"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.content}
+    >
         <Text style={styles.subtitle}>
           BlazePod training — manual mode
         </Text>
@@ -93,8 +91,7 @@ export function BlazePodDrillsScreen({ navigation }: BlazePodDrillsScreenProps) 
             Set up your BlazePod pods as described, then use the built-in timers to track your session manually.
           </Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

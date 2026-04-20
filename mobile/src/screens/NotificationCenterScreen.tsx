@@ -19,9 +19,8 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
 import { useTheme } from '../hooks/useTheme';
@@ -33,6 +32,7 @@ import { type NotificationData } from '../components/notifications/NotificationC
 import { SwipeableNotificationCard } from '../components/notifications/SwipeableNotificationCard';
 import { CategoryFilterBar } from '../components/notifications/CategoryFilterBar';
 import { type CategoryFilter } from '../components/notifications/constants';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 import { colors } from '../theme/colors';
 
@@ -271,26 +271,26 @@ export function NotificationCenterScreen() {
   const emptyState = EMPTY_STATES[selectedCategory];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.backBtn}>
-          <SmartIcon name="chevron-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
-        {unreadCount > 0 && (
-          <View style={[styles.headerBadge, { backgroundColor: colors.error }]}>
-            <Text style={styles.headerBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-          </View>
-        )}
-        <View style={{ flex: 1 }} />
-        {unreadCount > 0 && (
-          <Pressable onPress={handleMarkAllRead} hitSlop={8}>
-            <Text style={[styles.markAllText, { color: colors.accent }]}>Mark all read</Text>
-          </Pressable>
-        )}
-      </View>
-
+    <PlayerScreen
+      label="ACTIVITY"
+      title="Notifications"
+      onBack={() => navigation.goBack()}
+      scroll={false}
+      right={
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          {unreadCount > 0 && (
+            <View style={[styles.headerBadge, { backgroundColor: colors.error }]}>
+              <Text style={styles.headerBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+            </View>
+          )}
+          {unreadCount > 0 && (
+            <Pressable onPress={handleMarkAllRead} hitSlop={8}>
+              <Text style={[styles.markAllText, { color: colors.accent }]}>Mark all read</Text>
+            </Pressable>
+          )}
+        </View>
+      }
+    >
       {/* Category Filter */}
       <CategoryFilterBar
         selected={selectedCategory}
@@ -379,7 +379,7 @@ export function NotificationCenterScreen() {
           }
         />
       )}
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

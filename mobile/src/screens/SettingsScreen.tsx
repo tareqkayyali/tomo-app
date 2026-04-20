@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import {
@@ -282,28 +283,20 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
   const isWhoopConnected = whoopStatus?.connected ?? false;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => {
-          if (Platform.OS === 'web' && window.history.length > 1) {
-            window.history.back();
-          } else if (navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            (navigation as any).navigate('MainTabs');
-          }
-        }} hitSlop={12} style={styles.backBtn}>
-          <SmartIcon name="chevron-back" size={24} color={colors.textOnDark} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={{ width: 32 }} />
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+    <PlayerScreen
+      label="SETTINGS"
+      title="Settings"
+      onBack={() => {
+        if (Platform.OS === 'web' && window.history.length > 1) {
+          window.history.back();
+        } else if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          (navigation as any).navigate('MainTabs');
+        }
+      }}
+      contentStyle={styles.scrollContent}
+    >
         {/* ── Wearables Section ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Wearables</Text>
@@ -486,8 +479,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           </Pressable>
         </View>
 
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

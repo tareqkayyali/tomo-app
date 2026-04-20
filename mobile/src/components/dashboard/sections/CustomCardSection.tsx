@@ -6,13 +6,13 @@
  *   body_template: string — supports {field} interpolation (resolved on server)
  *   cta_label: string | null — button label
  *   cta_route: string | null — navigation route (future use)
+ *   color_hint: string | null — optional accent color for headline / badge
  */
 
 import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
-import { borderRadius } from '../../../theme/spacing';
 import type { SectionProps } from './DashboardSectionRenderer';
 
 export const CustomCardSection = memo(function CustomCardSection({
@@ -26,6 +26,8 @@ export const CustomCardSection = memo(function CustomCardSection({
   // but config may also have raw templates for additional content
   const headline = (config.headline_template as string) ?? '';
   const body = (config.body_template as string) ?? '';
+  const colorHint = (config.color_hint as string | null) ?? null;
+  const accentColor = colorHint ?? colors.tomoSage;
 
   // Client-side interpolation for config templates.
   // Build a derived context with common computed fields that the server-side
@@ -62,15 +64,18 @@ export const CustomCardSection = memo(function CustomCardSection({
   if (!resolvedHeadline && !resolvedBody && !coachingText) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View style={[styles.container, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
       {resolvedHeadline ? (
-        <Text style={[styles.headline, { color: colors.chalk }]}>{resolvedHeadline}</Text>
+        <View style={styles.headlineRow}>
+          <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
+          <Text style={[styles.headline, { color: colors.tomoCream }]}>{resolvedHeadline}</Text>
+        </View>
       ) : null}
       {resolvedBody ? (
-        <Text style={[styles.body, { color: colors.chalkDim }]}>{resolvedBody}</Text>
+        <Text style={[styles.body, { color: colors.muted }]}>{resolvedBody}</Text>
       ) : null}
       {coachingText ? (
-        <Text style={[styles.coaching, { color: colors.chalkDim }]}>{coachingText}</Text>
+        <Text style={[styles.coaching, { color: colors.muted }]}>{coachingText}</Text>
       ) : null}
     </View>
   );
@@ -78,24 +83,36 @@ export const CustomCardSection = memo(function CustomCardSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 18,
+    padding: 16,
   },
-  headline: {
-    fontFamily: fontFamily.display,
-    fontSize: 18,
+  headlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 6,
   },
+  accentBar: {
+    width: 3,
+    height: 16,
+    borderRadius: 2,
+  },
+  headline: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 18,
+    letterSpacing: -0.2,
+    flex: 1,
+  },
   body: {
-    fontFamily: fontFamily.note,
-    fontSize: 14,
-    lineHeight: 20,
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+    lineHeight: 17,
   },
   coaching: {
-    fontFamily: fontFamily.note,
-    fontSize: 13,
-    lineHeight: 18,
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+    lineHeight: 17,
     marginTop: 6,
   },
 });

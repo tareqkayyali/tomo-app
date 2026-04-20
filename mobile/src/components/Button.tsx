@@ -29,7 +29,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, shadows, layout, fontFamily } from '../theme';
 import { useTheme } from '../hooks/useTheme';
 import { useComponentStyle } from '../hooks/useComponentStyle';

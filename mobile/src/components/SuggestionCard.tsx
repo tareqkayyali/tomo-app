@@ -19,7 +19,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from './SmartIcon';
 
 import { useTheme } from '../hooks/useTheme';

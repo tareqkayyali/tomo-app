@@ -34,7 +34,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../SmartIcon';
 import { useTheme } from '../../hooks/useTheme';
 import { useSportContext, type ActiveSport } from '../../hooks/useSportContext';

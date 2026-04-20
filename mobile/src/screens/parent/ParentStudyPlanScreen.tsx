@@ -12,7 +12,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   Alert,
   TextInput,
@@ -24,6 +23,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import {
   getParentChildren,
   getChildStudyProfile,
@@ -209,15 +209,15 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <PlayerScreen label="STUDY" title="Plan" onBack={() => navigation.goBack()} scroll={false}>
         <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   if (children.length === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <PlayerScreen label="STUDY" title="Plan" onBack={() => navigation.goBack()} scroll={false}>
         <View style={styles.emptyCenter}>
           <SmartIcon name="lock-closed-outline" size={40} color={colors.textInactive} />
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No children linked</Text>
@@ -225,19 +225,14 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
             Link your child first to view their study plans.
           </Text>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   // ── Main render ────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={[styles.title, { color: colors.textOnDark }]}>
-          Study Plan
-        </Text>
-
+    <PlayerScreen label="STUDY" title="Plan" onBack={() => navigation.goBack()} contentStyle={styles.scroll}>
         {/* Child selector (if multiple) */}
         {children.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.childSelector}>
@@ -431,8 +426,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
             )}
           </>
         )}
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

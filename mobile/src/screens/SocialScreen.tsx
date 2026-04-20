@@ -8,7 +8,12 @@
 
 import React from 'react';
 import { LeaderboardScreen } from './LeaderboardScreen';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 export function SocialScreen() {
-  return <LeaderboardScreen />;
+  return (
+    <PlayerScreen label="SOCIAL" title="Social" scroll={false}>
+      <LeaderboardScreen />
+    </PlayerScreen>
+  );
 }

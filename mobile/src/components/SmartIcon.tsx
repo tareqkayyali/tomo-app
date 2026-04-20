@@ -1,46 +1,41 @@
 /**
  * SmartIcon — Drop-in replacement for <Ionicons>.
- * Same prop API: name, size, color.
- * Renders Phosphor via TomoIcon when a mapping exists, falls back to Ionicons.
+ *
+ * Same prop API as Ionicons (`name`, `size`, `color`). Routes every name
+ * through the TomoIcon hybrid resolver: Bond sprite (108 icons) → Arc
+ * custom set → Phosphor fallback. Unmapped names fall through to
+ * TomoIcon's own escape hatch; Ionicons is never rendered at runtime.
  */
 
 import React from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import TomoIcon from './tomo-ui/TomoIcon';
-import { IONICONS_TO_PHOSPHOR } from './Icon';
+import { IONICONS_TO_TOMO } from './Icon';
 
 interface SmartIconProps {
   name: keyof typeof Ionicons.glyphMap | string;
   size?: number;
   color?: string;
-  style?: any;
+  /** Accepted for drop-in compatibility with legacy <Ionicons> sites.
+   *  SmartIcon wraps TomoIcon (SvgXml) which styles the svg directly,
+   *  so this prop is currently a no-op. */
+  style?: unknown;
 }
 
-function phosphorWeight(ioniconsName: string): 'regular' | 'fill' {
+/** `-outline` suffix → outline variant, everything else → filled. */
+function bondWeight(ioniconsName: string): 'regular' | 'fill' {
   return ioniconsName.endsWith('-outline') ? 'regular' : 'fill';
 }
 
-export function SmartIcon({ name, size = 24, color, style }: SmartIconProps) {
-  const phosphorName = IONICONS_TO_PHOSPHOR[name as string];
-
-  if (phosphorName) {
-    return (
-      <TomoIcon
-        name={phosphorName}
-        size={size}
-        color={color}
-        weight={phosphorWeight(name as string)}
-      />
-    );
-  }
-
-  // Fallback to Ionicons (brand logos, unmapped icons)
+export function SmartIcon({ name, size = 24, color }: SmartIconProps) {
+  const key = name as string;
+  const tomoName = IONICONS_TO_TOMO[key] ?? key;
   return (
-    <Ionicons
-      name={name as keyof typeof Ionicons.glyphMap}
+    <TomoIcon
+      name={tomoName}
       size={size}
       color={color}
-      style={style}
+      weight={bondWeight(key)}
     />
   );
 }

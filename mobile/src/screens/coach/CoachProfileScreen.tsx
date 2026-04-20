@@ -16,7 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -28,6 +28,7 @@ import { GlassCard } from '../../components/GlassCard';
 import { NotificationBell } from '../../components/NotificationBell';
 import { HeaderProfileButton } from '../../components/HeaderProfileButton';
 import { QuickAccessBar } from '../../components/QuickAccessBar';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, borderRadius, fontFamily, layout } from '../../theme';
 import type { CoachStackParamList } from '../../navigation/types';
 import { colors } from '../../theme/colors';
@@ -68,19 +69,7 @@ export function CoachProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.headerArea}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>TOMO · {weekday}</Text>
-          <Text style={[styles.headerTitle, { color: colors.textOnDark }]}>Profile</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <NotificationBell />
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <PlayerScreen label="COACH" title={profile?.name ?? 'Profile'} contentStyle={styles.scrollContent}>
         {/* Profile Card */}
         <GlassCard>
           <View style={styles.profileRow}>
@@ -165,8 +154,7 @@ export function CoachProfileScreen() {
             </View>
           </GlassCard>
         </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

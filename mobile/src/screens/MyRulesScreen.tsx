@@ -21,7 +21,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Switch,
   TextInput,
   Alert,
@@ -32,6 +31,8 @@ import {
   LayoutAnimation,
   UIManager,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { useFocusEffect } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
@@ -308,26 +309,22 @@ export function MyRulesScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={s.container}>
-      {/* ── Header ── */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={handleBack} style={s.backBtn}>
-          <SmartIcon name="arrow-back" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>My Rules</Text>
-        </View>
-        {showSaved && (
+    <PlayerScreen
+      label="PREFERENCES"
+      title="My Rules"
+      onBack={handleBack}
+      right={
+        showSaved ? (
           <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={s.savedBadge}>
-            <SmartIcon name="checkmark" size={12} color={colors.textPrimary} />
+            <SmartIcon name="checkmark" size={12} color={colors.tomoSageDim} />
             <Text style={s.savedText}>Saved</Text>
           </Animated.View>
-        )}
-        {saveError && (
+        ) : saveError ? (
           <Text style={{ color: colors.error, fontSize: 11, fontFamily: fontFamily.medium }}>{saveError}</Text>
-        )}
-      </View>
-
+        ) : undefined
+      }
+      scroll={false}
+    >
       {/* ── Save bar ── */}
       {dirty && (
         <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={s.saveBar}>
@@ -340,10 +337,10 @@ export function MyRulesScreen({ navigation }: Props) {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator size="small" color={colors.textPrimary} />
+              <ActivityIndicator size="small" color={colors.tomoSageDim} />
             ) : (
               <>
-                <SmartIcon name="checkmark" size={14} color={colors.textPrimary} />
+                <SmartIcon name="checkmark" size={14} color={colors.tomoSageDim} />
                 <Text style={s.saveBtnText}>Save</Text>
               </>
             )}
@@ -358,7 +355,6 @@ export function MyRulesScreen({ navigation }: Props) {
           id="mode"
           title="Athlete Mode"
           icon="options-outline"
-          iconColor={modeInfo.color}
           subtitle={modeInfo.label}
           isOpen={openSection === 'mode'}
           onToggle={() => toggleSection('mode')}
@@ -376,7 +372,6 @@ export function MyRulesScreen({ navigation }: Props) {
           id="school"
           title="School"
           icon="school-outline"
-          iconColor={colors.accent}
           subtitle={`${prefs.school_days.length} days · ${prefs.school_start} - ${prefs.school_end}`}
           isOpen={openSection === 'school'}
           onToggle={() => toggleSection('school')}
@@ -387,13 +382,11 @@ export function MyRulesScreen({ navigation }: Props) {
               selected={prefs.school_days}
               onChange={(days) => edit({ school_days: days })}
               colors={colors}
-              accent={colors.accent}
             />
           </SettingRow>
           <SettingRow label="School Hours" icon="time-outline" colors={colors}>
             <View style={s.timeRow}>
               <TimeChip value={prefs.school_start} onChange={(v) => edit({ school_start: v })} colors={colors} label="Start" />
-              <Text style={s.timeSep}>&rarr;</Text>
               <TimeChip value={prefs.school_end} onChange={(v) => edit({ school_end: v })} colors={colors} label="End" />
             </View>
           </SettingRow>
@@ -404,7 +397,6 @@ export function MyRulesScreen({ navigation }: Props) {
           id="sleep"
           title="Sleep"
           icon="moon-outline"
-          iconColor={colors.textSecondary}
           subtitle={`${prefs.sleep_start} - ${prefs.sleep_end}`}
           isOpen={openSection === 'sleep'}
           onToggle={() => toggleSection('sleep')}
@@ -413,7 +405,6 @@ export function MyRulesScreen({ navigation }: Props) {
           <SettingRow label="Bedtime & Wake" icon="bed-outline" colors={colors}>
             <View style={s.timeRow}>
               <TimeChip value={prefs.sleep_start} onChange={(v) => edit({ sleep_start: v })} colors={colors} label="Bed" />
-              <Text style={s.timeSep}>&rarr;</Text>
               <TimeChip value={prefs.sleep_end} onChange={(v) => edit({ sleep_end: v })} colors={colors} label="Wake" />
             </View>
           </SettingRow>
@@ -424,7 +415,6 @@ export function MyRulesScreen({ navigation }: Props) {
           id="hours"
           title="Available Hours"
           icon="sunny-outline"
-          iconColor={colors.accent}
           subtitle={`Weekdays ${prefs.day_bounds_start} - ${prefs.day_bounds_end}`}
           isOpen={openSection === 'hours'}
           onToggle={() => toggleSection('hours')}
@@ -436,14 +426,12 @@ export function MyRulesScreen({ navigation }: Props) {
           <SettingRow label="Weekdays" icon="briefcase-outline" colors={colors}>
             <View style={s.timeRow}>
               <TimeChip value={prefs.day_bounds_start} onChange={(v) => edit({ day_bounds_start: v })} colors={colors} label="From" />
-              <Text style={s.timeSep}>&rarr;</Text>
               <TimeChip value={prefs.day_bounds_end} onChange={(v) => edit({ day_bounds_end: v })} colors={colors} label="Until" />
             </View>
           </SettingRow>
           <SettingRow label="Weekends" icon="sunny-outline" colors={colors}>
             <View style={s.timeRow}>
               <TimeChip value={prefs.weekend_bounds_start ?? prefs.day_bounds_start} onChange={(v) => edit({ weekend_bounds_start: v })} colors={colors} label="From" />
-              <Text style={s.timeSep}>&rarr;</Text>
               <TimeChip value={prefs.weekend_bounds_end ?? prefs.day_bounds_end} onChange={(v) => edit({ weekend_bounds_end: v })} colors={colors} label="Until" />
             </View>
           </SettingRow>
@@ -454,7 +442,6 @@ export function MyRulesScreen({ navigation }: Props) {
           id="study"
           title="Study"
           icon="book-outline"
-          iconColor={colors.warning}
           subtitle={prefs.study_subjects.length > 0 ? `${prefs.study_subjects.length} subjects` : 'No subjects'}
           isOpen={openSection === 'study'}
           onToggle={() => toggleSection('study')}
@@ -467,7 +454,6 @@ export function MyRulesScreen({ navigation }: Props) {
             subjects={prefs.study_subjects}
             onChange={(subjects) => edit({ study_subjects: subjects })}
             colors={colors}
-            accent={colors.warning}
             onRequestAdd={() => {
               showInputModal('Add Subject', 'e.g. Math, Physics, English', (name) => {
                 if (!prefs.study_subjects.includes(name)) {
@@ -483,7 +469,6 @@ export function MyRulesScreen({ navigation }: Props) {
           id="training"
           title="Training"
           icon="barbell-outline"
-          iconColor={colors.accent}
           subtitle={`${categories.filter((c) => c.enabled).length} active types`}
           isOpen={openSection === 'training'}
           onToggle={() => toggleSection('training')}
@@ -504,8 +489,8 @@ export function MyRulesScreen({ navigation }: Props) {
             />
           ))}
           <TouchableOpacity onPress={addCategory} style={s.addTypeBtn}>
-            <SmartIcon name="add-circle-outline" size={18} color={colors.accent} />
-            <Text style={[s.addTypeText, { color: colors.accent }]}>Add Training Type</Text>
+            <SmartIcon name="add-circle-outline" size={16} color={colors.muted} />
+            <Text style={[s.addTypeText, { color: colors.muted }]}>Add Training Type</Text>
           </TouchableOpacity>
         </AccordionCard>
 
@@ -547,7 +532,7 @@ export function MyRulesScreen({ navigation }: Props) {
         }}
         onCancel={() => setDatePickerState((prev) => ({ ...prev, visible: false }))}
       />
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 
@@ -556,11 +541,16 @@ export function MyRulesScreen({ navigation }: Props) {
 // ═══════════════════════════════════════════════════════════════════
 
 // ── Accordion Card ──
+// Bond design contract:
+//   - Fill: cream 3%, border cream 10% (default) / sage 30% (open)
+//   - Radius 12, padding 14 16
+//   - Icon tile 28×28, radius 8, tinted bg at 12% of icon color
+//   - Title Poppins Medium 15, cream
+//   - Subtitle Poppins Regular 12, cream 50%
 function AccordionCard({
   id,
   title,
   icon,
-  iconColor,
   subtitle,
   isOpen,
   onToggle,
@@ -570,7 +560,6 @@ function AccordionCard({
   id: string;
   title: string;
   icon: string;
-  iconColor: string;
   subtitle: string;
   isOpen: boolean;
   onToggle: () => void;
@@ -578,75 +567,90 @@ function AccordionCard({
   children: React.ReactNode;
 }) {
   return (
-    <View style={[accordionStyles.card, { backgroundColor: colors.surface, borderColor: isOpen ? iconColor + '40' : colors.creamSubtle }]}>
-      <TouchableOpacity
-        onPress={onToggle}
-        style={accordionStyles.header}
-        activeOpacity={0.7}
-      >
-        <View style={[accordionStyles.iconCircle, { backgroundColor: iconColor + '15' }]}>
-          <SmartIcon name={icon as any} size={16} color={iconColor} />
+    <View
+      style={[
+        accordionStyles.card,
+        {
+          backgroundColor: colors.cream03,
+          borderColor: isOpen ? colors.sage30 : colors.cream10,
+        },
+      ]}
+    >
+      <TouchableOpacity onPress={onToggle} style={accordionStyles.header} activeOpacity={0.7}>
+        <View
+          style={[
+            accordionStyles.iconCircle,
+            {
+              backgroundColor: isOpen ? colors.sage12 : colors.cream06,
+              borderColor: isOpen ? colors.sage30 : colors.cream10,
+            },
+          ]}
+        >
+          <SmartIcon name={icon as any} size={14} color={isOpen ? colors.tomoSageDim : colors.tomoCream} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[accordionStyles.title, { color: colors.textPrimary }]}>{title}</Text>
+          <Text style={[accordionStyles.title, { color: colors.tomoCream }]}>{title}</Text>
           {!isOpen && (
-            <Text style={[accordionStyles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+            <Text style={[accordionStyles.subtitle, { color: colors.muted }]} numberOfLines={1}>
               {subtitle}
             </Text>
           )}
         </View>
         <SmartIcon
           name={isOpen ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={colors.textSecondary}
+          size={16}
+          color={colors.muted}
         />
       </TouchableOpacity>
-      {isOpen && (
-        <View style={accordionStyles.body}>
-          {children}
-        </View>
-      )}
+      {isOpen && <View style={accordionStyles.body}>{children}</View>}
     </View>
   );
 }
 
 const accordionStyles = StyleSheet.create({
   card: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: spacing.sm,
+    marginBottom: 10,
     overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 16,
     paddingVertical: 14,
   },
   iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     fontSize: 15,
     fontFamily: fontFamily.semiBold,
+    letterSpacing: -0.2,
   },
   subtitle: {
     fontSize: 12,
     fontFamily: fontFamily.regular,
-    marginTop: 1,
+    marginTop: 2,
+    letterSpacing: 0.1,
   },
   body: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
 });
 
 // ── Setting Row ──
+// Eyebrow label uses the same creamy white as the card title so the section
+// sub-headings (School Days, School Hours, Bedtime & Wake, Weekdays,
+// Weekends) share the card title's emphasis — still 11pt Medium UPPER with
+// 1.2px tracking.
 function SettingRow({
   label,
   icon,
@@ -661,8 +665,8 @@ function SettingRow({
   return (
     <View style={rowStyles.container}>
       <View style={rowStyles.labelRow}>
-        <SmartIcon name={icon as any} size={13} color={colors.textSecondary} />
-        <Text style={[rowStyles.label, { color: colors.textSecondary }]}>{label}</Text>
+        <SmartIcon name={icon as any} size={12} color={colors.tomoCream} />
+        <Text style={[rowStyles.label, { color: colors.tomoCream }]}>{label}</Text>
       </View>
       <View style={rowStyles.content}>{children}</View>
     </View>
@@ -671,34 +675,34 @@ function SettingRow({
 
 const rowStyles = StyleSheet.create({
   container: {
-    marginBottom: 14,
+    marginBottom: 16,
   },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   label: {
     fontSize: 11,
     fontFamily: fontFamily.medium,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1.2,
   },
   content: {},
 });
 
 // ── Day Picker ──
+// Bond: 32-tall pill, radius 999. Default cream 5%, active sage 12% + sage 30% border.
 function DayPicker({
   selected,
   onChange,
   colors,
-  accent,
 }: {
   selected: DayOfWeek[];
   onChange: (days: DayOfWeek[]) => void;
   colors: ThemeColors;
-  accent: string;
+  accent?: string; // retained for call-site compat; no longer used — sage only.
 }) {
   return (
     <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -714,12 +718,17 @@ function DayPicker({
             style={[
               dayPickerStyles.pill,
               {
-                backgroundColor: isSelected ? accent + '20' : colors.chipBackground,
-                borderColor: isSelected ? accent : colors.glassBorder,
+                backgroundColor: isSelected ? colors.sage12 : colors.cream06,
+                borderColor: isSelected ? colors.sage30 : colors.cream10,
               },
             ]}
           >
-            <Text style={[dayPickerStyles.pillText, { color: isSelected ? accent : colors.textSecondary }]}>
+            <Text
+              style={[
+                dayPickerStyles.pillText,
+                { color: isSelected ? colors.tomoSageDim : colors.muted },
+              ]}
+            >
               {label}
             </Text>
           </TouchableOpacity>
@@ -731,16 +740,17 @@ function DayPicker({
 
 const dayPickerStyles = StyleSheet.create({
   pill: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
   pillText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: fontFamily.semiBold,
+    letterSpacing: 0.2,
   },
 });
 
@@ -768,24 +778,26 @@ function TimeChip({
 
   return (
     <View style={timeStyles.stepperRow}>
-      {label && <Text style={[timeStyles.chipLabel, { color: colors.textSecondary }]}>{label}</Text>}
-      <TouchableOpacity
-        onPress={() => stepTime(-1)}
-        style={[timeStyles.stepBtn, { backgroundColor: colors.chipBackground, borderColor: colors.glassBorder }]}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-      >
-        <SmartIcon name="chevron-back" size={12} color={colors.textSecondary} />
-      </TouchableOpacity>
-      <View style={[timeStyles.chip, { backgroundColor: colors.chipBackground, borderColor: colors.glassBorder }]}>
-        <Text style={[timeStyles.chipValue, { color: colors.textPrimary }]}>{value}</Text>
+      {label && <Text style={[timeStyles.chipLabel, { color: colors.muted }]}>{label}</Text>}
+      <View style={timeStyles.stepperGroup}>
+        <TouchableOpacity
+          onPress={() => stepTime(-1)}
+          style={[timeStyles.stepBtn, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <SmartIcon name="chevron-back" size={12} color={colors.muted} />
+        </TouchableOpacity>
+        <View style={[timeStyles.chip, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
+          <Text style={[timeStyles.chipValue, { color: colors.tomoCream }]}>{value}</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => stepTime(1)}
+          style={[timeStyles.stepBtn, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <SmartIcon name="chevron-forward" size={12} color={colors.muted} />
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        onPress={() => stepTime(1)}
-        style={[timeStyles.stepBtn, { backgroundColor: colors.chipBackground, borderColor: colors.glassBorder }]}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-      >
-        <SmartIcon name="chevron-forward" size={12} color={colors.textSecondary} />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -794,12 +806,19 @@ const timeStyles = StyleSheet.create({
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'space-between',
+    gap: 8,
+    width: '100%',
+  },
+  stepperGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   stepBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 999,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -808,34 +827,37 @@ const timeStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: borderRadius.lg,
+    borderRadius: 12,
     borderWidth: 1,
   },
   chipLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: fontFamily.regular,
     marginRight: 4,
+    letterSpacing: 0.3,
   },
   chipValue: {
     fontSize: 15,
     fontFamily: fontFamily.semiBold,
+    letterSpacing: -0.2,
   },
 });
 
 // ── Subject Pills ──
+// Bond: selectable chip — cream 5% default, sage 12% + sage 30% border when active.
+// Since each subject pill IS active (selected), they render in sage tokens.
 function SubjectPills({
   subjects,
   onChange,
   colors,
-  accent,
   onRequestAdd,
 }: {
   subjects: string[];
   onChange: (subjects: string[]) => void;
   colors: ThemeColors;
-  accent: string;
+  accent?: string; // retained for call-site compat; no longer used — sage only.
   onRequestAdd: () => void;
 }) {
   return (
@@ -855,15 +877,15 @@ function SubjectPills({
               ]);
             }
           }}
-          style={[subjectStyles.pill, { backgroundColor: accent + '15', borderColor: accent + '30' }]}
+          style={[subjectStyles.pill, { backgroundColor: colors.sage12, borderColor: colors.sage30 }]}
         >
-          <Text style={[subjectStyles.pillText, { color: accent }]}>{sub}</Text>
-          <SmartIcon name="close-circle" size={14} color={accent + '80'} style={{ marginLeft: 4 }} />
+          <Text style={[subjectStyles.pillText, { color: colors.tomoSageDim }]}>{sub}</Text>
+          <SmartIcon name="close-circle" size={13} color={colors.tomoSageDim} style={{ marginLeft: 4, opacity: 0.7 }} />
         </TouchableOpacity>
       ))}
-      <TouchableOpacity onPress={onRequestAdd} style={[subjectStyles.addPill, { borderColor: colors.glassBorder }]}>
-        <SmartIcon name="add" size={14} color={colors.textSecondary} />
-        <Text style={[subjectStyles.addText, { color: colors.textSecondary }]}>Add</Text>
+      <TouchableOpacity onPress={onRequestAdd} style={[subjectStyles.addPill, { borderColor: colors.cream15 }]}>
+        <SmartIcon name="add" size={14} color={colors.muted} />
+        <Text style={[subjectStyles.addText, { color: colors.muted }]}>Add</Text>
       </TouchableOpacity>
     </View>
   );
@@ -874,27 +896,29 @@ const subjectStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
+    paddingVertical: 7,
+    borderRadius: 999,
     borderWidth: 1,
   },
   pillText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: fontFamily.medium,
+    letterSpacing: 0.1,
   },
   addPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
+    paddingVertical: 7,
+    borderRadius: 999,
     borderWidth: 1,
     borderStyle: 'dashed',
   },
   addText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: fontFamily.medium,
+    letterSpacing: 0.1,
   },
 });
 
@@ -915,27 +939,55 @@ function TrainingTypeRow({
   colors: ThemeColors;
 }) {
   return (
-    <View style={[trainingStyles.row, { borderColor: isExpanded ? cat.color + '30' : colors.glassBorder }]}>
+    <View
+      style={[
+        trainingStyles.row,
+        {
+          backgroundColor: colors.cream03,
+          borderColor: isExpanded ? colors.sage30 : colors.cream10,
+        },
+      ]}
+    >
       {/* Summary row — always visible */}
       <TouchableOpacity onPress={onToggleExpand} style={trainingStyles.summaryRow} activeOpacity={0.7}>
-        <View style={[trainingStyles.colorBar, { backgroundColor: cat.enabled ? cat.color : colors.textSecondary + '40' }]} />
-        <View style={[trainingStyles.iconCircle, { backgroundColor: cat.color + '15' }]}>
-          <SmartIcon name={cat.icon as any} size={14} color={cat.color} />
+        <View
+          style={[
+            trainingStyles.colorBar,
+            { backgroundColor: cat.enabled ? cat.color : colors.cream15 },
+          ]}
+        />
+        <View
+          style={[
+            trainingStyles.iconCircle,
+            {
+              backgroundColor: cat.enabled ? cat.color + '14' : colors.cream06,
+              borderColor: cat.enabled ? cat.color + '33' : colors.cream10,
+            },
+          ]}
+        >
+          <SmartIcon
+            name={cat.icon as any}
+            size={13}
+            color={cat.enabled ? cat.color : colors.muted}
+          />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[trainingStyles.name, { color: colors.textPrimary }]}>{cat.label}</Text>
-          <Text style={[trainingStyles.summary, { color: colors.textSecondary }]}>{summary}</Text>
+          <Text style={[trainingStyles.name, { color: colors.tomoCream }]}>{cat.label}</Text>
+          <Text style={[trainingStyles.summary, { color: colors.muted }]}>{summary}</Text>
         </View>
         <Switch
           value={cat.enabled}
           onValueChange={(v) => onUpdate({ ...cat, enabled: v })}
-          trackColor={{ false: colors.border, true: cat.color + '60' }}
-          thumbColor={cat.enabled ? cat.color : colors.textSecondary}
+          trackColor={{ false: colors.cream10, true: colors.sage30 }}
+          thumbColor={cat.enabled ? colors.tomoSage : colors.cream20}
+          ios_backgroundColor={colors.cream10}
           style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
         />
       </TouchableOpacity>
 
-      {/* Expanded detail — editing controls */}
+      {/* Expanded detail — editing controls. Active state uses the single
+          sage accent per Bond's "one sage accent" rule. The category's own
+          color is reserved for the colorBar + icon tile identity. */}
       {isExpanded && cat.enabled && (
         <View style={trainingStyles.detail}>
           {/* Schedule mode */}
@@ -945,12 +997,19 @@ function TrainingTypeRow({
               style={[
                 trainingStyles.modeChip,
                 {
-                  backgroundColor: cat.mode === 'fixed_days' ? cat.color + '15' : 'transparent',
-                  borderColor: cat.mode === 'fixed_days' ? cat.color : colors.glassBorder,
+                  backgroundColor: cat.mode === 'fixed_days' ? colors.sage12 : colors.cream06,
+                  borderColor: cat.mode === 'fixed_days' ? colors.sage30 : colors.cream10,
                 },
               ]}
             >
-              <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: cat.mode === 'fixed_days' ? cat.color : colors.textSecondary }}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: fontFamily.medium,
+                  color: cat.mode === 'fixed_days' ? colors.tomoSageDim : colors.muted,
+                  letterSpacing: 0.2,
+                }}
+              >
                 Fixed Days
               </Text>
             </TouchableOpacity>
@@ -959,12 +1018,19 @@ function TrainingTypeRow({
               style={[
                 trainingStyles.modeChip,
                 {
-                  backgroundColor: cat.mode === 'days_per_week' ? cat.color + '15' : 'transparent',
-                  borderColor: cat.mode === 'days_per_week' ? cat.color : colors.glassBorder,
+                  backgroundColor: cat.mode === 'days_per_week' ? colors.sage12 : colors.cream06,
+                  borderColor: cat.mode === 'days_per_week' ? colors.sage30 : colors.cream10,
                 },
               ]}
             >
-              <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: cat.mode === 'days_per_week' ? cat.color : colors.textSecondary }}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: fontFamily.medium,
+                  color: cat.mode === 'days_per_week' ? colors.tomoSageDim : colors.muted,
+                  letterSpacing: 0.2,
+                }}
+              >
                 X per Week
               </Text>
             </TouchableOpacity>
@@ -972,7 +1038,7 @@ function TrainingTypeRow({
 
           {/* Day selection */}
           {cat.mode === 'fixed_days' ? (
-            <View style={{ flexDirection: 'row', gap: 4, marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 5, marginTop: 12 }}>
               {DAY_LABELS.map((label, i) => {
                 const sel = cat.fixedDays.includes(i);
                 return (
@@ -985,12 +1051,18 @@ function TrainingTypeRow({
                     style={[
                       trainingStyles.dayDot,
                       {
-                        backgroundColor: sel ? cat.color + '25' : 'transparent',
-                        borderColor: sel ? cat.color : colors.glassBorder,
+                        backgroundColor: sel ? colors.sage12 : colors.cream06,
+                        borderColor: sel ? colors.sage30 : colors.cream10,
                       },
                     ]}
                   >
-                    <Text style={{ fontSize: 10, fontFamily: fontFamily.semiBold, color: sel ? cat.color : colors.textSecondary }}>
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontFamily: fontFamily.semiBold,
+                        color: sel ? colors.tomoSageDim : colors.muted,
+                      }}
+                    >
                       {label}
                     </Text>
                   </TouchableOpacity>
@@ -998,28 +1070,39 @@ function TrainingTypeRow({
               })}
             </View>
           ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 }}>
               <TouchableOpacity
                 onPress={() => onUpdate({ ...cat, daysPerWeek: Math.max(1, cat.daysPerWeek - 1) })}
-                style={[trainingStyles.stepper, { borderColor: colors.glassBorder }]}
+                style={[trainingStyles.stepper, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}
               >
-                <SmartIcon name="remove" size={14} color={colors.textSecondary} />
+                <SmartIcon name="remove" size={13} color={colors.muted} />
               </TouchableOpacity>
-              <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: cat.color }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontFamily: fontFamily.semiBold,
+                  color: colors.tomoSageDim,
+                  letterSpacing: -0.3,
+                  minWidth: 28,
+                  textAlign: 'center',
+                }}
+              >
                 {cat.daysPerWeek}x
               </Text>
               <TouchableOpacity
                 onPress={() => onUpdate({ ...cat, daysPerWeek: Math.min(7, cat.daysPerWeek + 1) })}
-                style={[trainingStyles.stepper, { borderColor: colors.glassBorder }]}
+                style={[trainingStyles.stepper, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}
               >
-                <SmartIcon name="add" size={14} color={colors.textSecondary} />
+                <SmartIcon name="add" size={13} color={colors.muted} />
               </TouchableOpacity>
-              <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: fontFamily.regular }}>per week</Text>
+              <Text style={{ fontSize: 11, color: colors.muted, fontFamily: fontFamily.regular, letterSpacing: 0.1 }}>
+                per week
+              </Text>
             </View>
           )}
 
           {/* Duration */}
-          <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 12 }}>
             {[60, 75, 90, 120].map((dur) => (
               <TouchableOpacity
                 key={dur}
@@ -1027,12 +1110,19 @@ function TrainingTypeRow({
                 style={[
                   trainingStyles.durChip,
                   {
-                    backgroundColor: cat.sessionDuration === dur ? cat.color + '15' : 'transparent',
-                    borderColor: cat.sessionDuration === dur ? cat.color : colors.glassBorder,
+                    backgroundColor: cat.sessionDuration === dur ? colors.sage12 : colors.cream06,
+                    borderColor: cat.sessionDuration === dur ? colors.sage30 : colors.cream10,
                   },
                 ]}
               >
-                <Text style={{ fontSize: 12, fontFamily: fontFamily.semiBold, color: cat.sessionDuration === dur ? cat.color : colors.textSecondary }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: fontFamily.semiBold,
+                    color: cat.sessionDuration === dur ? colors.tomoSageDim : colors.muted,
+                    letterSpacing: 0.2,
+                  }}
+                >
                   {dur}m
                 </Text>
               </TouchableOpacity>
@@ -1046,67 +1136,70 @@ function TrainingTypeRow({
 
 const trainingStyles = StyleSheet.create({
   row: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 12,
     borderWidth: 1,
     marginBottom: 8,
     overflow: 'hidden',
+    // Card surface — cream 3% per Bond spec. Category color shows via
+    // colorBar + icon tile only, never the whole card fill.
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingRight: 8,
-    paddingVertical: 10,
+    paddingRight: 10,
+    paddingVertical: 11,
   },
   colorBar: {
     width: 3,
     alignSelf: 'stretch',
-    borderTopLeftRadius: borderRadius.lg,
-    borderBottomLeftRadius: borderRadius.lg,
   },
   iconCircle: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   name: {
     fontSize: 14,
     fontFamily: fontFamily.semiBold,
+    letterSpacing: -0.1,
   },
   summary: {
     fontSize: 11,
     fontFamily: fontFamily.regular,
-    marginTop: 1,
+    marginTop: 2,
+    letterSpacing: 0.1,
   },
   detail: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
     paddingTop: 4,
   },
   modeRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   modeChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: borderRadius.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
     borderWidth: 1,
   },
   dayDot: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
   stepper: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 999,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1114,7 +1207,7 @@ const trainingStyles = StyleSheet.create({
   durChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: borderRadius.lg,
+    borderRadius: 999,
     borderWidth: 1,
   },
 });
@@ -1153,29 +1246,29 @@ function InputModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={modalStyles.overlay}>
         <TouchableOpacity style={modalStyles.backdrop} activeOpacity={1} onPress={onCancel} />
-        <View style={[modalStyles.card, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
-          <Text style={[modalStyles.title, { color: colors.textPrimary }]}>{title}</Text>
+        <View style={[modalStyles.card, { backgroundColor: '#1C1E2A', borderColor: colors.cream10 }]}>
+          <Text style={[modalStyles.title, { color: colors.tomoCream }]}>{title}</Text>
           <TextInput
             ref={inputRef}
             value={text}
             onChangeText={setText}
             placeholder={placeholder}
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.muted}
             keyboardType={keyboardType ?? 'default'}
             autoCapitalize="words"
             returnKeyType="done"
             onSubmitEditing={() => { if (text.trim()) onSubmit(text.trim()); }}
-            style={[modalStyles.input, { color: colors.textPrimary, borderColor: colors.glassBorder, backgroundColor: colors.background }]}
+            style={[modalStyles.input, { color: colors.tomoCream, borderColor: colors.cream10, backgroundColor: colors.cream03 }]}
           />
           <View style={modalStyles.btnRow}>
             <TouchableOpacity onPress={onCancel} style={modalStyles.cancelBtn}>
-              <Text style={[modalStyles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
+              <Text style={[modalStyles.cancelText, { color: colors.muted }]}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { if (text.trim()) onSubmit(text.trim()); }}
-              style={[modalStyles.submitBtn, { backgroundColor: colors.accentSoft, borderColor: colors.accentBorder }]}
+              style={[modalStyles.submitBtn, { backgroundColor: colors.sage15, borderColor: colors.sage30 }]}
             >
-              <Text style={[modalStyles.submitText, { color: colors.accent }]}>Add</Text>
+              <Text style={[modalStyles.submitText, { color: colors.tomoSageDim }]}>Add</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1187,14 +1280,14 @@ function InputModal({
 const modalStyles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
-  card: { width: '85%', maxWidth: 340, borderRadius: borderRadius.lg, borderWidth: 1, padding: spacing.lg, zIndex: 1 },
-  title: { fontSize: 17, fontFamily: fontFamily.bold, marginBottom: 14 },
-  input: { height: 44, borderWidth: 1, borderRadius: borderRadius.lg, paddingHorizontal: 14, fontSize: 15, fontFamily: fontFamily.regular },
+  card: { width: '85%', maxWidth: 320, borderRadius: 16, borderWidth: 1, padding: 20, zIndex: 1 },
+  title: { fontSize: 16, fontFamily: fontFamily.semiBold, marginBottom: 14, letterSpacing: -0.2 },
+  input: { height: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, fontSize: 15, fontFamily: fontFamily.regular, letterSpacing: -0.1 },
   btnRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
-  cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
-  cancelText: { fontSize: 14, fontFamily: fontFamily.medium },
-  submitBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: borderRadius.lg, borderWidth: 1 },
-  submitText: { fontSize: 14, fontFamily: fontFamily.semiBold },
+  cancelBtn: { paddingHorizontal: 14, paddingVertical: 10 },
+  cancelText: { fontSize: 13, fontFamily: fontFamily.medium, letterSpacing: 0.1 },
+  submitBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  submitText: { fontSize: 13, fontFamily: fontFamily.semiBold, letterSpacing: 0.2 },
 });
 
 // ── Date Picker Modal ──
@@ -1252,20 +1345,20 @@ function DatePickerModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={dpStyles.overlay}>
         <TouchableOpacity style={dpStyles.backdrop} activeOpacity={1} onPress={onCancel} />
-        <View style={[dpStyles.card, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
-          <Text style={[dpStyles.title, { color: colors.textPrimary }]}>{title}</Text>
+        <View style={[dpStyles.card, { backgroundColor: '#1C1E2A', borderColor: colors.cream10 }]}>
+          <Text style={[dpStyles.title, { color: colors.tomoCream }]}>{title}</Text>
           <View style={dpStyles.monthNav}>
             <TouchableOpacity onPress={prevMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <SmartIcon name="chevron-back" size={20} color={colors.textPrimary} />
+              <SmartIcon name="chevron-back" size={20} color={colors.tomoCream} />
             </TouchableOpacity>
-            <Text style={[dpStyles.monthLabel, { color: colors.textPrimary }]}>{MONTHS[viewMonth]} {viewYear}</Text>
+            <Text style={[dpStyles.monthLabel, { color: colors.tomoCream }]}>{MONTHS[viewMonth]} {viewYear}</Text>
             <TouchableOpacity onPress={nextMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <SmartIcon name="chevron-forward" size={20} color={colors.textPrimary} />
+              <SmartIcon name="chevron-forward" size={20} color={colors.tomoCream} />
             </TouchableOpacity>
           </View>
           <View style={dpStyles.dayHeaderRow}>
             {DAY_LABELS.map((l, i) => (
-              <Text key={i} style={[dpStyles.dayHeader, { color: colors.textSecondary }]}>{l}</Text>
+              <Text key={i} style={[dpStyles.dayHeader, { color: colors.muted }]}>{l}</Text>
             ))}
           </View>
           <View style={dpStyles.grid}>
@@ -1279,22 +1372,30 @@ function DatePickerModal({
                   key={idx}
                   style={[
                     dpStyles.cell,
-                    isSelected && { backgroundColor: colors.accent, borderRadius: 18 },
-                    isToday && !isSelected && { borderWidth: 1, borderColor: colors.glassBorder, borderRadius: 18 },
+                    isSelected && { backgroundColor: colors.sage15, borderRadius: 999, borderWidth: 1, borderColor: colors.sage30 },
+                    isToday && !isSelected && { borderWidth: 1, borderColor: colors.cream15, borderRadius: 999 },
                   ]}
                   onPress={() => setPickedDay(day)}
                 >
-                  <Text style={[dpStyles.cellText, { color: isSelected ? colors.textPrimary : colors.textBody }, isToday && !isSelected && { color: colors.accent }]}>{day}</Text>
+                  <Text
+                    style={[
+                      dpStyles.cellText,
+                      { color: isSelected ? colors.tomoSageDim : colors.tomoCream },
+                      isToday && !isSelected && { color: colors.tomoSageDim },
+                    ]}
+                  >
+                    {day}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
           <View style={dpStyles.actions}>
             <TouchableOpacity onPress={onCancel} style={dpStyles.cancelBtn}>
-              <Text style={[dpStyles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
+              <Text style={[dpStyles.cancelText, { color: colors.muted }]}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => onSelect(formatSelected())} style={[dpStyles.selectBtn, { backgroundColor: colors.accentSoft, borderColor: colors.accentBorder }]}>
-              <Text style={[dpStyles.selectText, { color: colors.accent }]}>Select</Text>
+            <TouchableOpacity onPress={() => onSelect(formatSelected())} style={[dpStyles.selectBtn, { backgroundColor: colors.sage15, borderColor: colors.sage30 }]}>
+              <Text style={[dpStyles.selectText, { color: colors.tomoSageDim }]}>Select</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1306,20 +1407,20 @@ function DatePickerModal({
 const dpStyles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
-  card: { width: '90%', maxWidth: 360, borderRadius: borderRadius.lg, borderWidth: 1, padding: spacing.lg, zIndex: 1 },
-  title: { fontSize: 17, fontFamily: fontFamily.bold, marginBottom: 16, textAlign: 'center' },
+  card: { width: '90%', maxWidth: 360, borderRadius: 16, borderWidth: 1, padding: 20, zIndex: 1 },
+  title: { fontSize: 16, fontFamily: fontFamily.semiBold, marginBottom: 16, textAlign: 'center', letterSpacing: -0.2 },
   monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  monthLabel: { fontSize: 16, fontFamily: fontFamily.semiBold },
+  monthLabel: { fontSize: 14, fontFamily: fontFamily.semiBold, letterSpacing: 0.1 },
   dayHeaderRow: { flexDirection: 'row', marginBottom: 4 },
-  dayHeader: { flex: 1, textAlign: 'center', fontSize: 12, fontFamily: fontFamily.semiBold },
+  dayHeader: { flex: 1, textAlign: 'center', fontSize: 11, fontFamily: fontFamily.medium, letterSpacing: 1.2, textTransform: 'uppercase' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: '14.285%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
-  cellText: { fontSize: 14, fontFamily: fontFamily.medium },
+  cellText: { fontSize: 13, fontFamily: fontFamily.medium, letterSpacing: -0.1 },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
-  cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
-  cancelText: { fontSize: 14, fontFamily: fontFamily.medium },
-  selectBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: borderRadius.lg, borderWidth: 1 },
-  selectText: { fontSize: 14, fontFamily: fontFamily.semiBold },
+  cancelBtn: { paddingHorizontal: 14, paddingVertical: 10 },
+  cancelText: { fontSize: 13, fontFamily: fontFamily.medium, letterSpacing: 0.1 },
+  selectBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  selectText: { fontSize: 13, fontFamily: fontFamily.semiBold, letterSpacing: 0.2 },
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1352,92 +1453,96 @@ function createStyles(colors: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      backgroundColor: colors.accentSoft,
+      backgroundColor: colors.sage12,
       borderWidth: 1,
-      borderColor: colors.accentBorder,
+      borderColor: colors.sage30,
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: borderRadius.full,
+      borderRadius: 999,
     },
     savedText: {
-      color: colors.accent,
+      color: colors.tomoSageDim,
       fontSize: 11,
       fontFamily: fontFamily.semiBold,
+      letterSpacing: 0.3,
     },
     saveBar: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'flex-end',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.xs,
+      paddingHorizontal: 20,
+      paddingVertical: 6,
       gap: 8,
       borderBottomWidth: 1,
-      borderBottomColor: colors.creamSubtle,
+      borderBottomColor: colors.cream06,
     },
     discardBtn: {
       paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingVertical: 8,
     },
     discardText: {
       fontSize: 13,
       fontFamily: fontFamily.medium,
+      letterSpacing: 0.1,
     },
     saveBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 6,
       paddingHorizontal: 14,
       paddingVertical: 8,
-      borderRadius: borderRadius.lg,
-      backgroundColor: colors.accentSoft,
+      borderRadius: 12,
+      backgroundColor: colors.sage15,
       borderWidth: 1,
-      borderColor: colors.accentBorder,
+      borderColor: colors.sage30,
     },
     saveBtnText: {
-      color: colors.accent,
+      color: colors.tomoSageDim,
       fontSize: 13,
       fontFamily: fontFamily.semiBold,
+      letterSpacing: 0.2,
     },
     scroll: {
-      paddingHorizontal: spacing.md,
-      paddingTop: spacing.sm,
+      paddingHorizontal: 20,
+      paddingTop: 8,
       paddingBottom: 100,
     },
     timeRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
+      flexDirection: 'column',
+      alignItems: 'stretch',
+      gap: 10,
     },
     timeSep: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      fontFamily: fontFamily.regular,
+      // Retained for back-compat — no longer rendered.
+      display: 'none',
     },
     cardHint: {
       fontSize: 12,
       fontFamily: fontFamily.regular,
-      color: colors.textSecondary,
-      marginBottom: 12,
-      lineHeight: 16,
+      color: colors.muted,
+      marginBottom: 14,
+      lineHeight: 17,
+      letterSpacing: 0.1,
     },
     addTypeBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      paddingVertical: 10,
+      paddingVertical: 11,
       marginTop: 4,
       borderWidth: 1,
       borderStyle: 'dashed',
-      borderColor: colors.glassBorder,
-      borderRadius: borderRadius.lg,
+      borderColor: colors.cream15,
+      borderRadius: 12,
     },
     addTypeText: {
       fontSize: 13,
       fontFamily: fontFamily.medium,
+      letterSpacing: 0.1,
     },
 
-    // Bottom banner
+    // Bottom banner — Bond hairline over ink background, sage on cream.
     banner: {
       position: 'absolute',
       bottom: 0,
@@ -1447,25 +1552,27 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      paddingVertical: spacing.sm,
+      paddingVertical: 10,
       paddingBottom: 34,
       backgroundColor: colors.background,
       borderTopWidth: 1,
-      borderTopColor: colors.creamSubtle,
+      borderTopColor: colors.cream06,
     },
     bannerLabel: {
       fontSize: 13,
       fontFamily: fontFamily.semiBold,
+      letterSpacing: 0.2,
     },
     bannerDot: {
       width: 3,
       height: 3,
       borderRadius: 1.5,
-      backgroundColor: colors.textSecondary,
+      backgroundColor: colors.cream20,
     },
     bannerSub: {
       fontSize: 11,
       fontFamily: fontFamily.regular,
+      letterSpacing: 0.1,
     },
   });
 }

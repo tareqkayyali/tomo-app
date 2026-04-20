@@ -24,6 +24,7 @@ import { ErrorState } from '../../components';
 import { ProgressScreen } from '../ProgressScreen';
 import { ProgrammesTab } from '../../components/coach/ProgrammesTab';
 import { TestsTab } from '../../components/coach/TestsTab';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { usePlayerCalendarData } from '../../hooks/usePlayerCalendarData';
 import { useTriangleSnapshot } from '../../hooks/useTriangleSnapshot';
 import { ragToColor, acwrRiskLabel } from '../../hooks/useAthleteSnapshot';
@@ -173,6 +174,7 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
   const initials = playerName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
   return (
+    <PlayerScreen label="PLAYER" title={playerName ?? 'Detail'} onBack={() => navigation.goBack()} scroll={false}>
     <View style={[styles.container, { backgroundColor: colors.background }]} {...panResponder.panHandlers}>
       {/* ─── Compact Player Header ─── */}
       <View style={{ paddingHorizontal: layout.screenMargin, paddingTop: spacing.xs }}>
@@ -288,6 +290,7 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
         )}
       </View>
     </View>
+    </PlayerScreen>
   );
 }
 

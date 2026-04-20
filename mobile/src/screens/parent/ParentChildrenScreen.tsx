@@ -15,7 +15,6 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,9 +23,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { getParentChildren } from '../../services/api';
 import { ragToColor } from '../../hooks/useAthleteSnapshot';
 import { GlassCard } from '../../components/GlassCard';
-import { QuickAccessBar } from '../../components/QuickAccessBar';
-import { NotificationBell } from '../../components/NotificationBell';
-import { HeaderProfileButton } from '../../components/HeaderProfileButton';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { useAuth } from '../../hooks/useAuth';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
@@ -50,7 +47,7 @@ function formatRelativeTime(dateStr?: string): string {
 
 export function ParentChildrenScreen() {
   const { colors } = useTheme();
-  const { profile } = useAuth();
+  const { profile: _profile } = useAuth();
   const navigation = useNavigation<Nav>();
   const [children, setChildren] = useState<PlayerSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,19 +73,6 @@ export function ParentChildrenScreen() {
     setRefreshing(true);
     fetchChildren();
   }, [fetchChildren]);
-
-  const quickActions = [
-    {
-      key: 'invite',
-      icon: 'person-add-outline' as const,
-      label: 'Invite',
-      accentColor: colors.accent2,
-      onPress: () => navigation.navigate('ParentInvite'),
-    },
-  ];
-
-  const weekday = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
-  const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
 
   const renderChild = useCallback(
     ({ item }: { item: PlayerSummary }) => {
@@ -160,30 +144,14 @@ export function ParentChildrenScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <PlayerScreen label="CHILDREN" title="Your family" scroll={false}>
         <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: spacing.xxl }} />
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <View style={styles.headerArea}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>TOMO · {weekday}</Text>
-          <Text style={[styles.headerTitle, { color: colors.textOnDark }]}>My Children</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <QuickAccessBar actions={quickActions} />
-          <NotificationBell />
-          <HeaderProfileButton
-            initial={initial}
-            photoUrl={profile?.photoUrl ?? undefined}
-            onPress={() => (navigation as any).navigate('ParentProfile')}
-          />
-        </View>
-      </View>
-
+    <PlayerScreen label="CHILDREN" title="Your family" scroll={false}>
       {children.length === 0 ? (
         <View style={styles.emptyState}>
           <GlassCard>
@@ -219,7 +187,7 @@ export function ParentChildrenScreen() {
           }
         />
       )}
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

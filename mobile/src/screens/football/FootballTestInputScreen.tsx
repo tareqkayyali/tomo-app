@@ -20,7 +20,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TextInput,
   Pressable,
   LayoutAnimation,
@@ -28,9 +27,9 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -144,9 +143,9 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
 
   if (!testDef) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <PlayerScreen label="TEST" title="Log result" onBack={() => navigation.goBack()}>
         <Text style={styles.errorText}>Test not found.</Text>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
@@ -405,11 +404,12 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
 
   if (phase === 'result' && resultData) {
     return (
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+      <PlayerScreen
+        label="TEST"
+        title="Log result"
+        onBack={() => navigation.goBack()}
+        contentStyle={styles.scrollContent}
+      >
           {/* Primary Result */}
           <View style={styles.resultHero}>
             <SmartIcon name={testDef.icon as any} size={36} color={testDef.color} />
@@ -478,7 +478,6 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
           <Pressable onPress={handleRetake} style={styles.ghostButton}>
             <Text style={styles.ghostButtonText}>Retake</Text>
           </Pressable>
-        </ScrollView>
 
         {/* Confetti */}
         {showConfetti && (
@@ -492,19 +491,20 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
             colors={[colors.accent1, colors.accent2, colors.tierGold, colors.textPrimary]}
           />
         )}
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   // ═══ INPUT PHASE ═══
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+    <PlayerScreen
+      label="TEST"
+      title="Log result"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
+      scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
+    >
         {/* Header */}
         <View style={styles.inputHeader}>
           <View style={[styles.inputIconBox, { backgroundColor: testDef.color + '18' }]}>
@@ -561,8 +561,7 @@ export function FootballTestInputScreen({ route, navigation }: Props) {
             disabled={!canCalculate}
           />
         </View>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

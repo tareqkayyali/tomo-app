@@ -516,17 +516,15 @@ story.append(PageBreak())
 story.append(Paragraph("12. Mobile Frontend Architecture", styles["SectionTitle"]))
 story.append(Paragraph("Framework: Expo / React Native with TypeScript. Web via expo export to Vercel. iOS/Android via Expo Go or EAS builds.", styles["Body"]))
 
-story.append(Paragraph("5-Tab Navigation", styles["SubSection"]))
+story.append(Paragraph("3-Tab Navigation (default route: Chat)", styles["SubSection"]))
 story.append(make_table(
     ["Tab", "Screen", "Purpose"],
     [
-        ["Timeline", "TrainingScreen.tsx", "Calendar grid, daily flow, AI insights, exam planner"],
-        ["Output", "TestsScreen.tsx", "3 sub-tabs: My Vitals, My Metrics, My Programs"],
-        ["Tomo Chat", "HomeScreen.tsx", "AI Command Center, 3-agent orchestrator"],
-        ["Mastery", "ProgressScreen.tsx", "DNA card, 7 pillars, streak tiers, milestones"],
-        ["Own It", "ForYouScreen.tsx", "Recommendation feed, readiness, recovery tips"],
+        ["Plan", "TrainingScreen.tsx", "Calendar grid, daily flow, schedule, exam planner"],
+        ["Chat", "HomeScreen.tsx", "AI Command Center, 3-agent orchestrator (default tab)"],
+        ["Dashboard", "SignalDashboardScreen.tsx", "Mode-first daily command centre — sub-views: Dashboard / Programs / Metrics / Progress"],
     ],
-    [doc.width * 0.15, doc.width * 0.28, doc.width * 0.57]
+    [doc.width * 0.18, doc.width * 0.28, doc.width * 0.54]
 ))
 
 story.append(Paragraph("Key Stats", styles["SubSection"]))
@@ -576,7 +574,7 @@ story.append(make_table(
         ["Normative Data", "1 page", "Benchmark data: import/export, spreadsheet editor, bulk update"],
         ["Content Items", "3 pages", "Articles, tips, resources with JSON editor"],
         ["Themes", "4 pages", "Color schemes, typography, import/export, activate"],
-        ["Design Pages", "7 pages", "Per-tab styling: Timeline, Output, Chat, Mastery, Own It, Brand, Flags"],
+        ["Design Pages", "7 pages", "Per-surface styling: Plan, Chat, Dashboard, Programs, Metrics, Brand, Flags"],
         ["Feature Flags", "2 pages", "A/B test toggles, gradual rollout"],
         ["Page Configs", "3 pages", "Static page content, metadata, empty states"],
         ["Mastery Config", "1 page", "Pillar names, emojis, colors, enabled toggle, metric weights"],
@@ -684,7 +682,7 @@ story.append(Paragraph("17. Relationship & Multi-Role System", styles["SectionTi
 story.append(Paragraph("Three roles (player, coach, parent) share the same auth infrastructure with role-based navigation and data visibility.", styles["Body"]))
 
 story.append(Paragraph("Role-Based Navigation", styles["SubSection"]))
-story.append(bullet(f"{b('Player')} — 5-tab MainNavigator (Timeline, Output, Chat, Mastery, Own It)"))
+story.append(bullet(f"{b('Player')} — 3-tab MainNavigator (Plan, Chat, Dashboard)"))
 story.append(bullet(f"{b('Coach')} — 2-tab CoachNavigator (Players, Profile) + 8 stack screens"))
 story.append(bullet(f"{b('Parent')} — 2-tab ParentNavigator (Children, Profile) + 7 stack screens"))
 story.append(bullet("RootNavigator switches between Auth, Onboarding, and role-based Main navigator"))

@@ -1,36 +1,46 @@
 /**
- * useEnter — staggered mount-in animation (opacity 0→1 + translateY 8→0).
+ * useEnter — fade + rise-in animation on mount with optional delay.
  *
- * Matches the Signal Dashboard prototype's "each section fades up on arrival"
- * behavior. Returns a `style` object to spread onto an `Animated.View`.
+ * Port of the Player App design's `useEnter` hook. Returns a style object
+ * suitable for RN `Animated` or a plain style with a key-based remount.
  *
- *   const enterStyle = useEnter(160); // delay in ms
- *   <Animated.View style={enterStyle}>…</Animated.View>
+ * Since RN has no CSS transition, we use Animated under the hood.
  */
+import { useEffect, useRef } from 'react';
+import { Animated, Easing } from 'react-native';
 
-import { useEffect } from 'react';
-import {
-  useSharedValue,
-  useAnimatedStyle,
-  withDelay,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
+export interface EnterStyle {
+  opacity: Animated.Value;
+  transform: Array<{ translateY: Animated.Value }>;
+}
 
-const EASE_OUT = Easing.bezier(0.22, 1, 0.36, 1);
-
-export function useEnter(delay: number = 0, duration: number = 320) {
-  const progress = useSharedValue(0);
+/**
+ * Usage:
+ *   const enter = useEnter(120);
+ *   <Animated.View style={[styles.card, enter]} />
+ */
+export function useEnter(delay = 0): EnterStyle {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(8)).current;
 
   useEffect(() => {
-    progress.value = withDelay(
-      delay,
-      withTiming(1, { duration, easing: EASE_OUT }),
-    );
-  }, [delay, duration, progress]);
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 500,
+        delay,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 500,
+        delay,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [delay, opacity, translateY]);
 
-  return useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ translateY: 8 * (1 - progress.value) }],
-  }));
+  return { opacity, transform: [{ translateY }] };
 }

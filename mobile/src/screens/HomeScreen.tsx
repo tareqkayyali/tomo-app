@@ -16,8 +16,10 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   FlatList,
+  ScrollView,
   TextInput,
   Pressable,
   KeyboardAvoidingView,
@@ -30,6 +32,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
+import { ChatOrb, IconBtn, QuickActionChip } from '../components/tomo-ui/playerDesign';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -66,10 +69,6 @@ import { useAuth } from '../hooks/useAuth';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
-import { QuickAccessBar } from '../components/QuickAccessBar';
-import { NextBlockLine } from '../components/chat/NextBlockLine';
-import { ChatActionPills } from '../components/chat/ChatActionPills';
-import { WarmWelcomeCard } from '../components/chat/WarmWelcomeCard';
 import { useBootData } from '../hooks/useBootData';
 // useFavorites removed — favorites feature deprecated
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
@@ -233,19 +232,19 @@ function createStyles(colors: ThemeColors) {
     },
     quoteText: {
       fontFamily: fontFamily.medium,
-      fontSize: 17,
-      lineHeight: 26,
+      fontSize: 20,
+      lineHeight: 30,
       color: colors.textOnDark,
       textAlign: 'center',
     },
     quoteMark: {
       fontFamily: fontFamily.bold,
-      fontSize: 22,
+      fontSize: 25,
       color: colors.accent1,
     },
     quoteAuthor: {
       fontFamily: fontFamily.regular,
-      fontSize: 14,
+      fontSize: 16,
       color: colors.textInactive,
       marginTop: 10,
     },
@@ -303,18 +302,23 @@ function createStyles(colors: ThemeColors) {
       width: '100%',
     },
     userBubble: {
-      maxWidth: '80%',
-      backgroundColor: colors.cardLight,
-      borderRadius: borderRadius.chat,
-      borderBottomRightRadius: spacing.xs,
+      maxWidth: '82%',
+      backgroundColor: colors.cream06,
+      borderWidth: 1,
+      borderColor: colors.cream10,
+      borderTopLeftRadius: 14,
+      borderTopRightRadius: 14,
+      borderBottomLeftRadius: 14,
+      borderBottomRightRadius: 4,
       paddingVertical: 10,
-      paddingHorizontal: spacing.md,
+      paddingHorizontal: 14,
     },
     userBubbleText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 16,
-      lineHeight: 24,
-      color: colors.textOnDark,
+      fontFamily: 'Poppins_400Regular',
+      fontSize: 12,
+      lineHeight: 17,
+      letterSpacing: -0.1,
+      color: colors.tomoCream,
     },
     typingBubble: {
       backgroundColor: colors.cardLight,
@@ -395,19 +399,24 @@ function createStyles(colors: ThemeColors) {
     // ── Input Bar ─────────────────────────────────────────────────────
     inputBarContainer: {
       paddingHorizontal: spacing.md,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.lg,
+      paddingTop: 6,
+      // Smaller bottom padding pulls the input closer to the safe-area edge
+      // so "Ask tomo.." visually sits further down. The SafeAreaView already
+      // reserves the home-indicator inset beneath this.
+      paddingBottom: spacing.xs,
       backgroundColor: colors.background,
     },
     inputBar: {
       flexDirection: 'row',
-      alignItems: 'flex-end',
-      backgroundColor: colors.inputBackground,
-      borderRadius: 24,
+      alignItems: 'center',
+      backgroundColor: colors.cream03,
+      borderWidth: 1,
+      borderColor: colors.cream10,
+      borderRadius: 999,
       paddingLeft: spacing.md,
-      paddingRight: spacing.sm,
-      paddingVertical: 8,
-      minHeight: 48,
+      paddingRight: 4,
+      paddingVertical: 4,
+      minHeight: 52,
       maxHeight: 160,
     },
     textInput: {
@@ -416,15 +425,28 @@ function createStyles(colors: ThemeColors) {
       fontSize: 16,
       color: colors.textOnDark,
       textAlign: 'left',
-      paddingVertical: 4,
+      paddingVertical: 10,
+      paddingTop: 10,
+      paddingBottom: 10,
       maxHeight: 140,
       writingDirection: 'ltr',
+      // RN web honours this to strip the Android ExtraHeight baseline
+      // padding that was pushing the placeholder down.
+      ...(Platform.OS !== 'web' ? { includeFontPadding: false as any } : {}),
     },
     sendButton: {
       width: 36,
       height: 36,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    sendButtonSage: {
+      width: 32,
+      height: 32,
+      borderRadius: 999,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.tomoSage,
     },
     sendButtonPressed: {
       opacity: 0.6,
@@ -831,7 +853,8 @@ const ChatBubble = React.memo(function ChatBubble({
         ) : message.text ? (
           <MarkdownMessage content={message.text} />
         ) : null}
-        {message.text && <CopyButton text={message.text} />}
+        {/* CopyButton intentionally omitted on AI responses — only user
+            messages expose the copy affordance. */}
       </View>
     </View>
   );
@@ -1867,11 +1890,17 @@ export function HomeScreen() {
           paddingTop: spacing.sm,
           paddingBottom: spacing.sm,
         }}>
-          <QuickAccessBar actions={[
-            { key: 'saved', icon: 'chatbubbles-outline', label: 'Saved Chats', onPress: () => setShowSavedChats(true) },
-            { key: 'new', icon: 'create-outline', label: 'New Chat', onPress: handleNewChat },
-            { key: 'rules', icon: 'options-outline', label: 'My Rules', onPress: () => navigation.navigate('MyRules' as any) },
-          ]} />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <IconBtn onPress={() => navigation.navigate('MyRules' as any)}>
+              <SmartIcon name="options-outline" size={18} color={colors.tomoCream} />
+            </IconBtn>
+            <IconBtn onPress={handleNewChat}>
+              <SmartIcon name="create-outline" size={18} color={colors.tomoCream} />
+            </IconBtn>
+            <IconBtn onPress={() => setShowSavedChats(true)}>
+              <SmartIcon name="chatbubbles-outline" size={18} color={colors.tomoCream} />
+            </IconBtn>
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
             <NotificationBell />
@@ -1896,24 +1925,47 @@ export function HomeScreen() {
         )}
 
         {/* ─── Chat Area ───────────────────────────────────────────── */}
-        {/*
-            Empty-state layout (see docs/CHAT_PILLS_RFC.md §4.2):
-              Quote  →  Next Block line  →  4 Chat Action Pills
-            Rendered unconditionally — QuoteCard falls back to a hardcoded
-            quote if ContentBundle is empty, NextBlockLine handles null
-            bootData, and ChatActionPills pads from CMS fallback IDs.
-          */}
         {!showSavedChats && isEmpty ? (
           <Pressable style={styles.emptyContainer} onPress={Keyboard.dismiss}>
-            <WarmWelcomeCard profile={profile} />
-            <View style={styles.emptyCenter} />
-            <View style={styles.emptyCenter}>
-              <NextBlockLine bootData={bootData} />
+            {/* ChatOrb + "Tomo" + subtitle — 1:1 port of PageChat design */}
+            <View style={{ alignItems: 'center', paddingTop: 40, paddingBottom: 14 }}>
+              <ChatOrb size={96} />
+              <Text
+                style={{
+                  fontFamily: 'Poppins_500Medium',
+                  fontSize: 18,
+                  color: colors.tomoCream,
+                  letterSpacing: -0.3,
+                  marginTop: 14,
+                }}
+              >
+                Tomo
+              </Text>
+              <Text
+                style={{
+                  fontFamily: 'Poppins_400Regular',
+                  fontSize: 11,
+                  color: colors.muted,
+                  marginTop: 2,
+                }}
+              >
+                Your coach. Always on.
+              </Text>
             </View>
-            <ChatActionPills onPress={handleChipPress} />
-            <View style={styles.quoteOverlay} pointerEvents="box-none">
-              <QuoteCard quote={currentQuote} />
-            </View>
+            {/* flex spacer pushes chips + input to the bottom */}
+            <View style={{ flex: 1 }} />
+            {/* Quick action chips — horizontal scroll, 4 fixed prompts */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 10, gap: 6 }}
+            >
+              {['Plan tomorrow', "I'm feeling off", 'Match in 3 days — talk me through it', "What's my streak?"].map(
+                (q) => (
+                  <QuickActionChip key={q} label={q} onPress={() => handleChipPress(q)} />
+                ),
+              )}
+            </ScrollView>
           </Pressable>
         ) : !showSavedChats ? (
           <>
@@ -2068,7 +2120,7 @@ export function HomeScreen() {
                     <Pressable
                       onPress={() => handleSend()}
                       style={({ pressed }) => [
-                        styles.sendButton,
+                        styles.sendButtonSage,
                         pressed && styles.sendButtonPressed,
                       ]}
                       hitSlop={8}
@@ -2076,9 +2128,9 @@ export function HomeScreen() {
                       accessibilityLabel="Send message"
                     >
                       <SmartIcon
-                        name="arrow-up-circle"
-                        size={28}
-                        color={colors.accent1}
+                        name="arrow-up"
+                        size={16}
+                        color={colors.tomoCream}
                       />
                     </Pressable>
                   ) : (

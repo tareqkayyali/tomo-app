@@ -29,6 +29,7 @@ import { useTriangleSnapshot } from '../../hooks/useTriangleSnapshot';
 import { ragToColor } from '../../hooks/useAthleteSnapshot';
 import { useTheme } from '../../hooks/useTheme';
 import { GlassCard } from '../../components/GlassCard';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { toDateStr } from '../../utils/calendarHelpers';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
@@ -187,6 +188,12 @@ export function ParentChildDetailScreen({ route, navigation }: Props) {
     .slice(0, 2);
 
   return (
+    <PlayerScreen
+      label="CHILD"
+      title={childName ?? 'Detail'}
+      onBack={() => navigation.goBack()}
+      scroll={false}
+    >
     <View style={[styles.container, { backgroundColor: colors.background }]} {...panResponder.panHandlers}>
       {/* ─── Child Header ─── */}
       <View style={{ paddingHorizontal: layout.screenMargin, paddingTop: spacing.sm }}>
@@ -344,6 +351,7 @@ export function ParentChildDetailScreen({ route, navigation }: Props) {
         )}
       </View>
     </View>
+    </PlayerScreen>
   );
 }
 

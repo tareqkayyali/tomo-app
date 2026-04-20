@@ -10,12 +10,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SmartIcon } from '../../components/SmartIcon';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import {
   colors,
   spacing,
@@ -63,13 +62,11 @@ export function SportScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <PlayerScreen label="SPORT" title="Your sport" contentStyle={styles.scroll}>
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: '25%' }]} />
         </View>
         <Text style={styles.stepLabel}>Step 1 of 4</Text>
-        <Text style={styles.title}>What sport do you play?</Text>
         <Text style={styles.subtitle}>Pick the one you train most.</Text>
 
         {error !== null && (
@@ -113,17 +110,15 @@ export function SportScreen({ navigation }: Props) {
         >
           <Text style={styles.continueBtnText}>{loading ? 'Saving...' : 'Continue'}</Text>
         </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: layout.screenMargin,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xxl,
     maxWidth: layout.authMaxWidth,
     width: '100%',

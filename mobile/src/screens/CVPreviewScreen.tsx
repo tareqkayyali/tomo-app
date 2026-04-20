@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
 import { TomoLoader } from '../components/TomoLoader';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 const CV_LOADER_MESSAGES = [
   { title: 'Building Your CV', subtitle: 'Compiling your athlete profile...', icon: 'person-circle-outline' as const },
@@ -125,20 +126,12 @@ export function CVPreviewScreen({ cvType = 'club', onBack }: Props) {
   }, [cvType]);
 
   return (
-    <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]}>
-      {/* Top bar */}
-      <View style={[s.topBar, { borderBottomColor: colors.border }]}>
-        {onBack && (
-          <TouchableOpacity onPress={onBack} style={s.backBtn}>
-            <SmartIcon name="arrow-back" size={20} color={colors.textPrimary} />
-          </TouchableOpacity>
-        )}
-        <Text style={[s.topTitle, { color: colors.textPrimary }]}>
-          {cvType === 'university' ? 'University CV' : 'Club CV'} Export
-        </Text>
-        <View style={{ width: 28 }} />
-      </View>
-
+    <PlayerScreen
+      label="CV PREVIEW"
+      title="Preview"
+      onBack={onBack}
+      scroll={false}
+    >
       <ScrollView contentContainerStyle={s.content}>
         {/* Status area */}
         {isLoading ? (
@@ -222,7 +215,7 @@ export function CVPreviewScreen({ cvType = 'club', onBack }: Props) {
           </TouchableOpacity>
         </View>
       )}
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

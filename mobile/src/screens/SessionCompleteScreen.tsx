@@ -22,8 +22,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../components';
@@ -148,7 +148,12 @@ export function SessionCompleteScreen({ navigation, route }: Props) {
   const fmtDuration = `${Math.floor(durationSeconds / 60)}:${String(durationSeconds % 60).padStart(2, '0')}`;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <PlayerScreen
+      label="SESSION"
+      title="Complete"
+      onBack={() => navigation.goBack()}
+      scroll={false}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -264,7 +269,7 @@ export function SessionCompleteScreen({ navigation, route }: Props) {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

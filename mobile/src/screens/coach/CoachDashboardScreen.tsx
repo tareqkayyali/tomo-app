@@ -23,12 +23,12 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, borderRadius, fontFamily } from '../../theme';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import {
   getCoachDashboard,
   type CoachDashboardPillar,
@@ -88,13 +88,10 @@ export function CoachDashboardScreen() {
   );
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={styles.headerArea}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Dashboard</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Roster-wide signals. Tap a row to open the player.
-        </Text>
-      </View>
+    <PlayerScreen label="COACH" title="Dashboard" scroll={false}>
+      <Text style={[styles.subtitle, { color: colors.textSecondary, paddingHorizontal: spacing.md, marginBottom: spacing.sm }]}>
+        Roster-wide signals. Tap a row to open the player.
+      </Text>
 
       {/* Underline-style tab switcher */}
       <View style={styles.tabs}>
@@ -230,7 +227,7 @@ export function CoachDashboardScreen() {
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

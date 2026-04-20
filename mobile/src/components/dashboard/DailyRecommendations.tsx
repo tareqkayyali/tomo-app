@@ -46,8 +46,8 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 // Type-specific SVG icons for visual diversity
-function RecIcon({ type, color }: { type: string; color: string }) {
-  const s = 14;
+function RecIcon({ type, color, size = 18 }: { type: string; color: string; size?: number }) {
+  const s = size;
   switch (type) {
     case 'READINESS':
       return (
@@ -135,10 +135,18 @@ export function DailyRecommendations({ recs, signalColor }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionLabel}>FOR YOU TODAY</Text>
+      <Text style={styles.sectionLabel}>TODAY {'\u00b7'} FOR YOU</Text>
       {displayed.map((rec) => {
         const barColor = PRIORITY_COLORS[rec.priority] ?? '#5A8A9F';
         const isExpanded = expandedId === rec.recId;
+        // Optional time slot — pulled from the rec's context if present.
+        // The RIE writes scheduled hints into `context.time` as "4:00 PM"
+        // for type === 'NUTRITION' / 'RECOVERY' etc. Skip silently when
+        // the field isn't populated.
+        const timeStr =
+          typeof (rec.context as { time?: unknown })?.time === 'string'
+            ? (rec.context as { time: string }).time
+            : null;
 
         return (
           <TouchableOpacity
@@ -147,22 +155,32 @@ export function DailyRecommendations({ recs, signalColor }: Props) {
             onPress={() => toggleExpand(rec.recId)}
             activeOpacity={0.85}
           >
-            <View style={[styles.priorityBar, { backgroundColor: barColor }]} />
+            {/* Left icon box — rounded 12, type-tinted bg + border */}
+            <View
+              style={[
+                styles.iconBox,
+                { backgroundColor: `${barColor}1F`, borderColor: `${barColor}55` },
+              ]}
+            >
+              <RecIcon type={rec.type} color={barColor} size={18} />
+            </View>
+
+            {/* Content column */}
             <View style={styles.cardContent}>
               <View style={styles.cardHeader}>
-                <RecIcon type={rec.type} color={barColor} />
-                <Text style={[styles.typeLabel, { color: barColor }]}>
+                <Text style={[styles.typeLabel, { color: barColor }]} numberOfLines={1}>
                   {TYPE_LABELS[rec.type] ?? rec.type}
                 </Text>
-                <Text style={styles.chevron}>{isExpanded ? '▾' : '▸'}</Text>
+                {timeStr && <Text style={styles.time}>{timeStr}</Text>}
               </View>
-              <Text style={styles.title}>{rec.title}</Text>
+              <Text style={styles.title} numberOfLines={1}>
+                {rec.title}
+              </Text>
               {rec.bodyShort && (
                 <Text style={styles.body} numberOfLines={isExpanded ? undefined : 2}>
                   {rec.bodyShort}
                 </Text>
               )}
-              {/* Expanded: show bodyLong if available */}
               {isExpanded && rec.bodyLong && (
                 <View style={styles.expandedContent}>
                   <View style={styles.expandedDivider} />
@@ -172,10 +190,15 @@ export function DailyRecommendations({ recs, signalColor }: Props) {
               {isExpanded && !rec.bodyLong && rec.bodyShort && (
                 <View style={styles.expandedContent}>
                   <View style={styles.expandedDivider} />
-                  <Text style={styles.expandedHint}>Tap "Ask Tomo" in Chat to get a personalised action plan for this recommendation.</Text>
+                  <Text style={styles.expandedHint}>
+                    Tap &quot;Ask Tomo&quot; in Chat to get a personalised action plan for this recommendation.
+                  </Text>
                 </View>
               )}
             </View>
+
+            {/* Chevron */}
+            <Text style={styles.chevron}>{isExpanded ? '\u25BE' : '\u203A'}</Text>
           </TouchableOpacity>
         );
       })}
@@ -186,7 +209,7 @@ export function DailyRecommendations({ recs, signalColor }: Props) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: 18,
   },
   sectionLabel: {
     fontFamily: fontFamily.medium,
@@ -194,54 +217,68 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: 'rgba(245,243,237,0.35)',
     textTransform: 'uppercase',
-    marginBottom: 7,
+    marginBottom: 10,
   },
+  // Row card: icon + content + chevron. Player App token styling.
   card: {
     backgroundColor: 'rgba(245,243,237,0.03)',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(245,243,237,0.10)',
     flexDirection: 'row',
-    overflow: 'hidden',
-    marginBottom: 8,
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    marginBottom: 10,
   },
-  priorityBar: {
-    width: 3,
+  iconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardContent: {
     flex: 1,
-    padding: 12,
-    paddingLeft: 10,
+    minWidth: 0,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 5,
+    gap: 8,
+    marginBottom: 2,
   },
   typeLabel: {
     fontFamily: fontFamily.semiBold,
     fontSize: 9,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    flex: 1,
+  },
+  time: {
+    fontFamily: fontFamily.regular,
+    fontSize: 10.5,
+    color: 'rgba(245,243,237,0.55)',
+    letterSpacing: 0.2,
   },
   chevron: {
     fontFamily: fontFamily.regular,
-    fontSize: 10,
-    color: 'rgba(245,243,237,0.25)',
+    fontSize: 18,
+    color: 'rgba(245,243,237,0.35)',
+    paddingHorizontal: 4,
   },
   title: {
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.semiBold,
     fontSize: 14,
     color: '#F5F3ED',
-    marginBottom: 3,
+    letterSpacing: -0.2,
+    marginBottom: 2,
   },
   body: {
     fontFamily: fontFamily.regular,
     fontSize: 12,
     color: 'rgba(245,243,237,0.55)',
-    lineHeight: 18,
+    lineHeight: 17,
   },
   expandedContent: {
     marginTop: 8,

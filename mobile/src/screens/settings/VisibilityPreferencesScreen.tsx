@@ -18,16 +18,16 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Switch,
   Pressable,
   ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 import { useTheme } from '../../hooks/useTheme';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import {
   getVisibilityPreferences,
@@ -54,6 +54,7 @@ function key(guardianId: string, domain: VisibilityDomain): Key {
 
 export function VisibilityPreferencesScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const [guardians, setGuardians] = useState<LinkedGuardian[]>([]);
   const [state, setState] = useState<Record<Key, boolean>>({});
   const [initialState, setInitialState] = useState<Record<Key, boolean>>({});
@@ -138,16 +139,13 @@ export function VisibilityPreferencesScreen() {
   }, [dirtyEntries, state]);
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={styles.headerArea}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Who sees what</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          You choose per-domain what each coach or parent can see. Safety signals are
-          always shared — that's non-negotiable.
-        </Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <PlayerScreen
+      label="SETTINGS"
+      title="Who sees what"
+      caption="You choose per-domain what each coach or parent can see. Safety signals are always shared — that's non-negotiable."
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scroll}
+    >
         {loading && (
           <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 32 }} />
         )}
@@ -205,7 +203,6 @@ export function VisibilityPreferencesScreen() {
         ))}
 
         <View style={{ height: 24 }} />
-      </ScrollView>
 
       {!loading && dirtyEntries.length > 0 && (
         <View style={[styles.saveBar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
@@ -229,7 +226,7 @@ export function VisibilityPreferencesScreen() {
           </Pressable>
         </View>
       )}
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

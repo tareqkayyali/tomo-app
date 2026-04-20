@@ -12,15 +12,14 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import { useTheme } from '../../hooks/useTheme';
-import { useAuth } from '../../hooks/useAuth';
 import { ragToColor } from '../../hooks/useAthleteSnapshot';
 import { getParentChildren, getChildCalendar } from '../../services/api';
 import { layout, spacing, borderRadius, fontFamily } from '../../theme';
@@ -69,7 +68,6 @@ function formatDate(year: number, month: number, day: number): string {
 
 export function ParentCalendarScreen({ navigation }: Props) {
   const { colors } = useTheme();
-  const { profile } = useAuth();
   const eventColors = useMemo(() => getEventColors(colors), [colors]);
 
   const [children, setChildren] = useState<PlayerSummary[]>([]);
@@ -177,17 +175,17 @@ export function ParentCalendarScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <PlayerScreen label="CALENDAR" title="Daily view" onBack={() => navigation.goBack()} scroll={false}>
         <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   // ── Pending state: no confirmed children yet ──────────────────────
   if (!hasConfirmedChildren) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+      <PlayerScreen label="CALENDAR" title="Daily view" onBack={() => navigation.goBack()}>
+        <View style={styles.scroll}>
           {/* Greyed-out month header */}
           <View style={styles.monthHeader}>
             <View style={{ width: 24 }} />
@@ -230,14 +228,14 @@ export function ParentCalendarScreen({ navigation }: Props) {
               Your child hasn't confirmed the link yet. Once they accept, their schedule will appear here.
             </Text>
           </View>
-        </ScrollView>
-      </SafeAreaView>
+        </View>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <PlayerScreen label="CALENDAR" title="Daily view" onBack={() => navigation.goBack()}>
+      <View style={styles.scroll}>
         {/* Child selector (if multiple) */}
         {children.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.childSelector}>
@@ -378,8 +376,8 @@ export function ParentCalendarScreen({ navigation }: Props) {
             </View>
           ))}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+    </PlayerScreen>
   );
 }
 

@@ -36,9 +36,9 @@ export const ProtocolBannerSection = memo(function ProtocolBannerSection({
   const severityColor = SEVERITY_COLORS[protocol.category] ?? SEVERITY_COLORS.INFO;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: severityColor, borderLeftColor: severityColor }]}>
+    <View style={[styles.container, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.chalk }]}>
+        <Text style={[styles.title, { color: colors.tomoCream }]}>
           {protocol.name}
         </Text>
         {showSeverity && (
@@ -58,10 +58,9 @@ export const ProtocolBannerSection = memo(function ProtocolBannerSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     borderWidth: 1,
-    borderLeftWidth: 3,
-    padding: 14,
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
@@ -69,18 +68,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 14,
     flex: 1,
+    letterSpacing: -0.2,
   },
   severity: {
-    fontFamily: fontFamily.display,
+    fontFamily: fontFamily.semiBold,
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   safetyNote: {
-    fontFamily: fontFamily.note,
+    fontFamily: fontFamily.regular,
     fontSize: 11,
     marginTop: 4,
   },

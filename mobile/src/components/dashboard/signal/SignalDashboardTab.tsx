@@ -17,8 +17,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
-import Animated from 'react-native-reanimated';
+import { View, StyleSheet, Animated } from 'react-native';
 import type { BootData } from '../../../services/api';
 import { useEnter } from '../../../hooks/useEnter';
 import { FocusHero } from './FocusHero';

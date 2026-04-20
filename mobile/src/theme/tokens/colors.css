@@ -1,0 +1,31 @@
+/* tomo — color tokens */
+:root {
+  --tomo-ink:        #12141F;
+  --tomo-ink-hover:  #1E202D;
+  --tomo-cream:      #F5F3ED;
+  --tomo-sage:       #7A9B76;
+  --tomo-sage-dim:   #9AB896;
+  --tomo-clay:       #C8A27A;
+  --tomo-steel:      #8A9BB0;
+  --tomo-muted:      #6B6E7A;
+  --tomo-divider:    #2A2D38;
+
+  /* Semantic aliases */
+  --tomo-bg:         var(--tomo-ink);
+  --tomo-fg:         var(--tomo-cream);
+  --tomo-accent:     var(--tomo-sage);
+  --tomo-surface:    var(--tomo-ink-hover);
+  --tomo-border:     var(--tomo-divider);
+  --tomo-text:       var(--tomo-cream);
+  --tomo-text-muted: var(--tomo-muted);
+}
+
+/* Light-surface override (use on cream backgrounds) */
+.tomo-light {
+  --tomo-bg:         var(--tomo-cream);
+  --tomo-fg:         var(--tomo-ink);
+  --tomo-surface:    #FFFFFF;
+  --tomo-border:     #E4E1D8;
+  --tomo-text:       var(--tomo-ink);
+  --tomo-text-muted: var(--tomo-muted);
+}

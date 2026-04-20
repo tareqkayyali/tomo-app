@@ -1,230 +1,298 @@
 /**
  * Icon Component
- * Typed wrapper around Ionicons for Tomo.
- * Now bridges to Phosphor icons via TomoIcon when a mapping exists.
+ *
+ * Typed wrapper around the Bond icon system. Accepts symbolic names from
+ * `TOMO_ICONS` (e.g. "home", "checkin", "progress") and renders the Bond
+ * glyph via TomoIcon (the hybrid resolver — Bond sprite → Arc → Phosphor).
+ *
+ * Historical note: this file used to bridge to Phosphor via `IONICONS_TO_PHOSPHOR`.
+ * Phase 3 replaced that map with `IONICONS_TO_TOMO` — every Ionicon name
+ * now resolves to a Bond semantic name which the Phase-2 TomoIcon resolver
+ * renders. The old `IONICONS_TO_PHOSPHOR` export has been removed (Phase 4);
+ * all consumers (GradientButton, SmartIcon) now import `IONICONS_TO_TOMO`.
  */
 
 import React from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
 import TomoIcon from './tomo-ui/TomoIcon';
 
 /**
- * Maps Ionicons glyph names → Phosphor component names.
- * Brand logos (logo-*) intentionally omitted — they always fall back to Ionicons.
+ * Ionicons glyph name → Bond semantic name.
+ * Values are lowercase semantic names the TomoIcon resolver understands
+ * (see `SEMANTIC_TO_BOND` in TomoIcon.tsx). The `-outline` / non-outline
+ * split is handled at call time via `weight: 'regular' | 'fill'`.
  */
-const IONICONS_TO_PHOSPHOR: Record<string, string> = {
-  // Navigation
-  'chevron-back': 'CaretLeft',
-  'chevron-forward': 'CaretRight',
-  'arrow-back': 'ArrowLeft',
-  'arrow-forward': 'ArrowRight',
-  'arrow-undo': 'ArrowUTurnLeft',
-  'arrow-up-outline': 'ArrowUp',
-  'arrow-down-circle': 'ArrowCircleDown',
-  'arrow-up-circle': 'ArrowCircleUp',
-  'return-down-back': 'ArrowBendDownLeft',
+const IONICONS_TO_TOMO: Record<string, string> = {
+  // Navigation & chevrons
+  'chevron-back': 'Chevron-left',
+  'chevron-back-outline': 'Chevron-left',
+  'chevron-forward': 'Chevron-right',
+  'chevron-forward-outline': 'Chevron-right',
+  'chevron-up': 'Chevron-up',
+  'chevron-up-outline': 'Chevron-up',
+  'chevron-down': 'Chevron-down',
+  'chevron-down-outline': 'Chevron-down',
+  'arrow-back': 'back',
+  'arrow-back-outline': 'back',
+  'arrow-forward': 'Chevron-right',
+  'arrow-forward-outline': 'Chevron-right',
+  'arrow-undo': 'refresh',
+  'arrow-up': 'Arrow-up',
+  'arrow-up-outline': 'Arrow-up',
+  'arrow-up-circle': 'Arrow-up',
+  'arrow-up-circle-outline': 'Arrow-up',
+  'arrow-down-circle': 'Arrow-up',
+  'return-down-back': 'back',
 
-  // Status
-  'checkmark': 'Check',
-  'checkmark-circle': 'CheckCircle',
-  'checkmark-circle-outline': 'CheckCircle',
-  'close': 'X',
-  'close-circle': 'XCircle',
-  'warning': 'Warning',
-  'warning-outline': 'Warning',
-  'alert-circle': 'WarningCircle',
-  'alert-circle-outline': 'WarningCircle',
-  'information-circle': 'Info',
-  'information-circle-outline': 'Info',
+  // Status & feedback
+  'checkmark': 'check',
+  'checkmark-outline': 'check',
+  'checkmark-circle': 'check',
+  'checkmark-circle-outline': 'check',
+  'close': 'close',
+  'close-outline': 'close',
+  'close-circle': 'close',
+  'close-circle-outline': 'close',
+  'warning': 'warning',
+  'warning-outline': 'warning',
+  'alert-circle': 'error',
+  'alert-circle-outline': 'error',
+  'information-circle': 'info',
+  'information-circle-outline': 'info',
+  'help': 'help',
+  'help-outline': 'help',
+  'help-circle': 'help',
+  'help-circle-outline': 'help',
 
   // Actions
-  'add': 'Plus',
-  'add-circle-outline': 'PlusCircle',
-  'pencil': 'Pencil',
-  'create': 'PencilSimple',
-  'create-outline': 'PencilSimple',
-  'trash-outline': 'Trash',
-  'send': 'PaperPlaneRight',
-  'paper-plane': 'PaperPlaneRight',
-  'paper-plane-outline': 'PaperPlaneRight',
-  'remove': 'Minus',
-  'move-outline': 'ArrowsOutCardinal',
-  'reorder-three-outline': 'List',
-  'resize-outline': 'ArrowsOut',
+  'add': 'add',
+  'add-outline': 'add',
+  'add-circle': 'add',
+  'add-circle-outline': 'add',
+  'pencil': 'edit',
+  'pencil-outline': 'edit',
+  'create': 'edit',
+  'create-outline': 'edit',
+  'trash': 'trash',
+  'trash-outline': 'trash',
+  'send': 'send',
+  'send-outline': 'send',
+  'paper-plane': 'send',
+  'paper-plane-outline': 'send',
+  'remove': 'close',
+  'move-outline': 'more',
+  'reorder-three-outline': 'menu',
+  'resize-outline': 'more',
 
   // Communication
-  'mail-outline': 'Envelope',
-  'notifications': 'Bell',
-  'notifications-outline': 'Bell',
-  'notifications-off-outline': 'BellSlash',
-  'chatbubble-outline': 'ChatCircle',
-  'chatbubbles-outline': 'ChatCircleDots',
-  'people-outline': 'Users',
-  'person': 'User',
-  'person-outline': 'User',
-  'person-add-outline': 'UserPlus',
-  'person-remove-outline': 'UserMinus',
-  'person-circle': 'UserCircle',
-  'person-circle-outline': 'UserCircle',
+  'mail': 'mail',
+  'mail-outline': 'mail',
+  'notifications': 'bell',
+  'notifications-outline': 'bell',
+  'notifications-off-outline': 'bell',
+  'chatbubble': 'chat',
+  'chatbubble-outline': 'chat',
+  'chatbubbles': 'chat',
+  'chatbubbles-outline': 'chat',
+  'chatbubble-ellipses-outline': 'chat',
+  'people-outline': 'profile',
+  'person': 'profile',
+  'person-outline': 'profile',
+  'person-add-outline': 'profile',
+  'person-remove-outline': 'profile',
+  'person-circle': 'profile',
+  'person-circle-outline': 'profile',
+  'megaphone-outline': 'megaphone',
 
   // Auth
-  'key-outline': 'Key',
-  'lock-closed': 'Lock',
-  'lock-closed-outline': 'Lock',
-  'log-in-outline': 'SignIn',
-  'log-out': 'SignOut',
-  'log-out-outline': 'SignOut',
-  'shield-checkmark': 'ShieldCheck',
-  'shield-checkmark-outline': 'ShieldCheck',
-  'shield': 'Shield',
-  'shield-outline': 'Shield',
+  'key-outline': 'key',
+  'lock-closed': 'lock',
+  'lock-closed-outline': 'lock',
+  'log-in-outline': 'key',
+  'log-out': 'logout',
+  'log-out-outline': 'logout',
+  'shield-checkmark': 'shield',
+  'shield-checkmark-outline': 'shield',
+  'shield': 'shield',
+  'shield-outline': 'shield',
 
-  // Time
-  'calendar': 'CalendarDots',
-  'calendar-outline': 'CalendarDots',
-  'time': 'Clock',
-  'time-outline': 'Clock',
-  'timer-outline': 'Timer',
-  'hourglass-outline': 'Hourglass',
-  'alarm-outline': 'Alarm',
-  'watch-outline': 'Watch',
+  // Time & calendar
+  'today': 'today',
+  'today-outline': 'today',
+  'calendar': 'event',
+  'calendar-outline': 'event',
+  'time': 'clock',
+  'time-outline': 'clock',
+  'timer-outline': 'timer',
+  'hourglass-outline': 'timer',
+  'alarm-outline': 'alarm',
+  'watch-outline': 'watch',
 
   // Performance
-  'bar-chart': 'ChartBar',
-  'bar-chart-outline': 'ChartBar',
-  'analytics-outline': 'ChartLineUp',
-  'trending-up': 'TrendUp',
-  'trending-up-outline': 'TrendUp',
-  'stats-chart-outline': 'ChartLine',
-  'pulse': 'Pulse',
-  'pulse-outline': 'Pulse',
-  'speedometer': 'Gauge',
-  'speedometer-outline': 'Gauge',
+  'bar-chart': 'load',
+  'bar-chart-outline': 'load',
+  'analytics-outline': 'trend',
+  'trending-up': 'trend',
+  'trending-up-outline': 'trend',
+  'stats-chart-outline': 'trend',
+  'pulse': 'pulse',
+  'pulse-outline': 'pulse',
+  'speedometer': 'readiness',
+  'speedometer-outline': 'readiness',
 
-  // Health & Fitness
-  'fitness': 'Heartbeat',
-  'fitness-outline': 'Heartbeat',
-  'body': 'PersonSimple',
-  'body-outline': 'PersonSimple',
-  'heart-outline': 'Heart',
-  'bed': 'Bed',
-  'bed-outline': 'Bed',
-  'water': 'Drop',
-  'water-outline': 'Drop',
-  'flash': 'Lightning',
-  'flash-outline': 'Lightning',
-  'medkit': 'FirstAid',
-  'medkit-outline': 'FirstAid',
+  // Health & fitness
+  'fitness': 'fitness',
+  'fitness-outline': 'fitness',
+  'body': 'soreness',
+  'body-outline': 'soreness',
+  'heart': 'heart',
+  'heart-outline': 'heart',
+  'bed': 'sleep',
+  'bed-outline': 'sleep',
+  'water': 'hydration',
+  'water-outline': 'hydration',
+  'flash': 'power',
+  'flash-outline': 'power',
+  'medkit': 'bandage',
+  'medkit-outline': 'bandage',
+  'bandage-outline': 'bandage',
 
   // Sports
-  'basketball': 'Basketball',
-  'basketball-outline': 'Basketball',
-  'football': 'SoccerBall',
-  'football-outline': 'SoccerBall',
-  'tennisball': 'TennisBall',
-  'tennisball-outline': 'TennisBall',
-  'barbell-outline': 'Barbell',
-  'bicycle-outline': 'Bicycle',
-  'medal': 'Medal',
-  'ribbon': 'Medal',
+  'basketball': 'ball',
+  'basketball-outline': 'ball',
+  'football': 'ball',
+  'football-outline': 'ball',
+  'tennisball': 'ball',
+  'tennisball-outline': 'ball',
+  'barbell': 'fitness',
+  'barbell-outline': 'fitness',
+  'bicycle-outline': 'endurance',
+  'medal': 'medal',
+  'ribbon': 'medal',
 
   // Achievements
-  'trophy': 'Trophy',
-  'trophy-outline': 'Trophy',
-  'star': 'Star',
-  'star-outline': 'Star',
-  'flame': 'Fire',
-  'flame-outline': 'Fire',
-  'play': 'Play',
-  'play-skip-forward': 'SkipForward',
-  'stop': 'Stop',
-  'podium': 'Trophy',
-  'podium-outline': 'Trophy',
+  'trophy': 'trophy',
+  'trophy-outline': 'trophy',
+  'star': 'star',
+  'star-outline': 'star',
+  'flame': 'flame',
+  'flame-outline': 'flame',
+  'play': 'play',
+  'play-skip-forward': 'play',
+  'stop': 'stop',
+  'podium': 'trophy',
+  'podium-outline': 'trophy',
 
   // Learning
-  'school': 'GraduationCap',
-  'school-outline': 'GraduationCap',
-  'book': 'Book',
-  'book-outline': 'BookOpen',
-  'library-outline': 'Books',
-  'document-text': 'FileText',
-  'document-outline': 'File',
-  'document-text-outline': 'FileText',
-  'layers-outline': 'Stack',
+  'school': 'study',
+  'school-outline': 'study',
+  'book': 'book',
+  'book-outline': 'book',
+  'library-outline': 'book',
+  'document-text': 'document',
+  'document-outline': 'document',
+  'document-text-outline': 'document',
+  'layers-outline': 'clipboard',
 
-  // Settings
-  'settings-outline': 'GearSix',
-  'options-outline': 'Sliders',
-  'swap-horizontal-outline': 'ArrowsLeftRight',
-  'sync-outline': 'ArrowsClockwise',
-  'refresh': 'ArrowClockwise',
-  'refresh-outline': 'ArrowClockwise',
+  // Settings & utility
+  'settings': 'settings',
+  'settings-outline': 'settings',
+  'options-outline': 'settings',
+  'swap-horizontal-outline': 'refresh',
+  'sync-outline': 'refresh',
+  'refresh': 'refresh',
+  'refresh-outline': 'refresh',
 
-  // Visual
-  'sparkles': 'Sparkle',
-  'sparkles-outline': 'Sparkle',
-  'sunny': 'Sun',
-  'sunny-outline': 'Sun',
-  'moon': 'Moon',
-  'moon-outline': 'Moon',
-  'cloud-offline-outline': 'CloudSlash',
-  'wifi': 'Wifi',
+  // Visual & atmospheric
+  'sparkles': 'sparkle',
+  'sparkles-outline': 'sparkle',
+  'sunny': 'sun',
+  'sunny-outline': 'sun',
+  'moon': 'sleep',
+  'moon-outline': 'sleep',
+  'cloud-offline-outline': 'cloud',
+  'cloud-upload-outline': 'upload',
+  'wifi': 'wifi',
 
-  // Info & Misc
-  'help-circle': 'Question',
-  'help-circle-outline': 'Question',
-  'help-outline': 'Question',
-  'megaphone-outline': 'Megaphone',
-  'bulb-outline': 'Lightbulb',
-  'flag-outline': 'Flag',
-  'link-outline': 'Link',
-  'unlink-outline': 'LinkBreak',
-  'share-outline': 'ShareNetwork',
-  'eye': 'Eye',
-  'eye-outline': 'Eye',
-  'download-outline': 'DownloadSimple',
-  'copy-outline': 'Copy',
-  'ellipsis-horizontal': 'DotsThree',
+  // Hints & misc
+  'bulb-outline': 'sparkle',
+  'flag-outline': 'location',
+  'link-outline': 'link',
+  'unlink-outline': 'link',
+  'share-outline': 'share',
+  'eye': 'eye',
+  'eye-outline': 'eye',
+  'eye-off-outline': 'eye',
+  'download-outline': 'download',
+  'copy-outline': 'copy',
+  'ellipsis-horizontal': 'more',
 
-  // Gestures & Body
-  'hand-left': 'HandPalm',
-  'hand-left-outline': 'HandPalm',
-  'hand-right-outline': 'HandPalm',
-  'walk-outline': 'PersonSimpleWalk',
+  // Gestures & body
+  'hand-left': 'profile',
+  'hand-left-outline': 'profile',
+  'hand-right-outline': 'profile',
+  'walk-outline': 'endurance',
+  'footsteps-outline': 'endurance',
 
-  // Nature & Other
-  'leaf': 'Leaf',
-  'leaf-outline': 'Leaf',
-  'git-branch-outline': 'GitBranch',
-  'navigate-outline': 'Compass',
-  'diamond': 'Diamond',
-  'diamond-outline': 'Diamond',
+  // Nature & wayfinding
+  'leaf': 'recovery',
+  'leaf-outline': 'recovery',
+  'git-branch-outline': 'link',
+  'navigate-outline': 'location',
+  'compass-outline': 'location',
+  'diamond': 'trophy',
+  'diamond-outline': 'trophy',
 
   // Mood
-  'happy': 'Smiley',
-  'happy-outline': 'Smiley',
-  'sad': 'SmileySad',
-  'sad-outline': 'SmileySad',
+  'happy': 'mood',
+  'happy-outline': 'mood',
+  'sad': 'mood',
+  'sad-outline': 'mood',
 
-  // Lists & Documents
-  'list': 'List',
-  'list-outline': 'List',
-  'thumbs-up': 'ThumbsUp',
-  'thumbs-up-outline': 'ThumbsUp',
+  // Lists
+  'list': 'document',
+  'list-outline': 'document',
+  'thumbs-up': 'check',
+  'thumbs-up-outline': 'check',
 
-  // Microphone
-  'mic': 'Microphone',
-  'mic-outline': 'Microphone',
+  // Microphone / camera / video
+  'mic': 'mic',
+  'mic-outline': 'mic',
+  'camera': 'camera',
+  'camera-outline': 'camera',
+  'camera-reverse-outline': 'camera',
+  'videocam': 'video',
+  'videocam-outline': 'video',
+
+  // Flask / experiment
+  'flask': 'flask',
+  'flask-outline': 'flask',
+
+  // Menu / save / search
+  'menu': 'menu',
+  'menu-outline': 'menu',
+  'save-outline': 'save',
+  'search': 'search',
+  'search-outline': 'search',
+
+  // Location
+  'location': 'location',
+  'location-outline': 'location',
+
+  // Home
+  'home': 'home',
+  'home-outline': 'home',
+
+  // Brand logos (Bond has them)
+  'logo-apple': 'logo-apple',
+  'logo-google': 'logo-google',
 };
 
-export { IONICONS_TO_PHOSPHOR };
+export { IONICONS_TO_TOMO };
 
-/**
- * Determine Phosphor weight from Ionicons name.
- * Names ending in '-outline' → regular (stroke), others → fill.
- */
-function phosphorWeight(ioniconsName: string): 'regular' | 'fill' {
+/** `-outline` → outline variant, everything else → filled. */
+function bondWeight(ioniconsName: string): 'regular' | 'fill' {
   return ioniconsName.endsWith('-outline') ? 'regular' : 'fill';
 }
 
@@ -301,7 +369,7 @@ export const TOMO_ICONS = {
   documentOutline: 'document-text-outline',
   list: 'list',
   listOutline: 'list-outline',
-} as const;
+} as const satisfies Record<string, keyof typeof Ionicons.glyphMap>;
 
 export type TomoIconName = keyof typeof TOMO_ICONS;
 
@@ -311,22 +379,22 @@ interface IconProps {
   color?: string;
 }
 
+/**
+ * Renders a Tomo icon by its symbolic name. Always routes through TomoIcon
+ * — there is no Ionicons render path anymore. If the Ionicons glyph has no
+ * entry in `IONICONS_TO_TOMO`, the raw Ionicons name is still passed to
+ * TomoIcon, whose own hybrid resolver will try Bond (direct TitleCase) →
+ * Arc → Phosphor fallback.
+ */
 export function Icon({ name, size = 24, color = colors.textOnLight }: IconProps) {
   const ioniconsName = TOMO_ICONS[name] as string;
-  const phosphorName = IONICONS_TO_PHOSPHOR[ioniconsName];
-
-  // If we have a Phosphor mapping, use the new icon system
-  if (phosphorName) {
-    return (
-      <TomoIcon
-        name={phosphorName}
-        size={size}
-        color={color}
-        weight={phosphorWeight(ioniconsName)}
-      />
-    );
-  }
-
-  // Fallback to Ionicons for unmapped icons
-  return <Ionicons name={ioniconsName as keyof typeof Ionicons.glyphMap} size={size} color={color} />;
+  const tomoName = IONICONS_TO_TOMO[ioniconsName] ?? ioniconsName;
+  return (
+    <TomoIcon
+      name={tomoName}
+      size={size}
+      color={color}
+      weight={bondWeight(ioniconsName)}
+    />
+  );
 }

@@ -5,13 +5,15 @@
 
 import React from 'react';
 import { View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import TomoButton from './tomo-ui/TomoButton';
-import { IONICONS_TO_PHOSPHOR } from './Icon';
+import { IONICONS_TO_TOMO } from './Icon';
 
 interface GradientButtonProps {
   title: string;
   onPress: () => void;
+  /** Ionicons-style name (retained for API back-compat). Routed through the
+   *  Bond hybrid resolver via TomoButton. */
   icon?: keyof typeof Ionicons.glyphMap;
   disabled?: boolean;
   loading?: boolean;
@@ -28,15 +30,15 @@ export function GradientButton({
   style,
   small,
 }: GradientButtonProps) {
-  // Map Ionicons name → Phosphor name for the icon
-  const phosphorIcon = icon ? (IONICONS_TO_PHOSPHOR[icon] ?? icon) : undefined;
+  // Translate Ionicons name → Bond semantic name for TomoButton's TomoIcon.
+  const bondIcon = icon ? (IONICONS_TO_TOMO[icon] ?? icon) : undefined;
 
   return (
     <View style={style}>
       <TomoButton
         label={title}
         onPress={onPress}
-        icon={phosphorIcon}
+        icon={bondIcon}
         disabled={disabled}
         loading={loading}
         size={small ? 'sm' : 'md'}

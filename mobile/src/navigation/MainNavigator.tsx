@@ -20,10 +20,10 @@ import { createMaterialTopTabNavigator } from '@react-navigation/material-top-ta
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle as SvgCircle } from 'react-native-svg';
+import Svg, { Circle as SvgCircle, Rect as SvgRect, Path as SvgPath, Defs, RadialGradient, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -106,11 +106,40 @@ const TAB_ICONS: Record<TabName, string> = {
   Dashboard: 'trend',
 };
 
+/** Player App design labels — Timeline / Tomo / Signal. */
 const TAB_LABELS: Record<TabName, string> = {
   Plan: 'Timeline',
-  Chat: 'Chat',
-  Dashboard: 'Dashboard',
+  Chat: 'Tomo',
+  Dashboard: 'Signal',
 };
+
+/**
+ * Player App tab glyphs — custom SVG paths that match the design bundle's
+ * shell.jsx exactly (calendar / circle-with-dot / ascending bars).
+ * We render these inline because they're stroke-specific for the tab bar
+ * rather than generic Bond glyphs.
+ */
+function TabGlyph({ name, color }: { name: TabName; color: string }) {
+  // Plan + Dashboard glyphs at 45px (50% larger than the baseline).
+  // Active state is conveyed by stroke colour alone (sage) — no halo, no bg.
+  if (name === 'Plan') {
+    return (
+      <Svg width={51} height={51} viewBox="-3 -3 26 26" fill="none">
+        <SvgRect x={3} y={4} width={14} height={13} rx={2} stroke={color} strokeWidth={1.5} />
+        <SvgPath d="M3 8h14" stroke={color} strokeWidth={1.5} />
+        <SvgPath d="M7 3v2M13 3v2" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+      </Svg>
+    );
+  }
+  // Chat tab is rendered as a floating orb in CustomBottomTabBar — not
+  // here. This branch is intentionally absent so the pill slot stays empty.
+  // Dashboard = ascending bars
+  return (
+    <Svg width={51} height={51} viewBox="-3 -3 26 26" fill="none">
+      <SvgPath d="M3 15V9M7 15V6M11 15v-9M15 15V3" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const tomoLogo = require('../../assets/tomo-logo.png');
@@ -218,49 +247,131 @@ function CenterChatButton({
   );
 }
 
-// ── Custom Bottom Tab Bar (for Material Top Tabs) ─────────────────
+// ── Custom Bottom Tab Bar (Player App design) ─────────────────────
+// Horizontal pill container, 3 equal-weight tabs, sage15 active bg,
+// scale 1.03 active, Timeline/Tomo/Signal labels, custom SVG glyphs.
 
 function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
   const { colors } = useTheme();
+  const ORB_SIZE = 111;
+
+  // Two glow layers:
+  //   • `activeGlow` — continuous breathing pulse while Chat is focused.
+  //   • `pressGlow`  — one-shot peak on press, layered on top.
+  // Halo opacity/scale = max of the two so the press pulse always dominates
+  // the breathing baseline and the transition back is smooth.
+  const isChatFocused = state.routes[state.index].name === 'Chat';
+
+  const onChatPress = () => {
+    if (!isChatFocused) navigation.navigate('Chat');
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
 
   return (
-    <View style={[styles.tabBar, { backgroundColor: colors.navBackground, borderTopColor: colors.border }]}>
-      {state.routes.map((route, index) => {
-        const isFocused = state.index === index;
-        const tabName = route.name as TabName;
+    <View style={styles.tabBarWrap} pointerEvents="box-none">
+      {/* Radial-gradient backdrop so the bar floats over content edges. */}
+      <LinearGradient
+        colors={['rgba(18,20,31,0)', 'rgba(18,20,31,0.92)']}
+        locations={[0, 0.45]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+      <View
+        style={[
+          styles.tabBarPill,
+          { backgroundColor: colors.cream03, borderColor: colors.cream10 },
+        ]}
+      >
+        {state.routes.map((route, index) => {
+          const isFocused = state.index === index;
+          const tabName = route.name as TabName;
+          const tint = isFocused ? colors.tomoSageDim : colors.muted;
 
-        const onPress = () => {
-          if (!isFocused) {
-            navigation.navigate(route.name);
+          // Chat slot is an inert spacer — orb floats independently above
+          // the pill so its size never affects the pill's borders/height.
+          if (tabName === 'Chat') {
+            return <View key={tabName} style={styles.tabPillBtn} pointerEvents="none" />;
           }
-          if (Platform.OS !== 'web') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }
-        };
 
-        if (tabName === 'Chat') {
+          const onPress = () => {
+            if (!isFocused) navigation.navigate(route.name);
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          };
+
           return (
-            <CenterChatButton
+            <Pressable
               key={tabName}
               onPress={onPress}
-              focused={isFocused}
-            />
+              accessibilityRole="tab"
+              accessibilityLabel={TAB_LABELS[tabName]}
+              accessibilityState={{ selected: isFocused }}
+              style={({ pressed }) => [
+                styles.tabPillBtn,
+                {
+                  // No background shade — the active state is conveyed by the
+                  // icon's own static sage halo (rendered inside TabGlyph).
+                  backgroundColor: 'transparent',
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                },
+              ]}
+            >
+              <TabGlyph name={tabName} color={tint} />
+              {/* Labels removed for all tabs — icons stand on their own at 30px.
+                  accessibilityLabel above preserves screen-reader announcement. */}
+            </Pressable>
           );
-        }
+        })}
+      </View>
 
-        return (
-          <Pressable key={tabName} onPress={onPress} style={styles.tabBarItem}>
-            <AnimatedTabIcon
-              focused={isFocused}
-              color={isFocused ? colors.electricGreen : colors.textSecondary}
-              iconName={TAB_ICONS[tabName]}
+      {/* ─── Floating Chat orb — independent of pill borders ─── */}
+      {/*
+        Active state: the sphere itself glows (brighter highlight-heavy
+        gradient) with the thin orbit ring visible around it. No backdrop
+        halo, no haze — the glow lives in the sphere's own colour.
+        Inactive state: default shiny sage sphere, no orbit ring.
+      */}
+      <View style={styles.floatingOrbWrap} pointerEvents="box-none">
+        <Pressable
+          onPress={onChatPress}
+          hitSlop={6}
+          style={({ pressed }) => ({
+            transform: [{ scale: pressed ? 0.95 : 1 }],
+          })}
+        >
+          <Svg width={ORB_SIZE} height={ORB_SIZE} viewBox="0 0 22 22" fill="none">
+            <Defs>
+              {/* Active: normal shiny sage sphere — no extra glow. */}
+              <RadialGradient id="floatingChatOrbActive" cx="35%" cy="30%" r="70%">
+                <Stop offset="0%" stopColor={colors.tomoSageDim} />
+                <Stop offset="50%" stopColor={colors.tomoSage} />
+                <Stop offset="100%" stopColor={colors.accentDark} />
+              </RadialGradient>
+              {/* Inactive: muted steel-grey to match the inactive Timeline
+                  and Signal icon stroke colour (colors.muted, #7A8A9A). */}
+              <RadialGradient id="floatingChatOrbInactive" cx="35%" cy="30%" r="70%">
+                <Stop offset="0%" stopColor={colors.muted} stopOpacity={0.9} />
+                <Stop offset="100%" stopColor={colors.muted} stopOpacity={0.5} />
+              </RadialGradient>
+            </Defs>
+            {/* Orbit ring — active only */}
+            {isChatFocused && (
+              <SvgCircle cx={11} cy={11} r={10} stroke={colors.sage30} strokeWidth={0.8} fill="none" />
+            )}
+            <SvgCircle
+              cx={11}
+              cy={11}
+              r={7}
+              fill={`url(#${isChatFocused ? 'floatingChatOrbActive' : 'floatingChatOrbInactive'})`}
             />
-            <Text style={[styles.tabLabel, { color: isFocused ? colors.electricGreen : colors.textSecondary }]}>
-              {TAB_LABELS[tabName]}
-            </Text>
-          </Pressable>
-        );
-      })}
+          </Svg>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -360,12 +471,12 @@ export function MainNavigator() {
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ headerShown: true, title: 'Profile', ...stackHeaderOptions, headerRight: undefined, headerBackVisible: true }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="Checkin"
         component={CheckinScreen}
-        options={{ headerShown: true, title: 'Check-in', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="Settings"
@@ -375,17 +486,17 @@ export function MainNavigator() {
       <Stack.Screen
         name="NotificationSettings"
         component={NotificationSettingsScreen}
-        options={{ headerShown: true, title: 'Notifications', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PrivacySettings"
         component={PrivacySettingsScreen}
-        options={{ headerShown: true, title: 'Privacy', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="VisibilityPreferences"
         component={VisibilityPreferencesScreen}
-        options={{ headerShown: true, title: 'Who sees what', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ChangePassword"
@@ -400,7 +511,7 @@ export function MainNavigator() {
       <Stack.Screen
         name="History"
         component={HistoryScreen}
-        options={{ headerShown: true, title: 'Check-in History', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="HistoricalData"
@@ -410,7 +521,7 @@ export function MainNavigator() {
       <Stack.Screen
         name="WorkoutFeedback"
         component={WorkoutFeedbackScreen}
-        options={{ headerShown: true, title: 'Workout Feedback', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="AddEvent"
@@ -425,12 +536,12 @@ export function MainNavigator() {
       <Stack.Screen
         name="Diagnostics"
         component={DiagnosticsScreen}
-        options={{ headerShown: true, title: 'Diagnostics', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="DrillDetail"
         component={DrillDetailScreen}
-        options={{ headerShown: true, title: 'Drill', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="DrillCamera"
@@ -441,10 +552,7 @@ export function MainNavigator() {
         name="SessionComplete"
         component={SessionCompleteScreen}
         options={{
-          headerShown: true,
-          title: 'Session Complete',
-          ...stackHeaderOptions,
-          headerBackVisible: false,
+          headerShown: false,
           gestureEnabled: false,
         }}
       />
@@ -457,38 +565,38 @@ export function MainNavigator() {
       <Stack.Screen
         name="ShotDetail"
         component={ShotDetailScreen}
-        options={{ headerShown: true, title: 'Shot Detail', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ShotSession"
         component={ShotSessionScreen}
-        options={{ headerShown: true, title: 'Rate Session', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PadelRating"
         component={PadelRatingScreen}
-        options={{ headerShown: true, title: 'Padel Rating', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       {/* Football-specific screens */}
       <Stack.Screen
         name="FootballSkillDetail"
         component={FootballSkillDetailScreen}
-        options={{ headerShown: true, title: 'Skill Detail', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="FootballRating"
         component={FootballRatingScreen}
-        options={{ headerShown: true, title: 'Football Rating', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PlayerCV"
         component={PlayerCVScreen}
-        options={{ headerShown: true, title: 'Player CV', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="FootballTestInput"
         component={FootballTestInputScreen}
-        options={{ headerShown: true, title: 'Football Test', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       {/* Rules screen */}
       <Stack.Screen
@@ -517,7 +625,7 @@ export function MainNavigator() {
       <Stack.Screen
         name="LinkAccount"
         component={LinkAccountScreen}
-        options={{ headerShown: true, title: 'Link Account', ...stackHeaderOptions }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PHVCalculator"
@@ -553,29 +661,49 @@ export function MainNavigator() {
 // ── Styles ──────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  tabBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    borderTopWidth: 0.5,
-    height: layout.navHeight,
-    paddingTop: 6,
-    elevation: 0,
-    shadowOpacity: 0,
+  // Player App design tab bar — pill row floating over a radial backdrop.
+  tabBarWrap: {
+    paddingHorizontal: 14,
+    // Extra top padding so the floating Chat orb sits in the touch area
+    // and doesn't get clipped above the bar.
+    paddingTop: 60,
+    paddingBottom: 28,
   },
-  tabBarItem: {
+  tabBarPill: {
+    flexDirection: 'row',
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 4,
+  },
+  tabPillBtn: {
     flex: 1,
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
+    gap: 3,
   },
+  // Absolute container that centers the floating Chat orb above the pill.
+  // `pointerEvents="box-none"` (set on the View) lets touches pass through
+  // empty space to the pill below — only the orb itself is tappable.
+  floatingOrbWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 50,
+    height: 85,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Legacy styles retained for CenterChatButton (now unused by the tab
+  // bar, but kept for potential re-use elsewhere).
   tabLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 10,
     letterSpacing: 0.3,
     marginTop: 2,
   },
-  // ── Center Chat Button (Tomo Logo) ───────────────────────────────
   centerButtonWrap: {
     top: -20,
     justifyContent: 'center',
@@ -591,18 +719,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 10,
-  },
-  centerButtonOuter: {
-    borderRadius: 20,
-    padding: 3,
-  },
-  centerButtonGradientRing: {
-    borderRadius: 20,
-    padding: 3,
-  },
-  centerLogo: {
-    width: 42,
-    height: 42,
-    tintColor: colors.textPrimary,
   },
 });

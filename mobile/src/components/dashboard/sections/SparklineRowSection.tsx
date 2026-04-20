@@ -12,11 +12,14 @@ import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
-import { borderRadius, spacing } from '../../../theme/spacing';
+import { spacing } from '../../../theme/spacing';
 import type { SectionProps } from './DashboardSectionRenderer';
 
 const SPARKLINE_WIDTH = 60;
 const SPARKLINE_HEIGHT = 24;
+
+const GOOD = '#7A9B76';
+const BAD = '#B08A7A';
 
 const METRIC_LABELS: Record<string, string> = {
   readiness_score: 'Readiness',
@@ -70,67 +73,60 @@ export const SparklineRowSection = memo(function SparklineRowSection({
   if (vitals.length === 0) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.title, { color: colors.chalk }]}>Weekly Trends</Text>
-      <View style={styles.row}>
-        {metrics.map((metric) => {
-          const values = getValues(metric);
-          if (values.length < 2) return null;
+    <View style={styles.row}>
+      {metrics.map((metric) => {
+        const values = getValues(metric);
+        if (values.length < 2) return null;
 
-          const latest = values[values.length - 1];
-          const first = values[0];
-          const delta = latest - first;
-          const deltaColor = delta > 0 ? '#7a9b76' : delta < 0 ? '#A05A4A' : colors.chalkDim;
-          const deltaPrefix = delta > 0 ? '+' : '';
-          const sparkColor = delta >= 0 ? '#7a9b76' : '#A05A4A';
+        const latest = values[values.length - 1];
+        const first = values[0];
+        const delta = latest - first;
+        const deltaColor = delta > 0 ? GOOD : delta < 0 ? BAD : colors.muted;
+        const deltaPrefix = delta > 0 ? '+' : '';
+        const sparkColor = delta >= 0 ? GOOD : BAD;
 
-          return (
-            <View key={metric} style={styles.metricCol}>
-              <Text style={[styles.metricLabel, { color: colors.chalkDim }]}>
-                {METRIC_LABELS[metric] ?? metric}
+        return (
+          <View
+            key={metric}
+            style={[styles.tile, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}
+          >
+            <Text style={[styles.metricLabel, { color: colors.muted }]}>
+              {METRIC_LABELS[metric] ?? metric}
+            </Text>
+            {renderSparkline(values, sparkColor)}
+            {showDelta && (
+              <Text style={[styles.delta, { color: deltaColor }]}>
+                {deltaPrefix}{delta.toFixed(metric === 'sleep_hours' ? 1 : 0)}
               </Text>
-              {renderSparkline(values, sparkColor)}
-              {showDelta && (
-                <Text style={[styles.delta, { color: deltaColor }]}>
-                  {deltaPrefix}{delta.toFixed(metric === 'sleep_hours' ? 1 : 0)}
-                </Text>
-              )}
-            </View>
-          );
-        })}
-      </View>
+            )}
+          </View>
+        );
+      })}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    padding: 16,
-  },
-  title: {
-    fontFamily: fontFamily.medium,
-    fontSize: 14,
-    marginBottom: 12,
-  },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
-  metricCol: {
+  tile: {
+    flex: 1,
     alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
     gap: 4,
   },
   metricLabel: {
-    fontFamily: fontFamily.note,
-    fontSize: 10,
+    fontFamily: fontFamily.regular,
+    fontSize: 9,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1.5,
   },
   delta: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 11,
   },
 });

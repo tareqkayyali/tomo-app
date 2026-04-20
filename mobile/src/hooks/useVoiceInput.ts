@@ -29,34 +29,64 @@ export function useVoiceInput() {
 
       if (IS_WEB) {
         // ── Web: SpeechRecognition API ──
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const SpeechRecognition =
+          (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognition) {
           setError('Voice not supported in this browser');
           setState('error');
-          setTimeout(() => setState('idle'), 2000);
+          setTimeout(() => setState('idle'), 2500);
+          return;
+        }
+
+        // Gate on explicit mic permission so the UI never sits in
+        // "recording" while the browser silently blocks audio capture.
+        // getUserMedia throws immediately if the user denies/has denied.
+        try {
+          const media = await navigator.mediaDevices.getUserMedia({ audio: true });
+          // We only needed permission — stop the tracks right away so we
+          // don't hold the mic while SpeechRecognition runs its own stream.
+          media.getTracks().forEach((t) => t.stop());
+        } catch (permErr: any) {
+          const name = permErr?.name || '';
+          const msg =
+            name === 'NotAllowedError'
+              ? 'Microphone access denied'
+              : name === 'NotFoundError'
+              ? 'No microphone detected'
+              : permErr?.message || 'Mic permission failed';
+          setError(msg);
+          setState('error');
+          setTimeout(() => setState('idle'), 2500);
           return;
         }
 
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
-        recognition.interimResults = false;
+        // Interim results help us detect that audio is actually being
+        // captured (some browsers deliver final results only at end).
+        recognition.interimResults = true;
         recognition.lang = 'en-US';
 
         let finalTranscript = '';
+        let interimTranscript = '';
 
         recognition.onresult = (event: any) => {
+          interimTranscript = '';
           for (let i = event.resultIndex; i < event.results.length; i++) {
+            const piece = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript + ' ';
+              finalTranscript += piece + ' ';
+            } else {
+              interimTranscript += piece;
             }
           }
         };
 
         recognition.onerror = (event: any) => {
-          if (event.error !== 'aborted') {
-            setError(event.error || 'Voice error');
+          if (event.error && event.error !== 'aborted' && event.error !== 'no-speech') {
+            setError(event.error);
             setState('error');
-            setTimeout(() => setState('idle'), 2000);
+            setTimeout(() => setState('idle'), 2500);
           }
         };
 
@@ -65,9 +95,8 @@ export function useVoiceInput() {
             clearInterval(timerRef.current);
             timerRef.current = null;
           }
-          if (finalTranscript.trim()) {
-            setTranscript(finalTranscript.trim());
-          }
+          const combined = (finalTranscript + interimTranscript).trim();
+          if (combined) setTranscript(combined);
           setState('idle');
         };
 
@@ -75,12 +104,21 @@ export function useVoiceInput() {
         recognition.start();
       } else {
         // ── Native: expo-av Recording ──
+        // Tear down any stale recorder from a previous failed stop —
+        // starting a fresh session on top of an orphaned recorder silently
+        // produced empty m4a uploads, which is the classic "transcription
+        // not working" symptom.
+        if (recorderRef.current) {
+          try { await recorderRef.current.stopAndUnloadAsync(); } catch {}
+          recorderRef.current = null;
+        }
+
         const { Audio } = require('expo-av');
         const permStatus = await Audio.requestPermissionsAsync();
         if (!permStatus.granted) {
           setError('Microphone permission required');
           setState('error');
-          setTimeout(() => setState('idle'), 2000);
+          setTimeout(() => setState('idle'), 2500);
           return;
         }
 
@@ -89,18 +127,15 @@ export function useVoiceInput() {
           playsInSilentModeIOS: true,
         });
 
-        // Create recorder if needed
-        if (!recorderRef.current) {
-          const recording = new Audio.Recording();
-          await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-          await recording.startAsync();
-          recorderRef.current = recording;
-        } else {
-          await recorderRef.current.startAsync();
-        }
+        const recording = new Audio.Recording();
+        await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+        await recording.startAsync();
+        recorderRef.current = recording;
 
-        const Haptics = require('expo-haptics');
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        try {
+          const Haptics = require('expo-haptics');
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } catch {}
       }
 
       setState('recording');

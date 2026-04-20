@@ -16,13 +16,15 @@ import {
   Share,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { spacing, borderRadius, fontFamily } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { getPrivacySettings, updatePrivacySettings } from '../services/api';
 import type { PrivacySettings } from '../types';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
+import { useNavigation } from '@react-navigation/native';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -91,6 +93,7 @@ const TOGGLES: Array<{
 
 export function PrivacySettingsScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [settings, setSettings] = useState<PrivacySettings | null>(null);
@@ -166,19 +169,23 @@ export function PrivacySettingsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <PlayerScreen label="SETTINGS" title="Privacy" onBack={() => navigation.goBack()} scroll={false}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent1} />
         </View>
-      </View>
+      </PlayerScreen>
     );
   }
 
   if (!settings) return null;
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <PlayerScreen
+      label="SETTINGS"
+      title="Privacy"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
+    >
         {/* Parental consent warning */}
         {parentalConsentRequired && (
           <View style={styles.warningCard}>
@@ -241,8 +248,7 @@ export function PrivacySettingsScreen() {
         <Text style={styles.footnote}>
           All privacy settings default to off. Only data you explicitly enable will be visible on your public passport. This is not medical advice.
         </Text>
-      </ScrollView>
-    </View>
+    </PlayerScreen>
   );
 }
 

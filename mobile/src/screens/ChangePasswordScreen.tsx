@@ -8,7 +8,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -24,6 +23,7 @@ import {
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { changePassword } from '../services/auth';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 export default function ChangePasswordScreen() {
   const navigation = useNavigation();
@@ -59,31 +59,22 @@ export default function ChangePasswordScreen() {
 
   if (success) {
     return (
-      <SafeAreaView style={styles.container}>
+      <PlayerScreen label="ACCOUNT" title="Change password" onBack={() => navigation.goBack()} scroll={false}>
         <View style={styles.successContainer}>
           <SmartIcon name="checkmark-circle" size={64} color={colors.success} />
           <Text style={styles.successTitle}>Password Changed</Text>
           <Text style={styles.successSub}>Redirecting back...</Text>
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <PlayerScreen label="ACCOUNT" title="Change password" onBack={() => navigation.goBack()} scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.content}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Change Password</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
         <View style={styles.form}>
           {/* Current Password */}
           <Text style={styles.label}>Current Password</Text>
@@ -161,7 +152,7 @@ export default function ChangePasswordScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

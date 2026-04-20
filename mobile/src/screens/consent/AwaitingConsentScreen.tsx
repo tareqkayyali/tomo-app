@@ -17,14 +17,13 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
-  ScrollView,
   Share,
   Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SmartIcon } from '../../components/SmartIcon';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import {
   colors,
   spacing,
@@ -112,8 +111,7 @@ export function AwaitingConsentScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <PlayerScreen label="CONSENT" title="Awaiting consent" contentStyle={styles.scroll}>
         <View style={styles.iconWrap}>
           <SmartIcon name="shield-checkmark-outline" size={48} color={colors.accent1} />
         </View>
@@ -181,8 +179,7 @@ export function AwaitingConsentScreen() {
         <TouchableOpacity onPress={logout} style={styles.logoutLink} activeOpacity={0.7}>
           <Text style={styles.logoutText}>Sign out</Text>
         </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 
@@ -227,11 +224,10 @@ const stepStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: layout.screenMargin,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
     maxWidth: layout.authMaxWidth,
     width: '100%',

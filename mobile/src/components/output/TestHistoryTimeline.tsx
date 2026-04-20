@@ -36,16 +36,16 @@ export function TestHistoryTimeline({
 
   if (loading) {
     return (
-      <View style={[styles.container, { borderLeftColor: colors.accent2 }]}>
-        <ActivityIndicator color={colors.accent1} style={{ paddingVertical: 20 }} />
+      <View style={styles.container}>
+        <ActivityIndicator color={colors.tomoSage} style={{ paddingVertical: 20 }} />
       </View>
     );
   }
 
   if (history.length === 0) {
     return (
-      <View style={[styles.container, { borderLeftColor: colors.accent2 }]}>
-        <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+      <View style={styles.container}>
+        <Text style={[styles.emptyText, { color: colors.muted }]}>
           No history yet — log a test to start tracking.
         </Text>
       </View>
@@ -55,15 +55,15 @@ export function TestHistoryTimeline({
   const visible = showAll ? history : history.slice(0, MAX_VISIBLE);
 
   return (
-    <View style={[styles.container, { borderLeftColor: colors.accent2 }]}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.headerRow}>
-        <Text style={[styles.headerText, { color: colors.textInactive }]}>
+        <Text style={[styles.headerText, { color: colors.muted }]}>
           History ({history.length} entries)
         </Text>
         {onClose && (
           <Pressable onPress={onClose} hitSlop={8}>
-            <SmartIcon name="close-circle" size={16} color={colors.textMuted} />
+            <SmartIcon name="close-circle" size={16} color={colors.muted} />
           </Pressable>
         )}
       </View>
@@ -79,22 +79,22 @@ export function TestHistoryTimeline({
             {/* Entry row */}
             <View style={styles.entryRow}>
               {/* Dot on timeline */}
-              <View style={[styles.dot, { backgroundColor: i === 0 ? colors.accent1 : colors.accent2 }]} />
+              <View style={[styles.dot, { backgroundColor: i === 0 ? colors.tomoSage : colors.tomoSage }]} />
 
               {/* Value + date */}
               <View style={styles.entryContent}>
                 <View style={styles.valueDateRow}>
-                  <Text style={[styles.value, { color: i === 0 ? colors.accent1 : colors.textOnDark }]}>
+                  <Text style={[styles.value, { color: i === 0 ? colors.tomoSage : colors.tomoCream }]}>
                     {entry.score != null ? entry.score : '—'}
-                    <Text style={[styles.unit, { color: colors.textMuted }]}> {unit}</Text>
+                    <Text style={[styles.unit, { color: colors.muted }]}> {unit}</Text>
                   </Text>
                   {i === 0 && (
-                    <View style={[styles.latestBadge, { backgroundColor: colors.accent1 + '22' }]}>
-                      <Text style={[styles.latestBadgeText, { color: colors.accent1 }]}>Latest</Text>
+                    <View style={[styles.latestBadge, { backgroundColor: colors.tomoSage + '22' }]}>
+                      <Text style={[styles.latestBadgeText, { color: colors.tomoSage }]}>Latest</Text>
                     </View>
                   )}
                 </View>
-                <Text style={[styles.date, { color: colors.textMuted }]}>
+                <Text style={[styles.date, { color: colors.muted }]}>
                   {formatRelativeDate(entry.date)}
                 </Text>
               </View>
@@ -118,7 +118,7 @@ export function TestHistoryTimeline({
       {/* Show all link */}
       {!showAll && history.length > MAX_VISIBLE && (
         <Pressable onPress={() => setShowAll(true)} style={styles.showAllBtn}>
-          <Text style={[styles.showAllText, { color: colors.accent1 }]}>
+          <Text style={[styles.showAllText, { color: colors.tomoSage }]}>
             Show all {history.length} entries →
           </Text>
         </Pressable>
@@ -138,7 +138,7 @@ function getTrend(
   const threshold = Math.abs(previous) * 0.01; // 1% tolerance for "stable"
 
   if (Math.abs(diff) < threshold) {
-    return { arrow: '→', label: 'Stable', color: colors.textSecondary };
+    return { arrow: '→', label: 'Stable', color: colors.muted };
   }
 
   const improved =
@@ -170,9 +170,11 @@ function formatRelativeDate(dateStr: string): string {
 
 const styles = StyleSheet.create({
   container: {
-    borderLeftWidth: 2,
-    paddingLeft: spacing.compact,
-    marginLeft: spacing.sm,
+    backgroundColor: colors.cream03,
+    borderWidth: 1,
+    borderColor: colors.cream10,
+    borderRadius: 14,
+    padding: 16,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },

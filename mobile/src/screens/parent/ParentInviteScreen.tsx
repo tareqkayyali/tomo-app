@@ -9,7 +9,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   Share,
   Alert,
@@ -20,6 +19,7 @@ import { SmartIcon } from '../../components/SmartIcon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { generateInviteCode } from '../../services/api';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
@@ -82,7 +82,7 @@ export function ParentInviteScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <PlayerScreen label="INVITE" title="Invite child" onBack={() => navigation.goBack()} scroll={false}>
       <View style={styles.content}>
         <View style={[styles.iconWrap, { backgroundColor: colors.accent1 + '22' }]}>
           <SmartIcon name="mail-outline" size={48} color={colors.accent1} />
@@ -155,7 +155,7 @@ export function ParentInviteScreen({ navigation }: Props) {
           </>
         )}
       </View>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

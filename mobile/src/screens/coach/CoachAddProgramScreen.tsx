@@ -29,6 +29,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTheme } from '../../hooks/useTheme';
 import { createSuggestion } from '../../services/api';
 import { GlassCard } from '../../components/GlassCard';
+import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, borderRadius, fontFamily, layout } from '../../theme';
 import type { CoachStackParamList } from '../../navigation/types';
 import { colors } from '../../theme/colors';
@@ -152,12 +153,13 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
   const selectedCat = CATEGORY_OPTIONS.find(c => c.key === category);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+    <PlayerScreen
+      label="PROGRAMS"
+      title="New program"
+      onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
+      scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
+    >
         {/* Context banner */}
         <View style={[styles.contextBanner, { backgroundColor: colors.accent1 + '10' }]}>
           <SmartIcon name="barbell-outline" size={14} color={colors.accent1} />
@@ -427,8 +429,7 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
         </Pressable>
 
         <View style={{ height: spacing.xxl }} />
-      </ScrollView>
-    </View>
+    </PlayerScreen>
   );
 }
 

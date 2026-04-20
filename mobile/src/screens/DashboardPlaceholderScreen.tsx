@@ -9,49 +9,24 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
 import { fontFamily } from '../theme/typography';
 import { spacing } from '../theme';
-import { HeaderProfileButton } from '../components/HeaderProfileButton';
-import { NotificationBell } from '../components/NotificationBell';
-import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { useAuth } from '../hooks/useAuth';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { useNavigation } from '@react-navigation/native';
 import { TomoIcon } from '../components/tomo-ui';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 export function DashboardPlaceholderScreen() {
   const { colors } = useTheme();
   const { profile } = useAuth();
   const { needsCheckin } = useCheckinStatus();
   const navigation = useNavigation<any>();
-  const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Dashboard</Text>
-        <View style={styles.headerRight}>
-          <CheckinHeaderButton
-            needsCheckin={needsCheckin}
-            onPress={() => navigation.navigate('Checkin')}
-          />
-          <NotificationBell />
-          <HeaderProfileButton
-            initial={initial}
-            photoUrl={profile?.photoUrl}
-          />
-        </View>
-      </View>
-
-      {/* Content */}
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+    <PlayerScreen label="DASHBOARD" title="Coming soon" onBack={() => navigation.goBack()} contentStyle={styles.content}>
         {/* Hero card */}
         <View style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.iconWrap}>
@@ -88,8 +63,7 @@ export function DashboardPlaceholderScreen() {
             </View>
           </View>
         ))}
-      </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

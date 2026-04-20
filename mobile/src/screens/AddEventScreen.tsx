@@ -20,9 +20,9 @@ import {
   FlatList,
   TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import * as Haptics from 'expo-haptics';
 import {
   spacing,
@@ -363,33 +363,21 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
   }, [eventType, date, startTime, duration, notes, navigation, rules]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+    <PlayerScreen
+      label="CALENDAR"
+      title="Add event"
+      onBack={() => navigation.goBack()}
+      right={
+        <Pressable onPress={handleSubmit} disabled={submitting} hitSlop={12}>
+          <Text style={[styles.headerAdd, submitting && styles.headerAddDisabled]}>Add</Text>
+        </Pressable>
+      }
+      scroll={false}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* ─── Header ─── */}
-        <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={styles.headerCancel}>Cancel</Text>
-          </Pressable>
-          <Text style={styles.headerTitle}>New Block</Text>
-          <Pressable
-            onPress={handleSubmit}
-            disabled={submitting}
-            hitSlop={12}
-          >
-            <Text
-              style={[
-                styles.headerAdd,
-                submitting && styles.headerAddDisabled,
-              ]}
-            >
-              Add
-            </Text>
-          </Pressable>
-        </View>
-
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -589,7 +577,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
           </Pressable>
         </Modal>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

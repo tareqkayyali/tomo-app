@@ -8,10 +8,8 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,6 +24,7 @@ import {
 } from '../theme';
 import { resetPassword } from '../services/auth';
 import type { AuthStackParamList } from '../navigation/types';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 
 type ForgotPasswordScreenProps = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
@@ -61,7 +60,7 @@ export function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) 
 
   if (sent) {
     return (
-      <SafeAreaView style={styles.container}>
+      <PlayerScreen label="ACCOUNT" title="Reset password" onBack={() => navigation.goBack()} scroll={false}>
         <View style={styles.content}>
           <View style={styles.successIcon}>
             <SmartIcon name="mail-outline" size={48} color={colors.accent1} />
@@ -79,28 +78,18 @@ export function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) 
             style={styles.successButton}
           />
         </View>
-      </SafeAreaView>
+      </PlayerScreen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <PlayerScreen label="ACCOUNT" title="Reset password" onBack={() => navigation.goBack()} scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          {/* Back button */}
-          <Pressable
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-            hitSlop={12}
-          >
-            <SmartIcon name="arrow-back" size={24} color={colors.textOnDark} />
-          </Pressable>
-
           <View style={styles.header}>
-            <Text style={styles.title}>Reset Password</Text>
             <Text style={styles.subtitle}>
               Enter your email and we'll send you a link to reset your password.
             </Text>
@@ -135,7 +124,7 @@ export function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) 
           </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

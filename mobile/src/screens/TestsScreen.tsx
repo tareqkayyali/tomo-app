@@ -20,6 +20,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { SmartIcon } from '../components/SmartIcon';
 import { TomoLoader, OUTPUT_LOADER_MESSAGES } from '../components/TomoLoader';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
@@ -209,37 +210,12 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
   // ── Render ─────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* ── Top Row ── */}
-      <View style={styles.headerArea}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <QuickAccessBar actions={quickActions} />
-          {/* Refresh button — next to Whoop/wearables icon */}
-          <Pressable
-            onPress={onRefresh}
-            style={({ pressed }) => [
-              styles.refreshBtn,
-              { backgroundColor: refreshing ? colors.accentSoft : colors.creamSubtle, opacity: pressed ? 0.6 : 1 },
-            ]}
-            disabled={refreshing}
-          >
-            {refreshing ? (
-              <ActivityIndicator size={16} color={colors.accent2} />
-            ) : (
-              <SmartIcon name="sync-outline" size={18} color={colors.accent2} />
-            )}
-          </Pressable>
-        </View>
-        <View style={styles.headerRight}>
-          <CheckinHeaderButton needsCheckin={needsCheckin} isStale={isStale} checkinAgeHours={checkinAgeHours} onPress={() => navigation.navigate('Checkin' as any)} />
-          <NotificationBell />
-          <HeaderProfileButton
-            initial={profile?.name?.charAt(0)?.toUpperCase() || '?'}
-            photoUrl={profile?.photoUrl}
-          />
-        </View>
-      </View>
-
+    <PlayerScreen
+      label="TESTS"
+      title="All tests"
+      onBack={() => navigation.goBack()}
+      scroll={false}
+    >
       {/* ── Tab Switcher (underline style — matches Timeline) ── */}
       <UnderlineTabSwitcher<Tab>
         tabs={OUTPUT_TABS}
@@ -354,7 +330,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
           </>
         ) : null}
       </ScrollView>
-    </SafeAreaView>
+    </PlayerScreen>
   );
 }
 

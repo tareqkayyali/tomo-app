@@ -10,7 +10,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TextInput,
   Alert,
 } from 'react-native';
@@ -21,6 +20,7 @@ import { ShotSelector } from '../components/ShotSelector';
 import { SubMetricSlider } from '../components/SubMetricSlider';
 import { GlassCard } from '../components/GlassCard';
 import { GradientButton } from '../components/GradientButton';
+import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { calculateShotRating } from '../services/padelCalculations';
 import { savePadelShotSession } from '../services/api';
 import { useSportContext } from '../hooks/useSportContext';
@@ -120,10 +120,11 @@ export function ShotSessionScreen({ navigation }: Props) {
   // ─── Step: Select Shots ─────────────────────────────────────────
   if (step === 'select') {
     return (
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+      <PlayerScreen
+        label="SESSION"
+        title="Rate shots"
+        onBack={() => navigation.goBack()}
+        contentStyle={styles.content}
       >
         <Animated.View style={entrance}>
           <Text style={styles.pageTitle}>Log Shot Session</Text>
@@ -161,7 +162,7 @@ export function ShotSessionScreen({ navigation }: Props) {
             />
           )}
         </Animated.View>
-      </ScrollView>
+      </PlayerScreen>
     );
   }
 
@@ -176,10 +177,11 @@ export function ShotSessionScreen({ navigation }: Props) {
       : null;
 
     return (
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+      <PlayerScreen
+        label="SESSION"
+        title="Rate shots"
+        onBack={() => navigation.goBack()}
+        contentStyle={styles.content}
       >
         {/* Progress indicator */}
         <View style={styles.progressRow}>
@@ -237,17 +239,18 @@ export function ShotSessionScreen({ navigation }: Props) {
             style={styles.continueBtn}
           />
         )}
-      </ScrollView>
+      </PlayerScreen>
     );
   }
 
   // ─── Step: Notes ────────────────────────────────────────────────
   if (step === 'notes') {
     return (
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+      <PlayerScreen
+        label="SESSION"
+        title="Rate shots"
+        onBack={() => navigation.goBack()}
+        contentStyle={styles.content}
       >
         <Text style={styles.pageTitle}>Session Notes</Text>
         <Text style={styles.subtitle}>Anything you want to remember?</Text>
@@ -271,13 +274,18 @@ export function ShotSessionScreen({ navigation }: Props) {
           icon="checkmark-circle"
           style={styles.continueBtn}
         />
-      </ScrollView>
+      </PlayerScreen>
     );
   }
 
   // ─── Step: Success ──────────────────────────────────────────────
   return (
-    <View style={[styles.screen, styles.successContainer]}>
+    <PlayerScreen
+      label="SESSION"
+      title="Rate shots"
+      onBack={() => navigation.goBack()}
+      contentStyle={{ ...styles.content, alignItems: 'center', justifyContent: 'center' }}
+    >
       <Animated.View style={[entrance, styles.successContent]}>
         <View style={styles.successIcon}>
           <SmartIcon name="checkmark-circle" size={64} color={colors.accent} />
@@ -309,7 +317,7 @@ export function ShotSessionScreen({ navigation }: Props) {
           style={styles.continueBtn}
         />
       </Animated.View>
-    </View>
+    </PlayerScreen>
   );
 }
 

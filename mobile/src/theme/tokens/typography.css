@@ -1,0 +1,59 @@
+/* tomo — typography
+ * Poppins is the sole family. Medium (500) is the brand weight.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+:root {
+  --tomo-font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Scale */
+  --tomo-text-xs:      11px;
+  --tomo-text-sm:      13px;
+  --tomo-text-base:    15px;
+  --tomo-text-lg:      17px;
+  --tomo-text-xl:      20px;
+  --tomo-text-2xl:     24px;
+  --tomo-text-3xl:     32px;
+  --tomo-text-4xl:     48px;
+  --tomo-text-display: 64px;
+
+  /* Weight */
+  --tomo-weight-light:    300;
+  --tomo-weight-regular:  400;
+  --tomo-weight-medium:   500;
+  --tomo-weight-semibold: 600;
+
+  /* Tracking */
+  --tomo-track-wordmark: -0.035em;
+  --tomo-track-display:  -0.03em;
+  --tomo-track-body:     -0.01em;
+  --tomo-track-label:     0.2em;
+}
+
+/* Semantic presets */
+.tomo-wordmark {
+  font-family: var(--tomo-font-sans);
+  font-weight: var(--tomo-weight-medium);
+  letter-spacing: var(--tomo-track-wordmark);
+}
+.tomo-display {
+  font-family: var(--tomo-font-sans);
+  font-weight: var(--tomo-weight-medium);
+  font-size: var(--tomo-text-4xl);
+  line-height: 1.05;
+  letter-spacing: var(--tomo-track-display);
+}
+.tomo-body {
+  font-family: var(--tomo-font-sans);
+  font-weight: var(--tomo-weight-regular);
+  font-size: var(--tomo-text-base);
+  line-height: 1.5;
+  letter-spacing: var(--tomo-track-body);
+}
+.tomo-label {
+  font-family: var(--tomo-font-sans);
+  font-weight: var(--tomo-weight-medium);
+  font-size: var(--tomo-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tomo-track-label);
+}

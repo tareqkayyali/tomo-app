@@ -11,7 +11,6 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
-import { borderRadius, spacing } from '../../../theme/spacing';
 import type { SectionProps } from './DashboardSectionRenderer';
 
 export const EngagementBarSection = memo(function EngagementBarSection({
@@ -29,14 +28,14 @@ export const EngagementBarSection = memo(function EngagementBarSection({
     : 100;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View style={[styles.container, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.chalk }]}>Consistency Streak</Text>
-        <Text style={[styles.streakText, { color: '#7a9b76' }]}>{streak} days</Text>
+        <Text style={[styles.title, { color: colors.tomoCream }]}>Consistency Streak</Text>
+        <Text style={[styles.streakText, { color: colors.tomoSage }]}>{streak} days</Text>
       </View>
 
-      <View style={[styles.barTrack, { backgroundColor: colors.chalkGhost }]}>
-        <View style={[styles.barFill, { width: `${Math.min(pctToNext, 100)}%` }]} />
+      <View style={[styles.barTrack, { backgroundColor: colors.cream10 }]}>
+        <View style={[styles.barFill, { width: `${Math.min(pctToNext, 100)}%`, backgroundColor: colors.tomoSage }]} />
         {/* Milestone markers */}
         {milestones.map((m) => {
           const mPct = nextMilestone > 0
@@ -48,7 +47,7 @@ export const EngagementBarSection = memo(function EngagementBarSection({
               key={m}
               style={[
                 styles.milestoneMarker,
-                { left: `${mPct}%`, backgroundColor: streak >= m ? '#7a9b76' : colors.chalkDim },
+                { left: `${mPct}%`, backgroundColor: streak >= m ? colors.tomoSage : colors.muted },
               ]}
             />
           );
@@ -56,10 +55,10 @@ export const EngagementBarSection = memo(function EngagementBarSection({
       </View>
 
       <View style={styles.labelRow}>
-        <Text style={[styles.label, { color: colors.chalkDim }]}>
+        <Text style={[styles.label, { color: colors.muted }]}>
           {prevMilestone > 0 ? `${prevMilestone}d` : 'Start'}
         </Text>
-        <Text style={[styles.label, { color: colors.chalkDim }]}>
+        <Text style={[styles.label, { color: colors.muted }]}>
           Next: {nextMilestone}d
         </Text>
       </View>
@@ -69,7 +68,7 @@ export const EngagementBarSection = memo(function EngagementBarSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 16,
   },
@@ -80,12 +79,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semiBold,
     fontSize: 14,
+    letterSpacing: -0.2,
   },
   streakText: {
-    fontFamily: fontFamily.display,
-    fontSize: 16,
+    fontFamily: fontFamily.semiBold,
+    fontSize: 18,
   },
   barTrack: {
     height: 6,
@@ -96,7 +96,6 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 3,
-    backgroundColor: '#7a9b76',
   },
   milestoneMarker: {
     position: 'absolute',
@@ -112,7 +111,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   label: {
-    fontFamily: fontFamily.note,
+    fontFamily: fontFamily.regular,
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
