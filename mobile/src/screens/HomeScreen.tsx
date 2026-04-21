@@ -1978,11 +1978,11 @@ export function HomeScreen() {
             <IconBtn onPress={() => navigation.navigate('MyRules' as any)}>
               <SmartIcon name="options-outline" size={18} color={colors.tomoCream} />
             </IconBtn>
-            <IconBtn onPress={handleNewChat}>
-              <SmartIcon name="create-outline" size={18} color={colors.tomoCream} />
-            </IconBtn>
             <IconBtn onPress={() => setShowSavedChats(true)}>
               <SmartIcon name="chatbubbles-outline" size={18} color={colors.tomoCream} />
+            </IconBtn>
+            <IconBtn onPress={handleNewChat}>
+              <SmartIcon name="create-outline" size={18} color={colors.tomoCream} />
             </IconBtn>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>

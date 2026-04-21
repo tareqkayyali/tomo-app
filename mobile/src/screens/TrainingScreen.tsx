@@ -17,6 +17,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
 import { ErrorState, SkeletonCard } from '../components';
@@ -531,6 +532,18 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   // polar(R_OUTER + offsetR), arcs, now-pointer) are derived from `size`
   // inside DayDial, so scaling `size` scales every element proportionally.
   const dialSize = useMemo(() => Math.min(Dimensions.get('window').width - 40, 340) * 0.84, []);
+  // FAB sits just above the top-left corner of the Plan Week button (the right
+  // half of PlanRow), with a small buffer. dialPositioner auto-sizes to the
+  // DayDial SVG (dialSize + 72 wide/tall) and is centered inside dialWrap.
+  // Plan Week starts at roughly screen-center + 5pt, which in SVG-positioner
+  // coords lands near SVG_width / 2 + 5. Placing the FAB's right edge ~15pt
+  // past that point gives the "just above the corner" read.
+  const dialFabRight = useMemo(() => Math.round((dialSize + 72) / 2 - 15), [dialSize]);
+  const dialFabBottom = 10;
+
+  const onAddEventForSelectedDay = useCallback(() => {
+    navigation.navigate('AddEvent' as any, { date: selectedDayStr });
+  }, [navigation, selectedDayStr]);
 
   // ─── Loading gate ────────────────────────────────────────────────
   if (isLoading && !hasLoadedOnce.current) {
@@ -578,15 +591,51 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
       </Animated.View>
 
       <Animated.View style={[styles.dialWrap, enterDial]}>
-        <DayDial
-          events={dialEvents}
-          nowHour={nowHour}
-          score={readinessScore ?? 0}
-          readinessLabel={readinessLabelStr}
-          dateText={dialDateText}
-          size={dialSize}
-          onEvent={(ev) => openEventEdit(ev.id)}
-        />
+        <View style={styles.dialPositioner}>
+          <DayDial
+            events={dialEvents}
+            nowHour={nowHour}
+            score={readinessScore ?? 0}
+            readinessLabel={readinessLabelStr}
+            dateText={dialDateText}
+            size={dialSize}
+            onEvent={(ev) => openEventEdit(ev.id)}
+          />
+          <Pressable
+            onPress={onAddEventForSelectedDay}
+            accessibilityRole="button"
+            accessibilityLabel="Add timeline block"
+            hitSlop={10}
+            style={({ pressed }) => [
+              styles.dialFab,
+              {
+                right: dialFabRight,
+                bottom: dialFabBottom,
+                transform: [{ scale: pressed ? 0.94 : 1 }],
+              },
+            ]}
+          >
+            {/* Base sage gradient — lighter top-left → darker bottom-right */}
+            <LinearGradient
+              colors={[colors.accentLight, colors.accent, colors.accentDark ?? colors.tomoSageDim]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+            {/* Glass shine overlay — white highlight down the top half */}
+            <LinearGradient
+              colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.08)', 'transparent']}
+              locations={[0, 0.4, 0.7]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+            {/* Plus glyph — two crossed bars in pure white so we never pick up
+                an unintended icon ring from a library fallback. */}
+            <View style={styles.dialFabPlusH} />
+            <View style={styles.dialFabPlusV} />
+          </Pressable>
+        </View>
       </Animated.View>
 
       <Animated.View style={[styles.checkinWrap, enterCards]}>
@@ -709,6 +758,46 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       marginTop: 0,
       marginBottom: 2,
+    },
+    // Positioned parent for DayDial + add-event FAB. Sizes to the DayDial's
+    // SVG (which carries its own explicit width/height), so the FAB's
+    // right/bottom offsets are relative to the circle's bounding box, not the
+    // screen edges.
+    dialPositioner: {
+      position: 'relative',
+    },
+    // Floating add-timeline-block button — Tomo sage-gradient with cream glass
+    // shine and a pure-white plus glyph. `overflow: hidden` keeps both gradient
+    // layers clipped to the rounded shape. Elevation + shadow lift it above
+    // the dial. Positioned just above Plan Week's top-left corner via
+    // dialFabRight / dialFabBottom.
+    dialFab: {
+      position: 'absolute',
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 10,
+    },
+    dialFabPlusH: {
+      position: 'absolute',
+      width: 20,
+      height: 2.5,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 1.5,
+    },
+    dialFabPlusV: {
+      position: 'absolute',
+      width: 2.5,
+      height: 20,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 1.5,
     },
     checkinWrap: {
       paddingHorizontal: 20,

@@ -213,7 +213,17 @@ export function SignalDashboardScreen() {
     activeTabRef.current = activeTab;
   }, [activeTab]);
 
+  // 250ms debounce on sub-tab advances. Belt-and-braces protection against a
+  // rare double-fire we saw on Dashboard → Metrics (skipping Programs) — if
+  // any UI-thread race re-triggers the JS callback for the same swipe, the
+  // second call is dropped instead of advancing a tab a second time. 250ms is
+  // well under perceptible input latency but far longer than any gesture
+  // double-fire window.
+  const lastAdvanceAtRef = useRef(0);
   const goSubTab = useCallback((direction: 'next' | 'prev') => {
+    const now = Date.now();
+    if (now - lastAdvanceAtRef.current < 250) return;
+    lastAdvanceAtRef.current = now;
     const idx = DASHBOARD_TABS.findIndex((t) => t.key === activeTabRef.current);
     if (idx < 0) return;
     const nextIdx = direction === 'next' ? idx + 1 : idx - 1;
@@ -222,27 +232,47 @@ export function SignalDashboardScreen() {
   }, []);
 
   const navigateToChat = useCallback(() => {
+    const now = Date.now();
+    if (now - lastAdvanceAtRef.current < 250) return;
+    lastAdvanceAtRef.current = now;
     navigation.navigate('Chat' as any);
   }, [navigation]);
 
   const subTabSwipe = useMemo(() => {
-    const EDGE_ZONE = 24; // pts from the screen's left edge that count as "back-swipe territory"
+    // Two zones:
+    //   • Left-edge (≤ 30pt from the screen's left) — iOS back-swipe semantics.
+    //     Lower thresholds so a gentle drag registers, since edge swipes tend
+    //     to be quick + shallow. Only fires on RIGHT direction → Chat.
+    //   • Body — sub-tab next/prev. Normal thresholds.
+    // activeOffsetX lowered from 15 to 10 so the gesture claims the touch
+    // faster (was fighting ScrollView's initial pan-responder delay and felt
+    // unresponsive near the edge). failOffsetY widened to 40 so a small
+    // vertical wobble on a fast horizontal flick doesn't fail the pan.
+    const EDGE_ZONE = 30;
+    const EDGE_MIN_TX = 15;
+    const EDGE_MIN_VX = 200;
+    const BODY_MIN_TX = 25;
+    const BODY_MIN_VX = 250;
     return Gesture.Pan()
-      .activeOffsetX([-15, 15])
-      .failOffsetY([-30, 30])
+      .activeOffsetX([-10, 10])
+      .failOffsetY([-40, 40])
       .onEnd((e) => {
         'worklet';
-        const swipedLeft = e.translationX < -30 || e.velocityX < -300;
-        const swipedRight = e.translationX > 30 || e.velocityX > 300;
-        // Starting x in window coordinates = current absoluteX − total translation.
-        const startedFromLeftEdge = e.absoluteX - e.translationX <= EDGE_ZONE;
+        const startX = e.absoluteX - e.translationX;
+        const startedFromLeftEdge = startX <= EDGE_ZONE;
 
-        if (startedFromLeftEdge && swipedRight) {
-          runOnJS(navigateToChat)();
-          return;
+        if (startedFromLeftEdge) {
+          const edgeSwipedRight = e.translationX > EDGE_MIN_TX || e.velocityX > EDGE_MIN_VX;
+          if (edgeSwipedRight) {
+            runOnJS(navigateToChat)();
+            return;
+          }
         }
-        if (swipedLeft) runOnJS(goSubTab)('next');
-        else if (swipedRight) runOnJS(goSubTab)('prev');
+
+        const bodySwipedLeft = e.translationX < -BODY_MIN_TX || e.velocityX < -BODY_MIN_VX;
+        const bodySwipedRight = e.translationX > BODY_MIN_TX || e.velocityX > BODY_MIN_VX;
+        if (bodySwipedLeft) runOnJS(goSubTab)('next');
+        else if (bodySwipedRight) runOnJS(goSubTab)('prev');
       });
   }, [goSubTab, navigateToChat]);
 
