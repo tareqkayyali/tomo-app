@@ -363,23 +363,25 @@ async function fetchStudyHours(
 
 async function fetchBenchmark(
   athleteId: string,
-  testKey: string,
+  testType: string,
 ): Promise<Pair> {
-  // Latest value = most recent test_log row for this test. Avg = mean of the
-  // athlete's prior attempts (excluding latest) so the delta tells the
-  // athlete whether they're getting better.
+  // Phone-test source. Latest = most recent score for this test_type; avg =
+  // mean of the 11 prior attempts so the delta reads as "how much better/
+  // worse than your recent rolling history". The `phone_test_sessions`
+  // table carries the unified score across all sport-agnostic tests
+  // (see PHONE_TEST_TO_METRIC in benchmarkService.ts).
   const db = supabaseAdmin();
   const { data } = await (db as any)
-    .from('test_log')
-    .select('value, logged_at')
-    .eq('athlete_id', athleteId)
-    .eq('test_key', testKey)
-    .order('logged_at', { ascending: false })
+    .from('phone_test_sessions')
+    .select('score, date')
+    .eq('user_id', athleteId)
+    .eq('test_type', testType)
+    .order('date', { ascending: false })
     .limit(12);
 
-  const rows = (data ?? []) as Array<{ value: number | string; logged_at: string }>;
+  const rows = (data ?? []) as Array<{ score: number | string; date: string }>;
   const values = rows
-    .map((r) => (typeof r.value === 'number' ? r.value : Number(r.value)))
+    .map((r) => (typeof r.score === 'number' ? r.score : Number(r.score)))
     .filter((n) => Number.isFinite(n));
 
   if (values.length === 0) return { latest: null, avg: null };

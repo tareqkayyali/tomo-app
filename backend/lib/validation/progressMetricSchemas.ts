@@ -25,9 +25,11 @@ const sourceKindEnum = z.enum([
 
 const directionEnum = z.enum(['higher_better', 'lower_better', 'neutral']);
 
-// A single trigger rule. Intentionally permissive — the notification engine
-// (Phase 4) owns stricter evaluation; the admin form mostly just round-trips
-// JSON for now.
+// A single trigger rule. The runner compares latest/deltaPct against `value`
+// using `operator`; on match + cooldown elapsed, it invokes the notification
+// engine with the referenced `notification_type` (template lives in
+// notificationTemplates.ts) passing {display_name, latest, unit, delta,
+// window_days, metric_key} as interpolation vars.
 const triggerSchema = z.object({
   kind: z.enum(['threshold', 'trend']),
   operator: z.enum([
@@ -35,11 +37,12 @@ const triggerSchema = z.object({
     'delta_lt_pct', 'delta_gt_pct',
   ]),
   value: z.number(),
-  window_days: z.number().int().positive().optional(),
-  priority: z.enum(['P1', 'P2', 'P3']),
-  category: z.string().min(1).max(60),
-  title_template: z.string().min(1).max(200),
-  body_template: z.string().min(1).max(400),
+  notification_type: z.enum([
+    'PROGRESS_THRESHOLD_LOW',
+    'PROGRESS_THRESHOLD_HIGH',
+    'PROGRESS_TREND_DECLINING',
+    'PROGRESS_TREND_IMPROVING',
+  ]),
   cooldown_hours: z.number().int().min(0).max(720).default(24),
 });
 

@@ -57,6 +57,11 @@ export type NotificationType =
   | 'CV_SHARE_VIEWED'
   | 'CV_UPDATE_AVAILABLE'
   | 'CV_COMPLETENESS_MILESTONE'
+  // Progress metrics — CMS-configured per-metric thresholds + trends
+  | 'PROGRESS_THRESHOLD_LOW'
+  | 'PROGRESS_THRESHOLD_HIGH'
+  | 'PROGRESS_TREND_DECLINING'
+  | 'PROGRESS_TREND_IMPROVING'
   // System (legacy migration)
   | 'SYSTEM_MESSAGE';
 
@@ -574,6 +579,74 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     primary_action: { label: 'Complete CV', deep_link: 'tomo://cv' },
     expiry: { ttl_hours: 336 },
     can_dismiss: true,
+  },
+
+  // ═══ PROGRESS METRICS ═══
+  // Generic templates invoked by the CMS-driven progress-metric cron. Vars:
+  //   {display_name} — e.g. "Recovery", "HRV", "Soreness"
+  //   {latest}       — current value (pre-formatted)
+  //   {unit}         — e.g. "%", "h", "ms"
+  //   {delta}        — absolute delta percentage ("15")
+  //   {window_days}  — 7, 30, or 90
+  // Each metric row in the `progress_metrics` CMS table can attach any subset
+  // of these types via its `notification_triggers` JSONB.
+
+  PROGRESS_THRESHOLD_LOW: {
+    type: 'PROGRESS_THRESHOLD_LOW',
+    category: 'coaching',
+    priority: 2,
+    title: '{display_name} dropped',
+    body: 'Your {display_name} is at {latest}{unit}. Worth a lighter day or a check-in to see why.',
+    chips: [{ label: '{latest}{unit}', style: 'amber' }],
+    primary_action: { label: 'View progress', deep_link: 'tomo://dashboard?tab=progress' },
+    group_key_pattern: '{athlete_id}_progress_{metric_key}',
+    group_update_behavior: 'replace_body',
+    expiry: { ttl_hours: 36 },
+    can_dismiss: true,
+  },
+
+  PROGRESS_THRESHOLD_HIGH: {
+    type: 'PROGRESS_THRESHOLD_HIGH',
+    category: 'coaching',
+    priority: 3,
+    title: '{display_name} is up',
+    body: 'Your {display_name} climbed to {latest}{unit}. Nice — keep whatever you\u2019re doing.',
+    chips: [{ label: '{latest}{unit}', style: 'green' }],
+    primary_action: { label: 'View progress', deep_link: 'tomo://dashboard?tab=progress' },
+    group_key_pattern: '{athlete_id}_progress_{metric_key}',
+    group_update_behavior: 'replace_body',
+    expiry: { ttl_hours: 36 },
+    can_dismiss: true,
+    suppress_push: true,
+  },
+
+  PROGRESS_TREND_DECLINING: {
+    type: 'PROGRESS_TREND_DECLINING',
+    category: 'coaching',
+    priority: 3,
+    title: '{display_name} trending down',
+    body: '{display_name} is down {delta}% vs your {window_days}-day average. Worth a look.',
+    chips: [{ label: '\u25BC {delta}% {window_days}d', style: 'amber' }],
+    primary_action: { label: 'View progress', deep_link: 'tomo://dashboard?tab=progress' },
+    group_key_pattern: '{athlete_id}_progress_{metric_key}',
+    group_update_behavior: 'replace_body',
+    expiry: { ttl_hours: 48 },
+    can_dismiss: true,
+  },
+
+  PROGRESS_TREND_IMPROVING: {
+    type: 'PROGRESS_TREND_IMPROVING',
+    category: 'coaching',
+    priority: 4,
+    title: '{display_name} trending up',
+    body: '{display_name} is up {delta}% vs your {window_days}-day average. Keep it going.',
+    chips: [{ label: '\u25B2 {delta}% {window_days}d', style: 'green' }],
+    primary_action: { label: 'View progress', deep_link: 'tomo://dashboard?tab=progress' },
+    group_key_pattern: '{athlete_id}_progress_{metric_key}',
+    group_update_behavior: 'replace_body',
+    expiry: { ttl_hours: 48 },
+    can_dismiss: true,
+    suppress_push: true,
   },
 
   // ═══ SYSTEM ═══

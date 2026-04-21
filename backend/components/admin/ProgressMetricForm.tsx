@@ -340,9 +340,20 @@ export default function ProgressMetricForm({ metricId }: Props) {
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="text-sm font-medium text-muted-foreground">Notification triggers (optional)</h2>
         <p className="text-xs text-muted-foreground">
-          JSON rules that fire notifications when the metric crosses a threshold or trend bound.
-          The Phase 4 cron job enqueues through the existing notification engine (respects quiet
-          hours, daily cap, fatigue). Leave blank to disable alerts for this metric.
+          JSON rules that fire notifications when the metric crosses a threshold
+          (compared to the metric's latest value) or a trend bound (compared to
+          the 7-day delta %). The daily cron dispatches via the existing
+          notification engine, so quiet hours, daily cap, fatigue, and push
+          suppression all apply automatically.
+          <br />
+          <br />
+          <code>notification_type</code> must reference a registered template in
+          <code> notificationTemplates.ts</code>. The progress-specific ones
+          (PROGRESS_THRESHOLD_LOW, PROGRESS_THRESHOLD_HIGH,
+          PROGRESS_TREND_DECLINING, PROGRESS_TREND_IMPROVING) receive
+          <code> display_name</code>, <code>latest</code>, <code>unit</code>,
+          <code> delta</code>, and <code>window_days</code> as interpolation
+          vars automatically.
         </p>
         <Textarea
           value={triggersJson}
@@ -351,7 +362,7 @@ export default function ProgressMetricForm({ metricId }: Props) {
             setTriggersError("");
           }}
           rows={10}
-          placeholder={`{\n  "triggers": [\n    {\n      "kind": "threshold",\n      "operator": "lt",\n      "value": 50,\n      "priority": "P1",\n      "category": "readiness",\n      "title_template": "Recovery dropped",\n      "body_template": "Your recovery is at {latest}% — plan a lighter day.",\n      "cooldown_hours": 24\n    }\n  ]\n}`}
+          placeholder={`{\n  "triggers": [\n    {\n      "kind": "threshold",\n      "operator": "lt",\n      "value": 50,\n      "notification_type": "PROGRESS_THRESHOLD_LOW",\n      "cooldown_hours": 24\n    },\n    {\n      "kind": "trend",\n      "operator": "delta_lt_pct",\n      "value": -15,\n      "notification_type": "PROGRESS_TREND_DECLINING",\n      "cooldown_hours": 48\n    }\n  ]\n}`}
           className="font-mono text-xs"
         />
         {triggersError && (
