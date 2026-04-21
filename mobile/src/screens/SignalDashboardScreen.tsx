@@ -36,7 +36,7 @@ import { useNavigation } from '@react-navigation/native';
 import { SignalDashboardTab } from '../components/dashboard/signal/SignalDashboardTab';
 import { ProgramPanel } from '../components/dashboard/panels/ProgramPanel';
 import { MetricsPanel } from '../components/dashboard/panels/MetricsPanel';
-import { ProgressPanel } from '../components/dashboard/panels/ProgressPanel';
+import { ProgressTab } from '../components/dashboard/progress/ProgressTab';
 // Output sections — reused under the Programs + Metrics tabs to match the
 // Coach portal's ProgrammesTab / TestsTab layout (both delegated to these
 // sections already). Single source of truth for the athlete's own view
@@ -476,17 +476,7 @@ export function SignalDashboardScreen() {
         )
       )}
 
-      {activeTab === 'progress' && (
-        <ProgressPanel
-          variant="inline"
-          snapshot={bootData?.snapshot ?? null}
-          dailyLoad={bootData?.dailyLoad}
-          benchmarkSummary={bootData?.benchmarkSummary}
-          signalColor={signal.color}
-          freshness={freshness}
-          panelLayout={bootData?.panelLayouts?.progress}
-        />
-      )}
+      {activeTab === 'progress' && <ProgressTab />}
       </View>
       </GestureDetector>
     </SafeAreaView>

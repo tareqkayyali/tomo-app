@@ -96,6 +96,7 @@ const navigation: NavGroup[] = [
       { name: "Wearable Connections", href: "/admin/wearables" },
       { name: "Performance Intelligence", href: "/admin/performance-intelligence" },
       { name: "Dashboard Sections", href: "/admin/dashboard-sections" },
+      { name: "Progress Metrics", href: "/admin/progress-metrics" },
       { name: "Feature Flags", href: "/admin/feature-flags", minRole: "super_admin" },
     ],
   },
