@@ -128,16 +128,34 @@ async function handleWellnessCheckinNotifs(event: AthleteEvent): Promise<void> {
     await resolveByType(athlete_id, 'WELLNESS_CRITICAL');
   }
 
-  // ── INJURY_RISK_FLAG: from snapshot ──
+  // ── INJURY_RISK_FLAG / WATCH: from snapshot ──
+  // RED \u2192 critical P1 notification (pushes even in quiet hours)
+  // AMBER \u2192 training P2 watch card (soft, in-app focus)
+  // GREEN/null \u2192 resolve both if present
   const injuryFlag = (snapshot as any).injury_risk_flag;
+  const painLocation = (event.payload as any).pain_location ?? 'body';
   if (injuryFlag === 'RED') {
-    const painLocation = (event.payload as any).pain_location ?? 'body';
     await createNotification({
       athleteId: athlete_id,
       type: 'INJURY_RISK_FLAG',
       vars: { body_part: painLocation },
       sourceRef: { type: 'snapshot', id: event_id },
     });
+    // RED takes precedence \u2014 clear any lingering AMBER watch card
+    await resolveByType(athlete_id, 'INJURY_RISK_WATCH');
+  } else if (injuryFlag === 'AMBER') {
+    await createNotification({
+      athleteId: athlete_id,
+      type: 'INJURY_RISK_WATCH',
+      vars: { body_part: painLocation },
+      sourceRef: { type: 'snapshot', id: event_id },
+    });
+    // Ensure no stale RED flag outlives the athlete clearing down to AMBER
+    await resolveByType(athlete_id, 'INJURY_RISK_FLAG');
+  } else {
+    // GREEN or null \u2014 clear both
+    await resolveByType(athlete_id, 'INJURY_RISK_FLAG');
+    await resolveByType(athlete_id, 'INJURY_RISK_WATCH');
   }
 
   // ── CHECKIN_STREAK_MILESTONE ──
@@ -163,6 +181,28 @@ async function handleWellnessCheckinNotifs(event: AthleteEvent): Promise<void> {
   await resolveByType(athlete_id, 'STREAK_AT_RISK');
   // Mark CHECKIN_REMINDER as acted (moves to "Done" section, not expired/hidden)
   await markTypeAsActed(athlete_id, 'CHECKIN_REMINDER');
+
+  // ── DAILY_CHECK_CONFIRMED: subtle positive feedback (in-app only, no push) ──
+  // Makes the Center feel alive for healthy athletes whose state triggers
+  // nothing else. Dedup group_key = athlete + date \u2014 one per day max.
+  const rag = String((snapshot as any).readiness_rag ?? 'GREEN').toUpperCase();
+  const ragLabel =
+    rag === 'RED' ? 'RED \u2014 ease up'
+    : rag === 'AMBER' ? 'AMBER \u2014 moderate'
+    : 'GREEN \u2014 ready';
+  const ragChipStyle = rag === 'RED' ? 'red' : rag === 'AMBER' ? 'amber' : 'green';
+  const today = new Date().toISOString().split('T')[0];
+  await createNotification({
+    athleteId: athlete_id,
+    type: 'DAILY_CHECK_CONFIRMED',
+    vars: {
+      rag_label: ragLabel,
+      rag_chip_style: ragChipStyle,
+      streak_days: streakDays,
+      date: today,
+    },
+    sourceRef: { type: 'checkin', id: event_id },
+  });
 }
 
 // ─── Assessment Notifications ─────────────────────────────────────────

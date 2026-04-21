@@ -148,8 +148,10 @@ export async function createNotification(
     return null;
   }
 
-  // Schedule push delivery (fire-and-forget)
-  if (data?.id) {
+  // Schedule push delivery (fire-and-forget). Templates marked
+  // suppress_push=true appear in the Center but never push \u2014 used
+  // for positive-confirmation types where a push would be pushy.
+  if (data?.id && !template.suppress_push) {
     const deepLink = resolvedPrimaryAction?.deep_link ?? '';
     schedulePush(
       athleteId, data.id, template.category, type, resolvedTitle, resolvedBody, deepLink

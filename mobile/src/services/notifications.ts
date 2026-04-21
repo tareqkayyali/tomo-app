@@ -94,53 +94,28 @@ export async function registerForPushNotifications(): Promise<string | null> {
 }
 
 // ---------------------------------------------------------------------------
-// Local scheduled notifications
+// Local scheduling DEPRECATED
 // ---------------------------------------------------------------------------
-
-const STREAK_AT_RISK_ID = 'tomo-streak-at-risk';
-
-/**
- * Schedule a streak-at-risk local notification for 8 PM today.
- * Only schedules if 8 PM hasn't passed yet.
- */
-export async function scheduleStreakAtRiskNotification(currentStreak: number): Promise<void> {
-  await cancelStreakAtRiskNotification();
-
-  const now = new Date();
-  const target = new Date(now);
-  target.setHours(20, 0, 0, 0);
-
-  // Don't schedule if 8 PM already passed
-  if (now >= target) return;
-
-  const secondsUntil = Math.floor((target.getTime() - now.getTime()) / 1000);
-
-  await Notifications.scheduleNotificationAsync({
-    identifier: STREAK_AT_RISK_ID,
-    content: {
-      title: 'Streak at Risk!',
-      body: `Don't break your ${currentStreak}-day streak! Quick check-in takes 15 seconds.`,
-      sound: 'default',
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: secondsUntil,
-      repeats: false,
-    },
-  });
-}
+//
+// The backend cron (notifications.tick_daily_21 + tick_15min) owns ALL
+// time-based notifications now. Device-local scheduling is disallowed
+// because it bypasses the Notification Center database, causing pushes
+// the athlete cannot see in-app afterwards.
+//
+// If you need a new time-based reminder, add it to scheduledTriggers.ts
+// on the backend \u2014 that writes to athlete_notifications so it appears
+// in the Center, respects quiet hours / fatigue / daily cap, and is
+// admin-observable via cron_run_log.
 
 /**
- * Cancel the streak-at-risk notification.
- */
-export async function cancelStreakAtRiskNotification(): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(STREAK_AT_RISK_ID);
-}
-
-/**
- * Cancel all scheduled notifications.
+ * Cancel any residual scheduled notifications from previous app versions.
+ * Safe to call repeatedly; idempotent.
  */
 export async function cancelAllNotifications(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch {
+    // Non-fatal \u2014 old devices may not support this API
+  }
 }
 

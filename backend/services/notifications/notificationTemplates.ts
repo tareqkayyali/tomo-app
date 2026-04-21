@@ -22,7 +22,9 @@ export type NotificationType =
   // Critical
   | 'LOAD_WARNING_SPIKE'
   | 'INJURY_RISK_FLAG'
+  | 'INJURY_RISK_WATCH'
   | 'WELLNESS_CRITICAL'
+  | 'DAILY_CHECK_CONFIRMED'
   // Training
   | 'JOURNAL_PRE_SESSION'
   | 'JOURNAL_POST_SESSION'
@@ -93,6 +95,12 @@ export interface NotificationTemplate {
   group_update_behavior?: GroupUpdateBehavior;
   expiry: ExpiryConfig;
   can_dismiss: boolean; // false for P1 critical
+  /**
+   * When true, skip push delivery — notification appears in the Center
+   * only. Use for positive-reinforcement types (daily confirm, streak
+   * celebrations) where pushing would be pushy.
+   */
+  suppress_push?: boolean;
 }
 
 // ─── Priority Map ────────────────────────────────────────────────────
@@ -156,6 +164,22 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     group_update_behavior: 'replace_body',
     expiry: { ttl_hours: 48, resolve_condition: 'injury_risk_flag = false' },
     can_dismiss: false,
+  },
+
+  // AMBER injury \u2014 softer watch card. Not pushy, just visible.
+  INJURY_RISK_WATCH: {
+    type: 'INJURY_RISK_WATCH',
+    category: 'training',
+    priority: 2,
+    title: 'Watch your {body_part}',
+    body: 'Readings suggest elevated strain. Ease intensity today and log how it feels on your next check-in.',
+    chips: [{ label: 'AMBER', style: 'amber' }],
+    primary_action: { label: 'Log how it feels', deep_link: 'tomo://checkin' },
+    secondary_action: { label: 'Ask Tomo', deep_link: 'tomo://chat?intent=injury_amber', dismisses: true },
+    group_key_pattern: '{athlete_id}_injury_watch',
+    group_update_behavior: 'replace_body',
+    expiry: { ttl_hours: 48, resolve_condition: 'injury_risk_flag \u2260 AMBER' },
+    can_dismiss: true,
   },
 
   WELLNESS_CRITICAL: {
@@ -347,6 +371,23 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     primary_action: { label: 'Check in today', deep_link: 'tomo://checkin' },
     expiry: { ttl_hours: 48 },
     can_dismiss: true,
+  },
+
+  // Positive confirmation after check-in. In-app only \u2014 never pushes.
+  // Makes the Center feel alive for athletes who are healthy / low-engagement.
+  DAILY_CHECK_CONFIRMED: {
+    type: 'DAILY_CHECK_CONFIRMED',
+    category: 'coaching',
+    priority: 3,
+    title: 'Check-in logged',
+    body: 'Readiness {rag_label} \u00B7 {streak_days}-day streak. Tomo is watching \u2014 we\'ll nudge you if anything needs attention.',
+    chips: [{ label: '{rag_label}', style: 'green' }],
+    primary_action: { label: 'See your dashboard', deep_link: 'tomo://dashboard' },
+    group_key_pattern: '{athlete_id}_{date}',
+    group_update_behavior: 'replace_body',
+    expiry: { expires_at_field: 'midnight_same_day' },
+    can_dismiss: true,
+    suppress_push: true,
   },
 
   READINESS_TREND_UP: {
