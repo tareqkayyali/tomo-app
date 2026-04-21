@@ -565,17 +565,29 @@ export async function getPlayerBenchmarkProfile(
     }
   }
 
-  // Build results from snapshots + norms
+  // Build results from snapshots + norms.
+  //
+  // IMPORTANT: We RECOMPUTE percentile + zone live from the stored raw value
+  // against the CURRENT norms (which already include the SD widener + erf
+  // CDF from calculatePercentile). Snapshots are an immutable audit record
+  // of "what was computed at test time" — fine for trajectory views — but
+  // any "current" surface (Dashboard benchmarks, Mastery pillars) must
+  // reflect current methodology. Otherwise a widener change in the CMS
+  // doesn't propagate until the athlete re-logs every test.
+  //
+  // Falls back to the stored percentile when a norm isn't available for
+  // this metricKey (deprecated / renamed metrics).
   const results: BenchmarkResult[] = [];
   for (const [metricKey, snapshot] of latestByMetric) {
     const norm = normsByMetric.get(metricKey);
-    // If no norm, still include the snapshot with its stored percentile
     const rawDir = norm?.direction || "higher";
     const direction: "lower_better" | "higher_better" =
       rawDir === "lower" || rawDir === "lower_better" ? "lower_better" : "higher_better";
     const value = Number(snapshot.value);
-    const percentile = Number(snapshot.percentile);
-    const zone = snapshot.zone as PercentileZone;
+    const percentile = norm
+      ? interpolatePercentile(value, norm.p50, norm.sd, direction)
+      : Number(snapshot.percentile);
+    const zone = getPercentileZone(percentile);
     const metricLabel = norm?.metricLabel || (snapshot.metric_label as string) || metricKey;
 
     results.push({
