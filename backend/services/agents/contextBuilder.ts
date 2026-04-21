@@ -22,6 +22,7 @@ import {
   type ScenarioId,
 } from "@/services/scheduling/scheduleRuleEngine";
 import { getModeDefinition, type ModeParams } from "@/services/scheduling/modeConfig";
+import { getFreshReadiness } from "@/lib/snapshot/freshness";
 
 export interface PlayerContext {
   // Identity
@@ -559,8 +560,16 @@ export async function buildPlayerContext(
         phvStage: (snapshot.phv_stage as string) ?? null,
         phvOffsetYears: (snapshot.phv_offset_years as number) ?? null,
         triangleRag: (snapshot.triangle_rag as string) ?? null,
-        readinessRag: (snapshot.readiness_rag as string) ?? null,
-        readinessScore: (snapshot.readiness_score as number) ?? null,
+        // Apply calendar-day readiness freshness gate — see lib/snapshot/freshness.ts.
+        // Stale readiness (from a prior day) would otherwise drive AI coaching
+        // off yesterday's state.
+        ...(function () {
+          const fresh = getFreshReadiness(snapshot as any, tz);
+          return {
+            readinessRag: fresh?.rag ?? null,
+            readinessScore: fresh?.score ?? null,
+          };
+        })(),
         lastCheckinAt: (snapshot.last_checkin_at as string) ?? null,
         // Journal
         journalCompleteness7d: (snapshot as any).journal_completeness_7d ?? null,

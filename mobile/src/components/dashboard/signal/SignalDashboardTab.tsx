@@ -133,10 +133,14 @@ export function SignalDashboardTab({
 
 function deriveReadiness(boot: BootData | null): number {
   if (!boot) return 0;
+  // Server applies the calendar-day freshness gate and scrubs stale readiness
+  // from snapshot.readiness_score before shipping. If `readinessFresh` is
+  // false, no check-in happened today — the ring shows 0 (neutral) and the
+  // coaching copy falls back to "Check in to activate your signal".
+  if (boot.readinessFresh === false) return 0;
   const snap = boot.snapshot as Record<string, unknown> | null;
   const raw = (snap?.readiness_score as number | undefined)
     ?? (snap?.readiness as number | undefined)
-    ?? boot.recentVitals?.[0]?.readiness_score
     ?? 0;
   return Math.max(0, Math.min(100, Number(raw) || 0));
 }

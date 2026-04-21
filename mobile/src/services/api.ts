@@ -168,6 +168,12 @@ export interface BootData {
   age: number | null;
   streak: number;
   snapshot: Record<string, any> | null;
+  /**
+   * True when snapshot.readiness_score/readiness_rag were computed for today
+   * (athlete-local calendar day). When false, snapshot readiness fields are
+   * null and the dashboard should render the neutral BASELINE state.
+   */
+  readinessFresh: boolean;
   todayEvents: {
     id: string;
     title: string;

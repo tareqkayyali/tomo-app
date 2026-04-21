@@ -37,10 +37,17 @@ export async function writeSnapshot(athleteId: string, event: AthleteEvent): Pro
       const payload = event.payload as WellnessCheckinPayload;
       update.last_checkin_at = event.occurred_at;
 
-      // If readiness was computed by the handler, set readiness fields
+      // If readiness was computed by the handler, set readiness fields.
+      // readiness_for_date is written atomically so read-time freshness gates
+      // (see lib/snapshot/freshness.ts) can reject yesterday's values at
+      // today's day-rollover without a cron sweep.
       if (payload.computed_readiness_level) {
         update.readiness_rag = readinessToRag(payload.computed_readiness_level);
         update.readiness_score = payload.computed_readiness_score ?? null;
+        (update as any).readiness_for_date = (event.occurred_at
+          ? new Date(event.occurred_at)
+          : new Date()
+        ).toISOString().slice(0, 10);
       }
       break;
     }

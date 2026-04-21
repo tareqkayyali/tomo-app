@@ -22,6 +22,7 @@ import {
 import { evaluatePDProtocols } from "@/services/pdil";
 import { evaluateSignal } from "@/services/signals";
 import type { RecentVitalEntry, YesterdayVitals } from "@/services/signals";
+import { getFreshReadiness, isReadinessFresh } from "@/lib/snapshot/freshness";
 import { resolveDashboardLayout } from "@/services/dashboard/dashboardSectionLoader";
 import { getModeDefinition, type ModeParams } from "@/services/scheduling/modeConfig";
 
@@ -158,13 +159,15 @@ export async function GET(request: NextRequest) {
         .lte("start_at", dayEndISO)
         .order("start_at"),
 
-      // 4. Latest checkin
+      // 4. Today's checkin ONLY — if the athlete hasn't checked in today,
+      // downstream readers (signal evaluation, dashboard coaching text) must
+      // see `null` so they fall back to the neutral BASELINE state instead of
+      // replaying yesterday's answers as if they were today's.
       db
         .from("checkins")
         .select("energy, soreness, sleep_hours, mood, academic_stress, pain_flag, readiness, date")
         .eq("user_id", userId)
-        .order("date", { ascending: false })
-        .limit(1)
+        .eq("date", today)
         .maybeSingle(),
 
       // 5. Active recommendations (top 6 — dashboard uses 6, legacy activeRecs uses 3)
@@ -491,11 +494,16 @@ export async function GET(request: NextRequest) {
     let signalContext = null;
     try {
       if (snapshot) {
-        // Merge pdVitals + checkin data for signal evaluation
+        // Readiness fields carry forward on athlete_snapshots across days.
+        // Gate them through the calendar-day freshness helper so yesterday's
+        // score never drives today's signal. When stale, the signal engine
+        // sees no readiness input and falls to the neutral state — mobile
+        // then renders the "Check in to activate your signal" card.
+        const freshReadiness = getFreshReadiness(snapshot as any, tz);
         const signalVitals = {
           ...(pdVitals ?? {}),
-          readiness_score: (snapshot as any)?.readiness_score,
-          readiness_rag: (snapshot as any)?.readiness_rag,
+          readiness_score: freshReadiness?.score,
+          readiness_rag: freshReadiness?.rag,
           energy: latestCheckin?.energy,
           soreness: latestCheckin?.soreness,
           mood: latestCheckin?.mood,
@@ -542,10 +550,11 @@ export async function GET(request: NextRequest) {
       progress: [],
     };
     try {
+      const flatFresh = getFreshReadiness(snapshot as any, tz);
       const snapshotFlat = {
         ...(snapshot as Record<string, unknown> ?? {}),
-        readiness_score: (snapshot as any)?.readiness_score,
-        readiness_rag: (snapshot as any)?.readiness_rag,
+        readiness_score: flatFresh?.score ?? null,
+        readiness_rag: flatFresh?.rag ?? null,
         energy: latestCheckin?.energy,
         soreness: latestCheckin?.soreness,
         mood: latestCheckin?.mood,
@@ -577,6 +586,21 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Shape response ──
+    // Scrub stale readiness from the snapshot shipped to mobile so clients
+    // that read snapshot.readiness_score directly (e.g. SignalDashboardTab's
+    // deriveReadiness) don't resurrect yesterday's value after the signal
+    // engine has already rejected it. The calendar-day gate is applied once
+    // here; all downstream readers see either today's values or null.
+    const boundaryFresh = snapshot ? getFreshReadiness(snapshot as any, tz) : null;
+    const snapshotForClient = snapshot
+      ? {
+          ...(snapshot as Record<string, unknown>),
+          readiness_score: boundaryFresh?.score ?? null,
+          readiness_rag: boundaryFresh?.rag ?? null,
+        }
+      : snapshot;
+    const readinessFresh = isReadinessFresh(snapshot as any, tz);
+
     const bootPayload = {
       name: profile?.name ?? "Athlete",
       sport: profile?.sport ?? "football",
@@ -585,7 +609,8 @@ export async function GET(request: NextRequest) {
       age: profile?.age ?? null,
       streak: profile?.current_streak ?? 0,
 
-      snapshot,
+      snapshot: snapshotForClient,
+      readinessFresh,
 
       todayEvents: todayEvents.map((e: any) => ({
         id: e.id,
