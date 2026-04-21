@@ -7,7 +7,7 @@
  *   DayDial     — 24h radial clock, event arcs, now-pointer, readiness center
  *   FocusCard   — "Right now" (sage accent)
  *   FocusCard   — "Next up"
- *   CheckinRow  — Check in / Plan day
+ *   PlanRow     — Plan day / Plan week
  *
  * Business-logic hooks preserved: useCalendarData, useCheckinStatus,
  * useBootData, useAuth. UnifiedDayView is gone — event CRUD lives behind
@@ -29,7 +29,7 @@ import { skipCalendarEvent } from '../services/api';
 import { emitRefresh } from '../utils/refreshBus';
 import { fontFamily } from '../theme';
 import {
-  CheckinRow,
+  PlanRow,
   DayDial,
   FocusCard,
   IconBtn,
@@ -472,14 +472,14 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     [navigation, dayEvents],
   );
 
-  const onCheckin = useCallback(() => {
-    navigation.navigate('Checkin' as any);
-  }, [navigation]);
-
   const onPlanDay = useCallback(() => {
     // Route to the AI chat with a prefilled intent — matches the design's
     // "Plan day" as a coach-led dialog, not a form.
     (navigation as any).navigate('Chat', { prefillMessage: 'Help me plan my day', autoSend: true });
+  }, [navigation]);
+
+  const onPlanWeek = useCallback(() => {
+    (navigation as any).navigate('Chat', { prefillMessage: 'Help me plan my week', autoSend: true });
   }, [navigation]);
 
   // ─── Header avatar initial ───────────────────────────────────────
@@ -590,11 +590,9 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
       </Animated.View>
 
       <Animated.View style={[styles.checkinWrap, enterCards]}>
-        <CheckinRow
-          onCheckin={onCheckin}
+        <PlanRow
           onPlanDay={onPlanDay}
-          checkinLabel={needsCheckin ? 'Check in' : 'Update check-in'}
-          planLabel="Plan day"
+          onPlanWeek={onPlanWeek}
         />
       </Animated.View>
 

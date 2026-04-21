@@ -4,7 +4,7 @@
  * WeekStrip    — 7-day horizontal strip with readiness dot + today pulse.
  * DayDial      — 24h radial clock with event arcs + now pointer + readiness score.
  * FocusCard    — "Now" / "Next up" current-event card with type glyph.
- * CheckinRow   — two-button row for Check in + Plan day.
+ * PlanRow      — two-button planning row for Plan day + Plan week.
  */
 import React, { memo } from 'react';
 import { View, Text, Pressable } from 'react-native';
@@ -591,27 +591,27 @@ export const FocusCard = memo(({ event, label, accent, pulse, onPress }: FocusCa
 FocusCard.displayName = 'FocusCard';
 
 // ─────────────────────────────────────────────────────────────
-// CheckinRow — two-button row
+// PlanRow — two-button planning row: Plan day / Plan week
 // ─────────────────────────────────────────────────────────────
 
-export interface CheckinRowProps {
-  onCheckin?: () => void;
+export interface PlanRowProps {
   onPlanDay?: () => void;
-  checkinLabel?: string;
-  planLabel?: string;
+  onPlanWeek?: () => void;
+  planDayLabel?: string;
+  planWeekLabel?: string;
 }
 
-export const CheckinRow = memo(({ onCheckin, onPlanDay, checkinLabel = 'Check in', planLabel = 'Plan day' }: CheckinRowProps) => {
+export const PlanRow = memo(({ onPlanDay, onPlanWeek, planDayLabel = 'Plan day', planWeekLabel = 'Plan week' }: PlanRowProps) => {
   const { colors } = useTheme();
   return (
     <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-      <TButton kind="sage" full onPress={onCheckin} icon={<TomoIcon name="check" size={14} color={colors.tomoSageDim} />}>
-        {checkinLabel}
+      <TButton kind="sage" full onPress={onPlanDay} icon={<TomoIcon name="clock" size={14} color={colors.tomoSageDim} />}>
+        {planDayLabel}
       </TButton>
-      <TButton kind="ghost" full onPress={onPlanDay} icon={<TomoIcon name="clock" size={14} color={colors.tomoCream} />}>
-        {planLabel}
+      <TButton kind="ghost" full onPress={onPlanWeek} icon={<TomoIcon name="clock" size={14} color={colors.tomoCream} />}>
+        {planWeekLabel}
       </TButton>
     </View>
   );
 });
-CheckinRow.displayName = 'CheckinRow';
+PlanRow.displayName = 'PlanRow';
