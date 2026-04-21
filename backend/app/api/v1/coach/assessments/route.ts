@@ -48,6 +48,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "At least one valid rating is required (1-10)" }, { status: 400 });
     }
 
+    // Look up coach display name so the athlete notification is personalized
+    // (handleCoachAssessmentNotif reads payload.coach_name — fallback "Coach" is bland).
+    const { data: coachUser } = await db
+      .from("users")
+      .select("display_name")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+    const coachName = (coachUser as any)?.display_name || "Coach";
+
     // Emit COACH_ASSESSMENT event
     await emitEventSafe({
       athleteId: playerId,
@@ -59,6 +68,8 @@ export async function POST(req: NextRequest) {
         overall_score: Object.values(validatedRatings).reduce((a, b) => a + b, 0) / Object.values(validatedRatings).length,
         notes: notes || "",
         coach_id: auth.user.id,
+        coach_name: coachName,
+        category: "General",
       },
       createdBy: auth.user.id,
     });

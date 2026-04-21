@@ -214,89 +214,50 @@ export async function notifyPlayersOfDrillAssignment(payload: {
     }
   >;
 }): Promise<void> {
-  const db = notifDb();
+  // Routed through the new notification engine (athlete_notifications +
+  // pushDelivery) so drill assignments respect fatigue, quiet hours,
+  // daily cap, min interval, and render consistently in the Center.
+  // Legacy `notifications` table is no longer written.
+  const { createNotification } = await import("./notifications/notificationEngine");
 
-  const notifInserts: any[] = [];
-  const pushJobs: Promise<void>[] = [];
+  const jobs: Array<Promise<unknown>> = [];
 
-  for (const [playerId, { drills }] of Object.entries(
-    payload.playerDrillMap
-  )) {
+  for (const [playerId, { drills }] of Object.entries(payload.playerDrillMap)) {
     if (drills.length === 0) continue;
 
-    // Group drills by date
-    const dateGroups: Record<string, typeof drills> = {};
-    for (const drill of drills) {
-      if (!dateGroups[drill.scheduledDate])
-        dateGroups[drill.scheduledDate] = [];
-      dateGroups[drill.scheduledDate].push(drill);
-    }
-
-    const firstDate = Object.keys(dateGroups).sort()[0];
+    const datesSorted = [...new Set(drills.map((d) => d.scheduledDate))].sort();
+    const firstDate = datesSorted[0];
     const dateStr = firstDate ? formatDateShort(firstDate) : "";
     const mandatoryCount = drills.filter((d) => d.isMandatory).length;
 
-    const title = `${payload.coachName} assigned you ${drills.length} drill${drills.length > 1 ? "s" : ""}`;
-    const body =
-      mandatoryCount > 0
-        ? `${mandatoryCount} mandatory · Starting ${dateStr} · Tap to add to your schedule`
-        : `Starting ${dateStr} · Tap to add to your schedule`;
+    const mandatoryClause =
+      mandatoryCount > 0 ? `${mandatoryCount} mandatory \u00B7 ` : "";
+    const drillPlural = drills.length > 1 ? "s" : "";
 
-    const notifData = {
-      programmeId: payload.programmeId,
-      programmeName: payload.programmeName,
-      coachName: payload.coachName,
-      drillCount: drills.length,
-      scheduledDate: firstDate,
-      drills,
-    };
-
-    notifInserts.push({
-      user_id: playerId,
-      type: "coach_drill_assigned",
-      title,
-      body,
-      data: notifData,
-      read: false,
-      is_acted: false,
-      action_label: "Add to schedule",
-      action_data: {
-        programmeId: payload.programmeId,
-        drillDates: Object.keys(dateGroups),
-      },
-      source_id: payload.programmeId,
-      source_type: "programme",
-      expires_at: null,
-    });
-
-    // Queue push notification (fire-and-forget)
-    pushJobs.push(
-      sendPushNotification(playerId, title, body, {
-        programmeId: payload.programmeId,
-        type: "coach_drill_assigned",
-      })
+    jobs.push(
+      createNotification({
+        athleteId: playerId,
+        type: "COACH_DRILL_ASSIGNED",
+        vars: {
+          coach_name: payload.coachName,
+          drill_count: drills.length,
+          drill_plural: drillPlural,
+          mandatory_count: mandatoryCount,
+          mandatory_clause: mandatoryClause,
+          first_date: dateStr,
+          programme_id: payload.programmeId,
+          programme_name: payload.programmeName,
+        },
+        sourceRef: { type: "programme", id: payload.programmeId },
+      }),
     );
   }
 
-  // Batch insert all notifications
-  if (notifInserts.length > 0) {
-    const { error } = await db
-      .from("notifications")
-      .insert(notifInserts);
-    if (error)
-      console.error("[notif] Batch insert failed:", error);
+  const results = await Promise.allSettled(jobs);
+  const failed = results.filter((r) => r.status === "rejected").length;
+  if (failed > 0) {
+    console.warn(`[notif] drill-assignment: ${failed}/${jobs.length} failed`);
   }
-
-  // Fire all push notifications (non-blocking)
-  Promise.allSettled(pushJobs).then((results) => {
-    const failed = results.filter(
-      (r) => r.status === "rejected"
-    ).length;
-    if (failed > 0)
-      console.warn(
-        `[push] ${failed}/${pushJobs.length} push notifications failed`
-      );
-  });
 }
 
 // ── Save Push Token ─────────────────────────────────────────────────

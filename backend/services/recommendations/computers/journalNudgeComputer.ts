@@ -17,6 +17,7 @@ import { supersedeExisting } from '../supersedeExisting';
 import { REC_EXPIRY_HOURS } from '../constants';
 import type { AthleteEvent } from '../../events/types';
 import type { RecommendationInsert } from '../types';
+import { insertRecommendationWithNotify } from '../notifyRec';
 
 /** After N consecutive misses, only nudge every other session */
 const FATIGUE_THRESHOLD = 7;
@@ -121,9 +122,9 @@ export async function computeJournalNudgeRec(
         expires_at: expiresAt,
       };
 
-      const { error } = await (db as any).from('athlete_recommendations').insert(rec);
-      if (error) {
-        console.error(`[RIE/JournalNudge] Pre-session insert failed:`, error.message);
+      const insertedId = await insertRecommendationWithNotify(db as any, rec);
+      if (!insertedId) {
+        console.error(`[RIE/JournalNudge] Pre-session insert failed`);
       } else {
         console.log(`[RIE/JournalNudge] P1 "Set target" for ${athleteId} — ${ev.title}`);
       }
@@ -170,9 +171,9 @@ export async function computeJournalNudgeRec(
         expires_at: endOfDay,
       };
 
-      const { error } = await (db as any).from('athlete_recommendations').insert(rec);
-      if (error) {
-        console.error(`[RIE/JournalNudge] Post-session insert failed:`, error.message);
+      const insertedId = await insertRecommendationWithNotify(db as any, rec);
+      if (!insertedId) {
+        console.error(`[RIE/JournalNudge] Post-session insert failed`);
       } else {
         console.log(`[RIE/JournalNudge] P2 "Log reflection" for ${athleteId} — ${ev.title}`);
       }

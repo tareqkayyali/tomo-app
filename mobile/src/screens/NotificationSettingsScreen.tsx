@@ -44,11 +44,14 @@ interface CenterPrefs {
   push_cv: boolean;
   push_system: boolean;
   max_push_per_day: number;
+  min_push_interval_minutes: number;
+  school_hours_quiet: boolean;
 }
 
+// Subtle defaults — kept in sync with backend migration 087 / settings route.
 const DEFAULT_PREFS: CenterPrefs = {
-  quiet_hours_start: '23:00',
-  quiet_hours_end: '07:00',
+  quiet_hours_start: '21:00',
+  quiet_hours_end: '08:00',
   push_critical: true,
   push_training: true,
   push_coaching: true,
@@ -56,7 +59,9 @@ const DEFAULT_PREFS: CenterPrefs = {
   push_triangle: true,
   push_cv: false,
   push_system: false,
-  max_push_per_day: 5,
+  max_push_per_day: 3,
+  min_push_interval_minutes: 120,
+  school_hours_quiet: false,
 };
 
 const CATEGORY_TOGGLES: Array<{
@@ -77,11 +82,20 @@ const CATEGORY_TOGGLES: Array<{
 ];
 
 const QUIET_HOUR_OPTIONS = [
-  '21:00', '22:00', '23:00', '00:00',
+  '20:00', '21:00', '22:00', '23:00', '00:00',
 ];
 
 const WAKE_HOUR_OPTIONS = [
-  '06:00', '07:00', '08:00', '09:00',
+  '06:00', '07:00', '08:00', '09:00', '10:00',
+];
+
+// Minimum-interval options (minutes). Higher = more subtle.
+const INTERVAL_OPTIONS: Array<{ label: string; value: number }> = [
+  { label: 'No limit', value: 0 },
+  { label: '30 min', value: 30 },
+  { label: '1 hour', value: 60 },
+  { label: '2 hours', value: 120 },
+  { label: '4 hours', value: 240 },
 ];
 
 
@@ -147,6 +161,29 @@ export function NotificationSettingsScreen() {
     } else {
       Alert.alert('Quiet Hours Start', 'No push notifications after:', [
         ...QUIET_HOUR_OPTIONS.map((t) => ({ text: t, onPress: () => savePrefs({ quiet_hours_start: t }) })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
+    }
+  }, [savePrefs]);
+
+  const handleMinInterval = useCallback(() => {
+    if (Platform.OS === 'web') {
+      const choice = window.prompt(
+        'Minimum time between pushes (applies to non-critical only):\n' +
+          INTERVAL_OPTIONS.map((o, i) => `${i + 1}. ${o.label}`).join('\n'),
+      );
+      if (choice) {
+        const idx = parseInt(choice, 10) - 1;
+        if (idx >= 0 && idx < INTERVAL_OPTIONS.length) {
+          savePrefs({ min_push_interval_minutes: INTERVAL_OPTIONS[idx].value });
+        }
+      }
+    } else {
+      Alert.alert('Minimum Time Between Pushes', 'Critical alerts always bypass this.', [
+        ...INTERVAL_OPTIONS.map((o) => ({
+          text: o.label,
+          onPress: () => savePrefs({ min_push_interval_minutes: o.value }),
+        })),
         { text: 'Cancel', style: 'cancel' as const },
       ]);
     }
@@ -245,8 +282,45 @@ export function NotificationSettingsScreen() {
               <SmartIcon name="chevron-forward" size={14} color={colors.textDisabled} />
             </View>
           </Pressable>
+          <View style={styles.divider} />
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <SmartIcon name="school-outline" size={18} color={colors.textSecondary} />
+              <View style={styles.toggleTextCol}>
+                <Text style={styles.toggleLabel}>Silent during school hours</Text>
+                <Text style={styles.toggleSubtitle}>Hold non-critical pushes while you're in class</Text>
+              </View>
+            </View>
+            <Switch
+              value={prefs.school_hours_quiet}
+              onValueChange={(val) => savePrefs({ school_hours_quiet: val })}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={colors.textPrimary}
+            />
+          </View>
           <Text style={styles.quietNote}>
-            Critical alerts (load warnings, injury risk) bypass quiet hours.
+            Critical alerts (load warnings, injury risk) always bypass quiet hours.
+          </Text>
+        </View>
+
+        {/* Minimum interval between pushes */}
+        <Text style={styles.sectionTitle}>Minimum Gap Between Pushes</Text>
+        <View style={styles.card}>
+          <Pressable style={styles.settingRow} onPress={handleMinInterval}>
+            <View style={styles.settingInfo}>
+              <SmartIcon name="timer-outline" size={18} color={colors.textSecondary} />
+              <Text style={styles.settingLabel}>Non-critical pushes</Text>
+            </View>
+            <View style={styles.timeBadge}>
+              <Text style={[styles.timeValue, { color: colors.accent }]}>
+                {(INTERVAL_OPTIONS.find((o) => o.value === prefs.min_push_interval_minutes)?.label) ??
+                  `${prefs.min_push_interval_minutes} min`}
+              </Text>
+              <SmartIcon name="chevron-forward" size={14} color={colors.textDisabled} />
+            </View>
+          </Pressable>
+          <Text style={styles.quietNote}>
+            Keeps Tomo calm — no rapid-fire notifications. Critical alerts always come through.
           </Text>
         </View>
 

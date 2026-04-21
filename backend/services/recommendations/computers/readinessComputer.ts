@@ -27,6 +27,7 @@ const retrieveKnowledgeChunks = async (..._args: any[]): Promise<any[]> => [];
 const generateAugmentedContent = async (..._args: any[]): Promise<{ body_short: string; body_long: string }> => ({ body_short: '', body_long: '' });
 import type { AthleteEvent } from '../../events/types';
 import type { RecPriority, RecommendationInsert } from '../types';
+import { insertRecommendationWithNotify } from '../notifyRec';
 
 export async function computeReadinessRec(
   athleteId: string,
@@ -277,12 +278,10 @@ export async function computeReadinessRec(
     expires_at: expiresAt,
   };
 
-  const { error } = await (db as any)
-    .from('athlete_recommendations')
-    .insert(rec);
+  const insertedId = await insertRecommendationWithNotify(db as any, rec);
 
-  if (error) {
-    console.error(`[RIE/Readiness] Insert failed for ${athleteId}:`, error.message);
+  if (!insertedId) {
+    console.error(`[RIE/Readiness] Insert failed for ${athleteId}`);
     return;
   }
 

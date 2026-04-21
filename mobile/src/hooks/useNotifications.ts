@@ -2,11 +2,10 @@
  * useNotifications — Context-based notification state with push token registration.
  *
  * NotificationsProvider wraps the navigation tree.
- * useNotifications() returns centerUnreadCount (new system), hasCriticalUnread,
- * and pendingDrillNotifs (legacy — coach drill assignments not yet migrated).
- *
- * Badge uses centerUnreadCount ONLY (legacy unreadCount is retained internally
- * for pendingDrillNotifs but NOT exposed to the bell).
+ * useNotifications() returns centerUnreadCount + hasCriticalUnread from the
+ * new notification center (athlete_notifications). Drill assignments, wellness
+ * critical, coach assessments, recommendations — all flow through the same
+ * system now. The legacy `notifications` table is no longer read.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
@@ -14,8 +13,6 @@ import { AppState, Linking, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from './useAuth';
 import {
-  getPlayerNotifications,
-  markAllPlayerNotificationsRead,
   registerPushToken,
   apiRequest,
 } from '../services/api';
@@ -25,9 +22,11 @@ import type { PlayerNotification } from '../types/programme';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface NotificationsContextValue {
+  /** Deprecated: always empty. Kept for backward-compat of consumers. */
   notifications: PlayerNotification[];
+  /** Deprecated: always 0. Use centerUnreadCount. */
   unreadCount: number;
-  /** Unread count from the new notification center */
+  /** Unread count from the notification center (athlete_notifications) */
   centerUnreadCount: number;
   /** Has any P1 critical notification unread */
   hasCriticalUnread: boolean;
@@ -35,7 +34,7 @@ interface NotificationsContextValue {
   refresh: () => Promise<void>;
   markRead: (id: string) => void;
   markAllRead: () => Promise<void>;
-  /** Pending coach drill notifications (unacted) */
+  /** Deprecated: always empty. Drill assignments now flow through the new engine. */
   pendingDrillNotifs: PlayerNotification[];
 }
 
@@ -54,15 +53,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     if (!profile) return;
     setLoading(true);
     try {
-      const [res, centerRes] = await Promise.all([
-        getPlayerNotifications(),
-        apiRequest<{ total: number; by_category: Record<string, number> }>(
-          '/api/v1/notifications/unread-count'
-        ).catch(() => ({ total: 0, by_category: {} })),
-      ]);
+      const centerRes = await apiRequest<{ total: number; by_category: Record<string, number> }>(
+        '/api/v1/notifications/unread-count',
+      ).catch(() => ({ total: 0, by_category: {} }));
       if (mounted.current) {
-        setNotifications(res.notifications ?? []);
-        setUnreadCount(res.unreadCount ?? 0);
         setCenterUnreadCount(centerRes.total);
         const byCat = centerRes.by_category as Record<string, number> | undefined;
         setHasCriticalUnread((byCat?.critical ?? 0) > 0);
@@ -74,16 +68,15 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }
   }, [profile]);
 
-  const markRead = useCallback((id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    setUnreadCount((prev) => Math.max(0, prev - 1));
-  }, []);
+  // Legacy ops kept as no-ops so existing consumers keep compiling.
+  // Center read/markAll flows through NotificationCenterScreen's own handlers.
+  const markRead = useCallback((_id: string) => {}, []);
 
   const markAllRead = useCallback(async () => {
     try {
-      await markAllPlayerNotificationsRead();
-      setUnreadCount(0);
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      await apiRequest('/api/v1/notifications/read-all', { method: 'POST' });
+      setCenterUnreadCount(0);
+      setHasCriticalUnread(false);
     } catch (err) {
       console.warn('[useNotifications] Mark all read failed:', err);
     }
@@ -222,10 +215,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     return () => sub?.remove?.();
   }, [navigation, refresh]);
 
-  const pendingDrillNotifs = notifications.filter(
-    (n) => n.type === 'coach_drill_assigned' && !n.isActed
-  );
-
   return React.createElement(
     NotificationsContext.Provider,
     {
@@ -238,7 +227,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         refresh,
         markRead,
         markAllRead,
-        pendingDrillNotifs,
+        pendingDrillNotifs: [] as PlayerNotification[],
       },
     },
     children

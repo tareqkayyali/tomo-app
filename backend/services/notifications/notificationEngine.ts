@@ -541,9 +541,11 @@ async function updateGroupedNotification(
 
 /**
  * Fatigue guard: returns true if this notification type is fatigued
- * for the athlete (3+ dismissals in 7 days without acting).
+ * for the athlete.
  *
  * Critical types are exempt from fatigue.
+ * Subtle-defaults rule: 3 dismissals in 7 days silences a non-critical
+ * type (was 5) — Tomo errs on the side of restraint for 13–17yo users.
  */
 async function isFatigued(
   db: any,
@@ -562,8 +564,7 @@ async function isFatigued(
     .eq('notification_type', type)
     .gte('dismissed_at', sevenDaysAgo);
 
-  // 5+ dismissals = fully fatigued (no push or in-app for 14 days)
-  if ((count ?? 0) >= 5) return true;
+  if ((count ?? 0) >= 3) return true;
 
   return false;
 }

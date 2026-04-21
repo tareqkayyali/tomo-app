@@ -46,6 +46,7 @@ export type NotificationType =
   | 'STUDY_TRAINING_CONFLICT'
   // Triangle
   | 'COACH_ASSESSMENT_ADDED'
+  | 'COACH_DRILL_ASSIGNED'
   | 'PARENT_SCHEDULE_FLAG'
   | 'TRIANGLE_ALIGNMENT_CHANGE'
   | 'EVENT_ANNOTATION'
@@ -416,6 +417,21 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     primary_action: { label: 'View assessment', deep_link: 'tomo://chat?intent=coach_assessment' },
     secondary_action: { label: 'Reply in chat', deep_link: 'tomo://chat?intent=coach_response' },
     expiry: { ttl_hours: 168 },
+    can_dismiss: true,
+  },
+
+  COACH_DRILL_ASSIGNED: {
+    type: 'COACH_DRILL_ASSIGNED',
+    category: 'triangle',
+    priority: 2,
+    title: '{coach_name} assigned you {drill_count} drill{drill_plural}',
+    body: '{mandatory_clause}Starting {first_date} \u00B7 Tap to add to your schedule',
+    chips: [{ label: '{mandatory_count} mandatory', style: 'amber' }],
+    primary_action: { label: 'Add to schedule', deep_link: 'tomo://timeline?programme={programme_id}' },
+    secondary_action: { label: 'Ask Tomo', deep_link: 'tomo://chat?intent=coach_drill_explain&programme={programme_id}', dismisses: true },
+    group_key_pattern: '{programme_id}',
+    group_update_behavior: 'replace_body',
+    expiry: { ttl_hours: 336 },
     can_dismiss: true,
   },
 

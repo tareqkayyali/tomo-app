@@ -4,10 +4,12 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const HEADERS = { "api-version": "v1" };
 
+// Subtle defaults (see memory: feedback_subtle_notifications.md) — kept in
+// sync with migration 087. Changes to defaults must update both.
 const DEFAULT_PREFERENCES = {
-  quiet_hours_start: "23:00",
-  quiet_hours_end: "07:00",
-  daily_reminder_time: "07:00",
+  quiet_hours_start: "21:00",
+  quiet_hours_end: "08:00",
+  daily_reminder_time: "07:30",
   push_critical: true,
   push_training: true,
   push_coaching: true,
@@ -15,7 +17,8 @@ const DEFAULT_PREFERENCES = {
   push_triangle: true,
   push_cv: false,
   push_system: false,
-  max_push_per_day: 5,
+  max_push_per_day: 3,
+  min_push_interval_minutes: 120,
 };
 
 const BOOLEAN_FIELDS = [
@@ -90,6 +93,16 @@ export async function PUT(req: NextRequest) {
     // Max push per day
     if (typeof body.max_push_per_day === "number") {
       updates.max_push_per_day = Math.max(1, Math.min(10, body.max_push_per_day));
+    }
+
+    // Minimum inter-push interval (subtle throttle — non-critical only)
+    if (typeof body.min_push_interval_minutes === "number") {
+      updates.min_push_interval_minutes = Math.max(0, Math.min(720, body.min_push_interval_minutes));
+    }
+
+    // Opt-in school-hours quiet
+    if (typeof body.school_hours_quiet === "boolean") {
+      updates.school_hours_quiet = body.school_hours_quiet;
     }
 
     const db = supabaseAdmin() as any;

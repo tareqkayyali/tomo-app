@@ -16,6 +16,7 @@ export {
   markAllRead,
   getNotifications,
   getUnreadCount,
+  expireByTTL,
 } from './notificationEngine';
 
 // Templates

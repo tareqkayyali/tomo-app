@@ -27,6 +27,7 @@ import { supersedeExisting } from '../supersedeExisting';
 import { REC_EXPIRY_HOURS } from '../constants';
 import type { AthleteEvent } from '../../events/types';
 import type { RecPriority, RecommendationInsert } from '../types';
+import { insertRecommendationWithNotify } from '../notifyRec';
 
 export async function computeCvOpportunityRec(
   athleteId: string,
@@ -245,12 +246,10 @@ export async function computeCvOpportunityRec(
     expires_at: expiresAt,
   };
 
-  const { error } = await (db as any)
-    .from('athlete_recommendations')
-    .insert(rec);
+  const insertedId = await insertRecommendationWithNotify(db as any, rec);
 
-  if (error) {
-    console.error(`[RIE/CVOpportunity] Insert failed for ${athleteId}:`, error.message);
+  if (!insertedId) {
+    console.error(`[RIE/CVOpportunity] Insert failed for ${athleteId}`);
     return;
   }
 

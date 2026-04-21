@@ -24,6 +24,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { REC_EXPIRY_HOURS } from '../constants';
 import type { AthleteEvent } from '../../events/types';
 import type { RecommendationInsert } from '../types';
+import { insertRecommendationWithNotify } from '../notifyRec';
 
 /** Streak milestones that trigger a motivation rec */
 const STREAK_MILESTONES = [7, 14, 30, 60, 90, 180, 365];
@@ -204,12 +205,10 @@ export async function computeMotivationRec(
     expires_at: expiresAt,
   };
 
-  const { error } = await (db as any)
-    .from('athlete_recommendations')
-    .insert(rec);
+  const insertedId = await insertRecommendationWithNotify(db as any, rec);
 
-  if (error) {
-    console.error(`[RIE/Motivation] Insert failed for ${athleteId}:`, error.message);
+  if (!insertedId) {
+    console.error(`[RIE/Motivation] Insert failed for ${athleteId}`);
     return;
   }
 

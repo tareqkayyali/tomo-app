@@ -82,8 +82,8 @@ export async function schedulePush(
     .single();
 
   const preferences = prefs ?? {
-    quiet_hours_start: '23:00',
-    quiet_hours_end: '07:00',
+    quiet_hours_start: '21:00',
+    quiet_hours_end: '08:00',
     push_critical: true,
     push_training: true,
     push_coaching: true,
@@ -91,7 +91,8 @@ export async function schedulePush(
     push_triangle: true,
     push_cv: false,
     push_system: false,
-    max_push_per_day: 5,
+    max_push_per_day: 3,
+    min_push_interval_minutes: 120,
   };
 
   console.log(`[pushDelivery] prefs found: ${!!prefs}, category toggle: ${preferences[CATEGORY_PREF_FIELD[category]]}`);
@@ -116,9 +117,27 @@ export async function schedulePush(
 
   console.log(`[pushDelivery] pushesToday=${pushesToday}, cap=${preferences.max_push_per_day}`);
 
-  if ((pushesToday ?? 0) >= (preferences.max_push_per_day ?? 5)) {
+  if ((pushesToday ?? 0) >= (preferences.max_push_per_day ?? 3)) {
     console.log(`[pushDelivery] BLOCKED: daily_cap_reached`);
     return { sent: false, queued: false, reason: 'daily_cap_reached' };
+  }
+
+  // 3b. Inter-push minimum interval (non-critical only).
+  // Keeps Tomo subtle — no rapid-fire back-to-back notifications.
+  const minIntervalMin = preferences.min_push_interval_minutes ?? 120;
+  if (category !== 'critical' && minIntervalMin > 0) {
+    const intervalCutoff = new Date(Date.now() - minIntervalMin * 60 * 1000).toISOString();
+    const { data: recentPush } = await dbClient
+      .from('athlete_notifications')
+      .select('id')
+      .eq('athlete_id', athleteId)
+      .eq('push_sent', true)
+      .gte('push_sent_at', intervalCutoff)
+      .limit(1);
+    if (recentPush && recentPush.length > 0) {
+      console.log(`[pushDelivery] BLOCKED: min_interval (last push within ${minIntervalMin}min)`);
+      return { sent: false, queued: false, reason: 'min_interval' };
+    }
   }
 
   // 4. Check quiet hours (night + school hours)
@@ -180,7 +199,7 @@ export async function schedulePush(
     {
       notificationId,
       type: category,
-      deepLink: deepLink ?? '',
+      url: deepLink ?? '',
     },
     CATEGORY_CHANNELS[category],
   );
@@ -261,7 +280,7 @@ export async function deliverQueuedPushes(): Promise<number> {
       tokenRow.expo_push_token,
       notif.title,
       notif.body,
-      { notificationId: notif.id, type: notif.category, deepLink },
+      { notificationId: notif.id, type: notif.category, url: deepLink },
       CATEGORY_CHANNELS[notif.category as NotificationCategory] ?? 'tomo-system',
     );
 

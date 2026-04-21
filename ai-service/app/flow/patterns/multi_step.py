@@ -233,6 +233,19 @@ async def execute_multi_step_start(config: FlowConfig, state: TomoChatState) -> 
                 f"safety_gate: blocked intent={flow.intent_id} "
                 f"rule={gate_verdict.rule} -> {gate_verdict.suggested_intensity}"
             )
+            # Fire-and-forget escalation to athlete notification center for
+            # genuinely critical rules (pain / red_block). Never blocks chat.
+            try:
+                from app.services.notification_escalator import escalate_safety_block
+                escalate_safety_block(
+                    athlete_id=getattr(context, "user_id", None) if context else None,
+                    rule=gate_verdict.rule,
+                    block_message=gate_verdict.message,
+                    intent_id=flow.intent_id,
+                )
+            except Exception as esc_err:
+                logger.warning(f"safety_gate: escalation hook failed: {esc_err}")
+
             block = safety_gate_service.build_block_response(gate_verdict)
             return {
                 "final_response": json.dumps(block),
