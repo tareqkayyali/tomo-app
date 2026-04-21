@@ -5,9 +5,10 @@
  * benchmark bars, text cards, coach notes, and action chips.
  */
 
-import React, { useMemo } from 'react';
+import React, { Component, useMemo, type ErrorInfo, type ReactNode } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, TouchableOpacity } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
+import { Sentry } from '../../services/sentry';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 import { useTheme } from '../../hooks/useTheme';
@@ -1340,7 +1341,8 @@ function ProgramRecommendationCardComponent({
 }
 
 /** Strip markdown syntax from plain-text card bodies (safety net for AI formatting leaks). */
-function stripMarkdown(text: string): string {
+function stripMarkdown(text: unknown): string {
+  if (typeof text !== 'string' || text.length === 0) return '';
   return text
     .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold** → bold
     .replace(/\*(.+?)\*/g, '$1')        // *italic* → italic
@@ -1654,13 +1656,18 @@ function SchedulePreviewCardComponent({
   onConfirm?: () => void;
 }) {
   // Group events by date
+  const events = Array.isArray(card.events) ? card.events : [];
+  const summary = card.summary ?? { total: 0, withViolations: 0, blocked: 0 };
+  const scenario = typeof card.scenario === 'string' ? card.scenario : '';
   const byDate = new Map<string, SchedulePreviewEvent[]>();
-  for (const evt of card.events) {
-    if (!byDate.has(evt.date)) byDate.set(evt.date, []);
-    byDate.get(evt.date)!.push(evt);
+  for (const evt of events) {
+    if (!evt) continue;
+    const date = evt.date ?? '';
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date)!.push(evt);
   }
 
-  const acceptedCount = card.events.filter((e) => e.accepted).length;
+  const acceptedCount = events.filter((e) => e?.accepted).length;
 
   return (
     <View style={styles.schedulePreviewCard}>
@@ -1669,14 +1676,14 @@ function SchedulePreviewCardComponent({
         <View style={{ gap: 2 }}>
           <Text style={styles.schedulePreviewTitle}>Schedule Preview</Text>
           <Text style={styles.schedulePreviewSummary}>
-            {acceptedCount} of {card.summary.total} events
-            {card.summary.withViolations > 0
-              ? ` · ${card.summary.withViolations} need attention`
+            {acceptedCount} of {summary.total ?? 0} events
+            {(summary.withViolations ?? 0) > 0
+              ? ` · ${summary.withViolations} need attention`
               : ' ready'}
           </Text>
         </View>
         <Text style={styles.schedulePreviewScenarioBadge}>
-          {card.scenario.replace(/_/g, ' ').toUpperCase()}
+          {scenario.replace(/_/g, ' ').toUpperCase()}
         </Text>
       </View>
 
@@ -1685,9 +1692,11 @@ function SchedulePreviewCardComponent({
         <View key={date}>
           <Text style={styles.schedulePreviewDate}>{date}</Text>
           {events.map((evt, i) => {
+            const violations = Array.isArray(evt.violations) ? evt.violations : [];
+            const alternatives = Array.isArray(evt.alternatives) ? evt.alternatives : [];
             const dotColor = EVENT_TYPE_COLORS[evt.event_type] || colors.textSecondary;
-            const hasErrors = evt.violations.some((v) => v.severity === 'error');
-            const hasWarnings = evt.violations.some((v) => v.severity === 'warning');
+            const hasErrors = violations.some((v) => v?.severity === 'error');
+            const hasWarnings = violations.some((v) => v?.severity === 'warning');
 
             return (
               <View
@@ -1715,7 +1724,7 @@ function SchedulePreviewCardComponent({
                   </Text>
 
                   {/* Violations */}
-                  {(Array.isArray(evt.violations) ? evt.violations : []).map((v, vi) => (
+                  {violations.map((v, vi) => (
                     <View key={vi} style={styles.schedulePreviewViolation}>
                       <Text style={{ fontSize: 11 }}>
                         {VIOLATION_ICONS[v.type] || ''}
@@ -1735,9 +1744,9 @@ function SchedulePreviewCardComponent({
                   ))}
 
                   {/* Alternative time chips */}
-                  {evt.alternatives.length > 0 && (
+                  {alternatives.length > 0 && (
                     <View style={styles.schedulePreviewAltsRow}>
-                      {(Array.isArray(evt.alternatives) ? evt.alternatives : []).map((alt, ai) => (
+                      {alternatives.map((alt, ai) => (
                         <Pressable
                           key={ai}
                           style={({ pressed }) => [
@@ -1789,10 +1798,10 @@ function SchedulePreviewCardComponent({
           style={({ pressed }) => [
             styles.schedulePreviewConfirmBtn,
             pressed && { opacity: 0.8 },
-            card.summary.blocked > 0 && { opacity: 0.5 },
+            (summary.blocked ?? 0) > 0 && { opacity: 0.5 },
           ]}
           onPress={onConfirm}
-          disabled={card.summary.blocked > 0 && acceptedCount === 0}
+          disabled={(summary.blocked ?? 0) > 0 && acceptedCount === 0}
         >
           <Text style={styles.schedulePreviewConfirmText}>
             Confirm {acceptedCount} Event{acceptedCount !== 1 ? 's' : ''}
@@ -1801,6 +1810,77 @@ function SchedulePreviewCardComponent({
       </View>
     </View>
   );
+}
+
+// ── Per-Card Error Boundary ──────────────────────────────────────
+//
+// A single bad card (usually a stale/legacy payload restored from storage)
+// must not crash the whole chat screen. This boundary contains the blast
+// radius to one card, logs the real error + card type to Sentry so we can
+// fix the underlying data/shape later, and renders a small inline placeholder
+// in its place. Without this, one broken message in the user's saved chat
+// loops the app into the top-level ErrorBoundary on every mount.
+
+interface CardErrorBoundaryProps {
+  cardType: string;
+  children: ReactNode;
+}
+
+interface CardErrorBoundaryState {
+  hasError: boolean;
+}
+
+class CardErrorBoundary extends Component<CardErrorBoundaryProps, CardErrorBoundaryState> {
+  state: CardErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): CardErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    const cardType = this.props.cardType || 'unknown';
+    // Preserve the real error details for diagnosis — the top-level boundary
+    // only ever sees a minified component stack, which loses the card type.
+    console.error(
+      `[ResponseRenderer] card="${cardType}" failed to render:`,
+      error,
+      info.componentStack,
+    );
+    try {
+      Sentry.captureException(error, {
+        tags: { component: 'ResponseRenderer', cardType },
+        extra: { componentStack: info.componentStack },
+      } as any);
+    } catch {
+      // Sentry may not be configured — never let reporting itself throw
+    }
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <View
+        style={{
+          backgroundColor: 'rgba(248, 113, 113, 0.08)',
+          borderRadius: borderRadius.md,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: 'rgba(248, 113, 113, 0.25)',
+          paddingVertical: 10,
+          paddingHorizontal: 12,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: fontFamily.medium,
+            fontSize: 12,
+            color: colors.textInactive,
+          }}
+        >
+          This card couldn&apos;t be displayed.
+        </Text>
+      </View>
+    );
+  }
 }
 
 // ── Card Router ──────────────────────────────────────────────────
@@ -1962,17 +2042,18 @@ export function ResponseRenderer({
       ) : null}
 
       {filteredCards.map((card, i) => (
-        <RenderCard
-          key={i}
-          card={card}
-          styles={styles}
-          colors={colors}
-          onConfirm={onConfirm}
-          onCancel={onCancel}
-          onChipPress={onChipPress}
-          onCapsuleSubmit={onCapsuleSubmit}
-          onNavigate={onNavigate}
-        />
+        <CardErrorBoundary key={i} cardType={card?.type || 'unknown'}>
+          <RenderCard
+            card={card}
+            styles={styles}
+            colors={colors}
+            onConfirm={onConfirm}
+            onCancel={onCancel}
+            onChipPress={onChipPress}
+            onCapsuleSubmit={onCapsuleSubmit}
+            onNavigate={onNavigate}
+          />
+        </CardErrorBoundary>
       ))}
 
       {response.chips && response.chips.length > 0 && onChipPress ? (
