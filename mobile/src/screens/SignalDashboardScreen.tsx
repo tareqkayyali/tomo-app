@@ -178,41 +178,40 @@ export function SignalDashboardScreen() {
   }, [navigation]);
 
   // Sub-tab swipe — left goes to next (Dashboard → Program → Metrics → Progress),
-  // right goes to previous. Uses the functional-update form of setActiveTab so the
-  // worklet callback never captures a stale value. failOffsetY yields to vertical
+  // right goes to previous. At the leftmost sub-tab (Dashboard), a right-swipe
+  // escapes to the Chat main tab — the outer Material Top Tab pager is disabled
+  // on Signal so we route this programmatically. failOffsetY yields to vertical
   // scrolls inside each panel; activeOffsetX requires a meaningful horizontal
   // drag before the pan claims the gesture.
   const goSubTab = useCallback((direction: 'next' | 'prev') => {
-    setActiveTab((prev) => {
-      const idx = DASHBOARD_TABS.findIndex((t) => t.key === prev);
-      if (idx < 0) return prev;
-      const nextIdx = direction === 'next' ? idx + 1 : idx - 1;
-      if (nextIdx < 0 || nextIdx >= DASHBOARD_TABS.length) return prev;
-      return DASHBOARD_TABS[nextIdx].key;
-    });
-  }, []);
+    const idx = DASHBOARD_TABS.findIndex((t) => t.key === activeTab);
+    if (idx < 0) return;
+    const nextIdx = direction === 'next' ? idx + 1 : idx - 1;
+    if (nextIdx < 0) {
+      // Right-swipe past Dashboard — leave Signal and go to Chat.
+      navigation.navigate('Chat' as any);
+      return;
+    }
+    if (nextIdx >= DASHBOARD_TABS.length) return;
+    setActiveTab(DASHBOARD_TABS[nextIdx].key);
+  }, [activeTab, navigation]);
 
   const subTabSwipe = useMemo(() => {
-    const currentIdx = DASHBOARD_TABS.findIndex((t) => t.key === activeTab);
-    // On the leftmost sub-tab (Dashboard), only capture LEFT swipes. This lets
-    // a right-swipe bubble up to the outer Material Top Tab pager so the
-    // athlete can still gesture back to Chat. Middle + last sub-tabs capture
-    // both directions (last sub-tab's left-swipe is a no-op; it never reaches
-    // the outer pager because Dashboard is the rightmost main tab).
-    const isFirstSubTab = currentIdx === 0;
-    const activeOffsetX: [number, number] = isFirstSubTab ? [-25, 100_000] : [-25, 25];
-
+    // Outer Material Top Tab pager is disabled on Signal (see MainNavigator
+    // screenOptions), so no arbitration needed — inner pan fully owns
+    // horizontal swipes here. Thresholds tuned aggressively because there's
+    // no outer competitor to steal quick flicks.
     return Gesture.Pan()
-      .activeOffsetX(activeOffsetX)
-      .failOffsetY([-15, 15])
+      .activeOffsetX([-15, 15])
+      .failOffsetY([-30, 30])
       .onEnd((e) => {
         'worklet';
-        const swipedLeft = e.translationX < -50 || e.velocityX < -400;
-        const swipedRight = e.translationX > 50 || e.velocityX > 400;
+        const swipedLeft = e.translationX < -30 || e.velocityX < -300;
+        const swipedRight = e.translationX > 30 || e.velocityX > 300;
         if (swipedLeft) runOnJS(goSubTab)('next');
         else if (swipedRight) runOnJS(goSubTab)('prev');
       });
-  }, [activeTab, goSubTab]);
+  }, [goSubTab]);
 
   // Week-strip day tap in ProgramPanel: close the panel and deep-link to
   // the Plan (Timeline) tab focused on that date.
