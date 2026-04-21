@@ -14,6 +14,8 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Platform, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBootData } from '../hooks/useBootData';
 import { useOutputData } from '../hooks/useOutputData';
@@ -175,6 +177,43 @@ export function SignalDashboardScreen() {
     navigation.navigate('Settings' as any);
   }, [navigation]);
 
+  // Sub-tab swipe — left goes to next (Dashboard → Program → Metrics → Progress),
+  // right goes to previous. Uses the functional-update form of setActiveTab so the
+  // worklet callback never captures a stale value. failOffsetY yields to vertical
+  // scrolls inside each panel; activeOffsetX requires a meaningful horizontal
+  // drag before the pan claims the gesture.
+  const goSubTab = useCallback((direction: 'next' | 'prev') => {
+    setActiveTab((prev) => {
+      const idx = DASHBOARD_TABS.findIndex((t) => t.key === prev);
+      if (idx < 0) return prev;
+      const nextIdx = direction === 'next' ? idx + 1 : idx - 1;
+      if (nextIdx < 0 || nextIdx >= DASHBOARD_TABS.length) return prev;
+      return DASHBOARD_TABS[nextIdx].key;
+    });
+  }, []);
+
+  const subTabSwipe = useMemo(() => {
+    const currentIdx = DASHBOARD_TABS.findIndex((t) => t.key === activeTab);
+    // On the leftmost sub-tab (Dashboard), only capture LEFT swipes. This lets
+    // a right-swipe bubble up to the outer Material Top Tab pager so the
+    // athlete can still gesture back to Chat. Middle + last sub-tabs capture
+    // both directions (last sub-tab's left-swipe is a no-op; it never reaches
+    // the outer pager because Dashboard is the rightmost main tab).
+    const isFirstSubTab = currentIdx === 0;
+    const activeOffsetX: [number, number] = isFirstSubTab ? [-25, 100_000] : [-25, 25];
+
+    return Gesture.Pan()
+      .activeOffsetX(activeOffsetX)
+      .failOffsetY([-15, 15])
+      .onEnd((e) => {
+        'worklet';
+        const swipedLeft = e.translationX < -50 || e.velocityX < -400;
+        const swipedRight = e.translationX > 50 || e.velocityX > 400;
+        if (swipedLeft) runOnJS(goSubTab)('next');
+        else if (swipedRight) runOnJS(goSubTab)('prev');
+      });
+  }, [activeTab, goSubTab]);
+
   // Week-strip day tap in ProgramPanel: close the panel and deep-link to
   // the Plan (Timeline) tab focused on that date.
   const onProgramDayPress = useCallback(
@@ -234,6 +273,8 @@ export function SignalDashboardScreen() {
         borderColor={colors.borderLight}
       />
 
+      <GestureDetector gesture={subTabSwipe}>
+      <View style={styles.subTabContainer}>
       {activeTab === 'dashboard' && (
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -377,12 +418,19 @@ export function SignalDashboardScreen() {
           panelLayout={bootData?.panelLayouts?.progress}
         />
       )}
+      </View>
+      </GestureDetector>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  // Wraps the 4 sub-tab panels so a single GestureDetector can handle
+  // horizontal swipes between them without rebuilding on every tab change.
+  subTabContainer: {
     flex: 1,
   },
   // Tab content wrappers (Programs / Metrics — Coach-portal sections)
