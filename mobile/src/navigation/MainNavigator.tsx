@@ -468,7 +468,17 @@ export function MainNavigator() {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="MainTabs" component={TabNavigator} />
+      <Stack.Screen
+        name="MainTabs"
+        component={TabNavigator}
+        options={{
+          // Root screen — there's no prior screen to swipe back to. The
+          // stack-default `fullScreenGestureEnabled: true` would otherwise
+          // claim every horizontal swipe and block both the Material Top
+          // Tab pager (main-tab swipe) and the Signal sub-tab GestureDetector.
+          gestureEnabled: false,
+        }}
+      />
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
