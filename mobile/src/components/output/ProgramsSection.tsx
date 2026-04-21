@@ -437,39 +437,35 @@ function ProgramCard({
   return (
     <Pressable onPress={() => !confirmAction && setExpanded(!expanded)}>
       <GlassCard>
-        {/* Collapsed row — Active pill lives with the eyebrow at the top-right so
-            it's visually well separated from the expand chevron on the middle-right. */}
-        <View style={styles.cardHeader}>
-          {emoji ? <Text style={styles.cardEmoji}>{emoji}</Text> : null}
-          <View style={{ flex: 1 }}>
-            <View style={styles.eyebrowRow}>
-              <Text style={[styles.sourceEyebrow, { color: sourceColor, flex: 1 }]} numberOfLines={1}>
-                {SOURCE_LABEL[source]}
-              </Text>
-              {onToggleActive && (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.cardActionBtn,
-                    isActive ? styles.cardActionBtnSelected : styles.cardActionBtnDefault,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={(e) => { e.stopPropagation(); onToggleActive(); }}
-                  onStartShouldSetResponder={() => true}
-                  onTouchEnd={(e) => e.stopPropagation()}
-                  hitSlop={8}
-                >
-                  <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={12} color={isActive ? colors.accent : colors.muted} />
-                  <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.muted }]}>Active</Text>
-                </Pressable>
-              )}
-            </View>
-            <Text style={[styles.programName, { color: colors.tomoCream }]} numberOfLines={1}>{program.name}</Text>
-            <Text style={[styles.programMeta, { color: colors.muted }]}>
-              {program.frequency} · {program.durationMin} min · {(program as any).durationWeeks || 4}wks
-            </Text>
-          </View>
-          <SmartIcon name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} style={{ marginLeft: 10 }} />
+        {/* Collapsed row — eyebrow + Active pill + chevron share one line at the
+            top, name/meta sit below. Keeps card height tight and places the
+            chevron right next to the Active pill. */}
+        <View style={styles.eyebrowRow}>
+          <Text style={[styles.sourceEyebrow, { color: sourceColor, flex: 1 }]} numberOfLines={1}>
+            {SOURCE_LABEL[source]}
+          </Text>
+          {onToggleActive && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.cardActionBtn,
+                isActive ? styles.cardActionBtnSelected : styles.cardActionBtnDefault,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={(e) => { e.stopPropagation(); onToggleActive(); }}
+              onStartShouldSetResponder={() => true}
+              onTouchEnd={(e) => e.stopPropagation()}
+              hitSlop={8}
+            >
+              <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={12} color={isActive ? colors.accent : colors.muted} />
+              <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.muted }]}>Active</Text>
+            </Pressable>
+          )}
+          <SmartIcon name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} />
         </View>
+        <Text style={[styles.programName, { color: colors.tomoCream }]} numberOfLines={1}>{program.name}</Text>
+        <Text style={[styles.programMeta, { color: colors.muted }]}>
+          {program.frequency} · {program.durationMin} min · {(program as any).durationWeeks || 4}wks
+        </Text>
 
         {/* Inline confirmation */}
         {confirmAction && (() => {
@@ -733,8 +729,8 @@ const styles = StyleSheet.create({
   eyebrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    gap: 10,
+    marginBottom: 2,
   },
 
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
