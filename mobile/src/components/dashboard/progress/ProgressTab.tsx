@@ -73,7 +73,8 @@ export function ProgressTab() {
         </Text>
       </View>
 
-      {/* Window toggle */}
+      {/* Window toggle — active pill carries a soft sage glow so it reads as
+          "selected" without needing high contrast. */}
       <View style={[styles.toggle, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
         {WINDOWS.map((w) => {
           const active = w === window;
@@ -83,7 +84,14 @@ export function ProgressTab() {
               onPress={() => setWindow(w)}
               style={[
                 styles.toggleBtn,
-                active && { backgroundColor: colors.cream08 ?? 'rgba(245,243,237,0.08)' },
+                active && {
+                  backgroundColor: 'rgba(18,20,31,0.65)',
+                  shadowColor: colors.tomoSage,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.55,
+                  shadowRadius: 10,
+                  elevation: 6,
+                },
               ]}
             >
               <Text
@@ -132,6 +140,7 @@ export function ProgressTab() {
                   direction={m.direction}
                   valueMin={m.valueMin}
                   valueMax={m.valueMax}
+                  windowDays={window}
                 />
               ))}
               {/* Pad odd rows so the last card doesn't stretch full-width */}
@@ -174,29 +183,29 @@ const styles = StyleSheet.create({
   },
   toggle: {
     flexDirection: 'row',
-    padding: 4,
-    borderRadius: 14,
+    padding: 3,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   toggleBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 8,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toggleLabel: {
     fontFamily: fontFamily.regular,
-    fontSize: 13,
+    fontSize: 12,
     letterSpacing: 0.3,
   },
   grid: {
-    gap: 12,
+    gap: 10,
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   stateWrap: {
     alignItems: 'center',

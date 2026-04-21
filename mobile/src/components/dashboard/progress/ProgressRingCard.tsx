@@ -30,14 +30,23 @@ export interface ProgressRingCardProps {
   direction: 'higher_better' | 'lower_better' | 'neutral';
   valueMin: number | null;
   valueMax: number | null;
+  /** Window in days — used in the delta chip label (e.g. "vs 30d"). */
+  windowDays: number;
   /** Optional — card is pressable when provided. */
   onPress?: () => void;
 }
 
-const SIZE = 148;
-const STROKE = 10;
+// Ring geometry — tightened so a 2-col grid feels compact on the Signal tab
+// without an empty gap between cards. STROKE scales proportionally with SIZE.
+const SIZE = 104;
+const STROKE = 7;
 const R = (SIZE - STROKE) / 2;
 const CIRC = 2 * Math.PI * R;
+// Halo stroke — wider + translucent, rendered behind the main arc to fake a
+// soft luminescent bloom (react-native-svg's filter support is patchy across
+// RN versions; double-stroke is the portable way to get a glow effect).
+const HALO_STROKE = STROKE * 2.2;
+const HALO_OPACITY = 0.28;
 
 export function ProgressRingCard({
   displayName,
@@ -48,6 +57,7 @@ export function ProgressRingCard({
   direction,
   valueMin,
   valueMax,
+  windowDays,
   onPress,
 }: ProgressRingCardProps) {
   const { colors } = useTheme();
@@ -70,7 +80,8 @@ export function ProgressRingCard({
   const deltaLabel = useMemo(() => {
     if (deltaPct == null) return null;
     const pct = Math.round(deltaPct);
-    if (pct === 0) return { text: '— vs 7d', positive: null as null | boolean };
+    const suffix = `vs ${windowDays}d`;
+    if (pct === 0) return { text: `— ${suffix}`, positive: null as null | boolean };
     const arrow = pct > 0 ? '▲' : '▼';
     const magnitude = Math.abs(pct);
     // "positive" here means "good for the athlete" — the colour of the chip.
@@ -79,13 +90,14 @@ export function ProgressRingCard({
     let positive: null | boolean = null;
     if (direction === 'higher_better') positive = pct > 0;
     else if (direction === 'lower_better') positive = pct < 0;
-    return { text: `${arrow} ${magnitude}% vs 7d`, positive };
-  }, [deltaPct, direction]);
+    return { text: `${arrow} ${magnitude}% ${suffix}`, positive };
+  }, [deltaPct, direction, windowDays]);
 
   const deltaColor = useMemo(() => {
     if (!deltaLabel) return colors.textMuted;
     if (deltaLabel.positive === null) return colors.textMuted;
-    return deltaLabel.positive ? colors.tomoSageDim : '#d97757';
+    // Brighter sage to echo the ring's luminous gradient; danger stays warm.
+    return deltaLabel.positive ? '#B5D4A8' : '#d97757';
   }, [deltaLabel, colors]);
 
   // Format the headline number: keep one decimal for fractional units (h, /10),
@@ -101,21 +113,39 @@ export function ProgressRingCard({
       <View style={styles.ringWrap}>
         <Svg width={SIZE} height={SIZE}>
           <Defs>
+            {/* Luminous sage gradient — starts brighter than the base accent
+                so the ring reads as lit rather than painted. */}
             <SvgLinearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor={colors.accentLight} stopOpacity={1} />
+              <Stop offset="0%" stopColor="#C5E0B4" stopOpacity={1} />
+              <Stop offset="60%" stopColor={colors.accentLight} stopOpacity={1} />
               <Stop offset="100%" stopColor={colors.accent} stopOpacity={1} />
             </SvgLinearGradient>
           </Defs>
-          {/* Background ring */}
+          {/* Background track */}
           <Circle
             cx={SIZE / 2}
             cy={SIZE / 2}
             r={R}
-            stroke={colors.cream08 ?? 'rgba(245,243,237,0.08)'}
+            stroke="rgba(245,243,237,0.08)"
             strokeWidth={STROKE}
             fill="none"
           />
-          {/* Progress arc — rotated -90° so 0% starts at the top and
+          {/* Glow halo — wider, translucent stroke rendered behind the main
+              arc so the edge reads as a diffused bloom. */}
+          <Circle
+            cx={SIZE / 2}
+            cy={SIZE / 2}
+            r={R}
+            stroke="url(#ringGrad)"
+            strokeWidth={HALO_STROKE}
+            strokeLinecap="round"
+            strokeOpacity={HALO_OPACITY}
+            fill="none"
+            strokeDasharray={`${CIRC} ${CIRC}`}
+            strokeDashoffset={dashOffset}
+            transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
+          />
+          {/* Main progress arc — rotated -90° so 0% starts at the top and
               fills clockwise. */}
           <Circle
             cx={SIZE / 2}
@@ -164,13 +194,13 @@ export function ProgressRingCard({
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    minHeight: 220,
+    minHeight: 172,
   },
   ringWrap: {
     width: SIZE,
@@ -185,27 +215,27 @@ const styles = StyleSheet.create({
   },
   value: {
     fontFamily: fontFamily.semiBold,
-    fontSize: 32,
+    fontSize: 24,
     letterSpacing: -0.5,
-    lineHeight: 36,
+    lineHeight: 28,
   },
   unit: {
     fontFamily: fontFamily.regular,
-    fontSize: 11,
+    fontSize: 10,
     letterSpacing: 0.3,
-    marginTop: 2,
+    marginTop: 1,
   },
   label: {
     fontFamily: fontFamily.medium,
-    fontSize: 11,
-    letterSpacing: 1.5,
+    fontSize: 10,
+    letterSpacing: 1.4,
     textTransform: 'uppercase',
-    marginTop: 12,
+    marginTop: 10,
   },
   delta: {
     fontFamily: fontFamily.medium,
-    fontSize: 11,
+    fontSize: 10,
     letterSpacing: 0.3,
-    marginTop: 6,
+    marginTop: 4,
   },
 });
