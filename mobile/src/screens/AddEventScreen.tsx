@@ -72,7 +72,8 @@ const EVENT_TYPES: Array<{
   { key: 'study_block', label: 'Study', icon: 'book-outline' },
   { key: 'exam', label: 'Exam', icon: 'document-text-outline' },
   { key: 'recovery', label: 'Recovery', icon: 'leaf-outline' },
-  { key: 'other', label: 'Other', icon: 'ellipsis-horizontal' },
+  // 'other' is rendered as an inline TextInput chip so the athlete can name
+  // their own category (see chipRow below) — not a fixed label.
 ];
 
 /** Auto-generated name from event type */
@@ -109,6 +110,18 @@ function addMinutesToTime(time: string, minutes: number): string {
 
 function getTodayStr(): string {
   return new Date().toISOString().split('T')[0];
+}
+
+/** Current wall-clock time as "HH:MM" in the device's local timezone. */
+function getNowHHMM(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Minutes-since-midnight for a "HH:MM" string. */
+function hhmmToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
 }
 
 function getDateStr(offsetDays: number): string {
@@ -155,16 +168,46 @@ function TimePickerModal({
   onSelect,
   onClose,
   colors,
+  minTime,
 }: {
   visible: boolean;
   title: string;
   onSelect: (time: string) => void;
   onClose: () => void;
   colors: ThemeColors;
+  /** Optional "HH:MM" — options before this time are disabled. Used to
+   *  prevent picking past times when planning for today. */
+  minTime?: string;
 }) {
-  const [hour, setHour] = useState('09');
-  const [minute, setMinute] = useState('00');
+  // Floor minTime to the nearest 5-minute slot (our MINUTES grid is 5-min),
+  // rounding UP so "now" itself isn't selectable — the user picks the
+  // next available slot.
+  const [minH, minM] = useMemo(() => {
+    if (!minTime) return [-1, -1] as [number, number];
+    const [h, m] = minTime.split(':').map(Number);
+    const rounded = Math.ceil(m / 5) * 5;
+    if (rounded >= 60) return [(h + 1) % 24, 0] as [number, number];
+    return [h, rounded] as [number, number];
+  }, [minTime]);
+
+  const initialHour = minH >= 0 ? String(minH).padStart(2, '0') : '09';
+  const initialMinute = minM >= 0 ? String(minM).padStart(2, '0') : '00';
+  const [hour, setHour] = useState(initialHour);
+  const [minute, setMinute] = useState(initialMinute);
+
+  // Re-seed when minTime changes (e.g. date flips from tomorrow back to today).
+  useEffect(() => {
+    if (minTime) {
+      setHour(initialHour);
+      setMinute(initialMinute);
+    }
+  }, [minTime, initialHour, initialMinute]);
+
   const ms = useMemo(() => createModalStyles(colors), [colors]);
+
+  const isHourDisabled = (h: string) => minH >= 0 && parseInt(h, 10) < minH;
+  const isMinuteDisabled = (m: string) =>
+    minH >= 0 && parseInt(hour, 10) === minH && parseInt(m, 10) < minM;
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -180,16 +223,26 @@ function TimePickerModal({
                 keyExtractor={(item) => item}
                 style={ms.list}
                 showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <Pressable
-                    onPress={() => setHour(item)}
-                    style={[ms.option, item === hour && ms.optionActive]}
-                  >
-                    <Text style={[ms.optionText, item === hour && ms.optionTextActive]}>
-                      {item}
-                    </Text>
-                  </Pressable>
-                )}
+                renderItem={({ item }) => {
+                  const disabled = isHourDisabled(item);
+                  return (
+                    <Pressable
+                      onPress={disabled ? undefined : () => setHour(item)}
+                      disabled={disabled}
+                      style={[ms.option, item === hour && ms.optionActive]}
+                    >
+                      <Text
+                        style={[
+                          ms.optionText,
+                          item === hour && ms.optionTextActive,
+                          disabled && { opacity: 0.25 },
+                        ]}
+                      >
+                        {item}
+                      </Text>
+                    </Pressable>
+                  );
+                }}
               />
             </View>
 
@@ -202,16 +255,26 @@ function TimePickerModal({
                 keyExtractor={(item) => item}
                 style={ms.list}
                 showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <Pressable
-                    onPress={() => setMinute(item)}
-                    style={[ms.option, item === minute && ms.optionActive]}
-                  >
-                    <Text style={[ms.optionText, item === minute && ms.optionTextActive]}>
-                      {item}
-                    </Text>
-                  </Pressable>
-                )}
+                renderItem={({ item }) => {
+                  const disabled = isMinuteDisabled(item);
+                  return (
+                    <Pressable
+                      onPress={disabled ? undefined : () => setMinute(item)}
+                      disabled={disabled}
+                      style={[ms.option, item === minute && ms.optionActive]}
+                    >
+                      <Text
+                        style={[
+                          ms.optionText,
+                          item === minute && ms.optionTextActive,
+                          disabled && { opacity: 0.25 },
+                        ]}
+                      >
+                        {item}
+                      </Text>
+                    </Pressable>
+                  );
+                }}
               />
             </View>
           </View>
@@ -253,6 +316,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
     : 'training';
 
   const [eventType, setEventType] = useState<EventType>(validInitialType);
+  const [otherLabel, setOtherLabel] = useState('');
   const [date, setDate] = useState(params?.date || getTodayStr());
   const [startTime, setStartTime] = useState(params?.startTime || '');
   // Auto-set 1hr duration when opened from a grid slot
@@ -294,12 +358,25 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
     [dayEvents]
   );
 
+  // When planning for today, drop any slot that starts in the past. We ask
+  // the engine for more candidates (10) and then filter + trim to 3, so the
+  // post-now cohort still fills the UI even if several early slots would have
+  // been past-dated.
+  const nowMinutesIfToday = useMemo(() => {
+    if (date !== getTodayStr()) return null;
+    return hhmmToMinutes(getNowHHMM());
+  }, [date]);
+
   // Compute top 3 suggestions when type + duration are both set
   const bestTimeSuggestions = useMemo(() => {
     if (!duration) return [];
     const dow = new Date(date + 'T00:00:00').getDay();
-    return suggestBestTimes(eventType, duration, scheduleEvents, null, DEFAULT_CONFIG, dow, 3);
-  }, [eventType, duration, scheduleEvents, date]);
+    const raw = suggestBestTimes(eventType, duration, scheduleEvents, null, DEFAULT_CONFIG, dow, 10);
+    const future = nowMinutesIfToday != null
+      ? raw.filter((s) => s.startMin >= nowMinutesIfToday)
+      : raw;
+    return future.slice(0, 3);
+  }, [eventType, duration, scheduleEvents, date, nowMinutesIfToday]);
 
   const handleSlotPress = useCallback((idx: number) => {
     const slot = bestTimeSuggestions[idx];
@@ -338,8 +415,12 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
         }
       }
 
+      const eventName = eventType === 'other'
+        ? (otherLabel.trim() || TYPE_NAMES.other)
+        : TYPE_NAMES[eventType];
+
       await createCalendarEvent({
-        name: TYPE_NAMES[eventType],
+        name: eventName,
         type: eventType,
         sport: 'general',
         date,
@@ -360,12 +441,12 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [eventType, date, startTime, duration, notes, navigation, rules]);
+  }, [eventType, otherLabel, date, startTime, duration, notes, navigation, rules]);
 
   return (
     <PlayerScreen
       label="CALENDAR"
-      title="Add event"
+      title="Add Event"
       onBack={() => navigation.goBack()}
       right={
         <Pressable onPress={handleSubmit} disabled={submitting} hitSlop={12}>
@@ -411,6 +492,47 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
                   </Pressable>
                 );
               })}
+              {/* Other — inline TextInput chip. Typing or focusing sets
+                  eventType to 'other'; the typed label becomes the event
+                  name on submit (fallback to "Other" when empty). */}
+              <View
+                style={[
+                  styles.chip,
+                  eventType === 'other' && styles.chipActive,
+                ]}
+              >
+                <SmartIcon
+                  name="ellipsis-horizontal"
+                  size={15}
+                  color={eventType === 'other' ? colors.textPrimary : colors.textMuted}
+                />
+                <TextInput
+                  value={otherLabel}
+                  onChangeText={(v) => {
+                    setOtherLabel(v);
+                    if (v.length > 0 && eventType !== 'other') {
+                      setEventType('other');
+                      setSelectedSlotIdx(null);
+                    }
+                  }}
+                  onFocus={() => {
+                    if (eventType !== 'other') {
+                      setEventType('other');
+                      setSelectedSlotIdx(null);
+                      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                  }}
+                  placeholder="Other..."
+                  placeholderTextColor={colors.textMuted}
+                  style={[
+                    styles.chipText,
+                    eventType === 'other' && styles.chipTextActive,
+                    styles.chipTextInput,
+                  ]}
+                  returnKeyType="done"
+                  blurOnSubmit
+                />
+              </View>
             </View>
           </View>
 
@@ -509,6 +631,7 @@ export function AddEventScreen({ navigation, route }: AddEventScreenProps) {
           onSelect={setStartTime}
           onClose={() => setShowStartTimePicker(false)}
           colors={colors}
+          minTime={date === getTodayStr() ? getNowHHMM() : undefined}
         />
 
         {/* Duration picker modal */}
@@ -704,6 +827,15 @@ function createStyles(colors: ThemeColors) {
     },
     chipTextActive: {
       color: colors.textPrimary,
+    },
+    // Inline TextInput inside the "Other" chip — strip default paddings so
+    // the input hugs the chip's padding box, and cap the width so it stays
+    // chip-sized instead of growing to consume the row.
+    chipTextInput: {
+      padding: 0,
+      margin: 0,
+      minWidth: 60,
+      maxWidth: 140,
     },
 
     notesInput: {
