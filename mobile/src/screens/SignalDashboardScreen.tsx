@@ -11,7 +11,7 @@
  *   each delegating to existing Output sections + Progress panel.
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Platform, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -119,6 +119,19 @@ export function SignalDashboardScreen() {
   const [activePanel, setActivePanel] = useState<PanelId>(null);
   const [activeTab, setActiveTab] = useState<DashboardTabKey>('dashboard');
   const [outputRefreshing, setOutputRefreshing] = useState(false);
+  // Pull-to-refresh state for the Dashboard tab specifically. Program /
+  // Metrics already own their own refresh spinner via outputRefreshing; the
+  // Dashboard tab reads from bootData so it needs its own.
+  const [dashboardRefreshing, setDashboardRefreshing] = useState(false);
+
+  const onDashboardRefresh = useCallback(async () => {
+    setDashboardRefreshing(true);
+    try {
+      await refreshBoot();
+    } finally {
+      setDashboardRefreshing(false);
+    }
+  }, [refreshBoot]);
 
   useFocusEffect(
     useCallback(() => {
@@ -177,30 +190,43 @@ export function SignalDashboardScreen() {
     navigation.navigate('Settings' as any);
   }, [navigation]);
 
-  // Sub-tab swipe — left goes to next (Dashboard → Program → Metrics → Progress),
-  // right goes to previous. At the leftmost sub-tab (Dashboard), a right-swipe
-  // escapes to the Chat main tab — the outer Material Top Tab pager is disabled
-  // on Signal so we route this programmatically. failOffsetY yields to vertical
-  // scrolls inside each panel; activeOffsetX requires a meaningful horizontal
-  // drag before the pan claims the gesture.
+  // Sub-tab swipe + edge-swipe-back. Two overlaid behaviours on the same pan:
+  //   • Swipe left  (in-content) → next sub-tab (Dashboard → Program → Metrics → Progress)
+  //   • Swipe right (in-content) → previous sub-tab
+  //   • Swipe RIGHT starting from the far-left edge (≤ 24 pts from screen left)
+  //     → navigate to Chat main tab, regardless of which sub-tab we're on.
+  //     This mirrors the iOS edge-back gesture: "back to parent navigation"
+  //     lives on the edge; tab switching lives in the content body.
+  //
+  // The outer Material Top Tab pager is disabled on Signal so the inner pan
+  // fully owns horizontal gestures. failOffsetY yields to vertical scrolls
+  // inside each panel; activeOffsetX requires a meaningful horizontal drag
+  // before the pan claims the gesture.
+  //
+  // Double-fire defence: goSubTab reads activeTab through a ref so its
+  // identity stays stable across re-renders. Without this, every tab change
+  // recreated goSubTab → recreated the gesture memo → GestureDetector
+  // remounted the gesture mid-interaction and a quick swipe would advance
+  // two tabs at once (e.g. Dashboard → Metrics, skipping Programs).
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
   const goSubTab = useCallback((direction: 'next' | 'prev') => {
-    const idx = DASHBOARD_TABS.findIndex((t) => t.key === activeTab);
+    const idx = DASHBOARD_TABS.findIndex((t) => t.key === activeTabRef.current);
     if (idx < 0) return;
     const nextIdx = direction === 'next' ? idx + 1 : idx - 1;
-    if (nextIdx < 0) {
-      // Right-swipe past Dashboard — leave Signal and go to Chat.
-      navigation.navigate('Chat' as any);
-      return;
-    }
-    if (nextIdx >= DASHBOARD_TABS.length) return;
+    if (nextIdx < 0 || nextIdx >= DASHBOARD_TABS.length) return;
     setActiveTab(DASHBOARD_TABS[nextIdx].key);
-  }, [activeTab, navigation]);
+  }, []);
+
+  const navigateToChat = useCallback(() => {
+    navigation.navigate('Chat' as any);
+  }, [navigation]);
 
   const subTabSwipe = useMemo(() => {
-    // Outer Material Top Tab pager is disabled on Signal (see MainNavigator
-    // screenOptions), so no arbitration needed — inner pan fully owns
-    // horizontal swipes here. Thresholds tuned aggressively because there's
-    // no outer competitor to steal quick flicks.
+    const EDGE_ZONE = 24; // pts from the screen's left edge that count as "back-swipe territory"
     return Gesture.Pan()
       .activeOffsetX([-15, 15])
       .failOffsetY([-30, 30])
@@ -208,10 +234,17 @@ export function SignalDashboardScreen() {
         'worklet';
         const swipedLeft = e.translationX < -30 || e.velocityX < -300;
         const swipedRight = e.translationX > 30 || e.velocityX > 300;
+        // Starting x in window coordinates = current absoluteX − total translation.
+        const startedFromLeftEdge = e.absoluteX - e.translationX <= EDGE_ZONE;
+
+        if (startedFromLeftEdge && swipedRight) {
+          runOnJS(navigateToChat)();
+          return;
+        }
         if (swipedLeft) runOnJS(goSubTab)('next');
         else if (swipedRight) runOnJS(goSubTab)('prev');
       });
-  }, [goSubTab]);
+  }, [goSubTab, navigateToChat]);
 
   // Week-strip day tap in ProgramPanel: close the panel and deep-link to
   // the Plan (Timeline) tab focused on that date.
@@ -279,6 +312,13 @@ export function SignalDashboardScreen() {
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={dashboardRefreshing}
+            onRefresh={onDashboardRefresh}
+            tintColor={colors.accent}
+          />
+        }
       >
         <SignalDashboardTab
           bootData={bootData ?? null}
