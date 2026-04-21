@@ -114,29 +114,49 @@ const TAB_LABELS: Record<TabName, string> = {
 };
 
 /**
- * Player App tab glyphs — custom SVG paths that match the design bundle's
- * shell.jsx exactly (calendar / circle-with-dot / ascending bars).
- * We render these inline because they're stroke-specific for the tab bar
- * rather than generic Bond glyphs.
+ * Player App tab glyphs — Tomo brand icons.
+ *   Plan      → Ichinichi 三 (three strokes: morning, noon, night + "now" dot)
+ *   Dashboard → Ensō 円相 (zen ring with gap + pulse core)
+ * Source: Files/assets/tomo-icons/ (README spec, 20×20 viewBox). Active state
+ * thickens stroke (1.5 → 2) and reveals the center dot so the icon pair
+ * reads as one design language: Ichinichi's dot ↔ Ensō's pulse core.
  */
-function TabGlyph({ name, color }: { name: TabName; color: string }) {
-  // Plan + Dashboard glyphs at 45px (50% larger than the baseline).
-  // Active state is conveyed by stroke colour alone (sage) — no halo, no bg.
+function TabGlyph({ name, color, active }: { name: TabName; color: string; active: boolean }) {
+  const stroke = active ? 2 : 1.5;
   if (name === 'Plan') {
     return (
-      <Svg width={51} height={51} viewBox="-3 -3 26 26" fill="none">
-        <SvgRect x={3} y={4} width={14} height={13} rx={2} stroke={color} strokeWidth={1.5} />
-        <SvgPath d="M3 8h14" stroke={color} strokeWidth={1.5} />
-        <SvgPath d="M7 3v2M13 3v2" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+      <Svg width={51} height={51} viewBox="0 0 20 20" fill="none">
+        <SvgPath
+          d="M4 6h9"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          opacity={active ? 1 : 0.55}
+        />
+        <SvgPath d="M4 10h12" stroke={color} strokeWidth={stroke} strokeLinecap="round" />
+        <SvgPath
+          d="M4 14h7"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          opacity={active ? 1 : 0.55}
+        />
+        {active && <SvgCircle cx={14.5} cy={10} r={1.2} fill={color} />}
       </Svg>
     );
   }
-  // Chat tab is rendered as a floating orb in CustomBottomTabBar — not
-  // here. This branch is intentionally absent so the pill slot stays empty.
-  // Dashboard = ascending bars
+  // Chat tab is rendered as a floating orb in CustomBottomTabBar — this
+  // function is not called for Chat, so Dashboard is the only fallthrough.
   return (
-    <Svg width={51} height={51} viewBox="-3 -3 26 26" fill="none">
-      <SvgPath d="M3 15V9M7 15V6M11 15v-9M15 15V3" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+    <Svg width={51} height={51} viewBox="0 0 20 20" fill="none">
+      <SvgPath
+        d="M13.5 3.8a7 7 0 1 0 3.2 4.7"
+        stroke={color}
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <SvgCircle cx={10} cy={10} r={active ? 2 : 1.6} fill={color} />
     </Svg>
   );
 }
@@ -316,7 +336,7 @@ function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
                 },
               ]}
             >
-              <TabGlyph name={tabName} color={tint} />
+              <TabGlyph name={tabName} color={tint} active={isFocused} />
               {/* Labels removed for all tabs — icons stand on their own at 30px.
                   accessibilityLabel above preserves screen-reader announcement. */}
             </Pressable>

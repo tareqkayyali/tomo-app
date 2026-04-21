@@ -605,7 +605,7 @@ export const PlanRow = memo(({ onPlanDay, onPlanWeek, planDayLabel = 'Plan day',
   const { colors } = useTheme();
   return (
     <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-      <TButton kind="sage" full onPress={onPlanDay} icon={<TomoIcon name="clock" size={14} color={colors.tomoSageDim} />}>
+      <TButton kind="ghost" full onPress={onPlanDay} icon={<TomoIcon name="clock" size={14} color={colors.tomoCream} />}>
         {planDayLabel}
       </TButton>
       <TButton kind="ghost" full onPress={onPlanWeek} icon={<TomoIcon name="clock" size={14} color={colors.tomoCream} />}>
