@@ -1,24 +1,39 @@
 /**
- * ProgramsSection — Gen Z redesign with natural language impact communication.
+ * ProgramsSection — Signal Dashboard programs tab.
  *
- * Shows programs grouped by priority (Must Do / Recommended / Supplementary)
- * with weekly overview, position-specific insights, and impact descriptions
- * that communicate WHY each program matters in language athletes understand.
+ * Layout contract (April 2026):
+ *   ACTIVE · N     — full cards for programs the athlete has flagged Active.
+ *                    Always expanded. Source shown as eyebrow (COACH / AI /
+ *                    PLAYER ADDED). Coach programs can be activated too.
+ *   PROGRAMS · N   — one collapsible flat list (down chevron = expanded by
+ *                    default). Holds every non-active program: coach-assigned,
+ *                    AI-recommended, player-added. Each row carries the source
+ *                    eyebrow inline so the old sub-groups (Must Do / Recommended /
+ *                    Supplementary / My Picks / Coach Assigned) are gone.
+ *
+ * Card header layout keeps the Active pill with the eyebrow (top-right) and
+ * the expand chevron vertically centered on the far right, so taps don't
+ * collide. Done / Not-for-me live inside the expanded content only.
+ *
+ * Source of truth for the Active list is usePrograms (GET /programs/active),
+ * which returns full snapshots so active programs survive AI re-generation.
+ * Active programs are NEVER re-rendered in the Programs list (no duplication).
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
 import { AskTomoChip } from '../mastery/AskTomoChip';
-import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import { GlassCard } from '../GlassCard';
-import { GlowWrapper } from '../GlowWrapper';
 import { AttachToTrainingSheet } from './AddToCalendarSheet';
-import type { OutputSnapshot, ProgramCatalogItem } from '../../services/api';
+import type { OutputSnapshot, ProgramCatalogItem, ActiveProgramEntry } from '../../services/api';
 import { searchProgramCatalog } from '../../services/api';
 import { colors } from '../../theme/colors';
+
+type Recommendation = OutputSnapshot['programs']['recommendations'][0];
+type Source = 'coach' | 'ai_recommended' | 'player_added';
 
 interface Props {
   programs: OutputSnapshot['programs'];
@@ -30,32 +45,22 @@ interface Props {
   onNavigateSettings?: () => void;
   onProgramDone?: (programId: string) => void;
   onProgramDismiss?: (programId: string) => void;
-  activeIds?: string[];
-  onToggleActive?: (programId: string) => void;
-  playerSelectedIds?: string[];
-  playerSelectedPrograms?: ProgramCatalogItem[];
+  /** Full active program entries (from GET /programs/active). */
+  activeEntries?: ActiveProgramEntry[];
+  /** Toggle active. Receives full program so caller can snapshot it. */
+  onToggleActive?: (program: Recommendation) => void;
+  /** Full player-added program entries (from GET /programs/active). */
+  playerAddedEntries?: ActiveProgramEntry[];
+  /** When the athlete adds a program from the catalog search. */
   onPlayerSelect?: (program: ProgramCatalogItem) => void;
+  /** Remove a player-added program (unpicks it). */
   onPlayerDeselect?: (programId: string) => void;
 }
 
-const PRIORITY_COLORS: Record<string, string> = {
-  mandatory: colors.error,
-  high: colors.warning,
-  medium: colors.tomoSage,
-  player_selected: colors.tomoSage,
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  mandatory: 'Must Do',
-  high: 'Recommended',
-  medium: 'Supplementary',
-  player_selected: 'My Pick',
-};
-
-const PRIORITY_DESCRIPTIONS: Record<string, string> = {
-  mandatory: 'These are non-negotiable for your position — skip these and you fall behind',
-  high: 'Highly recommended to level up your game — prioritize these after must-dos',
-  medium: 'Extra work to separate you from the pack — do these when time allows',
+const SOURCE_LABEL: Record<Source, string> = {
+  coach: 'COACH',
+  ai_recommended: 'AI RECOMMENDED',
+  player_added: 'PLAYER ADDED',
 };
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -72,8 +77,6 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   advanced: colors.error,
 };
 
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
 const LOADING_MESSAGES = [
   { title: 'Scanning Your Profile', subtitle: 'Position, age band, growth stage...', icon: 'body-outline' as const },
   { title: 'Reading Your Benchmarks', subtitle: 'Comparing your test results to peers...', icon: 'stats-chart-outline' as const },
@@ -83,8 +86,6 @@ const LOADING_MESSAGES = [
   { title: 'Tuning Intensity', subtitle: 'Adjusting load to your readiness...', icon: 'pulse-outline' as const },
   { title: 'Adding Coach Tips', subtitle: 'Writing cues specific to your data...', icon: 'chatbubble-ellipses-outline' as const },
   { title: 'Final Touches', subtitle: 'Personalizing your training plan...', icon: 'sparkles-outline' as const },
-  { title: 'Optimizing Recovery', subtitle: 'Factoring in your sleep and HRV...', icon: 'moon-outline' as const },
-  { title: 'Position-Specific Drills', subtitle: 'Picking drills that match your role...', icon: 'football-outline' as const },
 ];
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -96,22 +97,42 @@ function shuffleArray<T>(arr: T[]): T[] {
   return shuffled;
 }
 
-export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForceRefresh, onNavigateCheckin, onNavigateTests, onNavigateSettings, onProgramDone, onProgramDismiss, activeIds = [], onToggleActive, playerSelectedIds = [], playerSelectedPrograms = [], onPlayerSelect, onPlayerDeselect }: Props) {
+function deriveSource(program: Recommendation): Source {
+  if (program.source === 'coach' || program.source === 'ai_recommended' || program.source === 'player_added') {
+    return program.source;
+  }
+  if (program.coachId || program.programId?.startsWith('coach_')) return 'coach';
+  return 'ai_recommended';
+}
+
+export function ProgramsSection({
+  programs,
+  isDeepRefreshing,
+  onForceRefresh,
+  onNavigateCheckin,
+  onProgramDone,
+  onProgramDismiss,
+  activeEntries = [],
+  onToggleActive,
+  playerAddedEntries = [],
+  onPlayerSelect,
+  onPlayerDeselect,
+}: Props) {
   const { colors } = useTheme();
-  const safePrograms = programs || {} as any;
-  const recommendations = safePrograms.recommendations || [];
-  const { weeklyPlanSuggestion, weeklyStructure, playerProfile } = safePrograms;
-  const [heroExpanded, setHeroExpanded] = useState(false);
-  const [coachGroupExpanded, setCoachGroupExpanded] = useState(true);
-  const [myPicksExpanded, setMyPicksExpanded] = useState(true);
+  const safePrograms = programs || ({} as any);
+  const recommendations: Recommendation[] = safePrograms.recommendations || [];
+  const dataStatus = (programs as any)?.dataStatus;
+
   const [calendarSheetProgram, setCalendarSheetProgram] = useState<any>(null);
+  const [forYouExpanded, setForYouExpanded] = useState(true);
 
   // ── Program Search ──
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ProgramCatalogItem[]>([]);
   const [searchFocused, setSearchFocused] = useState(false);
-  // addingProgram removed — add is now optimistic/instant
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const playerSelectedIds = playerAddedEntries.map((e) => e.programId);
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
@@ -120,9 +141,8 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
       if (!q.trim()) { setSearchResults([]); return; }
       try {
         const res = await searchProgramCatalog(q);
-        // Filter out already-recommended programs
-        const existingIds = new Set((recommendations || []).map(r => r.programId));
-        setSearchResults((res.programs || []).filter(p => !existingIds.has(p.id)).slice(0, 6));
+        const existingIds = new Set(recommendations.map((r) => r.programId));
+        setSearchResults((res.programs || []).filter((p) => !existingIds.has(p.id)).slice(0, 6));
       } catch { setSearchResults([]); }
     }, 250);
   }, [recommendations]);
@@ -131,13 +151,10 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
     setSearchQuery('');
     setSearchResults([]);
     setSearchFocused(false);
-    // Optimistic — instantly add full program to local state via parent
     onPlayerSelect?.(program);
   }, [onPlayerSelect]);
-  const isAiGenerated = (programs as any).isAiGenerated === true;
-  const dataStatus = (programs as any).dataStatus;
-  const dataNeeded: string[] = (programs as any).dataNeeded || [];
 
+  // ── Loading messages ──
   const [shuffledMsgs, setShuffledMsgs] = React.useState(() => shuffleArray(LOADING_MESSAGES));
   const [loadingMsgIndex, setLoadingMsgIndex] = React.useState(0);
 
@@ -146,7 +163,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
     setShuffledMsgs(shuffleArray(LOADING_MESSAGES));
     setLoadingMsgIndex(0);
     const interval = setInterval(() => {
-      setLoadingMsgIndex(prev => {
+      setLoadingMsgIndex((prev) => {
         const next = prev + 1;
         if (next >= LOADING_MESSAGES.length) {
           setShuffledMsgs(shuffleArray(LOADING_MESSAGES));
@@ -158,10 +175,9 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
     return () => clearInterval(interval);
   }, [dataStatus, isDeepRefreshing]);
 
-  // Show generating banner ONLY when dataStatus is 'generating' AND no programs exist
-  // If we have coach/player programs, show them with a small generating indicator
-  const hasAnyPrograms = recommendations.length > 0 || playerSelectedPrograms.length > 0;
+  const hasAnyPrograms = recommendations.length > 0 || playerAddedEntries.length > 0 || activeEntries.length > 0;
 
+  // ── Generating empty state ──
   if (dataStatus === 'generating' && !hasAnyPrograms) {
     const loadingMsg = shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0];
     return (
@@ -170,21 +186,12 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
           <View style={[styles.emptyIconCircle, { backgroundColor: colors.tomoSage + '12' }]}>
             <SmartIcon name={loadingMsg.icon} size={28} color={colors.tomoSage} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.tomoCream }]}>
-            {loadingMsg.title}
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            {loadingMsg.subtitle}
-          </Text>
-
-          {/* CTA buttons */}
+          <Text style={[styles.emptyTitle, { color: colors.tomoCream }]}>{loadingMsg.title}</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.muted }]}>{loadingMsg.subtitle}</Text>
           <View style={styles.ctaRow}>
             {onNavigateCheckin && (
               <Pressable
-                style={({ pressed }) => [
-                  styles.ctaButton,
-                  { backgroundColor: colors.tomoSage, opacity: pressed ? 0.8 : 1 },
-                ]}
+                style={({ pressed }) => [styles.ctaButton, { backgroundColor: colors.tomoSage, opacity: pressed ? 0.8 : 1 }]}
                 onPress={onNavigateCheckin}
               >
                 <SmartIcon name="checkmark-circle-outline" size={16} color={colors.tomoCream} />
@@ -193,10 +200,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
             )}
             {onForceRefresh && (
               <Pressable
-                style={({ pressed }) => [
-                  styles.ctaButton,
-                  { backgroundColor: colors.tomoSage, opacity: pressed ? 0.8 : 1 },
-                ]}
+                style={({ pressed }) => [styles.ctaButton, { backgroundColor: colors.tomoSage, opacity: pressed ? 0.8 : 1 }]}
                 onPress={onForceRefresh}
               >
                 <SmartIcon name="refresh-outline" size={16} color={colors.tomoCream} />
@@ -209,26 +213,21 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
     );
   }
 
-  // Empty state with retry — when no programs and not generating
-  if (recommendations.length === 0) {
+  // ── True empty state ──
+  if (!hasAnyPrograms) {
     return (
       <GlassCard>
         <View style={styles.emptyState}>
           <View style={[styles.emptyIconCircle, { backgroundColor: colors.tomoSage + '12' }]}>
             <SmartIcon name="barbell-outline" size={28} color={colors.tomoSage} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.tomoCream }]}>
-            No Programs Yet
-          </Text>
+          <Text style={[styles.emptyTitle, { color: colors.tomoCream }]}>No Programs Yet</Text>
           <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
             Tap below to generate personalized training programs based on your profile.
           </Text>
           {onForceRefresh && (
             <Pressable
-              style={({ pressed }) => [
-                styles.ctaButton,
-                { backgroundColor: colors.tomoSage, opacity: pressed ? 0.8 : 1, marginTop: 12 },
-              ]}
+              style={({ pressed }) => [styles.ctaButton, { backgroundColor: colors.tomoSage, opacity: pressed ? 0.8 : 1, marginTop: 12 }]}
               onPress={onForceRefresh}
             >
               <SmartIcon name="sparkles-outline" size={16} color={colors.tomoCream} />
@@ -240,32 +239,46 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
     );
   }
 
-  // Separate coach-assigned programs from AI/inline programs
-  const coachAssigned = recommendations.filter((r: any) => r.programId?.startsWith('coach_') || r.coachId);
-  const aiPrograms = recommendations.filter((r: any) => !r.programId?.startsWith('coach_') && !r.coachId);
+  // ── Derive the two lists: Active (dedup source) + For You (everything else, deduped) ──
+  const activeIds = new Set(activeEntries.map((e) => e.programId));
+  const playerAddedIds = new Set(playerAddedEntries.map((e) => e.programId));
 
-  // Separate active programs from the rest
-  const activeSet = new Set(activeIds);
-  const activePrograms = aiPrograms.filter((r) => activeSet.has(r.programId));
-  const nonActiveAiPrograms = aiPrograms.filter((r) => !activeSet.has(r.programId));
+  // Active list: rehydrate each entry's snapshot (fall back to live recommendation if snapshot missing).
+  const activePrograms: Recommendation[] = activeEntries
+    .map<Recommendation | null>((entry) => {
+      if (entry.program) {
+        return { ...entry.program, source: entry.source || deriveSource(entry.program) };
+      }
+      const live = recommendations.find((r) => r.programId === entry.programId);
+      if (live) return { ...live, source: entry.source || deriveSource(live) };
+      return null;
+    })
+    .filter((p): p is Recommendation => p !== null);
 
-  // Group non-active AI/inline by priority
-  const mandatory = nonActiveAiPrograms.filter((r) => r.priority === 'mandatory');
-  const high = nonActiveAiPrograms.filter((r) => r.priority === 'high');
-  const medium = nonActiveAiPrograms.filter((r) => r.priority === 'medium');
+  // For You list: coach + AI recs from snapshot + player-added (from entries), minus active.
+  const seen = new Set<string>(activeIds);
+  const forYou: Recommendation[] = [];
+  for (const r of recommendations) {
+    if (seen.has(r.programId)) continue;
+    seen.add(r.programId);
+    forYou.push({ ...r, source: deriveSource(r) });
+  }
+  for (const entry of playerAddedEntries) {
+    if (seen.has(entry.programId)) continue;
+    if (!entry.program) continue;
+    seen.add(entry.programId);
+    forYou.push({ ...entry.program, source: 'player_added' });
+  }
 
-  // Count physical vs technical
-  const physicalCount = recommendations.filter((r) => r.type === 'physical').length;
-  const technicalCount = recommendations.filter((r) => r.type === 'technical').length;
-
-  // Weekly structure for day dots
-  const totalWeeklySessions = weeklyStructure
-    ? Object.values(weeklyStructure).reduce((a, b) => a + b, 0)
-    : mandatory.length + Math.min(high.length, 3);
+  const handleToggleFrom = (program: Recommendation) => onToggleActive?.(program);
+  const handleDismissPlayerAdded = (id: string) => {
+    if (playerAddedIds.has(id)) onPlayerDeselect?.(id);
+    else onProgramDismiss?.(id);
+  };
 
   return (
     <View style={styles.container}>
-      {/* ── Deep Refresh Indicator ──────────────────────────────── */}
+      {/* Deep Refresh Indicator */}
       {isDeepRefreshing && (
         <View style={[styles.refreshBanner, { backgroundColor: colors.accentSubtle }]}>
           <SmartIcon name={(shuffledMsgs[loadingMsgIndex] || LOADING_MESSAGES[0]).icon} size={16} color={colors.tomoSage} />
@@ -275,7 +288,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
         </View>
       )}
 
-      {/* ── Program Search Bar ─────────────────────────────── */}
+      {/* Program Search */}
       <View style={styles.searchContainer}>
         <SmartIcon name="search" size={16} color={searchFocused ? colors.tomoSage : colors.muted} />
         <TextInput
@@ -294,7 +307,6 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
         )}
       </View>
 
-      {/* Search results dropdown */}
       {searchFocused && searchResults.length > 0 && (
         <View style={[styles.searchDropdown, { backgroundColor: colors.cream03, borderColor: colors.cream10 }]}>
           {searchResults.map((prog) => (
@@ -305,9 +317,7 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
               disabled={playerSelectedIds.includes(prog.id)}
             >
               <View style={{ flex: 1 }}>
-                <Text style={[styles.searchResultName, { color: colors.tomoCream }]} numberOfLines={1}>
-                  {prog.name}
-                </Text>
+                <Text style={[styles.searchResultName, { color: colors.tomoCream }]} numberOfLines={1}>{prog.name}</Text>
                 <Text style={[styles.searchResultMeta, { color: colors.muted }]}>
                   {prog.type} · {prog.difficulty} · {prog.duration_minutes}min
                 </Text>
@@ -328,104 +338,57 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
         </View>
       )}
 
-      {/* ── Coach Assigned Programs ───────────────────────────── */}
-      {coachAssigned.length > 0 && (
-        <View style={styles.group}>
-          <Pressable onPress={() => setCoachGroupExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
-            <SmartIcon
-              name={coachGroupExpanded ? 'chevron-down' : 'chevron-forward'}
-              size={16}
-              color={colors.muted}
-            />
-            <View style={[styles.priorityDot, { backgroundColor: colors.muted }]} />
-            <Text style={[styles.groupLabel, { color: colors.tomoCream }]}>Coach Assigned</Text>
-            <View style={[styles.countBadge, { backgroundColor: `${colors.muted}22` }]}>
-              <Text style={[styles.countBadgeText, { color: colors.muted }]}>{coachAssigned.length}</Text>
-            </View>
-          </Pressable>
-          {coachGroupExpanded && (
-            <>
-              <Text style={[styles.groupDesc, { color: colors.muted }]}>
-                Programs assigned to you by your coach
-              </Text>
-              {coachAssigned.map((p: any) => (
-                <ProgramCard key={p.programId} program={p} colors={colors} onAddToCalendar={setCalendarSheetProgram} />
-              ))}
-            </>
-          )}
-        </View>
-      )}
-
-      {/* ── Player Assigned Programs (My Picks) — from local state, not snapshot ── */}
-      {playerSelectedIds.length > 0 && (
-        <View style={styles.group}>
-          <Pressable onPress={() => setMyPicksExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
-            <SmartIcon
-              name={myPicksExpanded ? 'chevron-down' : 'chevron-forward'}
-              size={16}
-              color={colors.muted}
-            />
-            <View style={[styles.priorityDot, { backgroundColor: colors.tomoSage }]} />
-            <Text style={[styles.groupLabel, { color: colors.tomoCream }]}>My Picks</Text>
-            <View style={[styles.countBadge, { backgroundColor: colors.tomoSage + '22' }]}>
-              <Text style={[styles.countBadgeText, { color: colors.tomoSage }]}>
-                {playerSelectedIds.length}
-              </Text>
-            </View>
-          </Pressable>
-          {myPicksExpanded && (
-            <>
-              <Text style={[styles.groupDesc, { color: colors.muted }]}>
-                Programs you added from the catalog
-              </Text>
-              {playerSelectedIds.map((psId) => {
-                // Use snapshot data if available (has full prescription), else catalog data
-                const fromSnapshot = recommendations.find(r => r.programId === psId);
-                const fromCatalog = playerSelectedPrograms.find(p => p.id === psId);
-
-                // Build the best available program card data
-                const programData: any = fromSnapshot || (fromCatalog ? {
-                  programId: fromCatalog.id,
-                  name: fromCatalog.name,
-                  category: fromCatalog.category,
-                  type: fromCatalog.type,
-                  priority: 'player_selected',
-                  durationMin: fromCatalog.duration_minutes,
-                  description: fromCatalog.description,
-                  impact: 'Added by you from the program catalog',
-                  frequency: '',
-                  difficulty: fromCatalog.difficulty,
-                  tags: fromCatalog.tags || [],
-                  positionNote: '',
-                  reason: 'You selected this program',
-                  prescription: { sets: 0, reps: '', intensity: '', rpe: '', rest: '', frequency: '', coachingCues: [] },
-                  phvWarnings: [],
-                } : null);
-
-                if (programData) {
-                  return <ProgramCard key={psId} program={programData} colors={colors} onDone={() => onPlayerDeselect?.(psId)} onDismiss={() => onPlayerDeselect?.(psId)} isActive={activeIds.includes(psId)} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />;
-                }
-                return null; // Skip if no data available (shouldn't happen)
-              })}
-            </>
-          )}
-        </View>
-      )}
-
-      {/* ── Active Programs ────────────────────────────────────── */}
+      {/* ── ACTIVE · N ──────────────────────────────────────────── */}
       {activePrograms.length > 0 && (
-        <ActiveGroup programs={activePrograms} colors={colors} onDone={onProgramDone} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
+        <View style={styles.group}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionLabel, { color: colors.muted }]}>ACTIVE · {activePrograms.length}</Text>
+          </View>
+          {activePrograms.map((p) => (
+            <ProgramCard
+              key={p.programId}
+              program={p}
+              colors={colors}
+              isActive={true}
+              onToggleActive={() => handleToggleFrom(p)}
+              onDone={onProgramDone}
+              onAddToCalendar={setCalendarSheetProgram}
+              hideNotForMe
+            />
+          ))}
+        </View>
       )}
 
-      {/* ── Priority Groups ────────────────────────────────────── */}
-      {high.length > 0 && (
-        <PriorityGroup label="high" programs={high} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} activeIds={activeIds} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
-      )}
-      {mandatory.length > 0 && (
-        <PriorityGroup label="mandatory" programs={mandatory} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} activeIds={activeIds} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
-      )}
-      {medium.length > 0 && (
-        <PriorityGroup label="medium" programs={medium} colors={colors} onDone={onProgramDone} onDismiss={onProgramDismiss} activeIds={activeIds} onToggleActive={onToggleActive} onAddToCalendar={setCalendarSheetProgram} />
+      {/* ── PROGRAMS · N ────────────────────────────────────────── */}
+      {forYou.length > 0 && (
+        <View style={styles.group}>
+          <Pressable
+            onPress={() => setForYouExpanded((v) => !v)}
+            style={styles.sectionHeader}
+          >
+            <Text style={[styles.sectionLabel, { color: colors.muted }]}>
+              PROGRAMS · {forYou.length}
+            </Text>
+            <SmartIcon
+              name={forYouExpanded ? 'chevron-down' : 'chevron-forward'}
+              size={16}
+              color={colors.muted}
+            />
+          </Pressable>
+
+          {forYouExpanded && forYou.map((p) => (
+            <ProgramCard
+              key={p.programId}
+              program={p}
+              colors={colors}
+              isActive={false}
+              onToggleActive={() => handleToggleFrom(p)}
+              onDone={onProgramDone}
+              onDismiss={playerAddedIds.has(p.programId) ? handleDismissPlayerAdded : onProgramDismiss}
+              onAddToCalendar={setCalendarSheetProgram}
+            />
+          ))}
+        </View>
       )}
 
       <AttachToTrainingSheet
@@ -437,217 +400,83 @@ export function ProgramsSection({ programs, gaps = [], isDeepRefreshing, onForce
   );
 }
 
-// ── Priority Group ──────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────
+// Program Card
+// ────────────────────────────────────────────────────────────────────────
 
-function PriorityGroup({ label, programs, colors, onDone, onDismiss, activeIds = [], onToggleActive, onAddToCalendar }: {
-  label: string;
-  programs: OutputSnapshot['programs']['recommendations'];
-  colors: any;
-  onDone?: (programId: string) => void;
-  onDismiss?: (programId: string) => void;
-  activeIds?: string[];
-  onToggleActive?: (programId: string) => void;
-  onAddToCalendar?: (program: any) => void;
-}) {
-  const priorityColor = PRIORITY_COLORS[label] || colors.muted;
-  const displayLabel = PRIORITY_LABELS[label] || label;
-  const description = PRIORITY_DESCRIPTIONS[label] || '';
-
-  // Collapse/expand state — default expanded
-  const [expanded, setExpanded] = useState(true);
-
-  // Show first 5 collapsed, rest behind "show more"
-  const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? programs : programs.slice(0, 5);
-  const hasMore = programs.length > 5;
-
-  return (
-    <View style={styles.group}>
-      <Pressable onPress={() => setExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
-        <SmartIcon
-          name={expanded ? 'chevron-down' : 'chevron-forward'}
-          size={16}
-          color={colors.muted}
-        />
-        <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
-        <Text style={[styles.groupLabel, { color: colors.tomoCream }]}>{displayLabel}</Text>
-        <View style={[styles.countBadge, { backgroundColor: priorityColor + '22' }]}>
-          <Text style={[styles.countBadgeText, { color: priorityColor }]}>{programs.length}</Text>
-        </View>
-      </Pressable>
-
-      {expanded && (
-        <>
-          <Text style={[styles.groupDesc, { color: colors.muted }]}>{description}</Text>
-
-          {visible.map((p) => (
-            <ProgramCard key={p.programId} program={p} colors={colors} onDone={onDone} onDismiss={onDismiss} isActive={activeIds.includes(p.programId)} onToggleActive={onToggleActive} onAddToCalendar={onAddToCalendar} />
-          ))}
-
-          {hasMore && !showAll && (
-            <Pressable onPress={() => setShowAll(true)}>
-              <View style={[styles.showMoreBtn, { backgroundColor: colors.cream03, borderWidth: 1, borderColor: colors.cream10 }]}>
-                <Text style={[styles.showMoreText, { color: colors.tomoSage }]}>
-                  Show {programs.length - 5} more
-                </Text>
-                <SmartIcon name="chevron-down" size={14} color={colors.tomoSage} />
-              </View>
-            </Pressable>
-          )}
-        </>
-      )}
-    </View>
-  );
-}
-
-// ── Active Programs Group ────────────────────────────────────────────────
-
-function ActiveGroup({ programs, colors, onDone, onToggleActive, onAddToCalendar }: {
-  programs: OutputSnapshot['programs']['recommendations'];
-  colors: any;
-  onDone?: (programId: string) => void;
-  onToggleActive?: (programId: string) => void;
-  onAddToCalendar?: (program: any) => void;
-}) {
-  const [expanded, setExpanded] = useState(true);
-
-  return (
-    <View style={styles.group}>
-      <Pressable onPress={() => setExpanded((prev) => !prev)} style={styles.groupHeaderTappable}>
-        <SmartIcon
-          name={expanded ? 'chevron-down' : 'chevron-forward'}
-          size={16}
-          color={colors.muted}
-        />
-        <View style={[styles.priorityDot, { backgroundColor: colors.accent }]} />
-        <Text style={[styles.groupLabel, { color: colors.tomoCream }]}>{'Active Programs'}</Text>
-        <View style={[styles.countBadge, { backgroundColor: colors.sage15 }]}>
-          <Text style={[styles.countBadgeText, { color: colors.accent }]}>{programs.length}</Text>
-        </View>
-      </Pressable>
-
-      {expanded && (
-        <>
-          <Text style={[styles.groupDesc, { color: colors.muted }]}>
-            Programs you're currently working on
-          </Text>
-          {programs.map((p) => (
-            <ProgramCard key={p.programId} program={p} colors={colors} onDone={onDone} isActive={true} onToggleActive={onToggleActive} hideNotForMe onAddToCalendar={onAddToCalendar} />
-          ))}
-        </>
-      )}
-    </View>
-  );
-}
-
-// ── Program Card ────────────────────────────────────────────────────────
-
-function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleActive, hideNotForMe, onAddToCalendar }: {
-  program: OutputSnapshot['programs']['recommendations'][0];
+function ProgramCard({
+  program,
+  colors,
+  onDone,
+  onDismiss,
+  isActive,
+  onToggleActive,
+  hideNotForMe,
+  onAddToCalendar,
+}: {
+  program: Recommendation;
   colors: any;
   onDone?: (programId: string) => void;
   onDismiss?: (programId: string) => void;
   isActive?: boolean;
-  onToggleActive?: (programId: string) => void;
+  onToggleActive?: () => void;
   hideNotForMe?: boolean;
   onAddToCalendar?: (program: any) => void;
 }) {
-  const navigation = useNavigation<any>();
   const [expanded, setExpanded] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'done' | 'dismissed' | null>(null);
-  const priorityColor = PRIORITY_COLORS[program.priority] || colors.muted;
   const emoji = CATEGORY_EMOJI[program.category] || '';
   const diffColor = DIFFICULTY_COLORS[program.difficulty] || colors.muted;
+  const source = deriveSource(program);
 
-  const isCoachAssigned = (program as any).coachName || (program as any).coachId;
+  const sourceColor =
+    source === 'coach' ? colors.accent :
+    source === 'ai_recommended' ? colors.tomoSage :
+    colors.muted;
 
   return (
     <Pressable onPress={() => !confirmAction && setExpanded(!expanded)}>
       <GlassCard>
-        {/* Collapsed: single row — emoji + name + freq/duration + chevron */}
+        {/* Collapsed row — Active pill lives with the eyebrow at the top-right so
+            it's visually well separated from the expand chevron on the middle-right. */}
         <View style={styles.cardHeader}>
           {emoji ? <Text style={styles.cardEmoji}>{emoji}</Text> : null}
           <View style={{ flex: 1 }}>
+            <View style={styles.eyebrowRow}>
+              <Text style={[styles.sourceEyebrow, { color: sourceColor, flex: 1 }]} numberOfLines={1}>
+                {SOURCE_LABEL[source]}
+              </Text>
+              {onToggleActive && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.cardActionBtn,
+                    isActive ? styles.cardActionBtnSelected : styles.cardActionBtnDefault,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  onPress={(e) => { e.stopPropagation(); onToggleActive(); }}
+                  onStartShouldSetResponder={() => true}
+                  onTouchEnd={(e) => e.stopPropagation()}
+                  hitSlop={8}
+                >
+                  <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={12} color={isActive ? colors.accent : colors.muted} />
+                  <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.muted }]}>Active</Text>
+                </Pressable>
+              )}
+            </View>
             <Text style={[styles.programName, { color: colors.tomoCream }]} numberOfLines={1}>{program.name}</Text>
             <Text style={[styles.programMeta, { color: colors.muted }]}>
               {program.frequency} · {program.durationMin} min · {(program as any).durationWeeks || 4}wks
             </Text>
           </View>
-          <SmartIcon
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={16}
-            color={colors.muted}
-          />
+          <SmartIcon name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} style={{ marginLeft: 10 }} />
         </View>
 
-        {/* Action buttons — Active / Done / Not for me (always visible below title) */}
-        {!isCoachAssigned && (onDone || onDismiss || onToggleActive) && (
-          <View
-            style={[styles.cardActions, { marginTop: spacing.sm }]}
-            onStartShouldSetResponder={() => true}
-            onTouchEnd={(e) => e.stopPropagation()}
-          >
-            {onToggleActive && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cardActionBtn,
-                  isActive ? styles.cardActionBtnSelected : styles.cardActionBtnDefault,
-                  pressed && { opacity: 0.7 },
-                ]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  onToggleActive(program.programId);
-                }}
-              >
-                <SmartIcon name={isActive ? 'flame' : 'flame-outline'} size={14} color={isActive ? colors.accent : colors.muted} />
-                <Text style={[styles.cardActionText, { color: isActive ? colors.accent : colors.muted }]}>Active</Text>
-              </Pressable>
-            )}
-            {onDone && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cardActionBtn,
-                  styles.cardActionBtnDefault,
-                  pressed && { opacity: 0.7 },
-                ]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  setConfirmAction('done');
-                }}
-              >
-                <SmartIcon name="checkmark-circle-outline" size={14} color={colors.muted} />
-                <Text style={[styles.cardActionText, { color: colors.muted }]}>Done</Text>
-              </Pressable>
-            )}
-            {onDismiss && !hideNotForMe && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cardActionBtn,
-                  styles.cardActionBtnDefault,
-                  pressed && { opacity: 0.7 },
-                ]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  setConfirmAction('dismissed');
-                }}
-              >
-                <SmartIcon name="close-circle-outline" size={14} color={colors.muted} />
-                <Text style={[styles.cardActionText, { color: colors.muted }]}>Not for me</Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-
-        {/* Confirmation bar — right below action buttons */}
+        {/* Inline confirmation */}
         {confirmAction && (() => {
           const isDone = confirmAction === 'done';
           return (
             <View style={[styles.confirmRow, { backgroundColor: isDone ? colors.accentSubtle : colors.tomoSage + '10', borderRadius: borderRadius.sm, marginTop: spacing.sm }]}>
-              <SmartIcon
-                name={isDone ? 'checkmark-circle' : 'close-circle'}
-                size={18}
-                color={isDone ? colors.accent : colors.tomoSage}
-              />
+              <SmartIcon name={isDone ? 'checkmark-circle' : 'close-circle'} size={18} color={isDone ? colors.accent : colors.tomoSage} />
               <Text style={[styles.confirmLabel, { color: colors.tomoCream }]} numberOfLines={1}>
                 {isDone ? 'Mark as done?' : 'Remove this?'}
               </Text>
@@ -666,28 +495,24 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
                   setConfirmAction(null);
                 }}
               >
-                <Text style={[styles.confirmChipText, { color: colors.tomoCream }]}>
-                  {isDone ? 'Done' : 'Remove'}
-                </Text>
+                <Text style={[styles.confirmChipText, { color: colors.tomoCream }]}>{isDone ? 'Done' : 'Remove'}</Text>
               </Pressable>
             </View>
           );
         })()}
 
-        {/* ── Expanded content ────────────────────────────────── */}
+        {/* Expanded content */}
         {expanded && (
           <View style={styles.expandedContent}>
-            {/* Coach badge */}
-            {isCoachAssigned && (
+            {(program as any).coachName && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <SmartIcon name="person-circle-outline" size={14} color={colors.muted} />
                 <Text style={{ fontSize: 11, fontFamily: fontFamily.semiBold, color: colors.muted }}>
-                  Assigned by Coach {(program as any).coachName || ''}
+                  Assigned by Coach {(program as any).coachName}
                 </Text>
               </View>
             )}
 
-            {/* Difficulty + type badges */}
             <View style={styles.metaRow}>
               <View style={[styles.diffBadge, { backgroundColor: diffColor + '22' }]}>
                 <Text style={[styles.diffText, { color: diffColor }]}>{program.difficulty}</Text>
@@ -699,15 +524,11 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               </View>
             </View>
 
-            {/* Impact statement */}
-            <View style={[styles.impactBanner, { backgroundColor: priorityColor + '10' }]}>
-              <SmartIcon name="flash" size={14} color={priorityColor} />
-              <Text style={[styles.impactText, { color: priorityColor }]}>
-                {program.impact}
-              </Text>
+            <View style={[styles.impactBanner, { backgroundColor: sourceColor + '10' }]}>
+              <SmartIcon name="flash" size={14} color={sourceColor} />
+              <Text style={[styles.impactText, { color: sourceColor }]}>{program.impact}</Text>
             </View>
 
-            {/* Position note */}
             {program.positionNote ? (
               <View style={[styles.positionBadge, { backgroundColor: colors.tomoSage + '12' }]}>
                 <SmartIcon name="football-outline" size={12} color={colors.tomoSage} />
@@ -715,20 +536,15 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               </View>
             ) : null}
 
-            {/* PHV Warnings */}
-            {program.phvWarnings.length > 0 && (
+            {program.phvWarnings?.length > 0 && (
               <View style={[styles.warningBadge, { backgroundColor: colors.secondarySubtle }]}>
                 <SmartIcon name="warning-outline" size={12} color={colors.error} />
                 <Text style={styles.warningText}>{program.phvWarnings[0]}</Text>
               </View>
             )}
 
-            {/* Description */}
-            <Text style={[styles.descriptionText, { color: colors.muted }]}>
-              {program.description}
-            </Text>
+            <Text style={[styles.descriptionText, { color: colors.muted }]}>{program.description}</Text>
 
-            {/* Prescription details */}
             <View style={styles.prescriptionRow}>
               <RxChip label="Sets" value={String(program.prescription.sets)} colors={colors} />
               <RxChip label="Reps" value={program.prescription.reps} colors={colors} />
@@ -737,7 +553,6 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               <RxChip label="Intensity" value={program.prescription.intensity} colors={colors} />
             </View>
 
-            {/* Why this program */}
             {program.reason && (
               <View style={[styles.reasonBlock, { backgroundColor: colors.cream03, borderWidth: 1, borderColor: colors.cream10 }]}>
                 <View style={styles.reasonHeader}>
@@ -748,15 +563,6 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               </View>
             )}
 
-            {/* Position note expanded */}
-            {program.positionNote ? (
-              <View style={styles.positionExpandedRow}>
-                <SmartIcon name="football-outline" size={14} color={colors.tomoSage} />
-                <Text style={[styles.positionExpandedText, { color: colors.muted }]}>{program.positionNote}</Text>
-              </View>
-            ) : null}
-
-            {/* Tags */}
             {program.tags && program.tags.length > 0 && (
               <View style={styles.tagsRow}>
                 {program.tags.slice(0, 4).map((tag) => (
@@ -767,8 +573,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               </View>
             )}
 
-            {/* Coaching cues */}
-            {program.prescription.coachingCues.length > 0 && (
+            {program.prescription.coachingCues?.length > 0 && (
               <View style={styles.cuesBlock}>
                 <Text style={[styles.cuesTitle, { color: colors.muted }]}>Coaching cues</Text>
                 {program.prescription.coachingCues.map((c, i) => (
@@ -779,8 +584,7 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               </View>
             )}
 
-            {/* All PHV warnings in expanded */}
-            {program.phvWarnings.length > 1 && (
+            {program.phvWarnings?.length > 1 && (
               <View style={[styles.phvExpandedBlock, { backgroundColor: colors.secondarySubtle }]}>
                 <Text style={[styles.phvExpandedTitle, { color: colors.error }]}>Growth considerations</Text>
                 {program.phvWarnings.map((w, i) => (
@@ -789,7 +593,6 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               </View>
             )}
 
-            {/* Add to Calendar */}
             {onAddToCalendar && (
               <Pressable
                 onPress={(e) => {
@@ -814,7 +617,6 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               </Pressable>
             )}
 
-            {/* Ask Tomo about this program — shared component */}
             <View onStartShouldSetResponder={() => true} onTouchEnd={(e) => e.stopPropagation()}>
               <AskTomoChip
                 prompt={`Explain my ${program.name} program drills`}
@@ -822,11 +624,35 @@ function ProgramCard({ program, colors, onDone, onDismiss, isActive, onToggleAct
               />
             </View>
 
-            {/* Action buttons moved above expanded content */}
+            {/* Done / Not for me — only surfaced when the card is expanded */}
+            {(onDone || (onDismiss && !hideNotForMe)) && (
+              <View
+                style={styles.cardActions}
+                onStartShouldSetResponder={() => true}
+                onTouchEnd={(e) => e.stopPropagation()}
+              >
+                {onDone && (
+                  <Pressable
+                    style={({ pressed }) => [styles.cardActionBtn, styles.cardActionBtnDefault, pressed && { opacity: 0.7 }]}
+                    onPress={(e) => { e.stopPropagation(); setConfirmAction('done'); }}
+                  >
+                    <SmartIcon name="checkmark-circle-outline" size={14} color={colors.muted} />
+                    <Text style={[styles.cardActionText, { color: colors.muted }]}>Done</Text>
+                  </Pressable>
+                )}
+                {onDismiss && !hideNotForMe && (
+                  <Pressable
+                    style={({ pressed }) => [styles.cardActionBtn, styles.cardActionBtnDefault, pressed && { opacity: 0.7 }]}
+                    onPress={(e) => { e.stopPropagation(); setConfirmAction('dismissed'); }}
+                  >
+                    <SmartIcon name="close-circle-outline" size={14} color={colors.muted} />
+                    <Text style={[styles.cardActionText, { color: colors.muted }]}>Not for me</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
           </View>
         )}
-
-        {/* Confirmation bar moved above expanded content */}
       </GlassCard>
     </Pressable>
   );
@@ -841,12 +667,13 @@ function RxChip({ label, value, colors }: { label: string; value: string; colors
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────
+// Styles
+// ────────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { gap: spacing.sm },
 
-  // Search
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -859,18 +686,8 @@ const styles = StyleSheet.create({
     borderColor: colors.cream10,
     marginBottom: spacing.xs,
   },
-  searchInput: {
-    flex: 1,
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    padding: 0,
-  },
-  searchDropdown: {
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    marginBottom: spacing.sm,
-    overflow: 'hidden',
-  },
+  searchInput: { flex: 1, fontFamily: fontFamily.regular, fontSize: 14, padding: 0 },
+  searchDropdown: { borderRadius: borderRadius.md, borderWidth: 1, marginBottom: spacing.sm, overflow: 'hidden' },
   searchResultRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -879,25 +696,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.cream10,
   },
-  searchResultName: {
-    fontFamily: fontFamily.medium,
-    fontSize: 13,
-  },
-  searchResultMeta: {
-    fontFamily: fontFamily.regular,
-    fontSize: 11,
-    marginTop: 1,
-  },
-  addBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: borderRadius.full,
-  },
+  searchResultName: { fontFamily: fontFamily.medium, fontSize: 13 },
+  searchResultMeta: { fontFamily: fontFamily.regular, fontSize: 11, marginTop: 1 },
+  addBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: borderRadius.full },
 
-  // Deep refresh
   refreshBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -909,78 +711,33 @@ const styles = StyleSheet.create({
   },
   refreshText: { fontFamily: fontFamily.medium, fontSize: 13 },
 
-  // Hero
-  heroTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-  heroTitle: { fontFamily: fontFamily.bold, fontSize: 18, flex: 1 },
-  aiBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  aiBadgeText: { fontFamily: fontFamily.semiBold, fontSize: 11, color: colors.tomoSage },
-  heroSubtitle: { fontFamily: fontFamily.regular, fontSize: 13, marginBottom: spacing.md },
-  statsRow: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md },
-  statChip: { flex: 1, borderRadius: borderRadius.sm, paddingVertical: 8, alignItems: 'center' },
-  statValue: { fontFamily: fontFamily.bold, fontSize: 14 },
-  statLabel: { fontFamily: fontFamily.regular, fontSize: 9, marginTop: 2 },
-
-  // Weekly plan
-  weekRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
-  dayCol: { alignItems: 'center', gap: 4 },
-  dayDot: { width: 10, height: 10, borderRadius: 5 },
-  dayLabel: { fontFamily: fontFamily.regular, fontSize: 10 },
-  expandHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 4 },
-  expandHintText: { fontFamily: fontFamily.medium, fontSize: 12 },
-  weekSuggestion: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 17, marginBottom: spacing.sm },
-  structureRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  structureChip: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
-  structureText: { fontFamily: fontFamily.medium, fontSize: 10 },
-
-  // Gap connection
-  gapHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  gapTitle: { fontFamily: fontFamily.semiBold, fontSize: 14 },
-  gapSubtitle: { fontFamily: fontFamily.regular, fontSize: 12, marginBottom: spacing.sm },
-  gapChips: { gap: 6 },
-  gapChipRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  gapChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  gapChipText: { fontFamily: fontFamily.medium, fontSize: 12 },
-  gapArrowText: { fontFamily: fontFamily.medium, fontSize: 11 },
-
-  // Priority groups
   group: { gap: spacing.xs },
-  groupHeader: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  groupHeaderTappable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     paddingVertical: 6,
+    marginTop: spacing.xs,
   },
-  priorityDot: { width: 8, height: 8, borderRadius: 4 },
-  groupLabel: { fontFamily: fontFamily.semiBold, fontSize: 14, letterSpacing: -0.2 },
-  countBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  countBadgeText: { fontFamily: fontFamily.semiBold, fontSize: 12 },
-  groupDesc: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 17, marginBottom: 4 },
-  showMoreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    borderRadius: borderRadius.md,
-    paddingVertical: 10,
+  sectionLabel: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 11,
+    letterSpacing: 1.5,
   },
-  showMoreText: { fontFamily: fontFamily.medium, fontSize: 13 },
 
-  // Program card
-  cardHeader: {
+  sourceEyebrow: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 10,
+    letterSpacing: 1.2,
+  },
+  eyebrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    marginBottom: 4,
   },
+
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   cardEmoji: { fontSize: 24, marginTop: 2 },
   programName: { fontFamily: fontFamily.semiBold, fontSize: 14 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' },
@@ -990,7 +747,6 @@ const styles = StyleSheet.create({
   typeBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 },
   typeText: { fontFamily: fontFamily.medium, fontSize: 9 },
 
-  // Impact
   impactBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1002,7 +758,6 @@ const styles = StyleSheet.create({
   },
   impactText: { fontFamily: fontFamily.medium, fontSize: 12, flex: 1, lineHeight: 17 },
 
-  // Position badge
   positionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1015,7 +770,6 @@ const styles = StyleSheet.create({
   },
   positionBadgeText: { fontFamily: fontFamily.medium, fontSize: 11 },
 
-  // Warning
   warningBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1028,7 +782,6 @@ const styles = StyleSheet.create({
   },
   warningText: { fontFamily: fontFamily.regular, fontSize: 11, color: colors.error },
 
-  // Expanded
   expandedContent: { marginTop: spacing.sm, gap: spacing.sm },
   descriptionText: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 18 },
   prescriptionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -1039,8 +792,6 @@ const styles = StyleSheet.create({
   reasonHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   reasonLabel: { fontFamily: fontFamily.semiBold, fontSize: 12 },
   reasonText: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 18 },
-  positionExpandedRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  positionExpandedText: { fontFamily: fontFamily.regular, fontSize: 12, fontStyle: 'italic' as const },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   tagChip: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
   tagText: { fontFamily: fontFamily.regular, fontSize: 10 },
@@ -1051,29 +802,11 @@ const styles = StyleSheet.create({
   phvExpandedTitle: { fontFamily: fontFamily.semiBold, fontSize: 12 },
   phvExpandedText: { fontFamily: fontFamily.regular, fontSize: 11 },
 
-  // Compact inline confirmation
-  confirmRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  confirmLabel: {
-    fontFamily: fontFamily.medium,
-    fontSize: 13,
-    flex: 1,
-  },
-  confirmChip: {
-    paddingHorizontal: spacing.compact,
-    paddingVertical: 5,
-    borderRadius: borderRadius.full,
-  },
-  confirmChipText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 12,
-  },
+  confirmRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
+  confirmLabel: { fontFamily: fontFamily.medium, fontSize: 13, flex: 1 },
+  confirmChip: { paddingHorizontal: spacing.compact, paddingVertical: 5, borderRadius: borderRadius.full },
+  confirmChipText: { fontFamily: fontFamily.semiBold, fontSize: 12 },
 
-  // Ask Tomo
   askTomoButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1090,82 +823,30 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  askTomoText: {
-    fontFamily: fontFamily.medium,
-    fontSize: 13,
-  },
+  askTomoText: { fontFamily: fontFamily.medium, fontSize: 13 },
 
-  // Card actions
-  cardActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: spacing.sm,
-  },
+  cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
   cardActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: borderRadius.full,
     borderWidth: 1,
   },
-  cardActionBtnDefault: {
-    backgroundColor: colors.cream06,
-    borderColor: colors.cream10,
-  },
-  cardActionBtnSelected: {
-    backgroundColor: colors.sage12,
-    borderColor: colors.sage30,
-  },
-  cardActionText: {
-    fontFamily: fontFamily.medium,
-    fontSize: 12,
-  },
+  cardActionBtnDefault: { backgroundColor: colors.cream06, borderColor: colors.cream10 },
+  cardActionBtnSelected: { backgroundColor: colors.sage12, borderColor: colors.sage30 },
+  cardActionText: { fontFamily: fontFamily.medium, fontSize: 12 },
 
-  // Empty
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-    gap: spacing.sm,
-  },
+  emptyState: { alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm },
   emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
+    width: 64, height: 64, borderRadius: 32,
+    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs,
   },
   emptyTitle: { fontFamily: fontFamily.semiBold, fontSize: 16 },
   emptySubtitle: { fontFamily: fontFamily.regular, fontSize: 13, textAlign: 'center', paddingHorizontal: spacing.lg, lineHeight: 19 },
-  checklistContainer: {
-    alignSelf: 'stretch',
-    marginTop: spacing.md,
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  checklistHeader: {
-    fontFamily: fontFamily.medium,
-    fontSize: 12,
-    marginBottom: spacing.xs,
-  },
-  checklistRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  checklistText: {
-    fontFamily: fontFamily.regular,
-    fontSize: 13,
-    flex: 1,
-  },
-  ctaRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
+  ctaRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   ctaButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1174,9 +855,5 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
   },
-  ctaButtonText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 13,
-    color: colors.tomoCream,
-  },
+  ctaButtonText: { fontFamily: fontFamily.semiBold, fontSize: 13, color: colors.tomoCream },
 });

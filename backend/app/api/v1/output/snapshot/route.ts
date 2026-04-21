@@ -529,6 +529,7 @@ export async function GET(req: NextRequest) {
     coachName: programCoachNames[s.author_id] || undefined,
     coachId: s.author_id,
     assignedAt: s.created_at,
+    source: 'coach' as const,
   }));
 
   // Extract program interactions
@@ -604,14 +605,24 @@ export async function GET(req: NextRequest) {
           reason: 'Added by you from the program catalog',
           prescription,
           phvWarnings: [],
+          source: 'player_added' as const,
         });
       }
     }
   }
 
   // 5. Build unified response — AI-only, no hardcoded inline fallback
+  // Tag AI programs with source so the UI can render provenance flags (COACH / AI / PLAYER ADDED)
+  // without needing to dedupe by coachId on the client.
+  const aiProgramsWithSource = aiPrograms
+    ? aiPrograms.programs.map((p: any) => ({
+        ...p,
+        source: p.coachId ? ('coach' as const) : ('ai_recommended' as const),
+      }))
+    : [];
+
   const programsSection = aiPrograms ? {
-    recommendations: [...coachProgramsAsInline, ...playerSelectedPrograms, ...aiPrograms.programs]
+    recommendations: [...coachProgramsAsInline, ...playerSelectedPrograms, ...aiProgramsWithSource]
       .filter((p: any) => !excludedProgramIds.has(p.programId)),
     weeklyPlanSuggestion: aiPrograms.weeklyPlanSuggestion,
     weeklyStructure: aiPrograms.weeklyStructure,

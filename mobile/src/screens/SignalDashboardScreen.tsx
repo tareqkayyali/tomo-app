@@ -19,6 +19,8 @@ import { runOnJS } from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBootData } from '../hooks/useBootData';
 import { useOutputData } from '../hooks/useOutputData';
+import { usePrograms } from '../hooks/usePrograms';
+import { interactWithProgram } from '../services/api';
 import { useTheme } from '../hooks/useTheme';
 import { fontFamily } from '../theme/typography';
 import { spacing } from '../theme';
@@ -114,6 +116,15 @@ export function SignalDashboardScreen() {
   // delegate to). We call it unconditionally so the data is ready the
   // moment the athlete taps one of those tabs.
   const { data: outputData, loading: outputLoading, error: outputError, refresh: refreshOutput, isDeepRefreshing: outputDeepRefreshing } = useOutputData();
+  const {
+    active: activeProgramEntries,
+    playerAdded: playerAddedProgramEntries,
+    toggleActive: toggleProgramActive,
+    markDone: markProgramDone,
+    markDismissed: markProgramDismissed,
+    removePlayerAdded: removePlayerAddedProgram,
+    refresh: refreshProgramInteractions,
+  } = usePrograms();
   const initial = profile?.name?.charAt(0)?.toUpperCase() || '?';
 
   const [activePanel, setActivePanel] = useState<PanelId>(null);
@@ -418,6 +429,20 @@ export function SignalDashboardScreen() {
               isDeepRefreshing={outputDeepRefreshing}
               onNavigateCheckin={() => navigation.navigate('Checkin' as any)}
               onNavigateSettings={() => navigation.navigate('Settings' as any)}
+              activeEntries={activeProgramEntries}
+              playerAddedEntries={playerAddedProgramEntries}
+              onToggleActive={toggleProgramActive}
+              onProgramDone={markProgramDone}
+              onProgramDismiss={markProgramDismissed}
+              onPlayerSelect={(program) => {
+                interactWithProgram(program.id, 'player_selected', {
+                  programSnapshot: program,
+                  source: 'player_added',
+                })
+                  .then(() => refreshProgramInteractions())
+                  .catch((e) => console.warn('[SignalDashboard] Player select failed:', e));
+              }}
+              onPlayerDeselect={removePlayerAddedProgram}
             />
           </ScrollView>
         )

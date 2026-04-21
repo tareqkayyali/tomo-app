@@ -40,7 +40,8 @@ import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useOutputData } from '../hooks/useOutputData';
 import { useConnectedSources } from '../hooks/useConnectedSources';
-import { interactWithProgram, fetchActivePrograms } from '../services/api';
+import { interactWithProgram } from '../services/api';
+import { usePrograms } from '../hooks/usePrograms';
 import { VitalsSection } from '../components/output/VitalsSection';
 import { MetricsSection } from '../components/output/MetricsSection';
 import { ProgramsSection } from '../components/output/ProgramsSection';
@@ -128,39 +129,16 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
     return () => subTabRegistry.unregister('Test');
   }, [activeTab]);
 
-  // ── Active + Player-Selected program IDs (loaded once on mount) ──
-  const [activeIds, setActiveIds] = useState<string[]>([]);
-  const [playerSelectedIds, setPlayerSelectedIds] = useState<string[]>([]);
-  const [playerSelectedPrograms, setPlayerSelectedPrograms] = useState<any[]>([]);
-
-  const loadProgramInteractions = useCallback(async () => {
-    try {
-      const result = await fetchActivePrograms();
-      setActiveIds(result.programIds);
-      setPlayerSelectedIds(result.playerSelectedIds ?? []);
-    } catch (e) {
-      console.warn('[TestsScreen] Failed to fetch program interactions:', e);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadProgramInteractions();
-  }, [loadProgramInteractions]);
-
-  const handleToggleActive = useCallback((programId: string) => {
-    // Optimistic toggle
-    setActiveIds((prev) => {
-      if (prev.includes(programId)) {
-        return prev.filter((id) => id !== programId);
-      }
-      return [...prev, programId];
-    });
-
-    // Persist to backend (non-blocking)
-    interactWithProgram(programId, 'active').catch((e) =>
-      console.warn('[TestsScreen] Active toggle failed:', e)
-    );
-  }, []);
+  // ── Program interactions (active + player-added) ─────────────────
+  const {
+    active: activeEntries,
+    playerAdded: playerAddedEntries,
+    toggleActive,
+    markDone,
+    markDismissed,
+    removePlayerAdded,
+    refresh: refreshProgramInteractions,
+  } = usePrograms();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -201,11 +179,10 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       };
     });
 
-    // Persist to backend (non-blocking — user can manually refresh from toolbar)
-    interactWithProgram(programId, action).catch((e) =>
-      console.warn('[TestsScreen] Program interaction failed:', e)
-    );
-  }, [setData]);
+    // Persist to backend via the shared hook
+    if (action === 'done') markDone(programId);
+    else markDismissed(programId);
+  }, [setData, markDone, markDismissed]);
 
   // ── Render ─────────────────────────────────────────────────────
 
@@ -311,20 +288,18 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
                 onNavigateSettings={() => navigation.navigate('Settings' as any)}
                 onProgramDone={(id) => handleProgramAction(id, 'done')}
                 onProgramDismiss={(id) => handleProgramAction(id, 'dismissed')}
-                activeIds={activeIds}
-                onToggleActive={handleToggleActive}
-                playerSelectedIds={playerSelectedIds}
-                playerSelectedPrograms={playerSelectedPrograms}
-                onPlayerSelect={(program: any) => {
-                  setPlayerSelectedIds(prev => [...prev, program.id]);
-                  setPlayerSelectedPrograms(prev => [...prev, program]);
-                  interactWithProgram(program.id, 'player_selected').catch(e => console.warn('[TestsScreen] Player select failed:', e));
+                activeEntries={activeEntries}
+                playerAddedEntries={playerAddedEntries}
+                onToggleActive={toggleActive}
+                onPlayerSelect={(program) => {
+                  interactWithProgram(program.id, 'player_selected', {
+                    programSnapshot: program,
+                    source: 'player_added',
+                  })
+                    .then(() => refreshProgramInteractions())
+                    .catch((e) => console.warn('[TestsScreen] Player select failed:', e));
                 }}
-                onPlayerDeselect={(id: string) => {
-                  setPlayerSelectedIds(prev => prev.filter(x => x !== id));
-                  setPlayerSelectedPrograms(prev => prev.filter(x => x.id !== id));
-                  interactWithProgram(id, 'dismissed').catch(e => console.warn('[TestsScreen] Player deselect failed:', e));
-                }}
+                onPlayerDeselect={removePlayerAdded}
               />
             )}
           </>

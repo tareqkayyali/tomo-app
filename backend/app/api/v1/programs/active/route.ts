@@ -5,7 +5,19 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 /**
  * GET /api/v1/programs/active
  *
- * Returns program IDs the user has marked as "active" and "player_selected".
+ * Returns the athlete's active and player-added programs. Each entry carries
+ * the full `program` snapshot captured at activation time plus `source` and
+ * `activatedAt` so the Signal Dashboard Programs tab can render them without
+ * re-joining recommendations.
+ *
+ * Response:
+ * {
+ *   active:      Array<{ programId, program, source, activatedAt }>,
+ *   playerAdded: Array<{ programId, program, source, activatedAt }>,
+ *   // legacy — kept for backwards compat with older mobile builds:
+ *   programIds: string[],
+ *   playerSelectedIds: string[]
+ * }
  */
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
@@ -15,7 +27,7 @@ export async function GET(req: NextRequest) {
     const db = supabaseAdmin() as any;
     const { data, error } = await db
       .from("program_interactions")
-      .select("program_id, action")
+      .select("program_id, action, program_snapshot, source, created_at")
       .eq("user_id", auth.user.id)
       .in("action", ["active", "player_selected"]);
 
@@ -28,9 +40,26 @@ export async function GET(req: NextRequest) {
     }
 
     const rows = data || [];
+
+    const shape = (r: any) => ({
+      programId: r.program_id,
+      program: r.program_snapshot || null,
+      source: r.source || null,
+      activatedAt: r.created_at,
+    });
+
+    const active = rows
+      .filter((r: any) => r.action === "active")
+      .map(shape);
+    const playerAdded = rows
+      .filter((r: any) => r.action === "player_selected")
+      .map(shape);
+
     return NextResponse.json({
-      programIds: rows.filter((r: any) => r.action === "active").map((r: any) => r.program_id),
-      playerSelectedIds: rows.filter((r: any) => r.action === "player_selected").map((r: any) => r.program_id),
+      active,
+      playerAdded,
+      programIds: active.map((r: any) => r.programId),
+      playerSelectedIds: playerAdded.map((r: any) => r.programId),
     });
   } catch (err) {
     console.error('[GET /api/v1/programs/active] error:', err);
