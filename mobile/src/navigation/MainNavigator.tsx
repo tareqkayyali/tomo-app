@@ -459,6 +459,12 @@ export function MainNavigator() {
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
+        // Swipe-back on every pushed screen by default — iOS-style full-screen
+        // gesture so the hit area isn't a thin left edge. Screens that need to
+        // trap the user mid-flow (e.g. SessionComplete) override with
+        // `gestureEnabled: false`.
+        gestureEnabled: true,
+        fullScreenGestureEnabled: true,
         contentStyle: { backgroundColor: colors.background },
       }}
     >
