@@ -5,7 +5,11 @@
  */
 
 import { supabaseAdmin } from "../lib/supabase/admin";
-import { createNotification } from "./notificationService";
+// Routed through the new notification engine so relationship events
+// appear in the athlete's Notification Center, dedup per relationship_id,
+// and inherit fatigue/quiet-hours/cap guardrails. Legacy notificationService
+// is retained only for drill-assignment back-compat elsewhere.
+import { createNotification } from "./notifications/notificationEngine";
 import { grantConsent } from "./consent/consentService";
 import { ageFromDob, parseDobOrThrow } from "./compliance";
 import type { RelationshipType } from "../types";
@@ -329,20 +333,18 @@ export async function createRelationshipByEmail(
     throw new Error(`Failed to create relationship: ${relError?.message}`);
   }
 
-  // 6. Send notification to the player
-  const notifType = callerRole === "coach" ? "coach_link_request" : "parent_link_request";
+  // 6. Send notification to the player via the new Center engine
   const roleLabel = callerRole === "coach" ? "Coach" : "Parent";
 
   await createNotification({
-    userId: player.id,
-    type: notifType,
-    title: `${roleLabel} link request`,
-    body: `${guardianName} wants to link as your ${callerRole}`,
-    data: {
-      relationshipId: rel.id,
-      guardianId,
-      guardianName,
+    athleteId: player.id,
+    type: "LINK_REQUEST",
+    vars: {
+      role_label: roleLabel,
+      guardian_name: guardianName,
+      relationship_id: rel.id,
     },
+    sourceRef: { type: "relationship", id: rel.id },
   });
 
   return {
@@ -399,13 +401,16 @@ export async function acceptLinkRequest(
 
   const roleLabel = rel.relationship_type === "coach" ? "coach" : "parent";
 
-  // Notify the guardian
+  // Notify the guardian via the new Center engine
   await createNotification({
-    userId: rel.guardian_id,
-    type: "relationship_accepted",
-    title: "Link confirmed",
-    body: `${player?.name || "The player"} confirmed your ${roleLabel} link`,
-    data: { relationshipId },
+    athleteId: rel.guardian_id,
+    type: "LINK_ACCEPTED",
+    vars: {
+      player_name: player?.name || "The player",
+      role_label: roleLabel,
+      relationship_id: relationshipId,
+    },
+    sourceRef: { type: "relationship", id: relationshipId },
   });
 }
 
@@ -459,13 +464,16 @@ export async function declineLinkRequest(
 
   const roleLabel = rel.relationship_type === "coach" ? "coach" : "parent";
 
-  // Notify the guardian
+  // Notify the guardian via the new Center engine
   await createNotification({
-    userId: rel.guardian_id,
-    type: "relationship_declined",
-    title: "Link declined",
-    body: `${player?.name || "The player"} declined your ${roleLabel} link`,
-    data: { relationshipId },
+    athleteId: rel.guardian_id,
+    type: "LINK_DECLINED",
+    vars: {
+      player_name: player?.name || "The player",
+      role_label: roleLabel,
+      relationship_id: relationshipId,
+    },
+    sourceRef: { type: "relationship", id: relationshipId },
   });
 }
 
@@ -601,14 +609,17 @@ export async function acceptAsGuardian(
 
   // Notify the child so they know the parent is linked + consented.
   try {
+    const bodyText = consentGranted
+      ? "Consent granted — you can now use all of Tomo."
+      : "Your parent is linked to your account.";
     await createNotification({
-      userId: child.id,
-      type: "parent_consent_granted",
-      title: "Your parent is set up",
-      body: consentGranted
-        ? "Consent granted — you can now use all of Tomo."
-        : "Your parent is linked to your account.",
-      data: { relationshipId: rel.id, guardianId },
+      athleteId: child.id,
+      type: "PARENT_CONSENT_GRANTED",
+      vars: {
+        body_text: bodyText,
+        relationship_id: rel.id,
+      },
+      sourceRef: { type: "relationship", id: rel.id },
     });
   } catch {
     // Notification best-effort.

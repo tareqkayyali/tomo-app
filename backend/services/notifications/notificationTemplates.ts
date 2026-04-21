@@ -53,6 +53,10 @@ export type NotificationType =
   | 'TRIANGLE_ALIGNMENT_CHANGE'
   | 'EVENT_ANNOTATION'
   | 'EVENT_ANNOTATION_URGENT'
+  | 'LINK_REQUEST'
+  | 'LINK_ACCEPTED'
+  | 'LINK_DECLINED'
+  | 'PARENT_CONSENT_GRANTED'
   // CV
   | 'CV_SHARE_VIEWED'
   | 'CV_UPDATE_AVAILABLE'
@@ -536,6 +540,67 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     ],
     primary_action: { label: 'Open now', deep_link: 'tomo://timeline?event={event_id}' },
     expiry: { ttl_hours: 2 },
+    can_dismiss: true,
+  },
+
+  // ─── Relationship lifecycle (coach / parent / athlete link flow) ───
+  // Routed through the notification center so the link flow is discoverable
+  // in-app, dedups per relationship_id, and respects triangle push prefs.
+
+  LINK_REQUEST: {
+    type: 'LINK_REQUEST',
+    category: 'triangle',
+    priority: 2,
+    title: '{role_label} link request',
+    body: '{guardian_name} wants to link as your {role_label}. Tap to review.',
+    chips: [{ label: '{role_label}', style: 'purple' }],
+    primary_action: { label: 'Review', deep_link: 'tomo://settings?section=family' },
+    secondary_action: { label: 'Later', deep_link: '', dismisses: true },
+    group_key_pattern: '{relationship_id}',
+    group_update_behavior: 'replace_body',
+    expiry: { ttl_hours: 168 },
+    can_dismiss: true,
+  },
+
+  LINK_ACCEPTED: {
+    type: 'LINK_ACCEPTED',
+    category: 'triangle',
+    priority: 3,
+    title: 'Link confirmed',
+    body: '{player_name} confirmed your {role_label} link.',
+    chips: [{ label: 'Active', style: 'green' }],
+    primary_action: { label: 'Open', deep_link: 'tomo://settings?section=family' },
+    group_key_pattern: '{relationship_id}',
+    group_update_behavior: 'replace_body',
+    expiry: { ttl_hours: 72 },
+    can_dismiss: true,
+  },
+
+  LINK_DECLINED: {
+    type: 'LINK_DECLINED',
+    category: 'triangle',
+    priority: 3,
+    title: 'Link declined',
+    body: '{player_name} declined your {role_label} link.',
+    chips: [{ label: 'Declined', style: 'red' }],
+    primary_action: { label: 'Open settings', deep_link: 'tomo://settings?section=family' },
+    group_key_pattern: '{relationship_id}',
+    group_update_behavior: 'replace_body',
+    expiry: { ttl_hours: 72 },
+    can_dismiss: true,
+  },
+
+  PARENT_CONSENT_GRANTED: {
+    type: 'PARENT_CONSENT_GRANTED',
+    category: 'triangle',
+    priority: 2,
+    title: 'Your parent is set up',
+    body: '{body_text}',
+    chips: [{ label: 'Parent linked', style: 'green' }],
+    primary_action: { label: 'See your account', deep_link: 'tomo://settings?section=family' },
+    group_key_pattern: '{relationship_id}',
+    group_update_behavior: 'replace_body',
+    expiry: { ttl_hours: 168 },
     can_dismiss: true,
   },
 
