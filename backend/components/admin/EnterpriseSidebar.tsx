@@ -80,7 +80,10 @@ const navigation: NavGroup[] = [
     minRole: "institutional_pd",
     items: [
       { name: "Chat Quality Hub", href: "/admin/enterprise/quality" },
+      { name: "Auto-Heal Loop", href: "/admin/enterprise/quality/auto-heal" },
       { name: "Eval Dashboard", href: "/admin/enterprise/evaluations" },
+      { name: "Eval Runs", href: "/admin/enterprise/evaluations/runs" },
+      { name: "Regression Baselines", href: "/admin/enterprise/evaluations/baselines" },
       { name: "Safety Gate", href: "/admin/safety-gate" },
     ],
   },
