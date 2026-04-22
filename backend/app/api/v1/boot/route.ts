@@ -22,6 +22,7 @@ import {
 import { evaluatePDProtocols } from "@/services/pdil";
 import { evaluateSignal } from "@/services/signals";
 import type { RecentVitalEntry, YesterdayVitals } from "@/services/signals";
+import { generateAndPersistHeroCoaching } from "@/services/coaching/dynamicHeroCoaching";
 import { getFreshReadiness, isReadinessFresh } from "@/lib/snapshot/freshness";
 import { resolveDashboardLayout } from "@/services/dashboard/dashboardSectionLoader";
 import { getModeDefinition, type ModeParams } from "@/services/scheduling/modeConfig";
@@ -550,10 +551,14 @@ export async function GET(request: NextRequest) {
 
       // Stale or missing → fire-and-forget regen. Bootup never blocks on
       // Haiku; the next request gets the fresh line.
+      // Static import (vs dynamic): dynamic imports inside Next.js API
+      // routes can be silently dropped from the production bundle when the
+      // chunk graph misses them — using the top-of-file `generateAndPersistHeroCoaching`
+      // import guarantees the function is bundled and resolvable at runtime.
       if (!dynamicCoaching || ageMs >= STALE_MS) {
-        import('@/services/coaching/dynamicHeroCoaching')
-          .then((m) => m.generateAndPersistHeroCoaching(userId))
-          .catch((err) => console.warn('[boot] hero coaching regen failed:', err));
+        generateAndPersistHeroCoaching(userId).catch((err) =>
+          console.warn('[boot] hero coaching regen failed:', err),
+        );
       }
     } catch (err) {
       // Never let coaching overlay break boot.

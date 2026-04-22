@@ -9,6 +9,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { upsertDailyVitals } from '../aggregations/dailyVitalsWriter';
 import { computeTrend, computeTrendPct, computeSleepDebt3d, computeSleepConsistency } from '@/services/snapshot/trendUtils';
+import { generateAndPersistHeroCoaching } from '@/services/coaching/dynamicHeroCoaching';
 import type { AthleteEvent, VitalReadingPayload, SleepRecordPayload } from '../types';
 
 // CCRS module is optional — may not be deployed yet
@@ -155,9 +156,9 @@ export async function handleVitalReading(event: AthleteEvent): Promise<void> {
   // ── Dynamic hero coaching — wearable syncs change HRV/recovery, which
   // shifts the FocusHero copy. Fire-and-forget; Haiku call never blocks
   // the event pipeline.
-  import('@/services/coaching/dynamicHeroCoaching')
-    .then((m) => m.generateAndPersistHeroCoaching(event.athlete_id))
-    .catch(err => console.error('[VitalHandler] dynamic coaching failed:', err));
+  generateAndPersistHeroCoaching(event.athlete_id).catch((err) =>
+    console.error('[VitalHandler] dynamic coaching failed:', err),
+  );
 }
 
 /**
