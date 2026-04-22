@@ -49,6 +49,7 @@ interface SpineTimelineProps {
   completedIds?: Set<string>;
   skippedIds?: Set<string>;
   zoomLevel?: number; // 0.7 - 1.5, default 1.0
+  hideSpine?: boolean; // coach/parent read-only: hide spine dots + connector lines
 }
 
 // ── Format time helper ──────────────────────────────────────────────
@@ -74,6 +75,7 @@ export function SpineTimeline({
   completedIds = new Set(),
   skippedIds = new Set(),
   zoomLevel = 1.0,
+  hideSpine = false,
 }: SpineTimelineProps) {
   const { colors } = useTheme();
   const scaledSpacing = (base: number) => Math.round(base * zoomLevel);
@@ -82,7 +84,7 @@ export function SpineTimeline({
   if (events.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <View style={[styles.emptySpine, { backgroundColor: colors.border }]} />
+        {!hideSpine && <View style={[styles.emptySpine, { backgroundColor: colors.border }]} />}
         <View style={styles.emptyContent}>
           <SmartIcon name="calendar-outline" size={40} color={colors.textMuted} />
           <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>No Events Today</Text>
@@ -118,50 +120,53 @@ export function SpineTimeline({
         return (
           <View key={event.id} style={[styles.eventRow, { minHeight: scaledSpacing(100) }]}>
             {/* ── Spine column ── */}
-            <View style={[styles.spineCol, { width: spineWidth }]}>
-              {/* Top line segment */}
-              <View
-                style={[
-                  styles.spineLine,
-                  {
-                    backgroundColor: isFirst ? 'transparent' : eventColor + '40',
-                    flex: 1,
-                  },
-                ]}
-              />
-              {/* Glowing dot */}
-              <View
-                style={[
-                  styles.glowDot,
-                  {
-                    width: dotSize,
-                    height: dotSize,
-                    borderRadius: dotSize / 2,
-                    backgroundColor: isDone ? colors.textMuted : eventColor,
-                    shadowColor: isDone ? 'transparent' : eventColor,
-                    shadowOpacity: isDone ? 0 : 0.6,
-                    shadowRadius: isDone ? 0 : 8,
-                    shadowOffset: { width: 0, height: 0 },
-                  },
-                ]}
-              />
-              {/* Bottom line segment */}
-              <View
-                style={[
-                  styles.spineLine,
-                  {
-                    backgroundColor: isLast ? 'transparent' : (sorted[idx + 1] ? getEventTypeColor(sorted[idx + 1].type) + '40' : 'transparent'),
-                    flex: 1,
-                  },
-                ]}
-              />
-            </View>
+            {!hideSpine && (
+              <View style={[styles.spineCol, { width: spineWidth }]}>
+                {/* Top line segment */}
+                <View
+                  style={[
+                    styles.spineLine,
+                    {
+                      backgroundColor: isFirst ? 'transparent' : eventColor + '40',
+                      flex: 1,
+                    },
+                  ]}
+                />
+                {/* Glowing dot */}
+                <View
+                  style={[
+                    styles.glowDot,
+                    {
+                      width: dotSize,
+                      height: dotSize,
+                      borderRadius: dotSize / 2,
+                      backgroundColor: isDone ? colors.textMuted : eventColor,
+                      shadowColor: isDone ? 'transparent' : eventColor,
+                      shadowOpacity: isDone ? 0 : 0.6,
+                      shadowRadius: isDone ? 0 : 8,
+                      shadowOffset: { width: 0, height: 0 },
+                    },
+                  ]}
+                />
+                {/* Bottom line segment */}
+                <View
+                  style={[
+                    styles.spineLine,
+                    {
+                      backgroundColor: isLast ? 'transparent' : (sorted[idx + 1] ? getEventTypeColor(sorted[idx + 1].type) + '40' : 'transparent'),
+                      flex: 1,
+                    },
+                  ]}
+                />
+              </View>
+            )}
 
             {/* ── Event card ── */}
             <Pressable
               style={({ pressed }) => [
                 styles.cardWrapper,
                 { marginBottom: scaledSpacing(spacing.sm) },
+                hideSpine && { marginLeft: 0 },
                 pressed && { opacity: 0.85 },
                 isDone && { opacity: 0.5 },
               ]}

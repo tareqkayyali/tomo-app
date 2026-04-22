@@ -5,7 +5,7 @@ import {
   listSuggestions,
   listAuthoredSuggestions,
 } from "@/services/suggestionService";
-import { createNotification } from "@/services/notificationService";
+import { createNotification, sendPushNotification } from "@/services/notificationService";
 
 /**
  * GET /api/v1/suggestions
@@ -98,15 +98,22 @@ export async function POST(req: NextRequest) {
       expiresAt,
     });
 
-    // Fire-and-forget notification to the player
+    // Fire-and-forget in-app + push notification to the player
+    const notifTitle = `New suggestion: ${title}`;
+    const notifBody = `Your ${roleResult.role} sent you a suggestion.`;
     createNotification({
       userId: playerId,
       type: "suggestion_received",
-      title: `New suggestion: ${title}`,
-      body: `Your ${roleResult.role} sent you a suggestion.`,
+      title: notifTitle,
+      body: notifBody,
       data: { suggestionId: suggestion.id, suggestionType },
     }).catch(() => {
       /* swallow — notification is best-effort */
+    });
+    sendPushNotification(playerId, notifTitle, notifBody, {
+      suggestionId: suggestion.id,
+      suggestionType,
+      type: "suggestion_received",
     });
 
     return NextResponse.json(

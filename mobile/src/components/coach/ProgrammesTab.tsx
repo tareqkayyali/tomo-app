@@ -5,7 +5,7 @@
  * Coach can view the player's AI-recommended programs.
  */
 
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { ProgramsSection } from '../output/ProgramsSection';
 import { GlassCard } from '../GlassCard';
 import { spacing, fontFamily, layout } from '../../theme';
+import { fetchActivePrograms, type ActiveProgramEntry } from '../../services/api';
 
 interface Props {
   playerId: string;
@@ -30,6 +31,25 @@ interface Props {
 export function ProgrammesTab({ playerId, playerName }: Props) {
   const { colors } = useTheme();
   const { data, loading, error, refresh, isDeepRefreshing } = useOutputData(playerId);
+  const [activeEntries, setActiveEntries] = useState<ActiveProgramEntry[]>([]);
+  const [playerAddedEntries, setPlayerAddedEntries] = useState<ActiveProgramEntry[]>([]);
+
+  const loadActive = useCallback(async () => {
+    try {
+      const res = await fetchActivePrograms(playerId);
+      setActiveEntries(res.active ?? []);
+      setPlayerAddedEntries(res.playerAdded ?? []);
+    } catch (e) {
+      console.warn('[ProgrammesTab] fetchActivePrograms failed:', e);
+    }
+  }, [playerId]);
+
+  useEffect(() => { loadActive(); }, [loadActive]);
+
+  const onRefresh = useCallback(() => {
+    refresh();
+    loadActive();
+  }, [refresh, loadActive]);
 
   if (loading) {
     return (
@@ -43,7 +63,7 @@ export function ProgrammesTab({ playerId, playerName }: Props) {
     return (
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.accent1} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.accent1} />}
       >
         <GlassCard>
           <View style={styles.emptyContent}>
@@ -64,7 +84,7 @@ export function ProgrammesTab({ playerId, playerName }: Props) {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.accent1} />}
+      refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.accent1} />}
     >
       {/* Coach context banner */}
       <View style={[styles.contextBanner, { backgroundColor: colors.accent1 + '10' }]}>
@@ -78,6 +98,8 @@ export function ProgrammesTab({ playerId, playerName }: Props) {
         programs={data.programs}
         gaps={data.metrics?.gaps}
         isDeepRefreshing={isDeepRefreshing}
+        activeEntries={activeEntries}
+        playerAddedEntries={playerAddedEntries}
       />
     </ScrollView>
   );

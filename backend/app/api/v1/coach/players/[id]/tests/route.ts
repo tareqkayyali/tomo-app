@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRole, requireRelationship } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createSuggestion } from "@/services/suggestionService";
-import { createNotification } from "@/services/notificationService";
+import { createNotification, sendPushNotification } from "@/services/notificationService";
 import type { Json } from "@/types/database";
 
 export async function GET(
@@ -103,12 +103,18 @@ export async function POST(
       } as unknown as Json,
     });
 
+    const notifTitle = "New test result recorded";
+    const notifBody = `Your coach logged a ${testType} result: ${values.primaryValue}${values.unit}`;
     await createNotification({
       userId: playerId,
       type: "test_result_added",
-      title: "New test result recorded",
-      body: `Your coach logged a ${testType} result: ${values.primaryValue}${values.unit}`,
+      title: notifTitle,
+      body: notifBody,
       data: { suggestionId: suggestion.id },
+    });
+    sendPushNotification(playerId, notifTitle, notifBody, {
+      suggestionId: suggestion.id,
+      type: "test_result_added",
     });
 
     return NextResponse.json(

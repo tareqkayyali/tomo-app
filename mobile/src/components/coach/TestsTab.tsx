@@ -72,7 +72,7 @@ export function TestsTab({ playerId, playerName, navigation }: Props) {
       <View style={[styles.contextBanner, { backgroundColor: colors.accent2 + '10' }]}>
         <SmartIcon name="eye-outline" size={14} color={colors.accent2} />
         <Text style={[styles.contextText, { color: colors.accent2 }]}>
-          Viewing {playerName.split(' ')[0]}'s metrics · You can log new tests
+          Viewing {playerName.split(' ')[0]}'s metrics · You can log new metrics
         </Text>
       </View>
 

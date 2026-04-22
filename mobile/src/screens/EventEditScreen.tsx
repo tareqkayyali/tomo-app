@@ -44,6 +44,7 @@ import {
 } from '../services/api';
 import type { JournalEntry, ProgramSearchResult, EventLinkedProgram } from '../services/api';
 import { JournalSheet } from '../components/journal/JournalSheet';
+import { EventCommentsSection } from '../components/events/EventCommentsSection';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../navigation/types';
@@ -596,6 +597,11 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
               numberOfLines={5}
               textAlignVertical="top"
             />
+          </View>
+
+          {/* ═══ Coach comments ═══ */}
+          <View style={styles.group}>
+            <EventCommentsSection eventId={params.eventId} allowPost={false} title="Coach comments" />
           </View>
 
           {/* ═══ Session Plan (read-only, built by Tomo) ═══ */}

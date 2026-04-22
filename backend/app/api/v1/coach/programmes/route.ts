@@ -9,7 +9,7 @@ import {
   createProgramme,
   listCoachProgrammes,
 } from "@/services/coachProgrammeService";
-import { createNotification } from "@/services/notificationService";
+import { createNotification, sendPushNotification } from "@/services/notificationService";
 
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
@@ -56,16 +56,23 @@ export async function POST(req: NextRequest) {
       targetPlayerIds: body.targetPlayerIds ?? [],
     });
 
-    // Notify target players
+    // Notify target players (in-app + push, both fire-and-forget)
     const playerIds: string[] = body.targetPlayerIds ?? [];
+    const notifTitle = "New training program assigned";
+    const notifBody = `Your coach assigned "${body.name}" — a ${body.weeks}-week ${body.category || 'training'} program`;
     for (const pid of playerIds) {
-      await createNotification({
+      createNotification({
         userId: pid,
         type: "suggestion_received",
-        title: "New training program assigned",
-        body: `Your coach assigned "${body.name}" — a ${body.weeks}-week ${body.category || 'training'} program`,
+        title: notifTitle,
+        body: notifBody,
         data: { programmeId: programme.id, coachId: auth.user.id },
       }).catch(() => {}); // non-fatal
+      sendPushNotification(pid, notifTitle, notifBody, {
+        programmeId: programme.id,
+        coachId: auth.user.id,
+        type: "programme_assigned",
+      });
     }
 
     return NextResponse.json(

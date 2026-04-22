@@ -116,7 +116,6 @@ export type MainStackParamList = {
 // ── Coach Navigation ─────────────────────────────────────────────────────
 
 export type CoachTabParamList = {
-  CoachDashboard: undefined;
   Players: undefined;
   CoachProfile: undefined;
 };
@@ -128,6 +127,16 @@ export type CoachStackParamList = {
   CoachTestInput: { playerId: string; playerName: string };
   CoachAddProgram: { playerId: string; playerName: string };
   CoachInvite: undefined;
+  CoachEventComments: {
+    eventId: string;
+    name: string;
+    type: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    notes?: string;
+    playerName?: string;
+  };
   RecommendEvent: { playerId: string; playerName: string; allowedTypes: string[] };
   Profile: undefined;
   Notifications: undefined;

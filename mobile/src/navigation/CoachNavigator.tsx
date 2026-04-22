@@ -3,8 +3,8 @@
  *
  * Tabs: Players | Profile
  *
- * Player detail screen has inline 4-tab layout:
- *   Timeline | Mastery | Programmes | Tests
+ * Player detail screen has inline 3-tab layout:
+ *   Timeline | Programmes | Tests
  *
  * Stack wraps tabs + detail screens:
  *   CoachTabs → CoachPlayerDetail → CoachTestInput → CoachInvite → Profile
@@ -21,7 +21,6 @@ import * as Haptics from 'expo-haptics';
 import { TomoIcon } from '../components/tomo-ui';
 
 // Screens — Tabs
-import { CoachDashboardScreen } from '../screens/coach/CoachDashboardScreen';
 import { CoachPlayersScreen } from '../screens/coach/CoachPlayersScreen';
 import { CoachPlayerDetailScreen } from '../screens/coach/CoachPlayerDetailScreen';
 import { CoachPlayerPlanScreen } from '../screens/coach/CoachPlayerPlanScreen';
@@ -29,6 +28,7 @@ import { CoachTestInputScreen } from '../screens/coach/CoachTestInputScreen';
 import { CoachAddProgramScreen } from '../screens/coach/CoachAddProgramScreen';
 import { CoachInviteScreen } from '../screens/coach/CoachInviteScreen';
 import { CoachProfileScreen } from '../screens/coach/CoachProfileScreen';
+import { CoachEventCommentsScreen } from '../screens/coach/CoachEventCommentsScreen';
 
 import { RecommendEventScreen } from '../screens/RecommendEventScreen';
 
@@ -52,20 +52,18 @@ const Stack = createNativeStackNavigator<CoachStackParamList>();
 type CoachTabName = keyof CoachTabParamList;
 
 const TAB_ICONS: Record<CoachTabName, keyof typeof Ionicons.glyphMap> = {
-  CoachDashboard: 'grid-outline',
   Players: 'people-outline',
   CoachProfile: 'person-circle-outline',
 };
 
 const TAB_LABELS: Record<CoachTabName, string> = {
-  CoachDashboard: 'Dashboard',
   Players: 'Players',
   CoachProfile: 'Profile',
 };
 
 // ── Tab Navigator ───────────────────────────────────────────────────
 
-const COACH_TAB_ORDER = ['CoachDashboard', 'Players', 'CoachProfile'] as const;
+const COACH_TAB_ORDER = ['Players', 'CoachProfile'] as const;
 
 function CoachTabNavigator() {
   const { colors } = useTheme();
@@ -96,7 +94,7 @@ function CoachTabNavigator() {
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
     <Tab.Navigator
-      initialRouteName="CoachDashboard"
+      initialRouteName="Players"
       screenListeners={({ navigation }) => {
         navRef.current = navigation;
         return { state: (e: any) => {
@@ -108,7 +106,6 @@ function CoachTabNavigator() {
         headerShown: false,
         tabBarIcon: ({ color, focused }) => {
           const iconName =
-            route.name === 'CoachDashboard' ? 'SquaresFour' :
             route.name === 'Players' ? 'Users' :
             'UserCircle';
           return (
@@ -129,7 +126,6 @@ function CoachTabNavigator() {
         ],
       })}
     >
-      <Tab.Screen name="CoachDashboard" component={CoachDashboardScreen} />
       <Tab.Screen name="Players" component={CoachPlayersScreen} />
       <Tab.Screen name="CoachProfile" component={CoachProfileScreen} />
     </Tab.Navigator>
@@ -229,6 +225,11 @@ export function CoachNavigator() {
       <Stack.Screen
         name="CoachInvite"
         component={CoachInviteScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="CoachEventComments"
+        component={CoachEventCommentsScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

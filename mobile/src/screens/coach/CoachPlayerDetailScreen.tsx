@@ -1,7 +1,7 @@
 /**
- * Coach Player Detail Screen — Gen Z redesign with 4 inner tabs + swipe
+ * Coach Player Detail Screen — Gen Z redesign with 3 inner tabs + swipe
  *
- * Tabs: Timeline | Mastery | Programmes | Tests
+ * Tabs: Timeline | Programmes | Tests
  *
  * Compact player header card. Swipeable inner tabs.
  */
@@ -14,17 +14,17 @@ import {
   Pressable,
   Platform,
   PanResponder,
+  ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { UnifiedDayView } from '../../components/plan/UnifiedDayView';
 import { ErrorState } from '../../components';
-import { ProgressScreen } from '../ProgressScreen';
 import { ProgrammesTab } from '../../components/coach/ProgrammesTab';
 import { TestsTab } from '../../components/coach/TestsTab';
-import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
+import { PlayerScreen, FocusCard, type DialEvent } from '../../components/tomo-ui/playerDesign';
 import { usePlayerCalendarData } from '../../hooks/usePlayerCalendarData';
 import { useTriangleSnapshot } from '../../hooks/useTriangleSnapshot';
 import { ragToColor, acwrRiskLabel } from '../../hooks/useAthleteSnapshot';
@@ -37,13 +37,12 @@ import type { CoachStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<CoachStackParamList, 'CoachPlayerDetail'>;
 
-type ActiveTab = 'timeline' | 'mastery' | 'programmes' | 'tests';
+type ActiveTab = 'timeline' | 'programmes' | 'metrics';
 
 const TABS: { key: ActiveTab; label: string }[] = [
   { key: 'timeline', label: 'Timeline' },
-  { key: 'mastery', label: 'Mastery' },
   { key: 'programmes', label: 'Programs' },
-  { key: 'tests', label: 'Tests' },
+  { key: 'metrics', label: 'Metrics' },
 ];
 
 function addDays(date: Date, days: number): Date {
@@ -68,6 +67,16 @@ interface ReadinessEntry {
   date: string;
   level?: string;
   [key: string]: unknown;
+}
+
+const DIAL_TYPES: DialEvent['type'][] = ['training', 'match', 'recovery', 'study_block', 'exam', 'other'];
+function toDialEventType(type: string): DialEvent['type'] {
+  return (DIAL_TYPES as string[]).includes(type) ? (type as DialEvent['type']) : 'other';
+}
+
+function parseHHMM(hhmm: string): number {
+  const [h, m] = (hhmm || '0:0').split(':').map((n) => parseInt(n, 10) || 0);
+  return h + m / 60;
 }
 
 export function CoachPlayerDetailScreen({ route, navigation }: Props) {
@@ -268,24 +277,76 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
       {/* ─── Tab Content ─── */}
       <View style={styles.tabContent}>
         {activeTab === 'timeline' && (
-          <>
+          <View style={{ flex: 1 }}>
             {backendError && <ErrorState message="Could not load data. Pull to retry." onRetry={refresh} compact />}
-            <UnifiedDayView
-              role="coach" isOwner={false} targetUserName={playerName}
-              events={dayEvents} selectedDay={selectedDay} dayLabel={dayLabel}
-              isToday={isToday} isLoading={isLoading} isLocked={!!dayLocks[selectedDayStr]}
-              refreshing={refreshing} onRefresh={onRefresh}
-              onPrevDay={goToPrevDay} onNextDay={goToNextDay} onToday={goToToday}
-            />
-          </>
-        )}
-        {activeTab === 'mastery' && (
-          <ProgressScreen navigation={navigation as any} targetPlayerId={playerId} targetPlayerName={playerName} />
+
+            {/* Day nav: prev / label / next */}
+            <View style={styles.dayNav}>
+              <Pressable onPress={goToPrevDay} hitSlop={12} style={[styles.dayNavArrow, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
+                <SmartIcon name="chevron-back" size={22} color={colors.textOnDark} />
+              </Pressable>
+              <Pressable onPress={goToToday} style={styles.dayNavCenter}>
+                <Text style={[styles.dayNavLabel, { color: isToday ? colors.accent1 : colors.textOnDark }]}>
+                  {isToday ? `Today, ${selectedDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : selectedDay.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                </Text>
+              </Pressable>
+              <Pressable onPress={goToNextDay} hitSlop={12} style={[styles.dayNavArrow, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
+                <SmartIcon name="chevron-forward" size={22} color={colors.textOnDark} />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              style={styles.timelineScroll}
+              contentContainerStyle={styles.timelineContent}
+              showsVerticalScrollIndicator={false}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />}
+            >
+              {dayEvents.length === 0 ? (
+                <View style={styles.emptyTimeline}>
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>No events scheduled.</Text>
+                </View>
+              ) : (
+                dayEvents.map((ev) => {
+                  const nowDate = new Date();
+                  const nowHour = nowDate.getHours() + nowDate.getMinutes() / 60;
+                  const sH = parseHHMM(ev.startTime || '00:00');
+                  const eH = parseHHMM(ev.endTime || ev.startTime || '00:00');
+                  const running = isToday && nowHour >= sH && nowHour < eH;
+                  const label = running ? 'Right now' : (ev.type || 'other').replace(/_/g, ' ').toUpperCase();
+                  return (
+                    <FocusCard
+                      key={ev.id}
+                      event={{
+                        id: ev.id,
+                        name: ev.name,
+                        type: toDialEventType(ev.type),
+                        startTime: ev.startTime || '00:00',
+                        endTime: ev.endTime || ev.startTime || '00:00',
+                      }}
+                      label={label}
+                      accent={running}
+                      pulse={running}
+                      onPress={() => navigation.navigate('CoachEventComments', {
+                        eventId: ev.id,
+                        name: ev.name,
+                        type: ev.type,
+                        date: ev.date,
+                        startTime: ev.startTime || '',
+                        endTime: ev.endTime || '',
+                        notes: ev.notes || '',
+                        playerName,
+                      })}
+                    />
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
         )}
         {activeTab === 'programmes' && (
           <ProgrammesTab playerId={playerId} playerName={playerName} />
         )}
-        {activeTab === 'tests' && (
+        {activeTab === 'metrics' && (
           <TestsTab playerId={playerId} playerName={playerName} navigation={navigation} />
         )}
       </View>
@@ -390,5 +451,43 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     flex: 1,
+  },
+
+  // Timeline (coach view — FocusCard list, no DayDial/PlanRow)
+  dayNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: layout.screenMargin,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  dayNavArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayNavCenter: { alignItems: 'center' },
+  dayNavLabel: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 16,
+  },
+  timelineScroll: { flex: 1 },
+  timelineContent: {
+    paddingHorizontal: layout.screenMargin,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  emptyTimeline: {
+    paddingVertical: spacing.huge,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontFamily: fontFamily.regular,
+    fontSize: 13,
   },
 });

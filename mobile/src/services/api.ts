@@ -112,15 +112,32 @@ export async function apiRequest<T>(
 
       clearTimeout(timeoutId);
 
-      const data = await response.json();
+      // Safely parse body — some upstream failures return HTML (404 pages,
+      // proxy error shells) and we must surface a clean error instead of
+      // leaking a JSON parse exception to the UI.
+      const contentType = response.headers.get('content-type') || '';
+      let data: any = null;
+      if (contentType.includes('application/json')) {
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+      } else {
+        // Drain body to free the connection; we won't use it.
+        try { await response.text(); } catch { /* noop */ }
+      }
 
       if (!response.ok) {
-        // Backend may return { error: "string" } or { error: { message: "string" } }
         const errMsg =
           typeof data?.error === 'string'
             ? data.error
             : data?.error?.message || `Request failed (${response.status})`;
         throw new Error(errMsg);
+      }
+
+      if (data === null) {
+        throw new Error(`Unexpected non-JSON response (${response.status})`);
       }
 
       return stripEmojiFields(data) as T;
@@ -3825,6 +3842,31 @@ export interface ActiveProgramsResponse {
   playerSelectedIds: string[];
 }
 
-export async function fetchActivePrograms(): Promise<ActiveProgramsResponse> {
-  return apiRequest<ActiveProgramsResponse>('/api/v1/programs/active');
+export async function fetchActivePrograms(targetPlayerId?: string): Promise<ActiveProgramsResponse> {
+  const qs = targetPlayerId ? `?targetPlayerId=${encodeURIComponent(targetPlayerId)}` : '';
+  return apiRequest<ActiveProgramsResponse>(`/api/v1/programs/active${qs}`);
+}
+
+// ─── Event comments (coach / parent / player) ─────────────────────────
+
+export interface EventComment {
+  id: string;
+  eventId: string;
+  authorId: string;
+  authorRole: 'coach' | 'parent' | 'player';
+  authorName: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listEventComments(eventId: string): Promise<{ comments: EventComment[] }> {
+  return apiRequest<{ comments: EventComment[] }>(`/api/v1/calendar/events/${encodeURIComponent(eventId)}/comments`);
+}
+
+export async function postEventComment(eventId: string, body: string): Promise<{ comment: EventComment }> {
+  return apiRequest<{ comment: EventComment }>(`/api/v1/calendar/events/${encodeURIComponent(eventId)}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
 }

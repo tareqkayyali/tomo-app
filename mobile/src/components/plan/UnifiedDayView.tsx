@@ -316,6 +316,7 @@ export function UnifiedDayView({
                 completedIds={completedEvents ?? emptyCompleted}
                 skippedIds={skippedEvents ?? emptySkipped}
                 zoomLevel={zoomLevel}
+                hideSpine={role !== 'player'}
               />
             </View>
           </PinchGestureHandler>
@@ -343,6 +344,7 @@ export function UnifiedDayView({
               completedIds={completedEvents ?? emptyCompleted}
               skippedIds={skippedEvents ?? emptySkipped}
               zoomLevel={zoomLevel}
+              hideSpine={role !== 'player'}
             />
           </View>
         )}
