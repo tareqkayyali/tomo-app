@@ -36,61 +36,66 @@ import { logger } from '@/lib/logger';
 const HAIKU_MODEL = process.env.ANTHROPIC_HAIKU_MODEL || 'claude-haiku-4-5-20251001';
 
 // ── Safety band copy — deterministic, never AI-generated ────────────────
-// These are intentionally direct + respectful. We never paraphrase safety
-// messages through a model.
+// Tight scope per product: CCRS critical bands ONLY. ACWR has been
+// decommissioned, and injury_risk_flag is no longer a trustworthy signal
+// (legacy values may still sit on athlete_snapshots). CCRS is the single
+// clean safety surface; everything else routes through the AI motivational
+// layer.
 const SAFETY_COPY = {
   ccrs_blocked:
-    'Recovery first today. Full stop on intensity. Walk, stretch, hydrate — log how you feel on your next check-in.',
+    'Injury watch \u2014 stop here. Recovery only today. No intensity, no testing. Log how you feel on your next check-in.',
   ccrs_recovery:
-    'Recovery day. Low-intensity only — mobility, easy cardio, technique work. No hard efforts.',
-  readiness_red:
-    'Body\u2019s telling you to ease off. Shift today toward recovery or light technical — intensity can wait.',
-  injury_amber:
-    'Injury watch active. Reduce volume, avoid the aggravating movement pattern, and log how it feels.',
-  sleep_debt_severe:
-    'Sleep debt is heavy. Prioritise 9+ hours tonight — adaptation only happens when you actually sleep.',
+    'Injury watch \u2014 ease off. Mobility, easy cardio, technique only. Save the hard work for when you\u2019re cleared.',
 };
 
 // ── System prompt (cached) — brand voice + invariants ──────────────────
-const SYSTEM_PROMPT = `You are Tomo, an elite-level AI coach for young athletes (13\u201317yo).
+// Style: pure motivational/transition vibes. No analytics, no metrics, no
+// "your readiness is 78". The AI's job is to ride the moment the athlete is
+// in (just finished study, heading into training, between sessions, fresh
+// morning, winding down) with energy and warmth.
+const SYSTEM_PROMPT = `You are Tomo, the inner coach voice for a young athlete (13\u201317yo).
 
-Write ONE coaching sentence for the athlete\u2019s dashboard. Not a paragraph. ONE sentence.
+Write ONE motivational sentence for their dashboard. Not a paragraph. ONE sentence.
 
-Rules:
-- Max 140 characters, including punctuation.
-- Plain text only \u2014 no emojis, no markdown, no quotation marks around the output.
-- Positive-push tone: celebrate work done, or nudge toward the next right action. Never scold.
-- Reference ONE specific input from the context (the most recent event, a readiness number, a trend) \u2014 do not list multiple.
-- Sport-aware: tailor phrasing to the athlete\u2019s sport and position when relevant.
-- Age-aware: conversational, peer-level. Never patronising.
-- Never mention Tomo by name. Speak directly to the athlete as "you".
-- If context includes a just-completed event, acknowledge it briefly and offer a forward cue.
-- If nothing meaningful happened recently, offer a micro-insight based on the readiness state.
+Style:
+- Pure vibes \u2014 motivational, encouraging, energising. Never analytical.
+- Ride the transition: getting out of study, heading into training, mid-session, winding down, fresh morning, last block of the day.
+- Sport-flavored: use the athlete\u2019s sport language naturally (footballers train, swimmers swim, padel players step on court, runners hit the road).
+- Age-appropriate: conversational, peer-level, slightly playful. Never lectures.
+- Direct: speak to the athlete as "you". Never mention Tomo, AI, or coaches by name.
 
-Output: the sentence only. No preamble, no sign-off, no trailing period emoji.`;
+Hard rules:
+- Max 140 characters including punctuation.
+- Plain text only \u2014 no emojis, no markdown, no surrounding quotes.
+- DO NOT cite numbers, scores, percentages, HRV, sleep hours, readiness, or any metric. Even if you see them in context, NEVER reference them.
+- DO NOT give technical training advice (sets, reps, intensity, RPE, watts).
+- DO NOT scold, warn, or use cautionary language.
+
+Output: the sentence only. No preamble, no sign-off.`;
 
 // ── Types ────────────────────────────────────────────────────────────────
 
 export interface HeroCoachingContext {
-  // Athlete identity
+  // Athlete identity (used to flavour the voice — sport language, peer tone)
   athleteId: string;
   sport: string | null;
   position: string | null;
-  ageBand: string | null;              // e.g. 'U17'
+  ageBand: string | null;
   firstName: string | null;
 
-  // Safety inputs
+  // Safety inputs (deterministic override — never reach the AI)
   ccrsRecommendation: string | null;   // 'full_load'|'moderate'|'reduced'|'recovery'|'blocked'
-  readinessRag: string | null;         // 'GREEN'|'AMBER'|'RED'
-  injuryFlag: string | null;           // 'GREEN'|'AMBER'|'RED' | null
-  sleepDebt3d: number | null;          // hours
 
-  // Contextual inputs
-  readinessScore: number | null;       // 0-100
-  hrvDeltaPct: number | null;          // vs baseline
-  lastCompletedEventType: string | null; // 'training'|'match'|'study_block'|...
+  // Transition inputs (the only thing the AI sees besides identity).
+  // These describe "where in the day are you right now" \u2014 just finished
+  // study, heading into training, mid-afternoon gap, etc. NO metrics.
+  lastCompletedEventType: string | null;     // 'training'|'match'|'study_block'|'recovery'|...
   lastCompletedEventName: string | null;
   minutesSinceLastEvent: number | null;
+  upNextEventType: string | null;
+  upNextEventName: string | null;
+  minutesUntilUpNext: number | null;
+  hourOfDay: number;                          // 0-23, athlete-local
 }
 
 export interface CoachingResult {
@@ -141,12 +146,11 @@ export async function generateAndPersistHeroCoaching(
 // ── Resolution — safety → AI → fallback ─────────────────────────────────
 
 export function resolveSafetyOverride(ctx: HeroCoachingContext): string | null {
-  // Priority order within safety tier.
+  // CCRS critical bands only. injury_risk_flag and readiness_rag are NOT
+  // checked here \u2014 they're either legacy/derived or already represented in
+  // CCRS. Single source of truth for "is it unsafe to push today".
   if (ctx.ccrsRecommendation === 'blocked') return SAFETY_COPY.ccrs_blocked;
-  if (ctx.injuryFlag === 'RED' || ctx.injuryFlag === 'AMBER') return SAFETY_COPY.injury_amber;
   if (ctx.ccrsRecommendation === 'recovery') return SAFETY_COPY.ccrs_recovery;
-  if (ctx.readinessRag === 'RED') return SAFETY_COPY.readiness_red;
-  if (ctx.sleepDebt3d != null && ctx.sleepDebt3d >= 8) return SAFETY_COPY.sleep_debt_severe;
   return null;
 }
 
@@ -222,50 +226,60 @@ async function generateWithHaiku(
 function buildUserPrompt(ctx: HeroCoachingContext): string {
   const lines: string[] = ['Athlete context:'];
   if (ctx.sport) lines.push(`- Sport: ${ctx.sport}${ctx.position ? ` (${ctx.position})` : ''}`);
-  if (ctx.ageBand) lines.push(`- Age band: ${ctx.ageBand}`);
-  if (ctx.readinessScore != null) lines.push(`- Readiness: ${ctx.readinessScore}/100 (${ctx.readinessRag ?? '—'})`);
-  if (ctx.ccrsRecommendation) lines.push(`- CCRS recommendation: ${ctx.ccrsRecommendation}`);
-  if (ctx.hrvDeltaPct != null) {
-    const sign = ctx.hrvDeltaPct >= 0 ? '+' : '';
-    lines.push(`- HRV vs baseline: ${sign}${Math.round(ctx.hrvDeltaPct)}%`);
-  }
-  if (ctx.sleepDebt3d != null) lines.push(`- Sleep debt (3d): ${ctx.sleepDebt3d.toFixed(1)}h`);
+  if (ctx.ageBand) lines.push(`- Age: ${ctx.ageBand}`);
+  lines.push(`- Time of day: ${describeTimeOfDay(ctx.hourOfDay)} (${ctx.hourOfDay}:00)`);
 
-  if (ctx.lastCompletedEventType && ctx.minutesSinceLastEvent != null && ctx.minutesSinceLastEvent <= 180) {
-    const eventLabel = ctx.lastCompletedEventName ?? ctx.lastCompletedEventType;
-    lines.push(
-      `- Just completed: ${eventLabel} (${ctx.lastCompletedEventType}) \u2014 ${ctx.minutesSinceLastEvent} min ago`,
-    );
-  } else {
-    lines.push('- No recently completed event.');
+  if (ctx.lastCompletedEventType && ctx.minutesSinceLastEvent != null && ctx.minutesSinceLastEvent <= 90) {
+    const label = ctx.lastCompletedEventName ?? ctx.lastCompletedEventType;
+    lines.push(`- Just finished: ${label} (${ctx.lastCompletedEventType}) \u2014 ${ctx.minutesSinceLastEvent} min ago`);
+  }
+
+  if (ctx.upNextEventType && ctx.minutesUntilUpNext != null && ctx.minutesUntilUpNext <= 240) {
+    const label = ctx.upNextEventName ?? ctx.upNextEventType;
+    lines.push(`- Up next: ${label} (${ctx.upNextEventType}) \u2014 in ${ctx.minutesUntilUpNext} min`);
+  }
+
+  if (
+    !ctx.lastCompletedEventType &&
+    !ctx.upNextEventType
+  ) {
+    lines.push('- No recent or upcoming event \u2014 mid-window. Speak to the moment, not the metrics.');
   }
 
   lines.push('');
-  lines.push('Write the one-sentence coaching line now.');
+  lines.push('Write the one motivational sentence now.');
   return lines.join('\n');
+}
+
+function describeTimeOfDay(hour: number): string {
+  if (hour >= 5 && hour < 11) return 'morning';
+  if (hour >= 11 && hour < 14) return 'midday';
+  if (hour >= 14 && hour < 18) return 'afternoon';
+  if (hour >= 18 && hour < 22) return 'evening';
+  return 'late night';
 }
 
 // ── Context hash — used for change detection ────────────────────────────
 
 function contextHash(ctx: HeroCoachingContext): string {
-  // Round numeric inputs so trivial fluctuations (e.g. HRV +/-1%) don't bust
-  // the cache. Event-type + bucketed minutes since = coarse activity state.
-  const bucketMinutes =
-    ctx.minutesSinceLastEvent == null
-      ? null
-      : Math.floor(ctx.minutesSinceLastEvent / 15) * 15;
+  // Bucket transition minutes to 15-min windows so trivial drift doesn't
+  // bust the cache (a wearable sync between two events shouldn't trigger a
+  // new Haiku call). Hour-of-day buckets to 2h windows for the same reason.
+  const bucketMinSince = ctx.minutesSinceLastEvent == null
+    ? null : Math.floor(ctx.minutesSinceLastEvent / 15) * 15;
+  const bucketMinUntil = ctx.minutesUntilUpNext == null
+    ? null : Math.floor(ctx.minutesUntilUpNext / 15) * 15;
+  const bucketHour = Math.floor(ctx.hourOfDay / 2) * 2;
   const payload = JSON.stringify({
     s: ctx.sport,
     p: ctx.position,
     a: ctx.ageBand,
-    rag: ctx.readinessRag,
-    rs: ctx.readinessScore != null ? Math.round(ctx.readinessScore / 5) * 5 : null,
     ccrs: ctx.ccrsRecommendation,
-    inj: ctx.injuryFlag,
-    hrv: ctx.hrvDeltaPct != null ? Math.round(ctx.hrvDeltaPct / 5) * 5 : null,
-    sd: ctx.sleepDebt3d != null ? Math.round(ctx.sleepDebt3d) : null,
-    evt: ctx.lastCompletedEventType,
-    mb: bucketMinutes,
+    je: ctx.lastCompletedEventType,
+    jm: bucketMinSince,
+    ne: ctx.upNextEventType,
+    nm: bucketMinUntil,
+    h: bucketHour,
   });
   return crypto.createHash('sha1').update(payload).digest('hex').slice(0, 16);
 }
@@ -274,12 +288,11 @@ function contextHash(ctx: HeroCoachingContext): string {
 
 async function buildCoachingContext(athleteId: string): Promise<HeroCoachingContext | null> {
   const db = supabaseAdmin() as any;
+  const nowISO = new Date().toISOString();
 
-  // SELECT('*') is intentional: ccrs_recommendation, age_band, and a few
-  // other columns are optional in some environments (CCRS module gated).
-  // Naming them explicitly here would error the query out and silently nuke
-  // the whole pipeline — '*' is forgiving and the row is small.
-  const [snapshotRes, profileRes, eventRes] = await Promise.all([
+  // SELECT('*') stays \u2014 we only consume ccrs_recommendation from the snapshot
+  // now, but '*' is robust against schema drift between environments.
+  const [snapshotRes, profileRes, recentEventRes, upcomingEventRes] = await Promise.all([
     db
       .from('athlete_snapshots')
       .select('*')
@@ -290,55 +303,60 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
       .select('*')
       .eq('id', athleteId)
       .maybeSingle(),
+    // Most recently completed event (last 6h, to keep "you just finished X"
+    // contextual rather than "yesterday morning you trained").
     db
       .from('calendar_events')
       .select('event_type, name, end_at, status')
       .eq('user_id', athleteId)
       .eq('status', 'completed')
       .not('end_at', 'is', null)
-      .lte('end_at', new Date().toISOString())
+      .lte('end_at', nowISO)
+      .gte('end_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
       .order('end_at', { ascending: false })
+      .limit(1),
+    // Next upcoming event in the next 4h \u2014 powers "heading into..." copy.
+    db
+      .from('calendar_events')
+      .select('event_type, name, start_at')
+      .eq('user_id', athleteId)
+      .gt('start_at', nowISO)
+      .lte('start_at', new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString())
+      .order('start_at', { ascending: true })
       .limit(1),
   ]);
 
   if (snapshotRes.error) {
     logger.warn('[dynamic-coaching] snapshot read failed', {
-      athleteId,
-      error: snapshotRes.error.message,
+      athleteId, error: snapshotRes.error.message,
     });
   }
   if (profileRes.error) {
     logger.warn('[dynamic-coaching] profile read failed', {
-      athleteId,
-      error: profileRes.error.message,
+      athleteId, error: profileRes.error.message,
     });
   }
 
   const snap = snapshotRes.data;
   const profile = profileRes.data;
-  if (!snap || !profile) {
-    logger.warn('[dynamic-coaching] missing context, skipping generation', {
-      athleteId,
-      hasSnap: !!snap,
-      hasProfile: !!profile,
-    });
+  if (!profile) {
+    logger.warn('[dynamic-coaching] missing profile, skipping generation', { athleteId });
     return null;
   }
 
-  // Compute HRV delta
-  let hrvDeltaPct: number | null = null;
-  if (snap.hrv_today_ms && snap.hrv_baseline_ms && snap.hrv_baseline_ms > 0) {
-    hrvDeltaPct = ((snap.hrv_today_ms - snap.hrv_baseline_ms) / snap.hrv_baseline_ms) * 100;
-  }
+  const recent = Array.isArray(recentEventRes.data) && recentEventRes.data.length > 0 ? recentEventRes.data[0] : null;
+  const upcoming = Array.isArray(upcomingEventRes.data) && upcomingEventRes.data.length > 0 ? upcomingEventRes.data[0] : null;
 
-  // Recent event
-  const recent = Array.isArray(eventRes.data) && eventRes.data.length > 0 ? eventRes.data[0] : null;
   let minutesSinceLastEvent: number | null = null;
   if (recent?.end_at) {
     const diffMs = Date.now() - Date.parse(recent.end_at);
-    if (Number.isFinite(diffMs) && diffMs >= 0) {
-      minutesSinceLastEvent = Math.floor(diffMs / 60_000);
-    }
+    if (Number.isFinite(diffMs) && diffMs >= 0) minutesSinceLastEvent = Math.floor(diffMs / 60_000);
+  }
+
+  let minutesUntilUpNext: number | null = null;
+  if (upcoming?.start_at) {
+    const diffMs = Date.parse(upcoming.start_at) - Date.now();
+    if (Number.isFinite(diffMs) && diffMs >= 0) minutesUntilUpNext = Math.floor(diffMs / 60_000);
   }
 
   return {
@@ -347,15 +365,14 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
     position: profile.position ?? null,
     ageBand: profile.age_band ?? null,
     firstName: profile.name ? String(profile.name).split(' ')[0] : null,
-    ccrsRecommendation: snap.ccrs_recommendation ?? null,
-    readinessRag: snap.readiness_rag ?? null,
-    injuryFlag: snap.injury_risk_flag ?? null,
-    sleepDebt3d: snap.sleep_debt_3d ?? null,
-    readinessScore: snap.readiness_score ?? null,
-    hrvDeltaPct,
+    ccrsRecommendation: snap?.ccrs_recommendation ?? null,
     lastCompletedEventType: recent?.event_type ?? null,
     lastCompletedEventName: recent?.name ?? null,
     minutesSinceLastEvent,
+    upNextEventType: upcoming?.event_type ?? null,
+    upNextEventName: upcoming?.name ?? null,
+    minutesUntilUpNext,
+    hourOfDay: new Date().getHours(),
   };
 }
 
