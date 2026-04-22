@@ -20,12 +20,14 @@ import {
 import { SmartIcon } from '../../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { ErrorState } from '../../components';
 import { ProgrammesTab } from '../../components/coach/ProgrammesTab';
 import { TestsTab } from '../../components/coach/TestsTab';
 import { PlayerScreen, FocusCard, type DialEvent } from '../../components/tomo-ui/playerDesign';
 import { usePlayerCalendarData } from '../../hooks/usePlayerCalendarData';
+import { fetchUnreadCommentEvents } from '../../services/api';
 import { useTriangleSnapshot } from '../../hooks/useTriangleSnapshot';
 import { ragToColor, acwrRiskLabel } from '../../hooks/useAthleteSnapshot';
 import { useTheme } from '../../hooks/useTheme';
@@ -93,6 +95,7 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
 
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadEventIds, setUnreadEventIds] = useState<Set<string>>(new Set());
 
   // Readiness dots
   useEffect(() => {
@@ -125,13 +128,32 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [setSelectedDate]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true); refresh(); setTimeout(() => setRefreshing(false), 1000);
-  }, [refresh]);
-
   const todayStr = toDateStr(new Date());
   const selectedDayStr = toDateStr(selectedDay);
   const isToday = selectedDayStr === todayStr;
+
+  // Load unread-comment event IDs for the visible day whenever the day or
+  // player changes, and again on pull-to-refresh.
+  const loadUnread = useCallback(async () => {
+    try {
+      const res = await fetchUnreadCommentEvents(selectedDayStr, selectedDayStr, playerId);
+      setUnreadEventIds(new Set(res.eventIds || []));
+    } catch (e) {
+      console.warn('[CoachPlayerDetailScreen] fetchUnreadCommentEvents failed:', e);
+    }
+  }, [selectedDayStr, playerId]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true); refresh(); loadUnread(); setTimeout(() => setRefreshing(false), 1000);
+  }, [refresh, loadUnread]);
+
+  useEffect(() => { loadUnread(); }, [loadUnread]);
+
+  // Refresh the unread set whenever the screen regains focus — catches the
+  // return path from CoachEventComments so the dot clears after opening.
+  useFocusEffect(
+    useCallback(() => { loadUnread(); }, [loadUnread])
+  );
 
   const dayEvents = useMemo(
     () => events.filter((e) => e.date === selectedDayStr)
@@ -326,6 +348,7 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
                       label={label}
                       accent={running}
                       pulse={running}
+                      unreadDot={unreadEventIds.has(ev.id)}
                       onPress={() => navigation.navigate('CoachEventComments', {
                         eventId: ev.id,
                         name: ev.name,

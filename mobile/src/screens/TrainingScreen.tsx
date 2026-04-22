@@ -51,6 +51,8 @@ import { toDateStr } from '../utils/calendarHelpers';
 import { syncAutoBlocks } from '../services/api';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { CompositeNavigationProp } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
+import { fetchUnreadCommentEvents } from '../services/api';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList, MainTabParamList } from '../navigation/types';
 
@@ -226,6 +228,23 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   const todayStr = toDateStr(new Date());
   const selectedDayStr = toDateStr(selectedDay);
   const isToday = selectedDayStr === todayStr;
+
+  // ─── Unread-comment event IDs (for the red dot on FocusCard) ──────
+  // Refetched on day change and whenever the screen regains focus (catches
+  // return from EventEdit, where GET /comments auto-clears the unread row).
+  const [unreadCommentEventIds, setUnreadCommentEventIds] = useState<Set<string>>(new Set());
+  const loadUnreadComments = useCallback(async () => {
+    try {
+      const res = await fetchUnreadCommentEvents(selectedDayStr, selectedDayStr);
+      setUnreadCommentEventIds(new Set(res.eventIds || []));
+    } catch (e) {
+      console.warn('[TrainingScreen] fetchUnreadCommentEvents failed:', e);
+    }
+  }, [selectedDayStr]);
+  useEffect(() => { loadUnreadComments(); }, [loadUnreadComments]);
+  useFocusEffect(
+    useCallback(() => { loadUnreadComments(); }, [loadUnreadComments])
+  );
 
   // ─── Events for the selected day ─────────────────────────────────
   const dayEvents = useMemo(
@@ -669,6 +688,7 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
                     label={eventCardLabel(ev)}
                     accent={highlighted}
                     pulse={running}
+                    unreadDot={unreadCommentEventIds.has(ev.id)}
                     onPress={() => openEventEdit(ev.id)}
                   />
                   {showActions && (

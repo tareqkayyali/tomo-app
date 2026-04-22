@@ -469,6 +469,8 @@ export interface FocusCardProps {
   label: string; // "Right now" | "Next up"
   accent?: boolean;
   pulse?: boolean;
+  /** When true, render a small red dot flagging an unread coach/parent comment. */
+  unreadDot?: boolean;
   onPress?: () => void;
 }
 
@@ -481,7 +483,7 @@ const eventTypeIcon: Record<DialEvent['type'], string> = {
   other: 'more',
 };
 
-export const FocusCard = memo(({ event, label, accent, pulse, onPress }: FocusCardProps) => {
+export const FocusCard = memo(({ event, label, accent, pulse, unreadDot, onPress }: FocusCardProps) => {
   const { colors } = useTheme();
   const t = usePulse();
   const typeColors: Record<DialEvent['type'], string> = {
@@ -545,6 +547,21 @@ export const FocusCard = memo(({ event, label, accent, pulse, onPress }: FocusCa
         }}
       >
         <TomoIcon name={eventTypeIcon[event.type]} size={18} color={c} />
+        {unreadDot && (
+          <View
+            style={{
+              position: 'absolute',
+              top: -3,
+              right: -3,
+              width: 10,
+              height: 10,
+              borderRadius: 5,
+              backgroundColor: '#E74C3C',
+              borderWidth: 1.5,
+              borderColor: colors.background,
+            }}
+          />
+        )}
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 }}>

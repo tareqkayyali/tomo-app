@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireRole, requireRelationship } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { createNotification, sendPushNotification } from "@/services/notificationService";
+import { createNotification as createCenterNotification } from "@/services/notifications/notificationEngine";
 
 /**
  * GET /api/v1/calendar/events/:id/comments
@@ -48,6 +48,17 @@ export async function GET(
     console.error("[events/:id/comments GET] query error:", error.message);
     return NextResponse.json({ error: "Failed to load comments" }, { status: 500 });
   }
+
+  // Auto-mark-read: upsert the caller's last-viewed-at for this event.
+  // This clears the unread dot on the timeline the next time the day reloads.
+  db.from("event_comment_views")
+    .upsert(
+      { event_id: eventId, user_id: auth.user.id, last_viewed_at: new Date().toISOString() },
+      { onConflict: "event_id,user_id" },
+    )
+    .then(() => { /* noop */ }, (e: any) => {
+      console.warn("[events/:id/comments GET] mark-read upsert failed:", e?.message);
+    });
 
   // Enrich with author name for display
   const authorIds = Array.from(new Set((comments || []).map((c: any) => c.author_id)));
@@ -126,7 +137,11 @@ export async function POST(
     return NextResponse.json({ error: "Failed to post comment" }, { status: 500 });
   }
 
-  // Notify event owner when a guardian comments (fire-and-forget)
+  // Notify event owner when a guardian comments. Routed through the
+  // center engine (athlete_notifications) using the EVENT_ANNOTATION
+  // template — this is the surface the Notification Center reads, and
+  // schedulePush handles the Expo push. Legacy notifications table is
+  // intentionally skipped.
   if (role.role !== "player" && event.user_id !== auth.user.id) {
     const { data: author } = await db
       .from("users")
@@ -134,25 +149,22 @@ export async function POST(
       .eq("id", auth.user.id)
       .maybeSingle();
     const authorName = author?.name || (role.role === "coach" ? "Your coach" : "Your parent");
-    const title = `${authorName} commented`;
     const eventTitle = event.title || "your session";
-    const preview = text.length > 80 ? `${text.slice(0, 80)}…` : text;
-    const notifBody = `On "${eventTitle}": ${preview}`;
+    const preview = text.length > 120 ? `${text.slice(0, 120)}…` : text;
 
-    createNotification({
-      userId: event.user_id,
-      type: "event_comment",
-      title,
-      body: notifBody,
-      data: { eventId, commentId: inserted.id, authorRole: role.role },
-      sourceId: eventId,
-      sourceType: "calendar_event",
-    }).catch(() => { /* best-effort */ });
-
-    sendPushNotification(event.user_id, title, notifBody, {
-      eventId,
-      commentId: inserted.id,
-      type: "event_comment",
+    createCenterNotification({
+      athleteId: event.user_id,
+      type: "EVENT_ANNOTATION",
+      vars: {
+        author_name: authorName,
+        author_role: role.role,
+        event_title: eventTitle,
+        event_id: eventId,
+        body_excerpt: preview,
+      },
+      sourceRef: { type: "event_comment", id: inserted.id },
+    }).catch((e) => {
+      console.warn("[events/:id/comments POST] center notif failed:", e?.message);
     });
   }
 

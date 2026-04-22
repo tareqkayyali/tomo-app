@@ -3870,3 +3870,18 @@ export async function postEventComment(eventId: string, body: string): Promise<{
     body: JSON.stringify({ body }),
   });
 }
+
+/**
+ * Returns IDs of events (in the given window) that have unread comments for
+ * the caller. Used to render the red-dot on timeline event cards. Pass
+ * `targetPlayerId` when a coach/parent is viewing an athlete.
+ */
+export async function fetchUnreadCommentEvents(
+  dateFrom: string,
+  dateTo: string,
+  targetPlayerId?: string,
+): Promise<{ eventIds: string[] }> {
+  const params = new URLSearchParams({ dateFrom, dateTo });
+  if (targetPlayerId) params.set('targetPlayerId', targetPlayerId);
+  return apiRequest<{ eventIds: string[] }>(`/api/v1/calendar/events/unread-comments?${params.toString()}`);
+}
