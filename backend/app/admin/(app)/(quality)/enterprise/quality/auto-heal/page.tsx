@@ -89,6 +89,8 @@ export default function AutoHealPage() {
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
 
+  const [toggling, setToggling] = useState(false);
+
   const fetchConfig = useCallback(async () => {
     setConfigLoading(true);
     try {
@@ -161,6 +163,58 @@ export default function AutoHealPage() {
     fetchAudit();
   }, [fetchAudit]);
 
+  const handleToggle = useCallback(async () => {
+    if (!config) return;
+    const nextEnabled = !config.enabled;
+    const verb = nextEnabled ? "ENABLE" : "DISABLE";
+    const msg = nextEnabled
+      ? "Enable the auto-heal loop?\n\nApplier will start picking up proposed ai_fixes rows every 30 min and opening PRs labeled auto-heal-pending-review. Kill-switch + blocked_paths + rate limits still apply."
+      : "Disable the auto-heal loop?\n\nApplier + CQE acting crons will short-circuit within their next tick. Existing open PRs stay open; telemetry crons (drift, golden-set) continue.";
+    if (!window.confirm(`${verb} auto-heal?\n\n${msg}`)) return;
+
+    const reason = window.prompt(
+      "Reason (goes into ai_auto_heal_audit). Leave blank for default.",
+      "",
+    );
+    if (reason === null) return; // user cancelled the prompt
+
+    setToggling(true);
+    try {
+      const res = await fetch("/api/v1/admin/ai-health/config", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: nextEnabled,
+          ...(reason.trim() ? { reason: reason.trim() } : {}),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(
+          err.error
+            ? `Toggle failed: ${err.error}${err.detail ? ` — ${err.detail}` : ""}`
+            : `Toggle failed: HTTP ${res.status}`,
+        );
+        return;
+      }
+      const data = await res.json();
+      toast.success(
+        data.noop
+          ? `Already ${nextEnabled ? "enabled" : "disabled"} — no change`
+          : `Auto-heal ${nextEnabled ? "ENABLED" : "DISABLED"}`,
+      );
+      // Refresh config + audit so the user sees the new row they just created
+      await Promise.all([fetchConfig(), fetchAudit()]);
+    } catch (e) {
+      toast.error(
+        `Toggle request failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    } finally {
+      setToggling(false);
+    }
+  }, [config, fetchConfig, fetchAudit]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -178,22 +232,38 @@ export default function AutoHealPage() {
             <div>
               <CardTitle>Auto-Heal Loop Configuration</CardTitle>
               <CardDescription>
-                Read-only in Phase 0. Kill-switch toggle enabled in Phase 5
-                (super_admin only).
+                Kill-switch toggle is super_admin only. Non-super_admin
+                clicks return 403. Every flip writes an ai_auto_heal_audit row.
               </CardDescription>
             </div>
-            {config && (
-              <Badge
-                variant="outline"
-                className={
-                  config.enabled
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    : "bg-zinc-100 text-zinc-600 border-zinc-200"
-                }
-              >
-                {config.enabled ? "ENABLED" : "DISABLED"}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {config && (
+                <Badge
+                  variant="outline"
+                  className={
+                    config.enabled
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-zinc-100 text-zinc-600 border-zinc-200"
+                  }
+                >
+                  {config.enabled ? "ENABLED" : "DISABLED"}
+                </Badge>
+              )}
+              {config && (
+                <Button
+                  size="sm"
+                  variant={config.enabled ? "destructive" : "default"}
+                  disabled={toggling || configLoading}
+                  onClick={handleToggle}
+                >
+                  {toggling
+                    ? "…"
+                    : config.enabled
+                      ? "Disable"
+                      : "Enable"}
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
