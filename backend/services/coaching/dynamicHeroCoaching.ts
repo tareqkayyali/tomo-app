@@ -110,6 +110,7 @@ export async function generateAndPersistHeroCoaching(
   athleteId: string,
   client?: Anthropic,
 ): Promise<CoachingResult> {
+  logger.info('[dynamic-coaching] starting', { athleteId });
   const ctx = await buildCoachingContext(athleteId);
   if (!ctx) {
     return { source: 'fallback', text: null, contextHash: '' };
@@ -125,7 +126,15 @@ export async function generateAndPersistHeroCoaching(
   }
 
   const result = await resolveCoaching(ctx, client);
+  // Persist in every path (including null fallback) so we have audit
+  // visibility into "we tried, here's the inputs hash and timestamp" — makes
+  // it possible to debug why a card isn't updating without piping logs.
   await persistCoaching(athleteId, result, hash);
+  logger.info('[dynamic-coaching] result', {
+    athleteId,
+    source: result.source,
+    textLength: result.text?.length ?? 0,
+  });
   return { ...result, contextHash: hash };
 }
 
@@ -266,17 +275,19 @@ function contextHash(ctx: HeroCoachingContext): string {
 async function buildCoachingContext(athleteId: string): Promise<HeroCoachingContext | null> {
   const db = supabaseAdmin() as any;
 
+  // SELECT('*') is intentional: ccrs_recommendation, age_band, and a few
+  // other columns are optional in some environments (CCRS module gated).
+  // Naming them explicitly here would error the query out and silently nuke
+  // the whole pipeline — '*' is forgiving and the row is small.
   const [snapshotRes, profileRes, eventRes] = await Promise.all([
     db
       .from('athlete_snapshots')
-      .select(
-        'readiness_score, readiness_rag, hrv_today_ms, hrv_baseline_ms, sleep_debt_3d, injury_risk_flag, ccrs_recommendation',
-      )
+      .select('*')
       .eq('athlete_id', athleteId)
       .maybeSingle(),
     db
       .from('users')
-      .select('sport, position, age_band, name')
+      .select('*')
       .eq('id', athleteId)
       .maybeSingle(),
     db
@@ -290,9 +301,29 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
       .limit(1),
   ]);
 
+  if (snapshotRes.error) {
+    logger.warn('[dynamic-coaching] snapshot read failed', {
+      athleteId,
+      error: snapshotRes.error.message,
+    });
+  }
+  if (profileRes.error) {
+    logger.warn('[dynamic-coaching] profile read failed', {
+      athleteId,
+      error: profileRes.error.message,
+    });
+  }
+
   const snap = snapshotRes.data;
   const profile = profileRes.data;
-  if (!snap || !profile) return null;
+  if (!snap || !profile) {
+    logger.warn('[dynamic-coaching] missing context, skipping generation', {
+      athleteId,
+      hasSnap: !!snap,
+      hasProfile: !!profile,
+    });
+    return null;
+  }
 
   // Compute HRV delta
   let hrvDeltaPct: number | null = null;
