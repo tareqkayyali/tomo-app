@@ -1,46 +1,47 @@
 /**
- * Dynamic Hero Coaching — generates the one-sentence coaching line that
- * appears on the Signal Dashboard's FocusHero card.
+ * Dynamic Hero Coaching — picks the one-sentence coaching line that appears
+ * on the Signal Dashboard's FocusHero card.
  *
- * Three-layer resolution (first match wins):
+ * NO AI. The previous Haiku-driven version kept drifting toward "step on
+ * the pitch" copy regardless of context. The new model is calendar-tied:
+ * the line is selected from curated category-specific pools based on what
+ * just happened or what's coming up next on the athlete's calendar.
  *
- *   1. Safety override — deterministic. When CCRS is in a critical band,
- *      readiness is RED, an injury is AMBER/RED, or sleep debt is severe, we
- *      return a hardcoded safety string. No AI involvement on critical
- *      states — we can't afford hallucinated safety copy.
+ * Resolution order (first match wins):
  *
- *   2. AI generation — Haiku with prompt-cached static block. Inputs:
- *      athlete's sport + position + age-band + recent completed event (type
- *      + minutes-ago) + CCRS + readiness + HRV/sleep trend. Output: one
- *      short positive-push sentence (<=140 chars).
+ *   1. Safety override — CCRS critical bands (blocked / recovery). Hardcoded
+ *      strings, no randomness. The athlete is hurt or in mandated recovery
+ *      and we don't want any motivational vibe to dilute that.
  *
- *   3. Fallback — if the AI call fails (rate limit, timeout, parse error)
- *      we return null so the boot route can fall through to the existing
- *      signal-engine coaching. The card never breaks.
+ *   2. Sleep nearing — Sleep is up next within 2 hours. Wind-down pool.
+ *
+ *   3. Just finished an event (last 30 min) — POST_EVENT_VIBES per category.
+ *      "Well done", "great work", "brain's earned a break", etc.
+ *
+ *   4. Coming into an event (next 60 min) — PRE_EVENT_VIBES per category.
+ *      Ramp-up energy specific to the activity type.
+ *
+ *   5. Default — NEUTRAL_VIBES. Light encouragement, no calendar context.
+ *
+ * Within each pool, a deterministic seed (context hash) picks the same line
+ * as long as the situation hasn't changed. When the next event-handler
+ * fires (check-in, session complete, wearable sync) the hash shifts and a
+ * fresh line is picked from the pool.
  *
  * Call sites:
  *   • wellnessHandler    — after every check-in
  *   • sessionHandler     — after a SESSION_LOG completes
  *   • vitalHandler       — after a wearable sync lands
- *   • boot (lazy)        — if the stored copy is >6h old, fire async
+ *   • boot (lazy)        — if the stored copy is >6h old
  *
  * All writes go to athlete_snapshots.dynamic_coaching (see migration 090).
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import crypto from 'node:crypto';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { trackedClaudeCall } from '@/lib/trackedClaudeCall';
 import { logger } from '@/lib/logger';
 
-const HAIKU_MODEL = process.env.ANTHROPIC_HAIKU_MODEL || 'claude-haiku-4-5-20251001';
-
-// ── Safety band copy — deterministic, never AI-generated ────────────────
-// Tight scope per product: CCRS critical bands ONLY. ACWR has been
-// decommissioned, and injury_risk_flag is no longer a trustworthy signal
-// (legacy values may still sit on athlete_snapshots). CCRS is the single
-// clean safety surface; everything else routes through the AI motivational
-// layer.
+// ── Safety band copy — deterministic, never randomised ───────────────────
 const SAFETY_COPY = {
   ccrs_blocked:
     'Injury watch \u2014 stop here. Recovery only today. No intensity, no testing. Log how you feel on your next check-in.',
@@ -48,81 +49,130 @@ const SAFETY_COPY = {
     'Injury watch \u2014 ease off. Mobility, easy cardio, technique only. Save the hard work for when you\u2019re cleared.',
 };
 
-// ── System prompt (cached) — brand voice + invariants ──────────────────
-// Style: pure motivational/transition vibes. No analytics, no metrics. The
-// AI's job is to ride the SPECIFIC moment the athlete is in. Transitions are
-// the dominant signal; sport is just the tonal flavour.
-const SYSTEM_PROMPT = `You are the inner-coach voice for a young athlete (13\u201317yo).
+// ── Per-category pools ──────────────────────────────────────────────────
+// Each line stays under ~140 chars. Tone: peer-level, slightly playful,
+// never patronising. Categories follow the calendar_events.event_type
+// vocabulary: training, match, study_block, exam, recovery, other.
 
-Write ONE motivational sentence for their dashboard. Not a paragraph. ONE sentence.
+const POST_EVENT_VIBES: Record<string, string[]> = {
+  training: [
+    'Great session — body\u2019s adapting. Hydrate up.',
+    'Big work logged. Tomorrow\u2019s sharper for what you just did.',
+    'Well done — the work goes in the bank. Refuel and reset.',
+    'Solid effort. That\u2019s another brick in the wall.',
+    'Session done, body\u2019s thanking you. Stretch, drink, breathe.',
+  ],
+  match: [
+    'Match in the books \u2014 walk it off, hydrate, replay the good moments.',
+    'You showed up. That\u2019s what matters. Recover well.',
+    'Game done. Win or lose, the experience is yours to keep.',
+    'Big day logged. Slow it down now.',
+  ],
+  study_block: [
+    'Brain\u2019s earned a break. Stretch, breathe, drink water.',
+    'Books closed. Switch the focus off, give the body a few easy minutes.',
+    'Study\u2019s done \u2014 well done sticking with it. Reset before the next thing.',
+    'Solid focus. Now move a little, let the mind soften.',
+    'Good work. The repetition adds up even when you can\u2019t see it.',
+  ],
+  exam: [
+    'Exam\u2019s done \u2014 you walked in and got it done. That\u2019s the win.',
+    'However it went, it\u2019s behind you now. Breathe out.',
+    'Exam logged. Now switch off properly \u2014 you\u2019ve earned it.',
+    'Big test done. Whatever happens next, you showed up.',
+  ],
+  recovery: [
+    'Recovery\u2019s logged. Quiet wins matter as much as the loud ones.',
+    'Body got what it needed. Smart move.',
+    'Recovery done \u2014 you\u2019re building the platform for the harder days.',
+  ],
+  other: [
+    'Block done. Nice pacing.',
+    'Logged. On to the next one.',
+    'Well done getting that done.',
+  ],
+};
 
-WHAT TO WRITE depends entirely on the transition the athlete is in. Match the moment, not the sport:
+const PRE_EVENT_VIBES: Record<string, string[]> = {
+  training: [
+    'Pitch is calling \u2014 fuel up and bring the focus.',
+    'Session up next. Trust your prep, switch on.',
+    'Time to train. Show up like the work matters \u2014 because it does.',
+    'You know what\u2019s coming. Get ready, then get after it.',
+  ],
+  match: [
+    'Game day energy. Trust the work that got you here.',
+    'Match incoming. Breathe, focus, do you.',
+    'Pre-game window \u2014 settle the nerves, set the intent.',
+    'You\u2019ve earned the right to be here. Now go play.',
+  ],
+  study_block: [
+    'Books soon \u2014 clear the desk, pick the one thing to nail.',
+    'Study coming up. Phone face-down, focus on for 30 minutes.',
+    'Heads down soon. Set a small goal and chase it.',
+    'Time to learn. Pick what matters most and start there.',
+  ],
+  exam: [
+    'Exam coming up. Trust your prep \u2014 you\u2019ve put the work in.',
+    'Big test soon. Steady breath, calm hands, you\u2019ve got this.',
+    'Pre-exam window. Trust what you know and let it land.',
+  ],
+  recovery: [
+    'Recovery coming up. Slow it down on purpose \u2014 this is part of the plan.',
+    'Recovery time soon. Be present with it, not annoyed by it.',
+  ],
+  other: [
+    'Up next \u2014 show up like you mean it.',
+    'Something coming up. Get into the right headspace.',
+  ],
+};
 
-1. Heading to sleep in the next 2 hours \u2192 wind-down vibe. Recovery, breathing, "tomorrow's session is built tonight". Never push intensity.
-2. Just finished study and no training coming up \u2192 brain-to-body reset vibe. Stretch, walk, switch off, breathe. NEVER push them into a training session that isn't on their calendar.
-3. Just finished study and training is coming up next \u2192 hype the switch from books to body. Ramp-up energy.
-4. Just finished training/match \u2192 celebrate the work. Recovery, hydration, "the work today becomes the speed/strength tomorrow."
-5. Heading into a training session in the next 90 min \u2192 ramp-up energy specific to the session type.
-6. Morning, nothing logged \u2192 set the tone for the day.
-7. Mid-window with nothing recent or upcoming \u2192 ride the moment, encourage hydration / movement / mindset \u2014 NOT training.
+const SLEEP_NEARING_VIBES: string[] = [
+  'Long day\u2019s nearly logged. Wind it down.',
+  'Tomorrow\u2019s built tonight. Sleep is the work.',
+  'Slow it down \u2014 phone away, lights low, let the day soften.',
+  'Wrap the day soft. Rest is where the adaptation happens.',
+  'Good day done. Time to let the body rebuild.',
+];
 
-Tone:
-- Encouraging, energising, peer-level. Slight playfulness OK.
-- Sport flavour is a SECONDARY input \u2014 only reference the sport when training is actively in the picture (just finished or coming up). If the athlete just finished study and is going to sleep, do NOT mention football/padel/etc.
-- Direct: speak to the athlete as "you". Never mention Tomo, AI, or coaches by name.
-
-Hard rules:
-- Max 140 characters including punctuation.
-- Plain text only \u2014 no emojis, no markdown, no surrounding quotes.
-- NEVER cite numbers, scores, percentages, HRV, sleep hours, readiness, or any metric.
-- NEVER give technical training advice (sets, reps, intensity, RPE, watts).
-- NEVER push toward training when no training event is on the calendar near the current moment.
-- NEVER scold, warn, or use cautionary language.
-
-Output: the sentence only. No preamble, no sign-off.`;
+const NEUTRAL_VIBES: string[] = [
+  'Quiet stretch \u2014 hydrate, move a little, stay sharp.',
+  'In-between moment. Be where you are.',
+  'Steady. The next thing comes when it comes.',
+  'Drink water, take a breath, keep it simple.',
+  'Reset and roll on.',
+];
 
 // ── Types ────────────────────────────────────────────────────────────────
 
 export interface HeroCoachingContext {
-  // Athlete identity (used to flavour the voice — sport language, peer tone)
   athleteId: string;
-  sport: string | null;
-  position: string | null;
-  ageBand: string | null;
-  firstName: string | null;
-
-  // Safety inputs (deterministic override — never reach the AI)
-  ccrsRecommendation: string | null;   // 'full_load'|'moderate'|'reduced'|'recovery'|'blocked'
-
-  // Transition inputs (the only thing the AI sees besides identity).
-  // These describe "where in the day are you right now" \u2014 just finished
-  // study, heading into training, mid-afternoon gap, etc. NO metrics.
-  lastCompletedEventType: string | null;     // 'training'|'match'|'study_block'|'recovery'|...
-  lastCompletedEventName: string | null;
+  ccrsRecommendation: string | null;
+  lastCompletedEventType: string | null;
   minutesSinceLastEvent: number | null;
   upNextEventType: string | null;
   upNextEventName: string | null;
   minutesUntilUpNext: number | null;
-  hourOfDay: number;                          // 0-23, athlete-local
 }
 
 export interface CoachingResult {
-  source: 'safety' | 'ai' | 'fallback';
-  text: string | null;
+  source: 'safety' | 'sleep' | 'post_event' | 'pre_event' | 'neutral';
+  text: string;
   contextHash: string;
 }
 
-// ── Public: generate + persist ──────────────────────────────────────────
+function isSleepEvent(type: string | null, name: string | null): boolean {
+  if (!type) return false;
+  if (type === 'sleep') return true;
+  if (type === 'other' && name && name.toLowerCase().includes('sleep')) return true;
+  return false;
+}
 
-/**
- * Main entry point. Builds the context, resolves it through the three
- * layers, and persists the result to athlete_snapshots. Fire-and-forget
- * from event handlers — errors log but never throw.
- */
+// ── Public entry point ──────────────────────────────────────────────────
+
 export async function generateAndPersistHeroCoaching(
   athleteId: string,
-  client?: Anthropic,
-): Promise<CoachingResult> {
+): Promise<CoachingResult | { source: 'fallback'; text: null; contextHash: '' }> {
   logger.info('[dynamic-coaching] starting', { athleteId });
   const ctx = await buildCoachingContext(athleteId);
   if (!ctx) {
@@ -131,165 +181,71 @@ export async function generateAndPersistHeroCoaching(
 
   const hash = contextHash(ctx);
 
-  // Short-circuit: if the most recent stored generation matches this exact
-  // context, don't spend another Haiku call. Inputs haven't changed.
   const existing = await readExisting(athleteId);
   if (existing && existing.hash === hash && existing.text) {
-    return { source: existing.source, text: existing.text, contextHash: hash };
+    return {
+      source: existing.source as CoachingResult['source'],
+      text: existing.text,
+      contextHash: hash,
+    };
   }
 
-  const result = await resolveCoaching(ctx, client);
-  // Persist in every path (including null fallback) so we have audit
-  // visibility into "we tried, here's the inputs hash and timestamp" — makes
-  // it possible to debug why a card isn't updating without piping logs.
-  await persistCoaching(athleteId, result, hash);
+  const result = resolveCoaching(ctx, hash);
+  await persistCoaching(athleteId, result);
   logger.info('[dynamic-coaching] result', {
     athleteId,
     source: result.source,
-    textLength: result.text?.length ?? 0,
+    textLength: result.text.length,
   });
-  return { ...result, contextHash: hash };
+  return result;
 }
 
-// ── Resolution — safety → AI → fallback ─────────────────────────────────
+// ── Resolver — picks the right pool based on calendar state ─────────────
+
+function resolveCoaching(ctx: HeroCoachingContext, hash: string): CoachingResult {
+  const safety = resolveSafetyOverride(ctx);
+  if (safety) return { source: 'safety', text: safety, contextHash: hash };
+
+  if (
+    isSleepEvent(ctx.upNextEventType, ctx.upNextEventName) &&
+    ctx.minutesUntilUpNext != null &&
+    ctx.minutesUntilUpNext <= 120
+  ) {
+    return { source: 'sleep', text: pickFromPool(SLEEP_NEARING_VIBES, hash), contextHash: hash };
+  }
+
+  if (
+    ctx.lastCompletedEventType &&
+    ctx.minutesSinceLastEvent != null &&
+    ctx.minutesSinceLastEvent <= 30
+  ) {
+    const pool = POST_EVENT_VIBES[ctx.lastCompletedEventType] ?? POST_EVENT_VIBES.other;
+    return { source: 'post_event', text: pickFromPool(pool, hash), contextHash: hash };
+  }
+
+  if (
+    ctx.upNextEventType &&
+    ctx.minutesUntilUpNext != null &&
+    ctx.minutesUntilUpNext <= 60 &&
+    !isSleepEvent(ctx.upNextEventType, ctx.upNextEventName)
+  ) {
+    const pool = PRE_EVENT_VIBES[ctx.upNextEventType] ?? PRE_EVENT_VIBES.other;
+    return { source: 'pre_event', text: pickFromPool(pool, hash), contextHash: hash };
+  }
+
+  return { source: 'neutral', text: pickFromPool(NEUTRAL_VIBES, hash), contextHash: hash };
+}
 
 export function resolveSafetyOverride(ctx: HeroCoachingContext): string | null {
-  // CCRS critical bands only. injury_risk_flag and readiness_rag are NOT
-  // checked here \u2014 they're either legacy/derived or already represented in
-  // CCRS. Single source of truth for "is it unsafe to push today".
   if (ctx.ccrsRecommendation === 'blocked') return SAFETY_COPY.ccrs_blocked;
   if (ctx.ccrsRecommendation === 'recovery') return SAFETY_COPY.ccrs_recovery;
   return null;
 }
 
-async function resolveCoaching(
-  ctx: HeroCoachingContext,
-  client?: Anthropic,
-): Promise<Omit<CoachingResult, 'contextHash'>> {
-  // 1. Safety override
-  const safety = resolveSafetyOverride(ctx);
-  if (safety) return { source: 'safety', text: safety };
-
-  // 2. AI generation
-  try {
-    const ai = await generateWithHaiku(ctx, client);
-    if (ai) return { source: 'ai', text: ai };
-  } catch (err) {
-    logger.warn('[dynamic-coaching] Haiku generation failed', {
-      athleteId: ctx.athleteId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-
-  // 3. Fallback — null lets the boot route use the signal-engine coaching.
-  return { source: 'fallback', text: null };
-}
-
-// ── AI call ─────────────────────────────────────────────────────────────
-
-async function generateWithHaiku(
-  ctx: HeroCoachingContext,
-  client?: Anthropic,
-): Promise<string | null> {
-  const anthropic = client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const userPrompt = buildUserPrompt(ctx);
-
-  const { message } = await trackedClaudeCall(
-    anthropic,
-    {
-      model: HAIKU_MODEL,
-      max_tokens: 120,
-      system: [
-        {
-          type: 'text',
-          text: SYSTEM_PROMPT,
-          // Cache the static brand-voice block — unchanged across every call,
-          // so the per-request cost is dominated by the small per-athlete
-          // user message.
-          cache_control: { type: 'ephemeral' },
-        },
-      ],
-      messages: [{ role: 'user', content: userPrompt }],
-    },
-    {
-      userId: ctx.athleteId,
-      agentType: 'hero_coaching',
-    },
-  );
-
-  const text = message.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join(' ')
-    .trim();
-
-  if (!text) return null;
-  // Guardrail: strip wrapping quotes the model sometimes emits, drop any
-  // trailing whitespace, cap at 180 chars (soft cap — system prompt says 140
-  // but we don't truncate mid-word). If something's too long the UI handles it.
-  const cleaned = text.replace(/^["\u201C\u2018]/, '').replace(/["\u201D\u2019]$/, '').trim();
-  return cleaned.slice(0, 180);
-}
-
-function buildUserPrompt(ctx: HeroCoachingContext): string {
-  const lines: string[] = ['Athlete context:'];
-  if (ctx.sport) lines.push(`- Sport: ${ctx.sport}${ctx.position ? ` (${ctx.position})` : ''}`);
-  if (ctx.ageBand) lines.push(`- Age: ${ctx.ageBand}`);
-  lines.push(`- Time of day: ${describeTimeOfDay(ctx.hourOfDay)} (${ctx.hourOfDay}:00)`);
-
-  if (ctx.lastCompletedEventType && ctx.minutesSinceLastEvent != null && ctx.minutesSinceLastEvent <= 90) {
-    const label = ctx.lastCompletedEventName ?? ctx.lastCompletedEventType;
-    lines.push(`- Just finished: ${label} (${ctx.lastCompletedEventType}) \u2014 ${ctx.minutesSinceLastEvent} min ago`);
-  }
-
-  if (ctx.upNextEventType && ctx.minutesUntilUpNext != null && ctx.minutesUntilUpNext <= 240) {
-    const label = ctx.upNextEventName ?? ctx.upNextEventType;
-    lines.push(`- Up next: ${label} (${ctx.upNextEventType}) \u2014 in ${ctx.minutesUntilUpNext} min`);
-  }
-
-  if (
-    !ctx.lastCompletedEventType &&
-    !ctx.upNextEventType
-  ) {
-    lines.push('- No recent or upcoming event \u2014 mid-window. Speak to the moment, not the metrics.');
-  }
-
-  lines.push('');
-  lines.push('Write the one motivational sentence now.');
-  return lines.join('\n');
-}
-
-function describeTimeOfDay(hour: number): string {
-  if (hour >= 5 && hour < 11) return 'morning';
-  if (hour >= 11 && hour < 14) return 'midday';
-  if (hour >= 14 && hour < 18) return 'afternoon';
-  if (hour >= 18 && hour < 22) return 'evening';
-  return 'late night';
-}
-
-// ── Context hash — used for change detection ────────────────────────────
-
-function contextHash(ctx: HeroCoachingContext): string {
-  // Bucket transition minutes to 15-min windows so trivial drift doesn't
-  // bust the cache (a wearable sync between two events shouldn't trigger a
-  // new Haiku call). Hour-of-day buckets to 2h windows for the same reason.
-  const bucketMinSince = ctx.minutesSinceLastEvent == null
-    ? null : Math.floor(ctx.minutesSinceLastEvent / 15) * 15;
-  const bucketMinUntil = ctx.minutesUntilUpNext == null
-    ? null : Math.floor(ctx.minutesUntilUpNext / 15) * 15;
-  const bucketHour = Math.floor(ctx.hourOfDay / 2) * 2;
-  const payload = JSON.stringify({
-    s: ctx.sport,
-    p: ctx.position,
-    a: ctx.ageBand,
-    ccrs: ctx.ccrsRecommendation,
-    je: ctx.lastCompletedEventType,
-    jm: bucketMinSince,
-    ne: ctx.upNextEventType,
-    nm: bucketMinUntil,
-    h: bucketHour,
-  });
-  return crypto.createHash('sha1').update(payload).digest('hex').slice(0, 16);
+function pickFromPool(pool: string[], hash: string): string {
+  if (pool.length === 0) return '';
+  const idx = parseInt(hash.slice(0, 8), 16) % pool.length;
+  return pool[idx];
 }
 
 // ── Context loader ──────────────────────────────────────────────────────
@@ -298,21 +254,12 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
   const db = supabaseAdmin() as any;
   const nowISO = new Date().toISOString();
 
-  // SELECT('*') stays \u2014 we only consume ccrs_recommendation from the snapshot
-  // now, but '*' is robust against schema drift between environments.
-  const [snapshotRes, profileRes, recentEventRes, upcomingEventRes] = await Promise.all([
+  const [snapshotRes, recentEventRes, upcomingEventRes] = await Promise.all([
     db
       .from('athlete_snapshots')
       .select('*')
       .eq('athlete_id', athleteId)
       .maybeSingle(),
-    db
-      .from('users')
-      .select('*')
-      .eq('id', athleteId)
-      .maybeSingle(),
-    // Most recently completed event (last 6h, to keep "you just finished X"
-    // contextual rather than "yesterday morning you trained").
     db
       .from('calendar_events')
       .select('event_type, name, end_at, status')
@@ -323,7 +270,6 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
       .gte('end_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
       .order('end_at', { ascending: false })
       .limit(1),
-    // Next upcoming event in the next 4h \u2014 powers "heading into..." copy.
     db
       .from('calendar_events')
       .select('event_type, name, start_at')
@@ -339,19 +285,8 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
       athleteId, error: snapshotRes.error.message,
     });
   }
-  if (profileRes.error) {
-    logger.warn('[dynamic-coaching] profile read failed', {
-      athleteId, error: profileRes.error.message,
-    });
-  }
 
   const snap = snapshotRes.data;
-  const profile = profileRes.data;
-  if (!profile) {
-    logger.warn('[dynamic-coaching] missing profile, skipping generation', { athleteId });
-    return null;
-  }
-
   const recent = Array.isArray(recentEventRes.data) && recentEventRes.data.length > 0 ? recentEventRes.data[0] : null;
   const upcoming = Array.isArray(upcomingEventRes.data) && upcomingEventRes.data.length > 0 ? upcomingEventRes.data[0] : null;
 
@@ -369,19 +304,31 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
 
   return {
     athleteId,
-    sport: profile.sport ?? null,
-    position: profile.position ?? null,
-    ageBand: profile.age_band ?? null,
-    firstName: profile.name ? String(profile.name).split(' ')[0] : null,
     ccrsRecommendation: snap?.ccrs_recommendation ?? null,
     lastCompletedEventType: recent?.event_type ?? null,
-    lastCompletedEventName: recent?.name ?? null,
     minutesSinceLastEvent,
     upNextEventType: upcoming?.event_type ?? null,
     upNextEventName: upcoming?.name ?? null,
     minutesUntilUpNext,
-    hourOfDay: new Date().getHours(),
   };
+}
+
+// ── Context hash ────────────────────────────────────────────────────────
+
+function contextHash(ctx: HeroCoachingContext): string {
+  const bucketMinSince = ctx.minutesSinceLastEvent == null
+    ? null : Math.floor(ctx.minutesSinceLastEvent / 15) * 15;
+  const bucketMinUntil = ctx.minutesUntilUpNext == null
+    ? null : Math.floor(ctx.minutesUntilUpNext / 15) * 15;
+  const payload = JSON.stringify({
+    ccrs: ctx.ccrsRecommendation,
+    je: ctx.lastCompletedEventType,
+    jm: bucketMinSince,
+    ne: ctx.upNextEventType,
+    nsleep: isSleepEvent(ctx.upNextEventType, ctx.upNextEventName),
+    nm: bucketMinUntil,
+  });
+  return crypto.createHash('sha1').update(payload).digest('hex').slice(0, 16);
 }
 
 // ── Persistence ─────────────────────────────────────────────────────────
@@ -389,7 +336,7 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
 async function readExisting(athleteId: string): Promise<{
   text: string | null;
   hash: string;
-  source: 'safety' | 'ai' | 'fallback';
+  source: string;
 } | null> {
   const db = supabaseAdmin() as any;
   const { data } = await db
@@ -398,22 +345,16 @@ async function readExisting(athleteId: string): Promise<{
     .eq('athlete_id', athleteId)
     .maybeSingle();
   if (!data || !data.dynamic_coaching_context_hash) return null;
-  // We don't store the source kind separately — infer from the text: if it's
-  // one of the safety strings, source=safety. Otherwise AI. Fallback is a
-  // null store which we skip above.
-  const text = data.dynamic_coaching as string | null;
-  const isSafety = text != null && Object.values(SAFETY_COPY).includes(text);
   return {
-    text,
+    text: data.dynamic_coaching as string | null,
     hash: data.dynamic_coaching_context_hash as string,
-    source: isSafety ? 'safety' : text ? 'ai' : 'fallback',
+    source: 'cached',
   };
 }
 
 async function persistCoaching(
   athleteId: string,
-  result: Omit<CoachingResult, 'contextHash'>,
-  hash: string,
+  result: CoachingResult,
 ): Promise<void> {
   const db = supabaseAdmin() as any;
   await db
@@ -423,7 +364,7 @@ async function persistCoaching(
         athlete_id: athleteId,
         dynamic_coaching: result.text,
         dynamic_coaching_generated_at: new Date().toISOString(),
-        dynamic_coaching_context_hash: hash,
+        dynamic_coaching_context_hash: result.contextHash,
       },
       { onConflict: 'athlete_id' },
     );
