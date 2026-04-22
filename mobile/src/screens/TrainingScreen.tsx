@@ -17,8 +17,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
@@ -575,31 +573,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     </View>
   );
 
-  // ── Chat escape gesture — mirror of SignalDashboard's swipe-to-Chat ──
-  // Plan (tab 0) sits to the LEFT of Chat (tab 1), so a decisive LEFTWARD
-  // drag navigates to Chat. Gesture region is the dial + PlanRow + events
-  // list (wrapped below) — the week strip is intentionally OUTSIDE so its
-  // horizontal pagingEnabled ScrollView keeps handling week navigation.
-  // Thresholds match Dashboard's direction-flipped: translationX < -60 OR
-  // velocityX < -500. failOffsetY yields to vertical scrolls so the events
-  // list still scrolls normally.
-  const navigateToChat = useCallback(() => {
-    (navigation as any).navigate('Chat');
-  }, [navigation]);
-
-  const chatEscape = useMemo(
-    () =>
-      Gesture.Pan()
-        .activeOffsetX([-20, 999])
-        .failOffsetY([-20, 20])
-        .onEnd((e) => {
-          'worklet';
-          const decisive = e.translationX < -60 || e.velocityX < -500;
-          if (decisive) runOnJS(navigateToChat)();
-        }),
-    [navigateToChat],
-  );
-
   // ─── Today label for the dial (e.g. "Saturday, Apr 19") ──────────
   const dialDateText = useMemo(
     () =>
@@ -677,8 +650,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
         </ScrollView>
       </Animated.View>
 
-      <GestureDetector gesture={chatEscape}>
-      <View style={styles.gestureZone}>
       <Animated.View style={[styles.dialWrap, enterDial]}>
         <DayDial
           events={dialEvents}
@@ -799,8 +770,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
           )}
         </ScrollView>
       </Animated.View>
-      </View>
-      </GestureDetector>
 
       <SessionCompletionSheet
         visible={completionSheetEvent !== null}
@@ -823,9 +792,6 @@ function createStyles(colors: ThemeColors) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
-    },
-    gestureZone: {
-      flex: 1,
     },
     scroll: {
       paddingBottom: 120,

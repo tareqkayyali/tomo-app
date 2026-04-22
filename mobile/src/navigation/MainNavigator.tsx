@@ -427,17 +427,11 @@ function TabNavigator() {
     >
       <Tab.Screen name="Plan" component={TrainingScreen} />
       <Tab.Screen name="Chat" component={HomeScreen} />
-      <Tab.Screen
-        name="Dashboard"
-        component={SignalDashboardScreen}
-        options={{
-          // Signal has its own inner GestureDetector for sub-tab swipes
-          // (Dashboard / Programs / Metrics / Progress). Outer pager-view
-          // would otherwise win gesture arbitration on horizontal drags.
-          // Tap Chat/Plan pills to leave Signal.
-          swipeEnabled: false,
-        }}
-      />
+      {/* Dashboard manages its own swipeEnabled via setOptions in
+          SignalDashboardScreen — true on the Dashboard sub-tab so users
+          can swipe back to Chat, false on Programs/Metrics/Progress so
+          the inner PagerView owns sub-tab swipes. */}
+      <Tab.Screen name="Dashboard" component={SignalDashboardScreen} />
     </Tab.Navigator>
   );
 }

@@ -14,8 +14,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Platform, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 import PagerView from 'react-native-pager-view';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBootData } from '../hooks/useBootData';
@@ -254,45 +253,26 @@ export function SignalDashboardScreen() {
     [pagerIndex, scrollPosition],
   );
 
-  // ── Chat escape gesture — Instagram-style "back to previous tab" ────
-  // On Dashboard sub-tab (page 0), a decisive rightward drag from ANYWHERE
-  // on the screen navigates back to Chat. No left-edge requirement — modern
-  // UX (Instagram stories, Twitter tweet detail, iOS settings with full-
-  // screen back gesture) has trained users that "swipe right = go back",
-  // not "swipe right from the 40pt edge strip = go back".
-  //
-  // Safety of the full-screen zone: PagerView on page 0 has no previous
-  // page to reveal, so its own native pan either rubber-bands (overdrag)
-  // or ignores the drag entirely. Both pager and our Gesture.Pan see the
-  // same touches in parallel (native UIKit gestures and RNGH gestures
-  // coexist without one blocking the other), so there's no arbitration
-  // race — we just fire `navigateToChat` at gesture end.
-  //
-  // On sub-tabs 1+, `pagerIndex.value !== 0` bails out of the worklet
-  // early. PagerView owns those right-drags to advance to the previous
-  // sub-tab (Progress → Metrics → Programs → Dashboard).
-  //
-  // Thresholds: translationX > 60 OR velocityX > 500. `activeOffsetX
-  // [-999, 20]` means the gesture only starts tracking on right-drags of
-  // 20+ pts, so left-drags (sub-tab next) pass through untouched.
-  // failOffsetY yields to vertical scrolls so pull-to-refresh still works.
-  const navigateToChat = useCallback(() => {
-    navigation.navigate('Chat' as any);
-  }, [navigation]);
-
-  const chatEscape = useMemo(
-    () =>
-      Gesture.Pan()
-        .activeOffsetX([-999, 20])
-        .failOffsetY([-20, 20])
-        .onEnd((e) => {
-          'worklet';
-          if (pagerIndex.value !== 0) return;
-          const decisive = e.translationX > 60 || e.velocityX > 500;
-          if (decisive) runOnJS(navigateToChat)();
-        }),
-    [navigateToChat, pagerIndex],
-  );
+  // ── Outer-pager swipe coordination ──────────────────────────────────
+  // The MaterialTopTabNavigator owns horizontal swipes between the three
+  // top-level tabs (Plan / Chat / Dashboard). Inside Dashboard we have an
+  // inner PagerView for sub-tabs (Dashboard / Programs / Metrics / Progress)
+  // that ALSO wants horizontal swipes. We arbitrate by toggling the outer
+  // pager's `swipeEnabled` based on which sub-tab is active:
+  //   - On the Dashboard sub-tab → outer swipe enabled, so a swipe-right
+  //     navigates back to Chat (Chat sits to the left of Dashboard in the
+  //     tab order). The inner pager has no previous page here, so there's
+  //     no arbitration conflict.
+  //   - On Programs / Metrics / Progress → outer swipe disabled, so the
+  //     inner pager owns horizontal swipes for sub-tab navigation. Users
+  //     leave Dashboard by tapping the Dashboard sub-tab first, then
+  //     swiping (or by tapping the Chat tab pill).
+  // This replaces the previous static `swipeEnabled: false` on Dashboard,
+  // which caused Chat→Dashboard swipes to freeze mid-transition because the
+  // pager's scrollEnabled flipped to false the moment Dashboard took focus.
+  useEffect(() => {
+    navigation.setOptions({ swipeEnabled: activeTab === 'dashboard' } as any);
+  }, [activeTab, navigation]);
 
   // Week-strip day tap in ProgramPanel: close the panel and deep-link to
   // the Plan (Timeline) tab focused on that date.
@@ -353,16 +333,15 @@ export function SignalDashboardScreen() {
         borderColor={colors.borderLight}
       />
 
-      <GestureDetector gesture={chatEscape}>
-        <PagerView
-          ref={pagerRef}
-          style={styles.subTabContainer}
-          initialPage={activeIndex >= 0 ? activeIndex : 0}
-          onPageSelected={onPagerSelected}
-          onPageScroll={onPagerScroll}
-          offscreenPageLimit={1}
-          scrollEnabled
-        >
+      <PagerView
+        ref={pagerRef}
+        style={styles.subTabContainer}
+        initialPage={activeIndex >= 0 ? activeIndex : 0}
+        onPageSelected={onPagerSelected}
+        onPageScroll={onPagerScroll}
+        offscreenPageLimit={1}
+        scrollEnabled
+      >
           <View key="dashboard" style={styles.pagerPage} collapsable={false}>
             <ScrollView
               showsVerticalScrollIndicator={false}
@@ -519,8 +498,7 @@ export function SignalDashboardScreen() {
           <View key="progress" style={styles.pagerPage} collapsable={false}>
             <ProgressTab />
           </View>
-        </PagerView>
-      </GestureDetector>
+      </PagerView>
     </SafeAreaView>
   );
 }
