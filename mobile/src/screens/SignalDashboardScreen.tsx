@@ -15,7 +15,8 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Platform, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import PagerView from 'react-native-pager-view';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBootData } from '../hooks/useBootData';
 import { useOutputData } from '../hooks/useOutputData';
@@ -201,91 +202,88 @@ export function SignalDashboardScreen() {
     navigation.navigate('Settings' as any);
   }, [navigation]);
 
-  // Sub-tab swipe + edge-swipe-back. Two overlaid behaviours on the same pan:
-  //   • Swipe left  (in-content) → next sub-tab (Dashboard → Program → Metrics → Progress)
-  //   • Swipe right (in-content) → previous sub-tab
-  //   • Swipe RIGHT starting from the far-left edge (≤ 24 pts from screen left)
-  //     → navigate to Chat main tab, regardless of which sub-tab we're on.
-  //     This mirrors the iOS edge-back gesture: "back to parent navigation"
-  //     lives on the edge; tab switching lives in the content body.
+  // ── Sub-tab pager ────────────────────────────────────────────────────
+  // PagerView owns horizontal drags within the content body — native 60fps
+  // tracking, adjacent-page preloading, and momentum fling without JS thread
+  // hops. The outer Material Top Tab's `swipeEnabled` is false on Dashboard
+  // specifically to avoid pager-in-pager gesture arbitration.
   //
-  // The outer Material Top Tab pager is disabled on Signal so the inner pan
-  // fully owns horizontal gestures. failOffsetY yields to vertical scrolls
-  // inside each panel; activeOffsetX requires a meaningful horizontal drag
-  // before the pan claims the gesture.
+  // Two-way sync:
+  //   • Tap on UnderlineTabSwitcher → setActiveTab → useEffect calls
+  //     pagerRef.setPage() to animate to the page.
+  //   • Swipe on PagerView → onPageSelected fires after settle → setActiveTab
+  //     keeps the underline + `signal.coaching` consumers in lock-step.
   //
-  // Double-fire defence: goSubTab reads activeTab through a ref so its
-  // identity stays stable across re-renders. Without this, every tab change
-  // recreated goSubTab → recreated the gesture memo → GestureDetector
-  // remounted the gesture mid-interaction and a quick swipe would advance
-  // two tabs at once (e.g. Dashboard → Metrics, skipping Programs).
-  const activeTabRef = useRef(activeTab);
+  // The scrollPosition shared value mirrors the pager's real-time offset
+  // during drag (position + offset). We keep it around for future use by
+  // any caller that wants a finger-tracking indicator — the current
+  // UnderlineTabSwitcher springs post-settle which is already smooth
+  // enough at page-level native 60fps.
+  const pagerRef = useRef<PagerView>(null);
+  const pagerIndex = useSharedValue(0);
+  const scrollPosition = useSharedValue(0);
+  const activeIndex = DASHBOARD_TABS.findIndex((t) => t.key === activeTab);
+
   useEffect(() => {
-    activeTabRef.current = activeTab;
-  }, [activeTab]);
+    // Guard against redundant setPage during programmatic transitions — the
+    // pager settles and calls onPageSelected, which calls setActiveTab,
+    // which fires this effect; skipping when already there prevents a
+    // second setPage in the same frame.
+    if (activeIndex >= 0 && pagerIndex.value !== activeIndex) {
+      pagerRef.current?.setPage(activeIndex);
+    }
+  }, [activeIndex, pagerIndex]);
 
-  // 250ms debounce on sub-tab advances. Belt-and-braces protection against a
-  // rare double-fire we saw on Dashboard → Metrics (skipping Programs) — if
-  // any UI-thread race re-triggers the JS callback for the same swipe, the
-  // second call is dropped instead of advancing a tab a second time. 250ms is
-  // well under perceptible input latency but far longer than any gesture
-  // double-fire window.
-  const lastAdvanceAtRef = useRef(0);
-  const goSubTab = useCallback((direction: 'next' | 'prev') => {
-    const now = Date.now();
-    if (now - lastAdvanceAtRef.current < 250) return;
-    lastAdvanceAtRef.current = now;
-    const idx = DASHBOARD_TABS.findIndex((t) => t.key === activeTabRef.current);
-    if (idx < 0) return;
-    const nextIdx = direction === 'next' ? idx + 1 : idx - 1;
-    if (nextIdx < 0 || nextIdx >= DASHBOARD_TABS.length) return;
-    setActiveTab(DASHBOARD_TABS[nextIdx].key);
-  }, []);
+  const onPagerSelected = useCallback(
+    (e: { nativeEvent: { position: number } }) => {
+      const idx = e.nativeEvent.position;
+      const tab = DASHBOARD_TABS[idx];
+      if (tab) setActiveTab(tab.key);
+    },
+    [],
+  );
 
+  const onPagerScroll = useCallback(
+    (e: { nativeEvent: { position: number; offset: number } }) => {
+      // Continuous 0..N-1 across all tabs — useful for finger-tracking
+      // indicators. Written on JS thread; consumers that care about 60fps
+      // should read from a native-side onPageScroll variant instead.
+      scrollPosition.value = e.nativeEvent.position + e.nativeEvent.offset;
+      pagerIndex.value = e.nativeEvent.position;
+    },
+    [pagerIndex, scrollPosition],
+  );
+
+  // ── Chat escape gesture — overlay on left edge ──────────────────────
+  // One concern ONLY: when the user is on Dashboard (page 0, nowhere to
+  // go left in the pager), a decisive right-drag starting from the left
+  // edge navigates back to Chat. On every other page, PagerView owns
+  // right-drags to advance to the previous sub-tab — we never interfere.
+  //
+  // Thresholds are forgiving (translationX>50 OR velocityX>450) so a
+  // flick registers; `startX <= 40` is the edge gate, meaningfully wider
+  // than the old 30pt zone. activeOffsetX([-999, 20]) means the gesture
+  // only starts tracking on clear rightward drags — left drags (sub-tab
+  // advance) pass through to the pager untouched.
   const navigateToChat = useCallback(() => {
-    const now = Date.now();
-    if (now - lastAdvanceAtRef.current < 250) return;
-    lastAdvanceAtRef.current = now;
     navigation.navigate('Chat' as any);
   }, [navigation]);
 
-  const subTabSwipe = useMemo(() => {
-    // Two zones:
-    //   • Left-edge (≤ 30pt from the screen's left) — iOS back-swipe semantics.
-    //     Lower thresholds so a gentle drag registers, since edge swipes tend
-    //     to be quick + shallow. Only fires on RIGHT direction → Chat.
-    //   • Body — sub-tab next/prev. Normal thresholds.
-    // activeOffsetX lowered from 15 to 10 so the gesture claims the touch
-    // faster (was fighting ScrollView's initial pan-responder delay and felt
-    // unresponsive near the edge). failOffsetY widened to 40 so a small
-    // vertical wobble on a fast horizontal flick doesn't fail the pan.
-    const EDGE_ZONE = 30;
-    const EDGE_MIN_TX = 15;
-    const EDGE_MIN_VX = 200;
-    const BODY_MIN_TX = 25;
-    const BODY_MIN_VX = 250;
-    return Gesture.Pan()
-      .activeOffsetX([-10, 10])
-      .failOffsetY([-40, 40])
-      .onEnd((e) => {
-        'worklet';
-        const startX = e.absoluteX - e.translationX;
-        const startedFromLeftEdge = startX <= EDGE_ZONE;
-
-        if (startedFromLeftEdge) {
-          const edgeSwipedRight = e.translationX > EDGE_MIN_TX || e.velocityX > EDGE_MIN_VX;
-          if (edgeSwipedRight) {
-            runOnJS(navigateToChat)();
-            return;
-          }
-        }
-
-        const bodySwipedLeft = e.translationX < -BODY_MIN_TX || e.velocityX < -BODY_MIN_VX;
-        const bodySwipedRight = e.translationX > BODY_MIN_TX || e.velocityX > BODY_MIN_VX;
-        if (bodySwipedLeft) runOnJS(goSubTab)('next');
-        else if (bodySwipedRight) runOnJS(goSubTab)('prev');
-      });
-  }, [goSubTab, navigateToChat]);
+  const chatEscape = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-999, 20])
+        .failOffsetY([-20, 20])
+        .onEnd((e) => {
+          'worklet';
+          if (pagerIndex.value !== 0) return;
+          const startX = e.absoluteX - e.translationX;
+          if (startX > 40) return;
+          const decisive = e.translationX > 50 || e.velocityX > 450;
+          if (decisive) runOnJS(navigateToChat)();
+        }),
+    [navigateToChat, pagerIndex],
+  );
 
   // Week-strip day tap in ProgramPanel: close the panel and deep-link to
   // the Plan (Timeline) tab focused on that date.
@@ -346,163 +344,173 @@ export function SignalDashboardScreen() {
         borderColor={colors.borderLight}
       />
 
-      <GestureDetector gesture={subTabSwipe}>
-      <View style={styles.subTabContainer}>
-      {activeTab === 'dashboard' && (
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={dashboardRefreshing}
-            onRefresh={onDashboardRefresh}
-            tintColor={colors.accent}
-          />
-        }
-      >
-        <SignalDashboardTab
-          bootData={bootData ?? null}
-          modeLabel={currentMode ?? 'balanced'}
-          signalCoaching={signal.coaching ?? ''}
-          onSleepPress={() => setActiveTab('metrics')}
-          onStrengthPress={() => setActiveTab('metrics')}
-          onGapPress={() => setActiveTab('metrics')}
-          onPulseCellPress={() => setActiveTab('metrics')}
-          onMilestonePress={(m) => {
-            try {
-              navigation.navigate('Main', { screen: 'Plan', params: { eventId: m.id } });
-            } catch {
-              // Graceful no-op if the caller nav isn't available.
-            }
-          }}
-        />
-      </ScrollView>
-      )}
-
-      {activeTab === 'program' && (
-        outputLoading && !outputData ? (
-          <View style={styles.tabLoading}>
-            <ActivityIndicator size="small" color={colors.accent} />
+      <GestureDetector gesture={chatEscape}>
+        <PagerView
+          ref={pagerRef}
+          style={styles.subTabContainer}
+          initialPage={activeIndex >= 0 ? activeIndex : 0}
+          onPageSelected={onPagerSelected}
+          onPageScroll={onPagerScroll}
+          offscreenPageLimit={1}
+          scrollEnabled
+        >
+          <View key="dashboard" style={styles.pagerPage} collapsable={false}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ flex: 1 }}
+              contentContainerStyle={styles.scrollContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={dashboardRefreshing}
+                  onRefresh={onDashboardRefresh}
+                  tintColor={colors.accent}
+                />
+              }
+            >
+              <SignalDashboardTab
+                bootData={bootData ?? null}
+                modeLabel={currentMode ?? 'balanced'}
+                signalCoaching={signal.coaching ?? ''}
+                onSleepPress={() => setActiveTab('metrics')}
+                onStrengthPress={() => setActiveTab('metrics')}
+                onGapPress={() => setActiveTab('metrics')}
+                onPulseCellPress={() => setActiveTab('metrics')}
+                onMilestonePress={(m) => {
+                  try {
+                    navigation.navigate('Main', { screen: 'Plan', params: { eventId: m.id } });
+                  } catch {
+                    // Graceful no-op if the caller nav isn't available.
+                  }
+                }}
+              />
+            </ScrollView>
           </View>
-        ) : outputError || !outputData ? (
-          <ScrollView
-            contentContainerStyle={styles.tabErrorContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={outputRefreshing}
-                onRefresh={async () => {
-                  setOutputRefreshing(true);
-                  await refreshOutput();
-                  setOutputRefreshing(false);
-                }}
-                tintColor={colors.accent}
-              />
-            }
-          >
-            <Text style={[styles.tabErrorTitle, { color: colors.textOnDark }]}>
-              Could not load programs
-            </Text>
-            <Text style={[styles.tabErrorBody, { color: colors.textMuted }]}>
-              Pull down to retry
-            </Text>
-          </ScrollView>
-        ) : (
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={styles.tabContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={outputRefreshing}
-                onRefresh={async () => {
-                  setOutputRefreshing(true);
-                  await refreshOutput();
-                  setOutputRefreshing(false);
-                }}
-                tintColor={colors.accent}
-              />
-            }
-          >
-            <ProgramsSection
-              programs={outputData.programs}
-              gaps={outputData.metrics?.gaps}
-              isDeepRefreshing={outputDeepRefreshing}
-              onNavigateCheckin={() => navigation.navigate('Checkin' as any)}
-              onNavigateSettings={() => navigation.navigate('Settings' as any)}
-              activeEntries={activeProgramEntries}
-              playerAddedEntries={playerAddedProgramEntries}
-              onToggleActive={toggleProgramActive}
-              onProgramDone={markProgramDone}
-              onProgramDismiss={markProgramDismissed}
-              onPlayerSelect={(program) => {
-                interactWithProgram(program.id, 'player_selected', {
-                  programSnapshot: program,
-                  source: 'player_added',
-                })
-                  .then(() => refreshProgramInteractions())
-                  .catch((e) => console.warn('[SignalDashboard] Player select failed:', e));
-              }}
-              onPlayerDeselect={removePlayerAddedProgram}
-            />
-          </ScrollView>
-        )
-      )}
 
-      {activeTab === 'metrics' && (
-        outputLoading && !outputData ? (
-          <View style={styles.tabLoading}>
-            <ActivityIndicator size="small" color={colors.accent} />
+          <View key="program" style={styles.pagerPage} collapsable={false}>
+            {outputLoading && !outputData ? (
+              <View style={styles.tabLoading}>
+                <ActivityIndicator size="small" color={colors.accent} />
+              </View>
+            ) : outputError || !outputData ? (
+              <ScrollView
+                contentContainerStyle={styles.tabErrorContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={outputRefreshing}
+                    onRefresh={async () => {
+                      setOutputRefreshing(true);
+                      await refreshOutput();
+                      setOutputRefreshing(false);
+                    }}
+                    tintColor={colors.accent}
+                  />
+                }
+              >
+                <Text style={[styles.tabErrorTitle, { color: colors.textOnDark }]}>
+                  Could not load programs
+                </Text>
+                <Text style={[styles.tabErrorBody, { color: colors.textMuted }]}>
+                  Pull down to retry
+                </Text>
+              </ScrollView>
+            ) : (
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={styles.tabContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={outputRefreshing}
+                    onRefresh={async () => {
+                      setOutputRefreshing(true);
+                      await refreshOutput();
+                      setOutputRefreshing(false);
+                    }}
+                    tintColor={colors.accent}
+                  />
+                }
+              >
+                <ProgramsSection
+                  programs={outputData.programs}
+                  gaps={outputData.metrics?.gaps}
+                  isDeepRefreshing={outputDeepRefreshing}
+                  onNavigateCheckin={() => navigation.navigate('Checkin' as any)}
+                  onNavigateSettings={() => navigation.navigate('Settings' as any)}
+                  activeEntries={activeProgramEntries}
+                  playerAddedEntries={playerAddedProgramEntries}
+                  onToggleActive={toggleProgramActive}
+                  onProgramDone={markProgramDone}
+                  onProgramDismiss={markProgramDismissed}
+                  onPlayerSelect={(program) => {
+                    interactWithProgram(program.id, 'player_selected', {
+                      programSnapshot: program,
+                      source: 'player_added',
+                    })
+                      .then(() => refreshProgramInteractions())
+                      .catch((e) => console.warn('[SignalDashboard] Player select failed:', e));
+                  }}
+                  onPlayerDeselect={removePlayerAddedProgram}
+                />
+              </ScrollView>
+            )}
           </View>
-        ) : outputError || !outputData ? (
-          <ScrollView
-            contentContainerStyle={styles.tabErrorContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={outputRefreshing}
-                onRefresh={async () => {
-                  setOutputRefreshing(true);
-                  await refreshOutput();
-                  setOutputRefreshing(false);
-                }}
-                tintColor={colors.accent}
-              />
-            }
-          >
-            <Text style={[styles.tabErrorTitle, { color: colors.textOnDark }]}>
-              Could not load metrics
-            </Text>
-            <Text style={[styles.tabErrorBody, { color: colors.textMuted }]}>
-              Pull down to retry
-            </Text>
-          </ScrollView>
-        ) : (
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={styles.tabContent}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={
-              <RefreshControl
-                refreshing={outputRefreshing}
-                onRefresh={async () => {
-                  setOutputRefreshing(true);
-                  await refreshOutput();
-                  setOutputRefreshing(false);
-                }}
-                tintColor={colors.accent}
-              />
-            }
-          >
-            <MetricsSection
-              metrics={outputData.metrics}
-              onTestLogged={() => refreshOutput()}
-              sport={bootData?.sport}
-            />
-          </ScrollView>
-        )
-      )}
 
-      {activeTab === 'progress' && <ProgressTab />}
-      </View>
+          <View key="metrics" style={styles.pagerPage} collapsable={false}>
+            {outputLoading && !outputData ? (
+              <View style={styles.tabLoading}>
+                <ActivityIndicator size="small" color={colors.accent} />
+              </View>
+            ) : outputError || !outputData ? (
+              <ScrollView
+                contentContainerStyle={styles.tabErrorContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={outputRefreshing}
+                    onRefresh={async () => {
+                      setOutputRefreshing(true);
+                      await refreshOutput();
+                      setOutputRefreshing(false);
+                    }}
+                    tintColor={colors.accent}
+                  />
+                }
+              >
+                <Text style={[styles.tabErrorTitle, { color: colors.textOnDark }]}>
+                  Could not load metrics
+                </Text>
+                <Text style={[styles.tabErrorBody, { color: colors.textMuted }]}>
+                  Pull down to retry
+                </Text>
+              </ScrollView>
+            ) : (
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={styles.tabContent}
+                keyboardShouldPersistTaps="handled"
+                refreshControl={
+                  <RefreshControl
+                    refreshing={outputRefreshing}
+                    onRefresh={async () => {
+                      setOutputRefreshing(true);
+                      await refreshOutput();
+                      setOutputRefreshing(false);
+                    }}
+                    tintColor={colors.accent}
+                  />
+                }
+              >
+                <MetricsSection
+                  metrics={outputData.metrics}
+                  onTestLogged={() => refreshOutput()}
+                  sport={bootData?.sport}
+                />
+              </ScrollView>
+            )}
+          </View>
+
+          <View key="progress" style={styles.pagerPage} collapsable={false}>
+            <ProgressTab />
+          </View>
+        </PagerView>
       </GestureDetector>
     </SafeAreaView>
   );
@@ -515,6 +523,13 @@ const styles = StyleSheet.create({
   // Wraps the 4 sub-tab panels so a single GestureDetector can handle
   // horizontal swipes between them without rebuilding on every tab change.
   subTabContainer: {
+    flex: 1,
+  },
+  // Each PagerView child must fill its page — PagerView lays out children
+  // at page-width, and `flex: 1` lets the inner ScrollView claim the full
+  // height. `collapsable={false}` on the View prevents Android's view
+  // flattening from eliding the wrapper and breaking page snapshots.
+  pagerPage: {
     flex: 1,
   },
   // Tab content wrappers (Programs / Metrics — Coach-portal sections)
