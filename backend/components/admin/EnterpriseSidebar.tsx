@@ -79,6 +79,7 @@ const navigation: NavGroup[] = [
     label: "Quality & Safety",
     minRole: "institutional_pd",
     items: [
+      { name: "AI Operations", href: "/admin/enterprise/ai-operations" },
       { name: "Chat Quality Hub", href: "/admin/enterprise/quality" },
       { name: "Auto-Heal Loop", href: "/admin/enterprise/quality/auto-heal" },
       { name: "Eval Dashboard", href: "/admin/enterprise/evaluations" },
