@@ -54,102 +54,105 @@ export function ProgressTab() {
   }, [refresh]);
 
   return (
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={styles.scroll}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onPullRefresh}
-          tintColor={colors.accent}
-        />
-      }
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.textOnDark }]}>Progress</Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-          Latest vs {window}-day average
-        </Text>
-      </View>
+    <View style={styles.root}>
+      {/* Fixed header — sticks to the top. Title + subtitle + 7/30/90 pill stay
+          visible while the card grid below scrolls independently. */}
+      <View style={styles.fixedHeader}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.textOnDark }]}>Progress</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+            Latest vs {window}-day average
+          </Text>
+        </View>
 
-      {/* Window toggle — active pill carries a soft sage glow so it reads as
-          "selected" without needing high contrast. */}
-      <View style={[styles.toggle, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
-        {WINDOWS.map((w) => {
-          const active = w === window;
-          return (
-            <Pressable
-              key={w}
-              onPress={() => setWindow(w)}
-              style={[
-                styles.toggleBtn,
-                active && {
-                  backgroundColor: 'rgba(18,20,31,0.65)',
-                  shadowColor: colors.tomoSage,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.55,
-                  shadowRadius: 10,
-                  elevation: 6,
-                },
-              ]}
-            >
-              <Text
+        <View style={[styles.toggle, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
+          {WINDOWS.map((w) => {
+            const active = w === window;
+            return (
+              <Pressable
+                key={w}
+                onPress={() => setWindow(w)}
                 style={[
-                  styles.toggleLabel,
-                  { color: active ? colors.textOnDark : colors.textMuted },
-                  active && { fontFamily: fontFamily.medium },
+                  styles.toggleBtn,
+                  active && {
+                    backgroundColor: 'rgba(18,20,31,0.65)',
+                    shadowColor: colors.tomoSage,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.55,
+                    shadowRadius: 10,
+                    elevation: 6,
+                  },
                 ]}
               >
-                {w}d
-              </Text>
-            </Pressable>
-          );
-        })}
+                <Text
+                  style={[
+                    styles.toggleLabel,
+                    { color: active ? colors.textOnDark : colors.textMuted },
+                    active && { fontFamily: fontFamily.medium },
+                  ]}
+                >
+                  {w}d
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
-      {/* Body */}
-      {loading && metrics == null ? (
-        <View style={styles.stateWrap}>
-          <ActivityIndicator size="small" color={colors.accent} />
-        </View>
-      ) : error && (metrics?.length ?? 0) === 0 ? (
-        <View style={styles.stateWrap}>
-          <Text style={[styles.stateText, { color: colors.textMuted }]}>
-            Couldn't load progress. Pull to refresh.
-          </Text>
-        </View>
-      ) : !metrics || metrics.length === 0 ? (
-        <View style={styles.stateWrap}>
-          <Text style={[styles.stateText, { color: colors.textMuted }]}>
-            Log a check-in to start tracking your progress.
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.grid}>
-          {pairUp(metrics).map((pair, idx) => (
-            <View key={idx} style={styles.row}>
-              {pair.map((m) => (
-                <ProgressRingCard
-                  key={m.key}
-                  displayName={m.displayName}
-                  displayUnit={m.displayUnit}
-                  latest={m.latest}
-                  avg={m.avg}
-                  deltaPct={m.deltaPct}
-                  direction={m.direction}
-                  valueMin={m.valueMin}
-                  valueMax={m.valueMax}
-                  windowDays={window}
-                />
-              ))}
-              {/* Pad odd rows so the last card doesn't stretch full-width */}
-              {pair.length === 1 && <View style={{ flex: 1 }} />}
-            </View>
-          ))}
-        </View>
-      )}
-    </ScrollView>
+      {/* Scrollable body — only the grid scrolls. Pull-to-refresh lives here. */}
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.bodyContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onPullRefresh}
+            tintColor={colors.accent}
+          />
+        }
+      >
+        {loading && metrics == null ? (
+          <View style={styles.stateWrap}>
+            <ActivityIndicator size="small" color={colors.accent} />
+          </View>
+        ) : error && (metrics?.length ?? 0) === 0 ? (
+          <View style={styles.stateWrap}>
+            <Text style={[styles.stateText, { color: colors.textMuted }]}>
+              Couldn't load progress. Pull to refresh.
+            </Text>
+          </View>
+        ) : !metrics || metrics.length === 0 ? (
+          <View style={styles.stateWrap}>
+            <Text style={[styles.stateText, { color: colors.textMuted }]}>
+              Log a check-in to start tracking your progress.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.grid}>
+            {pairUp(metrics).map((pair, idx) => (
+              <View key={idx} style={styles.row}>
+                {pair.map((m) => (
+                  <ProgressRingCard
+                    key={m.key}
+                    displayName={m.displayName}
+                    displayUnit={m.displayUnit}
+                    latest={m.latest}
+                    avg={m.avg}
+                    deltaPct={m.deltaPct}
+                    direction={m.direction}
+                    valueMin={m.valueMin}
+                    valueMax={m.valueMax}
+                    windowDays={window}
+                  />
+                ))}
+                {/* Pad odd rows so the last card doesn't stretch full-width */}
+                {pair.length === 1 && <View style={{ flex: 1 }} />}
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -163,9 +166,22 @@ function pairUp<T>(arr: T[]): T[][] {
 }
 
 const styles = StyleSheet.create({
-  scroll: {
+  root: {
+    flex: 1,
+  },
+  // Header + toggle live here; pinned to the top of the tab, never scroll.
+  fixedHeader: {
     paddingHorizontal: 20,
     paddingTop: 8,
+    paddingBottom: 4,
+  },
+  // ScrollView wrapper — only the grid scrolls.
+  body: {
+    flex: 1,
+  },
+  bodyContent: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
     paddingBottom: 120,
   },
   header: {

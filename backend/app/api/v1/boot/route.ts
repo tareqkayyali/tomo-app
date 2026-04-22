@@ -530,6 +530,36 @@ export async function GET(request: NextRequest) {
       // signalContext stays null — Dashboard shows neutral state
     }
 
+    // ── Dynamic hero coaching — overlay on signalContext.coaching ──
+    // Reads the cached AI-generated line from athlete_snapshots (written by
+    // event handlers). When present + not stale, it replaces the static CMS
+    // signal coaching in the mobile FocusHero. If stale (>6h) we fire a
+    // background regen so the NEXT boot has fresh copy — but we don't wait.
+    try {
+      const snap = snapshot as Record<string, unknown> | null;
+      const dynamicCoaching = snap?.dynamic_coaching as string | null | undefined;
+      const generatedAt = snap?.dynamic_coaching_generated_at as string | null | undefined;
+      const STALE_MS = 6 * 60 * 60 * 1000;
+      const ageMs = generatedAt ? Date.now() - Date.parse(generatedAt) : Number.POSITIVE_INFINITY;
+
+      if (dynamicCoaching && ageMs < STALE_MS && signalContext) {
+        // Replace the signal's CMS coaching with the dynamic line. Keep
+        // every other signal field (colour, pills, trigger rows, etc.).
+        signalContext = { ...signalContext, coaching: dynamicCoaching };
+      }
+
+      // Stale or missing → fire-and-forget regen. Bootup never blocks on
+      // Haiku; the next request gets the fresh line.
+      if (!dynamicCoaching || ageMs >= STALE_MS) {
+        import('@/services/coaching/dynamicHeroCoaching')
+          .then((m) => m.generateAndPersistHeroCoaching(userId))
+          .catch((err) => console.warn('[boot] hero coaching regen failed:', err));
+      }
+    } catch (err) {
+      // Never let coaching overlay break boot.
+      console.warn('[boot] dynamic hero coaching overlay failed:', err);
+    }
+
     // ── Dashboard Layout Resolution ──
     // Resolve CMS-managed dashboard sections against athlete snapshot.
     // Filters by visibility conditions + sport. Returns ordered layouts for

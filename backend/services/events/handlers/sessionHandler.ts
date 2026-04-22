@@ -214,6 +214,13 @@ export async function handleSessionLog(event: AthleteEvent): Promise<void> {
 
   // 6. Snapshot 360: Training science + load trends
   await enrichSessionSnapshot(db, event.athlete_id, loadDate);
+
+  // 7. Dynamic hero coaching — a completed session is the highest-signal
+  // input to the FocusHero copy ("Great block, body's adapting..."). Fire-
+  // and-forget so the session log path never waits on Haiku.
+  import('@/services/coaching/dynamicHeroCoaching')
+    .then((m) => m.generateAndPersistHeroCoaching(event.athlete_id))
+    .catch(err => console.error('[SessionHandler] dynamic coaching failed:', err));
 }
 
 /**

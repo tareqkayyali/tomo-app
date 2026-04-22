@@ -91,6 +91,15 @@ export async function handleWellnessCheckin(event: AthleteEvent): Promise<void> 
     console.error('[WellnessHandler] CCRS computation failed:', err),
   );
 
+  // 7b. Dynamic hero coaching — regenerate the Signal FocusHero copy. Fire-
+  // and-forget; the check-in submit path never waits on Haiku. CCRS runs
+  // first (above) but that's also fire-and-forget, so this read may get
+  // yesterday's CCRS — acceptable for a cosmetic copy refresh, and the next
+  // regen (from the next event) will converge.
+  import('@/services/coaching/dynamicHeroCoaching')
+    .then((m) => m.generateAndPersistHeroCoaching(event.athlete_id))
+    .catch(err => console.error('[WellnessHandler] dynamic coaching failed:', err));
+
   // 8. Retroactive session confirmation from effort_yesterday.
   // Yesterday's still-scheduled physical events auto-flip to completed
   // (if effort high enough) or skipped (if low enough). Fail-open: any

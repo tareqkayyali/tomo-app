@@ -151,6 +151,13 @@ export async function handleVitalReading(event: AthleteEvent): Promise<void> {
   computeAndPersistCCRS?.(event.athlete_id).catch(err =>
     console.error('[VitalHandler] CCRS computation failed:', err),
   );
+
+  // ── Dynamic hero coaching — wearable syncs change HRV/recovery, which
+  // shifts the FocusHero copy. Fire-and-forget; Haiku call never blocks
+  // the event pipeline.
+  import('@/services/coaching/dynamicHeroCoaching')
+    .then((m) => m.generateAndPersistHeroCoaching(event.athlete_id))
+    .catch(err => console.error('[VitalHandler] dynamic coaching failed:', err));
 }
 
 /**
