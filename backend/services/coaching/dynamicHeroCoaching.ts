@@ -260,11 +260,17 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
       .select('*')
       .eq('athlete_id', athleteId)
       .maybeSingle(),
+    // calendar_events column reality (from types/database.ts):
+    //   - `title` (not `name`)
+    //   - `completed: boolean` + `completed_at: timestamp` (no `status` text)
+    // Earlier queries used `name` + `status='completed'` which silently
+    // errored on the SELECT, returning empty results, falling resolver
+    // through to NEUTRAL_VIBES even when Sleep/study events existed.
     db
       .from('calendar_events')
-      .select('event_type, name, end_at, status')
+      .select('event_type, title, end_at, completed')
       .eq('user_id', athleteId)
-      .eq('status', 'completed')
+      .eq('completed', true)
       .not('end_at', 'is', null)
       .lte('end_at', nowISO)
       .gte('end_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
@@ -272,7 +278,7 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
       .limit(1),
     db
       .from('calendar_events')
-      .select('event_type, name, start_at')
+      .select('event_type, title, start_at')
       .eq('user_id', athleteId)
       .gt('start_at', nowISO)
       .lte('start_at', new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString())
@@ -308,7 +314,7 @@ async function buildCoachingContext(athleteId: string): Promise<HeroCoachingCont
     lastCompletedEventType: recent?.event_type ?? null,
     minutesSinceLastEvent,
     upNextEventType: upcoming?.event_type ?? null,
-    upNextEventName: upcoming?.name ?? null,
+    upNextEventName: upcoming?.title ?? null,
     minutesUntilUpNext,
   };
 }
