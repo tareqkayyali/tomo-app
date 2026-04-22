@@ -11,8 +11,10 @@
  * system's job is to propose, not to decide.
  */
 
+import { createHash } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
+import { writeAuditEvent } from "@/lib/autoHealAudit";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -108,6 +110,34 @@ export async function runAutoRepairScan(): Promise<AutoRepairResult> {
       .eq("id", pattern.id);
 
     patchesProposed++;
+
+    // ── Close-the-loop: spawn ai_fixes row (Phase 3, mandate #3) ──────
+    // The drift alert already wrote an ai_issues row (drift.ts). Find it
+    // by source_ref=alert.id, then insert an ai_fixes lifecycle instance
+    // linked to it. Phase 5 applier reads ai_fixes.diff to know what to
+    // apply; for CQE patterns the diff is the serialized patch_spec,
+    // which the applier interprets per patch_type.
+    await upsertCqeFix({
+      alertId: alert.id,
+      pattern,
+      patch,
+    });
+
+    // Audit (Phase 4, CQE integration mandate #6).
+    await writeAuditEvent({
+      actor: "cron:auto-repair-scan",
+      action: "drift_alert_patched",
+      target_table: "quality_drift_alerts",
+      target_id: alert.id,
+      before_state: { status: alert.status, matched_pattern_id: null },
+      after_state: {
+        status: "patch_proposed",
+        matched_pattern_id: pattern.id,
+        patch_type: patch.patch_type,
+        pattern_name: pattern.pattern_name,
+      },
+      reason: patch.rationale,
+    });
 
     const prUrl = await maybeOpenPr(patch, alert);
     if (prUrl) {
@@ -205,6 +235,118 @@ export function buildPatch(pattern: PatternRow, alert: AlertRow): ProposedPatch 
 function fmt(n: number | null): string {
   if (n === null) return "—";
   return n.toFixed(3);
+}
+
+
+// ---------------------------------------------------------------------------
+// ai_fixes bridge (Phase 3, CQE integration mandate #3)
+// ---------------------------------------------------------------------------
+
+async function upsertCqeFix(args: {
+  alertId: string;
+  pattern: PatternRow;
+  patch: ProposedPatch;
+}): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabaseAdmin() as any; // ai_fixes not in generated types until regen
+  try {
+    // Find the ai_issues row that drift.ts opened for this alert.
+    const { data: issueRow } = await db
+      .from("ai_issues")
+      .select("id")
+      .eq("source", "cqe_drift")
+      .eq("source_ref", args.alertId)
+      .in("status", ["open", "fix_generated", "needs_human"])
+      .limit(1);
+
+    if (!issueRow || issueRow.length === 0) {
+      logger.warn("[auto-repair] no ai_issues row found for alert; skipping ai_fixes bridge", {
+        alertId: args.alertId,
+      });
+      return;
+    }
+
+    const issueId = issueRow[0].id as string;
+
+    // The "diff" for CQE patterns is the patch_spec serialized — the Phase 5
+    // applier reads patch_type to know how to interpret it (prompt_block_reinforce,
+    // constant_update, etc.). Not a unified diff in the git sense; documented
+    // in the column via rationale.
+    const diffBody = JSON.stringify(args.patch, null, 2);
+    const diffHash = createHash("sha256").update(diffBody).digest("hex");
+
+    // Dedup: if an ai_fixes row with the same issue_id + diff_hash already
+    // exists, skip — the same patch was previously proposed. Prevents
+    // duplicate rows on re-runs over the same alert.
+    const { data: existingFix } = await db
+      .from("ai_fixes")
+      .select("id, status")
+      .eq("issue_id", issueId)
+      .eq("diff_hash", diffHash)
+      .limit(1);
+
+    if (existingFix && existingFix.length > 0) {
+      logger.info("[auto-repair] ai_fixes row already exists for this patch; no-op", {
+        fix_id: existingFix[0].id,
+      });
+      return;
+    }
+
+    const { data: inserted, error } = await db
+      .from("ai_fixes")
+      .insert({
+        issue_id: issueId,
+        author: "cqe-autorepair",
+        title: `CQE auto-repair: ${args.pattern.pattern_name}`,
+        description: args.pattern.description ?? args.patch.rationale,
+        fix_type: (() => {
+          // Bridge to legacy fix_type CHECK values when possible, so the
+          // existing CMS renderer keeps working. Map common patch_types to
+          // the closest legacy bucket; unknowns fall back to 'prompt_builder'
+          // which is the most common CQE target.
+          const t = args.patch.patch_type;
+          if (t === "prompt_block_reinforce") return "prompt_builder";
+          if (t === "constant_update") return "rag_knowledge";
+          if (t === "intent_registry") return "intent_registry";
+          return "prompt_builder";
+        })(),
+        file_path: args.patch.affected_files[0] ?? null,
+        code_change: diffBody, // legacy column — keep populated for back-compat
+        diff: diffBody,
+        diff_hash: diffHash,
+        target_files: args.patch.affected_files,
+        rationale: args.patch.rationale,
+        confidence: 0.5, // not a real probability; placeholder until judges rate
+        status: "proposed",
+        priority: 3, // quality, not safety
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      logger.error("[auto-repair] ai_fixes insert failed", { error: error.message });
+      return;
+    }
+
+    // Mark the parent issue as fix_generated so the CMS queue reflects that
+    // a fix is ready for human review.
+    await db
+      .from("ai_issues")
+      .update({ status: "fix_generated" })
+      .eq("id", issueId);
+
+    logger.info("[auto-repair] ai_fixes opened", {
+      fix_id: inserted?.id,
+      issue_id: issueId,
+      pattern: args.pattern.pattern_name,
+    });
+  } catch (e) {
+    // Best-effort — the proposed_patch already landed on quality_drift_alerts;
+    // ai_fixes bridge failure shouldn't block the scan.
+    logger.error("[auto-repair] upsertCqeFix failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

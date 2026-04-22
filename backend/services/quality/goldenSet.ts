@@ -13,6 +13,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
+import { writeAuditEvent } from "@/lib/autoHealAudit";
 import { DIMENSION_KEYS } from "./judgeRubric";
 
 // ---------------------------------------------------------------------------
@@ -94,23 +95,43 @@ export async function runGoldenSetCuration(): Promise<GoldenCurationResult> {
       continue;
     }
     if (!cand.user_message_snippet) continue;
-    await db.from("golden_test_scenarios").insert({
-      scenario_key: key,
-      suite: SUITE_ASSIGNMENT_DEFAULT,
-      user_message: cand.user_message_snippet,
-      expected_agent: cand.agent,
-      expected_signals: {
-        source_turn_id: cand.turn_id,
-        source_created_at: cand.created_at,
+    const { data: insertedGolden } = await db
+      .from("golden_test_scenarios")
+      .insert({
+        scenario_key: key,
+        suite: SUITE_ASSIGNMENT_DEFAULT,
+        user_message: cand.user_message_snippet,
+        expected_agent: cand.agent,
+        expected_signals: {
+          source_turn_id: cand.turn_id,
+          source_created_at: cand.created_at,
+          sport: cand.sport,
+          age_band: cand.age_band,
+          mean_score: cand.mean_score,
+          disagreement_max: cand.disagreement_max,
+        },
+        source: "live_low_score",
+        is_frozen: false,
+      })
+      .select("id")
+      .single();
+    addedCandidates++;
+
+    // Audit (Phase 4, mandate #6).
+    await writeAuditEvent({
+      actor: "cron:golden-set-curate",
+      action: "golden_scenario_added",
+      target_table: "golden_test_scenarios",
+      target_id: (insertedGolden?.id as string) ?? null,
+      after_state: {
+        scenario_key: key,
+        source: "live_low_score",
         sport: cand.sport,
         age_band: cand.age_band,
         mean_score: cand.mean_score,
-        disagreement_max: cand.disagreement_max,
       },
-      source: "live_low_score",
-      is_frozen: false,
+      reason: `promoted from live low-score (mean=${cand.mean_score?.toFixed(3) ?? "?"})`,
     });
-    addedCandidates++;
   }
 
   // Rotate out durable passes, unless frozen or regression canary.
@@ -131,6 +152,21 @@ export async function runGoldenSetCuration(): Promise<GoldenCurationResult> {
           .update({ scheduled_removal_at: now })
           .eq("id", row.id);
         scheduledForRemoval++;
+
+        // Audit (Phase 4, mandate #6).
+        await writeAuditEvent({
+          actor: "cron:golden-set-curate",
+          action: "golden_scenario_rotation_scheduled",
+          target_table: "golden_test_scenarios",
+          target_id: row.id,
+          before_state: { scheduled_removal_at: null },
+          after_state: {
+            scheduled_removal_at: now,
+            consecutive_passes: row.consecutive_passes,
+            last_passing_score: row.last_passing_score,
+          },
+          reason: `${row.consecutive_passes} consecutive passes at score>=0.9 — ready for rotation`,
+        });
       }
     } else if (
       row.scheduled_removal_at &&
@@ -143,6 +179,21 @@ export async function runGoldenSetCuration(): Promise<GoldenCurationResult> {
         .update({ scheduled_removal_at: null })
         .eq("id", row.id);
       unscheduledRemoval++;
+
+      // Audit (Phase 4, mandate #6).
+      await writeAuditEvent({
+        actor: "cron:golden-set-curate",
+        action: "golden_scenario_rotation_unscheduled",
+        target_table: "golden_test_scenarios",
+        target_id: row.id,
+        before_state: { scheduled_removal_at: row.scheduled_removal_at },
+        after_state: {
+          scheduled_removal_at: null,
+          consecutive_passes: row.consecutive_passes,
+          last_passing_score: row.last_passing_score,
+        },
+        reason: "scenario failing again — kept in active set",
+      });
     }
   }
 
@@ -162,10 +213,22 @@ export async function runGoldenSetCuration(): Promise<GoldenCurationResult> {
       .order("added_at", { ascending: true })
       .limit(needed);
     for (const row of freezable ?? []) {
+      const id = (row as { id: string }).id;
       await db
         .from("golden_test_scenarios")
         .update({ is_frozen: true, source: "regression_canary" })
-        .eq("id", (row as { id: string }).id);
+        .eq("id", id);
+
+      // Audit (Phase 4, mandate #6).
+      await writeAuditEvent({
+        actor: "cron:golden-set-curate",
+        action: "golden_scenario_frozen",
+        target_table: "golden_test_scenarios",
+        target_id: id,
+        before_state: { is_frozen: false },
+        after_state: { is_frozen: true, source: "regression_canary" },
+        reason: `top-up to target frozen pct (${TARGET_FROZEN_PCT * 100}%)`,
+      });
     }
   }
 

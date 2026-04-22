@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import EvalSystemTab from "./_components/EvalSystemTab";
+import AutoHealTab from "./_components/AutoHealTab";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -196,7 +198,7 @@ const TIME_RANGE_HOURS: Record<string, number> = {
 };
 
 type TimeRange = "1h" | "6h" | "24h" | "7d" | "30d" | "custom";
-type TabId = "command" | "traces" | "issues";
+type TabId = "command" | "traces" | "issues" | "eval-system" | "auto-heal";
 
 const AGENT_TYPES = [
   "All",
@@ -724,6 +726,8 @@ export default function AIHealthPage() {
     { id: "command", label: "Command Center" },
     { id: "traces", label: "Trace Explorer" },
     { id: "issues", label: "Issues & Fixes" },
+    { id: "eval-system", label: "Eval System" },
+    { id: "auto-heal", label: "Auto-Heal Loop" },
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -1954,6 +1958,16 @@ export default function AIHealthPage() {
           )}
         </div>
       )}
+
+      {/* ================================================================ */}
+      {/* TAB 4: Eval System (Phase 0+)                                    */}
+      {/* ================================================================ */}
+      {activeTab === "eval-system" && <EvalSystemTab />}
+
+      {/* ================================================================ */}
+      {/* TAB 5: Auto-Heal Loop (Phase 0+)                                 */}
+      {/* ================================================================ */}
+      {activeTab === "auto-heal" && <AutoHealTab />}
     </div>
   );
 }

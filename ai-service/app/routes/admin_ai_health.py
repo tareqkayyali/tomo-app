@@ -271,9 +271,16 @@ async def update_fix_status(
     _: None = Depends(_verify_service_key),
 ):
     """
-    Admin marks fix as applied or verified.
-    When status → verified, writes feedback score back to LangSmith
-    for all sample_run_ids on the parent issue.
+    DEPRECATED (2026-04-22): The TS route
+    `/api/v1/admin/ai-health/fixes/{fixId}/status` now owns the DB lifecycle
+    transition directly. It fires-and-forgets to
+    `POST /admin/ai-health/fixes/{fix_id}/feedback/langsmith` (below) for the
+    LangSmith side effect. This endpoint is retained for rollback and any
+    legacy callers; new code must not call it.
+
+    Admin marks fix as applied or verified. When status → verified, writes
+    feedback score back to LangSmith for all sample_run_ids on the parent
+    issue.
     """
     pool = get_pool()
     if not pool:
@@ -345,6 +352,70 @@ async def update_fix_status(
             )
 
     return {"ok": True, "fix_id": fix_id, "status": body.status}
+
+
+# ── LangSmith feedback write-back (TS delegates here on verified) ───────────
+
+class LangSmithFeedbackRequest(BaseModel):
+    score: float = 1.0
+    comment: Optional[str] = None
+
+
+@router.post("/fixes/{fix_id}/feedback/langsmith")
+async def write_fix_langsmith_feedback(
+    fix_id: str,
+    body: LangSmithFeedbackRequest,
+    _: None = Depends(_verify_service_key),
+):
+    """
+    Narrow endpoint — LangSmith SDK write ONLY. The TS route at
+    `/api/v1/admin/ai-health/fixes/{fixId}/status` owns the DB transition
+    and fires-and-forgets here so a flaky LangSmith API never blocks the
+    CMS response. Ownership split rationale (Phase 0 clean-end-state):
+    LangSmith SDK lives in Python; DB lifecycle lives in TS.
+    """
+    pool = get_pool()
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    async with pool.connection() as conn:
+        result = await conn.execute(
+            "SELECT f.langsmith_metric, i.sample_run_ids "
+            "FROM ai_fixes f JOIN ai_issues i ON i.id = f.issue_id "
+            "WHERE f.id = %s",
+            (fix_id,),
+        )
+        row = await result.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Fix {fix_id} not found")
+
+    metric_name = row[0] or "unknown"
+    sample_ids = row[1] or []
+    comment = body.comment or f"Fix verified: {metric_name} improved"
+
+    written = 0
+    errors: list[str] = []
+    for run_id in sample_ids[:3]:
+        try:
+            await write_feedback_to_langsmith(
+                run_id=run_id,
+                score=body.score,
+                comment=comment,
+            )
+            written += 1
+        except Exception as e:
+            msg = f"{run_id}: {str(e)[:120]}"
+            errors.append(msg)
+            logger.warning(f"LangSmith feedback failed for {msg}")
+
+    return {
+        "ok": True,
+        "fix_id": fix_id,
+        "runs_written": written,
+        "runs_total": len(sample_ids[:3]),
+        "errors": errors,
+    }
 
 
 # ── Observability Dashboard ─────────────────────────────────────────────────

@@ -1,0 +1,57 @@
+[
+  {
+    "_comment": "BASELINE #6 — Pain / injury signals must fallthrough to full AI, not auto-capsule. The athlete's words carry nuance (severity, context, emotional weight) that a capsule can't honor. Classifier returning log_injury or flag_injury on these sends the user to a form, not a coach.",
+    "message": "My knee is killing me after yesterday's session",
+    "expected_agent": "performance",
+    "expected_intent": "agent_fallthrough"
+  },
+  {
+    "message": "Having shooting pain in my lower back when I squat",
+    "expected_agent": "performance",
+    "expected_intent": "agent_fallthrough"
+  },
+  {
+    "message": "Should I train today? My hamstring feels tight and sore",
+    "expected_agent": "performance",
+    "expected_intent": "agent_fallthrough"
+  },
+  {
+    "message": "I hurt my ankle a bit at practice yesterday, what should I do?",
+    "expected_agent": "performance",
+    "expected_intent": "agent_fallthrough"
+  },
+
+  {
+    "_comment": "BASELINE #6 — Named methodologies / programs from the wider S&C world must fallthrough. The classifier doesn't know Stronglifts / 531 / Bulgarian Method and shouldn't guess; fallthrough lets the full AI explain, caveat, or redirect.",
+    "message": "Is Stronglifts 5x5 good for me?",
+    "expected_agent": "performance",
+    "expected_intent": "agent_fallthrough"
+  },
+  {
+    "message": "Can I do Wendler's 531 this week?",
+    "expected_agent": "performance",
+    "expected_intent": "agent_fallthrough"
+  },
+  {
+    "message": "Thoughts on the Bulgarian Method for a youth athlete like me?",
+    "expected_agent": "performance",
+    "expected_intent": "agent_fallthrough"
+  },
+
+  {
+    "_comment": "BASELINE #6 — Rehab / return-to-play contexts are safety-critical and highly individualized. Capsule shortcuts are inappropriate; fallthrough preserves the coach's ability to gather context before advising.",
+    "message": "I'm coming back from my ACL surgery, how should I progress?",
+    "expected_agent": "performance",
+    "expected_intent": "agent_fallthrough"
+  },
+  {
+    "message": "Physio cleared me to return to light running — what do you suggest?",
+    "expected_agent": "performance",
+    "expected_intent": "agent_fallthrough"
+  },
+  {
+    "message": "My knee still feels weak 8 weeks post-op, can I start jumping again?",
+    "expected_agent": "performance",
+    "expected_intent": "agent_fallthrough"
+  }
+]

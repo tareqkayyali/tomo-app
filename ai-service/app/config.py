@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     # ACWR still computes on the snapshot for coach/analyst transparency.
     acwr_ai_enabled: bool = False
 
+    # Auto-heal loop (Phase 0 scaffolding — loop inert until Phase 5).
+    # enabled=False means no fix generation, no branch creation, no auto-apply.
+    # Budget caps total daily spend on eval + fix-generation Anthropic calls.
+    auto_heal_enabled: bool = False
+    auto_heal_budget_daily_usd: float = 1.00
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

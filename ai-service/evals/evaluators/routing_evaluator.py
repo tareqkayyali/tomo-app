@@ -29,12 +29,21 @@ logger = logging.getLogger("tomo-evals.routing")
 DATASETS_DIR = Path(__file__).parent.parent / "datasets" / "routing"
 
 
-async def run_live_routing_eval(verbose: bool = False) -> SuiteResult:
+# Model identifier for ai_eval_results.model_used. Kept in sync with
+# app/agents/sonnet_classifier.py so telemetry can trend drift across models.
+LIVE_CLASSIFIER_MODEL = "claude-sonnet-4-6"
+
+
+async def run_live_routing_eval(
+    verbose: bool = False,
+    print_summary: bool = True,
+) -> SuiteResult:
     """
     Run routing eval scenarios against the live Sonnet classifier.
 
     Loads scenarios from datasets/routing/*.json, calls classify_with_sonnet()
-    for each, and scores the results.
+    for each, and scores the results. When invoked from runner.py, pass
+    `print_summary=False` to avoid duplicate output.
     """
     from app.agents.sonnet_classifier import classify_with_sonnet
 
@@ -98,19 +107,28 @@ async def run_live_routing_eval(verbose: bool = False) -> SuiteResult:
                 score = max(0, score - 0.25)
 
             eval_result = EvalResult(
-                scenario_id=f"routing:{i}:{message[:30]}",
+                scenario_id=f"routing_live:{i}:{message[:30]}",
                 passed=passed,
                 score=score,
                 reason=reason,
                 details={
+                    # Keys read by the persister (evals/persister.py convention)
+                    "expected": {
+                        "agent": expected_agent,
+                        "intent": expected_intent,
+                        "second_agent": expected_second,
+                    },
+                    "actual": {
+                        "agent": result.agent,
+                        "intent": result.intent,
+                        "confidence": result.confidence,
+                        "requires_second_agent": result.requires_second_agent,
+                    },
+                    "latency_ms": int(result.latency_ms),
+                    "cost_usd": float(result.cost_usd),
+                    "model_used": LIVE_CLASSIFIER_MODEL,
+                    # Convenience fields for local/markdown report inspection
                     "message": message,
-                    "expected_agent": expected_agent,
-                    "expected_intent": expected_intent,
-                    "actual_agent": result.agent,
-                    "actual_intent": result.intent,
-                    "confidence": result.confidence,
-                    "latency_ms": result.latency_ms,
-                    "cost_usd": result.cost_usd,
                 },
             )
             results.append(eval_result)
@@ -125,10 +143,20 @@ async def run_live_routing_eval(verbose: bool = False) -> SuiteResult:
 
         except Exception as e:
             results.append(EvalResult(
-                scenario_id=f"routing:{i}:{message[:30]}",
+                scenario_id=f"routing_live:{i}:{message[:30]}",
                 passed=False,
                 score=0.0,
                 reason=f"Classifier error: {str(e)[:100]}",
+                details={
+                    "expected": {
+                        "agent": expected_agent,
+                        "intent": expected_intent,
+                        "second_agent": expected_second,
+                    },
+                    "actual": None,
+                    "model_used": LIVE_CLASSIFIER_MODEL,
+                    "message": message,
+                },
             ))
             if verbose:
                 print(f"  [ERROR] {message[:50]}: {e}")
@@ -144,12 +172,12 @@ async def run_live_routing_eval(verbose: bool = False) -> SuiteResult:
         details=results,
     )
 
-    # Summary
-    print(f"\n{'='*60}")
-    print(f"Routing Eval: {passed_count}/{len(results)} passed ({total_score:.1%})")
-    print(f"Total cost: ${total_cost:.4f} | Avg latency: {total_latency / max(len(results), 1):.0f}ms")
-    print(f"Threshold: 90% | {'PASS' if total_score >= 0.90 else 'FAIL'}")
-    print(f"{'='*60}")
+    if print_summary:
+        print(f"\n{'='*60}")
+        print(f"Routing Eval: {passed_count}/{len(results)} passed ({total_score:.1%})")
+        print(f"Total cost: ${total_cost:.4f} | Avg latency: {total_latency / max(len(results), 1):.0f}ms")
+        print(f"Threshold: 90% | {'PASS' if total_score >= 0.90 else 'FAIL'}")
+        print(f"{'='*60}")
 
     return suite_result
 
