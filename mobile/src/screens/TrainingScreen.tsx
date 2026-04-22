@@ -364,27 +364,37 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     [dayEvents],
   );
 
+  // Overnight-aware "is this hour inside [start, end)?" check. When endTime
+  // is earlier than startTime (e.g. Sleep 22:00 → 06:30), the window wraps
+  // past midnight; on the starting calendar day we're "inside" when nowHour
+  // is at or past start, on the ending calendar day when nowHour is before
+  // end. The Plan tab only evaluates this on the currently selected day, so
+  // the 22:00-side half is what matters while "today" is the start day.
+  const isWithin = useCallback(
+    (startTime: string, endTime: string) => {
+      const s = parseHHMM(startTime);
+      const eT = parseHHMM(endTime);
+      if (eT <= s) return nowHour >= s || nowHour < eT;
+      return nowHour >= s && nowHour < eT;
+    },
+    [nowHour, parseHHMM],
+  );
+
   // Highlight: currently-running event if today; else next upcoming; else first.
   const highlightedId = useMemo(() => {
     if (!isToday) return timedDayEvents[0]?.id ?? null;
-    const current = timedDayEvents.find((e) => {
-      const s = parseHHMM(e.startTime);
-      const eT = parseHHMM(e.endTime);
-      return nowHour >= s && nowHour < eT;
-    });
+    const current = timedDayEvents.find((e) => isWithin(e.startTime, e.endTime));
     if (current) return current.id;
     const next = timedDayEvents.find((e) => parseHHMM(e.startTime) > nowHour);
     return next?.id ?? null;
-  }, [timedDayEvents, isToday, nowHour, parseHHMM]);
+  }, [timedDayEvents, isToday, nowHour, parseHHMM, isWithin]);
 
   const isCurrentlyRunning = useCallback(
     (e: TimedEvent) => {
       if (!isToday) return false;
-      const s = parseHHMM(e.startTime);
-      const eT = parseHHMM(e.endTime);
-      return nowHour >= s && nowHour < eT;
+      return isWithin(e.startTime, e.endTime);
     },
-    [isToday, nowHour, parseHHMM],
+    [isToday, isWithin],
   );
 
   const eventCardLabel = useCallback(
