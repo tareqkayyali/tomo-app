@@ -334,6 +334,17 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     });
   }, [SCREEN_WIDTH]);
 
+  // Events list auto-scroll — keep the "Right now" / "Next up" card in view,
+  // matching the Dial's glowing-live pointer. Y positions are captured per
+  // card via onLayout; we scroll once the highlighted card's position is known.
+  const eventsScrollRef = useRef<ScrollView>(null);
+  const cardOffsetsRef = useRef<Map<string, number>>(new Map());
+  const didScrollToHighlightRef = useRef<string | null>(null);
+  useEffect(() => {
+    cardOffsetsRef.current = new Map();
+    didScrollToHighlightRef.current = null;
+  }, [selectedDay]);
+
   // ─── Time helpers ────────────────────────────────────────────────
   const nowHour = useMemo(() => {
     const now = new Date();
@@ -384,6 +395,27 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
       return isCurrentlyRunning(e) ? 'Right now' : 'Next up';
     },
     [highlightedId, isCurrentlyRunning],
+  );
+
+  // Once the highlighted card's y-offset is known, scroll it into view once.
+  // Small top padding so the card sits just below the list edge, not flush.
+  const maybeScrollToHighlight = useCallback(() => {
+    if (!highlightedId) return;
+    if (didScrollToHighlightRef.current === highlightedId) return;
+    const y = cardOffsetsRef.current.get(highlightedId);
+    if (y == null) return;
+    didScrollToHighlightRef.current = highlightedId;
+    requestAnimationFrame(() => {
+      eventsScrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+    });
+  }, [highlightedId]);
+
+  const onCardLayout = useCallback(
+    (id: string, yOffset: number) => {
+      cardOffsetsRef.current.set(id, yOffset);
+      if (id === highlightedId) maybeScrollToHighlight();
+    },
+    [highlightedId, maybeScrollToHighlight],
   );
 
   // ─── Session completion (PR 6B) ──────────────────────────────────
@@ -662,6 +694,7 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
       {/* ─── SCROLLABLE EVENTS LIST ─── */}
       <Animated.View style={[styles.eventsScrollWrap, enterCards]}>
         <ScrollView
+          ref={eventsScrollRef}
           style={styles.eventsScroll}
           contentContainerStyle={styles.eventsScrollContent}
           showsVerticalScrollIndicator={false}
@@ -676,7 +709,10 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
               const running = highlighted && isCurrentlyRunning(ev);
               const showActions = isPastAndUnconfirmed(ev);
               return (
-                <View key={ev.id}>
+                <View
+                  key={ev.id}
+                  onLayout={(e) => onCardLayout(ev.id, e.nativeEvent.layout.y)}
+                >
                   <FocusCard
                     event={{
                       id: ev.id,
