@@ -254,17 +254,28 @@ export function SignalDashboardScreen() {
     [pagerIndex, scrollPosition],
   );
 
-  // ── Chat escape gesture — overlay on left edge ──────────────────────
-  // One concern ONLY: when the user is on Dashboard (page 0, nowhere to
-  // go left in the pager), a decisive right-drag starting from the left
-  // edge navigates back to Chat. On every other page, PagerView owns
-  // right-drags to advance to the previous sub-tab — we never interfere.
+  // ── Chat escape gesture — Instagram-style "back to previous tab" ────
+  // On Dashboard sub-tab (page 0), a decisive rightward drag from ANYWHERE
+  // on the screen navigates back to Chat. No left-edge requirement — modern
+  // UX (Instagram stories, Twitter tweet detail, iOS settings with full-
+  // screen back gesture) has trained users that "swipe right = go back",
+  // not "swipe right from the 40pt edge strip = go back".
   //
-  // Thresholds are forgiving (translationX>50 OR velocityX>450) so a
-  // flick registers; `startX <= 40` is the edge gate, meaningfully wider
-  // than the old 30pt zone. activeOffsetX([-999, 20]) means the gesture
-  // only starts tracking on clear rightward drags — left drags (sub-tab
-  // advance) pass through to the pager untouched.
+  // Safety of the full-screen zone: PagerView on page 0 has no previous
+  // page to reveal, so its own native pan either rubber-bands (overdrag)
+  // or ignores the drag entirely. Both pager and our Gesture.Pan see the
+  // same touches in parallel (native UIKit gestures and RNGH gestures
+  // coexist without one blocking the other), so there's no arbitration
+  // race — we just fire `navigateToChat` at gesture end.
+  //
+  // On sub-tabs 1+, `pagerIndex.value !== 0` bails out of the worklet
+  // early. PagerView owns those right-drags to advance to the previous
+  // sub-tab (Progress → Metrics → Programs → Dashboard).
+  //
+  // Thresholds: translationX > 60 OR velocityX > 500. `activeOffsetX
+  // [-999, 20]` means the gesture only starts tracking on right-drags of
+  // 20+ pts, so left-drags (sub-tab next) pass through untouched.
+  // failOffsetY yields to vertical scrolls so pull-to-refresh still works.
   const navigateToChat = useCallback(() => {
     navigation.navigate('Chat' as any);
   }, [navigation]);
@@ -277,9 +288,7 @@ export function SignalDashboardScreen() {
         .onEnd((e) => {
           'worklet';
           if (pagerIndex.value !== 0) return;
-          const startX = e.absoluteX - e.translationX;
-          if (startX > 40) return;
-          const decisive = e.translationX > 50 || e.velocityX > 450;
+          const decisive = e.translationX > 60 || e.velocityX > 500;
           if (decisive) runOnJS(navigateToChat)();
         }),
     [navigateToChat, pagerIndex],
