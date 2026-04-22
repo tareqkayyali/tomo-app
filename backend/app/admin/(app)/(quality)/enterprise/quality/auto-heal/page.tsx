@@ -78,7 +78,7 @@ const WATCH_STATUS_TINT: Record<string, string> = {
   monitor_down: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
-export default function AutoHealTab() {
+export default function AutoHealPage() {
   const [config, setConfig] = useState<Config | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
 
@@ -163,6 +163,14 @@ export default function AutoHealTab() {
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Auto-Heal Loop</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Config + kill-switch, post-merge watches, and the append-only audit
+          log for every auto-heal state transition.
+        </p>
+      </div>
+
       {/* ── Kill-switch + config ───────────────────────────────────── */}
       <Card>
         <CardHeader>
