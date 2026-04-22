@@ -1,0 +1,48 @@
+name: Evals — Advance Baseline
+
+on:
+  schedule:
+    # 05:00 UTC daily, one hour after the nightly eval completes (04:00).
+    # That gives the nightly ai_eval_runs row time to land + finalize before
+    # we check the streak.
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: evals-advance-baseline
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: POST /api/v1/cron/advance-eval-baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call baseline-advance endpoint
+        env:
+          APP_URL: ${{ secrets.CHAT_QUALITY_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CHAT_QUALITY_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::CHAT_QUALITY_BASE_URL and CHAT_QUALITY_CRON_SECRET must be set as repo secrets"
+            exit 1
+          fi
+
+          RESPONSE=$(mktemp)
+          STATUS=$(curl -sS -o "$RESPONSE" -w "%{http_code}" \
+            -X POST "$APP_URL/api/v1/cron/advance-eval-baseline" \
+            -H "X-Cron-Secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 60)
+
+          echo "HTTP $STATUS"
+          echo "--- response body ---"
+          cat "$RESPONSE"
+          echo
+          echo "---------------------"
+
+          if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 300 ]; then
+            echo "::error::advance-eval-baseline returned HTTP $STATUS"
+            exit 1
+          fi

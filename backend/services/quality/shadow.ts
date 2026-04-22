@@ -22,6 +22,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
+import { writeAuditEvent } from "@/lib/autoHealAudit";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -115,6 +116,27 @@ export async function runShadowEvaluation(): Promise<ShadowEvaluationResult> {
     }
 
     await db.from("prompt_shadow_runs").update(patch).eq("id", run.id);
+
+    // Audit (Phase 4, CQE integration mandate #6). Only log terminal
+    // decisions (promoted / rolled_back); 'extend' is a non-event.
+    if (outcome.decision === "promoted" || outcome.decision === "rolled_back") {
+      await writeAuditEvent({
+        actor: "cron:shadow-evaluate",
+        action:
+          outcome.decision === "promoted"
+            ? "shadow_run_promoted"
+            : "shadow_run_rolled_back",
+        target_table: "prompt_shadow_runs",
+        target_id: run.id,
+        before_state: { phase: run.phase },
+        after_state: {
+          phase: patch.phase,
+          decision: outcome.decision,
+          turns_evaluated: outcome.variantN + outcome.baselineN,
+        },
+        reason: outcome.reason,
+      });
+    }
   }
 
   return {

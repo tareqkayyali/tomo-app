@@ -1,0 +1,5 @@
+# Tomo AI Service — Test-only dependencies
+# Installed by CI on top of requirements.txt for running pytest suites.
+# Kept separate so production containers don't ship test gear.
+
+pytest>=8.0,<10.0

@@ -15,6 +15,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
+import { writeAuditEvent } from "@/lib/autoHealAudit";
 import type { Dimension } from "./types";
 import { DIMENSION_KEYS } from "./judgeRubric";
 
@@ -133,16 +134,58 @@ export async function runDriftDetection(): Promise<DriftDetectionResult> {
         continue;
       }
 
-      await db.from("quality_drift_alerts").insert({
-        dimension: dim,
-        segment_key: segmentKey,
-        baseline_mean: round3(baseline.mean),
-        current_mean: round3(recent.mean),
-        cusum_value: round3(z), // reuse the column for the z-score
-        window_days: RECENT_WINDOW_DAYS,
-        status: "open",
-      });
+      const { data: insertedAlert, error: insertErr } = await db
+        .from("quality_drift_alerts")
+        .insert({
+          dimension: dim,
+          segment_key: segmentKey,
+          baseline_mean: round3(baseline.mean),
+          current_mean: round3(recent.mean),
+          cusum_value: round3(z), // reuse the column for the z-score
+          window_days: RECENT_WINDOW_DAYS,
+          status: "open",
+        })
+        .select("id")
+        .single();
+
+      if (insertErr) {
+        logger.error("[drift] alert insert failed", { error: insertErr.message });
+        continue;
+      }
       alertsCreated++;
+
+      // ── Close-the-loop: surface drift alert as a unified ai_issues row ──
+      // Phase 3, CQE integration mandate #2. Writes/bumps an ai_issues row
+      // tied to this quality_drift_alerts.id so the CMS Issues & Fixes tab
+      // and the Phase 5 applier see drift alongside eval failures under one
+      // signal surface.
+      if (insertedAlert?.id) {
+        await upsertDriftIssue({
+          alertId: insertedAlert.id as string,
+          dimension: dim,
+          segmentKey,
+          baselineMean: baseline.mean,
+          recentMean: recent.mean,
+          zValue: z,
+        });
+
+        // Audit (Phase 4, CQE integration mandate #6).
+        await writeAuditEvent({
+          actor: "cron:quality-drift-check",
+          action: "drift_alert_opened",
+          target_table: "quality_drift_alerts",
+          target_id: insertedAlert.id as string,
+          after_state: {
+            dimension: dim,
+            segment: segmentKey,
+            baseline_mean: round3(baseline.mean),
+            current_mean: round3(recent.mean),
+            z_score: round3(z),
+            window_days: RECENT_WINDOW_DAYS,
+          },
+          reason: `|z|=${Math.abs(round3(z))} exceeded threshold ${Z_ALERT_THRESHOLD}`,
+        });
+      }
 
       logger.warn("[drift] ALERT", {
         dimension: dim,
@@ -150,6 +193,7 @@ export async function runDriftDetection(): Promise<DriftDetectionResult> {
         baseline_mean: round3(baseline.mean),
         current_mean: round3(recent.mean),
         z_score: round3(z),
+        alert_id: insertedAlert?.id ?? null,
       });
     }
   }
@@ -160,6 +204,107 @@ export async function runDriftDetection(): Promise<DriftDetectionResult> {
     alertsCreated,
     alertsSkippedOpen,
   };
+}
+
+
+// ---------------------------------------------------------------------------
+// ai_issues bridge (Phase 3, CQE integration mandate #2)
+// ---------------------------------------------------------------------------
+
+async function upsertDriftIssue(args: {
+  alertId: string;
+  dimension: Dimension;
+  segmentKey: Record<string, string | boolean>;
+  baselineMean: number;
+  recentMean: number;
+  zValue: number;
+}): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabaseAdmin() as any; // ai_issues not in generated types until regen
+  const now = new Date().toISOString();
+
+  // Stable segment label so dedup keys match across runs for the same
+  // (dimension × segment) combination.
+  const kind = String(args.segmentKey.kind ?? "");
+  const segmentLabel = Object.entries(args.segmentKey)
+    .filter(([k]) => k !== "kind")
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join(",");
+
+  const targetFile = "cqe_drift"; // sentinel — co-queryable with idx_ai_issues_cqe_drift_upsert
+  const targetSymbol = `${args.dimension}:${kind}:${segmentLabel}`;
+
+  const evidence = {
+    alert_id: args.alertId,
+    dimension: args.dimension,
+    segment: args.segmentKey,
+    baseline_mean: round3(args.baselineMean),
+    recent_mean: round3(args.recentMean),
+    z_score: round3(args.zValue),
+  };
+  const description =
+    `CQE drift on ${args.dimension} for ${kind}[${segmentLabel}]: ` +
+    `baseline_mean=${round3(args.baselineMean)}, ` +
+    `recent_mean=${round3(args.recentMean)}, z=${round3(args.zValue)}`;
+
+  try {
+    const { data: existing } = await db
+      .from("ai_issues")
+      .select("id, occurrence_count")
+      .eq("source", "cqe_drift")
+      .eq("target_file", targetFile)
+      .eq("target_symbol", targetSymbol)
+      .in("status", ["open", "fix_generated", "needs_human"])
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      const issueId = existing[0].id as string;
+      const currentCount = (existing[0].occurrence_count as number) ?? 1;
+      await db
+        .from("ai_issues")
+        .update({
+          occurrence_count: currentCount + 1,
+          last_seen_at: now,
+          source_ref: args.alertId,
+          evidence,
+        })
+        .eq("id", issueId);
+      logger.info("[drift] ai_issues bumped", {
+        issue_id: issueId,
+        occurrences: currentCount + 1,
+      });
+      return;
+    }
+
+    await db.from("ai_issues").insert({
+      source: "cqe_drift",
+      source_ref: args.alertId,
+      category: `cqe_drift_${args.dimension}`,
+      severity: "high", // legacy vocab — trace-compatible
+      severity_class: "p2_quality",
+      target_file: targetFile,
+      target_symbol: targetSymbol,
+      description,
+      evidence,
+      status: "open",
+      first_seen_at: now,
+      last_seen_at: now,
+      occurrence_count: 1,
+      pattern_summary: description.slice(0, 200),
+      affected_count: 1,
+    });
+    logger.info("[drift] ai_issues opened", {
+      dimension: args.dimension,
+      segment: targetSymbol,
+    });
+  } catch (e) {
+    // Best-effort — drift alert already landed; ai_issues bridge failure
+    // shouldn't block telemetry.
+    logger.error("[drift] upsertDriftIssue failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

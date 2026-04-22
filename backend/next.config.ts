@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Auto-heal UI visibility (Phase 0 scaffolding). Gates the CMS "AI Health"
+  // tab so empty-but-structured tables don't surface to admins before Phase 1
+  // populates them. Flip to "true" in Railway env when ready to expose.
+  env: {
+    NEXT_PUBLIC_AUTO_HEAL_UI_VISIBLE:
+      process.env.NEXT_PUBLIC_AUTO_HEAL_UI_VISIBLE ?? "false",
+  },
   // Public static docs under /legal/* (privacy.html, terms.html) are
   // intentionally world-readable across origins so the mobile web app
   // (dev or prod) can read the tomo-version meta tag during signup.
