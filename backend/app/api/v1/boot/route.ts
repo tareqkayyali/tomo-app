@@ -532,33 +532,40 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Dynamic hero coaching — overlay on signalContext.coaching ──
-    // Reads the cached AI-generated line from athlete_snapshots (written by
-    // event handlers). When present + not stale, it replaces the static CMS
-    // signal coaching in the mobile FocusHero. If stale (>6h) we fire a
-    // background regen so the NEXT boot has fresh copy — but we don't wait.
+    // Reads the cached line from athlete_snapshots (written by event handlers).
+    // When fresh, overlay immediately. When stale/missing, briefly await a
+    // regen (template pools are AI-free so the resolver is fast) so the FIRST
+    // boot already ships the right line — no pull-to-refresh dance. The race
+    // timeout keeps boot latency bounded if something pathological happens in
+    // the generator's DB hops.
     try {
       const snap = snapshot as Record<string, unknown> | null;
       const dynamicCoaching = snap?.dynamic_coaching as string | null | undefined;
       const generatedAt = snap?.dynamic_coaching_generated_at as string | null | undefined;
       const STALE_MS = 6 * 60 * 60 * 1000;
+      const REGEN_AWAIT_MS = 1200;
       const ageMs = generatedAt ? Date.now() - Date.parse(generatedAt) : Number.POSITIVE_INFINITY;
 
       if (dynamicCoaching && ageMs < STALE_MS && signalContext) {
-        // Replace the signal's CMS coaching with the dynamic line. Keep
-        // every other signal field (colour, pills, trigger rows, etc.).
         signalContext = { ...signalContext, coaching: dynamicCoaching };
-      }
-
-      // Stale or missing → fire-and-forget regen. Bootup never blocks on
-      // Haiku; the next request gets the fresh line.
-      // Static import (vs dynamic): dynamic imports inside Next.js API
-      // routes can be silently dropped from the production bundle when the
-      // chunk graph misses them — using the top-of-file `generateAndPersistHeroCoaching`
-      // import guarantees the function is bundled and resolvable at runtime.
-      if (!dynamicCoaching || ageMs >= STALE_MS) {
-        generateAndPersistHeroCoaching(userId).catch((err) =>
-          console.warn('[boot] hero coaching regen failed:', err),
+      } else if (signalContext) {
+        // Missing or stale — try to resolve synchronously with a tight cap.
+        // Static import (vs dynamic): dynamic imports inside Next.js API
+        // routes can be silently dropped from the production bundle when the
+        // chunk graph misses them — top-of-file import guarantees bundling.
+        const regenPromise = generateAndPersistHeroCoaching(userId).catch((err) => {
+          console.warn('[boot] hero coaching regen failed:', err);
+          return null as never;
+        });
+        const timeoutPromise = new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), REGEN_AWAIT_MS),
         );
+        const fresh = await Promise.race([regenPromise, timeoutPromise]);
+        if (fresh && typeof fresh === 'object' && 'text' in fresh && fresh.text) {
+          signalContext = { ...signalContext, coaching: fresh.text };
+        }
+        // If the timeout won, the background regen keeps running — next boot
+        // will read the freshly persisted row through the warm-path branch.
       }
     } catch (err) {
       // Never let coaching overlay break boot.
