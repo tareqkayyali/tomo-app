@@ -15,9 +15,9 @@ import {
   StyleSheet,
   SectionList,
   Pressable,
-  RefreshControl,
   Linking,
 } from 'react-native';
+import { TomoRefreshControl, PullRefreshOverlay } from '../components';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
@@ -324,59 +324,61 @@ export function NotificationCenterScreen() {
 
       {/* Section List */}
       {!loading && !isEmpty && (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          renderSectionHeader={({ section }) => (
-            <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
-              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                {section.title}
-              </Text>
-              <Text style={[styles.sectionCount, { color: colors.textDisabled }]}>
-                {section.data.length}
-              </Text>
-            </View>
-          )}
-          renderItem={({ item, index }) => (
-            <SwipeableNotificationCard
-              notification={item}
-              index={index}
-              onPrimaryAction={handlePrimaryAction}
-              onSecondaryAction={handleSecondaryAction}
-              onDismiss={handleDismiss}
-              onPress={handlePress}
-              onMarkRead={handlePress}
-            />
-          )}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.accent}
-            />
-          }
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.3}
-          stickySectionHeadersEnabled
-          contentContainerStyle={styles.listContent}
-          ListFooterComponent={
-            <View>
-              {loadingMore && (
-                <Loader size="sm" style={{ paddingVertical: spacing.md }} />
-              )}
-              <Pressable
-                style={styles.settingsLink}
-                onPress={() => (navigation as any).navigate('NotificationSettings')}
-              >
-                <SmartIcon name="settings-outline" size={16} color={colors.textSecondary} />
-                <Text style={[styles.settingsText, { color: colors.textSecondary }]}>
-                  Notification preferences
+        <View style={{ flex: 1 }}>
+          <SectionList
+            sections={sections}
+            keyExtractor={(item) => item.id}
+            renderSectionHeader={({ section }) => (
+              <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
+                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                  {section.title}
                 </Text>
-                <SmartIcon name="chevron-forward" size={14} color={colors.textDisabled} />
-              </Pressable>
-            </View>
-          }
-        />
+                <Text style={[styles.sectionCount, { color: colors.textDisabled }]}>
+                  {section.data.length}
+                </Text>
+              </View>
+            )}
+            renderItem={({ item, index }) => (
+              <SwipeableNotificationCard
+                notification={item}
+                index={index}
+                onPrimaryAction={handlePrimaryAction}
+                onSecondaryAction={handleSecondaryAction}
+                onDismiss={handleDismiss}
+                onPress={handlePress}
+                onMarkRead={handlePress}
+              />
+            )}
+            refreshControl={
+              <TomoRefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+              />
+            }
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.3}
+            stickySectionHeadersEnabled
+            contentContainerStyle={styles.listContent}
+            ListFooterComponent={
+              <View>
+                {loadingMore && (
+                  <Loader size="sm" style={{ paddingVertical: spacing.md }} />
+                )}
+                <Pressable
+                  style={styles.settingsLink}
+                  onPress={() => (navigation as any).navigate('NotificationSettings')}
+                >
+                  <SmartIcon name="settings-outline" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.settingsText, { color: colors.textSecondary }]}>
+                    Notification preferences
+                  </Text>
+                  <SmartIcon name="chevron-forward" size={14} color={colors.textDisabled} />
+                </Pressable>
+              </View>
+            }
+          />
+          <PullRefreshOverlay refreshing={refreshing} />
+        </View>
       )}
     </PlayerScreen>
   );

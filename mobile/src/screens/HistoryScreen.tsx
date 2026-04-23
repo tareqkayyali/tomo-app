@@ -8,12 +8,11 @@ import {
   View,
   Text,
   StyleSheet,
-  RefreshControl,
   Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
-import { Card, ReadinessBadge, SkeletonCard, ErrorState, EmptyState } from '../components';
+import { Card, ReadinessBadge, SkeletonCard, ErrorState, EmptyState, TomoRefreshControl, PullRefreshOverlay } from '../components';
 import { colors, spacing, typography, borderRadius, fontFamily } from '../theme';
 import { getCheckins } from '../services/api';
 import type { Checkin } from '../types';
@@ -57,13 +56,14 @@ export function HistoryScreen() {
   const last30Days = getLast30Days(checkins);
 
   return (
+    <View style={{ flex: 1 }}>
     <PlayerScreen
       label="HISTORY"
       title="History"
       onBack={() => navigation.goBack()}
       contentStyle={styles.scrollContent}
       scrollProps={{
-        refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />,
+        refreshControl: <TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} />,
       }}
     >
         {/* Mini Calendar */}
@@ -179,6 +179,8 @@ export function HistoryScreen() {
           ))
         )}
     </PlayerScreen>
+    <PullRefreshOverlay refreshing={refreshing} />
+    </View>
   );
 }
 

@@ -11,7 +11,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  RefreshControl,
   Pressable,
   Platform,
 } from 'react-native';
@@ -20,6 +19,8 @@ import { SmartIcon } from '../SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import {
   ExamStudyPlanner,
+  TomoRefreshControl,
+  PullRefreshOverlay,
 } from '../../components';
 import type { UpcomingExam } from '../../components';
 import { SpineTimeline } from '../../components/calendar/SpineTimeline';
@@ -273,7 +274,7 @@ export function UnifiedDayView({
         contentContainerStyle={styles.flowContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
+          <TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         {/* ─── Player-only: Suggestions Banner ─── */}
@@ -354,6 +355,7 @@ export function UnifiedDayView({
           <ExamStudyPlanner exams={upcomingExams} />
         )}
       </ScrollView>
+      <PullRefreshOverlay refreshing={refreshing} />
 
     </View>
   );

@@ -12,7 +12,8 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Alert } from 'react-native';
+import { TomoRefreshControl, PullRefreshOverlay } from '../components';
 import { Loader } from '../components/Loader';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSharedValue } from 'react-native-reanimated';
@@ -354,10 +355,9 @@ export function SignalDashboardScreen() {
               style={{ flex: 1 }}
               contentContainerStyle={styles.scrollContent}
               refreshControl={
-                <RefreshControl
+                <TomoRefreshControl
                   refreshing={dashboardRefreshing}
                   onRefresh={onDashboardRefresh}
-                  tintColor={colors.accent}
                 />
               }
             >
@@ -378,6 +378,7 @@ export function SignalDashboardScreen() {
                 }}
               />
             </ScrollView>
+            <PullRefreshOverlay refreshing={dashboardRefreshing} />
           </View>
 
           <View key="program" style={styles.pagerPage} collapsable={false}>
@@ -389,14 +390,13 @@ export function SignalDashboardScreen() {
               <ScrollView
                 contentContainerStyle={styles.tabErrorContent}
                 refreshControl={
-                  <RefreshControl
+                  <TomoRefreshControl
                     refreshing={outputRefreshing}
                     onRefresh={async () => {
                       setOutputRefreshing(true);
                       await refreshOutput();
                       setOutputRefreshing(false);
                     }}
-                    tintColor={colors.accent}
                   />
                 }
               >
@@ -412,14 +412,13 @@ export function SignalDashboardScreen() {
                 style={{ flex: 1 }}
                 contentContainerStyle={styles.tabContent}
                 refreshControl={
-                  <RefreshControl
+                  <TomoRefreshControl
                     refreshing={outputRefreshing}
                     onRefresh={async () => {
                       setOutputRefreshing(true);
                       await refreshOutput();
                       setOutputRefreshing(false);
                     }}
-                    tintColor={colors.accent}
                   />
                 }
               >
@@ -446,6 +445,7 @@ export function SignalDashboardScreen() {
                 />
               </ScrollView>
             )}
+            <PullRefreshOverlay refreshing={outputRefreshing} />
           </View>
 
           <View key="metrics" style={styles.pagerPage} collapsable={false}>
@@ -457,14 +457,13 @@ export function SignalDashboardScreen() {
               <ScrollView
                 contentContainerStyle={styles.tabErrorContent}
                 refreshControl={
-                  <RefreshControl
+                  <TomoRefreshControl
                     refreshing={outputRefreshing}
                     onRefresh={async () => {
                       setOutputRefreshing(true);
                       await refreshOutput();
                       setOutputRefreshing(false);
                     }}
-                    tintColor={colors.accent}
                   />
                 }
               >
@@ -481,14 +480,13 @@ export function SignalDashboardScreen() {
                 contentContainerStyle={styles.tabContent}
                 keyboardShouldPersistTaps="handled"
                 refreshControl={
-                  <RefreshControl
+                  <TomoRefreshControl
                     refreshing={outputRefreshing}
                     onRefresh={async () => {
                       setOutputRefreshing(true);
                       await refreshOutput();
                       setOutputRefreshing(false);
                     }}
-                    tintColor={colors.accent}
                   />
                 }
               >
@@ -499,6 +497,7 @@ export function SignalDashboardScreen() {
                 />
               </ScrollView>
             )}
+            <PullRefreshOverlay refreshing={outputRefreshing} />
           </View>
 
           <View key="progress" style={styles.pagerPage} collapsable={false}>

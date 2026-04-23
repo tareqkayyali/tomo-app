@@ -13,11 +13,11 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  RefreshControl,
   Platform,
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { TomoRefreshControl, PullRefreshOverlay } from '../components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { SmartIcon } from '../components/SmartIcon';
@@ -224,12 +224,13 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       )}
 
       {/* ── Content ── */}
+      <View style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
+          <TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         {loading && !data ? (
@@ -305,6 +306,8 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
           </>
         ) : null}
       </ScrollView>
+      <PullRefreshOverlay refreshing={refreshing} />
+      </View>
     </PlayerScreen>
   );
 }

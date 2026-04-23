@@ -14,14 +14,13 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  RefreshControl,
   Pressable,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
-import { GlowWrapper, SkeletonCard, ErrorState, EmptyState } from '../components';
+import { GlowWrapper, SkeletonCard, ErrorState, EmptyState, TomoRefreshControl, PullRefreshOverlay } from '../components';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import {
   spacing,
@@ -548,10 +547,9 @@ export function LeaderboardScreen() {
         keyExtractor={(item, index) => item.userId || String(index)}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl
+          <TomoRefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.accent1}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -653,6 +651,7 @@ export function LeaderboardScreen() {
           );
         }}
         />
+        <PullRefreshOverlay refreshing={refreshing} />
       </View>
     </PlayerScreen>
   );

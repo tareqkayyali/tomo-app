@@ -12,8 +12,8 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  RefreshControl,
 } from 'react-native';
+import { TomoRefreshControl, PullRefreshOverlay } from '../../components';
 import { SmartIcon } from '../../components/SmartIcon';
 import { Loader } from '../../components/Loader';
 import { useNavigation } from '@react-navigation/native';
@@ -176,16 +176,19 @@ export function ParentChildrenScreen() {
           </GlassCard>
         </View>
       ) : (
-        <FlatList
-          data={children}
-          keyExtractor={(item) => item.id}
-          renderItem={renderChild}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
-          }
-        />
+        <View style={{ flex: 1 }}>
+          <FlatList
+            data={children}
+            keyExtractor={(item) => item.id}
+            renderItem={renderChild}
+            contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+            refreshControl={
+              <TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
+          <PullRefreshOverlay refreshing={refreshing} />
+        </View>
       )}
     </PlayerScreen>
   );

@@ -12,7 +12,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  RefreshControl,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
@@ -24,7 +23,7 @@ import Animated, {
   Easing,
   useAnimatedProps,
 } from 'react-native-reanimated';
-import { GlassCard, GradientButton, SkeletonCard } from '../components';
+import { GlassCard, GradientButton, SkeletonCard, TomoRefreshControl, PullRefreshOverlay } from '../components';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import {
   colors,
@@ -160,6 +159,7 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
   ];
 
   return (
+    <View style={{ flex: 1 }}>
     <PlayerScreen
       label="DASHBOARD"
       title="Overview"
@@ -167,7 +167,7 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
       contentStyle={styles.scrollContent}
       scrollProps={{
         refreshControl: (
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
+          <TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         ),
       }}
     >
@@ -269,6 +269,8 @@ export function DashboardScreen({ navigation }: DashboardScreenProps) {
         <SmartIcon name="send" size={18} color={colors.accent1} />
       </Pressable>
     </PlayerScreen>
+    <PullRefreshOverlay refreshing={refreshing} />
+    </View>
   );
 }
 

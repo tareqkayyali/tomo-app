@@ -14,8 +14,8 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  RefreshControl,
 } from 'react-native';
+import { TomoRefreshControl, PullRefreshOverlay } from '../../components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../../components/SmartIcon';
 import { Loader } from '../../components/Loader';
@@ -201,20 +201,22 @@ export function CoachPlayersScreen() {
           </GlassCard>
         </View>
       ) : (
-        <FlatList
-          data={players}
-          keyExtractor={(item) => item.id}
-          renderItem={renderPlayer}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.accent1}
-            />
-          }
-        />
+        <View style={{ flex: 1 }}>
+          <FlatList
+            data={players}
+            keyExtractor={(item) => item.id}
+            renderItem={renderPlayer}
+            contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+            refreshControl={
+              <TomoRefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+              />
+            }
+          />
+          <PullRefreshOverlay refreshing={refreshing} />
+        </View>
       )}
     </PlayerScreen>
   );

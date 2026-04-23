@@ -9,7 +9,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  RefreshControl,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SmartIcon } from '../components/SmartIcon';
@@ -23,6 +22,8 @@ import {
   GradientCard,
   SkeletonCard,
   ErrorState,
+  TomoRefreshControl,
+  PullRefreshOverlay,
 } from '../components';
 import { colors, spacing, typography, borderRadius, fontFamily, screenBg } from '../theme';
 import { getToday } from '../services/api';
@@ -114,6 +115,7 @@ export function TodayScreen({ navigation }: TodayScreenProps) {
   const { checkin, plan, progress, needsCheckin } = data || {};
 
   return (
+    <View style={{ flex: 1 }}>
     <PlayerScreen
       label="TODAY"
       title="Focus"
@@ -121,7 +123,7 @@ export function TodayScreen({ navigation }: TodayScreenProps) {
       contentStyle={styles.scrollContent}
       scrollProps={{
         refreshControl: (
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         ),
       }}
     >
@@ -280,6 +282,8 @@ export function TodayScreen({ navigation }: TodayScreenProps) {
           </Animated.View>
         )}
     </PlayerScreen>
+    <PullRefreshOverlay refreshing={refreshing} />
+    </View>
   );
 }
 

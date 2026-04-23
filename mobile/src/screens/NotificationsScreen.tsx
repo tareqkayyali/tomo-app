@@ -11,8 +11,8 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  RefreshControl,
 } from 'react-native';
+import { TomoRefreshControl, PullRefreshOverlay } from '../components';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { Loader } from '../components/Loader';
@@ -333,23 +333,26 @@ export function NotificationsScreen() {
         ) : undefined
       }
     >
-      <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={notifications.length === 0 ? styles.emptyContainer : styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <SmartIcon name="notifications-off-outline" size={48} color={colors.textInactive} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No notifications yet
-            </Text>
-          </View>
-        }
-      />
+      <View style={{ flex: 1 }}>
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={notifications.length === 0 ? styles.emptyContainer : styles.listContent}
+          refreshControl={
+            <TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <SmartIcon name="notifications-off-outline" size={48} color={colors.textInactive} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No notifications yet
+              </Text>
+            </View>
+          }
+        />
+        <PullRefreshOverlay refreshing={refreshing} />
+      </View>
     </PlayerScreen>
   );
 }

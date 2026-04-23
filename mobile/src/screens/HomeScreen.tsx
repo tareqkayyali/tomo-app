@@ -24,10 +24,10 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  RefreshControl,
   Keyboard,
   PanResponder,
 } from 'react-native';
+import { TomoRefreshControl, PullRefreshOverlay } from '../components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
@@ -2140,14 +2140,13 @@ export function HomeScreen() {
               initialNumToRender={15}
               removeClippedSubviews={Platform.OS !== 'web'}
               refreshControl={
-                <RefreshControl
+                <TomoRefreshControl
                   refreshing={isRefreshing}
                   onRefresh={handleRefresh}
-                  tintColor={colors.accent1}
-                  colors={[colors.accent1]}
                 />
               }
             />
+            <PullRefreshOverlay refreshing={isRefreshing} />
             {showScrollDown && (
               <Pressable
                 style={styles.scrollDownBtn}

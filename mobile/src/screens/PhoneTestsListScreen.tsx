@@ -10,12 +10,11 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  RefreshControl,
 } from 'react-native';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GlassCard } from '../components';
+import { GlassCard, TomoRefreshControl, PullRefreshOverlay } from '../components';
 import {
   colors,
   spacing,
@@ -87,13 +86,14 @@ export function PhoneTestsListScreen({ navigation }: Props) {
   }, [navigation]);
 
   return (
+    <View style={{ flex: 1 }}>
     <PlayerScreen
       label="TESTS"
       title="Phone tests"
       onBack={() => navigation.goBack()}
       scrollProps={{
         refreshControl: (
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />
+          <TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         ),
       }}
       contentStyle={styles.scrollContent}
@@ -138,6 +138,8 @@ export function PhoneTestsListScreen({ navigation }: Props) {
           </Animated.View>
         ))}
     </PlayerScreen>
+    <PullRefreshOverlay refreshing={refreshing} />
+    </View>
   );
 }
 

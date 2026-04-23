@@ -15,10 +15,10 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  RefreshControl,
 } from 'react-native';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { Loader } from '../components/Loader';
+import { TomoRefreshControl, PullRefreshOverlay } from '../components';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
@@ -273,14 +273,14 @@ export function WhoopDataScreen({ navigation }: Props) {
       onBack={() => navigation.goBack()}
       scroll={false}
     >
+      <View style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
+          <TomoRefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={colors.accent1}
           />
         }
       >
@@ -374,6 +374,8 @@ export function WhoopDataScreen({ navigation }: Props) {
           </Animated.View>
         )}
       </ScrollView>
+      <PullRefreshOverlay refreshing={refreshing} />
+      </View>
     </PlayerScreen>
   );
 }

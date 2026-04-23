@@ -32,6 +32,12 @@ export interface LoaderProps {
   style?: ViewStyle;
   /** Accessibility label. Defaults to "Loading". */
   accessibilityLabel?: string;
+  /**
+   * Subtle variant — renders at reduced opacity. For pull-to-refresh
+   * overlays and other ambient contexts where the loader shouldn't
+   * dominate the frame. Does not change colour or size.
+   */
+  dim?: boolean;
 }
 
 const SIZE_MAP: Record<'sm' | 'md' | 'lg', 24 | 48 | 72> = {
@@ -52,8 +58,10 @@ export const Loader: React.FC<LoaderProps> = ({
   size,
   style,
   accessibilityLabel = 'Loading',
+  dim = false,
 }) => {
   const px = resolveSize(size);
+  const opacity = dim ? 0.4 : 1;
   const spin = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -76,7 +84,7 @@ export const Loader: React.FC<LoaderProps> = ({
 
   return (
     <View
-      style={[styles.wrap, { width: px, height: px }, style]}
+      style={[styles.wrap, { width: px, height: px, opacity }, style]}
       accessibilityRole="progressbar"
       accessibilityLabel={accessibilityLabel}
       accessible

@@ -12,7 +12,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  RefreshControl,
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -24,7 +23,7 @@ import Animated, {
   withTiming,
   FadeIn,
 } from 'react-native-reanimated';
-import { SkeletonCard, ErrorState } from '../components';
+import { SkeletonCard, ErrorState, TomoRefreshControl, PullRefreshOverlay } from '../components';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import { MasteryContent } from '../components/mastery/MasteryContent';
 import { useMasteryData } from '../hooks/useMasteryData';
@@ -299,10 +298,9 @@ export function ProgressScreen({
 
   const scrollProps = {
     refreshControl: (
-      <RefreshControl
+      <TomoRefreshControl
         refreshing={refreshing}
         onRefresh={onRefresh}
-        tintColor={colors.accent1}
       />
     ),
     keyboardShouldPersistTaps: 'handled' as const,
@@ -320,12 +318,14 @@ export function ProgressScreen({
           >
             {content}
           </ScrollView>
+          <PullRefreshOverlay refreshing={refreshing} />
         </View>
       </View>
     );
   }
 
   return (
+    <View style={{ flex: 1 }}>
     <PlayerScreen
       label="PROGRESS"
       title="Your journey"
@@ -336,6 +336,8 @@ export function ProgressScreen({
       <ScrollFadeOverlay />
       {content}
     </PlayerScreen>
+    <PullRefreshOverlay refreshing={refreshing} />
+    </View>
   );
 }
 

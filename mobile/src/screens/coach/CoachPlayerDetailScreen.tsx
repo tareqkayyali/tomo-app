@@ -15,14 +15,13 @@ import {
   Platform,
   PanResponder,
   ScrollView,
-  RefreshControl,
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { ErrorState } from '../../components';
+import { ErrorState, TomoRefreshControl, PullRefreshOverlay } from '../../components';
 import { ProgrammesTab } from '../../components/coach/ProgrammesTab';
 import { TestsTab } from '../../components/coach/TestsTab';
 import { PlayerScreen, FocusCard, type DialEvent } from '../../components/tomo-ui/playerDesign';
@@ -321,7 +320,7 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
               style={styles.timelineScroll}
               contentContainerStyle={styles.timelineContent}
               showsVerticalScrollIndicator={false}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent1} />}
+              refreshControl={<TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
               {dayEvents.length === 0 ? (
                 <View style={styles.emptyTimeline}>
@@ -364,6 +363,7 @@ export function CoachPlayerDetailScreen({ route, navigation }: Props) {
                 })
               )}
             </ScrollView>
+            <PullRefreshOverlay refreshing={refreshing} />
           </View>
         )}
         {activeTab === 'programmes' && (

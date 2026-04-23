@@ -11,10 +11,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  RefreshControl,
 } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
 import { Loader } from '../Loader';
+import { TomoRefreshControl, PullRefreshOverlay } from '..';
 
 import { useOutputData } from '../../hooks/useOutputData';
 import { useTheme } from '../../hooks/useTheme';
@@ -61,47 +61,53 @@ export function ProgrammesTab({ playerId, playerName }: Props) {
 
   if (error || !data) {
     return (
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.accent1} />}
-      >
-        <GlassCard>
-          <View style={styles.emptyContent}>
-            <SmartIcon name="alert-circle-outline" size={40} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
-              Could not load programs
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-              Pull down to retry
-            </Text>
-          </View>
-        </GlassCard>
-      </ScrollView>
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={<TomoRefreshControl refreshing={false} onRefresh={onRefresh} />}
+        >
+          <GlassCard>
+            <View style={styles.emptyContent}>
+              <SmartIcon name="alert-circle-outline" size={40} color={colors.textMuted} />
+              <Text style={[styles.emptyTitle, { color: colors.textOnDark }]}>
+                Could not load programs
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+                Pull down to retry
+              </Text>
+            </View>
+          </GlassCard>
+        </ScrollView>
+        <PullRefreshOverlay refreshing={false} />
+      </View>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.accent1} />}
-    >
-      {/* Coach context banner */}
-      <View style={[styles.contextBanner, { backgroundColor: colors.accent1 + '10' }]}>
-        <SmartIcon name="eye-outline" size={14} color={colors.accent1} />
-        <Text style={[styles.contextText, { color: colors.accent1 }]}>
-          Viewing {playerName.split(' ')[0]}'s training programs
-        </Text>
-      </View>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={<TomoRefreshControl refreshing={false} onRefresh={onRefresh} />}
+      >
+        {/* Coach context banner */}
+        <View style={[styles.contextBanner, { backgroundColor: colors.accent1 + '10' }]}>
+          <SmartIcon name="eye-outline" size={14} color={colors.accent1} />
+          <Text style={[styles.contextText, { color: colors.accent1 }]}>
+            Viewing {playerName.split(' ')[0]}'s training programs
+          </Text>
+        </View>
 
-      <ProgramsSection
-        programs={data.programs}
-        gaps={data.metrics?.gaps}
-        isDeepRefreshing={isDeepRefreshing}
-        activeEntries={activeEntries}
-        playerAddedEntries={playerAddedEntries}
-      />
-    </ScrollView>
+        <ProgramsSection
+          programs={data.programs}
+          gaps={data.metrics?.gaps}
+          isDeepRefreshing={isDeepRefreshing}
+          activeEntries={activeEntries}
+          playerAddedEntries={playerAddedEntries}
+        />
+      </ScrollView>
+      <PullRefreshOverlay refreshing={false} />
+    </View>
   );
 }
 

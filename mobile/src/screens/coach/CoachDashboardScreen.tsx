@@ -20,8 +20,8 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  RefreshControl,
 } from 'react-native';
+import { TomoRefreshControl, PullRefreshOverlay } from '../../components';
 import { useNavigation } from '@react-navigation/native';
 import { Loader } from '../../components/Loader';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -124,9 +124,10 @@ export function CoachDashboardScreen() {
         })}
       </View>
 
+      <View style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {loading && !refreshing && (
           <Loader size="lg" style={{ marginTop: 32 }} />
@@ -227,6 +228,8 @@ export function CoachDashboardScreen() {
           ))
         )}
       </ScrollView>
+      <PullRefreshOverlay refreshing={refreshing} />
+      </View>
     </PlayerScreen>
   );
 }

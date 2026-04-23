@@ -12,8 +12,8 @@ import {
   View,
   Text,
   StyleSheet,
-  RefreshControl,
 } from 'react-native';
+import { TomoRefreshControl, PullRefreshOverlay } from '../../components';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Loader } from '../../components/Loader';
 
@@ -67,13 +67,14 @@ export function ParentEducationProgressScreen({ route, navigation }: Props) {
     colors.textSecondary;
 
   return (
+    <View style={{ flex: 1 }}>
     <PlayerScreen
       label="EDUCATION"
       title="Progress"
       caption={`${childName} · this week at school and in training.`}
       onBack={() => navigation.goBack()}
       contentStyle={styles.scroll}
-      scrollProps={{ refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> }}
+      scrollProps={{ refreshControl: <TomoRefreshControl refreshing={refreshing} onRefresh={onRefresh} /> }}
     >
         {loading && !refreshing && (
           <Loader size="lg" style={{ marginTop: 32 }} />
@@ -162,6 +163,8 @@ export function ParentEducationProgressScreen({ route, navigation }: Props) {
           </>
         )}
     </PlayerScreen>
+    <PullRefreshOverlay refreshing={refreshing} />
+    </View>
   );
 }
 

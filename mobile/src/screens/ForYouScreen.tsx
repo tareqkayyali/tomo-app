@@ -15,14 +15,13 @@ import {
   View,
   Text,
   ScrollView,
-  RefreshControl,
   Pressable,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { SkeletonCard, ErrorState } from '../components';
+import { SkeletonCard, ErrorState, TomoRefreshControl, PullRefreshOverlay } from '../components';
 import { animation } from '../theme/spacing';
 import { ScrollFadeOverlay } from '../components/ScrollFadeOverlay';
 import { TimeSection } from '../components/ownit';
@@ -290,6 +289,7 @@ export function ForYouScreen() {
   }, [navigation]);
 
   return (
+    <View style={{ flex: 1 }}>
     <PlayerScreen
       label="FOR YOU"
       title="Recommended"
@@ -297,10 +297,9 @@ export function ForYouScreen() {
       scrollProps={{
         keyboardShouldPersistTaps: 'handled',
         refreshControl: (
-          <RefreshControl
+          <TomoRefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.accent1}
           />
         ),
       }}
@@ -512,5 +511,7 @@ export function ForYouScreen() {
           </View>
         )}
     </PlayerScreen>
+    <PullRefreshOverlay refreshing={refreshing} />
+    </View>
   );
 }
