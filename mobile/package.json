@@ -8,6 +8,8 @@
     "start:tunnel": "expo start --go --tunnel",
     "start:clear": "expo start --go --clear",
     "start:fresh": "npm run kill-metro && expo start --go --clear",
+    "start:8082": "expo start --go --port 8082",
+    "start:clear:8082": "expo start --go --clear --port 8082",
     "android": "expo start --go --android",
     "ios": "expo start --go --ios",
     "web": "expo start --web",
