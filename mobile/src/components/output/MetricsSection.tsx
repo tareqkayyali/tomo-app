@@ -593,10 +593,7 @@ function OrbitMetrics({
     () => [...categories].sort((a, b) => categoryTier(a) - categoryTier(b)),
     [categories],
   );
-  const [openId, setOpenId] = useState<string | null>(() => {
-    const first = sorted[0];
-    return first ? (first.groupId || first.category) : null;
-  });
+  const [openId, setOpenId] = useState<string | null>(null);
   const avgTier = useMemo<Tier>(() => {
     if (sorted.length === 0) return 3;
     const sum = sorted.reduce((s, c) => s + categoryTier(c), 0);
