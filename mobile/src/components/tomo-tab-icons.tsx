@@ -2,7 +2,9 @@
  * Tomo tab icons — Timeline / Tomo / Signal (player bottom bar).
  *
  * Bitmaps rasterized from canonical SVGs in `assets/tab-icons/svg/` with
- * librsvg (`rsvg-convert`). Regenerate PNGs after SVG edits:
+ * librsvg (`rsvg-convert`). Timeline + Signal match the handoff at
+ * `~/Desktop/tomo/files/tab icons/` (synced into assets/tab-icons/svg/).
+ * Regenerate PNGs after SVG edits:
  *   cd mobile && npm run rasterize-tab-icons
  *
  * Metro resolves @2x / @3x under `assets/tab-icons/png/` so gradients,

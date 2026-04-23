@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Rasterize player tab-bar glyphs (Timeline / Tomo / Signal) from canonical SVG
 # using librsvg (rsvg-convert). Regenerates @1x / @2x / @3x PNGs for Metro.
+# Timeline + Signal SVGs in-repo should match design handoff:
+#   ~/Desktop/tomo/files/tab icons/*.svg
 #
 # Requires: rsvg-convert (brew install librsvg)
 set -euo pipefail

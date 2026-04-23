@@ -1,24 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
   <defs>
-    <radialGradient id="scOn" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#C8DCC3"></stop>
-      <stop offset="60%" stop-color="#7A9B76"></stop>
+    <radialGradient id="spOrbA" cx="38%" cy="32%" r="70%">
+      <stop offset="0%" stop-color="#DCEBD6"></stop>
+      <stop offset="45%" stop-color="#A8C3A2"></stop>
+      <stop offset="85%" stop-color="#7A9B76"></stop>
       <stop offset="100%" stop-color="#4F6B4C"></stop>
     </radialGradient>
-    <radialGradient id="shOn" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#7A9B76" stop-opacity="0.40"></stop>
-      <stop offset="100%" stop-color="#7A9B76" stop-opacity="0"></stop>
+    <radialGradient id="spOrbHL_A" cx="34%" cy="28%" r="30%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.95)"></stop>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"></stop>
+    </radialGradient>
+    <radialGradient id="spOrbTerm_A" cx="72%" cy="62%" r="50%">
+      <stop offset="70%" stop-color="rgba(0,0,0,0)"></stop>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.40)"></stop>
+    </radialGradient>
+    <radialGradient id="spAtmA" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(122,155,118,0.0)"></stop>
+      <stop offset="80%" stop-color="rgba(122,155,118,0.0)"></stop>
+      <stop offset="95%" stop-color="rgba(122,155,118,0.45)"></stop>
+      <stop offset="100%" stop-color="rgba(122,155,118,0)"></stop>
     </radialGradient>
   </defs>
-  <circle cx="14" cy="14" r="13" fill="url(#shOn)"></circle>
-  <line x1="14" y1="3" x2="14" y2="7" stroke="rgba(245,243,237,0.70)" stroke-width="1.2" stroke-linecap="round" opacity="0.75"></line>
-  <line x1="14" y1="21" x2="14" y2="25" stroke="rgba(245,243,237,0.70)" stroke-width="1.2" stroke-linecap="round" opacity="0.75"></line>
-  <line x1="3" y1="14" x2="7" y2="14" stroke="rgba(245,243,237,0.70)" stroke-width="1.2" stroke-linecap="round" opacity="0.75"></line>
-  <line x1="21" y1="14" x2="25" y2="14" stroke="rgba(245,243,237,0.70)" stroke-width="1.2" stroke-linecap="round" opacity="0.75"></line>
-  <line x1="6.5" y1="6.5" x2="8.5" y2="8.5" stroke="rgba(245,243,237,0.70)" stroke-width="1" stroke-linecap="round" opacity="0.45"></line>
-  <line x1="19.5" y1="19.5" x2="21.5" y2="21.5" stroke="rgba(245,243,237,0.70)" stroke-width="1" stroke-linecap="round" opacity="0.45"></line>
-  <line x1="6.5" y1="21.5" x2="8.5" y2="19.5" stroke="rgba(245,243,237,0.70)" stroke-width="1" stroke-linecap="round" opacity="0.45"></line>
-  <line x1="19.5" y1="8.5" x2="21.5" y2="6.5" stroke="rgba(245,243,237,0.70)" stroke-width="1" stroke-linecap="round" opacity="0.45"></line>
-  <circle cx="14" cy="14" r="4" fill="url(#scOn)"></circle>
-  <circle cx="13.3" cy="13.3" r="1.2" fill="rgba(255,255,255,0.75)"></circle>
+  
+  <circle cx="14" cy="14" r="12" fill="none" stroke="rgba(245,243,237,0.20)" stroke-width="0.6"></circle>
+  <circle cx="14" cy="14" r="9" fill="none" stroke="rgba(245,243,237,0.35)" stroke-width="0.7"></circle>
+  <circle cx="14" cy="14" r="6" fill="none" stroke="rgba(122,155,118,0.70)" stroke-width="0.8"></circle>
+  
+  <circle cx="14" cy="14" r="5.2" fill="url(#spAtmA)"></circle>
+  
+  <circle cx="14" cy="14" r="4" fill="url(#spOrbA)"></circle>
+  <circle cx="14" cy="14" r="4" fill="url(#spOrbTerm_A)"></circle>
+  <circle cx="14" cy="14" r="4" fill="url(#spOrbHL_A)"></circle>
+  <circle cx="14" cy="14" r="4" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="0.4"></circle>
+  
+  <circle cx="12.7" cy="12.7" r="0.7" fill="rgba(255,255,255,0.95)"></circle>
 </svg>

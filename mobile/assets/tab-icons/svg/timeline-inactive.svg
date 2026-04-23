@@ -1,20 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
   <defs>
-    <linearGradient id="tlArcOff" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="rgba(245,243,237,0.40)" stop-opacity="0.08"></stop>
-      <stop offset="0.6" stop-color="rgba(245,243,237,0.40)" stop-opacity="0.35"></stop>
-      <stop offset="1" stop-color="rgba(245,243,237,0.40)" stop-opacity="0.40"></stop>
+    <linearGradient id="tbar1I" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgba(245,243,237,0.42)"></stop>
+      <stop offset="1" stop-color="rgba(245,243,237,0.12)"></stop>
     </linearGradient>
-    <radialGradient id="tlNowOff" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#F5F3ED"></stop>
-      <stop offset="100%" stop-color="rgba(245,243,237,0.55)"></stop>
-    </radialGradient>
+    <linearGradient id="tbar2I" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgba(245,243,237,0.52)"></stop>
+      <stop offset="1" stop-color="rgba(245,243,237,0.15)"></stop>
+    </linearGradient>
+    <linearGradient id="tbar3I" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgba(245,243,237,0.65)"></stop>
+      <stop offset="1" stop-color="rgba(245,243,237,0.22)"></stop>
+    </linearGradient>
+    <linearGradient id="tbarGlossI" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgba(255,255,255,0.45)"></stop>
+      <stop offset="1" stop-color="rgba(255,255,255,0)"></stop>
+    </linearGradient>
   </defs>
-  <path d="M 4 22 Q 10 14 24 6" stroke="url(#tlArcOff)" stroke-width="1.2" fill="none" stroke-linecap="round"></path>
-  <circle cx="5.6" cy="19.8" r="2" fill="rgba(245,243,237,0.40)" opacity="0.05"></circle>
-  <circle cx="5.6" cy="19.8" r="1" fill="rgba(245,243,237,0.40)" opacity="0.40"></circle>
-  <circle cx="12" cy="13.5" r="3" fill="rgba(245,243,237,0.40)" opacity="0.06"></circle>
-  <circle cx="12" cy="13.5" r="1.6" fill="rgba(245,243,237,0.40)" opacity="0.55"></circle>
-  <circle cx="22.4" cy="6.8" r="2.5" fill="rgba(245,243,237,0.55)" opacity="0.12"></circle>
-  <circle cx="22.4" cy="6.8" r="1.8" fill="url(#tlNowOff)"></circle>
+  <rect x="4" y="18" width="3.6" height="6" rx="1.8" fill="url(#tbar1I)"></rect>
+  <rect x="4.5" y="18.4" width="2.6" height="1.6" rx="1.1" fill="url(#tbarGlossI)"></rect>
+
+  <rect x="10.2" y="12" width="3.6" height="12" rx="1.8" fill="url(#tbar2I)"></rect>
+  <rect x="10.7" y="12.4" width="2.6" height="2.8" rx="1.1" fill="url(#tbarGlossI)"></rect>
+
+  <rect x="19.7" y="5" width="4.2" height="19" rx="2.1" fill="url(#tbar3I)"></rect>
+  <rect x="20.3" y="5.5" width="3" height="4.5" rx="1.5" fill="url(#tbarGlossI)"></rect>
 </svg>
