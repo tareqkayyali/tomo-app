@@ -123,8 +123,8 @@ const TAB_LABELS: Record<TabName, string> = {
 
 /** Timeline + Signal: 32×0.8 baseline, +15%, then +30% vs that result. */
 const SIDE_TAB_GLYPH_SIZE = 32 * 0.8 * 1.15 * 1.3;
-/** Chat planet — inline with side glyphs; +20% vs prior 56pt baseline. */
-const CHAT_TAB_GLYPH_SIZE = 56 * 1.2;
+/** Chat planet — inline with side glyphs; 56 × 1.2 (+20%) × 1.3 (+30%). */
+const CHAT_TAB_GLYPH_SIZE = 56 * 1.2 * 1.3;
 
 /**
  * Player App tab glyphs — Timeline / Tomo / Signal (PNG bitmaps).
