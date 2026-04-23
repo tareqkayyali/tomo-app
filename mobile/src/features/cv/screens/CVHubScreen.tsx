@@ -51,7 +51,7 @@ export default function CVHubScreen() {
   const nav = useNavigation<Nav>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data: cv, isLoading, error, publish } = useCVProfile(user?.id ?? "");
+  const { data: cv, isLoading, error, publish, refetch } = useCVProfile(user?.id ?? "");
   const [downloading, setDownloading] = useState(false);
 
   const handleShare = useCallback(async () => {
@@ -140,22 +140,56 @@ export default function CVHubScreen() {
     </Pressable>
   );
 
+  if (error) {
+    return (
+      <CVScreen label="Player Passport" onBack={() => nav.goBack()}>
+        <View style={{ paddingTop: 32, gap: 12 }}>
+          <Text style={[hubStyles.errorText, { color: colors.tomoCream, marginTop: 0 }]}>
+            Couldn't load your CV.
+          </Text>
+          <Text
+            style={[
+              hubStyles.errorText,
+              {
+                color: colors.muted,
+                marginTop: 0,
+                fontSize: 11,
+                textAlign: "left",
+                paddingHorizontal: 16,
+              },
+            ]}
+            selectable
+          >
+            {error}
+          </Text>
+          <Pressable
+            onPress={refetch}
+            style={({ pressed }) => [
+              hubStyles.iconBtn,
+              {
+                alignSelf: "center",
+                width: "auto",
+                paddingHorizontal: 16,
+                backgroundColor: pressed ? colors.sage15 : colors.sage08,
+                borderColor: colors.sage30,
+              },
+            ]}
+          >
+            <Text style={{ color: colors.accent, fontFamily: fontFamily.medium, fontSize: 12 }}>
+              Retry
+            </Text>
+          </Pressable>
+        </View>
+      </CVScreen>
+    );
+  }
+
   if (isLoading || !cv) {
     return (
       <CVScreen label="Player Passport" onBack={() => nav.goBack()}>
         <View style={{ paddingVertical: 64 }}>
           <ActivityIndicator color={colors.accent} />
         </View>
-      </CVScreen>
-    );
-  }
-
-  if (error) {
-    return (
-      <CVScreen label="Player Passport" onBack={() => nav.goBack()}>
-        <Text style={[hubStyles.errorText, { color: colors.body }]}>
-          Couldn't load your CV. Pull down to retry.
-        </Text>
       </CVScreen>
     );
   }

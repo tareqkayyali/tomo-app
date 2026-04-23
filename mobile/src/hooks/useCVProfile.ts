@@ -401,11 +401,20 @@ export function useCVProfile(athleteId: string): UseCVProfileReturn {
         `${API_BASE_URL}/api/v1/cv/profile?athleteId=${athleteId}`,
         { headers }
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        let detail = "";
+        try {
+          const body = await res.json();
+          detail = body?.detail ?? body?.error ?? "";
+        } catch {
+          try { detail = await res.text(); } catch { /* ignore */ }
+        }
+        throw new Error(`HTTP ${res.status}${detail ? ` — ${detail}` : ""}`);
+      }
       const bundle: FullCVBundle = await res.json();
       setData(bundle);
     } catch (err) {
-      setError(String(err));
+      setError(err instanceof Error ? err.message : String(err));
     }
     setIsLoading(false);
   }, [athleteId]);
