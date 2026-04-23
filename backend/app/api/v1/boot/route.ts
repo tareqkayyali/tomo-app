@@ -531,13 +531,22 @@ export async function GET(request: NextRequest) {
       // signalContext stays null — Dashboard shows neutral state
     }
 
-    // ── Dynamic hero coaching — overlay on signalContext.coaching ──
+    // ── Dynamic hero coaching — resolve + overlay ──────────────────────
     // Reads the cached line from athlete_snapshots (written by event handlers).
-    // When fresh, overlay immediately. When stale/missing, briefly await a
+    // When fresh, we use it directly. When stale/missing, briefly await a
     // regen (template pools are AI-free so the resolver is fast) so the FIRST
     // boot already ships the right line — no pull-to-refresh dance. The race
     // timeout keeps boot latency bounded if something pathological happens in
     // the generator's DB hops.
+    //
+    // Decoupling from the signal layer: evaluateSignal() returns null for the
+    // common healthy-athlete case ("no signals match"). Previously the overlay
+    // was gated on signalContext being non-null, so the vibe never reached
+    // mobile — the hero silently fell through to the hardcoded "Complete your
+    // daily check-in" fallback even after a successful check-in. Now we
+    // always resolve the coaching line, and when signalContext is null we
+    // synthesize a BASELINE stub (matching mobile's NEUTRAL_SIGNAL shape)
+    // carrying the vibe, so the hero stays motivational post-checkin.
     try {
       const snap = snapshot as Record<string, unknown> | null;
       const dynamicCoaching = snap?.dynamic_coaching as string | null | undefined;
@@ -546,9 +555,10 @@ export async function GET(request: NextRequest) {
       const REGEN_AWAIT_MS = 1200;
       const ageMs = generatedAt ? Date.now() - Date.parse(generatedAt) : Number.POSITIVE_INFINITY;
 
-      if (dynamicCoaching && ageMs < STALE_MS && signalContext) {
-        signalContext = { ...signalContext, coaching: dynamicCoaching };
-      } else if (signalContext) {
+      let resolvedCoaching: string | null =
+        dynamicCoaching && ageMs < STALE_MS ? dynamicCoaching : null;
+
+      if (!resolvedCoaching) {
         // Missing or stale — try to resolve synchronously with a tight cap.
         // Static import (vs dynamic): dynamic imports inside Next.js API
         // routes can be silently dropped from the production bundle when the
@@ -562,10 +572,41 @@ export async function GET(request: NextRequest) {
         );
         const fresh = await Promise.race([regenPromise, timeoutPromise]);
         if (fresh && typeof fresh === 'object' && 'text' in fresh && fresh.text) {
-          signalContext = { ...signalContext, coaching: fresh.text };
+          resolvedCoaching = fresh.text as string;
         }
         // If the timeout won, the background regen keeps running — next boot
         // will read the freshly persisted row through the warm-path branch.
+      }
+
+      if (resolvedCoaching) {
+        if (signalContext) {
+          signalContext = { ...signalContext, coaching: resolvedCoaching };
+        } else if (isReadinessFresh(snapshot as any, tz)) {
+          // No signal matched but the athlete has checked in today — ship a
+          // BASELINE stub carrying the vibe so the hero renders motivational
+          // copy instead of falling through to the mobile "Complete your
+          // daily check-in" CTA (which is reserved for readinessFresh=false).
+          signalContext = {
+            key: 'BASELINE',
+            displayName: 'BASELINE',
+            subtitle: '',
+            color: '#7a9b76',
+            heroBackground: '#12141F',
+            arcOpacity: { large: 0.3, medium: 0.3, small: 0.3 },
+            pillBackground: 'rgba(122,155,118,0.08)',
+            barRgba: 'rgba(122,155,118,0.3)',
+            coachingColor: '#567A5C',
+            pills: [],
+            coaching: resolvedCoaching,
+            triggerRows: [],
+            adaptedPlan: null,
+            showUrgencyBadge: false,
+            urgencyLabel: null,
+            signalId: 'baseline',
+            priority: 999,
+            evaluatedAt: new Date().toISOString(),
+          };
+        }
       }
     } catch (err) {
       // Never let coaching overlay break boot.

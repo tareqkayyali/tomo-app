@@ -56,10 +56,14 @@ const DASHBOARD_TABS: { key: DashboardTabKey; label: string }[] = [
   { key: 'progress', label: 'Progress' },
 ];
 
+// Pre-checkin fallback only. Post-checkin the backend synthesises a BASELINE
+// signalContext carrying a motivational vibe (see boot/route.ts dynamic hero
+// coaching block), so this copy is reserved for the "no check-in yet today"
+// state where the ring shows 0 and the right next action is to check in.
 const NEUTRAL_SIGNAL = {
   key: 'BASELINE',
   displayName: 'BASELINE',
-  subtitle: 'Check in to activate your signal',
+  subtitle: 'Check in to unlock today',
   color: '#7a9b76',
   heroBackground: '#12141F',
   arcOpacity: { large: 0.3, medium: 0.3, small: 0.3 },
@@ -67,7 +71,7 @@ const NEUTRAL_SIGNAL = {
   barRgba: 'rgba(122,155,118,0.3)',
   coachingColor: '#567A5C',
   pills: [] as { label: string; subLabel: string }[],
-  coaching: 'Complete your daily check-in to activate your personalised signal and adapted training plan.',
+  coaching: 'Check in to unlock today — readiness, plan, and the next right thing.',
   triggerRows: [] as { metric: string; value: string; baseline: string; delta: string; isPositive: boolean }[],
   adaptedPlan: null as { sessionName: string; sessionMeta: string } | null,
   showUrgencyBadge: false,
