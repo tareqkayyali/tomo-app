@@ -1,11 +1,17 @@
 /**
  * Tomo tab icons — Timeline / Tomo / Signal.
  * Sage-luminous orbit family. Active state = brighter sage + halo.
- * Source of truth: desktop/tomo/files/tab-icons-handoff.md
  *
- * All RadialGradients use gradientUnits="userSpaceOnUse" with absolute
- * coordinates because react-native-svg-web mis-resolves percentage units
- * (objectBoundingBox), producing collapsed/oversized gradients on web.
+ * Source of truth:
+ *   desktop/tomo/files/TabIcons.jsx (web reference)
+ *   desktop/tomo/files/tab icons/svgs/*.svg (canonical pixels)
+ *
+ * Two react-native-svg quirks vs. DOM SVG that this file works around:
+ *   1. RadialGradient/LinearGradient cannot accept React.Fragment as children
+ *      — Stop nodes must be direct children. Stops are returned as arrays.
+ *   2. react-native-svg-web mis-resolves percentage units (objectBoundingBox)
+ *      for RadialGradient — all gradients use gradientUnits="userSpaceOnUse"
+ *      with absolute coordinates.
  */
 import React from 'react';
 import Svg, {
@@ -25,6 +31,17 @@ type IconProps = { size?: number; on?: boolean };
 export function IconTimeline({ size = 32, on = false }: IconProps) {
   const stroke = on ? 'rgba(245,243,237,0.70)' : 'rgba(245,243,237,0.40)';
   const k = on ? 'on' : 'off';
+  const nowR = on ? 2.4 : 1.8;
+  const nowStops = on
+    ? [
+        <Stop key="0" offset="0%" stopColor="#E0EFDA" />,
+        <Stop key="1" offset="55%" stopColor="#C8DCC3" />,
+        <Stop key="2" offset="100%" stopColor="#7A9B76" />,
+      ]
+    : [
+        <Stop key="0" offset="0%" stopColor="#F5F3ED" />,
+        <Stop key="1" offset="100%" stopColor="rgba(245,243,237,0.55)" />,
+      ];
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
       <Defs>
@@ -37,23 +54,12 @@ export function IconTimeline({ size = 32, on = false }: IconProps) {
           id={`tl-now-${k}`}
           cx={22.4}
           cy={6.8}
-          r={on ? 2.4 : 1.8}
+          r={nowR}
           fx={22.4}
           fy={6.8}
           gradientUnits="userSpaceOnUse"
         >
-          {on ? (
-            <>
-              <Stop offset="0%" stopColor="#E0EFDA" />
-              <Stop offset="55%" stopColor="#C8DCC3" />
-              <Stop offset="100%" stopColor="#7A9B76" />
-            </>
-          ) : (
-            <>
-              <Stop offset="0%" stopColor="#F5F3ED" />
-              <Stop offset="100%" stopColor="rgba(245,243,237,0.55)" />
-            </>
-          )}
+          {nowStops}
         </RadialGradient>
       </Defs>
       <Path
@@ -75,7 +81,7 @@ export function IconTimeline({ size = 32, on = false }: IconProps) {
         fill={on ? '#7A9B76' : 'rgba(245,243,237,0.55)'}
         opacity={on ? 0.25 : 0.12}
       />
-      <Circle cx={22.4} cy={6.8} r={on ? 2.4 : 1.8} fill={`url(#tl-now-${k})`} />
+      <Circle cx={22.4} cy={6.8} r={nowR} fill={`url(#tl-now-${k})`} />
       {on && <Circle cx={21.8} cy={6.3} r={0.7} fill="rgba(255,255,255,0.8)" />}
     </Svg>
   );
@@ -84,55 +90,55 @@ export function IconTimeline({ size = 32, on = false }: IconProps) {
 // ─── Tomo · planet + glass sphere ───
 export function IconTomo({ size = 64, on = false }: IconProps) {
   const k = on ? 'on' : 'off';
-  // Sphere geometry — center (32,32), radius depends on state.
   const cx = 32;
   const cy = 32;
   const r = on ? 21 : 17;
 
-  // Globe: bright spot upper-left, deep sage rim. Center ~38%/32% of sphere.
-  const globeCx = cx - r * 0.24; // shift left
-  const globeCy = cy - r * 0.36; // shift up
-  const globeR = r * 1.4; // overshoots so rim lands in deep sage
+  // Sphere bbox (centered on cx/cy with radius r) → used to translate the
+  // canonical objectBoundingBox %s into userSpaceOnUse pixel coordinates.
+  const bx0 = cx - r;
+  const by0 = cy - r;
+  const bw = 2 * r;
+  // (bx0 + bw * px/100, by0 + bw * py/100), radius = bw * pr/100
+  const sphereCx = bx0 + bw * 0.38;
+  const sphereCy = by0 + bw * 0.32;
+  const sphereR = bw * 0.7;
+  const hlCx = bx0 + bw * 0.34;
+  const hlCy = by0 + bw * 0.28;
+  const hlR = bw * 0.26;
+  const termCx = bx0 + bw * 0.72;
+  const termCy = by0 + bw * 0.6;
+  const termR = bw * 0.48;
 
-  // Specular highlight — small bright dot upper-left.
-  const hlCx = cx - r * 0.32;
-  const hlCy = cy - r * 0.44;
-  const hlR = r * 0.62;
+  // Atmosphere uses a 60×60 box centered on (32,32), r=30.
+  const atmR = 30;
 
-  // Terminator shadow — darkens lower-right.
-  const termCx = cx + r * 0.44;
-  const termCy = cy + r * 0.28;
-  const termR = r * 1.05;
-
-  // Atmosphere halo (active only) — soft sage rim outside the sphere.
-  const atmosR = r + 9;
+  const sphereStops = on
+    ? [
+        <Stop key="0" offset="0%" stopColor="#DCEBD6" />,
+        <Stop key="1" offset="35%" stopColor="#A8C3A2" />,
+        <Stop key="2" offset="75%" stopColor="#7A9B76" />,
+        <Stop key="3" offset="100%" stopColor="#4F6B4C" />,
+      ]
+    : [
+        <Stop key="0" offset="0%" stopColor="#BED0B9" />,
+        <Stop key="1" offset="45%" stopColor="#849F80" />,
+        <Stop key="2" offset="100%" stopColor="#3F5A3C" />,
+      ];
 
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       <Defs>
         <RadialGradient
           id={`sp-globe-${k}`}
-          cx={globeCx}
-          cy={globeCy}
-          r={globeR}
-          fx={globeCx}
-          fy={globeCy}
+          cx={sphereCx}
+          cy={sphereCy}
+          r={sphereR}
+          fx={sphereCx}
+          fy={sphereCy}
           gradientUnits="userSpaceOnUse"
         >
-          {on ? (
-            <>
-              <Stop offset="0%" stopColor="#DCEBD6" />
-              <Stop offset="35%" stopColor="#A8C3A2" />
-              <Stop offset="75%" stopColor="#7A9B76" />
-              <Stop offset="100%" stopColor="#4F6B4C" />
-            </>
-          ) : (
-            <>
-              <Stop offset="0%" stopColor="#BED0B9" />
-              <Stop offset="45%" stopColor="#849F80" />
-              <Stop offset="100%" stopColor="#3F5A3C" />
-            </>
-          )}
+          {sphereStops}
         </RadialGradient>
         <RadialGradient
           id={`sp-hl-${k}`}
@@ -150,14 +156,14 @@ export function IconTomo({ size = 64, on = false }: IconProps) {
           id={`sp-atmos-${k}`}
           cx={cx}
           cy={cy}
-          r={atmosR}
+          r={atmR}
           fx={cx}
           fy={cy}
           gradientUnits="userSpaceOnUse"
         >
-          <Stop offset={(r / atmosR).toFixed(3)} stopColor="rgba(122,155,118,0)" />
-          <Stop offset={((r + 4) / atmosR).toFixed(3)} stopColor="rgba(122,155,118,0.38)" />
-          <Stop offset="1" stopColor="rgba(122,155,118,0)" />
+          <Stop offset="78%" stopColor="rgba(122,155,118,0)" />
+          <Stop offset="92%" stopColor={on ? 'rgba(122,155,118,0.35)' : 'rgba(122,155,118,0)'} />
+          <Stop offset="100%" stopColor="rgba(122,155,118,0)" />
         </RadialGradient>
         <RadialGradient
           id={`sp-term-${k}`}
@@ -173,7 +179,7 @@ export function IconTomo({ size = 64, on = false }: IconProps) {
           <Stop offset="100%" stopColor={on ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.45)'} />
         </RadialGradient>
       </Defs>
-      {on && <Circle cx={cx} cy={cy} r={atmosR} fill={`url(#sp-atmos-${k})`} />}
+      {on && <Circle cx={cx} cy={cy} r={atmR} fill={`url(#sp-atmos-${k})`} />}
       <Ellipse
         cx={cx}
         cy={on ? 54 : 52}
@@ -184,15 +190,10 @@ export function IconTomo({ size = 64, on = false }: IconProps) {
       <Circle cx={cx} cy={cy} r={r} fill={`url(#sp-globe-${k})`} />
       <Circle cx={cx} cy={cy} r={r} fill={`url(#sp-term-${k})`} />
       <Circle cx={cx} cy={cy} r={r} fill={`url(#sp-hl-${k})`} />
-      {on && (
-        <Circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke="rgba(255,255,255,0.12)"
-          strokeWidth={0.6}
-        />
+      {on ? (
+        <Circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={0.6} />
+      ) : (
+        <Circle cx={cx} cy={cy} r={r} fill="rgba(10,12,20,0.25)" />
       )}
     </Svg>
   );
@@ -206,6 +207,17 @@ export function IconSignal({ size = 32, on = false }: IconProps) {
   const k = on ? 'on' : 'off';
   const coreR = on ? 4 : 3.2;
   const haloR = on ? 13 : 10;
+  const coreStops = on
+    ? [
+        <Stop key="0" offset="0%" stopColor="#C8DCC3" />,
+        <Stop key="1" offset="60%" stopColor="#7A9B76" />,
+        <Stop key="2" offset="100%" stopColor="#4F6B4C" />,
+      ]
+    : [
+        <Stop key="0" offset="0%" stopColor="#A6BFA2" />,
+        <Stop key="1" offset="60%" stopColor="#6E8B6A" />,
+        <Stop key="2" offset="100%" stopColor="#3E5A3C" />,
+      ];
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
       <Defs>
@@ -218,19 +230,7 @@ export function IconSignal({ size = 32, on = false }: IconProps) {
           fy={14}
           gradientUnits="userSpaceOnUse"
         >
-          {on ? (
-            <>
-              <Stop offset="0%" stopColor="#C8DCC3" />
-              <Stop offset="60%" stopColor="#7A9B76" />
-              <Stop offset="100%" stopColor="#4F6B4C" />
-            </>
-          ) : (
-            <>
-              <Stop offset="0%" stopColor="#A6BFA2" />
-              <Stop offset="60%" stopColor="#6E8B6A" />
-              <Stop offset="100%" stopColor="#3E5A3C" />
-            </>
-          )}
+          {coreStops}
         </RadialGradient>
         <RadialGradient
           id={`sig-halo-${k}`}
