@@ -1,57 +1,211 @@
 /**
  * Tomo tab icons — Timeline / Tomo / Signal.
  *
- * Rendered from PNG assets pre-rasterized from the canonical SVGs at
- * desktop/tomo/files/tab icons/svgs/ via librsvg. Bundled at @1x/@2x/@3x
- * under mobile/assets/tab-icons/.
+ * Pixel-faithful renders of the canonical SVGs at:
+ *   desktop/tomo/files/tab icons/svgs/{timeline,tomo,signal}-{active,inactive}.svg
  *
- * Why PNG instead of in-app SVG: react-native-svg's RadialGradient
- * pipeline is broken on Expo SDK 54 — gradient fills collapse to opaque
- * white regardless of structure (verified across array children, inline
- * children, conditional defs, userSpaceOnUse, percentage units, SvgXml).
- * Rasterizing offline is the only reliable way to get the design's
- * planet-style sphere onto the device.
+ * Why two render paths:
+ *   - On WEB, react-native-svg parses the SVG into its own component tree
+ *     and mis-resolves percentage-unit RadialGradients + url(#id) refs,
+ *     causing the Tomo sphere to render fully white. We render the raw
+ *     SVG markup straight into the DOM, which the browser handles
+ *     natively and pixel-perfectly.
+ *   - On NATIVE (iOS/Android), there is no DOM. We use SvgXml from
+ *     react-native-svg, which on native correctly handles the same
+ *     markup including percentage gradients.
  */
 import React from 'react';
-import { Image } from 'react-native';
+import { Platform, View } from 'react-native';
+import { SvgXml } from 'react-native-svg';
 
 type IconProps = { size?: number; on?: boolean };
 
-const ASSETS = {
-  timelineOn: require('../../assets/tab-icons/timeline-active.png'),
-  timelineOff: require('../../assets/tab-icons/timeline-inactive.png'),
-  tomoOn: require('../../assets/tab-icons/tomo-active.png'),
-  tomoOff: require('../../assets/tab-icons/tomo-inactive.png'),
-  signalOn: require('../../assets/tab-icons/signal-active.png'),
-  signalOff: require('../../assets/tab-icons/signal-inactive.png'),
-};
+// ─── Timeline ─────────────────────────────────────────────────────────
+const TIMELINE_ON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" fill="none">
+  <defs>
+    <linearGradient id="tlArcOn" x1="4" y1="22" x2="24" y2="6" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="rgba(245,243,237,0.70)" stop-opacity="0.15"/>
+      <stop offset="0.6" stop-color="rgba(245,243,237,0.70)" stop-opacity="0.50"/>
+      <stop offset="1" stop-color="#7A9B76" stop-opacity="0.75"/>
+    </linearGradient>
+    <radialGradient id="tlNowOn" cx="22.4" cy="6.8" r="2.4" fx="22.4" fy="6.8" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E0EFDA"/>
+      <stop offset="55%" stop-color="#C8DCC3"/>
+      <stop offset="100%" stop-color="#7A9B76"/>
+    </radialGradient>
+  </defs>
+  <path d="M 4 22 Q 10 14 24 6" stroke="url(#tlArcOn)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <circle cx="5.6" cy="19.8" r="2" fill="rgba(245,243,237,0.70)" opacity="0.08"/>
+  <circle cx="5.6" cy="19.8" r="1" fill="rgba(245,243,237,0.70)" opacity="0.55"/>
+  <circle cx="12" cy="13.5" r="3" fill="rgba(245,243,237,0.70)" opacity="0.10"/>
+  <circle cx="12" cy="13.5" r="1.6" fill="rgba(245,243,237,0.70)" opacity="0.80"/>
+  <circle cx="22.4" cy="6.8" r="5.5" fill="#7A9B76" opacity="0.18"/>
+  <circle cx="22.4" cy="6.8" r="4" fill="#7A9B76" opacity="0.25"/>
+  <circle cx="22.4" cy="6.8" r="2.4" fill="url(#tlNowOn)"/>
+  <circle cx="21.8" cy="6.3" r="0.7" fill="rgba(255,255,255,0.8)"/>
+</svg>`;
 
-export function IconTimeline({ size = 132, on = false }: IconProps) {
+const TIMELINE_OFF = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" fill="none">
+  <defs>
+    <linearGradient id="tlArcOff" x1="4" y1="22" x2="24" y2="6" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="rgba(245,243,237,0.40)" stop-opacity="0.08"/>
+      <stop offset="0.6" stop-color="rgba(245,243,237,0.40)" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="rgba(245,243,237,0.40)" stop-opacity="0.40"/>
+    </linearGradient>
+    <radialGradient id="tlNowOff" cx="22.4" cy="6.8" r="1.8" fx="22.4" fy="6.8" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F5F3ED"/>
+      <stop offset="100%" stop-color="rgba(245,243,237,0.55)"/>
+    </radialGradient>
+  </defs>
+  <path d="M 4 22 Q 10 14 24 6" stroke="url(#tlArcOff)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <circle cx="5.6" cy="19.8" r="2" fill="rgba(245,243,237,0.40)" opacity="0.05"/>
+  <circle cx="5.6" cy="19.8" r="1" fill="rgba(245,243,237,0.40)" opacity="0.40"/>
+  <circle cx="12" cy="13.5" r="3" fill="rgba(245,243,237,0.40)" opacity="0.06"/>
+  <circle cx="12" cy="13.5" r="1.6" fill="rgba(245,243,237,0.40)" opacity="0.55"/>
+  <circle cx="22.4" cy="6.8" r="2.5" fill="rgba(245,243,237,0.55)" opacity="0.12"/>
+  <circle cx="22.4" cy="6.8" r="1.8" fill="url(#tlNowOff)"/>
+</svg>`;
+
+// ─── Tomo ─────────────────────────────────────────────────────────────
+const TOMO_ON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="spOn" cx="26.96" cy="24.44" r="29.4" fx="26.96" fy="24.44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#DCEBD6"/>
+      <stop offset="35%" stop-color="#A8C3A2"/>
+      <stop offset="75%" stop-color="#7A9B76"/>
+      <stop offset="100%" stop-color="#4F6B4C"/>
+    </radialGradient>
+    <radialGradient id="hlOn" cx="25.28" cy="22.76" r="10.92" fx="25.28" fy="22.76" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.95)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+    <radialGradient id="atmOn" cx="32" cy="32" r="30" fx="32" fy="32" gradientUnits="userSpaceOnUse">
+      <stop offset="78%" stop-color="rgba(122,155,118,0)"/>
+      <stop offset="92%" stop-color="rgba(122,155,118,0.35)"/>
+      <stop offset="100%" stop-color="rgba(122,155,118,0)"/>
+    </radialGradient>
+    <radialGradient id="termOn" cx="41.24" cy="36.2" r="20.16" fx="41.24" fy="36.2" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
+      <stop offset="70%" stop-color="rgba(0,0,0,0)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.35)"/>
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#atmOn)"/>
+  <ellipse cx="32" cy="54" rx="14" ry="2" fill="rgba(0,0,0,0.35)"/>
+  <circle cx="32" cy="32" r="21" fill="url(#spOn)"/>
+  <circle cx="32" cy="32" r="21" fill="url(#termOn)"/>
+  <circle cx="32" cy="32" r="21" fill="url(#hlOn)"/>
+  <circle cx="32" cy="32" r="21" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.6"/>
+</svg>`;
+
+const TOMO_OFF = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="spOff" cx="27.92" cy="25.88" r="23.8" fx="27.92" fy="25.88" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BED0B9"/>
+      <stop offset="45%" stop-color="#849F80"/>
+      <stop offset="100%" stop-color="#3F5A3C"/>
+    </radialGradient>
+    <radialGradient id="hlOff" cx="26.56" cy="24.52" r="8.84" fx="26.56" fy="24.52" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.55)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+    <radialGradient id="termOff" cx="39.48" cy="35.4" r="16.32" fx="39.48" fy="35.4" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
+      <stop offset="70%" stop-color="rgba(0,0,0,0)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.45)"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="32" cy="52" rx="11" ry="2" fill="rgba(0,0,0,0.22)"/>
+  <circle cx="32" cy="32" r="17" fill="url(#spOff)"/>
+  <circle cx="32" cy="32" r="17" fill="url(#termOff)"/>
+  <circle cx="32" cy="32" r="17" fill="url(#hlOff)"/>
+  <circle cx="32" cy="32" r="17" fill="rgba(10,12,20,0.25)"/>
+</svg>`;
+
+// ─── Signal ───────────────────────────────────────────────────────────
+const SIGNAL_ON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" fill="none">
+  <defs>
+    <radialGradient id="scOn" cx="14" cy="14" r="4" fx="14" fy="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#C8DCC3"/>
+      <stop offset="60%" stop-color="#7A9B76"/>
+      <stop offset="100%" stop-color="#4F6B4C"/>
+    </radialGradient>
+    <radialGradient id="shOn" cx="14" cy="14" r="13" fx="14" fy="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7A9B76" stop-opacity="0.40"/>
+      <stop offset="100%" stop-color="#7A9B76" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="14" cy="14" r="13" fill="url(#shOn)"/>
+  <line x1="14" y1="3" x2="14" y2="7" stroke="rgba(245,243,237,0.70)" stroke-width="1.2" stroke-linecap="round" opacity="0.75"/>
+  <line x1="14" y1="21" x2="14" y2="25" stroke="rgba(245,243,237,0.70)" stroke-width="1.2" stroke-linecap="round" opacity="0.75"/>
+  <line x1="3" y1="14" x2="7" y2="14" stroke="rgba(245,243,237,0.70)" stroke-width="1.2" stroke-linecap="round" opacity="0.75"/>
+  <line x1="21" y1="14" x2="25" y2="14" stroke="rgba(245,243,237,0.70)" stroke-width="1.2" stroke-linecap="round" opacity="0.75"/>
+  <line x1="6.5" y1="6.5" x2="8.5" y2="8.5" stroke="rgba(245,243,237,0.70)" stroke-width="1" stroke-linecap="round" opacity="0.45"/>
+  <line x1="19.5" y1="19.5" x2="21.5" y2="21.5" stroke="rgba(245,243,237,0.70)" stroke-width="1" stroke-linecap="round" opacity="0.45"/>
+  <line x1="6.5" y1="21.5" x2="8.5" y2="19.5" stroke="rgba(245,243,237,0.70)" stroke-width="1" stroke-linecap="round" opacity="0.45"/>
+  <line x1="19.5" y1="8.5" x2="21.5" y2="6.5" stroke="rgba(245,243,237,0.70)" stroke-width="1" stroke-linecap="round" opacity="0.45"/>
+  <circle cx="14" cy="14" r="4" fill="url(#scOn)"/>
+  <circle cx="13.3" cy="13.3" r="1.2" fill="rgba(255,255,255,0.75)"/>
+</svg>`;
+
+const SIGNAL_OFF = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" fill="none">
+  <defs>
+    <radialGradient id="scOff" cx="14" cy="14" r="3.2" fx="14" fy="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A6BFA2"/>
+      <stop offset="60%" stop-color="#6E8B6A"/>
+      <stop offset="100%" stop-color="#3E5A3C"/>
+    </radialGradient>
+    <radialGradient id="shOff" cx="14" cy="14" r="10" fx="14" fy="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7A9B76" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#7A9B76" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="14" cy="14" r="10" fill="url(#shOff)"/>
+  <line x1="14" y1="3" x2="14" y2="7" stroke="rgba(245,243,237,0.40)" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>
+  <line x1="14" y1="21" x2="14" y2="25" stroke="rgba(245,243,237,0.40)" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>
+  <line x1="3" y1="14" x2="7" y2="14" stroke="rgba(245,243,237,0.40)" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>
+  <line x1="21" y1="14" x2="25" y2="14" stroke="rgba(245,243,237,0.40)" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>
+  <line x1="6.5" y1="6.5" x2="8.5" y2="8.5" stroke="rgba(245,243,237,0.40)" stroke-width="1" stroke-linecap="round" opacity="0.22"/>
+  <line x1="19.5" y1="19.5" x2="21.5" y2="21.5" stroke="rgba(245,243,237,0.40)" stroke-width="1" stroke-linecap="round" opacity="0.22"/>
+  <line x1="6.5" y1="21.5" x2="8.5" y2="19.5" stroke="rgba(245,243,237,0.40)" stroke-width="1" stroke-linecap="round" opacity="0.22"/>
+  <line x1="19.5" y1="8.5" x2="21.5" y2="6.5" stroke="rgba(245,243,237,0.40)" stroke-width="1" stroke-linecap="round" opacity="0.22"/>
+  <circle cx="14" cy="14" r="3.2" fill="url(#scOff)"/>
+  <circle cx="13.3" cy="13.3" r="0.8" fill="rgba(255,255,255,0.4)"/>
+</svg>`;
+
+// On web, inject the raw SVG into the DOM via dangerouslySetInnerHTML so
+// the browser parses it natively (preserves gradient url(#id) refs and
+// percentage units, which react-native-svg's web parser breaks).
+function WebSvg({ xml, size }: { xml: string; size: number }) {
+  // Force the inner <svg> to honor the requested size. The raw markup has
+  // no width/height attrs so a wrapper style suffices.
+  const html = xml.replace(
+    '<svg ',
+    `<svg width="${size}" height="${size}" `,
+  );
+  // eslint-disable-next-line react/no-danger
+  return <div style={{ width: size, height: size, lineHeight: 0 } as any} dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+function PlatformSvg({ xml, size }: { xml: string; size: number }) {
+  if (Platform.OS === 'web') {
+    return <WebSvg xml={xml} size={size} />;
+  }
   return (
-    <Image
-      source={on ? ASSETS.timelineOn : ASSETS.timelineOff}
-      style={{ width: size, height: size }}
-      resizeMode="contain"
-    />
+    <View style={{ width: size, height: size }}>
+      <SvgXml xml={xml} width={size} height={size} />
+    </View>
   );
 }
 
-export function IconTomo({ size = 80, on = false }: IconProps) {
-  return (
-    <Image
-      source={on ? ASSETS.tomoOn : ASSETS.tomoOff}
-      style={{ width: size, height: size }}
-      resizeMode="contain"
-    />
-  );
+export function IconTimeline({ size = 32, on = false }: IconProps) {
+  return <PlatformSvg xml={on ? TIMELINE_ON : TIMELINE_OFF} size={size} />;
 }
 
-export function IconSignal({ size = 132, on = false }: IconProps) {
-  return (
-    <Image
-      source={on ? ASSETS.signalOn : ASSETS.signalOff}
-      style={{ width: size, height: size }}
-      resizeMode="contain"
-    />
-  );
+export function IconTomo({ size = 64, on = false }: IconProps) {
+  return <PlatformSvg xml={on ? TOMO_ON : TOMO_OFF} size={size} />;
+}
+
+export function IconSignal({ size = 32, on = false }: IconProps) {
+  return <PlatformSvg xml={on ? SIGNAL_ON : SIGNAL_OFF} size={size} />;
 }

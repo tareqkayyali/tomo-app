@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "kill-metro": "bash ./scripts/kill-metro-8081.sh",
+    "start": "expo start --go",
+    "start:tunnel": "expo start --go --tunnel",
+    "start:clear": "expo start --go --clear",
+    "start:fresh": "npm run kill-metro && expo start --go --clear",
+    "android": "expo start --go --android",
+    "ios": "expo start --go --ios",
     "web": "expo start --web",
     "lint": "expo lint"
   },
@@ -29,6 +33,7 @@
     "@sentry/react-native": "~7.2.0",
     "@supabase/supabase-js": "^2.49.1",
     "expo": "~54.0.33",
+    "expo-asset": "~12.0.12",
     "expo-audio": "~1.1.1",
     "expo-auth-session": "~7.0.10",
     "expo-av": "~16.0.8",
@@ -70,7 +75,7 @@
     "rive-react-native": "^9.8.1"
   },
   "devDependencies": {
-    "@types/jest": "^30.0.0",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.1.0",
     "babel-preset-expo": "^54.0.10",
     "typescript": "~5.9.2"

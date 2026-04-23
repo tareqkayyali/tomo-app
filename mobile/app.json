@@ -116,7 +116,8 @@
         }
       ],
       "expo-audio",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-asset"
     ],
     "owner": "tomo2026"
   }

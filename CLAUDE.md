@@ -17,6 +17,13 @@ tomo-app/
 
 ## Commands
 ```bash
+# Mobile (Expo) — one Metro, default port 8081
+cd mobile
+npm run start:fresh          # kill anything on 8081, then Expo Go + clear bundler cache
+# or:    npm start            # if nothing else is using 8081
+# Do not run two clones (e.g. two copies of tomo-app) with Metro in parallel on the same port.
+# Remove duplicate checkouts of this repo to avoid “old version” in Expo Go.
+
 # Backend
 cd backend
 ./scripts/switch-env.sh local     # Switch to local Supabase

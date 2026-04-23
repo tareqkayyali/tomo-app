@@ -1,0 +1,17 @@
+{
+  "name": "tomo-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo: Expo app in mobile/, Next.js API in backend/",
+  "scripts": {
+    "start": "npm run start --prefix mobile",
+    "start:tunnel": "npm run start:tunnel --prefix mobile",
+    "start:clear": "npm run start:clear --prefix mobile",
+    "start:fresh": "npm run start:fresh --prefix mobile",
+    "kill-metro": "npm run kill-metro --prefix mobile",
+    "ios": "npm run ios --prefix mobile",
+    "android": "npm run android --prefix mobile",
+    "web": "npm run web --prefix mobile",
+    "dev:backend": "npm run dev --prefix backend"
+  }
+}
