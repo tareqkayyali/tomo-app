@@ -23,7 +23,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle as SvgCircle, Rect as SvgRect, Path as SvgPath, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -88,6 +88,7 @@ import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { TomoIcon } from '../components/tomo-ui';
+import { IconTimeline, IconTomo, IconSignal } from '../components/tomo-tab-icons';
 import { fontFamily } from '../theme/typography';
 import { useAuth } from '../hooks/useAuth';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
@@ -134,44 +135,10 @@ const TAB_LABELS: Record<TabName, string> = {
  * thickens stroke (1.5 → 2) and reveals the center dot so the icon pair
  * reads as one design language: Ichinichi's dot ↔ Ensō's pulse core.
  */
-function TabGlyph({ name, color, active }: { name: TabName; color: string; active: boolean }) {
-  const stroke = active ? 2 : 1.5;
-  if (name === 'Plan') {
-    return (
-      <Svg width={51} height={51} viewBox="0 0 20 20" fill="none">
-        <SvgPath
-          d="M4 6h9"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          opacity={active ? 1 : 0.55}
-        />
-        <SvgPath d="M4 10h12" stroke={color} strokeWidth={stroke} strokeLinecap="round" />
-        <SvgPath
-          d="M4 14h7"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          opacity={active ? 1 : 0.55}
-        />
-        {active && <SvgCircle cx={14.5} cy={10} r={1.2} fill={color} />}
-      </Svg>
-    );
-  }
-  // Chat tab is rendered as a floating orb in CustomBottomTabBar — this
-  // function is not called for Chat, so Dashboard is the only fallthrough.
-  return (
-    <Svg width={51} height={51} viewBox="0 0 20 20" fill="none">
-      <SvgPath
-        d="M13.5 3.8a7 7 0 1 0 3.2 4.7"
-        stroke={color}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <SvgCircle cx={10} cy={10} r={active ? 2 : 1.6} fill={color} />
-    </Svg>
-  );
+function TabGlyph({ name, active }: { name: TabName; color: string; active: boolean }) {
+  if (name === 'Plan') return <IconTimeline size={32} on={active} />;
+  // Chat is rendered as the floating orb; Dashboard = Signal beacon.
+  return <IconSignal size={32} on={active} />;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -286,7 +253,7 @@ function CenterChatButton({
 
 function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
   const { colors } = useTheme();
-  const ORB_SIZE = 111;
+  const ORB_SIZE = 68;
 
   // Two glow layers:
   //   • `activeGlow` — continuous breathing pulse while Chat is focused.
@@ -372,32 +339,7 @@ function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
             transform: [{ scale: pressed ? 0.95 : 1 }],
           })}
         >
-          <Svg width={ORB_SIZE} height={ORB_SIZE} viewBox="0 0 22 22" fill="none">
-            <Defs>
-              {/* Active: normal shiny sage sphere — no extra glow. */}
-              <RadialGradient id="floatingChatOrbActive" cx="35%" cy="30%" r="70%">
-                <Stop offset="0%" stopColor={colors.tomoSageDim} />
-                <Stop offset="50%" stopColor={colors.tomoSage} />
-                <Stop offset="100%" stopColor={colors.accentDark} />
-              </RadialGradient>
-              {/* Inactive: muted steel-grey to match the inactive Timeline
-                  and Signal icon stroke colour (colors.muted, #7A8A9A). */}
-              <RadialGradient id="floatingChatOrbInactive" cx="35%" cy="30%" r="70%">
-                <Stop offset="0%" stopColor={colors.muted} stopOpacity={0.9} />
-                <Stop offset="100%" stopColor={colors.muted} stopOpacity={0.5} />
-              </RadialGradient>
-            </Defs>
-            {/* Orbit ring — active only */}
-            {isChatFocused && (
-              <SvgCircle cx={11} cy={11} r={10} stroke={colors.sage30} strokeWidth={0.8} fill="none" />
-            )}
-            <SvgCircle
-              cx={11}
-              cy={11}
-              r={7}
-              fill={`url(#${isChatFocused ? 'floatingChatOrbActive' : 'floatingChatOrbInactive'})`}
-            />
-          </Svg>
+          <IconTomo size={ORB_SIZE} on={isChatFocused} />
         </Pressable>
       </View>
     </View>
