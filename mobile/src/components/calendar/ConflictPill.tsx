@@ -16,9 +16,10 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform, Alert } from 'react-native';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import { SmartIcon } from '../SmartIcon';
+import { Loader } from '../Loader';
 import { apiRequest } from '../../services/api';
 
 interface Props {
@@ -85,7 +86,7 @@ export function ConflictPill({ eventId, axis, onSessionCreated, onHide }: Props)
     >
       <View style={styles.dot} />
       {loading ? (
-        <ActivityIndicator size="small" color="#fff" />
+        <Loader size="sm" />
       ) : (
         <>
           <SmartIcon name="message-circle" size={14} color="#fff" />

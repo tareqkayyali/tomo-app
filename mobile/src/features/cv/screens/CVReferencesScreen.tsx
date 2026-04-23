@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback } from "react";
 import {
-  View, Text, Pressable, StyleSheet, ActivityIndicator, Modal, TextInput,
+  View, Text, Pressable, StyleSheet, Modal, TextInput,
   Platform, Alert, Share, KeyboardAvoidingView,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -19,6 +19,7 @@ import { fontFamily } from "../../../theme";
 import { SmartIcon } from "../../../components/SmartIcon";
 import { CVScreen } from "../components/CVScreen";
 import { InfoCard, EmptyState, Chip, Badge } from "../components/primitives";
+import { Loader } from "../../../components/Loader";
 
 const HOW_IT_WORKS = [
   { title: "Send request",      desc: "Enter name, role and email — we send a short form" },
@@ -77,7 +78,7 @@ export default function CVReferencesScreen() {
   if (isLoading || !data) {
     return (
       <CVScreen label="References" onBack={() => nav.goBack()}>
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 64 }} />
+        <Loader style={{ marginTop: 64 }} />
       </CVScreen>
     );
   }
@@ -190,7 +191,7 @@ export default function CVReferencesScreen() {
                 ]}
               >
                 {busy ? (
-                  <ActivityIndicator size="small" color={colors.accent} />
+                  <Loader size="sm" />
                 ) : (
                   <Text style={[styles.modalBtnText, { color: colors.accent }]}>Send request</Text>
                 )}

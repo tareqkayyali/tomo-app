@@ -15,10 +15,10 @@ import {
   TextInput,
   Pressable,
   Alert,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -248,7 +248,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
             ]}
           >
             {submitting ? (
-              <ActivityIndicator size="small" color={colors.textPrimary} />
+              <Loader size="sm" />
             ) : (
               <>
                 <SmartIcon name="checkmark-circle-outline" size={18} color={colors.textPrimary} />
@@ -309,7 +309,7 @@ export function CoachTestInputScreen({ route, navigation }: Props) {
 
       {/* Test list */}
       {loading ? (
-        <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: spacing.xl }} />
+        <Loader size="lg" style={{ marginTop: spacing.xl }} />
       ) : filteredTests.length === 0 ? (
         <View style={styles.emptyState}>
           <SmartIcon name="search-outline" size={32} color={colors.textInactive} />

@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback } from "react";
 import {
-  View, Text, Pressable, StyleSheet, ActivityIndicator, Modal, TextInput,
+  View, Text, Pressable, StyleSheet, Modal, TextInput,
   Platform, Alert, KeyboardAvoidingView,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -19,6 +19,7 @@ import { fontFamily } from "../../../theme";
 import { SmartIcon } from "../../../components/SmartIcon";
 import { CVScreen } from "../components/CVScreen";
 import { InfoCard, EmptyState, Chip } from "../components/primitives";
+import { Loader } from "../../../components/Loader";
 
 const CATEGORIES: Array<{
   key: TraitCategory;
@@ -68,7 +69,7 @@ export default function CVAwardsCharacterScreen() {
   if (isLoading || !data) {
     return (
       <CVScreen label="Awards & Character" onBack={() => nav.goBack()}>
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 64 }} />
+        <Loader style={{ marginTop: 64 }} />
       </CVScreen>
     );
   }
@@ -200,7 +201,7 @@ export default function CVAwardsCharacterScreen() {
                 ]}
               >
                 {busy ? (
-                  <ActivityIndicator size="small" color={colors.accent} />
+                  <Loader size="sm" />
                 ) : (
                   <Text style={[styles.modalBtnText, { color: colors.accent }]}>Save</Text>
                 )}

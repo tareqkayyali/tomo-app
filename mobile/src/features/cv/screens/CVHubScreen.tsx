@@ -7,7 +7,7 @@
  */
 
 import React, { useCallback, useState } from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, Alert, Share, Linking } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform, Alert, Share, Linking } from "react-native";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { useNavigation } from "@react-navigation/native";
@@ -25,6 +25,7 @@ import { CVHero } from "../components/CVHero";
 import { CVCompleteness } from "../components/CVCompleteness";
 import { NextStepsPreview } from "../components/NextStepsPreview";
 import { SectionRow } from "../components/SectionRow";
+import { Loader } from "../../../components/Loader";
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -188,7 +189,7 @@ export default function CVHubScreen() {
     return (
       <CVScreen label="Player Passport" onBack={() => nav.goBack()}>
         <View style={{ paddingVertical: 64 }}>
-          <ActivityIndicator color={colors.accent} />
+          <Loader />
         </View>
       </CVScreen>
     );

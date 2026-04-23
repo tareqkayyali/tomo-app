@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../../hooks/useTheme";
@@ -16,6 +16,7 @@ import { fontFamily } from "../../../theme";
 import { SmartIcon } from "../../../components/SmartIcon";
 import { CVScreen } from "../components/CVScreen";
 import { InfoCard } from "../components/primitives";
+import { Loader } from "../../../components/Loader";
 
 const ROUTE_MAP: Record<CVNextStep["target_section"], keyof MainStackParamList> = {
   playing_positions:    "CVPlayingPositions",
@@ -36,7 +37,7 @@ export default function CVNextStepsScreen() {
   if (isLoading || !data) {
     return (
       <CVScreen label="Next Steps" onBack={() => nav.goBack()}>
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 64 }} />
+        <Loader style={{ marginTop: 64 }} />
       </CVScreen>
     );
   }

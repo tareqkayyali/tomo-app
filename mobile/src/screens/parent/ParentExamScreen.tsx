@@ -13,11 +13,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Platform,
   Pressable,
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 import * as Haptics from 'expo-haptics';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -149,7 +149,7 @@ export function ParentExamScreen(props: Props) {
   // ── Loading / empty states ──────────────────────────────────────────
 
   if (loading) {
-    const body = <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />;
+    const body = <Loader size="lg" style={{ marginTop: 60 }} />;
     return isEmbedded ? (
       <View style={[styles.container, { backgroundColor: screenBg }]}>{body}</View>
     ) : (
@@ -215,7 +215,7 @@ export function ParentExamScreen(props: Props) {
       )}
 
       {profileLoading ? (
-        <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 40 }} />
+        <Loader size="lg" style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Subjects pills */}

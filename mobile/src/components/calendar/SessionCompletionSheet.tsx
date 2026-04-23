@@ -33,10 +33,10 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
+import { Loader } from '../Loader';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import { Slider } from '../Slider';
 import {
@@ -225,7 +225,7 @@ export function SessionCompletionSheet({
                   ]}
                 >
                   {submitting === 'skipping' ? (
-                    <ActivityIndicator size="small" color={colors.textMuted} />
+                    <Loader size="sm" />
                   ) : (
                     <Text style={[ms.skipText, { color: colors.textSecondary }]}>Skipped it</Text>
                   )}
@@ -241,7 +241,7 @@ export function SessionCompletionSheet({
                   ]}
                 >
                   {submitting === 'completing' ? (
-                    <ActivityIndicator size="small" color={colors.background} />
+                    <Loader size="sm" />
                   ) : (
                     <Text style={[ms.submitText, { color: colors.background }]}>Mark done</Text>
                   )}

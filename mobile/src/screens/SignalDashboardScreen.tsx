@@ -12,7 +12,8 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Platform, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Alert, RefreshControl } from 'react-native';
+import { Loader } from '../components/Loader';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSharedValue } from 'react-native-reanimated';
 import PagerView from 'react-native-pager-view';
@@ -318,7 +319,7 @@ export function SignalDashboardScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: screenBg }]} edges={['top']}>
         {renderHeader()}
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={colors.accent} size="small" />
+          <Loader size="sm" />
           <Text style={styles.loadingText}>Loading your signal...</Text>
         </View>
       </SafeAreaView>
@@ -382,7 +383,7 @@ export function SignalDashboardScreen() {
           <View key="program" style={styles.pagerPage} collapsable={false}>
             {outputLoading && !outputData ? (
               <View style={styles.tabLoading}>
-                <ActivityIndicator size="small" color={colors.accent} />
+                <Loader size="sm" />
               </View>
             ) : outputError || !outputData ? (
               <ScrollView
@@ -450,7 +451,7 @@ export function SignalDashboardScreen() {
           <View key="metrics" style={styles.pagerPage} collapsable={false}>
             {outputLoading && !outputData ? (
               <View style={styles.tabLoading}>
-                <ActivityIndicator size="small" color={colors.accent} />
+                <Loader size="sm" />
               </View>
             ) : outputError || !outputData ? (
               <ScrollView

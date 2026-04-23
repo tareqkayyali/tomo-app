@@ -14,7 +14,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';

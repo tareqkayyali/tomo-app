@@ -5,10 +5,11 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform, ActivityIndicator,
+  View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform,
 } from 'react-native';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { SmartIcon } from '../components/SmartIcon';
+import { Loader } from '../components/Loader';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../theme';
@@ -240,7 +241,7 @@ export function BulkEditEventsScreen() {
             style={[styles.deleteButton, deleting && { opacity: 0.5 }]}
           >
             {deleting ? (
-              <ActivityIndicator size="small" color={colors.textPrimary} />
+              <Loader size="sm" />
             ) : (
               <>
                 <SmartIcon name="trash-outline" size={16} color={colors.textPrimary} />
@@ -311,7 +312,7 @@ export function BulkEditEventsScreen() {
 
         {loading && (
           <View style={styles.empty}>
-            <ActivityIndicator size="large" color={colors.accent1} />
+            <Loader size="lg" />
           </View>
         )}
         {!loading && eventGroups.length === 0 && (

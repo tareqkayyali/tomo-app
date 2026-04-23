@@ -20,10 +20,10 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Loader } from '../../components/Loader';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -129,7 +129,7 @@ export function CoachDashboardScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {loading && !refreshing && (
-          <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 32 }} />
+          <Loader size="lg" style={{ marginTop: 32 }} />
         )}
 
         {error && !loading && (

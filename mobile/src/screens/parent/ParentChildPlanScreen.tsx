@@ -12,11 +12,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -168,7 +168,7 @@ export function ParentChildPlanScreen({ navigation }: Props) {
   if (childrenLoading) {
     return (
       <PlayerScreen label="PLAN" title={planTitle} onBack={() => navigation.goBack()} scroll={false}>
-        <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />
+        <Loader size="lg" style={{ marginTop: 60 }} />
       </PlayerScreen>
     );
   }

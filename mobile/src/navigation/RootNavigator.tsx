@@ -15,7 +15,7 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { TomoLoader } from '../components/TomoLoader';
+import { Loader } from '../components/Loader';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthNavigator } from './AuthNavigator';
@@ -76,7 +76,7 @@ export function RootNavigator() {
   if (isLoading && !isPreviewMode) {
     return (
       <View style={[styles.loading, { backgroundColor: screenBg }]}>
-        <TomoLoader />
+        <Loader size="lg" />
       </View>
     );
   }

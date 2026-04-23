@@ -17,11 +17,11 @@ import {
   Pressable,
   Platform,
   Alert,
-  ActivityIndicator,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../components/SmartIcon';
+import { Loader } from '../components/Loader';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
@@ -357,7 +357,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                     ]}
                   >
                     {isLoading ? (
-                      <ActivityIndicator size="small" color={colors.accent1} />
+                      <Loader size="sm" />
                     ) : isConnected ? (
                       <>
                         <SmartIcon name="checkmark-circle" size={16} color={colors.accent} />
@@ -385,7 +385,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                       disabled={syncing}
                     >
                       {syncing ? (
-                        <ActivityIndicator size="small" color={colors.accent2} />
+                        <Loader size="sm" />
                       ) : (
                         <SmartIcon name="sync-outline" size={16} color={colors.accent2} />
                       )}

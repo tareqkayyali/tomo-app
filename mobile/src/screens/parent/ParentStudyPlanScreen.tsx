@@ -12,11 +12,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   TextInput,
   Platform,
 } from 'react-native';
+import { Loader } from '../../components/Loader';
 import { SmartIcon } from '../../components/SmartIcon';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -210,7 +210,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
   if (loading) {
     return (
       <PlayerScreen label="STUDY" title="Plan" onBack={() => navigation.goBack()} scroll={false}>
-        <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />
+        <Loader size="lg" style={{ marginTop: 60 }} />
       </PlayerScreen>
     );
   }
@@ -257,7 +257,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
         )}
 
         {profileLoading && (
-          <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 40 }} />
+          <Loader size="lg" style={{ marginTop: 40 }} />
         )}
 
         {/* Missing data state */}
@@ -274,7 +274,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
               disabled={notifying}
             >
               {notifying ? (
-                <ActivityIndicator size="small" color={colors.textOnDark} />
+                <Loader size="sm" />
               ) : (
                 <>
                   <SmartIcon name="notifications-outline" size={18} color={colors.textOnDark} />
@@ -352,7 +352,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
               <Text style={[styles.sectionTitle, { color: colors.textOnDark }]}>
                 Upcoming Study Blocks
               </Text>
-              {eventsLoading && <ActivityIndicator size="small" color={colors.accent1} />}
+              {eventsLoading && <Loader size="sm" />}
               {!eventsLoading && studyEvents.length === 0 && (
                 <Text style={[styles.emptyEventsText, { color: colors.textInactive }]}>
                   No study blocks scheduled yet.
@@ -413,7 +413,7 @@ export function ParentStudyPlanScreen({ navigation }: Props) {
                     disabled={sendingSuggestion}
                   >
                     {sendingSuggestion ? (
-                      <ActivityIndicator size="small" color={colors.textOnDark} />
+                      <Loader size="sm" />
                     ) : (
                       <>
                         <SmartIcon name="paper-plane" size={16} color={colors.textOnDark} />

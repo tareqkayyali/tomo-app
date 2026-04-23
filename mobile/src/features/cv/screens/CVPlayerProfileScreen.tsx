@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback } from "react";
 import {
-  View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, Alert,
+  View, Text, Pressable, StyleSheet, Platform, Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -18,6 +18,7 @@ import { fontFamily } from "../../../theme";
 import { SmartIcon } from "../../../components/SmartIcon";
 import { CVScreen } from "../components/CVScreen";
 import { InfoCard, Badge } from "../components/primitives";
+import { Loader } from "../../../components/Loader";
 
 export default function CVPlayerProfileScreen() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -48,7 +49,7 @@ export default function CVPlayerProfileScreen() {
   if (isLoading || !data) {
     return (
       <CVScreen label="Player Profile" onBack={() => nav.goBack()}>
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 64 }} />
+        <Loader style={{ marginTop: 64 }} />
       </CVScreen>
     );
   }
@@ -106,7 +107,7 @@ export default function CVPlayerProfileScreen() {
             ]}
           >
             {busy === "regenerate" ? (
-              <ActivityIndicator size="small" color={colors.tomoCream} />
+              <Loader size="sm" />
             ) : (
               <SmartIcon name="refresh-outline" size={13} color={colors.tomoCream} />
             )}
@@ -129,7 +130,7 @@ export default function CVPlayerProfileScreen() {
               ]}
             >
               {busy === "approve" ? (
-                <ActivityIndicator size="small" color={colors.accent} />
+                <Loader size="sm" />
               ) : (
                 <SmartIcon name="checkmark-outline" size={13} color={colors.accent} />
               )}

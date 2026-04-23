@@ -12,10 +12,10 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Loader } from '../../components/Loader';
 
 import { useTheme } from '../../hooks/useTheme';
 import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
@@ -76,7 +76,7 @@ export function ParentEducationProgressScreen({ route, navigation }: Props) {
       scrollProps={{ refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> }}
     >
         {loading && !refreshing && (
-          <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 32 }} />
+          <Loader size="lg" style={{ marginTop: 32 }} />
         )}
 
         {error && !loading && (

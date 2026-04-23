@@ -16,7 +16,6 @@ import {
   Pressable,
   TextInput,
   FlatList,
-  ActivityIndicator,
   Alert,
   Modal,
   KeyboardAvoidingView,
@@ -24,6 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 
 import { useTheme } from '../../hooks/useTheme';
 import {
@@ -216,7 +216,7 @@ function ProgrammeList({
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.accent1} />
+          <Loader size="lg" />
         </View>
       ) : programmes.length === 0 ? (
         <View style={styles.centered}>
@@ -375,7 +375,7 @@ function ProgrammeList({
                 style={[styles.modalBtn, { backgroundColor: colors.accent1, opacity: creating ? 0.6 : 1 }]}
               >
                 {creating ? (
-                  <ActivityIndicator size="small" color={colors.textOnDark} />
+                  <Loader size="sm" />
                 ) : (
                   <Text style={[styles.modalBtnText, { color: colors.textOnDark }]}>Create</Text>
                 )}
@@ -567,7 +567,7 @@ function ProgrammeEditor({
           ]}
         >
           {publishing ? (
-            <ActivityIndicator size="small" color={colors.textOnDark} />
+            <Loader size="sm" />
           ) : (
             <>
               <SmartIcon
@@ -704,7 +704,7 @@ function ProgrammeEditor({
                       hitSlop={8}
                     >
                       {isDeleting ? (
-                        <ActivityIndicator size="small" color={colors.textInactive} />
+                        <Loader size="sm" />
                       ) : (
                         <SmartIcon name="trash-outline" size={16} color={colors.error} />
                       )}
@@ -937,7 +937,7 @@ function DrillPicker({
               />
             </View>
             {searchLoading ? (
-              <ActivityIndicator size="small" color={colors.accent1} style={{ marginTop: spacing.md }} />
+              <Loader size="sm" style={{ marginTop: spacing.md }} />
             ) : (
               <FlatList
                 data={results}
@@ -1086,7 +1086,7 @@ function DrillPicker({
               style={[styles.addConfirmBtn, { backgroundColor: colors.accent1, opacity: adding ? 0.6 : 1 }]}
             >
               {adding ? (
-                <ActivityIndicator size="small" color={colors.textOnDark} />
+                <Loader size="sm" />
               ) : (
                 <Text style={[styles.addConfirmText, { color: colors.textOnDark }]}>
                   Add to Wk {weekNumber} · {DAYS[dayOfWeek]}

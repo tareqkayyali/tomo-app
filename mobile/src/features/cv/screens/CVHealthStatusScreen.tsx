@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback } from "react";
-import { View, Text, StyleSheet, Switch, ActivityIndicator, Pressable, Platform, Alert } from "react-native";
+import { View, Text, StyleSheet, Switch, Pressable, Platform, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../../hooks/useTheme";
@@ -16,6 +16,7 @@ import { fontFamily } from "../../../theme";
 import { SmartIcon } from "../../../components/SmartIcon";
 import { CVScreen } from "../components/CVScreen";
 import { InfoCard, InfoRow, EmptyState, Badge } from "../components/primitives";
+import { Loader } from "../../../components/Loader";
 
 export default function CVHealthStatusScreen() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -34,7 +35,7 @@ export default function CVHealthStatusScreen() {
   if (isLoading || !data) {
     return (
       <CVScreen label="Health Status" onBack={() => nav.goBack()}>
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 64 }} />
+        <Loader style={{ marginTop: 64 }} />
       </CVScreen>
     );
   }

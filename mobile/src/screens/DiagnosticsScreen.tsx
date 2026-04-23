@@ -10,11 +10,11 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
+import { Loader } from '../components/Loader';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { colors, spacing, fontFamily, layout, borderRadius, screenBg } from '../theme';
 import { API_BASE_URL, healthCheck } from '../services/api';
@@ -87,7 +87,7 @@ export function DiagnosticsScreen() {
           <Text style={styles.cardTitle}>Health Check</Text>
           <Pressable style={styles.button} onPress={pingHealth} disabled={healthLoading}>
             {healthLoading ? (
-              <ActivityIndicator size="small" color={colors.accent1} />
+              <Loader size="sm" />
             ) : (
               <>
                 <SmartIcon name="pulse-outline" size={18} color={colors.accent1} />
@@ -110,7 +110,7 @@ export function DiagnosticsScreen() {
           <Text style={styles.cardTitle}>Supabase Auth Token</Text>
           <Pressable style={styles.button} onPress={checkToken} disabled={tokenLoading}>
             {tokenLoading ? (
-              <ActivityIndicator size="small" color={colors.accent1} />
+              <Loader size="sm" />
             ) : (
               <>
                 <SmartIcon name="key-outline" size={18} color={colors.accent1} />

@@ -11,11 +11,11 @@ import {
   ScrollView,
   Switch,
   Alert,
-  ActivityIndicator,
   Pressable,
   Share,
   Platform,
 } from 'react-native';
+import { Loader } from '../components/Loader';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { spacing, borderRadius, fontFamily, screenBg } from '../theme';
@@ -171,7 +171,7 @@ export function PrivacySettingsScreen() {
     return (
       <PlayerScreen label="SETTINGS" title="Privacy" onBack={() => navigation.goBack()} scroll={false}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent1} />
+          <Loader size="lg" />
         </View>
       </PlayerScreen>
     );

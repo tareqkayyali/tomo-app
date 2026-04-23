@@ -11,11 +11,11 @@ import {
   TextInput,
   Pressable,
   Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
+import { Loader } from '../components/Loader';
 import { useNavigation } from '@react-navigation/native';
 
 import { useTheme } from '../hooks/useTheme';
@@ -121,7 +121,7 @@ export function LinkAccountScreen() {
           ]}
         >
           {loading ? (
-            <ActivityIndicator color={colors.textPrimary} />
+            <Loader />
           ) : (
             <Text style={[styles.submitText, { color: isValid ? colors.textPrimary : colors.textInactive }]}>
               Link Account

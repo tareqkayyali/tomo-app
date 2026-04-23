@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
-import { TomoLoader, NOTIFICATIONS_LOADER_MESSAGES } from '../components/TomoLoader';
+import { Loader } from '../components/Loader';
 import { spacing, borderRadius, fontFamily, screenBg } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
@@ -210,7 +210,7 @@ export function NotificationSettingsScreen() {
   if (isLoading) {
     return (
       <PlayerScreen label="SETTINGS" title="Notifications" onBack={() => navigation.goBack()} scroll={false}>
-        <TomoLoader messages={NOTIFICATIONS_LOADER_MESSAGES} />
+        <Loader size="lg" />
       </PlayerScreen>
     );
   }

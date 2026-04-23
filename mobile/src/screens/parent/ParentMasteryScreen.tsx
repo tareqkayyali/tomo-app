@@ -12,9 +12,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -59,7 +59,7 @@ export function ParentMasteryScreen({ navigation }: Props) {
   if (loading) {
     return (
       <PlayerScreen label="MASTERY" title={masteryTitle} onBack={() => navigation.goBack()} scroll={false}>
-        <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />
+        <Loader size="lg" style={{ marginTop: 60 }} />
       </PlayerScreen>
     );
   }

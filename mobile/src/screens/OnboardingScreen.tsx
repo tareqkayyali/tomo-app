@@ -14,7 +14,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Pressable,
-  ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';

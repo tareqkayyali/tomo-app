@@ -9,12 +9,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Share,
   Alert,
   Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { Loader } from '../../components/Loader';
 import { SmartIcon } from '../../components/SmartIcon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -100,7 +100,7 @@ export function ParentInviteScreen({ navigation }: Props) {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={colors.textOnDark} />
+              <Loader />
             ) : (
               <>
                 <SmartIcon name="key-outline" size={20} color={colors.textOnDark} />

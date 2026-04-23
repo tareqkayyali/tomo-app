@@ -17,11 +17,11 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   Platform,
   TextInput,
 } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
+import { Loader } from '../Loader';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -246,7 +246,7 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
           {!success && (
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
               {rulesLoading ? (
-                <ActivityIndicator size="small" color={colors.accent1} style={{ marginTop: 24 }} />
+                <Loader size="sm" style={{ marginTop: 24 }} />
               ) : !showCreateNew ? (
                 <>
                   {/* Instruction */}
@@ -363,7 +363,7 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
                       ]}
                     >
                       {saving ? (
-                        <ActivityIndicator size="small" color={colors.textPrimary} />
+                        <Loader size="sm" />
                       ) : (
                         <>
                           <SmartIcon name="checkmark" size={18} color={colors.textPrimary} />

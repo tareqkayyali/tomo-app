@@ -12,11 +12,11 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
+import { Loader } from '../Loader';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -104,7 +104,7 @@ export function InlineTestInput({
           disabled={!canSave}
         >
           {submitting ? (
-            <ActivityIndicator color={colors.tomoCream} size="small" />
+            <Loader size="sm" />
           ) : (
             <SmartIcon name="checkmark" size={18} color={colors.tomoCream} />
           )}

@@ -20,12 +20,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { fontFamily } from '../../theme/typography';
 import { QuickAccessRow } from './QuickAccessRow';
+import { Loader } from '../Loader';
 import { API_BASE_URL } from '../../services/apiConfig';
 import { updateScheduleRules } from '../../services/api';
 
@@ -184,7 +184,7 @@ export function AthleteModeHero({
       {/* Mode selector cards */}
       {loading ? (
         <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color="rgba(245,243,237,0.3)" />
+          <Loader size="sm" />
         </View>
       ) : modes.length > 0 ? (
         <View style={styles.modeCards}>
@@ -237,7 +237,7 @@ export function AthleteModeHero({
       {/* Switching indicator */}
       {switching && (
         <View style={styles.switchingRow}>
-          <ActivityIndicator size="small" color={modeColor} />
+          <Loader size="sm" />
           <Text style={[styles.switchingText, { color: modeColor }]}>
             Updating your mode...
           </Text>

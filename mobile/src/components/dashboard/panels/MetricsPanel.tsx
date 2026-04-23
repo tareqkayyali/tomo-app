@@ -9,8 +9,9 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SlideUpPanel } from './SlideUpPanel';
+import { Loader } from '../../Loader';
 import { DashboardCard } from './DashboardCard';
 import { fontFamily } from '../../../theme/typography';
 import { useTheme } from '../../../hooks/useTheme';
@@ -136,7 +137,7 @@ export function MetricsPanel({
           <Text style={[styles.syncLabel, { color: signalColor }]}>
             {isSyncing ? 'Syncing vitals…' : 'Sync vitals now'}
           </Text>
-          {isSyncing && <ActivityIndicator size="small" color={signalColor} />}
+          {isSyncing && <Loader size="sm" />}
         </TouchableOpacity>
       ) : (
         <TouchableOpacity

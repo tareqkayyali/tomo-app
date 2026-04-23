@@ -17,11 +17,11 @@ import {
   ScrollView,
   TextInput,
   Pressable,
-  ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Loader } from '../../components/Loader';
 import { SmartIcon } from '../../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -419,7 +419,7 @@ export function CoachAddProgramScreen({ route, navigation }: Props) {
           ]}
         >
           {saving ? (
-            <ActivityIndicator size="small" color={colors.textPrimary} />
+            <Loader size="sm" />
           ) : (
             <>
               <SmartIcon name="checkmark-circle-outline" size={20} color={colors.textPrimary} />

@@ -20,11 +20,11 @@ import {
   StyleSheet,
   Switch,
   Pressable,
-  ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Loader } from '../../components/Loader';
 
 import { useTheme } from '../../hooks/useTheme';
 import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
@@ -147,7 +147,7 @@ export function VisibilityPreferencesScreen() {
       contentStyle={styles.scroll}
     >
         {loading && (
-          <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 32 }} />
+          <Loader size="lg" style={{ marginTop: 32 }} />
         )}
 
         {error && !loading && (
@@ -219,7 +219,7 @@ export function VisibilityPreferencesScreen() {
             ]}
           >
             {saving ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <Loader size="sm" />
             ) : (
               <Text style={styles.saveBtnText}>Save</Text>
             )}

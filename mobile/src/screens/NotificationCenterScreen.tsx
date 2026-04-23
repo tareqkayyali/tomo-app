@@ -17,7 +17,6 @@ import {
   Pressable,
   RefreshControl,
   Linking,
-  ActivityIndicator,
 } from 'react-native';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
@@ -27,7 +26,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useNotifications } from '../hooks/useNotifications';
 import { spacing, borderRadius, fontFamily, layout } from '../theme';
 import { apiRequest } from '../services/api';
-import { TomoLoader, NOTIFICATIONS_LOADER_MESSAGES } from '../components/TomoLoader';
+import { Loader } from '../components/Loader';
 import { type NotificationData } from '../components/notifications/NotificationCard';
 import { SwipeableNotificationCard } from '../components/notifications/SwipeableNotificationCard';
 import { CategoryFilterBar } from '../components/notifications/CategoryFilterBar';
@@ -301,7 +300,7 @@ export function NotificationCenterScreen() {
       {/* Loading */}
       {loading && (
         <View style={styles.loadingContainer}>
-          <TomoLoader messages={NOTIFICATIONS_LOADER_MESSAGES} />
+          <Loader size="lg" />
         </View>
       )}
 
@@ -363,7 +362,7 @@ export function NotificationCenterScreen() {
           ListFooterComponent={
             <View>
               {loadingMore && (
-                <ActivityIndicator size="small" color={colors.accent} style={{ paddingVertical: spacing.md }} />
+                <Loader size="sm" style={{ paddingVertical: spacing.md }} />
               )}
               <Pressable
                 style={styles.settingsLink}

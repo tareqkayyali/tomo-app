@@ -8,9 +8,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, Pressable, Modal, ScrollView,
-  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
+  StyleSheet, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
+import { Loader } from '../Loader';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import { emitRefresh } from '../../utils/refreshBus';
@@ -234,7 +235,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
 
             {loading ? (
               <View style={ms.loadingContainer}>
-                <ActivityIndicator color={colors.accent1} />
+                <Loader />
               </View>
             ) : (
               <ScrollView style={ms.content} keyboardShouldPersistTaps="handled">
@@ -274,7 +275,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                         disabled={!canSavePre || submitting}
                       >
                         {submitting ? (
-                          <ActivityIndicator size="small" color={colors.textPrimary} />
+                          <Loader size="sm" />
                         ) : (
                           <Text style={ms.submitText}>Set target</Text>
                         )}
@@ -340,7 +341,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                             disabled={!canSavePost || submitting}
                           >
                             {submitting ? (
-                              <ActivityIndicator size="small" color={colors.textPrimary} />
+                              <Loader size="sm" />
                             ) : (
                               <Text style={ms.submitText}>Log reflection</Text>
                             )}

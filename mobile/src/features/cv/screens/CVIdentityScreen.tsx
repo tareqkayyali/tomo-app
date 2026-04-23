@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../../hooks/useTheme";
@@ -15,6 +15,7 @@ import { fontFamily } from "../../../theme";
 import { SmartIcon } from "../../../components/SmartIcon";
 import { CVScreen } from "../components/CVScreen";
 import { InfoCard, InfoRow, Chip } from "../components/primitives";
+import { Loader } from "../../../components/Loader";
 
 export default function CVIdentityScreen() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -25,7 +26,7 @@ export default function CVIdentityScreen() {
   if (isLoading || !data) {
     return (
       <CVScreen label="Player Identity" onBack={() => nav.goBack()}>
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 64 }} />
+        <Loader style={{ marginTop: 64 }} />
       </CVScreen>
     );
   }

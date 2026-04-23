@@ -10,12 +10,12 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Platform,
   Alert,
   KeyboardAvoidingView,
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 import Animated, { SlideInRight, SlideInLeft } from 'react-native-reanimated';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -242,7 +242,7 @@ export function ParentOnboardingScreen() {
                 ]}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color={colors.textOnDark} />
+                  <Loader size="sm" />
                 ) : (
                   <Text style={[styles.primaryButtonText, { color: colors.textOnDark }]}>Send Link Request</Text>
                 )}
@@ -283,7 +283,7 @@ export function ParentOnboardingScreen() {
                 ]}
               >
                 {isFinishing ? (
-                  <ActivityIndicator size="small" color={colors.textOnDark} />
+                  <Loader size="sm" />
                 ) : (
                   <Text style={[styles.primaryButtonText, { color: colors.textOnDark }]}>Continue</Text>
                 )}

@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import Svg, { Rect, Line, Circle } from "react-native-svg";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -15,6 +15,7 @@ import type { MainStackParamList } from "../../../navigation/types";
 import { fontFamily } from "../../../theme";
 import { CVScreen } from "../components/CVScreen";
 import { InfoCard, Chip, Badge } from "../components/primitives";
+import { Loader } from "../../../components/Loader";
 
 // Rough pitch coordinates (as % of width/height) for football positions
 const POSITION_COORDS: Record<string, { x: number; y: number }> = {
@@ -44,7 +45,7 @@ export default function CVPlayingPositionsScreen() {
   if (isLoading || !data) {
     return (
       <CVScreen label="Playing Positions" onBack={() => nav.goBack()}>
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 64 }} />
+        <Loader style={{ marginTop: 64 }} />
       </CVScreen>
     );
   }

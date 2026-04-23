@@ -24,11 +24,11 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 import { useNavigation } from '@react-navigation/native';
 import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, fontFamily, borderRadius, screenBg } from '../../theme';
@@ -182,7 +182,7 @@ export default function DeleteAccountScreen(): React.ReactElement {
     if (loading) {
       return (
         <View style={styles.loading}>
-          <ActivityIndicator color={colors.accent1} />
+          <Loader />
         </View>
       );
     }
@@ -211,7 +211,7 @@ export default function DeleteAccountScreen(): React.ReactElement {
             onPress={onRequest}
           >
             {submitting ? (
-              <ActivityIndicator color={colors.textOnDark} />
+              <Loader />
             ) : (
               <Text style={styles.dangerBtnText}>Delete my account</Text>
             )}
@@ -252,7 +252,7 @@ export default function DeleteAccountScreen(): React.ReactElement {
               onPress={onCancel}
             >
               {submitting ? (
-                <ActivityIndicator color={colors.textOnDark} />
+                <Loader />
               ) : (
                 <Text style={styles.primaryBtnText}>Cancel deletion</Text>
               )}

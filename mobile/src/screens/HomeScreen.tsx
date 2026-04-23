@@ -24,7 +24,6 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   RefreshControl,
   Keyboard,
   PanResponder,
@@ -94,7 +93,7 @@ import type {
   SuggestionChip as SuggestionChipType,
 } from '../types';
 import * as Clipboard from 'expo-clipboard';
-import { TomoLoader, CHAT_LOADER_MESSAGES } from '../components/TomoLoader';
+import { Loader } from '../components/Loader';
 
 // ---------------------------------------------------------------------------
 // Motivational Quotes — loaded from ContentBundle via useAllQuotes hook
@@ -693,12 +692,12 @@ const SuggestionChip = React.memo(function SuggestionChip({
 // Chat Pills admin page (/admin/chat-pills). ChatActionPills.tsx resolves
 // which 4 pills to render at runtime from the config bundle.
 
-// ── Chat Loading Screen — delegates to shared TomoLoader ─────────────
+// ── Chat Loading Screen — uses the single Tomo Loader ─────────────
 const ChatLoadingScreen = React.memo(function ChatLoadingScreen() {
   const styles = useHomeStyles();
   return (
     <View style={styles.loadingContainer}>
-      <TomoLoader messages={CHAT_LOADER_MESSAGES} />
+      <Loader size="lg" />
     </View>
   );
 });
@@ -2182,7 +2181,7 @@ export function HomeScreen() {
               ) : isUploading ? (
                 /* ─── Transcribing Mode ─── */
                 <View style={styles.transcribingContainer}>
-                  <ActivityIndicator size={18} color={colors.accent2} />
+                  <Loader size="sm" />
                   <Text style={[styles.transcribingText, { color: colors.accent2 }]}>
                     Transcribing...
                   </Text>

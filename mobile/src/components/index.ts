@@ -25,6 +25,8 @@ export { StreakStatusCard } from './StreakStatusCard';
 export { Icon, TOMO_ICONS } from './Icon';
 export type { TomoIconName } from './Icon';
 export { SkeletonLine, SkeletonCircle, SkeletonCard } from './LoadingSkeleton';
+export { Loader } from './Loader';
+export type { LoaderProps, LoaderSize } from './Loader';
 export { ErrorState } from './ErrorState';
 export { EmptyState } from './EmptyState';
 export { EmptyProgressState } from './EmptyProgressState';

@@ -12,10 +12,10 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -268,7 +268,7 @@ export function ParentAddStudyScreen({ route, navigation }: Props) {
           disabled={submitting || !effectiveSubject.trim()}
         >
           {submitting ? (
-            <ActivityIndicator color={colors.textOnDark} />
+            <Loader />
           ) : (
             <Text style={[styles.submitText, { color: colors.textOnDark }]}>Suggest Study Block</Text>
           )}

@@ -6,18 +6,12 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, ActivityIndicator, SafeAreaView,
+  View, Text, TouchableOpacity, SafeAreaView,
   StyleSheet, Platform, Alert, Share, ScrollView,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
-import { TomoLoader } from '../components/TomoLoader';
+import { Loader } from '../components/Loader';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
-
-const CV_LOADER_MESSAGES = [
-  { title: 'Building Your CV', subtitle: 'Compiling your athlete profile...', icon: 'person-circle-outline' as const },
-  { title: 'Adding Performance Data', subtitle: 'Pulling your test results...', icon: 'stats-chart-outline' as const },
-  { title: 'Almost Ready', subtitle: 'Your CV is nearly complete...', icon: 'document-text-outline' as const },
-];
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useTheme } from '../hooks/useTheme';
@@ -136,7 +130,7 @@ export function CVPreviewScreen({ cvType = 'club', onBack }: Props) {
         {/* Status area */}
         {isLoading ? (
           <View style={s.statusArea}>
-            <TomoLoader messages={CV_LOADER_MESSAGES} />
+            <Loader size="lg" />
           </View>
         ) : error ? (
           <View style={s.statusArea}>
@@ -198,7 +192,7 @@ export function CVPreviewScreen({ cvType = 'club', onBack }: Props) {
             onPress={handleDownloadPDF}
             disabled={isExporting}>
             {isExporting ? (
-              <ActivityIndicator size="small" color={colors.textPrimary} />
+              <Loader size="sm" />
             ) : (
               <>
                 <SmartIcon name="download-outline" size={16} color={colors.textPrimary} />

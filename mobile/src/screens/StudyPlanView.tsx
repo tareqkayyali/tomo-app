@@ -19,7 +19,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
   Pressable,
   Platform,
   Switch,
@@ -27,7 +26,7 @@ import {
 import { SmartIcon } from '../components/SmartIcon';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { useNavigation } from '@react-navigation/native';
-import { TomoLoader, PLAN_LOADER_MESSAGES } from '../components/TomoLoader';
+import { Loader } from '../components/Loader';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useScheduleRules } from '../hooks/useScheduleRules';
@@ -398,7 +397,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <TomoLoader messages={PLAN_LOADER_MESSAGES} />
+        <Loader size="lg" />
       </View>
     );
   }
@@ -884,7 +883,7 @@ export function StudyPlanView({ onNavigateToPreview, onNavigateToRules }: StudyP
               activeOpacity={0.7}
             >
               {isGenerating ? (
-                <ActivityIndicator size="small" color={colors.accent1} />
+                <Loader size="sm" />
               ) : (
                 <SmartIcon name="sparkles" size={16} color={colors.accent1} />
               )}

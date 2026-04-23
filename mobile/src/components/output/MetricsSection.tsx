@@ -13,9 +13,9 @@ import {
   TextInput,
   Platform,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
+import { Loader } from '../Loader';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
@@ -249,7 +249,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId, sport }:
         {showDropdown && (
           <View style={[styles.dropdown, { backgroundColor: colors.cream06, borderColor: colors.cream10 }]}>
             {catalogLoading ? (
-              <ActivityIndicator color={colors.tomoSage} style={{ paddingVertical: 20 }} />
+              <Loader style={{ paddingVertical: 20 }} />
             ) : (
               catalogResults.slice(0, 8).map((item) => (
                 <Pressable
@@ -316,7 +316,7 @@ export function MetricsSection({ metrics, onTestLogged, targetPlayerId, sport }:
               disabled={submitting || !pendingValue.trim()}
             >
               {submitting ? (
-                <ActivityIndicator color={colors.tomoCream} size="small" />
+                <Loader size="sm" />
               ) : (
                 <SmartIcon name="checkmark" size={20} color={colors.tomoCream} />
               )}

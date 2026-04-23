@@ -6,8 +6,9 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
+import { Loader } from '../Loader';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import type { MyTestResult } from '../../services/api';
@@ -37,7 +38,7 @@ export function TestHistoryTimeline({
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator color={colors.tomoSage} style={{ paddingVertical: 20 }} />
+        <Loader style={{ paddingVertical: 20 }} />
       </View>
     );
   }

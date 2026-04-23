@@ -24,7 +24,6 @@ import {
   Switch,
   TextInput,
   Alert,
-  ActivityIndicator,
   Platform,
   Modal,
   KeyboardAvoidingView,
@@ -35,6 +34,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { useFocusEffect } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
+import { Loader } from '../components/Loader';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeIn,
@@ -291,7 +291,7 @@ export function MyRulesScreen({ navigation }: Props) {
   if (loading && !rules) {
     return (
       <SafeAreaView style={[s.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.accent1} />
+        <Loader size="lg" />
       </SafeAreaView>
     );
   }
@@ -337,7 +337,7 @@ export function MyRulesScreen({ navigation }: Props) {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator size="small" color={colors.tomoSageDim} />
+              <Loader size="sm" />
             ) : (
               <>
                 <SmartIcon name="checkmark" size={14} color={colors.tomoSageDim} />

@@ -14,7 +14,6 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
-  ActivityIndicator,
   Platform,
   TouchableOpacity,
   Alert,
@@ -22,7 +21,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { SmartIcon } from '../components/SmartIcon';
-import { TomoLoader, OUTPUT_LOADER_MESSAGES } from '../components/TomoLoader';
+import { Loader } from '../components/Loader';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
@@ -235,7 +234,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
       >
         {loading && !data ? (
           <View style={styles.centered}>
-            <TomoLoader messages={OUTPUT_LOADER_MESSAGES} />
+            <Loader size="lg" />
           </View>
         ) : error && !data ? (
           <View style={styles.centered}>

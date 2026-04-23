@@ -13,9 +13,9 @@ import {
   StyleSheet,
   TextInput,
   Pressable,
-  ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
+import { Loader } from '../Loader';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import {
   listEventComments,
@@ -81,7 +81,7 @@ export function EventCommentsSection({ eventId, allowPost, title = 'Coach commen
       <Text style={[styles.header, { color: colors.textMuted }]}>{title.toUpperCase()}</Text>
 
       {loading ? (
-        <ActivityIndicator color={colors.accent1} style={{ marginVertical: spacing.sm }} />
+        <Loader style={{ marginVertical: spacing.sm }} />
       ) : comments.length === 0 ? (
         <Text style={[styles.empty, { color: colors.textMuted }]}>
           {allowPost ? 'No comments yet — add the first one below.' : 'No coach comments yet.'}

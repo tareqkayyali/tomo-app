@@ -15,11 +15,11 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
+import { Loader } from '../Loader';
 import { fontFamily, borderRadius } from '../../theme';
 import { API_BASE_URL } from '../../services/apiConfig';
 import type { ThemeColors } from '../../theme/colors';
@@ -99,7 +99,7 @@ export function ModeSelector({ currentMode, onModeChange, disabled }: ModeSelect
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={colors.textInactive} />
+        <Loader size="sm" />
       </View>
     );
   }

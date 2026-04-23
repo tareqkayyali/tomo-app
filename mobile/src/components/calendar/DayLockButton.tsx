@@ -6,8 +6,9 @@
  */
 
 import React from 'react';
-import { Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text, Pressable, StyleSheet } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
+import { Loader } from '../Loader';
 import { useTheme } from '../../hooks/useTheme';
 import { borderRadius, fontFamily, spacing } from '../../theme';
 import { colors } from '../../theme/colors';
@@ -23,7 +24,7 @@ export function DayLockButton({ isLocked, isLoading, onToggle }: DayLockButtonPr
 
   if (isLoading) {
     return (
-      <ActivityIndicator size="small" color={colors.textInactive} style={styles.loader} />
+      <Loader size="sm" style={styles.loader} />
     );
   }
 

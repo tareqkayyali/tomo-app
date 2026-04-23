@@ -14,11 +14,11 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -169,7 +169,7 @@ export function CoachPlayersScreen() {
   if (loading) {
     return (
       <PlayerScreen label="COACH" title="Players" scroll={false}>
-        <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: spacing.xxl }} />
+        <Loader size="lg" style={{ marginTop: spacing.xxl }} />
       </PlayerScreen>
     );
   }

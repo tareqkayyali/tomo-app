@@ -11,10 +11,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
+import { Loader } from '../Loader';
 
 import { useOutputData } from '../../hooks/useOutputData';
 import { useTheme } from '../../hooks/useTheme';
@@ -54,7 +54,7 @@ export function ProgrammesTab({ playerId, playerName }: Props) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.accent1} />
+        <Loader size="lg" />
       </View>
     );
   }

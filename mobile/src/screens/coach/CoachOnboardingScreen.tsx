@@ -11,7 +11,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Platform,
   Alert,
   KeyboardAvoidingView,
@@ -19,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 import Animated, { SlideInRight, SlideInLeft } from 'react-native-reanimated';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -225,7 +225,7 @@ export function CoachOnboardingScreen() {
                 ]}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color={colors.textOnDark} />
+                  <Loader size="sm" />
                 ) : (
                   <Text style={[styles.primaryButtonText, { color: colors.textOnDark }]}>Send Link Request</Text>
                 )}
@@ -287,7 +287,7 @@ export function CoachOnboardingScreen() {
                 ]}
               >
                 {isFinishing ? (
-                  <ActivityIndicator size="small" color={colors.textOnDark} />
+                  <Loader size="sm" />
                 ) : (
                   <Text style={[styles.secondaryButtonText, { color: colors.textOnDark }]}>
                     Continue

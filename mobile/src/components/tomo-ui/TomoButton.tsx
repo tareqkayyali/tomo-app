@@ -8,7 +8,8 @@
  *   ghost            — no border, accent text only
  */
 import React, { memo } from 'react';
-import { StyleSheet, Text, ActivityIndicator, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Loader } from '../Loader';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -96,7 +97,7 @@ const TomoButton: React.FC<TomoButtonProps> = memo(({
   const content = (
     <View style={styles.inner}>
       {loading ? (
-        <ActivityIndicator size="small" color={textColor} />
+        <Loader size="sm" />
       ) : (
         <>
           {icon && <TomoIcon name={icon} size={sizeStyle.fontSize + 4} color={iconColor} />}

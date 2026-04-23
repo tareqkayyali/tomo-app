@@ -19,7 +19,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
   Pressable,
   Platform,
   Switch,
@@ -27,7 +26,7 @@ import {
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
-import { TomoLoader, PLAN_LOADER_MESSAGES } from '../components/TomoLoader';
+import { Loader } from '../components/Loader';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
@@ -296,7 +295,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <TomoLoader messages={PLAN_LOADER_MESSAGES} />
+        <Loader size="lg" />
       </View>
     );
   }
@@ -428,7 +427,7 @@ export function TrainingPlanView({ onNavigateToPreview, onNavigateToRules }: Tra
         activeOpacity={0.7}
       >
         {isGenerating ? (
-          <ActivityIndicator size="small" color={colors.accent1} />
+          <Loader size="sm" />
         ) : (
           <SmartIcon name="sparkles" size={16} color={colors.accent1} />
         )}

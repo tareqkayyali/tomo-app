@@ -10,7 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { TomoLoader } from '../components/TomoLoader';
+import { Loader } from '../components/Loader';
 import { SportScreen } from '../screens/onboarding/SportScreen';
 import { PositionScreen } from '../screens/onboarding/PositionScreen';
 import { HeightWeightScreen } from '../screens/onboarding/HeightWeightScreen';
@@ -81,7 +81,7 @@ export function OnboardingNavigator() {
   if (!resume) {
     return (
       <View style={[styles.loading, { backgroundColor: screenBg }]}>
-        <TomoLoader />
+        <Loader size="lg" />
       </View>
     );
   }

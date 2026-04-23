@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../../hooks/useTheme";
@@ -15,6 +15,7 @@ import { fontFamily } from "../../../theme";
 import { SmartIcon } from "../../../components/SmartIcon";
 import { CVScreen } from "../components/CVScreen";
 import { InfoCard, EmptyState } from "../components/primitives";
+import { Loader } from "../../../components/Loader";
 
 const UPLOAD_OPTIONS: Array<{
   key: string;
@@ -45,7 +46,7 @@ export default function CVVideoMediaScreen() {
   if (isLoading || !data) {
     return (
       <CVScreen label="Video & Media" onBack={() => nav.goBack()}>
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 64 }} />
+        <Loader style={{ marginTop: 64 }} />
       </CVScreen>
     );
   }

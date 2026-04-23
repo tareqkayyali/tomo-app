@@ -11,11 +11,11 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
+import { Loader } from '../components/Loader';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
@@ -248,7 +248,7 @@ export function NotificationsScreen() {
           {isParentLink && !resolved && (
             <View style={styles.linkActions}>
               {isResponding ? (
-                <ActivityIndicator size="small" color={colors.accent1} />
+                <Loader size="sm" />
               ) : (
                 <>
                   <Pressable
@@ -313,7 +313,7 @@ export function NotificationsScreen() {
         scroll={false}
       >
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.accent1} />
+          <Loader size="lg" />
         </View>
       </PlayerScreen>
     );

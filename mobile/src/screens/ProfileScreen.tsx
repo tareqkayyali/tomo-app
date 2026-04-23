@@ -19,9 +19,9 @@ import {
   Platform,
   Pressable,
   Image,
-  ActivityIndicator,
 } from 'react-native';
 import type { TextStyle } from 'react-native';
+import { Loader } from '../components/Loader';
 import Animated from 'react-native-reanimated';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
@@ -262,7 +262,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
               <View style={styles.avatarOuter}>
                 {uploadingPhoto ? (
                   <View style={styles.avatarInner}>
-                    <ActivityIndicator color={colors.accent1} size="large" />
+                    <Loader size="lg" />
                   </View>
                 ) : photoUri ? (
                   <Image source={{ uri: photoUri }} style={styles.avatarImage} />

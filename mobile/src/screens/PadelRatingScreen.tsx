@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
 import { useSpringEntrance } from '../hooks/useAnimations';
@@ -12,6 +12,7 @@ import { useTheme } from '../hooks/useTheme';
 import { PadelRatingPathway } from '../components/PadelRatingPathway';
 import { GlassCard } from '../components/GlassCard';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
+import { Loader } from '../components/Loader';
 import { usePadelProgress } from '../hooks/usePadelProgress';
 import { useProMilestones } from '../hooks/useContentHelpers';
 import { getPadelLevel } from '../services/padelCalculations';
@@ -132,7 +133,7 @@ export function PadelRatingScreen({ navigation }: Props) {
     return (
       <PlayerScreen label="RATING" title="Padel" onBack={() => navigation.goBack()}>
         <View style={{ justifyContent: 'center', alignItems: 'center', paddingTop: 80 }}>
-          <ActivityIndicator size="large" color={colors.accent1} />
+          <Loader size="lg" />
         </View>
       </PlayerScreen>
     );

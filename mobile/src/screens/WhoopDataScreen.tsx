@@ -15,10 +15,10 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
+import { Loader } from '../components/Loader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SmartIcon } from '../components/SmartIcon';
 import * as Haptics from 'expo-haptics';
@@ -256,7 +256,7 @@ export function WhoopDataScreen({ navigation }: Props) {
         scroll={false}
       >
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent1} />
+          <Loader size="lg" />
         </View>
       </PlayerScreen>
     );
@@ -321,7 +321,7 @@ export function WhoopDataScreen({ navigation }: Props) {
               ]}
             >
               {syncing ? (
-                <ActivityIndicator size="small" color={colors.accent1} />
+                <Loader size="sm" />
               ) : (
                 <SmartIcon name="sync-outline" size={16} color={colors.accent1} />
               )}

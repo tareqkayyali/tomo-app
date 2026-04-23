@@ -15,12 +15,12 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from './SmartIcon';
+import { Loader } from './Loader';
 
 import { useTheme } from '../hooks/useTheme';
 import { resolveSuggestion } from '../services/api';
@@ -131,7 +131,7 @@ export function SuggestionCard({ suggestion, onResolved }: SuggestionCardProps) 
           ]}
         >
           {loading === 'accepted' ? (
-            <ActivityIndicator size="small" color={colors.textPrimary} />
+            <Loader size="sm" />
           ) : (
             <>
               <SmartIcon name="checkmark" size={16} color={colors.textPrimary} />
@@ -150,7 +150,7 @@ export function SuggestionCard({ suggestion, onResolved }: SuggestionCardProps) 
           ]}
         >
           {loading === 'declined' ? (
-            <ActivityIndicator size="small" color={colors.textSecondary} />
+            <Loader size="sm" />
           ) : (
             <>
               <SmartIcon name="close" size={16} color={colors.textSecondary} />

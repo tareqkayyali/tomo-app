@@ -21,10 +21,9 @@ import {
   Text,
   TextInput,
   View,
-  ActivityIndicator,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Button, Card } from '../components';
+import { Button, Card, Loader } from '../components';
 import { SmartIcon } from '../components/SmartIcon';
 import { spacing, borderRadius, fontFamily, screenBg } from '../theme';
 import type { ThemeColors } from '../theme/colors';
@@ -126,7 +125,7 @@ export function HistoricalDataScreen({ navigation: _nav }: Props) {
   if (loading || !data) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.accent1} />
+        <Loader size="lg" />
       </View>
     );
   }

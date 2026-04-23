@@ -13,12 +13,12 @@ import {
   StyleSheet,
   Pressable,
   Alert,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SmartIcon } from '../components/SmartIcon';
+import { Loader } from '../components/Loader';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { colors, spacing, fontFamily, borderRadius, screenBg } from '../theme';
 import { uploadDrillVideo, getFileSize } from '../services/storage';
@@ -122,7 +122,7 @@ export function DrillCameraScreen({ navigation, route }: Props) {
   if (!permission) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={colors.accent1} size="large" />
+        <Loader size="lg" />
       </View>
     );
   }
@@ -159,7 +159,7 @@ export function DrillCameraScreen({ navigation, route }: Props) {
 
           {uploading ? (
             <View style={styles.uploadingWrap}>
-              <ActivityIndicator color={colors.accent1} size="large" />
+              <Loader size="lg" />
               <Text style={styles.uploadText}>
                 Uploading... {Math.round(uploadProgress * 100)}%
               </Text>

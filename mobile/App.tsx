@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet, Platform, Text } from 'react-native';
+import { View, StyleSheet, Platform, Text } from 'react-native';
 import { useFonts } from 'expo-font';
 import {
   Poppins_300Light,
@@ -28,8 +28,12 @@ import { AnimatedSplashScreen, ErrorBoundary } from './src/components';
 import { AppAtmosphere } from './src/components/tomo-ui';
 import { injectWebFonts } from './src/utils/webFonts';
 import { injectWebBackground } from './src/utils/webBackground';
-import { screenBg } from './src/theme/colors';
 import { initSentry, wrapWithSentry } from './src/services/sentry';
+
+// Flash-protection fill for the outer RN roots: paints ink underneath
+// AppAtmosphere on native (before NativeStarfield mounts) so there's no
+// window-black flash during transitions. On web the body CSS owns this.
+const OUTER_BG = Platform.OS === 'web' ? 'transparent' : '#12141F';
 
 initSentry();
 
@@ -112,9 +116,9 @@ function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: screenBg }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: OUTER_BG }}>
       <ErrorBoundary>
-        <View style={[styles.root, { backgroundColor: screenBg }]} onLayout={onLayoutRootView}>
+        <View style={[styles.root, { backgroundColor: OUTER_BG }]} onLayout={onLayoutRootView}>
           <AnimatedSplashScreen isReady={fontsLoaded}>
             <ConfigProvider>
               <ThemeProvider>

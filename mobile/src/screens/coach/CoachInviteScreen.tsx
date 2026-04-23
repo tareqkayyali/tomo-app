@@ -11,11 +11,11 @@ import {
   Pressable,
   Share,
   Alert,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SmartIcon } from '../../components/SmartIcon';
+import { Loader } from '../../components/Loader';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
@@ -87,7 +87,7 @@ export function CoachInviteScreen() {
             ]}
           >
             {generating ? (
-              <ActivityIndicator color={colors.textOnDark} />
+              <Loader />
             ) : (
               <>
                 <SmartIcon name="key-outline" size={20} color={colors.textOnDark} />

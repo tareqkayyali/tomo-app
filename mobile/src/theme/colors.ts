@@ -14,8 +14,6 @@
  * Borders: rgba(245,243,237,0.10) — visible line frames
  */
 
-import { Platform } from 'react-native';
-
 // ─── ThemeColors type ────────────────────────────────────────────────
 
 export type ThemeColors = {
@@ -471,12 +469,14 @@ export const lightColors: ThemeColors = {
 export const colors = darkColors;
 
 // ─── Screen-root background ─────────────────────────────────────────
-// Platform-aware. On web, screen roots are transparent so the body's
-// starfield/dust gradient (injected via utils/webBackground.ts) shows
-// through. On native, solid ink (#12141F) — same as before.
+// Always transparent. On web the body CSS (utils/webBackground.ts) paints
+// the starfield; on native <NativeStarfield /> inside AppAtmosphere paints
+// it. Screens and navigation content surfaces sit on top and let it show.
+// Flash-protection fill (#12141F on native) lives on App.tsx's outer
+// GestureHandlerRootView + styles.root, not here.
 // Use this for full-screen root containers only. Cards, modals, inputs,
 // and other dense surfaces keep their own opaque tokens.
-export const screenBg: string = Platform.OS === 'web' ? 'transparent' : '#12141F';
+export const screenBg: string = 'transparent';
 
 // ─── Derived color maps ─────────────────────────────────────────────
 

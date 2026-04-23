@@ -10,11 +10,11 @@ import {
   Text,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { ProtocolBadgeStrip } from './ProtocolBadgeStrip';
+import { Loader } from '../Loader';
 
 interface PlanSession {
   day: string;
@@ -135,7 +135,7 @@ export function PlanProposalCard({
           ]}
         >
           {loading ? (
-            <ActivityIndicator size="small" color={colors.textPrimary} />
+            <Loader size="sm" />
           ) : (
             <Text style={styles.confirmButtonText}>Confirm Plan</Text>
           )}

@@ -16,12 +16,12 @@ import {
   Pressable,
   Text,
   StyleSheet,
-  ActivityIndicator,
   ViewStyle,
   TextStyle,
   View,
   Platform,
 } from 'react-native';
+import { Loader } from './Loader';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -101,7 +101,7 @@ export function Button({
           hitSlop={8}
         >
           {loading ? (
-            <ActivityIndicator color={colors.electricGreen} size="small" />
+            <Loader size="sm" />
           ) : icon ? (
             <SmartIcon name={icon} size={resolvedIconSize} color={colors.electricGreen} />
           ) : null}
@@ -119,7 +119,7 @@ export function Button({
   const content = (
     <View style={styles.content}>
       {loading ? (
-        <ActivityIndicator color={loaderColor} size="small" />
+        <Loader size="sm" />
       ) : (
         <>
           {icon && (

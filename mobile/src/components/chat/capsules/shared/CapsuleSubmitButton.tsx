@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { Pressable, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
+import { Pressable, Text, StyleSheet, View } from 'react-native';
 import { colors } from '../../../../theme/colors';
+import { Loader } from '../../../Loader';
 import { borderRadius, fontFamily, spacing } from '../../../../theme';
 
 interface CapsuleSubmitButtonProps {
@@ -32,7 +33,7 @@ export function CapsuleSubmitButton({ title, onPress, disabled, loading, variant
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={isDanger ? colors.textPrimary : isPrimary ? colors.textPrimary : colors.accent2} />
+        <Loader size="sm" />
       ) : (
         <Text style={[
           styles.buttonText,
