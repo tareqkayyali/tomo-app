@@ -82,9 +82,10 @@ export async function GET(req: NextRequest) {
   const safeName = athleteName.replace(/[^a-zA-Z0-9-]+/g, "_").toLowerCase();
   const uint8 = new Uint8Array(pdfBuffer);
 
-  // Mark the export on cv_profiles for the "last PDF export" audit row
+  // Mark the export on cv_profiles for the "last PDF export" audit row.
+  // Cast to any: generated types haven't been regen'd for migration 094 yet.
   if (!slugParam) {
-    supabaseAdmin()
+    (supabaseAdmin() as any)
       .from("cv_profiles")
       .update({ last_pdf_export_at: new Date().toISOString() })
       .eq("share_slug", slug)

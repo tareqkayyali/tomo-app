@@ -11,7 +11,8 @@
  */
 
 import type { Metadata } from "next";
-import { notFound, headers as nextHeaders } from "next/navigation";
+import { notFound } from "next/navigation";
+import { headers as nextHeaders } from "next/headers";
 import { resolvePublicCVBySlug, recordScoutView } from "@/services/cv/cvPublicView";
 import type { PublicCVBundle } from "@/services/cv/cvPublicView";
 import { PublicCVDocument } from "./PublicCVDocument";
