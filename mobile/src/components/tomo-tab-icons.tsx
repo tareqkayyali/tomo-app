@@ -28,16 +28,6 @@ type IconProps = { size?: number; on?: boolean };
 export function IconTimeline({ size = 44, on = false }: IconProps) {
   const stroke = on ? 'rgba(245,243,237,0.70)' : 'rgba(245,243,237,0.40)';
   const k = on ? 'on' : 'off';
-  const nowStops = on
-    ? [
-        <Stop key="0" offset="0%" stopColor="#E0EFDA" />,
-        <Stop key="1" offset="55%" stopColor="#C8DCC3" />,
-        <Stop key="2" offset="100%" stopColor="#7A9B76" />,
-      ]
-    : [
-        <Stop key="0" offset="0%" stopColor="#F5F3ED" />,
-        <Stop key="1" offset="100%" stopColor="rgba(245,243,237,0.55)" />,
-      ];
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
       <Defs>
@@ -50,9 +40,18 @@ export function IconTimeline({ size = 44, on = false }: IconProps) {
             stopOpacity={on ? 0.75 : 0.4}
           />
         </LinearGradient>
-        <RadialGradient id={`tl-now-${k}`} cx="50%" cy="50%" r="50%">
-          {nowStops}
-        </RadialGradient>
+        {on ? (
+          <RadialGradient id="tl-now-on" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor="#E0EFDA" />
+            <Stop offset="55%" stopColor="#C8DCC3" />
+            <Stop offset="100%" stopColor="#7A9B76" />
+          </RadialGradient>
+        ) : (
+          <RadialGradient id="tl-now-off" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor="#F5F3ED" />
+            <Stop offset="100%" stopColor="rgba(245,243,237,0.55)" />
+          </RadialGradient>
+        )}
       </Defs>
       <Path
         d="M 4 22 Q 10 14 24 6"
@@ -83,24 +82,23 @@ export function IconTimeline({ size = 44, on = false }: IconProps) {
 export function IconTomo({ size = 80, on = false }: IconProps) {
   const k = on ? 'on' : 'off';
   const r = on ? 21 : 17;
-  const sphereStops = on
-    ? [
-        <Stop key="0" offset="0%" stopColor="#DCEBD6" />,
-        <Stop key="1" offset="35%" stopColor="#A8C3A2" />,
-        <Stop key="2" offset="75%" stopColor="#7A9B76" />,
-        <Stop key="3" offset="100%" stopColor="#4F6B4C" />,
-      ]
-    : [
-        <Stop key="0" offset="0%" stopColor="#BED0B9" />,
-        <Stop key="1" offset="45%" stopColor="#849F80" />,
-        <Stop key="2" offset="100%" stopColor="#3F5A3C" />,
-      ];
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       <Defs>
-        <RadialGradient id={`sp-sphere-${k}`} cx="38%" cy="32%" r="70%">
-          {sphereStops}
-        </RadialGradient>
+        {on ? (
+          <RadialGradient id="sp-sphere-on" cx="38%" cy="32%" r="70%">
+            <Stop offset="0%" stopColor="#DCEBD6" />
+            <Stop offset="35%" stopColor="#A8C3A2" />
+            <Stop offset="75%" stopColor="#7A9B76" />
+            <Stop offset="100%" stopColor="#4F6B4C" />
+          </RadialGradient>
+        ) : (
+          <RadialGradient id="sp-sphere-off" cx="38%" cy="32%" r="70%">
+            <Stop offset="0%" stopColor="#BED0B9" />
+            <Stop offset="45%" stopColor="#849F80" />
+            <Stop offset="100%" stopColor="#3F5A3C" />
+          </RadialGradient>
+        )}
         <RadialGradient id={`sp-hl-${k}`} cx="34%" cy="28%" r="26%">
           <Stop
             offset="0%"
@@ -158,23 +156,22 @@ export function IconSignal({ size = 44, on = false }: IconProps) {
   const rayColor = on ? 'rgba(245,243,237,0.70)' : 'rgba(245,243,237,0.40)';
   const rayMain = on ? 0.75 : 0.45;
   const rayDiag = on ? 0.45 : 0.22;
-  const coreStops = on
-    ? [
-        <Stop key="0" offset="0%" stopColor="#C8DCC3" />,
-        <Stop key="1" offset="60%" stopColor="#7A9B76" />,
-        <Stop key="2" offset="100%" stopColor="#4F6B4C" />,
-      ]
-    : [
-        <Stop key="0" offset="0%" stopColor="#A6BFA2" />,
-        <Stop key="1" offset="60%" stopColor="#6E8B6A" />,
-        <Stop key="2" offset="100%" stopColor="#3E5A3C" />,
-      ];
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
       <Defs>
-        <RadialGradient id={`sig-core-${k}`} cx="50%" cy="50%" r="50%">
-          {coreStops}
-        </RadialGradient>
+        {on ? (
+          <RadialGradient id="sig-core-on" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor="#C8DCC3" />
+            <Stop offset="60%" stopColor="#7A9B76" />
+            <Stop offset="100%" stopColor="#4F6B4C" />
+          </RadialGradient>
+        ) : (
+          <RadialGradient id="sig-core-off" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor="#A6BFA2" />
+            <Stop offset="60%" stopColor="#6E8B6A" />
+            <Stop offset="100%" stopColor="#3E5A3C" />
+          </RadialGradient>
+        )}
         <RadialGradient id={`sig-halo-${k}`} cx="50%" cy="50%" r="50%">
           <Stop offset="0%" stopColor="#7A9B76" stopOpacity={on ? 0.4 : 0.12} />
           <Stop offset="100%" stopColor="#7A9B76" stopOpacity="0" />
