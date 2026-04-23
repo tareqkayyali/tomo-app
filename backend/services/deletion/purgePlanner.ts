@@ -156,11 +156,12 @@ const CASCADE_DELETE_TABLES: Array<[table: string, column: string, reason: strin
 
   // ── CV (athlete_id) ─────────────────────────────────────────────
   ['public.cv_profiles', 'athlete_id', 'athlete CV profile'],
-  ['public.cv_academic_entries', 'athlete_id', 'CV academic entries'],
   ['public.cv_career_entries', 'athlete_id', 'CV career entries'],
   ['public.cv_character_traits', 'athlete_id', 'CV character traits'],
   ['public.cv_media_links', 'athlete_id', 'CV media links'],
   ['public.cv_references', 'athlete_id', 'CV references'],
+  ['public.cv_injury_log', 'athlete_id', 'CV injury log'],
+  ['public.cv_ai_summary_versions', 'athlete_id', 'CV AI summary version history'],
   ['public.cv_share_views', 'athlete_id', 'scout share view log'],
 
   // ── Auth / push ─────────────────────────────────────────────────

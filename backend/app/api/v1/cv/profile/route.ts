@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { assembleCVBundle } from "@/services/cv/cvAssembler";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { updateCVProfile } from "@/services/cv/cvService";
 
+/**
+ * GET /api/v1/cv/profile — Returns the full assembled CV bundle for the
+ * authenticated athlete (or a specific athleteId for admin/coach views,
+ * auth permitting).
+ */
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
@@ -21,8 +26,12 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * PUT /api/v1/cv/profile — Update CV profile fields
- * (formation_preference, dominant_zone, visibility settings, approve statement)
+ * PUT /api/v1/cv/profile — Update athlete-editable profile fields on
+ * cv_profiles head row (formation, dominant zone, visibility toggles).
+ *
+ * For AI summary edits use /cv/ai-summary/*.
+ * For medical consent use /cv/medical-consent.
+ * For publishing use /cv/publish.
  */
 export async function PUT(req: NextRequest) {
   const auth = requireAuth(req);
@@ -30,36 +39,15 @@ export async function PUT(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const db = supabaseAdmin();
 
-    const ALLOWED_FIELDS: Record<string, string> = {
-      formation_preference: "formation_preference",
-      dominant_zone: "dominant_zone",
-      cv_club_discoverable: "cv_club_discoverable",
-      cv_uni_discoverable: "cv_uni_discoverable",
-      show_performance_data: "show_performance_data",
-      show_coachability: "show_coachability",
-      show_load_data: "show_load_data",
-      statement_status: "statement_status",
-      personal_statement_club: "personal_statement_club",
-      personal_statement_uni: "personal_statement_uni",
-    };
+    await updateCVProfile(auth.user.id, {
+      formation_preference: body.formation_preference,
+      dominant_zone: body.dominant_zone,
+      show_performance_data: body.show_performance_data,
+      show_coachability: body.show_coachability,
+    });
 
-    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    for (const [key, col] of Object.entries(ALLOWED_FIELDS)) {
-      if (body[key] !== undefined) updates[col] = body[key];
-    }
-
-    // Upsert — create cv_profiles row if it doesn't exist
-    const { data, error } = await (db as any)
-      .from("cv_profiles")
-      .upsert({ athlete_id: auth.user.id, ...updates }, { onConflict: "athlete_id" })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json({ ok: true, cv_profile: data });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(
       { error: "Failed to update CV profile", detail: String(err) },

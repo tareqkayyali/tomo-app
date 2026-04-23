@@ -101,6 +101,8 @@ const navigation: NavGroup[] = [
       { name: "Performance Intelligence", href: "/admin/performance-intelligence" },
       { name: "Dashboard Sections", href: "/admin/dashboard-sections" },
       { name: "Progress Metrics", href: "/admin/progress-metrics" },
+      { name: "CV References", href: "/admin/cv-references" },
+      { name: "CV AI Summaries", href: "/admin/cv-ai-summaries" },
       { name: "Feature Flags", href: "/admin/feature-flags", minRole: "super_admin" },
     ],
   },

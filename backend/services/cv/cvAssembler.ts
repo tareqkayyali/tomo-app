@@ -1,21 +1,44 @@
 /**
- * CV Assembler — Reads from ALL Tomo data sources to build a complete CV object.
+ * CV Assembler — Single source of truth for the Player CV bundle.
  *
- * ~80% auto-populated from athlete data fabric.
- * ~20% from manual CV-specific tables (career, academic, media, references, traits).
+ * Reads from:
+ *   users, athlete_snapshots, cv_profiles, cv_career_entries, cv_media_links,
+ *   cv_references, cv_character_traits, cv_injury_log, cv_ai_summary_versions,
+ *   calendar_events (session log), benchmarkService.
  *
- * This is the single entry point for CV data. Every UI and export reads from here.
+ * Matches the 12-screen single-flow CV design (migration 094).
+ * Every UI (mobile, public share page, PDF export) reads from here.
  */
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getPlayerBenchmarkProfile, getMetricTrajectory } from "../benchmarkService";
-import type { BenchmarkResult, BenchmarkProfile, MetricTrajectoryPoint } from "../benchmarkService";
-import { computeCoachabilityIndex, type CoachabilityResult } from "./coachabilityIndex";
+import { getPlayerBenchmarkProfile } from "../benchmarkService";
+import type { BenchmarkResult, BenchmarkProfile } from "../benchmarkService";
 import { computeCVCompleteness, type CVCompletenessResult } from "./cvCompleteness";
+import { buildNextSteps, type CVNextStep } from "./cvNextSteps";
 
 const db = () => supabaseAdmin();
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── Position metadata (football — other sports extend this later) ──
+
+const POSITION_META: Record<string, { label: string; description: string }> = {
+  GK:  { label: "Goalkeeper",                description: "Last line · commands the box" },
+  CB:  { label: "Centre Back",               description: "Back four · reads the game" },
+  FB:  { label: "Full Back",                 description: "Wide defender · overlaps" },
+  LB:  { label: "Left Back",                 description: "Left flank · overlaps" },
+  RB:  { label: "Right Back",                description: "Right flank · overlaps" },
+  CDM: { label: "Defensive Midfielder",      description: "Screen · sets the tempo" },
+  CM:  { label: "Central Midfielder",        description: "Box to box · link player" },
+  CAM: { label: "Central Attacking Midfielder", description: "Playmaker · behind the striker" },
+  WM:  { label: "Wide Midfielder",           description: "Flank · stretch the pitch" },
+  LW:  { label: "Left Winger",               description: "Left flank · 1v1 threat" },
+  RW:  { label: "Right Winger",              description: "Right flank · 1v1 threat" },
+  ST:  { label: "Striker",                   description: "Centre forward · finishes" },
+  CF:  { label: "Centre Forward",            description: "Link-up · finishes" },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface CVIdentity {
   full_name: string;
@@ -23,15 +46,15 @@ export interface CVIdentity {
   age: number | null;
   nationality: string | null;
   passport_country: string | null;
-  city_country: string | null;   // region field
+  city_country: string | null;
   photo_url: string | null;
   email: string;
-  phone: string | null;
   sport: string;
-  position: string | null;
+  primary_position: string | null;
   preferred_foot: string | null;
-  playing_style: string | null;
-  secondary_positions: string[] | null;
+  age_group: string | null;
+  phv_stage: string | null;
+  phv_offset_years: number | null;
   guardian_name: string | null;
   guardian_email: string | null;
   guardian_phone: string | null;
@@ -40,92 +63,89 @@ export interface CVIdentity {
 export interface CVPhysicalProfile {
   height_cm: number | null;
   weight_kg: number | null;
-  phv_stage: string | null;       // PRE | CIRCA | POST
+  phv_stage: string | null;
   phv_offset_years: number | null;
-  academic_year: number | null;
 }
 
 export interface CVPositions {
   primary_position: string | null;
+  primary_label: string | null;
+  primary_description: string | null;
   secondary_positions: string[];
   formation_preference: string | null;
   dominant_zone: string | null;
+  is_set: boolean;
+  has_secondary: boolean;
 }
 
-export interface CVBenchmarkResult {
+export interface CVBenchmarkRow {
   metric_key: string;
   metric_label: string;
   value: number;
   unit: string;
   percentile: number;
-  zone: string;
-  direction: string;
+  zone: "elite" | "on_par" | "dev_priority";
+  direction: "higher_is_better" | "lower_is_better";
   age_band: string;
   position: string;
   tested_at: string | null;
 }
 
-export interface CVPerformanceData {
-  // Training consistency
+export interface CVKeySignal {
+  metric_key: string;
+  label: string;
+  detail: string;
+  percentile_label: string;
+  kind: "strength" | "focus";
+}
+
+export interface CVSummaryVersion {
+  version_number: number;
+  generated_at: string;
+  approved: boolean;
+  approved_at: string | null;
+}
+
+export interface CVPlayerProfile {
+  ai_summary: string | null;
+  ai_summary_status: "draft" | "approved" | "needs_update";
+  ai_summary_last_generated: string | null;
+  ai_summary_approved_at: string | null;
+  key_signals: {
+    strengths: CVKeySignal[];
+    focus_areas: CVKeySignal[];
+    physical_maturity: { label: string; detail: string } | null;
+  };
+  versions: CVSummaryVersion[];
+}
+
+export interface CVSessionLogEntry {
+  date: string;
+  title: string;
+  category: string;
+  duration_min: number | null;
+  load_au: number | null;
+}
+
+export interface CVVerifiedPerformance {
   sessions_total: number;
-  training_age_weeks: number;
   training_age_months: number;
+  training_age_label: string;
   streak_days: number;
-  last_session_at: string | null;
-  last_checkin_at: string | null;
-
-  // Load management
   acwr: number | null;
-  atl_7day: number | null;
-  ctl_28day: number | null;
-  injury_risk_flag: string | null;
-
-  // Wellness
-  readiness_score: number | null;
-  readiness_rag: string | null;
-  wellness_7day_avg: number | null;
-  wellness_trend: string | null;
-
-  // Benchmarks
-  benchmark_profile: BenchmarkProfile | null;
-  benchmarks: CVBenchmarkResult[];
+  training_balance: "under" | "balanced" | "over" | null;
+  benchmarks: CVBenchmarkRow[];
+  strength_zones: CVBenchmarkRow[];
+  development_focus: CVBenchmarkRow[];
   overall_percentile: number | null;
-  strengths: string[];
-  gaps: string[];
-
-  // Coachability
-  coachability: CoachabilityResult | null;
-
-  // Data period
+  session_log: CVSessionLogEntry[];
   data_start_date: string | null;
   verified_by: "tomo_platform";
 }
 
-export interface CVTrajectory {
-  metric_trends: {
-    metric_key: string;
-    metric_label: string;
-    data_points: MetricTrajectoryPoint[];
-    total_improvement_pct: number | null;
-  }[];
-  narrative: string | null;
-  narrative_last_generated: string | null;
-}
-
-export interface CVCompetitionEntry {
-  id: string;
-  competition_name: string | null;
-  opponent: string | null;
-  result: string | null;
-  minutes_played: number | null;
-  performance_notes: string | null;
-  stats: Record<string, number> | null;
-  date: string;
-}
-
 export interface CVCareerEntry {
   id: string;
-  entry_type: string;
+  entry_type: "club" | "academy" | "national_team" | "trial" | "camp" | "showcase";
   club_name: string;
   league_level: string | null;
   country: string | null;
@@ -141,39 +161,16 @@ export interface CVCareerEntry {
   injury_note: string | null;
 }
 
-export interface CVAcademicEntry {
-  id: string;
-  institution: string;
-  country: string | null;
-  qualification: string | null;
-  year_start: number | null;
-  year_end: number | null;
-  gpa: string | null;
-  gpa_scale: string | null;
-  predicted_grade: string | null;
-  honours: string[];
-  ncaa_eligibility_id: string | null;
-  is_current: boolean;
-}
-
-export interface CVDualRoleCompetency {
-  dual_load_index: number | null;
-  academic_load_7day: number | null;
-  exam_period_training_rate: number | null;
-  narrative: string | null;
-  narrative_last_generated: string | null;
-}
-
 export interface CVMediaLink {
   id: string;
-  media_type: string;
+  media_type: "highlight_reel" | "full_match" | "training" | "social";
   platform: string | null;
   url: string;
   title: string | null;
   is_primary: boolean;
 }
 
-export interface CVReference {
+export interface CVReferenceEntry {
   id: string;
   referee_name: string;
   referee_role: string;
@@ -181,183 +178,256 @@ export interface CVReference {
   email: string | null;
   phone: string | null;
   relationship: string | null;
-  consent_given: boolean;
+  status: "requested" | "submitted" | "identity_verified" | "published" | "rejected";
+  request_sent_at: string | null;
+  submitted_at: string | null;
+  submitted_rating: number | null;
+  submitted_note: string | null;
+  published_at: string | null;
 }
 
 export interface CVCharacterTrait {
   id: string;
-  trait_category: string;
+  trait_category: "award" | "leadership" | "language" | "character";
   title: string;
   description: string | null;
   level: string | null;
   date: string | null;
 }
 
-export interface CVInjuryStatus {
-  has_active_injury: boolean;
-  pain_location: string | null;
-  current_stage: number | null;
-  cleared_at: string | null;
-  status_label: string;  // "Fully fit" | "Returning — Stage 3/5" | "Injured"
+export interface CVAwardsCharacter {
+  awards: CVCharacterTrait[];
+  leadership: CVCharacterTrait[];
+  languages: CVCharacterTrait[];
+  character: CVCharacterTrait[];
+  total_count: number;
 }
 
-export interface CVStatements {
-  personal_statement_club: string | null;
-  personal_statement_uni: string | null;
-  statement_status: string;
-  statement_last_generated: string | null;
+export interface CVInjuryEntry {
+  id: string;
+  body_part: string;
+  side: string | null;
+  severity: "minor" | "moderate" | "major";
+  status: "active" | "recovering" | "cleared";
+  date_occurred: string;
+  cleared_at: string | null;
+  notes: string | null;
+}
+
+export interface CVHealthStatus {
+  overall: "fully_fit" | "returning" | "injured";
+  status_label: string;
+  status_detail: string;
+  updated_at: string;
+  availability: {
+    match_ready: boolean;
+    training_load: "full" | "partial" | "rest";
+    restrictions: string[];
+    last_screening_date: string | null;
+  };
+  injury_log: CVInjuryEntry[];
+  medical_consent: {
+    share_with_coach: boolean;
+    share_with_scouts_summary: boolean;
+    share_raw_data: boolean;
+    signed: boolean;
+  };
 }
 
 export interface CVShareInfo {
-  share_token_club: string | null;
-  share_token_uni: string | null;
-  share_club_views: number;
-  share_uni_views: number;
-  cv_club_discoverable: boolean;
-  cv_uni_discoverable: boolean;
+  share_slug: string | null;
+  share_views_count: number;
+  is_published: boolean;
+  public_url: string | null;
+  last_pdf_export_at: string | null;
 }
 
-/** Section state for UI indicators */
 export type CVSectionState =
   | "auto_complete"
   | "needs_input"
   | "ai_draft_pending"
   | "approved"
-  | "insufficient_data";
+  | "insufficient_data"
+  | "empty";
 
 export interface CVSectionStatus {
   identity: CVSectionState;
-  physical: CVSectionState;
-  positions: CVSectionState;
-  personal_statement: CVSectionState;
+  player_profile: CVSectionState;
+  physical_profile: CVSectionState;
+  playing_positions: CVSectionState;
+  verified_performance: CVSectionState;
   career_history: CVSectionState;
-  performance_data: CVSectionState;
-  trajectory: CVSectionState;
-  coachability: CVSectionState;
-  competitions: CVSectionState;
-  academic: CVSectionState;
-  dual_role: CVSectionState;
   video_media: CVSectionState;
   references: CVSectionState;
-  character_traits: CVSectionState;
+  awards_character: CVSectionState;
+  health_status: CVSectionState;
 }
 
 export interface FullCVBundle {
-  // Identity & profile
   identity: CVIdentity;
   physical: CVPhysicalProfile;
   positions: CVPositions;
-
-  // AI-generated
-  statements: CVStatements;
-  trajectory: CVTrajectory;
-  dual_role: CVDualRoleCompetency;
-
-  // Auto-populated from data fabric
-  performance: CVPerformanceData;
-  competitions: CVCompetitionEntry[];
-  injury_status: CVInjuryStatus;
-
-  // Manual entry sections
+  player_profile: CVPlayerProfile;
+  verified_performance: CVVerifiedPerformance;
   career: CVCareerEntry[];
-  academic: CVAcademicEntry[];
   media: CVMediaLink[];
-  references: CVReference[];
-  character_traits: CVCharacterTrait[];
-
-  // Meta
-  completeness: CVCompletenessResult;
+  references: CVReferenceEntry[];
+  awards_character: CVAwardsCharacter;
+  health_status: CVHealthStatus;
+  completeness_pct: number;
+  completeness_breakdown: CVCompletenessResult["breakdown"];
+  next_steps: CVNextStep[];
   section_states: CVSectionStatus;
   share: CVShareInfo;
   last_updated: string;
 }
 
-// ── Assembler ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ASSEMBLER
+// ═══════════════════════════════════════════════════════════════════════════
 
 export async function assembleCVBundle(athleteId: string): Promise<FullCVBundle> {
-  // Parallel fetch from all data sources
+  const sevenDaysAgoIso = new Date(Date.now() - 7 * 86400000).toISOString();
+
   const [
     userRes,
     snapshotRes,
     cvProfileRes,
     careerRes,
-    academicRes,
     mediaRes,
     refsRes,
     traitsRes,
-    competitionsRes,
-    rtpRes,
-    journalsRes,
+    injuryRes,
+    versionsRes,
+    sessionLogRes,
   ] = await Promise.all([
-    // User profile
     (db() as any).from("users").select("*").eq("id", athleteId).single(),
-    // Athlete snapshot
     (db() as any).from("athlete_snapshots").select("*").eq("athlete_id", athleteId).single(),
-    // CV profile (AI statements, visibility, share tokens)
     (db() as any).from("cv_profiles").select("*").eq("athlete_id", athleteId).single(),
-    // Career entries
     (db() as any).from("cv_career_entries").select("*").eq("athlete_id", athleteId).order("display_order"),
-    // Academic entries
-    (db() as any).from("cv_academic_entries").select("*").eq("athlete_id", athleteId).order("year_start", { ascending: false }),
-    // Media links
     (db() as any).from("cv_media_links").select("*").eq("athlete_id", athleteId).order("display_order"),
-    // References
     (db() as any).from("cv_references").select("*").eq("athlete_id", athleteId).order("display_order"),
-    // Character traits
     (db() as any).from("cv_character_traits").select("*").eq("athlete_id", athleteId).order("display_order"),
-    // Competition results from events
+    (db() as any).from("cv_injury_log").select("*").eq("athlete_id", athleteId).order("date_occurred", { ascending: false }),
+    (db() as any).from("cv_ai_summary_versions").select("version_number, generated_at, approved, approved_at").eq("athlete_id", athleteId).order("version_number", { ascending: false }),
     (db() as any)
-      .from("athlete_events")
-      .select("id, event_type, payload, created_at")
-      .eq("athlete_id", athleteId)
-      .eq("event_type", "COMPETITION_RESULT")
-      .order("created_at", { ascending: false })
-      .limit(30),
-    // Return-to-play (injury status)
-    (db() as any)
-      .from("return_to_play")
-      .select("*")
+      .from("calendar_events")
+      .select("title, event_type, start_at, end_at, estimated_load_au")
       .eq("user_id", athleteId)
-      .is("cleared_at", null)
-      .order("injury_date", { ascending: false })
-      .limit(1),
-    // Training journals (for coachability)
-    (db() as any)
-      .from("training_journals")
-      .select("post_outcome, journal_state")
-      .eq("athlete_id", athleteId)
-      .eq("journal_state", "complete")
-      .limit(100),
+      .eq("status", "completed")
+      .gte("start_at", sevenDaysAgoIso)
+      .order("start_at", { ascending: false })
+      .limit(10),
   ]);
 
   const user = userRes.data ?? {};
   const snapshot = snapshotRes.data ?? {};
   const cvProfile = cvProfileRes.data ?? {};
   const career: CVCareerEntry[] = (careerRes.data ?? []).map(mapCareerEntry);
-  const academic: CVAcademicEntry[] = (academicRes.data ?? []).map(mapAcademicEntry);
   const media: CVMediaLink[] = (mediaRes.data ?? []).map(mapMediaLink);
-  const references: CVReference[] = (refsRes.data ?? []).map(mapReference);
-  const characterTraits: CVCharacterTrait[] = (traitsRes.data ?? []).map(mapCharacterTrait);
-  const competitions: CVCompetitionEntry[] = (competitionsRes.data ?? []).map(mapCompetition);
-  const activeRtp = rtpRes.data?.[0] ?? null;
-  const completedJournals = journalsRes.data ?? [];
+  const references: CVReferenceEntry[] = (refsRes.data ?? [])
+    .filter((r: any) => r.status !== "rejected")
+    .map(mapReferenceEntry);
+  const traits: CVCharacterTrait[] = (traitsRes.data ?? []).map(mapCharacterTrait);
+  const injuries: CVInjuryEntry[] = (injuryRes.data ?? []).map(mapInjuryEntry);
+  const versions: CVSummaryVersion[] = (versionsRes.data ?? []).map((v: any) => ({
+    version_number: v.version_number,
+    generated_at: v.generated_at,
+    approved: v.approved,
+    approved_at: v.approved_at,
+  }));
+  const sessionLog: CVSessionLogEntry[] = (sessionLogRes.data ?? []).map(mapSessionLog);
 
-  // Fetch benchmark profile (separate call — has its own DB logic)
+  // Benchmarks (graceful degradation)
   let benchmarkProfile: BenchmarkProfile | null = null;
   try {
     benchmarkProfile = await getPlayerBenchmarkProfile(athleteId);
   } catch {
-    // Graceful degradation — CV works without benchmarks
+    // CV renders without benchmarks
   }
 
-  // Fetch trajectory for top 3 improving metrics
-  const trajectoryMetrics = await buildTrajectory(athleteId, benchmarkProfile);
+  const identity = buildIdentity(user, snapshot);
+  const physical = buildPhysicalProfile(user, snapshot);
+  const positions = buildPositions(user, snapshot, cvProfile);
+  const verifiedPerformance = buildVerifiedPerformance(snapshot, user, benchmarkProfile, sessionLog);
+  const playerProfile = buildPlayerProfile(cvProfile, verifiedPerformance, physical, versions);
+  const awardsCharacter = groupAwardsCharacter(traits);
+  const healthStatus = buildHealthStatus(cvProfile, injuries);
 
-  // Compute coachability from journals + snapshot
-  const coachability = computeCoachabilityIndex(snapshot, completedJournals);
+  const shareSlug = cvProfile.share_slug ?? null;
+  const publicUrl = shareSlug ? buildPublicShareUrl(shareSlug) : null;
+  const share: CVShareInfo = {
+    share_slug: shareSlug,
+    share_views_count: cvProfile.share_views_count ?? 0,
+    is_published: cvProfile.is_published ?? false,
+    public_url: publicUrl,
+    last_pdf_export_at: cvProfile.last_pdf_export_at ?? null,
+  };
 
-  // Build identity section
-  const identity: CVIdentity = {
+  const sectionStates = computeSectionStates({
+    identity,
+    physical,
+    positions,
+    playerProfile,
+    verifiedPerformance,
+    career,
+    media,
+    references,
+    awardsCharacter,
+    healthStatus,
+  });
+
+  const completeness = computeCVCompleteness({
+    identity,
+    physical,
+    positions,
+    playerProfile,
+    verifiedPerformance,
+    career,
+    media,
+    references,
+    awardsCharacter,
+    healthStatus,
+  });
+
+  const nextSteps = buildNextSteps({
+    completenessPct: completeness.pct,
+    positions,
+    career,
+    media,
+    references,
+    awardsCharacter,
+    playerProfile,
+    healthStatus,
+  });
+
+  return {
+    identity,
+    physical,
+    positions,
+    player_profile: playerProfile,
+    verified_performance: verifiedPerformance,
+    career,
+    media,
+    references,
+    awards_character: awardsCharacter,
+    health_status: healthStatus,
+    completeness_pct: completeness.pct,
+    completeness_breakdown: completeness.breakdown,
+    next_steps: nextSteps,
+    section_states: sectionStates,
+    share,
+    last_updated: snapshot.snapshot_at ?? new Date().toISOString(),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION BUILDERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function buildIdentity(user: any, snapshot: any): CVIdentity {
+  const primaryPosition = snapshot.position ?? user.position ?? null;
+  return {
     full_name: user.name ?? "",
     date_of_birth: user.date_of_birth ?? snapshot.dob ?? null,
     age: user.age ?? null,
@@ -366,314 +436,285 @@ export async function assembleCVBundle(athleteId: string): Promise<FullCVBundle>
     city_country: user.region ?? null,
     photo_url: user.avatar_url ?? user.photo_url ?? null,
     email: user.email ?? "",
-    phone: null, // not stored on users table
     sport: user.sport ?? snapshot.sport ?? "football",
-    position: snapshot.position ?? user.position ?? null,
+    primary_position: primaryPosition,
     preferred_foot: user.preferred_foot ?? null,
-    playing_style: user.playing_style ?? null,
-    secondary_positions: user.secondary_positions ?? null,
+    age_group: deriveAgeGroup(user.age, user.date_of_birth),
+    phv_stage: snapshot.phv_stage ?? null,
+    phv_offset_years: snapshot.phv_offset_years ?? null,
     guardian_name: user.parent_guardian_name ?? null,
     guardian_email: user.parent_guardian_email ?? null,
     guardian_phone: user.parent_guardian_phone ?? null,
   };
+}
 
-  // Build physical profile
-  const physical: CVPhysicalProfile = {
+function buildPhysicalProfile(user: any, snapshot: any): CVPhysicalProfile {
+  return {
     height_cm: snapshot.height_cm ?? user.height_cm ?? null,
     weight_kg: snapshot.weight_kg ?? user.weight_kg ?? null,
     phv_stage: snapshot.phv_stage ?? null,
     phv_offset_years: snapshot.phv_offset_years ?? null,
-    academic_year: snapshot.academic_year ?? null,
   };
+}
 
-  // Build positions
-  const positions: CVPositions = {
-    primary_position: snapshot.position ?? user.position ?? null,
-    secondary_positions: user.secondary_positions ?? [],
+function buildPositions(user: any, snapshot: any, cvProfile: any): CVPositions {
+  const primary = snapshot.position ?? user.position ?? null;
+  const secondary: string[] = user.secondary_positions ?? [];
+  const meta = primary ? POSITION_META[primary] ?? null : null;
+
+  return {
+    primary_position: primary,
+    primary_label: meta?.label ?? null,
+    primary_description: meta?.description ?? null,
+    secondary_positions: secondary,
     formation_preference: cvProfile.formation_preference ?? null,
     dominant_zone: cvProfile.dominant_zone ?? null,
+    is_set: !!primary && secondary.length > 0,
+    has_secondary: secondary.length > 0,
   };
+}
 
-  // Build benchmarks for CV display
-  const cvBenchmarks: CVBenchmarkResult[] = (benchmarkProfile?.results ?? []).map((r: BenchmarkResult) => ({
+function buildVerifiedPerformance(
+  snapshot: any,
+  user: any,
+  benchmarkProfile: BenchmarkProfile | null,
+  sessionLog: CVSessionLogEntry[]
+): CVVerifiedPerformance {
+  const benchmarks: CVBenchmarkRow[] = (benchmarkProfile?.results ?? []).map((r: BenchmarkResult) => ({
     metric_key: r.metricKey,
     metric_label: r.metricLabel,
     value: r.value,
     unit: r.unit,
     percentile: r.percentile,
-    zone: r.zone,
-    direction: r.direction,
+    zone: zoneFromPercentile(r.percentile),
+    direction: r.direction as "higher_is_better" | "lower_is_better",
     age_band: r.ageBand,
     position: r.position,
-    tested_at: null, // populated from benchmark profile
+    tested_at: null,
   }));
 
-  // Build performance data
-  const accountCreated = user.created_at ?? null;
-  const performance: CVPerformanceData = {
+  const strengthZones = benchmarks.filter(b => b.percentile >= 75);
+  const developmentFocus = benchmarks.filter(b => b.percentile <= 25);
+
+  const trainingAgeMonths = snapshot.training_age_months ?? Math.round((snapshot.training_age_weeks ?? 0) / 4.33);
+
+  return {
     sessions_total: snapshot.sessions_total ?? 0,
-    training_age_weeks: snapshot.training_age_weeks ?? 0,
-    training_age_months: snapshot.training_age_months ?? Math.round((snapshot.training_age_weeks ?? 0) / 4.33),
+    training_age_months: trainingAgeMonths,
+    training_age_label: formatTrainingAge(trainingAgeMonths),
     streak_days: snapshot.streak_days ?? 0,
-    last_session_at: snapshot.last_session_at ?? null,
-    last_checkin_at: snapshot.last_checkin_at ?? null,
     acwr: snapshot.acwr ?? null,
-    atl_7day: snapshot.atl_7day ?? null,
-    ctl_28day: snapshot.ctl_28day ?? null,
-    injury_risk_flag: snapshot.injury_risk_flag ?? null,
-    readiness_score: snapshot.readiness_score ?? null,
-    readiness_rag: snapshot.readiness_rag ?? null,
-    wellness_7day_avg: snapshot.wellness_7day_avg ?? null,
-    wellness_trend: snapshot.wellness_trend ?? null,
-    benchmark_profile: benchmarkProfile,
-    benchmarks: cvBenchmarks,
+    training_balance: trainingBalanceFromAcwr(snapshot.acwr),
+    benchmarks,
+    strength_zones: strengthZones,
+    development_focus: developmentFocus,
     overall_percentile: benchmarkProfile?.overallPercentile ?? null,
-    strengths: benchmarkProfile?.strengths ?? [],
-    gaps: benchmarkProfile?.gaps ?? [],
-    coachability,
-    data_start_date: accountCreated,
+    session_log: sessionLog,
+    data_start_date: user.created_at ?? null,
     verified_by: "tomo_platform",
   };
-
-  // Build trajectory
-  const trajectory: CVTrajectory = {
-    metric_trends: trajectoryMetrics,
-    narrative: cvProfile.trajectory_narrative ?? null,
-    narrative_last_generated: cvProfile.trajectory_last_generated ?? null,
-  };
-
-  // Build dual-role competency
-  const dualRole: CVDualRoleCompetency = {
-    dual_load_index: snapshot.dual_load_index ?? null,
-    academic_load_7day: snapshot.academic_load_7day ?? null,
-    exam_period_training_rate: snapshot.exam_period_training_rate ?? null,
-    narrative: cvProfile.dual_role_narrative ?? null,
-    narrative_last_generated: cvProfile.dual_role_last_generated ?? null,
-  };
-
-  // Build injury status
-  const injuryStatus: CVInjuryStatus = buildInjuryStatus(activeRtp);
-
-  // Build statements
-  const statements: CVStatements = {
-    personal_statement_club: cvProfile.personal_statement_club ?? null,
-    personal_statement_uni: cvProfile.personal_statement_uni ?? null,
-    statement_status: cvProfile.statement_status ?? "draft",
-    statement_last_generated: cvProfile.statement_last_generated ?? null,
-  };
-
-  // Build share info
-  const share: CVShareInfo = {
-    share_token_club: cvProfile.share_token_club ?? null,
-    share_token_uni: cvProfile.share_token_uni ?? null,
-    share_club_views: cvProfile.share_club_views ?? 0,
-    share_uni_views: cvProfile.share_uni_views ?? 0,
-    cv_club_discoverable: cvProfile.cv_club_discoverable ?? false,
-    cv_uni_discoverable: cvProfile.cv_uni_discoverable ?? false,
-  };
-
-  // Compute completeness
-  const completeness = computeCVCompleteness({
-    identity,
-    physical,
-    positions,
-    statements,
-    performance,
-    career,
-    academic,
-    media,
-    references,
-    characterTraits,
-    competitions,
-  });
-
-  // Compute section states
-  const sectionStates = computeSectionStates({
-    identity,
-    physical,
-    positions,
-    statements,
-    performance,
-    career,
-    academic,
-    media,
-    references,
-    characterTraits,
-    competitions,
-    trajectory,
-    dualRole,
-    coachability,
-  });
-
-  return {
-    identity,
-    physical,
-    positions,
-    statements,
-    trajectory,
-    dual_role: dualRole,
-    performance,
-    competitions,
-    injury_status: injuryStatus,
-    career,
-    academic,
-    media,
-    references,
-    character_traits: characterTraits,
-    completeness,
-    section_states: sectionStates,
-    share,
-    last_updated: snapshot.snapshot_at ?? new Date().toISOString(),
-  };
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+function buildPlayerProfile(
+  cvProfile: any,
+  perf: CVVerifiedPerformance,
+  physical: CVPhysicalProfile,
+  versions: CVSummaryVersion[]
+): CVPlayerProfile {
+  const strengths: CVKeySignal[] = perf.strength_zones.slice(0, 3).map(b => ({
+    metric_key: b.metric_key,
+    label: keySignalLabel(b.metric_key),
+    detail: `${b.value}${b.unit} ${b.metric_label}`,
+    percentile_label: `${Math.round(b.percentile)}th percentile`,
+    kind: "strength",
+  }));
 
-async function buildTrajectory(
-  athleteId: string,
-  benchmarkProfile: BenchmarkProfile | null
-): Promise<CVTrajectory["metric_trends"]> {
-  if (!benchmarkProfile?.results?.length) return [];
+  const focus: CVKeySignal[] = perf.development_focus.slice(0, 3).map(b => ({
+    metric_key: b.metric_key,
+    label: keySignalLabel(b.metric_key),
+    detail: `${b.value}${b.unit} ${b.metric_label}`,
+    percentile_label: `${Math.round(b.percentile)}th percentile`,
+    kind: "focus",
+  }));
 
-  // Pick top 3 metrics by percentile for trajectory display
-  const topMetrics = [...benchmarkProfile.results]
-    .sort((a, b) => b.percentile - a.percentile)
-    .slice(0, 3);
-
-  const trends: CVTrajectory["metric_trends"] = [];
-
-  for (const metric of topMetrics) {
-    try {
-      const trajectory = await getMetricTrajectory(
-        athleteId,
-        metric.metricKey,
-        12 // last 12 months
-      );
-      if (trajectory.length >= 2) {
-        const first = trajectory[0];
-        const last = trajectory[trajectory.length - 1];
-        const improvementPct =
-          first.value !== 0
-            ? Math.round(((last.value - first.value) / Math.abs(first.value)) * 100)
-            : null;
-
-        trends.push({
-          metric_key: metric.metricKey,
-          metric_label: metric.metricLabel,
-          data_points: trajectory,
-          total_improvement_pct: improvementPct,
-        });
+  const physicalMaturity = physical.phv_stage
+    ? {
+        label: physical.phv_stage,
+        detail:
+          physical.phv_stage === "POST"
+            ? "ready for senior load"
+            : physical.phv_stage === "CIRCA"
+              ? "monitor load during growth"
+              : "focus on skill over strength",
       }
-    } catch {
-      // Skip metric if trajectory fails
-    }
-  }
-
-  return trends;
-}
-
-function buildInjuryStatus(activeRtp: any): CVInjuryStatus {
-  if (!activeRtp) {
-    return {
-      has_active_injury: false,
-      pain_location: null,
-      current_stage: null,
-      cleared_at: null,
-      status_label: "Fully fit — no current injuries",
-    };
-  }
-
-  if (activeRtp.cleared_at) {
-    return {
-      has_active_injury: false,
-      pain_location: activeRtp.pain_location,
-      current_stage: null,
-      cleared_at: activeRtp.cleared_at,
-      status_label: `Cleared — ${activeRtp.cleared_at}`,
-    };
-  }
+    : null;
 
   return {
-    has_active_injury: true,
-    pain_location: activeRtp.pain_location ?? null,
-    current_stage: activeRtp.current_stage ?? null,
-    cleared_at: null,
-    status_label: `Returning — Stage ${activeRtp.current_stage ?? "?"}/5 (${activeRtp.pain_location ?? "unspecified"})`,
+    ai_summary: cvProfile.ai_summary ?? null,
+    ai_summary_status: (cvProfile.ai_summary_status ?? "draft") as "draft" | "approved" | "needs_update",
+    ai_summary_last_generated: cvProfile.ai_summary_last_generated ?? null,
+    ai_summary_approved_at: cvProfile.ai_summary_approved_at ?? null,
+    key_signals: {
+      strengths,
+      focus_areas: focus,
+      physical_maturity: physicalMaturity,
+    },
+    versions,
   };
 }
+
+function groupAwardsCharacter(traits: CVCharacterTrait[]): CVAwardsCharacter {
+  return {
+    awards: traits.filter(t => t.trait_category === "award"),
+    leadership: traits.filter(t => t.trait_category === "leadership"),
+    languages: traits.filter(t => t.trait_category === "language"),
+    character: traits.filter(t => t.trait_category === "character"),
+    total_count: traits.length,
+  };
+}
+
+function buildHealthStatus(cvProfile: any, injuries: CVInjuryEntry[]): CVHealthStatus {
+  const activeInjuries = injuries.filter(i => i.status === "active");
+  const recoveringInjuries = injuries.filter(i => i.status === "recovering");
+
+  let overall: "fully_fit" | "returning" | "injured";
+  let statusLabel: string;
+  let statusDetail: string;
+
+  if (activeInjuries.length > 0) {
+    const worst = activeInjuries[0];
+    overall = "injured";
+    statusLabel = "Injured";
+    statusDetail = `${worst.body_part}${worst.side ? ` (${worst.side})` : ""} · ${worst.severity}`;
+  } else if (recoveringInjuries.length > 0) {
+    const current = recoveringInjuries[0];
+    overall = "returning";
+    statusLabel = "Returning";
+    statusDetail = `${current.body_part}${current.side ? ` (${current.side})` : ""} · recovering`;
+  } else {
+    overall = "fully_fit";
+    statusLabel = "Fully fit";
+    statusDetail = `No current injuries · Updated ${formatDate(cvProfile.updated_at ?? new Date().toISOString())}`;
+  }
+
+  const hasMajorActive = activeInjuries.some(i => i.severity === "major");
+  const hasAnyActive = activeInjuries.length > 0;
+  const restrictions = Array.from(
+    new Set([
+      ...activeInjuries.map(i => i.body_part),
+      ...recoveringInjuries.map(i => i.body_part),
+    ])
+  );
+
+  const medicalConsent = {
+    share_with_coach: cvProfile.medical_consent_coach ?? true,
+    share_with_scouts_summary: cvProfile.medical_consent_scouts_summary ?? true,
+    share_raw_data: cvProfile.medical_consent_raw ?? false,
+    signed:
+      (cvProfile.medical_consent_coach ?? true) ||
+      (cvProfile.medical_consent_scouts_summary ?? true),
+  };
+
+  return {
+    overall,
+    status_label: statusLabel,
+    status_detail: statusDetail,
+    updated_at: cvProfile.updated_at ?? new Date().toISOString(),
+    availability: {
+      match_ready: !hasMajorActive,
+      training_load: hasMajorActive ? "rest" : hasAnyActive ? "partial" : "full",
+      restrictions,
+      last_screening_date: cvProfile.last_screening_date ?? null,
+    },
+    injury_log: injuries,
+    medical_consent: medicalConsent,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION STATE
+// ═══════════════════════════════════════════════════════════════════════════
 
 function computeSectionStates(data: {
   identity: CVIdentity;
   physical: CVPhysicalProfile;
   positions: CVPositions;
-  statements: CVStatements;
-  performance: CVPerformanceData;
+  playerProfile: CVPlayerProfile;
+  verifiedPerformance: CVVerifiedPerformance;
   career: CVCareerEntry[];
-  academic: CVAcademicEntry[];
   media: CVMediaLink[];
-  references: CVReference[];
-  characterTraits: CVCharacterTrait[];
-  competitions: CVCompetitionEntry[];
-  trajectory: CVTrajectory;
-  dualRole: CVDualRoleCompetency;
-  coachability: CoachabilityResult | null;
+  references: CVReferenceEntry[];
+  awardsCharacter: CVAwardsCharacter;
+  healthStatus: CVHealthStatus;
 }): CVSectionStatus {
-  return {
-    identity: data.identity.full_name && data.identity.date_of_birth && data.identity.nationality
-      ? "auto_complete"
-      : data.identity.full_name
-        ? "needs_input"
-        : "insufficient_data",
+  const identityComplete =
+    !!data.identity.full_name &&
+    !!data.identity.date_of_birth &&
+    !!data.identity.nationality &&
+    !!data.identity.preferred_foot;
 
-    physical: data.physical.height_cm && data.physical.weight_kg
-      ? "auto_complete"
-      : "insufficient_data",
-
-    positions: data.positions.primary_position ? "auto_complete" : "needs_input",
-
-    personal_statement: data.statements.statement_status === "approved"
+  const profileState: CVSectionState =
+    data.playerProfile.ai_summary_status === "approved"
       ? "approved"
-      : data.statements.personal_statement_club
+      : data.playerProfile.ai_summary
         ? "ai_draft_pending"
-        : "needs_input",
+        : data.playerProfile.ai_summary_status === "needs_update"
+          ? "ai_draft_pending"
+          : "needs_input";
 
-    career_history: data.career.length > 0 ? "auto_complete" : "needs_input",
-
-    performance_data: data.performance.benchmarks.length >= 2 && data.performance.sessions_total >= 10
+  const physicalState: CVSectionState =
+    data.physical.height_cm && data.physical.weight_kg && data.verifiedPerformance.benchmarks.length >= 3
       ? "auto_complete"
-      : data.performance.sessions_total >= 1
+      : data.physical.height_cm && data.physical.weight_kg
         ? "insufficient_data"
-        : "insufficient_data",
+        : "insufficient_data";
 
-    trajectory: data.trajectory.metric_trends.length >= 1
+  const positionsState: CVSectionState = data.positions.is_set
+    ? "auto_complete"
+    : data.positions.primary_position
+      ? "needs_input"
+      : "insufficient_data";
+
+  const perfState: CVSectionState =
+    data.verifiedPerformance.benchmarks.length >= 2 && data.verifiedPerformance.sessions_total >= 10
       ? "auto_complete"
-      : "insufficient_data",
+      : "insufficient_data";
 
-    coachability: data.coachability && data.coachability.score >= 0
-      ? "auto_complete"
-      : "insufficient_data",
+  const careerState: CVSectionState = data.career.length > 0 ? "auto_complete" : "empty";
 
-    competitions: data.competitions.length > 0 ? "auto_complete" : "needs_input",
+  const mediaState: CVSectionState =
+    data.media.some(m => m.media_type === "highlight_reel") ? "auto_complete" : "empty";
 
-    academic: data.academic.length > 0 ? "auto_complete" : "needs_input",
-
-    dual_role: data.dualRole.dual_load_index != null
-      ? "auto_complete"
-      : "insufficient_data",
-
-    video_media: data.media.length > 0 ? "auto_complete" : "needs_input",
-
-    references: data.references.filter(r => r.consent_given).length > 0
-      ? "auto_complete"
+  const referencesState: CVSectionState =
+    data.references.some(r => r.status === "published")
+      ? "approved"
       : data.references.length > 0
-        ? "needs_input"
-        : "needs_input",
+        ? "ai_draft_pending"
+        : "empty";
 
-    character_traits: data.characterTraits.length > 0 ? "auto_complete" : "needs_input",
+  const awardsState: CVSectionState =
+    data.awardsCharacter.total_count > 0 ? "auto_complete" : "empty";
+
+  const healthState: CVSectionState =
+    data.healthStatus.overall === "fully_fit" ? "auto_complete" : "needs_input";
+
+  return {
+    identity: identityComplete ? "auto_complete" : "needs_input",
+    player_profile: profileState,
+    physical_profile: physicalState,
+    playing_positions: positionsState,
+    verified_performance: perfState,
+    career_history: careerState,
+    video_media: mediaState,
+    references: referencesState,
+    awards_character: awardsState,
+    health_status: healthState,
   };
 }
 
-// ── Row mappers ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ROW MAPPERS
+// ═══════════════════════════════════════════════════════════════════════════
 
 function mapCareerEntry(row: any): CVCareerEntry {
   return {
@@ -695,23 +736,6 @@ function mapCareerEntry(row: any): CVCareerEntry {
   };
 }
 
-function mapAcademicEntry(row: any): CVAcademicEntry {
-  return {
-    id: row.id,
-    institution: row.institution,
-    country: row.country ?? null,
-    qualification: row.qualification ?? null,
-    year_start: row.year_start ?? null,
-    year_end: row.year_end ?? null,
-    gpa: row.gpa ?? null,
-    gpa_scale: row.gpa_scale ?? null,
-    predicted_grade: row.predicted_grade ?? null,
-    honours: row.honours ?? [],
-    ncaa_eligibility_id: row.ncaa_eligibility_id ?? null,
-    is_current: row.is_current ?? false,
-  };
-}
-
 function mapMediaLink(row: any): CVMediaLink {
   return {
     id: row.id,
@@ -723,7 +747,7 @@ function mapMediaLink(row: any): CVMediaLink {
   };
 }
 
-function mapReference(row: any): CVReference {
+function mapReferenceEntry(row: any): CVReferenceEntry {
   return {
     id: row.id,
     referee_name: row.referee_name,
@@ -732,7 +756,12 @@ function mapReference(row: any): CVReference {
     email: row.email ?? null,
     phone: row.phone ?? null,
     relationship: row.relationship ?? null,
-    consent_given: row.consent_given ?? false,
+    status: row.status ?? "published",
+    request_sent_at: row.request_sent_at ?? null,
+    submitted_at: row.submitted_at ?? null,
+    submitted_rating: row.submitted_rating ?? null,
+    submitted_note: row.submitted_note ?? null,
+    published_at: row.published_at ?? null,
   };
 }
 
@@ -747,16 +776,110 @@ function mapCharacterTrait(row: any): CVCharacterTrait {
   };
 }
 
-function mapCompetition(row: any): CVCompetitionEntry {
-  const payload = row.payload ?? {};
+function mapInjuryEntry(row: any): CVInjuryEntry {
   return {
     id: row.id,
-    competition_name: payload.competition_name ?? null,
-    opponent: payload.opponent ?? null,
-    result: payload.result ?? null,
-    minutes_played: payload.minutes_played ?? null,
-    performance_notes: payload.performance_notes ?? null,
-    stats: payload.stats ?? null,
-    date: row.created_at,
+    body_part: row.body_part,
+    side: row.side ?? null,
+    severity: row.severity,
+    status: row.status,
+    date_occurred: row.date_occurred,
+    cleared_at: row.cleared_at ?? null,
+    notes: row.notes ?? null,
   };
+}
+
+function mapSessionLog(row: any): CVSessionLogEntry {
+  const start = row.start_at ? new Date(row.start_at) : null;
+  const end = row.end_at ? new Date(row.end_at) : null;
+  const durationMin =
+    start && end ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000)) : null;
+
+  return {
+    date: row.start_at,
+    title: row.title ?? row.event_type ?? "Session",
+    category: humanizeEventType(row.event_type),
+    duration_min: durationMin,
+    load_au: row.estimated_load_au != null ? Math.round(Number(row.estimated_load_au)) : null,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function zoneFromPercentile(pct: number): "elite" | "on_par" | "dev_priority" {
+  if (pct >= 75) return "elite";
+  if (pct >= 25) return "on_par";
+  return "dev_priority";
+}
+
+function trainingBalanceFromAcwr(acwr: number | null | undefined): "under" | "balanced" | "over" | null {
+  if (acwr == null) return null;
+  if (acwr < 0.8) return "under";
+  if (acwr > 1.3) return "over";
+  return "balanced";
+}
+
+function formatTrainingAge(months: number): string {
+  if (months < 1) return "<1 mo";
+  if (months < 12) return `${months} mo`;
+  const years = Math.floor(months / 12);
+  const rem = months % 12;
+  return rem === 0 ? `${years} y` : `${years} y ${rem} mo`;
+}
+
+function deriveAgeGroup(age: number | null | undefined, dob: string | null | undefined): string | null {
+  const a = age ?? (dob ? Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 86400000)) : null);
+  if (a == null) return null;
+  if (a < 13) return "U13";
+  if (a < 15) return "U15";
+  if (a < 17) return "U17";
+  if (a < 19) return "U19";
+  if (a < 21) return "U21";
+  if (a < 23) return "U23";
+  return "Senior";
+}
+
+function humanizeEventType(type: string | null | undefined): string {
+  switch (type) {
+    case "training": return "Training";
+    case "match":    return "Match";
+    case "recovery": return "Recovery";
+    case "study":    return "Study";
+    case "exam":     return "Exam";
+    default:         return "Session";
+  }
+}
+
+function keySignalLabel(metricKey: string): string {
+  const map: Record<string, string> = {
+    squat_1rm:       "Lower-body power",
+    vertical_jump:   "Lower-body power",
+    broad_jump:      "Lower-body power",
+    cmj:             "Lower-body power",
+    seated_mb_throw: "Upper-body power",
+    mas:             "Aerobic capacity",
+    yo_yo:           "Aerobic capacity",
+    sprint_10m:      "Acceleration",
+    sprint_20m:      "Acceleration",
+    max_sprint:      "Top speed",
+    t_test:          "Agility",
+    "5_10_5":        "Change of direction",
+  };
+  return map[metricKey] ?? metricKey.replace(/_/g, " ");
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  } catch {
+    return iso;
+  }
+}
+
+function buildPublicShareUrl(slug: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_ORIGIN ?? "https://app.my-tomo.com";
+  return `${base}/t/${slug}`;
 }

@@ -1,19 +1,22 @@
 /**
- * useCVProfile — Fetches the full assembled CV bundle from the API.
- * Returns the complete FullCVBundle with all auto-populated + manual sections,
- * plus CRUD helpers for manual entry sections (career, academic, media, refs, traits).
+ * useCVProfile — Fetches the full CV bundle (single-flow, 12-screen schema).
+ * Plus CRUD helpers for every mutable section.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { API_BASE_URL } from '../services/apiConfig';
-import { getIdToken } from '../services/auth';
+import { useState, useEffect, useCallback } from "react";
+import { API_BASE_URL } from "../services/apiConfig";
+import { getIdToken } from "../services/auth";
 
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getIdToken();
-  return token ? { Authorization: `Bearer ${token}`, Accept: 'application/json' } : { Accept: 'application/json' };
+  return token
+    ? { Authorization: `Bearer ${token}`, Accept: "application/json" }
+    : { Accept: "application/json" };
 }
 
-// ── Types (mirror backend cvAssembler types) ──
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPES (mirror backend services/cv/cvAssembler.ts)
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface CVIdentity {
   full_name: string;
@@ -24,12 +27,12 @@ export interface CVIdentity {
   city_country: string | null;
   photo_url: string | null;
   email: string;
-  phone: string | null;
   sport: string;
-  position: string | null;
+  primary_position: string | null;
   preferred_foot: string | null;
-  playing_style: string | null;
-  secondary_positions: string[] | null;
+  age_group: string | null;
+  phv_stage: string | null;
+  phv_offset_years: number | null;
   guardian_name: string | null;
   guardian_email: string | null;
   guardian_phone: string | null;
@@ -40,87 +43,95 @@ export interface CVPhysicalProfile {
   weight_kg: number | null;
   phv_stage: string | null;
   phv_offset_years: number | null;
-  academic_year: number | null;
 }
 
 export interface CVPositions {
   primary_position: string | null;
+  primary_label: string | null;
+  primary_description: string | null;
   secondary_positions: string[];
   formation_preference: string | null;
   dominant_zone: string | null;
+  is_set: boolean;
+  has_secondary: boolean;
 }
 
-export interface CVBenchmarkResult {
+export interface CVBenchmarkRow {
   metric_key: string;
   metric_label: string;
   value: number;
   unit: string;
   percentile: number;
-  zone: string;
-  direction: string;
+  zone: "elite" | "on_par" | "dev_priority";
+  direction: "higher_is_better" | "lower_is_better";
   age_band: string;
   position: string;
   tested_at: string | null;
 }
 
-export interface CVPerformanceData {
+export interface CVKeySignal {
+  metric_key: string;
+  label: string;
+  detail: string;
+  percentile_label: string;
+  kind: "strength" | "focus";
+}
+
+export interface CVSummaryVersion {
+  version_number: number;
+  generated_at: string;
+  approved: boolean;
+  approved_at: string | null;
+}
+
+export interface CVPlayerProfile {
+  ai_summary: string | null;
+  ai_summary_status: "draft" | "approved" | "needs_update";
+  ai_summary_last_generated: string | null;
+  ai_summary_approved_at: string | null;
+  key_signals: {
+    strengths: CVKeySignal[];
+    focus_areas: CVKeySignal[];
+    physical_maturity: { label: string; detail: string } | null;
+  };
+  versions: CVSummaryVersion[];
+}
+
+export interface CVSessionLogEntry {
+  date: string;
+  title: string;
+  category: string;
+  duration_min: number | null;
+  load_au: number | null;
+}
+
+export interface CVVerifiedPerformance {
   sessions_total: number;
-  training_age_weeks: number;
   training_age_months: number;
+  training_age_label: string;
   streak_days: number;
-  last_session_at: string | null;
-  last_checkin_at: string | null;
   acwr: number | null;
-  atl_7day: number | null;
-  ctl_28day: number | null;
-  injury_risk_flag: string | null;
-  readiness_score: number | null;
-  readiness_rag: string | null;
-  wellness_7day_avg: number | null;
-  wellness_trend: string | null;
-  benchmarks: CVBenchmarkResult[];
+  training_balance: "under" | "balanced" | "over" | null;
+  benchmarks: CVBenchmarkRow[];
+  strength_zones: CVBenchmarkRow[];
+  development_focus: CVBenchmarkRow[];
   overall_percentile: number | null;
-  strengths: string[];
-  gaps: string[];
-  coachability: {
-    score: number;
-    label: string;
-    components: {
-      target_achievement_rate: number;
-      adaptation_velocity: number;
-      coach_responsiveness: number;
-    };
-    sufficient_data: boolean;
-  } | null;
+  session_log: CVSessionLogEntry[];
   data_start_date: string | null;
   verified_by: "tomo_platform";
 }
 
-export interface CVTrajectory {
-  metric_trends: {
-    metric_key: string;
-    metric_label: string;
-    data_points: { date: string; value: number; percentile: number; zone: string }[];
-    total_improvement_pct: number | null;
-  }[];
-  narrative: string | null;
-  narrative_last_generated: string | null;
-}
-
-export interface CVCompetitionEntry {
-  id: string;
-  competition_name: string | null;
-  opponent: string | null;
-  result: string | null;
-  minutes_played: number | null;
-  performance_notes: string | null;
-  stats: Record<string, number> | null;
-  date: string;
-}
+export type CareerEntryType =
+  | "club"
+  | "academy"
+  | "national_team"
+  | "trial"
+  | "camp"
+  | "showcase";
 
 export interface CVCareerEntry {
   id: string;
-  entry_type: string;
+  entry_type: CareerEntryType;
   club_name: string;
   league_level: string | null;
   country: string | null;
@@ -136,31 +147,33 @@ export interface CVCareerEntry {
   injury_note: string | null;
 }
 
-export interface CVAcademicEntry {
-  id: string;
-  institution: string;
-  country: string | null;
-  qualification: string | null;
-  year_start: number | null;
-  year_end: number | null;
-  gpa: string | null;
-  gpa_scale: string | null;
-  predicted_grade: string | null;
-  honours: string[];
-  ncaa_eligibility_id: string | null;
-  is_current: boolean;
-}
+export type MediaType = "highlight_reel" | "full_match" | "training" | "social";
+export type MediaPlatform =
+  | "youtube"
+  | "vimeo"
+  | "instagram"
+  | "tiktok"
+  | "wyscout"
+  | "hudl"
+  | "other";
 
 export interface CVMediaLink {
   id: string;
-  media_type: string;
-  platform: string | null;
+  media_type: MediaType;
+  platform: MediaPlatform | null;
   url: string;
   title: string | null;
   is_primary: boolean;
 }
 
-export interface CVReference {
+export type ReferenceStatus =
+  | "requested"
+  | "submitted"
+  | "identity_verified"
+  | "published"
+  | "rejected";
+
+export interface CVReferenceEntry {
   id: string;
   referee_name: string;
   referee_role: string;
@@ -168,48 +181,102 @@ export interface CVReference {
   email: string | null;
   phone: string | null;
   relationship: string | null;
-  consent_given: boolean;
+  status: ReferenceStatus;
+  request_sent_at: string | null;
+  submitted_at: string | null;
+  submitted_rating: number | null;
+  submitted_note: string | null;
+  published_at: string | null;
 }
+
+export type TraitCategory = "award" | "leadership" | "language" | "character";
 
 export interface CVCharacterTrait {
   id: string;
-  trait_category: string;
+  trait_category: TraitCategory;
   title: string;
   description: string | null;
   level: string | null;
   date: string | null;
 }
 
-export interface CVInjuryStatus {
-  has_active_injury: boolean;
-  pain_location: string | null;
-  current_stage: number | null;
+export interface CVAwardsCharacter {
+  awards: CVCharacterTrait[];
+  leadership: CVCharacterTrait[];
+  languages: CVCharacterTrait[];
+  character: CVCharacterTrait[];
+  total_count: number;
+}
+
+export type InjurySeverity = "minor" | "moderate" | "major";
+export type InjuryStatus = "active" | "recovering" | "cleared";
+export type InjurySide = "left" | "right" | "bilateral" | "central";
+
+export interface CVInjuryEntry {
+  id: string;
+  body_part: string;
+  side: InjurySide | null;
+  severity: InjurySeverity;
+  status: InjuryStatus;
+  date_occurred: string;
   cleared_at: string | null;
+  notes: string | null;
+}
+
+export interface CVHealthStatus {
+  overall: "fully_fit" | "returning" | "injured";
   status_label: string;
+  status_detail: string;
+  updated_at: string;
+  availability: {
+    match_ready: boolean;
+    training_load: "full" | "partial" | "rest";
+    restrictions: string[];
+    last_screening_date: string | null;
+  };
+  injury_log: CVInjuryEntry[];
+  medical_consent: {
+    share_with_coach: boolean;
+    share_with_scouts_summary: boolean;
+    share_raw_data: boolean;
+    signed: boolean;
+  };
 }
 
-export interface CVStatements {
-  personal_statement_club: string | null;
-  personal_statement_uni: string | null;
-  statement_status: string;
-  statement_last_generated: string | null;
+export interface CVShareInfo {
+  share_slug: string | null;
+  share_views_count: number;
+  is_published: boolean;
+  public_url: string | null;
+  last_pdf_export_at: string | null;
 }
 
-export interface CVDualRoleCompetency {
-  dual_load_index: number | null;
-  academic_load_7day: number | null;
-  exam_period_training_rate: number | null;
-  narrative: string | null;
-  narrative_last_generated: string | null;
-}
+export type CVNextStepKey =
+  | "secondary_positions"
+  | "career_history"
+  | "highlight_video"
+  | "coach_reference"
+  | "awards_character"
+  | "approve_ai_summary"
+  | "health_screening";
 
-export interface CVCompletenessResult {
-  club_pct: number;
-  uni_pct: number;
-  club_breakdown: Record<string, { score: number; max: number; label: string }>;
-  uni_breakdown: Record<string, { score: number; max: number; label: string }>;
-  next_actions_club: string[];
-  next_actions_uni: string[];
+export type CVTargetSection =
+  | "playing_positions"
+  | "career_history"
+  | "video_media"
+  | "references"
+  | "awards_character"
+  | "player_profile"
+  | "health_status";
+
+export interface CVNextStep {
+  key: CVNextStepKey;
+  title: string;
+  subtitle: string;
+  category: string;
+  impact_pct: number;
+  estimated_minutes: number;
+  target_section: CVTargetSection;
 }
 
 export type CVSectionState =
@@ -217,80 +284,107 @@ export type CVSectionState =
   | "needs_input"
   | "ai_draft_pending"
   | "approved"
-  | "insufficient_data";
+  | "insufficient_data"
+  | "empty";
 
 export interface CVSectionStatus {
   identity: CVSectionState;
-  physical: CVSectionState;
-  positions: CVSectionState;
-  personal_statement: CVSectionState;
+  player_profile: CVSectionState;
+  physical_profile: CVSectionState;
+  playing_positions: CVSectionState;
+  verified_performance: CVSectionState;
   career_history: CVSectionState;
-  performance_data: CVSectionState;
-  trajectory: CVSectionState;
-  coachability: CVSectionState;
-  competitions: CVSectionState;
-  academic: CVSectionState;
-  dual_role: CVSectionState;
   video_media: CVSectionState;
   references: CVSectionState;
-  character_traits: CVSectionState;
+  awards_character: CVSectionState;
+  health_status: CVSectionState;
 }
 
-export interface CVShareInfo {
-  share_token_club: string | null;
-  share_token_uni: string | null;
-  share_club_views: number;
-  share_uni_views: number;
-  cv_club_discoverable: boolean;
-  cv_uni_discoverable: boolean;
+export interface CVCompletenessBreakdownRow {
+  score: number;
+  max: number;
+  label: string;
 }
 
 export interface FullCVBundle {
   identity: CVIdentity;
   physical: CVPhysicalProfile;
   positions: CVPositions;
-  statements: CVStatements;
-  trajectory: CVTrajectory;
-  dual_role: CVDualRoleCompetency;
-  performance: CVPerformanceData;
-  competitions: CVCompetitionEntry[];
-  injury_status: CVInjuryStatus;
+  player_profile: CVPlayerProfile;
+  verified_performance: CVVerifiedPerformance;
   career: CVCareerEntry[];
-  academic: CVAcademicEntry[];
   media: CVMediaLink[];
-  references: CVReference[];
-  character_traits: CVCharacterTrait[];
-  completeness: CVCompletenessResult;
+  references: CVReferenceEntry[];
+  awards_character: CVAwardsCharacter;
+  health_status: CVHealthStatus;
+  completeness_pct: number;
+  completeness_breakdown: Record<string, CVCompletenessBreakdownRow>;
+  next_steps: CVNextStep[];
   section_states: CVSectionStatus;
   share: CVShareInfo;
   last_updated: string;
 }
 
-// ── Hook ──
+// ═══════════════════════════════════════════════════════════════════════════
+// HOOK
+// ═══════════════════════════════════════════════════════════════════════════
 
 interface UseCVProfileReturn {
   data: FullCVBundle | null;
   isLoading: boolean;
   error: string | null;
-  refetch: () => void;
-  // CV profile updates
-  updateProfile: (updates: Record<string, unknown>) => Promise<boolean>;
-  // Career CRUD
-  addCareer: (input: Omit<CVCareerEntry, 'id'>) => Promise<CVCareerEntry | null>;
-  updateCareer: (id: string, input: Partial<CVCareerEntry>) => Promise<boolean>;
+  refetch: () => Promise<void>;
+
+  // Profile
+  updateProfile: (updates: Partial<{
+    formation_preference: string | null;
+    dominant_zone: string | null;
+    show_performance_data: boolean;
+    show_coachability: boolean;
+  }>) => Promise<boolean>;
+
+  // AI summary
+  regenerateAISummary: (force?: boolean) => Promise<{ generated: boolean; content: string | null }>;
+  approveAISummary: () => Promise<boolean>;
+
+  // Career
+  addCareer: (input: Omit<CVCareerEntry, "id">) => Promise<CVCareerEntry | null>;
+  updateCareer: (id: string, patch: Partial<CVCareerEntry>) => Promise<boolean>;
   deleteCareer: (id: string) => Promise<boolean>;
-  // Academic CRUD
-  addAcademic: (input: Omit<CVAcademicEntry, 'id'>) => Promise<CVAcademicEntry | null>;
-  deleteAcademic: (id: string) => Promise<boolean>;
-  // Media CRUD
-  addMedia: (input: Omit<CVMediaLink, 'id'>) => Promise<CVMediaLink | null>;
+
+  // Media
+  addMedia: (input: Omit<CVMediaLink, "id">) => Promise<CVMediaLink | null>;
   deleteMedia: (id: string) => Promise<boolean>;
-  // Reference CRUD
-  addReference: (input: Omit<CVReference, 'id'>) => Promise<CVReference | null>;
+
+  // References
+  requestReference: (input: {
+    referee_name: string;
+    referee_role: string;
+    club_institution: string;
+    email: string;
+    phone?: string | null;
+    relationship?: string | null;
+  }) => Promise<{ reference: CVReferenceEntry; referee_link: string } | null>;
   deleteReference: (id: string) => Promise<boolean>;
-  // Character trait CRUD
-  addTrait: (input: Omit<CVCharacterTrait, 'id'>) => Promise<CVCharacterTrait | null>;
+
+  // Awards & Character
+  addTrait: (input: Omit<CVCharacterTrait, "id">) => Promise<CVCharacterTrait | null>;
   deleteTrait: (id: string) => Promise<boolean>;
+
+  // Health
+  addInjury: (input: Omit<CVInjuryEntry, "id">) => Promise<CVInjuryEntry | null>;
+  updateInjury: (id: string, patch: Partial<CVInjuryEntry>) => Promise<boolean>;
+  deleteInjury: (id: string) => Promise<boolean>;
+  updateMedicalConsent: (patch: Partial<{
+    share_with_coach: boolean;
+    share_with_scouts_summary: boolean;
+    share_raw_data: boolean;
+    last_screening_date: string | null;
+  }>) => Promise<boolean>;
+
+  // Publish
+  publish: () => Promise<{ slug: string; public_url: string } | null>;
+  unpublish: () => Promise<boolean>;
 }
 
 export function useCVProfile(athleteId: string): UseCVProfileReturn {
@@ -320,142 +414,262 @@ export function useCVProfile(athleteId: string): UseCVProfileReturn {
     if (athleteId) fetchBundle();
   }, [athleteId, fetchBundle]);
 
-  // ── Profile updates ──
-  const updateProfile = useCallback(async (updates: Record<string, unknown>): Promise<boolean> => {
-    try {
-      const headers = await authHeaders();
-      const res = await fetch(`${API_BASE_URL}/api/v1/cv/profile`, {
-        method: 'PUT',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) return false;
-      await fetchBundle(); // Refetch to get updated data
-      return true;
-    } catch { return false; }
-  }, [fetchBundle]);
+  // ── Helpers ──
 
-  // ── Generic CRUD helper ──
-  const crudAdd = useCallback(async <T>(
-    endpoint: string,
-    input: Record<string, unknown>,
-    updateFn: (prev: FullCVBundle, item: T) => FullCVBundle
-  ): Promise<T | null> => {
-    try {
+  const apiCall = useCallback(
+    async (
+      path: string,
+      init: RequestInit & { parse?: boolean } = {}
+    ): Promise<Response> => {
       const headers = await authHeaders();
-      const res = await fetch(`${API_BASE_URL}/api/v1/cv/${endpoint}`, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
+      return fetch(`${API_BASE_URL}${path}`, {
+        ...init,
+        headers: { ...headers, ...(init.body ? { "Content-Type": "application/json" } : {}) },
       });
-      if (!res.ok) return null;
-      const item = await res.json() as T;
-      setData(prev => prev ? updateFn(prev, item) : prev);
-      return item;
-    } catch { return null; }
-  }, []);
+    },
+    []
+  );
 
-  const crudDelete = useCallback(async (
-    endpoint: string,
-    id: string,
-    updateFn: (prev: FullCVBundle) => FullCVBundle
-  ): Promise<boolean> => {
-    try {
-      const headers = await authHeaders();
-      const res = await fetch(`${API_BASE_URL}/api/v1/cv/${endpoint}/${id}`, {
-        method: 'DELETE',
-        headers,
-      });
-      if (!res.ok) return false;
-      setData(prev => prev ? updateFn(prev) : prev);
-      return true;
-    } catch { return false; }
-  }, []);
+  // ── Profile ──
 
-  const crudUpdate = useCallback(async (
-    endpoint: string,
-    id: string,
-    input: Record<string, unknown>
-  ): Promise<boolean> => {
+  const updateProfile = useCallback(
+    async (updates): Promise<boolean> => {
+      try {
+        const res = await apiCall("/api/v1/cv/profile", {
+          method: "PUT",
+          body: JSON.stringify(updates),
+        });
+        if (!res.ok) return false;
+        await fetchBundle();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [apiCall, fetchBundle]
+  );
+
+  // ── AI summary ──
+
+  const regenerateAISummary = useCallback(
+    async (force = false) => {
+      try {
+        const res = await apiCall("/api/v1/cv/ai-summary/regenerate", {
+          method: "POST",
+          body: JSON.stringify({ force }),
+        });
+        if (!res.ok) return { generated: false, content: null };
+        const body = await res.json();
+        await fetchBundle();
+        return { generated: !!body.generated, content: body.content ?? null };
+      } catch {
+        return { generated: false, content: null };
+      }
+    },
+    [apiCall, fetchBundle]
+  );
+
+  const approveAISummary = useCallback(async (): Promise<boolean> => {
     try {
-      const headers = await authHeaders();
-      const res = await fetch(`${API_BASE_URL}/api/v1/cv/${endpoint}/${id}`, {
-        method: 'PUT',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
+      const res = await apiCall("/api/v1/cv/ai-summary/approve", { method: "POST" });
       if (!res.ok) return false;
       await fetchBundle();
       return true;
-    } catch { return false; }
-  }, [fetchBundle]);
+    } catch {
+      return false;
+    }
+  }, [apiCall, fetchBundle]);
+
+  // ── Generic CRUD helpers (narrow refetch) ──
+
+  const addEntity = useCallback(
+    async <T>(path: string, payload: unknown): Promise<T | null> => {
+      try {
+        const res = await apiCall(path, { method: "POST", body: JSON.stringify(payload) });
+        if (!res.ok) return null;
+        const row = (await res.json()) as T;
+        await fetchBundle();
+        return row;
+      } catch {
+        return null;
+      }
+    },
+    [apiCall, fetchBundle]
+  );
+
+  const patchEntity = useCallback(
+    async (path: string, payload: unknown): Promise<boolean> => {
+      try {
+        const res = await apiCall(path, { method: "PATCH", body: JSON.stringify(payload) });
+        if (!res.ok) return false;
+        await fetchBundle();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [apiCall, fetchBundle]
+  );
+
+  const deleteEntity = useCallback(
+    async (path: string): Promise<boolean> => {
+      try {
+        const res = await apiCall(path, { method: "DELETE" });
+        if (!res.ok) return false;
+        await fetchBundle();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [apiCall, fetchBundle]
+  );
 
   // ── Career ──
-  const addCareer = useCallback((input: Omit<CVCareerEntry, 'id'>) =>
-    crudAdd<CVCareerEntry>('career', input as any, (prev, item) => ({
-      ...prev, career: [item, ...prev.career]
-    })), [crudAdd]);
 
-  const updateCareer = useCallback((id: string, input: Partial<CVCareerEntry>) =>
-    crudUpdate('career', id, input as any), [crudUpdate]);
-
-  const deleteCareer = useCallback((id: string) =>
-    crudDelete('career', id, prev => ({
-      ...prev, career: prev.career.filter(c => c.id !== id)
-    })), [crudDelete]);
-
-  // ── Academic ──
-  const addAcademic = useCallback((input: Omit<CVAcademicEntry, 'id'>) =>
-    crudAdd<CVAcademicEntry>('academic', input as any, (prev, item) => ({
-      ...prev, academic: [item, ...prev.academic]
-    })), [crudAdd]);
-
-  const deleteAcademic = useCallback((id: string) =>
-    crudDelete('academic', id, prev => ({
-      ...prev, academic: prev.academic.filter(a => a.id !== id)
-    })), [crudDelete]);
+  const addCareer = useCallback(
+    (input: Omit<CVCareerEntry, "id">) =>
+      addEntity<CVCareerEntry>("/api/v1/cv/career", input),
+    [addEntity]
+  );
+  const updateCareer = useCallback(
+    (id: string, patch: Partial<CVCareerEntry>) =>
+      patchEntity(`/api/v1/cv/career/${id}`, patch),
+    [patchEntity]
+  );
+  const deleteCareer = useCallback(
+    (id: string) => deleteEntity(`/api/v1/cv/career/${id}`),
+    [deleteEntity]
+  );
 
   // ── Media ──
-  const addMedia = useCallback((input: Omit<CVMediaLink, 'id'>) =>
-    crudAdd<CVMediaLink>('media', input as any, (prev, item) => ({
-      ...prev, media: [item, ...prev.media]
-    })), [crudAdd]);
 
-  const deleteMedia = useCallback((id: string) =>
-    crudDelete('media', id, prev => ({
-      ...prev, media: prev.media.filter(m => m.id !== id)
-    })), [crudDelete]);
+  const addMedia = useCallback(
+    (input: Omit<CVMediaLink, "id">) =>
+      addEntity<CVMediaLink>("/api/v1/cv/media", input),
+    [addEntity]
+  );
+  const deleteMedia = useCallback(
+    (id: string) => deleteEntity(`/api/v1/cv/media/${id}`),
+    [deleteEntity]
+  );
 
   // ── References ──
-  const addReference = useCallback((input: Omit<CVReference, 'id'>) =>
-    crudAdd<CVReference>('reference', input as any, (prev, item) => ({
-      ...prev, references: [item, ...prev.references]
-    })), [crudAdd]);
 
-  const deleteReference = useCallback((id: string) =>
-    crudDelete('reference', id, prev => ({
-      ...prev, references: prev.references.filter(r => r.id !== id)
-    })), [crudDelete]);
+  const requestReference = useCallback(
+    async (input) => {
+      try {
+        const res = await apiCall("/api/v1/cv/reference", {
+          method: "POST",
+          body: JSON.stringify(input),
+        });
+        if (!res.ok) return null;
+        const body = await res.json();
+        await fetchBundle();
+        return { reference: body.reference, referee_link: body.referee_link };
+      } catch {
+        return null;
+      }
+    },
+    [apiCall, fetchBundle]
+  );
+  const deleteReference = useCallback(
+    (id: string) => deleteEntity(`/api/v1/cv/reference/${id}`),
+    [deleteEntity]
+  );
 
-  // ── Character traits ──
-  const addTrait = useCallback((input: Omit<CVCharacterTrait, 'id'>) =>
-    crudAdd<CVCharacterTrait>('character', input as any, (prev, item) => ({
-      ...prev, character_traits: [item, ...prev.character_traits]
-    })), [crudAdd]);
+  // ── Awards & Character ──
 
-  const deleteTrait = useCallback((id: string) =>
-    crudDelete('character', id, prev => ({
-      ...prev, character_traits: prev.character_traits.filter(t => t.id !== id)
-    })), [crudDelete]);
+  const addTrait = useCallback(
+    (input: Omit<CVCharacterTrait, "id">) =>
+      addEntity<CVCharacterTrait>("/api/v1/cv/character", input),
+    [addEntity]
+  );
+  const deleteTrait = useCallback(
+    (id: string) => deleteEntity(`/api/v1/cv/character/${id}`),
+    [deleteEntity]
+  );
+
+  // ── Health ──
+
+  const addInjury = useCallback(
+    (input: Omit<CVInjuryEntry, "id">) =>
+      addEntity<CVInjuryEntry>("/api/v1/cv/injury", input),
+    [addEntity]
+  );
+  const updateInjury = useCallback(
+    (id: string, patch: Partial<CVInjuryEntry>) =>
+      patchEntity(`/api/v1/cv/injury/${id}`, patch),
+    [patchEntity]
+  );
+  const deleteInjury = useCallback(
+    (id: string) => deleteEntity(`/api/v1/cv/injury/${id}`),
+    [deleteEntity]
+  );
+  const updateMedicalConsent = useCallback(
+    async (patch): Promise<boolean> => {
+      try {
+        const res = await apiCall("/api/v1/cv/medical-consent", {
+          method: "PUT",
+          body: JSON.stringify(patch),
+        });
+        if (!res.ok) return false;
+        await fetchBundle();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [apiCall, fetchBundle]
+  );
+
+  // ── Publish ──
+
+  const publish = useCallback(async () => {
+    try {
+      const res = await apiCall("/api/v1/cv/publish", { method: "POST" });
+      if (!res.ok) return null;
+      const body = await res.json();
+      await fetchBundle();
+      return { slug: body.slug, public_url: body.public_url };
+    } catch {
+      return null;
+    }
+  }, [apiCall, fetchBundle]);
+
+  const unpublish = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await apiCall("/api/v1/cv/publish", { method: "DELETE" });
+      if (!res.ok) return false;
+      await fetchBundle();
+      return true;
+    } catch {
+      return false;
+    }
+  }, [apiCall, fetchBundle]);
 
   return {
-    data, isLoading, error,
+    data,
+    isLoading,
+    error,
     refetch: fetchBundle,
     updateProfile,
-    addCareer, updateCareer, deleteCareer,
-    addAcademic, deleteAcademic,
-    addMedia, deleteMedia,
-    addReference, deleteReference,
-    addTrait, deleteTrait,
+    regenerateAISummary,
+    approveAISummary,
+    addCareer,
+    updateCareer,
+    deleteCareer,
+    addMedia,
+    deleteMedia,
+    requestReference,
+    deleteReference,
+    addTrait,
+    deleteTrait,
+    addInjury,
+    updateInjury,
+    deleteInjury,
+    updateMedicalConsent,
+    publish,
+    unpublish,
   };
 }

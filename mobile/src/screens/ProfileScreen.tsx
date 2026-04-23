@@ -303,7 +303,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             <MenuItem
               icon="document-text"
               label="Player CV"
-              onPress={() => navigation.navigate('PlayerCV')}
+              onPress={() => navigation.navigate('CVHub')}
             />
           )}
           <MenuItem

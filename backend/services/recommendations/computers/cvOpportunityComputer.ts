@@ -181,17 +181,17 @@ export async function computeCvOpportunityRec(
   if (!priority) {
     const { data: cvProfile } = await (db as any)
       .from('cv_profiles')
-      .select('statement_status, statement_last_generated')
+      .select('ai_summary_status, ai_summary_last_generated')
       .eq('athlete_id', athleteId)
       .maybeSingle();
 
-    if (cvProfile?.statement_status === 'needs_update') {
+    if (cvProfile?.ai_summary_status === 'needs_update') {
       priority = 4;
-      title = 'Update Your CV Statement';
-      bodyShort = 'Your data has changed. Regenerate your personal statement to reflect your latest achievements.';
-      bodyLong = 'Your CV personal statement was generated before your latest improvements. '
+      title = 'Update Your CV Summary';
+      bodyShort = 'Your data has changed. Regenerate your player profile summary to reflect your latest achievements.';
+      bodyLong = 'Your CV player profile summary was generated before your latest improvements. '
         + 'Regenerating it will include your new benchmarks, training milestones, and career updates. '
-        + 'Open your CV and tap "Regenerate" on your personal statement.';
+        + 'Open your CV and tap "Regenerate" on your player profile.';
     }
   }
 
@@ -317,19 +317,17 @@ async function findStaleMetric(
 async function getCVSectionCounts(
   athleteId: string,
   db: ReturnType<typeof supabaseAdmin>
-): Promise<{ career: number; media: number; references: number; academic: number; traits: number }> {
-  const [careerRes, mediaRes, refsRes, academicRes, traitsRes] = await Promise.all([
+): Promise<{ career: number; media: number; references: number; traits: number }> {
+  const [careerRes, mediaRes, refsRes, traitsRes] = await Promise.all([
     (db as any).from('cv_career_entries').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId),
     (db as any).from('cv_media_links').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId),
-    (db as any).from('cv_references').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId),
-    (db as any).from('cv_academic_entries').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId),
+    (db as any).from('cv_references').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId).eq('status', 'published'),
     (db as any).from('cv_character_traits').select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId),
   ]);
   return {
     career: careerRes.count ?? 0,
     media: mediaRes.count ?? 0,
     references: refsRes.count ?? 0,
-    academic: academicRes.count ?? 0,
     traits: traitsRes.count ?? 0,
   };
 }

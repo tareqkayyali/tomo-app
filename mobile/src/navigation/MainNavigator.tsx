@@ -59,7 +59,20 @@ import { ShotDetailScreen } from '../screens/ShotDetailScreen';
 import { ShotSessionScreen } from '../screens/ShotSessionScreen';
 import { PadelRatingScreen } from '../screens/PadelRatingScreen';
 import { FootballSkillDetailScreen, FootballRatingScreen, FootballTestInputScreen } from '../screens/football';
-import { PlayerCVScreen } from '../screens/PlayerCVScreen';
+import {
+  CVHubScreen,
+  CVIdentityScreen,
+  CVPlayerProfileScreen,
+  CVPhysicalProfileScreen,
+  CVPlayingPositionsScreen,
+  CVVerifiedPerformanceScreen,
+  CVCareerHistoryScreen,
+  CVVideoMediaScreen,
+  CVReferencesScreen,
+  CVAwardsCharacterScreen,
+  CVHealthStatusScreen,
+  CVNextStepsScreen,
+} from '../features/cv/screens';
 import { NotificationCenterScreen } from '../screens/NotificationCenterScreen';
 import { LinkAccountScreen } from '../screens/LinkAccountScreen';
 import { StudyPlanPreviewScreen } from '../screens/StudyPlanPreviewScreen';
@@ -623,11 +636,19 @@ export function MainNavigator() {
         component={FootballRatingScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen
-        name="PlayerCV"
-        component={PlayerCVScreen}
-        options={{ headerShown: false }}
-      />
+      {/* Player CV (hub + 11 sub-screens) */}
+      <Stack.Screen name="CVHub"                 component={CVHubScreen}                 options={{ headerShown: false }} />
+      <Stack.Screen name="CVIdentity"            component={CVIdentityScreen}            options={{ headerShown: false }} />
+      <Stack.Screen name="CVPlayerProfile"       component={CVPlayerProfileScreen}       options={{ headerShown: false }} />
+      <Stack.Screen name="CVPhysicalProfile"     component={CVPhysicalProfileScreen}     options={{ headerShown: false }} />
+      <Stack.Screen name="CVPlayingPositions"    component={CVPlayingPositionsScreen}    options={{ headerShown: false }} />
+      <Stack.Screen name="CVVerifiedPerformance" component={CVVerifiedPerformanceScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CVCareerHistory"       component={CVCareerHistoryScreen}       options={{ headerShown: false }} />
+      <Stack.Screen name="CVVideoMedia"          component={CVVideoMediaScreen}          options={{ headerShown: false }} />
+      <Stack.Screen name="CVReferences"          component={CVReferencesScreen}          options={{ headerShown: false }} />
+      <Stack.Screen name="CVAwardsCharacter"     component={CVAwardsCharacterScreen}     options={{ headerShown: false }} />
+      <Stack.Screen name="CVHealthStatus"        component={CVHealthStatusScreen}        options={{ headerShown: false }} />
+      <Stack.Screen name="CVNextSteps"           component={CVNextStepsScreen}           options={{ headerShown: false }} />
       <Stack.Screen
         name="FootballTestInput"
         component={FootballTestInputScreen}

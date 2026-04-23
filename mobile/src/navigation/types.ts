@@ -73,7 +73,19 @@ export type MainStackParamList = {
   // Football-specific screens
   FootballSkillDetail: { skill: string };
   FootballRating: undefined;
-  PlayerCV: undefined;
+  // ── Player CV ─────────────────────────────────────────────
+  CVHub: undefined;
+  CVIdentity: undefined;
+  CVPlayerProfile: undefined;
+  CVPhysicalProfile: undefined;
+  CVPlayingPositions: undefined;
+  CVVerifiedPerformance: undefined;
+  CVCareerHistory: undefined;
+  CVVideoMedia: undefined;
+  CVReferences: undefined;
+  CVAwardsCharacter: undefined;
+  CVHealthStatus: undefined;
+  CVNextSteps: undefined;
   FootballTestInput: { testId: string; historical?: boolean };
   // Historical Data (Profile > Historical Data — pre-Tomo context entry)
   HistoricalData: undefined;
