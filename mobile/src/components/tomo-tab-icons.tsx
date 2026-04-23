@@ -26,7 +26,7 @@ const ASSETS = {
   signalOff: require('../../assets/tab-icons/signal-inactive.png'),
 };
 
-export function IconTimeline({ size = 44, on = false }: IconProps) {
+export function IconTimeline({ size = 132, on = false }: IconProps) {
   return (
     <Image
       source={on ? ASSETS.timelineOn : ASSETS.timelineOff}
@@ -46,7 +46,7 @@ export function IconTomo({ size = 80, on = false }: IconProps) {
   );
 }
 
-export function IconSignal({ size = 44, on = false }: IconProps) {
+export function IconSignal({ size = 132, on = false }: IconProps) {
   return (
     <Image
       source={on ? ASSETS.signalOn : ASSETS.signalOff}
