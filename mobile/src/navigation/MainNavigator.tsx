@@ -136,9 +136,9 @@ const TAB_LABELS: Record<TabName, string> = {
  * reads as one design language: Ichinichi's dot ↔ Ensō's pulse core.
  */
 function TabGlyph({ name, active }: { name: TabName; color: string; active: boolean }) {
-  if (name === 'Plan') return <IconTimeline size={80} on={active} />;
+  if (name === 'Plan') return <IconTimeline size={56} on={active} />;
   // Chat is rendered as the floating orb; Dashboard = Signal beacon.
-  return <IconSignal size={80} on={active} />;
+  return <IconSignal size={56} on={active} />;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
