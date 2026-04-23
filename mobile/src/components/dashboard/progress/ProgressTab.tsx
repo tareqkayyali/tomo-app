@@ -1,20 +1,16 @@
 /**
- * ProgressTab — Signal > Progress sub-tab content.
+ * ProgressTab — Signal · Orbit.
  *
- * Renders a window toggle (7d / 30d / 90d) and a 2-col grid of
- * `ProgressRingCard`s driven by CMS-configured metrics loaded from
- * GET /api/v1/progress/metrics. Swipe between sub-tabs is owned by the
- * parent SignalDashboardScreen; this component only owns its own window
- * state + refresh control.
+ * Swaps the old 2-col ring grid for an orbital constellation visualisation.
+ * Layout:
+ *   • Fixed header (does not scroll): "SIGNAL · ORBIT" eyebrow, "Progress"
+ *     title, "Latest vs N-day average" subtitle, 7d/30d/90d segment toggle.
+ *   • Scrollable body: the 390×520 <OrbitConstellation/> canvas, followed
+ *     by a single-line legend that teaches the chip colour language.
  *
- * Design:
- *   • Cards are config-driven. Admins add/remove/rename metrics in the
- *     /admin/progress-metrics CMS; mobile reflects on next refresh.
- *   • Metrics with no data are filtered server-side (hasData:true only),
- *     so empty rings never render.
- *   • Empty state shows the athlete why ("Log a check-in to see your
- *     progress") instead of a blank grid.
- *   • Errors fall back to a pull-to-refresh message rather than crashing.
+ * Data contract is unchanged — backend still returns resolved metrics via
+ * `useProgressMetrics`. The constellation ranks by |delta| and renders the
+ * top six; empty/error states sit above the canvas as before.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -32,9 +28,8 @@ import { useTheme } from '../../../hooks/useTheme';
 import {
   useProgressMetrics,
   type ProgressWindow,
-  type ProgressMetric,
 } from '../../../hooks/useProgressMetrics';
-import { ProgressRingCard } from './ProgressRingCard';
+import { OrbitConstellation } from './OrbitConstellation';
 
 const WINDOWS: ProgressWindow[] = [7, 30, 90];
 
@@ -55,15 +50,17 @@ export function ProgressTab() {
 
   return (
     <View style={styles.root}>
-      {/* Fixed header — sticks to the top. Title + subtitle + 7/30/90 pill stay
-          visible while the card grid below scrolls independently. */}
+      {/* Fixed header — eyebrow + title + subtitle + period toggle. */}
       <View style={styles.fixedHeader}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.textOnDark }]}>Progress</Text>
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Latest vs {window}-day average
-          </Text>
-        </View>
+        <Text style={[styles.eyebrow, { color: colors.textMuted }]}>
+          SIGNAL · ORBIT
+        </Text>
+        <Text style={[styles.title, { color: colors.textOnDark }]}>
+          Progress
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+          Latest vs {window}-day average
+        </Text>
 
         <View style={[styles.toggle, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
           {WINDOWS.map((w) => {
@@ -75,12 +72,9 @@ export function ProgressTab() {
                 style={[
                   styles.toggleBtn,
                   active && {
-                    backgroundColor: 'rgba(18,20,31,0.65)',
-                    shadowColor: colors.tomoSage,
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.55,
-                    shadowRadius: 10,
-                    elevation: 6,
+                    backgroundColor: colors.sage15,
+                    borderColor: colors.sage30,
+                    borderWidth: 1,
                   },
                 ]}
               >
@@ -99,7 +93,7 @@ export function ProgressTab() {
         </View>
       </View>
 
-      {/* Scrollable body — only the grid scrolls. Pull-to-refresh lives here. */}
+      {/* Scrollable body — constellation canvas + legend. */}
       <ScrollView
         style={styles.body}
         contentContainerStyle={styles.bodyContent}
@@ -128,81 +122,78 @@ export function ProgressTab() {
             </Text>
           </View>
         ) : (
-          <View style={styles.grid}>
-            {pairUp(metrics).map((pair, idx) => (
-              <View key={idx} style={styles.row}>
-                {pair.map((m) => (
-                  <ProgressRingCard
-                    key={m.key}
-                    displayName={m.displayName}
-                    displayUnit={m.displayUnit}
-                    latest={m.latest}
-                    avg={m.avg}
-                    deltaPct={m.deltaPct}
-                    direction={m.direction}
-                    valueMin={m.valueMin}
-                    valueMax={m.valueMax}
-                    windowDays={window}
-                  />
-                ))}
-                {/* Pad odd rows so the last card doesn't stretch full-width */}
-                {pair.length === 1 && <View style={{ flex: 1 }} />}
+          <>
+            <OrbitConstellation metrics={metrics} windowDays={window} />
+
+            {/* Legend pill — teaches the chip colour language. */}
+            <View
+              style={[
+                styles.legend,
+                { backgroundColor: colors.glass, borderColor: colors.glassBorder },
+              ]}
+            >
+              <View style={styles.legendItem}>
+                <View style={styles.legendDot} />
+                <Text style={[styles.legendText, { color: colors.textMuted }]}>
+                  Dot size = % of best
+                </Text>
               </View>
-            ))}
-          </View>
+              <View style={styles.legendDivider} />
+              <View style={styles.legendItem}>
+                <Text style={[styles.legendArrow, { color: '#9AB896' }]}>▲ up</Text>
+                <Text style={[styles.legendArrow, { color: '#D9604A' }]}>▼ down</Text>
+                <Text style={[styles.legendText, { color: colors.textMuted }]}>
+                  vs {window}d
+                </Text>
+              </View>
+            </View>
+          </>
         )}
       </ScrollView>
     </View>
   );
 }
 
-/** Chunk a list into pairs for 2-column grid rendering. */
-function pairUp<T>(arr: T[]): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += 2) {
-    out.push(arr.slice(i, i + 2));
-  }
-  return out;
-}
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  // Header + toggle live here; pinned to the top of the tab, never scroll.
   fixedHeader: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 4,
+    paddingBottom: 10,
   },
-  // ScrollView wrapper — only the grid scrolls.
   body: {
     flex: 1,
   },
   bodyContent: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 6,
     paddingBottom: 120,
+    alignItems: 'center',
   },
-  header: {
-    marginBottom: 12,
+  eyebrow: {
+    fontFamily: fontFamily.medium,
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
   title: {
     fontFamily: fontFamily.bold,
     fontSize: 28,
-    letterSpacing: -0.5,
+    letterSpacing: -0.7,
   },
   subtitle: {
     fontFamily: fontFamily.regular,
     fontSize: 13,
     marginTop: 2,
+    marginBottom: 14,
   },
   toggle: {
     flexDirection: 'row',
     padding: 3,
     borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 14,
   },
   toggleBtn: {
     flex: 1,
@@ -216,12 +207,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.3,
   },
-  grid: {
-    gap: 10,
-  },
-  row: {
+  legend: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    gap: 14,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F5F3ED',
+  },
+  legendDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: 'rgba(245,243,237,0.15)',
+  },
+  legendText: {
+    fontFamily: fontFamily.regular,
+    fontSize: 11,
+    letterSpacing: 0.2,
+  },
+  legendArrow: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 11,
+    letterSpacing: 0.2,
   },
   stateWrap: {
     alignItems: 'center',
