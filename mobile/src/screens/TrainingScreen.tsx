@@ -15,9 +15,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
+import { Animated, Dimensions, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
 import { ErrorState, SkeletonCard } from '../components';
@@ -684,25 +683,11 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
               },
             ]}
           >
-            {/* Base sage gradient — lighter top-left → darker bottom-right */}
-            <LinearGradient
-              colors={[colors.accentLight, colors.accent, colors.accentDark ?? colors.tomoSageDim]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+            <Image
+              source={require('../../assets/tab-icons/plus.png')}
+              style={styles.dialFabImage}
+              resizeMode="contain"
             />
-            {/* Glass shine overlay — white highlight down the top half */}
-            <LinearGradient
-              colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.08)', 'transparent']}
-              locations={[0, 0.4, 0.7]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-            {/* Plus glyph — two crossed bars in pure white so we never pick up
-                an unintended icon ring from a library fallback. */}
-            <View style={styles.dialFabPlusH} />
-            <View style={styles.dialFabPlusV} />
         </Pressable>
       </Animated.View>
 
@@ -832,38 +817,20 @@ function createStyles(colors: ThemeColors) {
       marginTop: 0,
       marginBottom: 2,
     },
-    // Floating add-timeline-block button — Tomo sage-gradient with cream glass
-    // shine and a pure-white plus glyph. `overflow: hidden` keeps both gradient
-    // layers clipped to the rounded shape. Elevation + shadow lift it above
-    // the dial. Positioned just above Plan Week's top-left corner via
+    // Floating add-timeline-block button — sage-orb plus icon (PNG already
+    // contains the sphere, gradient, highlight and ground shadow).
+    // Positioned just above Plan Week's top-left corner via
     // dialFabRight / dialFabBottom.
     dialFab: {
       position: 'absolute',
-      width: 52,
-      height: 52,
-      borderRadius: 26,
+      width: 56,
+      height: 56,
       alignItems: 'center',
       justifyContent: 'center',
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 5 },
-      shadowOpacity: 0.35,
-      shadowRadius: 12,
-      elevation: 10,
     },
-    dialFabPlusH: {
-      position: 'absolute',
-      width: 20,
-      height: 2.5,
-      backgroundColor: '#FFFFFF',
-      borderRadius: 1.5,
-    },
-    dialFabPlusV: {
-      position: 'absolute',
-      width: 2.5,
-      height: 20,
-      backgroundColor: '#FFFFFF',
-      borderRadius: 1.5,
+    dialFabImage: {
+      width: 56,
+      height: 56,
     },
     checkinWrap: {
       paddingHorizontal: 20,
