@@ -2,6 +2,10 @@
  * Tomo tab icons — Timeline / Tomo / Signal.
  * Sage-luminous orbit family. Active state = brighter sage + halo.
  * Source of truth: desktop/tomo/files/tab-icons-handoff.md
+ *
+ * All RadialGradients use gradientUnits="userSpaceOnUse" with absolute
+ * coordinates because react-native-svg-web mis-resolves percentage units
+ * (objectBoundingBox), producing collapsed/oversized gradients on web.
  */
 import React from 'react';
 import Svg, {
@@ -24,12 +28,20 @@ export function IconTimeline({ size = 32, on = false }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
       <Defs>
-        <LinearGradient id={`tl-arc-${k}`} x1="0" y1="1" x2="1" y2="0">
+        <LinearGradient id={`tl-arc-${k}`} x1={4} y1={22} x2={24} y2={6} gradientUnits="userSpaceOnUse">
           <Stop offset="0" stopColor={stroke} stopOpacity={on ? 0.15 : 0.08} />
           <Stop offset="0.6" stopColor={stroke} stopOpacity={on ? 0.5 : 0.35} />
           <Stop offset="1" stopColor={on ? '#7A9B76' : stroke} stopOpacity={on ? 0.75 : 0.4} />
         </LinearGradient>
-        <RadialGradient id={`tl-now-${k}`} cx="50%" cy="50%" r="50%">
+        <RadialGradient
+          id={`tl-now-${k}`}
+          cx={22.4}
+          cy={6.8}
+          r={on ? 2.4 : 1.8}
+          fx={22.4}
+          fy={6.8}
+          gradientUnits="userSpaceOnUse"
+        >
           {on ? (
             <>
               <Stop offset="0%" stopColor="#E0EFDA" />
@@ -72,10 +84,41 @@ export function IconTimeline({ size = 32, on = false }: IconProps) {
 // ─── Tomo · planet + glass sphere ───
 export function IconTomo({ size = 64, on = false }: IconProps) {
   const k = on ? 'on' : 'off';
+  // Sphere geometry — center (32,32), radius depends on state.
+  const cx = 32;
+  const cy = 32;
+  const r = on ? 21 : 17;
+
+  // Globe: bright spot upper-left, deep sage rim. Center ~38%/32% of sphere.
+  const globeCx = cx - r * 0.24; // shift left
+  const globeCy = cy - r * 0.36; // shift up
+  const globeR = r * 1.4; // overshoots so rim lands in deep sage
+
+  // Specular highlight — small bright dot upper-left.
+  const hlCx = cx - r * 0.32;
+  const hlCy = cy - r * 0.44;
+  const hlR = r * 0.62;
+
+  // Terminator shadow — darkens lower-right.
+  const termCx = cx + r * 0.44;
+  const termCy = cy + r * 0.28;
+  const termR = r * 1.05;
+
+  // Atmosphere halo (active only) — soft sage rim outside the sphere.
+  const atmosR = r + 9;
+
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       <Defs>
-        <RadialGradient id={`sp-globe-${k}`} cx="38%" cy="32%" r="70%">
+        <RadialGradient
+          id={`sp-globe-${k}`}
+          cx={globeCx}
+          cy={globeCy}
+          r={globeR}
+          fx={globeCx}
+          fy={globeCy}
+          gradientUnits="userSpaceOnUse"
+        >
           {on ? (
             <>
               <Stop offset="0%" stopColor="#DCEBD6" />
@@ -91,43 +134,66 @@ export function IconTomo({ size = 64, on = false }: IconProps) {
             </>
           )}
         </RadialGradient>
-        <RadialGradient id={`sp-hl-${k}`} cx="34%" cy="28%" r="26%">
+        <RadialGradient
+          id={`sp-hl-${k}`}
+          cx={hlCx}
+          cy={hlCy}
+          r={hlR}
+          fx={hlCx}
+          fy={hlCy}
+          gradientUnits="userSpaceOnUse"
+        >
           <Stop offset="0%" stopColor={on ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.55)'} />
           <Stop offset="100%" stopColor="rgba(255,255,255,0)" />
         </RadialGradient>
-        <RadialGradient id={`sp-atmos-${k}`} cx="50%" cy="50%" r="50%">
-          <Stop offset="78%" stopColor="rgba(122,155,118,0)" />
-          <Stop offset="92%" stopColor={on ? 'rgba(122,155,118,0.35)' : 'rgba(122,155,118,0)'} />
-          <Stop offset="100%" stopColor="rgba(122,155,118,0)" />
+        <RadialGradient
+          id={`sp-atmos-${k}`}
+          cx={cx}
+          cy={cy}
+          r={atmosR}
+          fx={cx}
+          fy={cy}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset={(r / atmosR).toFixed(3)} stopColor="rgba(122,155,118,0)" />
+          <Stop offset={((r + 4) / atmosR).toFixed(3)} stopColor="rgba(122,155,118,0.38)" />
+          <Stop offset="1" stopColor="rgba(122,155,118,0)" />
         </RadialGradient>
-        <RadialGradient id={`sp-term-${k}`} cx="72%" cy="60%" r="48%">
+        <RadialGradient
+          id={`sp-term-${k}`}
+          cx={termCx}
+          cy={termCy}
+          r={termR}
+          fx={termCx}
+          fy={termCy}
+          gradientUnits="userSpaceOnUse"
+        >
           <Stop offset="0%" stopColor="rgba(0,0,0,0)" />
           <Stop offset="70%" stopColor="rgba(0,0,0,0)" />
           <Stop offset="100%" stopColor={on ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.45)'} />
         </RadialGradient>
       </Defs>
-      {on && <Circle cx={32} cy={32} r={30} fill={`url(#sp-atmos-${k})`} />}
+      {on && <Circle cx={cx} cy={cy} r={atmosR} fill={`url(#sp-atmos-${k})`} />}
       <Ellipse
-        cx={32}
+        cx={cx}
         cy={on ? 54 : 52}
         rx={on ? 14 : 11}
         ry={2}
         fill={`rgba(0,0,0,${on ? 0.35 : 0.22})`}
       />
-      <Circle cx={32} cy={32} r={on ? 21 : 17} fill={`url(#sp-globe-${k})`} />
-      <Circle cx={32} cy={32} r={on ? 21 : 17} fill={`url(#sp-term-${k})`} />
-      <Circle cx={32} cy={32} r={on ? 21 : 17} fill={`url(#sp-hl-${k})`} />
+      <Circle cx={cx} cy={cy} r={r} fill={`url(#sp-globe-${k})`} />
+      <Circle cx={cx} cy={cy} r={r} fill={`url(#sp-term-${k})`} />
+      <Circle cx={cx} cy={cy} r={r} fill={`url(#sp-hl-${k})`} />
       {on && (
         <Circle
-          cx={32}
-          cy={32}
-          r={21}
+          cx={cx}
+          cy={cy}
+          r={r}
           fill="none"
           stroke="rgba(255,255,255,0.12)"
           strokeWidth={0.6}
         />
       )}
-      {!on && <Circle cx={32} cy={32} r={17} fill="rgba(10,12,20,0.25)" />}
     </Svg>
   );
 }
@@ -138,10 +204,20 @@ export function IconSignal({ size = 32, on = false }: IconProps) {
   const rayMain = on ? 0.75 : 0.45;
   const rayDiag = on ? 0.45 : 0.22;
   const k = on ? 'on' : 'off';
+  const coreR = on ? 4 : 3.2;
+  const haloR = on ? 13 : 10;
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
       <Defs>
-        <RadialGradient id={`sig-core-${k}`} cx="50%" cy="50%" r="50%">
+        <RadialGradient
+          id={`sig-core-${k}`}
+          cx={14}
+          cy={14}
+          r={coreR}
+          fx={14}
+          fy={14}
+          gradientUnits="userSpaceOnUse"
+        >
           {on ? (
             <>
               <Stop offset="0%" stopColor="#C8DCC3" />
@@ -156,12 +232,20 @@ export function IconSignal({ size = 32, on = false }: IconProps) {
             </>
           )}
         </RadialGradient>
-        <RadialGradient id={`sig-halo-${k}`} cx="50%" cy="50%" r="50%">
+        <RadialGradient
+          id={`sig-halo-${k}`}
+          cx={14}
+          cy={14}
+          r={haloR}
+          fx={14}
+          fy={14}
+          gradientUnits="userSpaceOnUse"
+        >
           <Stop offset="0%" stopColor="#7A9B76" stopOpacity={on ? 0.4 : 0.12} />
           <Stop offset="100%" stopColor="#7A9B76" stopOpacity={0} />
         </RadialGradient>
       </Defs>
-      <Circle cx={14} cy={14} r={on ? 13 : 10} fill={`url(#sig-halo-${k})`} />
+      <Circle cx={14} cy={14} r={haloR} fill={`url(#sig-halo-${k})`} />
       <Line x1={14} y1={3} x2={14} y2={7} stroke={rayColor} strokeWidth={1.2} strokeLinecap="round" opacity={rayMain} />
       <Line x1={14} y1={21} x2={14} y2={25} stroke={rayColor} strokeWidth={1.2} strokeLinecap="round" opacity={rayMain} />
       <Line x1={3} y1={14} x2={7} y2={14} stroke={rayColor} strokeWidth={1.2} strokeLinecap="round" opacity={rayMain} />
@@ -170,7 +254,7 @@ export function IconSignal({ size = 32, on = false }: IconProps) {
       <Line x1={19.5} y1={19.5} x2={21.5} y2={21.5} stroke={rayColor} strokeWidth={1} strokeLinecap="round" opacity={rayDiag} />
       <Line x1={6.5} y1={21.5} x2={8.5} y2={19.5} stroke={rayColor} strokeWidth={1} strokeLinecap="round" opacity={rayDiag} />
       <Line x1={19.5} y1={8.5} x2={21.5} y2={6.5} stroke={rayColor} strokeWidth={1} strokeLinecap="round" opacity={rayDiag} />
-      <Circle cx={14} cy={14} r={on ? 4 : 3.2} fill={`url(#sig-core-${k})`} />
+      <Circle cx={14} cy={14} r={coreR} fill={`url(#sig-core-${k})`} />
       <Circle
         cx={13.3}
         cy={13.3}
