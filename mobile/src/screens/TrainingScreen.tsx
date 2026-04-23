@@ -4,21 +4,17 @@
  * Composition (top → bottom):
  *   Toolbar     — left: MyRules + BulkEdit, right: Checkin + Bell + Profile
  *   WeekStrip   — rolling 7-day window (today-5..today+1), grouped pill
- *   DayDial     — 24h radial clock, event arcs, now-pointer, readiness center
- *   FocusCard   — "Right now" (sage accent)
- *   FocusCard   — "Next up"
- *   PlanRow     — Plan day / Plan week
+ *   Day body     — single selected day: DayDial, PlanRow, FocusCard list (change day via week strip)
  *
  * Business-logic hooks preserved: useCalendarData, useCheckinStatus,
  * useBootData, useAuth. UnifiedDayView is gone — event CRUD lives behind
  * FocusCard press / dial-arc tap → EventEdit.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Dimensions, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-
 import { ErrorState, SkeletonCard } from '../components';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
@@ -76,6 +72,9 @@ type TrainingScreenProps = {
 
 type DotLevel = 'green' | 'yellow' | 'red';
 
+/** Calendar row with a concrete time range (timeline cards / completion flow). */
+type TimedCalendarEvent = CalendarEvent & { startTime: string; endTime: string };
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -95,6 +94,19 @@ function windowStart(today: Date): Date {
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - 3);
   return d;
+}
+
+/** Horizontal week strip page index for the week that contains `selected` (local midnight). */
+function weekScrollIndexForDate(selected: Date, anchorWeekStart: Date, numWeeks: number): number {
+  const anchor = new Date(anchorWeekStart);
+  anchor.setHours(0, 0, 0, 0);
+  const sel = new Date(selected);
+  sel.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((sel.getTime() - anchor.getTime()) / 86400000);
+  let wk = Math.floor(diffDays / 7);
+  if (wk < 0) wk = 0;
+  if (wk >= numWeeks) wk = numWeeks - 1;
+  return wk;
 }
 
 function normalizeRag(rag: string | null | undefined): DotLevel | null {
@@ -119,6 +131,324 @@ function toDialEventType(type: string): DialEvent['type'] {
   const allowed: DialEvent['type'][] = ['training', 'match', 'recovery', 'study_block', 'exam', 'other'];
   return (allowed as string[]).includes(type) ? (type as DialEvent['type']) : 'other';
 }
+
+// ---------------------------------------------------------------------------
+// One day of Timeline (dial + plan + scrollable events)
+// ---------------------------------------------------------------------------
+
+type TimelineDayPaneProps = {
+  pageDate: Date;
+  todayStr: string;
+  realEvents: CalendarEvent[];
+  nowHour: number;
+  parseHHMM: (s: string) => number;
+  isWithin: (startTime: string, endTime: string) => boolean;
+  readinessScore: number | null;
+  readinessLabelStr: string;
+  unreadCommentEventIds: Set<string>;
+  dialSize: number;
+  dialFabRight: number;
+  dialFabBottom: number;
+  navigation: TrainingScreenProps['navigation'];
+  onAddEvent: () => void;
+  onPlanDay: () => void;
+  onPlanWeek: () => void;
+  PHYSICAL_TYPES: Set<string>;
+  busySkipId: string | null;
+  onSkipPress: (e: TimedCalendarEvent) => void;
+  onMarkDonePress: (e: TimedCalendarEvent) => void;
+  shouldScrollOnFocus: boolean;
+  /** True for the selected (center) day while calendar events for that day are loading. */
+  blocksLoading: boolean;
+  styles: ReturnType<typeof createStyles>;
+  colors: ThemeColors;
+};
+
+const TimelineDayPane = memo(function TimelineDayPane({
+  pageDate,
+  todayStr,
+  realEvents,
+  nowHour,
+  parseHHMM,
+  isWithin,
+  readinessScore,
+  readinessLabelStr,
+  unreadCommentEventIds,
+  dialSize,
+  dialFabRight,
+  dialFabBottom,
+  navigation,
+  onAddEvent,
+  onPlanDay,
+  onPlanWeek,
+  PHYSICAL_TYPES,
+  busySkipId,
+  onSkipPress,
+  onMarkDonePress,
+  shouldScrollOnFocus,
+  blocksLoading,
+  styles,
+  colors,
+}: TimelineDayPaneProps) {
+  const dayStr = toDateStr(pageDate);
+  const isToday = dayStr === todayStr;
+  const dialDateText = pageDate.toLocaleDateString('en', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  const dayEvents = useMemo(
+    () =>
+      realEvents
+        .filter((e) => e.date === dayStr)
+        .sort((a, b) => {
+          if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime);
+          if (a.startTime) return -1;
+          if (b.startTime) return 1;
+          return 0;
+        }),
+    [realEvents, dayStr],
+  );
+
+  const timedDayEvents: TimedCalendarEvent[] = useMemo(
+    () => dayEvents.filter((e): e is TimedCalendarEvent => Boolean(e.startTime && e.endTime)),
+    [dayEvents],
+  );
+
+  // "Right now" / "Next up" highlight only on the real calendar today — never on other days.
+  const highlightedId = useMemo(() => {
+    if (!isToday) return null;
+    const current = timedDayEvents.find((e) => isWithin(e.startTime, e.endTime));
+    if (current) return current.id;
+    const next = timedDayEvents.find((e) => parseHHMM(e.startTime) > nowHour);
+    return next?.id ?? null;
+  }, [timedDayEvents, isToday, nowHour, parseHHMM, isWithin]);
+
+  const isCurrentlyRunning = useCallback(
+    (e: TimedCalendarEvent) => {
+      if (!isToday) return false;
+      return isWithin(e.startTime, e.endTime);
+    },
+    [isToday, isWithin],
+  );
+
+  const eventCardLabel = useCallback(
+    (e: TimedCalendarEvent) => {
+      if (e.id !== highlightedId) {
+        return e.type.replace(/_/g, ' ').toUpperCase();
+      }
+      return isCurrentlyRunning(e) ? 'Right now' : 'Next up';
+    },
+    [highlightedId, isCurrentlyRunning],
+  );
+
+  const isPastAndUnconfirmed = useCallback(
+    (e: TimedCalendarEvent): boolean => {
+      if (!PHYSICAL_TYPES.has(e.type)) return false;
+      const status = (e as { status?: string | null }).status ?? null;
+      if (status === 'completed' || status === 'skipped' || status === 'deleted') return false;
+      if ((e as { completed?: boolean }).completed === true) return false;
+      if (isCurrentlyRunning(e)) return false;
+      const endHour = parseHHMM(e.endTime);
+      if (!isToday) {
+        const sel = new Date(`${dayStr}T00:00:00`).getTime();
+        const today0 = new Date(`${todayStr}T00:00:00`).getTime();
+        return sel < today0;
+      }
+      return endHour <= nowHour;
+    },
+    [PHYSICAL_TYPES, isCurrentlyRunning, isToday, nowHour, parseHHMM, dayStr, todayStr],
+  );
+
+  const toDial = useCallback(
+    (e: CalendarEvent & { startTime: string; endTime: string }): DialEvent => ({
+      id: e.id,
+      name: e.name,
+      type: toDialEventType(e.type),
+      startTime: e.startTime,
+      endTime: e.endTime,
+    }),
+    [],
+  );
+
+  const dialEvents: DialEvent[] = useMemo(
+    () =>
+      dayEvents
+        .filter((e): e is CalendarEvent & { startTime: string; endTime: string } =>
+          Boolean(e.startTime && e.endTime),
+        )
+        .map(toDial),
+    [dayEvents, toDial],
+  );
+
+  const openEventEdit = useCallback(
+    (evId: string) => {
+      const ev = dayEvents.find((e) => e.id === evId) as CalendarEvent | undefined;
+      if (!ev) return;
+      navigation.navigate('EventEdit' as any, {
+        eventId: ev.id,
+        name: ev.name,
+        type: ev.type,
+        date: ev.date,
+        startTime: ev.startTime ?? '',
+        endTime: ev.endTime ?? '',
+        notes: (ev as { notes?: string }).notes,
+        intensity: (ev as { intensity?: string }).intensity,
+        linkedPrograms: (ev as { linkedPrograms?: Array<{ programId: string; name: string; category?: string }> })
+          .linkedPrograms,
+      });
+    },
+    [navigation, dayEvents],
+  );
+
+  const eventsScrollRef = useRef<ScrollView>(null);
+  const cardOffsetsRef = useRef<Map<string, number>>(new Map());
+  const didScrollToHighlightRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    cardOffsetsRef.current = new Map();
+    didScrollToHighlightRef.current = null;
+  }, [dayStr]);
+
+  const maybeScrollToHighlight = useCallback(() => {
+    if (!highlightedId) return;
+    if (didScrollToHighlightRef.current === highlightedId) return;
+    const y = cardOffsetsRef.current.get(highlightedId);
+    if (y == null) return;
+    didScrollToHighlightRef.current = highlightedId;
+    requestAnimationFrame(() => {
+      eventsScrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+    });
+  }, [highlightedId]);
+
+  const onCardLayout = useCallback(
+    (id: string, yOffset: number) => {
+      cardOffsetsRef.current.set(id, yOffset);
+      if (id === highlightedId) maybeScrollToHighlight();
+    },
+    [highlightedId, maybeScrollToHighlight],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!shouldScrollOnFocus) return;
+      didScrollToHighlightRef.current = null;
+      maybeScrollToHighlight();
+    }, [shouldScrollOnFocus, maybeScrollToHighlight]),
+  );
+
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={[styles.dialWrap, { marginBottom: 2 }]}>
+        <DayDial
+          events={dialEvents}
+          nowHour={nowHour}
+          score={readinessScore ?? 0}
+          readinessLabel={readinessLabelStr}
+          dateText={dialDateText}
+          size={dialSize}
+          showNowPointer={isToday}
+          onEvent={(ev) => openEventEdit(ev.id)}
+        />
+        <Pressable
+          onPress={onAddEvent}
+          accessibilityRole="button"
+          accessibilityLabel="Add timeline block"
+          hitSlop={10}
+          style={({ pressed }) => [
+            styles.dialFab,
+            {
+              right: dialFabRight,
+              bottom: dialFabBottom,
+              transform: [{ scale: pressed ? 0.94 : 1 }],
+            },
+          ]}
+        >
+          <Image
+            source={TIMELINE_FAB_PLUS}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
+        </Pressable>
+      </View>
+
+      <View style={styles.checkinWrap}>
+        <PlanRow onPlanDay={onPlanDay} onPlanWeek={onPlanWeek} />
+      </View>
+
+      <View style={[styles.eventsScrollWrap, { flex: 1 }]}>
+        <ScrollView
+          ref={eventsScrollRef}
+          style={styles.eventsScroll}
+          contentContainerStyle={styles.eventsScrollContent}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
+          {blocksLoading ? (
+            <View style={styles.blocksLoading} accessibilityLabel="Loading day schedule">
+              <ActivityIndicator size="small" color={colors.tomoSage} />
+            </View>
+          ) : timedDayEvents.length === 0 ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyDot} />
+            </View>
+          ) : (
+            timedDayEvents.map((ev) => {
+              const highlighted = ev.id === highlightedId;
+              const running = highlighted && isCurrentlyRunning(ev);
+              const showActions = isPastAndUnconfirmed(ev);
+              return (
+                <View key={ev.id} onLayout={(e) => onCardLayout(ev.id, e.nativeEvent.layout.y)}>
+                  <FocusCard
+                    event={{
+                      id: ev.id,
+                      name: ev.name,
+                      type: toDialEventType(ev.type),
+                      startTime: ev.startTime,
+                      endTime: ev.endTime,
+                    }}
+                    label={eventCardLabel(ev)}
+                    accent={highlighted}
+                    pulse={running}
+                    unreadDot={unreadCommentEventIds.has(ev.id)}
+                    onPress={() => openEventEdit(ev.id)}
+                  />
+                  {showActions && (
+                    <View style={styles.completionActions}>
+                      <Pressable
+                        onPress={() => onSkipPress(ev)}
+                        disabled={busySkipId === ev.id}
+                        style={[
+                          styles.completionSkip,
+                          { borderColor: colors.cream10 },
+                          busySkipId === ev.id && { opacity: 0.4 },
+                        ]}
+                      >
+                        <Text style={[styles.completionSkipText, { color: colors.muted }]}>
+                          {busySkipId === ev.id ? '…' : 'Skip'}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => onMarkDonePress(ev)}
+                        style={[styles.completionDone, { backgroundColor: colors.tomoSage }]}
+                      >
+                        <Text style={[styles.completionDoneText, { color: colors.background }]}>
+                          Mark done
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+    </View>
+  );
+});
 
 // ---------------------------------------------------------------------------
 // Main Component
@@ -229,7 +559,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   // ─── Today / selectedDay strings ─────────────────────────────────
   const todayStr = toDateStr(new Date());
   const selectedDayStr = toDateStr(selectedDay);
-  const isToday = selectedDayStr === todayStr;
 
   // ─── Unread-comment event IDs (for the red dot on FocusCard) ──────
   // Refetched on day change and whenever the screen regains focus (catches
@@ -246,20 +575,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   useEffect(() => { loadUnreadComments(); }, [loadUnreadComments]);
   useFocusEffect(
     useCallback(() => { loadUnreadComments(); }, [loadUnreadComments])
-  );
-
-  // ─── Events for the selected day ─────────────────────────────────
-  const dayEvents = useMemo(
-    () =>
-      realEvents
-        .filter((e) => e.date === selectedDayStr)
-        .sort((a, b) => {
-          if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime);
-          if (a.startTime) return -1;
-          if (b.startTime) return 1;
-          return 0;
-        }),
-    [realEvents, selectedDayStr],
   );
 
   // ─── Week strip: pageable across weeks (8 past + current + 8 future) ──
@@ -329,23 +644,15 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   // Horizontal paging — initial offset puts current week on screen.
   const SCREEN_WIDTH = useMemo(() => Dimensions.get('window').width, []);
   const stripScrollRef = useRef<ScrollView>(null);
+  const stripHasSyncedRef = useRef(false);
   useEffect(() => {
-    // Some platforms ignore contentOffset on first layout; force after mount.
+    const wk = weekScrollIndexForDate(selectedDay, anchorWeekStart, NUM_WEEKS);
+    const animated = stripHasSyncedRef.current;
+    stripHasSyncedRef.current = true;
     requestAnimationFrame(() => {
-      stripScrollRef.current?.scrollTo({ x: CURRENT_WEEK_IDX * SCREEN_WIDTH, animated: false });
+      stripScrollRef.current?.scrollTo({ x: wk * SCREEN_WIDTH, animated });
     });
-  }, [SCREEN_WIDTH]);
-
-  // Events list auto-scroll — keep the "Right now" / "Next up" card in view,
-  // matching the Dial's glowing-live pointer. Y positions are captured per
-  // card via onLayout; we scroll once the highlighted card's position is known.
-  const eventsScrollRef = useRef<ScrollView>(null);
-  const cardOffsetsRef = useRef<Map<string, number>>(new Map());
-  const didScrollToHighlightRef = useRef<string | null>(null);
-  useEffect(() => {
-    cardOffsetsRef.current = new Map();
-    didScrollToHighlightRef.current = null;
-  }, [selectedDay]);
+  }, [selectedDayStr, selectedDay, anchorWeekStart, SCREEN_WIDTH, NUM_WEEKS]);
 
   // ─── Time helpers ────────────────────────────────────────────────
   const nowHour = useMemo(() => {
@@ -357,14 +664,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     const [h, m] = s.split(':').map(Number);
     return h + (m || 0) / 60;
   }, []);
-
-  // Timed events for the selected day (untimed all-day items skipped from
-  // the scrollable list — they don't fit the time-card layout).
-  type TimedEvent = CalendarEvent & { startTime: string; endTime: string };
-  const timedDayEvents: TimedEvent[] = useMemo(
-    () => dayEvents.filter((e): e is TimedEvent => Boolean(e.startTime && e.endTime)),
-    [dayEvents],
-  );
 
   // Overnight-aware "is this hour inside [start, end)?" check. When endTime
   // is earlier than startTime (e.g. Sleep 22:00 → 06:30), the window wraps
@@ -382,73 +681,13 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     [nowHour, parseHHMM],
   );
 
-  // Highlight: currently-running event if today; else next upcoming; else first.
-  const highlightedId = useMemo(() => {
-    if (!isToday) return timedDayEvents[0]?.id ?? null;
-    const current = timedDayEvents.find((e) => isWithin(e.startTime, e.endTime));
-    if (current) return current.id;
-    const next = timedDayEvents.find((e) => parseHHMM(e.startTime) > nowHour);
-    return next?.id ?? null;
-  }, [timedDayEvents, isToday, nowHour, parseHHMM, isWithin]);
-
-  const isCurrentlyRunning = useCallback(
-    (e: TimedEvent) => {
-      if (!isToday) return false;
-      return isWithin(e.startTime, e.endTime);
-    },
-    [isToday, isWithin],
-  );
-
-  const eventCardLabel = useCallback(
-    (e: TimedEvent) => {
-      if (e.id !== highlightedId) {
-        return e.type.replace(/_/g, ' ').toUpperCase();
-      }
-      return isCurrentlyRunning(e) ? 'Right now' : 'Next up';
-    },
-    [highlightedId, isCurrentlyRunning],
-  );
-
-  // Once the highlighted card's y-offset is known, scroll it into view once.
-  // Small top padding so the card sits just below the list edge, not flush.
-  const maybeScrollToHighlight = useCallback(() => {
-    if (!highlightedId) return;
-    if (didScrollToHighlightRef.current === highlightedId) return;
-    const y = cardOffsetsRef.current.get(highlightedId);
-    if (y == null) return;
-    didScrollToHighlightRef.current = highlightedId;
-    requestAnimationFrame(() => {
-      eventsScrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
-    });
-  }, [highlightedId]);
-
-  const onCardLayout = useCallback(
-    (id: string, yOffset: number) => {
-      cardOffsetsRef.current.set(id, yOffset);
-      if (id === highlightedId) maybeScrollToHighlight();
-    },
-    [highlightedId, maybeScrollToHighlight],
-  );
-
-  // Re-scroll to the highlighted card every time the Plan tab regains focus,
-  // not just on mount/day change. Covers: tab-switch back from Chat/Dashboard,
-  // return from EventEdit, deep-link into Plan. Clearing the one-shot guard
-  // lets maybeScrollToHighlight fire again; if card offsets are already
-  // cached we scroll immediately, otherwise onLayout handles it.
-  useFocusEffect(
-    useCallback(() => {
-      didScrollToHighlightRef.current = null;
-      maybeScrollToHighlight();
-    }, [maybeScrollToHighlight]),
-  );
-
   // ─── Session completion (PR 6B) ──────────────────────────────────
   // A past-dated event of a physical type (training/match/recovery) that
   // hasn't been confirmed yet gets the "Mark done" / "Skip" action row
   // beneath its FocusCard. Tapping "Mark done" opens the confirmation
   // sheet with RPE/duration capture; tapping "Skip" fires
   // POST /api/v1/calendar/events/:id/skip with no body.
-  const [completionSheetEvent, setCompletionSheetEvent] = useState<TimedEvent | null>(null);
+  const [completionSheetEvent, setCompletionSheetEvent] = useState<TimedCalendarEvent | null>(null);
   const [busySkipId, setBusySkipId] = useState<string | null>(null);
 
   const PHYSICAL_TYPES = useMemo(
@@ -456,28 +695,8 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     [],
   );
 
-  const isPastAndUnconfirmed = useCallback(
-    (e: TimedEvent): boolean => {
-      if (!PHYSICAL_TYPES.has(e.type)) return false;
-      const status = (e as { status?: string | null }).status ?? null;
-      if (status === 'completed' || status === 'skipped' || status === 'deleted') return false;
-      if ((e as { completed?: boolean }).completed === true) return false;
-      if (isCurrentlyRunning(e)) return false;
-      // Compute "past" from endTime on the selected date.
-      const endHour = parseHHMM(e.endTime);
-      if (!isToday) {
-        // On non-today screens, treat as past only when the whole date is past.
-        const sel = new Date(`${selectedDayStr}T00:00:00`).getTime();
-        const today0 = new Date(`${todayStr}T00:00:00`).getTime();
-        return sel < today0;
-      }
-      return endHour <= nowHour;
-    },
-    [PHYSICAL_TYPES, isCurrentlyRunning, isToday, nowHour, parseHHMM, selectedDayStr, todayStr],
-  );
-
   const handleSkipPress = useCallback(
-    async (e: TimedEvent) => {
+    async (e: TimedCalendarEvent) => {
       if (busySkipId) return;
       setBusySkipId(e.id);
       try {
@@ -492,27 +711,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     [busySkipId],
   );
 
-  const toDial = useCallback(
-    (e: CalendarEvent & { startTime: string; endTime: string }): DialEvent => ({
-      id: e.id,
-      name: e.name,
-      type: toDialEventType(e.type),
-      startTime: e.startTime,
-      endTime: e.endTime,
-    }),
-    [],
-  );
-
-  const dialEvents: DialEvent[] = useMemo(
-    () =>
-      dayEvents
-        .filter((e): e is CalendarEvent & { startTime: string; endTime: string } =>
-          Boolean(e.startTime && e.endTime),
-        )
-        .map(toDial),
-    [dayEvents, toDial],
-  );
-
   // ─── Readiness (from bootData snapshot + checkin status) ─────────
   const snapshot = (bootData?.snapshot ?? null) as
     | { readiness_score?: number | null; readiness_rag?: string | null }
@@ -525,28 +723,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     !readinessStale && typeof snapshot?.readiness_score === 'number' ? Math.round(snapshot.readiness_score) : null;
   const readinessRag = readinessStale ? null : snapshot?.readiness_rag ?? null;
   const readinessLabelStr = ragLabel(readinessRag);
-
-  // ─── Navigation handlers ─────────────────────────────────────────
-  // EventEdit expects the full event shape (eventId alone → "Invalid Date").
-  const openEventEdit = useCallback(
-    (evId: string) => {
-      const ev = dayEvents.find((e) => e.id === evId) as CalendarEvent | undefined;
-      if (!ev) return;
-      navigation.navigate('EventEdit' as any, {
-        eventId: ev.id,
-        name: ev.name,
-        type: ev.type,
-        date: ev.date,
-        startTime: ev.startTime ?? '',
-        endTime: ev.endTime ?? '',
-        notes: (ev as { notes?: string }).notes,
-        intensity: (ev as { intensity?: string }).intensity,
-        linkedPrograms: (ev as { linkedPrograms?: Array<{ programId: string; name: string; category?: string }> })
-          .linkedPrograms,
-      });
-    },
-    [navigation, dayEvents],
-  );
 
   const onPlanDay = useCallback(() => {
     // Route to the AI chat with a prefilled intent — matches the design's
@@ -585,17 +761,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     </View>
   );
 
-  // ─── Today label for the dial (e.g. "Saturday, Apr 19") ──────────
-  const dialDateText = useMemo(
-    () =>
-      selectedDay.toLocaleDateString('en', {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric',
-      }),
-    [selectedDay],
-  );
-
   // ─── Entry animations ────────────────────────────────────────────
   const enterHeader = useEnter(0);
   const enterStrip = useEnter(140);
@@ -612,10 +777,6 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   // above PlanRow's top, inside the dialWrap's bottom area.
   const dialFabRight = 20;
   const dialFabBottom = 10;
-
-  const onAddEventForSelectedDay = useCallback(() => {
-    navigation.navigate('AddEvent' as any, { date: selectedDayStr });
-  }, [navigation, selectedDayStr]);
 
   // ─── Loading gate ────────────────────────────────────────────────
   if (isLoading && !hasLoadedOnce.current) {
@@ -656,118 +817,40 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
                 days={days}
                 activeIdx={activeIdxFor(weekIdx)}
                 onSelect={(dayIdx) => onWeekDaySelect(weekIdx, dayIdx)}
+                softenActiveSelection={selectedDayStr !== todayStr}
               />
             </View>
           ))}
         </ScrollView>
       </Animated.View>
 
-      <Animated.View style={[styles.dialWrap, enterDial]}>
-        <DayDial
-          events={dialEvents}
+      <Animated.View style={[{ flex: 1 }, enterDial, enterCards]}>
+        <TimelineDayPane
+          pageDate={selectedDay}
+          todayStr={todayStr}
+          realEvents={realEvents}
           nowHour={nowHour}
-          score={readinessScore ?? 0}
-          readinessLabel={readinessLabelStr}
-          dateText={dialDateText}
-          size={dialSize}
-          onEvent={(ev) => openEventEdit(ev.id)}
-        />
-        <Pressable
-            onPress={onAddEventForSelectedDay}
-            accessibilityRole="button"
-            accessibilityLabel="Add timeline block"
-            hitSlop={10}
-            style={({ pressed }) => [
-              styles.dialFab,
-              {
-                right: dialFabRight,
-                bottom: dialFabBottom,
-                transform: [{ scale: pressed ? 0.94 : 1 }],
-              },
-            ]}
-          >
-            <Image
-              source={TIMELINE_FAB_PLUS}
-              style={StyleSheet.absoluteFillObject}
-              resizeMode="cover"
-              accessibilityIgnoresInvertColors
-            />
-        </Pressable>
-      </Animated.View>
-
-      <Animated.View style={[styles.checkinWrap, enterCards]}>
-        <PlanRow
+          parseHHMM={parseHHMM}
+          isWithin={isWithin}
+          readinessScore={readinessScore}
+          readinessLabelStr={readinessLabelStr}
+          unreadCommentEventIds={unreadCommentEventIds}
+          dialSize={dialSize}
+          dialFabRight={dialFabRight}
+          dialFabBottom={dialFabBottom}
+          navigation={navigation}
+          onAddEvent={() => navigation.navigate('AddEvent' as any, { date: selectedDayStr })}
           onPlanDay={onPlanDay}
           onPlanWeek={onPlanWeek}
+          PHYSICAL_TYPES={PHYSICAL_TYPES}
+          busySkipId={busySkipId}
+          onSkipPress={handleSkipPress}
+          onMarkDonePress={setCompletionSheetEvent}
+          shouldScrollOnFocus
+          blocksLoading={isLoading}
+          styles={styles}
+          colors={colors}
         />
-      </Animated.View>
-
-      {/* ─── SCROLLABLE EVENTS LIST ─── */}
-      <Animated.View style={[styles.eventsScrollWrap, enterCards]}>
-        <ScrollView
-          ref={eventsScrollRef}
-          style={styles.eventsScroll}
-          contentContainerStyle={styles.eventsScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {timedDayEvents.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyDot} />
-            </View>
-          ) : (
-            timedDayEvents.map((ev) => {
-              const highlighted = ev.id === highlightedId;
-              const running = highlighted && isCurrentlyRunning(ev);
-              const showActions = isPastAndUnconfirmed(ev);
-              return (
-                <View
-                  key={ev.id}
-                  onLayout={(e) => onCardLayout(ev.id, e.nativeEvent.layout.y)}
-                >
-                  <FocusCard
-                    event={{
-                      id: ev.id,
-                      name: ev.name,
-                      type: toDialEventType(ev.type),
-                      startTime: ev.startTime,
-                      endTime: ev.endTime,
-                    }}
-                    label={eventCardLabel(ev)}
-                    accent={highlighted}
-                    pulse={running}
-                    unreadDot={unreadCommentEventIds.has(ev.id)}
-                    onPress={() => openEventEdit(ev.id)}
-                  />
-                  {showActions && (
-                    <View style={styles.completionActions}>
-                      <Pressable
-                        onPress={() => handleSkipPress(ev)}
-                        disabled={busySkipId === ev.id}
-                        style={[
-                          styles.completionSkip,
-                          { borderColor: colors.cream10 },
-                          busySkipId === ev.id && { opacity: 0.4 },
-                        ]}
-                      >
-                        <Text style={[styles.completionSkipText, { color: colors.muted }]}>
-                          {busySkipId === ev.id ? '…' : 'Skip'}
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => setCompletionSheetEvent(ev)}
-                        style={[styles.completionDone, { backgroundColor: colors.tomoSage }]}
-                      >
-                        <Text style={[styles.completionDoneText, { color: colors.background }]}>
-                          Mark done
-                        </Text>
-                      </Pressable>
-                    </View>
-                  )}
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
       </Animated.View>
 
       <SessionCompletionSheet
@@ -854,6 +937,12 @@ function createStyles(colors: ThemeColors) {
       paddingTop: 4,
       paddingBottom: 120,
       gap: 10,
+    },
+    blocksLoading: {
+      minHeight: 140,
+      paddingTop: 32,
+      alignItems: 'center',
+      justifyContent: 'flex-start',
     },
     emptyState: {
       paddingTop: 24,

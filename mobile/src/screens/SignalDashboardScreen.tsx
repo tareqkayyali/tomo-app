@@ -37,8 +37,9 @@ import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { useConnectedSources } from '../hooks/useConnectedSources';
 import { useNavigation } from '@react-navigation/native';
 
-// Dashboard tab — rebuilt Signal Dashboard (spec: "Signal · Dashboard")
+// Dashboard tab — CMS `dashboardLayout` (Pulse) with hardcoded fallback when empty
 import { SignalDashboardTab } from '../components/dashboard/signal/SignalDashboardTab';
+import { DashboardSectionRenderer } from '../components/dashboard/sections/DashboardSectionRenderer';
 import { ProgramPanel } from '../components/dashboard/panels/ProgramPanel';
 import { MetricsPanel } from '../components/dashboard/panels/MetricsPanel';
 import { ProgressTab } from '../components/dashboard/progress/ProgressTab';
@@ -361,22 +362,27 @@ export function SignalDashboardScreen() {
                 />
               }
             >
-              <SignalDashboardTab
-                bootData={bootData ?? null}
-                modeLabel={currentMode ?? 'balanced'}
-                signalCoaching={signal.coaching ?? ''}
-                onSleepPress={() => setActiveTab('metrics')}
-                onStrengthPress={() => setActiveTab('metrics')}
-                onGapPress={() => setActiveTab('metrics')}
-                onPulseCellPress={() => setActiveTab('metrics')}
-                onMilestonePress={(m) => {
-                  try {
-                    navigation.navigate('Main', { screen: 'Plan', params: { eventId: m.id } });
-                  } catch {
-                    // Graceful no-op if the caller nav isn't available.
-                  }
-                }}
-              />
+              {bootData && bootData.dashboardLayout.length > 0 ? (
+                <DashboardSectionRenderer layout={bootData.dashboardLayout} bootData={bootData} />
+              ) : (
+                <SignalDashboardTab
+                  bootData={bootData ?? null}
+                  modeLabel={currentMode ?? 'balanced'}
+                  signalCoaching={signal.coaching ?? ''}
+                  onSleepPress={() => setActiveTab('metrics')}
+                  onStrengthPress={() => setActiveTab('metrics')}
+                  onGapPress={() => setActiveTab('metrics')}
+                  onPulseCellPress={() => setActiveTab('metrics')}
+                  onMilestonePress={(m) => {
+                    try {
+                      const d = m.startAt.includes('T') ? m.startAt.slice(0, 10) : m.startAt.slice(0, 10);
+                      navigation.navigate('Main', { screen: 'Plan', params: { date: d } });
+                    } catch {
+                      /* no-op */
+                    }
+                  }}
+                />
+              )}
             </ScrollView>
             <PullRefreshOverlay refreshing={dashboardRefreshing} />
           </View>

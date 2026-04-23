@@ -1,13 +1,12 @@
 /**
- * DashboardSectionRenderer — Maps CMS component_type to React Native components.
+ * DashboardSectionRenderer — Maps CMS `dashboard_sections.component_type` to RN.
  *
- * Consumes the `dashboardLayout` array from boot data and renders each section
- * in order. Unknown component types render nothing (graceful skip).
+ * Consumes `bootData.dashboardLayout` (screen-level rows only, `panel_key IS NULL`)
+ * in `sort_order`. Includes Pulse blocks (`signal_hero`, `daily_recs`, `up_next`,
+ * `sleep_trend`, `weekly_pulse`, `benchmark_panel`, `tomo_take`) plus analytics
+ * cards. Unknown types are skipped.
  *
- * Each section component receives:
- *   - config: Record<string, unknown> — per-component CMS config
- *   - coachingText: string | null — interpolated coaching text
- *   - bootData: BootData — full boot payload for data access
+ * Each section receives: `config`, `coachingText`, `bootData`.
  */
 
 import React, { memo } from 'react';
@@ -27,6 +26,13 @@ import { GrowthCardSection } from './GrowthCardSection';
 import { EngagementBarSection } from './EngagementBarSection';
 import { ProtocolBannerSection } from './ProtocolBannerSection';
 import { CustomCardSection } from './CustomCardSection';
+import { SignalHeroSection } from './SignalHeroSection';
+import { DailyRecsDashboardSection } from './DailyRecsDashboardSection';
+import { UpNextTimelineSection } from './UpNextTimelineSection';
+import { SleepTrendSection } from './SleepTrendSection';
+import { WeeklyPulseSection } from './WeeklyPulseSection';
+import { BenchmarkPanelSection } from './BenchmarkPanelSection';
+import { TomoTakeSection } from './TomoTakeSection';
 
 export interface SectionProps {
   config: Record<string, unknown>;
@@ -34,19 +40,15 @@ export interface SectionProps {
   bootData: BootData;
 }
 
-/**
- * Component registry — maps component_type to React component.
- *
- * Three types are intentionally excluded — they're rendered separately
- * by SignalDashboardScreen with special layout treatment:
- *   signal_hero  — hero slot at top of screen
- *   daily_recs   — between hero and CMS sections
- *   up_next      — timeline section after CMS sections
- *
- * Their CMS rows control visibility (toggle on/off), but rendering
- * is handled by the screen, not by this renderer.
- */
+/** Maps `dashboard_sections.component_type` (CMS) → RN section. */
 const SECTION_COMPONENTS: Record<string, React.ComponentType<SectionProps>> = {
+  signal_hero: SignalHeroSection,
+  daily_recs: DailyRecsDashboardSection,
+  up_next: UpNextTimelineSection,
+  sleep_trend: SleepTrendSection,
+  weekly_pulse: WeeklyPulseSection,
+  benchmark_panel: BenchmarkPanelSection,
+  tomo_take: TomoTakeSection,
   status_ring: StatusRingSection,
   kpi_row: KpiRowSection,
   sparkline_row: SparklineRowSection,
@@ -74,13 +76,8 @@ export const DashboardSectionRenderer = memo(function DashboardSectionRenderer({
   return (
     <View style={styles.container}>
       {layout.map((section) => {
-        // Skip screen-level types — rendered by SignalDashboardScreen directly
-        if (section.component_type === 'signal_hero') return null;
-        if (section.component_type === 'daily_recs') return null;
-        if (section.component_type === 'up_next') return null;
-
         const Component = SECTION_COMPONENTS[section.component_type];
-        if (!Component) return null; // Unknown type — graceful skip
+        if (!Component) return null;
 
         return (
           <View key={section.section_key} style={styles.sectionWrap}>
@@ -99,6 +96,9 @@ export const DashboardSectionRenderer = memo(function DashboardSectionRenderer({
 const styles = StyleSheet.create({
   container: {
     gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
   },
   sectionWrap: {
     // Each section manages its own internal padding

@@ -121,8 +121,10 @@ const TAB_LABELS: Record<TabName, string> = {
   Dashboard: 'Signal',
 };
 
-/** Timeline + Signal: 32×0.8 baseline, +15%, then +30% vs that result. */
+/** Timeline + Signal baseline: 32×0.8, +15%, then +30%. */
 const SIDE_TAB_GLYPH_SIZE = 32 * 0.8 * 1.15 * 1.3;
+/** Dashboard (Signal) tab — rings + dot glyph; +50% vs baseline. */
+const SIGNAL_TAB_GLYPH_SIZE = SIDE_TAB_GLYPH_SIZE * 1.5;
 /** Chat planet — inline with side glyphs; 56 × 1.2 (+20%) × 1.3 (+30%). */
 const CHAT_TAB_GLYPH_SIZE = 56 * 1.2 * 1.3;
 
@@ -132,7 +134,7 @@ const CHAT_TAB_GLYPH_SIZE = 56 * 1.2 * 1.3;
 function TabBarIcon({ name, active }: { name: TabName; active: boolean }) {
   if (name === 'Plan') return <IconTimeline size={SIDE_TAB_GLYPH_SIZE} on={active} />;
   if (name === 'Chat') return <IconTomo size={CHAT_TAB_GLYPH_SIZE} on={active} />;
-  return <IconSignal size={SIDE_TAB_GLYPH_SIZE} on={active} />;
+  return <IconSignal size={SIGNAL_TAB_GLYPH_SIZE} on={active} />;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires

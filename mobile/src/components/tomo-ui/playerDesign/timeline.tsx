@@ -7,7 +7,7 @@
  * PlanRow      — two-button planning row for Plan day + Plan week.
  */
 import React, { memo } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Platform } from 'react-native';
 import Svg, { Circle, Path, Line, Defs, LinearGradient, Stop, RadialGradient, Text as SvgText, G } from 'react-native-svg';
 import { useTheme } from '../../../hooks/useTheme';
 import { usePulse } from '../../../hooks/usePulse';
@@ -29,6 +29,11 @@ export interface WeekStripProps {
   days: WeekDay[];
   activeIdx: number;
   onSelect: (idx: number) => void;
+  /**
+   * When the athlete is viewing a calendar day that is not "today", use a
+   * subtler selected pill so "today" stays visually primary in the strip.
+   */
+  softenActiveSelection?: boolean;
 }
 
 /**
@@ -36,7 +41,7 @@ export interface WeekStripProps {
  * Matches `variant-arc.jsx` lines 40-57: cream03 bg + cream08 border, 14px
  * outer radius, inner pills 10px radius, active pill has cream08 bg.
  */
-export const WeekStrip = memo(({ days, activeIdx, onSelect }: WeekStripProps) => {
+export const WeekStrip = memo(({ days, activeIdx, onSelect, softenActiveSelection }: WeekStripProps) => {
   const { colors } = useTheme();
   return (
     <View style={{ paddingHorizontal: 20 }}>
@@ -53,6 +58,7 @@ export const WeekStrip = memo(({ days, activeIdx, onSelect }: WeekStripProps) =>
       >
         {days.map((d, i) => {
           const active = i === activeIdx;
+          const soft = Boolean(active && softenActiveSelection);
           return (
             <Pressable
               key={`${d.label}-${d.d}`}
@@ -61,17 +67,17 @@ export const WeekStrip = memo(({ days, activeIdx, onSelect }: WeekStripProps) =>
                 flex: 1,
                 paddingVertical: 10,
                 borderRadius: 10,
-                backgroundColor: active ? colors.cream08 : 'transparent',
+                backgroundColor: active ? (soft ? `${colors.cream08}55` : colors.cream08) : 'transparent',
                 alignItems: 'center',
                 gap: 3,
               }}
             >
               <Text
                 style={{
-                  fontFamily: active ? 'Poppins_500Medium' : 'Poppins_400Regular',
+                  fontFamily: active && !soft ? 'Poppins_500Medium' : 'Poppins_400Regular',
                   fontSize: 12,
                   letterSpacing: 0.3,
-                  color: active ? colors.tomoCream : colors.muted,
+                  color: active ? (soft ? colors.muted : colors.tomoCream) : colors.muted,
                 }}
               >
                 {d.label}
@@ -80,7 +86,7 @@ export const WeekStrip = memo(({ days, activeIdx, onSelect }: WeekStripProps) =>
                 style={{
                   fontFamily: 'Poppins_500Medium',
                   fontSize: 17,
-                  color: active ? colors.tomoCream : colors.muted,
+                  color: active ? (soft ? colors.muted : colors.tomoCream) : colors.muted,
                   lineHeight: 19,
                 }}
               >
@@ -126,9 +132,21 @@ export interface DayDialProps {
   dateText?: string; // "Wednesday, Apr 17"
   size?: number;
   onEvent?: (ev: DialEvent) => void;
+  /** When false, hide the live "now" pointer (non-today day views). Default true. */
+  showNowPointer?: boolean;
 }
 
-export const DayDial = memo(({ events, nowHour = 12, score, readinessLabel, dateText, size = 320, onEvent }: DayDialProps) => {
+export const DayDial = memo(
+  ({
+    events,
+    nowHour = 12,
+    score,
+    readinessLabel,
+    dateText,
+    size = 320,
+    onEvent,
+    showNowPointer = true,
+  }: DayDialProps) => {
   const { colors } = useTheme();
   const t = usePulse();
   // `size` is the dial content size. Render the Svg larger (size + 2*PAD)
@@ -343,52 +361,54 @@ export const DayDial = memo(({ events, nowHour = 12, score, readinessLabel, date
           return <Circle key={`${ev.id}-dot`} cx={p.x} cy={p.y} r={2.2} fill={c} />;
         })}
 
-        {/* Now pointer — green glow line + pulsing sage dot */}
-        {(() => {
-          const inner = polar(nowAngle, R_INNER - 6);
-          const outer = polar(nowAngle, R_OUTER + 6);
-          return (
-            <G>
-              {/* Outer glow line — wide, low opacity sage */}
-              <Line
-                x1={inner.x}
-                y1={inner.y}
-                x2={outer.x}
-                y2={outer.y}
-                stroke={colors.tomoSage}
-                strokeWidth={7}
-                strokeLinecap="round"
-                opacity={0.25 + 0.2 * glow}
-              />
-              {/* Mid glow line — narrower sage */}
-              <Line
-                x1={inner.x}
-                y1={inner.y}
-                x2={outer.x}
-                y2={outer.y}
-                stroke={colors.tomoSage}
-                strokeWidth={3.5}
-                strokeLinecap="round"
-                opacity={0.6}
-              />
-              {/* Crisp core line — bright sage */}
-              <Line
-                x1={inner.x}
-                y1={inner.y}
-                x2={outer.x}
-                y2={outer.y}
-                stroke={colors.tomoSageDim}
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                opacity={1}
-              />
-              {/* Pulsing outer halo on the track */}
-              <Circle cx={nowPt.x} cy={nowPt.y} r={9 + glow * 3} fill={colors.tomoSage} opacity={0.25} />
-              <Circle cx={nowPt.x} cy={nowPt.y} r={5.5} fill={colors.tomoSage} />
-              <Circle cx={nowPt.x} cy={nowPt.y} r={2} fill={colors.tomoCream} />
-            </G>
-          );
-        })()}
+        {/* Now pointer — only on the real calendar day (today) */}
+        {showNowPointer
+          ? (() => {
+              const inner = polar(nowAngle, R_INNER - 6);
+              const outer = polar(nowAngle, R_OUTER + 6);
+              return (
+                <G>
+                  {/* Outer glow line — wide, low opacity sage */}
+                  <Line
+                    x1={inner.x}
+                    y1={inner.y}
+                    x2={outer.x}
+                    y2={outer.y}
+                    stroke={colors.tomoSage}
+                    strokeWidth={7}
+                    strokeLinecap="round"
+                    opacity={0.25 + 0.2 * glow}
+                  />
+                  {/* Mid glow line — narrower sage */}
+                  <Line
+                    x1={inner.x}
+                    y1={inner.y}
+                    x2={outer.x}
+                    y2={outer.y}
+                    stroke={colors.tomoSage}
+                    strokeWidth={3.5}
+                    strokeLinecap="round"
+                    opacity={0.6}
+                  />
+                  {/* Crisp core line — bright sage */}
+                  <Line
+                    x1={inner.x}
+                    y1={inner.y}
+                    x2={outer.x}
+                    y2={outer.y}
+                    stroke={colors.tomoSageDim}
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                    opacity={1}
+                  />
+                  {/* Pulsing outer halo on the track */}
+                  <Circle cx={nowPt.x} cy={nowPt.y} r={9 + glow * 3} fill={colors.tomoSage} opacity={0.25} />
+                  <Circle cx={nowPt.x} cy={nowPt.y} r={5.5} fill={colors.tomoSage} />
+                  <Circle cx={nowPt.x} cy={nowPt.y} r={2} fill={colors.tomoCream} />
+                </G>
+              );
+            })()
+          : null}
 
         {/* Inner & outer edges */}
         <Circle cx={CX} cy={CY} r={R_INNER} fill="none" stroke={colors.cream10} strokeWidth={1} />
@@ -411,7 +431,7 @@ export const DayDial = memo(({ events, nowHour = 12, score, readinessLabel, date
             color: colors.muted,
             letterSpacing: 1,
             textTransform: 'uppercase',
-            marginBottom: 4,
+            marginBottom: 9,
           }}
         >
           Readiness
@@ -423,11 +443,14 @@ export const DayDial = memo(({ events, nowHour = 12, score, readinessLabel, date
             color: colors.tomoCream,
             letterSpacing: -2,
             lineHeight: size * 0.22,
+            marginTop: 1,
+            marginBottom: 1,
+            ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
           }}
         >
           {score}
         </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}>
           <ReadinessDot level="GREEN" size={7} pulse />
           <Text
             style={{

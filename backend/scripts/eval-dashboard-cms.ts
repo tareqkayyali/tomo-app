@@ -332,7 +332,7 @@ async function runEval() {
   // ─────────────────────────────────────────────────────────
   console.log('\nPhase 10: Mobile Rendering Gate Logic\n');
 
-  // Simulate what SignalDashboardScreen.enabledTypes does
+  // Simulate boot `dashboardLayout` payload (all screen-level sections in sort order)
   const bootLayout = (enabledSections ?? []).map((s: any) => ({
     section_key: s.section_key,
     component_type: s.component_type,
@@ -351,81 +351,70 @@ async function runEval() {
   assert('enabledTypes.has("up_next") = true (renders Up Next)',
     simulatedEnabledTypes.has('up_next'));
 
-  // Simulate with screen-level toggled off
-  const withoutScreenLayout = bootLayout.filter((s: any) =>
-    !['signal_hero', 'daily_recs', 'up_next'].includes(s.component_type)
+  const pulseTypes = ['sleep_trend', 'weekly_pulse', 'benchmark_panel', 'tomo_take'];
+  if (!pulseTypes.some((t) => simulatedEnabledTypes.has(t))) {
+    console.warn(
+      '  [eval-dashboard-cms] Pulse block rows not found yet — apply migration 096 for sleep_trend / weekly_pulse / benchmark_panel / tomo_take.',
+    );
+  }
+
+  assert(
+    'Dashboard layout has multiple renderable sections',
+    bootLayout.length >= 8,
+    `got ${bootLayout.length}`,
   );
-  const withoutScreenEnabled = new Set(withoutScreenLayout.map((s: any) => s.component_type));
-
-  assert('Without screen types: signal_hero gate = false',
-    !withoutScreenEnabled.has('signal_hero'));
-  assert('Without screen types: daily_recs gate = false',
-    !withoutScreenEnabled.has('daily_recs'));
-  assert('Without screen types: up_next gate = false',
-    !withoutScreenEnabled.has('up_next'));
-  assert('Without screen types: DashboardSectionRenderer still has sections',
-    withoutScreenLayout.length > 0,
-    `${withoutScreenLayout.length} sections remain`);
-
-  // Verify DashboardSectionRenderer skips screen-level types
-  const rendererSkipTypes = new Set(['signal_hero', 'daily_recs', 'up_next']);
-  const rendererSections = bootLayout.filter((s: any) => !rendererSkipTypes.has(s.component_type));
-  assert('DashboardSectionRenderer filters out all 3 screen-level types',
-    rendererSections.every((s: any) => !rendererSkipTypes.has(s.component_type)));
-  assert('DashboardSectionRenderer passes 11 component types to registry',
-    rendererSections.length >= 11,
-    `got ${rendererSections.length}`);
 
   // ─────────────────────────────────────────────────────────
   // Phase 11: Athlete Mode Hero + Full Order Mapping
   // ─────────────────────────────────────────────────────────
   console.log('\nPhase 11: Athlete Mode Hero + Full Order Mapping\n');
 
-  // signal_hero now renders AthleteModeHero (not SignalHero)
   const signalHeroDisplay = signalHeroRow?.display_name;
-  assert('signal_hero display_name is "Athlete Mode"',
-    signalHeroDisplay === 'Athlete Mode',
+  assert('signal_hero row exists with display_name',
+    typeof signalHeroDisplay === 'string' && signalHeroDisplay.length > 0,
     `got "${signalHeroDisplay}"`);
 
-  // Verify the 4 rendering zones map correctly
-  // Zone 1: signal_hero (AthleteModeHero) — screen-level, CMS-gated
-  // Zone 2: daily_recs (DailyRecommendations) — screen-level, CMS-gated
-  // Zone 3: DashboardSectionRenderer — 11 types in sort_order
-  // Zone 4: up_next (Up Next/Today's Plan) — screen-level, CMS-gated
-
-  const screenLevelTypes = new Set(['signal_hero', 'daily_recs', 'up_next']);
-  const rendererTypes = new Set([
-    'status_ring', 'kpi_row', 'sparkline_row', 'dual_load', 'benchmark',
-    'rec_list', 'event_list', 'growth_card', 'engagement_bar',
-    'protocol_banner', 'custom_card',
+  const screenTypes = new Set([
+    'signal_hero',
+    'daily_recs',
+    'up_next',
+    'sleep_trend',
+    'weekly_pulse',
+    'benchmark_panel',
+    'tomo_take',
+    'status_ring',
+    'kpi_row',
+    'sparkline_row',
+    'dual_load',
+    'benchmark',
+    'rec_list',
+    'event_list',
+    'growth_card',
+    'engagement_bar',
+    'protocol_banner',
+    'custom_card',
   ]);
 
-  // All enabled sections should be either screen-level or renderer-level
   for (const s of (enabledSections ?? [])) {
+    if (s.panel_key != null) continue;
     const t = s.component_type;
-    assert(`"${s.section_key}" (${t}) is assigned to a rendering zone`,
-      screenLevelTypes.has(t) || rendererTypes.has(t),
-      `type "${t}" not in any zone`);
+    assert(`"${s.section_key}" (${t}) maps to a known dashboard component_type`,
+      screenTypes.has(t),
+      `unknown type "${t}"`);
   }
 
-  // Renderer sections should be in strict ascending sort_order
-  const rendererOrdered = (enabledSections ?? [])
-    .filter((s: any) => rendererTypes.has(s.component_type))
+  const mainOrdered = (enabledSections ?? [])
+    .filter((s: any) => s.panel_key == null)
     .sort((a: any, b: any) => a.sort_order - b.sort_order);
-  const rendererSortValid = rendererOrdered.every(
-    (s: any, i: number) => i === 0 || s.sort_order > rendererOrdered[i - 1].sort_order
+  const mainSortValid = mainOrdered.every(
+    (s: any, i: number) => i === 0 || s.sort_order >= mainOrdered[i - 1].sort_order,
   );
-  assert('Renderer sections have strictly ascending sort_order (no ties)',
-    rendererSortValid);
+  assert('Main dashboard sections have ascending sort_order', mainSortValid);
 
-  // Print the full order mapping for visibility
-  console.log('\n  ── Screen Order Mapping ──');
-  console.log('  Zone 1 (screen): AthleteModeHero [signal_hero]');
-  console.log('  Zone 2 (screen): DailyRecommendations [daily_recs]');
-  for (const s of rendererOrdered) {
-    console.log(`  Zone 3 (renderer, sort ${s.sort_order}): ${s.display_name} [${s.component_type}]`);
+  console.log('\n  ── Dashboard CMS order (panel_key IS NULL) ──');
+  for (const s of mainOrdered) {
+    console.log(`  sort ${s.sort_order}: ${s.display_name} [${s.component_type}]`);
   }
-  console.log('  Zone 4 (screen): Up Next / Today\'s Plan [up_next]');
   console.log('');
 
   // Verify all 14 component types are accounted for

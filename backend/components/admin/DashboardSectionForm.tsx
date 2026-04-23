@@ -41,7 +41,7 @@ interface DashboardSectionData {
 
 const COMPONENT_TYPES = [
   // Screen-level
-  { value: "signal_hero", label: "Athlete Mode (Hero)" },
+  { value: "signal_hero", label: "Pulse · Readiness hero" },
   { value: "status_ring", label: "Status Ring" },
   { value: "kpi_row", label: "KPI Row" },
   { value: "sparkline_row", label: "Sparkline Row" },
@@ -55,6 +55,10 @@ const COMPONENT_TYPES = [
   { value: "custom_card", label: "Custom Card" },
   { value: "daily_recs", label: "Daily Recommendations" },
   { value: "up_next", label: "Up Next / Timeline" },
+  { value: "sleep_trend", label: "Pulse · Sleep (7 nights)" },
+  { value: "weekly_pulse", label: "Pulse · Week strip (HRV / load / wellness)" },
+  { value: "benchmark_panel", label: "Pulse · Growth (strength + gap)" },
+  { value: "tomo_take", label: "Pulse · Tomo's take" },
   { value: "welcome_card", label: "Welcome Card" },
   { value: "daily_recommendations", label: "Daily Recommendations (v2)" },
   { value: "up_next_timeline", label: "Up Next Timeline" },
