@@ -253,7 +253,7 @@ function CenterChatButton({
 
 function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
   const { colors } = useTheme();
-  const ORB_SIZE = 68;
+  const ORB_SIZE = 80;
 
   // Two glow layers:
   //   • `activeGlow` — continuous breathing pulse while Chat is focused.
