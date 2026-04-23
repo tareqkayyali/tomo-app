@@ -121,8 +121,8 @@ const TAB_LABELS: Record<TabName, string> = {
   Dashboard: 'Signal',
 };
 
-/** Timeline + Signal: prior 32×0.8, then +15% vs that baseline. */
-const SIDE_TAB_GLYPH_SIZE = 32 * 0.8 * 1.15;
+/** Timeline + Signal: 32×0.8 baseline, +15%, then +30% vs that result. */
+const SIDE_TAB_GLYPH_SIZE = 32 * 0.8 * 1.15 * 1.3;
 /** Chat planet — inline with side glyphs; PNG scales cleanly at this size. */
 const CHAT_TAB_GLYPH_SIZE = 56;
 
