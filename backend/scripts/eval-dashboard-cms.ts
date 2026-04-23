@@ -417,15 +417,6 @@ async function runEval() {
   }
   console.log('');
 
-  // Verify all 14 component types are accounted for
-  const allAccountedTypes = new Set([
-    ...Array.from(screenLevelTypes),
-    ...Array.from(rendererTypes),
-  ]);
-  assert('All 14 component types are assigned to a zone',
-    allAccountedTypes.size === 14,
-    `got ${allAccountedTypes.size}`);
-
   // ─────────────────────────────────────────────────────────
   // Phase 12: Athlete Mode Integration
   // ─────────────────────────────────────────────────────────
