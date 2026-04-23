@@ -1,13 +1,11 @@
 /**
- * CapsuleNumberInput — Number input with unit suffix for capsule forms.
- * Follows the app's no-visible-border input pattern.
+ * CapsuleNumberInput — compact number input on Tomo chat tokens.
+ * Hairline capsule, right-aligned unit, uppercase mini-label.
  */
 
 import React from 'react';
 import { View, TextInput, Text, StyleSheet } from 'react-native';
-import { colors } from '../../../../theme/colors';
-import { spacing, borderRadius } from '../../../../theme';
-import { fontFamily } from '../../../../theme';
+import { T } from '../../tomo';
 
 interface CapsuleNumberInputProps {
   value: string;
@@ -18,57 +16,71 @@ interface CapsuleNumberInputProps {
   label?: string;
 }
 
-export function CapsuleNumberInput({ value, onChangeText, onChange, unit, placeholder, label }: CapsuleNumberInputProps) {
+export function CapsuleNumberInput({
+  value,
+  onChangeText,
+  onChange,
+  unit,
+  placeholder,
+  label,
+}: CapsuleNumberInputProps) {
   const handleChange = onChangeText ?? onChange ?? (() => {});
   return (
-    <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <View style={styles.inputRow}>
+    <View style={styles.wrap}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <View style={styles.field}>
         <TextInput
           style={styles.input}
           value={value}
           onChangeText={handleChange}
           placeholder={placeholder ?? '0'}
-          placeholderTextColor="rgba(245,243,237,0.3)"
+          placeholderTextColor={T.cream40}
           keyboardType="decimal-pad"
           returnKeyType="done"
         />
-        {unit && <Text style={styles.unit}>{unit}</Text>}
+        {unit ? <Text style={styles.unit}>{unit}</Text> : null}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: 4,
+  wrap: {
+    gap: 8,
+    marginBottom: 8,
   },
   label: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 12,
-    color: colors.textInactive,
+    fontFamily: T.fontMedium,
+    fontSize: 9.5,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    color: T.cream55,
+    marginBottom: 2,
   },
-  inputRow: {
+  field: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.lg,
+    backgroundColor: T.cream03,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.creamMuted,
-    paddingHorizontal: spacing.compact,
+    borderColor: T.cream10,
+    paddingHorizontal: 12,
     minHeight: 40,
   },
   input: {
     flex: 1,
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    color: colors.textPrimary,
+    fontFamily: T.fontRegular,
+    fontSize: 13.5,
+    color: T.cream,
     paddingVertical: 8,
+    fontVariant: ['tabular-nums'],
   },
   unit: {
-    fontFamily: fontFamily.medium,
-    fontSize: 12,
-    color: colors.textInactive,
-    marginLeft: spacing.sm,
+    fontFamily: T.fontMedium,
+    fontSize: 11,
+    color: T.cream55,
+    marginLeft: 8,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
 });

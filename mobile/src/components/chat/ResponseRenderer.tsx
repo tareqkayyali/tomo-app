@@ -1,24 +1,33 @@
 /**
- * ResponseRenderer — Visual card renderer for structured TomoResponse.
+ * ResponseRenderer — renders a structured TomoResponse as a single
+ * chat turn using the Tomo chat design primitives.
  *
- * Renders stat pills, schedule lists, zone stacks, clash cards,
- * benchmark bars, text cards, coach notes, and action chips.
+ * Turn shape (per tomo-ai-chat.jsx):
+ *   <TomoTitle>       — bold diagnostic sentence (response.headline)
+ *   <TomoBody>        — one paragraph of reasoning   (response.body)
+ *   ONE interactive ending per card:
+ *     <MetricRow>     — numeric readouts (stat_row / stat_grid / benchmark_bar)
+ *     <Table>         — label · value · tier rows (schedules, clashes, programs…)
+ *     <Suggestions>   — dotted-underline follow-ups (chips)
+ *     <FormSection + RadioRow + CTA> — interactive choice / confirm
+ *     CapsuleRenderer — full interactive capsule flows
+ *
+ * Each card is wrapped in a per-card error boundary so a malformed
+ * card never kills the whole screen (blast-radius containment rule).
  */
 
-import React, { Component, useMemo, type ErrorInfo, type ReactNode } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TouchableOpacity } from 'react-native';
-import { SmartIcon } from '../SmartIcon';
+import React, { Component, type ErrorInfo, type ReactNode } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { Sentry } from '../../services/sentry';
-import { spacing, borderRadius, fontFamily } from '../../theme';
-import type { ThemeColors } from '../../theme/colors';
-import { useTheme } from '../../hooks/useTheme';
 import type {
   TomoResponse,
   VisualCard,
   StatRow,
   StatGrid,
   ScheduleList,
+  ScheduleItem,
   WeekSchedule,
+  WeekPlan,
   ZoneStack,
   ClashList,
   BenchmarkBar,
@@ -28,1943 +37,577 @@ import type {
   SessionPlan,
   DrillCard,
   SchedulePreviewCard,
-  SchedulePreviewEvent,
-  ActionChip,
   CapsuleAction,
   ProgramRecommendationCard,
-  WeekPlan,
   ChoiceCard,
   InjuryCard,
   GoalCard,
   DailyBriefingCard,
 } from '../../types/chat';
-import { colors } from '../../theme/colors';
 import { CapsuleRenderer, isCapsuleCard } from './capsules/CapsuleRenderer';
-import { InjuryCardComponent } from './cards/InjuryCardComponent';
-import { GoalCardComponent } from './cards/GoalCardComponent';
-import { DailyBriefingCardComponent } from './cards/DailyBriefingCardComponent';
+import {
+  T,
+  TomoTitle,
+  TomoBody,
+  MetricRow,
+  Table,
+  Suggestions,
+  FormSection,
+  RadioRow,
+  CTA,
+  type MetricItem,
+  type TableRow,
+  type TierKind,
+} from './tomo';
 
-// ── Style Factory ────────────────────────────────────────────────
+// ─── helpers ─────────────────────────────────────────────────────────
 
-function createStyles(colors: ThemeColors) {
-  return StyleSheet.create({
-    container: {
-      gap: 8,
-    },
-    headline: {
-      fontFamily: fontFamily.bold,
-      fontSize: 18,
-      lineHeight: 24,
-      color: colors.textOnDark,
-      marginBottom: 4,
-    },
-    bodyText: {
-      fontFamily: fontFamily.regular,
-      fontSize: 14,
-      lineHeight: 20,
-      color: colors.textBody,
-      marginBottom: 6,
-    },
+const stripForCompare = (s: string) =>
+  (s ?? '')
+    .replace(/[*_#•\-`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .slice(0, 80);
 
-    // Stat Row
-    statRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      backgroundColor: colors.cardLight,
-      borderRadius: borderRadius.md,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-    },
-    statLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    statEmoji: {
-      fontSize: 18,
-    },
-    statLabel: {
-      fontFamily: fontFamily.medium,
-      fontSize: 14,
-      color: colors.textInactive,
-    },
-    statValue: {
-      fontFamily: fontFamily.bold,
-      fontSize: 16,
-      color: colors.textOnDark,
-    },
-    statUnit: {
-      fontFamily: fontFamily.regular,
-      fontSize: 13,
-      color: colors.textInactive,
-    },
-    trendUp: { color: colors.accent },
-    trendDown: { color: colors.error },
-    trendFlat: { color: colors.textInactive },
+const SELF_CONTAINED_TYPES = new Set(['confirm_card', 'choice_card']);
 
-    // Schedule List — matches confirm card table theme
-    scheduleCard: {
-      backgroundColor: colors.accentSubtle,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: colors.accentSoft,
-      padding: 14,
-    },
-    scheduleDate: {
-      fontFamily: fontFamily.bold,
-      fontSize: 15,
-      color: colors.accent1,
-      marginBottom: 8,
-    },
-    scheduleItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 6,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: `${colors.accentSoft}60`,
-      gap: 10,
-    },
-    scheduleTime: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.textSecondary,
-      width: 50,
-    },
-    scheduleDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    scheduleTitle: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 14,
-      color: colors.textOnDark,
-      flex: 1,
-    },
-    scheduleClash: {
-      color: colors.error,
-    },
-
-    // Week Schedule — matches confirm card table theme
-    weekScheduleCard: {
-      backgroundColor: colors.accentSubtle,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: colors.accentSoft,
-      padding: 14,
-      gap: 0,
-    },
-    weekScheduleSummary: {
-      fontFamily: fontFamily.regular,
-      fontSize: 13,
-      color: colors.textBody,
-      marginBottom: 8,
-      lineHeight: 20,
-    },
-    weekScheduleDayHeader: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.textSecondary,
-      width: 36,
-      textTransform: 'uppercase',
-    },
-
-    // Week Plan — matches confirm card table theme
-    weekPlanCard: {
-      backgroundColor: colors.accentSubtle,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: colors.accentSoft,
-      padding: 14,
-      gap: 0,
-    },
-    weekPlanHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 8,
-      paddingBottom: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: `${colors.accentSoft}60`,
-    },
-    weekPlanTitle: {
-      fontFamily: fontFamily.bold,
-      fontSize: 15,
-      color: colors.accent1,
-    },
-    weekPlanDateRange: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.textSecondary,
-    },
-    weekPlanRow: {
-      paddingVertical: 6,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: `${colors.accentSoft}60`,
-    },
-    weekPlanRowInner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-    weekPlanDay: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.textSecondary,
-      width: 36,
-      textTransform: 'uppercase',
-    },
-    weekPlanActivities: {
-      flex: 1,
-      fontFamily: fontFamily.semiBold,
-      fontSize: 14,
-      color: colors.textOnDark,
-    },
-    weekPlanTime: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.accent1,
-      textAlign: 'right',
-    },
-    weekPlanNote: {
-      fontFamily: fontFamily.regular,
-      fontSize: 11,
-      color: colors.textSecondary,
-      marginLeft: 46,
-      marginTop: 2,
-    },
-
-    // Choice Card (radio options inside confirmCard container)
-    choiceRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 14,
-      paddingHorizontal: 4,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: `${colors.accentSoft}60`,
-      gap: 12,
-    },
-    choiceRadio: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      borderWidth: 1.5,
-      borderColor: colors.accent1,
-    },
-    choiceTextWrap: {
-      flex: 1,
-      gap: 2,
-    },
-    choiceLabel: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 14,
-      color: colors.textOnDark,
-    },
-    choiceDesc: {
-      fontFamily: fontFamily.regular,
-      fontSize: 12,
-      color: colors.textSecondary,
-    },
-
-    // Zone Stack
-    zoneCard: {
-      backgroundColor: colors.cardLight,
-      borderRadius: borderRadius.md,
-      padding: 12,
-      gap: 6,
-    },
-    zoneRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 8,
-      gap: 10,
-    },
-    zoneActive: {
-      borderWidth: 1.5,
-    },
-    zoneDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-    },
-    zoneLabel: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 14,
-      color: colors.textOnDark,
-      flex: 1,
-    },
-    zoneDetail: {
-      fontFamily: fontFamily.regular,
-      fontSize: 12,
-      color: colors.textInactive,
-    },
-
-    // Clash List
-    clashCard: {
-      backgroundColor: 'rgba(248, 113, 113, 0.08)',
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: 'rgba(248, 113, 113, 0.2)',
-      padding: 12,
-      gap: 8,
-    },
-    clashItem: {
-      gap: 2,
-    },
-    clashEvents: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 14,
-      color: colors.error,
-    },
-    clashTime: {
-      fontFamily: fontFamily.regular,
-      fontSize: 12,
-      color: colors.textInactive,
-    },
-    clashFix: {
-      fontFamily: fontFamily.medium,
-      fontSize: 13,
-      color: colors.accent,
-    },
-
-    // Benchmark Bar
-    benchmarkCard: {
-      backgroundColor: colors.cardLight,
-      borderRadius: borderRadius.md,
-      padding: 12,
-      gap: 6,
-    },
-    benchmarkHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    benchmarkMetric: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 14,
-      color: colors.textOnDark,
-    },
-    benchmarkValue: {
-      fontFamily: fontFamily.bold,
-      fontSize: 14,
-      color: colors.accent1,
-    },
-    benchmarkBarBg: {
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: colors.creamMuted,
-    },
-    benchmarkBarFill: {
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: colors.accent1,
-    },
-    benchmarkFooter: {
-      fontFamily: fontFamily.regular,
-      fontSize: 11,
-      color: colors.textInactive,
-    },
-
-    // Text Card
-    textCard: {
-      gap: 2,
-    },
-    textCardHeadline: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 15,
-      color: colors.textOnDark,
-    },
-    textCardBody: {
-      fontFamily: fontFamily.regular,
-      fontSize: 14,
-      lineHeight: 20,
-      color: colors.textBody,
-    },
-
-    // Stat Grid (horizontal scroll on mobile, wrap on wide screens)
-    statGrid: {
-      flexDirection: 'row',
-      flexWrap: 'nowrap',
-      gap: 6,
-      overflow: 'visible' as any,
-    },
-    statGridItem: {
-      minWidth: 130,
-      maxWidth: 200,
-      backgroundColor: colors.cardLight,
-      borderRadius: borderRadius.md,
-      paddingVertical: 10,
-      paddingHorizontal: 10,
-      alignItems: 'center',
-      gap: 2,
-    },
-    statGridItemHighlight: {
-      borderWidth: 1,
-      borderColor: colors.accent1,
-    },
-    statGridValue: {
-      fontFamily: fontFamily.bold,
-      fontSize: 18,
-      color: colors.textOnDark,
-    },
-    statGridValueHighlight: {
-      color: colors.accent1,
-    },
-    statGridLabel: {
-      fontFamily: fontFamily.regular,
-      fontSize: 11,
-      color: colors.textInactive,
-    },
-
-    // Schedule Type Badge
-    scheduleTypeBadge: {
-      paddingVertical: 2,
-      paddingHorizontal: 8,
-      borderRadius: 10,
-      borderWidth: 1,
-    },
-    scheduleTypeBadgeText: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 10,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-    },
-    scheduleClashBorder: {
-      borderLeftWidth: 3,
-      borderLeftColor: colors.accent,
-      paddingLeft: 7,
-    },
-
-    // Confirm Card
-    confirmCard: {
-      backgroundColor: colors.accentSubtle,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: colors.accentSoft,
-      padding: 14,
-      gap: 8,
-    },
-    confirmHeadline: {
-      fontFamily: fontFamily.bold,
-      fontSize: 15,
-      color: colors.accent1,
-    },
-    confirmBody: {
-      fontFamily: fontFamily.regular,
-      fontSize: 14,
-      lineHeight: 20,
-      color: colors.textBody,
-    },
-    confirmItems: {
-      gap: 0,
-      marginVertical: 4,
-    },
-    confirmItemRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 6,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: `${colors.accentSoft}60`,
-      gap: 10,
-    },
-    confirmItemDate: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.textSecondary,
-      width: 72,
-    },
-    confirmItemTitle: {
-      flex: 1,
-      fontFamily: fontFamily.semiBold,
-      fontSize: 14,
-      color: colors.textOnDark,
-    },
-    confirmItemTime: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.accent1,
-      textAlign: 'right',
-    },
-    confirmButtons: {
-      flexDirection: 'row',
-      gap: 10,
-      marginTop: 4,
-    },
-    confirmBtn: {
-      flex: 1,
-      backgroundColor: colors.accent1,
-      borderRadius: borderRadius.full,
-      paddingVertical: 10,
-      alignItems: 'center',
-    },
-    confirmBtnText: {
-      fontFamily: fontFamily.bold,
-      fontSize: 14,
-      color: '#FFFFFF',
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-    },
-    cancelBtn: {
-      flex: 0.7,
-      backgroundColor: 'transparent',
-      borderRadius: borderRadius.full,
-      borderWidth: 1,
-      borderColor: colors.textInactive,
-      paddingVertical: 10,
-      alignItems: 'center',
-    },
-    cancelBtnText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 14,
-      color: colors.textSecondary,
-    },
-
-    // Coach Note
-    coachNote: {
-      flexDirection: 'row',
-      gap: 8,
-      backgroundColor: colors.accentSubtle,
-      borderRadius: borderRadius.md,
-      borderLeftWidth: 3,
-      borderLeftColor: colors.accent1,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-    },
-    coachNoteText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 14,
-      lineHeight: 20,
-      color: colors.textOnDark,
-      flex: 1,
-    },
-
-    // Action Chips
-    chipsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-      marginTop: 4,
-    },
-    actionChip: {
-      backgroundColor: colors.chipBackground,
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: borderRadius.full,
-      borderWidth: 1,
-      borderColor: colors.glassBorder,
-    },
-    actionChipPressed: {
-      opacity: 0.7,
-    },
-    actionChipText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 13,
-      color: colors.accent1,
-    },
-
-    // Session Plan
-    sessionPlanCard: {
-      backgroundColor: colors.cardLight,
-      borderRadius: borderRadius.md,
-      padding: 12,
-      gap: 8,
-    },
-    sessionPlanHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    sessionPlanTitle: {
-      fontFamily: fontFamily.bold,
-      fontSize: 15,
-      color: colors.textOnDark,
-      flex: 1,
-    },
-    sessionPlanMeta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    sessionPlanDuration: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.textInactive,
-    },
-    sessionPlanReadiness: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 11,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 10,
-      overflow: 'hidden',
-    },
-    sessionPlanItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      paddingVertical: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    sessionPlanDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    sessionPlanItemInfo: {
-      flex: 1,
-    },
-    sessionPlanItemName: {
-      fontFamily: fontFamily.medium,
-      fontSize: 14,
-      color: colors.textOnDark,
-    },
-    sessionPlanItemMeta: {
-      fontFamily: fontFamily.regular,
-      fontSize: 11,
-      color: colors.textInactive,
-      marginTop: 1,
-    },
-    sessionPlanIntensity: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 10,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 6,
-      overflow: 'hidden',
-    },
-
-    // Drill Card
-    drillCard: {
-      backgroundColor: colors.cardLight,
-      borderRadius: borderRadius.md,
-      padding: 14,
-      gap: 10,
-    },
-    drillCardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    drillCardName: {
-      fontFamily: fontFamily.bold,
-      fontSize: 16,
-      color: colors.textOnDark,
-      flex: 1,
-    },
-    drillCardIntensity: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 11,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 8,
-      overflow: 'hidden',
-    },
-    drillCardDesc: {
-      fontFamily: fontFamily.regular,
-      fontSize: 13,
-      lineHeight: 19,
-      color: colors.textBody,
-    },
-    drillCardMetaRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 6,
-    },
-    drillCardMetaPill: {
-      backgroundColor: colors.creamSubtle,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 6,
-    },
-    drillCardMetaText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 11,
-      color: colors.textInactive,
-    },
-    drillCardInstructionRow: {
-      flexDirection: 'row',
-      gap: 8,
-      paddingVertical: 2,
-    },
-    drillCardStepNum: {
-      fontFamily: fontFamily.bold,
-      fontSize: 12,
-      color: colors.accent1,
-      width: 18,
-    },
-    drillCardStepText: {
-      fontFamily: fontFamily.regular,
-      fontSize: 13,
-      lineHeight: 18,
-      color: colors.textOnDark,
-      flex: 1,
-    },
-    drillCardTagsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 4,
-    },
-    drillCardTag: {
-      backgroundColor: colors.accentMuted,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 10,
-    },
-    drillCardTagText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 10,
-      color: colors.accent1,
-    },
-
-    // Schedule Preview
-    schedulePreviewCard: {
-      backgroundColor: colors.cardLight,
-      borderRadius: borderRadius.md,
-      padding: 12,
-      gap: 10,
-    },
-    schedulePreviewHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    schedulePreviewTitle: {
-      fontFamily: fontFamily.bold,
-      fontSize: 15,
-      color: colors.textOnDark,
-    },
-    schedulePreviewSummary: {
-      fontFamily: fontFamily.medium,
-      fontSize: 12,
-      color: colors.textInactive,
-    },
-    schedulePreviewDate: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 12,
-      color: colors.textInactive,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      marginTop: 4,
-    },
-    schedulePreviewEvent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 8,
-      gap: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    schedulePreviewEventInfo: {
-      flex: 1,
-    },
-    schedulePreviewEventTitle: {
-      fontFamily: fontFamily.medium,
-      fontSize: 14,
-      color: colors.textOnDark,
-    },
-    schedulePreviewEventTime: {
-      fontFamily: fontFamily.regular,
-      fontSize: 12,
-      color: colors.textInactive,
-    },
-    schedulePreviewViolation: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      marginTop: 2,
-    },
-    schedulePreviewViolationText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 11,
-      flex: 1,
-    },
-    schedulePreviewAltsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 6,
-      marginTop: 4,
-    },
-    schedulePreviewAltChip: {
-      backgroundColor: 'rgba(74, 222, 128, 0.1)',
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: 'rgba(74, 222, 128, 0.2)',
-    },
-    schedulePreviewAltText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 11,
-      color: colors.accent,
-    },
-    schedulePreviewRemoveBtn: {
-      padding: 4,
-    },
-    schedulePreviewConfirmRow: {
-      flexDirection: 'row',
-      gap: 10,
-      marginTop: 6,
-    },
-    schedulePreviewConfirmBtn: {
-      flex: 1,
-      backgroundColor: colors.accent1,
-      borderRadius: borderRadius.full,
-      paddingVertical: 12,
-      alignItems: 'center',
-    },
-    schedulePreviewConfirmText: {
-      fontFamily: fontFamily.bold,
-      fontSize: 14,
-      color: colors.textPrimary,
-    },
-    schedulePreviewScenarioBadge: {
-      fontFamily: fontFamily.semiBold,
-      fontSize: 10,
-      color: colors.accent1,
-      backgroundColor: colors.accentMuted,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 8,
-      overflow: 'hidden',
-    },
-  });
-}
-
-// ── Card Renderers ───────────────────────────────────────────────
-
-function StatRowCard({ card, styles }: { card: StatRow; styles: ReturnType<typeof createStyles> }) {
-  const trendStyle =
-    card.trend === 'up'
-      ? styles.trendUp
-      : card.trend === 'down'
-        ? styles.trendDown
-        : styles.trendFlat;
-
-  return (
-    <View style={styles.statRow}>
-      <View style={styles.statLeft}>
-        {card.emoji && card.emoji.trim() ? <Text style={styles.statEmoji}>{card.emoji}</Text> : null}
-        <Text style={styles.statLabel}>{card.label}</Text>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
-        <Text style={[styles.statValue, card.trend ? trendStyle : undefined]}>
-          {card.value}
-        </Text>
-        {card.unit ? <Text style={styles.statUnit}>{card.unit}</Text> : null}
-        {card.trend === 'up' ? (
-          <Text style={trendStyle}> ↑</Text>
-        ) : card.trend === 'down' ? (
-          <Text style={trendStyle}> ↓</Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-// Highlight color mapping for stat_grid items
-const HIGHLIGHT_COLORS: Record<string, { value: string; border: string; bar: string }> = {
-  green: { value: colors.accent, border: colors.accent, bar: colors.accent },
-  yellow: { value: colors.warning, border: colors.warning, bar: colors.warning },
-  red: { value: colors.error, border: colors.error, bar: colors.error },
+const intensityTier = (v?: string): TierKind | undefined => {
+  const s = (v ?? '').toLowerCase();
+  if (s === 'hard') return 'alert';
+  if (s === 'light' || s === 'rest') return 'elite';
+  return undefined;
 };
 
-function StatGridCard({
-  card,
-  styles,
-}: {
-  card: StatGrid;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }} contentContainerStyle={{ paddingHorizontal: 4 }}>
-      <View style={styles.statGrid}>
-        {(Array.isArray(card.items) ? card.items : []).map((item, i) => {
-          const hl = HIGHLIGHT_COLORS[String(item.highlight || '').toLowerCase()];
-          return (
-            <View
-              key={i}
-              style={[
-                styles.statGridItem,
-                hl && { borderWidth: 1, borderColor: hl.border },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statGridValue,
-                  hl && { color: hl.value },
-                ]}
-                numberOfLines={3}
-              >
-                {item.value}{item.unit ? (/^[/%]/.test(item.unit) ? item.unit : ` ${item.unit}`) : ''}
-              </Text>
-              <Text style={styles.statGridLabel} numberOfLines={2}>{item.label}</Text>
-              {/* Color bar at bottom — matches highlight */}
-              {hl && (
-                <View style={{
-                  height: 3,
-                  backgroundColor: hl.bar,
-                  borderRadius: 2,
-                  width: '100%',
-                  marginTop: 4,
-                }} />
-              )}
-            </View>
-          );
-        })}
-      </View>
-    </ScrollView>
-  );
-}
-
-const SCHEDULE_COLORS: Record<string, string> = {
-  training: colors.accent,
-  match: colors.accent,
-  study: colors.info,
-  rest: colors.info,
-  exam: colors.error,
-  other: colors.textSecondary,
+const readinessTier = (color?: string): TierKind | undefined => {
+  const s = (color ?? '').toLowerCase();
+  if (s.includes('red')) return 'alert';
+  if (s.includes('green')) return 'elite';
+  return undefined;
 };
 
-const BADGE_LABELS: Record<string, string> = {
-  training: 'Train',
-  match: 'Match',
-  study: 'Study',
-  rest: 'Rest',
-  exam: 'Exam',
-  other: 'Other',
-};
-
-function ScheduleListCard({
-  card,
-  styles,
-}: {
-  card: ScheduleList;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  // Accept both "items" and "events" keys (Python may send either)
-  const rawItems = Array.isArray(card.items)
-    ? card.items
-    : Array.isArray((card as any).events)
-      ? (card as any).events
-      : [];
-
-  // Reuse confirm card layout — same visual as confirmation cards, no buttons
-  return (
-    <View style={styles.confirmCard}>
-      {card.date ? <Text style={styles.confirmHeadline}>{card.date}</Text> : null}
-      {rawItems.length > 0 ? (
-        <View style={styles.confirmItems}>
-          {rawItems.map((item: any, i: number) => (
-            <View key={i} style={styles.confirmItemRow}>
-              <Text style={styles.confirmItemDate}>{item.time || '—'}</Text>
-              <Text style={styles.confirmItemTitle} numberOfLines={1}>
-                {item.title || item.name || 'Event'}
-              </Text>
-              {(item.end_time || item.intensity) ? (
-                <Text style={styles.confirmItemTime}>
-                  {item.end_time || item.intensity}
-                </Text>
-              ) : null}
-            </View>
-          ))}
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function WeekScheduleCard({
-  card,
-  styles,
-}: {
-  card: WeekSchedule;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  return (
-    <View style={styles.weekScheduleCard}>
-      {card.summary ? (
-        <Text style={styles.weekScheduleSummary}>{card.summary}</Text>
-      ) : null}
-      {(Array.isArray(card.days) ? card.days : []).map((day, di) => {
-        // Collapse day's items into a single table row: day | activities | time
-        const activities = (Array.isArray(day.items) ? day.items : [])
-          .map((item) => item.title)
-          .join(' · ');
-        const lastTime = (Array.isArray(day.items) ? day.items : [])
-          .filter((item) => item.time)
-          .pop()?.time || '';
-        return (
-          <View
-            key={di}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: 6,
-              borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: `${colors.accentSoft}60`,
-              gap: 10,
-            }}
-          >
-            <Text style={styles.weekScheduleDayHeader}>{day.dayLabel}</Text>
-            <Text
-              style={{
-                flex: 1,
-                fontFamily: fontFamily.semiBold,
-                fontSize: 14,
-                color: colors.textOnDark,
-              }}
-              numberOfLines={1}
-            >
-              {activities || '—'}
-            </Text>
-            {lastTime ? (
-              <Text
-                style={{
-                  fontFamily: fontFamily.medium,
-                  fontSize: 12,
-                  color: colors.accent1,
-                  textAlign: 'right',
-                }}
-              >
-                {lastTime}
-              </Text>
-            ) : null}
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-// ── Week Plan Card (Pulse design — colored pills per day) ────────
-
-const TAG_COLORS: Record<string, string> = {
-  green: colors.accent,
-  yellow: colors.warning,
-  red: colors.error,
-  blue: '#4A90D9',
-  orange: '#F4501E',
-  gray: '#6B6B6B',
-};
-
-function WeekPlanCard({
-  card,
-  styles,
-  colors: themeColors,
-}: {
-  card: WeekPlan;
-  styles: ReturnType<typeof createStyles>;
-  colors: ThemeColors;
-}) {
-  return (
-    <View style={styles.weekPlanCard}>
-      {/* Header — matches confirm card headline */}
-      <View style={styles.weekPlanHeader}>
-        <Text style={styles.weekPlanTitle}>{card.title || 'Your Week'}</Text>
-        {card.date_range ? (
-          <Text style={styles.weekPlanDateRange}>{card.date_range}</Text>
-        ) : null}
-      </View>
-      {/* Day rows — same layout as confirm card table rows */}
-      {(Array.isArray(card.days) ? card.days : []).map((day, i) => {
-        const activities = (Array.isArray(day.tags) ? day.tags : [])
-          .map((tag) => tag.label)
-          .join(' · ');
-        return (
-          <View key={i} style={styles.weekPlanRow}>
-            <View style={styles.weekPlanRowInner}>
-              <Text style={styles.weekPlanDay}>{day.day}</Text>
-              <Text style={styles.weekPlanActivities} numberOfLines={1}>
-                {activities || '—'}
-              </Text>
-              {day.time ? <Text style={styles.weekPlanTime}>{day.time}</Text> : null}
-            </View>
-            {day.note ? <Text style={styles.weekPlanNote}>{day.note}</Text> : null}
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-// ── Choice Card (reuses confirmCard styles — standardized) ───────
-
-function ChoiceCardComponent({
-  card,
-  styles,
-  colors: themeColors,
-  onChipPress,
-}: {
-  card: ChoiceCard;
-  styles: ReturnType<typeof createStyles>;
-  colors: ThemeColors;
-  onChipPress?: (action: string) => void;
-}) {
-  return (
-    <View style={styles.confirmCard}>
-      {card.headline ? <Text style={styles.confirmHeadline}>{card.headline}</Text> : null}
-      <View style={styles.confirmItems}>
-        {(Array.isArray(card.options) ? card.options : []).map((opt, i) => (
-          <TouchableOpacity
-            key={i}
-            activeOpacity={0.6}
-            onPress={() => {
-              // Send the human-readable label as the chat message.
-              // Backend matches options by label. Never send raw value
-              // fields (UUIDs, enum keys) — they'd render as garbage in
-              // the user's chat bubble.
-              const msg = opt.label;
-              if (msg && onChipPress) onChipPress(msg);
-            }}
-            style={styles.choiceRow}
-          >
-            <View style={styles.choiceRadio} />
-            <View style={styles.choiceTextWrap}>
-              <Text style={styles.choiceLabel} numberOfLines={1}>{opt.label}</Text>
-              {opt.description ? (
-                <Text style={styles.choiceDesc} numberOfLines={2}>{opt.description}</Text>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-const ZONE_COLORS: Record<string, string> = {
-  green: colors.accent,
-  yellow: colors.warning,
-  red: colors.error,
-};
-
-function ZoneStackCard({
-  card,
-  styles,
-}: {
-  card: ZoneStack;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  return (
-    <View style={styles.zoneCard}>
-      {(Array.isArray(card.levels) ? card.levels : []).map((level, i) => {
-        const isActive = level.zone === card.current;
-        const color = ZONE_COLORS[level.zone];
-        return (
-          <View
-            key={i}
-            style={[
-              styles.zoneRow,
-              isActive && styles.zoneActive,
-              isActive && { borderColor: color },
-            ]}
-          >
-            <View style={[styles.zoneDot, { backgroundColor: color }]} />
-            <Text style={styles.zoneLabel}>{level.label}</Text>
-            <Text style={styles.zoneDetail}>{level.detail}</Text>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-function ClashListCard({
-  card,
-  styles,
-}: {
-  card: ClashList;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  return (
-    <View style={styles.clashCard}>
-      {(Array.isArray(card.clashes) ? card.clashes : []).map((clash, i) => (
-        <View key={i} style={styles.clashItem}>
-          <Text style={styles.clashEvents}>
-            {clash.event1} × {clash.event2}
-          </Text>
-          <Text style={styles.clashTime}>{clash.time}</Text>
-          <Text style={styles.clashFix}>→ {clash.fix}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/** Map raw metric keys to human-readable names */
-const METRIC_DISPLAY_NAMES: Record<string, string> = {
-  sprint_10m: '10m Sprint',
-  sprint_20m: '20m Sprint',
-  sprint_30m: '30m Sprint',
-  sprint_40m: '40m Sprint',
-  sprint_flying_20m: 'Flying 20m',
-  agility_505: '5-0-5 Agility',
-  agility_ttest: 'T-Test',
-  agility_5105: '5-10-5 Agility',
-  illinois_agility: 'Illinois Agility',
-  arrowhead_agility: 'Arrowhead Agility',
-  cmj_height: 'Counter Movement Jump',
-  broad_jump: 'Broad Jump',
-  vertical_jump: 'Vertical Jump',
-  yo_yo_ir1: 'Yo-Yo IR1',
-  yo_yo_ir2: 'Yo-Yo IR2',
-  beep_test: 'Beep Test',
-  '1rm_squat': '1RM Squat',
-  '1rm_bench': '1RM Bench Press',
-  '1rm_deadlift': '1RM Deadlift',
-  grip_strength: 'Grip Strength',
-  sit_and_reach: 'Sit & Reach',
-};
-
-/** Correct ordinal suffix (1st, 2nd, 3rd, 4th, etc.) */
-function ordinalSuffix(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-function BenchmarkBarCard({
-  card,
-  styles,
-}: {
-  card: BenchmarkBar;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  // Guard against undefined metric/percentile/ageBand from malformed AI responses
-  const metricKey = card.metric || '';
-  const displayMetric = METRIC_DISPLAY_NAMES[metricKey] || (metricKey ? metricKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Benchmark');
-  const percentile = typeof card.percentile === 'number' ? card.percentile : 0;
-
-  return (
-    <View style={styles.benchmarkCard}>
-      <View style={styles.benchmarkHeader}>
-        <Text style={styles.benchmarkMetric}>{displayMetric}</Text>
-        <Text style={styles.benchmarkValue}>
-          {card.value ?? '—'} {card.unit ?? ''}
-        </Text>
-      </View>
-      <View style={styles.benchmarkBarBg}>
-        <View
-          style={[
-            styles.benchmarkBarFill,
-            { width: `${Math.min(100, percentile)}%` },
-          ]}
-        />
-      </View>
-      <Text style={styles.benchmarkFooter}>
-        {ordinalSuffix(percentile)} percentile · {card.ageBand ?? '—'}
-      </Text>
-    </View>
-  );
-}
-
-// ── Program Recommendation Card ─────────────────────────────────
-
-const PRIORITY_EMOJI: Record<string, string> = { mandatory: '', high: '', medium: '' };
-const CATEGORY_EMOJI: Record<string, string> = {
-  speed: '', sprint: '', agility: '', strength: '', power: '',
-  endurance: '', technical: '', injury_prevention: '', mobility: '',
-  nordic: '', acl_prevention: '', recovery: '',
-};
-
-function ProgramRecommendationCardComponent({
-  card,
-  styles,
-  colors,
-}: {
-  card: ProgramRecommendationCard;
-  styles: ReturnType<typeof createStyles>;
-  colors: ThemeColors;
-}) {
-  return (
-    <View style={{ gap: 8 }}>
-      {(Array.isArray(card.programs) ? card.programs : []).slice(0, 5).map((p, i) => {
-        const emoji = CATEGORY_EMOJI[p.category?.toLowerCase()] ?? '';
-        const priorityDot = PRIORITY_EMOJI[p.priority] ?? '';
-        return (
-          <View
-            key={p.programId || i}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-              backgroundColor: `${colors.accent1}10`,
-              borderRadius: 12,
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-            }}
-          >
-            {emoji ? <Text style={{ fontSize: 20 }}>{emoji}</Text> : null}
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text
-                style={{
-                  fontFamily: fontFamily.semiBold,
-                  fontSize: 14,
-                  color: colors.textOnDark,
-                }}
-                numberOfLines={1}
-              >
-                {priorityDot} {p.name}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: fontFamily.regular,
-                  fontSize: 12,
-                  color: colors.textMuted,
-                }}
-                numberOfLines={1}
-              >
-                {p.weeklyFrequency}x/wk · {p.durationMin}min{p.positionNote ? ` · ${p.positionNote}` : ''}
-              </Text>
-            </View>
-          </View>
-        );
-      })}
-      {card.weeklyPlanSuggestion ? (
-        <Text
-          style={{
-            fontFamily: fontFamily.regular,
-            fontSize: 12,
-            color: colors.textMuted,
-            marginTop: 4,
-          }}
-        >
-          {card.weeklyPlanSuggestion}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-/** Strip markdown syntax from plain-text card bodies (safety net for AI formatting leaks). */
-function stripMarkdown(text: unknown): string {
-  if (typeof text !== 'string' || text.length === 0) return '';
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold** → bold
-    .replace(/\*(.+?)\*/g, '$1')        // *italic* → italic
-    .replace(/`(.+?)`/g, '$1')          // `code` → code
-    .replace(/^#+\s+/gm, '')            // # headers
-    .replace(/^[-*]\s+/gm, '• ')        // unordered list items → bullet
-    .replace(/^\d+\.\s+/gm, '• ');      // numbered list items → bullet
-}
-
-function TextCardComponent({
-  card,
-  styles,
-}: {
-  card: TextCard;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  return (
-    <View style={styles.textCard}>
-      {card.headline ? (
-        <Text style={styles.textCardHeadline}>
-          {card.emoji && card.emoji.trim() ? `${card.emoji} ` : ''}
-          {card.headline}
-        </Text>
-      ) : null}
-      <Text style={styles.textCardBody}>{stripMarkdown(card.body)}</Text>
-    </View>
-  );
-}
-
-function CoachNoteCard({
-  card,
-  styles,
-  colors,
-}: {
-  card: CoachNote;
-  styles: ReturnType<typeof createStyles>;
-  colors: ThemeColors;
-}) {
-  // Don't render if note is empty/whitespace-only (safety net — backend should filter these)
-  if (!card.note || !card.note.trim()) return null;
-
-  return (
-    <View style={styles.coachNote}>
-      <SmartIcon name="megaphone-outline" size={16} color={colors.accent1} />
-      <Text style={styles.coachNoteText}>{card.note}</Text>
-    </View>
-  );
-}
-
-function ConfirmCardComponent({
-  card,
-  styles,
-  onConfirm,
-  onCancel,
-}: {
-  card: ConfirmCard & { items?: { title: string; date: string; time: string }[] };
-  styles: ReturnType<typeof createStyles>;
-  onConfirm?: () => void;
-  onCancel?: () => void;
-}) {
-  const items = Array.isArray((card as any).items) ? (card as any).items : [];
-  const hasItems = items.length > 0;
-
-  return (
-    <View style={styles.confirmCard}>
-      {/* Headline */}
-      <Text style={styles.confirmHeadline}>{card.headline}</Text>
-
-      {/* Structured event items (batch confirmations) */}
-      {hasItems ? (
-        <View style={styles.confirmItems}>
-          {items.map((item: { title: string; date: string; time: string }, i: number) => (
-            <View key={i} style={styles.confirmItemRow}>
-              <Text style={styles.confirmItemDate}>{item.date}</Text>
-              <Text style={styles.confirmItemTitle} numberOfLines={1}>{item.title}</Text>
-              {item.time ? <Text style={styles.confirmItemTime}>{item.time}</Text> : null}
-            </View>
-          ))}
-        </View>
-      ) : card.body ? (
-        <Text style={styles.confirmBody}>{card.body}</Text>
-      ) : null}
-
-      {/* Buttons — side by side: Cancel (subtle) | Confirm (accent) */}
-      <View style={styles.confirmButtons}>
-        <Pressable
-          onPress={onCancel}
-          style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.7 }]}
-        >
-          <Text style={styles.cancelBtnText}>Cancel</Text>
-        </Pressable>
-        <Pressable
-          onPress={onConfirm}
-          style={({ pressed }) => [styles.confirmBtn, pressed && { opacity: 0.8 }]}
-        >
-          <Text style={styles.confirmBtnText}>{card.confirmLabel || 'CONFIRM'}</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-// ── Session Plan Card ────────────────────────────────────────────
-
-const CATEGORY_COLORS: Record<string, string> = {
-  warmup: colors.warning,
-  training: colors.accent,
-  cooldown: colors.info,
-  recovery: colors.accent,
-  activation: colors.info,
-};
-
-const INTENSITY_COLORS: Record<string, { bg: string; text: string }> = {
-  light: { bg: 'rgba(74, 222, 128, 0.15)', text: colors.accent },
-  moderate: { bg: colors.accentSoft, text: colors.accent },
-  hard: { bg: 'rgba(248, 113, 113, 0.15)', text: colors.error },
-};
-
-function SessionPlanCard({
-  card,
-  styles,
-  colors,
-  onDrillPress,
-}: {
-  card: SessionPlan;
-  styles: ReturnType<typeof createStyles>;
-  colors: ThemeColors;
-  onDrillPress?: (action: string) => void;
-}) {
-  const readinessColor =
-    card.readiness === 'Green'
-      ? colors.accent
-      : card.readiness === 'Yellow'
-        ? colors.warning
-        : card.readiness === 'Red'
-          ? colors.error
-          : colors.textInactive;
-
-  return (
-    <View style={styles.sessionPlanCard}>
-      <View style={styles.sessionPlanHeader}>
-        <Text style={styles.sessionPlanTitle}>{card.title}</Text>
-        <View style={styles.sessionPlanMeta}>
-          <Text style={styles.sessionPlanDuration}>{card.totalDuration}min</Text>
-          <Text
-            style={[
-              styles.sessionPlanReadiness,
-              { backgroundColor: `${readinessColor}20`, color: readinessColor },
-            ]}
-          >
-            {card.readiness}
-          </Text>
-        </View>
-      </View>
-
-      {(Array.isArray(card.items) ? card.items : []).map((item, i) => {
-        const catColor = CATEGORY_COLORS[item.category] || colors.accent;
-        const intColors = INTENSITY_COLORS[item.intensity] || INTENSITY_COLORS.moderate;
-        return (
-          <Pressable
-            key={i}
-            style={({ pressed }) => [
-              styles.sessionPlanItem,
-              i === card.items.length - 1 && { borderBottomWidth: 0 },
-              pressed && { opacity: 0.7 },
-            ]}
-            onPress={() =>
-              onDrillPress?.(
-                item.drillId
-                  ? `Show me drill details for "${item.name}" [drillId:${item.drillId}]`
-                  : `Tell me more about the ${item.name} drill`
-              )
-            }
-          >
-            <View style={[styles.sessionPlanDot, { backgroundColor: catColor }]} />
-            <View style={styles.sessionPlanItemInfo}>
-              <Text style={styles.sessionPlanItemName}>{item.name}</Text>
-              <Text style={styles.sessionPlanItemMeta}>
-                {item.duration}min · {item.category}
-                {item.reason ? ` · ${item.reason}` : ''}
-              </Text>
-            </View>
-            <Text
-              style={[
-                styles.sessionPlanIntensity,
-                { backgroundColor: intColors.bg, color: intColors.text },
-              ]}
-            >
-              {item.intensity}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-// ── Drill Card ──────────────────────────────────────────────────
-
-function DrillCardComponent({
-  card,
-  styles,
-  colors,
-}: {
-  card: DrillCard;
-  styles: ReturnType<typeof createStyles>;
-  colors: ThemeColors;
-}) {
-  const intColors = INTENSITY_COLORS[card.intensity] || INTENSITY_COLORS.moderate;
-
-  return (
-    <View style={styles.drillCard}>
-      {/* Header */}
-      <View style={styles.drillCardHeader}>
-        <Text style={styles.drillCardName}>{card.name}</Text>
-        <Text
-          style={[
-            styles.drillCardIntensity,
-            { backgroundColor: intColors.bg, color: intColors.text },
-          ]}
-        >
-          {card.intensity}
-        </Text>
-      </View>
-
-      {/* Description */}
-      {card.description ? (
-        <Text style={styles.drillCardDesc}>{card.description}</Text>
-      ) : null}
-
-      {/* Meta pills: duration, equipment */}
-      <View style={styles.drillCardMetaRow}>
-        <View style={styles.drillCardMetaPill}>
-          <Text style={styles.drillCardMetaText}>{card.duration}min</Text>
-        </View>
-        {(Array.isArray(card.equipment) ? card.equipment : []).map((eq, i) => (
-          <View key={i} style={styles.drillCardMetaPill}>
-            <Text style={styles.drillCardMetaText}>{eq}</Text>
-          </View>
-        ))}
-        {card.progressionCount > 0 ? (
-          <View style={styles.drillCardMetaPill}>
-            <Text style={styles.drillCardMetaText}>
-              {card.progressionCount} progressions
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* Instructions */}
-      {Array.isArray(card.instructions) && card.instructions.length > 0 ? (
-        <View style={{ gap: 2 }}>
-          {card.instructions.map((step, i) => (
-            <View key={i} style={styles.drillCardInstructionRow}>
-              <Text style={styles.drillCardStepNum}>{i + 1}.</Text>
-              <Text style={styles.drillCardStepText}>{typeof step === 'string' ? step : String(step)}</Text>
-            </View>
-          ))}
-        </View>
-      ) : typeof card.instructions === 'string' && (card.instructions as string).length > 0 ? (
-        <Text style={styles.drillCardStepText}>{card.instructions as string}</Text>
-      ) : null}
-
-      {/* Tags */}
-      {card.tags && card.tags.length > 0 ? (
-        <View style={styles.drillCardTagsRow}>
-          {(Array.isArray(card.tags) ? card.tags : []).map((tag, i) => (
-            <View key={i} style={styles.drillCardTag}>
-              <Text style={styles.drillCardTagText}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-// ── Schedule Preview Card ────────────────────────────────────────
-
-const EVENT_TYPE_COLORS: Record<string, string> = {
-  training: colors.accent,
-  match: colors.accent,
-  study: colors.info,
-  gym: colors.info,
-  club: colors.accent,
-  exam: colors.error,
-  recovery: colors.accent,
-  rest: colors.textSecondary,
-};
-
-const VIOLATION_ICONS: Record<string, string> = {
-  overlap: '',
-  gap: '',
-  intensity_cap: '',
-  outside_bounds: '',
-  exam_day_restriction: '',
-  max_sessions: '',
-};
-
-function SchedulePreviewCardComponent({
-  card,
-  styles,
-  colors,
-  onChipPress,
-  onConfirm,
-}: {
-  card: SchedulePreviewCard;
-  styles: ReturnType<typeof createStyles>;
-  colors: ThemeColors;
-  onChipPress?: (action: string) => void;
-  onConfirm?: () => void;
-}) {
-  // Group events by date
-  const events = Array.isArray(card.events) ? card.events : [];
-  const summary = card.summary ?? { total: 0, withViolations: 0, blocked: 0 };
-  const scenario = typeof card.scenario === 'string' ? card.scenario : '';
-  const byDate = new Map<string, SchedulePreviewEvent[]>();
-  for (const evt of events) {
-    if (!evt) continue;
-    const date = evt.date ?? '';
-    if (!byDate.has(date)) byDate.set(date, []);
-    byDate.get(date)!.push(evt);
+const zoneTier = (
+  zone: string,
+  current: string,
+): TierKind | undefined => {
+  if (zone === current) {
+    return zone === 'red' ? 'alert' : zone === 'green' ? 'elite' : 'ontrack';
   }
+  return undefined;
+};
 
-  const acceptedCount = events.filter((e) => e?.accepted).length;
+const fmtPercentile = (p: number | undefined): string | undefined =>
+  typeof p === 'number' ? `P${Math.round(p)}` : undefined;
 
-  return (
-    <View style={styles.schedulePreviewCard}>
-      {/* Header */}
-      <View style={styles.schedulePreviewHeader}>
-        <View style={{ gap: 2 }}>
-          <Text style={styles.schedulePreviewTitle}>Schedule Preview</Text>
-          <Text style={styles.schedulePreviewSummary}>
-            {acceptedCount} of {summary.total ?? 0} events
-            {(summary.withViolations ?? 0) > 0
-              ? ` · ${summary.withViolations} need attention`
-              : ' ready'}
-          </Text>
-        </View>
-        <Text style={styles.schedulePreviewScenarioBadge}>
-          {scenario.replace(/_/g, ' ').toUpperCase()}
-        </Text>
-      </View>
+// ─── per-card error boundary ─────────────────────────────────────────
 
-      {/* Events grouped by date */}
-      {Array.from(byDate.entries()).map(([date, events]) => (
-        <View key={date}>
-          <Text style={styles.schedulePreviewDate}>{date}</Text>
-          {events.map((evt, i) => {
-            const violations = Array.isArray(evt.violations) ? evt.violations : [];
-            const alternatives = Array.isArray(evt.alternatives) ? evt.alternatives : [];
-            const dotColor = EVENT_TYPE_COLORS[evt.event_type] || colors.textSecondary;
-            const hasErrors = violations.some((v) => v?.severity === 'error');
-            const hasWarnings = violations.some((v) => v?.severity === 'warning');
+class CardErrorBoundary extends Component<
+  { children: ReactNode; cardType: string },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
 
-            return (
-              <View
-                key={i}
-                style={[
-                  styles.schedulePreviewEvent,
-                  !evt.accepted && { opacity: 0.4 },
-                  i === events.length - 1 && { borderBottomWidth: 0 },
-                ]}
-              >
-                {/* Dot */}
-                <View
-                  style={[
-                    styles.sessionPlanDot,
-                    { backgroundColor: hasErrors ? colors.error : dotColor },
-                  ]}
-                />
-
-                {/* Event info */}
-                <View style={styles.schedulePreviewEventInfo}>
-                  <Text style={styles.schedulePreviewEventTitle}>{evt.title}</Text>
-                  <Text style={styles.schedulePreviewEventTime}>
-                    {evt.startTime} – {evt.endTime}
-                    {evt.intensity ? ` · ${evt.intensity}` : ''}
-                  </Text>
-
-                  {/* Violations */}
-                  {violations.map((v, vi) => (
-                    <View key={vi} style={styles.schedulePreviewViolation}>
-                      <Text style={{ fontSize: 11 }}>
-                        {VIOLATION_ICONS[v.type] || ''}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.schedulePreviewViolationText,
-                          {
-                            color:
-                              v.severity === 'error' ? colors.error : colors.warning,
-                          },
-                        ]}
-                      >
-                        {v.message}
-                      </Text>
-                    </View>
-                  ))}
-
-                  {/* Alternative time chips */}
-                  {alternatives.length > 0 && (
-                    <View style={styles.schedulePreviewAltsRow}>
-                      {alternatives.map((alt, ai) => (
-                        <Pressable
-                          key={ai}
-                          style={({ pressed }) => [
-                            styles.schedulePreviewAltChip,
-                            pressed && { opacity: 0.7 },
-                          ]}
-                          onPress={() =>
-                            onChipPress?.(
-                              `Move "${evt.title}" to ${alt.startTime}-${alt.endTime} on ${evt.date}`
-                            )
-                          }
-                        >
-                          <Text style={styles.schedulePreviewAltText}>
-                            {alt.startTime} – {alt.endTime}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  )}
-                </View>
-
-                {/* Intensity badge */}
-                {evt.intensity && (
-                  <Text
-                    style={[
-                      styles.sessionPlanIntensity,
-                      {
-                        backgroundColor:
-                          INTENSITY_COLORS[evt.intensity.toLowerCase()]?.bg ||
-                          colors.creamSubtle,
-                        color:
-                          INTENSITY_COLORS[evt.intensity.toLowerCase()]?.text ||
-                          colors.textInactive,
-                      },
-                    ]}
-                  >
-                    {evt.intensity}
-                  </Text>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      ))}
-
-      {/* Confirm button */}
-      <View style={styles.schedulePreviewConfirmRow}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.schedulePreviewConfirmBtn,
-            pressed && { opacity: 0.8 },
-            (summary.blocked ?? 0) > 0 && { opacity: 0.5 },
-          ]}
-          onPress={onConfirm}
-          disabled={(summary.blocked ?? 0) > 0 && acceptedCount === 0}
-        >
-          <Text style={styles.schedulePreviewConfirmText}>
-            Confirm {acceptedCount} Event{acceptedCount !== 1 ? 's' : ''}
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-// ── Per-Card Error Boundary ──────────────────────────────────────
-//
-// A single bad card (usually a stale/legacy payload restored from storage)
-// must not crash the whole chat screen. This boundary contains the blast
-// radius to one card, logs the real error + card type to Sentry so we can
-// fix the underlying data/shape later, and renders a small inline placeholder
-// in its place. Without this, one broken message in the user's saved chat
-// loops the app into the top-level ErrorBoundary on every mount.
-
-interface CardErrorBoundaryProps {
-  cardType: string;
-  children: ReactNode;
-}
-
-interface CardErrorBoundaryState {
-  hasError: boolean;
-}
-
-class CardErrorBoundary extends Component<CardErrorBoundaryProps, CardErrorBoundaryState> {
-  state: CardErrorBoundaryState = { hasError: false };
-
-  static getDerivedStateFromError(): CardErrorBoundaryState {
+  static getDerivedStateFromError() {
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    const cardType = this.props.cardType || 'unknown';
-    // Preserve the real error details for diagnosis — the top-level boundary
-    // only ever sees a minified component stack, which loses the card type.
-    console.error(
-      `[ResponseRenderer] card="${cardType}" failed to render:`,
-      error,
-      info.componentStack,
-    );
-    try {
-      Sentry.captureException(error, {
-        tags: { component: 'ResponseRenderer', cardType },
-        extra: { componentStack: info.componentStack },
-      } as any);
-    } catch {
-      // Sentry may not be configured — never let reporting itself throw
-    }
+    Sentry.captureException(error, {
+      tags: { surface: 'chat_card', cardType: this.props.cardType },
+      extra: { componentStack: info.componentStack },
+    });
   }
 
   render() {
-    if (!this.state.hasError) return this.props.children;
-    return (
-      <View
-        style={{
-          backgroundColor: 'rgba(248, 113, 113, 0.08)',
-          borderRadius: borderRadius.md,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: 'rgba(248, 113, 113, 0.25)',
-          paddingVertical: 10,
-          paddingHorizontal: 12,
-        }}
-      >
-        <Text
-          style={{
-            fontFamily: fontFamily.medium,
-            fontSize: 12,
-            color: colors.textInactive,
-          }}
-        >
-          This card couldn&apos;t be displayed.
-        </Text>
-      </View>
-    );
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorText}>
+            Couldn’t render a card in this reply.
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
   }
 }
 
-// ── Card Router ──────────────────────────────────────────────────
+// ─── card renderers ──────────────────────────────────────────────────
+
+function renderStatRow(card: StatRow) {
+  const items: MetricItem[] = [
+    {
+      value: `${card.value}${card.unit ? ` ${card.unit}` : ''}`,
+      label: card.label,
+    },
+  ];
+  return <MetricRow items={items} />;
+}
+
+function renderStatGrid(card: StatGrid) {
+  const raw = Array.isArray(card.items) ? card.items : [];
+  const items: MetricItem[] = raw.slice(0, 4).map((it) => ({
+    value: `${it.value}${it.unit ? ` ${it.unit}` : ''}`,
+    label: it.label,
+    tone: it.highlight ? 'alert' : 'default',
+  }));
+  return <MetricRow items={items} />;
+}
+
+function renderBenchmarkBar(card: BenchmarkBar) {
+  const pct = fmtPercentile(card.percentile);
+  const tone: MetricItem['tone'] =
+    typeof card.percentile === 'number' && card.percentile < 25
+      ? 'alert'
+      : 'default';
+  return (
+    <MetricRow
+      items={[
+        {
+          value: `${card.value}${card.unit ? ` ${card.unit}` : ''}`,
+          label: card.metric,
+          pct,
+          tone,
+        },
+      ]}
+    />
+  );
+}
+
+function renderScheduleList(card: ScheduleList) {
+  const items: ScheduleItem[] = Array.isArray(card.items) ? card.items : [];
+  const rows: TableRow[] = items.map((it) => ({
+    label: `${it.time}  ·  ${it.title}`,
+    tier: it.clash ? 'alert' : undefined,
+  }));
+  return (
+    <>
+      {card.date ? <TomoBody>{card.date}</TomoBody> : null}
+      <Table rows={rows} />
+    </>
+  );
+}
+
+function renderWeekSchedule(card: WeekSchedule) {
+  const days = Array.isArray(card.days) ? card.days : [];
+  return (
+    <>
+      {card.summary ? <TomoBody>{card.summary}</TomoBody> : null}
+      {days.map((day, i) => {
+        const items = Array.isArray(day.items) ? day.items : [];
+        const rows: TableRow[] = items.map((it) => ({
+          label: `${it.time}  ·  ${it.title}`,
+          tier: it.clash ? 'alert' : undefined,
+        }));
+        return (
+          <FormSection key={`${day.dayLabel}-${i}`} label={day.dayLabel}>
+            <Table rows={rows} />
+          </FormSection>
+        );
+      })}
+    </>
+  );
+}
+
+function renderWeekPlan(card: WeekPlan) {
+  const days = Array.isArray(card.days) ? card.days : [];
+  const rows: TableRow[] = days.map((d) => {
+    const tags = Array.isArray(d.tags) ? d.tags : [];
+    const tagLabel = tags.map((t) => t.label).join(' · ');
+    const valueBits: string[] = [];
+    if (d.time) valueBits.push(d.time);
+    if (tagLabel) valueBits.push(tagLabel);
+    const hasRed = tags.some((t) => t.color === 'red');
+    const hasGreen = tags.some((t) => t.color === 'green');
+    return {
+      label: d.day,
+      value: valueBits.join('  ·  ') || (d.note ?? ''),
+      tier: hasRed ? 'alert' : hasGreen ? 'elite' : undefined,
+    };
+  });
+  return <Table rows={rows} />;
+}
+
+function renderZoneStack(card: ZoneStack) {
+  const levels = Array.isArray(card.levels) ? card.levels : [];
+  const rows: TableRow[] = levels.map((lvl) => ({
+    label: lvl.label,
+    value: lvl.detail,
+    tier: zoneTier(lvl.zone, card.current),
+  }));
+  return <Table rows={rows} />;
+}
+
+function renderClashList(card: ClashList) {
+  const clashes = Array.isArray(card.clashes) ? card.clashes : [];
+  const rows: TableRow[] = clashes.map((c) => ({
+    label: `${c.time}  ·  ${c.event1} vs ${c.event2}`,
+    value: c.fix,
+    tier: 'alert' as TierKind,
+  }));
+  return <Table rows={rows} />;
+}
+
+function renderTextCard(card: TextCard, skipHeadline: boolean) {
+  return (
+    <>
+      {!skipHeadline && card.headline ? (
+        <TomoTitle>{card.headline}</TomoTitle>
+      ) : null}
+      {card.body ? <TomoBody>{card.body}</TomoBody> : null}
+    </>
+  );
+}
+
+function renderCoachNote(card: CoachNote) {
+  return (
+    <>
+      {card.note ? <TomoBody>{card.note}</TomoBody> : null}
+      {card.source ? (
+        <Text style={styles.source}>— {card.source}</Text>
+      ) : null}
+    </>
+  );
+}
+
+function renderConfirmCard(
+  card: ConfirmCard,
+  onConfirm?: () => void,
+  onCancel?: () => void,
+) {
+  return (
+    <>
+      {card.headline ? <TomoTitle>{card.headline}</TomoTitle> : null}
+      {card.body ? <TomoBody>{card.body}</TomoBody> : null}
+      {onConfirm && (
+        <CTA tone="primary" onPress={onConfirm}>
+          {card.confirmLabel || 'Confirm'}
+        </CTA>
+      )}
+      {onCancel && (
+        <CTA tone="muted" onPress={onCancel}>
+          {card.cancelLabel || 'Cancel'}
+        </CTA>
+      )}
+    </>
+  );
+}
+
+function renderChoiceCard(
+  card: ChoiceCard,
+  onChipPress?: (action: string) => void,
+  skipHeadline?: boolean,
+) {
+  const options = Array.isArray(card.options) ? card.options : [];
+  return (
+    <>
+      {!skipHeadline && card.headline ? (
+        <TomoTitle>{card.headline}</TomoTitle>
+      ) : null}
+      <FormSection label="Pick one">
+        {options.map((opt, i) => (
+          <RadioRow
+            key={`${opt.value}-${i}`}
+            title={opt.label}
+            sub={opt.description}
+            onPress={
+              onChipPress ? () => onChipPress(opt.value) : undefined
+            }
+            last={i === options.length - 1}
+          />
+        ))}
+      </FormSection>
+    </>
+  );
+}
+
+function renderSessionPlan(card: SessionPlan) {
+  const items = Array.isArray(card.items) ? card.items : [];
+  const rows: TableRow[] = items.map((it) => ({
+    label: it.name,
+    value: `${it.duration}m`,
+    tier: intensityTier(it.intensity),
+  }));
+  return (
+    <>
+      {card.title ? <TomoBody>{card.title}</TomoBody> : null}
+      <MetricRow
+        items={[
+          {
+            value: `${card.totalDuration ?? 0}m`,
+            label: 'Total',
+          },
+          {
+            value: card.readiness ?? '—',
+            label: 'Readiness',
+          },
+          {
+            value: String(items.length),
+            label: 'Drills',
+          },
+        ]}
+      />
+      <Table rows={rows} />
+    </>
+  );
+}
+
+function renderDrillCard(card: DrillCard) {
+  const equipment = Array.isArray(card.equipment) ? card.equipment : [];
+  const instructions = Array.isArray(card.instructions)
+    ? card.instructions
+    : [];
+  const rows: TableRow[] = [
+    { label: 'Duration', value: `${card.duration}m` },
+    {
+      label: 'Intensity',
+      value: card.intensity,
+      tier: intensityTier(card.intensity),
+    },
+    {
+      label: 'Equipment',
+      value: equipment.length ? equipment.join(', ') : '—',
+    },
+  ];
+  return (
+    <>
+      {card.name ? <TomoTitle>{card.name}</TomoTitle> : null}
+      {card.description ? <TomoBody>{card.description}</TomoBody> : null}
+      <Table rows={rows} />
+      {instructions.length > 0 && (
+        <FormSection label="Steps">
+          {instructions.map((step, i) => (
+            <Text
+              key={`instr-${i}`}
+              style={styles.listItem}
+            >{`${i + 1}.  ${step}`}</Text>
+          ))}
+        </FormSection>
+      )}
+    </>
+  );
+}
+
+function renderSchedulePreview(
+  card: SchedulePreviewCard,
+  onConfirm?: () => void,
+) {
+  const events = Array.isArray(card.events) ? card.events : [];
+  const rows: TableRow[] = events.map((e) => ({
+    label: `${e.date}  ·  ${e.startTime}–${e.endTime}`,
+    value: e.title,
+    tier: e.violations && e.violations.length ? 'alert' : undefined,
+  }));
+  const summary: MetricItem[] = [
+    { value: String(card.summary?.total ?? events.length), label: 'Total' },
+    {
+      value: String(card.summary?.withViolations ?? 0),
+      label: 'Clashes',
+      tone: (card.summary?.withViolations ?? 0) > 0 ? 'alert' : 'default',
+    },
+    { value: String(card.summary?.blocked ?? 0), label: 'Blocked' },
+  ];
+  return (
+    <>
+      <MetricRow items={summary} />
+      <Table rows={rows} />
+      {onConfirm && (
+        <CTA tone="primary" onPress={onConfirm}>
+          Confirm schedule
+        </CTA>
+      )}
+    </>
+  );
+}
+
+function renderProgramRecommendation(card: ProgramRecommendationCard) {
+  const programs = Array.isArray(card.programs) ? card.programs : [];
+  const rows: TableRow[] = programs.slice(0, 5).map((p) => ({
+    label: p.name,
+    value: `${p.weeklyFrequency}× / ${p.durationMin}m`,
+    tier:
+      p.priority === 'mandatory'
+        ? 'alert'
+        : p.priority === 'high'
+        ? 'elite'
+        : 'ontrack',
+  }));
+  return (
+    <>
+      {card.weeklyPlanSuggestion ? (
+        <TomoBody>{card.weeklyPlanSuggestion}</TomoBody>
+      ) : null}
+      <Table rows={rows} />
+    </>
+  );
+}
+
+function renderInjuryCard(card: InjuryCard) {
+  const rows: TableRow[] = [
+    { label: 'Location', value: card.location },
+    {
+      label: 'Severity',
+      value: card.severityLabel,
+      tier: card.severity >= 2 ? 'alert' : 'ontrack',
+    },
+  ];
+  if (card.autoAdjustedSession) {
+    rows.push({
+      label: "Today's session",
+      value: 'Auto-adjusted',
+      tier: 'elite',
+    });
+  }
+  return (
+    <>
+      {card.recoveryTip ? <TomoBody>{card.recoveryTip}</TomoBody> : null}
+      <Table rows={rows} />
+    </>
+  );
+}
+
+function renderGoalCard(card: GoalCard) {
+  const items: MetricItem[] = [];
+  if (typeof card.currentValue === 'number') {
+    items.push({
+      value: `${card.currentValue}${card.targetUnit ? ` ${card.targetUnit}` : ''}`,
+      label: 'Current',
+    });
+  }
+  if (typeof card.targetValue === 'number') {
+    items.push({
+      value: `${card.targetValue}${card.targetUnit ? ` ${card.targetUnit}` : ''}`,
+      label: 'Target',
+    });
+  }
+  items.push({
+    value: `${Math.round(card.progressPct ?? 0)}%`,
+    label: 'Progress',
+    tone: card.trend === 'behind' ? 'alert' : 'default',
+  });
+  return (
+    <>
+      {card.title ? <TomoTitle>{card.title}</TomoTitle> : null}
+      <MetricRow items={items} />
+      {card.deadline ? (
+        <TomoBody>Deadline: {card.deadline}</TomoBody>
+      ) : null}
+    </>
+  );
+}
+
+function renderDailyBriefing(card: DailyBriefingCard) {
+  const items: MetricItem[] = [
+    {
+      value: String(card.readinessScore ?? '—'),
+      label: 'Readiness',
+      tone: readinessTier(card.readinessColor) === 'alert' ? 'alert' : 'default',
+    },
+    { value: String(card.eventCount ?? 0), label: 'Events' },
+    { value: String(card.trainingCount ?? 0), label: 'Training' },
+  ];
+  if (card.matchCount && card.matchCount > 0) {
+    items.push({ value: String(card.matchCount), label: 'Matches' });
+  }
+  return (
+    <>
+      {card.briefingSummary ? (
+        <TomoBody>{card.briefingSummary}</TomoBody>
+      ) : null}
+      <MetricRow items={items.slice(0, 4)} />
+    </>
+  );
+}
+
+// ─── dispatcher ──────────────────────────────────────────────────────
 
 function RenderCard({
   card,
-  styles,
-  colors,
   onConfirm,
   onCancel,
   onChipPress,
   onCapsuleSubmit,
   onNavigate,
+  skipHeadline,
 }: {
   card: VisualCard;
-  styles: ReturnType<typeof createStyles>;
-  colors: ThemeColors;
   onConfirm?: () => void;
   onCancel?: () => void;
   onChipPress?: (action: string) => void;
   onCapsuleSubmit?: (action: CapsuleAction) => void;
-  onNavigate?: (deepLink: { tabName: string; params?: Record<string, any>; screen?: string; highlight?: string; autoOpen?: string }) => void;
+  onNavigate?: (deepLink: {
+    tabName: string;
+    params?: Record<string, any>;
+    screen?: string;
+    highlight?: string;
+    autoOpen?: string;
+  }) => void;
+  skipHeadline?: boolean;
 }) {
-  // Route capsule card types to CapsuleRenderer
-  if (isCapsuleCard(card.type) && onCapsuleSubmit) {
-    return <CapsuleRenderer card={card} onSubmit={onCapsuleSubmit} onNavigate={onNavigate} />;
+  // Capsules keep their existing interactive renderers — restyled
+  // internally in their own component files.
+  if (isCapsuleCard(card.type)) {
+    return (
+      <CapsuleRenderer
+        card={card as any}
+        onSubmit={onCapsuleSubmit ?? (() => {})}
+        onNavigate={onNavigate}
+      />
+    );
   }
 
   switch (card.type) {
     case 'stat_row':
-      return <StatRowCard card={card} styles={styles} />;
+      return renderStatRow(card as StatRow);
     case 'stat_grid':
-      return <StatGridCard card={card} styles={styles} />;
-    case 'schedule_list':
-      return <ScheduleListCard card={card} styles={styles} />;
-    case 'week_schedule':
-      return <WeekScheduleCard card={card} styles={styles} />;
-    case 'week_plan':
-      return <WeekPlanCard card={card as WeekPlan} styles={styles} colors={colors} />;
-    case 'choice_card':
-      return <ChoiceCardComponent card={card as ChoiceCard} styles={styles} colors={colors} onChipPress={onChipPress} />;
-    case 'zone_stack':
-      return <ZoneStackCard card={card} styles={styles} />;
-    case 'clash_list':
-      return <ClashListCard card={card} styles={styles} />;
+      return renderStatGrid(card as StatGrid);
     case 'benchmark_bar':
-      return <BenchmarkBarCard card={card} styles={styles} />;
-    case 'program_recommendation':
-      return <ProgramRecommendationCardComponent card={card as ProgramRecommendationCard} styles={styles} colors={colors} />;
+      return renderBenchmarkBar(card as BenchmarkBar);
+    case 'schedule_list':
+      return renderScheduleList(card as ScheduleList);
+    case 'week_schedule':
+      return renderWeekSchedule(card as WeekSchedule);
+    case 'week_plan':
+      return renderWeekPlan(card as WeekPlan);
+    case 'zone_stack':
+      return renderZoneStack(card as ZoneStack);
+    case 'clash_list':
+      return renderClashList(card as ClashList);
     case 'text_card':
-      return <TextCardComponent card={card} styles={styles} />;
-    case 'injury_card':
-      return <InjuryCardComponent card={card as InjuryCard} />;
-    case 'goal_card':
-      return <GoalCardComponent card={card as GoalCard} />;
-    case 'daily_briefing_card':
-      return <DailyBriefingCardComponent card={card as DailyBriefingCard} />;
+      return renderTextCard(card as TextCard, !!skipHeadline);
     case 'coach_note':
-      return <CoachNoteCard card={card} styles={styles} colors={colors} />;
+      return renderCoachNote(card as CoachNote);
     case 'confirm_card':
-      return <ConfirmCardComponent card={card} styles={styles} onConfirm={onConfirm} onCancel={onCancel} />;
-    case 'session_plan':
-      return <SessionPlanCard card={card} styles={styles} colors={colors} onDrillPress={onChipPress} />;
-    case 'drill_card':
-      return <DrillCardComponent card={card} styles={styles} colors={colors} />;
-    case 'schedule_preview':
-      return (
-        <SchedulePreviewCardComponent
-          card={card}
-          styles={styles}
-          colors={colors}
-          onChipPress={onChipPress}
-          onConfirm={onConfirm}
-        />
+      return renderConfirmCard(card as ConfirmCard, onConfirm, onCancel);
+    case 'choice_card':
+      return renderChoiceCard(
+        card as ChoiceCard,
+        onChipPress,
+        !!skipHeadline,
       );
+    case 'session_plan':
+      return renderSessionPlan(card as SessionPlan);
+    case 'drill_card':
+      return renderDrillCard(card as DrillCard);
+    case 'schedule_preview':
+      return renderSchedulePreview(card as SchedulePreviewCard, onConfirm);
+    case 'program_recommendation':
+      return renderProgramRecommendation(card as ProgramRecommendationCard);
+    case 'injury_card':
+      return renderInjuryCard(card as InjuryCard);
+    case 'goal_card':
+      return renderGoalCard(card as GoalCard);
+    case 'daily_briefing_card':
+      return renderDailyBriefing(card as DailyBriefingCard);
     default: {
-      // Fallback: render unhandled card types as text card if they have a body/headline
-      const fallback = card as any;
-      if (fallback.headline || fallback.body) {
+      // Unknown type — try body/headline fallback
+      const any = card as any;
+      if (any.headline || any.body) {
         return (
-          <TextCardComponent
-            card={{ type: 'text_card', headline: fallback.headline ?? fallback.type, body: fallback.body ?? '', emoji: '' }}
-            styles={styles}
-          />
+          <>
+            {any.headline ? <TomoTitle>{any.headline}</TomoTitle> : null}
+            {any.body ? <TomoBody>{any.body}</TomoBody> : null}
+          </>
         );
       }
       return null;
@@ -1972,7 +615,7 @@ function RenderCard({
   }
 }
 
-// ── Main Component ───────────────────────────────────────────────
+// ─── ResponseRenderer ────────────────────────────────────────────────
 
 interface ResponseRendererProps {
   response: TomoResponse;
@@ -1980,7 +623,13 @@ interface ResponseRendererProps {
   onConfirm?: () => void;
   onCancel?: () => void;
   onCapsuleSubmit?: (action: CapsuleAction) => void;
-  onNavigate?: (deepLink: { tabName: string; params?: Record<string, any>; screen?: string; highlight?: string; autoOpen?: string }) => void;
+  onNavigate?: (deepLink: {
+    tabName: string;
+    params?: Record<string, any>;
+    screen?: string;
+    highlight?: string;
+    autoOpen?: string;
+  }) => void;
 }
 
 export function ResponseRenderer({
@@ -1991,87 +640,110 @@ export function ResponseRenderer({
   onCapsuleSubmit,
   onNavigate,
 }: ResponseRendererProps) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const cards = Array.isArray(response.cards) ? response.cards : [];
+  const chips = Array.isArray(response.chips) ? response.chips : [];
 
-  // Self-contained card types render their own content — no outer body needed
-  const SELF_CONTAINED_TYPES = new Set(['confirm_card', 'choice_card']);
-  const hasSelfContainedCard = (Array.isArray(response.cards) ? response.cards : [])
-    .some((c) => SELF_CONTAINED_TYPES.has(c.type));
+  // Self-contained cards render their own headline/body. Skip the
+  // top-level title if the first non-capsule card IS self-contained
+  // and matches.
+  const hasSelfContained = cards.some((c) => SELF_CONTAINED_TYPES.has(c.type));
 
-  // Body text: show when it differs from headline and has substance
-  // Skip for self-contained cards (they render their own headline/body internally)
-  const showBody = !hasSelfContainedCard
-    && response.body
-    && response.body.trim() !== ''
-    && response.body.trim() !== response.headline?.trim();
-
-  // Deduplicate: skip text_card/coach_note cards whose content overlaps
-  // with the body or headline (prevents the same paragraph rendering twice).
-  // Uses fuzzy match — strips markdown/bullets and compares first 80 chars.
-  const stripForCompare = (s: string) =>
-    s.replace(/[*_#•\-`]/g, '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80);
-  const bodyNorm = stripForCompare(response.body || '');
   const headlineNorm = stripForCompare(response.headline || '');
+  const bodyNorm = stripForCompare(response.body || '');
 
-  const filteredCards = (Array.isArray(response.cards) ? response.cards : []).filter((card) => {
+  // Dedup: drop text_card / coach_note cards whose body or headline
+  // is a near-duplicate of the response-level title/body, so the same
+  // paragraph never renders twice.
+  const filteredCards = cards.filter((card) => {
     if (card.type === 'text_card') {
       const tc = card as TextCard;
       const cardBody = stripForCompare(tc.body || '');
       const cardHeadline = stripForCompare(tc.headline || '');
-      // Skip if card body matches response body
-      if (showBody && cardBody && bodyNorm && cardBody === bodyNorm) return false;
-      // Skip if card headline matches response headline (prevents full duplicate block)
-      if (headlineNorm && cardHeadline && cardHeadline === headlineNorm) return false;
+      if (bodyNorm && cardBody && cardBody === bodyNorm) return false;
+      if (headlineNorm && cardHeadline && cardHeadline === headlineNorm)
+        return false;
     }
     if (card.type === 'coach_note') {
       const noteBody = stripForCompare((card as CoachNote).note || '');
-      if (showBody && noteBody && bodyNorm && noteBody === bodyNorm) return false;
+      if (bodyNorm && noteBody && noteBody === bodyNorm) return false;
     }
     return true;
   });
 
+  const showTopHeadline = !!response.headline && !hasSelfContained;
+  const showTopBody =
+    !!response.body &&
+    response.body.trim() !== '' &&
+    stripForCompare(response.body) !== headlineNorm &&
+    !hasSelfContained;
+
   return (
     <View style={styles.container}>
-      {response.headline ? (
-        <Text style={styles.headline}>{response.headline}</Text>
-      ) : null}
-
-      {showBody ? (
-        <Text style={styles.bodyText}>{response.body}</Text>
-      ) : null}
+      {showTopHeadline ? <TomoTitle>{response.headline}</TomoTitle> : null}
+      {showTopBody ? <TomoBody>{response.body}</TomoBody> : null}
 
       {filteredCards.map((card, i) => (
-        <CardErrorBoundary key={i} cardType={card?.type || 'unknown'}>
+        <CardErrorBoundary
+          key={`${card.type}-${i}`}
+          cardType={card?.type || 'unknown'}
+        >
           <RenderCard
             card={card}
-            styles={styles}
-            colors={colors}
             onConfirm={onConfirm}
             onCancel={onCancel}
             onChipPress={onChipPress}
             onCapsuleSubmit={onCapsuleSubmit}
             onNavigate={onNavigate}
+            skipHeadline={showTopHeadline}
           />
         </CardErrorBoundary>
       ))}
 
-      {response.chips && response.chips.length > 0 && onChipPress ? (
-        <View style={styles.chipsRow}>
-          {response.chips.map((chip, i) => (
-            <Pressable
-              key={i}
-              onPress={() => onChipPress(chip.message || chip.action)}
-              style={({ pressed }) => [
-                styles.actionChip,
-                pressed && styles.actionChipPressed,
-              ]}
-            >
-              <Text style={styles.actionChipText}>{chip.label}</Text>
-            </Pressable>
-          ))}
-        </View>
+      {chips.length > 0 && onChipPress ? (
+        <Suggestions
+          items={chips.map((c) => c.label).filter(Boolean)}
+          onPick={(label) => {
+            const chip = chips.find((c) => c.label === label);
+            if (chip) onChipPress(chip.message || chip.action);
+          }}
+        />
       ) : null}
     </View>
   );
 }
+
+// ─── styles ──────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    width: '100%',
+  },
+  errorWrap: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: T.red10,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 12,
+    fontFamily: T.fontRegular,
+    color: T.red,
+  },
+  source: {
+    fontSize: 11,
+    fontFamily: T.fontLight,
+    color: T.cream55,
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  listItem: {
+    fontSize: 13,
+    fontFamily: T.fontRegular,
+    color: T.cream90,
+    lineHeight: 20,
+    paddingVertical: 4,
+  },
+});

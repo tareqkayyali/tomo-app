@@ -1,91 +1,49 @@
 /**
- * EmojiScale — Emoji-driven rating scale for check-in capsule (energy, soreness).
+ * EmojiScale — rating scale for capsule forms (energy, soreness, etc.).
+ *
+ * Named historically, but renders pure number chips via the shared
+ * <NumberChipRow> primitive. The emoji field on each option is
+ * accepted for API compatibility and intentionally NOT rendered
+ * (project-wide no-emoji rule).
  */
 
 import React from 'react';
-import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { colors } from '../../../../theme/colors';
-import { borderRadius } from '../../../../theme';
-import { fontFamily } from '../../../../theme';
+import { View, Text, StyleSheet } from 'react-native';
+import { NumberChipRow, T } from '../../tomo';
 
 interface EmojiScaleProps {
-  options: Array<{ value: number; emoji: string }>;
+  /** Options from the capsule; emoji is accepted but ignored. */
+  options: Array<{ value: number; emoji?: string }>;
   selected?: number;
   onSelect: (value: number) => void;
   label?: string;
 }
 
-export function EmojiScale({ options, selected, onSelect, label }: EmojiScaleProps) {
+export function EmojiScale({
+  options,
+  selected,
+  onSelect,
+  label,
+}: EmojiScaleProps) {
+  const values = options.map((o) => o.value);
   return (
-    <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <View style={styles.row}>
-        {options.map((opt) => {
-          const isSelected = opt.value === selected;
-          return (
-            <Pressable
-              key={opt.value}
-              onPress={() => onSelect(opt.value)}
-              style={({ pressed }) => [
-                styles.emojiButton,
-                isSelected && styles.emojiButtonSelected,
-                pressed && styles.emojiButtonPressed,
-              ]}
-            >
-              {opt.emoji ? <Text style={styles.emoji}>{opt.emoji}</Text> : null}
-              <Text style={[styles.value, isSelected && styles.valueSelected]}>
-                {opt.value}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+    <View style={styles.wrap}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <NumberChipRow values={values} selected={selected} onPick={onSelect} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: 4,
+  wrap: {
+    gap: 8,
   },
   label: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 12,
-    color: colors.textInactive,
-  },
-  row: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  emojiButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.chipBackground,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    minWidth: 42,
-    gap: 1,
-  },
-  emojiButtonSelected: {
-    borderColor: colors.accent1,
-    backgroundColor: colors.accentMuted,
-  },
-  emojiButtonPressed: {
-    opacity: 0.7,
-  },
-  emoji: {
-    fontSize: 20,
-  },
-  value: {
-    fontFamily: fontFamily.medium,
-    fontSize: 11,
-    color: colors.textInactive,
-  },
-  valueSelected: {
-    color: colors.accent1,
+    fontFamily: T.fontMedium,
+    fontSize: 9.5,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    color: T.cream55,
+    marginBottom: 2,
   },
 });

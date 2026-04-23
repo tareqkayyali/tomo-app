@@ -1,12 +1,11 @@
 /**
- * CapsuleDayPicker — Day-of-week multi-select pills for capsule forms.
- * Days are 0-6 (Sunday=0, Saturday=6).
+ * CapsuleDayPicker — day-of-week multi-select on Tomo chat tokens.
+ * Seven equal-flex hairline pills, sage fill when selected.
  */
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors } from '../../../../theme/colors';
-import { spacing, borderRadius, fontFamily } from '../../../../theme';
+import { T } from '../../tomo';
 
 const DAYS = [
   { id: 0, short: 'Sun' },
@@ -24,28 +23,43 @@ interface CapsuleDayPickerProps {
   onChange: (days: number[]) => void;
 }
 
-export function CapsuleDayPicker({ label, selected, onChange }: CapsuleDayPickerProps) {
-  const toggleDay = (day: number) => {
+export function CapsuleDayPicker({
+  label,
+  selected,
+  onChange,
+}: CapsuleDayPickerProps) {
+  const toggle = (day: number) => {
     if (selected.includes(day)) {
-      onChange(selected.filter(d => d !== day));
+      onChange(selected.filter((d) => d !== day));
     } else {
       onChange([...selected, day].sort());
     }
   };
-
   return (
-    <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+    <View style={styles.wrap}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
       <View style={styles.row}>
-        {DAYS.map(day => {
-          const isSelected = selected.includes(day.id);
+        {DAYS.map((day) => {
+          const sel = selected.includes(day.id);
           return (
             <Pressable
               key={day.id}
-              onPress={() => toggleDay(day.id)}
-              style={[styles.dayPill, isSelected && styles.dayPillSelected]}
+              onPress={() => toggle(day.id)}
+              style={[
+                styles.pill,
+                { borderColor: sel ? T.sage : T.cream10 },
+                sel && { backgroundColor: T.sage08 },
+              ]}
             >
-              <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
+              <Text
+                style={[
+                  styles.text,
+                  {
+                    color: sel ? T.sageLight : T.cream70,
+                    fontFamily: sel ? T.fontMedium : T.fontRegular,
+                  },
+                ]}
+              >
                 {day.short}
               </Text>
             </Pressable>
@@ -57,35 +71,28 @@ export function CapsuleDayPicker({ label, selected, onChange }: CapsuleDayPicker
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 6 },
+  wrap: { gap: 8 },
   label: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 13,
-    color: colors.textInactive,
+    fontFamily: T.fontMedium,
+    fontSize: 9.5,
+    color: T.cream55,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   row: {
     flexDirection: 'row',
     gap: 6,
   },
-  dayPill: {
+  pill: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 7,
     alignItems: 'center',
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.chipBackground,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
   },
-  dayPillSelected: {
-    borderColor: colors.accent1,
-    backgroundColor: colors.accentMuted,
-  },
-  dayText: {
-    fontFamily: fontFamily.medium,
-    fontSize: 12,
-    color: colors.textInactive,
-  },
-  dayTextSelected: {
-    color: colors.accent1,
+  text: {
+    fontSize: 11,
+    letterSpacing: 0.2,
   },
 });

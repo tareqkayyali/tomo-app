@@ -1,14 +1,11 @@
 /**
- * PillSelector — Flex-wrap pill row for capsule selection inputs.
- * No horizontal scrolling (conflicts with page swiping).
- * Pills wrap to next line when they overflow.
+ * PillSelector — wraps the Tomo chat PillChipRow primitive while
+ * preserving the existing capsule API (options: {id,label}, selected id).
  */
 
 import React from 'react';
-import { Pressable, Text, StyleSheet, View } from 'react-native';
-import { colors } from '../../../../theme/colors';
-import { borderRadius } from '../../../../theme';
-import { fontFamily } from '../../../../theme';
+import { View, Text, StyleSheet } from 'react-native';
+import { PillChipRow, T } from '../../tomo';
 
 interface PillOption {
   id: string;
@@ -20,32 +17,28 @@ interface PillSelectorProps {
   selected?: string;
   onSelect: (id: string) => void;
   label?: string;
+  disabledIds?: string[];
 }
 
-export function PillSelector({ options, selected, onSelect, label }: PillSelectorProps) {
+export function PillSelector({
+  options,
+  selected,
+  onSelect,
+  label,
+  disabledIds,
+}: PillSelectorProps) {
+  const ids = options.map((o) => o.id);
+  const byId = new Map(options.map((o) => [o.id, o.label] as const));
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <View style={styles.pillRow}>
-        {options.map((option) => {
-          const isSelected = option.id === selected;
-          return (
-            <Pressable
-              key={option.id}
-              onPress={() => onSelect(option.id)}
-              style={({ pressed }) => [
-                styles.pill,
-                isSelected && styles.pillSelected,
-                pressed && styles.pillPressed,
-              ]}
-            >
-              <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
-                {option.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <PillChipRow<string>
+        values={ids}
+        selected={selected}
+        onPick={onSelect}
+        labelOf={(id) => byId.get(id) ?? id}
+        disabledValues={disabledIds}
+      />
     </View>
   );
 }
@@ -55,36 +48,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   label: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 12,
-    color: colors.textInactive,
-  },
-  pillRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  pill: {
-    backgroundColor: colors.chipBackground,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-  },
-  pillSelected: {
-    borderColor: colors.accent1,
-    backgroundColor: `rgba(122, 155, 118, 0.12)`,
-  },
-  pillPressed: {
-    opacity: 0.7,
-  },
-  pillText: {
-    fontFamily: fontFamily.medium,
-    fontSize: 12,
-    color: colors.textInactive,
-  },
-  pillTextSelected: {
-    color: colors.accent1,
+    fontFamily: T.fontMedium,
+    fontSize: 9.5,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    color: T.cream55,
+    marginBottom: 8,
   },
 });

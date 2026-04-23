@@ -20,7 +20,6 @@ import {
   StyleSheet,
   FlatList,
   ScrollView,
-  TextInput,
   Pressable,
   KeyboardAvoidingView,
   Platform,
@@ -64,6 +63,12 @@ import {
 } from '../services/api';
 import type { AgentChatResponse } from '../services/api';
 import { ResponseRenderer } from '../components/chat/ResponseRenderer';
+import {
+  UserBubble as TomoUserBubble,
+  TurnMark as TomoTurnMark,
+  Composer as TomoComposer,
+  T as TomoT,
+} from '../components/chat/tomo';
 import type { TomoResponse, ChatSession as ServerChatSession, CapsuleAction } from '../types/chat';
 import { useAuth } from '../hooks/useAuth';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
@@ -290,7 +295,7 @@ function createStyles(colors: ThemeColors) {
     },
     messageRow: {
       marginBottom: 12,
-      paddingHorizontal: layout.screenMargin,
+      paddingHorizontal: 20,
     },
     messageRowUser: {
       alignItems: 'flex-end',
@@ -300,6 +305,10 @@ function createStyles(colors: ThemeColors) {
     },
     aiMessageContainer: {
       width: '100%',
+    },
+    // Single-column flow for Tomo chat primitives (user bubble, title/body, cards)
+    chatColumn: {
+      paddingHorizontal: 20,
     },
     userBubble: {
       maxWidth: '82%',
@@ -396,88 +405,25 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.textInactive,
     },
 
-    // ── Input Bar ─────────────────────────────────────────────────────
+    // ── Input Bar (Tomo chat primitive spec) ──────────────────────────
     inputBarContainer: {
-      paddingHorizontal: spacing.md,
-      paddingTop: 6,
-      // Smaller bottom padding pulls the input closer to the safe-area edge
-      // so "Ask tomo.." visually sits further down. The SafeAreaView already
-      // reserves the home-indicator inset beneath this.
+      paddingHorizontal: 20,
+      paddingTop: 10,
       paddingBottom: spacing.xs,
       backgroundColor: colors.background,
     },
     inputBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.cream03,
+      backgroundColor: TomoT.cream03,
       borderWidth: 1,
-      borderColor: colors.cream10,
-      borderRadius: 999,
-      paddingLeft: spacing.md,
-      paddingRight: 4,
+      borderColor: TomoT.cream10,
+      borderRadius: 14,
+      paddingLeft: 16,
+      paddingRight: 8,
       paddingVertical: 4,
-      minHeight: 52,
+      minHeight: 48,
       maxHeight: 160,
-    },
-    textInput: {
-      flex: 1,
-      fontFamily: fontFamily.regular,
-      fontSize: 16,
-      color: colors.textOnDark,
-      textAlign: 'left',
-      paddingVertical: 10,
-      paddingTop: 10,
-      paddingBottom: 10,
-      maxHeight: 140,
-      writingDirection: 'ltr',
-      // RN web honours this to strip the Android ExtraHeight baseline
-      // padding that was pushing the placeholder down.
-      ...(Platform.OS !== 'web' ? { includeFontPadding: false as any } : {}),
-    },
-    sendButton: {
-      width: 36,
-      height: 36,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    sendButtonSage: {
-      width: 32,
-      height: 32,
-      borderRadius: 999,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.tomoSage,
-    },
-    sendButtonPressed: {
-      opacity: 0.6,
-    },
-    stopButton: {
-      width: 36,
-      height: 36,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.textInactive,
-      borderRadius: 18,
-    },
-    stopIcon: {
-      width: 12,
-      height: 12,
-      borderRadius: 2,
-      backgroundColor: colors.background,
-    },
-
-    // ── Voice Transcribing ────────────────────────────────────────────
-    transcribingContainer: {
-      flex: 1,
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      gap: 8,
-      paddingVertical: 8,
-    },
-    transcribingText: {
-      fontFamily: fontFamily.medium,
-      fontSize: 14,
     },
 
     // ── Scroll-to-bottom Button ────────────────────────────────────────
@@ -792,20 +738,17 @@ const ChatBubble = React.memo(function ChatBubble({
     );
   }
 
-  // User message — gray bubble, right-aligned
+  // User message — right-aligned receipt bubble (Tomo chat primitive)
   if (isUser) {
     const displayText = message.text.replace(/\s*\[drillId:[^\]]*\]/g, '');
     return (
-      <View style={[styles.messageRow, styles.messageRowUser]}>
-        <View style={[styles.userBubble, message.error && styles.bubbleError]}>
-          <Text
-            style={[styles.userBubbleText, message.error && styles.bubbleTextError]}
-          >
-            {displayText}
+      <View style={styles.chatColumn}>
+        <TomoUserBubble>{displayText}</TomoUserBubble>
+        {message.error && (
+          <Text style={[styles.retryHint, { alignSelf: 'flex-end', marginTop: 4 }]}>
+            Tap to retry
           </Text>
-          {message.error && <Text style={styles.retryHint}>Tap to retry</Text>}
-          {!message.error && <CopyButton text={displayText} />}
-        </View>
+        )}
       </View>
     );
   }
@@ -2088,7 +2031,7 @@ export function HomeScreen() {
               ref={flatListRef}
               data={messages}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => {
+              renderItem={({ item, index }) => {
                 const confirmHandler = item.confirmAction
                   ? () => {
                       const action = item.confirmAction!;
@@ -2117,16 +2060,31 @@ export function HomeScreen() {
                   />
                 );
 
+                // Turn separator — faint sphere + fading hairlines between
+                // completed Q/A turns. Not rendered before the first turn.
+                const showTurnMark = item.role === 'user' && index > 0;
+
+                const withSeparator = showTurnMark ? (
+                  <>
+                    <View style={{ paddingHorizontal: 20 }}>
+                      <TomoTurnMark />
+                    </View>
+                    {bubble}
+                  </>
+                ) : (
+                  bubble
+                );
+
                 // Only wrap in Pressable for error retry — otherwise render directly
                 // (Pressable with disabled=true blocks child touch events on web)
                 if (item.error) {
                   return (
                     <Pressable onPress={() => handleRetry(item)}>
-                      {bubble}
+                      {withSeparator}
                     </Pressable>
                   );
                 }
-                return bubble;
+                return withSeparator;
               }}
               contentContainerStyle={styles.chatContent}
               showsVerticalScrollIndicator={false}
@@ -2166,109 +2124,37 @@ export function HomeScreen() {
 
         {/* Confirmation handled by inline confirm_card in ResponseRenderer */}
 
-        {/* ─── Input Bar ───────────────────────────────────────────── */}
+        {/* ─── Input Bar (Tomo chat primitive) ────────────────────── */}
         {!showSavedChats && (
-          <View style={styles.inputBarContainer} {...inputBarPan.panHandlers}>
-            <View style={styles.inputBar}>
-              {isRecording ? (
-                /* ─── Recording Mode ─── */
-                <VoicePulse
-                  duration={voiceDuration}
-                  onStop={stopRecording}
-                  onCancel={cancelRecording}
-                />
-              ) : isUploading ? (
-                /* ─── Transcribing Mode ─── */
-                <View style={styles.transcribingContainer}>
-                  <Loader size="sm" />
-                  <Text style={[styles.transcribingText, { color: colors.accent2 }]}>
-                    Transcribing...
-                  </Text>
-                </View>
-              ) : (
-                /* ─── Normal Input Mode ─── */
-                <>
-                  <TextInput
-                    style={styles.textInput}
-                    value={inputText}
-                    onChangeText={setInputText}
-                    placeholder={pageConfig?.metadata?.emptyStates?.['input_placeholder'] || "Ask Tomo"}
-                    placeholderTextColor={colors.textInactive}
-                    multiline
-                    blurOnSubmit={false}
-                    textAlignVertical="center"
-                    editable={!isSending}
-                    onKeyPress={(e) => {
-                      // Enter (without Shift) sends the message on web/desktop
-                      if (
-                        e.nativeEvent.key === 'Enter' &&
-                        !(e.nativeEvent as any).shiftKey
-                      ) {
-                        e.preventDefault?.();
-                        if (inputText.trim() && !isSending) {
-                          handleSend();
-                        }
-                      }
-                    }}
-                    onSubmitEditing={() => {
-                      if (inputText.trim() && !isSending) {
-                        handleSend();
-                      }
-                    }}
+          <View {...inputBarPan.panHandlers}>
+            {isRecording ? (
+              // Recording takes over the whole bar
+              <View style={styles.inputBarContainer}>
+                <View style={styles.inputBar}>
+                  <VoicePulse
+                    duration={voiceDuration}
+                    onStop={stopRecording}
+                    onCancel={cancelRecording}
                   />
-
-                  {isSending ? (
-                    <Pressable
-                      onPress={handleCancel}
-                      style={({ pressed }) => [
-                        styles.stopButton,
-                        pressed && styles.sendButtonPressed,
-                      ]}
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      accessibilityLabel="Stop generating"
-                    >
-                      <View style={styles.stopIcon} />
-                    </Pressable>
-                  ) : inputText.trim() ? (
-                    <Pressable
-                      onPress={() => handleSend()}
-                      style={({ pressed }) => [
-                        styles.sendButtonSage,
-                        pressed && styles.sendButtonPressed,
-                      ]}
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      accessibilityLabel="Send message"
-                    >
-                      <SmartIcon
-                        name="arrow-up"
-                        size={16}
-                        color={colors.tomoCream}
-                      />
-                    </Pressable>
-                  ) : (
-                    /* ─── Mic Button (all platforms, when input empty) ─── */
-                    <Pressable
-                      onPress={startRecording}
-                      style={({ pressed }) => [
-                        styles.sendButton,
-                        pressed && styles.sendButtonPressed,
-                      ]}
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      accessibilityLabel="Voice input"
-                    >
-                      <SmartIcon
-                        name="mic-outline"
-                        size={26}
-                        color={colors.accent1}
-                      />
-                    </Pressable>
-                  )}
-                </>
-              )}
-            </View>
+                </View>
+              </View>
+            ) : (
+              <TomoComposer
+                value={inputText}
+                onChangeText={setInputText}
+                onSubmit={() => {
+                  if (inputText.trim() && !isSending) handleSend();
+                }}
+                onStop={handleCancel}
+                onMicPress={startRecording}
+                placeholder={
+                  pageConfig?.metadata?.emptyStates?.['input_placeholder'] ||
+                  'Ask tomo..'
+                }
+                isSending={isSending}
+                isTranscribing={isUploading}
+              />
+            )}
           </View>
         )}
       </KeyboardAvoidingView>

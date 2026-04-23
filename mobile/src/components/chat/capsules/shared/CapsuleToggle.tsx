@@ -1,11 +1,11 @@
 /**
- * CapsuleToggle — On/off toggle with label for capsule forms.
+ * CapsuleToggle — on/off switch on the Tomo chat primitive tokens.
+ * Hairline track that fills sage when active; no shadow, no chrome.
  */
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors } from '../../../../theme/colors';
-import { spacing, borderRadius, fontFamily } from '../../../../theme';
+import { T } from '../../tomo';
 
 interface CapsuleToggleProps {
   label: string;
@@ -14,62 +14,87 @@ interface CapsuleToggleProps {
   description?: string;
 }
 
-export function CapsuleToggle({ label, value, onChange, description }: CapsuleToggleProps) {
+export function CapsuleToggle({
+  label,
+  value,
+  onChange,
+  description,
+}: CapsuleToggleProps) {
   return (
     <Pressable
       onPress={() => onChange(!value)}
-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
-      <View style={styles.textContainer}>
-        <Text style={styles.label}>{label}</Text>
-        {description && <Text style={styles.description}>{description}</Text>}
+      <View style={styles.text}>
+        <Text
+          style={[styles.label, { color: value ? T.sageLight : T.cream }]}
+          numberOfLines={2}
+        >
+          {label}
+        </Text>
+        {description ? (
+          <Text style={styles.sub} numberOfLines={2}>
+            {description}
+          </Text>
+        ) : null}
       </View>
-      <View style={[styles.track, value && styles.trackActive]}>
-        <View style={[styles.thumb, value && styles.thumbActive]} />
+      <View
+        style={[
+          styles.track,
+          { borderColor: value ? T.sage : T.cream15 },
+          value && { backgroundColor: T.sage08 },
+        ]}
+      >
+        <View
+          style={[
+            styles.thumb,
+            {
+              backgroundColor: value ? T.sage : T.cream25,
+              alignSelf: value ? 'flex-end' : 'flex-start',
+            },
+          ]}
+        />
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.xs,
+    gap: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: T.cream06,
   },
   pressed: { opacity: 0.7 },
-  textContainer: { flex: 1, marginRight: spacing.md },
-  label: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: 14,
-    color: colors.textPrimary,
+  text: {
+    flex: 1,
   },
-  description: {
-    fontFamily: fontFamily.regular,
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
+  label: {
+    fontFamily: T.fontMedium,
+    fontSize: 13.5,
+    letterSpacing: -0.1,
+  },
+  sub: {
+    fontFamily: T.fontLight,
+    fontSize: 11,
+    color: T.cream55,
+    marginTop: 1,
   },
   track: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.glassBorder,
-    justifyContent: 'center',
+    width: 36,
+    height: 20,
+    borderRadius: 999,
+    borderWidth: 1,
     paddingHorizontal: 2,
-  },
-  trackActive: {
-    backgroundColor: colors.accent1,
+    justifyContent: 'center',
   },
   thumb: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.textSecondary,
-  },
-  thumbActive: {
-    backgroundColor: colors.textOnDark,
-    alignSelf: 'flex-end',
+    width: 12,
+    height: 12,
+    borderRadius: 999,
   },
 });
