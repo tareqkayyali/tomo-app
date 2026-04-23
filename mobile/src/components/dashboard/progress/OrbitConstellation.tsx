@@ -3,24 +3,33 @@
  *
  * Renders up to 6 metrics as cream-coloured dots orbiting a central compass.
  * Geometry follows the Signal · Orbit spec:
- *   • 390×520 canvas, centre at (195, 244).
- *   • Orbit radii (tight, close-packed): [60, 82, 104, 126, 150, 172].
- *   • Angles are hand-placed (not evenly distributed) for rhythm and to
- *     keep chips + labels clear of the header, legend, and compass.
- *   • Dot SIZE encodes "how close to personal best" (now / best, 10–34px,
- *     normalised across the 6 metrics so different units compare fairly).
- *   • Delta CHIP encodes direction of change (better = sage, worse = clay),
- *     placed adaptively right/left depending on viewport clearance.
- *   • Ranking: metrics are sorted by |delta| descending — the biggest mover
- *     gets orbit 0 (closest to the compass), smallest gets orbit 5.
+ *   • 390×440 canvas, centre at (195, 210). Height tightened from the
+ *     original 520 so the canvas + legend pill fit above the tab bar
+ *     without a scroll.
+ *   • Six orbit radii, close-packed. Angles hand-placed so each orbit
+ *     lives in a distinct wedge (no two neighbours share a hemisphere).
+ *   • Dot SIZE encodes progress MAGNITUDE (|progressScore|) — big
+ *     improvements AND big regressions both read as large dots. Orbit
+ *     placement encodes direction: positive progress → inner, negative
+ *     → outer. Ranking is by
+ *     `progressScore = direction === 'lower_better' ? -delta : delta`.
+ *     Top 6 selected by |progressScore| desc (biggest movers — most
+ *     visible); within those 6, signed score orders orbit assignment.
+ *     Best mover gets orbit 0 (innermost); worst gets orbit 5 (outermost).
+ *     Neutral metrics (direction = neutral) score 0 and land mid-pack.
+ *   • Delta CHIP arrow + colour track SEMANTIC progress (▲ sage = better,
+ *     ▼ clay = worse, — muted = neutral). The numeric portion keeps the
+ *     raw signed delta so the athlete still sees the measurement
+ *     direction (e.g. "▼ +100%" for soreness up — semantic-bad with
+ *     raw-positive number).
+ *   • Chip placement is adaptive: test both sides against viewport
+ *     margin AND compass exclusion zone; flip left only when right
+ *     fails.
  *   • Leader lines + dashed orbit rings radiate from the compass so the
  *     compass reads as the baseline origin.
  *
- * Nothing leaves the 390-wide frame: the outermost dot's label + chip must
- * fit within `W/2` of centre, which is why outer orbits stay tight.
- *
- * The component is render-only — it takes the resolved metric payload from
- * `useProgressMetrics` and never fetches anything itself.
+ * The component is render-only — it takes the resolved metric payload
+ * from `useProgressMetrics` and never fetches anything itself.
  */
 
 import React, { useMemo } from 'react';
@@ -38,19 +47,40 @@ import type { ProgressMetric } from '../../../hooks/useProgressMetrics';
 
 // ─── Canvas geometry ─────────────────────────────────────────────────
 const W = 390;
-const H = 520;
+const H = 440;
 const CX = W / 2; // 195
-const CY = 244;
+const CY = 210;
 
-const ORBITS = [60, 82, 104, 126, 150, 172];
+// Radii — pushed outward so the innermost dot's value text (which sits
+// ~20px below the dot centre) clears the compass halo (radius ~43).
+const ORBITS = [92, 110, 128, 146, 160, 174];
+
+// Hand-placed angles. Each orbit lives in a distinct wedge so dot +
+// label + chip clusters don't collide. Biased away from pure horizontal
+// (chips would invade the compass) and pure vertical (labels would clip
+// the header / legend).
 const ANGLES = [
-  -Math.PI * 0.58,
-  -Math.PI * 0.18,
-   Math.PI * 0.22,
-   Math.PI * 0.68,
-  -Math.PI * 1.22,
-  -Math.PI * 0.88,
+  -Math.PI * 0.58,   //   0: upper-slightly-left (-104°)
+  -Math.PI * 0.18,   //   1: upper-right         (-32°)
+   Math.PI * 0.22,   //   2: lower-right         (+40°)
+   Math.PI * 0.68,   //   3: lower-left          (+122°)
+  -Math.PI * 1.10,   //   4: left-slightly-below (+162°)
+  -Math.PI * 0.88,   //   5: upper-far-left      (-158°)
 ];
+
+// Minimum viewport margin a chip must respect on its side of the dot.
+const EDGE_MARGIN = 8;
+
+// Compass exclusion zone — any chip placement that intersects this box
+// is rejected in favour of the opposite side. Box is the compass circle
+// plus its 6px sage halo, inflated by a small pad so chips don't kiss
+// the halo edge.
+const COMPASS_EXCLUSION = {
+  l: CX - 46,
+  r: CX + 46,
+  t: CY - 46,
+  b: CY + 46,
+};
 
 // ─── Palette ─────────────────────────────────────────────────────────
 const CREAM = '#F5F3ED';
@@ -85,7 +115,12 @@ interface PreparedMetric {
   deltaPct: number | null;
   /** true = moved in athlete's favour, false = against, null = neutral/no delta. */
   positive: boolean | null;
-  ratio: number;
+  /**
+   * Signed progress score. `direction === 'lower_better' ? -delta : delta`
+   * (neutral direction always scores 0). Higher = better progress. Drives
+   * orbit index (signed desc) and dot size (|score| normalised).
+   */
+  progressScore: number;
 }
 
 interface PlacedMetric extends PreparedMetric {
@@ -101,21 +136,20 @@ function formatValue(v: number | null, unit: string): string {
   return wantsDecimal ? v.toFixed(1) : String(Math.round(v));
 }
 
-// "Closer to personal best" heuristic. We don't ship a personal-best field
-// on ProgressMetric, so valueMax/valueMin act as the proxy bounds. If the
-// metric has no bounds we fall back to 0.75 — enough ratio to render the
-// dot visibly without implying a meaningful fill level.
-function computeRatio(m: ProgressMetric): number {
-  const latest = m.latest ?? 0;
-  if (m.direction === 'lower_better') {
-    const floor = m.valueMin ?? latest * 0.8;
-    if (latest <= 0) return 0.75;
-    return Math.max(0, Math.min(1, floor / latest));
-  }
-  const ceiling =
-    m.valueMax ?? Math.max(latest, m.avg ?? 0, 1) * 1.2;
-  if (ceiling <= 0) return 0.75;
-  return Math.max(0, Math.min(1, latest / ceiling));
+// Signed progress score. Positive = athlete moved in their favour (HRV up,
+// soreness down). Negative = regression. Neutral-direction metrics always
+// score 0 — they live mid-pack regardless of raw delta. Null deltas are
+// treated as zero so a metric with no baseline doesn't dominate ranking.
+function computeProgressScore(m: ProgressMetric): number {
+  const pct = m.deltaPct ?? 0;
+  if (m.direction === 'higher_better') return pct;
+  if (m.direction === 'lower_better') return -pct;
+  return 0;
+}
+
+interface BBox { l: number; r: number; t: number; b: number }
+function boxesOverlap(a: BBox, b: BBox): boolean {
+  return !(a.r <= b.l || a.l >= b.r || a.b <= b.t || a.t >= b.b);
 }
 
 function signedBetter(pct: number, direction: ProgressMetric['direction']): boolean | null {
@@ -126,10 +160,11 @@ function signedBetter(pct: number, direction: ProgressMetric['direction']): bool
 }
 
 export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationProps) {
-  void windowDays; // kept in the API for symmetry with the header copy
-
   const { placed, netAvg, netBetter } = useMemo(() => {
-    const ranked = metrics
+    // Step 1 — candidate pool. Only metrics with actual data are eligible
+    // (no-data metrics are dropped per product direction: "top 6 that has
+    // data and changes").
+    const withData = metrics
       .filter((m) => m.latest != null)
       .map<PreparedMetric & { direction: ProgressMetric['direction'] }>((m) => {
         const pct = m.deltaPct ?? 0;
@@ -140,30 +175,66 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
           unit: m.displayUnit,
           deltaPct: m.deltaPct,
           positive: signedBetter(pct, m.direction),
-          ratio: computeRatio(m),
+          progressScore: computeProgressScore(m),
           direction: m.direction,
         };
-      })
-      .sort((a, b) => Math.abs(b.deltaPct ?? 0) - Math.abs(a.deltaPct ?? 0))
-      .slice(0, 6);
+      });
 
-    const ratios = ranked.map((r) => r.ratio);
-    const minR = ratios.length ? Math.min(...ratios) : 0;
-    const maxR = ratios.length ? Math.max(...ratios) : 1;
-    const span = maxR - minR || 1;
+    // Step 2 — top 6 by |progressScore| so the biggest movers are shown,
+    // tiebreak by CMS sort_order so ties don't flicker between renders.
+    const topMovers = [...withData]
+      .map((m, i) => ({ m, i }))
+      .sort((a, b) => {
+        const diff = Math.abs(b.m.progressScore) - Math.abs(a.m.progressScore);
+        return diff !== 0 ? diff : a.i - b.i;
+      })
+      .slice(0, 6)
+      .map(({ m }) => m);
+
+    // Step 3 — within the top 6, signed score places the best mover on
+    // orbit 0 (inner) and the worst on orbit 5 (outer).
+    const ranked = [...topMovers].sort(
+      (a, b) => b.progressScore - a.progressScore,
+    );
+
+    // Size by |progressScore|: big improvements AND big regressions both
+    // read as large dots. Orbit placement (inner vs outer) already
+    // conveys direction — so a −100% soreness swing lands on orbit 5 AT
+    // the max 34px dot, making the regression unmistakable.
+    const magnitudes = ranked.map((r) => Math.abs(r.progressScore));
+    const minM = magnitudes.length ? Math.min(...magnitudes) : 0;
+    const maxM = magnitudes.length ? Math.max(...magnitudes) : 1;
+    const spanM = maxM - minM || 1;
 
     const placedList: PlacedMetric[] = ranked.map((r, i) => {
       const orbit = ORBITS[i] ?? ORBITS[ORBITS.length - 1];
       const angle = ANGLES[i] ?? ANGLES[ANGLES.length - 1];
       const px = CX + orbit * Math.cos(angle);
       const py = CY + orbit * Math.sin(angle);
-      const size = 10 + ((r.ratio - minR) / span) * 24;
+      const size = 10 + ((Math.abs(r.progressScore) - minM) / spanM) * 24;
 
-      // Prefer right-side chip; flip only if it would overflow.
+      // Chip placement: test both sides against (a) viewport margin and
+      // (b) compass exclusion zone. Prefer right; flip left only when
+      // right fails. If both fail, default right (shouldn't occur with
+      // current ORBITS / ANGLES but keeps layout robust).
       const labelGap = size / 2 + 10;
-      const rightEdge = px + labelGap + CHIP_W;
-      const leftEdge = px - labelGap - CHIP_W;
-      const onRight = rightEdge <= W - 6 || leftEdge < 6;
+      const rightBox = {
+        l: px + labelGap,
+        r: px + labelGap + CHIP_W,
+        t: py - CHIP_H / 2,
+        b: py + CHIP_H / 2,
+      };
+      const leftBox = {
+        l: px - labelGap - CHIP_W,
+        r: px - labelGap,
+        t: py - CHIP_H / 2,
+        b: py + CHIP_H / 2,
+      };
+      const rightFits =
+        rightBox.r <= W - EDGE_MARGIN && !boxesOverlap(rightBox, COMPASS_EXCLUSION);
+      const leftFits =
+        leftBox.l >= EDGE_MARGIN && !boxesOverlap(leftBox, COMPASS_EXCLUSION);
+      const onRight = rightFits || !leftFits;
 
       return {
         key: r.key,
@@ -172,7 +243,7 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
         unit: r.unit,
         deltaPct: r.deltaPct,
         positive: r.positive,
-        ratio: r.ratio,
+        progressScore: r.progressScore,
         px,
         py,
         size,
@@ -180,8 +251,8 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
       };
     });
 
-    // Net movement — signed by per-metric direction so lower_better + negative
-    // counts as a positive move. Neutral direction passes through raw delta.
+    // Net movement — signed per direction so lower_better + negative
+    // counts as a positive move. Neutral direction passes through raw.
     let signedSum = 0;
     let counted = 0;
     let better = 0;
@@ -225,7 +296,6 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
           </RadialGradient>
         </Defs>
 
-        {/* Soft sage glow pool around the compass */}
         <Rect x={0} y={0} width={W} height={H} fill="url(#sageGlow)" />
 
         {/* Orbit rings — innermost solid, others dashed reading aids */}
@@ -242,7 +312,7 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
           />
         ))}
 
-        {/* Leader lines: compass → dot, hairline cream */}
+        {/* Leader lines: compass → dot */}
         {placed.map((d) => (
           <Line
             key={`leader-${d.key}`}
@@ -255,7 +325,7 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
           />
         ))}
 
-        {/* Sage halo ring around the compass (6px translucent ring) */}
+        {/* Sage halo ring around the compass */}
         <Circle
           cx={CX}
           cy={CY}
@@ -293,7 +363,7 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
         pointerEvents="none"
         style={[styles.compass, { left: CX - 37, top: CY - 37 }]}
       >
-        <Text style={styles.compassCaption}>7-DAY</Text>
+        <Text style={styles.compassCaption}>{windowDays}-DAY</Text>
         <Text style={styles.compassCaption}>BASELINE</Text>
         <View style={styles.compassRule} />
         <Text style={[styles.compassDelta, { color: netColor }]}>
@@ -308,21 +378,21 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
           ? d.px + labelGap
           : d.px - labelGap - CHIP_W;
 
-        const chipStyle =
-          d.positive === true
-            ? { bg: BETTER_BG, border: BETTER_BORDER, text: BETTER_TEXT, arrow: '▲' }
-            : d.positive === false
-            ? { bg: WORSE_BG, border: WORSE_BORDER, text: WORSE_TEXT, arrow: '▼' }
-            : { bg: NEUTRAL_BG, border: NEUTRAL_BORDER, text: NEUTRAL_TEXT, arrow: '—' };
-
         const pct = d.deltaPct == null ? null : Math.round(d.deltaPct);
-        const sign = pct == null ? '' : pct > 0 ? '+' : '';
+        const arrow =
+          d.positive === true ? '▲' : d.positive === false ? '▼' : '—';
+        const sign = pct != null && pct > 0 ? '+' : '';
+        const chipColors =
+          d.positive === true
+            ? { bg: BETTER_BG, border: BETTER_BORDER, text: BETTER_TEXT }
+            : d.positive === false
+            ? { bg: WORSE_BG, border: WORSE_BORDER, text: WORSE_TEXT }
+            : { bg: NEUTRAL_BG, border: NEUTRAL_BORDER, text: NEUTRAL_TEXT };
         const chipLabel =
-          pct == null ? '—' : `${chipStyle.arrow} ${sign}${pct}%`;
+          pct == null ? '—' : `${arrow} ${sign}${pct}%`;
 
         return (
           <React.Fragment key={`anno-${d.key}`}>
-            {/* Label (18px above the dot) */}
             <View
               pointerEvents="none"
               style={[
@@ -335,7 +405,6 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
               </Text>
             </View>
 
-            {/* Value + unit (6px below the dot) */}
             <View
               pointerEvents="none"
               style={[
@@ -349,7 +418,6 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
               </Text>
             </View>
 
-            {/* Delta chip */}
             <View
               pointerEvents="none"
               style={[
@@ -357,14 +425,14 @@ export function OrbitConstellation({ metrics, windowDays }: OrbitConstellationPr
                 {
                   left: chipLeft,
                   top: d.py - CHIP_H / 2,
-                  backgroundColor: chipStyle.bg,
-                  borderColor: chipStyle.border,
+                  backgroundColor: chipColors.bg,
+                  borderColor: chipColors.border,
                 },
               ]}
             >
               <Text
                 numberOfLines={1}
-                style={[styles.chipText, { color: chipStyle.text }]}
+                style={[styles.chipText, { color: chipColors.text }]}
               >
                 {chipLabel}
               </Text>

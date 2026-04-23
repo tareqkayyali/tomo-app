@@ -8,7 +8,13 @@
  * Response shape:
  *   {
  *     window: 7 | 30 | 90,
- *     metrics: ResolvedMetric[]   // only metrics with hasData:true, in sort_order
+ *     metrics: ResolvedMetric[]   // ALL enabled metrics for this athlete's
+ *                                 // sport, in sort_order. Metrics with no
+ *                                 // data for this window carry latest/avg/
+ *                                 // deltaPct = null and hasData = false;
+ *                                 // the mobile client is responsible for
+ *                                 // any visual "no data" treatment and
+ *                                 // for capping to its own max count.
  *   }
  *
  * Freshness: not cached — metrics depend on check-in + wearable data that can
@@ -51,10 +57,14 @@ export async function GET(req: NextRequest) {
     const sport = (profile?.sport as string | null) ?? null;
 
     const defs = await loadEnabledMetrics(sport);
-    const resolved = await resolveMetrics(auth.user.id, defs, windowDays);
+    const metrics = await resolveMetrics(auth.user.id, defs, windowDays);
 
-    // Hide metrics with no data — an empty ring feels broken.
-    const metrics = resolved.filter((m) => m.hasData);
+    // Return ALL enabled metrics — the mobile client expects a stable
+    // set across the 7d/30d/90d toggle. Previously we filtered
+    // hasData:false which caused metrics to appear/disappear between
+    // windows (a metric with only 30-day data would drop out of the
+    // 7-day view). The client caps to its own max count and renders
+    // no-data metrics as "—".
 
     return NextResponse.json(
       { window: windowDays, metrics },
