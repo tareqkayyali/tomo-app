@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="spOff" cx="38%" cy="32%" r="70%">
+      <stop offset="0%" stop-color="#BED0B9"></stop>
+      <stop offset="45%" stop-color="#849F80"></stop>
+      <stop offset="100%" stop-color="#3F5A3C"></stop>
+    </radialGradient>
+    <radialGradient id="hlOff" cx="34%" cy="28%" r="26%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.55)"></stop>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"></stop>
+    </radialGradient>
+    <radialGradient id="termOff" cx="72%" cy="60%" r="48%">
+      <stop offset="0%" stop-color="rgba(0,0,0,0)"></stop>
+      <stop offset="70%" stop-color="rgba(0,0,0,0)"></stop>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.45)"></stop>
+    </radialGradient>
+  </defs>
+  <ellipse cx="32" cy="52" rx="11" ry="2" fill="rgba(0,0,0,0.22)"></ellipse>
+  <circle cx="32" cy="32" r="17" fill="url(#spOff)"></circle>
+  <circle cx="32" cy="32" r="17" fill="url(#termOff)"></circle>
+  <circle cx="32" cy="32" r="17" fill="url(#hlOff)"></circle>
+  <circle cx="32" cy="32" r="17" fill="rgba(10,12,20,0.25)"></circle>
+</svg>

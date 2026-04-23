@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
+  <defs>
+    <linearGradient id="tlArcOn" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="rgba(245,243,237,0.70)" stop-opacity="0.15"></stop>
+      <stop offset="0.6" stop-color="rgba(245,243,237,0.70)" stop-opacity="0.50"></stop>
+      <stop offset="1" stop-color="#7A9B76" stop-opacity="0.75"></stop>
+    </linearGradient>
+    <radialGradient id="tlNowOn" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E0EFDA"></stop>
+      <stop offset="55%" stop-color="#C8DCC3"></stop>
+      <stop offset="100%" stop-color="#7A9B76"></stop>
+    </radialGradient>
+  </defs>
+  <path d="M 4 22 Q 10 14 24 6" stroke="url(#tlArcOn)" stroke-width="1.2" fill="none" stroke-linecap="round"></path>
+  <circle cx="5.6" cy="19.8" r="2" fill="rgba(245,243,237,0.70)" opacity="0.08"></circle>
+  <circle cx="5.6" cy="19.8" r="1" fill="rgba(245,243,237,0.70)" opacity="0.55"></circle>
+  <circle cx="12" cy="13.5" r="3" fill="rgba(245,243,237,0.70)" opacity="0.10"></circle>
+  <circle cx="12" cy="13.5" r="1.6" fill="rgba(245,243,237,0.70)" opacity="0.80"></circle>
+  <circle cx="22.4" cy="6.8" r="5.5" fill="#7A9B76" opacity="0.18"></circle>
+  <circle cx="22.4" cy="6.8" r="4" fill="#7A9B76" opacity="0.25"></circle>
+  <circle cx="22.4" cy="6.8" r="2.4" fill="url(#tlNowOn)"></circle>
+  <circle cx="21.8" cy="6.3" r="0.7" fill="rgba(255,255,255,0.8)"></circle>
+</svg>

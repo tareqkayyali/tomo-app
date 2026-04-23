@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
+    "rasterize-tab-icons": "bash ./scripts/rasterize-tab-icons.sh",
     "kill-metro": "bash ./scripts/kill-metro-8081.sh",
     "start": "expo start --go",
     "start:tunnel": "expo start --go --tunnel",
@@ -80,6 +81,8 @@
     "@types/jest": "29.5.14",
     "@types/react": "~19.1.0",
     "babel-preset-expo": "^54.0.10",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
   },
   "private": true
