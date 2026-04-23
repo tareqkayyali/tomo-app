@@ -4,12 +4,18 @@
  * Pixel-faithful renders of the canonical SVGs at:
  *   desktop/tomo/files/tab icons/svgs/{timeline,tomo,signal}-{active,inactive}.svg
  *
- * Rendered via SvgXml so the design markup is the source of truth — no
- * hand-translation to react-native-svg components (which mis-handles
- * Fragment children inside RadialGradient and percentage-unit gradients
- * on web).
+ * Why two render paths:
+ *   - On WEB, react-native-svg parses the SVG into its own component tree
+ *     and mis-resolves percentage-unit RadialGradients + url(#id) refs,
+ *     causing the Tomo sphere to render fully white. We render the raw
+ *     SVG markup straight into the DOM, which the browser handles
+ *     natively and pixel-perfectly.
+ *   - On NATIVE (iOS/Android), there is no DOM. We use SvgXml from
+ *     react-native-svg, which on native correctly handles the same
+ *     markup including percentage gradients.
  */
 import React from 'react';
+import { Platform, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
 type IconProps = { size?: number; on?: boolean };
@@ -167,14 +173,39 @@ const SIGNAL_OFF = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" 
   <circle cx="13.3" cy="13.3" r="0.8" fill="rgba(255,255,255,0.4)"/>
 </svg>`;
 
+// On web, inject the raw SVG into the DOM via dangerouslySetInnerHTML so
+// the browser parses it natively (preserves gradient url(#id) refs and
+// percentage units, which react-native-svg's web parser breaks).
+function WebSvg({ xml, size }: { xml: string; size: number }) {
+  // Force the inner <svg> to honor the requested size. The raw markup has
+  // no width/height attrs so a wrapper style suffices.
+  const html = xml.replace(
+    '<svg ',
+    `<svg width="${size}" height="${size}" `,
+  );
+  // eslint-disable-next-line react/no-danger
+  return <div style={{ width: size, height: size, lineHeight: 0 } as any} dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+function PlatformSvg({ xml, size }: { xml: string; size: number }) {
+  if (Platform.OS === 'web') {
+    return <WebSvg xml={xml} size={size} />;
+  }
+  return (
+    <View style={{ width: size, height: size }}>
+      <SvgXml xml={xml} width={size} height={size} />
+    </View>
+  );
+}
+
 export function IconTimeline({ size = 32, on = false }: IconProps) {
-  return <SvgXml xml={on ? TIMELINE_ON : TIMELINE_OFF} width={size} height={size} />;
+  return <PlatformSvg xml={on ? TIMELINE_ON : TIMELINE_OFF} size={size} />;
 }
 
 export function IconTomo({ size = 64, on = false }: IconProps) {
-  return <SvgXml xml={on ? TOMO_ON : TOMO_OFF} width={size} height={size} />;
+  return <PlatformSvg xml={on ? TOMO_ON : TOMO_OFF} size={size} />;
 }
 
 export function IconSignal({ size = 32, on = false }: IconProps) {
-  return <SvgXml xml={on ? SIGNAL_ON : SIGNAL_OFF} width={size} height={size} />;
+  return <PlatformSvg xml={on ? SIGNAL_ON : SIGNAL_OFF} size={size} />;
 }
