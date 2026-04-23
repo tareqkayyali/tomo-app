@@ -30,6 +30,7 @@ import {
   fontFamily,
   layout,
   borderRadius,
+  screenBg,
 } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
@@ -487,7 +488,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.background },
+    safe: { flex: 1, backgroundColor: screenBg },
     header: {
       flexDirection: 'row',
       alignItems: 'center',

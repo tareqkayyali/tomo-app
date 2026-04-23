@@ -22,6 +22,7 @@ import {
   layout,
   borderRadius,
   typography,
+  screenBg,
 } from '../theme';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -98,7 +99,7 @@ export function BlazePodDrillsScreen({ navigation }: BlazePodDrillsScreenProps) 
 // ── Styles ──────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: screenBg },
   container: { flex: 1 },
   content: {
     paddingHorizontal: layout.screenMargin,

@@ -38,7 +38,7 @@ import { useSportContext } from '../../hooks/useSportContext';
 import { useFootballProgress } from '../../hooks/useFootballProgress';
 import type { FootballAttribute, FootballPosition } from '../../types/football';
 
-import { fontFamily, spacing, borderRadius } from '../../theme';
+import { fontFamily, spacing, borderRadius, screenBg } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/types';
@@ -365,7 +365,7 @@ export function FootballRatingScreen({ navigation }: Props) {
   if (progressLoading || !hasData || !card) {
     return (
       <PlayerScreen label="RATING" title="Football" onBack={() => navigation.goBack()}>
-        <View style={{ flex: 1, backgroundColor: colors.background }} />
+        <View style={{ flex: 1, backgroundColor: screenBg }} />
       </PlayerScreen>
     );
   }
@@ -720,7 +720,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
     content: {
       padding: spacing.lg,

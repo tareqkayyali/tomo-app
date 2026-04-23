@@ -29,6 +29,7 @@ import { AwaitingConsentScreen } from '../screens/consent/AwaitingConsentScreen'
 import { PreviewScreen } from '../screens/PreviewScreen';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { screenBg } from '../theme/colors';
 import { useConfig } from '../hooks/useConfigProvider';
 import { trackScreen } from '../services/analytics';
 import type { RootStackParamList } from './types';
@@ -74,7 +75,7 @@ export function RootNavigator() {
   // Show loading while checking auth state (skip in preview mode)
   if (isLoading && !isPreviewMode) {
     return (
-      <View style={[styles.loading, { backgroundColor: colors.background }]}>
+      <View style={[styles.loading, { backgroundColor: screenBg }]}>
         <TomoLoader />
       </View>
     );
@@ -114,13 +115,14 @@ export function RootNavigator() {
     }
   };
 
-  // Tomo 友 navigation theme — navy background everywhere
+  // Tomo 友 navigation theme — navy on native, transparent on web so the
+  // body's starfield background shows through the stack/card surfaces.
   const tomoNavTheme = {
     ...DarkTheme,
     colors: {
       ...DarkTheme.colors,
-      background: colors.background,
-      card: colors.background,
+      background: screenBg,
+      card: screenBg,
       border: colors.creamMuted,
       text: colors.textPrimary,
       primary: colors.accent,
@@ -140,7 +142,7 @@ export function RootNavigator() {
         screenOptions={{
           headerShown: false,
           animation: 'fade',
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: screenBg },
         }}
       >
         {showAuth ? (

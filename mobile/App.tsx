@@ -27,6 +27,8 @@ import { RootNavigator } from './src/navigation';
 import { AnimatedSplashScreen, ErrorBoundary } from './src/components';
 import { AppAtmosphere } from './src/components/tomo-ui';
 import { injectWebFonts } from './src/utils/webFonts';
+import { injectWebBackground } from './src/utils/webBackground';
+import { screenBg } from './src/theme/colors';
 import { initSentry, wrapWithSentry } from './src/services/sentry';
 
 initSentry();
@@ -37,6 +39,11 @@ SplashScreen.preventAutoHideAsync();
 // This ensures Poppins loads from Google Fonts CDN as a reliable fallback
 // in case expo-font's dynamic loading doesn't work in the static export.
 injectWebFonts();
+
+// Inject the starfield + dust-band dark-surface background on web.
+// No-op on native. Screen roots read `screenBg` (transparent on web) so
+// this shows through every page.
+injectWebBackground();
 
 /** Reads user profile and wires SportProvider with the user's selected sports. */
 function SportWrapper({ children }: { children: React.ReactNode }) {
@@ -105,9 +112,9 @@ function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#12141F' }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: screenBg }}>
       <ErrorBoundary>
-        <View style={styles.root} onLayout={onLayoutRootView}>
+        <View style={[styles.root, { backgroundColor: screenBg }]} onLayout={onLayoutRootView}>
           <AnimatedSplashScreen isReady={fontsLoaded}>
             <ConfigProvider>
               <ThemeProvider>

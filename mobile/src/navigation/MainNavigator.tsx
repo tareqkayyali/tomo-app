@@ -97,7 +97,7 @@ import { SubTabProvider, useSubTabs } from '../hooks/useSubTabContext';
 import type { MainTabParamList, MainStackParamList } from './types';
 import { layout, spacing, borderRadius } from '../theme';
 import { useTheme } from '../hooks/useTheme';
-import { colors } from '../theme/colors';
+import { colors, screenBg } from '../theme/colors';
 
 const Tab = createMaterialTopTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -475,7 +475,7 @@ function ScreenHeader() {
 function useStackHeaderOptions() {
   const { colors } = useTheme();
   return {
-    headerStyle: { backgroundColor: colors.background },
+    headerStyle: { backgroundColor: screenBg },
     headerTintColor: colors.textOnDark,
     headerTitleStyle: { color: colors.textOnDark },
     headerShadowVisible: false,
@@ -502,7 +502,7 @@ export function MainNavigator() {
         // `gestureEnabled: false`.
         gestureEnabled: true,
         fullScreenGestureEnabled: true,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: screenBg },
       }}
     >
       <Stack.Screen

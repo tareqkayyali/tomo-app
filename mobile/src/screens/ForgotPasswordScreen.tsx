@@ -21,6 +21,7 @@ import {
   borderRadius,
   fontFamily,
   layout,
+  screenBg,
 } from '../theme';
 import { resetPassword } from '../services/auth';
 import type { AuthStackParamList } from '../navigation/types';
@@ -131,7 +132,7 @@ export function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
   keyboardView: {
     flex: 1,

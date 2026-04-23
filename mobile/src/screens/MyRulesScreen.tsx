@@ -50,7 +50,7 @@ import type {
   ExamScheduleEntry,
   DayOfWeek,
 } from '../hooks/useScheduleRules';
-import { spacing, borderRadius, fontFamily } from '../theme';
+import { spacing, borderRadius, fontFamily, screenBg } from '../theme';
 import { syncAutoBlocks } from '../services/api';
 import { ModeSelector } from '../components/planning/ModeSelector';
 import type { ThemeColors } from '../theme/colors';
@@ -1431,7 +1431,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
     header: {
       flexDirection: 'row',

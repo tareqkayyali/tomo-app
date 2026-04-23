@@ -35,7 +35,7 @@ import {
   publishProgramme,
   getCoachDrills,
 } from '../../services/api';
-import { spacing, borderRadius, layout, shadows, fontFamily } from '../../theme';
+import { spacing, borderRadius, layout, shadows, fontFamily, screenBg } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 import { colors } from '../../theme/colors';
 
@@ -202,7 +202,7 @@ function ProgrammeList({
   const cycles: SeasonCycle[] = ['pre_season', 'in_season', 'off_season', 'exam_period'];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: screenBg }]} edges={['top']}>
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.textOnDark }]}>Programmes</Text>
         <Pressable
@@ -518,7 +518,7 @@ function ProgrammeEditor({
   const totalDrills = (programme.drills || []).length;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: screenBg }]} edges={['top']}>
       {/* ── Header ─────────────────────────────────────── */}
       <View style={styles.editorHeader}>
         <Pressable onPress={onBack} hitSlop={12}>

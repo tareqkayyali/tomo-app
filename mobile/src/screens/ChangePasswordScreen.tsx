@@ -19,6 +19,7 @@ import {
   spacing,
   fontFamily,
   borderRadius,
+  screenBg,
 } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
@@ -158,7 +159,7 @@ export default function ChangePasswordScreen() {
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1, backgroundColor: screenBg },
     content: { flex: 1 },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

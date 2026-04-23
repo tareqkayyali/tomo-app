@@ -31,7 +31,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { GlassCard } from '../../components/GlassCard';
 import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { toDateStr } from '../../utils/calendarHelpers';
-import { spacing, borderRadius, layout, fontFamily } from '../../theme';
+import { spacing, borderRadius, layout, fontFamily, screenBg } from '../../theme';
 import type { ParentStackParamList } from '../../navigation/types';
 import {
   parentModeForTier,
@@ -194,7 +194,7 @@ export function ParentChildDetailScreen({ route, navigation }: Props) {
       onBack={() => navigation.goBack()}
       scroll={false}
     >
-    <View style={[styles.container, { backgroundColor: colors.background }]} {...panResponder.panHandlers}>
+    <View style={[styles.container, { backgroundColor: screenBg }]} {...panResponder.panHandlers}>
       {/* ─── Child Header ─── */}
       <View style={{ paddingHorizontal: layout.screenMargin, paddingTop: spacing.sm }}>
         <GlassCard>

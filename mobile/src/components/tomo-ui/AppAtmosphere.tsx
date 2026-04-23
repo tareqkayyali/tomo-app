@@ -20,6 +20,7 @@ import { StyleSheet, View, Platform } from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { useTheme } from '../../hooks/useTheme';
 import { atmosphere } from '../../theme/spacing';
+import { screenBg } from '../../theme/colors';
 import { AmbientBlobs } from '../../assets/atmosphere';
 
 type AtmosphereIntensity = 'subtle' | 'warm' | 'none';
@@ -103,8 +104,12 @@ const AppAtmosphere: React.FC<AppAtmosphereProps> = memo(({
     return null;
   }, [intensity]);
 
+  // On web, screenBg is transparent so the body's injected starfield
+  // background shows through; colors.background (#12141F) is retained on native.
+  const rootBg = Platform.OS === 'web' ? screenBg : colors.background;
+
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View style={[styles.root, { backgroundColor: rootBg }]}>
       {gradientLayer}
       {blobLayer}
       {grainLayer}

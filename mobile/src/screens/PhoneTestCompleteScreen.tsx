@@ -29,6 +29,7 @@ import {
   fontFamily,
   layout,
   borderRadius,
+  screenBg,
 } from '../theme';
 import { savePhoneTestSession } from '../services/api';
 import { usePhoneTests } from '../hooks/useContentHelpers';
@@ -257,7 +258,7 @@ export function PhoneTestCompleteScreen({ navigation, route }: Props) {
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: screenBg },
   container: { flex: 1 },
   content: {
     paddingHorizontal: layout.screenMargin,

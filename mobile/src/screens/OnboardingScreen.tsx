@@ -39,6 +39,7 @@ import {
   fontFamily,
   layout,
   shadows,
+  screenBg,
 } from '../theme';
 import { submitOnboarding, getSportPositions } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
@@ -955,7 +956,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 const styles_s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
 
   // ── Progress ──────────────────────────────────────────────────────

@@ -26,7 +26,7 @@ import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import type { FootballSkill } from '../../types/football';
 import { useAuth } from '../../hooks/useAuth';
 import { useSportContext } from '../../hooks/useSportContext';
-import { fontFamily, borderRadius, spacing } from '../../theme';
+import { fontFamily, borderRadius, spacing, screenBg } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/types';
@@ -545,7 +545,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
     content: {
       padding: spacing.lg,

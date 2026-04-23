@@ -24,6 +24,7 @@ import {
   borderRadius,
   fontFamily,
   layout,
+  screenBg,
 } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../services/supabase';
@@ -418,7 +419,7 @@ export function SignupScreen({ navigation }: SignupScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
   keyboardView: {
     flex: 1,

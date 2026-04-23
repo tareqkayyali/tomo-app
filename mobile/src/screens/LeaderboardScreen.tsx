@@ -29,6 +29,7 @@ import {
   shadows,
   layout,
   fontFamily,
+  screenBg,
 } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
@@ -121,7 +122,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
     header: {
       flexDirection: 'row',

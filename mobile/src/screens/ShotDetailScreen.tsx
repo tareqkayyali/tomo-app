@@ -14,7 +14,7 @@ import { useSportContext } from '../hooks/useSportContext';
 import { usePadelProgress } from '../hooks/usePadelProgress';
 import { GlassCard } from '../components/GlassCard';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
-import { colors, fontFamily, borderRadius, spacing } from '../theme';
+import { colors, fontFamily, borderRadius, spacing, screenBg } from '../theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
 import type { ShotType, ShotRatingsData } from '../types/padel';
@@ -243,7 +243,7 @@ export function ShotDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
   content: {
     padding: spacing.lg,

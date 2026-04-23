@@ -14,6 +14,8 @@
  * Borders: rgba(245,243,237,0.10) — visible line frames
  */
 
+import { Platform } from 'react-native';
+
 // ─── ThemeColors type ────────────────────────────────────────────────
 
 export type ThemeColors = {
@@ -467,6 +469,14 @@ export const lightColors: ThemeColors = {
 
 // ─── Default export (dark) ──────────────────────────────────────────
 export const colors = darkColors;
+
+// ─── Screen-root background ─────────────────────────────────────────
+// Platform-aware. On web, screen roots are transparent so the body's
+// starfield/dust gradient (injected via utils/webBackground.ts) shows
+// through. On native, solid ink (#12141F) — same as before.
+// Use this for full-screen root containers only. Cards, modals, inputs,
+// and other dense surfaces keep their own opaque tokens.
+export const screenBg: string = Platform.OS === 'web' ? 'transparent' : '#12141F';
 
 // ─── Derived color maps ─────────────────────────────────────────────
 

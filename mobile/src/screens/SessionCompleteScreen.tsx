@@ -34,6 +34,7 @@ import {
   layout,
   borderRadius,
   typography,
+  screenBg,
 } from '../theme';
 import { saveBlazePodSession } from '../services/api';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -323,7 +324,7 @@ function getRpeColor(val: number): string {
 // ── Styles ──────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: screenBg },
   container: { flex: 1 },
   content: {
     paddingHorizontal: layout.screenMargin,

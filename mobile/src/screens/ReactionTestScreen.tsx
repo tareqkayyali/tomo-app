@@ -40,6 +40,7 @@ import {
   fontFamily,
   layout,
   borderRadius,
+  screenBg,
 } from '../theme';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
@@ -344,7 +345,7 @@ export function ReactionTestScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
 
   // ── Instructions ────────────────────────────────────────────────────

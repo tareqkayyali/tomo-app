@@ -26,7 +26,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Button, Card } from '../components';
 import { SmartIcon } from '../components/SmartIcon';
-import { spacing, borderRadius, fontFamily } from '../theme';
+import { spacing, borderRadius, fontFamily, screenBg } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
@@ -743,7 +743,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
     scrollContent: {
       padding: spacing.lg,

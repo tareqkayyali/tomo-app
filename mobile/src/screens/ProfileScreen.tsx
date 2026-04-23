@@ -35,6 +35,7 @@ import {
   borderRadius,
   layout,
   fontFamily,
+  screenBg,
 } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
@@ -379,7 +380,7 @@ function createStyles(colors: ThemeColors, typography: Record<string, TextStyle>
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
     scrollContent: {
       paddingHorizontal: layout.screenMargin,

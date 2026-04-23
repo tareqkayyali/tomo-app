@@ -17,6 +17,7 @@ import { HeightWeightScreen } from '../screens/onboarding/HeightWeightScreen';
 import { GoalScreen } from '../screens/onboarding/GoalScreen';
 import { getOnboardingProgress, OnboardingStep } from '../services/api';
 import { useTheme } from '../hooks/useTheme';
+import { screenBg } from '../theme/colors';
 import type { OnboardingStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<OnboardingStackParamList>();
@@ -79,7 +80,7 @@ export function OnboardingNavigator() {
 
   if (!resume) {
     return (
-      <View style={[styles.loading, { backgroundColor: colors.background }]}>
+      <View style={[styles.loading, { backgroundColor: screenBg }]}>
         <TomoLoader />
       </View>
     );
@@ -90,7 +91,7 @@ export function OnboardingNavigator() {
       initialRouteName={resume.route}
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: screenBg },
         animation: 'slide_from_right',
         // Disable swipe-back — onboarding is linear.
         gestureEnabled: false,

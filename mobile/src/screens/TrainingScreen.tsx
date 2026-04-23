@@ -28,7 +28,7 @@ import { SmartIcon } from '../components/SmartIcon';
 import { SessionCompletionSheet } from '../components/calendar/SessionCompletionSheet';
 import { skipCalendarEvent } from '../services/api';
 import { emitRefresh } from '../utils/refreshBus';
-import { fontFamily } from '../theme';
+import { fontFamily, screenBg } from '../theme';
 import {
   PlanRow,
   DayDial,
@@ -801,7 +801,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
     scroll: {
       paddingBottom: 120,

@@ -22,6 +22,7 @@ import {
   fontFamily,
   layout,
   borderRadius,
+  screenBg,
 } from '../theme';
 import { getPhoneTestHistory } from '../services/api';
 import { usePhoneTests } from '../hooks/useContentHelpers';
@@ -147,7 +148,7 @@ export function PhoneTestsListScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
   scrollContent: {
     paddingHorizontal: layout.screenMargin,

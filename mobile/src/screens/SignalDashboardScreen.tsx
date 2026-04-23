@@ -24,6 +24,7 @@ import { interactWithProgram } from '../services/api';
 import { useTheme } from '../hooks/useTheme';
 import { fontFamily } from '../theme/typography';
 import { spacing } from '../theme';
+import { screenBg } from '../theme/colors';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { CheckinHeaderButton } from '../components/CheckinHeaderButton';
@@ -314,7 +315,7 @@ export function SignalDashboardScreen() {
 
   if (isBootLoading && !bootData) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: screenBg }]} edges={['top']}>
         {renderHeader()}
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.accent} size="small" />
@@ -325,7 +326,7 @@ export function SignalDashboardScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: screenBg }]} edges={['top']}>
       {renderHeader()}
 
       <UnderlineTabSwitcher<DashboardTabKey>

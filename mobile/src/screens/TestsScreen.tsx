@@ -36,6 +36,7 @@ import {
   borderRadius,
 } from '../theme';
 import type { ThemeColors } from '../theme/colors';
+import { screenBg } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useOutputData } from '../hooks/useOutputData';
@@ -315,7 +316,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     safe: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
 
     // Header

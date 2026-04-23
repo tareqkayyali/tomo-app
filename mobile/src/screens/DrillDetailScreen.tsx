@@ -30,6 +30,7 @@ import {
   layout,
   borderRadius,
   typography,
+  screenBg,
 } from '../theme';
 import { useBlazePodDrills, type BlazePodDrill } from '../hooks/useContentHelpers';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -304,7 +305,7 @@ export function DrillDetailScreen({ navigation, route }: Props) {
 // ── Styles ──────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: screenBg },
   container: { flex: 1 },
   content: {
     paddingHorizontal: layout.screenMargin,

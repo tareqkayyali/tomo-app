@@ -19,7 +19,7 @@ import {
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
 import { TomoLoader, NOTIFICATIONS_LOADER_MESSAGES } from '../components/TomoLoader';
-import { spacing, borderRadius, fontFamily } from '../theme';
+import { spacing, borderRadius, fontFamily, screenBg } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { apiRequest } from '../services/api';
@@ -358,7 +358,7 @@ export function NotificationSettingsScreen() {
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1, backgroundColor: screenBg },
     scrollContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 

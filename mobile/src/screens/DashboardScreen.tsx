@@ -33,6 +33,7 @@ import {
   layout,
   borderRadius,
   typography,
+  screenBg,
 } from '../theme';
 import { getToday, getStats } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
@@ -296,7 +297,7 @@ function ReadinessIndicator({
 // ── Styles ──────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: screenBg },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -29,6 +29,7 @@ import {
   borderRadius,
   fontFamily,
   layout,
+  screenBg,
 } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import type { AuthStackParamList } from '../navigation/types';
@@ -250,7 +251,7 @@ const GAP = spacing.md; // 16px
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
   keyboardView: {
     flex: 1,

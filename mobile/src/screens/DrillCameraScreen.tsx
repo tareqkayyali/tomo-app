@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SmartIcon } from '../components/SmartIcon';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
-import { colors, spacing, fontFamily, borderRadius } from '../theme';
+import { colors, spacing, fontFamily, borderRadius, screenBg } from '../theme';
 import { uploadDrillVideo, getFileSize } from '../services/storage';
 import { useAuth } from '../hooks/useAuth';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -240,7 +240,7 @@ export function DrillCameraScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  full: { flex: 1, backgroundColor: colors.background },
+  full: { flex: 1, backgroundColor: screenBg },
   center: {
     flex: 1,
     backgroundColor: colors.background,

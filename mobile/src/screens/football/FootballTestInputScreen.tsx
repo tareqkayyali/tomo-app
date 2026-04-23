@@ -63,7 +63,7 @@ import {
 import type { SelfAssessmentSlider } from '../../data/footballTestDefs';
 import { getMetricNorm, getMetricMeanForAge } from '../../data/footballNormativeData';
 
-import { fontFamily, spacing, borderRadius, layout } from '../../theme';
+import { fontFamily, spacing, borderRadius, layout, screenBg } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -715,7 +715,7 @@ function SelfAssessmentInputs({
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.background },
+    safe: { flex: 1, backgroundColor: screenBg },
     errorText: {
       fontFamily: fontFamily.medium,
       fontSize: 16,

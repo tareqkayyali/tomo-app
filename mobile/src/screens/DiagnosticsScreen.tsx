@@ -16,7 +16,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { SmartIcon } from '../components/SmartIcon';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
-import { colors, spacing, fontFamily, layout, borderRadius } from '../theme';
+import { colors, spacing, fontFamily, layout, borderRadius, screenBg } from '../theme';
 import { API_BASE_URL, healthCheck } from '../services/api';
 import { getIdToken, getCurrentUser } from '../services/auth';
 
@@ -132,7 +132,7 @@ export function DiagnosticsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: screenBg },
   container: { flex: 1 },
   content: {
     paddingHorizontal: layout.screenMargin,

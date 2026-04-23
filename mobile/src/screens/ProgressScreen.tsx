@@ -41,6 +41,7 @@ import {
   layout,
   borderRadius,
   animation,
+  screenBg,
 } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -344,7 +345,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
     headerArea: {
       flexDirection: 'row' as const,

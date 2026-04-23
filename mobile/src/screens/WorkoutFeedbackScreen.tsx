@@ -14,7 +14,7 @@ import {
 import { SmartIcon } from '../components/SmartIcon';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { Button, Card, GradientCard, Slider } from '../components';
-import { colors, spacing, typography, borderRadius } from '../theme';
+import { colors, spacing, typography, borderRadius, screenBg } from '../theme';
 import { submitFeedback } from '../services/api';
 
 export function WorkoutFeedbackScreen({ navigation }: { navigation: { goBack: () => void } }) {
@@ -187,7 +187,7 @@ export function WorkoutFeedbackScreen({ navigation }: { navigation: { goBack: ()
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,

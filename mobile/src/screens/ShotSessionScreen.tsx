@@ -24,7 +24,7 @@ import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import { calculateShotRating } from '../services/padelCalculations';
 import { savePadelShotSession } from '../services/api';
 import { useSportContext } from '../hooks/useSportContext';
-import { colors, fontFamily, borderRadius, spacing } from '../theme';
+import { colors, fontFamily, borderRadius, spacing, screenBg } from '../theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
 import type { ShotType, ShotDefinition } from '../types/padel';
@@ -356,7 +356,7 @@ function TypeChip({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
   content: {
     padding: spacing.lg,

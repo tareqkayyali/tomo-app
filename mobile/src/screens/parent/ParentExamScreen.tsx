@@ -26,7 +26,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTheme } from '../../hooks/useTheme';
 import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { getParentChildren, getChildStudyProfile } from '../../services/api';
-import { spacing, borderRadius, layout, fontFamily } from '../../theme';
+import { spacing, borderRadius, layout, fontFamily, screenBg } from '../../theme';
 import type { ParentTabParamList, ParentStackParamList } from '../../navigation/types';
 import type { PlayerSummary, StudyProfile, ExamEntry } from '../../types';
 
@@ -151,7 +151,7 @@ export function ParentExamScreen(props: Props) {
   if (loading) {
     const body = <ActivityIndicator size="large" color={colors.accent1} style={{ marginTop: 60 }} />;
     return isEmbedded ? (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>{body}</View>
+      <View style={[styles.container, { backgroundColor: screenBg }]}>{body}</View>
     ) : (
       <PlayerScreen label="EXAMS" title="Exam schedule" onBack={() => navigation?.goBack?.()} scroll={false}>
         {body}
@@ -344,7 +344,7 @@ export function ParentExamScreen(props: Props) {
 
   if (isEmbedded) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>{body}</View>
+      <View style={[styles.container, { backgroundColor: screenBg }]}>{body}</View>
     );
   }
 

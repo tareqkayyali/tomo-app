@@ -38,6 +38,7 @@ import { useAuth } from '../hooks/useAuth';
 import { HeaderProfileButton } from '../components/HeaderProfileButton';
 import { NotificationBell } from '../components/NotificationBell';
 import { layout, spacing } from '../theme';
+import { screenBg } from '../theme/colors';
 import type { ParentTabParamList, ParentStackParamList } from './types';
 
 const Tab = createBottomTabNavigator<ParentTabParamList>();
@@ -166,7 +167,7 @@ export function ParentNavigator() {
   const { colors } = useTheme();
 
   const stackHeaderOptions = {
-    headerStyle: { backgroundColor: colors.background },
+    headerStyle: { backgroundColor: screenBg },
     headerTintColor: colors.accent1,
     headerTitleStyle: { color: colors.textOnDark },
     headerShadowVisible: false,
@@ -181,7 +182,7 @@ export function ParentNavigator() {
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: screenBg },
       }}
     >
       <Stack.Screen name="ParentTabs" component={ParentTabNavigator} />

@@ -19,7 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../../hooks/useTheme";
 import { SmartIcon } from "../../../components/SmartIcon";
-import { fontFamily } from "../../../theme";
+import { fontFamily, screenBg } from "../../../theme";
 
 interface Props {
   label: string;
@@ -76,7 +76,7 @@ export function CVScreen({
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: screenBg }}
     >
       {header}
       {scroll ? (

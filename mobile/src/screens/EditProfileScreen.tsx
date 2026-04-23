@@ -18,7 +18,7 @@ import {
 import { SmartIcon } from '../components/SmartIcon';
 import { Button, Card, ErrorState } from '../components';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
-import { colors, spacing, typography, borderRadius, fontFamily } from '../theme';
+import { colors, spacing, typography, borderRadius, fontFamily, screenBg } from '../theme';
 import { updateUser, createCalendarEvent } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import type {
@@ -776,7 +776,7 @@ export function EditProfileScreen({ navigation }: { navigation: { goBack: () => 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,

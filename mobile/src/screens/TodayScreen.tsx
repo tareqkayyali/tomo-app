@@ -24,7 +24,7 @@ import {
   SkeletonCard,
   ErrorState,
 } from '../components';
-import { colors, spacing, typography, borderRadius, fontFamily } from '../theme';
+import { colors, spacing, typography, borderRadius, fontFamily, screenBg } from '../theme';
 import { getToday } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useFadeIn } from '../hooks/useFadeIn';
@@ -309,7 +309,7 @@ function getIntensityStyle(intensity: string) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,

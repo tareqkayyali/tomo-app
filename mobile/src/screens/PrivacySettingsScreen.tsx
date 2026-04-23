@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
-import { spacing, borderRadius, fontFamily } from '../theme';
+import { spacing, borderRadius, fontFamily, screenBg } from '../theme';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { getPrivacySettings, updatePrivacySettings } from '../services/api';
@@ -260,7 +260,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
     scrollContent: {
       paddingHorizontal: spacing.lg,

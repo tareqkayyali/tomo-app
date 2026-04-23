@@ -12,7 +12,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LoginScreen, SignupScreen, AgeGateScreen, ForgotPasswordScreen } from '../screens';
 import { useAuth } from '../hooks/useAuth';
 import type { AuthStackParamList } from './types';
-import { colors } from '../theme';
+import { screenBg } from '../theme';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -29,7 +29,7 @@ export function AuthNavigator() {
       initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: screenBg },
         animation: 'slide_from_right',
       }}
     >

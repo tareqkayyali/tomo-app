@@ -29,6 +29,7 @@ import {
   borderRadius,
   layout,
   fontFamily,
+  screenBg,
 } from '../theme';
 import { useTheme } from '../hooks/useTheme';
 import { emitRefresh } from '../utils/refreshBus';
@@ -713,7 +714,7 @@ function createStyles(colors: ThemeColors) {
     flex: { flex: 1 },
     safeArea: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
 
     header: {

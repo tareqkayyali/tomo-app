@@ -36,6 +36,7 @@ import {
   fontFamily,
   layout,
   borderRadius,
+  screenBg,
 } from '../theme';
 import { estimateJumpHeight } from '../services/sensorTests';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -452,7 +453,7 @@ export function JumpTestScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: screenBg,
   },
   instructionsWrap: {
     flex: 1,

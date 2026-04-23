@@ -31,7 +31,7 @@ import {
 import { SmartIcon } from '../../components/SmartIcon';
 import { useNavigation } from '@react-navigation/native';
 import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
-import { spacing, fontFamily, borderRadius } from '../../theme';
+import { spacing, fontFamily, borderRadius, screenBg } from '../../theme';
 import type { ThemeColors } from '../../theme/colors';
 import { useTheme } from '../../hooks/useTheme';
 import { apiRequest } from '../../services/api';
@@ -299,7 +299,7 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: screenBg,
     },
     header: {
       flexDirection: 'row',
