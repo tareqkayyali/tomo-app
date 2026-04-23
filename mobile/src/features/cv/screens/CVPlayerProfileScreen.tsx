@@ -23,7 +23,7 @@ export default function CVPlayerProfileScreen() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data, isLoading, regenerateAISummary, approveAISummary } = useCVProfile(user?.id ?? "");
+  const { data, isLoading, regenerateAISummary, approveAISummary } = useCVProfile(user?.uid ?? "");
   const [busy, setBusy] = useState<null | "regenerate" | "approve">(null);
 
   const handleRegenerate = useCallback(async () => {

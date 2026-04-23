@@ -31,7 +31,7 @@ export default function CVNextStepsScreen() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data, isLoading } = useCVProfile(user?.id ?? "");
+  const { data, isLoading } = useCVProfile(user?.uid ?? "");
 
   if (isLoading || !data) {
     return (

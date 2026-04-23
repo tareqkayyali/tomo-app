@@ -40,7 +40,7 @@ export default function CVVideoMediaScreen() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data, isLoading, addMedia } = useCVProfile(user?.id ?? "");
+  const { data, isLoading, addMedia } = useCVProfile(user?.uid ?? "");
 
   if (isLoading || !data) {
     return (

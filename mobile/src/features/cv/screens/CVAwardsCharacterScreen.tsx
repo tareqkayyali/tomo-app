@@ -36,7 +36,7 @@ export default function CVAwardsCharacterScreen() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data, isLoading, addTrait, deleteTrait } = useCVProfile(user?.id ?? "");
+  const { data, isLoading, addTrait, deleteTrait } = useCVProfile(user?.uid ?? "");
   const [activeCategory, setActiveCategory] = useState<TraitCategory | null>(null);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);

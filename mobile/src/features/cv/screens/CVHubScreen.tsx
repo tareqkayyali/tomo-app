@@ -51,7 +51,7 @@ export default function CVHubScreen() {
   const nav = useNavigation<Nav>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data: cv, isLoading, error, publish, refetch } = useCVProfile(user?.id ?? "");
+  const { data: cv, isLoading, error, publish, refetch } = useCVProfile(user?.uid ?? "");
   const [downloading, setDownloading] = useState(false);
 
   const handleShare = useCallback(async () => {
@@ -185,54 +185,10 @@ export default function CVHubScreen() {
   }
 
   if (isLoading || !cv) {
-    const athleteId = user?.id ?? "";
     return (
       <CVScreen label="Player Passport" onBack={() => nav.goBack()}>
-        <View style={{ paddingVertical: 32, gap: 16 }}>
+        <View style={{ paddingVertical: 64 }}>
           <ActivityIndicator color={colors.accent} />
-          <View
-            style={{
-              backgroundColor: colors.cream03,
-              borderColor: colors.cream10,
-              borderWidth: 1,
-              borderRadius: 10,
-              padding: 14,
-              gap: 6,
-            }}
-          >
-            <Text
-              style={{
-                color: colors.muted,
-                fontFamily: fontFamily.medium,
-                fontSize: 9,
-                letterSpacing: 1.5,
-              }}
-            >
-              DIAGNOSTIC
-            </Text>
-            <DiagRow k="athlete_id" v={athleteId || "(empty)"} colors={colors} />
-            <DiagRow k="is_loading" v={isLoading ? "true" : "false"} colors={colors} />
-            <DiagRow k="has_data" v={cv ? "true" : "false"} colors={colors} />
-            <DiagRow k="user.email" v={user?.email ?? "(null)"} colors={colors} />
-            <DiagRow k="api_base" v={String(API_BASE_URL)} colors={colors} />
-          </View>
-          <Pressable
-            onPress={refetch}
-            style={({ pressed }) => [
-              hubStyles.iconBtn,
-              {
-                alignSelf: "center",
-                width: "auto",
-                paddingHorizontal: 16,
-                backgroundColor: pressed ? colors.sage15 : colors.sage08,
-                borderColor: colors.sage30,
-              },
-            ]}
-          >
-            <Text style={{ color: colors.accent, fontFamily: fontFamily.medium, fontSize: 12 }}>
-              Force refetch
-            </Text>
-          </Pressable>
         </View>
       </CVScreen>
     );
@@ -302,34 +258,6 @@ export default function CVHubScreen() {
         })}
       </View>
     </CVScreen>
-  );
-}
-
-function DiagRow({ k, v, colors }: { k: string; v: string; colors: any }) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-      <Text
-        style={{
-          color: colors.muted,
-          fontFamily: fontFamily.medium,
-          fontSize: 11,
-          minWidth: 90,
-        }}
-      >
-        {k}
-      </Text>
-      <Text
-        selectable
-        style={{
-          color: colors.tomoCream,
-          fontFamily: fontFamily.regular,
-          fontSize: 11,
-          flex: 1,
-        }}
-      >
-        {v}
-      </Text>
-    </View>
   );
 }
 

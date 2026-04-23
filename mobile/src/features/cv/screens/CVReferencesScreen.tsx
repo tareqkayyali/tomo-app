@@ -37,7 +37,7 @@ export default function CVReferencesScreen() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data, isLoading, requestReference } = useCVProfile(user?.id ?? "");
+  const { data, isLoading, requestReference } = useCVProfile(user?.uid ?? "");
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ role: "", name: "", referee_role: "", club: "", email: "" });
   const [busy, setBusy] = useState(false);

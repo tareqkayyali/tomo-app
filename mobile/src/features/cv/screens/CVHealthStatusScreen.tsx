@@ -21,7 +21,7 @@ export default function CVHealthStatusScreen() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data, isLoading, updateMedicalConsent } = useCVProfile(user?.id ?? "");
+  const { data, isLoading, updateMedicalConsent } = useCVProfile(user?.uid ?? "");
 
   const toggleConsent = useCallback(
     async (key: "share_with_coach" | "share_with_scouts_summary" | "share_raw_data", value: boolean) => {
