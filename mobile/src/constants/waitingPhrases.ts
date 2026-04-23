@@ -1,0 +1,137 @@
+/**
+ * Playful rotating lines for AI chat while waiting on the server.
+ * Mix of sports energy + orbit / Tomo metaphors — keep tone light.
+ */
+
+/** Backend SSE often sends this first — treat as empty so client copy can rotate. */
+const PLACEHOLDER_STATUSES = new Set([
+  'thinking',
+  'thinking...',
+  'processing',
+  'processing...',
+  'loading',
+  'loading...',
+  'working',
+  'working...',
+  'please wait',
+  'please wait...',
+]);
+
+/**
+ * True when we should show rotating wait copy instead of `status`.
+ * Empty/whitespace → rotate. Generic "Thinking..." from SSE → rotate.
+ */
+export function isPlaceholderStreamStatus(status: string | undefined | null): boolean {
+  if (status == null) return true;
+  const t = status
+    .trim()
+    .toLowerCase()
+    .replace(/\u2026/g, '...')
+    .replace(/\.{3,}$/, '...');
+  if (t.length === 0) return true;
+  return PLACEHOLDER_STATUSES.has(t);
+}
+
+export const WAITING_PHRASES: readonly string[] = [
+  'Plotting your next orbit…',
+  'Tracing a clean arc over the pitch…',
+  'Syncing sideline telemetry…',
+  'Coaching the ones and zeros…',
+  'Rounding the cone drill — mentally…',
+  'Dialing in kick-off vectors…',
+  'Scanning the training nebula…',
+  'Tightening the orbital screws…',
+  'Lacing up the cognitive cleats…',
+  'Reading the gravity of your question…',
+  'Orbiting the clipboard…',
+  'Stretching the hamstrings of logic…',
+  'Chasing down loose bits of context…',
+  'Inflating the match ball of ideas…',
+  'Warming up the bench players in RAM…',
+  'Drawing runs off the ball — for your answer…',
+  'Checking VAR for extra nuance…',
+  'Hydrating the half-time oranges…',
+  'Taping the ankle of this thought…',
+  'Sprinting the channel between datasets…',
+  'Pressing high up the knowledge pitch…',
+  'Parking the bus — on doubt…',
+  'Launching a corner routine for your reply…',
+  'Calibrating the radar for smart passes…',
+  'Rolling subs in the idea squad…',
+  'Polishing the trophy case of facts…',
+  'Counting revolutions around the idea…',
+  'Mapping escape velocity from confusion…',
+  'Tuning the perihelion of your plan…',
+  'Aligning constellations with your goals…',
+  'Gravity-assisting this response…',
+  'Docking with the mothership of context…',
+  'Sweeping the orbit path clear…',
+  'Boosting into a higher insight band…',
+  'Recalculating trajectory after a clever feint…',
+  'Stabilizing attitude control…',
+  'Harvesting moonlight for motivation…',
+  'Spinning up the reaction wheels…',
+  'Plotting Hohmann transfer to the answer…',
+  'Debris shield: engaged for hot takes…',
+  'Telemetry says you’re about to get something good…',
+  'Running drills in zero-G…',
+  'Cross-training neurons and neurons…',
+  'Serving aces at the net of uncertainty…',
+  'Smashing overhead — metaphorically…',
+  'Reading the spin on your question…',
+  'Volleying ideas across the baseline…',
+  'Rallying with the backhand of reason…',
+  'Footwork sharp, logic sharper…',
+  'Fast break down the court of curiosity…',
+  'Boxing out doubt in the paint…',
+  'Full-court press on the unknown…',
+  'Swishing one from downtown…',
+  'Setting picks for the perfect sentence…',
+  'Checking downfield for open receivers…',
+  'Audible at the line — better phrasing incoming…',
+  'Fourth-quarter focus mode…',
+  'Ice in the veins, warmth in the words…',
+  'Hat trick loading…',
+  'Slapshot of insight winding up…',
+  'Power play in the offensive zone…',
+  'Offside trap: avoided. Onside answer: loading…',
+  'Pedaling the breakaway of thought…',
+  'Drafting behind the peloton of data…',
+  'Sprinting the last km of computation…',
+  'Heart rate zone: curious…',
+  'Tomo is orbiting a good answer…',
+  'Still in the tunnel — almost on the pitch…',
+  'Whistle’s about to blow on this reply…',
+  'Stadium lights coming up on your insight…',
+  'Crowd goes mild — then wild — soon…',
+  'Chalking the tactics board in the cloud…',
+  'Extra time for extra cleverness…',
+  'Golden goal hunt in progress…',
+  'Replays running in slow motion…',
+  'Foam rolling the knots out of this logic…',
+  'Protein shake for the brain cells…',
+  'Cooldown jog through the knowledge base…',
+  'GPS lock on a helpful response…',
+  'Wind at your back, bits at ours…',
+  'Compass needle twitching toward clarity…',
+  'Tide turning in your favor…',
+  'Seismic sensors detecting a solid point incoming…',
+  'Echo sounding the depths of your ask…',
+  'Sonar ping: wisdom detected…',
+  'Refueling the idea rocket…',
+  'Staging separation — fluff away, facts stay…',
+  'Mission control approves this delay…',
+  'Countdown holds at T-minus “almost there”…',
+  'Trajectory nominal. Banter: optional.',
+  'In the zone — the endorphin kind…',
+  'Pace clock says: patience is a PR too…',
+  'Negative split on response time…',
+  'Carbo-loading syllables…',
+  'Electrolytes for the neurons…',
+  'Foam finger pointing at progress…',
+  'Jumbotron says: LOADING GREATNESS…',
+  'Halftime show: tiny dancing algorithms…',
+  'Photographers kneeling for the money answer…',
+  'VAR review: this wait is legit…',
+  'Captain’s armband: secured. Answer: en route…',
+];

@@ -189,6 +189,28 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
             + dynamic_block
         )
 
+    # 2b-3. Deterministic day anchor for timeline — "tomorrow" then "rest day with family"
+    # often caused get_today_events to default to today. Inject explicit date when we can infer it.
+    if agent_type == "timeline":
+        try:
+            from app.graph.helpers.scheduling_anchor import infer_scheduling_thread_anchor_date
+
+            anchor = infer_scheduling_thread_anchor_date(all_state_msgs, context.today_date)
+            if anchor:
+                dynamic_block = (
+                    "SCHEDULING THREAD ANCHOR (computed from recent turns — follow exactly):\n"
+                    f"- Active calendar day for this turn: {anchor}\n"
+                    f'- Call get_today_events with date="{anchor}" for schedule_list previews on that day.\n'
+                    f"- schedule_list `date` must describe this same calendar day (player local today is {context.today_date}).\n"
+                    "- Do not substitute today unless the user explicitly switched to today in this turn.\n\n"
+                    + dynamic_block
+                )
+                logger.info(
+                    f"timeline scheduling anchor injected: anchor={anchor} local_today={context.today_date}"
+                )
+        except Exception as anchor_err:
+            logger.warning(f"scheduling anchor injection skipped: {anchor_err}")
+
     # 2c. Inject RAG context from PropertyGraphIndex (Phase 5)
     rag_context = state.get("rag_context", "")
     if rag_context:

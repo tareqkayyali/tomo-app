@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import type { VisualCard, CapsuleAction } from '../../../types/chat';
+import type { VisualCard, CapsuleAction, StudySchedulingCapsule } from '../../../types/chat';
 import { TestLogCapsuleComponent } from './TestLogCapsule';
 import { CheckinCapsuleComponent } from './CheckinCapsule';
 import { NavigationCapsuleComponent } from './NavigationCapsule';
@@ -35,6 +35,7 @@ import { TrainingJournalPreCapsuleComponent } from './TrainingJournalPreCapsule'
 import { TrainingJournalPostCapsuleComponent } from './TrainingJournalPostCapsule';
 import { RegularStudyCapsuleComponent } from './RegularStudyCapsule';
 import { SchedulingCapsuleComponent } from './SchedulingCapsule';
+import { StudySchedulingCapsuleComponent } from './StudySchedulingCapsule';
 import { TrainingMixCapsuleComponent } from './TrainingMixCapsule';
 import { StudyPlanCapsuleComponent } from './StudyPlanCapsule';
 import { WeekPlanPreviewCapsuleComponent } from './WeekPlanPreviewCapsule';
@@ -110,6 +111,8 @@ export function CapsuleRenderer({ card, onSubmit, onNavigate }: CapsuleRendererP
       return <TrainingJournalPostCapsuleComponent card={card} onSubmit={onSubmit} />;
     case 'scheduling_capsule':
       return <SchedulingCapsuleComponent card={card} onSubmit={onSubmit} />;
+    case 'study_scheduling_capsule':
+      return <StudySchedulingCapsuleComponent card={card as StudySchedulingCapsule} onSubmit={onSubmit} />;
     case 'training_mix_capsule':
       return <TrainingMixCapsuleComponent card={card} onSubmit={onSubmit} />;
     case 'study_plan_capsule':
@@ -156,6 +159,7 @@ export function isCapsuleCard(type: string): boolean {
     'training_journal_post_capsule',
     'regular_study_capsule',
     'scheduling_capsule',
+    'study_scheduling_capsule',
     'training_mix_capsule',
     'study_plan_capsule',
     'week_plan_preview_capsule',

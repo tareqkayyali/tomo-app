@@ -99,6 +99,8 @@ import type {
 } from '../types';
 import * as Clipboard from 'expo-clipboard';
 import { Loader } from '../components/Loader';
+import { WAITING_PHRASES, isPlaceholderStreamStatus } from '../constants/waitingPhrases';
+import { useRotatingWaitPhrase } from '../hooks/useRotatingWaitPhrase';
 
 // ---------------------------------------------------------------------------
 // Motivational Quotes — loaded from ContentBundle via useAllQuotes hook
@@ -725,13 +727,18 @@ const ChatBubble = React.memo(function ChatBubble({
   const isUser = message.role === 'user';
   const isTyping = message.role === 'typing';
   const isStreaming = message.role === 'streaming';
+  const rotatingWaitLine = useRotatingWaitPhrase(WAITING_PHRASES, isTyping || isStreaming);
+  const trimmedStatus = message.statusText?.trim() ?? '';
+  const statusLine = isPlaceholderStreamStatus(message.statusText)
+    ? rotatingWaitLine
+    : trimmedStatus;
 
   // Typing indicator — status text only (no dots), with green streaming cursor
   if (isTyping) {
     return (
       <View style={[styles.messageRow, styles.messageRowAi]}>
         <View style={styles.typingStatusWrap}>
-          <Text style={styles.statusText}>{message.statusText || 'Thinking...'}</Text>
+          <Text style={styles.statusText}>{statusLine}</Text>
           <StreamingCursor />
         </View>
       </View>
@@ -758,7 +765,7 @@ const ChatBubble = React.memo(function ChatBubble({
     return (
       <View style={[styles.messageRow, styles.messageRowAi]}>
         <View style={styles.typingStatusWrap}>
-          <Text style={styles.statusText}>{message.statusText || 'Processing...'}</Text>
+          <Text style={styles.statusText}>{statusLine}</Text>
           <StreamingCursor />
         </View>
       </View>

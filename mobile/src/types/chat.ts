@@ -812,6 +812,40 @@ export interface SchedulingCapsule {
   };
 }
 
+/** Study session picker — pre-fetched slots + subjects (ai-service study_scheduling_capsule) */
+export interface StudySchedulingCapsule {
+  type: 'study_scheduling_capsule';
+  context?: {
+    prefilledSubject?: string | null;
+    prefilledDate?: string;
+    days: Array<{
+      date: string;
+      label: string;
+      dayOfWeek: string;
+      existingEvents: Array<{ id: string; name: string; startTime: string; endTime: string; type: string }>;
+      availableSlots: Array<{ start24: string; end24: string; label: string; score: number }>;
+      isSchoolDay?: boolean;
+      schoolStart?: string | null;
+      schoolEnd?: string | null;
+      isStudyDay?: boolean;
+    }>;
+    subjectOptions: Array<{
+      id: string;
+      label: string;
+      examDate?: string;
+      examType?: string;
+      daysUntil?: number;
+      urgency?: string;
+    }>;
+    durationOptions: Array<{ id: number; label: string }>;
+    durationMin?: number;
+    schoolDays?: number[];
+    schoolHours?: { start: string; end: string };
+    studyDays?: number[];
+    examSchedule?: unknown[];
+  };
+}
+
 // ── Capsule Action — sent from frontend on capsule submit ────────
 
 export interface CapsuleAction {
@@ -865,6 +899,7 @@ export type VisualCard =
   | TrainingJournalPostCapsule
   | RegularStudyCapsule
   | SchedulingCapsule
+  | StudySchedulingCapsule
   | WeekScopeCapsule
   | TrainingMixCapsule
   | StudyPlanCapsule
