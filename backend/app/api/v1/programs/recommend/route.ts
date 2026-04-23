@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
     currentTime: "12:00",
     todayEvents: [],
     readinessScore: null,
-    checkinDate: null,
+    checkinDate: new Date().toISOString().split("T")[0],
     readinessComponents: null,
     upcomingExams: [],
     upcomingEvents: [],
