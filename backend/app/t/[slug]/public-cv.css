@@ -368,7 +368,7 @@
 }
 
 /* ─── Print styles ─── */
-@media print, .cv-print {
+@media print {
   .cv-root {
     background: #fff !important;
     color: #1a1d2a !important;
