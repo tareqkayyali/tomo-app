@@ -1,16 +1,10 @@
 /**
- * Main Navigator — 3-tab bottom navigation (v2 Premium)
+ * Main Navigator — 3-tab bottom navigation (player)
  *
- * Tabs:
- *   Timeline | Chat (CENTER RAISED, tomo logo) | Dashboard
+ * Tabs: Timeline | Tomo (AI Chat) | Signal — one row, equal flex slots,
+ * PNG tab glyphs centered vertically.
  *
- * Profile removed from tabs → accessible via HeaderProfileButton (top-right)
- *
- * Center Chat tab:
- *   - Oversized, raised above tab bar
- *   - Rounded-square with gradient
- *   - tomo logo icon
- *   - Subtle glow shadow
+ * Profile removed from tabs → accessible via HeaderProfileButton (top-right).
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -127,20 +121,17 @@ const TAB_LABELS: Record<TabName, string> = {
   Dashboard: 'Signal',
 };
 
-/** Timeline + Signal: 20% smaller than the previous 32px; center Tomo orb is unchanged. */
-const SIDE_TAB_GLYPH_SIZE = 32 * 0.8;
+/** Timeline + Signal: prior 32×0.8, then +15% vs that baseline. */
+const SIDE_TAB_GLYPH_SIZE = 32 * 0.8 * 1.15;
+/** Chat planet — inline with side glyphs; PNG scales cleanly at this size. */
+const CHAT_TAB_GLYPH_SIZE = 56;
 
 /**
- * Player App tab glyphs — Tomo brand icons.
- *   Plan      → Ichinichi 三 (three strokes: morning, noon, night + "now" dot)
- *   Dashboard → Ensō 円相 (zen ring with gap + pulse core)
- * Source: Files/assets/tomo-icons/ (README spec, 20×20 viewBox). Active state
- * thickens stroke (1.5 → 2) and reveals the center dot so the icon pair
- * reads as one design language: Ichinichi's dot ↔ Ensō's pulse core.
+ * Player App tab glyphs — Timeline / Tomo / Signal (PNG bitmaps).
  */
-function TabGlyph({ name, active }: { name: TabName; color: string; active: boolean }) {
+function TabBarIcon({ name, active }: { name: TabName; active: boolean }) {
   if (name === 'Plan') return <IconTimeline size={SIDE_TAB_GLYPH_SIZE} on={active} />;
-  // Chat is rendered as the floating orb; Dashboard = Signal beacon.
+  if (name === 'Chat') return <IconTomo size={CHAT_TAB_GLYPH_SIZE} on={active} />;
   return <IconSignal size={SIDE_TAB_GLYPH_SIZE} on={active} />;
 }
 
@@ -256,21 +247,6 @@ function CenterChatButton({
 
 function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
   const { colors } = useTheme();
-  const ORB_SIZE = 68;
-
-  // Two glow layers:
-  //   • `activeGlow` — continuous breathing pulse while Chat is focused.
-  //   • `pressGlow`  — one-shot peak on press, layered on top.
-  // Halo opacity/scale = max of the two so the press pulse always dominates
-  // the breathing baseline and the transition back is smooth.
-  const isChatFocused = state.routes[state.index].name === 'Chat';
-
-  const onChatPress = () => {
-    if (!isChatFocused) navigation.navigate('Chat');
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  };
 
   return (
     <View style={styles.tabBarWrap} pointerEvents="box-none">
@@ -287,13 +263,6 @@ function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
           const tabName = route.name as TabName;
-          const tint = isFocused ? colors.tomoSageDim : colors.muted;
-
-          // Chat slot is an inert spacer — orb floats independently above
-          // the pill so its size never affects the pill's borders/height.
-          if (tabName === 'Chat') {
-            return <View key={tabName} style={styles.tabPillBtn} pointerEvents="none" />;
-          }
 
           const onPress = () => {
             if (!isFocused) navigation.navigate(route.name);
@@ -312,38 +281,15 @@ function CustomBottomTabBar({ state, navigation }: MaterialTopTabBarProps) {
               style={({ pressed }) => [
                 styles.tabPillBtn,
                 {
-                  // No background shade — the active state is conveyed by the
-                  // icon's own static sage halo (rendered inside TabGlyph).
                   backgroundColor: 'transparent',
                   transform: [{ scale: pressed ? 0.98 : 1 }],
                 },
               ]}
             >
-              <TabGlyph name={tabName} color={tint} active={isFocused} />
-              {/* Labels removed — side tab glyphs use SIDE_TAB_GLYPH_SIZE; Chat is the floating orb.
-                  accessibilityLabel above preserves screen-reader announcement. */}
+              <TabBarIcon name={tabName} active={isFocused} />
             </Pressable>
           );
         })}
-      </View>
-
-      {/* ─── Floating Chat orb — independent of pill borders ─── */}
-      {/*
-        Active state: the sphere itself glows (brighter highlight-heavy
-        gradient) with the thin orbit ring visible around it. No backdrop
-        halo, no haze — the glow lives in the sphere's own colour.
-        Inactive state: default shiny sage sphere, no orbit ring.
-      */}
-      <View style={styles.floatingOrbWrap} pointerEvents="box-none">
-        <Pressable
-          onPress={onChatPress}
-          hitSlop={6}
-          style={({ pressed }) => ({
-            transform: [{ scale: pressed ? 0.95 : 1 }],
-          })}
-        >
-          <IconTomo size={ORB_SIZE} on={isChatFocused} />
-        </Pressable>
       </View>
     </View>
   );
@@ -665,9 +611,7 @@ const styles = StyleSheet.create({
   // Player App design tab bar — pill row floating over a radial backdrop.
   tabBarWrap: {
     paddingHorizontal: 14,
-    // Extra top padding so the floating Chat orb sits in the touch area
-    // and doesn't get clipped above the bar.
-    paddingTop: 60,
+    paddingTop: 20,
     paddingBottom: 28,
   },
   // Thin divider line above the tab row — replaces the old rounded-pill
@@ -675,6 +619,7 @@ const styles = StyleSheet.create({
   // page rather than a floating card.
   tabBarRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: 4,
   },
@@ -686,18 +631,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-  },
-  // Absolute container that centers the floating Chat orb above the pill.
-  // `pointerEvents="box-none"` (set on the View) lets touches pass through
-  // empty space to the pill below — only the orb itself is tappable.
-  floatingOrbWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 50,
-    height: 85,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   // Legacy styles retained for CenterChatButton (now unused by the tab
   // bar, but kept for potential re-use elsewhere).
