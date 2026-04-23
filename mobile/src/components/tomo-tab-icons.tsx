@@ -1,14 +1,12 @@
 /**
  * Tomo tab icons — Timeline / Tomo / Signal.
+ * Direct port of desktop/tomo/files/TabIcons.jsx.
  *
- * Direct port of desktop/tomo/files/TabIcons.jsx into react-native-svg
- * components. Two react-native-svg constraints vs. DOM SVG:
- *   1. Stop nodes inside LinearGradient/RadialGradient cannot be wrapped
- *      in a React.Fragment — they must be direct children. We pass them
- *      as keyed arrays.
- *   2. Percentage gradient units are passed through to the native
- *      renderer (react-native-svg honours cx/cy/r="38%" with the default
- *      objectBoundingBox units).
+ * react-native-svg gotcha: conditional <RadialGradient> children inside
+ * <Defs> are unreliable — the renderer may not register a gradient that
+ * was conditionally mounted, leaving url(#id) refs unresolved (which
+ * falls back to opaque white). Both -on and -off gradients are ALWAYS
+ * defined; the consumer picks one via the url() ref.
  */
 import React from 'react';
 import Svg, {
@@ -22,6 +20,9 @@ import Svg, {
   Line,
 } from 'react-native-svg';
 
+// Diagnostic — confirms which build of this module is live.
+console.log('[tomo-tab-icons] build:', 'always-mount-gradients-v2');
+
 type IconProps = { size?: number; on?: boolean };
 
 // ─── Timeline · arc with three growing dots ───────────────────────────
@@ -31,27 +32,25 @@ export function IconTimeline({ size = 44, on = false }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
       <Defs>
-        <LinearGradient id={`tl-arc-${k}`} x1="0" y1="1" x2="1" y2="0">
-          <Stop offset="0" stopColor={stroke} stopOpacity={on ? 0.15 : 0.08} />
-          <Stop offset="0.6" stopColor={stroke} stopOpacity={on ? 0.5 : 0.35} />
-          <Stop
-            offset="1"
-            stopColor={on ? '#7A9B76' : stroke}
-            stopOpacity={on ? 0.75 : 0.4}
-          />
+        <LinearGradient id="tl-arc-on" x1="0" y1="1" x2="1" y2="0">
+          <Stop offset="0" stopColor="rgba(245,243,237,0.70)" stopOpacity="0.15" />
+          <Stop offset="0.6" stopColor="rgba(245,243,237,0.70)" stopOpacity="0.5" />
+          <Stop offset="1" stopColor="#7A9B76" stopOpacity="0.75" />
         </LinearGradient>
-        {on ? (
-          <RadialGradient id="tl-now-on" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor="#E0EFDA" />
-            <Stop offset="55%" stopColor="#C8DCC3" />
-            <Stop offset="100%" stopColor="#7A9B76" />
-          </RadialGradient>
-        ) : (
-          <RadialGradient id="tl-now-off" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor="#F5F3ED" />
-            <Stop offset="100%" stopColor="rgba(245,243,237,0.55)" />
-          </RadialGradient>
-        )}
+        <LinearGradient id="tl-arc-off" x1="0" y1="1" x2="1" y2="0">
+          <Stop offset="0" stopColor="rgba(245,243,237,0.40)" stopOpacity="0.08" />
+          <Stop offset="0.6" stopColor="rgba(245,243,237,0.40)" stopOpacity="0.35" />
+          <Stop offset="1" stopColor="rgba(245,243,237,0.40)" stopOpacity="0.4" />
+        </LinearGradient>
+        <RadialGradient id="tl-now-on" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor="#E0EFDA" />
+          <Stop offset="55%" stopColor="#C8DCC3" />
+          <Stop offset="100%" stopColor="#7A9B76" />
+        </RadialGradient>
+        <RadialGradient id="tl-now-off" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor="#F5F3ED" />
+          <Stop offset="100%" stopColor="rgba(245,243,237,0.55)" />
+        </RadialGradient>
       </Defs>
       <Path
         d="M 4 22 Q 10 14 24 6"
@@ -85,45 +84,42 @@ export function IconTomo({ size = 80, on = false }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       <Defs>
-        {on ? (
-          <RadialGradient id="sp-sphere-on" cx="38%" cy="32%" r="70%">
-            <Stop offset="0%" stopColor="#DCEBD6" />
-            <Stop offset="35%" stopColor="#A8C3A2" />
-            <Stop offset="75%" stopColor="#7A9B76" />
-            <Stop offset="100%" stopColor="#4F6B4C" />
-          </RadialGradient>
-        ) : (
-          <RadialGradient id="sp-sphere-off" cx="38%" cy="32%" r="70%">
-            <Stop offset="0%" stopColor="#BED0B9" />
-            <Stop offset="45%" stopColor="#849F80" />
-            <Stop offset="100%" stopColor="#3F5A3C" />
-          </RadialGradient>
-        )}
-        <RadialGradient id={`sp-hl-${k}`} cx="34%" cy="28%" r="26%">
-          <Stop
-            offset="0%"
-            stopColor={on ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.55)'}
-          />
+        <RadialGradient id="sp-sphere-on" cx="38%" cy="32%" r="70%">
+          <Stop offset="0%" stopColor="#DCEBD6" />
+          <Stop offset="35%" stopColor="#A8C3A2" />
+          <Stop offset="75%" stopColor="#7A9B76" />
+          <Stop offset="100%" stopColor="#4F6B4C" />
+        </RadialGradient>
+        <RadialGradient id="sp-sphere-off" cx="38%" cy="32%" r="70%">
+          <Stop offset="0%" stopColor="#BED0B9" />
+          <Stop offset="45%" stopColor="#849F80" />
+          <Stop offset="100%" stopColor="#3F5A3C" />
+        </RadialGradient>
+        <RadialGradient id="sp-hl-on" cx="34%" cy="28%" r="26%">
+          <Stop offset="0%" stopColor="rgba(255,255,255,0.95)" />
           <Stop offset="100%" stopColor="rgba(255,255,255,0)" />
         </RadialGradient>
-        <RadialGradient id={`sp-atmos-${k}`} cx="50%" cy="50%" r="50%">
+        <RadialGradient id="sp-hl-off" cx="34%" cy="28%" r="26%">
+          <Stop offset="0%" stopColor="rgba(255,255,255,0.55)" />
+          <Stop offset="100%" stopColor="rgba(255,255,255,0)" />
+        </RadialGradient>
+        <RadialGradient id="sp-atmos-on" cx="50%" cy="50%" r="50%">
           <Stop offset="78%" stopColor="rgba(122,155,118,0)" />
-          <Stop
-            offset="92%"
-            stopColor={on ? 'rgba(122,155,118,0.35)' : 'rgba(122,155,118,0)'}
-          />
+          <Stop offset="92%" stopColor="rgba(122,155,118,0.35)" />
           <Stop offset="100%" stopColor="rgba(122,155,118,0)" />
         </RadialGradient>
-        <RadialGradient id={`sp-term-${k}`} cx="72%" cy="60%" r="48%">
+        <RadialGradient id="sp-term-on" cx="72%" cy="60%" r="48%">
           <Stop offset="0%" stopColor="rgba(0,0,0,0)" />
           <Stop offset="70%" stopColor="rgba(0,0,0,0)" />
-          <Stop
-            offset="100%"
-            stopColor={on ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.45)'}
-          />
+          <Stop offset="100%" stopColor="rgba(0,0,0,0.35)" />
+        </RadialGradient>
+        <RadialGradient id="sp-term-off" cx="72%" cy="60%" r="48%">
+          <Stop offset="0%" stopColor="rgba(0,0,0,0)" />
+          <Stop offset="70%" stopColor="rgba(0,0,0,0)" />
+          <Stop offset="100%" stopColor="rgba(0,0,0,0.45)" />
         </RadialGradient>
       </Defs>
-      {on ? <Circle cx="32" cy="32" r="30" fill={`url(#sp-atmos-${k})`} /> : null}
+      {on ? <Circle cx="32" cy="32" r="30" fill="url(#sp-atmos-on)" /> : null}
       <Ellipse
         cx="32"
         cy={on ? 54 : 52}
@@ -135,14 +131,7 @@ export function IconTomo({ size = 80, on = false }: IconProps) {
       <Circle cx="32" cy="32" r={r} fill={`url(#sp-term-${k})`} />
       <Circle cx="32" cy="32" r={r} fill={`url(#sp-hl-${k})`} />
       {on ? (
-        <Circle
-          cx="32"
-          cy="32"
-          r={r}
-          fill="none"
-          stroke="rgba(255,255,255,0.12)"
-          strokeWidth="0.6"
-        />
+        <Circle cx="32" cy="32" r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.6" />
       ) : (
         <Circle cx="32" cy="32" r={r} fill="rgba(10,12,20,0.25)" />
       )}
@@ -159,21 +148,22 @@ export function IconSignal({ size = 44, on = false }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
       <Defs>
-        {on ? (
-          <RadialGradient id="sig-core-on" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor="#C8DCC3" />
-            <Stop offset="60%" stopColor="#7A9B76" />
-            <Stop offset="100%" stopColor="#4F6B4C" />
-          </RadialGradient>
-        ) : (
-          <RadialGradient id="sig-core-off" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor="#A6BFA2" />
-            <Stop offset="60%" stopColor="#6E8B6A" />
-            <Stop offset="100%" stopColor="#3E5A3C" />
-          </RadialGradient>
-        )}
-        <RadialGradient id={`sig-halo-${k}`} cx="50%" cy="50%" r="50%">
-          <Stop offset="0%" stopColor="#7A9B76" stopOpacity={on ? 0.4 : 0.12} />
+        <RadialGradient id="sig-core-on" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor="#C8DCC3" />
+          <Stop offset="60%" stopColor="#7A9B76" />
+          <Stop offset="100%" stopColor="#4F6B4C" />
+        </RadialGradient>
+        <RadialGradient id="sig-core-off" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor="#A6BFA2" />
+          <Stop offset="60%" stopColor="#6E8B6A" />
+          <Stop offset="100%" stopColor="#3E5A3C" />
+        </RadialGradient>
+        <RadialGradient id="sig-halo-on" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor="#7A9B76" stopOpacity="0.4" />
+          <Stop offset="100%" stopColor="#7A9B76" stopOpacity="0" />
+        </RadialGradient>
+        <RadialGradient id="sig-halo-off" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor="#7A9B76" stopOpacity="0.12" />
           <Stop offset="100%" stopColor="#7A9B76" stopOpacity="0" />
         </RadialGradient>
       </Defs>
