@@ -818,12 +818,13 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 @media print {
-  /* @page margin = the white border around each printed page.
-     Content area per page = 210mm − 2×12mm wide, 297mm − 2×10mm tall
-     = 186mm × 277mm. Every .cv2-page must fit inside this box. */
+  /* No page margin — Chromium can't paint a body background into the
+     @page margin box, so any non-zero margin shows as a white frame
+     around the dark CV. We set margin: 0 here and let `.cv2-page`'s
+     internal padding handle the safe area. */
   @page {
     size: A4;
-    margin: 10mm 12mm;
+    margin: 0;
   }
 
   html,
@@ -844,20 +845,22 @@
     max-width: none !important;
   }
 
-  /* Each .cv2-page is exactly one A4 content area (210−2×12mm wide,
-     297−2×10mm tall). Real Chromium honors `overflow: hidden` for
-     paginated media, so anything that would spill onto a third page
-     gets clipped instead. */
+  /* Each .cv2-page is one full A4 (210×297mm). Internal padding
+     provides the safe area; the dark background fills edge-to-edge so
+     no white border shows. Real Chromium honors `overflow: hidden`
+     for paginated media, so anything that would spill onto a third
+     page gets clipped instead. */
   .cv2-page {
-    width: 186mm;
-    height: 277mm;
+    width: 210mm;
+    height: 297mm;
     min-height: unset !important;
-    max-height: 277mm;
+    max-height: 297mm;
     overflow: hidden;
     border: none !important;
     border-radius: 0 !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 10mm 12mm !important;
+    box-sizing: border-box !important;
     page-break-after: always;
     break-after: page;
     page-break-inside: avoid;
