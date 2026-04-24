@@ -89,6 +89,59 @@ function composeBenchmarkDetail(
   };
 }
 
+/** Calendar events that count as a "session" for Pulse Today's session + signal adaptedPlan */
+const TODAY_SESSION_EVENT_TYPES = new Set([
+  "training",
+  "match",
+  "gym",
+  "club",
+  "club_training",
+  "recovery",
+]);
+
+function firstTodaySessionEvent(events: Array<{ event_type?: string }>): any | null {
+  for (const e of events) {
+    if (TODAY_SESSION_EVENT_TYPES.has(String(e?.event_type ?? ""))) return e;
+  }
+  return null;
+}
+
+function sessionClockLabel(startAt: string | null | undefined, timeZone: string): string {
+  if (!startAt) return "";
+  try {
+    const d = new Date(startAt);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("en-US", {
+      timeZone: timeZone || "UTC",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return "";
+  }
+}
+
+/** Feeds `SignalEvaluationInput.todaySession` so `adaptedPlan` can show the calendar title (not only CMS overrides). */
+function buildTodaySessionForSignal(
+  todayEventsRaw: any[],
+  timeZone: string,
+): { sessionName: string; sessionMeta: string } | null {
+  const ev = firstTodaySessionEvent(todayEventsRaw);
+  if (!ev) return null;
+  const title = String(ev.title ?? "").trim() || "Today's session";
+  const clock = sessionClockLabel(ev.start_at, timeZone);
+  const intensity =
+    ev.intensity != null && String(ev.intensity).trim() !== ""
+      ? String(ev.intensity).toUpperCase()
+      : "";
+  const metaBits = [intensity, clock].filter(Boolean);
+  return {
+    sessionName: title,
+    sessionMeta: metaBits.length > 0 ? metaBits.join(" · ") : "Scheduled today",
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const userId = request.headers.get("x-user-id");
@@ -310,6 +363,7 @@ export async function GET(request: NextRequest) {
     const profile = profileRes.status === "fulfilled" ? profileRes.value?.data : null;
     const snapshot = snapshotRes.status === "fulfilled" ? snapshotRes.value : null;
     const todayEvents = todayEventsRes.status === "fulfilled" ? todayEventsRes.value?.data ?? [] : [];
+    const todaySessionForSignal = buildTodaySessionForSignal(todayEvents, tz);
     const latestCheckin = checkinRes.status === "fulfilled" ? checkinRes.value?.data ?? null : null;
     const activeRecs = recsRes.status === "fulfilled" ? recsRes.value ?? [] : [];
     const benchmarkProfile = benchmarkRes.status === "fulfilled" ? benchmarkRes.value : null;
@@ -378,15 +432,18 @@ export async function GET(request: NextRequest) {
       const n = typeof row.value === "number" ? row.value : Number(row.value);
       if (Number.isFinite(n)) hrvByDate.set(row.date, n);
     }
-    const recentVitals: RecentVitalEntry[] = recentVitalsRaw.map((v: any) => ({
-      date:           v.date,
-      sleep_hours:    v.sleep_hours ?? null,
-      hrv_morning_ms: hrvByDate.get(v.date) ?? null,
-      energy:         v.energy ?? null,
-      soreness:       v.soreness ?? null,
-      mood:           v.mood ?? null,
-      readiness_score: v.readiness === 'GREEN' ? 80 : v.readiness === 'YELLOW' ? 55 : v.readiness === 'RED' ? 30 : null,
-    }));
+    const recentVitals: RecentVitalEntry[] = recentVitalsRaw.map((v: any) => {
+      const rag = typeof v.readiness === "string" ? v.readiness.toUpperCase() : "";
+      return {
+        date: v.date,
+        sleep_hours: v.sleep_hours ?? null,
+        hrv_morning_ms: hrvByDate.get(v.date) ?? null,
+        energy: v.energy ?? null,
+        soreness: v.soreness ?? null,
+        mood: v.mood ?? null,
+        readiness_score: rag === "GREEN" ? 80 : rag === "YELLOW" ? 55 : rag === "RED" ? 30 : null,
+      };
+    });
 
     // Yesterday's vitals for signal delta calculations
     const yesterdayRaw = yesterdayVitalsRes.status === "fulfilled" ? (yesterdayVitalsRes.value as any)?.data ?? null : null;
@@ -526,6 +583,7 @@ export async function GET(request: NextRequest) {
           recentVitals,
           yesterdayVitals,
           trainingModifiers: pdContext?.trainingModifiers ?? null,
+          todaySession: todaySessionForSignal,
         });
       }
     } catch (err) {

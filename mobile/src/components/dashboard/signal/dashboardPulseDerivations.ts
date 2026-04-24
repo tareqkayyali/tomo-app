@@ -9,6 +9,14 @@ import type { PulseCell } from './WeeklyPulseStrip';
 
 export const SLEEP_TARGET_HOURS = 8.5;
 
+/** Calendar YYYY-MM-DD in the device's local timezone (matches boot API + DB `date`). */
+function localCalendarYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export type SleepTrendDerived = {
   nights: (number | null)[];
   nightsLabels: string[];
@@ -86,8 +94,10 @@ export function deriveSleep(boot: BootData | null): SleepTrendDerived | null {
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const iso = d.toISOString().slice(0, 10);
-    nights.push(dayMap.get(iso) ?? null);
+    // Must use local calendar date — toISOString() is UTC and misaligns vs
+    // boot `recentVitals[].date` (athlete-local YYYY-MM-DD from checkins).
+    const ymd = localCalendarYmd(d);
+    nights.push(dayMap.get(ymd) ?? null);
     nightsLabels.push(dayLabels[d.getDay()]);
   }
 

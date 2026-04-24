@@ -314,11 +314,6 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             />
           )}
           <MenuItem
-            icon="time-outline"
-            label="Historical Data"
-            onPress={() => navigation.navigate('HistoricalData')}
-          />
-          <MenuItem
             icon="watch-outline"
             label="My Vitals"
             onPress={() => navigation.navigate('Settings')}

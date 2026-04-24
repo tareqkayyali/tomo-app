@@ -103,6 +103,26 @@ function formatEventClock(iso: string): string {
   }
 }
 
+/** Matches boot `route.ts` TODAY_SESSION_EVENT_TYPES — first session-like row drives the clock. */
+const TODAY_SESSION_EVENT_TYPES = new Set([
+  'training',
+  'match',
+  'gym',
+  'club',
+  'club_training',
+  'recovery',
+]);
+
+function firstTodaySessionEvent(
+  events: BootData['todayEvents'] | undefined,
+): BootData['todayEvents'][number] | undefined {
+  if (!events?.length) return undefined;
+  for (const e of events) {
+    if (TODAY_SESSION_EVENT_TYPES.has(String(e?.type ?? ''))) return e;
+  }
+  return undefined;
+}
+
 const ACWR_SCALE_MIN = 0.4;
 const ACWR_SCALE_MAX = 1.7;
 
@@ -281,7 +301,7 @@ export function PulseDashboardTab({
   }, [bootData?.coachProgrammes, bootData?.activePrograms]);
 
   const sessionTimeShort = useMemo(() => {
-    const ev = bootData?.todayEvents?.[0];
+    const ev = firstTodaySessionEvent(bootData?.todayEvents);
     return ev?.startAt ? formatEventClock(ev.startAt) : null;
   }, [bootData?.todayEvents]);
 
