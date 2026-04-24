@@ -8,6 +8,7 @@
  * - Action buttons have solid colored backgrounds (not transparent)
  * - Prominent unread indicator (colored left border + dot)
  * - GlowWrapper breathing on P1 critical
+ * - Category badge on all priority tiers (matches filter bar counts)
  */
 
 import React, { useState, useMemo } from 'react';
@@ -243,11 +244,12 @@ export function NotificationCard({
           <Pressable onPress={() => { setExpanded(!expanded); onPress(n); }} hitSlop={8}>
             {/* Row: icon + title + time + chevron */}
             <View style={s.topRow}>
-              <View style={[s.typeRow, { flex: 1 }]}>
+              <View style={[s.typeRow, { flex: 1, minWidth: 0 }]}>
                 <View style={[s.iconCircle, { backgroundColor: config.color + '20' }]}>
                   <SmartIcon name={config.icon} size={14} color={config.color} />
                 </View>
-                <Text style={s.titleP3} numberOfLines={expanded ? undefined : 1}>{n.title}</Text>
+                <Badge label={config.label} variant={config.badgeVariant} size="small" />
+                <Text style={[s.titleP3, { flex: 1, minWidth: 0 }]} numberOfLines={expanded ? undefined : 1}>{n.title}</Text>
               </View>
               <View style={s.typeRow}>
                 <Text style={[s.timeText, { color: colors.textSecondary }]}>{timeAgo(n.created_at)}</Text>
@@ -279,12 +281,13 @@ export function NotificationCard({
         style={{ marginBottom: spacing.xs, marginHorizontal: spacing.lg, padding: spacing.compact }}>
         <Pressable
           onPress={() => { setExpanded(!expanded); onPress(n); }}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}
         >
           <View style={[s.iconCircleSm, { backgroundColor: config.color + '20' }]}>
             <SmartIcon name={config.icon} size={12} color={config.color} />
           </View>
-          <Text style={[s.titleP4, { flex: 1 }]} numberOfLines={1}>{n.title}</Text>
+          <Badge label={config.label} variant={config.badgeVariant} size="small" />
+          <Text style={[s.titleP4, { flex: 1, minWidth: 120 }]} numberOfLines={1}>{n.title}</Text>
           <Text style={[s.timeText, { color: colors.textDisabled }]}>{timeAgo(n.created_at)}</Text>
           {n.category !== 'critical' && !isDone && (
             <Pressable onPress={() => onDismiss(n)} hitSlop={12}>

@@ -216,7 +216,7 @@ export function AttachToTrainingSheet({ visible, onClose, program }: AttachToTra
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={[styles.sheet, { backgroundColor: colors.backgroundElevated }]} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={[styles.sheet, { backgroundColor: colors.surfaceSheet }]} onPress={(e) => e.stopPropagation()}>
           {/* Handle pill */}
           <View style={styles.handleRow}>
             <View style={[styles.handle, { backgroundColor: colors.textMuted + '40' }]} />

@@ -198,7 +198,7 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
           style={ms.keyboardView}
         >
           <Pressable
-            style={[ms.sheet, { backgroundColor: colors.backgroundElevated }]}
+            style={[ms.sheet, { backgroundColor: colors.surfaceSheet }]}
             onPress={(e) => e.stopPropagation()}
           >
             {/* Handle bar */}
@@ -238,7 +238,10 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                 <Loader />
               </View>
             ) : (
-              <ScrollView style={ms.content} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                style={[ms.content, { backgroundColor: colors.surfaceSheet }]}
+                keyboardShouldPersistTaps="handled"
+              >
                 {activeTab === 'pre' ? (
                   /* ── PRE TAB ── */
                   <View style={ms.tabContent}>

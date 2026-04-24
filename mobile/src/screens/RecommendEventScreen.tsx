@@ -733,7 +733,7 @@ function createModalStyles(colors: ThemeColors) {
       justifyContent: 'flex-end',
     },
     sheet: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceSheet,
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       padding: spacing.lg,

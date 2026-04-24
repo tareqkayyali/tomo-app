@@ -292,7 +292,7 @@ function ProgrammeList({
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
-          <View style={[styles.modalContent, { backgroundColor: colors.surfaceElevated }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surfaceSheet }]}>
             <Text style={[styles.modalTitle, { color: colors.textOnDark }]}>New Programme</Text>
 
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name</Text>
@@ -911,7 +911,7 @@ function DrillPicker({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.modalOverlay}
     >
-      <View style={[styles.pickerContainer, { backgroundColor: colors.surfaceElevated }]}>
+      <View style={[styles.pickerContainer, { backgroundColor: colors.surfaceSheet }]}>
         {/* Header */}
         <View style={styles.pickerHeader}>
           <Text style={[styles.pickerTitle, { color: colors.textOnDark }]}>

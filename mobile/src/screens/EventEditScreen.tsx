@@ -834,7 +834,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
       <Modal visible={showProgramSearch} transparent animationType="slide">
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }} onPress={() => setShowProgramSearch(false)}>
           <Pressable
-            style={{ backgroundColor: colors.backgroundElevated, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingTop: 8, paddingBottom: 32, paddingHorizontal: spacing.lg, maxHeight: '65%' }}
+            style={{ backgroundColor: colors.surfaceSheet, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingTop: 8, paddingBottom: 32, paddingHorizontal: spacing.lg, maxHeight: '65%' }}
             onPress={(e) => e.stopPropagation()}
           >
             {/* Handle bar */}
@@ -1129,7 +1129,7 @@ function createModalStyles(colors: ThemeColors) {
       justifyContent: 'flex-end',
     },
     sheet: {
-      backgroundColor: colors.backgroundElevated,
+      backgroundColor: colors.surfaceSheet,
       borderTopLeftRadius: 16,
       borderTopRightRadius: 16,
       paddingTop: spacing.lg,

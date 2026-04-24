@@ -144,7 +144,7 @@ export function SessionCompletionSheet({
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <Pressable
-            style={[ms.sheet, { backgroundColor: colors.backgroundElevated }]}
+            style={[ms.sheet, { backgroundColor: colors.surfaceSheet }]}
             onPress={(e) => e.stopPropagation()}
           >
             {/* Handle bar */}
@@ -161,7 +161,10 @@ export function SessionCompletionSheet({
               {event.name}
             </Text>
 
-            <ScrollView style={ms.content} keyboardShouldPersistTaps="handled">
+            <ScrollView
+              style={[ms.content, { backgroundColor: colors.surfaceSheet }]}
+              keyboardShouldPersistTaps="handled"
+            >
               <View style={ms.sectionGap} />
 
               {/* RPE */}

@@ -421,31 +421,14 @@ export async function getNotifications(
     return { notifications: [], unread_count: 0, by_category: {}, by_category_total: {} };
   }
 
-  // Fetch counts by category (both unread and total active)
-  // Exclude time-expired rows the same way the main query does
-  const [{ data: unreadData }, { data: totalData }] = await Promise.all([
-    db.from('athlete_notifications').select('category').eq('athlete_id', athleteId).eq('status', 'unread')
-      .or(`expires_at.is.null,expires_at.gt.${nowISO}`),
-    db.from('athlete_notifications').select('category').eq('athlete_id', athleteId).in('status', ['unread', 'read', 'acted'])
-      .or(`expires_at.is.null,expires_at.gt.${nowISO}`),
-  ]);
-
-  const by_category: Record<string, number> = {};
-  let unread_count = 0;
-  if (unreadData) {
-    for (const row of unreadData) {
-      by_category[row.category] = (by_category[row.category] ?? 0) + 1;
-      unread_count++;
-    }
-  }
-
-  // Total active notifications per category (for filter tab counts)
-  const by_category_total: Record<string, number> = {};
-  if (totalData) {
-    for (const row of totalData) {
-      by_category_total[row.category] = (by_category_total[row.category] ?? 0) + 1;
-    }
-  }
+  // Counts: use explicit (expires_at IS NULL OR expires_at > now) via two queries.
+  // A single chained .or(`expires_at.is.null,expires_at.gt.${nowISO}`) after .eq
+  // is easy to mis-parse in PostgREST and can diverge from the list + header badge.
+  const { unread_count, by_category, by_category_total } = await aggregateActiveNotificationCounts(
+    db,
+    athleteId,
+    nowISO,
+  );
 
   return {
     notifications: (notifications ?? []) as NotificationRecord[],
@@ -462,25 +445,74 @@ export async function getUnreadCount(
   athleteId: string,
 ): Promise<{ total: number; by_category: Record<string, number> }> {
   const db = notifDb();
-  const { data } = await db
-    .from('athlete_notifications')
-    .select('category')
-    .eq('athlete_id', athleteId)
-    .eq('status', 'unread');
-
-  const by_category: Record<string, number> = {};
-  let total = 0;
-  if (data) {
-    for (const row of data) {
-      by_category[row.category] = (by_category[row.category] ?? 0) + 1;
-      total++;
-    }
-  }
-
-  return { total, by_category };
+  const nowISO = new Date().toISOString();
+  const { unread_count, by_category } = await aggregateActiveNotificationCounts(db, athleteId, nowISO);
+  return { total: unread_count, by_category };
 }
 
 // ─── Internal Helpers ────────────────────────────────────────────────
+
+const ACTIVE_LIST_STATUSES = ['unread', 'read', 'acted'] as const;
+
+/**
+ * Unread + not past expires_at (matches list visibility). Split queries avoid
+ * fragile top-level `.or()` grouping with other filters.
+ */
+async function aggregateActiveNotificationCounts(
+  db: any,
+  athleteId: string,
+  nowISO: string,
+): Promise<{
+  unread_count: number;
+  by_category: Record<string, number>;
+  by_category_total: Record<string, number>;
+}> {
+  const [unreadNull, unreadFuture, totalNull, totalFuture] = await Promise.all([
+    db
+      .from('athlete_notifications')
+      .select('category')
+      .eq('athlete_id', athleteId)
+      .eq('status', 'unread')
+      .is('expires_at', null),
+    db
+      .from('athlete_notifications')
+      .select('category')
+      .eq('athlete_id', athleteId)
+      .eq('status', 'unread')
+      .gt('expires_at', nowISO),
+    db
+      .from('athlete_notifications')
+      .select('category')
+      .eq('athlete_id', athleteId)
+      .in('status', ACTIVE_LIST_STATUSES)
+      .is('expires_at', null),
+    db
+      .from('athlete_notifications')
+      .select('category')
+      .eq('athlete_id', athleteId)
+      .in('status', ACTIVE_LIST_STATUSES)
+      .gt('expires_at', nowISO),
+  ]);
+
+  const unreadRows = [...(unreadNull.data ?? []), ...(unreadFuture.data ?? [])];
+  const totalRows = [...(totalNull.data ?? []), ...(totalFuture.data ?? [])];
+
+  const by_category: Record<string, number> = {};
+  for (const row of unreadRows) {
+    by_category[row.category] = (by_category[row.category] ?? 0) + 1;
+  }
+
+  const by_category_total: Record<string, number> = {};
+  for (const row of totalRows) {
+    by_category_total[row.category] = (by_category_total[row.category] ?? 0) + 1;
+  }
+
+  return {
+    unread_count: unreadRows.length,
+    by_category,
+    by_category_total,
+  };
+}
 
 async function getActiveByGroupKey(
   db: any,

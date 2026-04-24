@@ -20,6 +20,8 @@ export type ThemeColors = {
   // Core
   background: string;
   backgroundElevated: string;
+  /** Opaque panel for Modal / bottom-sheet content (must hide the screen behind). */
+  surfaceSheet: string;
   accent: string;             // Tomo Green — primary CTA
   accentDark: string;         // Pressed states
   accentLight: string;        // Highlights, progress bars
@@ -253,6 +255,8 @@ export const darkColors: ThemeColors = {
   // Core (Tomo 友 — Navy + Sage)
   background: '#12141F',
   backgroundElevated: 'rgba(245,243,237,0.05)',
+  /** Solid ink-hover — same family as `tomoInkHover`; sheets cannot use translucent elevated. */
+  surfaceSheet: '#1E202D',
   accent: '#7A9B76',
   accentDark: '#5F7F5B',
   accentLight: '#9AB896',
