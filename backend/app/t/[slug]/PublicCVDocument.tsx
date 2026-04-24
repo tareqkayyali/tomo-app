@@ -1,11 +1,3 @@
-/**
- * PublicCVDocument — long-form scout-facing render of the Player Passport.
- *
- * Receives a masked PublicCVBundle (PII stripped, medical consent honoured).
- * When printMode=true (?print=1), applies light-themed print styles by
- * adding cv-print-mode to the root — used by the Playwright PDF renderer.
- */
-
 import type { PublicCVBundle } from "@/services/cv/cvPublicView";
 
 interface Props {
@@ -14,382 +6,445 @@ interface Props {
 }
 
 export function PublicCVDocument({ bundle, printMode }: Props) {
-  const { identity, physical, positions, player_profile, verified_performance,
-          career, media, references, awards_character, health_status,
-          completeness_pct, share } = bundle;
+  const {
+    identity,
+    physical,
+    positions,
+    player_profile,
+    verified_performance,
+    career,
+    media,
+    references,
+    awards_character,
+    health_status,
+    completeness_pct,
+    share,
+    last_updated,
+  } = bundle;
+
+  const topStrengths = player_profile.key_signals.strengths.slice(0, 3);
+  const topFocus = player_profile.key_signals.focus_areas.slice(0, 3);
+  const benchmarkRows = verified_performance.benchmarks.slice(0, 12);
+  const benchmarkLeft = benchmarkRows.filter((_, i) => i % 2 === 0);
+  const benchmarkRight = benchmarkRows.filter((_, i) => i % 2 === 1);
+  const currentYear = new Date().getFullYear();
 
   return (
     <div className={printMode ? "cv-print-mode" : ""}>
-      <div className="cv-root">
-        <div className="cv-container">
-          <div className="cv-topbar">
-            <span className="cv-topbar-brand">TOMO · PLAYER PASSPORT</span>
-            <span className="cv-topbar-meta">
-              {completeness_pct}% complete · {share.share_views_count} views
-            </span>
-          </div>
+      <div className="cv2-root">
+        <div className="cv2-stack">
+          <section className="cv2-page">
+            <header className="cv2-header">
+              <div className="cv2-brand">● tomo</div>
+              <div className="cv2-meta">
+                <span>REPORT · {formatIsoDate(last_updated) ?? "—"}</span>
+                <span>ID · {buildReportId(identity.full_name, identity.nationality)}</span>
+              </div>
+              <div className="cv2-verified">✓ VERIFIED BY TOMO</div>
+            </header>
 
-          {/* Hero */}
-          <div className="cv-card cv-hero">
-            <div className="cv-avatar">
-              {identity.photo_url ? <img src={identity.photo_url} alt="" /> : null}
-            </div>
-            <div className="cv-hero-body">
-              <div className="cv-hero-badge-row">
-                <span className="cv-chip cv-chip-sage">VERIFIED BY TOMO</span>
-                <span className="cv-chip">
-                  {identity.age_group ?? "PLAYER"}
-                </span>
+            <div className="cv2-hero-grid">
+              <div className="cv2-photo-card">
+                {identity.photo_url ? (
+                  <img src={identity.photo_url} alt={identity.full_name || "Player"} />
+                ) : (
+                  <div className="cv2-photo-fallback">10</div>
+                )}
               </div>
-              <h1 className="cv-name">{identity.full_name || "—"}</h1>
-              <div className="cv-meta">
-                {[identity.primary_position, capitalize(identity.sport), identity.age != null ? `Age ${identity.age}` : null]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-              <div className="cv-meta-sub">
-                {[identity.nationality, identity.preferred_foot ? `${capitalize(identity.preferred_foot)} foot` : null, formatPhv(identity.phv_stage, identity.phv_offset_years)]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-            </div>
-          </div>
 
-          {/* AI Summary */}
-          {player_profile.ai_summary && player_profile.ai_summary_status === "approved" ? (
-            <div className="cv-card">
-              <div className="cv-card-header">
-                <span className="cv-overline">Player Profile</span>
-                <span className="cv-chip cv-chip-sage">APPROVED</span>
-              </div>
-              <p className="cv-quote">{player_profile.ai_summary}</p>
-              {player_profile.key_signals.strengths.length > 0 ||
-                player_profile.key_signals.focus_areas.length > 0 ||
-                player_profile.key_signals.physical_maturity ? (
-                <div style={{ marginTop: 16 }}>
-                  <span className="cv-overline" style={{ display: "block", marginBottom: 10 }}>
-                    Key Signals
-                  </span>
-                  {player_profile.key_signals.strengths.map((s) => (
-                    <SignalRow
-                      key={s.metric_key}
-                      label={s.label}
-                      detail={`${s.percentile_label} · ${s.detail}`}
-                      tag="STRENGTH"
-                      tone="elite"
-                    />
-                  ))}
-                  {player_profile.key_signals.physical_maturity ? (
-                    <SignalRow
-                      label="Physical maturity"
-                      detail={`${player_profile.key_signals.physical_maturity.label} · ${player_profile.key_signals.physical_maturity.detail}`}
-                    />
-                  ) : null}
-                  {player_profile.key_signals.focus_areas.map((s) => (
-                    <SignalRow
-                      key={s.metric_key}
-                      label={s.label}
-                      detail={`${s.percentile_label} · ${s.detail}`}
-                      tag="FOCUS"
-                    />
-                  ))}
+              <div className="cv2-title-card">
+                <div className="cv2-kicker">SCOUT REPORT · CONFIDENTIAL</div>
+                <h1>{identity.full_name || "Player"}</h1>
+                <div className="cv2-id-grid">
+                  <Stat label="POS" value={positions.primary_position ?? "—"} />
+                  <Stat label="AGE" value={identity.age != null ? String(identity.age) : "—"} />
+                  <Stat label="NAT" value={identity.nationality ?? "—"} />
+                  <Stat label="GRP" value={identity.age_group ?? "—"} />
+                  <Stat label="HT" value={physical.height_cm != null ? `${physical.height_cm}cm` : "—"} />
+                  <Stat label="WT" value={physical.weight_kg != null ? `${physical.weight_kg}kg` : "—"} />
+                  <Stat
+                    label="FT"
+                    value={identity.preferred_foot ? identity.preferred_foot.charAt(0).toUpperCase() : "—"}
+                  />
+                  <Stat label="M*A" value={formatMaturity(identity.phv_offset_years)} />
                 </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {/* Identity block */}
-          <div className="cv-card">
-            <div className="cv-card-header">
-              <span className="cv-overline">Personal Details</span>
-              <span className="cv-chip cv-chip-sage">AUTO</span>
-            </div>
-            <Row label="Full name" value={identity.full_name} />
-            <Row label="Date of birth" value={formatDate(identity.date_of_birth)} />
-            <Row label="Nationality" value={identity.nationality} />
-            <Row label="Height" value={physical.height_cm != null ? `${physical.height_cm} cm` : null} />
-            <Row label="Weight" value={physical.weight_kg != null ? `${physical.weight_kg} kg` : null} />
-            <Row label="Preferred foot" value={identity.preferred_foot ? capitalize(identity.preferred_foot) : null} />
-            <Row label="Maturity" value={formatPhv(identity.phv_stage, identity.phv_offset_years)} />
-          </div>
-
-          {/* Sport profile */}
-          <div className="cv-card">
-            <div className="cv-card-header">
-              <span className="cv-overline">Sport Profile</span>
-              <span className="cv-chip cv-chip-sage">AUTO</span>
-            </div>
-            <Row label="Primary sport" value={capitalize(identity.sport)} />
-            <Row label="Primary position" value={positions.primary_label ?? positions.primary_position} accent />
-            <Row label="Secondary positions" value={positions.secondary_positions.length > 0 ? positions.secondary_positions.join(" · ") : "—"} />
-            <Row label="Current age group" value={identity.age_group} />
-          </div>
-
-          {/* Verified performance */}
-          <div className="cv-banner-verified">
-            <div className="cv-banner-icon">✓</div>
-            <div>
-              <div className="cv-banner-title">ALL DATA VERIFIED BY TOMO</div>
-              <div className="cv-banner-sub">Collected from on-platform sensors and sessions</div>
-            </div>
-          </div>
-
-          <div className="cv-card">
-            <div className="cv-card-header">
-              <span className="cv-overline">Performance KPIs</span>
-              <span className="cv-chip cv-chip-sage">LIVE</span>
-            </div>
-            <div className="cv-kpi-grid">
-              <KPI value={String(verified_performance.sessions_total)} label="Sessions" hint="all time" />
-              <KPI value={verified_performance.training_age_label} label="Training age" hint="structured" />
-              <KPI value={`${verified_performance.streak_days} d`} label="Streak" hint="active" />
-              <KPI
-                value={verified_performance.acwr != null ? verified_performance.acwr.toFixed(2) : "—"}
-                label="ACWR"
-                hint={verified_performance.training_balance ?? "—"}
-              />
-            </div>
-          </div>
-
-          {/* Benchmarks */}
-          {verified_performance.benchmarks.length > 0 ? (
-            <div className="cv-card">
-              <div className="cv-card-header">
-                <span className="cv-overline">
-                  Benchmarked vs {identity.age_group ?? "U19"} {capitalize(identity.sport)}
-                </span>
-                <span className="cv-chip cv-chip-sage">AUTO</span>
               </div>
-              {verified_performance.benchmarks.map((b) => (
-                <div key={b.metric_key} className="cv-bench">
-                  <div className="cv-bench-head">
-                    <span className="cv-bench-label">{b.metric_label}</span>
-                    <span className="cv-bench-cluster">
-                      <span className="cv-bench-value">
-                        {b.value}
-                        <span className="cv-bench-unit">{b.unit}</span>
-                      </span>
-                      <span className={`cv-bench-rank cv-zone-${b.zone}`}>
-                        {Math.round(b.percentile)}th
-                      </span>
-                    </span>
-                  </div>
-                  <div className="cv-bar-track">
-                    <div
-                      className={`cv-bar-fill cv-zone-${b.zone}-bg`}
-                      style={{ width: `${Math.max(2, Math.min(100, b.percentile))}%` }}
-                    />
+
+              <div className="cv2-score-card">
+                <div className="cv2-score-row">
+                  <div className="cv2-score-ring">{Math.max(0, Math.min(100, completeness_pct))}%</div>
+                  <div>
+                    <div className="cv2-score-label">PROFILE SCORE</div>
+                    <div className="cv2-score-sub">{completeness_pct}% Complete</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : null}
-
-          {/* Career */}
-          {career.length > 0 ? (
-            <div className="cv-card">
-              <div className="cv-card-header">
-                <span className="cv-overline">Career History</span>
-                <span className="cv-chip">{career.length} ENTRIES</span>
+                <MetricLine label="SESSIONS" value={String(verified_performance.sessions_total)} />
+                <MetricLine label="TRAINING AGE" value={verified_performance.training_age_label} />
+                <MetricLine label="STREAK" value={`${verified_performance.streak_days} d active`} />
+                <MetricLine
+                  label="ACWR"
+                  value={
+                    verified_performance.acwr != null
+                      ? `${verified_performance.acwr.toFixed(2)} ${verified_performance.training_balance ?? ""}`.trim()
+                      : "—"
+                  }
+                />
+                <MetricLine label="VIEWS" value={String(share.share_views_count)} />
               </div>
-              {career.map((c) => (
-                <div key={c.id} className="cv-career">
-                  <div className="cv-career-head">
-                    <span className="cv-career-club">{c.club_name}</span>
-                    {c.is_current ? <span className="cv-chip cv-chip-sage">CURRENT</span> : null}
-                  </div>
-                  <div className="cv-career-meta">
-                    {[c.league_level, c.country, formatPeriod(c.started_month, c.ended_month, c.is_current)]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </div>
-                  {(c.appearances != null || c.goals != null || c.assists != null) ? (
-                    <div className="cv-career-stats">
-                      {[
-                        c.appearances != null ? `${c.appearances} apps` : null,
-                        c.goals != null ? `${c.goals}g` : null,
-                        c.assists != null ? `${c.assists}a` : null,
-                        c.clean_sheets != null ? `${c.clean_sheets} cs` : null,
-                      ].filter(Boolean).join(" · ")}
+            </div>
+
+            <div className="cv2-main-grid">
+              <article className="cv2-panel">
+                <h3>AI PROFILE · {player_profile.ai_summary_status.toUpperCase()}</h3>
+                <p>{player_profile.ai_summary ?? "No approved summary yet."}</p>
+              </article>
+
+              <article className="cv2-panel">
+                <h3>TOP SIGNALS</h3>
+                {topStrengths.length === 0 ? (
+                  <div className="cv2-empty">No strength signals yet</div>
+                ) : (
+                  topStrengths.map((s) => (
+                    <SignalMetric
+                      key={s.metric_key}
+                      label={compactSignalLabel(s.label)}
+                      value={extractSignalValue(s.detail)}
+                      pct={extractPercentile(s.percentile_label)}
+                      zone="good"
+                    />
+                  ))
+                )}
+              </article>
+
+              <article className="cv2-panel">
+                <h3>FOCUS · DEVELOPMENT PRIORITIES</h3>
+                {topFocus.length === 0 ? (
+                  <div className="cv2-empty">No focus priorities yet</div>
+                ) : (
+                  topFocus.map((s) => (
+                    <SignalMetric
+                      key={s.metric_key}
+                      label={compactSignalLabel(s.label)}
+                      value={extractSignalValue(s.detail)}
+                      pct={extractPercentile(s.percentile_label)}
+                      zone="warn"
+                    />
+                  ))
+                )}
+              </article>
+            </div>
+
+            <section className="cv2-panel cv2-benchmarks">
+              <div className="cv2-bench-header">
+                <h3>BENCHMARKS · VS {identity.age_group ?? "U19"} {capitalize(identity.sport)} · ALL TESTS</h3>
+                <div>{`n = ${benchmarkRows.length} · updated ${formatMonthYear(last_updated) ?? "—"}`}</div>
+              </div>
+              <div className="cv2-bench-grid">
+                <div>
+                  {benchmarkLeft.map((b) => (
+                    <BenchmarkRow key={b.metric_key} metric={b} />
+                  ))}
+                </div>
+                <div>
+                  {benchmarkRight.map((b) => (
+                    <BenchmarkRow key={b.metric_key} metric={b} />
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <footer className="cv2-footer">
+              <span>{share.public_url.replace(/^https?:\/\//, "")}</span>
+              <span>SCOUT REPORT · {surname(identity.full_name)}</span>
+              <span>01 / 02</span>
+            </footer>
+          </section>
+
+          <section className="cv2-page cv2-page-break">
+            <header className="cv2-header">
+              <div className="cv2-brand">● tomo</div>
+              <div className="cv2-meta">
+                <span>{surname(identity.full_name).toUpperCase()}</span>
+                <span>PAGE 02</span>
+                <span>CAREER · MEDIA · REFERENCES · NEXT</span>
+              </div>
+            </header>
+
+            <div className="cv2-page2-grid">
+              <article className="cv2-panel">
+                <h3>PLAYING POSITIONS</h3>
+                <div className="cv2-pos-block">
+                  <div className="cv2-label">PRIMARY</div>
+                  <div className="cv2-pos-main">{positions.primary_label ?? positions.primary_position ?? "—"}</div>
+                  <div className="cv2-pos-sub">{positions.primary_position ?? "—"}</div>
+                </div>
+                <div className="cv2-pos-block">
+                  <div className="cv2-label">SECONDARY</div>
+                  <div className="cv2-pos-sub">{positions.secondary_positions.join(" · ") || "—"}</div>
+                </div>
+              </article>
+
+              <article className="cv2-panel cv2-career">
+                <h3>CAREER HISTORY</h3>
+                {career.length === 0 ? (
+                  <div className="cv2-empty">No career entries yet</div>
+                ) : (
+                  career.slice(0, 5).map((c) => (
+                    <div key={c.id} className="cv2-career-row">
+                      <div className="cv2-dot" />
+                      <div>
+                        <div className="cv2-career-period">{formatPeriod(c.started_month, c.ended_month, c.is_current)}</div>
+                        <div className="cv2-career-club">{c.club_name}</div>
+                        <div className="cv2-career-meta">
+                          {[c.position, c.league_level, c.country].filter(Boolean).join(" · ")}
+                        </div>
+                      </div>
                     </div>
-                  ) : null}
+                  ))
+                )}
+              </article>
+
+              <article className="cv2-panel">
+                <h3>AWARDS & CHARACTER</h3>
+                <div className="cv2-awards">
+                  {awards_character.awards.slice(0, 3).map((a) => (
+                    <div key={a.id} className="cv2-award-row">
+                      <span>{a.date ? new Date(a.date).getFullYear() : currentYear}</span>
+                      <span>{a.title}</span>
+                    </div>
+                  ))}
+                  {[...awards_character.leadership, ...awards_character.character]
+                    .slice(0, 6)
+                    .map((t) => (
+                      <span key={t.id} className="cv2-tag">
+                        {t.title}
+                      </span>
+                    ))}
+                  {awards_character.languages.length > 0 && (
+                    <div className="cv2-lang-row">
+                      {awards_character.languages.map((l) => (
+                        <span key={l.id}>{l.title}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          ) : null}
+              </article>
 
-          {/* Media */}
-          {media.length > 0 ? (
-            <div className="cv-card">
-              <div className="cv-card-header">
-                <span className="cv-overline">Video & Media</span>
-                <span className="cv-chip">{media.length} LINKED</span>
-              </div>
-              {media.map((m, i) => (
-                <div key={m.id} className="cv-row">
-                  <span className="cv-row-label">{m.media_type.replace("_", " ")}</span>
-                  <a
-                    href={m.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="cv-row-value cv-row-accent"
-                    style={{ textDecoration: "underline" }}
-                  >
-                    {m.platform ?? "link"}
-                  </a>
-                </div>
-              ))}
-            </div>
-          ) : null}
+              <article className="cv2-panel">
+                <h3>VIDEO & MEDIA</h3>
+                {media.length === 0 ? (
+                  <div className="cv2-empty">No linked media</div>
+                ) : (
+                  media.slice(0, 4).map((m) => (
+                    <div key={m.id} className="cv2-media-row">
+                      <span>▶ {m.title ?? m.media_type.replace("_", " ")}</span>
+                      <a href={m.url} target="_blank" rel="noopener noreferrer">
+                        {m.platform ?? "open"}
+                      </a>
+                    </div>
+                  ))
+                )}
+              </article>
 
-          {/* Awards & Character */}
-          {awards_character.total_count > 0 ? (
-            <div className="cv-card">
-              <div className="cv-card-header">
-                <span className="cv-overline">Awards & Character</span>
-                <span className="cv-chip">{awards_character.total_count} ENTRIES</span>
-              </div>
-              {awards_character.awards.length > 0 ? <TraitBlock label="Awards & honours" items={awards_character.awards} /> : null}
-              {awards_character.leadership.length > 0 ? <TraitBlock label="Leadership" items={awards_character.leadership} /> : null}
-              {awards_character.languages.length > 0 ? <TraitBlock label="Languages" items={awards_character.languages} /> : null}
-              {awards_character.character.length > 0 ? <TraitBlock label="Character traits" items={awards_character.character} /> : null}
-            </div>
-          ) : null}
+              <article className="cv2-panel">
+                <h3>HEALTH · LOAD · CONSENT</h3>
+                {health_status ? (
+                  <>
+                    <div className="cv2-health-title">{health_status.status_label.toUpperCase()}</div>
+                    <div className="cv2-health-sub">
+                      Match-ready {health_status.availability.match_ready ? "yes" : "no"} · training load{" "}
+                      {health_status.availability.training_load}
+                    </div>
+                    <div className="cv2-health-sub">
+                      ACWR {verified_performance.acwr != null ? verified_performance.acwr.toFixed(2) : "—"}{" "}
+                      {verified_performance.training_balance ?? ""}
+                    </div>
+                  </>
+                ) : (
+                  <div className="cv2-health-sub">Health details hidden by athlete consent.</div>
+                )}
+              </article>
 
-          {/* References */}
-          {references.length > 0 ? (
-            <div className="cv-card">
-              <div className="cv-card-header">
-                <span className="cv-overline">References</span>
-                <span className="cv-chip cv-chip-sage">VERIFIED</span>
-              </div>
-              {references.map((r) => (
-                <div key={r.id} className="cv-career">
-                  <div className="cv-career-head">
-                    <span className="cv-career-club">{r.referee_name}</span>
-                    <span className="cv-chip cv-chip-sage">TOMO VERIFIED</span>
-                  </div>
-                  <div className="cv-career-meta">
-                    {[r.referee_role, r.club_institution].filter(Boolean).join(" · ")}
-                  </div>
-                  {r.submitted_note ? (
-                    <p style={{ fontStyle: "italic", fontSize: 12, marginTop: 6, color: "var(--cv-cream-body)", lineHeight: 1.5 }}>
-                      "{r.submitted_note}"
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          ) : null}
+              <article className="cv2-panel">
+                <h3>REFERENCES</h3>
+                {references.length === 0 ? (
+                  <div className="cv2-empty">No published references yet</div>
+                ) : (
+                  references.slice(0, 4).map((r) => (
+                    <div key={r.id} className="cv2-ref-row">
+                      <div>
+                        <div className="cv2-ref-name">{r.referee_name}</div>
+                        <div className="cv2-ref-meta">
+                          {[r.referee_role, r.club_institution].filter(Boolean).join(" · ")}
+                        </div>
+                      </div>
+                      <span className="cv2-ref-status">{r.status.toUpperCase()}</span>
+                    </div>
+                  ))
+                )}
+              </article>
 
-          {/* Health (only if consent) */}
-          {health_status ? (
-            <div className="cv-card">
-              <div className="cv-card-header">
-                <span className="cv-overline">Health Status</span>
-                <span className={`cv-chip ${health_status.overall === "fully_fit" ? "cv-chip-sage" : ""}`}>
-                  {health_status.status_label.toUpperCase()}
-                </span>
-              </div>
-              <Row label="Match ready" value={health_status.availability.match_ready ? "Yes" : "No"} accent={health_status.availability.match_ready} />
-              <Row label="Training load" value={capitalize(health_status.availability.training_load)} />
-              <Row label="Restrictions" value={health_status.availability.restrictions.length > 0 ? health_status.availability.restrictions.join(", ") : "None"} />
-              <Row label="Last screening" value={formatDate(health_status.availability.last_screening_date)} />
+              <article className="cv2-panel cv2-next">
+                <h3>NEXT STEPS · CV SCORE GAIN</h3>
+                {bundle.next_steps.length === 0 ? (
+                  <div className="cv2-empty">No recommended actions</div>
+                ) : (
+                  bundle.next_steps.slice(0, 5).map((s) => (
+                    <div key={s.key} className="cv2-next-row">
+                      <span>+{s.impact_pct}</span>
+                      <span>{s.title}</span>
+                      <span>{s.estimated_minutes} min</span>
+                    </div>
+                  ))
+                )}
+              </article>
             </div>
-          ) : null}
 
-          <div className="cv-footer">
-            · TOMO PASSPORT · {share.public_url.replace(/^https?:\/\//, "")} ·
-          </div>
+            <footer className="cv2-footer">
+              <span>{share.public_url.replace(/^https?:\/\//, "")}</span>
+              <span>SCOUT REPORT · {surname(identity.full_name)}</span>
+              <span>02 / 02</span>
+            </footer>
+          </section>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Helpers ───
-
-function Row({ label, value, accent }: { label: string; value: string | null | undefined; accent?: boolean }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="cv-row">
-      <span className="cv-row-label">{label}</span>
-      <span className={`cv-row-value ${accent ? "cv-row-accent" : ""}`}>{value || "—"}</span>
+    <div className="cv2-stat">
+      <div>{label}</div>
+      <div>{value}</div>
     </div>
   );
 }
 
-function KPI({ value, label, hint }: { value: string; label: string; hint: string }) {
+function MetricLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="cv-kpi">
-      <div className="cv-kpi-value">{value}</div>
-      <div className="cv-kpi-label">{label}</div>
-      <div className="cv-kpi-hint">{hint}</div>
+    <div className="cv2-metric-line">
+      <span>{label}</span>
+      <span>{value}</span>
     </div>
   );
 }
 
-function SignalRow({
+function SignalMetric({
   label,
-  detail,
-  tag,
-  tone,
+  value,
+  pct,
+  zone,
 }: {
   label: string;
-  detail: string;
-  tag?: string;
-  tone?: "elite" | "focus";
+  value: string;
+  pct: number;
+  zone: "good" | "warn";
 }) {
   return (
-    <div className="cv-row">
-      <div>
-        <div className="cv-row-value" style={{ fontSize: 13 }}>{label}</div>
-        <div className="cv-row-label" style={{ marginTop: 2 }}>{detail}</div>
+    <div className="cv2-signal-row">
+      <div className="cv2-signal-l">
+        <div>{label}</div>
+        <div>{value}</div>
       </div>
-      {tag ? (
-        <span className={`cv-bench-rank ${tone === "elite" ? "cv-zone-elite" : ""}`}>{tag}</span>
-      ) : null}
+      <div className="cv2-signal-r">
+        <div className="cv2-signal-track">
+          <div className={`cv2-signal-fill ${zone}`} style={{ width: `${Math.max(4, Math.min(100, pct))}%` }} />
+        </div>
+        <span>{pct}</span>
+      </div>
     </div>
   );
 }
 
-function TraitBlock({ label, items }: { label: string; items: Array<{ id: string; title: string }> }) {
+function BenchmarkRow({ metric }: { metric: PublicCVBundle["verified_performance"]["benchmarks"][number] }) {
+  const p = Math.max(1, Math.min(99, Math.round(metric.percentile)));
   return (
-    <div style={{ paddingTop: 10 }}>
-      <div className="cv-overline" style={{ marginBottom: 6 }}>{label}</div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {items.map((t) => (
-          <span key={t.id} className="cv-chip">{t.title}</span>
-        ))}
+    <div className="cv2-bench-row">
+      <div>{metric.metric_label}</div>
+      <div>{metric.value} {metric.unit}</div>
+      <div className="cv2-bench-track">
+        <div className={`cv2-bench-fill ${zoneClass(metric.zone)}`} style={{ width: `${p}%` }} />
       </div>
+      <div>{ordinal(p)}</div>
     </div>
   );
+}
+
+function zoneClass(zone: string): string {
+  if (zone === "elite") return "elite";
+  if (zone === "on_par") return "mid";
+  return "low";
+}
+
+function extractPercentile(label: string): number {
+  const m = label.match(/(\d{1,3})/);
+  if (!m) return 50;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? Math.max(1, Math.min(99, n)) : 50;
+}
+
+function extractSignalValue(detail: string): string {
+  const chunks = detail.split("·").map((s) => s.trim()).filter(Boolean);
+  return chunks.length > 1 ? chunks[chunks.length - 1] : detail;
+}
+
+function compactSignalLabel(label: string): string {
+  return label.replace(/\s+/g, " ").trim();
 }
 
 function capitalize(s: string | null | undefined): string {
-  if (!s) return "";
+  if (!s) return "—";
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function formatDate(iso: string | null | undefined): string | null {
+function formatIsoDate(iso: string | null | undefined): string | null {
   if (!iso) return null;
   try {
-    const d = new Date(iso);
-    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    return new Date(iso).toISOString().slice(0, 10);
   } catch {
-    return iso;
+    return null;
   }
 }
 
-function formatPhv(stage: string | null | undefined, offset: number | null | undefined): string | null {
-  if (!stage) return null;
-  const label = stage === "POST" ? "Post-PHV" : stage === "PRE" ? "Pre-PHV" : "Circa-PHV";
-  if (offset == null) return label;
+function formatMonthYear(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  } catch {
+    return null;
+  }
+}
+
+function formatMaturity(offset: number | null | undefined): string {
+  if (offset == null || !Number.isFinite(offset)) return "—";
   const sign = offset > 0 ? "+" : "";
-  return `${label} (${sign}${offset.toFixed(1)}y)`;
+  return `${sign}${offset.toFixed(1)}y`;
+}
+
+function surname(fullName: string | null | undefined): string {
+  if (!fullName) return "player";
+  const parts = fullName.trim().split(/\s+/);
+  return parts[parts.length - 1].toUpperCase();
+}
+
+function buildReportId(fullName: string | null | undefined, nationality: string | null | undefined): string {
+  const base = surname(fullName).slice(0, 3);
+  const nat = (nationality ?? "na").slice(0, 3).toUpperCase();
+  const day = new Date().toISOString().slice(2, 10).replace(/-/g, "");
+  return `${base}-${day}-${nat}`;
 }
 
 function formatPeriod(start: string | null, end: string | null, isCurrent: boolean): string {
-  if (!start) return isCurrent ? "present" : "";
-  return `${start}—${isCurrent ? "present" : end ?? ""}`;
+  if (!start) return isCurrent ? "PRESENT" : "—";
+  return `${start} — ${isCurrent ? "PRESENT" : end ?? "—"}`;
+}
+
+function ordinal(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n}th`.replace("1th", "1st");
+  if (mod10 === 2 && mod100 !== 12) return `${n}th`.replace("2th", "2nd");
+  if (mod10 === 3 && mod100 !== 13) return `${n}th`.replace("3th", "3rd");
+  return `${n}th`;
 }
