@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Capsule normalization
+        // See agent/route: read-only program capsule tools are formatted in Python (not "done" template).
         if (body.capsuleAction) {
           const { toolName, toolInput, agentType } = body.capsuleAction;
           body.confirmedAction = { toolName, toolInput, agentType };

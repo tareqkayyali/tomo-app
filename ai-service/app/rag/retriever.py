@@ -49,6 +49,58 @@ logger = logging.getLogger("tomo-ai.rag.retriever")
 MAX_PROMPT_CHUNKS = 6
 MAX_PROMPT_TOKENS = 900  # ~4 chars per token
 
+# `rag_knowledge_chunks` use controlled vocabularies (see sports-science-base.md).
+# Athlete snapshot fields may use different strings; narrow filters with no DB overlap
+# produce zero vector/BM25 hits (insights: "RAG runs, avg_chunks=0").
+_CHUNK_CANON_AGE = frozenset({"U13", "U15", "U17", "U19", "ADULT"})
+
+
+def _normalize_phv_stages_for_chunk_filter(raw: str | None) -> list[str] | None:
+    """
+    Map snapshot PHV labels to tags stored on rag_knowledge_chunks: PRE, CIRCA, POST.
+    Unknown values return None so graph_store uses broad defaults (all stages).
+    """
+    if not raw or not str(raw).strip():
+        return None
+    s = str(raw).strip().upper().replace(" ", "_").replace("-", "_")
+    if s in ("PRE", "EARLY", "BEFORE_PHV"):
+        return ["PRE"]
+    if s in ("POST", "LATE", "AFTER_PHV"):
+        return ["POST"]
+    if s in (
+        "CIRCA", "CIRCA_PHV", "MID", "MID_PHV", "PEAK", "AT_PHV",
+        "DURING_PHV", "GROWTH", "GROWTH_SPURT",
+    ) or "CIRCA" in s or "MID_PHV" in s:
+        return ["CIRCA"]
+    return None
+
+
+def _normalize_age_groups_for_chunk_filter(raw: str | None) -> list[str] | None:
+    """
+    Chunks are tagged with U13–U19 + ADULT (no U21/SEN/VET). A strict filter on
+    U21 with no array overlap on any row returns zero results — map to nearest tags.
+    """
+    if not raw or not str(raw).strip():
+        return None
+    s = str(raw).strip().upper()
+    if s in _CHUNK_CANON_AGE:
+        return [s]
+    if s == "U12":
+        return ["U13"]
+    if s == "U14":
+        return ["U13", "U15"]
+    if s == "U16":
+        return ["U15", "U17"]
+    if s == "U18":
+        return ["U17", "U19"]
+    if s == "U20":
+        return ["U19", "ADULT"]
+    if s == "U21":
+        return ["U19", "ADULT"]
+    if s in ("SEN", "VET", "SENIOR", "VETERAN", "MASTERS"):
+        return ["ADULT"]
+    return None
+
 
 async def retrieve(
     query: str,
@@ -144,10 +196,20 @@ async def _retrieve_single(
 
     if context and context.snapshot_enrichment:
         se = context.snapshot_enrichment
-        if se.phv_stage:
-            phv_stages = [se.phv_stage.upper()]
-        if context.age_band:
-            age_groups = [context.age_band.upper()]
+        if se and se.phv_stage:
+            phv_stages = _normalize_phv_stages_for_chunk_filter(se.phv_stage)
+            if phv_stages is None and str(se.phv_stage).strip():
+                logger.info(
+                    "RAG: unknown phv_stage=%r — using default PRE|CIRCA|POST filter",
+                    se.phv_stage,
+                )
+        if context and context.age_band:
+            age_groups = _normalize_age_groups_for_chunk_filter(context.age_band)
+            if age_groups is None and str(context.age_band).strip():
+                logger.info(
+                    "RAG: non-canonical age_band=%r — using default U13–ADULT filter",
+                    context.age_band,
+                )
 
     # Run 4 search strategies in parallel (5th signal: BM25 chunk text search)
     vector_entities_task = search_entities_by_vector(

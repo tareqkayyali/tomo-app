@@ -37,6 +37,86 @@ DATA_CARD_TYPES = frozenset({
 MAX_BODY_SENTENCES = 3
 
 
+# Tools invoked from mobile capsules that are READS but were wired through
+# confirmedAction → write_confirmed (see backend chat route capsuleAction mapping).
+# They must not use the Pulse "done / Confirmed" write template.
+_READ_ONLY_PROGRAM_CAPSULE_TOOLS = frozenset({
+    "get_program_details",
+    "get_program_drill_breakdown",
+})
+
+
+def _build_program_read_capsule_response(results: list[dict]) -> dict | None:
+    """
+    Turn get_program_details / get_program_drill_breakdown tool results into a normal
+    coaching response. Returns None if the confirmed_results batch is not only these reads.
+    """
+    if not results:
+        return None
+
+    for r in results:
+        tool = (r.get("tool") or "").strip()
+        if tool not in _READ_ONLY_PROGRAM_CAPSULE_TOOLS:
+            return None
+    if not all(r.get("success") for r in results):
+        return None
+
+    for r in results:
+        data = r.get("result")
+        if not isinstance(data, dict):
+            continue
+
+        if data.get("error"):
+            return {
+                "headline": "Couldn't open that program",
+                "body": str(data.get("error", "Try again in a second."))[:500],
+                "cards": [],
+                "chips": [
+                    {"label": "What programs do I have?", "message": "What programs do I have?"},
+                ],
+            }
+
+        name = (data.get("name") or "Your program").strip()
+        drills = data.get("drills") or []
+        lines: list[str] = []
+        if isinstance(drills, list) and drills:
+            for i, d in enumerate(drills, 1):
+                if not isinstance(d, dict):
+                    continue
+                pat = (d.get("pattern") or d.get("name") or "").strip() or f"Block {i}"
+                bit = f"{i}. {pat}"
+                sets, reps = d.get("sets"), d.get("reps")
+                if sets or reps:
+                    s = f"{sets or '—'}×{reps or '—'}"
+                    bit += f" ({s})"
+                rpe = d.get("rpe") or d.get("intensity")
+                if rpe:
+                    bit += f" @ RPE {rpe}"
+                lines.append(bit)
+
+        if lines:
+            body = f"Here's how {name} breaks down.\n" + "\n".join(lines[:20])
+        else:
+            desc = (data.get("description") or data.get("reason") or "").strip()
+            body = desc or (
+                f"We don't have a separate drill list for {name} in your snapshot yet — "
+                "ask me to build a session in this style."
+            )
+
+        chips = [
+            {"label": "Build a session", "message": f"Build me a training session for {name}"},
+        ]
+
+        return {
+            "headline": f"Drills in {name}",
+            "body": body[:3500],
+            "cards": [],
+            "chips": chips,
+        }
+
+    return None
+
+
 def _build_context_stat_grid(state: TomoChatState) -> Optional[dict]:
     """
     Build a readiness stat_grid from player context when the LLM
@@ -1011,7 +1091,13 @@ async def format_response_node(state: TomoChatState) -> dict:
         try:
             confirmed_data = json.loads(agent_response)
             results = confirmed_data.get("confirmed_results", [])
-            structured = _pulse_post_process(_build_confirmed_response(results), state)
+            # Mobile maps Program Details capsule → confirmedAction; Python marks write_confirmed.
+            # get_program_details is a READ — must not use the calendar / "done" Pulse template.
+            program_read = _build_program_read_capsule_response(results)
+            if program_read is not None:
+                structured = _pulse_post_process(program_read, state)
+            else:
+                structured = _pulse_post_process(_build_confirmed_response(results), state)
         except (json.JSONDecodeError, TypeError):
             structured = _pulse_post_process(_build_text_response(agent_response), state)
 

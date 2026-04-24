@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Capsule normalization (simple object mapping)
+    // Capsule → Python currently uses confirmed_action (see ai-service supervisor).
+    // Read-only program tools (e.g. get_program_details) are formatted in
+    // format_response._build_program_read_capsule_response — not the Pulse "done" template.
     if (body.capsuleAction) {
       const { toolName, toolInput, agentType } = body.capsuleAction;
       body.confirmedAction = { toolName, toolInput, agentType };

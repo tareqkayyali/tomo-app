@@ -66,15 +66,16 @@ RAG_SKIP_INTENTS = frozenset({
     # Event creation — add_exam is deterministic, but create_event benefits from
     # load/schedule context so it's NOT skipped (removed from skip list in v2).
     "add_exam",
-    # Study planning — deterministic schedule generation
-    "plan_study",
-    "plan_regular_study",
+    # plan_study / plan_regular_study: NOT skipped — exam-period planning needs
+    # dual-load / recovery context from the knowledge base (sports-science tags).
 })
 
-# Intents where empty RAG results are a safety concern
+# Intents where empty RAG results are a safety / credibility concern (log WARNING)
 SAFETY_CRITICAL_INTENTS = frozenset({
     "qa_readiness", "load_advice_request", "recovery_guidance",
     "injury_query", "red_risk_override",
+    "program_recommendation", "training_planning", "build_week_plan",
+    "plan_study", "plan_regular_study", "build_session", "plan_training",
 })
 
 # ── Intent-specific query expansion for better retrieval matching ────
@@ -105,6 +106,10 @@ QUERY_EXPANSIONS = {
     # the enriched query uses these terms too (single source of truth).
     "build_session": "training session design drill selection progression periodization youth athlete sport-specific block",
     "plan_training": "training plan periodization block progression youth athlete volume intensity recovery",
+    "build_week_plan": "weekly training plan periodization dual load exam stress recovery block mesocycle youth athlete",
+    "plan_study": "dual load exam period academic stress cognitive recovery training adjustment study block youth athlete",
+    "plan_regular_study": "study schedule academic load training balance recovery dual load time management youth athlete",
+    "open_coaching": "youth athlete training coaching sports science load recovery periodization",
 }
 
 # ── Plain-language synonym map for query reformulation ───────────────
@@ -240,6 +245,9 @@ async def rag_retrieval_node(state: TomoChatState) -> dict:
             "sub_questions": result.sub_questions,
             "retrieval_cost_usd": result.retrieval_cost_usd,
             "latency_ms": elapsed,
+            "high_stakes_zero_chunks": bool(
+                intent_id in SAFETY_CRITICAL_INTENTS and result.chunk_count == 0
+            ),
         }
 
         if result.formatted_text:
