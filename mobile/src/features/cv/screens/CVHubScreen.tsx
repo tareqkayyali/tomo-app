@@ -8,7 +8,7 @@
 
 import React, { useCallback, useState } from "react";
 import { View, Text, Pressable, StyleSheet, Platform, Alert, Share, Linking } from "react-native";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
 import { useNavigation } from "@react-navigation/native";
@@ -101,10 +101,22 @@ export default function CVHubScreen() {
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, "_blank");
       } else {
-        // Native: download the server-rendered PDF (Browserless / real
-        // Chromium honors @page CSS exactly), then present the iOS /
-        // Android share sheet so the user can Save to Files, AirDrop,
-        // etc.
+        // Native: probe the endpoint with fetch first so we can read the
+        // status / error body. createDownloadResumable doesn't throw on
+        // non-2xx — it would happily save a JSON error body as a .pdf.
+        const probe = await fetch(pdfUrl, { headers });
+        if (!probe.ok) {
+          const fallback = probe.headers.get("X-Fallback-URL");
+          if (fallback) { await Linking.openURL(fallback); return; }
+          let detail = `HTTP ${probe.status}`;
+          try {
+            const body = await probe.json();
+            if (body?.detail) detail += ` — ${body.detail}`;
+            else if (body?.error) detail += ` — ${body.error}`;
+          } catch { /* not JSON */ }
+          throw new Error(detail);
+        }
+
         const cacheDir = (FileSystem as any).cacheDirectory as string | undefined;
         if (!cacheDir) throw new Error("No writable cache directory");
         const localPath = `${cacheDir}tomo-cv-${Date.now()}.pdf`;
@@ -130,9 +142,10 @@ export default function CVHubScreen() {
           await Linking.openURL(dl.uri);
         }
       }
-    } catch {
+    } catch (err) {
       if (Platform.OS !== "web") {
-        Alert.alert("PDF", "Could not download the PDF. Try again.");
+        const msg = err instanceof Error ? err.message : String(err);
+        Alert.alert("PDF", `Could not download the PDF.\n\n${msg}`);
       }
     } finally {
       setDownloading(false);

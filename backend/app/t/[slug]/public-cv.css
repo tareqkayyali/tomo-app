@@ -963,4 +963,31 @@
     display: grid !important;
     grid-template-columns: 200px 1fr !important;
   }
+
+  /* ── Strip card chrome to match the borderless target design.
+     Inner row separators (border-top on .cv2-signal-row,
+     .cv2-bench-row, .cv2-career-row etc.) are preserved. ── */
+  .cv2-photo-card,
+  .cv2-score-card,
+  .cv2-panel,
+  .cv2-id-grid {
+    border: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+  }
+  .cv2-id-cell {
+    border-right: 1px solid var(--cv2-border) !important;
+    border-bottom: none !important;
+  }
+  .cv2-id-cell:last-child {
+    border-right: none !important;
+  }
+  .cv2-score-card {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .cv2-panel {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 }
