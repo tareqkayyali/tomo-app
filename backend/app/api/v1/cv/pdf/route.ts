@@ -1,22 +1,26 @@
 /**
  * GET /api/v1/cv/pdf
  *
- * Renders the athlete's public CV to PDF using headless Chromium.
- * The PDF is a byte-for-byte match of what shows at /t/<slug>?print=1 so
- * design stays in sync across mobile, public web, and PDF.
+ * Renders the athlete's public CV to PDF using a hosted headless
+ * Chromium service (Browserless.io). Browserless loads the public CV
+ * page at /t/<slug>?print=1 with full @page CSS support, so the PDF is
+ * a byte-for-byte match of the print design.
+ *
+ * Why Browserless instead of in-process Playwright:
+ *   We tried `playwright-core` + `@sparticuz/chromium`, but the
+ *   Sparticuz binary is built for AWS Lambda (Amazon Linux 2) and does
+ *   not run in Railway's Debian container — every render returned 501.
+ *   Hosted Chromium removes infra deps entirely.
  *
  * Auth:
- *   - Authenticated athlete: renders own CV (generates slug on the fly if
- *     not yet published).
+ *   - Authenticated athlete: renders own CV (generates slug on the fly
+ *     if not yet published).
  *   - ?slug=<slug> as query: renders any published CV anonymously (used
  *     by Save-to-Files on the scout view).
  *
- * Deployment note:
- *   Requires `playwright-core` + `@sparticuz/chromium` in backend/package.json.
- *   On Railway the @sparticuz binary is ~50MB and self-contained — no
- *   additional buildpack config needed. If the deps aren't installed,
- *   this route returns 501 with a link to the printable HTML view as
- *   a graceful degradation.
+ * Required env:
+ *   BROWSERLESS_TOKEN — API token from https://browserless.io
+ *   BROWSERLESS_URL   — optional, defaults to chrome.browserless.io
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -58,12 +62,13 @@ export async function GET(req: NextRequest) {
     `http://${req.headers.get("host") ?? "localhost:3000"}`;
   const url = `${origin}/t/${slug}?print=1`;
 
-  // Attempt the Playwright render. If the dep isn't installed or fails,
-  // fall back to 501 + a Location header to the printable HTML view.
+  // Render via Browserless. If the token is missing or the service
+  // errors, return 501 + the printable URL so the client can fall back
+  // to opening the HTML view.
   let pdfBuffer: Buffer | null = null;
   let renderError: string | null = null;
   try {
-    pdfBuffer = await renderPdfWithPlaywright(url);
+    pdfBuffer = await renderPdfWithBrowserless(url);
   } catch (err) {
     renderError = err instanceof Error ? err.message : String(err);
   }
@@ -71,7 +76,7 @@ export async function GET(req: NextRequest) {
   if (!pdfBuffer) {
     return NextResponse.json(
       {
-        error: "PDF renderer not available on this deploy",
+        error: "PDF renderer not available",
         detail: renderError,
         printable_url: url,
       },
@@ -102,43 +107,40 @@ export async function GET(req: NextRequest) {
   });
 }
 
-async function renderPdfWithPlaywright(url: string): Promise<Buffer> {
-  // Dynamic imports so the route still loads on deploys that haven't
-  // installed the Playwright deps yet — in that case we throw here and
-  // the outer try/catch returns 501 with a helpful fallback.
-  const pw = await import("playwright-core" as any).catch(() => null);
-  const sparticuz = await import("@sparticuz/chromium" as any).catch(() => null);
-
-  if (!pw || !sparticuz) {
-    throw new Error("playwright-core + @sparticuz/chromium not installed");
+async function renderPdfWithBrowserless(url: string): Promise<Buffer> {
+  const token = process.env.BROWSERLESS_TOKEN;
+  if (!token) {
+    throw new Error("BROWSERLESS_TOKEN env var is not set");
   }
 
-  const chromium = pw.chromium;
-  const executablePath = await sparticuz.default.executablePath();
-  const browser = await chromium.launch({
-    args: sparticuz.default.args,
-    executablePath,
-    headless: true,
+  // Default to Browserless v1 PDF endpoint. Override via BROWSERLESS_URL
+  // if you provisioned a regional v2 endpoint (e.g. production-sfo).
+  const base = process.env.BROWSERLESS_URL ?? "https://chrome.browserless.io";
+  const endpoint = `${base}/pdf?token=${encodeURIComponent(token)}`;
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url,
+      // Browserless forwards `options` straight to Puppeteer's page.pdf().
+      // @page CSS in public-cv.css controls the inner margin box; we set
+      // Puppeteer margins to 0 so they don't stack.
+      options: {
+        format: "A4",
+        printBackground: true,
+        margin: { top: "0", right: "0", bottom: "0", left: "0" },
+        preferCSSPageSize: true,
+      },
+      gotoOptions: { waitUntil: "networkidle0", timeout: 20_000 },
+    }),
   });
 
-  try {
-    // 794 × 1123 = exact A4 at 96 dpi. deviceScaleFactor 1 keeps CSS px values
-    // consistent with print layout so the two-page structure renders correctly.
-    const ctx = await browser.newContext({ viewport: { width: 794, height: 1123 }, deviceScaleFactor: 1 });
-    const page = await ctx.newPage();
-    await page.goto(url, { waitUntil: "networkidle", timeout: 20_000 });
-    await page.waitForTimeout(400);
-
-    const pdf = await page.pdf({
-      format: "A4",
-      // Margins are controlled entirely via @page CSS so Playwright doesn't
-      // add a second margin layer on top of the CSS margin box.
-      margin: { top: "0", right: "0", bottom: "0", left: "0" },
-      printBackground: true,
-    });
-
-    return pdf;
-  } finally {
-    await browser.close();
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Browserless ${res.status}: ${detail.slice(0, 200)}`);
   }
+
+  const arr = await res.arrayBuffer();
+  return Buffer.from(arr);
 }

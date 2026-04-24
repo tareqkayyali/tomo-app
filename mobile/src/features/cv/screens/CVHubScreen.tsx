@@ -9,7 +9,6 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, Pressable, StyleSheet, Platform, Alert, Share, Linking } from "react-native";
 import * as FileSystem from "expo-file-system";
-import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
 import { useNavigation } from "@react-navigation/native";
@@ -84,14 +83,15 @@ export default function CVHubScreen() {
     if (downloading) return;
     setDownloading(true);
 
+    const pdfUrl = `${API_BASE_URL}/api/v1/cv/pdf`;
+
     try {
+      const token = await getIdToken();
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       if (Platform.OS === "web") {
-        // Web: hit the server-side Playwright endpoint directly.
-        const pdfUrl = `${API_BASE_URL}/api/v1/cv/pdf`;
-        const token = await getIdToken();
-        const res = await fetch(pdfUrl, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+        const res = await fetch(pdfUrl, { headers });
         if (!res.ok) {
           const fallback = res.headers.get("X-Fallback-URL");
           if (fallback) { await WebBrowser.openBrowserAsync(fallback); return; }
@@ -101,86 +101,43 @@ export default function CVHubScreen() {
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, "_blank");
       } else {
-        // Native (iOS / Android): render the CV print page HTML on-device
-        // using the platform's own WebKit PDF engine via expo-print.
-        // This is reliable on every device and requires no server Chromium.
-        if (!cv) throw new Error("No CV data");
+        // Native: download the server-rendered PDF (Browserless / real
+        // Chromium honors @page CSS exactly), then present the iOS /
+        // Android share sheet so the user can Save to Files, AirDrop,
+        // etc.
+        const cacheDir = (FileSystem as any).cacheDirectory as string | undefined;
+        if (!cacheDir) throw new Error("No writable cache directory");
+        const localPath = `${cacheDir}tomo-cv-${Date.now()}.pdf`;
 
-        // Ensure the CV is published so the public /t/<slug> page exists.
-        let publicUrl = cv.share.public_url;
-        if (!publicUrl) {
-          const published = await publish();
-          if (!published) throw new Error("Publish failed");
-          publicUrl = published.public_url;
-        }
+        const dl = await FileSystem.createDownloadResumable(
+          pdfUrl,
+          localPath,
+          { headers }
+        ).downloadAsync();
 
-        const printUrl = `${publicUrl}?print=1`;
-        const token = await getIdToken();
-        const htmlRes = await fetch(printUrl, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!htmlRes.ok) throw new Error(`Fetch HTML ${htmlRes.status}`);
-        const rawHtml = await htmlRes.text();
+        if (!dl) throw new Error("Download failed");
 
-        // Prepare the HTML for the WebKit print engine:
-        //
-        //  1. Inject <base href="<origin>/"> so relative CSS / image /
-        //     font URLs resolve against the production origin. Without
-        //     this the stylesheet never loads.
-        //
-        //  2. Strip all <script> tags. The page is already fully
-        //     server-rendered, so every byte of content is present. The
-        //     Next.js hydration scripts try to fetch RSC chunks and
-        //     throw "Application error: a client-side exception" inside
-        //     expo-print's isolated WebKit — replacing the rendered
-        //     output with the error message. We only need static
-        //     HTML+CSS for a PDF render, so JS goes.
-        const origin = new URL(publicUrl).origin;
-        const noScripts = rawHtml.replace(
-          /<script[\s\S]*?<\/script>/gi,
-          ""
-        );
-        const html = /<head[^>]*>/i.test(noScripts)
-          ? noScripts.replace(/<head([^>]*)>/i, `<head$1><base href="${origin}/" />`)
-          : `<base href="${origin}/" />${noScripts}`;
-
-        // iOS WebKit ignores CSS @page { size: A4 } and defaults to US
-        // Letter (612×792 pt). Force A4 page size (595×842 pt = 210×297mm
-        // at 72 dpi) to match the print CSS — otherwise the .cv2-page
-        // mm-sized boxes (186×277mm) overflow onto a 3rd page and the
-        // grid columns misalign. Margins are 0 here because the print CSS
-        // already encodes @page margin: 10mm 12mm.
-        const { uri } = await Print.printToFileAsync({
-          html,
-          base64: false,
-          width: 595,
-          height: 842,
-          margins: { left: 0, top: 0, right: 0, bottom: 0 },
-        });
-
-        // Present the iOS / Android share sheet so the user can "Save to
-        // Files", AirDrop, or open in their PDF viewer of choice.
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(uri, {
+          await Sharing.shareAsync(dl.uri, {
             mimeType: "application/pdf",
             dialogTitle: "Save your Player CV",
             UTI: "com.adobe.pdf",
           });
         } else if (Platform.OS === "android") {
-          const contentUri = await (FileSystem as any).getContentUriAsync(uri);
+          const contentUri = await (FileSystem as any).getContentUriAsync(dl.uri);
           await Linking.openURL(contentUri);
         } else {
-          await Linking.openURL(uri);
+          await Linking.openURL(dl.uri);
         }
       }
     } catch {
       if (Platform.OS !== "web") {
-        Alert.alert("PDF", "Could not generate the PDF. Try again.");
+        Alert.alert("PDF", "Could not download the PDF. Try again.");
       }
     } finally {
       setDownloading(false);
     }
-  }, [cv, publish, downloading]);
+  }, [downloading]);
 
   const rightCluster = (
     <Pressable
