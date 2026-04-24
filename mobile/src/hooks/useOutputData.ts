@@ -34,6 +34,9 @@ export function useOutputData(targetPlayerId?: string) {
   const deepRefreshInFlight = useRef(false);
   // Track if we have AI programs cached so we don't overwrite them
   const cachedAiPrograms = useRef<OutputSnapshot['programs'] | null>(null);
+  // Drop in-memory state when the storage key (signed-in user) changes so we do not
+  // show another user's snapshot before loadCache/fetch for the new key runs.
+  const cacheKeyRef = useRef(CACHE_KEY);
 
   // When viewing another player's data, skip caching and AI refresh
   const isViewingOther = !!targetPlayerId;
@@ -54,7 +57,7 @@ export function useOutputData(targetPlayerId?: string) {
     } catch {
       // Cache miss is fine
     }
-  }, [isViewingOther]);
+  }, [isViewingOther, CACHE_KEY]);
 
   // ── Fetch fresh data from API ──────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -94,7 +97,7 @@ export function useOutputData(targetPlayerId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [targetPlayerId, isViewingOther]);
+  }, [targetPlayerId, isViewingOther, CACHE_KEY]);
 
   // ── Deep program refresh (Claude AI) — own data only ────────────
   const triggerDeepRefresh = useCallback(async (force = false) => {
@@ -150,18 +153,42 @@ export function useOutputData(targetPlayerId?: string) {
       deepRefreshInFlight.current = false;
       setIsDeepRefreshing(false);
     }
-  }, [isViewingOther]);
+  }, [isViewingOther, CACHE_KEY]);
 
-  // ── Initial mount: cache → fetch (no auto deep refresh) ───────────
+  // When auth resolves or account switches, the cache key changes — clear so we
+  // do not show an anon/previous-user snapshot.
+  useEffect(() => {
+    if (cacheKeyRef.current === CACHE_KEY) return;
+    cacheKeyRef.current = CACHE_KEY;
+    setData(null);
+    cachedAiPrograms.current = null;
+  }, [CACHE_KEY]);
+
+  // ── Initial mount + when auth or player id changes: cache → fetch ──
   useEffect(() => {
     let isMounted = true;
     (async () => {
+      if (!user?.uid) {
+        setData(null);
+        setError(null);
+        if (isMounted) setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError(null);
       await loadCache();
       if (!isMounted) return;
       await fetchData();
     })();
     return () => { isMounted = false; };
-  }, [targetPlayerId]);
+  }, [targetPlayerId, user?.uid, loadCache, fetchData]);
+
+  // ── API-only refresh (no AI deep regen) — e.g. recover empty snapshot on focus
+  const refetchSnapshot = useCallback(async () => {
+    if (!user?.uid) return;
+    setLoading(true);
+    await fetchData();
+  }, [user?.uid, fetchData]);
 
   // Auto-refresh removed — user uses manual refresh button in toolbar
 
@@ -190,6 +217,7 @@ export function useOutputData(targetPlayerId?: string) {
     loading,
     error,
     refresh,
+    refetchSnapshot,
     isDeepRefreshing,
     forceRefreshPrograms,
   };

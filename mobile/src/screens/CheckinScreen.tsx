@@ -362,6 +362,7 @@ export function CheckinScreen({ navigation }: CheckinScreenProps) {
       const response: CheckinResponse = await submitCheckin(payload);
       setIsComplete(true);
       track('checkin_complete', { readiness: response.plan?.readinessLevel, sport: profile?.sport });
+      emitRefresh('checkin');
       emitRefresh('readiness');
       emitRefresh('recommendations');
       emitRefresh('notifications');

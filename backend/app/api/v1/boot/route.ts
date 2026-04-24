@@ -247,13 +247,15 @@ export async function GET(request: NextRequest) {
         .maybeSingle(),
 
       // 15. Active program interactions — for Today's Plan + Program Panel
+      // Filters by action (not interaction_type) — "active" = In Orbit,
+      // "player_selected" = self-picked. program_snapshot holds display data.
       (db as any)
         .from("program_interactions")
-        .select("program_id, interaction_type, started_at, metadata")
+        .select("program_id, action, program_snapshot, created_at")
         .eq("user_id", userId)
-        .eq("interaction_type", "self_assign")
-        .order("started_at", { ascending: false })
-        .limit(3),
+        .in("action", ["active", "player_selected"])
+        .order("created_at", { ascending: false })
+        .limit(10),
 
       // 16. Cached AI program recommendations — from deep program refresh
       (db as any)
@@ -743,8 +745,8 @@ export async function GET(request: NextRequest) {
 
       activePrograms: activePrograms.map((p: any) => ({
         programId: p.program_id,
-        startedAt: p.started_at,
-        metadata: p.metadata ?? {},
+        startedAt: p.created_at,
+        metadata: p.program_snapshot ?? {},
       })),
 
       // Coach-assigned programmes (published, targeted at this player)

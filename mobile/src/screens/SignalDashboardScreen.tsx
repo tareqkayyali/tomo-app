@@ -115,7 +115,7 @@ function formatStaleLabel(
 
 export function SignalDashboardScreen() {
   const { colors } = useTheme();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { needsCheckin } = useCheckinStatus();
   const navigation = useNavigation<any>();
   const { bootData, isBootLoading, refreshBoot } = useBootData();
@@ -123,7 +123,7 @@ export function SignalDashboardScreen() {
   // screen uses, and that the Coach portal's ProgrammesTab / TestsTab
   // delegate to). We call it unconditionally so the data is ready the
   // moment the athlete taps one of those tabs.
-  const { data: outputData, loading: outputLoading, error: outputError, refresh: refreshOutput, isDeepRefreshing: outputDeepRefreshing } = useOutputData();
+  const { data: outputData, loading: outputLoading, error: outputError, refresh: refreshOutput, refetchSnapshot: refetchOutputSnapshot, isDeepRefreshing: outputDeepRefreshing } = useOutputData();
   const {
     active: activeProgramEntries,
     playerAdded: playerAddedProgramEntries,
@@ -155,7 +155,12 @@ export function SignalDashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshBoot();
-    }, [refreshBoot])
+      // Output snapshot is separate from boot. If the first fetch ran before
+      // auth (or failed), Programs / Metrics stay empty until pull; recover here.
+      if (user?.uid && !outputData && !outputLoading) {
+        void refetchOutputSnapshot();
+      }
+    }, [refreshBoot, user?.uid, outputData, outputLoading, refetchOutputSnapshot])
   );
 
   const signal = bootData?.signalContext ?? NEUTRAL_SIGNAL;

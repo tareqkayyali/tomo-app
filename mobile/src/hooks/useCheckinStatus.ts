@@ -11,9 +11,10 @@
  *   needsCheckin=true, isStale=false  → New day, no checkin yet
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { getToday } from '../services/api';
+import { onRefresh } from '../utils/refreshBus';
 
 /** Hours after which a same-day checkin is considered stale */
 const STALE_THRESHOLD_HOURS = 18;
@@ -57,6 +58,12 @@ export function useCheckinStatus(): {
       refresh();
     }, [refresh]),
   );
+
+  // Re-check whenever any data refresh fires (e.g. right after checkin submit)
+  // so the header icon flips instantly without waiting for screen re-focus.
+  useEffect(() => {
+    return onRefresh('checkin', refresh);
+  }, [refresh]);
 
   return { needsCheckin, isStale, checkinAgeHours, refresh };
 }

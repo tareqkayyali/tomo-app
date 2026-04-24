@@ -9,7 +9,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -161,6 +160,7 @@ export function PulseDashboardTab({
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
   const [progressExpanded, setProgressExpanded] = useState(false);
+  const [metricsExpanded, setMetricsExpanded] = useState<Record<string, boolean>>({});
 
   // Which Pulse sections are enabled — derived from CMS dashboardLayout.
   // If the layout has no pulse_* entries, all sections are shown (default).
@@ -350,6 +350,43 @@ export function PulseDashboardTab({
           <Text style={[styles.metricChipTag, { color: tint }]}>{ordinalPercentile(m.metric.percentile)}</Text>
         </View>
       </PulseCard>
+    );
+  };
+
+  const renderMetricBucket = (
+    label: string,
+    items: (typeof metricBuckets.strong),
+    tint: string,
+    bucketKey: string,
+  ) => {
+    if (items.length === 0) return null;
+    const expanded = metricsExpanded[bucketKey] ?? false;
+    // Show 4 chips (2 rows) collapsed; all when expanded
+    const visible = expanded ? items : items.slice(0, 4);
+    const hasMore = items.length > 4;
+    return (
+      <View key={bucketKey}>
+        <View style={styles.bucketHeaderRow}>
+          <Text style={[styles.bucketHead, { color: tint }]}>{label} · {items.length}</Text>
+          {hasMore && (
+            <Pressable
+              onPress={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setMetricsExpanded((prev) => ({ ...prev, [bucketKey]: !expanded }));
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={expanded ? 'Show less' : `Show all ${items.length}`}
+            >
+              <Text style={[styles.bucketToggle, { color: tint }]}>
+                {expanded ? 'Show less' : `Show all ${items.length}`}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+        <View style={styles.metricGrid}>
+          {visible.map((m) => renderMetricChip(m, tint))}
+        </View>
+      </View>
     );
   };
 
@@ -652,30 +689,9 @@ export function PulseDashboardTab({
         <PulseSectionLabel left="Metrics" right={metricsTracked > 0 ? `${metricsTracked} tracked` : undefined} />
         <Pressable onPress={onOpenMetricsTab}>
           <View style={{ gap: 10 }}>
-            {metricBuckets.strong.length > 0 && (
-              <View>
-                <Text style={[styles.bucketHead, { color: sage }]}>STRONG · {metricBuckets.strong.length}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScroll}>
-                  {metricBuckets.strong.map((m) => renderMetricChip(m, sage))}
-                </ScrollView>
-              </View>
-            )}
-            {metricBuckets.holding.length > 0 && (
-              <View>
-                <Text style={[styles.bucketHead, { color: colors.tomoSteel }]}>HOLDING · {metricBuckets.holding.length}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScroll}>
-                  {metricBuckets.holding.map((m) => renderMetricChip(m, colors.tomoSteel))}
-                </ScrollView>
-              </View>
-            )}
-            {metricBuckets.watch.length > 0 && (
-              <View>
-                <Text style={[styles.bucketHead, { color: clay }]}>WATCH · {metricBuckets.watch.length}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScroll}>
-                  {metricBuckets.watch.map((m) => renderMetricChip(m, clay))}
-                </ScrollView>
-              </View>
-            )}
+            {renderMetricBucket('STRONG', metricBuckets.strong, sage, 'strong')}
+            {renderMetricBucket('HOLDING', metricBuckets.holding, colors.tomoSteel, 'holding')}
+            {renderMetricBucket('WATCH', metricBuckets.watch, clay, 'watch')}
             {!outputData?.metrics?.categories?.length ? (
               <PulseCard tintColor={sage}>
                 <Text style={styles.mutedSmall}>Log tests in Metrics to fill this row.</Text>
@@ -994,7 +1010,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   hScroll: { gap: 10, paddingRight: 8 },
-  metricChip: { width: 148, marginRight: 4 },
+  metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  bucketHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  bucketToggle: { fontFamily: fontFamily.medium, fontSize: 10, letterSpacing: 0.3 },
+  metricChip: { flex: 1, minWidth: '45%' },
   metricChipInner: { padding: 10 },
   metricChipEyebrow: {
     fontFamily: fontFamily.medium,
