@@ -242,6 +242,28 @@ export interface CVShareInfo {
   last_pdf_export_at: string | null;
 }
 
+export interface CVAcademicSubject {
+  name: string;
+  level: string | null;
+  grade: number | null;
+  grade_max: number;
+  trend: "up" | "stable" | "down" | null;
+}
+
+export interface CVAcademicProfile {
+  school_name: string | null;
+  diploma_program: string | null;
+  grade_year: string | null;
+  program_label: string | null;
+  gpa_current: number | null;
+  gpa_max: number;
+  class_rank_pct: number | null;
+  attendance_pct: number | null;
+  exam_session_label: string | null;
+  dual_load_note: string | null;
+  subjects: CVAcademicSubject[];
+}
+
 export type CVSectionState =
   | "auto_complete"
   | "needs_input"
@@ -274,6 +296,7 @@ export interface FullCVBundle {
   references: CVReferenceEntry[];
   awards_character: CVAwardsCharacter;
   health_status: CVHealthStatus;
+  academic: CVAcademicProfile | null;
   completeness_pct: number;
   completeness_breakdown: CVCompletenessResult["breakdown"];
   next_steps: CVNextStep[];
@@ -300,6 +323,7 @@ export async function assembleCVBundle(athleteId: string): Promise<FullCVBundle>
     injuryRes,
     versionsRes,
     sessionLogRes,
+    academicRes,
   ] = await Promise.all([
     (db() as any).from("users").select("*").eq("id", athleteId).single(),
     (db() as any).from("athlete_snapshots").select("*").eq("athlete_id", athleteId).single(),
@@ -318,11 +342,13 @@ export async function assembleCVBundle(athleteId: string): Promise<FullCVBundle>
       .gte("start_at", sevenDaysAgoIso)
       .order("start_at", { ascending: false })
       .limit(10),
+    (db() as any).from("cv_academic_profile").select("*").eq("athlete_id", athleteId).maybeSingle(),
   ]);
 
   const user = userRes.data ?? {};
   const snapshot = snapshotRes.data ?? {};
   const cvProfile = cvProfileRes.data ?? {};
+  const academic: CVAcademicProfile | null = buildAcademicProfile(academicRes.data);
   const career: CVCareerEntry[] = (careerRes.data ?? []).map(mapCareerEntry);
   const media: CVMediaLink[] = (mediaRes.data ?? []).map(mapMediaLink);
   const references: CVReferenceEntry[] = (refsRes.data ?? [])
@@ -412,6 +438,7 @@ export async function assembleCVBundle(athleteId: string): Promise<FullCVBundle>
     references,
     awards_character: awardsCharacter,
     health_status: healthStatus,
+    academic,
     completeness_pct: completeness.pct,
     completeness_breakdown: completeness.breakdown,
     next_steps: nextSteps,
@@ -709,6 +736,32 @@ function computeSectionStates(data: {
     references: referencesState,
     awards_character: awardsState,
     health_status: healthState,
+  };
+}
+
+function buildAcademicProfile(row: any): CVAcademicProfile | null {
+  if (!row) return null;
+  const subjects: CVAcademicSubject[] = Array.isArray(row.subjects)
+    ? row.subjects.map((s: any) => ({
+        name: s.name ?? "",
+        level: s.level ?? null,
+        grade: s.grade != null ? Number(s.grade) : null,
+        grade_max: s.grade_max != null ? Number(s.grade_max) : 7,
+        trend: s.trend ?? null,
+      }))
+    : [];
+  return {
+    school_name: row.school_name ?? null,
+    diploma_program: row.diploma_program ?? null,
+    grade_year: row.grade_year ?? null,
+    program_label: row.program_label ?? null,
+    gpa_current: row.gpa_current != null ? Number(row.gpa_current) : null,
+    gpa_max: row.gpa_max != null ? Number(row.gpa_max) : 7.0,
+    class_rank_pct: row.class_rank_pct ?? null,
+    attendance_pct: row.attendance_pct ?? null,
+    exam_session_label: row.exam_session_label ?? null,
+    dual_load_note: row.dual_load_note ?? null,
+    subjects,
   };
 }
 

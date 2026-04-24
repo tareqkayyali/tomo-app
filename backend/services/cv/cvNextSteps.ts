@@ -29,6 +29,7 @@ export interface CVNextStep {
   key: CVNextStepKey;
   title: string;
   subtitle: string;
+  hint: string;
   category: string;
   impact_pct: number;
   estimated_minutes: number;
@@ -67,8 +68,9 @@ interface BuildInput {
 const ALL_STEPS: Array<CVNextStep & { test: (i: BuildInput) => boolean }> = [
   {
     key: "secondary_positions",
-    title: "Add secondary positions",
+    title: "Add secondary-position match minutes",
     subtitle: "Playing profile · 1 min",
+    hint: "Completes positional profile",
     category: "Playing profile",
     impact_pct: 4,
     estimated_minutes: 1,
@@ -79,6 +81,7 @@ const ALL_STEPS: Array<CVNextStep & { test: (i: BuildInput) => boolean }> = [
     key: "career_history",
     title: "Add your club or academy history",
     subtitle: "Career · 2 min",
+    hint: "Builds credibility with clubs",
     category: "Career",
     impact_pct: 12,
     estimated_minutes: 2,
@@ -87,8 +90,9 @@ const ALL_STEPS: Array<CVNextStep & { test: (i: BuildInput) => boolean }> = [
   },
   {
     key: "highlight_video",
-    title: "Add a highlight video",
+    title: "Upload full-match video (≥ 45 min)",
     subtitle: "Media · 4x more views",
+    hint: "Unlocks tactical profile",
     category: "Media",
     impact_pct: 15,
     estimated_minutes: 4,
@@ -97,8 +101,9 @@ const ALL_STEPS: Array<CVNextStep & { test: (i: BuildInput) => boolean }> = [
   },
   {
     key: "coach_reference",
-    title: "Request a coach reference",
+    title: "Confirm 2nd coach reference",
     subtitle: "References · 3 min",
+    hint: "Strengthens verified network",
     category: "References",
     impact_pct: 8,
     estimated_minutes: 3,
@@ -109,6 +114,7 @@ const ALL_STEPS: Array<CVNextStep & { test: (i: BuildInput) => boolean }> = [
     key: "awards_character",
     title: "Add awards & character traits",
     subtitle: "Recognition · 2 min",
+    hint: "Demonstrates athlete character",
     category: "Recognition",
     impact_pct: 6,
     estimated_minutes: 2,
@@ -119,6 +125,7 @@ const ALL_STEPS: Array<CVNextStep & { test: (i: BuildInput) => boolean }> = [
     key: "approve_ai_summary",
     title: "Approve your player profile summary",
     subtitle: "Profile · 1 min",
+    hint: "Activates AI profile section",
     category: "Profile",
     impact_pct: 5,
     estimated_minutes: 1,
@@ -129,8 +136,9 @@ const ALL_STEPS: Array<CVNextStep & { test: (i: BuildInput) => boolean }> = [
   },
   {
     key: "health_screening",
-    title: "Log a recent screening",
+    title: "Log a recent health screening",
     subtitle: "Health · 1 min",
+    hint: "Confirms match readiness",
     category: "Health",
     impact_pct: 3,
     estimated_minutes: 1,

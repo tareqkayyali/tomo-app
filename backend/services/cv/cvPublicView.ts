@@ -8,10 +8,11 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { assembleCVBundle } from "./cvAssembler";
 import type { FullCVBundle } from "./cvAssembler";
 
-export interface PublicCVBundle extends Omit<FullCVBundle, "identity" | "references" | "health_status" | "share"> {
+export interface PublicCVBundle extends Omit<FullCVBundle, "identity" | "references" | "health_status" | "share" | "academic"> {
   identity: Omit<FullCVBundle["identity"], "email" | "guardian_name" | "guardian_email" | "guardian_phone">;
   references: FullCVBundle["references"];
   health_status: FullCVBundle["health_status"] | null;
+  academic: FullCVBundle["academic"];
   share: {
     public_url: string;
     share_views_count: number;
@@ -144,9 +145,10 @@ function applyScoutMasking(
     references,
     awards_character: bundle.awards_character,
     health_status: healthStatus,
+    academic: bundle.academic,
     completeness_pct: bundle.completeness_pct,
     completeness_breakdown: bundle.completeness_breakdown,
-    next_steps: [], // scouts don't see the roadmap
+    next_steps: bundle.next_steps,
     section_states: bundle.section_states,
     last_updated: bundle.last_updated,
   };
