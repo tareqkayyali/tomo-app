@@ -6,7 +6,7 @@
  * TOC that drills into each of the 10 sub-screens.
  */
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, StyleSheet, Platform, Alert, Share, Linking } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -55,6 +55,31 @@ export default function CVHubScreen() {
   const { user } = useAuth();
   const { data: cv, isLoading, error, publish, refetch } = useCVProfile(user?.uid ?? "");
   const [downloading, setDownloading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!downloading) {
+      if (progressTimer.current) {
+        clearInterval(progressTimer.current);
+        progressTimer.current = null;
+      }
+      return;
+    }
+    setProgress(0);
+    // Synthetic progress: Browserless's /pdf endpoint doesn't expose
+    // intermediate progress, so we tick up to 95% over ~9.5s (typical
+    // render time) and snap to 100% when the bytes actually arrive.
+    progressTimer.current = setInterval(() => {
+      setProgress((p) => (p >= 95 ? 95 : p + 1));
+    }, 100);
+    return () => {
+      if (progressTimer.current) {
+        clearInterval(progressTimer.current);
+        progressTimer.current = null;
+      }
+    };
+  }, [downloading]);
 
   const handleShare = useCallback(async () => {
     if (!cv) return;
@@ -260,6 +285,22 @@ export default function CVHubScreen() {
             tone="secondary"
           />
         </View>
+
+        {downloading ? (
+          <View style={hubStyles.progressWrap}>
+            <View style={[hubStyles.progressTrack, { backgroundColor: colors.cream06 }]}>
+              <View
+                style={[
+                  hubStyles.progressFill,
+                  { backgroundColor: colors.accent, width: `${progress}%` },
+                ]}
+              />
+            </View>
+            <Text style={[hubStyles.progressText, { color: colors.muted }]}>
+              {progress}%
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {cv.next_steps.length > 0 ? (
@@ -369,6 +410,28 @@ const hubStyles = StyleSheet.create({
   actionLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 12,
+  },
+  progressWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 10,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  progressText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
+    minWidth: 32,
+    textAlign: "right",
   },
   sectionsCard: {
     borderRadius: 18,
