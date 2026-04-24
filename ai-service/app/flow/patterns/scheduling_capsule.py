@@ -113,6 +113,8 @@ async def execute_scheduling_capsule(
     )
     linked_programs = _build_linked_programs_for_capsule(raw_programs)
     prefilled_linked_slug = _match_linked_program_slug(opener, linked_programs)
+    if not prefilled_linked_slug:
+        prefilled_linked_slug = _recent_program_slug_from_history(state, linked_programs)
 
     # ── Training categories from player context ──
     training_categories = _get_training_categories(context)
@@ -530,6 +532,68 @@ def _match_linked_program_slug(
             best_score,
         )
     return str(best_slug) if best_slug else None
+
+
+def _recent_program_slug_from_history(
+    state: TomoChatState, programs: list[dict]
+) -> Optional[str]:
+    """Infer the linked program from recent conversation context.
+
+    When the athlete has been discussing a specific program and then asks to
+    "add a training session", the opener alone has no program cue. Scan back
+    through recent messages for tool results or assistant/human text that
+    references one of the athlete's linked programs, and use the most recent
+    match as the prefilled slug.
+    """
+    if not programs:
+        return None
+
+    from app.utils.message_helpers import get_msg_type, get_msg_content
+
+    messages = state.get("messages", []) or []
+    if not messages:
+        return None
+
+    slugs_by_id: dict[str, str] = {}
+    name_to_slug: list[tuple[str, str]] = []
+    for p in programs:
+        slug = (p.get("slug") or "").strip()
+        name = (p.get("name") or "").strip()
+        if not slug:
+            continue
+        slugs_by_id[slug.lower()] = slug
+        if name:
+            name_to_slug.append((_norm_user_text(name), slug))
+
+    # Walk backward through the last ~12 messages for a program reference.
+    for msg in list(reversed(messages))[:12]:
+        mtype = get_msg_type(msg)
+        if mtype not in ("tool", "ai", "human"):
+            continue
+        content = get_msg_content(msg) or ""
+        if not content:
+            continue
+
+        if mtype == "tool":
+            # Tool results for program lookups serialize programId fields.
+            for m in re.finditer(
+                r'"programId"\s*:\s*"([^"]+)"', content
+            ):
+                pid = m.group(1).strip().lower()
+                if pid in slugs_by_id:
+                    return slugs_by_id[pid]
+
+        lo = _norm_user_text(content)
+        if not lo:
+            continue
+        for n_norm, slug in name_to_slug:
+            if len(n_norm) >= 4 and n_norm in lo:
+                return slug
+            main = n_norm.split("(")[0].strip(" -")
+            if len(main) >= 6 and main in lo:
+                return slug
+
+    return None
 
 
 def _build_title(focus: Optional[str]) -> str:
