@@ -49,6 +49,17 @@ const nextConfig: NextConfig = {
       { source: "/admin/chat-pills", destination: "/admin/pd/chat-pills", permanent: true },
       { source: "/admin/wearables", destination: "/admin/pd/wearables", permanent: true },
       { source: "/admin/acwr-inspector", destination: "/admin/pd/acwr", permanent: true },
+      // ── Phase 2 consolidations ───────────────────────────────────────────
+      // PD Config hub (dual-load + scheduling moved under /admin/pd/config)
+      { source: "/admin/pd/dual-load", destination: "/admin/pd/config", permanent: true },
+      { source: "/admin/pd/scheduling", destination: "/admin/pd/config/scheduling", permanent: true },
+      // Normative Data hub (wideners moved under normative-data/)
+      { source: "/admin/normative-wideners", destination: "/admin/normative-data/wideners", permanent: true },
+      // Athlete CV hub (cv-references + cv-ai-summaries merged under /admin/cv)
+      { source: "/admin/cv-references", destination: "/admin/cv", permanent: true },
+      { source: "/admin/cv-ai-summaries", destination: "/admin/cv/summaries", permanent: true },
+      // Notifications config (moved under /admin/notifications/config)
+      { source: "/admin/config/notifications", destination: "/admin/notifications/config", permanent: true },
     ];
   },
   // Public static docs under /legal/* (privacy.html, terms.html) are

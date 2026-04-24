@@ -22,6 +22,11 @@ const TABS: { href: string; label: string; hint: string }[] = [
     label: "Scheduled",
     hint: "Queued + historical push jobs",
   },
+  {
+    href: "/admin/notifications/config",
+    label: "Config",
+    hint: "Per-type kill switches, priority overrides, and push toggles",
+  },
 ];
 
 export default function NotificationsHubLayout({

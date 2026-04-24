@@ -4,54 +4,47 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const PLANNING_TABS: { href: string; label: string; hint: string }[] = [
+const TABS: { href: string; label: string; hint: string }[] = [
   {
-    href: "/admin/pd/planning",
-    label: "Planning Protocols",
-    hint: "Session planning rules (priority / phases / blocks)",
+    href: "/admin/normative-data",
+    label: "Normative Data",
+    hint: "Per-sport, per-position benchmark bands for all test metrics",
   },
   {
-    href: "/admin/pd/cognitive-windows",
-    label: "Cognitive Windows",
-    hint: "Time-of-day readiness windows and study-sport fit",
+    href: "/admin/normative-data/wideners",
+    label: "SD Wideners",
+    hint: "Per-sport / age-band SD multipliers applied at percentile-calc time",
   },
 ];
 
-const PLANNING_PREFIXES = PLANNING_TABS.map((t) => t.href);
-
-export default function PdHubLayout({
+export default function NormativeDataHubLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
 
-  const inPlanningHub = PLANNING_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(p + "/")
-  );
-
-  if (!inPlanningHub) {
-    return <>{children}</>;
-  }
-
   return (
     <div className="space-y-6">
       <header className="space-y-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Planning Intelligence
+            Normative Data
           </h1>
           <p className="text-sm text-muted-foreground">
-            Tune the planning engine — protocol rules, cognitive windows,
-            scheduling constraints, and dual-load advice.
+            Benchmark bands and SD wideners — the statistical foundation for
+            athlete percentile scoring across all test metrics.
           </p>
         </div>
 
         <nav className="border-b">
           <ul className="flex items-center gap-1 overflow-x-auto">
-            {PLANNING_TABS.map((tab) => {
+            {TABS.map((tab) => {
               const isActive =
-                pathname === tab.href || pathname.startsWith(tab.href + "/");
+                tab.href === "/admin/normative-data"
+                  ? pathname === tab.href
+                  : pathname === tab.href ||
+                    pathname.startsWith(tab.href + "/");
               return (
                 <li key={tab.href}>
                   <Link

@@ -4,54 +4,45 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const PLANNING_TABS: { href: string; label: string; hint: string }[] = [
+const TABS: { href: string; label: string; hint: string }[] = [
   {
-    href: "/admin/pd/planning",
-    label: "Planning Protocols",
-    hint: "Session planning rules (priority / phases / blocks)",
+    href: "/admin/cv",
+    label: "References",
+    hint: "Identity-verification queue for submitted coach / scout references",
   },
   {
-    href: "/admin/pd/cognitive-windows",
-    label: "Cognitive Windows",
-    hint: "Time-of-day readiness windows and study-sport fit",
+    href: "/admin/cv/summaries",
+    label: "AI Summaries",
+    hint: "Read-only ops view of per-athlete player-profile summaries",
   },
 ];
 
-const PLANNING_PREFIXES = PLANNING_TABS.map((t) => t.href);
-
-export default function PdHubLayout({
+export default function AthleteCVHubLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
 
-  const inPlanningHub = PLANNING_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(p + "/")
-  );
-
-  if (!inPlanningHub) {
-    return <>{children}</>;
-  }
-
   return (
     <div className="space-y-6">
       <header className="space-y-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Planning Intelligence
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Athlete CV</h1>
           <p className="text-sm text-muted-foreground">
-            Tune the planning engine — protocol rules, cognitive windows,
-            scheduling constraints, and dual-load advice.
+            Reference identity verification and AI-generated player-profile
+            summary oversight.
           </p>
         </div>
 
         <nav className="border-b">
           <ul className="flex items-center gap-1 overflow-x-auto">
-            {PLANNING_TABS.map((tab) => {
+            {TABS.map((tab) => {
               const isActive =
-                pathname === tab.href || pathname.startsWith(tab.href + "/");
+                tab.href === "/admin/cv"
+                  ? pathname === tab.href
+                  : pathname === tab.href ||
+                    pathname.startsWith(tab.href + "/");
               return (
                 <li key={tab.href}>
                   <Link
