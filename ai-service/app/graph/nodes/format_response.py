@@ -29,6 +29,7 @@ logger = logging.getLogger("tomo-ai.format_response")
 DATA_CARD_TYPES = frozenset({
     "stat_grid", "stat_row", "schedule_list", "zone_stack",
     "benchmark_bar", "session_plan", "program_recommendation",
+    "program_detail",
     "clash_list", "phv_assessment", "drill_card", "week_schedule",
     "week_plan", "choice_card",
 })
@@ -120,6 +121,82 @@ def _build_session_plan_card_from_program_drills(
     }
 
 
+def _stringify_targeted_gaps(raw: object) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for g in raw:
+        if isinstance(g, dict):
+            lab = (g.get("label") or g.get("metric") or "").strip()
+            if lab:
+                out.append(lab)
+        elif isinstance(g, str) and g.strip():
+            out.append(g.strip())
+    return out[:8]
+
+
+def _program_detail_card_from_tool_data(data: dict) -> dict:
+    """
+    Build program_detail card (camelCase) for mobile — mirrors Programs tab ExpandedBody fields.
+    Accepts get_program_drill_breakdown / get_program_details tool dict (snake_case + nested prescription).
+    """
+    pid = str(data.get("program_id") or data.get("programId") or "").strip()
+    name = (data.get("name") or "Program").strip()
+    rx_src = dict(data.get("prescription") or {}) if isinstance(data.get("prescription"), dict) else {}
+    dose = data.get("dose") if isinstance(data.get("dose"), dict) else {}
+    rx: dict = {**rx_src}
+    for k in ("sets", "reps", "intensity", "rpe", "rest", "frequency"):
+        if dose.get(k) is not None:
+            rx[k] = dose[k]
+    cues = (
+        rx.get("coachingCues")
+        or rx.get("coaching_cues")
+        or data.get("coaching_cues")
+        or []
+    )
+    if isinstance(cues, list):
+        coaching_cues = [str(c).strip() for c in cues if str(c).strip()]
+    else:
+        coaching_cues = []
+    tags = data.get("tags") or []
+    if not isinstance(tags, list):
+        tags = []
+    tags = [str(t) for t in tags if t]
+    phv = data.get("phv_warnings") or data.get("phvWarnings") or []
+    if not isinstance(phv, list):
+        phv = []
+    phv = [str(x) for x in phv if x]
+    return {
+        "type": "program_detail",
+        "programId": pid or name.lower().replace(" ", "-")[:48],
+        "name": name,
+        "source": data.get("source") if data.get("source") in ("coach", "ai_recommended", "player_added") else None,
+        "category": (data.get("category") or "").strip() or None,
+        "programType": (data.get("type") or "physical"),
+        "priority": data.get("priority"),
+        "frequency": (data.get("frequency") or rx.get("frequency") or "").strip() or None,
+        "durationMin": data.get("duration_minutes") if data.get("duration_minutes") is not None else data.get("durationMin"),
+        "durationWeeks": data.get("duration_weeks") if data.get("duration_weeks") is not None else data.get("durationWeeks"),
+        "difficulty": (data.get("difficulty") or "").strip() or None,
+        "impact": (data.get("impact") or "").strip() or None,
+        "description": (data.get("description") or "").strip() or None,
+        "positionNote": (data.get("position_note") or data.get("positionNote") or "").strip() or None,
+        "reason": (data.get("reason") or "").strip() or None,
+        "phvWarnings": phv,
+        "tags": tags[:12],
+        "prescription": {
+            "sets": rx.get("sets"),
+            "reps": rx.get("reps"),
+            "rpe": rx.get("rpe"),
+            "rest": rx.get("rest"),
+            "intensity": rx.get("intensity"),
+            "frequency": rx.get("frequency"),
+            "coachingCues": coaching_cues[:12],
+        },
+        "targetedGaps": _stringify_targeted_gaps(data.get("targeted_gaps")),
+    }
+
+
 def _build_program_read_capsule_response(results: list[dict]) -> dict | None:
     """
     Turn get_program_details / get_program_drill_breakdown tool results into a normal
@@ -151,14 +228,21 @@ def _build_program_read_capsule_response(results: list[dict]) -> dict | None:
             }
 
         name = (data.get("name") or "Your program").strip()
+        impact_raw = (data.get("impact") or "").strip()
+        # Hook line for the turn title (matches in-chat coaching style)
+        if impact_raw and "—" in impact_raw[:140]:
+            headline = impact_raw.split("\n")[0].strip()[:200]
+        elif impact_raw:
+            headline = impact_raw.split("\n")[0].strip()[:140]
+        else:
+            headline = name
+
+        detail_card = _program_detail_card_from_tool_data(data)
+        cards: list[dict] = [detail_card]
+
         pid = data.get("program_id") or data.get("programId")
         drills = data.get("drills") or []
         dict_drills = [d for d in drills if isinstance(d, dict)] if isinstance(drills, list) else []
-
-        chips = [
-            {"label": "Build a session", "message": f"Build me a training session for {name}"},
-        ]
-
         if dict_drills:
             sp_card = _build_session_plan_card_from_program_drills(
                 name=name,
@@ -166,42 +250,19 @@ def _build_program_read_capsule_response(results: list[dict]) -> dict | None:
                 drills=dict_drills,
             )
             if sp_card.get("items"):
-                return {
-                    "headline": f"Drills in {name}",
-                    "body": (
-                        f"Prescription-style blocks from your program. "
-                        f"~{_DEFAULT_PROGRAM_BLOCK_MIN} min per line is a typical planning estimate — adjust when you schedule."
-                    ),
-                    "cards": [sp_card],
-                    "chips": chips,
-                }
+                cards.append(sp_card)
 
-        lines: list[str] = []
-        for i, d in enumerate(dict_drills, 1):
-            pat = (d.get("pattern") or d.get("name") or "").strip() or f"Block {i}"
-            bit = f"{i}. {pat}"
-            sets, reps = d.get("sets"), d.get("reps")
-            if sets or reps:
-                s = f"{sets or '—'}×{reps or '—'}"
-                bit += f" ({s})"
-            rpe = d.get("rpe") or d.get("intensity")
-            if rpe:
-                bit += f" @ RPE {rpe}"
-            lines.append(bit)
+        chips = [
+            {"label": "Add to my week", "message": f'Add "{name}" to my training'},
+            {"label": "Show my other programs", "message": "What programs do you have for me?"},
+        ]
 
-        if lines:
-            body = f"Here's how {name} breaks down.\n" + "\n".join(lines[:20])
-        else:
-            desc = (data.get("description") or data.get("reason") or "").strip()
-            body = desc or (
-                f"We don't have a separate drill list for {name} in your snapshot yet — "
-                "ask me to build a session in this style."
-            )
-
+        # Full prescription / "why" / cues live in program_detail (Programs tab parity).
+        # Body stays empty so _pulse_post_process does not sentence-truncate benchmark copy.
         return {
-            "headline": f"Drills in {name}",
-            "body": body[:3500],
-            "cards": [],
+            "headline": headline,
+            "body": "",
+            "cards": cards,
             "chips": chips,
         }
 
@@ -1350,6 +1411,13 @@ async def format_response_node(state: TomoChatState) -> dict:
             elif card_type == "program_recommendation":
                 programs = card.get("programs") or []
                 if not isinstance(programs, list) or not programs:
+                    continue
+
+            # Program detail (Programs tab parity): must have id + name
+            elif card_type == "program_detail":
+                if not (card.get("programId") or card.get("program_id")):
+                    continue
+                if not (card.get("name") or "").strip():
                     continue
 
             # Benchmark bar: must have metric + percentile

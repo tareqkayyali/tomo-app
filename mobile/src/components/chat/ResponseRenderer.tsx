@@ -39,6 +39,7 @@ import type {
   SchedulePreviewCard,
   CapsuleAction,
   ProgramRecommendationCard,
+  ProgramDetailCard,
   ChoiceCard,
   InjuryCard,
   GoalCard,
@@ -46,6 +47,7 @@ import type {
 } from '../../types/chat';
 import { CapsuleRenderer, isCapsuleCard } from './capsules/CapsuleRenderer';
 import { ProgramRecommendationList } from './ProgramRecommendationList';
+import { ProgramDetailChatCard } from './ProgramDetailChatCard';
 import {
   T,
   TomoTitle,
@@ -430,6 +432,10 @@ function renderProgramRecommendation(
   );
 }
 
+function renderProgramDetail(card: ProgramDetailCard) {
+  return <ProgramDetailChatCard card={card} />;
+}
+
 function renderInjuryCard(card: InjuryCard) {
   const rows: TableRow[] = [
     { label: 'Location', value: card.location },
@@ -584,6 +590,8 @@ function RenderCard({
         card as ProgramRecommendationCard,
         onChipPress,
       );
+    case 'program_detail':
+      return renderProgramDetail(card as ProgramDetailCard);
     case 'injury_card':
       return renderInjuryCard(card as InjuryCard);
     case 'goal_card':

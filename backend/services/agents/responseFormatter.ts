@@ -24,6 +24,7 @@ export type CardType =
   | "drill_card"
   | "schedule_preview"
   | "program_recommendation"
+  | "program_detail"
   | "phv_assessment"
   // Capsule card types — interactive cards with inline inputs
   | "test_log_capsule"
@@ -213,6 +214,37 @@ export interface ProgramRecommendationCard {
   primaryCta?: { label: string; message: string };
 }
 
+/** Full program context — same fields as Programs tab expanded card (AI service emits this). */
+export interface ProgramDetailCard {
+  type: "program_detail";
+  programId: string;
+  name: string;
+  source?: "coach" | "ai_recommended" | "player_added";
+  category?: string;
+  programType?: string;
+  priority?: string;
+  frequency?: string;
+  durationMin?: number | null;
+  durationWeeks?: number | null;
+  difficulty?: string;
+  impact?: string;
+  description?: string;
+  positionNote?: string;
+  reason?: string;
+  phvWarnings?: string[];
+  tags?: string[];
+  prescription?: {
+    sets?: number | string;
+    reps?: string;
+    rpe?: string;
+    rest?: string;
+    intensity?: string;
+    frequency?: string;
+    coachingCues?: string[];
+  };
+  targetedGaps?: string[];
+}
+
 export interface PHVAssessmentCard {
   type: "phv_assessment";
   phvStage: string;
@@ -364,6 +396,7 @@ export type VisualCard =
   | DrillCard
   | SchedulePreviewCard
   | ProgramRecommendationCard
+  | ProgramDetailCard
   | PHVAssessmentCard
   | TestLogCapsule
   | CheckinCapsule
@@ -831,6 +864,7 @@ CARD TYPES (use the right one):
 - session_plan: { type, title, totalDuration, readiness, items: [{ drillId, name, category, duration, intensity, attributeKeys?, reason? }] }
 - drill_card: { type, drillId, name, description, category, duration, intensity, equipment, instructions, tags }
 - program_recommendation: { type, programs: [{ programId, name, category, priority, weeklyFrequency, durationMin, durationWeeks?, frequency?, impact?, description?, startingPoint?, positionNote? }], weeklyPlanSuggestion, playerProfile, listHeadline?, listSubtitle?, primaryCta?: { label, message } }
+- program_detail: { type, programId, name, source?, category?, programType?, frequency?, durationMin?, durationWeeks?, difficulty?, impact?, description?, positionNote?, reason?, phvWarnings?, tags?, prescription?: { sets?, reps?, rpe?, rest?, intensity?, frequency?, coachingCues? }, targetedGaps? }
 - phv_assessment: { type, phvStage, maturityOffset, loadingMultiplier, trainingPriorities, safetyWarnings, trainingImplication }
 - test_log_capsule: call get_test_catalog, copy readyToUseCapsuleCard into cards array
 - checkin_capsule: { type, prefilledDate, lastCheckinDate? }

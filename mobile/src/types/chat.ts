@@ -18,6 +18,7 @@ export type CardType =
   | 'session_plan'
   | 'drill_card'
   | 'schedule_preview'
+  | 'program_detail'
   // Capsule card types — interactive cards with inline inputs
   | 'test_log_capsule'
   | 'checkin_capsule'
@@ -162,6 +163,39 @@ export interface ProgramRecommendationItem {
   description?: string;
   /** e.g. "2x/week" — overrides weeklyFrequency label when set. */
   frequency?: string;
+}
+
+/** Full program context — mirrors Programs tab ExpandedBody (AI chat). */
+export interface ProgramDetailPrescription {
+  sets?: number | string;
+  reps?: string;
+  rpe?: string;
+  rest?: string;
+  intensity?: string;
+  frequency?: string;
+  coachingCues?: string[];
+}
+
+export interface ProgramDetailCard {
+  type: 'program_detail';
+  programId: string;
+  name: string;
+  source?: 'coach' | 'ai_recommended' | 'player_added';
+  category?: string;
+  programType?: string;
+  priority?: string;
+  frequency?: string;
+  durationMin?: number | null;
+  durationWeeks?: number | null;
+  difficulty?: string;
+  impact?: string;
+  description?: string;
+  positionNote?: string;
+  reason?: string;
+  phvWarnings?: string[];
+  tags?: string[];
+  prescription?: ProgramDetailPrescription;
+  targetedGaps?: string[];
 }
 
 export interface ProgramRecommendationCard {
@@ -924,6 +958,7 @@ export type VisualCard =
   | StudyPlanCapsule
   | WeekPlanPreviewCapsule
   | ProgramRecommendationCard
+  | ProgramDetailCard
   | WeekSchedule
   | WeekPlan
   | ChoiceCard

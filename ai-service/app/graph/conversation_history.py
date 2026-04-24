@@ -265,6 +265,11 @@ def _extract_readable_content(raw_content: str) -> str:
                 if prog_names:
                     parts.append(f"[Programs suggested: {', '.join(prog_names[:3])}]")
 
+            elif card_type == "program_detail":
+                pname = card.get("name", "")
+                if pname:
+                    parts.append(f"[Program detail: {pname}]")
+
             elif card_type == "benchmark_bar":
                 metric = card.get("metric", "")
                 percentile = card.get("percentile", "")
