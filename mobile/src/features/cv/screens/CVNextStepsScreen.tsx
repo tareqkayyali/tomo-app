@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { View, Text, Pressable, StyleSheet, Platform, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../../hooks/useTheme";
@@ -129,34 +129,32 @@ export default function CVNextStepsScreen() {
         </Text>
         <View style={styles.autopilotBtnRow}>
           <Pressable
-            onPress={() => {
-              if (Platform.OS !== "web") Alert.alert("Connect coach", "Coming soon.");
-            }}
-            style={({ pressed }) => [
+            disabled
+            style={[
               styles.autopilotBtn,
               {
-                backgroundColor: pressed ? colors.sage15 : colors.cream06,
+                backgroundColor: colors.cream06,
                 borderColor: colors.sage30,
+                opacity: 0.6,
               },
             ]}
           >
             <SmartIcon name="people-outline" size={13} color={colors.accent} />
-            <Text style={[styles.autopilotBtnText, { color: colors.accent }]}>Connect coach</Text>
+            <Text style={[styles.autopilotBtnText, { color: colors.accent }]}>Connect coach (soon)</Text>
           </Pressable>
           <Pressable
-            onPress={() => {
-              if (Platform.OS !== "web") Alert.alert("Import CSV", "Coming soon.");
-            }}
-            style={({ pressed }) => [
+            disabled
+            style={[
               styles.autopilotBtn,
               {
-                backgroundColor: pressed ? colors.sage15 : colors.cream06,
+                backgroundColor: colors.cream06,
                 borderColor: colors.sage30,
+                opacity: 0.6,
               },
             ]}
           >
             <SmartIcon name="document-outline" size={13} color={colors.accent} />
-            <Text style={[styles.autopilotBtnText, { color: colors.accent }]}>Import CSV</Text>
+            <Text style={[styles.autopilotBtnText, { color: colors.accent }]}>Import CSV (soon)</Text>
           </Pressable>
         </View>
       </View>

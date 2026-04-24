@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { View, Text, Pressable, StyleSheet, Platform, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform, Modal, TextInput } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../../hooks/useTheme";
@@ -42,6 +42,8 @@ export default function CVVideoMediaScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const { data, isLoading, addMedia } = useCVProfile(user?.uid ?? "");
+  const [activeOption, setActiveOption] = React.useState<(typeof UPLOAD_OPTIONS)[number] | null>(null);
+  const [pendingUrl, setPendingUrl] = React.useState("");
 
   if (isLoading || !data) {
     return (
@@ -54,32 +56,26 @@ export default function CVVideoMediaScreen() {
   const highlights = data.media.filter((m) => m.media_type === "highlight_reel");
   const social = data.media.filter((m) => m.media_type !== "highlight_reel");
 
+  const submitMedia = (opt: typeof UPLOAD_OPTIONS[number], url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    addMedia({
+      media_type: opt.media_type,
+      platform: opt.platform as any,
+      url: trimmed,
+      title: null,
+      is_primary: opt.media_type === "highlight_reel" && highlights.length === 0,
+    });
+  };
+
   const handleAddOption = (opt: typeof UPLOAD_OPTIONS[number]) => {
     if (Platform.OS === "web") {
       const url = (globalThis as any).prompt?.(`Paste the ${opt.title.toLowerCase()} URL`);
       if (!url) return;
-      addMedia({
-        media_type: opt.media_type,
-        platform: opt.platform as any,
-        url,
-        title: null,
-        is_primary: opt.media_type === "highlight_reel" && highlights.length === 0,
-      });
+      submitMedia(opt, url);
     } else {
-      Alert.prompt?.(
-        opt.title,
-        opt.sub,
-        (url) => {
-          if (!url) return;
-          addMedia({
-            media_type: opt.media_type,
-            platform: opt.platform as any,
-            url,
-            title: null,
-            is_primary: opt.media_type === "highlight_reel" && highlights.length === 0,
-          });
-        }
-      );
+      setActiveOption(opt);
+      setPendingUrl("");
     }
   };
 
@@ -188,6 +184,51 @@ export default function CVVideoMediaScreen() {
           </View>
         ))}
       </InfoCard>
+
+      <Modal visible={!!activeOption} transparent animationType="fade" onRequestClose={() => setActiveOption(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: colors.background, borderColor: colors.cream10 }]}>
+            <Text style={[styles.modalTitle, { color: colors.tomoCream }]}>{activeOption?.title ?? "Add link"}</Text>
+            <Text style={[styles.modalSub, { color: colors.muted }]}>{activeOption?.sub ?? "Paste your link"}</Text>
+            <TextInput
+              value={pendingUrl}
+              onChangeText={setPendingUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="https://"
+              placeholderTextColor={colors.muted}
+              style={[
+                styles.modalInput,
+                { borderColor: colors.cream10, color: colors.tomoCream, backgroundColor: colors.cream03 },
+              ]}
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setActiveOption(null)}
+                style={({ pressed }) => [
+                  styles.modalBtn,
+                  { borderColor: colors.cream10, backgroundColor: pressed ? colors.cream06 : "transparent" },
+                ]}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.muted }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (!activeOption) return;
+                  submitMedia(activeOption, pendingUrl);
+                  setActiveOption(null);
+                }}
+                style={({ pressed }) => [
+                  styles.modalBtn,
+                  { borderColor: colors.sage30, backgroundColor: pressed ? colors.sage15 : colors.sage08 },
+                ]}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.accent }]}>Save link</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </CVScreen>
   );
 }
@@ -257,5 +298,49 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: 12,
     lineHeight: 18,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    gap: 10,
+  },
+  modalTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 16,
+  },
+  modalSub: {
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: fontFamily.regular,
+    fontSize: 13,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 2,
+  },
+  modalBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  modalBtnText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 12,
   },
 });

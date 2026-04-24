@@ -5,7 +5,7 @@
  */
 
 import React, { useMemo } from "react";
-import { View, Text, Pressable, StyleSheet, Platform, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform, Alert, Modal, TextInput, Switch } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../../hooks/useTheme";
@@ -33,7 +33,17 @@ export default function CVCareerHistoryScreen() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data, isLoading } = useCVProfile(user?.uid ?? "");
+  const { data, isLoading, addCareer, updateCareer, deleteCareer } = useCVProfile(user?.uid ?? "");
+  const [editorOpen, setEditorOpen] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [entryType, setEntryType] = React.useState<CVCareerEntry["entry_type"]>("club");
+  const [clubName, setClubName] = React.useState("");
+  const [leagueLevel, setLeagueLevel] = React.useState("");
+  const [country, setCountry] = React.useState("");
+  const [position, setPosition] = React.useState("");
+  const [startedMonth, setStartedMonth] = React.useState("");
+  const [endedMonth, setEndedMonth] = React.useState("");
+  const [isCurrent, setIsCurrent] = React.useState(false);
 
   const grouped = useMemo(() => {
     const result: Record<string, CVCareerEntry[]> = {};
@@ -53,13 +63,82 @@ export default function CVCareerHistoryScreen() {
 
   const hasAny = data.career.length > 0;
 
+  const resetEditor = React.useCallback(() => {
+    setEditingId(null);
+    setEntryType("club");
+    setClubName("");
+    setLeagueLevel("");
+    setCountry("");
+    setPosition("");
+    setStartedMonth("");
+    setEndedMonth("");
+    setIsCurrent(false);
+  }, []);
+
+  const openCreate = React.useCallback(() => {
+    resetEditor();
+    setEditorOpen(true);
+  }, [resetEditor]);
+
+  const openEdit = React.useCallback((entry: CVCareerEntry) => {
+    setEditingId(entry.id);
+    setEntryType(entry.entry_type);
+    setClubName(entry.club_name ?? "");
+    setLeagueLevel(entry.league_level ?? "");
+    setCountry(entry.country ?? "");
+    setPosition(entry.position ?? "");
+    setStartedMonth(entry.started_month ?? "");
+    setEndedMonth(entry.ended_month ?? "");
+    setIsCurrent(entry.is_current);
+    setEditorOpen(true);
+  }, []);
+
+  const saveEntry = React.useCallback(async () => {
+    const name = clubName.trim();
+    if (!name) {
+      if (Platform.OS === "web") console.warn("Career entry requires team name");
+      else Alert.alert("Career", "Please add the team or academy name.");
+      return;
+    }
+    const payload = {
+      entry_type: entryType,
+      club_name: name,
+      league_level: leagueLevel.trim() || null,
+      country: country.trim() || null,
+      position: position.trim() || null,
+      started_month: startedMonth.trim() || null,
+      ended_month: isCurrent ? null : endedMonth.trim() || null,
+      is_current: isCurrent,
+      appearances: null,
+      goals: null,
+      assists: null,
+      clean_sheets: null,
+      achievements: [],
+      injury_note: null,
+    };
+    if (editingId) await updateCareer(editingId, payload);
+    else await addCareer(payload as any);
+    setEditorOpen(false);
+    resetEditor();
+  }, [
+    clubName,
+    country,
+    editingId,
+    endedMonth,
+    entryType,
+    isCurrent,
+    leagueLevel,
+    position,
+    startedMonth,
+    updateCareer,
+    addCareer,
+    resetEditor,
+  ]);
+
   const footer = (
     <View style={{ padding: 16, paddingBottom: 32, backgroundColor: colors.background }}>
       <Pressable
-        onPress={() => {
-          if (Platform.OS === "web") console.warn("Career edit flow — coming in follow-up");
-          else Alert.alert("Career", "Career editor coming next.");
-        }}
+        onPress={openCreate}
         style={({ pressed }) => [
           styles.footerBtn,
           { backgroundColor: pressed ? colors.sage15 : colors.sage08, borderColor: colors.sage30 },
@@ -87,7 +166,26 @@ export default function CVCareerHistoryScreen() {
                   {label.toUpperCase()}
                 </Text>
                 {entries.map((e) => (
-                  <CareerRow key={e.id} entry={e} />
+                  <CareerRow
+                    key={e.id}
+                    entry={e}
+                    onEdit={() => openEdit(e)}
+                    onDelete={async () => {
+                      if (Platform.OS === "web") {
+                        const ok = globalThis.confirm?.(`Delete "${e.club_name}"?`) ?? false;
+                        if (!ok) return;
+                      } else {
+                        const ok = await new Promise<boolean>((resolve) => {
+                          Alert.alert("Delete entry", `Remove "${e.club_name}" from career history?`, [
+                            { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+                            { text: "Delete", style: "destructive", onPress: () => resolve(true) },
+                          ]);
+                        });
+                        if (!ok) return;
+                      }
+                      await deleteCareer(e.id);
+                    }}
+                  />
                 ))}
               </View>
             );
@@ -135,11 +233,128 @@ export default function CVCareerHistoryScreen() {
           <Text style={[styles.impactPct, { color: colors.accent }]}>+12%</Text>
         </View>
       </View>
+
+      <Modal visible={editorOpen} transparent animationType="fade" onRequestClose={() => setEditorOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: colors.background, borderColor: colors.cream10 }]}>
+            <Text style={[styles.modalTitle, { color: colors.tomoCream }]}>
+              {editingId ? "Edit career entry" : "Add career entry"}
+            </Text>
+            <View style={styles.typeRow}>
+              {TYPE_ORDER.map((t) => (
+                <Pressable
+                  key={t.key}
+                  onPress={() => setEntryType(t.key)}
+                  style={({ pressed }) => [
+                    styles.typePill,
+                    {
+                      borderColor: entryType === t.key ? colors.sage30 : colors.cream10,
+                      backgroundColor:
+                        entryType === t.key ? colors.sage15 : pressed ? colors.cream06 : colors.cream03,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.typePillText,
+                      { color: entryType === t.key ? colors.accent : colors.muted },
+                    ]}
+                  >
+                    {t.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <TextInput
+              value={clubName}
+              onChangeText={setClubName}
+              placeholder="Team / academy name"
+              placeholderTextColor={colors.muted}
+              style={[styles.input, { borderColor: colors.cream10, color: colors.tomoCream }]}
+            />
+            <TextInput
+              value={leagueLevel}
+              onChangeText={setLeagueLevel}
+              placeholder="League level (optional)"
+              placeholderTextColor={colors.muted}
+              style={[styles.input, { borderColor: colors.cream10, color: colors.tomoCream }]}
+            />
+            <TextInput
+              value={country}
+              onChangeText={setCountry}
+              placeholder="Country (optional)"
+              placeholderTextColor={colors.muted}
+              style={[styles.input, { borderColor: colors.cream10, color: colors.tomoCream }]}
+            />
+            <TextInput
+              value={position}
+              onChangeText={setPosition}
+              placeholder="Position (optional)"
+              placeholderTextColor={colors.muted}
+              style={[styles.input, { borderColor: colors.cream10, color: colors.tomoCream }]}
+            />
+            <View style={styles.monthRow}>
+              <TextInput
+                value={startedMonth}
+                onChangeText={setStartedMonth}
+                placeholder="Start (YYYY-MM)"
+                placeholderTextColor={colors.muted}
+                style={[styles.input, styles.monthInput, { borderColor: colors.cream10, color: colors.tomoCream }]}
+              />
+              <TextInput
+                value={endedMonth}
+                onChangeText={setEndedMonth}
+                editable={!isCurrent}
+                placeholder={isCurrent ? "Current" : "End (YYYY-MM)"}
+                placeholderTextColor={colors.muted}
+                style={[styles.input, styles.monthInput, { borderColor: colors.cream10, color: colors.tomoCream, opacity: isCurrent ? 0.6 : 1 }]}
+              />
+            </View>
+            <View style={styles.currentRow}>
+              <Text style={[styles.currentLabel, { color: colors.tomoCream }]}>I currently play here</Text>
+              <Switch value={isCurrent} onValueChange={setIsCurrent} />
+            </View>
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => {
+                  setEditorOpen(false);
+                  resetEditor();
+                }}
+                style={({ pressed }) => [
+                  styles.modalBtn,
+                  { borderColor: colors.cream10, backgroundColor: pressed ? colors.cream06 : "transparent" },
+                ]}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.muted }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={saveEntry}
+                style={({ pressed }) => [
+                  styles.modalBtn,
+                  { borderColor: colors.sage30, backgroundColor: pressed ? colors.sage15 : colors.sage08 },
+                ]}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.accent }]}>
+                  {editingId ? "Save changes" : "Add entry"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </CVScreen>
   );
 }
 
-function CareerRow({ entry }: { entry: CVCareerEntry }) {
+function CareerRow({
+  entry,
+  onEdit,
+  onDelete,
+}: {
+  entry: CVCareerEntry;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const { colors } = useTheme();
   const period = [entry.started_month, entry.is_current ? "present" : entry.ended_month]
     .filter(Boolean)
@@ -174,6 +389,14 @@ function CareerRow({ entry }: { entry: CVCareerEntry }) {
           </Text>
         ) : null}
       </View>
+      <View style={styles.entryActions}>
+        <Pressable onPress={onEdit} style={styles.entryActionBtn}>
+          <SmartIcon name="create-outline" size={15} color={colors.muted} />
+        </Pressable>
+        <Pressable onPress={onDelete} style={styles.entryActionBtn}>
+          <SmartIcon name="trash-outline" size={15} color={colors.muted} />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -192,6 +415,9 @@ const styles = StyleSheet.create({
   entryRow: {
     paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
   },
   entryHeader: {
     flexDirection: "row",
@@ -223,6 +449,18 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 11,
     marginTop: 4,
+  },
+  entryActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  entryActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
   exampleRow: {
     paddingVertical: 12,
@@ -297,5 +535,77 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: 12,
     letterSpacing: 1.2,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+  },
+  modalCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
+  },
+  modalTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 16,
+  },
+  typeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  typePill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  typePillText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+  },
+  monthRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  monthInput: {
+    flex: 1,
+  },
+  currentRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  currentLabel: {
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 4,
+  },
+  modalBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  modalBtnText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 12,
   },
 });

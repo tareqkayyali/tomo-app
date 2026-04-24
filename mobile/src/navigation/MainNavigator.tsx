@@ -53,6 +53,13 @@ import { ShotDetailScreen } from '../screens/ShotDetailScreen';
 import { ShotSessionScreen } from '../screens/ShotSessionScreen';
 import { PadelRatingScreen } from '../screens/PadelRatingScreen';
 import { FootballSkillDetailScreen, FootballRatingScreen, FootballTestInputScreen } from '../screens/football';
+import { PhoneTestsListScreen } from '../screens/PhoneTestsListScreen';
+import { AgilityTestScreen } from '../screens/AgilityTestScreen';
+import { BalanceTestScreen } from '../screens/BalanceTestScreen';
+import { JumpTestScreen } from '../screens/JumpTestScreen';
+import { ReactionTestScreen } from '../screens/ReactionTestScreen';
+import { SprintTestScreen } from '../screens/SprintTestScreen';
+import { PhoneTestCompleteScreen } from '../screens/PhoneTestCompleteScreen';
 import {
   CVHubScreen,
   CVIdentityScreen,
@@ -547,6 +554,14 @@ export function MainNavigator() {
         component={FootballTestInputScreen}
         options={{ headerShown: false }}
       />
+      {/* Phone tests flow (linked from CV Physical Profile) */}
+      <Stack.Screen name="PhoneTestsList" component={PhoneTestsListScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="AgilityTest" component={AgilityTestScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="BalanceTest" component={BalanceTestScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="JumpTest" component={JumpTestScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="ReactionTest" component={ReactionTestScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="SprintTest" component={SprintTestScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="PhoneTestComplete" component={PhoneTestCompleteScreen} options={{ headerShown: false }} />
       {/* Rules screen */}
       <Stack.Screen
         name="MyRules"

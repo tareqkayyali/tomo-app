@@ -102,12 +102,29 @@ export default function CVHubScreen() {
         window.open(blobUrl, "_blank");
       } else {
         const token = await getIdToken();
-        const targetPath = `${FileSystem.documentDirectory}tomo-cv-${Date.now()}.pdf`;
-        const dl = await FileSystem.createDownloadResumable(
-          pdfUrl,
-          targetPath,
-          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-        ).downloadAsync();
+        const headers: Record<string, string> = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
+        let dl: any = null;
+        try {
+          const baseDir = (FileSystem as any).documentDirectory as string | undefined;
+          if (!baseDir) throw new Error("No writable document directory");
+          const targetPath = `${baseDir}tomo-cv-${Date.now()}.pdf`;
+          dl = await FileSystem.createDownloadResumable(
+            pdfUrl,
+            targetPath,
+            { headers }
+          ).downloadAsync();
+        } catch {
+          const fallbackRes = await fetch(pdfUrl, { headers });
+          if (!fallbackRes.ok) {
+            const fallback = fallbackRes.headers.get("X-Fallback-URL");
+            if (fallback) {
+              await Linking.openURL(fallback);
+              return;
+            }
+          }
+          throw new Error("Download failed");
+        }
         if (!dl) throw new Error("Download failed");
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(dl.uri, { mimeType: "application/pdf" });

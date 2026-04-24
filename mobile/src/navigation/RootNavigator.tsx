@@ -59,7 +59,7 @@ const linking: any = {
           AddEvent: 'add-event',
           Settings: 'settings',
           Profile: 'profile',
-          PlayerCV: 'cv',
+          CVHub: 'cv',
         },
       },
     },

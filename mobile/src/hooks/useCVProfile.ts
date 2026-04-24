@@ -520,6 +520,20 @@ export function useCVProfile(athleteId: string): UseCVProfileReturn {
     [apiCall, fetchBundle]
   );
 
+  const putEntity = useCallback(
+    async (path: string, payload: unknown): Promise<boolean> => {
+      try {
+        const res = await apiCall(path, { method: "PUT", body: JSON.stringify(payload) });
+        if (!res.ok) return false;
+        await fetchBundle();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [apiCall, fetchBundle]
+  );
+
   const deleteEntity = useCallback(
     async (path: string): Promise<boolean> => {
       try {
@@ -543,8 +557,8 @@ export function useCVProfile(athleteId: string): UseCVProfileReturn {
   );
   const updateCareer = useCallback(
     (id: string, patch: Partial<CVCareerEntry>) =>
-      patchEntity(`/api/v1/cv/career/${id}`, patch),
-    [patchEntity]
+      putEntity(`/api/v1/cv/career/${id}`, patch),
+    [putEntity]
   );
   const deleteCareer = useCallback(
     (id: string) => deleteEntity(`/api/v1/cv/career/${id}`),
