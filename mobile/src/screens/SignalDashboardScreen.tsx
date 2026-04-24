@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Alert, Pressable } from 'react-native';
 import { TomoRefreshControl, PullRefreshOverlay } from '../components';
 import { Loader } from '../components/Loader';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,7 +21,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import PagerView from 'react-native-pager-view';
 import { useFocusEffect } from '@react-navigation/native';
 import { useBootData } from '../hooks/useBootData';
-import { useOutputData } from '../hooks/useOutputData';
+import { useOutput } from '../hooks/useOutputContext';
 import { usePrograms } from '../hooks/usePrograms';
 import { interactWithProgram } from '../services/api';
 import { useTheme } from '../hooks/useTheme';
@@ -123,7 +123,7 @@ export function SignalDashboardScreen() {
   // screen uses, and that the Coach portal's ProgrammesTab / TestsTab
   // delegate to). We call it unconditionally so the data is ready the
   // moment the athlete taps one of those tabs.
-  const { data: outputData, loading: outputLoading, error: outputError, refresh: refreshOutput, refetchSnapshot: refetchOutputSnapshot, isDeepRefreshing: outputDeepRefreshing } = useOutputData();
+  const { data: outputData, loading: outputLoading, error: outputError, refresh: refreshOutput, refetchSnapshot: refetchOutputSnapshot, isDeepRefreshing: outputDeepRefreshing } = useOutput();
   const {
     active: activeProgramEntries,
     playerAdded: playerAddedProgramEntries,
@@ -328,6 +328,28 @@ export function SignalDashboardScreen() {
         <View style={styles.loadingContainer}>
           <Loader size="sm" />
           <Text style={styles.loadingText}>Loading your signal...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!isBootLoading && !bootData) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: screenBg }]} edges={['top']}>
+        {renderHeader()}
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.tabErrorTitle, { color: colors.textOnDark }]}>
+            Couldn't load your dashboard
+          </Text>
+          <Text style={[styles.tabErrorBody, { color: colors.textMuted }]}>
+            Check your connection and try again
+          </Text>
+          <Pressable
+            onPress={refreshBoot}
+            style={[styles.retryButton, { borderColor: colors.accent1 }]}
+          >
+            <Text style={[styles.retryButtonText, { color: colors.accent1 }]}>Retry</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -681,5 +703,16 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: 12,
     color: 'rgba(245,243,237,0.40)',
+  },
+  retryButton: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+  },
+  retryButtonText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 13,
   },
 });

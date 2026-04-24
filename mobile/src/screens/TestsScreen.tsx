@@ -38,7 +38,7 @@ import type { ThemeColors } from '../theme/colors';
 import { screenBg } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
-import { useOutputData } from '../hooks/useOutputData';
+import { useOutput } from '../hooks/useOutputContext';
 import { useConnectedSources } from '../hooks/useConnectedSources';
 import { interactWithProgram } from '../services/api';
 import { usePrograms } from '../hooks/usePrograms';
@@ -91,7 +91,7 @@ export function TestsScreen({ navigation, route }: TestsScreenProps) {
   const { needsCheckin, isStale, checkinAgeHours } = useCheckinStatus();
   const pageConfig = usePageConfig('output');
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { data, setData, loading, error, refresh, isDeepRefreshing, forceRefreshPrograms } = useOutputData();
+  const { data, setData, loading, error, refresh, isDeepRefreshing, forceRefreshPrograms } = useOutput();
   const { sources: connectedSources, loading: sourcesLoading } = useConnectedSources();
 
   const paramTab = route?.params?.initialTab as Tab | undefined;

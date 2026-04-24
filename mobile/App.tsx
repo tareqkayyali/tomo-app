@@ -3,9 +3,9 @@
  * Calm AI Decision-Support for Young Athletes
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet, Platform, Text } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { useFonts } from 'expo-font';
 import {
   Poppins_300Light,
@@ -22,9 +22,10 @@ import { SportProvider, type ActiveSport } from './src/hooks/useSportContext';
 import { ContentProvider } from './src/hooks/useContentProvider';
 import { ConfigProvider } from './src/hooks/useConfigProvider';
 import { BootProvider } from './src/hooks/useBootData';
+import { OutputProvider } from './src/hooks/useOutputContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootNavigator } from './src/navigation';
-import { AnimatedSplashScreen, ErrorBoundary } from './src/components';
+import { AnimatedSplashScreen, ErrorBoundary, AppLoadingScreen } from './src/components';
 import { AppAtmosphere } from './src/components/tomo-ui';
 import { injectWebFonts } from './src/utils/webFonts';
 import { injectWebBackground } from './src/utils/webBackground';
@@ -72,12 +73,14 @@ function AppContent() {
     <ContentProvider>
       <AuthProvider>
         <BootProvider>
-          <SportWrapper>
-            <StatusBar style="light" />
-            <AppAtmosphere intensity="none">
-              <RootNavigator />
-            </AppAtmosphere>
-          </SportWrapper>
+          <OutputProvider>
+            <SportWrapper>
+              <StatusBar style="light" />
+              <AppAtmosphere intensity="none">
+                <RootNavigator />
+              </AppAtmosphere>
+            </SportWrapper>
+          </OutputProvider>
         </BootProvider>
       </AuthProvider>
     </ContentProvider>
@@ -112,7 +115,7 @@ function App() {
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
-    return <AppLoadingScreen />;
+    return <AppLoadingScreen />;  // shared component — same screen shown during auth
   }
 
   return (
@@ -134,74 +137,10 @@ function App() {
 
 export default wrapWithSentry(App);
 
-// ── Dynamic Loading Screen (rotating messages like Own It / My Programs) ──
-
-const APP_LOADING_MESSAGES = [
-  { title: 'Loading Your Profile', subtitle: 'Setting up your athlete dashboard...', icon: 'person-outline' as const },
-  { title: 'Preparing AI Coach', subtitle: 'Tomo is getting ready for you...', icon: 'sparkles-outline' as const },
-  { title: 'Syncing Training Data', subtitle: 'Pulling your latest sessions...', icon: 'barbell-outline' as const },
-  { title: 'Checking Readiness', subtitle: 'Sleep, energy, recovery status...', icon: 'pulse-outline' as const },
-  { title: 'Loading Schedule', subtitle: 'Your calendar and upcoming events...', icon: 'calendar-outline' as const },
-  { title: 'Almost There', subtitle: 'Finalizing your experience...', icon: 'rocket-outline' as const },
-];
-
-function AppLoadingScreen() {
-  const [msgIndex, setMsgIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setMsgIndex((prev) => (prev + 1) % APP_LOADING_MESSAGES.length);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const msg = APP_LOADING_MESSAGES[msgIndex];
-
-  return (
-    <View style={styles.loading}>
-      <View style={styles.loadingIconWrap}>
-        <Ionicons name={msg.icon} size={28} color="#00D9FF" />
-      </View>
-      <Text style={styles.loadingTitle}>{msg.title}</Text>
-      <Text style={styles.loadingSubtitle}>{msg.subtitle}</Text>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#12141F',
-  },
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#12141F',
-    gap: 8,
-  },
-  loadingIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(122, 155, 118, 0.1)',
-    marginBottom: 4,
-  },
-  loadingTitle: {
-    fontFamily: Platform.OS === 'web' ? 'Poppins, sans-serif' : undefined,
-    fontWeight: '600',
-    fontSize: 16,
-    color: '#F5F3ED',
-    textAlign: 'center',
-  },
-  loadingSubtitle: {
-    fontFamily: Platform.OS === 'web' ? 'Poppins, sans-serif' : undefined,
-    fontWeight: '400',
-    fontSize: 13,
-    color: 'rgba(245,243,237,0.5)',
-    textAlign: 'center',
-    paddingHorizontal: 40,
   },
 });

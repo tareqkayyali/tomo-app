@@ -28,7 +28,7 @@ import { TimeSection } from '../components/ownit';
 import type { ForYouRecommendation } from '../components/ownit';
 import type { RIERecommendation } from '../services/api';
 import { useOwnItData } from '../hooks/useOwnItData';
-import { useOutputData } from '../hooks/useOutputData';
+import { useOutput } from '../hooks/useOutputContext';
 import { StrengthsGrowthCard } from '../components/shared/StrengthsGrowthCard';
 import { usePageConfig } from '../hooks/usePageConfig';
 import { useTheme } from '../hooks/useTheme';
@@ -243,7 +243,7 @@ export function ForYouScreen() {
 
   const { profile } = useAuth();
   const playerName = profile?.name?.split(' ')[0] || 'Athlete';
-  const { data: outputData } = useOutputData();
+  const { data: outputData } = useOutput();
   const strengths = outputData?.metrics?.strengths ?? [];
   const gaps = outputData?.metrics?.gaps ?? [];
 

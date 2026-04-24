@@ -6,6 +6,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { InteractionManager } from 'react-native';
 import type { ContentBundle } from '../services/contentService';
 import { syncContent } from '../services/contentService';
 import { getCachedBundle } from '../services/contentCache';
@@ -56,11 +57,15 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // 2. Background sync
-    doSync();
+    // 2. Background sync deferred until after first frame so it doesn't
+    //    compete with auth + boot on cold start.
+    const task = InteractionManager.runAfterInteractions(() => {
+      doSync();
+    });
 
     return () => {
       mounted.current = false;
+      task.cancel();
     };
   }, [doSync]);
 

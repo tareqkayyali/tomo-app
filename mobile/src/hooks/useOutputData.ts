@@ -21,6 +21,7 @@ import {
 } from '../services/api';
 import { useAuth } from './useAuth';
 import { useRefreshListener } from './useRefreshListener';
+import { Sentry } from '../services/sentry';
 
 const CACHE_KEY_PREFIX = '@tomo_output_snapshot_v3_'; // v3: per-user cache
 
@@ -53,6 +54,7 @@ export function useOutputData(targetPlayerId?: string) {
         if (parsed.programs?.isAiGenerated) {
           cachedAiPrograms.current = parsed.programs;
         }
+        Sentry.addBreadcrumb({ category: 'output', message: 'cache hit', level: 'info' });
       }
     } catch {
       // Cache miss is fine
@@ -61,6 +63,8 @@ export function useOutputData(targetPlayerId?: string) {
 
   // ── Fetch fresh data from API ──────────────────────────────────────
   const fetchData = useCallback(async () => {
+    const fetchStart = Date.now();
+    Sentry.addBreadcrumb({ category: 'output', message: 'fetch start', level: 'info', data: { forPlayer: targetPlayerId ?? 'self' } });
     try {
       setError(null);
       const snapshot = await getOutputSnapshot(targetPlayerId);
@@ -86,12 +90,14 @@ export function useOutputData(targetPlayerId?: string) {
       }
 
       setData(snapshot);
+      Sentry.addBreadcrumb({ category: 'output', message: 'fetch complete', level: 'info', data: { duration_ms: Date.now() - fetchStart } });
       // Cache for next time (own data only)
       if (!isViewingOther) {
         AsyncStorage.setItem(CACHE_KEY, JSON.stringify(snapshot)).catch(() => {});
       }
       return snapshot;
     } catch (err: any) {
+      Sentry.addBreadcrumb({ category: 'output', message: 'fetch failed', level: 'warning', data: { duration_ms: Date.now() - fetchStart } });
       setError(err?.message || 'Failed to load data');
       return null;
     } finally {

@@ -9,7 +9,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { Platform } from 'react-native';
+import { Platform, InteractionManager } from 'react-native';
 import type { ConfigBundle, AppThemeRow, PageConfigRow } from '../services/configService';
 import { syncConfig, forceRefreshConfig } from '../services/configService';
 import { getCachedConfigBundle } from '../services/configCache';
@@ -76,10 +76,15 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    doSync();
+    // Background sync deferred until after first frame so it doesn't
+    // compete with auth + boot on cold start.
+    const task = InteractionManager.runAfterInteractions(() => {
+      doSync();
+    });
 
     return () => {
       mounted.current = false;
+      task.cancel();
     };
   }, [doSync]);
 

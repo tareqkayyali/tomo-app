@@ -14,8 +14,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Loader } from '../components/Loader';
+import { AppLoadingScreen } from '../components';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthNavigator } from './AuthNavigator';
@@ -72,13 +71,11 @@ export function RootNavigator() {
   const { isAuthenticated, isLoading, needsRegistration, profile, role } = useAuth();
   const { isPreviewMode } = useConfig();
 
-  // Show loading while checking auth state (skip in preview mode)
+  // Show loading while checking auth state (skip in preview mode).
+  // AppLoadingScreen shows rotating messages describing what's actually
+  // happening (auth bootstrap + boot fetch), matching the font-wait screen.
   if (isLoading && !isPreviewMode) {
-    return (
-      <View style={[styles.loading, { backgroundColor: screenBg }]}>
-        <Loader size="lg" />
-      </View>
-    );
+    return <AppLoadingScreen />;
   }
 
   // In CMS preview mode, skip auth gates — AuthProvider already uses DEV_USER
@@ -167,10 +164,3 @@ export function RootNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

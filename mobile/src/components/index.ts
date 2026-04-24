@@ -36,6 +36,7 @@ export { PlanHeader } from './PlanHeader';
 export { ReturnLoopWidget } from './ReturnLoopWidget';
 export { WhyTodayMattersCard } from './WhyTodayMattersCard';
 export { AnimatedSplashScreen } from './AnimatedSplashScreen';
+export { AppLoadingScreen } from './AppLoadingScreen';
 export { SportSwitcher } from './common/SportSwitcher';
 export { SkillRatingBar } from './SkillRatingBar';
 export type { SkillItem, SkillSubMetric } from './SkillRatingBar';
