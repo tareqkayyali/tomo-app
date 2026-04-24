@@ -22,6 +22,9 @@ interface Props {
 type Mode = 'overview' | 'add_exam' | 'generate_plan';
 
 export function StudyScheduleCapsuleComponent({ card, onSubmit }: Props) {
+  const exams = card.exams ?? [];
+  const studySubjects = card.studySubjects ?? [];
+
   const [mode, setMode] = useState<Mode>('overview');
   const [preExamWeeks, setPreExamWeeks] = useState(card.preExamStudyWeeks);
   const [daysPerSubject, setDaysPerSubject] = useState(card.daysPerSubject);
@@ -54,8 +57,8 @@ export function StudyScheduleCapsuleComponent({ card, onSubmit }: Props) {
         )}
 
         {/* Exam countdown cards */}
-        {card.exams.length > 0 ? (
-          card.exams.map(exam => (
+        {exams.length > 0 ? (
+          exams.map(exam => (
             <View key={exam.id} style={styles.examRow}>
               <View style={[styles.urgencyDot, { backgroundColor: getUrgencyColor(exam.daysUntil) }]} />
               <View style={styles.examInfo}>
@@ -77,7 +80,7 @@ export function StudyScheduleCapsuleComponent({ card, onSubmit }: Props) {
             title="+ Add Exam"
             onPress={() => setMode('add_exam')}
           />
-          {card.exams.length > 0 && (
+          {exams.length > 0 && (
             <CapsuleSubmitButton
               title={card.hasStudyPlan ? 'Regenerate Study Plan' : 'Generate Study Plan'}
               onPress={() => setMode('generate_plan')}
@@ -90,11 +93,11 @@ export function StudyScheduleCapsuleComponent({ card, onSubmit }: Props) {
 
   // ADD EXAM MODE — uses shared form
   if (mode === 'add_exam') {
-    const subjects = card.studySubjects.length > 0
-      ? card.studySubjects
+    const subjects = studySubjects.length > 0
+      ? studySubjects
       : ['Math', 'Physics', 'English', 'Biology', 'Chemistry'];
 
-    const existingExams = card.exams.map(e => ({
+    const existingExams = exams.map(e => ({
       id: e.id,
       subject: e.subject,
       examType: e.examType,
@@ -136,7 +139,7 @@ export function StudyScheduleCapsuleComponent({ card, onSubmit }: Props) {
       )}
 
       <Text style={styles.subtext}>
-        {card.exams.length} exam{card.exams.length !== 1 ? 's' : ''} scheduled
+        {exams.length} exam{exams.length !== 1 ? 's' : ''} scheduled
       </Text>
 
       <CapsuleStepper

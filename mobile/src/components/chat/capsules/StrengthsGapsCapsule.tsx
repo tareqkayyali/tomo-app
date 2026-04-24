@@ -12,6 +12,11 @@ interface Props {
 }
 
 export function StrengthsGapsCapsuleComponent({ card }: Props) {
+  const overallPercentile = typeof card.overallPercentile === 'number' ? card.overallPercentile : 0;
+  const strengths = card.strengths ?? [];
+  const gaps = card.gaps ?? [];
+  const totalMetrics = typeof card.totalMetrics === 'number' ? card.totalMetrics : 0;
+
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Your Performance Profile</Text>
@@ -19,16 +24,16 @@ export function StrengthsGapsCapsuleComponent({ card }: Props) {
       {/* Overall */}
       <View style={styles.overallRow}>
         <Text style={styles.overallLabel}>Overall Percentile</Text>
-        <Text style={[styles.overallValue, { color: card.overallPercentile >= 60 ? colors.success : card.overallPercentile >= 40 ? colors.warning : colors.textSecondary }]}>
-          P{Math.round(card.overallPercentile)}
+        <Text style={[styles.overallValue, { color: overallPercentile >= 60 ? colors.success : overallPercentile >= 40 ? colors.warning : colors.textSecondary }]}>
+          P{Math.round(overallPercentile)}
         </Text>
       </View>
 
       {/* Strengths */}
-      {card.strengths.length > 0 && (
+      {strengths.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Strengths</Text>
-          {card.strengths.map((s, i) => (
+          {strengths.map((s, i) => (
             <View key={i} style={styles.metricRow}>
               <Text style={styles.metricName}>{s.metric}</Text>
               <Text style={styles.metricValue}>{s.value} {s.unit}</Text>
@@ -39,10 +44,10 @@ export function StrengthsGapsCapsuleComponent({ card }: Props) {
       )}
 
       {/* Gaps */}
-      {card.gaps.length > 0 && (
+      {gaps.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Areas to Develop</Text>
-          {card.gaps.map((g, i) => (
+          {gaps.map((g, i) => (
             <View key={i} style={styles.metricRow}>
               <Text style={styles.metricName}>{g.metric}</Text>
               <Text style={styles.metricValue}>{g.value} {g.unit}</Text>
@@ -52,7 +57,7 @@ export function StrengthsGapsCapsuleComponent({ card }: Props) {
         </View>
       )}
 
-      <Text style={styles.footer}>{card.totalMetrics} metrics tracked</Text>
+      <Text style={styles.footer}>{totalMetrics} metrics tracked</Text>
     </View>
   );
 }

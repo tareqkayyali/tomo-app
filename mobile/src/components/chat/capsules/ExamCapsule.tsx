@@ -17,7 +17,8 @@ interface Props {
 export function ExamCapsuleComponent({ card, onSubmit }: Props) {
   // Use studySubjects from card, fallback to subjects from existing exams, then defaults
   const fromCard = card.studySubjects?.length ? card.studySubjects : [];
-  const fromExams = [...new Set(card.existingExams.map((e) => e.subject))];
+  const existingExams = card.existingExams ?? [];
+  const fromExams = [...new Set(existingExams.map((e) => e.subject))];
   const allSubjects = fromCard.length > 0 ? fromCard : fromExams.length > 0 ? fromExams : ['Math', 'Physics', 'English', 'Biology', 'Chemistry'];
 
   return (
@@ -25,7 +26,7 @@ export function ExamCapsuleComponent({ card, onSubmit }: Props) {
       <Text style={styles.heading}>Add Exam</Text>
       <CapsuleExamForm
         subjects={allSubjects}
-        existingExams={card.existingExams}
+        existingExams={existingExams}
         onAdd={(subject, examType, examDate) => {
           onSubmit({
             type: 'exam_capsule',

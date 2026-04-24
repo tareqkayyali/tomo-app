@@ -24,7 +24,7 @@ export function LeaderboardCapsuleComponent({ card }: Props) {
       )}
 
       <ScrollView style={styles.list} nestedScrollEnabled>
-        {card.entries.slice(0, 10).map((entry) => (
+        {(card.entries ?? []).slice(0, 10).map((entry) => (
           <View key={`${entry.rank}-${entry.name}`} style={[styles.row, entry.isCurrentUser && styles.highlightRow]}>
             <Text style={styles.rank}>
               {RANK_MEDALS[entry.rank] ?? `#${entry.rank}`}

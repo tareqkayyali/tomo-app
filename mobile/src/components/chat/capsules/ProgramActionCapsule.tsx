@@ -27,9 +27,15 @@ const ACTION_CONFIG: Record<string, { label: string; style: 'primary' | 'seconda
   dismissed: { label: 'Dismiss', style: 'destructive' },
 };
 
+const DEFAULT_ACTIONS: ('details' | 'add_to_training')[] = ['details', 'add_to_training'];
+
 export function ProgramActionCapsuleComponent({ card, onSubmit }: ProgramActionCapsuleProps) {
   const badge = PRIORITY_BADGE[card.priority] ?? PRIORITY_BADGE.low;
   const statusLabel = card.currentStatus === 'active' ? 'Active' : card.currentStatus === 'done' ? '✓ Completed' : null;
+  const availableActions =
+    Array.isArray(card.availableActions) && card.availableActions.length > 0
+      ? card.availableActions
+      : DEFAULT_ACTIONS;
 
   const handleAction = (action: string) => {
     if (action === 'details') {
@@ -92,7 +98,7 @@ export function ProgramActionCapsuleComponent({ card, onSubmit }: ProgramActionC
       </View>
 
       <View style={styles.actionsRow}>
-        {card.availableActions.map((action) => {
+        {availableActions.map((action) => {
           const config = ACTION_CONFIG[action];
           if (!config) return null;
           return (

@@ -20,6 +20,8 @@ const STATUS_BADGE: Record<string, { label: string; color: string }> = {
 };
 
 export function ProgramInteractCapsuleComponent({ card, onSubmit }: Props) {
+  const programs = card.programs ?? [];
+
   const sendAction = (programId: string, action: string) => {
     onSubmit({
       type: 'program_interact_capsule',
@@ -29,10 +31,19 @@ export function ProgramInteractCapsuleComponent({ card, onSubmit }: Props) {
     });
   };
 
+  if (programs.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.heading}>Your programs</Text>
+        <Text style={styles.subtext}>No program rows in this message. Try asking again in a moment.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Your Programs</Text>
-      {card.programs.map((prog) => {
+      {programs.map((prog) => {
         const badge = STATUS_BADGE[prog.status] ?? STATUS_BADGE.recommended;
         const isActionable = prog.status === 'recommended' || prog.status === 'active';
         return (
@@ -76,6 +87,7 @@ function ActionButton({ label, color, onPress }: { label: string; color: string;
 const styles = StyleSheet.create({
   container: { backgroundColor: colors.backgroundElevated, borderRadius: borderRadius.lg, padding: spacing.md, gap: spacing.sm },
   heading: { fontFamily: fontFamily.semiBold, fontSize: 16, color: colors.textPrimary },
+  subtext: { fontFamily: fontFamily.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
   programCard: { backgroundColor: colors.background, borderRadius: borderRadius.md, padding: spacing.sm, gap: 4 },
   programHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   programName: { fontFamily: fontFamily.semiBold, fontSize: 14, color: colors.textPrimary, flex: 1 },

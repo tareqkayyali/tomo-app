@@ -17,9 +17,11 @@ interface CVEditCapsuleProps {
 }
 
 export function CVEditCapsuleComponent({ card, onSubmit }: CVEditCapsuleProps) {
+  const fields = card.fields ?? [];
+
   const [values, setValues] = useState<Record<string, string | number | null>>(() => {
     const initial: Record<string, string | number | null> = {};
-    for (const f of card.fields) {
+    for (const f of fields) {
       initial[f.field] = f.currentValue;
     }
     return initial;
@@ -30,14 +32,14 @@ export function CVEditCapsuleComponent({ card, onSubmit }: CVEditCapsuleProps) {
   };
 
   // Check if anything changed
-  const hasChanges = card.fields.some(
+  const hasChanges = fields.some(
     (f) => values[f.field] !== f.currentValue && values[f.field] !== null && values[f.field] !== ''
   );
 
   const handleSubmit = () => {
     // Only send changed fields
     const changes: Record<string, any> = {};
-    for (const f of card.fields) {
+    for (const f of fields) {
       if (values[f.field] !== f.currentValue && values[f.field] !== null && values[f.field] !== '') {
         changes[f.field] = values[f.field];
       }
@@ -51,15 +53,24 @@ export function CVEditCapsuleComponent({ card, onSubmit }: CVEditCapsuleProps) {
     });
   };
 
+  if (fields.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.heading}>Edit Profile</Text>
+        <Text style={styles.subtext}>No editable fields in this message.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Edit Profile</Text>
 
-      {card.fields.map((field) => (
+      {fields.map((field) => (
         <View key={field.field} style={styles.fieldRow}>
           <Text style={styles.fieldLabel}>{field.label}{field.unit ? ` (${field.unit})` : ''}</Text>
 
-          {field.inputType === 'selector' && field.options ? (
+          {field.inputType === 'selector' && field.options && field.options.length > 0 ? (
             <PillSelector
               options={field.options.map((o) => ({ id: o, label: o }))}
               selected={values[field.field]?.toString() ?? ''}
@@ -106,6 +117,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semiBold,
     fontSize: 16,
     color: colors.textPrimary,
+  },
+  subtext: {
+    fontFamily: fontFamily.regular,
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   fieldRow: {
     gap: 4,

@@ -49,8 +49,9 @@ export function RegularStudyCapsuleComponent({ card, onSubmit }: Props) {
     card.currentConfig?.planWeeks ?? 4
   );
 
-  const subjects = card.studySubjects.length > 0
-    ? card.studySubjects
+  const availableSubjects = card.studySubjects ?? [];
+  const subjects = availableSubjects.length > 0
+    ? availableSubjects
     : ['Math', 'Physics', 'English', 'Biology', 'Chemistry'];
 
   const toggleSubject = (subject: string) => {
@@ -80,7 +81,9 @@ export function RegularStudyCapsuleComponent({ card, onSubmit }: Props) {
   // OVERVIEW MODE — show existing config summary
   if (mode === 'overview' && card.hasExistingPlan && card.currentConfig) {
     const cfg = card.currentConfig;
-    const dayList = cfg.days.map(d => DAY_NAMES[d]).join(', ');
+    const dayNums = Array.isArray(cfg.days) ? cfg.days : [];
+    const planSubjects = Array.isArray(cfg.subjects) ? cfg.subjects : [];
+    const dayList = dayNums.map((d) => DAY_NAMES[d] ?? String(d)).join(', ');
 
     return (
       <View style={styles.container}>
@@ -93,7 +96,7 @@ export function RegularStudyCapsuleComponent({ card, onSubmit }: Props) {
               Active · {card.existingSessionCount} sessions scheduled
             </Text>
             <Text style={styles.planBannerSub}>
-              {cfg.subjects.join(', ')} · {dayList} · {cfg.sessionDurationMin}min
+              {planSubjects.join(', ')} · {dayList} · {cfg.sessionDurationMin}min
             </Text>
           </View>
         </View>

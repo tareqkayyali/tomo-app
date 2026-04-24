@@ -7,7 +7,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SmartIcon } from '../../SmartIcon';
 import { colors } from '../../../theme/colors';
-import { spacing, borderRadius, fontFamily } from '../../../theme';
+import { borderRadius, fontFamily } from '../../../theme';
 import type { BulkTimelineEditCapsule as BulkTimelineEditType, CapsuleAction } from '../../../types/chat';
 import { CapsuleSubmitButton } from './shared/CapsuleSubmitButton';
 
@@ -36,23 +36,31 @@ interface Props {
 }
 
 export function BulkTimelineEditCapsuleComponent({ card, onSubmit }: Props) {
+  const { groupedEvents, flatEvents } = useMemo(
+    () => ({
+      groupedEvents: Array.isArray(card.groupedEvents) ? card.groupedEvents : [],
+      flatEvents: Array.isArray(card.events) ? card.events : [],
+    }),
+    [card.groupedEvents, card.events]
+  );
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeFilter, setActiveFilter] = useState('all');
   const [submitting, setSubmitting] = useState(false);
 
   // Filter groups by event type
   const filteredGroups = useMemo(() => {
-    if (activeFilter === 'all') return card.groupedEvents;
-    return card.groupedEvents.filter(g => g.eventType === activeFilter);
-  }, [card.groupedEvents, activeFilter]);
+    if (activeFilter === 'all') return groupedEvents;
+    return groupedEvents.filter(g => g.eventType === activeFilter);
+  }, [groupedEvents, activeFilter]);
 
   // Available filter tabs (only show tabs with events)
   const availableFilters = useMemo(() => {
-    const types = new Set(card.groupedEvents.map(g => g.eventType));
+    const types = new Set(groupedEvents.map(g => g.eventType));
     return FILTER_TABS.filter(f => f.id === 'all' || types.has(f.id));
-  }, [card.groupedEvents]);
+  }, [groupedEvents]);
 
-  const toggleGroup = useCallback((group: typeof card.groupedEvents[0]) => {
+  const toggleGroup = useCallback((group: (typeof groupedEvents)[0]) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       const allSelected = group.eventIds.every(id => next.has(id));
@@ -108,7 +116,7 @@ export function BulkTimelineEditCapsuleComponent({ card, onSubmit }: Props) {
       {/* Select/Clear header */}
       <View style={styles.selectHeader}>
         <Text style={styles.selectCount}>
-          {selectedIds.size > 0 ? `${selectedIds.size} selected` : `${card.events.length} events`}
+          {selectedIds.size > 0 ? `${selectedIds.size} selected` : `${flatEvents.length} events`}
         </Text>
         {selectedIds.size > 0 ? (
           <Pressable onPress={deselectAll}>

@@ -13,7 +13,8 @@ interface Props {
 }
 
 export function GhostSuggestionCapsuleComponent({ card, onSubmit }: Props) {
-  if (card.suggestions.length === 0) {
+  const suggestions = card.suggestions ?? [];
+  if (suggestions.length === 0) {
     return (
       <View style={styles.container}>
         <Text style={styles.heading}>No Suggestions</Text>
@@ -27,7 +28,7 @@ export function GhostSuggestionCapsuleComponent({ card, onSubmit }: Props) {
       <Text style={styles.heading}>Smart Suggestions</Text>
       <Text style={styles.subtext}>Based on your training patterns</Text>
 
-      {card.suggestions.map((s, i) => (
+      {suggestions.map((s, i) => (
         <View key={i} style={styles.suggestionCard}>
           <View style={styles.suggestionHeader}>
             <Text style={styles.suggestionName}>{s.name}</Text>

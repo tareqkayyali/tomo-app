@@ -300,7 +300,8 @@ export interface ProgramActionCapsule {
   duration: string;
   priority: 'high' | 'medium' | 'low';
   currentStatus?: 'active' | 'done' | 'dismissed' | null;
-  availableActions: Array<'done' | 'dismissed' | 'active' | 'player_selected' | 'schedule' | 'details' | 'add_to_training'>;
+  /** Server/LLM may omit; client defaults to a safe CTA set. */
+  availableActions?: Array<'done' | 'dismissed' | 'active' | 'player_selected' | 'schedule' | 'details' | 'add_to_training'>;
 }
 
 export interface CVEditCapsuleField {

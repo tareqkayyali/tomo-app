@@ -30,6 +30,7 @@ const DURATION_OPTIONS = [
 ];
 
 export function TrainingCategoryCapsuleComponent({ card, onSubmit }: Props) {
+  const currentCategories = card.currentCategories ?? [];
   const [categoryName, setCategoryName] = useState('');
   const [sessionsPerWeek, setSessionsPerWeek] = useState(3);
   const [duration, setDuration] = useState('60');
@@ -50,7 +51,7 @@ export function TrainingCategoryCapsuleComponent({ card, onSubmit }: Props) {
       preferredTime,
     };
     const updatedCategories = [
-      ...card.currentCategories.map((c) => ({
+      ...currentCategories.map((c) => ({
         ...c,
         mode: 'days_per_week' as const,
         fixedDays: [] as number[],
@@ -71,9 +72,9 @@ export function TrainingCategoryCapsuleComponent({ card, onSubmit }: Props) {
     <View style={styles.container}>
       <Text style={styles.heading}>Add Training Category</Text>
 
-      {card.currentCategories.length > 0 && (
+      {currentCategories.length > 0 && (
         <View style={styles.existingRow}>
-          {card.currentCategories.map((c) => (
+          {currentCategories.map((c) => (
             <View key={c.id} style={[styles.existingPill, !c.enabled && styles.disabledPill]}>
               <Text style={styles.existingText}>{c.label}</Text>
               <Text style={styles.existingMeta}>{c.daysPerWeek}x/wk</Text>
