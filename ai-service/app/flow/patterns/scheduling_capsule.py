@@ -37,6 +37,7 @@ from app.flow.helpers.scheduling import (
     DEFAULT_SLOT_LIMIT,
 )
 from app.models.state import TomoChatState
+from app.agents.tools.output_tools import _load_snapshot_programs
 
 logger = logging.getLogger("tomo-ai.flow.scheduling_capsule")
 
@@ -100,12 +101,17 @@ async def execute_scheduling_capsule(
         (datetime.strptime(today, "%Y-%m-%d") + timedelta(days=i)).strftime("%Y-%m-%d")
         for i in range(_LOOKAHEAD_DAYS)
     ]
-    days = await _fetch_days_parallel(
-        user_id=user_id,
-        dates=dates,
-        timezone=tz,
-        today=today,
+    raw_programs, days = await asyncio.gather(
+        _load_snapshot_programs(user_id),
+        _fetch_days_parallel(
+            user_id=user_id,
+            dates=dates,
+            timezone=tz,
+            today=today,
+        ),
     )
+    linked_programs = _build_linked_programs_for_capsule(raw_programs)
+    prefilled_linked_slug = _match_linked_program_slug(opener, linked_programs)
 
     # ── Training categories from player context ──
     training_categories = _get_training_categories(context)
@@ -132,6 +138,10 @@ async def execute_scheduling_capsule(
             "readinessLevel": readiness,
             "sport": getattr(context, "sport", None) if context else None,
             "durationMin": DEFAULT_SESSION_DURATION_MIN,
+            # Player plan tab programs — mobile shows as "Linked program" and passes
+            # slugs to create_event → event_linked_programs.
+            "linkedPrograms": linked_programs,
+            "prefilledLinkedProgramSlug": prefilled_linked_slug,
         },
     }
 
@@ -391,6 +401,40 @@ def _get_training_categories(context) -> list[dict]:
         {"id": "gym", "label": "Gym"},
         {"id": "personal", "label": "Personal"},
     ]
+
+
+def _build_linked_programs_for_capsule(raw: list[dict]) -> list[dict]:
+    """Shape snapshot programs for the mobile picker (slug + display name)."""
+    out: list[dict] = []
+    for p in raw:
+        if not isinstance(p, dict):
+            continue
+        pid = p.get("programId")
+        name = p.get("name")
+        if not pid or not name:
+            continue
+        out.append({"slug": str(pid), "name": str(name)})
+    return out[:30]
+
+
+def _match_linked_program_slug(
+    opener: str, programs: list[dict]
+) -> Optional[str]:
+    """If the user named a program from their plan, pre-select that slug."""
+    if not opener or not programs:
+        return None
+    lo = opener.lower()
+    best_slug: Optional[str] = None
+    best_len = 0
+    for p in programs:
+        name = (p.get("name") or "").strip()
+        if len(name) < 2:
+            continue
+        nl = name.lower()
+        if nl in lo and len(name) > best_len:
+            best_slug = p.get("slug")
+            best_len = len(name)
+    return str(best_slug) if best_slug else None
 
 
 def _build_title(focus: Optional[str]) -> str:

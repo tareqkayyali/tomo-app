@@ -812,6 +812,9 @@ export interface SchedulingCapsule {
     readinessLevel?: string;
     sport?: string;
     durationMin?: number;
+    /** Programs from the athlete's plan tab — can be linked to the new event. */
+    linkedPrograms?: Array<{ slug: string; name: string }>;
+    prefilledLinkedProgramSlug?: string | null;
   };
 }
 

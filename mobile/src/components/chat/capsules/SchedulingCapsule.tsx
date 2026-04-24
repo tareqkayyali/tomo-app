@@ -11,7 +11,7 @@
  * Data shape: see ai-service/app/flow/patterns/scheduling_capsule.py
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -64,6 +64,53 @@ interface SchedulingContext {
   readinessLevel?: string;
   sport?: string;
   durationMin?: number;
+  linkedPrograms?: Array<{ slug: string; name: string }>;
+  prefilledLinkedProgramSlug?: string | null;
+}
+
+type TimeBandId = 'morning' | 'afternoon' | 'evening' | 'night';
+
+const TIME_BANDS: Array<{ id: TimeBandId; label: string; hint: string }> = [
+  { id: 'morning', label: 'Morning', hint: '5am – 12pm' },
+  { id: 'afternoon', label: 'Afternoon', hint: '12 – 5pm' },
+  { id: 'evening', label: 'Evening', hint: '5 – 10pm' },
+  { id: 'night', label: 'Night', hint: '10pm – 5am' },
+];
+
+function parseStartMinutes(start24: string): number {
+  const [h, m] = start24.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+function getSlotTimeBand(start24: string): TimeBandId {
+  const t = parseStartMinutes(start24);
+  if (t < 5 * 60 || t >= 22 * 60) return 'night';
+  if (t < 12 * 60) return 'morning';
+  if (t < 17 * 60) return 'afternoon';
+  return 'evening';
+}
+
+/** Local start instant for a calendar day (YYYY-MM-DD) + 24h clock "HH:MM" */
+function localSlotStartDate(dayYmd: string, start24: string): Date {
+  const [y, mo, d] = dayYmd.split('-').map(Number);
+  const [h, m] = start24.split(':').map(Number);
+  return new Date(y, (mo || 1) - 1, d || 1, h || 0, m || 0, 0, 0);
+}
+
+function isSlotStartInTheFuture(
+  dayYmd: string,
+  start24: string,
+  now: Date
+): boolean {
+  return localSlotStartDate(dayYmd, start24) > now;
+}
+
+function filterFutureSlots(
+  dayYmd: string,
+  slots: AvailableSlot[],
+  now: Date
+): AvailableSlot[] {
+  return slots.filter((s) => isSlotStartInTheFuture(dayYmd, s.start24, now));
 }
 
 interface SchedulingCapsuleProps {
@@ -106,13 +153,36 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
   const [selectedDayIdx, setSelectedDayIdx] = useState(initialDayIdx);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [selectedExisting, setSelectedExisting] = useState<ExistingEvent | null>(null);
+  const [timeBand, setTimeBand] = useState<TimeBandId | null>(null);
   const [title, setTitle] = useState(ctx?.prefilledTitle ?? 'Training Session');
   const [focus, setFocus] = useState(ctx?.prefilledFocus ?? '');
   const [intensity, setIntensity] = useState(ctx?.prefilledIntensity ?? 'MODERATE');
   const [duration, setDuration] = useState(String(ctx?.durationMin ?? '60'));
+  const [linkedProgramSlug, setLinkedProgramSlug] = useState<string | null>(() => {
+    const pre = ctx?.prefilledLinkedProgramSlug;
+    const progs = ctx?.linkedPrograms;
+    if (pre && progs?.some((p) => p.slug === pre)) return pre;
+    return null;
+  });
 
   const selectedDay = days[selectedDayIdx] ?? null;
   const isRedReadiness = ctx?.readinessLevel === 'RED';
+
+  // Clock for filtering "today" past slots; refresh periodically so the list stays valid.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const openSlotsForSelectedDay = useMemo(() => {
+    if (!selectedDay) return [];
+    return filterFutureSlots(
+      selectedDay.date,
+      selectedDay.availableSlots,
+      now
+    );
+  }, [selectedDay, now]);
 
   // Filter existing events to only show tappable training sessions
   const trainingEvents = useMemo(() => {
@@ -129,6 +199,76 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
       (e) => e.type !== 'training' && e.type !== 'match'
     );
   }, [selectedDay]);
+
+  // Bands that have at least one still-available slot for the selected day
+  const bandsWithSlots = useMemo(() => {
+    if (!openSlotsForSelectedDay.length) {
+      return [] as TimeBandId[];
+    }
+    const have = new Set<TimeBandId>();
+    for (const s of openSlotsForSelectedDay) {
+      have.add(getSlotTimeBand(s.start24));
+    }
+    return TIME_BANDS.map((b) => b.id).filter((id) => have.has(id));
+  }, [openSlotsForSelectedDay]);
+
+  const lastScheduleDateRef = useRef<string | null>(null);
+  // When the selected *day* changes, reset the band: auto-pick if only one band has slots
+  useEffect(() => {
+    const d = selectedDay?.date;
+    if (!d) return;
+    if (lastScheduleDateRef.current === d) return;
+    lastScheduleDateRef.current = d;
+    const have = new Set<TimeBandId>();
+    for (const s of openSlotsForSelectedDay) {
+      have.add(getSlotTimeBand(s.start24));
+    }
+    const bandIds = TIME_BANDS.map((b) => b.id).filter((id) => have.has(id));
+    if (bandIds.length === 1) {
+      setTimeBand(bandIds[0]!);
+    } else {
+      setTimeBand(null);
+    }
+  }, [selectedDay?.date, openSlotsForSelectedDay]);
+
+  // Clear slot if it falls outside the chosen band
+  useEffect(() => {
+    if (!selectedSlot || !timeBand) return;
+    if (getSlotTimeBand(selectedSlot.start24) !== timeBand) {
+      setSelectedSlot(null);
+    }
+  }, [timeBand, selectedSlot]);
+
+  // If the clock moves and the current band no longer has future slots, re-pick or clear
+  useEffect(() => {
+    if (!timeBand) return;
+    const anyInBand = openSlotsForSelectedDay.some(
+      (s) => getSlotTimeBand(s.start24) === timeBand
+    );
+    if (anyInBand) return;
+    const have = new Set<TimeBandId>();
+    for (const s of openSlotsForSelectedDay) {
+      have.add(getSlotTimeBand(s.start24));
+    }
+    const bandIds = TIME_BANDS.map((b) => b.id).filter((id) => have.has(id));
+    if (bandIds.length === 1) setTimeBand(bandIds[0]!);
+    else setTimeBand(null);
+    setSelectedSlot(null);
+  }, [timeBand, openSlotsForSelectedDay]);
+
+  // Drop selection if that slot is no longer offered (e.g. time passed)
+  useEffect(() => {
+    if (!selectedSlot) return;
+    const still = openSlotsForSelectedDay.some(
+      (s) => s.start24 === selectedSlot.start24 && s.end24 === selectedSlot.end24
+    );
+    if (!still) setSelectedSlot(null);
+  }, [openSlotsForSelectedDay, selectedSlot]);
+
+  const slotsInSelectedBand = useMemo(() => {
+    if (timeBand == null) return [];
+    return openSlotsForSelectedDay.filter((s) => getSlotTimeBand(s.start24) === timeBand);
+  }, [openSlotsForSelectedDay, timeBand]);
 
   // When day changes, reset slot/existing selection
   const handleDayChange = (idx: number) => {
@@ -189,6 +329,9 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
           end_time: selectedSlot.end24,
           intensity: safeIntensity,
           notes: focus ? `Focus: ${focus}` : '',
+          ...(linkedProgramSlug
+            ? { linked_program_slugs: [linkedProgramSlug] }
+            : {}),
         },
         agentType: 'timeline',
       });
@@ -227,6 +370,56 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
         placeholderTextColor={colors.textSecondary}
       />
 
+      {/* ── Linked program (from player plan) ── */}
+      {(ctx?.linkedPrograms?.length ?? 0) > 0 && (
+        <View style={styles.linkedBlock}>
+          <Text style={styles.groupLabel}>LINKED PROGRAM</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.linkedScroller}
+            contentContainerStyle={styles.linkedScrollContent}
+          >
+            <Pressable
+              onPress={() => setLinkedProgramSlug(null)}
+              style={[
+                styles.linkedChip,
+                linkedProgramSlug === null && styles.linkedChipSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.linkedChipText,
+                  linkedProgramSlug === null && styles.linkedChipTextSelected,
+                ]}
+              >
+                None
+              </Text>
+            </Pressable>
+            {ctx!.linkedPrograms!.map((p) => {
+              const on = linkedProgramSlug === p.slug;
+              return (
+                <Pressable
+                  key={p.slug}
+                  onPress={() => setLinkedProgramSlug(p.slug)}
+                  style={[styles.linkedChip, on && styles.linkedChipSelected]}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.linkedChipText,
+                      on && styles.linkedChipTextSelected,
+                    ]}
+                  >
+                    {p.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       {/* ── Day scroller ── */}
       <ScrollView
         horizontal
@@ -236,7 +429,7 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
       >
         {days.map((day, idx) => {
           const isSelected = idx === selectedDayIdx;
-          const slotCount = day.availableSlots.length;
+          const slotCount = filterFutureSlots(day.date, day.availableSlots, now).length;
           return (
             <Pressable
               key={day.date}
@@ -307,30 +500,89 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
           </View>
         )}
 
-        {/* Available slots */}
-        {selectedDay.availableSlots.length > 0 ? (
+        {/* Time of day, then open slots in that band */}
+        {openSlotsForSelectedDay.length > 0 ? (
           <View style={styles.eventGroup}>
             <Text style={styles.groupLabel}>OPEN SLOTS</Text>
-            {selectedDay.availableSlots.map((slot) => {
-              const isSelected = selectedSlot?.start24 === slot.start24;
-              return (
-                <Pressable
-                  key={slot.start24}
-                  onPress={() => handleSlotSelect(slot)}
-                  style={[
-                    styles.eventRow,
-                    styles.eventRowTappable,
-                    styles.slotRow,
-                    isSelected && styles.slotRowSelected,
-                  ]}
-                >
-                  <View style={[styles.radio, isSelected && styles.radioSelected]} />
-                  <Text style={[styles.slotLabel, isSelected && styles.slotLabelSelected]}>
-                    {slot.label}
+            <Text style={styles.bandSubLabel}>1. Time of day</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.bandScroller}
+              contentContainerStyle={styles.bandScrollContent}
+            >
+              {bandsWithSlots.map((id) => {
+                const def = TIME_BANDS.find((b) => b.id === id);
+                const isSel = timeBand === id;
+                return (
+                  <Pressable
+                    key={id}
+                    onPress={() => setTimeBand(id)}
+                    style={[styles.bandChip, isSel && styles.bandChipSelected]}
+                  >
+                    <Text
+                      style={[
+                        styles.bandLabel,
+                        isSel && styles.bandLabelSelected,
+                      ]}
+                    >
+                      {def?.label ?? id}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.bandHint,
+                        isSel && styles.bandHintSelected,
+                      ]}
+                    >
+                      {def?.hint}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {timeBand == null && bandsWithSlots.length > 1 ? (
+              <Text style={styles.bandPrompt}>Choose a time of day to see open slots</Text>
+            ) : null}
+
+            {timeBand != null && (
+              <>
+                <Text style={styles.bandSubLabel}>2. Pick a time</Text>
+                {slotsInSelectedBand.length === 0 ? (
+                  <Text style={styles.bandEmpty}>
+                    No slots in this part of the day — try another time of day
                   </Text>
-                </Pressable>
-              );
-            })}
+                ) : (
+                  slotsInSelectedBand.map((slot) => {
+                    const isSelected = selectedSlot?.start24 === slot.start24;
+                    return (
+                      <Pressable
+                        key={`${slot.start24}-${slot.end24}`}
+                        onPress={() => handleSlotSelect(slot)}
+                        style={[
+                          styles.eventRow,
+                          styles.eventRowTappable,
+                          styles.slotRow,
+                          isSelected && styles.slotRowSelected,
+                        ]}
+                      >
+                        <View
+                          style={[styles.radio, isSelected && styles.radioSelected]}
+                        />
+                        <Text
+                          style={[
+                            styles.slotLabel,
+                            isSelected && styles.slotLabelSelected,
+                          ]}
+                        >
+                          {slot.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })
+                )}
+              </>
+            )}
           </View>
         ) : (
           <View style={styles.emptySlots}>
@@ -485,6 +737,93 @@ const styles = StyleSheet.create({
     color: colors.textInactive,
     letterSpacing: 0.8,
     marginTop: 4,
+  },
+  bandSubLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  bandPrompt: {
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+    color: colors.textInactive,
+    fontStyle: 'italic',
+    marginTop: 6,
+  },
+  bandEmpty: {
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+    color: colors.textInactive,
+    marginTop: 4,
+  },
+  bandScroller: {
+    marginHorizontal: -2,
+  },
+  bandScrollContent: {
+    gap: 6,
+    paddingVertical: 4,
+  },
+  bandChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    backgroundColor: colors.chipBackground,
+    minWidth: 100,
+  },
+  bandChipSelected: {
+    borderColor: colors.accent1,
+    backgroundColor: `rgba(122, 155, 118, 0.1)`,
+  },
+  bandLabel: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
+  bandLabelSelected: {
+    color: colors.accent1,
+  },
+  bandHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: 9,
+    color: colors.textInactive,
+    marginTop: 1,
+  },
+  bandHintSelected: {
+    color: colors.textSecondary,
+  },
+  linkedBlock: {
+    gap: 4,
+  },
+  linkedScroller: {
+    marginHorizontal: -4,
+  },
+  linkedScrollContent: {
+    gap: 6,
+    paddingHorizontal: 4,
+  },
+  linkedChip: {
+    maxWidth: 200,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    backgroundColor: colors.chipBackground,
+  },
+  linkedChipSelected: {
+    borderColor: colors.accent1,
+    backgroundColor: `rgba(122, 155, 118, 0.1)`,
+  },
+  linkedChipText: {
+    fontFamily: fontFamily.medium,
+    fontSize: 12,
+    color: colors.textPrimary,
+  },
+  linkedChipTextSelected: {
+    color: colors.accent1,
   },
 
   // Event rows
