@@ -735,6 +735,7 @@ export async function orchestrate(
         get_training_session: "Building your session...",
         get_drill_detail: "Loading drill details...",
         get_my_programs: "Checking your programs...",
+        get_program_details: "Loading program details...",
         get_training_program_recommendations: "Finding programs for you...",
         get_consistency_score: "Calculating your streak...",
         get_dual_load_score: "Analyzing your load...",

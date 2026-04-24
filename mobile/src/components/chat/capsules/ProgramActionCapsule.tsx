@@ -97,6 +97,12 @@ export function ProgramActionCapsuleComponent({ card, onSubmit }: ProgramActionC
         <Text style={styles.metaText}>{card.duration}</Text>
       </View>
 
+      {!!card.summary && (
+        <Text style={styles.summary} numberOfLines={4}>
+          {card.summary}
+        </Text>
+      )}
+
       <View style={styles.actionsRow}>
         {availableActions.map((action) => {
           const config = ACTION_CONFIG[action];
@@ -172,6 +178,13 @@ const styles = StyleSheet.create({
   metaDot: {
     color: colors.textSecondary,
     fontSize: 13,
+  },
+  summary: {
+    fontFamily: fontFamily.regular,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   actionsRow: {
     flexDirection: 'row',

@@ -20,6 +20,74 @@ export type IntentHandler = (
   conversationState: ConversationState | null
 ) => Promise<OrchestratorResult | null>;
 
+function flattenProgramRecommendationSet(set: Record<string, unknown> | null | undefined): any[] {
+  if (!set || typeof set !== "object") return [];
+  const s = set as any;
+  return [
+    ...(s.mandatory ?? []),
+    ...(s.highPriority ?? []),
+    ...(s.technical ?? []),
+    ...(s.injuryPrevention ?? []),
+  ];
+}
+
+function mapToProgramActionCapsule(p: Record<string, any>) {
+  const programId = (p.programId ?? p.id ?? "").toString();
+  const programName = (p.name ?? p.programName ?? "Training program").toString();
+  const priRaw = p.priority;
+  let priority: "high" | "medium" | "low" = "medium";
+  if (priRaw === 1 || priRaw === "mandatory" || priRaw === "high") priority = "high";
+  else if (priRaw === 2 || priRaw === "medium") priority = "medium";
+  else if (priRaw === 3 || priRaw === "low") priority = "low";
+
+  let duration: string;
+  const dur = p.duration;
+  if (typeof dur === "string" && dur && dur !== "null" && dur !== "undefined") {
+    duration = dur;
+  } else if (p.durationWeeks != null && p.durationWeeks !== "") {
+    duration = `${p.durationWeeks} weeks`;
+  } else if (p.durationMin != null) {
+    duration = `~${p.durationMin} min / session`;
+  } else {
+    duration = "6 weeks";
+  }
+
+  let frequency: string;
+  const fr = p.frequency;
+  if (typeof fr === "string" && fr && fr !== "null" && fr !== "undefined") {
+    frequency = fr;
+  } else if (p.weeklyFrequency != null) {
+    frequency = `${p.weeklyFrequency}x/week`;
+  } else if (p.sessionsPerWeek != null) {
+    frequency = `${p.sessionsPerWeek}x/week`;
+  } else if (p.prescription?.frequency) {
+    frequency = p.prescription.frequency;
+  } else {
+    frequency = "3x/week";
+  }
+
+  const rawSummary = p.reason ?? p.description ?? p.positionNote ?? "";
+  const summary =
+    typeof rawSummary === "string" && rawSummary.trim().length > 0
+      ? rawSummary.replace(/\s+/g, " ").trim().slice(0, 200)
+      : undefined;
+
+  return {
+    type: "program_action_capsule" as const,
+    programId,
+    programName,
+    frequency,
+    duration,
+    priority,
+    ...(summary ? { summary } : {}),
+    currentStatus: p.status ?? null,
+    availableActions:
+      p.status === "active"
+        ? (["done" as const, "dismissed" as const])
+        : (["details" as const, "add_to_training" as const]),
+  };
+}
+
 // ── Test Log Handler ──
 async function handleLogTest(
   message: string, params: Record<string, any>, context: PlayerContext
@@ -198,19 +266,11 @@ async function handleShowPrograms(
 ): Promise<OrchestratorResult | null> {
   try {
     const result = await executeOutputTool("get_my_programs", {}, context);
-    if (result.result?.programs && result.result.programs.length > 0) {
-      const programCards = result.result.programs.slice(0, 5).map((p: any) => ({
-        type: "program_action_capsule" as const,
-        programId: p.id ?? p.programId ?? "",
-        programName: p.name ?? p.programName ?? "Training Program",
-        frequency: (p.frequency && p.frequency !== "undefined" && p.frequency !== "null") ? p.frequency : (p.sessionsPerWeek ? `${p.sessionsPerWeek}x/week` : "3x/week"),
-        duration: p.duration ?? (p.durationWeeks ? `${p.durationWeeks} weeks` : "6 weeks"),
-        priority: (p.priority === 1 ? "high" : p.priority === 2 ? "medium" : "low") as "high" | "medium" | "low",
-        currentStatus: p.status ?? null,
-        availableActions: p.status === "active"
-          ? ["done" as const, "dismissed" as const]
-          : ["details" as const, "add_to_training" as const],
-      }));
+    const fromSnapshot = (result.result?.programs as any[] | undefined) ?? [];
+    if (fromSnapshot.length > 0) {
+      const programCards = fromSnapshot
+        .slice(0, 5)
+        .map((p: Record<string, any>) => mapToProgramActionCapsule(p));
 
       return {
         message: "Your programs",
@@ -220,20 +280,19 @@ async function handleShowPrograms(
       };
     }
 
-    // No active programs — show recommendations
+    // No programs in snapshot — use engine (PHV, position, etc.) from ProgramRecommendationSet buckets
     const recResult = await executeOutputTool("get_training_program_recommendations", {}, context);
-    const recs = recResult.result?.programs ?? recResult.result?.recommendations ?? [];
+    const rawSet = recResult.result;
+    const recs =
+      Array.isArray((rawSet as any)?.programs) && (rawSet as any).programs.length > 0
+        ? (rawSet as any).programs
+        : Array.isArray((rawSet as any)?.recommendations)
+          ? (rawSet as any).recommendations
+          : flattenProgramRecommendationSet(rawSet);
     if (recs.length > 0) {
-      const recCards = recs.slice(0, 5).map((p: any) => ({
-        type: "program_action_capsule" as const,
-        programId: p.id ?? p.programId ?? "",
-        programName: p.name ?? p.programName ?? "Training Program",
-        frequency: (p.frequency && p.frequency !== "undefined" && p.frequency !== "null") ? p.frequency : (p.sessionsPerWeek ? `${p.sessionsPerWeek}x/week` : "3x/week"),
-        duration: p.duration ?? (p.durationWeeks ? `${p.durationWeeks} weeks` : "6 weeks"),
-        priority: (p.priority === 1 ? "high" : p.priority === 2 ? "medium" : "low") as "high" | "medium" | "low",
-        currentStatus: null,
-        availableActions: ["details" as const, "add_to_training" as const],
-      }));
+      const recCards = recs
+        .slice(0, 5)
+        .map((p: Record<string, any>) => mapToProgramActionCapsule({ ...p, status: null }));
 
       return {
         message: "Recommended programs for you",

@@ -69,6 +69,11 @@ def _register_builders():
         build_conflicts_headline,
         build_conflicts_chips,
     )
+    from app.flow.card_builders.programs import (
+        build_program_cards,
+        build_programs_headline,
+        build_programs_chips,
+    )
 
     _TOOL_BUILDERS["get_readiness_detail"] = {
         "card": build_readiness_card,
@@ -104,6 +109,11 @@ def _register_builders():
         "card": build_conflicts_card,
         "headline": build_conflicts_headline,
         "chips": build_conflicts_chips,
+    }
+    _TOOL_BUILDERS["get_my_programs"] = {
+        "card": build_program_cards,
+        "headline": build_programs_headline,
+        "chips": build_programs_chips,
     }
 
 
@@ -145,6 +155,32 @@ async def execute_data_display(config: FlowConfig, state: TomoChatState) -> dict
     if isinstance(tool_result, dict) and tool_result.get("error"):
         return _build_error_response(tool_name, tool_result)
 
+    # Snapshot empty → same path as TypeScript handleShowPrograms: call recommendation engine
+    tool_calls_log: list[dict] = [{"name": tool_name, "result": "success"}]
+    if tool_name == "get_my_programs" and isinstance(tool_result, dict):
+        snap_programs = tool_result.get("programs") or []
+        if len(snap_programs) == 0:
+            rec = await _call_tool(
+                "get_training_program_recommendations", user_id, context, tool_args={}
+            )
+            if rec and isinstance(rec, dict) and not rec.get("error"):
+                rec_progs = rec.get("programs") or []
+                if rec_progs:
+                    tool_result = {
+                        "programs": rec_progs[:5],
+                        "dataStatus": "recommendation_fallback",
+                    }
+                    tool_calls_log.append(
+                        {
+                            "name": "get_training_program_recommendations",
+                            "result": "success",
+                        }
+                    )
+                    logger.info(
+                        "data_display: get_my_programs empty — using "
+                        f"{len(rec_progs[:5])} program(s) from recommendation engine"
+                    )
+
     # 2. Build card from tool result
     builders = _TOOL_BUILDERS.get(tool_name)
     if not builders:
@@ -179,6 +215,10 @@ async def execute_data_display(config: FlowConfig, state: TomoChatState) -> dict
 
     # 4. Optional: generate warm body text with Haiku
     body = ""
+    if tool_name == "get_my_programs" and not cards and isinstance(tool_result, dict):
+        body = (tool_result.get("hint") or "").strip() or (
+            "Your personalized programs are still being prepared — open the Training tab or check back shortly."
+        )
     total_cost = 0.0
     total_tokens = 0
 
@@ -220,7 +260,7 @@ async def execute_data_display(config: FlowConfig, state: TomoChatState) -> dict
         "_flow_pattern": "data_display",
         "total_cost_usd": total_cost,
         "total_tokens": total_tokens,
-        "tool_calls": [{"name": tool_name, "result": "success"}],
+        "tool_calls": tool_calls_log,
     }
 
 
@@ -228,7 +268,12 @@ async def _call_tool(tool_name: str, user_id: str, context, tool_args: dict | No
     """Create and call a tool by name. Returns tool result or None on failure."""
     try:
         # Determine which factory to use based on tool name
-        if tool_name in ("get_readiness_detail", "get_dual_load_score"):
+        if tool_name in (
+            "get_readiness_detail",
+            "get_dual_load_score",
+            "get_my_programs",
+            "get_training_program_recommendations",
+        ):
             from app.agents.tools.output_tools import make_output_tools
             tools = make_output_tools(user_id, context)
         elif tool_name in ("get_today_events", "get_week_schedule", "detect_load_collision"):

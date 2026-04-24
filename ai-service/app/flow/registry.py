@@ -151,9 +151,12 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
     ),
 
     # -- Programs --
+    # data_display loads snapshot via get_my_programs (same as Programs tab) — not capsule_direct, which
+    # only sent an empty type stub and rendered blank cards in chat.
     "show_programs": FlowConfig(
-        pattern="capsule_direct",
-        capsule_type="program_action_capsule",
+        pattern="data_display",
+        tool="get_my_programs",
+        card="program_action_capsule",
         headline="Your programs",
     ),
     "manage_programs": FlowConfig(

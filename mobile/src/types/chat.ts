@@ -299,6 +299,8 @@ export interface ProgramActionCapsule {
   frequency: string;
   duration: string;
   priority: 'high' | 'medium' | 'low';
+  /** Short rationale / description from snapshot or recommendation engine */
+  summary?: string;
   currentStatus?: 'active' | 'done' | 'dismissed' | null;
   /** Server/LLM may omit; client defaults to a safe CTA set. */
   availableActions?: Array<'done' | 'dismissed' | 'active' | 'player_selected' | 'schedule' | 'details' | 'add_to_training'>;

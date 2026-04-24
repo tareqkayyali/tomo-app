@@ -933,6 +933,22 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         }
 
     @tool
+    async def get_program_details(
+        programId: str = "",
+        programName: str = "",
+    ) -> dict:
+        """
+        Program Details from the mobile program card (camelCase). Delegates to the same
+        logic as get_program_drill_breakdown; required for confirmed_action / capsule submit.
+        """
+        return await get_program_drill_breakdown.ainvoke(
+            {
+                "program_id": (programId or "").strip(),
+                "program_name": (programName or "").strip(),
+            }
+        )
+
+    @tool
     async def get_program_by_id(program_id: str) -> dict:
         """Get full details for a specific program by ID. Accepts either the slug ID from the athlete's snapshot (e.g. 'tech_combination_play') or the DB UUID from training_programs. Cascades: snapshot first, then catalog."""
         if not program_id or not program_id.strip():
@@ -1172,6 +1188,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
         get_my_programs,
         get_program_by_name,
         get_program_drill_breakdown,
+        get_program_details,
         get_program_by_id,
         rate_drill,
         get_today_training_for_journal,

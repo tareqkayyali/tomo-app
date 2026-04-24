@@ -250,6 +250,25 @@ export const outputTools = [
       },
     },
   },
+  {
+    name: "get_program_details",
+    description:
+      "Get drill-oriented detail for one program from the athlete's personalized snapshot (same source as program cards). Use when the player taps Program Details, asks for drills for a program, or follows up on a listed program. Provide programId and/or programName from the card or conversation.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        programId: {
+          type: "string",
+          description: "Catalog / snapshot program id (e.g. sprint_linear_10_30)",
+        },
+        programName: {
+          type: "string",
+          description: "Program display name if id is unknown",
+        },
+      },
+      required: [],
+    },
+  },
 
   // ── Capsule Tools — test logging & catalog ──────────────────────
 
@@ -410,6 +429,45 @@ export const outputTools = [
     },
   },
 ];
+
+/**
+ * Personalized program rows from athlete_snapshots.program_recommendations
+ * (DeepProgramResult.programs — same as Programs tab / deepProgramRefresh).
+ */
+async function loadSnapshotProgramRows(
+  db: ReturnType<typeof supabaseAdmin>,
+  userId: string
+): Promise<{ programs: any[]; error?: string }> {
+  const { data: snapshot, error } = await (db as any)
+    .from("athlete_snapshots")
+    .select("program_recommendations")
+    .eq("athlete_id", userId)
+    .single();
+  if (error && (error as { code?: string }).code !== "PGRST116") {
+    return { programs: [], error: error.message };
+  }
+  let raw = snapshot?.program_recommendations;
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      raw = null;
+    }
+  }
+  let programs: any[] = [];
+  if (Array.isArray(raw)) programs = raw;
+  else if (raw && Array.isArray(raw.programs)) programs = raw.programs;
+  return { programs };
+}
+
+function parseDrillPatternsFromDescription(description: string): string[] {
+  const d = (description || "").trim();
+  if (!d) return [];
+  const first = d.split(".")[0] || d;
+  const raw = first.split(/,|;| and /i);
+  const out = raw.map((s) => s.trim()).filter((s) => s.length > 2);
+  return out.length > 0 ? out : [first];
+}
 
 export async function executeOutputTool(
   toolName: string,
@@ -778,30 +836,12 @@ export async function executeOutputTool(
       case "get_my_programs": {
         console.warn("[get_my_programs] called with input:", JSON.stringify(toolInput));
 
-        const { data: snapshot, error: snapErr } = await (db as any)
-          .from("athlete_snapshots")
-          .select("program_recommendations")
-          .eq("athlete_id", userId)
-          .single();
-
-        if (snapErr) {
-          console.warn("[get_my_programs] DB error:", snapErr.message);
-          return { result: null, error: `Failed to fetch programs: ${snapErr.message}` };
+        const { programs: rowsFromDb, error: loadErr } = await loadSnapshotProgramRows(db, userId);
+        if (loadErr) {
+          console.warn("[get_my_programs] DB error:", loadErr);
+          return { result: null, error: `Failed to fetch programs: ${loadErr}` };
         }
-
-        let raw = snapshot?.program_recommendations;
-        // Handle case where it's stored as a string
-        if (typeof raw === 'string') {
-          try { raw = JSON.parse(raw); } catch { raw = null; }
-        }
-        // program_recommendations is a DeepProgramResult object: { programs: [...], isAiGenerated, ... }
-        // NOT a flat array — programs are nested under .programs
-        let programs: any[] = [];
-        if (Array.isArray(raw)) {
-          programs = raw;
-        } else if (raw && Array.isArray(raw.programs)) {
-          programs = raw.programs;
-        }
+        let programs: any[] = rowsFromDb;
         console.warn("[get_my_programs] found", programs.length, "programs in snapshot");
 
         // Filter by name if provided — fuzzy match: split search into words and match any
@@ -871,19 +911,144 @@ export async function executeOutputTool(
             found: true,
             count: limited.length,
             totalAvailable: programs.length,
-            programs: limited.map((p: any) => ({
+            programs: limited.map((p: any) => {
+              const programId = p.programId ?? p.id ?? "";
+              return {
+                programId,
+                id: programId,
+                name: p.name,
+                programName: p.name,
+                category: p.category,
+                type: p.type,
+                priority: p.priority,
+                frequency: p.frequency,
+                durationMin: p.durationMin,
+                durationWeeks: p.durationWeeks,
+                duration: p.duration,
+                difficulty: p.difficulty,
+                description: p.description,
+                reason: p.reason,
+                impact: p.impact,
+                prescription: p.prescription,
+                tags: p.tags,
+                positionNote: p.positionNote,
+                phvWarnings: p.phvWarnings,
+              };
+            }),
+            ...(relatedDrills.length > 0 ? { relatedDrills } : {}),
+          },
+        };
+      }
+
+      case "get_program_details": {
+        const programIdInput = (toolInput.programId ?? toolInput.id ?? "")
+          .toString()
+          .trim()
+          .toLowerCase();
+        const programNameInput = (toolInput.programName ?? toolInput.name ?? "")
+          .toString()
+          .trim()
+          .toLowerCase();
+
+        const { programs: snapList, error: dErr } = await loadSnapshotProgramRows(db, userId);
+        if (dErr) {
+          return { result: null, error: `Failed to load programs: ${dErr}` };
+        }
+        if (snapList.length === 0) {
+          return {
+            result: {
+              found: false,
+              message: "No personalized programs in your snapshot yet. Open Training or run program recommendations first.",
+            },
+          };
+        }
+
+        let p: any | undefined;
+        if (programIdInput) {
+          p = snapList.find(
+            (q: any) =>
+              (q.programId ?? q.id ?? "").toString().toLowerCase() === programIdInput
+          );
+        }
+        if (!p && programNameInput) {
+          const nameWords = programNameInput.split(/\s+/).filter((w: string) => w.length > 2);
+          p = snapList.find((q: any) => {
+            const n = (q.name || "").toLowerCase();
+            return nameWords.some((w: string) => n.includes(w)) || n.includes(programNameInput);
+          });
+        }
+        if (!p) {
+          return {
+            result: {
+              found: false,
+              message: "Could not find that program in your recommendations. Try picking from the list or ask to show your programs again.",
+            },
+          };
+        }
+
+        const pid = p.programId ?? p.id ?? "";
+        const fullDesc = (p.description || p.reason || p.prescription || "").toString();
+        const drillPatterns = parseDrillPatternsFromDescription(fullDesc);
+
+        let relatedDrills: any[] = [];
+        try {
+          const categories = [p.category?.toLowerCase()].filter(Boolean);
+          const tags = (p.tags ?? []).map((t: string) => t.toLowerCase());
+          const searchTerms = [...new Set([...categories, ...tags])].slice(0, 5);
+          if (searchTerms.length > 0) {
+            const { data: drills } = await (db as any)
+              .from("training_drills")
+              .select("name, description, duration_minutes, intensity, category, attribute_keys")
+              .eq("sport_id", "football")
+              .eq("active", true)
+              .limit(50);
+            if (drills) {
+              relatedDrills = drills
+                .filter((d: any) => {
+                  const attrs = (d.attribute_keys ?? []).map((a: string) => a.toLowerCase());
+                  return searchTerms.some(
+                    (t) => attrs.includes(t) || d.name?.toLowerCase().includes(t)
+                  );
+                })
+                .slice(0, 8)
+                .map((d: any) => ({
+                  name: d.name,
+                  description: d.description,
+                  duration: d.duration_minutes,
+                  intensity: d.intensity,
+                  category: d.category,
+                }));
+            }
+          }
+        } catch {
+          /* non-critical */
+        }
+
+        return {
+          result: {
+            found: true,
+            program: {
+              programId: pid,
+              id: pid,
               name: p.name,
+              programName: p.name,
               category: p.category,
               type: p.type,
               priority: p.priority,
               frequency: p.frequency,
               durationMin: p.durationMin,
+              durationWeeks: p.durationWeeks,
               difficulty: p.difficulty,
               description: p.description,
               reason: p.reason,
+              impact: p.impact,
               prescription: p.prescription,
-            })),
-            ...(relatedDrills.length > 0 ? { relatedDrills } : {}),
+              tags: p.tags,
+              positionNote: p.positionNote,
+              phvWarnings: p.phvWarnings,
+            },
+            drillPatterns,
+            relatedDrills,
           },
         };
       }
