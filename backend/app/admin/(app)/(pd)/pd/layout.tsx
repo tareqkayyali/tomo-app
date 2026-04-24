@@ -4,55 +4,39 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-/**
- * Planning Intelligence Hub — tab strip for the four planning-config
- * surfaces: Planning Protocols, Cognitive Windows, Scheduling Rules,
- * Dual Load Thresholds.
- *
- * Scoped by pathname: the PD Protocols subtree (/admin/enterprise/
- * protocols/*) has its own hub layout already, so we don't render the
- * outer tabs there — otherwise you'd see two horizontal tab bars.
- *
- * Planning-intelligence URLs are at unrelated paths (no common URL
- * prefix), so this layout applies per-request rather than per-URL-tree.
- */
-
-const PLANNING_HUB_TABS: { href: string; label: string; hint: string }[] = [
+const PLANNING_TABS: { href: string; label: string; hint: string }[] = [
   {
-    href: "/admin/planning-protocols",
+    href: "/admin/pd/planning",
     label: "Planning Protocols",
     hint: "Session planning rules (priority / phases / blocks)",
   },
   {
-    href: "/admin/cognitive-windows",
+    href: "/admin/pd/cognitive-windows",
     label: "Cognitive Windows",
     hint: "Time-of-day readiness windows and study-sport fit",
   },
   {
-    href: "/admin/scheduling-rules",
+    href: "/admin/pd/scheduling",
     label: "Scheduling Rules",
     hint: "Training slot config + buffers + constraints",
   },
   {
-    href: "/admin/dual-load",
-    label: "Dual Load Thresholds",
+    href: "/admin/pd/dual-load",
+    label: "Dual Load",
     hint: "DLI zones and recommended actions",
   },
 ];
 
-const HUB_PREFIXES = PLANNING_HUB_TABS.map((t) => t.href);
+const PLANNING_PREFIXES = PLANNING_TABS.map((t) => t.href);
 
-export default function PlanningHubLayout({
+export default function PdHubLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
 
-  // Show the outer tab strip only when the current page is one of the
-  // four planning-intelligence surfaces. Everything else in this route
-  // group (currently just /admin/enterprise/protocols/*) renders without.
-  const inPlanningHub = HUB_PREFIXES.some(
+  const inPlanningHub = PLANNING_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
 
@@ -68,14 +52,14 @@ export default function PlanningHubLayout({
             Planning Intelligence
           </h1>
           <p className="text-sm text-muted-foreground">
-            Tune the Tomo planning engine — protocol rules, cognitive
-            windows, scheduling constraints, and dual-load advice.
+            Tune the planning engine — protocol rules, cognitive windows,
+            scheduling constraints, and dual-load advice.
           </p>
         </div>
 
         <nav className="border-b">
           <ul className="flex items-center gap-1 overflow-x-auto">
-            {PLANNING_HUB_TABS.map((tab) => {
+            {PLANNING_TABS.map((tab) => {
               const isActive =
                 pathname === tab.href || pathname.startsWith(tab.href + "/");
               return (

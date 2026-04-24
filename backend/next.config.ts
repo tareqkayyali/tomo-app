@@ -8,6 +8,49 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_AUTO_HEAL_UI_VISIBLE:
       process.env.NEXT_PUBLIC_AUTO_HEAL_UI_VISIBLE ?? "false",
   },
+  // Permanent redirects from old CMS URLs to three-pillar structure.
+  // Preserves bookmarks after the AI Health / PD / Data Fabric consolidation.
+  async redirects() {
+    return [
+      // ── Pillar 1: AI Health ──────────────────────────────────────────────
+      { source: "/admin/enterprise/quality", destination: "/admin/ai-health/quality", permanent: true },
+      { source: "/admin/enterprise/quality/auto-heal", destination: "/admin/ai-health/auto-heal", permanent: true },
+      { source: "/admin/enterprise/quality/golden-set", destination: "/admin/ai-health/quality/golden-set", permanent: true },
+      { source: "/admin/enterprise/quality/shadow-runs", destination: "/admin/ai-health/quality/shadow-runs", permanent: true },
+      { source: "/admin/enterprise/quality/disagreements", destination: "/admin/ai-health/quality/disagreements", permanent: true },
+      { source: "/admin/enterprise/quality/drift", destination: "/admin/ai-health/quality/drift", permanent: true },
+      { source: "/admin/enterprise/quality/safety-flags", destination: "/admin/ai-health/quality/safety-flags", permanent: true },
+      { source: "/admin/enterprise/evaluations", destination: "/admin/ai-health/evaluations", permanent: true },
+      { source: "/admin/enterprise/evaluations/runs", destination: "/admin/ai-health/evaluations/runs", permanent: true },
+      { source: "/admin/enterprise/evaluations/baselines", destination: "/admin/ai-health/evaluations/baselines", permanent: true },
+      { source: "/admin/enterprise/ai-operations", destination: "/admin/ai-health/ai-ops", permanent: true },
+      { source: "/admin/enterprise/knowledge", destination: "/admin/ai-health/knowledge", permanent: true },
+      { source: "/admin/enterprise/knowledge/editor", destination: "/admin/ai-health/knowledge/editor", permanent: true },
+      { source: "/admin/enterprise/knowledge/graph", destination: "/admin/ai-health/knowledge/graph", permanent: true },
+      { source: "/admin/observability", destination: "/admin/ai-health/observability", permanent: true },
+      // ── Pillar 2: Performance Director ───────────────────────────────────
+      { source: "/admin/enterprise/protocols", destination: "/admin/pd/protocols", permanent: true },
+      { source: "/admin/enterprise/protocols/builder", destination: "/admin/pd/protocols/builder", permanent: true },
+      { source: "/admin/enterprise/protocols/generations", destination: "/admin/pd/protocols/generations", permanent: true },
+      { source: "/admin/enterprise/protocols/inheritance", destination: "/admin/pd/protocols/inheritance", permanent: true },
+      { source: "/admin/enterprise/protocols/test", destination: "/admin/pd/protocols/test", permanent: true },
+      { source: "/admin/performance-intelligence", destination: "/admin/pd/intelligence", permanent: true },
+      { source: "/admin/planning-protocols", destination: "/admin/pd/planning", permanent: true },
+      { source: "/admin/planning-protocols/new", destination: "/admin/pd/planning/new", permanent: true },
+      { source: "/admin/planning-protocols/:id/edit", destination: "/admin/pd/planning/:id/edit", permanent: true },
+      { source: "/admin/cognitive-windows", destination: "/admin/pd/cognitive-windows", permanent: true },
+      { source: "/admin/cognitive-windows/new", destination: "/admin/pd/cognitive-windows/new", permanent: true },
+      { source: "/admin/cognitive-windows/:id/edit", destination: "/admin/pd/cognitive-windows/:id/edit", permanent: true },
+      { source: "/admin/scheduling-rules", destination: "/admin/pd/scheduling", permanent: true },
+      { source: "/admin/dual-load", destination: "/admin/pd/dual-load", permanent: true },
+      { source: "/admin/modes", destination: "/admin/pd/modes", permanent: true },
+      { source: "/admin/modes/new", destination: "/admin/pd/modes/new", permanent: true },
+      { source: "/admin/modes/:id/edit", destination: "/admin/pd/modes/:id/edit", permanent: true },
+      { source: "/admin/chat-pills", destination: "/admin/pd/chat-pills", permanent: true },
+      { source: "/admin/wearables", destination: "/admin/pd/wearables", permanent: true },
+      { source: "/admin/acwr-inspector", destination: "/admin/pd/acwr", permanent: true },
+    ];
+  },
   // Public static docs under /legal/* (privacy.html, terms.html) are
   // intentionally world-readable across origins so the mobile web app
   // (dev or prod) can read the tomo-version meta tag during signup.
