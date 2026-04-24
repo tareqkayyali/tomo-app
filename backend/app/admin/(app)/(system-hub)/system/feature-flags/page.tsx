@@ -70,7 +70,7 @@ export default function FeatureFlagsPage() {
             {flags.length} flag{flags.length !== 1 ? "s" : ""} configured
           </p>
         </div>
-        <Link href="/admin/feature-flags/new">
+        <Link href="/admin/system/feature-flags/new">
           <Button>+ New Flag</Button>
         </Link>
       </div>

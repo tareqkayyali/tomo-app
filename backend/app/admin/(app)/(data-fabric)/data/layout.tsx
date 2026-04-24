@@ -6,48 +6,48 @@ import { cn } from "@/lib/utils";
 
 const TABS: { href: string; label: string; hint: string }[] = [
   {
-    href: "/admin/pd/protocols",
-    label: "Protocols",
-    hint: "Performance Director protocols — overview, builder, inheritance, simulator",
+    href: "/admin/data/programs",
+    label: "Programs",
+    hint: "Training programs and the position-based recommendation matrix",
   },
   {
-    href: "/admin/pd/intelligence",
-    label: "Intelligence",
-    hint: "Performance intelligence — athlete benchmarks and trend analysis",
+    href: "/admin/data/drills",
+    label: "Drills",
+    hint: "Drill library — per-sport, per-attribute exercises",
   },
   {
-    href: "/admin/pd/planning",
-    label: "Planning",
-    hint: "Planning protocols and cognitive windows",
+    href: "/admin/data/normative-data",
+    label: "Normative Data",
+    hint: "Benchmark bands and SD wideners for athlete percentile scoring",
   },
   {
-    href: "/admin/pd/config",
-    label: "Config",
-    hint: "Planning engine config — dual load thresholds and scheduling rules",
+    href: "/admin/data/progress-metrics",
+    label: "Progress Metrics",
+    hint: "Custom metric definitions tracked over athlete development arcs",
   },
   {
-    href: "/admin/pd/modes",
-    label: "Modes",
-    hint: "Athlete training modes — definitions and assignment rules",
+    href: "/admin/data/dashboard-sections",
+    label: "Dashboard Sections",
+    hint: "Configurable sections shown on the athlete home dashboard",
   },
   {
-    href: "/admin/pd/chat-pills",
-    label: "Chat Pills",
-    hint: "Quick-action chip library surfaced in the AI chat interface",
+    href: "/admin/data/content-items",
+    label: "Content Items",
+    hint: "Rich content library consumed by the recommendation engine",
   },
   {
-    href: "/admin/pd/wearables",
-    label: "Wearables",
-    hint: "Wearable device integration config and field mappings",
+    href: "/admin/data/notifications",
+    label: "Notifications",
+    hint: "Notification templates, scheduled jobs, and type config",
   },
   {
-    href: "/admin/pd/acwr",
-    label: "ACWR",
-    hint: "Acute:Chronic Workload Ratio inspector and zone thresholds",
+    href: "/admin/data/cv",
+    label: "Athlete CV",
+    hint: "CV reference verification and AI-generated profile summaries",
   },
 ];
 
-export default function PDHubLayout({
+export default function DataFabricHubLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -58,12 +58,12 @@ export default function PDHubLayout({
     <div className="space-y-6">
       <header className="space-y-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-blue-700">
-            Performance Director
+          <h1 className="text-2xl font-semibold tracking-tight text-emerald-700">
+            Data Fabric
           </h1>
           <p className="text-sm text-muted-foreground">
-            Institutional performance protocols, planning intelligence,
-            athlete modes, and wearable integration.
+            The content and data layer — programs, drills, normative
+            benchmarks, metrics, dashboard config, and athlete CV.
           </p>
         </div>
 
@@ -80,7 +80,7 @@ export default function PDHubLayout({
                     className={cn(
                       "inline-flex items-center whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
                       isActive
-                        ? "border-blue-600 text-foreground"
+                        ? "border-emerald-600 text-foreground"
                         : "border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"
                     )}
                     title={tab.hint}

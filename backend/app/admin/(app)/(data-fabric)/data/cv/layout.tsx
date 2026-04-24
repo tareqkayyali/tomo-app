@@ -39,7 +39,7 @@ export default function AthleteCVHubLayout({
           <ul className="flex items-center gap-1 overflow-x-auto">
             {TABS.map((tab) => {
               const isActive =
-                tab.href === "/admin/cv"
+                tab.href === "/admin/data/cv"
                   ? pathname === tab.href
                   : pathname === tab.href ||
                     pathname.startsWith(tab.href + "/");

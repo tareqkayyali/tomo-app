@@ -129,7 +129,7 @@ export default function OrganizationsPage() {
               <TableRow key={t.id}>
                 <TableCell>
                   <Link
-                    href={`/admin/enterprise/organizations/${t.id}`}
+                    href={`/admin/system/organizations/${t.id}`}
                     className="font-medium hover:underline"
                   >
                     {t.name}
@@ -150,7 +150,7 @@ export default function OrganizationsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Link href={`/admin/enterprise/organizations/${t.id}`}>
+                  <Link href={`/admin/system/organizations/${t.id}`}>
                     <Button variant="ghost" size="sm">
                       Manage
                     </Button>

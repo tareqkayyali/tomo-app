@@ -109,7 +109,7 @@ export default function AdminUserDetailPage() {
     <div className="p-8 space-y-6 max-w-5xl">
       <div>
         <Link
-          href="/admin/users"
+          href="/admin/system/users"
           className="text-sm text-muted-foreground hover:underline"
         >
           ← Users

@@ -140,7 +140,7 @@ export default function ProgressMetricsPage() {
             controls the Signal &gt; Progress tab ring cards.
           </p>
         </div>
-        <Button onClick={() => router.push("/admin/progress-metrics/new")}>
+        <Button onClick={() => router.push("/admin/data/progress-metrics/new")}>
           + New Metric
         </Button>
       </div>
@@ -252,7 +252,7 @@ export default function ProgressMetricsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => router.push(`/admin/progress-metrics/${m.id}/edit`)}
+                        onClick={() => router.push(`/admin/data/progress-metrics/${m.id}/edit`)}
                       >
                         Edit
                       </Button>

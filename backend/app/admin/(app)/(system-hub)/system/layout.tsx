@@ -6,18 +6,43 @@ import { cn } from "@/lib/utils";
 
 const TABS: { href: string; label: string; hint: string }[] = [
   {
-    href: "/admin/programs",
-    label: "Programs",
-    hint: "Browse and manage training programs",
+    href: "/admin/system/audit",
+    label: "Audit Log",
+    hint: "Immutable admin action log across all tenants",
   },
   {
-    href: "/admin/programs/position-matrix",
-    label: "Position Matrix",
-    hint: "Per-position program recommendations and assignment rules",
+    href: "/admin/system/users",
+    label: "Users & Roles",
+    hint: "User management and role assignment",
+  },
+  {
+    href: "/admin/system/organizations",
+    label: "Organizations",
+    hint: "Tenant hierarchy — orgs, tiers, and feature entitlements",
+  },
+  {
+    href: "/admin/system/feature-flags",
+    label: "Feature Flags",
+    hint: "Runtime feature toggles per tenant and user segment",
+  },
+  {
+    href: "/admin/system/config",
+    label: "Config",
+    hint: "Global system configuration key-value store",
+  },
+  {
+    href: "/admin/system/onboarding",
+    label: "Onboarding",
+    hint: "Tenant onboarding wizard and setup checklist",
+  },
+  {
+    href: "/admin/system/debug",
+    label: "Debug",
+    hint: "Internal debug tools — state inspection and test utilities",
   },
 ];
 
-export default function ProgramsHubLayout({
+export default function SystemHubLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -28,10 +53,12 @@ export default function ProgramsHubLayout({
     <div className="space-y-6">
       <header className="space-y-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Programs</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-700">
+            System
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Training programs and the position-based recommendation matrix that
-            assigns them to athletes.
+            Platform operations — audit, users, organizations, feature flags,
+            global config, and debug tooling.
           </p>
         </div>
 
@@ -39,10 +66,8 @@ export default function ProgramsHubLayout({
           <ul className="flex items-center gap-1 overflow-x-auto">
             {TABS.map((tab) => {
               const isActive =
-                tab.href === "/admin/programs"
-                  ? pathname === tab.href
-                  : pathname === tab.href ||
-                    pathname.startsWith(tab.href + "/");
+                pathname === tab.href ||
+                pathname.startsWith(tab.href + "/");
               return (
                 <li key={tab.href}>
                   <Link
@@ -50,7 +75,7 @@ export default function ProgramsHubLayout({
                     className={cn(
                       "inline-flex items-center whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
                       isActive
-                        ? "border-primary text-foreground"
+                        ? "border-zinc-600 text-foreground"
                         : "border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"
                     )}
                     title={tab.hint}

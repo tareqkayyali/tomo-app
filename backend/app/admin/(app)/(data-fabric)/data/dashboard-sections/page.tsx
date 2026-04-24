@@ -237,7 +237,7 @@ export default function DashboardSectionsPage() {
             Pinned sections (&#128274;) render at fixed screen positions.
           </p>
         </div>
-        <Button onClick={() => router.push("/admin/dashboard-sections/new")}>
+        <Button onClick={() => router.push("/admin/data/dashboard-sections/new")}>
           + New Section
         </Button>
       </div>
@@ -332,7 +332,7 @@ export default function DashboardSectionsPage() {
                       !s.is_enabled ? "opacity-50" : ""
                     }`}
                     onClick={() =>
-                      router.push(`/admin/dashboard-sections/${s.id}/edit`)
+                      router.push(`/admin/data/dashboard-sections/${s.id}/edit`)
                     }
                   >
                     {/* Sort Order + Move Arrows */}
@@ -476,7 +476,7 @@ export default function DashboardSectionsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() =>
-                            router.push(`/admin/dashboard-sections/${s.id}/edit`)
+                            router.push(`/admin/data/dashboard-sections/${s.id}/edit`)
                           }
                         >
                           Edit

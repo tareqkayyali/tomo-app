@@ -101,7 +101,7 @@ export default function EngineConfigPage() {
                 <TableRow key={cfg.config_key}>
                   <TableCell className="font-mono font-medium">
                     <Link
-                      href={`/admin/config/${cfg.config_key}`}
+                      href={`/admin/system/config/${cfg.config_key}`}
                       className="underline-offset-2 hover:underline"
                     >
                       {cfg.config_key}

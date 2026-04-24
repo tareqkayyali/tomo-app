@@ -134,7 +134,7 @@ export default function DrillsListPage() {
             {total} drill{total !== 1 ? "s" : ""} in the catalog
           </p>
         </div>
-        <Link href="/admin/drills/new">
+        <Link href="/admin/data/drills/new">
           <Button>+ New Drill</Button>
         </Link>
       </div>
@@ -239,7 +239,7 @@ export default function DrillsListPage() {
                 <TableRow key={drill.id}>
                   <TableCell>
                     <Link
-                      href={`/admin/drills/${drill.id}/edit`}
+                      href={`/admin/data/drills/${drill.id}/edit`}
                       className="font-medium hover:underline"
                     >
                       {drill.name}
@@ -283,7 +283,7 @@ export default function DrillsListPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onClick={() =>
-                            router.push(`/admin/drills/${drill.id}/edit`)
+                            router.push(`/admin/data/drills/${drill.id}/edit`)
                           }
                         >
                           Edit

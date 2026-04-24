@@ -41,7 +41,7 @@ export default function NormativeDataHubLayout({
           <ul className="flex items-center gap-1 overflow-x-auto">
             {TABS.map((tab) => {
               const isActive =
-                tab.href === "/admin/normative-data"
+                tab.href === "/admin/data/normative-data"
                   ? pathname === tab.href
                   : pathname === tab.href ||
                     pathname.startsWith(tab.href + "/");

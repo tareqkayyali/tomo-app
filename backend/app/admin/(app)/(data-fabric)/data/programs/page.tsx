@@ -152,7 +152,7 @@ export default function ProgramsListPage() {
             {total} program{total !== 1 ? "s" : ""} in the catalog
           </p>
         </div>
-        <Link href="/admin/programs/new">
+        <Link href="/admin/data/programs/new">
           <Button>+ New Program</Button>
         </Link>
       </div>
@@ -238,7 +238,7 @@ export default function ProgramsListPage() {
                 <TableRow key={prog.id}>
                   <TableCell>
                     <Link
-                      href={`/admin/programs/${prog.id}/edit`}
+                      href={`/admin/data/programs/${prog.id}/edit`}
                       className="font-medium hover:underline"
                     >
                       {prog.name}
@@ -288,7 +288,7 @@ export default function ProgramsListPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onClick={() =>
-                            router.push(`/admin/programs/${prog.id}/edit`)
+                            router.push(`/admin/data/programs/${prog.id}/edit`)
                           }
                         >
                           Edit

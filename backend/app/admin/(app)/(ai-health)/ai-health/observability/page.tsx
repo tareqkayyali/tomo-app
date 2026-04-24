@@ -212,7 +212,7 @@ export default function ObservabilityPage() {
           subtitle="Eval scores, safety flags, drift alerts"
         />
         <QuickLink
-          href="/admin/audit"
+          href="/admin/system/audit"
           title="Audit Log"
           subtitle="Every CMS mutation, actor, diff"
         />

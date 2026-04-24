@@ -38,90 +38,42 @@ const ROLE_HIERARCHY: Record<OrgRole, number> = {
 };
 
 const navigation: NavGroup[] = [
-  // ─────────────────────────────────────────────────────────────────────────
-  // OVERVIEW
-  // ─────────────────────────────────────────────────────────────────────────
   {
     label: "Overview",
     items: [
       { name: "Dashboard", href: "/admin/enterprise" },
     ],
   },
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // PILLAR 1: AI HEALTH & AUTO-HEAL ENGINE
-  // ─────────────────────────────────────────────────────────────────────────
   {
     label: "AI Health Engine",
     pillar: "ai-health",
     minRole: "institutional_pd",
     items: [
-      { name: "Health Dashboard", href: "/admin/ai-health" },
-      { name: "Auto-Heal Loop", href: "/admin/ai-health/auto-heal" },
-      { name: "Chat Quality", href: "/admin/ai-health/quality" },
-      { name: "Evaluations", href: "/admin/ai-health/evaluations" },
-      { name: "Knowledge Base", href: "/admin/ai-health/knowledge" },
-      { name: "AI Operations", href: "/admin/ai-health/ai-ops" },
-      { name: "Observability", href: "/admin/ai-health/observability" },
+      { name: "AI Health", href: "/admin/ai-health" },
     ],
   },
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // PILLAR 2: PERFORMANCE DIRECTOR CONTROL CENTER
-  // ─────────────────────────────────────────────────────────────────────────
   {
     label: "Performance Director",
     pillar: "pd",
     minRole: "institutional_pd",
     items: [
-      { name: "PD Protocols", href: "/admin/pd/protocols" },
-      { name: "Protocol Builder", href: "/admin/pd/protocols/builder" },
-      { name: "Protocol Generations", href: "/admin/pd/protocols/generations" },
-      { name: "Performance Intelligence", href: "/admin/pd/intelligence" },
-      { name: "Planning Intelligence", href: "/admin/pd/planning" },
-      { name: "Planning Config", href: "/admin/pd/config" },
-      { name: "Athlete Modes", href: "/admin/pd/modes" },
-      { name: "Chat Pills", href: "/admin/pd/chat-pills" },
-      { name: "Wearables", href: "/admin/pd/wearables" },
-      { name: "ACWR Inspector", href: "/admin/pd/acwr" },
+      { name: "Performance Director", href: "/admin/pd/protocols" },
     ],
   },
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // PILLAR 3: DATA FABRIC
-  // ─────────────────────────────────────────────────────────────────────────
   {
     label: "Data Fabric",
     pillar: "data",
     minRole: "coach",
     items: [
-      { name: "Programs", href: "/admin/programs" },
-      { name: "Drills", href: "/admin/drills" },
-      { name: "Normative Data", href: "/admin/normative-data" },
-      { name: "Progress Metrics", href: "/admin/progress-metrics" },
-      { name: "Dashboard Sections", href: "/admin/dashboard-sections" },
-      { name: "Content Items", href: "/admin/content-items" },
-      { name: "Notifications", href: "/admin/notifications", minRole: "institutional_pd" },
-      { name: "Athlete CV", href: "/admin/cv" },
+      { name: "Data Fabric", href: "/admin/data/programs" },
     ],
   },
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // SYSTEM
-  // ─────────────────────────────────────────────────────────────────────────
   {
     label: "System",
     pillar: "system",
     minRole: "institutional_pd",
     items: [
-      { name: "Organizations", href: "/admin/enterprise/organizations", minRole: "super_admin" },
-      { name: "Users & Roles", href: "/admin/users", minRole: "super_admin" },
-      { name: "Audit Log", href: "/admin/audit" },
-      { name: "Feature Flags", href: "/admin/feature-flags", minRole: "super_admin" },
-      { name: "System Config", href: "/admin/config" },
-      { name: "Safety Gate", href: "/admin/safety-gate", minRole: "super_admin" },
-      { name: "Onboarding", href: "/admin/enterprise/onboarding", minRole: "super_admin" },
-      { name: "Debug", href: "/admin/debug", minRole: "super_admin" },
+      { name: "System", href: "/admin/system/audit", minRole: "institutional_pd" },
     ],
   },
 ];
@@ -189,11 +141,16 @@ export function EnterpriseSidebar({
               <SidebarMenu>
                 {group.items.map((item) => {
                   const isActive =
-                    pathname === item.href ||
-                    (item.href !== "/admin/enterprise" &&
-                      item.href !== "/admin/ai-health" &&
-                      pathname.startsWith(item.href + "/")) ||
-                    (item.href === "/admin/ai-health" && pathname === item.href);
+                    item.href === "/admin/enterprise"
+                      ? pathname === item.href
+                      : pathname.startsWith(
+                          item.href.replace(/\/[^/]+$/, "").replace(/\/$/, "") + "/"
+                        ) ||
+                        pathname === item.href ||
+                        (item.href.includes("/admin/ai-health") && pathname.startsWith("/admin/ai-health")) ||
+                        (item.href.includes("/admin/pd/") && pathname.startsWith("/admin/pd/")) ||
+                        (item.href.includes("/admin/data/") && pathname.startsWith("/admin/data/")) ||
+                        (item.href.includes("/admin/system/") && pathname.startsWith("/admin/system/"));
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton

@@ -229,7 +229,7 @@ export default function EngineConfigDetailPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/admin/config" className="text-sm text-muted-foreground underline-offset-2 hover:underline">
+        <Link href="/admin/system/config" className="text-sm text-muted-foreground underline-offset-2 hover:underline">
           ← All configurations
         </Link>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">
@@ -304,7 +304,7 @@ export default function EngineConfigDetailPage() {
             />
             <div className="flex gap-2">
               <Button onClick={handleSave} disabled={busy}>Save</Button>
-              <Button variant="outline" onClick={() => router.push("/admin/config")} disabled={busy}>
+              <Button variant="outline" onClick={() => router.push("/admin/system/config")} disabled={busy}>
                 Cancel
               </Button>
             </div>

@@ -118,7 +118,7 @@ export default function OrgDetailPage() {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">Organization Not Found</h1>
-        <Link href="/admin/enterprise/organizations">
+        <Link href="/admin/system/organizations">
           <Button variant="ghost">Back to Organizations</Button>
         </Link>
       </div>
@@ -157,7 +157,7 @@ export default function OrgDetailPage() {
             {tenant.subscription_tier}
           </p>
         </div>
-        <Link href="/admin/enterprise/organizations">
+        <Link href="/admin/system/organizations">
           <Button variant="ghost">Back</Button>
         </Link>
       </div>
