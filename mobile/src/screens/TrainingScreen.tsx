@@ -469,6 +469,7 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
     events: rawEvents,
     checkins,
     isLoading,
+    isRefreshing,
     backendError,
     setSelectedDate,
     refresh,
@@ -822,6 +823,12 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
             </View>
           ))}
         </ScrollView>
+        {isRefreshing ? (
+          <View style={styles.refreshingHint}>
+            <ActivityIndicator size="small" color={colors.tomoSage} />
+            <Text style={styles.refreshingHintText}>Updating timeline…</Text>
+          </View>
+        ) : null}
       </Animated.View>
 
       <Animated.View style={[{ flex: 1 }, enterDial, enterCards]}>
@@ -847,7 +854,7 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
           onSkipPress={handleSkipPress}
           onMarkDonePress={setCompletionSheetEvent}
           shouldScrollOnFocus
-          blocksLoading={isLoading}
+          blocksLoading={isLoading && !hasLoadedOnce.current}
           styles={styles}
           colors={colors}
         />
@@ -991,6 +998,19 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: 20,
       paddingTop: 8,
       gap: 12,
+    },
+    refreshingHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 6,
+    },
+    refreshingHintText: {
+      fontFamily: fontFamily.medium,
+      fontSize: 12,
+      color: colors.muted,
+      letterSpacing: 0.2,
     },
   });
 }

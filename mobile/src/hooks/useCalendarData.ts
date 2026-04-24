@@ -31,6 +31,7 @@ interface CalendarState {
   plan: Plan | null;
   checkins: Checkin[];
   isLoading: boolean;
+  isRefreshing: boolean;
   backendError: boolean;
 }
 
@@ -54,11 +55,15 @@ export function useCalendarData(): CalendarData {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [checkins, setCheckins] = useState<Checkin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [backendError, setBackendError] = useState(false);
 
   const isFocused = useIsFocused();
   const cacheRef = useRef<Record<string, CalendarEvent[]>>({});
   const wasFocusedRef = useRef(true);
+  const hasLoadedOnceRef = useRef(false);
+  const checkinsCacheRef = useRef<Checkin[]>([]);
+  const checkinsFetchedAtRef = useRef(0);
 
   // ─── Compute date range for current view ──────────────────────────
 
@@ -87,8 +92,18 @@ export function useCalendarData(): CalendarData {
   // ─── Fetch data ───────────────────────────────────────────────────
 
   const loadData = useCallback(
-    async (date: Date, mode: ViewMode) => {
-      setIsLoading(true);
+    async (
+      date: Date,
+      mode: ViewMode,
+      opts?: { force?: boolean; foreground?: boolean }
+    ) => {
+      const force = opts?.force === true;
+      const foreground = opts?.foreground === true;
+      if (foreground) {
+        setIsLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
       setBackendError(false);
 
       try {
@@ -113,7 +128,14 @@ export function useCalendarData(): CalendarData {
         promises.push(planPromise);
 
         // Checkins (always fetch 14 for weekly dots)
-        const checkinsPromise = getCheckins(14);
+        const CHECKINS_STALE_MS = 5 * 60 * 1000;
+        const checkinsAreFresh =
+          !force &&
+          checkinsCacheRef.current.length > 0 &&
+          Date.now() - checkinsFetchedAtRef.current < CHECKINS_STALE_MS;
+        const checkinsPromise = checkinsAreFresh
+          ? Promise.resolve({ checkins: checkinsCacheRef.current })
+          : getCheckins(14);
         promises.push(checkinsPromise);
 
         const [eventsResult, planResult, checkinsResult] = await Promise.all(promises);
@@ -130,11 +152,18 @@ export function useCalendarData(): CalendarData {
 
         const fetchedCheckins =
           (checkinsResult as { checkins: Checkin[] }).checkins || [];
+        checkinsCacheRef.current = fetchedCheckins;
+        checkinsFetchedAtRef.current = Date.now();
         setCheckins(fetchedCheckins);
+        hasLoadedOnceRef.current = true;
       } catch {
         setBackendError(true);
       } finally {
-        setIsLoading(false);
+        if (foreground) {
+          setIsLoading(false);
+        } else {
+          setIsRefreshing(false);
+        }
       }
     },
     [getVisibleRange],
@@ -144,14 +173,12 @@ export function useCalendarData(): CalendarData {
 
   useEffect(() => {
     if (isFocused) {
-      // Clear cache when regaining focus (returning from AddEvent, etc.)
-      if (!wasFocusedRef.current) {
-        cacheRef.current = {};
-      }
-      loadData(selectedDate, viewMode);
+      const foreground = !hasLoadedOnceRef.current && events.length === 0;
+      const force = !wasFocusedRef.current;
+      loadData(selectedDate, viewMode, { foreground, force });
     }
     wasFocusedRef.current = isFocused;
-  }, [isFocused, selectedDate, viewMode, loadData]);
+  }, [isFocused, selectedDate, viewMode, loadData, events.length]);
 
   // ─── Navigation actions ───────────────────────────────────────────
 
@@ -183,7 +210,7 @@ export function useCalendarData(): CalendarData {
 
   const refresh = useCallback(() => {
     cacheRef.current = {};
-    loadData(selectedDate, viewMode);
+    loadData(selectedDate, viewMode, { force: true, foreground: false });
   }, [selectedDate, viewMode, loadData]);
 
   const handleDeleteEvent = useCallback(
@@ -232,6 +259,7 @@ export function useCalendarData(): CalendarData {
     plan,
     checkins,
     isLoading,
+    isRefreshing,
     backendError,
     setSelectedDate,
     setViewMode,
