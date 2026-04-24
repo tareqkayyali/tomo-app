@@ -45,6 +45,80 @@ _READ_ONLY_PROGRAM_CAPSULE_TOOLS = frozenset({
     "get_program_drill_breakdown",
 })
 
+# Default block length (minutes) when the program tool has no per-drill duration —
+# only patterns + sets/reps. Keeps totalDuration > 0 for session_plan card.
+_DEFAULT_PROGRAM_BLOCK_MIN = 12
+
+
+def _map_prescription_to_intensity(
+    rpe: object,
+    raw: object,
+) -> str:
+    """Return mobile SessionPlanItem intensity: light | moderate | hard."""
+    if isinstance(rpe, (int, float)):
+        if rpe >= 8:
+            return "hard"
+        if rpe >= 5:
+            return "moderate"
+        return "light"
+    s = (str(raw) if raw is not None else "").lower()
+    if any(x in s for x in ("max", "heavy", "hard", "sprint", "explosive")):
+        return "hard"
+    if any(x in s for x in ("light", "easy", "mobility", "walk", "activation")):
+        return "light"
+    return "moderate"
+
+
+def _build_session_plan_card_from_program_drills(
+    name: str,
+    program_id: str | None,
+    drills: list[dict],
+) -> dict:
+    """
+    Build a session_plan card from get_program_drill_breakdown `drills` list.
+    Matches mobile SessionPlan / SessionPlanItem (types/chat.ts).
+    """
+    safe_pid = re.sub(r"[^a-zA-Z0-9_-]+", "-", (program_id or "program").strip())[:48] or "program"
+    items: list[dict] = []
+    for i, d in enumerate(drills, 1):
+        if not isinstance(d, dict):
+            continue
+        pat = (d.get("pattern") or d.get("name") or f"Block {i}").strip()
+        if not pat:
+            continue
+        sets, reps = d.get("sets"), d.get("reps")
+        label = pat
+        if sets is not None or reps is not None:
+            sr = f"{sets if sets is not None else '—'}×{reps if reps is not None else '—'}"
+            label = f"{pat} ({sr})"
+        rpe = d.get("rpe")
+        raw_int = d.get("intensity")
+        intensity = _map_prescription_to_intensity(rpe, raw_int)
+        rest = d.get("rest")
+        reason_parts = []
+        if rest:
+            reason_parts.append(f"Rest: {rest}")
+        reason = " · ".join(reason_parts) if reason_parts else None
+        items.append(
+            {
+                "drillId": f"cv-prog:{safe_pid}:{i}",
+                "name": label,
+                "category": "training",
+                "duration": _DEFAULT_PROGRAM_BLOCK_MIN,
+                "intensity": intensity,
+                "attributeKeys": [],
+                **({"reason": reason} if reason else {}),
+            }
+        )
+    total = len(items) * _DEFAULT_PROGRAM_BLOCK_MIN
+    return {
+        "type": "session_plan",
+        "title": f"{name} — blocks",
+        "totalDuration": total,
+        "readiness": "Green",
+        "items": items,
+    }
+
 
 def _build_program_read_capsule_response(results: list[dict]) -> dict | None:
     """
@@ -77,22 +151,43 @@ def _build_program_read_capsule_response(results: list[dict]) -> dict | None:
             }
 
         name = (data.get("name") or "Your program").strip()
+        pid = data.get("program_id") or data.get("programId")
         drills = data.get("drills") or []
+        dict_drills = [d for d in drills if isinstance(d, dict)] if isinstance(drills, list) else []
+
+        chips = [
+            {"label": "Build a session", "message": f"Build me a training session for {name}"},
+        ]
+
+        if dict_drills:
+            sp_card = _build_session_plan_card_from_program_drills(
+                name=name,
+                program_id=str(pid) if pid is not None else None,
+                drills=dict_drills,
+            )
+            if sp_card.get("items"):
+                return {
+                    "headline": f"Drills in {name}",
+                    "body": (
+                        f"Prescription-style blocks from your program. "
+                        f"~{_DEFAULT_PROGRAM_BLOCK_MIN} min per line is a typical planning estimate — adjust when you schedule."
+                    ),
+                    "cards": [sp_card],
+                    "chips": chips,
+                }
+
         lines: list[str] = []
-        if isinstance(drills, list) and drills:
-            for i, d in enumerate(drills, 1):
-                if not isinstance(d, dict):
-                    continue
-                pat = (d.get("pattern") or d.get("name") or "").strip() or f"Block {i}"
-                bit = f"{i}. {pat}"
-                sets, reps = d.get("sets"), d.get("reps")
-                if sets or reps:
-                    s = f"{sets or '—'}×{reps or '—'}"
-                    bit += f" ({s})"
-                rpe = d.get("rpe") or d.get("intensity")
-                if rpe:
-                    bit += f" @ RPE {rpe}"
-                lines.append(bit)
+        for i, d in enumerate(dict_drills, 1):
+            pat = (d.get("pattern") or d.get("name") or "").strip() or f"Block {i}"
+            bit = f"{i}. {pat}"
+            sets, reps = d.get("sets"), d.get("reps")
+            if sets or reps:
+                s = f"{sets or '—'}×{reps or '—'}"
+                bit += f" ({s})"
+            rpe = d.get("rpe") or d.get("intensity")
+            if rpe:
+                bit += f" @ RPE {rpe}"
+            lines.append(bit)
 
         if lines:
             body = f"Here's how {name} breaks down.\n" + "\n".join(lines[:20])
@@ -102,10 +197,6 @@ def _build_program_read_capsule_response(results: list[dict]) -> dict | None:
                 f"We don't have a separate drill list for {name} in your snapshot yet — "
                 "ask me to build a session in this style."
             )
-
-        chips = [
-            {"label": "Build a session", "message": f"Build me a training session for {name}"},
-        ]
 
         return {
             "headline": f"Drills in {name}",
