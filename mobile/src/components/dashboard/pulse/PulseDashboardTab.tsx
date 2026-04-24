@@ -657,7 +657,11 @@ export function PulseDashboardTab({
                   </PulseCard>
                 );
               })}
-              {(bootData?.activePrograms ?? []).map((ap) => {
+              {(bootData?.activePrograms ?? []).filter((ap) => {
+                const meta = ap.metadata as Record<string, unknown>;
+                const n = String(meta?.name ?? meta?.programName ?? '').trim();
+                return n && n !== 'Program';
+              }).map((ap) => {
                 const meta = ap.metadata as Record<string, unknown>;
                 const name = String(meta?.name ?? meta?.programName ?? 'Program');
                 const cat = (meta?.category ?? meta?.trainingCategory ?? 'speed') as string;
