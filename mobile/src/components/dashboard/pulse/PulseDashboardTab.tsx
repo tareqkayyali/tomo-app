@@ -219,7 +219,7 @@ export function PulseDashboardTab({
     let hrvSub = '';
     if (typeof hrvLast === 'number' && typeof yHrv === 'number') {
       const d = Math.round(hrvLast - yHrv);
-      hrvSub = d === 0 ? 'flat vs base' : `${d > 0 ? '↑' : '↓'} ${Math.abs(d)} vs base`;
+      hrvSub = d === 0 ? 'flat vs base' : `${d > 0 ? '+' : '-'}${Math.abs(d)} vs base`;
     } else if (typeof hrvLast === 'number') {
       hrvSub = 'last 7d';
     }
@@ -613,7 +613,7 @@ export function PulseDashboardTab({
               accessibilityRole="button"
               accessibilityLabel="Start session"
             >
-              <Text style={styles.ctaFullText}>Start session →</Text>
+              <Text style={styles.ctaFullText}>Start session</Text>
             </Pressable>
           </View>
         </PulseCard>
@@ -715,14 +715,14 @@ export function PulseDashboardTab({
             <View style={styles.split}>
               <View style={[styles.splitCol, { borderRightWidth: 1, borderRightColor: 'rgba(245,243,237,0.08)' }]}>
                 <Text style={[styles.splitTitle, { color: sage }]}>
-                  ● RISING · {risingRows.length}
+                  RISING · {risingRows.length}
                 </Text>
                 {risingShow.map((r) => (
                   <View key={r.metric} style={styles.splitRow}>
                     <Text style={styles.splitMetric}>{r.metric}</Text>
                     <Text style={styles.splitValBig}>
                       {r.value}
-                      <Text style={styles.splitArrow}> ← </Text>
+                      <Text style={styles.splitArrow}> / </Text>
                       <Text style={styles.splitBaseline}>{r.baseline}</Text>
                     </Text>
                     <Text style={[styles.splitDelta, { color: sage }]}>↗ {r.delta}</Text>
@@ -732,14 +732,14 @@ export function PulseDashboardTab({
               </View>
               <View style={styles.splitCol}>
                 <Text style={[styles.splitTitle, { color: clay }]}>
-                  ● WATCH · {watchRows.length}
+                  WATCH · {watchRows.length}
                 </Text>
                 {watchShow.map((r) => (
                   <View key={r.metric} style={styles.splitRow}>
                     <Text style={styles.splitMetric}>{r.metric}</Text>
                     <Text style={styles.splitValBig}>
                       {r.value}
-                      <Text style={styles.splitArrow}> ← </Text>
+                      <Text style={styles.splitArrow}> / </Text>
                       <Text style={styles.splitBaseline}>{r.baseline}</Text>
                     </Text>
                     <Text style={[styles.splitDelta, { color: clay }]}>↘ {r.delta}</Text>
