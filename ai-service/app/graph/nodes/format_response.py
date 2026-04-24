@@ -420,6 +420,84 @@ def _filter_active_and_upcoming(
     return filter_active_and_upcoming(events, card_date, player_context)
 
 
+_PROGRAM_DETAIL_TOOLS = frozenset({
+    "get_program_drill_breakdown",
+    "get_program_by_name",
+    "get_program_details",
+    "get_program_by_id",
+})
+
+
+def _ensure_program_detail_card(structured: dict, state: TomoChatState) -> dict:
+    """
+    Enforcement: when the output agent called a program detail tool but the LLM
+    generated only headline/body text (no program_detail card), auto-build the
+    card from tool results. Mirrors _ensure_timeline_card pattern.
+    """
+    cards = structured.get("cards", [])
+    has_program_card = any(
+        c.get("type") in ("program_detail", "program_recommendation")
+        for c in cards
+    )
+    if has_program_card:
+        return structured
+
+    messages = state.get("messages", [])
+    for msg in reversed(messages):
+        if not hasattr(msg, "tool_call_id"):
+            continue
+        content = getattr(msg, "content", None)
+        if not content or not isinstance(content, str):
+            continue
+        try:
+            data = json.loads(content)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(data, dict) or data.get("error"):
+            continue
+        name = (data.get("name") or "").strip()
+        if not name:
+            continue
+        if not (data.get("program_id") or data.get("programId")):
+            continue
+        has_detail = bool(
+            data.get("prescription")
+            or data.get("drills")
+            or data.get("reason")
+            or data.get("description")
+        )
+        if not has_detail:
+            continue
+
+        detail_card = _program_detail_card_from_tool_data(data)
+        cards_to_add: list[dict] = [detail_card]
+
+        drills = data.get("drills") or []
+        dict_drills = [d for d in drills if isinstance(d, dict)]
+        if dict_drills:
+            sp_card = _build_session_plan_card_from_program_drills(
+                name=name,
+                program_id=str(data.get("program_id") or data.get("programId") or ""),
+                drills=dict_drills,
+            )
+            if sp_card.get("items"):
+                cards_to_add.append(sp_card)
+
+        non_text_cards = [c for c in cards if c.get("type") not in ("text_card", "coach_note")]
+        structured["cards"] = cards_to_add + non_text_cards
+
+        if not structured.get("chips"):
+            structured["chips"] = [
+                {"label": "Add to my week", "message": f'Add "{name}" to my training'},
+                {"label": "My other programs", "message": "What programs do you have for me?"},
+            ]
+
+        logger.info(f"Program enforcement: injected program_detail card for '{name}'")
+        return structured
+
+    return structured
+
+
 def _ensure_timeline_card(structured: dict, state: TomoChatState) -> dict:
     """
     Enforce schedule_list card for timeline agent responses.
@@ -792,7 +870,11 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
             deduped_cards.append(card)
         structured["cards"] = deduped_cards
 
-    # 7. Timeline enforcement: ensure schedule_list card for timeline agent
+    # 7. Program enforcement: inject program_detail card when LLM omitted it
+    if state:
+        structured = _ensure_program_detail_card(structured, state)
+
+    # 7b. Timeline enforcement: ensure schedule_list card for timeline agent
     if state:
         structured = _ensure_timeline_card(structured, state)
 
