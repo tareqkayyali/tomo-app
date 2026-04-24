@@ -22,7 +22,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 import { Input } from '../../components/Input';
 import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
-import { linkChildByEmail, submitOnboarding } from '../../services/api';
+import { completeRoleOnboarding, linkChildByEmail } from '../../services/api';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 import { ParentLinkByCodeScreen } from './ParentLinkByCodeScreen';
 
@@ -87,7 +87,7 @@ export function ParentOnboardingScreen() {
   const handleFinish = useCallback(async () => {
     setIsFinishing(true);
     try {
-      await submitOnboarding({} as any);
+      await completeRoleOnboarding();
       await refreshProfile();
     } catch (err) {
       console.error('[ParentOnboarding] finish failed:', err);
@@ -105,7 +105,7 @@ export function ParentOnboardingScreen() {
     // Allow parent to skip email entry and finish onboarding
     setIsFinishing(true);
     try {
-      await submitOnboarding({} as any);
+      await completeRoleOnboarding();
       await refreshProfile();
     } catch (err) {
       console.error('[ParentOnboarding] skip failed:', err);
@@ -195,7 +195,12 @@ export function ParentOnboardingScreen() {
           {/* ── Step 2b: Link by code (child-initiated consent flow) ── */}
           {step === 'code' && (
             <Animated.View entering={enterAnimation} style={styles.codeWrap}>
-              <ParentLinkByCodeScreen onBack={goBackToWelcome} />
+              <ParentLinkByCodeScreen
+                onBack={goBackToWelcome}
+                onLinkedSuccess={async () => {
+                  await completeRoleOnboarding();
+                }}
+              />
             </Animated.View>
           )}
 

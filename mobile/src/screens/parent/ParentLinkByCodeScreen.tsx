@@ -40,9 +40,11 @@ interface ParentLinkByCodeScreenProps {
   /** Override the default back behavior. Used when this screen is
    *  embedded inside the parent onboarding wizard. */
   onBack?: () => void;
+  /** Optional callback for onboarding wrappers to run post-link actions. */
+  onLinkedSuccess?: () => Promise<void>;
 }
 
-export function ParentLinkByCodeScreen({ onBack }: ParentLinkByCodeScreenProps = {}) {
+export function ParentLinkByCodeScreen({ onBack, onLinkedSuccess }: ParentLinkByCodeScreenProps = {}) {
   const navigation = useNavigation<any>();
   const handleBack = onBack ?? (() => navigation.goBack());
   const { refreshProfile } = useAuth();
@@ -60,6 +62,9 @@ export function ParentLinkByCodeScreen({ onBack }: ParentLinkByCodeScreenProps =
     setError(null);
     try {
       const result = await acceptAsGuardian(cleanCode);
+      if (onLinkedSuccess) {
+        await onLinkedSuccess();
+      }
       setSuccess({ consentGranted: result.consentGranted });
       // Refresh so the parent dashboard loads the linked child.
       await refreshProfile();

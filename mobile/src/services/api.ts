@@ -722,6 +722,16 @@ export async function submitOnboarding(
 }
 
 /**
+ * Complete onboarding for non-player roles (coach/parent).
+ */
+export async function completeRoleOnboarding(): Promise<UserResponse> {
+  const raw = await apiRequest<{ user: Record<string, unknown> }>('/api/v1/user/onboarding/complete', {
+    method: 'PUT',
+  });
+  return mapUserResponse(raw);
+}
+
+/**
  * Get sport-specific positions and playing styles
  */
 export async function getSportPositions(

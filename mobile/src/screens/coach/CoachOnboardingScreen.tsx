@@ -24,7 +24,7 @@ import Animated, { SlideInRight, SlideInLeft } from 'react-native-reanimated';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 import { Input } from '../../components/Input';
-import { linkPlayerByEmail, submitOnboarding } from '../../services/api';
+import { completeRoleOnboarding, linkPlayerByEmail } from '../../services/api';
 import { PlayerScreen } from '../../components/tomo-ui/playerDesign';
 import { spacing, borderRadius, layout, fontFamily } from '../../theme';
 
@@ -98,7 +98,7 @@ export function CoachOnboardingScreen() {
   const handleFinish = useCallback(async () => {
     setIsFinishing(true);
     try {
-      await submitOnboarding({} as any);
+      await completeRoleOnboarding();
       await refreshProfile();
     } catch (err) {
       console.error('[CoachOnboarding] finish failed:', err);
@@ -115,7 +115,7 @@ export function CoachOnboardingScreen() {
   const handleSkip = useCallback(async () => {
     setIsFinishing(true);
     try {
-      await submitOnboarding({} as any);
+      await completeRoleOnboarding();
       await refreshProfile();
     } catch (err) {
       console.error('[CoachOnboarding] skip failed:', err);

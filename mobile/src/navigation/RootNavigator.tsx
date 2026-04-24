@@ -91,13 +91,14 @@ export function RootNavigator() {
     isAuthenticated &&
     !needsRegistration &&
     profile &&
+    role === 'player' &&
     profile.consentStatus === 'awaiting_parent';
   const showOnboarding =
     !isPreviewMode &&
     isAuthenticated &&
     !needsRegistration &&
     profile &&
-    profile.consentStatus !== 'awaiting_parent' &&
+    (role !== 'player' || profile.consentStatus !== 'awaiting_parent') &&
     !profile.onboardingComplete;
 
   // Determine which main navigator to show based on role
