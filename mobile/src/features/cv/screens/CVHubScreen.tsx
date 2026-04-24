@@ -10,6 +10,7 @@ import React, { useCallback, useState } from "react";
 import { View, Text, Pressable, StyleSheet, Platform, Alert, Share, Linking } from "react-native";
 import * as FileSystem from "expo-file-system";
 import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -119,11 +120,28 @@ export default function CVHubScreen() {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!htmlRes.ok) throw new Error(`Fetch HTML ${htmlRes.status}`);
-        const html = await htmlRes.text();
+        const rawHtml = await htmlRes.text();
+
+        // Inject a <base href> so the WebKit print engine resolves the
+        // relative CSS / image / font URLs from the right origin. Without
+        // this, expo-print sees the HTML in isolation and the stylesheet
+        // never loads — producing the unstyled single-column output.
+        const origin = new URL(publicUrl).origin;
+        const html = /<head[^>]*>/i.test(rawHtml)
+          ? rawHtml.replace(/<head([^>]*)>/i, `<head$1><base href="${origin}/" />`)
+          : `<base href="${origin}/" />${rawHtml}`;
 
         const { uri } = await Print.printToFileAsync({ html, base64: false });
 
-        if (Platform.OS === "android") {
+        // Present the iOS / Android share sheet so the user can "Save to
+        // Files", AirDrop, or open in their PDF viewer of choice.
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, {
+            mimeType: "application/pdf",
+            dialogTitle: "Save your Player CV",
+            UTI: "com.adobe.pdf",
+          });
+        } else if (Platform.OS === "android") {
           const contentUri = await (FileSystem as any).getContentUriAsync(uri);
           await Linking.openURL(contentUri);
         } else {
