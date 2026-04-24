@@ -144,7 +144,19 @@ export default function CVHubScreen() {
           ? noScripts.replace(/<head([^>]*)>/i, `<head$1><base href="${origin}/" />`)
           : `<base href="${origin}/" />${noScripts}`;
 
-        const { uri } = await Print.printToFileAsync({ html, base64: false });
+        // iOS WebKit ignores CSS @page { size: A4 } and defaults to US
+        // Letter (612×792 pt). Force A4 page size (595×842 pt = 210×297mm
+        // at 72 dpi) to match the print CSS — otherwise the .cv2-page
+        // mm-sized boxes (186×277mm) overflow onto a 3rd page and the
+        // grid columns misalign. Margins are 0 here because the print CSS
+        // already encodes @page margin: 10mm 12mm.
+        const { uri } = await Print.printToFileAsync({
+          html,
+          base64: false,
+          width: 595,
+          height: 842,
+          margins: { left: 0, top: 0, right: 0, bottom: 0 },
+        });
 
         // Present the iOS / Android share sheet so the user can "Save to
         // Files", AirDrop, or open in their PDF viewer of choice.
