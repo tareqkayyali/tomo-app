@@ -122,14 +122,27 @@ export default function CVHubScreen() {
         if (!htmlRes.ok) throw new Error(`Fetch HTML ${htmlRes.status}`);
         const rawHtml = await htmlRes.text();
 
-        // Inject a <base href> so the WebKit print engine resolves the
-        // relative CSS / image / font URLs from the right origin. Without
-        // this, expo-print sees the HTML in isolation and the stylesheet
-        // never loads — producing the unstyled single-column output.
+        // Prepare the HTML for the WebKit print engine:
+        //
+        //  1. Inject <base href="<origin>/"> so relative CSS / image /
+        //     font URLs resolve against the production origin. Without
+        //     this the stylesheet never loads.
+        //
+        //  2. Strip all <script> tags. The page is already fully
+        //     server-rendered, so every byte of content is present. The
+        //     Next.js hydration scripts try to fetch RSC chunks and
+        //     throw "Application error: a client-side exception" inside
+        //     expo-print's isolated WebKit — replacing the rendered
+        //     output with the error message. We only need static
+        //     HTML+CSS for a PDF render, so JS goes.
         const origin = new URL(publicUrl).origin;
-        const html = /<head[^>]*>/i.test(rawHtml)
-          ? rawHtml.replace(/<head([^>]*)>/i, `<head$1><base href="${origin}/" />`)
-          : `<base href="${origin}/" />${rawHtml}`;
+        const noScripts = rawHtml.replace(
+          /<script[\s\S]*?<\/script>/gi,
+          ""
+        );
+        const html = /<head[^>]*>/i.test(noScripts)
+          ? noScripts.replace(/<head([^>]*)>/i, `<head$1><base href="${origin}/" />`)
+          : `<base href="${origin}/" />${noScripts}`;
 
         const { uri } = await Print.printToFileAsync({ html, base64: false });
 
