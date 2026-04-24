@@ -8,22 +8,12 @@ const TABS: { href: string; label: string; hint: string }[] = [
   {
     href: "/admin/ai-health",
     label: "Dashboard",
-    hint: "AI system health overview and status indicators",
-  },
-  {
-    href: "/admin/ai-health/auto-heal",
-    label: "Auto-Heal",
-    hint: "Auto-heal loop — issue detection, fix proposals, approval queue",
+    hint: "AI system health overview — traces, agent status, issues and fixes",
   },
   {
     href: "/admin/ai-health/quality",
-    label: "Quality",
-    hint: "Chat quality engine — golden set, shadow runs, drift, safety flags",
-  },
-  {
-    href: "/admin/ai-health/evaluations",
-    label: "Evaluations",
-    hint: "Eval suite results, run history, and regression baselines",
+    label: "Quality & Evals",
+    hint: "Safety flags, disagreements, drift, shadow runs, golden set, eval suite, runs, baselines",
   },
   {
     href: "/admin/ai-health/knowledge",
@@ -33,12 +23,17 @@ const TABS: { href: string; label: string; hint: string }[] = [
   {
     href: "/admin/ai-health/ai-ops",
     label: "AI Ops",
-    hint: "Prompt management, model routing, and cost monitoring",
+    hint: "Auto-heal config, post-merge watches, pattern management, cron heartbeats",
+  },
+  {
+    href: "/admin/ai-health/audit",
+    label: "Audit",
+    hint: "Append-only log of every auto-heal state transition",
   },
   {
     href: "/admin/ai-health/observability",
     label: "Observability",
-    hint: "Structured logs, trace analysis, and anomaly alerts",
+    hint: "Claude API spend, call volume, and latency breakdown",
   },
 ];
 

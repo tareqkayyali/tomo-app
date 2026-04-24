@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
   // consolidation phases. Order: most-specific first (Next.js uses first match).
   async redirects() {
     return [
+      // ── AI Health: tab consolidation (auto-heal → ai-ops, evaluations → quality) ──
+      { source: "/admin/ai-health/auto-heal", destination: "/admin/ai-health/ai-ops", permanent: true },
+      { source: "/admin/ai-health/evaluations", destination: "/admin/ai-health/quality/evals", permanent: true },
+      { source: "/admin/ai-health/evaluations/runs", destination: "/admin/ai-health/quality/eval-runs", permanent: true },
+      { source: "/admin/ai-health/evaluations/baselines", destination: "/admin/ai-health/quality/baselines", permanent: true },
       // ── AI Health: pre-pillar enterprise/* URLs ──────────────────────────
       { source: "/admin/enterprise/quality", destination: "/admin/ai-health/quality", permanent: true },
       { source: "/admin/enterprise/quality/auto-heal", destination: "/admin/ai-health/auto-heal", permanent: true },

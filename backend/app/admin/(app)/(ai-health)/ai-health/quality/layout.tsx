@@ -23,6 +23,9 @@ const TABS: { href: string; label: string }[] = [
   { href: "/admin/ai-health/quality/drift", label: "Drift Alerts" },
   { href: "/admin/ai-health/quality/shadow-runs", label: "Shadow Runs" },
   { href: "/admin/ai-health/quality/golden-set", label: "Golden Test Set" },
+  { href: "/admin/ai-health/quality/evals", label: "Eval Suite" },
+  { href: "/admin/ai-health/quality/eval-runs", label: "Eval Runs" },
+  { href: "/admin/ai-health/quality/baselines", label: "Baselines" },
 ];
 
 export default function ChatQualityHubLayout({
@@ -36,10 +39,11 @@ export default function ChatQualityHubLayout({
     <div className="space-y-6">
       <header className="space-y-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Chat Quality</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Quality & Evaluations</h1>
           <p className="text-sm text-muted-foreground">
-            Eval scores, safety flag triage, judge disagreements, drift alerts,
-            shadow-run comparisons, and the golden test set — one surface.
+            Safety flag triage, judge disagreements, drift alerts, shadow-run
+            comparisons, golden test set, eval suite results, run history, and
+            regression baselines — one surface.
           </p>
         </div>
 
