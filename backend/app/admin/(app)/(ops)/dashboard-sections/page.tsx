@@ -18,7 +18,19 @@ import { toast } from "sonner";
 // ── Component type display config ──
 
 const COMPONENT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  // Screen-level
+  // ── Pulse sections (current design — dashboard_pulse) ──────────────
+  pulse_hero:          { label: "Pulse Hero",          color: "#7A9B76" },
+  pulse_vitals:        { label: "Pulse Vitals",        color: "#7A9B76" },
+  pulse_sleep:         { label: "Pulse Sleep",         color: "#5A7BA6" },
+  pulse_load_wellness: { label: "Pulse Load & Wellness", color: "#7A9B76" },
+  pulse_session:       { label: "Pulse Session",       color: "#7A9B76" },
+  pulse_programs:      { label: "Pulse Programs",      color: "#A08CC4" },
+  pulse_metrics:       { label: "Pulse Metrics",       color: "#7A9B76" },
+  pulse_progress:      { label: "Pulse Progress",      color: "#7A9B76" },
+  pulse_benchmark:     { label: "Pulse Benchmark",     color: "#C8A27A" },
+  pulse_month:         { label: "Pulse Month",         color: "#9BB8A5" },
+  pulse_consistency:   { label: "Pulse Consistency",   color: "#7A9B76" },
+  // ── Legacy screen-level ────────────────────────────────────────────
   signal_hero:     { label: "Athlete Mode",    color: "#30D158" },
   status_ring:     { label: "Status Ring",     color: "#7a9b76" },
   kpi_row:         { label: "KPI Row",         color: "#5A8A9F" },

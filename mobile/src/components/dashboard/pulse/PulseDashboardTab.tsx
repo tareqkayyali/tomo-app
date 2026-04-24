@@ -20,7 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
 import { useEnter } from '../../../hooks/useEnter';
-import type { BootData, OutputSnapshot } from '../../../services/api';
+import type { BootData, OutputSnapshot, DashboardLayoutSection } from '../../../services/api';
 import { ReadinessRing } from '../signal/ReadinessRing';
 import { SleepTrendCard } from '../signal/SleepTrendCard';
 import {
@@ -51,6 +51,28 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const LABEL_MUTED = 'rgba(245,243,237,0.35)';
+
+// ── CMS section registry ─────────────────────────────────────────────────────
+// These keys map 1:1 to `dashboard_sections.component_type` in the CMS.
+// Admin enables/disables sections; mobile renders the default order unless
+// a Pulse-typed layout is configured.
+export const PULSE_SECTION_KEYS = [
+  'pulse_hero',
+  'pulse_vitals',
+  'pulse_sleep',
+  'pulse_load_wellness',
+  'pulse_session',
+  'pulse_programs',
+  'pulse_metrics',
+  'pulse_progress',
+  'pulse_benchmark',
+  'pulse_month',
+  'pulse_consistency',
+] as const;
+
+export type PulseSectionKey = typeof PULSE_SECTION_KEYS[number];
+
+const ALL_PULSE_SECTIONS = new Set<string>(PULSE_SECTION_KEYS);
 
 function splitHighlight(msg: string, word: string | undefined): {
   before: string;
@@ -92,6 +114,10 @@ export type PulseDashboardTabProps = {
   outputData: OutputSnapshot | null;
   modeLabel: string;
   signal: SignalShape;
+  /** CMS-managed layout from bootData.dashboardLayout. When this contains
+   *  pulse_* entries, only those sections render (in the hardcoded Pulse
+   *  order). Empty / omitted = all sections visible. */
+  dashboardLayout?: DashboardLayoutSection[];
   onSleepPress?: () => void;
   onStrengthPress?: () => void;
   onGapPress?: () => void;
@@ -125,6 +151,7 @@ export function PulseDashboardTab({
   outputData,
   modeLabel,
   signal,
+  dashboardLayout,
   onSleepPress,
   onStrengthPress,
   onGapPress,
@@ -134,6 +161,16 @@ export function PulseDashboardTab({
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
   const [progressExpanded, setProgressExpanded] = useState(false);
+
+  // Which Pulse sections are enabled — derived from CMS dashboardLayout.
+  // If the layout has no pulse_* entries, all sections are shown (default).
+  const enabledSections = useMemo((): Set<string> => {
+    const pulseEntries = (dashboardLayout ?? []).filter(
+      (s) => ALL_PULSE_SECTIONS.has(s.component_type),
+    );
+    if (pulseEntries.length === 0) return ALL_PULSE_SECTIONS;
+    return new Set(pulseEntries.map((s) => s.component_type));
+  }, [dashboardLayout]);
 
   const delays = useMemo(() => Array.from({ length: 11 }, (_, i) => i * 48), []);
   const e0 = useEnter(delays[0]);
@@ -319,36 +356,39 @@ export function PulseDashboardTab({
   return (
     <View style={styles.root}>
       {/* 1 Hero */}
-      <Animated.View style={[styles.section, e0]}>
-        <PulseCard tintColor={sage} tintOpacity={0.2}>
-          <LinearGradient
-            colors={['rgba(48, 68, 50, 0.88)', 'rgba(18, 20, 31, 0.08)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.85, y: 1 }}
-            style={[StyleSheet.absoluteFill, { borderRadius: 14 }]}
-            pointerEvents="none"
-          />
-          <View style={styles.heroPad}>
-            <View style={styles.heroRow}>
-              <ReadinessRing value={readiness} size={64} />
-              <View style={styles.heroText}>
-                <Text style={[styles.heroEyebrow, { color: colors.accentLight }]}>
-                  {`TODAY · ${modeLabel.toUpperCase()}`}
-                </Text>
-                <Text style={[styles.heroBody, { color: colors.textPrimary }]} accessibilityRole="text">
-                  {parts.before}
-                  {parts.highlight ? (
-                    <Text style={[styles.heroHi, { color: colors.accentLight }]}>{parts.highlight}</Text>
-                  ) : null}
-                  {parts.after}
-                </Text>
+      {enabledSections.has('pulse_hero') && (
+        <Animated.View style={[styles.section, e0]}>
+          <PulseCard tintColor={sage} tintOpacity={0.2}>
+            <LinearGradient
+              colors={['rgba(48, 68, 50, 0.88)', 'rgba(18, 20, 31, 0.08)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.85, y: 1 }}
+              style={[StyleSheet.absoluteFill, { borderRadius: 14 }]}
+              pointerEvents="none"
+            />
+            <View style={styles.heroPad}>
+              <View style={styles.heroRow}>
+                <ReadinessRing value={readiness} size={64} />
+                <View style={styles.heroText}>
+                  <Text style={[styles.heroEyebrow, { color: colors.accentLight }]}>
+                    {`TODAY · ${modeLabel.toUpperCase()}`}
+                  </Text>
+                  <Text style={[styles.heroBody, { color: colors.textPrimary }]} accessibilityRole="text">
+                    {parts.before}
+                    {parts.highlight ? (
+                      <Text style={[styles.heroHi, { color: colors.accentLight }]}>{parts.highlight}</Text>
+                    ) : null}
+                    {parts.after}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
-        </PulseCard>
-      </Animated.View>
+          </PulseCard>
+        </Animated.View>
+      )}
 
       {/* 2 Vitals */}
+      {enabledSections.has('pulse_vitals') && (
       <Animated.View style={[styles.section, e1]}>
         <PulseSectionLabel left="Vitals · 7 day" />
         {vitalsEmpty ? (
@@ -406,9 +446,10 @@ export function PulseDashboardTab({
           </View>
         )}
       </Animated.View>
+      )}
 
       {/* 3 Sleep */}
-      {sleepData ? (
+      {enabledSections.has('pulse_sleep') && sleepData ? (
         <Animated.View style={[styles.section, e2]}>
           <PulseCard tintColor={sage}>
             <View style={styles.sleepPad}>
@@ -428,6 +469,7 @@ export function PulseDashboardTab({
       ) : null}
 
       {/* 4 Load & wellness */}
+      {enabledSections.has('pulse_load_wellness') && (
       <Animated.View style={[styles.section, e3]}>
         <PulseSectionLabel left="Load & wellness" />
         <PulseCard tintColor={sage}>
@@ -498,8 +540,10 @@ export function PulseDashboardTab({
           </View>
         </PulseCard>
       </Animated.View>
+      )}
 
       {/* 5 Today's session */}
+      {enabledSections.has('pulse_session') && (
       <Animated.View style={[styles.section, e4]}>
         <PulseSectionLabel left="Today's session" right={sessionScheduleRight} />
         <PulseCard tintColor={sage}>
@@ -537,8 +581,10 @@ export function PulseDashboardTab({
           </View>
         </PulseCard>
       </Animated.View>
+      )}
 
       {/* 6 Programs */}
+      {enabledSections.has('pulse_programs') && (
       <Animated.View style={[styles.section, e5]}>
         <PulseSectionLabel
           left="Programs"
@@ -598,8 +644,10 @@ export function PulseDashboardTab({
           </View>
         </Pressable>
       </Animated.View>
+      )}
 
       {/* 7 Metrics */}
+      {enabledSections.has('pulse_metrics') && (
       <Animated.View style={[styles.section, e6]}>
         <PulseSectionLabel left="Metrics" right={metricsTracked > 0 ? `${metricsTracked} tracked` : undefined} />
         <Pressable onPress={onOpenMetricsTab}>
@@ -636,8 +684,10 @@ export function PulseDashboardTab({
           </View>
         </Pressable>
       </Animated.View>
+      )}
 
       {/* 8 Progress 7d */}
+      {enabledSections.has('pulse_progress') && (
       <Animated.View style={[styles.section, e7]}>
         <PulseSectionLabel left="Progress · 7 day" right={progressExpanded ? 'tap to collapse' : 'tap to expand'} />
         <Pressable onPress={onToggleProgress}>
@@ -681,9 +731,10 @@ export function PulseDashboardTab({
           </PulseCard>
         </Pressable>
       </Animated.View>
+      )}
 
       {/* 9 Benchmark */}
-      {(strength || gap || positionPct != null) && (
+      {enabledSections.has('pulse_benchmark') && (strength || gap || positionPct != null) && (
         <Animated.View style={[styles.section, e8]}>
           <PulseSectionLabel left="Benchmark" />
           <PulseCard tintColor={sage}>
@@ -738,6 +789,7 @@ export function PulseDashboardTab({
       )}
 
       {/* 10 This month */}
+      {enabledSections.has('pulse_month') && (
       <Animated.View style={[styles.section, e9]}>
         <PulseSectionLabel left="This month" />
         <PulseCard tintColor={sage}>
@@ -766,8 +818,10 @@ export function PulseDashboardTab({
           </View>
         </PulseCard>
       </Animated.View>
+      )}
 
       {/* 11 Consistency */}
+      {enabledSections.has('pulse_consistency') && (
       <Animated.View style={[styles.section, e10]}>
         <PulseSectionLabel left="Consistency · 12 weeks" right={month.streak > 0 ? `${month.streak}d streak` : undefined} />
         <PulseCard tintColor={sage}>
@@ -803,6 +857,7 @@ export function PulseDashboardTab({
           </View>
         </PulseCard>
       </Animated.View>
+      )}
 
     </View>
   );
