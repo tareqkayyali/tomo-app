@@ -817,15 +817,23 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 @media print {
+  /* @page margin = the white border around each printed page.
+     Content area per page = 210mm − 2×12mm wide, 297mm − 2×10mm tall
+     = 186mm × 277mm. Every .cv2-page must fit inside this box. */
   @page {
     size: A4;
-    margin: 0;
+    margin: 10mm 12mm;
   }
 
-  html, body { background: #fff !important; }
+  html,
+  body {
+    background: #090e1d !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 
   .cv2-root {
-    background: #fff !important;
+    background: #090e1d !important;
     padding: 0 !important;
   }
 
@@ -835,18 +843,28 @@
     max-width: none !important;
   }
 
+  /* Each page occupies exactly one A4 content area.
+     overflow: hidden clips anything that would spill onto a third page. */
   .cv2-page {
-    width: 210mm;
-    min-height: 297mm;
+    width: 186mm;
+    height: 277mm;
+    min-height: unset !important;
+    max-height: 277mm;
+    overflow: hidden;
     border: none !important;
     border-radius: 0 !important;
     margin: 0 !important;
-    padding: 10mm 10mm 12mm !important;
+    /* No extra padding — @page margin already provides the white border. */
+    padding: 0 !important;
     page-break-after: always;
     break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
     background: #090e1d !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    /* Tighten the root gap tokens for print */
+    --pg: 8px;
   }
 
   .cv2-page:last-child {
@@ -858,4 +876,49 @@
     page-break-before: always;
     break-before: page;
   }
+
+  /* ── Tighten spacing so all content fits within 277mm ── */
+
+  .cv2-header        { padding-bottom: 7px; }
+  .cv2-hero-grid     { margin-top: 10px; gap: 10px; }
+  .cv2-photo-card    { min-height: 210px; }
+  .cv2-title-card h1 { font-size: 44px; margin: 4px 0 8px; }
+  .cv2-main-grid     { margin-top: 10px; gap: 10px; }
+  .cv2-panel         { padding: 10px 12px; }
+  .cv2-panel h3      { margin-bottom: 7px; }
+  .cv2-panel p       { font-size: 14px; line-height: 1.52; }
+
+  .cv2-signal-row    { padding: 6px 0; }
+  .cv2-signal-l div:first-child,
+  .cv2-signal-l div:last-child { font-size: 13px; }
+
+  .cv2-benchmarks    { margin-top: 10px; }
+  .cv2-bench-row     { padding: 5px 0; font-size: 13px; }
+
+  .cv2-metric-line   { padding: 6px 0; font-size: 12px; }
+
+  .cv2-page2-grid    { margin-top: 10px; gap: 8px; }
+  .cv2-page2-top     { gap: 8px; }
+  .cv2-page2-left-col { gap: 8px; }
+  .cv2-page2-bottom  { gap: 8px; }
+  .cv2-page2-bottom-left,
+  .cv2-page2-bottom-right { gap: 8px; }
+
+  .cv2-career-row    { padding: 5px 0; }
+  .cv2-career .cv2-career-club { font-size: 16px; }
+  .cv2-career .cv2-career-meta { font-size: 12px; }
+
+  .cv2-award-row     { padding: 5px 0; font-size: 12px; }
+  .cv2-ref-row       { padding: 5px 0; }
+  .cv2-media-row     { padding: 5px 0; font-size: 12px; }
+  .cv2-next-row      { padding: 5px 0; font-size: 12px; }
+  .cv2-national-row  { padding: 4px 0; font-size: 12px; }
+
+  .cv2-health-title  { font-size: 16px; }
+  .cv2-health-sub    { font-size: 11px; }
+  .cv2-health-consent { font-size: 10px; margin-top: 6px; padding-top: 6px; }
+
+  .cv2-pos-main      { font-size: 24px; }
+  .cv2-score-ring    { width: 54px; height: 54px; font-size: 13px; }
+  .cv2-score-row     { grid-template-columns: 54px 1fr; padding-bottom: 7px; }
 }

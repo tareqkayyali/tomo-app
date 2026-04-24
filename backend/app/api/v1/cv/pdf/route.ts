@@ -122,15 +122,18 @@ async function renderPdfWithPlaywright(url: string): Promise<Buffer> {
   });
 
   try {
-    const ctx = await browser.newContext({ viewport: { width: 760, height: 1100 }, deviceScaleFactor: 2 });
+    // 794 × 1123 = exact A4 at 96 dpi. deviceScaleFactor 1 keeps CSS px values
+    // consistent with print layout so the two-page structure renders correctly.
+    const ctx = await browser.newContext({ viewport: { width: 794, height: 1123 }, deviceScaleFactor: 1 });
     const page = await ctx.newPage();
     await page.goto(url, { waitUntil: "networkidle", timeout: 20_000 });
-    // Force web fonts + any async data to settle
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(400);
 
     const pdf = await page.pdf({
       format: "A4",
-      margin: { top: "14mm", right: "12mm", bottom: "14mm", left: "12mm" },
+      // Margins are controlled entirely via @page CSS so Playwright doesn't
+      // add a second margin layer on top of the CSS margin box.
+      margin: { top: "0", right: "0", bottom: "0", left: "0" },
       printBackground: true,
     });
 

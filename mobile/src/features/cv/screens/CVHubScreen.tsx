@@ -9,7 +9,7 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, Pressable, StyleSheet, Platform, Alert, Share, Linking } from "react-native";
 import * as FileSystem from "expo-file-system";
-import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../../hooks/useTheme";
@@ -92,7 +92,7 @@ export default function CVHubScreen() {
         if (!res.ok) {
           const fallback = res.headers.get("X-Fallback-URL");
           if (fallback) {
-            await Linking.openURL(fallback);
+            await WebBrowser.openBrowserAsync(fallback);
             return;
           }
           throw new Error(`HTTP ${res.status}`);
@@ -104,40 +104,44 @@ export default function CVHubScreen() {
         const token = await getIdToken();
         const headers: Record<string, string> = {};
         if (token) headers.Authorization = `Bearer ${token}`;
-        let dl: any = null;
-        try {
-          const baseDir = (FileSystem as any).documentDirectory as string | undefined;
-          if (!baseDir) throw new Error("No writable document directory");
-          const targetPath = `${baseDir}tomo-cv-${Date.now()}.pdf`;
-          dl = await FileSystem.createDownloadResumable(
-            pdfUrl,
-            targetPath,
-            { headers }
-          ).downloadAsync();
-        } catch {
-          const fallbackRes = await fetch(pdfUrl, { headers });
-          if (!fallbackRes.ok) {
-            const fallback = fallbackRes.headers.get("X-Fallback-URL");
-            if (fallback) {
-              await Linking.openURL(fallback);
-              return;
-            }
+
+        // First probe: if server returns 501 (Playwright not ready), open
+        // the printable web view inside an in-app browser instead.
+        const probe = await fetch(pdfUrl, { method: "HEAD", headers });
+        if (probe.status === 501) {
+          const fallback = probe.headers.get("X-Fallback-URL");
+          if (fallback) {
+            await WebBrowser.openBrowserAsync(fallback);
+            return;
           }
-          throw new Error("Download failed");
         }
+
+        const cacheDir = (FileSystem as any).cacheDirectory as string | undefined;
+        if (!cacheDir) throw new Error("No writable cache directory");
+        const localPath = `${cacheDir}tomo-cv-${Date.now()}.pdf`;
+
+        const dl = await FileSystem.createDownloadResumable(
+          pdfUrl,
+          localPath,
+          { headers }
+        ).downloadAsync();
+
         if (!dl) throw new Error("Download failed");
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(dl.uri, { mimeType: "application/pdf" });
+
+        // Open the local PDF file directly in the system viewer.
+        // iOS: Quick Look opens immediately (no share sheet).
+        // Android: requires a content:// URI so other apps can read the file.
+        if (Platform.OS === "android") {
+          const contentUri = await (FileSystem as any).getContentUriAsync(dl.uri);
+          await Linking.openURL(contentUri);
         } else {
-          Alert.alert("Saved", `PDF saved to ${dl.uri}`);
+          // iOS file:// URI opens in Quick Look
+          await Linking.openURL(dl.uri);
         }
       }
-    } catch (err) {
+    } catch {
       if (Platform.OS !== "web") {
-        Alert.alert(
-          "PDF",
-          "PDF renderer isn't ready on this deploy. Tap Share Link to send the web version instead."
-        );
+        Alert.alert("PDF", "Could not open the PDF. Try again or use Share Link.");
       }
     } finally {
       setDownloading(false);
