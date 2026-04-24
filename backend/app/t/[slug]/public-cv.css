@@ -844,18 +844,22 @@
     max-width: none !important;
   }
 
-  /* Each page occupies exactly one A4 content area.
-     overflow: hidden clips anything that would spill onto a third page. */
+  /* Each .cv2-page wraps the content for one logical CV page. We do NOT
+     fix its height: iOS WebKit ignores `overflow: hidden` for paginated
+     media, so a fixed height + overflow-clip combo lets content spill
+     into the next physical page anyway, with the absolute footer landing
+     mid-page. Instead, we let content flow at its natural height, force
+     a page break after each .cv2-page, and rely on tight typography
+     below to keep each block ≤ one printable page. */
   .cv2-page {
-    width: 186mm;
-    height: 277mm;
+    width: auto;
     min-height: unset !important;
-    max-height: 277mm;
-    overflow: hidden;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
     border: none !important;
     border-radius: 0 !important;
     margin: 0 !important;
-    /* No extra padding — @page margin already provides the white border. */
     padding: 0 !important;
     page-break-after: always;
     break-after: page;
@@ -864,13 +868,26 @@
     background: #090e1d !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    /* Tighten the root gap tokens for print */
     --pg: 8px;
   }
 
   .cv2-page:last-child {
     page-break-after: auto;
     break-after: auto;
+  }
+
+  /* Footer must NOT be absolutely positioned in print: with no fixed
+     .cv2-page height the absolute anchor is the bottom of the natural
+     content box, which the print engine then renders inside the next
+     physical page. Inline at the end of each .cv2-page instead. */
+  .cv2-footer {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin-top: 12px !important;
+    padding-top: 6px;
+    border-top: 1px solid var(--cv2-border);
   }
 
   .cv2-page-break {
