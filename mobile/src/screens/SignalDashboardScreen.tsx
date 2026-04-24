@@ -36,9 +36,11 @@ import { useAuth } from '../hooks/useAuth';
 import { useCheckinStatus } from '../hooks/useCheckinStatus';
 import { useConnectedSources } from '../hooks/useConnectedSources';
 import { useNavigation } from '@react-navigation/native';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 // Dashboard tab — CMS `dashboardLayout` (Pulse) with hardcoded fallback when empty
 import { SignalDashboardTab } from '../components/dashboard/signal/SignalDashboardTab';
+import { PulseDashboardTab } from '../components/dashboard/pulse/PulseDashboardTab';
 import { DashboardSectionRenderer } from '../components/dashboard/sections/DashboardSectionRenderer';
 import { ProgramPanel } from '../components/dashboard/panels/ProgramPanel';
 import { MetricsPanel } from '../components/dashboard/panels/MetricsPanel';
@@ -115,6 +117,7 @@ function formatStaleLabel(
 
 export function SignalDashboardScreen() {
   const { colors } = useTheme();
+  const dashboardPulse = useFeatureFlag('dashboard_pulse');
   const { profile } = useAuth();
   const { needsCheckin } = useCheckinStatus();
   const navigation = useNavigation<any>();
@@ -362,7 +365,19 @@ export function SignalDashboardScreen() {
                 />
               }
             >
-              {bootData && bootData.dashboardLayout.length > 0 ? (
+              {dashboardPulse && bootData ? (
+                <PulseDashboardTab
+                  bootData={bootData}
+                  outputData={outputData ?? null}
+                  modeLabel={currentMode ?? 'balanced'}
+                  signal={signal}
+                  onSleepPress={() => setActiveTab('metrics')}
+                  onStrengthPress={() => setActiveTab('metrics')}
+                  onGapPress={() => setActiveTab('metrics')}
+                  onOpenMetricsTab={() => setActiveTab('metrics')}
+                  onOpenProgramsTab={() => setActiveTab('program')}
+                />
+              ) : bootData && bootData.dashboardLayout.length > 0 ? (
                 <DashboardSectionRenderer layout={bootData.dashboardLayout} bootData={bootData} />
               ) : (
                 <SignalDashboardTab

@@ -14,7 +14,8 @@
     "android": "expo start --go --android",
     "ios": "expo start --go --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:pulse-logic": "npx tsx src/components/dashboard/pulse/__tests__/pulseDashboardLogic.test.ts"
   },
   "dependencies": {
     "@expo-google-fonts/architects-daughter": "^0.4.1",

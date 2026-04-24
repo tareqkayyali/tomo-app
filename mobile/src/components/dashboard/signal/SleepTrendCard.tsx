@@ -32,6 +32,8 @@ interface Props {
   debt: number;
   trend: 'rising' | 'falling' | 'flat';
   onPress?: () => void;
+  /** When set, strips outer surface so a parent `PulseCard` owns chrome. */
+  variant?: 'default' | 'pulse';
 }
 
 const CHART_W = 260;
@@ -45,6 +47,7 @@ export function SleepTrendCard({
   debt,
   trend,
   onPress,
+  variant = 'default',
 }: Props) {
   const { colors } = useTheme();
 
@@ -84,15 +87,19 @@ export function SleepTrendCard({
 
   const Container = onPress ? Pressable : View;
 
+  const pulseSurface = variant === 'pulse';
+
   return (
     <Container
       onPress={onPress}
       style={({ pressed }: any) => [
         styles.card,
-        {
-          backgroundColor: colors.surface,
-          borderColor: colors.creamMuted,
-        },
+        pulseSurface
+          ? { backgroundColor: 'transparent', borderWidth: 0 }
+          : {
+              backgroundColor: colors.surface,
+              borderColor: colors.creamMuted,
+            },
         pressed && { opacity: 0.85 },
       ]}
     >
