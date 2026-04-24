@@ -1,57 +1,57 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none">
   <defs>
     
-    <linearGradient id="tbar1A" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="rgba(245,243,237,0.70)"></stop>
-      <stop offset="0.55" stop-color="rgba(245,243,237,0.45)"></stop>
-      <stop offset="1" stop-color="rgba(245,243,237,0.22)"></stop>
+    <linearGradient id="horFarA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(245,243,237,0.40)"></stop>
+      <stop offset="100%" stop-color="rgba(245,243,237,0.12)"></stop>
     </linearGradient>
-    <linearGradient id="tbar1GlossA" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="rgba(255,255,255,0.85)"></stop>
-      <stop offset="1" stop-color="rgba(255,255,255,0)"></stop>
-    </linearGradient>
-
-    
-    <linearGradient id="tbar2A" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="rgba(245,243,237,0.90)"></stop>
-      <stop offset="0.5" stop-color="rgba(245,243,237,0.65)"></stop>
-      <stop offset="1" stop-color="rgba(122,155,118,0.55)"></stop>
-    </linearGradient>
-    <linearGradient id="tbar2GlossA" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="rgba(255,255,255,0.95)"></stop>
-      <stop offset="1" stop-color="rgba(255,255,255,0)"></stop>
+    <linearGradient id="horFarGlossA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.55)"></stop>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"></stop>
     </linearGradient>
 
     
-    <linearGradient id="tbar3A" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#DCEBD6"></stop>
-      <stop offset="0.35" stop-color="#A8C3A2"></stop>
-      <stop offset="0.80" stop-color="#7A9B76"></stop>
-      <stop offset="1" stop-color="#4F6B4C"></stop>
+    <linearGradient id="horMidA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(245,243,237,0.75)"></stop>
+      <stop offset="100%" stop-color="rgba(245,243,237,0.30)"></stop>
     </linearGradient>
-    <linearGradient id="tbar3GlossA" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="rgba(255,255,255,0.95)"></stop>
-      <stop offset="1" stop-color="rgba(255,255,255,0)"></stop>
+    <linearGradient id="horMidGlossA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.80)"></stop>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"></stop>
     </linearGradient>
-    <radialGradient id="tbar3GlowA" cx="50%" cy="50%" r="60%">
-      <stop offset="0" stop-color="#7A9B76" stop-opacity="0.50"></stop>
-      <stop offset="1" stop-color="#7A9B76" stop-opacity="0"></stop>
+
+    
+    <linearGradient id="horNowA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#DCEBD6"></stop>
+      <stop offset="35%" stop-color="#A8C3A2"></stop>
+      <stop offset="80%" stop-color="#7A9B76"></stop>
+      <stop offset="100%" stop-color="#4F6B4C"></stop>
+    </linearGradient>
+    <linearGradient id="horNowGlossA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.95)"></stop>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"></stop>
+    </linearGradient>
+
+    
+    <radialGradient id="horGlowA" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7A9B76" stop-opacity="0.45"></stop>
+      <stop offset="100%" stop-color="#7A9B76" stop-opacity="0"></stop>
     </radialGradient>
   </defs>
 
   
-  <ellipse cx="21.5" cy="13" rx="4.5" ry="9" fill="url(#tbar3GlowA)"></ellipse>
+  <ellipse cx="14" cy="21" rx="14" ry="4" fill="url(#horGlowA)"></ellipse>
 
   
-  <rect x="4" y="18" width="3.6" height="6" rx="1.8" fill="url(#tbar1A)"></rect>
-  <rect x="4.5" y="18.4" width="2.6" height="2.2" rx="1.1" fill="url(#tbar1GlossA)" opacity="0.7"></rect>
+  <rect x="8" y="6" width="12" height="2.6" rx="1.3" fill="url(#horFarA)"></rect>
+  <rect x="8.5" y="6.3" width="11" height="0.9" rx="0.45" fill="url(#horFarGlossA)" opacity="0.6"></rect>
 
   
-  <rect x="10.2" y="12" width="3.6" height="12" rx="1.8" fill="url(#tbar2A)"></rect>
-  <rect x="10.7" y="12.4" width="2.6" height="3.5" rx="1.1" fill="url(#tbar2GlossA)" opacity="0.8"></rect>
+  <rect x="6" y="12" width="16" height="3.2" rx="1.6" fill="url(#horMidA)"></rect>
+  <rect x="6.6" y="12.35" width="14.8" height="1.1" rx="0.55" fill="url(#horMidGlossA)" opacity="0.75"></rect>
 
   
-  <rect x="19.7" y="5" width="4.2" height="19" rx="2.1" fill="url(#tbar3A)"></rect>
-  <rect x="20.3" y="5.5" width="3" height="5.5" rx="1.5" fill="url(#tbar3GlossA)" opacity="0.95"></rect>
-  <rect x="19.7" y="5" width="4.2" height="19" rx="2.1" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="0.4"></rect>
+  <rect x="3" y="19" width="22" height="4.2" rx="2.1" fill="url(#horNowA)"></rect>
+  <rect x="3.7" y="19.5" width="20.6" height="1.5" rx="0.75" fill="url(#horNowGlossA)" opacity="0.95"></rect>
+  <rect x="3" y="19" width="22" height="4.2" rx="2.1" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="0.4"></rect>
 </svg>

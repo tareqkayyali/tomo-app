@@ -1,0 +1,52 @@
+# Cursor rules — Tomo repo
+
+## Shared tree with Claude Code
+A Claude Code session may be editing this same working tree in parallel.
+Before any edit or git operation, run `git status` and `git diff --stat`
+to see what's already in flight. Never run `git add -A` or `git add .` —
+stage files by explicit path only. Never `git commit --amend`. Never
+`git push origin main` without the user explicitly saying "push" in this
+Cursor session (not in another tool).
+
+## No concurrent git writers
+If you see a non-empty working tree you didn't create, stop and ask the
+user before modifying shared files. Prior incident: two agents + CLI git
+hit `.git/index.lock` simultaneously and almost wiped 1,602 tracked
+files. Check for `.git/index.lock` before any git op and refuse to
+delete it without the user confirming no other process holds it.
+
+## Dev servers
+One Metro per machine. Port 8081 is owned by whichever tool started
+Expo first. If `lsof -i :8081` shows another clone's node process, do
+NOT run `expo start` — ask the user. If you need your own dev server,
+use port 8082+. Never run `backend/scripts/deploy-frontend.sh` — that
+bundles the whole working tree to production and is a Claude Code /
+explicit-user-approval operation.
+
+## Path discipline
+Work only inside `/Users/tareqelkayyali/Desktop/Tomo/tomo-app`. If a
+file path resolves to `~/Desktop/tomo-cursor/` or any other checkout,
+stop and tell the user — you're in the wrong clone.
+
+## Existing conventions
+Read `CLAUDE.md` at repo root before starting. It carries the Tomo
+project's commands, architecture map, and rules (Supabase ports,
+readiness system, etc.). Follow the rules there as if they were
+written for you.
+
+## Chat UI work uses the new primitives
+Any chat-surface edits must use the Tomo chat primitives under
+`mobile/src/components/chat/tomo/` (UserBubble, TomoTitle, TomoBody,
+TurnMark, MetricRow, Table, Suggestions, FormSection, RadioRow,
+NumberChipRow, PillChipRow, CTA, Composer). Do not re-introduce the
+old rounded-card chat style.
+
+## No emojis, ever
+No emojis anywhere: code, prompts, UI text, commit messages, comments.
+Project-wide rule; the codebase has already been swept clean.
+
+## Commit messages
+Scoped prefix: `feat(area):`, `fix(area):`, `chore:`, `docs:`.
+Subject under 70 chars, imperative. Body explains why, not what.
+Co-author line is managed by Claude Code commits; Cursor commits
+don't need one.
