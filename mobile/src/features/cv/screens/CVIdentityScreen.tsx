@@ -3,7 +3,7 @@
  * All fields are AUTO-populated from users/snapshot.
  */
 
-import React from "react";
+import React, { useCallback } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -38,18 +38,44 @@ export default function CVIdentityScreen() {
 
   const { identity, physical } = data;
 
+  // Use push (not navigate) so we don't pop the CV stack to an older Profile
+  // screen — which would dump users on Profile and re-opening CV starts at the hub.
+  const onOpenSettings = useCallback(() => {
+    nav.push("Settings");
+  }, [nav]);
+  const onOpenProfile = useCallback(() => {
+    nav.push("Profile");
+  }, [nav]);
+
   const footer = (
-    <View style={{ padding: 16, paddingBottom: 32, backgroundColor: colors.background }}>
-      <Pressable
-        onPress={() => nav.navigate("Profile")}
-        style={({ pressed }) => [
-          styles.footerBtn,
-          { backgroundColor: pressed ? colors.sage15 : colors.sage08, borderColor: colors.sage30 },
-        ]}
-      >
-        <SmartIcon name="create-outline" size={14} color={colors.accent} />
-        <Text style={[styles.footerText, { color: colors.accent }]}>EDIT IDENTITY</Text>
-      </Pressable>
+    <View style={{ padding: 16, paddingBottom: 32, backgroundColor: colors.background, gap: 10 }}>
+      <View style={styles.footerRow}>
+        <Pressable
+          onPress={onOpenSettings}
+          style={({ pressed }) => [
+            styles.footerBtn,
+            styles.footerBtnHalf,
+            { backgroundColor: pressed ? colors.sage15 : colors.sage08, borderColor: colors.sage30 },
+          ]}
+        >
+          <SmartIcon name="body-outline" size={14} color={colors.accent} />
+          <Text style={[styles.footerText, { color: colors.accent }]}>BODY & PHV</Text>
+        </Pressable>
+        <Pressable
+          onPress={onOpenProfile}
+          style={({ pressed }) => [
+            styles.footerBtn,
+            styles.footerBtnHalf,
+            { backgroundColor: pressed ? colors.sage15 : colors.sage08, borderColor: colors.sage30 },
+          ]}
+        >
+          <SmartIcon name="person-outline" size={14} color={colors.accent} />
+          <Text style={[styles.footerText, { color: colors.accent }]}>ACCOUNT</Text>
+        </Pressable>
+      </View>
+      <Text style={[styles.footerHint, { color: colors.muted }]}>
+        Body measurements and growth stage in Settings. Photo and account in Profile. Back returns here.
+      </Text>
     </View>
   );
 
@@ -190,6 +216,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: -4,
   },
+  footerRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 10,
+  },
   footerBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -199,9 +230,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
+  footerBtnHalf: {
+    flex: 1,
+  },
   footerText: {
     fontFamily: fontFamily.medium,
-    fontSize: 12,
-    letterSpacing: 1.2,
+    fontSize: 11,
+    letterSpacing: 0.8,
+  },
+  footerHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: "center",
   },
 });

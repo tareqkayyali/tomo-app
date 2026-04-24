@@ -155,14 +155,14 @@ export default function CVPlayingPositionsScreen() {
                 key={sec}
                 label={`+ ${sec}`}
                 tone="outline"
-                onPress={() => nav.navigate("Profile")}
+                onPress={() => nav.push("Profile")}
               />
             ))}
           </View>
         )}
 
         <Pressable
-          onPress={() => nav.navigate("Profile")}
+          onPress={() => nav.push("Profile")}
           style={({ pressed }) => [
             styles.chooseBtn,
             {
