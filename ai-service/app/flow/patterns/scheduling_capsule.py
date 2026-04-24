@@ -27,6 +27,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -404,7 +405,12 @@ def _get_training_categories(context) -> list[dict]:
 
 
 def _build_linked_programs_for_capsule(raw: list[dict]) -> list[dict]:
-    """Shape snapshot programs for the mobile picker (slug + display name)."""
+    """Shape snapshot programs for the mobile picker (slug + display name).
+
+    De-duplicates by programId — snapshots may list the same program twice
+    (e.g. mandatory + emphasis), which would duplicate React keys on mobile.
+    """
+    seen: set[str] = set()
     out: list[dict] = []
     for p in raw:
         if not isinstance(p, dict):
@@ -413,27 +419,116 @@ def _build_linked_programs_for_capsule(raw: list[dict]) -> list[dict]:
         name = p.get("name")
         if not pid or not name:
             continue
-        out.append({"slug": str(pid), "name": str(name)})
+        slug = str(pid)
+        if slug in seen:
+            continue
+        seen.add(slug)
+        out.append({"slug": slug, "name": str(name)})
     return out[:30]
+
+
+def _norm_user_text(s: str) -> str:
+    t = s.lower()
+    for a, b in (("—", "-"), ("–", "-"), ("‑", "-"), ("`", " ")):
+        t = t.replace(a, b)
+    t = re.sub(r"\s+", " ", t).strip()
+    return t
+
+
+# Words that appear in most training prompts — weak for disambiguation
+_LINK_STOP = frozenset({
+    "a", "an", "the", "for", "and", "or", "to", "me", "my", "build", "make",
+    "add", "schedule", "book", "plan", "create", "session", "training",
+    "workout", "program", "please", "can", "you", "want", "need", "today",
+    "tomorrow", "this", "that", "with", "from", "our", "into", "using",
+})
 
 
 def _match_linked_program_slug(
     opener: str, programs: list[dict]
 ) -> Optional[str]:
-    """If the user named a program from their plan, pre-select that slug."""
+    """Pick the plan program the user was asking to schedule, if we can tell.
+
+    Uses: full name / substring match, text in parentheses (e.g. HIIT),
+    underscore tokens from program id (e.g. endurance_hiit), and non-stopword
+    overlap so phrases like "High-Intensity Interval Training" or "HIIT" match
+    the catalog name "High-Intensity Interval Training (HIIT)".
+    """
     if not opener or not programs:
         return None
-    lo = opener.lower()
+    lo = _norm_user_text(opener)
     best_slug: Optional[str] = None
-    best_len = 0
+    best_score: float = 0.0
+    best_name_len: int = 0
+
     for p in programs:
         name = (p.get("name") or "").strip()
-        if len(name) < 2:
+        slug = (p.get("slug") or "").strip()
+        if not name or not slug:
             continue
-        nl = name.lower()
-        if nl in lo and len(name) > best_len:
-            best_slug = p.get("slug")
-            best_len = len(name)
+
+        n_norm = _norm_user_text(name)
+        score: float = 0.0
+
+        # 1) Entire name (after dash normalize) is a substring of the message
+        if len(n_norm) >= 4 and n_norm in lo:
+            score = max(score, 100.0 + min(len(n_norm) * 0.2, 40.0))
+
+        # 2) Main title without parenthetical: "Foo (Bar)" -> try "foo"
+        main = n_norm.split("(")[0].strip(" -")
+        if len(main) >= 6 and main in lo:
+            score = max(score, 88.0 + min(len(main) * 0.1, 20.0))
+
+        # 3) Abbreviations in parentheses, e.g. (HIIT), (COD)
+        for m in re.finditer(r"\(([^)]+)\)", name, flags=re.IGNORECASE):
+            ab = _norm_user_text(m.group(1).strip())
+            if len(ab) >= 2 and ab in lo:
+                score = max(score, 92.0 + min(len(ab) * 1.5, 18.0))
+
+        # 4) Program id tokens: endurance_hiit -> hiit
+        for part in re.split(r"[_\s-]+", slug):
+            pl = _norm_user_text(part)
+            if len(pl) >= 3 and pl in lo and pl not in _LINK_STOP:
+                score = max(score, 70.0 + min(len(pl) * 1.2, 24.0))
+
+        # 5) Significant name tokens that also appear in the user message
+        raw_tokens = re.findall(r"[a-z0-9]+", n_norm)
+        in_msg = {
+            w
+            for w in raw_tokens
+            if len(w) >= 3 and w not in _LINK_STOP and w in lo
+        }
+        if in_msg:
+            hits = len(in_msg)
+            has_long = any(len(w) >= 5 for w in in_msg)
+            if hits >= 2 or has_long:
+                score = max(
+                    score,
+                    45.0
+                    + min(hits * 12.0, 50.0)
+                    + (6.0 if has_long else 0.0),
+                )
+
+        # 6) Message asks for a short phrase that appears in the name
+        for chunk in re.split(r"[\n,;]+", lo):
+            chunk = chunk.strip(" .")
+            if 6 <= len(chunk) <= 60 and chunk in n_norm:
+                score = max(score, 75.0)
+
+        if score > best_score or (score == best_score and len(n_norm) > best_name_len):
+            best_score = score
+            best_slug = slug
+            best_name_len = len(n_norm)
+
+    # Avoid weak false positives
+    if best_slug and best_score < 42.0:
+        return None
+    if best_slug:
+        logger.info(
+            "scheduling_capsule: prefilled linked program slug=%s score=%.1f",
+            best_slug,
+            best_score,
+        )
     return str(best_slug) if best_slug else None
 
 

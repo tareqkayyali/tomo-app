@@ -123,6 +123,13 @@ async function renderPdfWithBrowserless(url: string): Promise<Buffer> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       url,
+      // Force a desktop viewport so the page never falls into the mobile
+      // breakpoint (`@media (max-width: 980px)`). Without this Browserless
+      // defaults to ~800x600 and our CV CSS still renders 1-col stacked.
+      viewport: { width: 1280, height: 1800, deviceScaleFactor: 1 },
+      // Force the print stylesheet so `@page { size: A4 }` + the
+      // multi-column grid in `@media print` actually apply.
+      emulateMediaType: "print",
       // Browserless forwards `options` straight to Puppeteer's page.pdf().
       // @page CSS in public-cv.css controls the inner margin box; we set
       // Puppeteer margins to 0 so they don't stack.

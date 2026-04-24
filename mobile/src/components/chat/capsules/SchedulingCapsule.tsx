@@ -165,8 +165,29 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
     return null;
   });
 
+  // When the server fills prefill after first paint, apply the linked program
+  const linkedPrefillApplied = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const pre = ctx?.prefilledLinkedProgramSlug;
+    if (!pre) return;
+    if (!ctx?.linkedPrograms?.some((p) => p.slug === pre)) return;
+    if (linkedPrefillApplied.current === pre) return;
+    linkedPrefillApplied.current = pre;
+    setLinkedProgramSlug(pre);
+  }, [ctx?.prefilledLinkedProgramSlug, ctx?.linkedPrograms]);
+
   const selectedDay = days[selectedDayIdx] ?? null;
   const isRedReadiness = ctx?.readinessLevel === 'RED';
+
+  const uniqueLinkedPrograms = useMemo(() => {
+    const list = ctx?.linkedPrograms ?? [];
+    const seen = new Set<string>();
+    return list.filter((p) => {
+      if (seen.has(p.slug)) return false;
+      seen.add(p.slug);
+      return true;
+    });
+  }, [ctx?.linkedPrograms]);
 
   // Clock for filtering "today" past slots; refresh periodically so the list stays valid.
   const [now, setNow] = useState(() => new Date());
@@ -371,7 +392,7 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
       />
 
       {/* ── Linked program (from player plan) ── */}
-      {(ctx?.linkedPrograms?.length ?? 0) > 0 && (
+      {uniqueLinkedPrograms.length > 0 && (
         <View style={styles.linkedBlock}>
           <Text style={styles.groupLabel}>LINKED PROGRAM</Text>
           <ScrollView
@@ -396,11 +417,11 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
                 None
               </Text>
             </Pressable>
-            {ctx!.linkedPrograms!.map((p) => {
+            {uniqueLinkedPrograms.map((p, i) => {
               const on = linkedProgramSlug === p.slug;
               return (
                 <Pressable
-                  key={p.slug}
+                  key={`${p.slug}-${i}`}
                   onPress={() => setLinkedProgramSlug(p.slug)}
                   style={[styles.linkedChip, on && styles.linkedChipSelected]}
                 >
