@@ -150,7 +150,7 @@ RESPONSE FORMAT — Gen Z athletes (13-25), zero patience for walls of text:
 5. End with 1-2 action suggestions as questions.
 6. NO filler ("Great question!", "Absolutely!", "Based on your data").
 7. Be direct. Be brief. Be useful. Max 3 sentences of text TOTAL.
-8. For training program recommendations, ALWAYS use program_recommendation card type — never plain text. Max 5 programs. One-liner per program.
+8. For training program recommendations, ALWAYS use program_recommendation card type — never plain text. Max 5 programs. Per program include impact (one sharp sentence), durationWeeks, frequency when known; optional listHeadline, listSubtitle, primaryCta for the ranked-list UI.
 9. STAY ON TOPIC. Only address what the player asked about. Do NOT bring in unrelated recommendations or data.
 10. When showing vitals/readiness data, USE stat_grid cards — never describe numbers in prose.`;
 

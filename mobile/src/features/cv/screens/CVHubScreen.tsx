@@ -106,8 +106,9 @@ export default function CVHubScreen() {
         // non-2xx — it would happily save a JSON error body as a .pdf.
         const probe = await fetch(pdfUrl, { headers });
         if (!probe.ok) {
-          const fallback = probe.headers.get("X-Fallback-URL");
-          if (fallback) { await Linking.openURL(fallback); return; }
+          // Surface the actual server detail. Do NOT fall back to opening
+          // the printable HTML — the user clicked Download, not "show me
+          // a webpage".
           let detail = `HTTP ${probe.status}`;
           try {
             const body = await probe.json();
@@ -244,11 +245,12 @@ export default function CVHubScreen() {
 
         <View style={hubStyles.actionRow}>
           <ActionButton
-            icon="download-outline"
-            label="Download PDF"
+            icon={downloading ? "hourglass-outline" : "download-outline"}
+            label={downloading ? "Generating PDF…" : "Download PDF"}
             onPress={handleDownload}
             colors={colors}
             tone="primary"
+            disabled={downloading}
           />
           <ActionButton
             icon="share-outline"
@@ -296,9 +298,10 @@ interface ActionButtonProps {
   onPress: () => void;
   colors: any;
   tone: "primary" | "secondary";
+  disabled?: boolean;
 }
 
-function ActionButton({ icon, label, onPress, colors, tone }: ActionButtonProps) {
+function ActionButton({ icon, label, onPress, colors, tone, disabled }: ActionButtonProps) {
   const bg = tone === "primary" ? colors.sage15 : colors.cream06;
   const border = tone === "primary" ? colors.sage30 : colors.cream10;
   const fg = tone === "primary" ? colors.accent : colors.tomoCream;
@@ -306,12 +309,13 @@ function ActionButton({ icon, label, onPress, colors, tone }: ActionButtonProps)
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={({ pressed }) => [
         hubStyles.actionBtn,
         {
           backgroundColor: bg,
           borderColor: border,
-          opacity: pressed ? 0.85 : 1,
+          opacity: disabled ? 0.6 : pressed ? 0.85 : 1,
         },
       ]}
     >

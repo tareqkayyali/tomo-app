@@ -190,8 +190,12 @@ export interface ProgramRecommendationItem {
   priority: "mandatory" | "high" | "medium";
   weeklyFrequency: number;
   durationMin: number;
-  startingPoint: string;
-  positionNote: string;
+  startingPoint?: string;
+  positionNote?: string;
+  durationWeeks?: number;
+  impact?: string;
+  description?: string;
+  frequency?: string;
 }
 
 export interface ProgramRecommendationCard {
@@ -204,6 +208,9 @@ export interface ProgramRecommendationCard {
     ageBand: string;
     phvStage: string;
   };
+  listHeadline?: string;
+  listSubtitle?: string;
+  primaryCta?: { label: string; message: string };
 }
 
 export interface PHVAssessmentCard {
@@ -823,7 +830,7 @@ CARD TYPES (use the right one):
 - coach_note: { type, note } — single coaching insight sentence
 - session_plan: { type, title, totalDuration, readiness, items: [{ drillId, name, category, duration, intensity, attributeKeys?, reason? }] }
 - drill_card: { type, drillId, name, description, category, duration, intensity, equipment, instructions, tags }
-- program_recommendation: { type, programs: [{ programId, name, category, priority, weeklyFrequency, durationMin, startingPoint?, positionNote? }], weeklyPlanSuggestion, playerProfile }
+- program_recommendation: { type, programs: [{ programId, name, category, priority, weeklyFrequency, durationMin, durationWeeks?, frequency?, impact?, description?, startingPoint?, positionNote? }], weeklyPlanSuggestion, playerProfile, listHeadline?, listSubtitle?, primaryCta?: { label, message } }
 - phv_assessment: { type, phvStage, maturityOffset, loadingMultiplier, trainingPriorities, safetyWarnings, trainingImplication }
 - test_log_capsule: call get_test_catalog, copy readyToUseCapsuleCard into cards array
 - checkin_capsule: { type, prefilledDate, lastCheckinDate? }

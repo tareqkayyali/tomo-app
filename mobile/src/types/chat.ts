@@ -155,6 +155,13 @@ export interface ProgramRecommendationItem {
   durationMin: number;
   startingPoint?: string;
   positionNote?: string;
+  /** Block length in weeks — shown as "4 wks" when present (catalog / deep refresh). */
+  durationWeeks?: number;
+  /** One-line benefit copy (AI / catalog). */
+  impact?: string;
+  description?: string;
+  /** e.g. "2x/week" — overrides weeklyFrequency label when set. */
+  frequency?: string;
 }
 
 export interface ProgramRecommendationCard {
@@ -167,6 +174,12 @@ export interface ProgramRecommendationCard {
     ageBand: string;
     phvStage: string;
   };
+  /** In-card headline; falls back to a count-based title when omitted. */
+  listHeadline?: string;
+  /** Gray intro under headline; falls back to weeklyPlanSuggestion when omitted. */
+  listSubtitle?: string;
+  /** Tappable line under the list — sends message into chat when tapped. */
+  primaryCta?: { label: string; message: string };
 }
 
 export interface StatGridItem {

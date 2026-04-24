@@ -45,6 +45,7 @@ import type {
   DailyBriefingCard,
 } from '../../types/chat';
 import { CapsuleRenderer, isCapsuleCard } from './capsules/CapsuleRenderer';
+import { ProgramRecommendationList } from './ProgramRecommendationList';
 import {
   T,
   TomoTitle,
@@ -420,25 +421,12 @@ function renderSchedulePreview(
   );
 }
 
-function renderProgramRecommendation(card: ProgramRecommendationCard) {
-  const programs = Array.isArray(card.programs) ? card.programs : [];
-  const rows: TableRow[] = programs.slice(0, 5).map((p) => ({
-    label: p.name,
-    value: `${p.weeklyFrequency}× / ${p.durationMin}m`,
-    tier:
-      p.priority === 'mandatory'
-        ? 'alert'
-        : p.priority === 'high'
-        ? 'elite'
-        : 'ontrack',
-  }));
+function renderProgramRecommendation(
+  card: ProgramRecommendationCard,
+  onChipPress?: (message: string) => void,
+) {
   return (
-    <>
-      {card.weeklyPlanSuggestion ? (
-        <TomoBody>{card.weeklyPlanSuggestion}</TomoBody>
-      ) : null}
-      <Table rows={rows} />
-    </>
+    <ProgramRecommendationList card={card} onChipPress={onChipPress} />
   );
 }
 
@@ -592,7 +580,10 @@ function RenderCard({
     case 'schedule_preview':
       return renderSchedulePreview(card as SchedulePreviewCard, onConfirm);
     case 'program_recommendation':
-      return renderProgramRecommendation(card as ProgramRecommendationCard);
+      return renderProgramRecommendation(
+        card as ProgramRecommendationCard,
+        onChipPress,
+      );
     case 'injury_card':
       return renderInjuryCard(card as InjuryCard);
     case 'goal_card':
