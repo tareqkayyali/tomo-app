@@ -60,7 +60,9 @@ export async function GET(req: NextRequest) {
     process.env.NEXT_PUBLIC_APP_ORIGIN ??
     req.headers.get("origin") ??
     `http://${req.headers.get("host") ?? "localhost:3000"}`;
-  const url = `${origin}/t/${slug}?print=1`;
+  // Append a per-request token so Browserless's render cache (and any
+  // CDN in front of /t/<slug>) cannot serve a stale snapshot of the page.
+  const url = `${origin}/t/${slug}?print=1&_=${Date.now()}`;
 
   // Render via Browserless. If the token is missing or the service
   // errors, return 501 + the printable URL so the client can fall back
