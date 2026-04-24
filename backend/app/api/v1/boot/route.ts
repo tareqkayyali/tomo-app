@@ -247,13 +247,13 @@ export async function GET(request: NextRequest) {
         .maybeSingle(),
 
       // 15. Active program interactions — for Today's Plan + Program Panel
-      // Filters by action (not interaction_type) — "active" = In Orbit,
-      // "player_selected" = self-picked. program_snapshot holds display data.
+      // Only "active" = In Orbit. "player_selected" (My Picks) is a separate
+      // Programs-tab concept; mixing them inflates the Dashboard count.
       (db as any)
         .from("program_interactions")
         .select("program_id, action, program_snapshot, created_at")
         .eq("user_id", userId)
-        .in("action", ["active", "player_selected"])
+        .eq("action", "active")
         .order("created_at", { ascending: false })
         .limit(10),
 
