@@ -9,6 +9,7 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, Pressable, StyleSheet, Platform, Alert, Share, Linking } from "react-native";
 import * as FileSystem from "expo-file-system";
+import * as Print from "expo-print";
 import * as WebBrowser from "expo-web-browser";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -81,72 +82,62 @@ export default function CVHubScreen() {
   const handleDownload = useCallback(async () => {
     if (downloading) return;
     setDownloading(true);
-    const pdfUrl = `${API_BASE_URL}/api/v1/cv/pdf`;
 
     try {
       if (Platform.OS === "web") {
+        // Web: hit the server-side Playwright endpoint directly.
+        const pdfUrl = `${API_BASE_URL}/api/v1/cv/pdf`;
         const token = await getIdToken();
         const res = await fetch(pdfUrl, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok) {
           const fallback = res.headers.get("X-Fallback-URL");
-          if (fallback) {
-            await WebBrowser.openBrowserAsync(fallback);
-            return;
-          }
+          if (fallback) { await WebBrowser.openBrowserAsync(fallback); return; }
           throw new Error(`HTTP ${res.status}`);
         }
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, "_blank");
       } else {
-        const token = await getIdToken();
-        const headers: Record<string, string> = {};
-        if (token) headers.Authorization = `Bearer ${token}`;
+        // Native (iOS / Android): render the CV print page HTML on-device
+        // using the platform's own WebKit PDF engine via expo-print.
+        // This is reliable on every device and requires no server Chromium.
+        if (!cv) throw new Error("No CV data");
 
-        // First probe: if server returns 501 (Playwright not ready), open
-        // the printable web view inside an in-app browser instead.
-        const probe = await fetch(pdfUrl, { method: "HEAD", headers });
-        if (probe.status === 501) {
-          const fallback = probe.headers.get("X-Fallback-URL");
-          if (fallback) {
-            await WebBrowser.openBrowserAsync(fallback);
-            return;
-          }
+        // Ensure the CV is published so the public /t/<slug> page exists.
+        let publicUrl = cv.share.public_url;
+        if (!publicUrl) {
+          const published = await publish();
+          if (!published) throw new Error("Publish failed");
+          publicUrl = published.public_url;
         }
 
-        const cacheDir = (FileSystem as any).cacheDirectory as string | undefined;
-        if (!cacheDir) throw new Error("No writable cache directory");
-        const localPath = `${cacheDir}tomo-cv-${Date.now()}.pdf`;
+        const printUrl = `${publicUrl}?print=1`;
+        const token = await getIdToken();
+        const htmlRes = await fetch(printUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!htmlRes.ok) throw new Error(`Fetch HTML ${htmlRes.status}`);
+        const html = await htmlRes.text();
 
-        const dl = await FileSystem.createDownloadResumable(
-          pdfUrl,
-          localPath,
-          { headers }
-        ).downloadAsync();
+        const { uri } = await Print.printToFileAsync({ html, base64: false });
 
-        if (!dl) throw new Error("Download failed");
-
-        // Open the local PDF file directly in the system viewer.
-        // iOS: Quick Look opens immediately (no share sheet).
-        // Android: requires a content:// URI so other apps can read the file.
         if (Platform.OS === "android") {
-          const contentUri = await (FileSystem as any).getContentUriAsync(dl.uri);
+          const contentUri = await (FileSystem as any).getContentUriAsync(uri);
           await Linking.openURL(contentUri);
         } else {
-          // iOS file:// URI opens in Quick Look
-          await Linking.openURL(dl.uri);
+          await Linking.openURL(uri);
         }
       }
     } catch {
       if (Platform.OS !== "web") {
-        Alert.alert("PDF", "Could not open the PDF. Try again or use Share Link.");
+        Alert.alert("PDF", "Could not generate the PDF. Try again.");
       }
     } finally {
       setDownloading(false);
     }
-  }, [downloading]);
+  }, [cv, publish, downloading]);
 
   const rightCluster = (
     <Pressable
