@@ -442,6 +442,35 @@ export interface EventEditCapsule {
   }>;
   /** For update: the event being edited */
   selectedEventId?: string;
+  /** Optional notes pre-fill (create mode). */
+  prefilledNotes?: string;
+  /** Linked training programs (slug + name) for the picker (training/match only). */
+  linkedPrograms?: Array<{ slug: string; name: string }>;
+  /** Linked program auto-selected from opener / recent conversation. */
+  prefilledLinkedProgramSlug?: string | null;
+  /** Five-day schedule snapshot — per-day existing events + open slots.
+   *  Mirrors scheduling_capsule.days[] so the athlete can switch day
+   *  in-capsule and see smart suggestions without losing field state. */
+  days?: Array<{
+    date: string;
+    label: string;
+    dayOfWeek: string;
+    existingEvents: Array<{
+      id: string;
+      name: string;
+      startTime: string;
+      endTime: string;
+      type: string;
+    }>;
+    availableSlots: Array<{
+      start24: string;
+      end24: string;
+      label: string;
+      score?: number;
+    }>;
+  }>;
+  readinessLevel?: 'GREEN' | 'YELLOW' | 'RED' | null;
+  sport?: string | null;
 }
 
 export interface DrillRatingCapsule {

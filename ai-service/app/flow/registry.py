@@ -357,7 +357,7 @@ FLOW_REGISTRY: dict[str, FlowConfig] = {
     # ═══════════════════════════════════════════════════════════════════
 
     # Write actions -- explicit agent_dispatch needed for parameter extraction
-    "create_event": FlowConfig(pattern="write_action"),
+    "create_event": FlowConfig(pattern="event_capsule"),
     "update_event": FlowConfig(pattern="write_action"),
     "delete_event": FlowConfig(pattern="write_action"),
     "set_goal": FlowConfig(pattern="write_action"),

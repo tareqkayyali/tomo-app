@@ -176,6 +176,10 @@ async def flow_controller_node(state: TomoChatState) -> dict:
         from app.flow.patterns.study_scheduling_capsule import execute_study_scheduling_capsule
         result = await execute_study_scheduling_capsule(config, state)
 
+    elif pattern == "event_capsule":
+        from app.flow.patterns.event_capsule import execute_event_capsule
+        result = await execute_event_capsule(config, state)
+
     elif pattern == "multi_step":
         from app.flow.patterns.multi_step import execute_multi_step_start
         result = await execute_multi_step_start(config, state)
