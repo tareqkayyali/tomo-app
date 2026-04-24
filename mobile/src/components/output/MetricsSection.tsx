@@ -651,8 +651,6 @@ function OrbitCategoryCard({
 }) {
   const tier = categoryTier(category);
   const tierColor = TIER_COLORS[tier - 1];
-  const urgentCount = category.metrics.filter((m) => zoneToTier(m.zone) <= 2).length;
-
   const [activeMetricKey, setActiveMetricKey] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<'history' | 'logNew' | null>(null);
   const [historyData, setHistoryData] = useState<MyTestResult[]>([]);
@@ -736,24 +734,21 @@ function OrbitCategoryCard({
               {!open && (
                 <Text style={orbitStyles.catMeta}>
                   {category.metrics.length} test{category.metrics.length === 1 ? '' : 's'}
-                  {urgentCount > 0 && (
-                    <Text style={{ color: colors.error }}>
-                      {'  ·  '}{urgentCount} need{urgentCount === 1 ? 's' : ''} attention
-                    </Text>
-                  )}
                 </Text>
               )}
             </View>
-            <View
-              style={[
-                orbitStyles.phasePill,
-                { backgroundColor: tierColor + '22', borderColor: tierColor + '66' },
-              ]}
-            >
-              <Text style={[orbitStyles.phasePillText, { color: tierColor }]}>
-                {categoryPhaseLabel(tier)}
-              </Text>
-            </View>
+            {open && (
+              <View
+                style={[
+                  orbitStyles.phasePill,
+                  { backgroundColor: tierColor + '22', borderColor: tierColor + '66' },
+                ]}
+              >
+                <Text style={[orbitStyles.phasePillText, { color: tierColor }]}>
+                  {categoryPhaseLabel(tier)}
+                </Text>
+              </View>
+            )}
             <SmartIcon
               name={open ? 'chevron-up' : 'chevron-down'}
               size={14}

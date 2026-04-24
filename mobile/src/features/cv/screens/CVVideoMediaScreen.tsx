@@ -47,8 +47,13 @@ export default function CVVideoMediaScreen() {
 
   if (isLoading || !data) {
     return (
-      <CVScreen label="Video & Media" onBack={() => nav.goBack()}>
-        <Loader style={{ marginTop: 64 }} />
+      <CVScreen
+        label="Video & Media"
+        onBack={() => nav.goBack()}
+        scroll={false}
+        contentContainerStyle={styles.loadingContainer}
+      >
+        <Loader />
       </CVScreen>
     );
   }
@@ -234,6 +239,12 @@ export default function CVVideoMediaScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 0,
+  },
   mediaRow: {
     flexDirection: "row",
     alignItems: "center",

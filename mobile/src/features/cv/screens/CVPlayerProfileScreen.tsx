@@ -48,8 +48,13 @@ export default function CVPlayerProfileScreen() {
 
   if (isLoading || !data) {
     return (
-      <CVScreen label="Player Profile" onBack={() => nav.goBack()}>
-        <Loader style={{ marginTop: 64 }} />
+      <CVScreen
+        label="Player Profile"
+        onBack={() => nav.goBack()}
+        scroll={false}
+        contentContainerStyle={styles.loadingContainer}
+      >
+        <Loader />
       </CVScreen>
     );
   }
@@ -237,6 +242,12 @@ function formatDate(iso: string | null): string {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 0,
+  },
   subline: {
     fontFamily: fontFamily.regular,
     fontSize: 11,

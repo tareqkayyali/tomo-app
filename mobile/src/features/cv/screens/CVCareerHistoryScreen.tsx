@@ -55,8 +55,13 @@ export default function CVCareerHistoryScreen() {
 
   if (isLoading || !data) {
     return (
-      <CVScreen label="Career History" onBack={() => nav.goBack()}>
-        <Loader style={{ marginTop: 64 }} />
+      <CVScreen
+        label="Career History"
+        onBack={() => nav.goBack()}
+        scroll={false}
+        contentContainerStyle={styles.loadingContainer}
+      >
+        <Loader />
       </CVScreen>
     );
   }
@@ -402,6 +407,12 @@ function CareerRow({
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 0,
+  },
   group: {
     marginTop: 8,
   },

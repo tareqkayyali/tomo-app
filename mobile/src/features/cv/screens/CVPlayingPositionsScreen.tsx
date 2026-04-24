@@ -44,8 +44,13 @@ export default function CVPlayingPositionsScreen() {
 
   if (isLoading || !data) {
     return (
-      <CVScreen label="Playing Positions" onBack={() => nav.goBack()}>
-        <Loader style={{ marginTop: 64 }} />
+      <CVScreen
+        label="Playing Positions"
+        onBack={() => nav.goBack()}
+        scroll={false}
+        contentContainerStyle={styles.loadingContainer}
+      >
+        <Loader />
       </CVScreen>
     );
   }
@@ -177,6 +182,12 @@ export default function CVPlayingPositionsScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 0,
+  },
   pitchWrap: {
     aspectRatio: 0.82,
     borderRadius: 14,

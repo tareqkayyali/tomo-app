@@ -77,8 +77,13 @@ export default function CVReferencesScreen() {
 
   if (isLoading || !data) {
     return (
-      <CVScreen label="References" onBack={() => nav.goBack()}>
-        <Loader style={{ marginTop: 64 }} />
+      <CVScreen
+        label="References"
+        onBack={() => nav.goBack()}
+        scroll={false}
+        contentContainerStyle={styles.loadingContainer}
+      >
+        <Loader />
       </CVScreen>
     );
   }
@@ -271,6 +276,12 @@ function ModalInput({
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 0,
+  },
   stepRow: {
     flexDirection: "row",
     gap: 12,

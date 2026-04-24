@@ -25,8 +25,13 @@ export default function CVIdentityScreen() {
 
   if (isLoading || !data) {
     return (
-      <CVScreen label="Player Identity" onBack={() => nav.goBack()}>
-        <Loader style={{ marginTop: 64 }} />
+      <CVScreen
+        label="Player Identity"
+        onBack={() => nav.goBack()}
+        scroll={false}
+        contentContainerStyle={styles.loadingContainer}
+      >
+        <Loader />
       </CVScreen>
     );
   }
@@ -135,6 +140,12 @@ function formatPhv(stage: string | null, offset: number | null): string {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 0,
+  },
   hero: {
     borderRadius: 18,
     borderWidth: 1,

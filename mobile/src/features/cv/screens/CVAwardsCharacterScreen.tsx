@@ -68,8 +68,13 @@ export default function CVAwardsCharacterScreen() {
 
   if (isLoading || !data) {
     return (
-      <CVScreen label="Awards & Character" onBack={() => nav.goBack()}>
-        <Loader style={{ marginTop: 64 }} />
+      <CVScreen
+        label="Awards & Character"
+        onBack={() => nav.goBack()}
+        scroll={false}
+        contentContainerStyle={styles.loadingContainer}
+      >
+        <Loader />
       </CVScreen>
     );
   }
@@ -215,6 +220,12 @@ export default function CVAwardsCharacterScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 0,
+  },
   subline: {
     fontFamily: fontFamily.regular,
     fontSize: 11,

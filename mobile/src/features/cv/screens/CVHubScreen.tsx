@@ -204,10 +204,13 @@ export default function CVHubScreen() {
 
   if (isLoading || !cv) {
     return (
-      <CVScreen label="Player Passport" onBack={() => nav.goBack()}>
-        <View style={{ paddingVertical: 64 }}>
-          <Loader />
-        </View>
+      <CVScreen
+        label="Player Passport"
+        onBack={() => nav.goBack()}
+        scroll={false}
+        contentContainerStyle={hubStyles.loadingContainer}
+      >
+        <Loader />
       </CVScreen>
     );
   }
@@ -311,6 +314,12 @@ function ActionButton({ icon, label, onPress, colors, tone }: ActionButtonProps)
 }
 
 const hubStyles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 0,
+  },
   errorText: {
     fontFamily: fontFamily.regular,
     fontSize: 13,

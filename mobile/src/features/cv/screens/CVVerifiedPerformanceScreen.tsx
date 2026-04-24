@@ -25,8 +25,13 @@ export default function CVVerifiedPerformanceScreen() {
 
   if (isLoading || !data) {
     return (
-      <CVScreen label="Verified Performance" onBack={() => nav.goBack()}>
-        <Loader style={{ marginTop: 64 }} />
+      <CVScreen
+        label="Verified Performance"
+        onBack={() => nav.goBack()}
+        scroll={false}
+        contentContainerStyle={styles.loadingContainer}
+      >
+        <Loader />
       </CVScreen>
     );
   }
@@ -179,6 +184,12 @@ function relativeDate(iso: string): string {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 0,
+  },
   banner: {
     flexDirection: "row",
     alignItems: "center",

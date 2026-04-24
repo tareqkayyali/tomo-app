@@ -36,8 +36,13 @@ export default function CVNextStepsScreen() {
 
   if (isLoading || !data) {
     return (
-      <CVScreen label="Next Steps" onBack={() => nav.goBack()}>
-        <Loader style={{ marginTop: 64 }} />
+      <CVScreen
+        label="Next Steps"
+        onBack={() => nav.goBack()}
+        scroll={false}
+        contentContainerStyle={styles.loadingContainer}
+      >
+        <Loader />
       </CVScreen>
     );
   }
@@ -163,6 +168,12 @@ export default function CVNextStepsScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 0,
+  },
   heroCard: {
     borderRadius: 18,
     borderWidth: 1,
