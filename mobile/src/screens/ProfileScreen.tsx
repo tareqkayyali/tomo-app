@@ -235,7 +235,12 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   // Loading skeleton
   if (isLoading) {
     return (
-      <PlayerScreen label="PROFILE" title="Profile" onBack={() => navigation.goBack()}>
+      <PlayerScreen
+        label="PROFILE"
+        title="Profile"
+        onBack={() => navigation.goBack()}
+        contentStyle={styles.scrollContent}
+      >
         <View style={styles.headerSection}>
           <SkeletonCircle size={120} />
           <SkeletonLine width="50%" height={20} style={{ marginTop: spacing.md }} />
@@ -252,6 +257,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
       label="PROFILE"
       title={profile?.displayName || profile?.name || 'Profile'}
       onBack={() => navigation.goBack()}
+      contentStyle={styles.scrollContent}
     >
         {/* ═══════════════════════════════════════════════════════════
             Avatar + Name + Archetype
@@ -348,7 +354,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         {/* ═══════════════════════════════════════════════════════════
             Logout
            ═══════════════════════════════════════════════════════════ */}
-        <Animated.View style={fadeIn3}>
+        <Animated.View style={[styles.settingsFooter, fadeIn3]}>
           <Pressable
             onPress={handleLogout}
             style={({ pressed }) => [
@@ -449,8 +455,16 @@ function createStyles(colors: ThemeColors, typography: Record<string, TextStyle>
       marginTop: spacing.xs,
     },
 
+    // Scroll area: wider side gutters so settings card reads as a centered column
+    scrollContent: {
+      paddingHorizontal: spacing.xl + spacing.sm,
+    },
+
     // ── Menu ────────────────────────────────────────────────────────
     menuCard: {
+      alignSelf: 'center',
+      width: '100%',
+      maxWidth: 360,
       backgroundColor: colors.backgroundElevated,
       borderRadius: borderRadius.lg,
       overflow: 'hidden',
@@ -482,6 +496,12 @@ function createStyles(colors: ThemeColors, typography: Record<string, TextStyle>
       ...typography.body,
       color: colors.textOnDark,
       flex: 1,
+    },
+
+    settingsFooter: {
+      alignSelf: 'center',
+      width: '100%',
+      maxWidth: 360,
     },
 
     // ── Logout ──────────────────────────────────────────────────────
