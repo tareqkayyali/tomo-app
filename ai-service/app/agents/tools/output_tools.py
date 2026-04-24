@@ -45,7 +45,7 @@ def _normalize_program_name(s: str) -> str:
         return ""
     out = s.lower().strip()
     out = out.replace("&", "and")
-    for ch in ("-", "_", ".", ",", "'"):
+    for ch in ("-", "_", ".", ",", "'", "(", ")", "[", "]", "/"):
         out = out.replace(ch, " ")
     return " ".join(out.split())
 
@@ -119,13 +119,64 @@ def _match_gaps_to_program(program: dict, gaps: list[dict]) -> list[dict]:
     return matched
 
 
-async def _load_snapshot_programs(user_id: str) -> list[dict]:
-    """Read the athlete's AI-generated program recommendations from athlete_snapshots.program_recommendations.
+async def _load_active_programs(user_id: str) -> list[dict]:
+    """Read the athlete's active / player-selected programs from program_interactions.
 
-    Single source of truth: same JSONB the mobile Programs tab renders (see
-    backend/services/programs/deepProgramRefresh.ts → DeepProgramResult.programs).
+    These are the "IN ORBIT" programs on the mobile Programs tab (source of truth:
+    GET /api/v1/programs/active). Each row carries a full `program_snapshot` JSONB
+    captured at activation time. Returns [] on any missing/invalid state.
+    """
+    from app.db.supabase import get_pool
+    pool = get_pool()
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """SELECT program_id, action, program_snapshot, source
+                   FROM program_interactions
+                   WHERE user_id = %s
+                     AND action IN ('active', 'player_selected')""",
+                (user_id,),
+            )
+            rows = await result.fetchall()
+    except Exception as e:
+        logger.warning(f"_load_active_programs: program_interactions read failed: {e}")
+        return []
+
+    out: list[dict] = []
+    for row in rows:
+        program_id, action, snapshot, source = row[0], row[1], row[2], row[3]
+        if isinstance(snapshot, str):
+            try:
+                snapshot = json.loads(snapshot)
+            except (json.JSONDecodeError, TypeError):
+                snapshot = None
+        if not isinstance(snapshot, dict) or not snapshot.get("name"):
+            continue
+        # Preserve the athlete's selection status + provenance so downstream
+        # tools can render "active" / source labels.
+        merged = dict(snapshot)
+        merged.setdefault("programId", str(program_id) if program_id else snapshot.get("programId"))
+        merged["status"] = "active" if action == "active" else "player_selected"
+        if source and not merged.get("source"):
+            merged["source"] = source
+        out.append(merged)
+    return out
+
+
+async def _load_snapshot_programs(user_id: str) -> list[dict]:
+    """Return the athlete's full program list — active (IN ORBIT) + recommended (PARKED).
+
+    Mirrors the mobile Programs tab composition:
+      - active / player-selected programs from `program_interactions` (source of truth)
+      - AI-generated recommendations from `athlete_snapshots.program_recommendations`
+    Active programs come first and deduplicate any matching recommendation (same programId).
     Returns [] on any missing/invalid state — never raises.
     """
+    active = await _load_active_programs(user_id)
+    active_ids = {
+        (p.get("programId") or "").lower() for p in active if p.get("programId")
+    }
+
     from app.db.supabase import get_pool
     pool = get_pool()
     try:
@@ -140,29 +191,27 @@ async def _load_snapshot_programs(user_id: str) -> list[dict]:
             row = await result.fetchone()
     except Exception as e:
         logger.warning(f"_load_snapshot_programs: snapshot read failed: {e}")
-        return []
+        return active
 
-    if not row or not row[0]:
-        return []
+    recommended: list[dict] = []
+    if row and row[0]:
+        payload = row[0]
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except (json.JSONDecodeError, TypeError):
+                payload = None
+        if isinstance(payload, dict):
+            programs = payload.get("programs") or []
+            if isinstance(programs, list):
+                for p in programs:
+                    if not (isinstance(p, dict) and p.get("programId") and p.get("name")):
+                        continue
+                    if (p.get("programId") or "").lower() in active_ids:
+                        continue  # dedupe — already in active list
+                    recommended.append(p)
 
-    payload = row[0]
-    if isinstance(payload, str):
-        try:
-            payload = json.loads(payload)
-        except (json.JSONDecodeError, TypeError):
-            return []
-    if not isinstance(payload, dict):
-        return []
-
-    programs = payload.get("programs") or []
-    if not isinstance(programs, list):
-        return []
-
-    out: list[dict] = []
-    for p in programs:
-        if isinstance(p, dict) and p.get("programId") and p.get("name"):
-            out.append(p)
-    return out
+    return active + recommended
 
 
 def make_output_tools(user_id: str, context: PlayerContext) -> list:
@@ -713,7 +762,7 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
 
     @tool
     async def get_my_programs() -> dict:
-        """Get the athlete's currently active/recommended training programs — the exact same list shown in the mobile Programs tab. Sourced from athlete_snapshots.program_recommendations (AI-personalized by deepProgramRefresh)."""
+        """Get the athlete's full program list — same list shown in the mobile Programs tab. Includes active ("IN ORBIT") programs from program_interactions AND recommended ("PARKED") programs from athlete_snapshots.program_recommendations. Each program's `status` field is "active" / "player_selected" if the athlete already activated it, otherwise unset."""
         snapshot_programs = await _load_snapshot_programs(user_id)
 
         if not snapshot_programs:
@@ -734,6 +783,8 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
                 "category": p.get("category"),
                 "type": p.get("type"),
                 "priority": p.get("priority"),
+                "status": p.get("status"),
+                "source": p.get("source"),
                 "description": p.get("description"),
                 "impact": p.get("impact"),
                 "frequency": p.get("frequency"),
@@ -748,15 +799,18 @@ def make_output_tools(user_id: str, context: PlayerContext) -> list:
             for p in snapshot_programs
         ]
 
+        active_count = sum(1 for p in programs if p.get("status") in ("active", "player_selected"))
+
         return {
             "programs": programs,
             "total": len(programs),
+            "active_count": active_count,
             "dataStatus": "ready",
         }
 
     @tool
     async def get_program_by_name(program_name: str) -> dict:
-        """Look up a specific program from the athlete's active/recommended list by its name. Use this when the athlete refers to a program by title (e.g. 'explain my Combination Play & Link-Up program'). Case-insensitive; tolerant of '&' vs 'and', hyphens, and extra whitespace. Reads the same snapshot the Programs tab renders."""
+        """Look up a specific program from the athlete's full list (active IN ORBIT + recommended PARKED) by its name. Use this whenever the athlete refers to a program by title (e.g. 'explain my Linear Sprint Development program'). Case-insensitive; tolerant of '&' vs 'and', hyphens, parentheses, and extra whitespace. Reads the same list as the Programs tab — never say a program 'isn't in your list' without calling this first."""
         if not program_name or not program_name.strip():
             return {"error": "program_name is required"}
 
