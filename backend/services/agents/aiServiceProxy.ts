@@ -58,6 +58,7 @@ export interface AIServiceResponse {
   sessionId: string;
   refreshTargets: string[];
   pendingConfirmation: any | null;
+  context?: Record<string, any>;
   telemetry?: AIServiceTelemetry;
 }
 
@@ -253,6 +254,7 @@ export async function proxyToAIServiceSync(
       refreshTargets: data.refresh_targets || data.refreshTargets || [],
       pendingConfirmation:
         data.pending_confirmation || data.pendingConfirmation || null,
+      context: data.context || {},
       telemetry: data._telemetry ?? undefined,
     };
   } catch (err) {
