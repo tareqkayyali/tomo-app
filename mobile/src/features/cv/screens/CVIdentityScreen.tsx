@@ -22,6 +22,13 @@ export default function CVIdentityScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const { data, isLoading } = useCVProfile(user?.uid ?? "");
+  // Keep hooks unconditional so render order is stable during loading -> loaded transitions.
+  const onOpenSettings = useCallback(() => {
+    nav.push("Settings");
+  }, [nav]);
+  const onOpenProfile = useCallback(() => {
+    nav.push("Profile");
+  }, [nav]);
 
   if (isLoading || !data) {
     return (
@@ -37,15 +44,6 @@ export default function CVIdentityScreen() {
   }
 
   const { identity, physical } = data;
-
-  // Use push (not navigate) so we don't pop the CV stack to an older Profile
-  // screen — which would dump users on Profile and re-opening CV starts at the hub.
-  const onOpenSettings = useCallback(() => {
-    nav.push("Settings");
-  }, [nav]);
-  const onOpenProfile = useCallback(() => {
-    nav.push("Profile");
-  }, [nav]);
 
   const footer = (
     <View style={{ padding: 16, paddingBottom: 32, backgroundColor: colors.background, gap: 10 }}>
