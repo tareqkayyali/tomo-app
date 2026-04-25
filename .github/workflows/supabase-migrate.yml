@@ -37,7 +37,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
 
       - name: Guard — confirm required for non-dry-run
         if: ${{ inputs.dry_run == false }}

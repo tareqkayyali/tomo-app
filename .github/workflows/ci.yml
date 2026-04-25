@@ -16,7 +16,7 @@ jobs:
       mobile: ${{ steps.filter.outputs.mobile }}
       ai-service: ${{ steps.filter.outputs.ai-service }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -35,7 +35,7 @@ jobs:
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -58,7 +58,7 @@ jobs:
     if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -82,8 +82,8 @@ jobs:
     if: needs.changes.outputs.ai-service == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.6.0
         with:
           python-version: '3.12'
           cache: pip
@@ -121,8 +121,8 @@ jobs:
       group: routing-live-eval-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.6.0
         with:
           python-version: '3.12'
           cache: pip
