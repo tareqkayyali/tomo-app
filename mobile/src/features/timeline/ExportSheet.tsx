@@ -25,15 +25,40 @@ import { useTheme } from "../../hooks/useTheme";
 import { fontFamily } from "../../theme";
 import { downloadPdf } from "../pdf/downloadPdf";
 
-interface RangePreset {
-  key: string;
-  label: string;
-  compute: (today: Date) => { from: string; to: string };
+interface MonthOption {
+  key: string;            // "YYYY-MM"
+  label: string;          // "May 2026"
+  from: string;           // "YYYY-MM-DD" first-of-month, or today if current month
+  to: string;             // "YYYY-MM-DD" last-of-month
 }
 
 interface TypeChip {
   key: string;
   label: string;
+}
+
+const MONTH_NAMES = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
+
+function buildMonthOptions(today: Date, count: number): MonthOption[] {
+  const out: MonthOption[] = [];
+  for (let i = 0; i < count; i++) {
+    const y = today.getFullYear();
+    const m = today.getMonth() + i; // can roll over
+    const first = new Date(y, m, 1);
+    const last = new Date(y, m + 1, 0);
+    // Current month: start at today (no past dates).
+    const fromDate = i === 0 ? today : first;
+    out.push({
+      key: `${first.getFullYear()}-${(first.getMonth() + 1).toString().padStart(2, "0")}`,
+      label: `${MONTH_NAMES[first.getMonth()]} ${first.getFullYear()}`,
+      from: iso(fromDate),
+      to: iso(last),
+    });
+  }
+  return out;
 }
 
 const TYPE_CHIPS: TypeChip[] = [
@@ -45,66 +70,11 @@ const TYPE_CHIPS: TypeChip[] = [
   { key: "other",       label: "Other" },
 ];
 
-const RANGE_PRESETS: RangePreset[] = [
-  {
-    key: "this_week",
-    label: "This week",
-    compute: (today) => {
-      const start = startOfWeek(today);
-      const end = addDays(start, 6);
-      return { from: iso(start), to: iso(end) };
-    },
-  },
-  {
-    key: "next_week",
-    label: "Next week",
-    compute: (today) => {
-      const start = addDays(startOfWeek(today), 7);
-      const end = addDays(start, 6);
-      return { from: iso(start), to: iso(end) };
-    },
-  },
-  {
-    key: "this_month",
-    label: "This month",
-    compute: (today) => {
-      const start = new Date(today.getFullYear(), today.getMonth(), 1);
-      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      return { from: iso(start), to: iso(end) };
-    },
-  },
-  {
-    key: "next_month",
-    label: "Next month",
-    compute: (today) => {
-      const start = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-      const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-      return { from: iso(start), to: iso(end) };
-    },
-  },
-  {
-    key: "next_30",
-    label: "Next 30 days",
-    compute: (today) => ({ from: iso(today), to: iso(addDays(today, 29)) }),
-  },
-];
-
 function iso(d: Date): string {
   const y = d.getFullYear();
   const m = (d.getMonth() + 1).toString().padStart(2, "0");
   const day = d.getDate().toString().padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-function addDays(d: Date, n: number): Date {
-  const c = new Date(d);
-  c.setDate(c.getDate() + n);
-  return c;
-}
-function startOfWeek(d: Date): Date {
-  // Sunday-first to match the print grid.
-  const c = new Date(d);
-  c.setDate(c.getDate() - c.getDay());
-  return c;
 }
 
 export function ExportSheet({
@@ -115,7 +85,8 @@ export function ExportSheet({
   onClose: () => void;
 }) {
   const { colors } = useTheme();
-  const [presetKey, setPresetKey] = useState<string>("this_week");
+  const monthOptions = useMemo(() => buildMonthOptions(new Date(), 6), []);
+  const [monthKey, setMonthKey] = useState<string>(monthOptions[0].key);
   const [enabled, setEnabled] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(TYPE_CHIPS.map((c) => [c.key, true]))
   );
@@ -143,9 +114,9 @@ export function ExportSheet({
   }, [progress, progressAnim]);
 
   const range = useMemo(() => {
-    const preset = RANGE_PRESETS.find((p) => p.key === presetKey) ?? RANGE_PRESETS[0];
-    return preset.compute(new Date());
-  }, [presetKey]);
+    const month = monthOptions.find((p) => p.key === monthKey) ?? monthOptions[0];
+    return { from: month.from, to: month.to };
+  }, [monthKey, monthOptions]);
 
   const selectedTypes = useMemo(
     () => TYPE_CHIPS.filter((c) => enabled[c.key]).map((c) => c.key),
@@ -211,14 +182,14 @@ export function ExportSheet({
           <Text style={[styles.title, { color: colors.tomoCream }]}>Pick range and types</Text>
 
           <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
-            <Text style={[styles.label, { color: colors.muted }]}>RANGE</Text>
+            <Text style={[styles.label, { color: colors.muted }]}>MONTH</Text>
             <View style={styles.chipRow}>
-              {RANGE_PRESETS.map((p) => {
-                const sel = p.key === presetKey;
+              {monthOptions.map((p) => {
+                const sel = p.key === monthKey;
                 return (
                   <Pressable
                     key={p.key}
-                    onPress={() => !exporting && setPresetKey(p.key)}
+                    onPress={() => !exporting && setMonthKey(p.key)}
                     style={[
                       styles.chip,
                       {
