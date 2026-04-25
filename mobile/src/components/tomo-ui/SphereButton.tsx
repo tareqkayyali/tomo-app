@@ -72,33 +72,27 @@ export function SphereButton({
         {/* Press fill overlay */}
         <View style={styles.pressFill} pointerEvents="none" />
 
-        {/* Content: orb pinned left at x=14, text follows */}
-        <View style={styles.content}>
-          {loading ? (
-            <View style={styles.loaderWrap}>
-              <Loader size="sm" />
-            </View>
-          ) : (
-            <>
-              {/* Sphere orb */}
-              <View style={styles.orbZone}>
-                <View style={styles.orbHalo} />
-                <LinearGradient
-                  colors={['#C8DCC3', '#9AB896', '#7A9B76', '#4F6B4C']}
-                  locations={[0, 0.35, 0.7, 1]}
-                  start={{ x: 0.38, y: 0.32 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.orbSphere}
-                />
-                <View style={styles.orbHighlight} />
-              </View>
-
-              <Text style={styles.label} numberOfLines={1}>
-                {label}
-              </Text>
-            </>
-          )}
+        {/* Orb: absolutely anchored to left edge */}
+        <View style={styles.orbZone}>
+          <View style={styles.orbHalo} />
+          <LinearGradient
+            colors={['#C8DCC3', '#9AB896', '#7A9B76', '#4F6B4C']}
+            locations={[0, 0.35, 0.7, 1]}
+            start={{ x: 0.38, y: 0.32 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.orbSphere}
+          />
+          <View style={styles.orbHighlight} />
         </View>
+
+        {/* Label: centered across the full pill width */}
+        {loading ? (
+          <Loader size="sm" />
+        ) : (
+          <Text style={styles.label} numberOfLines={1}>
+            {label}
+          </Text>
+        )}
       </AnimatedPressable>
     </Animated.View>
   );
@@ -112,29 +106,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(245,243,237,0.14)',
     backgroundColor: 'transparent',
     overflow: 'hidden',
-    // Row layout so content can fill the width with flex:1
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   pressFill: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(245,243,237,0.05)',
     borderRadius: 22,
   },
-  content: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    // Orb left edge at 14px → center at 24px, matching SVG spec
-    paddingLeft: 14,
-    paddingRight: 20,
-    gap: 10,
-  },
-  loaderWrap: {
-    flex: 1,
-    alignItems: 'center',
-  },
   orbZone: {
+    position: 'absolute',
+    left: 14,
     width: 20,
     height: 20,
     alignItems: 'center',
