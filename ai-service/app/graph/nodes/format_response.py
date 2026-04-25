@@ -166,22 +166,34 @@ def _program_detail_card_from_tool_data(data: dict) -> dict:
     if not isinstance(phv, list):
         phv = []
     phv = [str(x) for x in phv if x]
+    # Tool payloads occasionally surface non-string scalars for fields the
+    # CMS exposes as text (e.g. frequency=3 instead of "3x/wk"). Coerce
+    # before stripping so a stray int/float doesn't crash format_response.
+    def _s(*candidates):
+        for v in candidates:
+            if v is None:
+                continue
+            s = str(v).strip()
+            if s:
+                return s
+        return None
+
     return {
         "type": "program_detail",
         "programId": pid or name.lower().replace(" ", "-")[:48],
         "name": name,
         "source": data.get("source") if data.get("source") in ("coach", "ai_recommended", "player_added") else None,
-        "category": (data.get("category") or "").strip() or None,
+        "category": _s(data.get("category")),
         "programType": (data.get("type") or "physical"),
         "priority": data.get("priority"),
-        "frequency": (data.get("frequency") or rx.get("frequency") or "").strip() or None,
+        "frequency": _s(data.get("frequency"), rx.get("frequency")),
         "durationMin": data.get("duration_minutes") if data.get("duration_minutes") is not None else data.get("durationMin"),
         "durationWeeks": data.get("duration_weeks") if data.get("duration_weeks") is not None else data.get("durationWeeks"),
-        "difficulty": (data.get("difficulty") or "").strip() or None,
-        "impact": (data.get("impact") or "").strip() or None,
-        "description": (data.get("description") or "").strip() or None,
-        "positionNote": (data.get("position_note") or data.get("positionNote") or "").strip() or None,
-        "reason": (data.get("reason") or "").strip() or None,
+        "difficulty": _s(data.get("difficulty")),
+        "impact": _s(data.get("impact")),
+        "description": _s(data.get("description")),
+        "positionNote": _s(data.get("position_note"), data.get("positionNote")),
+        "reason": _s(data.get("reason")),
         "phvWarnings": phv,
         "tags": tags[:12],
         "prescription": {
