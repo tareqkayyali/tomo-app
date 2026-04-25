@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import type { Ionicons } from '@expo/vector-icons';
 import { SmartIcon } from '../components/SmartIcon';
+import { SphereButton } from '../components/tomo-ui/SphereButton';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import * as Haptics from 'expo-haptics';
 import {
@@ -761,19 +762,13 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
           )}
 
           {/* ═══ Save Button ═══ */}
-          <Pressable
+          <SphereButton
+            label="Save Changes"
             onPress={handleSave}
+            loading={saving}
             disabled={saving}
-            style={({ pressed }) => [
-              styles.saveButton,
-              saving && styles.saveButtonDisabled,
-              pressed && { opacity: 0.85 },
-            ]}
-          >
-            <Text style={styles.saveButtonText}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Text>
-          </Pressable>
+            style={styles.saveButton}
+          />
         </ScrollView>
 
         {/* ─── Time Picker Modals ─── */}

@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../../hooks/useTheme";
@@ -13,6 +13,7 @@ import { useCVProfile } from "../../../hooks/useCVProfile";
 import type { MainStackParamList } from "../../../navigation/types";
 import { fontFamily } from "../../../theme";
 import { SmartIcon } from "../../../components/SmartIcon";
+import { SphereButton } from "../../../components/tomo-ui/SphereButton";
 import { CVScreen } from "../components/CVScreen";
 import { InfoCard, InfoRow, Chip } from "../components/primitives";
 import { Loader } from "../../../components/Loader";
@@ -48,28 +49,16 @@ export default function CVIdentityScreen() {
   const footer = (
     <View style={{ padding: 16, paddingBottom: 32, backgroundColor: colors.background, gap: 10 }}>
       <View style={styles.footerRow}>
-        <Pressable
+        <SphereButton
+          label="BODY & PHV"
           onPress={onOpenSettings}
-          style={({ pressed }) => [
-            styles.footerBtn,
-            styles.footerBtnHalf,
-            { backgroundColor: pressed ? colors.sage15 : colors.sage08, borderColor: colors.sage30 },
-          ]}
-        >
-          <SmartIcon name="body-outline" size={14} color={colors.accent} />
-          <Text style={[styles.footerText, { color: colors.accent }]}>BODY & PHV</Text>
-        </Pressable>
-        <Pressable
+          style={styles.footerBtnHalf}
+        />
+        <SphereButton
+          label="ACCOUNT"
           onPress={onOpenProfile}
-          style={({ pressed }) => [
-            styles.footerBtn,
-            styles.footerBtnHalf,
-            { backgroundColor: pressed ? colors.sage15 : colors.sage08, borderColor: colors.sage30 },
-          ]}
-        >
-          <SmartIcon name="person-outline" size={14} color={colors.accent} />
-          <Text style={[styles.footerText, { color: colors.accent }]}>ACCOUNT</Text>
-        </Pressable>
+          style={styles.footerBtnHalf}
+        />
       </View>
       <Text style={[styles.footerHint, { color: colors.muted }]}>
         Body measurements and growth stage in Settings. Photo and account in Profile. Back returns here.

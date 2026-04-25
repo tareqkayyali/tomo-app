@@ -6,11 +6,12 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, SafeAreaView,
+  View, Text, SafeAreaView, TouchableOpacity,
   StyleSheet, Platform, Alert, Share, ScrollView,
 } from 'react-native';
 import { SmartIcon } from '../components/SmartIcon';
 import { Loader } from '../components/Loader';
+import { SphereButton } from '../components/tomo-ui/SphereButton';
 import { PlayerScreen } from '../components/tomo-ui/playerDesign';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -187,26 +188,19 @@ export function CVPreviewScreen({ cvType = 'club', onBack }: Props) {
       {/* Bottom action bar */}
       {!isLoading && !error && (
         <View style={[s.bottomBar, { borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[s.actionBtn, { backgroundColor: colors.accent }]}
+          <SphereButton
+            label="Download PDF"
             onPress={handleDownloadPDF}
-            disabled={isExporting}>
-            {isExporting ? (
-              <Loader size="sm" />
-            ) : (
-              <>
-                <SmartIcon name="download-outline" size={16} color={colors.textPrimary} />
-                <Text style={[s.actionText, { color: colors.textPrimary }]}>Download PDF</Text>
-              </>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.actionBtnOutline, { borderColor: colors.accent }]}
+            loading={isExporting}
+            disabled={isExporting}
+            style={{ flex: 1 }}
+          />
+          <SphereButton
+            label="Copy link"
             onPress={handleShareLink}
-            disabled={isExporting}>
-            <SmartIcon name="link-outline" size={16} color={colors.accent} />
-            <Text style={[s.actionText, { color: colors.accent }]}>Share Link</Text>
-          </TouchableOpacity>
+            disabled={isExporting}
+            style={{ flex: 1 }}
+          />
         </View>
       )}
     </PlayerScreen>

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SmartIcon } from '../SmartIcon';
 import { Loader } from '../Loader';
+import { SphereButton } from '../tomo-ui/SphereButton';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import { emitRefresh } from '../../utils/refreshBus';
@@ -272,17 +273,13 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                       </>
                     )}
                     {!isLocked && (
-                      <Pressable
-                        style={[ms.submitBtn, { backgroundColor: canSavePre ? colors.accent1 : colors.textMuted + '30' }]}
+                      <SphereButton
+                        label="Set target"
                         onPress={handleSavePre}
+                        loading={submitting}
                         disabled={!canSavePre || submitting}
-                      >
-                        {submitting ? (
-                          <Loader size="sm" />
-                        ) : (
-                          <Text style={ms.submitText}>Set target</Text>
-                        )}
-                      </Pressable>
+                        style={{ marginTop: spacing.sm }}
+                      />
                     )}
                   </View>
                 ) : (
@@ -338,17 +335,13 @@ export function JournalSheet({ visible, event, onClose }: JournalSheetProps) {
                         />
 
                         {!isLocked && (
-                          <Pressable
-                            style={[ms.submitBtn, { backgroundColor: canSavePost ? colors.accent1 : colors.textMuted + '30' }]}
+                          <SphereButton
+                            label="Log reflection"
                             onPress={handleSavePost}
+                            loading={submitting}
                             disabled={!canSavePost || submitting}
-                          >
-                            {submitting ? (
-                              <Loader size="sm" />
-                            ) : (
-                              <Text style={ms.submitText}>Log reflection</Text>
-                            )}
-                          </Pressable>
+                            style={{ marginTop: spacing.sm }}
+                          />
                         )}
                       </>
                     )}

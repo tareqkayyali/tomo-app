@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, Pressable, StyleSheet, ViewStyle, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { T } from './tokens';
+import { SphereButton } from '../../tomo-ui/SphereButton';
 
 /**
  * Full-width action. 'muted' = next step ("Next · training mix"),
@@ -20,45 +21,31 @@ export function CTA({
   disabled?: boolean;
   style?: ViewStyle;
 }) {
-  const isPrimary = tone === 'primary';
-  const color = '#F5F3ED';
+  if (tone === 'primary') {
+    return (
+      <SphereButton
+        label={typeof children === 'string' ? children : ''}
+        onPress={onPress ?? (() => {})}
+        disabled={disabled}
+        style={{ marginTop: 10, ...style }}
+      />
+    );
+  }
+
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
       style={({ pressed }) => [
         styles.btn,
-        isPrimary ? styles.primaryShell : styles.mutedShell,
+        styles.mutedShell,
         disabled && styles.btnDisabled,
         pressed && styles.btnPressed,
         style,
       ]}
     >
-      {isPrimary ? (
-        <View style={styles.primaryWrap}>
-          <LinearGradient
-            colors={['#C8DCC3', '#9AB896', '#7A9B76', '#4F6B4C']}
-            locations={[0, 0.35, 0.7, 1]}
-            start={{ x: 0.3, y: 0.2 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
-          />
-          <LinearGradient
-            colors={['rgba(245,243,237,0.18)', 'rgba(245,243,237,0.05)', 'transparent']}
-            locations={[0, 0.32, 0.65]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
-          />
-          <View style={styles.innerBorder} />
-          <Text style={[styles.label, { color }]} numberOfLines={1}>
-            {children}
-          </Text>
-        </View>
-      ) : (
-        <Text style={[styles.label, { color: T.sageLight }]} numberOfLines={1}>
-          {children}
-        </Text>
-      )}
+      <Text style={[styles.label, { color: T.sageLight }]} numberOfLines={1}>
+        {children}
+      </Text>
     </Pressable>
   );
 }

@@ -22,6 +22,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { fontFamily } from '../../theme/typography';
 import { borderRadius, animation } from '../../theme/spacing';
 import TomoIcon from './TomoIcon';
+import { SphereButton } from './SphereButton';
 
 import { colors } from '../../theme/colors';
 
@@ -80,19 +81,19 @@ const TomoButton: React.FC<TomoButtonProps> = memo(({
     }
   };
 
-  const isGlossy = variant === 'primary' || variant === 'orange';
+  if (variant === 'primary') {
+    return <SphereButton label={label} onPress={onPress} loading={loading} disabled={disabled} />;
+  }
+
+  const isOrange = variant === 'orange';
   const isGhost = variant === 'ghost';
   const sizeStyle = SIZE_STYLES[size];
   const opacity = disabled ? 0.4 : 1;
 
-  // Glossy variants use dark text on bright bg
-  const textColor = isGlossy ? colors.cream : colors.electricGreen;
-  const iconColor = isGlossy ? colors.cream : colors.electricGreen;
+  const textColor = isOrange ? '#F5F3ED' : colors.electricGreen;
+  const iconColor = isOrange ? '#F5F3ED' : colors.electricGreen;
 
-  // Gradient colors per variant
-  const gradientColors: [string, string, string, string] = variant === 'orange'
-    ? [colors.tomoOrange, '#D89052', '#C67933', colors.accent]
-    : ['#C8DCC3', '#9AB896', '#7A9B76', '#4F6B4C'];
+  const gradientColors: [string, string, string, string] = [colors.tomoOrange, '#D89052', '#C67933', colors.accent];
 
   const content = (
     <View style={styles.inner}>
@@ -115,9 +116,8 @@ const TomoButton: React.FC<TomoButtonProps> = memo(({
       disabled={disabled || loading}
       style={[pressStyle, { opacity }]}
     >
-      {isGlossy ? (
+      {isOrange ? (
         <View style={[styles.glossyWrap, { height: sizeStyle.height, paddingHorizontal: sizeStyle.paddingH }]}>
-          {/* Base gradient */}
           <LinearGradient
             colors={gradientColors}
             locations={[0, 0.35, 0.7, 1]}
@@ -125,7 +125,6 @@ const TomoButton: React.FC<TomoButtonProps> = memo(({
             end={{ x: 1, y: 1 }}
             style={[StyleSheet.absoluteFillObject, { borderRadius: 22 }]}
           />
-          {/* Subtle top sheen */}
           <LinearGradient
             colors={['rgba(245,243,237,0.18)', 'rgba(245,243,237,0.05)', 'transparent']}
             locations={[0, 0.32, 0.65]}
@@ -133,7 +132,6 @@ const TomoButton: React.FC<TomoButtonProps> = memo(({
             end={{ x: 0.5, y: 1 }}
             style={[StyleSheet.absoluteFillObject, { borderRadius: 22 }]}
           />
-          {/* Inner border highlight */}
           <View style={styles.innerBorder} />
           {content}
         </View>

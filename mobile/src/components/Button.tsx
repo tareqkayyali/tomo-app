@@ -35,6 +35,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useComponentStyle } from '../hooks/useComponentStyle';
 import type { ThemeColors } from '../theme/colors';
 import { SmartIcon } from './SmartIcon';
+import { SphereButton } from './tomo-ui/SphereButton';
 
 import { colors } from '../theme/colors';
 
@@ -110,10 +111,22 @@ export function Button({
     );
   }
 
+  // ── Sphere button for primary / gradient ────────────────────────
+  if (variant === 'primary' || variant === 'gradient') {
+    return (
+      <SphereButton
+        label={title ?? ''}
+        onPress={onPress}
+        loading={loading}
+        disabled={isDisabled}
+        style={style}
+      />
+    );
+  }
+
   // ── Resolve text color per variant ──────────────────────────────
-  const isGlossy = variant === 'primary' || variant === 'gradient';
-  const textColor = isGlossy ? colors.cream : colors.electricGreen;
-  const loaderColor = isGlossy ? colors.cream : colors.electricGreen;
+  const textColor = colors.electricGreen;
+  const loaderColor = colors.electricGreen;
   const resolvedIcon = iconSize ?? (size === 'small' ? 16 : 18);
 
   const content = (
@@ -146,42 +159,6 @@ export function Button({
       )}
     </View>
   );
-
-  // ── Gradient / Primary variant — v0 glossy style ──────────────
-  if (isGlossy) {
-    return (
-      <Animated.View style={[animatedStyle, isDisabled && styles.disabled, style]}>
-        <Pressable
-          onPress={onPress}
-          onPressIn={onPressIn}
-          onPressOut={onPressOut}
-          disabled={isDisabled}
-        >
-          <View style={[styles.glossyWrap, sizeStyles[size]]}>
-            {/* Base gradient */}
-            <LinearGradient
-              colors={['#C8DCC3', '#9AB896', '#7A9B76', '#4F6B4C']}
-              locations={[0, 0.35, 0.7, 1]}
-              start={{ x: 0.3, y: 0.2 }}
-              end={{ x: 1, y: 1 }}
-              style={[StyleSheet.absoluteFillObject, { borderRadius: 22 }]}
-            />
-            {/* Subtle top sheen */}
-            <LinearGradient
-              colors={['rgba(245,243,237,0.18)', 'rgba(245,243,237,0.05)', 'transparent']}
-              locations={[0, 0.32, 0.65]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={[StyleSheet.absoluteFillObject, { borderRadius: 22 }]}
-            />
-            {/* Inner border highlight */}
-            <View style={styles.innerBorder} />
-            {content}
-          </View>
-        </Pressable>
-      </Animated.View>
-    );
-  }
 
   // ── Standard variants (secondary, outline, ghost) ─────────────
   const vKey = variant as keyof ReturnType<typeof createVariantStyles>;
