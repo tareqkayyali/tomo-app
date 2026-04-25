@@ -1,0 +1,181 @@
+/*
+ * Timeline calendar grid — print + screen styles.
+ *
+ * @page is margin: 0 (Chromium does not paint body background into the
+ * page margin box). Landscape A4 because a 7-column calendar grid is
+ * cramped on portrait. Inner padding lives on .tg-page.
+ *
+ * Typography mirrors the bond design system used elsewhere in the app:
+ * neutral background, single accent for "today", hairline dividers.
+ */
+
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #f6f5f1;
+  color: #1c1c1c;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.tg-root { display: block; }
+.tg-root--print { background: #f6f5f1; }
+
+/* One A4 landscape sheet per month. */
+.tg-page {
+  width: 297mm;
+  height: 210mm;
+  padding: 10mm 12mm 8mm 12mm;
+  background: #f6f5f1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  page-break-after: always;
+  break-after: page;
+}
+.tg-page:last-child { page-break-after: auto; break-after: auto; }
+
+/* ---- Header ---- */
+.tg-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 4mm;
+  border-bottom: 0.3mm solid #1c1c1c;
+}
+.tg-header__title {
+  font-size: 22pt;
+  font-weight: 600;
+  letter-spacing: 0.2pt;
+}
+.tg-header__meta {
+  font-size: 9pt;
+  color: #5b5b58;
+  letter-spacing: 0.4pt;
+  text-transform: uppercase;
+}
+
+/* ---- Weekday header row ---- */
+.tg-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-top: 3mm;
+}
+.tg-weekday {
+  padding: 1.5mm 2mm;
+  font-size: 7.5pt;
+  font-weight: 600;
+  letter-spacing: 0.6pt;
+  color: #5b5b58;
+  text-align: left;
+  border-bottom: 0.2mm solid #c8c5bc;
+}
+
+/* ---- Grid ---- */
+.tg-grid {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  border-left: 0.2mm solid #c8c5bc;
+  border-top: 0.2mm solid #c8c5bc;
+}
+.tg-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  flex: 1 1 0;
+  min-height: 0;
+}
+.tg-cell {
+  border-right: 0.2mm solid #c8c5bc;
+  border-bottom: 0.2mm solid #c8c5bc;
+  padding: 1.5mm 1.5mm 1mm 1.5mm;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+.tg-cell--blank {
+  background: #efece6;
+}
+.tg-cell--weekend {
+  background: #faf8f3;
+}
+.tg-cell--today {
+  background: #fff8e6;
+  outline: 0.4mm solid #d49a1a;
+  outline-offset: -0.4mm;
+}
+
+.tg-cell__day {
+  font-size: 9pt;
+  font-weight: 600;
+  color: #1c1c1c;
+  margin-bottom: 1mm;
+}
+
+.tg-cell__events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6mm;
+  overflow: hidden;
+}
+
+.tg-event {
+  display: flex;
+  align-items: baseline;
+  gap: 1mm;
+  font-size: 6.8pt;
+  line-height: 1.25;
+  color: #1c1c1c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tg-event__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.tg-event__time { font-weight: 600; }
+.tg-event__sep { color: #5b5b58; }
+.tg-event__title { color: #1c1c1c; }
+
+.tg-dot {
+  display: inline-block;
+  width: 1.4mm;
+  height: 1.4mm;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  top: -0.3mm;
+}
+.tg-dot--training { background: #2d6a4f; }
+.tg-dot--match    { background: #b5394a; }
+.tg-dot--recovery { background: #2c6e9b; }
+.tg-dot--study    { background: #7a4ab5; }
+.tg-dot--exam     { background: #c98a1a; }
+.tg-dot--other    { background: #6b6b68; }
+
+/* ---- Footer ---- */
+.tg-footer {
+  margin-top: 3mm;
+  font-size: 7pt;
+  color: #5b5b58;
+  letter-spacing: 0.3pt;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+}

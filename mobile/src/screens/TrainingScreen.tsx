@@ -43,6 +43,7 @@ import { useTheme } from '../hooks/useTheme';
 import type { ThemeColors } from '../theme/colors';
 import type { CalendarEvent } from '../types';
 import { toDateStr } from '../utils/calendarHelpers';
+import { ExportSheet } from '../features/timeline/ExportSheet';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const TIMELINE_FAB_PLUS = require('../../assets/plus-icon/timeline-fab-plus.png');
@@ -690,6 +691,7 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   // POST /api/v1/calendar/events/:id/skip with no body.
   const [completionSheetEvent, setCompletionSheetEvent] = useState<TimedCalendarEvent | null>(null);
   const [busySkipId, setBusySkipId] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const PHYSICAL_TYPES = useMemo(
     () => new Set<string>(['training', 'match', 'recovery']),
@@ -738,10 +740,13 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
   // ─── Header avatar initial ───────────────────────────────────────
   const initial = (profile?.name ?? 'A').charAt(0).toUpperCase();
 
-  // ─── Toolbar render — left: MyRules + BulkEdit, right: Checkin + Bell + Profile
+  // ─── Toolbar render — left: Export + MyRules + BulkEdit, right: Checkin + Bell + Profile
   const renderToolbar = () => (
     <View style={styles.toolbar}>
       <View style={styles.toolbarLeft}>
+        <IconBtn onPress={() => setExportOpen(true)}>
+          <SmartIcon name="download-outline" size={18} color={colors.tomoCream} />
+        </IconBtn>
         <IconBtn onPress={() => navigation.navigate('MyRules' as any)}>
           <SmartIcon name="options-outline" size={18} color={colors.tomoCream} />
         </IconBtn>
@@ -868,6 +873,8 @@ export function TrainingScreen({ navigation, route }: TrainingScreenProps) {
           emitRefresh('calendar');
         }}
       />
+
+      <ExportSheet visible={exportOpen} onClose={() => setExportOpen(false)} />
     </SafeAreaView>
   );
 }
