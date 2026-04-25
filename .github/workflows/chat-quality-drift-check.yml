@@ -10,6 +10,9 @@ concurrency:
   group: chat-quality-drift
   cancel-in-progress: false
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   run:
     name: POST /api/v1/cron/quality-drift-check

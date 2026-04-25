@@ -12,6 +12,9 @@ concurrency:
   group: chat-quality-shadow-evaluate
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   run:
     name: POST /api/v1/cron/shadow-evaluate

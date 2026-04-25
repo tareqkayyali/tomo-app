@@ -12,6 +12,9 @@ concurrency:
   group: evals-advance-baseline
   cancel-in-progress: false
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   run:
     name: POST /api/v1/cron/advance-eval-baseline

@@ -12,6 +12,9 @@ concurrency:
   group: evals-nightly
   cancel-in-progress: false
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   run:
     name: Full suite (routing_live, safety, card_validation, routing_dataset_shape)

@@ -11,6 +11,9 @@ concurrency:
   group: chat-quality-auto-repair
   cancel-in-progress: false
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   run:
     name: POST /api/v1/cron/auto-repair-scan
