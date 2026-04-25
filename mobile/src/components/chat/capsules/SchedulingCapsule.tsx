@@ -113,6 +113,30 @@ function filterFutureSlots(
   return slots.filter((s) => isSlotStartInTheFuture(dayYmd, s.start24, now));
 }
 
+/** Parse a display time like "4:00 PM" or "11:30 AM" to minutes since midnight. */
+function parseDisplayTimeMinutes(displayTime: string): number {
+  const match = displayTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) return 0;
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const period = match[3].toUpperCase();
+  if (period === 'AM' && h === 12) h = 0;
+  else if (period === 'PM' && h !== 12) h += 12;
+  return h * 60 + m;
+}
+
+/** For today, hide events that have already ended. */
+function filterVisibleEvents(
+  dayYmd: string,
+  events: ExistingEvent[],
+  now: Date
+): ExistingEvent[] {
+  const todayYmd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  if (dayYmd !== todayYmd) return events;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  return events.filter((ev) => parseDisplayTimeMinutes(ev.endTime) > nowMinutes);
+}
+
 interface SchedulingCapsuleProps {
   card: VisualCard & { context?: SchedulingContext };
   onSubmit: (action: CapsuleAction) => void;
@@ -483,11 +507,11 @@ export function SchedulingCapsuleComponent({ card, onSubmit }: SchedulingCapsule
           {selectedDay.dayOfWeek} {selectedDay.date}
         </Text>
 
-        {/* Existing events */}
-        {selectedDay.existingEvents.length > 0 && (
+        {/* Existing events — past events hidden when today is selected */}
+        {filterVisibleEvents(selectedDay.date, selectedDay.existingEvents, new Date()).length > 0 && (
           <View style={styles.eventGroup}>
             <Text style={styles.groupLabel}>YOUR DAY</Text>
-            {selectedDay.existingEvents.map((ev, i) => {
+            {filterVisibleEvents(selectedDay.date, selectedDay.existingEvents, new Date()).map((ev, i) => {
               const isTraining = ev.type === 'training' || ev.type === 'match';
               const isSelected = selectedExisting?.id === ev.id;
               return (
