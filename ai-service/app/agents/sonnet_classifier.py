@@ -98,15 +98,11 @@ CRITICAL RULES — conversational vs action distinction:
 "maybe gym later", "might do some sprints" → open_coaching, NOT build_session. \
 build_session requires BOTH (a) a build-verb ("build", "create", "make", \
 "schedule", "add", "design") AND (b) the noun "session" or an equivalent \
-concrete unit ("workout", "gym", "drill"). Generic phrasings like \
-"plan my training", "plan my training week", "plan my week", \
-"plan my recovery", "plan my program" → agent=planning, \
-intent=open_coaching — the athlete wants training-philosophy or weekly \
-guidance, not a single capsule card. "plan" alone is NEVER enough to \
-trigger build_session.
+concrete unit ("workout", "gym", "drill"). "plan" alone never triggers \
+build_session.
 2. Social-reciprocity bids and mood statements → smalltalk. \
 "feeling great buddy, what about you?", "i'm good thanks", "tired today", \
-"bored", "not bad you?", "legs are heavy" → smalltalk. \
+"bored", "not bad you?", "legs are heavy", "my energy is great" → smalltalk. \
 smalltalk is NOT check_in — check_in is ONLY explicit wellness logging \
 ("log my check-in", "do my daily check-in").
 3. Open questions about training philosophy / technique with no specific \
@@ -122,6 +118,33 @@ year old do?", "how to handle growth spurt and training?", "recruitment \
 showcase preparation tips?") → agent=performance, intent=open_coaching. \
 Never route pure coaching questions into build_session or plan_training \
 capsules — they need free-form text responses with sport/age specificity.
+6. Pain / injury signals with context or nuance → agent_fallthrough, NOT \
+flag_injury. flag_injury is ONLY for short, explicit reports ("my knee hurts", \
+"log an injury"). Messages describing severity, asking what to do, or giving \
+context about when/how the pain started ("killing me after yesterday's \
+session", "shooting pain when I squat", "ankle at practice, what should I \
+do?") require the full AI conversation to gather nuance. Routing these to \
+flag_injury sends the athlete to a form, not a coach.
+7. Named external training methodologies → agent_fallthrough. If the message \
+names a specific S&C program or method not native to Tomo (Stronglifts 5x5, \
+Wendler 531, Bulgarian Method, nSuns, GZCLP, etc.), return agent_fallthrough. \
+The full AI can explain, caveat, and personalise; the classifier cannot.
+8. Rehab / return-to-play queries → agent_fallthrough. Any message about \
+returning from surgery, physio clearance, post-op progression, or post-injury \
+training safety requires the full AI conversation. These are safety-critical \
+and highly individualised — capsule shortcuts are inappropriate.
+9. Week planning vs open planning: "plan my training" or "plan my recovery" \
+(open-ended philosophy questions) → agent=planning, intent=open_coaching. \
+"plan my week", "plan my training week", "build my week", "set up my week" \
+(interactive week-builder flow) → agent=planning, intent=build_week_plan.
+10. Adding a calendar event vs building a session: "add a gym session at \
+[time]", "schedule training tomorrow at [time]", "book a slot" → \
+agent=planning, intent=create_event (calendar block, no drills). \
+"build me a session", "create a training session with drills" → \
+agent=performance, intent=build_session.
+11. Mode switches → agent=planning, intent=schedule_rules. "Switch to league \
+mode", "activate pre-season mode", "turn on off-season mode" are scheduling \
+configuration changes, not app settings.
 
 EXAMPLES:
 User: "I'm thinking about technical drills tomorrow"
@@ -134,10 +157,25 @@ User: "Plan my training for tomorrow"
 → {"agent":"planning","intent":"open_coaching","confidence":0.9,"requires_second_agent":"performance","capsule_type":null}
 
 User: "Plan my training week"
-→ {"agent":"planning","intent":"open_coaching","confidence":0.95,"requires_second_agent":null,"capsule_type":null}
+→ {"agent":"planning","intent":"build_week_plan","confidence":0.95,"requires_second_agent":null,"capsule_type":null}
 
 User: "Plan my recovery week"
 → {"agent":"planning","intent":"open_coaching","confidence":0.9,"requires_second_agent":null,"capsule_type":null}
+
+User: "Add a gym session tomorrow at 5 PM"
+→ {"agent":"planning","intent":"create_event","confidence":1.0,"requires_second_agent":null,"capsule_type":"create_event"}
+
+User: "Switch to league mode"
+→ {"agent":"planning","intent":"schedule_rules","confidence":0.95,"requires_second_agent":null,"capsule_type":null}
+
+User: "My knee is killing me after yesterday's session"
+→ {"agent":"performance","intent":"agent_fallthrough","confidence":0.95,"requires_second_agent":null,"capsule_type":null}
+
+User: "I'm coming back from my ACL surgery, how should I progress?"
+→ {"agent":"performance","intent":"agent_fallthrough","confidence":1.0,"requires_second_agent":null,"capsule_type":null}
+
+User: "Is Stronglifts 5x5 good for me?"
+→ {"agent":"performance","intent":"agent_fallthrough","confidence":0.95,"requires_second_agent":null,"capsule_type":null}
 
 User: "How do sprinters manage CNS fatigue?"
 → {"agent":"performance","intent":"open_coaching","confidence":0.95,"requires_second_agent":null,"capsule_type":null}
