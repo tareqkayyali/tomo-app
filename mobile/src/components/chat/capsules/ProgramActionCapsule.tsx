@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../../theme/colors';
 import { spacing, borderRadius, fontFamily } from '../../../theme';
 import type { ProgramActionCapsule as ProgramActionCapsuleType, CapsuleAction } from '../../../types/chat';
@@ -119,13 +120,35 @@ export function ProgramActionCapsuleComponent({ card, onSubmit }: ProgramActionC
               ]}
               onPress={() => handleAction(action)}
             >
-              <Text style={[
-                styles.actionText,
-                config.style === 'primary' && styles.actionTextPrimary,
-                config.style === 'destructive' && styles.actionTextDestructive,
-              ]}>
-                {config.label}
-              </Text>
+              {config.style === 'primary' ? (
+                <View style={styles.primaryWrap}>
+                  <LinearGradient
+                    colors={['#C8DCC3', '#9AB896', '#7A9B76', '#4F6B4C']}
+                    locations={[0, 0.35, 0.7, 1]}
+                    start={{ x: 0.3, y: 0.2 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  <LinearGradient
+                    colors={['rgba(245,243,237,0.18)', 'rgba(245,243,237,0.05)', 'transparent']}
+                    locations={[0, 0.32, 0.65]}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  <View style={styles.primaryBorder} />
+                  <Text style={[styles.actionText, styles.actionTextPrimary]}>
+                    {config.label}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[
+                  styles.actionText,
+                  config.style === 'destructive' && styles.actionTextDestructive,
+                ]}>
+                  {config.label}
+                </Text>
+              )}
             </Pressable>
           );
         })}
@@ -192,19 +215,27 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   actionButton: {
-    borderRadius: borderRadius.md,
+    borderRadius: 22,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    minHeight: 44,
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   actionPrimary: {
-    backgroundColor: colors.accent1,
+    borderWidth: 1,
+    borderColor: 'rgba(245,243,237,0.16)',
+    shadowColor: '#7A9B76',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 7,
   },
   actionSecondary: {
-    backgroundColor: colors.backgroundElevated,
+    backgroundColor: 'rgba(154,184,150,0.10)',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(245,243,237,0.12)',
   },
   actionDestructive: {
     backgroundColor: 'transparent',
@@ -215,12 +246,26 @@ const styles = StyleSheet.create({
   actionText: {
     fontFamily: fontFamily.medium,
     fontSize: 14,
-    color: colors.textPrimary,
+    color: '#F5F3ED',
   },
   actionTextPrimary: {
-    color: colors.textOnDark,
+    color: '#F5F3ED',
   },
   actionTextDestructive: {
     color: colors.error,
+  },
+  primaryWrap: {
+    width: '100%',
+    minHeight: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 21,
+    overflow: 'hidden',
+  },
+  primaryBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: 'rgba(245,243,237,0.22)',
   },
 });

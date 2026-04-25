@@ -112,8 +112,8 @@ export function Button({
 
   // ── Resolve text color per variant ──────────────────────────────
   const isGlossy = variant === 'primary' || variant === 'gradient';
-  const textColor = isGlossy ? colors.background : colors.electricGreen;
-  const loaderColor = isGlossy ? colors.background : colors.electricGreen;
+  const textColor = isGlossy ? colors.cream : colors.electricGreen;
+  const loaderColor = isGlossy ? colors.cream : colors.electricGreen;
   const resolvedIcon = iconSize ?? (size === 'small' ? 16 : 18);
 
   const content = (
@@ -160,18 +160,19 @@ export function Button({
           <View style={[styles.glossyWrap, sizeStyles[size]]}>
             {/* Base gradient */}
             <LinearGradient
-              colors={[colors.electricGreen, colors.electricGreenMuted]}
-              start={{ x: 0, y: 0 }}
+              colors={['#C8DCC3', '#9AB896', '#7A9B76', '#4F6B4C']}
+              locations={[0, 0.35, 0.7, 1]}
+              start={{ x: 0.3, y: 0.2 }}
               end={{ x: 1, y: 1 }}
-              style={[StyleSheet.absoluteFillObject, { borderRadius: borderRadius.lg }]}
+              style={[StyleSheet.absoluteFillObject, { borderRadius: 22 }]}
             />
-            {/* Glass shine overlay */}
+            {/* Subtle top sheen */}
             <LinearGradient
-              colors={['rgba(245,243,237,0.35)', colors.creamSoft, 'transparent']}
-              locations={[0, 0.3, 0.6]}
+              colors={['rgba(245,243,237,0.18)', 'rgba(245,243,237,0.05)', 'transparent']}
+              locations={[0, 0.32, 0.65]}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
-              style={[StyleSheet.absoluteFillObject, { borderRadius: borderRadius.lg }]}
+              style={[StyleSheet.absoluteFillObject, { borderRadius: 22 }]}
             />
             {/* Inner border highlight */}
             <View style={styles.innerBorder} />
@@ -219,24 +220,21 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   glossyWrap: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowColor: '#7A9B76',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 7,
   },
   innerBorder: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: borderRadius.lg,
+    borderRadius: 22,
     borderWidth: 1,
-    borderTopColor: colors.creamOverlay,
-    borderLeftColor: colors.creamOverlay,
-    borderRightColor: colors.creamOverlay,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    borderColor: 'rgba(245,243,237,0.22)',
   },
   iconButton: {
     width: layout.tapTarget,
@@ -251,8 +249,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontFamily: fontFamily.bold,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
+    letterSpacing: 0.2,
   },
 });
 

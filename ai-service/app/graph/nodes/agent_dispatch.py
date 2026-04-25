@@ -30,7 +30,12 @@ from langchain_core.messages import (
 from app.config import get_settings
 from app.models.state import TomoChatState
 from app.agents.tools import get_tools_for_agent
-from app.agents.tools.bridge import is_write_action, is_capsule_direct
+from app.agents.tools.bridge import (
+    bridge_delete,
+    bridge_post,
+    is_capsule_direct,
+    is_write_action,
+)
 from app.agents.prompt_builder import build_system_prompt
 from app.agents.greeting_handler import detect_greeting_tier
 from app.agents.smalltalk_handler import detect_smalltalk_tier, build_smalltalk_guidance
@@ -577,7 +582,13 @@ async def execute_confirmed_action(state: TomoChatState) -> dict:
         tool_fn = tool_map.get(tool_name)
 
         if not tool_fn:
-            results.append({"tool": tool_name, "error": f"Tool not found: {tool_name}"})
+            legacy_result = await _execute_legacy_capsule_action(tool_name, tool_input, user_id)
+            if legacy_result is None:
+                results.append({"tool": tool_name, "error": f"Tool not found: {tool_name}"})
+            elif "error" in legacy_result:
+                results.append({"tool": tool_name, "error": legacy_result.get("error"), "detail": legacy_result.get("detail", ""), "success": False})
+            else:
+                results.append({"tool": tool_name, "result": legacy_result, "success": True})
             continue
 
         try:
@@ -620,6 +631,59 @@ async def execute_confirmed_action(state: TomoChatState) -> dict:
         "tool_calls": [{"name": a.get("toolName"), "input": a.get("toolInput"), "confirmed": True} for a in actions],
         "_refresh_targets": list(refresh_targets),
     }
+
+
+async def _execute_legacy_capsule_action(
+    tool_name: str,
+    tool_input: dict[str, Any],
+    user_id: str,
+) -> dict[str, Any] | None:
+    """
+    Compatibility shim for legacy mobile capsule tool names that no longer exist
+    as registered Python tools.
+    """
+    if tool_name == "interact_program":
+        return await bridge_post("/api/v1/programs/interact", tool_input, user_id=user_id)
+
+    if tool_name == "save_phv":
+        body = dict(tool_input or {})
+        measurement_date = body.pop("measurement_date", None)
+        if measurement_date and "assessment_date" not in body:
+            body["assessment_date"] = measurement_date
+        return await bridge_post("/api/v1/user/phv", body, user_id=user_id)
+
+    if tool_name == "add_exam":
+        subject = str(tool_input.get("subject", "")).strip()
+        exam_date = str(tool_input.get("examDate", "")).strip()
+        if not subject or not exam_date:
+            return {"error": "subject and examDate are required"}
+        body = {
+            "name": f"{subject} Exam",
+            "type": "exam",
+            "date": exam_date,
+            "startTime": tool_input.get("startTime") or "09:00",
+            "endTime": tool_input.get("endTime") or "10:00",
+            "notes": f"Type: {tool_input.get('examType', 'final')}",
+        }
+        return await bridge_post("/api/v1/calendar/events", body, user_id=user_id)
+
+    if tool_name == "bulk_delete_events":
+        event_ids = tool_input.get("eventIds", [])
+        if not isinstance(event_ids, list) or not event_ids:
+            return {"error": "eventIds is required"}
+        deleted = 0
+        errors: list[dict[str, str]] = []
+        for event_id in event_ids:
+            if not event_id:
+                continue
+            resp = await bridge_delete(f"/api/v1/calendar/events/{event_id}", user_id=user_id)
+            if isinstance(resp, dict) and resp.get("error"):
+                errors.append({"eventId": str(event_id), "error": str(resp.get("error"))})
+            else:
+                deleted += 1
+        return {"deleted": deleted, "requested": len(event_ids), "errors": errors}
+
+    return None
 
 
 # ── Greeting energy-tier guidance for LLM ────────────────────────────

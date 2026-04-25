@@ -24,6 +24,36 @@ import {
 } from "@/services/quality";
 import { randomUUID } from "node:crypto";
 
+function normalizeCapsuleAction(capsuleAction: any) {
+  if (!capsuleAction) return null;
+  const toolInput = { ...(capsuleAction.toolInput ?? {}) };
+  let toolName = capsuleAction.toolName;
+  let agentType = capsuleAction.agentType;
+
+  const toolAliases: Record<string, string> = {
+    update_notification_settings: "update_notification_preferences",
+    sync_whoop: "sync_wearable",
+  };
+  const agentAliases: Record<string, string> = {
+    testing_benchmark: "performance",
+    training_program: "performance",
+    dual_load: "planning",
+    cv_identity: "identity",
+    mastery: "identity",
+    output: "performance",
+    timeline: "planning",
+  };
+
+  toolName = toolAliases[toolName] ?? toolName;
+  agentType = agentAliases[agentType] ?? agentType;
+
+  if (toolName === "sync_wearable" && !toolInput.provider) {
+    toolInput.provider = "whoop";
+  }
+
+  return { toolName, toolInput, agentType };
+}
+
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
   if ("error" in auth) {
@@ -69,8 +99,7 @@ export async function POST(req: NextRequest) {
 
         // See agent/route: read-only program capsule tools are formatted in Python (not "done" template).
         if (body.capsuleAction) {
-          const { toolName, toolInput, agentType } = body.capsuleAction;
-          body.confirmedAction = { toolName, toolInput, agentType };
+          body.confirmedAction = normalizeCapsuleAction(body.capsuleAction);
         }
 
         const aiRequest: AIServiceRequest = {
@@ -92,7 +121,7 @@ export async function POST(req: NextRequest) {
             sessionId: pyResult.sessionId || sessionId,
             refreshTargets: pyResult.refreshTargets || [],
             pendingConfirmation: pyResult.pendingConfirmation || null,
-            context: {},
+            context: pyResult.context || {},
           });
 
           // Quality + safety pipeline — fire-and-forget after response sent.
