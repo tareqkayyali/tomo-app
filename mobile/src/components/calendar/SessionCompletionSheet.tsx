@@ -37,6 +37,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { Loader } from '../Loader';
+import { SphereButton } from '../tomo-ui/SphereButton';
 import { spacing, borderRadius, fontFamily } from '../../theme';
 import { Slider } from '../Slider';
 import {
@@ -234,21 +235,13 @@ export function SessionCompletionSheet({
                   )}
                 </Pressable>
 
-                <Pressable
+                <SphereButton
+                  label="Mark done"
                   onPress={handleComplete}
+                  loading={submitting === 'completing'}
                   disabled={submitting !== 'idle' || parsedDuration == null}
-                  style={[
-                    ms.submitBtn,
-                    { backgroundColor: colors.accent1 },
-                    (submitting !== 'idle' || parsedDuration == null) && { opacity: 0.6 },
-                  ]}
-                >
-                  {submitting === 'completing' ? (
-                    <Loader size="sm" />
-                  ) : (
-                    <Text style={[ms.submitText, { color: colors.background }]}>Mark done</Text>
-                  )}
-                </Pressable>
+                  style={{ flex: 2 }}
+                />
               </View>
             </ScrollView>
           </Pressable>

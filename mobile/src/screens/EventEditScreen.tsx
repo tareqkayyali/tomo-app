@@ -767,7 +767,7 @@ export function EventEditScreen({ navigation, route }: EventEditScreenProps) {
             onPress={handleSave}
             loading={saving}
             disabled={saving}
-            style={styles.saveButton}
+            style={{ marginTop: spacing.md }}
           />
         </ScrollView>
 

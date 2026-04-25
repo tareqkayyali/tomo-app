@@ -30,6 +30,7 @@ import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop, Path } from 'react-native-svg';
 import { SmartIcon } from '../SmartIcon';
 import { AskTomoChip } from '../mastery/AskTomoChip';
+import { SphereButton } from '../tomo-ui/SphereButton';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontFamily, borderRadius } from '../../theme';
 import { GlassCard } from '../GlassCard';
@@ -854,27 +855,22 @@ function ExpandedBody({
 
       {/* CTA stack: Add to Training (outline) → Ask Tomo (solid) → Done / Not for me */}
       {onAddToCalendar && (
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation();
-            onAddToCalendar({
-              programId: program.programId,
-              name: program.name,
-              durationMin: program.durationMin,
-              durationWeeks: (program as any).durationWeeks || 4,
-              type: program.type,
-              category: program.category,
-              difficulty: program.difficulty,
-              description: program.description,
-              frequency: program.frequency,
-              prescription: program.prescription,
-            });
-          }}
-          style={[styles.addBtn, { borderColor: themeColors.cream15 }]}
-        >
-          <SmartIcon name="barbell-outline" size={14} color={themeColors.tomoCream} />
-          <Text style={[styles.addBtnText, { color: themeColors.tomoCream }]}>Add to Training</Text>
-        </Pressable>
+        <SphereButton
+          label="Add to Training"
+          onPress={() => onAddToCalendar({
+            programId: program.programId,
+            name: program.name,
+            durationMin: program.durationMin,
+            durationWeeks: (program as any).durationWeeks || 4,
+            type: program.type,
+            category: program.category,
+            difficulty: program.difficulty,
+            description: program.description,
+            frequency: program.frequency,
+            prescription: program.prescription,
+          })}
+          style={{ marginTop: 8 }}
+        />
       )}
 
       <View onStartShouldSetResponder={() => true} onTouchEnd={(e) => e.stopPropagation()}>

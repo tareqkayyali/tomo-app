@@ -12,8 +12,9 @@ import { fontFamily } from '../../theme/typography';
 
 /**
  * SphereButton — Tomo's canonical primary action button.
- * Pill shape with a sage-gradient sphere orb accent. Three states:
- * default (transparent), pressed (faint fill + scale), disabled (dim).
+ * Pill shape: transparent background, 1px cream border.
+ * Sphere orb always anchored to the LEFT at x=24 from the left edge.
+ * Three states: default, pressed (scale + faint fill), disabled (dim).
  */
 
 export interface SphereButtonProps {
@@ -36,7 +37,6 @@ export function SphereButton({
   style,
 }: SphereButtonProps) {
   const scale = useSharedValue(1);
-  const pressOpacity = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -45,12 +45,10 @@ export function SphereButton({
   const handlePressIn = () => {
     if (disabled || loading) return;
     scale.value = withSpring(0.97, SPRING);
-    pressOpacity.value = withSpring(1, SPRING);
   };
 
   const handlePressOut = () => {
     scale.value = withSpring(1, SPRING);
-    pressOpacity.value = withSpring(0, SPRING);
   };
 
   const handlePress = () => {
@@ -62,7 +60,8 @@ export function SphereButton({
   };
 
   return (
-    <Animated.View style={[animatedStyle, style, disabled && styles.dimmed]}>
+    // backgroundColor: 'transparent' at the end ensures no external style bleeds through
+    <Animated.View style={[animatedStyle, style, disabled && styles.dimmed, { backgroundColor: 'transparent' }]}>
       <AnimatedPressable
         onPress={handlePress}
         onPressIn={handlePressIn}
@@ -73,16 +72,17 @@ export function SphereButton({
         {/* Press fill overlay */}
         <View style={styles.pressFill} pointerEvents="none" />
 
+        {/* Content: orb pinned left at x=14, text follows */}
         <View style={styles.content}>
           {loading ? (
-            <Loader size="sm" />
+            <View style={styles.loaderWrap}>
+              <Loader size="sm" />
+            </View>
           ) : (
             <>
               {/* Sphere orb */}
               <View style={styles.orbZone}>
-                {/* Glow halo */}
                 <View style={styles.orbHalo} />
-                {/* Gradient sphere */}
                 <LinearGradient
                   colors={['#C8DCC3', '#9AB896', '#7A9B76', '#4F6B4C']}
                   locations={[0, 0.35, 0.7, 1]}
@@ -90,7 +90,6 @@ export function SphereButton({
                   end={{ x: 1, y: 1 }}
                   style={styles.orbSphere}
                 />
-                {/* Specular highlight */}
                 <View style={styles.orbHighlight} />
               </View>
 
@@ -112,9 +111,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(245,243,237,0.14)',
     backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
     overflow: 'hidden',
+    // Row layout so content can fill the width with flex:1
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   pressFill: {
     ...StyleSheet.absoluteFillObject,
@@ -122,18 +122,23 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   content: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    // Orb left edge at 14px → center at 24px, matching SVG spec
+    paddingLeft: 14,
+    paddingRight: 20,
     gap: 10,
-    paddingHorizontal: 20,
+  },
+  loaderWrap: {
+    flex: 1,
+    alignItems: 'center',
   },
   orbZone: {
     width: 20,
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    // Soft glow via shadow on this container
     shadowColor: '#9AB896',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.55,
@@ -159,7 +164,6 @@ const styles = StyleSheet.create({
     height: 2.8,
     borderRadius: 1.4,
     backgroundColor: 'rgba(255,255,255,0.55)',
-    // Upper-left of sphere: offset from orbZone center
     top: 4.6,
     left: 5.1,
   },
