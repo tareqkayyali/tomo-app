@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # Database (Supabase)
     supabase_url: str
     supabase_service_role_key: str
-    supabase_db_url: str  # PostgreSQL connection string (pooler port 6543 or direct port 5432)
+    supabase_db_url: str = ""  # PostgreSQL connection string (pooler port 6543 or direct port 5432)
 
     # TypeScript Backend (for write tool bridge)
     ts_backend_url: str = "http://tomo-app.railway.internal:8080"
