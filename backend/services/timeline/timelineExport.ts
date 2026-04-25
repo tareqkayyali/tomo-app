@@ -109,6 +109,11 @@ function dowSundayFirst(year: number, month1: number, day: number): number {
 
 const DB_TO_FRONTEND: Record<string, string> = { study: "study_block" };
 
+// Auto-blocks (sleep + school hours) are stored as event_type=other with
+// these literal titles by /api/v1/calendar/auto-block. They are scaffolding,
+// not user calendar entries — always excluded from the Timeline PDF export.
+const AUTO_BLOCK_TITLES = new Set(["School Hours", "Sleep"]);
+
 export async function assembleTimelineGrid(args: {
   userId: string;
   fromDate: string;     // "YYYY-MM-DD"
@@ -148,12 +153,14 @@ export async function assembleTimelineGrid(args: {
   for (const r of (rows ?? []) as Array<Record<string, unknown>>) {
     const startAt = r.start_at ? String(r.start_at) : null;
     if (!startAt) continue;
+    const title = String(r.title || "");
+    if (AUTO_BLOCK_TITLES.has(title)) continue;
     const local = utcToLocalDateTime(startAt, args.tz);
     const isAllDay = local.time === "00:00";
     const dbType = String(r.event_type || "other");
     const ev: TimelineGridEvent = {
       time_local: isAllDay ? "" : formatTime12h(local.time),
-      title: String(r.title || ""),
+      title,
       type: DB_TO_FRONTEND[dbType] ?? dbType,
     };
     const arr = buckets.get(local.date) ?? [];
