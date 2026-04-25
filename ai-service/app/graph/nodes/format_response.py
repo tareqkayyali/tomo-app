@@ -265,7 +265,7 @@ def _build_program_read_capsule_response(results: list[dict]) -> dict | None:
                 cards.append(sp_card)
 
         chips = [
-            {"label": "Add to my week", "message": f'Add "{name}" to my training'},
+            {"label": "Add to my week", "message": f'Add a training session for "{name}"'},
             {"label": "Show my other programs", "message": "What programs do you have for me?"},
         ]
 
@@ -500,7 +500,7 @@ def _ensure_program_detail_card(structured: dict, state: TomoChatState) -> dict:
 
         if not structured.get("chips"):
             structured["chips"] = [
-                {"label": "Add to my week", "message": f'Add "{name}" to my training'},
+                {"label": "Add to my week", "message": f'Add a training session for "{name}"'},
                 {"label": "My other programs", "message": "What programs do you have for me?"},
             ]
 
