@@ -169,8 +169,10 @@ CLASSIFIER_SYSTEM_PROMPT = CLASSIFIER_SYSTEM_PROMPT_TEMPLATE.replace(
 
 # ── Sonnet Classification ─────────────────────────────────────────────
 
-# Pricing: Sonnet 4 → $3/MTok input, $15/MTok output
+# Pricing: Sonnet 4.6 → $3/MTok input, $3.75/MTok cache write, $0.30/MTok cache read, $15/MTok output
 SONNET_INPUT_COST_PER_TOKEN = 0.000003
+SONNET_CACHE_WRITE_COST_PER_TOKEN = 0.00000375
+SONNET_CACHE_READ_COST_PER_TOKEN = 0.0000003
 SONNET_OUTPUT_COST_PER_TOKEN = 0.000015
 
 
@@ -230,13 +232,20 @@ async def classify_with_sonnet(
 
         elapsed_ms = (time.monotonic() - start) * 1000
 
-        # Calculate cost
+        # Calculate cost — input_tokens, cache_read_input_tokens, and
+        # cache_creation_input_tokens are mutually exclusive billing buckets.
+        # Never subtract cache tokens from input_tokens; add each at its own rate.
         usage = response.usage
         input_tokens = usage.input_tokens
         output_tokens = usage.output_tokens
         cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
-        cost = ((input_tokens - cache_read) * SONNET_INPUT_COST_PER_TOKEN) + \
-               (output_tokens * SONNET_OUTPUT_COST_PER_TOKEN)
+        cache_write = getattr(usage, "cache_creation_input_tokens", 0) or 0
+        cost = (
+            input_tokens * SONNET_INPUT_COST_PER_TOKEN
+            + cache_write * SONNET_CACHE_WRITE_COST_PER_TOKEN
+            + cache_read * SONNET_CACHE_READ_COST_PER_TOKEN
+            + output_tokens * SONNET_OUTPUT_COST_PER_TOKEN
+        )
 
         # Parse JSON response
         raw = response.content[0].text.strip()
