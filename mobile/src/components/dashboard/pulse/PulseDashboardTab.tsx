@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../hooks/useTheme';
 import { fontFamily } from '../../../theme/typography';
 import { useEnter } from '../../../hooks/useEnter';
+import { SphereButton } from '../../tomo-ui/SphereButton';
 import type { BootData, OutputSnapshot, DashboardLayoutSection } from '../../../services/api';
 import { ReadinessRing } from '../signal/ReadinessRing';
 import { SleepTrendCard } from '../signal/SleepTrendCard';
@@ -333,7 +334,20 @@ export function PulseDashboardTab({
   }, [signal.pills]);
 
   const onStart = useCallback(() => {
-    navigation.navigate('Main', { screen: 'Plan' });
+    try {
+      navigation.navigate('Main', {
+        screen: 'MainTabs',
+        params: {
+          screen: 'Chat',
+          params: { prefillMessage: 'Help me plan my training session for today', autoSend: true },
+        },
+      });
+    } catch {
+      navigation.navigate('Chat', {
+        prefillMessage: 'Help me plan my training session for today',
+        autoSend: true,
+      });
+    }
   }, [navigation]);
 
   const onToggleProgress = useCallback(() => {
@@ -627,14 +641,11 @@ export function PulseDashboardTab({
                 </View>
               ))}
             </View>
-            <Pressable
+            <SphereButton
+              label="Start session"
               onPress={onStart}
-              style={({ pressed }) => [styles.ctaFull, { opacity: pressed ? 0.92 : 1 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Start session"
-            >
-              <Text style={styles.ctaFullText}>Start session</Text>
-            </Pressable>
+              style={{ marginTop: 16 }}
+            />
           </View>
         </PulseCard>
       </Animated.View>
