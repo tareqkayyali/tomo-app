@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 from app.agents.memory_block import build_memory_block
+from app.agents.performance_layers import build_performance_layers_block
 from app.agents.prompt_validation import (
     SafetyValidationError,
     ValidationResult,
@@ -1864,6 +1865,7 @@ def build_system_prompt(
         build_aib_block(aib_summary),            # Pre-analyzed coaching brief
         build_memory_block(memory_context),      # Phase 1: cross-session memory (Zep facts + longitudinal)
         build_sport_context(context),            # Sport + position context
+        build_performance_layers_block(context), # Phase 2: 4-layer gap model (Physical/Technical/Tactical/Mental)
         build_phv_block(context),                # PHV growth stage context
         build_dual_load_block(context),          # Academic + athletic load data
         triangle_inputs_block or "",             # Triangle Inputs (P2.4) — advisory only, safety gates still override
