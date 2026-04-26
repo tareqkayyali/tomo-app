@@ -96,22 +96,40 @@ class MemoryContext:
             )
             parts.append(f"=== RECENT SESSIONS ===\n{summaries}")
 
-        # Longitudinal memory (from DB)
+        # Longitudinal memory (from DB) — deduplicated against Zep facts
         if self.longitudinal:
             mem = self.longitudinal
+            # Build a single lowercased string of all Zep content for substring dedup
+            zep_text = " ".join(f.fact.lower() for f in self.zep_facts)
+
+            def _not_in_zep(items: list[str]) -> list[str]:
+                """Drop items whose key tokens all appear in Zep facts already."""
+                result = []
+                for item in items:
+                    tokens = [t for t in item.lower().split() if len(t) > 3]
+                    # Keep if ≥1 key token is absent from Zep (i.e. genuinely new info)
+                    if not tokens or any(t not in zep_text for t in tokens):
+                        result.append(item)
+                return result
+
             sections: list[str] = []
-            if mem.current_goals:
-                sections.append(f"  Goals: {', '.join(mem.current_goals[:5])}")
-            if mem.unresolved_concerns:
-                sections.append(f"  Concerns: {', '.join(mem.unresolved_concerns[:5])}")
-            if mem.injury_history:
-                sections.append(f"  Injury history: {', '.join(mem.injury_history[:3])}")
-            if mem.coaching_preferences:
-                sections.append(f"  Coaching preferences: {', '.join(mem.coaching_preferences[:3])}")
-            if mem.key_milestones:
-                sections.append(f"  Milestones: {', '.join(mem.key_milestones[:3])}")
+            goals = _not_in_zep(mem.current_goals[:5])
+            if goals:
+                sections.append(f"  Goals: {', '.join(goals)}")
+            concerns = _not_in_zep(mem.unresolved_concerns[:5])
+            if concerns:
+                sections.append(f"  Concerns: {', '.join(concerns)}")
+            injuries = _not_in_zep(mem.injury_history[:3])
+            if injuries:
+                sections.append(f"  Injury history: {', '.join(injuries)}")
+            prefs = _not_in_zep(mem.coaching_preferences[:3])
+            if prefs:
+                sections.append(f"  Coaching preferences: {', '.join(prefs)}")
+            milestones = _not_in_zep(mem.key_milestones[:3])
+            if milestones:
+                sections.append(f"  Milestones: {', '.join(milestones)}")
             if sections:
-                parts.append(f"=== ATHLETE PROFILE MEMORY ===\n" + "\n".join(sections))
+                parts.append("=== ATHLETE PROFILE MEMORY ===\n" + "\n".join(sections))
 
         if not parts:
             return ""
@@ -257,6 +275,28 @@ async def _fetch_session_history(session_id: str, user_id: str) -> list[dict[str
         return []
 
 
+async def _fetch_athlete_profile_for_memory(user_id: str) -> dict:
+    """Fetch minimal athlete profile (sport, position, age_band) for extraction context."""
+    from app.db.supabase import get_pool
+    pool = get_pool()
+    if not pool:
+        return {}
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                "SELECT sport, position, age_band FROM users WHERE id = %s LIMIT 1",
+                (user_id,),
+            )
+            row = await result.fetchone()
+            if not row:
+                return {}
+            cols = [d.name for d in result.description]
+            return dict(zip(cols, row))
+    except Exception as e:
+        logger.debug(f"_fetch_athlete_profile_for_memory failed: {e}")
+        return {}
+
+
 async def save_memory_after_turn(
     user_id: str,
     session_id: str,
@@ -338,14 +378,23 @@ async def update_longitudinal_memory(
             api_key=settings.anthropic_api_key,
         )
 
-        # Build conversation text
+        # Build conversation text — 500 chars per message to capture full AI responses
         conv_text = "\n".join(
-            f"{m['role'].upper()}: {m['content'][:200]}"
+            f"{m['role'].upper()}: {m['content'][:500]}"
             for m in conversation_history[-20:]
         )
 
-        extraction_prompt = f"""Analyze this coaching conversation and extract structured memory.
-Return ONLY valid JSON with these fields (arrays of short strings):
+        # Fetch athlete profile for sport-aware extraction
+        athlete_profile = await _fetch_athlete_profile_for_memory(user_id)
+        sport = athlete_profile.get("sport", "sport")
+        position = athlete_profile.get("position") or "general"
+        age_band = athlete_profile.get("age_band") or ""
+        athlete_context_line = f"Athlete: {sport} {position}{', ' + age_band if age_band else ''}."
+
+        extraction_prompt = f"""Analyze this {sport} coaching conversation and extract structured memory.
+{athlete_context_line} Focus on sport-specific patterns, position-relevant goals, and training insights that matter for this athlete's development.
+
+Return ONLY valid JSON with these fields (arrays of short strings, each ≤12 words):
 
 {{
   "sessionSummary": "one sentence summary",
