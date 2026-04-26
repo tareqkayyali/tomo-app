@@ -628,6 +628,7 @@ async def execute_confirmed_action(state: TomoChatState) -> dict:
         if "event" in name or "schedule" in name:
             refresh_targets.add("calendar")
         if "check_in" in name or "readiness" in name:
+            refresh_targets.add("checkin")
             refresh_targets.add("readiness")
             refresh_targets.add("recommendations")
         if "program" in name:

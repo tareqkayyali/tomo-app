@@ -12,6 +12,22 @@ import { EmojiScale } from './shared/EmojiScale';
 import { PillSelector } from './shared/PillSelector';
 import { CapsuleSubmitButton } from './shared/CapsuleSubmitButton';
 
+const MOOD_OPTIONS = [
+  { value: 2, emoji: '' },
+  { value: 4, emoji: '' },
+  { value: 6, emoji: '' },
+  { value: 8, emoji: '' },
+  { value: 10, emoji: '' },
+];
+
+const SLEEP_OPTIONS = [
+  { id: '4',   label: '<5h' },
+  { id: '5.5', label: '5-6h' },
+  { id: '7',   label: '7h' },
+  { id: '8',   label: '8h' },
+  { id: '9.5', label: '9h+' },
+];
+
 const ENERGY_OPTIONS = [
   { value: 2, emoji: '' },
   { value: 4, emoji: '' },
@@ -28,7 +44,7 @@ const SORENESS_OPTIONS = [
   { value: 10, emoji: '' },
 ];
 
-const MOOD_OPTIONS = [
+const ACADEMIC_OPTIONS = [
   { value: 2, emoji: '' },
   { value: 4, emoji: '' },
   { value: 6, emoji: '' },
@@ -36,12 +52,12 @@ const MOOD_OPTIONS = [
   { value: 10, emoji: '' },
 ];
 
-const SLEEP_OPTIONS = [
-  { id: '4', label: '<5h' },
-  { id: '5.5', label: '5-6h' },
-  { id: '6.5', label: '6-7h' },
-  { id: '7.5', label: '7-8h' },
-  { id: '9', label: '9h+' },
+const EFFORT_OPTIONS = [
+  { value: 2, emoji: '' },
+  { value: 4, emoji: '' },
+  { value: 6, emoji: '' },
+  { value: 8, emoji: '' },
+  { value: 10, emoji: '' },
 ];
 
 interface CheckinCapsuleProps {
@@ -50,15 +66,17 @@ interface CheckinCapsuleProps {
 }
 
 export function CheckinCapsuleComponent({ card, onSubmit }: CheckinCapsuleProps) {
-  const [energy, setEnergy] = useState<number | undefined>();
-  const [soreness, setSoreness] = useState<number | undefined>();
   const [mood, setMood] = useState<number | undefined>();
   const [sleepHours, setSleepHours] = useState<string>('');
+  const [energy, setEnergy] = useState<number | undefined>();
+  const [soreness, setSoreness] = useState<number | undefined>();
+  const [academicStress, setAcademicStress] = useState<number | undefined>();
+  const [effortYesterday, setEffortYesterday] = useState<number | undefined>();
   const [painFlag, setPainFlag] = useState(false);
   const [painLocation, setPainLocation] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = energy !== undefined && soreness !== undefined && mood !== undefined && sleepHours !== '';
+  const canSubmit = mood !== undefined && sleepHours !== '' && energy !== undefined && soreness !== undefined && effortYesterday !== undefined;
 
   const handleSubmit = () => {
     if (!canSubmit || submitting) return;
@@ -68,10 +86,12 @@ export function CheckinCapsuleComponent({ card, onSubmit }: CheckinCapsuleProps)
       type: 'checkin_capsule',
       toolName: 'log_check_in',
       toolInput: {
-        energy,
-        soreness,
         mood,
         sleepHours: parseFloat(sleepHours),
+        energy,
+        soreness,
+        effortYesterday,
+        ...(academicStress !== undefined ? { academicStress } : {}),
         painFlag,
         ...(painFlag && painLocation ? { painLocation } : {}),
       },
@@ -96,10 +116,10 @@ export function CheckinCapsuleComponent({ card, onSubmit }: CheckinCapsuleProps)
       {staleMsg && <Text style={styles.staleWarning}>{staleMsg}</Text>}
 
       <EmojiScale
-        label="Energy"
-        options={ENERGY_OPTIONS}
-        selected={energy}
-        onSelect={setEnergy}
+        label="Mood"
+        options={MOOD_OPTIONS}
+        selected={mood}
+        onSelect={setMood}
       />
 
       <PillSelector
@@ -110,6 +130,13 @@ export function CheckinCapsuleComponent({ card, onSubmit }: CheckinCapsuleProps)
       />
 
       <EmojiScale
+        label="Energy"
+        options={ENERGY_OPTIONS}
+        selected={energy}
+        onSelect={setEnergy}
+      />
+
+      <EmojiScale
         label="Soreness"
         options={SORENESS_OPTIONS}
         selected={soreness}
@@ -117,10 +144,17 @@ export function CheckinCapsuleComponent({ card, onSubmit }: CheckinCapsuleProps)
       />
 
       <EmojiScale
-        label="Mood"
-        options={MOOD_OPTIONS}
-        selected={mood}
-        onSelect={setMood}
+        label="Academic load"
+        options={ACADEMIC_OPTIONS}
+        selected={academicStress}
+        onSelect={setAcademicStress}
+      />
+
+      <EmojiScale
+        label="Yesterday's training"
+        options={EFFORT_OPTIONS}
+        selected={effortYesterday}
+        onSelect={setEffortYesterday}
       />
 
       <View style={styles.painRow}>
