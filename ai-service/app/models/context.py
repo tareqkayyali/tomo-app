@@ -45,13 +45,16 @@ class BenchmarkProfile(BaseModel):
 
 class TemporalContext(BaseModel):
     """Time-aware coaching context."""
-    time_of_day: str  # morning | afternoon | evening | night
+    time_of_day: str = "morning"  # morning | afternoon | evening | night
     is_match_day: bool = False
     match_details: Optional[str] = None
+    days_to_next_match: Optional[int] = None   # 0 = today, 1+ = days ahead, None = no match upcoming
+    match_importance: Optional[str] = None     # league | tournament | friendly | match
     is_exam_proximity: bool = False
     exam_details: Optional[str] = None
     day_type: str = "rest"  # rest | light | training | competition | exam
     suggestion: str = ""
+    periodization_phase: Optional[str] = None  # active protocol phase label
 
 
 class ActiveRecommendation(BaseModel):
@@ -287,3 +290,7 @@ class PlayerContext(BaseModel):
 
     # Wearable integration status (authoritative source for WHOOP)
     wearable_status: Optional[dict] = None  # {"whoop": {"connected": bool, "data_fresh": bool, ...}}
+
+    # 7-day trend arrays (oldest → newest, empty when insufficient data)
+    ccrs7day: list[float] = Field(default_factory=list)
+    sleep7day: list[float] = Field(default_factory=list)

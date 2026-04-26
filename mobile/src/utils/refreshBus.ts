@@ -3,7 +3,7 @@
  *
  * When AI Chat logs a test, creates an event, or updates data,
  * the chat handler emits a refresh target. Data hooks (useOutputData,
- * useOwnItData, etc.) subscribe and refetch automatically.
+ * etc.) subscribe and refetch automatically.
  *
  * Usage:
  *   // In chat handler (after AI response):

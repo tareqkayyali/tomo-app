@@ -8,7 +8,7 @@ on every request. Instead, they get a pre-digested coaching narrative.
 
 Triggers:
   1. Snapshot change — whenever writeSnapshot() updates athlete_snapshots
-  2. Lazy fallback — if AIB is stale (>24h) when context_assembly requests it
+  2. Lazy fallback — if AIB is stale (>8h or snapshot hash changed) when context_assembly requests it
 
 The AIB table stores versioned briefs with staleness tracking.
 """
@@ -447,15 +447,21 @@ async def ensure_fresh_aib(context: PlayerContext) -> Optional[str]:
 
         if row:
             existing_text, existing_hash, generated_at = row
-            # Fresh if hash matches (snapshot hasn't changed)
-            if existing_hash == current_hash:
-                logger.debug(f"AIB cache hit for {user_id}")
-                return existing_text
-
-            logger.info(
-                f"AIB stale for {user_id} "
-                f"(hash {existing_hash} → {current_hash})"
+            # Fresh if hash matches AND within 8h staleness window
+            hours_old = (
+                (datetime.now(timezone.utc) - generated_at.replace(tzinfo=timezone.utc)).total_seconds() / 3600
+                if generated_at else float("inf")
             )
+            if existing_hash == current_hash and hours_old < 8:
+                logger.debug(f"AIB cache hit for {user_id} (age={hours_old:.1f}h)")
+                return existing_text
+            if hours_old >= 8:
+                logger.info(f"AIB time-stale for {user_id} (age={hours_old:.1f}h >= 8h)")
+            else:
+                logger.info(
+                    f"AIB hash-stale for {user_id} "
+                    f"(hash {existing_hash} → {current_hash})"
+                )
 
         # Generate new AIB
         aib_text = await generate_aib(context)

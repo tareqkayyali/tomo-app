@@ -85,11 +85,18 @@ export interface PlayerContext {
     timeOfDay: "morning" | "afternoon" | "evening" | "night";
     isMatchDay: boolean;
     matchDetails: string | null;
+    daysToNextMatch: number | null;    // 0 = today, 1+ = days ahead, null = no match upcoming
+    matchImportance: string | null;    // league | tournament | friendly | match
     isExamProximity: boolean;
     examDetails: string | null;
     dayType: "rest" | "light" | "training" | "competition" | "exam";
     suggestion: string;
+    periodizationPhase: string | null; // active protocol phase label (e.g. "Match Week Taper")
   };
+
+  // 7-day trend arrays — oldest to newest (gracefully empty when insufficient data)
+  ccrs7day: number[];   // daily CCRS scores last 7 days
+  sleep7day: number[];  // sleep hours from last 7 check-ins
 
   // Schedule rules (Layer 2.5)
   schedulePreferences: PlayerSchedulePreferences;
@@ -338,6 +345,8 @@ export async function buildPlayerContext(
     wearableConnRes,
     pdProtocolsRes,
     injuryHistoryRes,
+    ccrs7dayRes,
+    sleep7dayRes,
   ] = await Promise.allSettled([
     (db as any)
       .from("users")
@@ -436,6 +445,20 @@ export async function buildPlayerContext(
       .eq("user_id", userId)
       .order("year", { ascending: false })
       .limit(20),
+    // T1-C: CCRS 7-day trend — for trajectory-aware coaching context
+    (db as any)
+      .from("ccrs_scores")
+      .select("ccrs, session_date")
+      .eq("athlete_id", userId)
+      .order("session_date", { ascending: false })
+      .limit(7),
+    // T1-C: Sleep 7-day trend — sleep_hours from last 7 check-ins
+    db
+      .from("checkins")
+      .select("sleep_hours, date")
+      .eq("user_id", userId)
+      .order("date", { ascending: false })
+      .limit(7),
   ]);
 
   const profile =
@@ -514,6 +537,18 @@ export async function buildPlayerContext(
       syncError: wearableConn?.sync_error ?? null,
     },
   };
+
+  // T1-C: CCRS 7-day trend (oldest → newest)
+  const ccrs7day: number[] = (
+    ccrs7dayRes.status === "fulfilled" ? (ccrs7dayRes.value.data ?? []) : []
+  ).map((r: any) => Number(r.ccrs)).filter((v: number) => !isNaN(v)).reverse();
+
+  // T1-C: Sleep 7-day trend (oldest → newest)
+  const sleep7day: number[] = (
+    sleep7dayRes.status === "fulfilled" ? (sleep7dayRes.value.data ?? []) : []
+  ).map((r: any) => (r.sleep_hours != null ? Number(r.sleep_hours) : null))
+   .filter((v): v is number => v !== null && !isNaN(v))
+   .reverse();
 
   // PDIL protocols — all enabled protocols (filtered to applicable IDs below)
   const allProtocols: any[] =
@@ -645,6 +680,9 @@ export async function buildPlayerContext(
         }))
     : [];
 
+  // T1-C: Periodization phase — first applicable protocol name (e.g. "Match Week Taper Protocol")
+  const periodizationPhase: string | null = applicableProtocolDetails[0]?.name ?? null;
+
   // Resolve CMS mode params for the athlete's active mode
   const activeModeId = (snapshot as any)?.athlete_mode ?? null;
   let resolvedModeParams: ModeParams | null = null;
@@ -727,6 +765,25 @@ export async function buildPlayerContext(
     ? `${matchEvent.title} at ${new Date(matchEvent.start_at).toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false })}`
     : null;
 
+  // T1-C: Days to next match (0 = today, null = no match in next 14 days)
+  let daysToNextMatch: number | null = null;
+  let matchImportance: string | null = null;
+  if (isMatchDay) {
+    daysToNextMatch = 0;
+    matchImportance = _inferMatchImportance(matchEvent!.title ?? "");
+  } else {
+    const nextMatchEvent = upcomingEvents.find((e: any) => e.event_type === "match");
+    if (nextMatchEvent) {
+      const matchDateStr = new Date(nextMatchEvent.start_at).toLocaleDateString("en-CA", { timeZone: tz });
+      const diffMs = new Date(matchDateStr).getTime() - new Date(today).getTime();
+      const diffDays = Math.round(diffMs / 86400000);
+      if (diffDays > 0) {
+        daysToNextMatch = diffDays;
+        matchImportance = _inferMatchImportance(nextMatchEvent.title ?? "");
+      }
+    }
+  }
+
   // Exam within 48 hours
   const now48h = new Date(now.getTime() + 48 * 3600000);
   const nearExams = exams.filter((e: any) => new Date(e.start_at) <= now48h);
@@ -760,10 +817,13 @@ export async function buildPlayerContext(
     timeOfDay,
     isMatchDay,
     matchDetails,
+    daysToNextMatch,
+    matchImportance,
     isExamProximity,
     examDetails,
     dayType,
     suggestion,
+    periodizationPhase,
   };
 
   return {
@@ -856,7 +916,17 @@ export async function buildPlayerContext(
     activeRecommendations,
     planningContext,
     wearableStatus,
+    ccrs7day,
+    sleep7day,
   };
+}
+
+function _inferMatchImportance(title: string): string {
+  const t = title.toLowerCase();
+  if (t.includes("league") || t.includes("cup") || t.includes("championship") || t.includes("final")) return "league";
+  if (t.includes("tournament") || t.includes("tourney")) return "tournament";
+  if (t.includes("friendly") || t.includes("scrimmage")) return "friendly";
+  return "match";
 }
 
 /**

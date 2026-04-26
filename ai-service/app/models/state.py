@@ -49,6 +49,8 @@ class TomoChatState(MessagesState):
     route_decision: Optional[str]  # "capsule" | "ai"
     capsule_type: Optional[str]  # If capsule, which type
     selected_agent: Optional[str]  # "output" | "timeline" | "mastery" | "settings" | "planning"
+    prior_agent_type: Optional[str]   # Agent that ran in the previous turn (for context handoff)
+    prior_agent_summary: Optional[str]  # 1-2 sentence synthesis of previous agent's key outputs
     routing_confidence: Optional[float]  # 0.0 - 1.0
     classification_layer: Optional[str]  # "exact_match" | "haiku" | "fallthrough" | "agent_lock"
     intent_id: Optional[str]  # e.g. "qa_readiness", "log_test", "agent_fallthrough"

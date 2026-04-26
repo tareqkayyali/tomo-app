@@ -3468,50 +3468,6 @@ export async function getRecommendations(limit = 15): Promise<RIERecommendation[
   }
 }
 
-/**
- * Trigger a deep recommendation refresh using Claude + full PlayerContext.
- * Returns { refreshed: true, count } if new recs were generated, or
- * { refreshed: false, reason: 'not_stale' } if recs are still fresh (<6h).
- *
- * Uses a longer timeout (60s) since Claude analysis takes 10-30s.
- */
-export async function refreshRecommendations(
-  options?: { force?: boolean }
-): Promise<{ refreshed: boolean; count?: number; reason?: string }> {
-  try {
-    const tz = getUserTimezone();
-    const force = options?.force ? '?force=true' : '';
-    const token = await getIdToken();
-    if (!token) throw new Error('Not authenticated');
-
-    const url = `${API_BASE_URL}/api/v1/recommendations/refresh${force}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'x-timezone': tz,
-      },
-      body: JSON.stringify({ timezone: tz }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      console.warn(`[refreshRecommendations] API error ${res.status}: ${errBody}`);
-      return { refreshed: false, reason: 'api_error' };
-    }
-    return await res.json();
-  } catch (err) {
-    console.warn('[refreshRecommendations] Network error:', (err as Error).message);
-    return { refreshed: false, reason: 'network_error' };
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Offline-Safe Event Submission
 // ---------------------------------------------------------------------------

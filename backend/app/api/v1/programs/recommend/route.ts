@@ -71,10 +71,13 @@ export async function GET(req: NextRequest) {
       timeOfDay: "afternoon",
       isMatchDay: false,
       matchDetails: null,
+      daysToNextMatch: null,
+      matchImportance: null,
       isExamProximity: false,
       examDetails: null,
       dayType: "training",
       suggestion: "",
+      periodizationPhase: null,
     },
     schedulePreferences: {} as any,
     activeScenario: "default" as any,
@@ -85,6 +88,8 @@ export async function GET(req: NextRequest) {
     activeRecommendations: [],
     planningContext: null,
     wearableStatus: null,
+    ccrs7day: [],
+    sleep7day: [],
   };
 
   try {

@@ -194,6 +194,17 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
             + dynamic_block
         )
 
+    # 2b-2b. Prior agent summary — inject when agent switches mid-session.
+    # Prevents context amnesia when athlete pivots topics (e.g. output → timeline).
+    prior_agent_type = state.get("prior_agent_type")
+    prior_agent_summary = state.get("prior_agent_summary")
+    if prior_agent_summary and prior_agent_type and prior_agent_type != agent_type:
+        dynamic_block = (
+            f"PRIOR AGENT HANDOFF ({prior_agent_type} → {agent_type}):\n"
+            f"{prior_agent_summary}\n\n"
+            + dynamic_block
+        )
+
     # 2b-3. Deterministic day anchor for timeline — "tomorrow" then "rest day with family"
     # often caused get_today_events to default to today. Inject explicit date when we can infer it.
     if agent_type == "timeline":
@@ -534,6 +545,13 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         f"tokens={total_tokens} latency={elapsed:.0f}ms"
     )
 
+    # Persist agent type + 1-sentence summary for next-turn handoff (T1-D).
+    # Only set when there is a real text response to summarize.
+    new_prior_summary: str | None = None
+    if agent_response.strip():
+        first_sentence = agent_response.strip().split(".")[0]
+        new_prior_summary = first_sentence[:180] + "." if first_sentence else None
+
     return {
         "agent_response": agent_response,
         "tool_calls": tool_calls_log,
@@ -541,6 +559,8 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         "total_tokens": total_tokens,
         "latency_ms": elapsed,
         "messages": all_messages,
+        "prior_agent_type": agent_type,
+        "prior_agent_summary": new_prior_summary,
     }
 
 
