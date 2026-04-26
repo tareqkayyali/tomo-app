@@ -53,7 +53,8 @@ const SECTION_LABELS: Record<string, string> = {
   aib:                 "Athlete Intelligence Brief",
   memory:              "Memory — What the Coach Already Knows",
   sport_context:       "Sport & Position",
-  performance_layers:  "Performance Layers",
+  performance_layers:  "Coaching Focus (4-Layer)",
+  voice_reminder:      "Voice & Format Reminder (final)",
   phv:                 "Growth Stage",
   dual_load:           "Academic + Athletic Load",
   triangle_inputs:     "Triangle Inputs (Coach / Parent)",
@@ -85,6 +86,7 @@ const SECTION_ORDER = [
   "wearable", "safety_gate_policy",
   "conflict_mediation", "intent_guidance", "conversation_context",
   "prior_agent_handoff", "workflow", "scheduling_anchor",
+  "voice_reminder",
   "player_context", "ccrs_directive", "_other",
 ];
 

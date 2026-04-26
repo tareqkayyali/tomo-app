@@ -405,53 +405,111 @@ def compute_layer_gaps(ctx: "PlayerContext") -> Optional[LayerGapResult]:
     )
 
 
+# Layer name → natural-language phrase the LLM can use in coaching
+# (we steer voice toward these; we do NOT want bare "Physical/Technical/etc.")
+_LAYER_PHRASES = {
+    "physical":  "physical conditioning",
+    "technical": "technical execution",
+    "tactical":  "game intelligence",
+    "mental":    "mental side",
+}
+
+# Minimum data points before a layer is allowed to influence coaching.
+# Single-signal layers (e.g. only checkin_consistency=0) are noisy and produce
+# false zero-scores that read as failure when surfaced to the athlete.
+_MIN_DATA_POINTS_FOR_GUIDANCE = 2
+
+
 def build_performance_layers_block(ctx: "PlayerContext") -> str:
     """
-    Block 2.1b: 4-layer performance model — injected after SPORT CONTEXT.
+    Block 2.1b: 4-layer performance model — narrative coaching directive.
 
-    Renders as a compact table so the AI understands the athlete's development
-    profile at a glance. High-priority gaps get an explicit coaching note.
-    Returns empty string when layer computation yields no data.
+    Replaces the prior tabular format (which trained the LLM to leak raw
+    "X/100" scores and layer names into stat_grid cards) with a plain-English
+    steering directive. The LLM uses this to choose what to lead with and what
+    to nudge toward — it does NOT see numeric scores or internal labels.
+
+    Layers with fewer than 2 contributing signals are suppressed entirely so a
+    fresh-account athlete with sparse data is never described as "0/100" in any
+    layer. Returns empty string when no layer crosses the confidence floor.
     """
     gap_result = compute_layer_gaps(ctx)
     if gap_result is None:
         return ""
 
-    position_label = gap_result.position
-    sport_label = gap_result.sport.title()
-    lines = [f"PERFORMANCE LAYERS — {position_label} ({sport_label}):"]
-
-    for ls in gap_result.layers:
-        symbol = _GAP_SYMBOLS.get(ls.gap_label, "·")
-        priority_label = _PRIORITY_LABELS.get(ls.priority, "MEDIUM")
-        score_str = f"{int(ls.score)}/100"
-        label_upper = ls.gap_label.upper().replace("_", " ")
-        signal_str = f" [{', '.join(ls.key_signals)}]" if ls.key_signals else ""
-        lines.append(
-            f"  {ls.layer.title():<10} {score_str:>7}  {symbol} {label_upper:<11}  "
-            f"Priority: {priority_label}{signal_str}"
-        )
-
-    # Coaching notes for high-priority gaps
-    notes = []
-    high_pri_gaps = [
+    # Filter to high-confidence layers only — single-signal noise is dropped
+    confident = [
         ls for ls in gap_result.layers
+        if ls.data_points >= _MIN_DATA_POINTS_FOR_GUIDANCE
+    ]
+    if not confident:
+        return ""
+
+    sport_label = gap_result.sport.title()
+    position_label = gap_result.position
+
+    lines = [f"COACHING FOCUS — {position_label} ({sport_label}):"]
+
+    # Anchor strength: a confident layer the athlete is doing well in
+    anchor = next(
+        (ls for ls in confident if ls.gap_label in ("strength", "on_track")),
+        None,
+    )
+    # If multiple, prefer the one with highest priority (most relevant for position)
+    candidates = [ls for ls in confident if ls.gap_label in ("strength", "on_track")]
+    if candidates:
+        anchor = max(candidates, key=lambda ls: (ls.priority, ls.score))
+
+    # Priority focus: a high-priority gap (priority >= 4 AND developing/gap)
+    priority_gap = None
+    high_pri_gaps = [
+        ls for ls in confident
         if ls.gap_label in ("developing", "gap") and ls.priority >= 4
     ]
     if high_pri_gaps:
-        worst = sorted(high_pri_gaps, key=lambda ls: ls.score)[0]
-        notes.append(
-            f"→ Priority development focus: {worst.layer.title()} "
-            f"(key requirement for this position)"
+        priority_gap = sorted(
+            high_pri_gaps,
+            key=lambda ls: (-ls.priority, ls.score),
+        )[0]
+
+    if anchor:
+        lines.append(
+            f"- Lead from: {_LAYER_PHRASES[anchor.layer]} "
+            f"(athlete's anchor strength — use this to reassure or reframe)"
         )
 
-    if gap_result.primary_strength:
-        st = next((ls for ls in gap_result.layers if ls.layer == gap_result.primary_strength), None)
-        if st and st.gap_label in ("strength", "on_track"):
-            notes.append(f"→ Anchor strength: {st.layer.title()} (build confidence from here)")
+    if priority_gap:
+        lines.append(
+            f"- Steer toward: {_LAYER_PHRASES[priority_gap.layer]} "
+            f"(top requirement for this position — address gently when context allows)"
+        )
 
-    if notes:
-        lines.append("")
-        lines.extend(notes)
+    # Note layers we don't have signal in — prevents the LLM from inventing a verdict
+    sparse = [
+        ls.layer for ls in gap_result.layers
+        if ls.data_points < _MIN_DATA_POINTS_FOR_GUIDANCE
+    ]
+    if sparse:
+        sparse_phrases = ", ".join(_LAYER_PHRASES[name] for name in sparse)
+        lines.append(
+            f"- Limited data on: {sparse_phrases} — do NOT claim the athlete is "
+            f"weak here; the assessment isn't reliable yet"
+        )
+
+    if not anchor and not priority_gap:
+        # Confident layers exist but neither anchor nor priority-gap qualified —
+        # keep coaching anchored on whatever the athlete brought up
+        lines.append(
+            "- Stay anchored on the athlete's stated topic; multi-layer signal "
+            "is too sparse to justify shifting focus"
+        )
+
+    lines.append("")
+    lines.append(
+        "NEVER surface to the athlete: internal layer names "
+        "(\"Physical/Technical/Tactical/Mental\"), numeric layer scores "
+        "(e.g. \"64/100\"), gap labels (\"GAP/STRENGTH/DEVELOPING\"), or "
+        "percentile codes (P1/P50/P99). Translate to natural athlete language."
+    )
 
     return "\n".join(lines)

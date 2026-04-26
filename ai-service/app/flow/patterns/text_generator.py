@@ -15,8 +15,12 @@ import os
 
 logger = logging.getLogger("tomo-ai.flow.text_generator")
 
-# Feature flag: skip Haiku text generation entirely for $0 data_display
-_TEXT_GEN_ENABLED = os.environ.get("FLOW_TEXT_GEN_ENABLED", "false").lower() == "true"
+# Feature flag: warm headline/body generation for deterministic capsule responses.
+# Default ON (2026-04-26) — without it, programs/readiness/schedule capsules
+# return hardcoded headlines like "Your programs" with no body, which reads
+# as a cold catalog dump. The Haiku pass costs ~$0.0003 per turn and produces
+# a warm, personalized framing on top of the deterministic card data.
+_TEXT_GEN_ENABLED = os.environ.get("FLOW_TEXT_GEN_ENABLED", "true").lower() == "true"
 
 # Multi-step flow text generation (separate flag so we can enable warmth in
 # build_session / plan_training without touching data_display cost profile).
@@ -30,53 +34,102 @@ async def generate_warm_text(
     card_data: dict,
     player_name: str = "",
     sport: str = "",
+    position: str = "",
+    age_band: str = "",
+    raw_message: str = "",
+    timeout_s: float = 1.5,
 ) -> dict[str, str] | None:
-    """Generate warm headline + body text using Haiku (200 token budget).
+    """Generate warm headline + body text using Haiku (~250 token budget).
 
-    Returns {"headline": str, "body": str} or None if disabled/failed.
-    Falls back gracefully -- caller should always have deterministic fallback.
+    Layered on top of deterministic capsule responses (programs lists, readiness
+    cards, schedule views) so they don't read as cold catalog dumps. Conditioned
+    on the athlete's actual message + sport/position/age band so the framing
+    feels personal rather than templated.
+
+    Returns {"headline": str, "body": str} or None if disabled/failed/timeout.
+    Caller MUST have a deterministic fallback for graceful degradation.
     """
     if not _TEXT_GEN_ENABLED:
         return None
 
     try:
+        import asyncio
         from anthropic import AsyncAnthropic
 
         client = AsyncAnthropic()
 
-        # Build a tiny, focused prompt
+        # Age-band tone hint — same model used by generate_flow_step_text.
+        # Voice should feel like a text from a mate who happens to know the sport.
+        tone_hint = {
+            "U13": "like an older sibling who hypes them up, playful, tiny sentences",
+            "U15": "warm mate, simple words, a little banter, real encouragement",
+            "U17": "best friend who trains with them, honest, casual, sport-aware",
+            "U19": "close friend, real talk, zero corporate, sharp but warm",
+            "U21": "close friend, real talk, zero corporate, sharp but warm",
+            "SEN": "trusted peer, dry warmth, no fluff, sharp",
+        }.get(age_band or "U17", "close friend who coaches, warm, casual, real")
+
         system = (
-            "You are Tomo, a warm AI coach for young athletes. "
-            "Generate a headline (max 8 words) and body (max 2 sentences) "
-            "for a data card. Be warm, encouraging, and coaching-first. "
-            "No emoji. No technical jargon. Respond in JSON: "
-            '{"headline": "...", "body": "..."}'
+            "You are Tomo. You are the athlete's friend first, coach second. "
+            "You talk like a close mate texting them — not like an app, not "
+            "like a data dashboard, not like a feature announcement. "
+            f"Voice: {tone_hint}. "
+            "Your job: write a warm headline + body that frames the data card "
+            "the athlete is about to see. The data is already in the card — "
+            "you do NOT need to repeat numbers. You SET THE TONE. "
+            "HARD BANS: no emoji, no corporate phrasing, no feature-speak, no "
+            "internal jargon (no 'ACWR', 'CCRS', 'HRV', 'PHV', 'P1/P50/P99', "
+            "'Physical/Technical/Tactical/Mental layer'). Translate everything "
+            "to plain athlete language. NEVER open with 'Your programs', "
+            "'Your readiness', 'Here is', 'Locked in', 'I've prepared'. "
+            "NEVER use the athlete's name more than once. "
+            "If the athlete asked something specific (e.g. 'speed programs'), "
+            "the headline should reflect what they asked for — not the generic "
+            "category. Contractions are good. Tiny personality is good. "
+            'Respond in JSON only: {"headline": "...", "body": "..."}. '
+            "Headline max 9 words. Body max 2 short sentences (max 25 words total)."
         )
 
-        context_parts = []
+        ctx_lines = []
         if player_name:
-            context_parts.append(f"Athlete: {player_name}")
+            ctx_lines.append(f"Athlete: {player_name}")
         if sport:
-            context_parts.append(f"Sport: {sport}")
-        context_parts.append(f"Intent: {intent_id}")
-        context_parts.append(f"Data summary: {_summarize_card(card_data)}")
+            ctx_lines.append(f"Sport: {sport}")
+        if position:
+            ctx_lines.append(f"Position: {position}")
+        if age_band:
+            ctx_lines.append(f"Age band: {age_band}")
+        if raw_message:
+            ctx_lines.append(f"What the athlete just asked: {raw_message[:200]}")
+        ctx_lines.append(f"Intent: {intent_id}")
+        ctx_lines.append(f"Data card summary: {_summarize_card(card_data)}")
 
-        user_msg = "\n".join(context_parts)
+        user_msg = "\n".join(ctx_lines)
 
-        response = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=200,
-            system=system,
-            messages=[{"role": "user", "content": user_msg}],
+        response = await asyncio.wait_for(
+            client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=200,
+                system=system,
+                messages=[{"role": "user", "content": user_msg}],
+            ),
+            timeout=timeout_s,
         )
 
         import json
-        text = response.content[0].text
+        text = response.content[0].text.strip()
+        # Strip markdown fences if Haiku adds them
+        if text.startswith("```"):
+            text = text.split("```", 2)[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
         parsed = json.loads(text)
-        return {
-            "headline": parsed.get("headline", ""),
-            "body": parsed.get("body", ""),
-        }
+        headline = (parsed.get("headline") or "").strip()
+        body = (parsed.get("body") or "").strip()
+        if not headline:
+            return None
+        return {"headline": headline, "body": body}
 
     except Exception as e:
         logger.debug(f"Text generation skipped: {e}")

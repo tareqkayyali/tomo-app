@@ -393,6 +393,90 @@ def _strip_emoji(text: str) -> str:
     return cleaned
 
 
+def _percentile_band(p: int) -> str:
+    """Convert a percentile (1-100) to a plain-English peer band."""
+    if p >= 95:
+        return "elite for your age"
+    if p >= 75:
+        return "top quarter for your age"
+    if p >= 50:
+        return "above peer average"
+    if p >= 25:
+        return "around peer average"
+    if p >= 10:
+        return "below peer average"
+    return "well below peer average"
+
+
+def _translate_percentile_codes(text: str) -> str:
+    """Replace 'P1', 'P50', 'P99' percentile shorthand with plain-English bands.
+
+    Athletes don't read percentile codes — 'P1' reads as a typo, 'P50' as a
+    cryptic stat. Translates inline: '1.75s (P50)' -> '1.75s (above peer average)'.
+    Standalone 'P1 to P50+' becomes 'well below peer average to above peer average'.
+    """
+    if not text:
+        return text
+
+    def _replace(match: "re.Match[str]") -> str:
+        try:
+            num = int(match.group(1))
+            band = _percentile_band(num)
+            has_plus = bool(match.group(2))
+            return f"{band} or higher" if has_plus else band
+        except (ValueError, IndexError):
+            return match.group(0)
+
+    # Trailing \b after \+? would fail (both '+' and space are non-word, so
+    # there's no boundary between them). Drop it; \d{1,3}\+? naturally ends.
+    return re.sub(r"(?<![A-Za-z])P(\d{1,3})(\+)?(?![A-Za-z0-9])", _replace, text)
+
+
+def _translate_layer_scores(text: str) -> str:
+    """Convert leaked '4-layer' score patterns in body text to plain language.
+
+    Catches patterns like 'Physical: 64/100', 'Technical Layer 0/100', 'mental
+    layer is 45/100'. The Phase 2 performance model uses these internally to
+    pick coaching focus; they must never reach the athlete-facing body.
+    """
+    if not text:
+        return text
+
+    layer_phrases = {
+        "physical": "physical conditioning",
+        "technical": "technical execution",
+        "tactical": "game intelligence",
+        "mental": "mental side",
+    }
+
+    def _band(score: int) -> str:
+        if score >= 75:
+            return "a real strength"
+        if score >= 55:
+            return "tracking well"
+        if score >= 35:
+            return "still developing"
+        if score == 0:
+            return "an area we haven't measured yet"
+        return "an area to grow into"
+
+    def _replace(match: "re.Match[str]") -> str:
+        layer = match.group(1).lower()
+        score = int(match.group(2))
+        phrase = layer_phrases.get(layer, layer)
+        return f"your {phrase} is {_band(score)}"
+
+    # Pattern: layer name (optionally followed by "layer"), with separator,
+    # then a digit/100 score
+    pattern = (
+        r"\b(physical|technical|tactical|mental)"
+        r"(?:\s+layer)?"
+        r"(?:\s*(?:is|at|=|:|\-|—))?"
+        r"\s*(\d{1,3})\s*/\s*100\b"
+    )
+    return re.sub(pattern, _replace, text, flags=re.I)
+
+
 def _format_12h(time_24: str) -> str:
     """Convert 24h time string (HH:MM) to 12h format (e.g., '5:45 PM')."""
     try:
@@ -789,14 +873,41 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
         body = re.sub(r"\bACWR\b", "training load", body, flags=re.I)
         body = re.sub(r"\b\d+\.?\d*\s*ms\s*(?:HRV|hrv)", "recovery signals", body, flags=re.I)
         body = re.sub(r"\bHRV\s*(?:is|at|of|=)?\s*\d+\.?\d*\s*(?:ms)?", "recovery signals", body, flags=re.I)
+        # CCRS — internal readiness composite, never name it
+        body = re.sub(r"\bCCRS\b\s*(?:is|at|of|=)?\s*\d+\.?\d*", "your readiness", body, flags=re.I)
+        body = re.sub(r"\bCCRS\b", "readiness", body, flags=re.I)
+        # Percentile codes (P1, P50, P99 etc.) — translate inline to plain bands
+        body = _translate_percentile_codes(body)
+        # 4-layer scores leaking ("Physical 64/100", "TECHNICAL LAYER: 0/100" etc.) →
+        # describe in plain language ("you're strong on the physical side")
+        body = _translate_layer_scores(body)
         structured["body"] = body
 
-    # 4c. Sanitize stat_grid items — convert raw values to friendly labels
+    # 4c. Sanitize stat_grid items — convert raw values to friendly labels,
+    #     drop items that leak internal taxonomy (4-layer scores, CCRS).
     for card in structured.get("cards", []):
         if card.get("type") == "stat_grid":
+            kept_items = []
             for item in card.get("items", []):
-                label = (item.get("label") or "").lower()
+                label = (item.get("label") or "").lower().strip()
                 value = str(item.get("value", ""))
+
+                # 4-layer scores leak: drop entirely (Phase 2 regression).
+                # Labels like "PHYSICAL LAYER", "TECHNICAL L...", "Mental",
+                # combined with values like "64/100" or "0/100" — these are
+                # internal taxonomy that must never reach the athlete.
+                if re.match(r"^(physical|technical|tactical|mental)(\s+layer)?$", label):
+                    continue
+                # Or just any "X/100" value with one of those layer names anywhere
+                if re.search(r"\d+\s*/\s*100", value) and any(
+                    k in label for k in ("physical", "technical", "tactical", "mental")
+                ):
+                    continue
+                # CCRS leak: drop the chip entirely; mobile already shows readiness
+                # via dedicated readiness card.
+                if "ccrs" in label:
+                    continue
+
                 # HRV: never show raw ms — convert to descriptive
                 if "hrv" in label and re.search(r"\d+\.?\d*\s*ms", value):
                     ms_val = float(re.search(r"(\d+\.?\d*)", value).group(1))
@@ -811,6 +922,18 @@ def _pulse_post_process(structured: dict, state: TomoChatState = None) -> dict:
                     if re.search(r"\d+\.?\d*", value):
                         num = float(re.search(r"(\d+\.?\d*)", value).group(1))
                         item["value"] = "Spiked" if num > 1.5 else "Elevated" if num > 1.3 else "Building" if num > 1.0 else "Good"
+
+                # Percentile codes anywhere in value (e.g. "4.0s — P99",
+                # "1.75s (P50)") → translate to plain bands so the athlete
+                # sees "elite" / "below peer average" instead of cryptic codes
+                if re.search(r"\bP\d{1,3}\b", value):
+                    item["value"] = _translate_percentile_codes(value)
+                # Same for label (e.g. label="P50 target")
+                if re.search(r"\bP\d{1,3}\b", item.get("label") or ""):
+                    item["label"] = _translate_percentile_codes(item["label"])
+
+                kept_items.append(item)
+            card["items"] = kept_items
 
     # 4d. Strip emojis from ALL card content — zero emoji policy
     for card in structured.get("cards", []):

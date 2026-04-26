@@ -115,7 +115,8 @@ def split_dynamic_block_for_logging(dynamic_block: str) -> dict[str, str]:
         ("=== ATHLETE INTELLIGENCE BRIEF", "aib"),
         ("=== MEMORY (what we already know", "memory"),
         ("SPORT CONTEXT:", "sport_context"),
-        ("PERFORMANCE LAYERS", "performance_layers"),
+        ("COACHING FOCUS", "performance_layers"),
+        ("PERFORMANCE LAYERS", "performance_layers"),  # legacy header, kept for back-compat
         ("PLAYER CONTEXT:", "player_context"),
         ("PHV AWARENESS", "phv"),
         ("DUAL-LOAD CONTEXT", "dual_load"),
@@ -139,6 +140,7 @@ def split_dynamic_block_for_logging(dynamic_block: str) -> dict[str, str]:
         ("PRIOR AGENT HANDOFF", "prior_agent_handoff"),
         ("MULTI-STEP WORKFLOW", "workflow"),
         ("SCHEDULING THREAD ANCHOR", "scheduling_anchor"),
+        ("FINAL CHECK BEFORE YOU RESPOND", "voice_reminder"),
     )
 
     chunks = [c.strip() for c in dynamic_block.split("\n\n") if c.strip()]

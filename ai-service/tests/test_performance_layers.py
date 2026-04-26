@@ -280,13 +280,29 @@ def test_block_returns_empty_string_when_no_data():
     assert block == ""
 
 
-def test_block_contains_layer_names():
+def _steering_section(block: str) -> str:
+    """Return only the steering directives — strip the trailing 'NEVER surface'
+    warning footer (which legitimately enumerates forbidden tokens)."""
+    return block.split("NEVER surface")[0]
+
+
+def test_block_uses_natural_language_not_internal_layer_names():
+    """The steering directives must NEVER expose internal layer labels — those
+    leak into stat_grid cards as '64/100 PHYSICAL LAYER' chips. Use phrases
+    like 'physical conditioning' instead so the LLM has nothing to copy verbatim."""
     ctx = _make_ctx()
-    block = build_performance_layers_block(ctx)
-    assert "Physical" in block
-    assert "Technical" in block
-    assert "Tactical" in block
-    assert "Mental" in block
+    steering = _steering_section(build_performance_layers_block(ctx))
+    # Headline line is metadata; check the directive lines below it
+    body = "\n".join(steering.split("\n")[1:])
+    assert "Physical" not in body
+    assert "Technical" not in body
+    assert "Tactical" not in body
+    assert "Mental" not in body
+    natural_phrases = [
+        "physical conditioning", "technical execution",
+        "game intelligence", "mental side",
+    ]
+    assert any(p in steering for p in natural_phrases)
 
 
 def test_block_contains_position_and_sport():
@@ -296,14 +312,28 @@ def test_block_contains_position_and_sport():
     assert "Football" in block or "football" in block
 
 
-def test_block_contains_priority_labels():
-    ctx = _make_ctx(position="midfielder", sport="football")
+def test_block_never_contains_numeric_scores():
+    """No '/100', no raw scores, no gap-label uppercase tokens — these are
+    exactly what the LLM mimics into athlete-facing chips. The trailing
+    NEVER-surface footer legitimately enumerates the forbidden tokens, so we
+    only check the steering directives section."""
+    ctx = _make_ctx()
+    steering = _steering_section(build_performance_layers_block(ctx))
+    assert "/100" not in steering
+    assert "STRENGTH" not in steering
+    assert "GAP" not in steering
+    assert "DEVELOPING" not in steering
+
+
+def test_block_contains_explicit_no_surface_directive():
+    """The block must instruct the LLM to never surface internal taxonomy."""
+    ctx = _make_ctx()
     block = build_performance_layers_block(ctx)
-    assert "HIGH" in block or "VERY HIGH" in block
+    assert "NEVER surface" in block
 
 
-def test_block_contains_coaching_note_for_high_priority_gap():
-    """A high-priority layer gap should trigger a coaching note."""
+def test_block_contains_steering_directive_for_high_priority_gap():
+    """A high-priority layer gap should appear as a 'Steer toward' directive."""
     se = _make_se(
         ccrs=80.0, recovery_score=75.0,  # physical OK
         mastery_scores={"passing": 85.0}, plan_compliance_7d=0.85,  # technical OK
@@ -312,12 +342,23 @@ def test_block_contains_coaching_note_for_high_priority_gap():
     )
     ctx = _make_ctx(se=se, position="midfielder")
     block = build_performance_layers_block(ctx)
-    assert "→" in block  # coaching note present
+    assert "Steer toward" in block
+    assert "game intelligence" in block  # natural phrase for tactical
+
+
+def test_block_contains_anchor_strength_directive():
+    """Strong layers should appear as 'Lead from' directive."""
+    ctx = _make_ctx()  # default fixture has strong physical (CCRS 72)
+    block = build_performance_layers_block(ctx)
+    assert "Lead from" in block
 
 
 def test_block_does_not_contain_phv_string():
     """PHV must never appear in athlete-facing output (post-generation filter contract)."""
-    se = _make_se(ccrs=60.0)
+    se = _make_se(
+        ccrs=60.0,
+        recovery_score=55.0,  # ensure physical layer has 2 data points
+    )
     se.phv_stage = "mid_phv"
     ctx = _make_ctx(se=se)
     ctx.snapshot_enrichment = se
@@ -327,18 +368,25 @@ def test_block_does_not_contain_phv_string():
 
 
 def test_block_sports_non_football():
-    """Basketball point guard should produce valid block."""
+    """Basketball point guard with rich data should produce valid block."""
     ctx = _make_ctx(position="point guard", sport="basketball")
     block = build_performance_layers_block(ctx)
-    assert "Physical" in block
+    assert "COACHING FOCUS" in block
+    assert "point guard" in block.lower()
 
 
-def test_block_partial_data_still_renders():
-    """Only physical data available — should still render physical layer."""
-    se = _make_se(ccrs=65.0, recovery_score=60.0)  # no mastery/coachability/wellness
-    ctx = _make_ctx(se=se)
+def test_block_suppresses_low_confidence_layers():
+    """Single-signal layers (data_points=1) must be filtered out — they produce
+    misleading false-zero scores that read as failure."""
+    se = _make_se(
+        # Physical: 2 signals (CCRS + recovery) → confident
+        ccrs=70.0, recovery_score=65.0,
+        # Technical: only 1 signal (checkin_consistency=0) → low confidence, must be suppressed
+        checkin_consistency_7d=0.0,
+    )
+    ctx = _make_ctx(se=se, academic_load_score=None)
     block = build_performance_layers_block(ctx)
-    assert "Physical" in block
-    # Technical/Tactical/Mental should be absent (no data)
-    assert "Technical" not in block
-    assert "Tactical" not in block
+    # Confident physical layer leads
+    assert "physical conditioning" in block
+    # Suppressed technical layer should appear in "Limited data on" — never as a verdict
+    assert "Steer toward: technical" not in block

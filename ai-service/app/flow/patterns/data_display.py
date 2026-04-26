@@ -222,21 +222,29 @@ async def execute_data_display(config: FlowConfig, state: TomoChatState) -> dict
     total_cost = 0.0
     total_tokens = 0
 
-    # Try optional Haiku text generation (disabled by default for $0)
+    # Warm-framing pass: small Haiku call writes a personalized headline + body
+    # over the deterministic card. Without it, capsule responses read as cold
+    # catalog dumps ("Your programs" with no body). Failure-safe — falls back
+    # to the deterministic headline/body on timeout or error.
     try:
         from app.flow.patterns.text_generator import generate_warm_text
+        from app.utils.message_helpers import find_last_human_message
+        raw_user_message = find_last_human_message(state.get("messages", []) or [])
         warm = await generate_warm_text(
             intent_id=state.get("intent_id", ""),
             card_data=cards[0] if cards else {},
             player_name=getattr(context, "first_name", ""),
             sport=getattr(context, "sport", ""),
+            position=getattr(context, "position", "") or "",
+            age_band=getattr(context, "age_band", "") or "",
+            raw_message=raw_user_message or "",
         )
         if warm:
             headline = warm.get("headline") or headline
-            body = warm.get("body") or ""
-            # Haiku cost estimate: ~200 tokens in + 200 out
+            body = warm.get("body") or body
+            # Haiku cost estimate: ~250 tokens in + 200 out
             total_cost = 0.0003
-            total_tokens = 400
+            total_tokens = 450
     except Exception as e:
         logger.debug(f"Text generation skipped: {e}")
 
