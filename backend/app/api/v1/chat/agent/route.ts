@@ -28,6 +28,7 @@ import { randomUUID } from "node:crypto";
 import { ObservabilityHeaders } from "@/lib/observability/ids";
 import { captureError } from "@/lib/errorTracker";
 import { ErrorCode } from "@/lib/observability/error-codes";
+import { withErrorTracking } from "@/lib/route-handler";
 
 function formatSSE(event: string, data: any): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -63,7 +64,7 @@ function normalizeCapsuleAction(capsuleAction: any) {
   return { toolName, toolInput, agentType };
 }
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const traceId = req.headers.get(ObservabilityHeaders.traceId) ?? randomUUID();
   const requestId = req.headers.get(ObservabilityHeaders.requestId);
   const auth = requireAuth(req);
@@ -218,8 +219,13 @@ export async function POST(req: NextRequest) {
       userId: auth.user.id,
     });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Chat error" },
+      { error: "Internal server error", error_code: ErrorCode.BE.CHAT.STREAM_FAILED, trace_id: traceId },
       { status: 500 }
     );
   }
 }
+
+export const POST = withErrorTracking(_POST, {
+  endpoint: "/api/v1/chat/agent",
+  errorCode: ErrorCode.BE.CHAT.STREAM_FAILED,
+});

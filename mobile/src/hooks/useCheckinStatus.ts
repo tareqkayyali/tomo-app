@@ -45,6 +45,8 @@ export function useCheckinStatus(): {
         setIsStale(false);
       }
     } catch (err) {
+      // AbortError means the fetch was cancelled (component unmount / screen blur) — not a real error
+      if (err instanceof Error && err.name === 'AbortError') return;
       // On error, assume needs check-in (safe fallback)
       console.error('[useCheckinStatus] fetch error:', err);
       setNeedsCheckin(true);
