@@ -115,6 +115,7 @@ def split_dynamic_block_for_logging(dynamic_block: str) -> dict[str, str]:
         ("=== ATHLETE INTELLIGENCE BRIEF", "aib"),
         ("=== MEMORY (what we already know", "memory"),
         ("SPORT CONTEXT:", "sport_context"),
+        ("PERFORMANCE LAYERS", "performance_layers"),
         ("PLAYER CONTEXT:", "player_context"),
         ("PHV AWARENESS", "phv"),
         ("DUAL-LOAD CONTEXT", "dual_load"),

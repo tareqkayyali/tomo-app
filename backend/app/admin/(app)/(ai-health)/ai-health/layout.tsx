@@ -40,6 +40,11 @@ const TABS: { href: string; label: string; hint: string }[] = [
     label: "Errors",
     hint: "Unified error feed — mobile, backend, python with trace drill-down",
   },
+  {
+    href: "/admin/ai-health/prompt-inspector",
+    label: "Prompt Inspector",
+    hint: "See exactly what context the AI coach assembled for each turn — every block, in plain English",
+  },
 ];
 
 export default function AIHealthHubLayout({
