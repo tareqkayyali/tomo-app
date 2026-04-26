@@ -17,7 +17,8 @@ export async function onRequestError(
   context: unknown
 ): Promise<void> {
   // 1. Sentry — existing crash intelligence
-  Sentry.captureRequestError(error, request, context);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Sentry.captureRequestError(error, request, context as any);
 
   // 2. app_errors — unified cross-service sink for admin dashboard + spike detection
   try {
