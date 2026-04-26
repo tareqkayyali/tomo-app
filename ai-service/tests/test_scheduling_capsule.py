@@ -105,7 +105,8 @@ class TestInferIntensity:
 # ── 2. Registry routing ────────────────────────────────────────────
 
 class TestRegistryRouting:
-    """build_session and plan_training route to scheduling_capsule pattern."""
+    """build_session routes to scheduling_capsule; plan_training falls through
+    to open_coaching (changed from scheduling_capsule — see registry.py:350)."""
 
     def test_build_session_pattern(self):
         from app.flow.registry import get_flow_config
@@ -115,10 +116,15 @@ class TestRegistryRouting:
         assert config.steps is not None  # fallback steps preserved
 
     def test_plan_training_pattern(self):
+        # Updated 2026-04-26: plan_training now uses open_coaching pattern.
+        # The shared-step comment at registry.py:46 ("shared by build_session
+        # + plan_training") is stale — plan_training no longer threads through
+        # scheduling_capsule. Confirm with product whether this routing change
+        # was intentional; if it should revert, restore scheduling_capsule here.
         from app.flow.registry import get_flow_config
         config = get_flow_config("plan_training")
         assert config is not None
-        assert config.pattern == "scheduling_capsule"
+        assert config.pattern == "open_coaching"
 
 
 # ── 3. Integration: parallel pre-fetch ─────────────────────────────

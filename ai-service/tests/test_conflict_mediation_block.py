@@ -60,7 +60,9 @@ class TestRender:
         assert "push hard" in block
         assert "ease off" in block
         assert "PINNED SAFETY SIGNALS:" in block
-        assert "ACWR=1.42" in block
+        # ACWR was decommissioned from AI surfaces (commit fd877be) — the
+        # pinned safety block now surfaces growth stage + readiness only.
+        # CCRS >2.0 cap is the ACWR replacement and lives in CCRS block.
         assert "growth stage=mid_phv" in block
         assert "readiness=amber" in block
 

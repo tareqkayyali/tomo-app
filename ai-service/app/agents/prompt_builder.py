@@ -15,6 +15,12 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+from app.agents.memory_block import build_memory_block
+from app.agents.prompt_validation import (
+    SafetyValidationError,
+    ValidationResult,
+    validate_safety_sections,
+)
 from app.config import get_settings
 from app.models.context import PlayerContext, SnapshotEnrichment
 
@@ -1782,15 +1788,22 @@ def build_system_prompt(
     intent_id: Optional[str] = None,
     triangle_inputs_block: Optional[str] = None,
     conflict_mediation_block: Optional[str] = None,
-) -> tuple[str, str]:
+    memory_context: Optional[str] = None,
+    max_total_tokens: int = 16000,
+) -> tuple[str, str, ValidationResult]:
     """
     Build the 2-block system prompt.
 
     Returns:
-      (static_block, dynamic_block)
+      (static_block, dynamic_block, validation_result)
 
     static_block: Cacheable across requests for the same agent type.
     dynamic_block: Changes every request based on player context.
+    validation_result: Token measurements + soft warnings from the validator.
+
+    Raises:
+      SafetyValidationError: when an architect non-negotiable is violated
+      (PHV missing for mid-PHV athlete, prompt over token budget, etc.).
 
     triangle_inputs_block (P2.4, 2026-04-18): optional pre-rendered
     Triangle Input Registry section. Callers that want coach/parent
@@ -1805,6 +1818,13 @@ def build_system_prompt(
     dynamic block so mediation intent dominates response structure
     (persona shaping from static block still applies). None by default;
     non-mediation sessions are unaffected.
+
+    memory_context (Phase 1, 2026-04-26): pre-formatted cross-session
+    memory string from MemoryContext.format_for_prompt(), populated by
+    context_assembly_node. None or empty when Zep is unavailable or the
+    athlete has no longitudinal memory yet. Injected immediately after
+    the AIB block so all "what we already know about this athlete"
+    content sits together before sport/PHV context.
     """
     # ── Block 1: Static (coaching identity + format + agent prompt) ──
     # NOTE: GUARDRAIL_BLOCK removed — guardrails will be CMS-configurable.
@@ -1842,6 +1862,7 @@ def build_system_prompt(
         build_signal_conflict_block(context),    # Signal conflict tier (soft/strong/hard_gate)
         build_ccrs_block(context),               # CCRS readiness data
         build_aib_block(aib_summary),            # Pre-analyzed coaching brief
+        build_memory_block(memory_context),      # Phase 1: cross-session memory (Zep facts + longitudinal)
         build_sport_context(context),            # Sport + position context
         build_phv_block(context),                # PHV growth stage context
         build_dual_load_block(context),          # Academic + athletic load data
@@ -1875,4 +1896,21 @@ def build_system_prompt(
     # Filter empty blocks and join
     dynamic_block = "\n\n".join(part for part in dynamic_parts if part)
 
-    return static_block, dynamic_block
+    # Phase 1 (2026-04-26): strict-throw safety validation.
+    # Throws SafetyValidationError on PHV-missing-for-mid-PHV or token-budget breach.
+    # Soft warnings (RED-without-acknowledgment, CCRS-missing, dual-load-missing)
+    # are returned for the caller to log into prompt_render_log.
+    validation = validate_safety_sections(
+        ctx=context,
+        static_block=static_block,
+        dynamic_block=dynamic_block,
+        max_total_tokens=max_total_tokens,
+    )
+
+    if validation.warnings:
+        logger.warning(
+            "prompt_builder.soft_warnings count=%d agent=%s warnings=%s",
+            len(validation.warnings), agent_type, validation.warnings,
+        )
+
+    return static_block, dynamic_block, validation
