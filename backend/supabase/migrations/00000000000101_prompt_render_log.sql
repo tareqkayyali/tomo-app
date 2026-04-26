@@ -39,8 +39,8 @@ CREATE POLICY "prompt_render_log_admin_read"
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role = 'admin'
+      SELECT 1 FROM public.users u
+      WHERE u.id = auth.uid() AND u.role = 'admin'
     )
   );
 
