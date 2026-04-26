@@ -450,11 +450,6 @@ function createStyles(colors: ThemeColors, typography: Record<string, TextStyle>
       marginTop: spacing.xs,
     },
 
-    // Scroll area: wider side gutters so settings card reads as a centered column
-    scrollContent: {
-      paddingHorizontal: spacing.xl + spacing.sm,
-    },
-
     // ── Menu ────────────────────────────────────────────────────────
     menuCard: {
       alignSelf: 'center',

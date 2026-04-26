@@ -442,7 +442,7 @@ export function useCVProfile(athleteId: string): UseCVProfileReturn {
   // ── Profile ──
 
   const updateProfile = useCallback(
-    async (updates): Promise<boolean> => {
+    async (updates: Parameters<UseCVProfileReturn['updateProfile']>[0]): Promise<boolean> => {
       try {
         const res = await apiCall("/api/v1/cv/profile", {
           method: "PUT",
@@ -580,7 +580,7 @@ export function useCVProfile(athleteId: string): UseCVProfileReturn {
   // ── References ──
 
   const requestReference = useCallback(
-    async (input) => {
+    async (input: Parameters<UseCVProfileReturn['requestReference']>[0]) => {
       try {
         const res = await apiCall("/api/v1/cv/reference", {
           method: "POST",
@@ -630,7 +630,7 @@ export function useCVProfile(athleteId: string): UseCVProfileReturn {
     [deleteEntity]
   );
   const updateMedicalConsent = useCallback(
-    async (patch): Promise<boolean> => {
+    async (patch: Parameters<UseCVProfileReturn['updateMedicalConsent']>[0]): Promise<boolean> => {
       try {
         const res = await apiCall("/api/v1/cv/medical-consent", {
           method: "PUT",

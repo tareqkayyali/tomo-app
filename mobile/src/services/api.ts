@@ -357,6 +357,8 @@ export interface BootData {
       protocolKey: string;
       name: string;
       severity: string;
+      category: string;
+      safety_critical: boolean;
       actions: string[];
     }[];
   } | null;
