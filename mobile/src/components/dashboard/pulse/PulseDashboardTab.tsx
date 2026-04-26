@@ -29,8 +29,6 @@ import {
   pickHighlightWord,
 } from '../signal/dashboardPulseDerivations';
 import {
-  computeAcwrFromDailyLoad,
-  acwrZone,
   getPulseVitalsEmptyState,
   hasAnyVitalsSeries,
   last7Series,
@@ -124,9 +122,6 @@ function firstTodaySessionEvent(
   return undefined;
 }
 
-const ACWR_SCALE_MIN = 0.4;
-const ACWR_SCALE_MAX = 1.7;
-
 type SignalShape = NonNullable<BootData['signalContext']>;
 
 export type PulseDashboardTabProps = {
@@ -148,8 +143,9 @@ export type PulseDashboardTabProps = {
 const SLEEP_SPARKLINE = '#5A7BA6';
 const MOOD_RAIL = '#C8A27A';
 const SORENESS_RAIL = '#9B7CB8';
-const ACWR_RISK = 'rgba(140, 58, 58, 0.55)';
-const ACWR_OPT = 'rgba(58, 98, 58, 0.72)';
+const CCRS_LOW = 'rgba(140, 58, 58, 0.55)';
+const CCRS_MOD = 'rgba(180, 130, 50, 0.55)';
+const CCRS_HIGH = 'rgba(58, 120, 58, 0.80)';
 
 function WellnessRow({ label, value, railColor }: { label: string; value: number; railColor: string }) {
   const done = Math.max(0, Math.min(7, Math.round((value / 10) * 7)));
@@ -258,10 +254,16 @@ export function PulseDashboardTab({
     return { hrvLast, hrvSub, sleepSub, readLast, readSub };
   }, [bootData?.yesterdayVitals, hrvSeries, sleepSeries, readinessSeries]);
 
-  const acwr = useMemo(() => computeAcwrFromDailyLoad(bootData?.dailyLoad), [bootData?.dailyLoad]);
-  const zone = acwrZone(acwr);
-  const zoneLine =
-    zone === 'optimal' ? 'Optimal zone' : zone === 'risk' ? 'Risk zone' : 'Detrain zone';
+  const ccrsScore: number = (bootData?.snapshot?.ccrs as number | null) ?? 0;
+  const ccrsRec: string = (bootData?.snapshot?.ccrs_recommendation as string | null) ?? '';
+  const ccrsConf: string = (bootData?.snapshot?.ccrs_confidence as string | null) ?? '';
+  const ccrsLabel =
+    ccrsRec === 'full_load' ? 'Full Load' :
+    ccrsRec === 'moderate'  ? 'Moderate' :
+    ccrsRec === 'reduced'   ? 'Reduced' :
+    ccrsRec === 'recovery'  ? 'Recovery' :
+    ccrsRec === 'blocked'   ? 'Blocked' :
+    ccrsScore > 0           ? 'Score ready' : '—';
 
   const latestWell = bootData?.latestCheckin;
   const energy = latestWell?.energy ?? 7;
@@ -357,14 +359,15 @@ export function PulseDashboardTab({
 
   const sage = colors.tomoSage;
   const clay = colors.tomoClay;
-  const zoneLineColor =
-    zone === 'optimal' ? sage : zone === 'risk' ? '#E8A598' : colors.tomoSteel;
+  const ccrsColor =
+    ccrsRec === 'full_load' ? sage :
+    ccrsRec === 'moderate'  ? sage :
+    ccrsRec === 'reduced'   ? '#C8A060' :
+    ccrsRec === 'recovery'  ? colors.tomoSteel :
+    ccrsRec === 'blocked'   ? '#E8A598' :
+    colors.tomoSteel;
 
-  const acwrMarkerPct = useMemo(() => {
-    if (acwr <= 0) return 8;
-    const clamped = Math.max(ACWR_SCALE_MIN, Math.min(ACWR_SCALE_MAX, acwr));
-    return ((clamped - ACWR_SCALE_MIN) / (ACWR_SCALE_MAX - ACWR_SCALE_MIN)) * 100;
-  }, [acwr]);
+  const ccrsMarkerPct = Math.max(2, Math.min(98, ccrsScore));
 
   const renderMetricChip = (m: (typeof metricBuckets.strong)[0], tint: string) => {
     const zoneLabelChip =
@@ -545,24 +548,29 @@ export function PulseDashboardTab({
         <PulseSectionLabel left="Load & wellness" />
         <PulseCard tintColor={sage}>
           <View style={styles.stackPad}>
-            <Text style={styles.cardEyebrow}>TRAINING LOAD RATIO · ACWR</Text>
+            <Text style={styles.cardEyebrow}>READINESS SCORE · CCRS</Text>
             <View style={styles.acwrHeroRow}>
-              <Text style={styles.acwrBig}>{acwr > 0 ? acwr.toFixed(2) : '—'}</Text>
-              <Text style={[styles.acwrZoneTag, { color: zoneLineColor }]}>{zoneLine}</Text>
+              <Text style={styles.acwrBig}>{ccrsScore > 0 ? Math.round(ccrsScore) : '—'}</Text>
+              <Text style={[styles.acwrZoneTag, { color: ccrsColor }]}>{ccrsLabel}</Text>
             </View>
             <View style={styles.acwrWrap}>
               <View style={styles.acwrTrack}>
-                <View style={[styles.acwrZone, { flex: 4, backgroundColor: ACWR_RISK }]} />
-                <View style={[styles.acwrZone, { flex: 5, backgroundColor: ACWR_OPT }]} />
-                <View style={[styles.acwrZone, { flex: 4, backgroundColor: ACWR_RISK }]} />
+                <View style={[styles.acwrZone, { flex: 4, backgroundColor: CCRS_LOW }]} />
+                <View style={[styles.acwrZone, { flex: 3, backgroundColor: CCRS_MOD }]} />
+                <View style={[styles.acwrZone, { flex: 3, backgroundColor: CCRS_HIGH }]} />
               </View>
-              <View style={[styles.acwrMarker, { left: `${acwrMarkerPct}%` }]} />
+              <View style={[styles.acwrMarker, { left: `${ccrsMarkerPct}%` }]} />
             </View>
             <View style={styles.acwrLegendRow}>
-              <Text style={styles.acwrLegend}>0.5 DETRAIN</Text>
-              <Text style={styles.acwrLegend}>0.8–1.3 OPTIMAL</Text>
-              <Text style={styles.acwrLegend}>1.5+ RISK</Text>
+              <Text style={styles.acwrLegend}>0 LOW</Text>
+              <Text style={styles.acwrLegend}>40–70 MODERATE</Text>
+              <Text style={styles.acwrLegend}>70+ OPTIMAL</Text>
             </View>
+            {(ccrsConf === 'low' || ccrsConf === 'estimated') ? (
+              <Text style={[styles.acwrLegend, { marginTop: 4, color: colors.tomoSteel }]}>
+                Limited data — score is estimated
+              </Text>
+            ) : null}
 
             <Text style={[styles.cardEyebrow, { marginTop: 20 }]}>WELLNESS · 7 DAY</Text>
             <View style={{ marginTop: 10, gap: 12 }}>

@@ -1,7 +1,7 @@
 /**
  * MetricsPanel — Biometric overview slide-up panel.
  *
- * Shows: HRV sparkline (with baseline), sleep bars, ACWR zone indicator,
+ * Shows: HRV sparkline (with baseline), sleep bars, CCRS readiness score,
  * readiness trend, wellness mini-trends (energy / mood / soreness),
  * 7-day training load.
  *
@@ -92,7 +92,9 @@ export function MetricsPanel({
 
   const hrvToday = snapshot?.hrv_today_ms ?? null;
   const hrvBaseline = snapshot?.hrv_baseline_ms ?? null;
-  const acwr = snapshot?.acwr ?? null;
+  const ccrs: number | null = snapshot?.ccrs ?? null;
+  const ccrsRec: string = snapshot?.ccrs_recommendation ?? '';
+  const ccrsConf: string = snapshot?.ccrs_confidence ?? '';
 
   let hrvDelta = '';
   if (hrvToday && hrvBaseline && hrvBaseline > 0) {
@@ -106,24 +108,19 @@ export function MetricsPanel({
       ? (sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length).toFixed(1)
       : '—';
 
-  // ACWR zone
-  let acwrZone = 'Unknown';
-  let acwrZoneColor = colors.textDisabled;
-  if (acwr != null) {
-    if (acwr < 0.8) {
-      acwrZone = 'Detraining';
-      acwrZoneColor = '#5A8A9F';
-    } else if (acwr <= 1.3) {
-      acwrZone = 'Sweet Spot';
-      acwrZoneColor = colors.readinessGreen;
-    } else if (acwr <= 1.5) {
-      acwrZone = 'Caution';
-      acwrZoneColor = colors.warning;
-    } else {
-      acwrZone = 'Danger';
-      acwrZoneColor = colors.error;
-    }
-  }
+  // CCRS recommendation label + color
+  const ccrsLabel =
+    ccrsRec === 'full_load' ? 'Full Load' :
+    ccrsRec === 'moderate'  ? 'Moderate' :
+    ccrsRec === 'reduced'   ? 'Reduced' :
+    ccrsRec === 'recovery'  ? 'Recovery' :
+    ccrsRec === 'blocked'   ? 'Blocked' : 'Unknown';
+  const ccrsColor =
+    ccrsRec === 'full_load' ? colors.readinessGreen :
+    ccrsRec === 'moderate'  ? colors.readinessGreen :
+    ccrsRec === 'reduced'   ? colors.warning :
+    ccrsRec === 'recovery'  ? '#5A8A9F' :
+    ccrsRec === 'blocked'   ? colors.error : colors.textDisabled;
 
   const renderers: Record<string, () => React.ReactNode> = {
     metrics_sync_row: () =>
@@ -179,27 +176,32 @@ export function MetricsPanel({
       </DashboardCard>
     ),
     metrics_acwr: () => (
-      <DashboardCard label="ACWR">
+      <DashboardCard label="READINESS">
         <View style={styles.metricRow}>
           <Text style={[styles.metricValue, { color: colors.textOnDark }]}>
-            {acwr != null ? acwr.toFixed(2) : '—'}
+            {ccrs != null ? `${Math.round(ccrs)}/100` : '—'}
           </Text>
-          <View style={[styles.zoneBadge, { backgroundColor: acwrZoneColor + '20' }]}>
-            <Text style={[styles.zoneText, { color: acwrZoneColor }]}>{acwrZone}</Text>
+          <View style={[styles.zoneBadge, { backgroundColor: ccrsColor + '20' }]}>
+            <Text style={[styles.zoneText, { color: ccrsColor }]}>{ccrsLabel}</Text>
           </View>
         </View>
-        {acwr != null && (
+        {ccrs != null && (
           <View style={{ marginTop: 8 }}>
             <ZoneBar
-              value={acwr}
-              max={2.0}
+              value={ccrs}
+              max={100}
               width={280}
-              zones={ACWR_ZONES}
+              zones={CCRS_ZONES}
               markerColor={colors.textOnDark}
-              tickLabels={[0, 0.8, 1.3, 2.0]}
+              tickLabels={[0, 40, 70, 100]}
               tickColor={colors.textDisabled}
             />
           </View>
+        )}
+        {(ccrsConf === 'low' || ccrsConf === 'estimated') && (
+          <Text style={[styles.zoneText, { color: colors.textDisabled, marginTop: 4 }]}>
+            Estimated — limited data
+          </Text>
         )}
       </DashboardCard>
     ),
@@ -243,13 +245,11 @@ export function MetricsPanel({
   );
 }
 
-// ACWR zone definitions. Colours are deliberate semantic choices (detraining
-// blue, sweet-spot sage, caution amber, danger red) — not theme tokens.
-const ACWR_ZONES: Zone[] = [
-  { from: 0, to: 0.8, color: '#5A8A9F', tintHex: '30', roundLeft: true },
-  { from: 0.8, to: 1.3, color: '#7a9b76' },
-  { from: 1.3, to: 1.5, color: '#c49a3c' },
-  { from: 1.5, to: 2.0, color: '#A05A4A', roundRight: true },
+// CCRS zone definitions (0-100 scale). Semantic colors: low red, moderate amber, optimal sage.
+const CCRS_ZONES: Zone[] = [
+  { from: 0, to: 40, color: '#A05A4A', tintHex: '30', roundLeft: true },
+  { from: 40, to: 70, color: '#c49a3c' },
+  { from: 70, to: 100, color: '#7a9b76', roundRight: true },
 ];
 
 // ── HRV Sparkline with Baseline Overlay ──
