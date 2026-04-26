@@ -226,6 +226,37 @@ async def _load_db_memory(user_id: str) -> Optional[AthleteMemory]:
 
 # ── Save (persist_node) ──────────────────────────────────────────────
 
+_LONGITUDINAL_THRESHOLD = 5   # minimum turns before first extraction
+_LONGITUDINAL_INTERVAL  = 5   # re-extract every N turns after threshold
+
+
+def _should_extract(turn_count: int) -> bool:
+    """True when longitudinal extraction should fire for this turn."""
+    return turn_count >= _LONGITUDINAL_THRESHOLD and turn_count % _LONGITUDINAL_INTERVAL == 0
+
+
+async def _fetch_session_history(session_id: str, user_id: str) -> list[dict[str, str]]:
+    """Fetch conversation messages for a session from chat_messages."""
+    from app.db.supabase import get_pool
+    pool = get_pool()
+    if not pool:
+        return []
+    try:
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """SELECT role, content FROM chat_messages
+                   WHERE session_id = %s AND user_id = %s
+                   ORDER BY created_at ASC
+                   LIMIT 40""",
+                (session_id, user_id),
+            )
+            rows = await result.fetchall()
+            return [{"role": row[0], "content": row[1]} for row in rows]
+    except Exception as e:
+        logger.warning(f"_fetch_session_history failed: {e}")
+        return []
+
+
 async def save_memory_after_turn(
     user_id: str,
     session_id: str,
@@ -235,26 +266,26 @@ async def save_memory_after_turn(
     turn_count: int = 0,
 ) -> None:
     """
-    Save conversation turn to Zep memory.
-    Called from persist_node after DB writes.
-    Non-blocking — failures don't affect response.
+    Save conversation turn to Zep and trigger longitudinal extraction when due.
+    Called from persist_node after DB writes. Non-blocking.
     """
     settings = get_settings()
+    extract_now = _should_extract(turn_count)
+
     if not settings.zep_api_key:
+        # No Zep — still run longitudinal extraction from DB history
+        if extract_now:
+            asyncio.create_task(update_longitudinal_memory(user_id, session_id, turn_count))
         return
 
     try:
         zep = get_zep_client()
-
-        # Ensure user and session exist
         await zep.ensure_user(user_id)
         await zep.create_session(
             session_id=session_id,
             user_id=user_id,
             metadata={"agent_type": agent_type},
         )
-
-        # Add message pair to Zep
         messages = [
             ZepMessage(role="human", role_type="user", content=user_message),
             ZepMessage(
@@ -270,18 +301,30 @@ async def save_memory_after_turn(
     except Exception as e:
         logger.warning(f"Zep memory save failed (non-blocking): {e}")
 
+    # Longitudinal extraction fires regardless of Zep success
+    if extract_now:
+        asyncio.create_task(update_longitudinal_memory(user_id, session_id, turn_count))
+
 
 async def update_longitudinal_memory(
     user_id: str,
-    conversation_history: list[dict[str, str]],
-    session_count: int,
+    session_id: str,
+    turn_count: int,
 ) -> None:
     """
-    Update the DB longitudinal memory using Haiku extraction.
-    Called when session has 5+ turns (10+ messages).
-    Mirrors the TypeScript longitudinalMemory.ts updateAthleteMemory() logic.
+    Update DB longitudinal memory from a session's conversation history.
+
+    Fetches chat_messages for the session, calls Haiku to extract structured
+    facts (goals, concerns, injuries, preferences, milestones), merges with
+    existing DB memory, and upserts.
+
+    Triggered as a background task by save_memory_after_turn() when
+    turn_count reaches _LONGITUDINAL_THRESHOLD and every _LONGITUDINAL_INTERVAL
+    turns after that. Non-blocking — failures never affect the response.
     """
-    if len(conversation_history) < 10:
+    conversation_history = await _fetch_session_history(session_id, user_id)
+    session_count = turn_count
+    if len(conversation_history) < 6:
         return
 
     try:
