@@ -7,6 +7,8 @@ import { Platform } from 'react-native';
 import { getIdToken } from './auth';
 import { API_BASE_URL, REQUEST_TIMEOUT, MAX_RETRIES, INITIAL_RETRY_DELAY } from './apiConfig';
 import { stripEmoji } from '../utils/stripEmoji';
+import { generateTraceId } from './observability';
+import { Sentry } from './sentry';
 import type {
   CheckinData,
   CheckinResponse,
@@ -93,6 +95,7 @@ export async function apiRequest<T>(
   }
 
   const url = `${API_BASE_URL}${endpoint}`;
+  const traceId = generateTraceId();
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -106,6 +109,7 @@ export async function apiRequest<T>(
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          'x-trace-id': traceId,
           ...options.headers,
         },
       });
@@ -133,6 +137,15 @@ export async function apiRequest<T>(
           typeof data?.error === 'string'
             ? data.error
             : data?.error?.message || `Request failed (${response.status})`;
+        Sentry.addBreadcrumb({
+          category: 'api',
+          message: `${options.method || 'GET'} ${endpoint} -> ${response.status}`,
+          data: {
+            traceId,
+            errorCode: data?.error_code ?? null,
+          },
+          level: response.status >= 500 ? 'error' : 'warning',
+        });
         throw new Error(errMsg);
       }
 

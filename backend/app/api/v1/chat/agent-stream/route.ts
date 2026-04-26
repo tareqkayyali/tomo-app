@@ -23,6 +23,9 @@ import {
   computeFellThrough,
 } from "@/services/quality";
 import { randomUUID } from "node:crypto";
+import { ObservabilityHeaders } from "@/lib/observability/ids";
+import { captureError } from "@/lib/errorTracker";
+import { ErrorCode } from "@/lib/observability/error-codes";
 
 function normalizeCapsuleAction(capsuleAction: any) {
   if (!capsuleAction) return null;
@@ -55,6 +58,8 @@ function normalizeCapsuleAction(capsuleAction: any) {
 }
 
 export async function POST(req: NextRequest) {
+  const traceId = req.headers.get(ObservabilityHeaders.traceId) ?? randomUUID();
+  const requestId = req.headers.get(ObservabilityHeaders.requestId);
   const auth = requireAuth(req);
   if ("error" in auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
@@ -126,7 +131,7 @@ export async function POST(req: NextRequest) {
 
           // Quality + safety pipeline — fire-and-forget after response sent.
           void runQualityPipeline({
-            traceId: randomUUID(),
+            traceId,
             turnId: randomUUID(),
             sessionId: pyResult.sessionId || sessionId,
             userId: auth.user.id,
@@ -139,6 +144,14 @@ export async function POST(req: NextRequest) {
             fellThrough: computeFellThrough(pyResult.telemetry?.classification_layer),
           });
         } catch (proxyErr) {
+          await captureError(proxyErr, {
+            layer: "backend",
+            endpoint: "/api/v1/chat/agent-stream",
+            traceId,
+            requestId,
+            userId: auth.user.id,
+            errorCode: ErrorCode.BE.AI.SERVICE_FAILED,
+          });
           logger.error("[agent-stream] Python proxy failed", {
             error: proxyErr instanceof Error ? proxyErr.message : String(proxyErr),
           });
@@ -148,6 +161,14 @@ export async function POST(req: NextRequest) {
         controller.close();
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Stream error";
+        await captureError(err, {
+          layer: "backend",
+          endpoint: "/api/v1/chat/agent-stream",
+          traceId,
+          requestId,
+          userId: auth.user.id,
+          errorCode: ErrorCode.BE.CHAT.STREAM_FAILED,
+        });
         logger.error("[agent-stream] Error", { error: errorMessage, userId: auth.user.id });
         send("error", { error: errorMessage });
         controller.close();

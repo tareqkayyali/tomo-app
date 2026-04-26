@@ -35,6 +35,11 @@ const TABS: { href: string; label: string; hint: string }[] = [
     label: "Observability",
     hint: "Claude API spend, call volume, and latency breakdown",
   },
+  {
+    href: "/admin/ai-health/errors",
+    label: "Errors",
+    hint: "Unified error feed — mobile, backend, python with trace drill-down",
+  },
 ];
 
 export default function AIHealthHubLayout({

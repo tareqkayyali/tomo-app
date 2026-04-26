@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import sys
 import logging
+import json
+import re
 from typing import Optional
 
 logger = logging.getLogger("tomo-ai.debug")
@@ -26,6 +28,9 @@ logger = logging.getLogger("tomo-ai.debug")
 _MAX_TRACEBACK_LEN = 8_000   # Truncate very long tracebacks to avoid DB bloat
 _MAX_MESSAGE_LEN = 500
 _MAX_ERROR_LEN = 2_000
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+)
 
 
 def _error_type_from_traceback(tb: str) -> str:
@@ -49,6 +54,8 @@ async def log_error(
     request_message: str = "",
     intent_id: str = "",
     severity: str = "error",
+    trace_id: str = "",
+    request_id: str = "",
 ) -> None:
     """
     Persist an error to Supabase ai_debug_errors.
@@ -61,6 +68,8 @@ async def log_error(
         f"[TOMO-DEBUG:{severity.upper()}] node={node} "
         f"user={user_id[:8] if user_id else '-'} "
         f"session={session_id[:8] if session_id else '-'} "
+        f"trace={trace_id[:8] if trace_id else '-'} "
+        f"request={request_id[:8] if request_id else '-'} "
         f"intent={intent_id or '-'}\n"
         f"error={error[:300]}\n"
         f"{traceback[:600] if traceback else ''}",
@@ -96,10 +105,97 @@ async def log_error(
                     severity[:20],
                 ),
             )
+
+        # Also write to unified cross-service sink (app_errors).
+        await log_app_error(
+            message=error,
+            error_type=_error_type_from_traceback(traceback),
+            error_code="ERR_PY_SYSTEM_INTERNAL",
+            stack_trace=traceback,
+            user_id=user_id,
+            session_id=session_id,
+            trace_id=trace_id,
+            request_id=request_id,
+            endpoint=node,
+            severity="high" if severity == "error" else "medium",
+            metadata={
+                "intent_id": intent_id,
+                "request_message": request_message[:200] if request_message else "",
+            },
+        )
     except Exception as db_err:
         # Never let debug logging crash the app
         print(
             f"[TOMO-DEBUG] Supabase write failed: {db_err}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+
+def _coerce_uuid(value: str) -> Optional[str]:
+    if not value:
+        return None
+    return value if _UUID_RE.match(value) else None
+
+
+async def log_app_error(
+    *,
+    message: str,
+    error_type: str = "UnknownError",
+    error_code: str = "",
+    stack_trace: str = "",
+    user_id: str = "",
+    session_id: str = "",
+    trace_id: str = "",
+    request_id: str = "",
+    endpoint: str = "",
+    http_status: int = 0,
+    severity: str = "medium",
+    fingerprint: str = "",
+    environment: str = "production",
+    metadata: dict | None = None,
+) -> None:
+    """
+    Write a normalized row to app_errors for cross-layer correlation.
+    Never raises.
+    """
+    try:
+        from app.db.supabase import get_pool
+
+        pool = get_pool()
+        if pool is None:
+            return
+
+        async with pool.connection() as conn:
+            await conn.execute(
+                """
+                INSERT INTO app_errors
+                  (trace_id, request_id, correlation_id, layer, error_code, error_type,
+                   message, stack_trace, fingerprint, user_id, session_id, endpoint,
+                   http_status, severity, sampled, environment, metadata)
+                VALUES (%s, %s, %s, 'python', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s::jsonb)
+                """,
+                (
+                    trace_id or None,
+                    request_id or None,
+                    trace_id or None,
+                    (error_code or "ERR_PY_SYSTEM_INTERNAL")[:120],
+                    (error_type or "UnknownError")[:120],
+                    (message or "Unknown python error")[:_MAX_ERROR_LEN],
+                    stack_trace[:_MAX_TRACEBACK_LEN] if stack_trace else None,
+                    fingerprint[:64] if fingerprint else None,
+                    _coerce_uuid(user_id),
+                    session_id[:255] if session_id else None,
+                    endpoint[:255] if endpoint else None,
+                    http_status if http_status > 0 else None,
+                    severity[:20] if severity else "medium",
+                    environment[:50] if environment else "production",
+                    json.dumps(metadata or {}),
+                ),
+            )
+    except Exception as db_err:
+        print(
+            f"[TOMO-DEBUG] app_errors write failed: {db_err}",
             file=sys.stderr,
             flush=True,
         )

@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     port: int = 8000
     environment: str = "development"
     log_level: str = "info"
+    sentry_dsn: str = ""
 
     # Feature flags
     flow_controller_enabled: bool = True

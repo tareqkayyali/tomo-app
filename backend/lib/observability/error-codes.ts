@@ -1,0 +1,75 @@
+export const ErrorCode = {
+  MOB: {
+    AUTH: {
+      TOKEN_MISSING: "ERR_MOB_AUTH_TOKEN_MISSING",
+      TOKEN_EXPIRED: "ERR_MOB_AUTH_TOKEN_EXPIRED",
+    },
+    API: {
+      NETWORK_FAILED: "ERR_MOB_API_NETWORK_FAILED",
+      TIMEOUT: "ERR_MOB_API_TIMEOUT",
+      BAD_RESPONSE: "ERR_MOB_API_BAD_RESPONSE",
+    },
+    CHAT: {
+      RENDER_FAILED: "ERR_MOB_CHAT_RENDER_FAILED",
+      STREAM_FAILED: "ERR_MOB_CHAT_STREAM_FAILED",
+    },
+    SYSTEM: {
+      UNHANDLED: "ERR_MOB_SYSTEM_UNHANDLED",
+    },
+  },
+  BE: {
+    AUTH: {
+      UNAUTHORIZED: "ERR_BE_AUTH_UNAUTHORIZED",
+      FORBIDDEN: "ERR_BE_AUTH_FORBIDDEN",
+    },
+    API: {
+      BAD_REQUEST: "ERR_BE_API_BAD_REQUEST",
+      UNHANDLED: "ERR_BE_API_UNHANDLED",
+    },
+    DB: {
+      QUERY_FAILED: "ERR_BE_DB_QUERY_FAILED",
+      WRITE_FAILED: "ERR_BE_DB_WRITE_FAILED",
+    },
+    AI: {
+      SERVICE_UNREACHABLE: "ERR_BE_AI_SERVICE_UNREACHABLE",
+      SERVICE_TIMEOUT: "ERR_BE_AI_SERVICE_TIMEOUT",
+      SERVICE_FAILED: "ERR_BE_AI_SERVICE_FAILED",
+    },
+    CHAT: {
+      STREAM_FAILED: "ERR_BE_CHAT_STREAM_FAILED",
+    },
+    SAFETY: {
+      PHV_VIOLATION: "ERR_BE_SAFETY_PHV_VIOLATION",
+    },
+    SYSTEM: {
+      INTERNAL: "ERR_BE_SYSTEM_INTERNAL",
+    },
+  },
+  PY: {
+    AI: {
+      MODEL_TIMEOUT: "ERR_PY_AI_MODEL_TIMEOUT",
+      MODEL_FAILED: "ERR_PY_AI_MODEL_FAILED",
+    },
+    RAG: {
+      RETRIEVAL_FAILED: "ERR_PY_RAG_RETRIEVAL_FAILED",
+    },
+    SAFETY: {
+      PHV_FILTER_FAILED: "ERR_PY_SAFETY_PHV_FILTER_FAILED",
+    },
+    CHAT: {
+      SUPERVISOR_CRASH: "ERR_PY_CHAT_SUPERVISOR_CRASH",
+      STREAM_FAILED: "ERR_PY_CHAT_STREAM_FAILED",
+    },
+    SYSTEM: {
+      INTERNAL: "ERR_PY_SYSTEM_INTERNAL",
+    },
+  },
+} as const;
+
+type LeafValues<T> = T extends string
+  ? T
+  : T extends Record<string, unknown>
+    ? { [K in keyof T]: LeafValues<T[K]> }[keyof T]
+    : never;
+
+export type ErrorCodeValue = LeafValues<typeof ErrorCode>;

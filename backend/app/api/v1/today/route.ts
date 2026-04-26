@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { captureError } from "@/lib/errorTracker";
+import { ErrorCode } from "@/lib/observability/error-codes";
+import { ObservabilityHeaders } from "@/lib/observability/ids";
 
 export async function GET(req: NextRequest) {
   try {
@@ -66,6 +69,16 @@ export async function GET(req: NextRequest) {
       { headers: { "api-version": "v1", "Cache-Control": "private, max-age=30" } }
     );
   } catch (err: any) {
+    await captureError(err, {
+      layer: "backend",
+      endpoint: "/api/v1/today",
+      traceId: req.headers.get(ObservabilityHeaders.traceId),
+      requestId: req.headers.get(ObservabilityHeaders.requestId),
+      errorCode: ErrorCode.BE.API.UNHANDLED,
+      metadata: {
+        route: "today",
+      },
+    });
     console.error('[today] error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

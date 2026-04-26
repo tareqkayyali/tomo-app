@@ -5,8 +5,10 @@ SSE streaming format matches mobile app expectation: event: status/done/error.
 """
 
 import json
+import asyncio
 import logging
 import time
+import traceback
 from typing import Optional
 
 from fastapi import APIRouter, Request, HTTPException
@@ -15,6 +17,7 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.graph.supervisor import run_supervisor
+from app.core.debug_logger import log_app_error
 
 
 logger = logging.getLogger("tomo-ai.chat")
@@ -61,7 +64,7 @@ class ChatResponse(BaseModel):
     pending_confirmation: Optional[dict] = None
 
 
-async def generate_sse_events(request: ChatRequest):
+async def generate_sse_events(request: ChatRequest, raw_request: Request):
     """
     Generate SSE events by executing the LangGraph supervisor graph.
 
@@ -71,6 +74,8 @@ async def generate_sse_events(request: ChatRequest):
       - event: error   → { error: "..." }
     """
     t0 = time.time()
+    trace_id = raw_request.headers.get("x-trace-id", "")
+    request_id = raw_request.headers.get("x-request-id", "")
 
     try:
         # Status: thinking
@@ -170,15 +175,30 @@ async def generate_sse_events(request: ChatRequest):
 
     except Exception as e:
         logger.error(f"Chat error: {e}", exc_info=True)
+        asyncio.create_task(
+            log_app_error(
+                message=str(e)[:2000],
+                error_type=type(e).__name__,
+                error_code="ERR_PY_CHAT_SUPERVISOR_CRASH",
+                stack_trace=traceback.format_exc(),
+                user_id=request.player_id,
+                session_id=request.session_id or f"session-{request.player_id}",
+                trace_id=trace_id,
+                request_id=request_id,
+                endpoint="/api/v1/chat",
+                severity="high",
+            )
+        )
         error_response = {
             "error": str(e),
+            "trace_id": trace_id,
             "message": "Something tripped up on my end -- mind trying that again?",
         }
         yield f"event: error\ndata: {json.dumps(error_response)}\n\n"
 
 
 @router.post("/chat")
-async def chat_stream(request: ChatRequest):
+async def chat_stream(request: ChatRequest, raw_request: Request):
     """
     SSE streaming chat endpoint.
     TypeScript proxy forwards non-capsule AI requests here.
@@ -187,7 +207,7 @@ async def chat_stream(request: ChatRequest):
         raise HTTPException(status_code=400, detail="message and player_id required")
 
     return StreamingResponse(
-        generate_sse_events(request),
+        generate_sse_events(request, raw_request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

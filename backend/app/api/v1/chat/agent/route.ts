@@ -25,6 +25,9 @@ import {
   computeFellThrough,
 } from "@/services/quality";
 import { randomUUID } from "node:crypto";
+import { ObservabilityHeaders } from "@/lib/observability/ids";
+import { captureError } from "@/lib/errorTracker";
+import { ErrorCode } from "@/lib/observability/error-codes";
 
 function formatSSE(event: string, data: any): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -61,6 +64,8 @@ function normalizeCapsuleAction(capsuleAction: any) {
 }
 
 export async function POST(req: NextRequest) {
+  const traceId = req.headers.get(ObservabilityHeaders.traceId) ?? randomUUID();
+  const requestId = req.headers.get(ObservabilityHeaders.requestId);
   const auth = requireAuth(req);
   if ("error" in auth) return auth.error;
 
@@ -135,7 +140,7 @@ export async function POST(req: NextRequest) {
 
               // Quality + safety pipeline — fire-and-forget after response handed to user.
               void runQualityPipeline({
-                traceId: randomUUID(),
+                traceId,
                 turnId: randomUUID(),
                 sessionId: pyResult.sessionId || sessionId,
                 userId: auth.user.id,
@@ -181,7 +186,7 @@ export async function POST(req: NextRequest) {
 
     // Quality + safety pipeline — fire-and-forget after we have the result.
     void runQualityPipeline({
-      traceId: randomUUID(),
+      traceId,
       turnId: randomUUID(),
       sessionId: pyResult.sessionId || sessionId,
       userId: auth.user.id,
@@ -197,6 +202,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(pyResult);
 
   } catch (err) {
+    await captureError(err, {
+      layer: "backend",
+      endpoint: "/api/v1/chat/agent",
+      traceId,
+      requestId,
+      userId: auth.user.id,
+      errorCode: ErrorCode.BE.CHAT.STREAM_FAILED,
+      metadata: {
+        route: "chat-agent",
+      },
+    });
     logger.error("[chat] Route error", {
       error: err instanceof Error ? err.message : String(err),
       userId: auth.user.id,

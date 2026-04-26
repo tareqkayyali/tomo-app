@@ -1,10 +1,12 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Sentry } from '../services/sentry';
+import { captureError } from '../services/errorTracker';
 import { colors } from '../theme/colors';
 
 interface Props {
   children: ReactNode;
+  traceId?: string;
+  screen?: string;
 }
 
 interface State {
@@ -29,8 +31,14 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     // Log to console in all environments so crash reporters can pick it up
     console.error('ErrorBoundary caught:', error, info.componentStack);
-    // Report to Sentry
-    Sentry.captureException(error);
+    captureError(error, {
+      traceId: this.props.traceId,
+      screen: this.props.screen ?? 'global',
+      feature: 'error_boundary',
+      metadata: {
+        componentStack: info.componentStack,
+      },
+    });
   }
 
   private handleReset = () => {

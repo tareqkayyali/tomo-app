@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import {
+  extractOrGenerateTraceId,
+  generateRequestId,
+  ObservabilityHeaders,
+} from "@/lib/observability/ids";
 
 // Paths that REMAIN callable after a deletion request is pending, so the
 // user can still see status / cancel / sign out. Everything else returns
@@ -85,9 +90,10 @@ function getCorsHeaders(origin: string | null) {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
     "Access-Control-Allow-Headers":
-      "Content-Type, Authorization, x-user-id, x-user-email, api-version, x-timezone, x-tomo-debug",
+      "Content-Type, Authorization, x-user-id, x-user-email, x-trace-id, x-request-id, api-version, x-timezone, x-tomo-debug",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
+    "Access-Control-Expose-Headers": "api-version, x-trace-id, x-request-id",
   };
 }
 
@@ -115,6 +121,19 @@ function addCorsHeaders(
   return response;
 }
 
+function withRequestContext(req: NextRequest, traceId: string, requestId: string) {
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set(ObservabilityHeaders.traceId, traceId);
+  requestHeaders.set(ObservabilityHeaders.requestId, requestId);
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  response.headers.set(ObservabilityHeaders.traceId, traceId);
+  response.headers.set(ObservabilityHeaders.requestId, requestId);
+  return response;
+}
+
 /**
  * Auth proxy (Next.js 16 proxy.ts — replaces middleware).
  * 1. Handles CORS preflight (OPTIONS)
@@ -131,22 +150,28 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next({ request: req });
   }
 
+  const traceId = extractOrGenerateTraceId(req.headers);
+  const requestId = generateRequestId();
+
   // --- 0. CORS preflight ---
   if (req.method === "OPTIONS") {
-    return new NextResponse(null, {
+    const response = new NextResponse(null, {
       status: 200,
       headers: getCorsHeaders(origin),
     });
+    response.headers.set(ObservabilityHeaders.traceId, traceId);
+    response.headers.set(ObservabilityHeaders.requestId, requestId);
+    return response;
   }
 
   // Content routes are public (read-only, no auth required)
   if (pathname.startsWith("/api/v1/content")) {
-    return addCorsHeaders(NextResponse.next({ request: req }), origin, req);
+    return addCorsHeaders(withRequestContext(req, traceId, requestId), origin, req);
   }
 
   // Config bundle routes are public (theme, page configs, feature flags)
   if (pathname.startsWith("/api/v1/config")) {
-    return addCorsHeaders(NextResponse.next({ request: req }), origin, req);
+    return addCorsHeaders(withRequestContext(req, traceId, requestId), origin, req);
   }
 
   // Training drill catalog is public (except /recommend which needs auth)
@@ -154,39 +179,39 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/api/v1/training/drills") &&
     !pathname.includes("/recommend")
   ) {
-    return addCorsHeaders(NextResponse.next({ request: req }), origin, req);
+    return addCorsHeaders(withRequestContext(req, traceId, requestId), origin, req);
   }
 
   // CV share links are public (scouts view without auth)
   if (pathname.startsWith("/api/v1/cv/share/")) {
-    return addCorsHeaders(NextResponse.next({ request: req }), origin, req);
+    return addCorsHeaders(withRequestContext(req, traceId, requestId), origin, req);
   }
 
   // Cron endpoints use their own CRON_SECRET auth (bypass Supabase token check)
   if (pathname === "/api/v1/suggestions/expire") {
-    return addCorsHeaders(NextResponse.next({ request: req }), origin, req);
+    return addCorsHeaders(withRequestContext(req, traceId, requestId), origin, req);
   }
 
   // Chat Quality cron endpoints — verified by X-Cron-Secret via cronAuth.ts.
   // Covers /api/v1/cron/quality-drift-check, /auto-repair-scan,
   // /shadow-evaluate, /golden-set-curate.
   if (pathname.startsWith("/api/v1/cron/")) {
-    return addCorsHeaders(NextResponse.next({ request: req }), origin, req);
+    return addCorsHeaders(withRequestContext(req, traceId, requestId), origin, req);
   }
 
   // Event processor webhook uses its own secret auth (Supabase Database Webhook)
   if (pathname === "/api/v1/events/process") {
-    return addCorsHeaders(NextResponse.next({ request: req }), origin, req);
+    return addCorsHeaders(withRequestContext(req, traceId, requestId), origin, req);
   }
 
   // Cron + test endpoints (bypass Supabase token check)
   if (pathname === "/api/v1/events/bridge-calendar" || pathname === "/api/v1/notifications/triggers" || pathname === "/api/v1/notifications/test-push" || pathname === "/api/v1/notifications/simulate" || pathname === "/api/v1/notifications/clear-all") {
-    return addCorsHeaders(NextResponse.next({ request: req }), origin, req);
+    return addCorsHeaders(withRequestContext(req, traceId, requestId), origin, req);
   }
 
   // WHOOP OAuth callback is a redirect from WHOOP (no auth header available)
   if (pathname === "/api/v1/integrations/whoop/callback") {
-    return addCorsHeaders(NextResponse.next({ request: req }), origin, req);
+    return addCorsHeaders(withRequestContext(req, traceId, requestId), origin, req);
   }
 
   // --- 0b. Internal service-to-service auth (Python AI service → TS backend) ---
@@ -208,7 +233,7 @@ export async function proxy(req: NextRequest) {
           req
         );
       }
-      const response = NextResponse.next({ request: req });
+      const response = withRequestContext(req, traceId, requestId);
       response.headers.set("x-user-id", userId);
       response.headers.set("x-user-email", "ai-service@internal");
       return addCorsHeaders(response, origin, req);
@@ -243,14 +268,14 @@ export async function proxy(req: NextRequest) {
     const gone = await assertAccountNotGone(user.id, pathname, origin, req);
     if (gone) return gone;
 
-    const response = NextResponse.next({ request: req });
+    const response = withRequestContext(req, traceId, requestId);
     response.headers.set("x-user-id", user.id);
     response.headers.set("x-user-email", user.email || "");
     return addCorsHeaders(response, origin, req);
   }
 
   // --- 2. Fall back to cookie-based auth (web) ---
-  let response = NextResponse.next({ request: req });
+  let response = withRequestContext(req, traceId, requestId);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -264,7 +289,7 @@ export async function proxy(req: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             req.cookies.set(name, value)
           );
-          response = NextResponse.next({ request: req });
+          response = withRequestContext(req, traceId, requestId);
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           );

@@ -33,6 +33,8 @@ from app.routes.health import router as health_router
 from app.routes.aib import router as aib_router
 from app.routes.tenants import router as tenants_router
 from app.routes.admin_ai_health import router as ai_health_router
+from app.core.sentry_init import init_sentry
+from app.middleware.error_observability import ErrorObservabilityMiddleware
 
 
 logger = logging.getLogger("tomo-ai")
@@ -70,6 +72,7 @@ async def lifespan(app: FastAPI):
 
     # Configure LangSmith (must be before any LangGraph imports)
     configure_langsmith()
+    init_sentry(settings.sentry_dsn, settings.environment)
 
     # Initialize database connection pool
     await init_db_pool()
@@ -206,6 +209,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(ErrorObservabilityMiddleware)
 
 # CORS — only allow internal Railway traffic + local dev
 app.add_middleware(

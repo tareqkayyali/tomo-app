@@ -26,6 +26,9 @@ import { generateAndPersistHeroCoaching } from "@/services/coaching/dynamicHeroC
 import { getFreshReadiness, isReadinessFresh } from "@/lib/snapshot/freshness";
 import { resolveDashboardLayout } from "@/services/dashboard/dashboardSectionLoader";
 import { getModeDefinition, type ModeParams } from "@/services/scheduling/modeConfig";
+import { captureError } from "@/lib/errorTracker";
+import { ErrorCode } from "@/lib/observability/error-codes";
+import { ObservabilityHeaders } from "@/lib/observability/ids";
 
 /**
  * Composes the full benchmark detail block for Signal Dashboard strength/gap cards.
@@ -969,6 +972,16 @@ export async function GET(request: NextRequest) {
       headers: { "Cache-Control": "private, max-age=30" },
     });
   } catch (err: any) {
+    await captureError(err, {
+      layer: "backend",
+      endpoint: "/api/v1/boot",
+      traceId: request.headers.get(ObservabilityHeaders.traceId),
+      requestId: request.headers.get(ObservabilityHeaders.requestId),
+      errorCode: ErrorCode.BE.API.UNHANDLED,
+      metadata: {
+        route: "boot",
+      },
+    });
     console.error("[boot] error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
