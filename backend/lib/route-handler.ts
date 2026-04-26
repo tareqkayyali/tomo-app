@@ -3,7 +3,7 @@ import { captureError } from "@/lib/errorTracker";
 import { ErrorCode, type ErrorCodeValue } from "@/lib/observability/error-codes";
 import { ObservabilityHeaders } from "@/lib/observability/ids";
 
-export type RouteHandler = (req: NextRequest) => Promise<NextResponse>;
+export type RouteHandler = (req: NextRequest) => Promise<NextResponse | Response>;
 
 interface WrapOptions {
   endpoint: string;
