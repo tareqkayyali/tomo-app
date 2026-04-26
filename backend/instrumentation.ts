@@ -25,6 +25,7 @@ export async function onRequestError(
     const { captureError } = await import("./lib/errorTracker");
     const { ErrorCode } = await import("./lib/observability/error-codes");
     await captureError(error, {
+      layer: "backend",
       endpoint: request.path,
       traceId: request.headers["x-trace-id"] ?? null,
       requestId: request.headers["x-request-id"] ?? null,
