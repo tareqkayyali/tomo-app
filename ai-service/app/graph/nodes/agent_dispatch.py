@@ -37,8 +37,13 @@ from app.agents.tools.bridge import (
     is_write_action,
 )
 from app.agents.prompt_builder import build_system_prompt
+from app.agents.prompt_validation import SafetyValidationError
 from app.agents.greeting_handler import detect_greeting_tier
 from app.agents.smalltalk_handler import detect_smalltalk_tier, build_smalltalk_guidance
+from app.services.prompt_render_logger import (
+    log_prompt_render,
+    split_dynamic_block_for_logging,
+)
 from app.utils.message_helpers import find_last_human_message
 
 logger = logging.getLogger("tomo-ai.agent_dispatch")
@@ -106,15 +111,38 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
     except Exception as _sg_err:
         logger.debug(f"safety_gate warmup skipped: {_sg_err}")
 
-    # 2. Build 2-block system prompt (v2: passes intent_id for prompt trimming)
+    # 2. Build 2-block system prompt (v2: passes intent_id for prompt trimming).
+    # Phase 1 (2026-04-26): memory_context now injected inside build_system_prompt
+    # at the locked position (after AIB block). The previous manual append below
+    # has been removed.
     intent_id = state.get("intent_id", "unknown")
-    static_block, dynamic_block = build_system_prompt(
-        agent_type=agent_type,
-        context=context,
-        aib_summary=aib_summary,
-        secondary_agents=secondary_agents if secondary_agents else None,
-        intent_id=intent_id,
-    )
+    memory_context_text = state.get("memory_context") or ""
+    try:
+        static_block, dynamic_block, validation = build_system_prompt(
+            agent_type=agent_type,
+            context=context,
+            aib_summary=aib_summary,
+            secondary_agents=secondary_agents if secondary_agents else None,
+            intent_id=intent_id,
+            memory_context=memory_context_text,
+        )
+    except SafetyValidationError as sve:
+        # Architect non-negotiable: a prompt missing safety sections must throw.
+        # Recover deterministically here so the user gets a safe fallback rather
+        # than a degraded prompt. Surface the violation in logs + observability.
+        logger.error(
+            "prompt_builder safety violation (athlete=%s session=%s agent=%s): %s",
+            user_id, state.get("session_id"), agent_type, sve,
+        )
+        return {
+            "agent_response": (
+                "Hold on — I want to make sure I give you the right answer here. "
+                "Try that again in a moment, or check in with how you're feeling first."
+            ),
+            "tool_calls": [],
+            "total_cost_usd": 0.0,
+            "total_tokens": 0,
+        }
 
     # 2b. Inject classified intent so LLM knows what type of message this is
     # (intent_id already extracted above for build_system_prompt)
@@ -233,11 +261,36 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
         dynamic_block += f"\n\n{rag_context}"
         logger.info(f"RAG context injected: {len(rag_context)} chars")
 
-    # 2c. Inject memory context from 4-tier memory (Zep CE)
-    memory_context = state.get("memory_context", "")
-    if memory_context:
-        dynamic_block += f"\n\n{memory_context}"
-        logger.info(f"Memory context injected: {len(memory_context)} chars")
+    # 2c. Memory context — Phase 1 (2026-04-26): injected INSIDE build_system_prompt
+    # at the locked position (after AIB block). The previous manual append has been
+    # removed; do not re-introduce it (would duplicate the section).
+
+    # 2d. Fire-and-forget render log so the Phase 4 CMS "See What the Coach Saw"
+    # inspector has the per-turn record. Failures never block the response.
+    try:
+        import asyncio as _asyncio
+        rendered_blocks = split_dynamic_block_for_logging(dynamic_block)
+        memory_facts_count = (
+            memory_context_text.count("\n  - ") if memory_context_text else None
+        )
+        turn_index = max(0, len(state.get("messages", [])) - 1)
+        _asyncio.create_task(log_prompt_render(
+            request_id=state.get("request_id") or "",
+            athlete_id=user_id,
+            session_id=state.get("session_id") or "",
+            turn_index=turn_index,
+            agent_type=agent_type,
+            intent_id=intent_id,
+            blocks=rendered_blocks,
+            static_tokens=validation.static_tokens,
+            dynamic_tokens=validation.dynamic_tokens,
+            total_tokens=validation.total_tokens,
+            memory_facts_count=memory_facts_count,
+            memory_available=bool(memory_context_text),
+            validation_warnings=list(validation.warnings),
+        ))
+    except Exception as _render_log_err:
+        logger.debug(f"prompt_render_log dispatch skipped: {_render_log_err}")
 
     # 3. Create LLM with tools bound
     api_key = settings.anthropic_api_key
