@@ -274,6 +274,41 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
             memory_context_text.count("\n  - ") if memory_context_text else None
         )
         turn_index = max(0, len(state.get("messages", [])) - 1)
+
+        # Phase 6: capture which methodology directives drove the foundational
+        # rendered blocks. Best-effort — never block the response.
+        applied_directive_ids: dict[str, list[str]] = {}
+        try:
+            from app.instructions.resolver import resolve as _resolve
+            from app.instructions.types import DirectiveType as _DT
+            _ctx = state.get("player_context")
+            _phv_stage = ""
+            _age = ""
+            _sport = None
+            if _ctx is not None:
+                if getattr(_ctx, "snapshot_enrichment", None):
+                    _phv_stage = (_ctx.snapshot_enrichment.phv_stage or "").lower()
+                _age = (getattr(_ctx, "age_band", "") or "").upper()
+                _sport = getattr(_ctx, "sport", None)
+            _rs = await _resolve(
+                audience="athlete",
+                sport=_sport,
+                age_band=_age or None,
+                phv_stage=_phv_stage or None,
+            )
+            for _label, _t in (
+                ("identity", _DT.IDENTITY),
+                ("tone", _DT.TONE),
+                ("guardrail_phv", _DT.GUARDRAIL_PHV),
+                ("memory_policy", _DT.MEMORY_POLICY),
+                ("response_shape", _DT.RESPONSE_SHAPE),
+            ):
+                _id = _rs.directive_id(_t)
+                if _id:
+                    applied_directive_ids[_label] = [_id]
+        except Exception as _provenance_err:
+            logger.debug(f"directive provenance lookup skipped: {_provenance_err}")
+
         _asyncio.create_task(log_prompt_render(
             request_id=state.get("request_id") or "",
             athlete_id=user_id,
@@ -288,6 +323,7 @@ async def agent_dispatch_node(state: TomoChatState) -> dict:
             memory_facts_count=memory_facts_count,
             memory_available=bool(memory_context_text),
             validation_warnings=list(validation.warnings),
+            applied_directive_ids=applied_directive_ids,
         ))
     except Exception as _render_log_err:
         logger.debug(f"prompt_render_log dispatch skipped: {_render_log_err}")

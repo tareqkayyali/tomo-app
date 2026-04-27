@@ -33,6 +33,7 @@ async def log_prompt_render(
     memory_facts_count: Optional[int],
     memory_available: bool,
     validation_warnings: list[str],
+    applied_directive_ids: Optional[dict[str, list[str]]] = None,
 ) -> None:
     """
     Insert one row into prompt_render_log. Idempotent on request_id.
@@ -48,6 +49,9 @@ async def log_prompt_render(
         memory_facts_count: number of Zep facts injected (None when memory unavailable).
         memory_available: whether MEMORY block was rendered.
         validation_warnings: soft warnings returned by the validator.
+        applied_directive_ids: Phase 6 — map of {block_name: [directive_id, ...]}
+            recording which methodology directives drove each rendered block.
+            Empty dict (default) means no directives applied (legacy or seed-only).
 
     Returns:
         None. All errors swallowed at debug level.
@@ -62,6 +66,9 @@ async def log_prompt_render(
 
         # Strip blocks down to non-empty entries to keep JSONB compact.
         compact_blocks = {k: v for k, v in blocks.items() if v}
+        compact_directive_ids = {
+            k: list(v) for k, v in (applied_directive_ids or {}).items() if v
+        }
 
         async with pool.connection() as conn:
             await conn.execute(
@@ -70,13 +77,15 @@ async def log_prompt_render(
                     request_id, athlete_id, session_id, turn_index,
                     agent_type, intent_id, blocks,
                     static_tokens, dynamic_tokens, total_tokens,
-                    memory_facts_count, memory_available, validation_warnings
+                    memory_facts_count, memory_available, validation_warnings,
+                    applied_directive_ids
                 )
                 VALUES (
                     %s, %s, %s, %s,
                     %s, %s, %s::jsonb,
                     %s, %s, %s,
-                    %s, %s, %s
+                    %s, %s, %s,
+                    %s::jsonb
                 )
                 ON CONFLICT (request_id) DO NOTHING
                 """,
@@ -85,6 +94,7 @@ async def log_prompt_render(
                     agent_type, intent_id, json.dumps(compact_blocks),
                     static_tokens, dynamic_tokens, total_tokens,
                     memory_facts_count, memory_available, validation_warnings,
+                    json.dumps(compact_directive_ids),
                 ),
             )
 

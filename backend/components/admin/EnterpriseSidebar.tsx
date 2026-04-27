@@ -57,7 +57,7 @@ const navigation: NavGroup[] = [
     pillar: "pd",
     minRole: "institutional_pd",
     items: [
-      { name: "Performance Director", href: "/admin/pd/protocols" },
+      { name: "Performance Director", href: "/admin/pd/instructions" },
     ],
   },
   {

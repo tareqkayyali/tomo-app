@@ -4,46 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+// Phase 6 retirement: the Performance Director surface is now the
+// Instructions Command Center. Legacy tabs (Protocols, Intelligence,
+// Planning, Config, Modes, Chat Pills, Wearables, ACWR) were retired
+// in this phase. Their pages remain loadable for bookmarks, but they
+// are no longer surfaced in navigation. New rule authoring happens
+// exclusively through the Methodology Command Center.
 const TABS: { href: string; label: string; hint: string }[] = [
   {
-    href: "/admin/pd/protocols",
-    label: "Protocols",
-    hint: "Performance Director protocols — overview, builder, inheritance, simulator",
-  },
-  {
-    href: "/admin/pd/intelligence",
-    label: "Intelligence",
-    hint: "Performance intelligence — athlete benchmarks and trend analysis",
-  },
-  {
-    href: "/admin/pd/planning",
-    label: "Planning",
-    hint: "Planning protocols and cognitive windows",
-  },
-  {
-    href: "/admin/pd/config",
-    label: "Config",
-    hint: "Planning engine config — dual load thresholds and scheduling rules",
-  },
-  {
-    href: "/admin/pd/modes",
-    label: "Modes",
-    hint: "Athlete training modes — definitions and assignment rules",
-  },
-  {
-    href: "/admin/pd/chat-pills",
-    label: "Chat Pills",
-    hint: "Quick-action chip library surfaced in the AI chat interface",
-  },
-  {
-    href: "/admin/pd/wearables",
-    label: "Wearables",
-    hint: "Wearable device integration config and field mappings",
-  },
-  {
-    href: "/admin/pd/acwr",
-    label: "ACWR",
-    hint: "Acute:Chronic Workload Ratio inspector and zone thresholds",
+    href: "/admin/pd/instructions",
+    label: "Instructions",
+    hint: "Methodology Command Center — author rules and define how Tomo behaves.",
   },
 ];
 
@@ -54,6 +25,12 @@ export default function PDHubLayout({
 }) {
   const pathname = usePathname();
 
+  // Detect a legacy URL (anything under /admin/pd/ that isn't /instructions)
+  // so we can render a deprecation banner pointing the user to the new home.
+  const onLegacyPage =
+    pathname.startsWith("/admin/pd/") &&
+    !pathname.startsWith("/admin/pd/instructions");
+
   return (
     <div className="space-y-6">
       <header className="space-y-3">
@@ -62,10 +39,29 @@ export default function PDHubLayout({
             Performance Director
           </h1>
           <p className="text-sm text-muted-foreground">
-            Institutional performance protocols, planning intelligence,
-            athlete modes, and wearable integration.
+            Methodology-driven coaching rules — author, review, publish.
           </p>
         </div>
+
+        {onLegacyPage && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm font-medium text-amber-900">
+              This page has been retired.
+            </p>
+            <p className="mt-1 text-xs text-amber-800">
+              The Performance Director surface is now the{" "}
+              <Link
+                href="/admin/pd/instructions"
+                className="font-medium underline underline-offset-2"
+              >
+                Instructions Command Center
+              </Link>
+              . The page below still loads for reference but is no longer the
+              way to author rules. Anything you need is now expressed as a
+              methodology directive.
+            </p>
+          </div>
+        )}
 
         <nav className="border-b">
           <ul className="flex items-center gap-1 overflow-x-auto">

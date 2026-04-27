@@ -391,25 +391,35 @@ async def update_longitudinal_memory(
         age_band = athlete_profile.get("age_band") or ""
         athlete_context_line = f"Athlete: {sport} {position}{', ' + age_band if age_band else ''}."
 
-        extraction_prompt = f"""Analyze this {sport} coaching conversation and extract structured memory.
-{athlete_context_line} Focus on sport-specific patterns, position-relevant goals, and training insights that matter for this athlete's development.
+        # Phase 4 cutover: extraction prompt template now lives in the
+        # methodology resolver as a `memory_policy` directive. The seed
+        # snapshot preserves the verbatim pre-cutover template, so this
+        # is behaviour-preserving on a fresh install.
+        from app.instructions.resolver import resolve
 
-Return ONLY valid JSON with these fields (arrays of short strings, each ≤12 words):
-
-{{
-  "sessionSummary": "one sentence summary",
-  "newGoals": ["goal1", "goal2"],
-  "newConcerns": ["concern1"],
-  "resolvedConcerns": ["resolved1"],
-  "injuryUpdates": ["update1"],
-  "behavioralPatterns": ["pattern1"],
-  "coachingPreferences": ["preference1"],
-  "keyMilestones": ["milestone1"],
-  "lastTopics": ["topic1", "topic2"]
-}}
-
-Conversation:
-{conv_text}"""
+        rules = await resolve(audience="athlete", sport=sport)
+        memory_policy = rules.memory_policy()
+        if memory_policy is None:
+            logger.warning(
+                "[memory] No memory_policy directive in scope — skipping "
+                "extraction. Publish a memory_policy via the CMS or rely "
+                "on the seed snapshot."
+            )
+            return
+        try:
+            extraction_prompt = memory_policy.extraction_prompt_template.format(
+                sport=sport,
+                athlete_context_line=athlete_context_line,
+                conv_text=conv_text,
+            )
+        except (KeyError, IndexError) as exc:
+            logger.error(
+                "[memory] memory_policy.extraction_prompt_template is missing "
+                "a required placeholder ({sport}, {athlete_context_line}, "
+                "{conv_text}): %s",
+                exc,
+            )
+            return
 
         response = await llm.ainvoke(extraction_prompt)
         content = response.content if isinstance(response.content, str) else str(response.content)

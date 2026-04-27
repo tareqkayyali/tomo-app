@@ -42,7 +42,43 @@ interface PromptLogRow {
 
 interface PromptLogDetail extends PromptLogRow {
   blocks: Record<string, string>;
+  applied_directive_ids?: Record<string, string[]>;
+  directive_details?: Record<string, DirectiveLite>;
 }
+
+interface DirectiveLite {
+  id: string;
+  directive_type: string;
+  audience: string;
+  source_excerpt: string | null;
+  document_id: string | null;
+  document_title: string | null;
+  status: string;
+}
+
+const DIRECTIVE_TYPE_LABEL: Record<string, string> = {
+  identity: "Coaching personality",
+  tone: "How Tomo talks",
+  response_shape: "How Tomo replies",
+  guardrail_phv: "Safety rules for growing athletes",
+  guardrail_age: "Age-appropriate rules",
+  guardrail_load: "Workload safety",
+  safety_gate: "Hard stops",
+  threshold: "Targets and zones",
+  performance_model: "What 'good' looks like",
+  mode_definition: "Training modes",
+  planning_policy: "Season planning rules",
+  scheduling_policy: "Calendar rules",
+  routing_intent: "Intent routing",
+  routing_classifier: "Intent understanding",
+  recommendation_policy: "Recommendation rules",
+  rag_policy: "Knowledge sources",
+  memory_policy: "Memory policy",
+  surface_policy: "Audience view",
+  escalation: "Escalation",
+  coach_dashboard_policy: "Coach view",
+  parent_report_policy: "Parent report",
+};
 
 // ── Plain-English section name map ────────────────────────────────────────────
 
@@ -442,6 +478,76 @@ export default function PromptInspectorPage() {
                   </Badge>
                 )}
               </div>
+
+              {/* ── Phase 6: Methodology provenance ── */}
+              {(() => {
+                const idMap = selected.applied_directive_ids ?? {};
+                const details = selected.directive_details ?? {};
+                const blockKeysWithIds = Object.keys(idMap).filter(
+                  (k) => (idMap[k] ?? []).length > 0,
+                );
+                if (blockKeysWithIds.length === 0) {
+                  return (
+                    <div className="rounded-md border border-dashed bg-muted/20 px-4 py-3 mb-3">
+                      <p className="text-xs text-muted-foreground">
+                        <strong>Methodology provenance:</strong> none recorded for this
+                        turn. (Either this prompt was rendered before Phase 6 went live,
+                        or no methodology directives were in scope.)
+                      </p>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="rounded-md border bg-violet-50/40 px-4 py-3 mb-3 space-y-2">
+                    <p className="text-xs font-semibold text-violet-900 uppercase tracking-wide">
+                      Methodology Provenance
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      The PD's published rules drove these blocks of the prompt.
+                      Click any to open the rule in the Instructions Command Center.
+                    </p>
+                    <ul className="space-y-1.5">
+                      {blockKeysWithIds.map((blockKey) => {
+                        const ids = idMap[blockKey] ?? [];
+                        return ids.map((id) => {
+                          const d = details[id];
+                          const label = d
+                            ? (DIRECTIVE_TYPE_LABEL[d.directive_type] ?? d.directive_type)
+                            : "Unknown rule";
+                          return (
+                            <li key={`${blockKey}-${id}`} className="text-xs">
+                              <span className="font-medium">{blockKey}:</span>{" "}
+                              <a
+                                href={`/admin/pd/instructions/directives/${id}`}
+                                className="text-violet-700 hover:underline"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {label}
+                              </a>
+                              {d?.audience && d.audience !== "all" && (
+                                <span className="ml-1 text-muted-foreground">
+                                  · {d.audience}
+                                </span>
+                              )}
+                              {d?.document_title && (
+                                <span className="ml-1 text-muted-foreground">
+                                  · from "{d.document_title}"
+                                </span>
+                              )}
+                              {d?.source_excerpt && (
+                                <p className="text-xs italic text-muted-foreground line-clamp-2 ml-3 mt-0.5">
+                                  "{d.source_excerpt}"
+                                </p>
+                              )}
+                            </li>
+                          );
+                        });
+                      })}
+                    </ul>
+                  </div>
+                );
+              })()}
 
               {/* ── Block sections ── */}
               <div className="space-y-2">
