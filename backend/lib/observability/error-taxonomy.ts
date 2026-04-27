@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { ErrorCode, type ErrorCodeValue } from "./error-codes";
 
 export type ErrorSeverity = "critical" | "high" | "medium" | "low" | "info";
@@ -81,12 +80,44 @@ export class DbError extends TomoError {
   }
 }
 
+/**
+ * Stable 16-char hex fingerprint of `{errorType}|{endpoint}|{stackTop}`.
+ *
+ * Used as a deduplication key in error logs / monitoring. Not a security
+ * primitive — the input is non-secret error metadata and the output is
+ * stored in plain JSONB.
+ *
+ * Implementation: FNV-1a 64-bit over the UTF-8 bytes of the input. Pure
+ * JS (BigInt arithmetic + TextEncoder), deterministic, and runs identically
+ * in Node and Edge runtimes — so this can be imported from
+ * `instrumentation.ts` (Edge) without triggering Next.js's
+ * "node:crypto not supported in Edge" warning.
+ *
+ * Note: this changed from sha256.slice(0, 16) on 2026-04-27. Existing error
+ * groups in monitoring will be re-bucketed once after deploy.
+ */
 export function buildFingerprint(
   errorType: string,
   endpoint: string,
   stackTop: string
 ): string {
-  const raw = `${errorType}|${endpoint}|${stackTop}`;
-  return createHash("sha256").update(raw).digest("hex").slice(0, 16);
+  return fnv1a64Hex(`${errorType}|${endpoint}|${stackTop}`);
+}
+
+// BigInt() constructors (not literals) so this compiles at the project's
+// ES2017 target — the runtime BigInt support is available anywhere TextEncoder
+// is, i.e. modern Node + Edge runtimes.
+const _FNV_OFFSET_64 = BigInt("0xcbf29ce484222325");
+const _FNV_PRIME_64 = BigInt("0x100000001b3");
+const _U64_MASK = BigInt("0xffffffffffffffff");
+
+function fnv1a64Hex(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let hash = _FNV_OFFSET_64;
+  for (let i = 0; i < bytes.length; i++) {
+    hash = (hash ^ BigInt(bytes[i])) & _U64_MASK;
+    hash = (hash * _FNV_PRIME_64) & _U64_MASK;
+  }
+  return hash.toString(16).padStart(16, "0");
 }
 
