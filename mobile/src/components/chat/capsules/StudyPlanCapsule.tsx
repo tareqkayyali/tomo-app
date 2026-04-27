@@ -141,10 +141,11 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
     });
   };
 
+  // Title intentionally omitted — the chat-level headline ("Study plan") is
+  // already rendered above this capsule by ResponseRenderer/TomoTitle. Keeping
+  // a duplicate inside the card surfaced the same string twice on every turn.
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Study plan</Text>
-
       {persistError && (
         <Text style={styles.persistError}>
           Couldn&apos;t save subject library: {persistError}
@@ -156,6 +157,7 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
         options={DURATION_PILLS}
         selected={String(durationMin)}
         onSelect={(id) => setDurationMin(parseInt(id, 10))}
+        compact
       />
 
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent} nestedScrollEnabled>
@@ -179,6 +181,7 @@ export function StudyPlanCapsuleComponent({ card, onSubmit }: Props) {
                 options={SESSION_PILLS}
                 selected={String(item.sessionsPerWeek)}
                 onSelect={(id) => updateItem(i, { sessionsPerWeek: parseInt(id, 10) })}
+                compact
               />
             </View>
           );

@@ -339,6 +339,44 @@ test("chronological sort: items returned in date + time order", () => {
   }
 });
 
+test("flexible study sessions distribute across distinct days, not stack on one", () => {
+  // Regression: 3 flexible study sessions all landed on Monday because the
+  // placement loop broke on the first available date with no day-balancing.
+  // Athlete saw "Mon 4:30 PM Physics, 6:00 PM English, 7:30 PM Biology" —
+  // the rest of the week empty. Now subjects should spread across days.
+  const out = buildWeekPlan(baseInput({
+    studyMix: [
+      { subject: "Physics", sessionsPerWeek: 1, durationMin: 60, placement: "flexible" },
+      { subject: "English", sessionsPerWeek: 1, durationMin: 60, placement: "flexible" },
+      { subject: "Biology", sessionsPerWeek: 1, durationMin: 60, placement: "flexible" },
+    ],
+  }));
+  expect(out.planItems.length).toBe(3);
+  const distinctDays = new Set(out.planItems.map((p) => p.date));
+  if (distinctDays.size < 3) {
+    throw new Error(
+      `expected 3 study sessions on 3 distinct days; got ${distinctDays.size} (${[...distinctDays].join(", ")})`,
+    );
+  }
+});
+
+test("flexible training sessions distribute across distinct days, not stack", () => {
+  // Same fix should help training too — 3 flexible gym sessions should
+  // land on 3 different days, not all on Monday afternoon.
+  const out = buildWeekPlan(baseInput({
+    trainingMix: [
+      { category: "gym", sessionsPerWeek: 3, durationMin: 60, placement: "flexible" },
+    ],
+  }));
+  expect(out.planItems.length).toBe(3);
+  const distinctDays = new Set(out.planItems.map((p) => p.date));
+  if (distinctDays.size !== 3) {
+    throw new Error(
+      `expected 3 gym sessions on 3 distinct days; got ${distinctDays.size} (${[...distinctDays].join(", ")})`,
+    );
+  }
+});
+
 // ── Report ──────────────────────────────────────────────────────
 
 console.log("─".repeat(60));

@@ -18,6 +18,8 @@ interface PillSelectorProps {
   onSelect: (id: string) => void;
   label?: string;
   disabledIds?: string[];
+  /** Tighter pill padding/gap so 6–7 options fit one row in narrow capsules. */
+  compact?: boolean;
 }
 
 export function PillSelector({
@@ -26,6 +28,7 @@ export function PillSelector({
   onSelect,
   label,
   disabledIds,
+  compact,
 }: PillSelectorProps) {
   const ids = options.map((o) => o.id);
   const byId = new Map(options.map((o) => [o.id, o.label] as const));
@@ -38,6 +41,7 @@ export function PillSelector({
         onPick={onSelect}
         labelOf={(id) => byId.get(id) ?? id}
         disabledValues={disabledIds}
+        compact={compact}
       />
     </View>
   );

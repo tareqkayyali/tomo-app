@@ -1855,7 +1855,18 @@ def _build_completion_response(flow: FlowState) -> dict:
     Now that `confirm_tool` actually executes, this response reflects
     the REAL outcome: either the created event, the updated-notes
     status, or the write error if the bridge call failed.
+
+    Dispatches to per-intent completion builders so the message reflects
+    what was actually committed. The legacy build_session path stays as
+    the default fallback to preserve existing behaviour.
     """
+    # build_week_plan needs its own completion message — the build_session
+    # template ("Booked your timeline with 0 drills") is wrong for a week
+    # plan because there are no drills, the scheduled items are training +
+    # study sessions across multiple days, and `selected_focus` is never set.
+    if flow.intent_id == "build_week_plan":
+        return _build_week_plan_completion_response(flow)
+
     focus = flow.get("selected_focus", "training")
     confirm_result = flow.get("confirm_result") or {}
     target_event_id = flow.get("target_event_id")
@@ -1935,6 +1946,130 @@ def _build_completion_response(flow: FlowState) -> dict:
         # not re-emit it as pendingConfirmation. Without this the
         # mobile would stay stuck in confirm-button state after the
         # session is booked.
+        "pending_write_action": None,
+        "write_confirmed": False,
+    }
+
+
+def _build_week_plan_completion_response(flow: FlowState) -> dict:
+    """Build the final response after `build_week_plan` commits.
+
+    Reads `draft_summary` (the deterministic builder's count of placed events)
+    and `confirm_result` (the bridge's commit response) so the message reflects
+    what was actually scheduled — not the build_session template.
+
+    Failure mode: if the bridge commit returned an error, surface a retry
+    message. If summary is empty (nothing was placed), explain why instead
+    of pretending success.
+    """
+    confirm_result = flow.get("confirm_result") or {}
+    summary = flow.get("draft_summary") or {}
+    plan_items = flow.get("draft_plan_items") or []
+    mode = flow.get("athlete_mode", "balanced")
+
+    # Commit failed → tell the truth so the athlete can retry
+    if isinstance(confirm_result, dict) and confirm_result.get("error"):
+        err_msg = str(confirm_result.get("error"))[:140]
+        structured = {
+            "headline": "Couldn't lock in the week",
+            "body": f"Hit a snag writing your week to your calendar: {err_msg}. Want to try again?",
+            "cards": [],
+            "chips": [
+                {"label": "Try again", "message": "Plan my week"},
+                {"label": "Show this week", "message": "Show my week"},
+            ],
+        }
+        return {
+            "final_response": json.dumps(structured),
+            "final_cards": [],
+            "_flow_pattern": "multi_step",
+            "route_decision": "flow_handled",
+            "total_cost_usd": 0.0,
+            "total_tokens": 0,
+            "pending_write_action": None,
+            "write_confirmed": False,
+        }
+
+    training = int(summary.get("trainingSessions") or 0)
+    study = int(summary.get("studySessions") or 0)
+    total_min = int(summary.get("totalMinutes") or 0)
+    hours = round(total_min / 60, 1) if total_min else 0.0
+
+    # Nothing was placed — explain why instead of saying "you're set"
+    if training == 0 and study == 0:
+        structured = {
+            "headline": "Week's empty",
+            "body": (
+                "Looks like nothing got placed — your mix may have been zero "
+                "across the board, or there wasn't room around your existing "
+                "schedule. Want to try again with a different mix?"
+            ),
+            "cards": [],
+            "chips": [
+                {"label": "Plan it again", "message": "Plan my week"},
+                {"label": "Show this week", "message": "Show my week"},
+            ],
+        }
+        return {
+            "final_response": json.dumps(structured),
+            "final_cards": [],
+            "_flow_pattern": "multi_step",
+            "route_decision": "flow_handled",
+            "total_cost_usd": 0.0,
+            "total_tokens": 0,
+            "pending_write_action": None,
+            "write_confirmed": False,
+        }
+
+    # Build the honest body — describe what was actually placed.
+    # Tailor the framing to what's dominant so the line feels right.
+    if training > 0 and study > 0:
+        bits = f"{training} training and {study} study session" + ("s" if (training + study) != 1 else "")
+        headline = "Week's locked in"
+        body = (
+            f"Booked {bits} this week — {hours}h total. "
+            "Show up, trust it, and tell me how it lands."
+        )
+    elif training > 0:
+        bits = f"{training} training session" + ("s" if training != 1 else "")
+        headline = "Training week's locked in"
+        body = (
+            f"Booked {bits} — {hours}h total. "
+            "Show up, trust it, come tell me how it went."
+        )
+    else:  # study only
+        bits = f"{study} study session" + ("s" if study != 1 else "")
+        headline = "Study week's locked in"
+        body = (
+            f"Booked {bits} — {hours}h total. "
+            "Stick to the plan and let me know how the sessions land."
+        )
+
+    # Mode-aware nuance — quiet hint that doesn't repeat data already shown
+    if mode == "rest":
+        headline = "Recovery week's set"
+        body = (
+            "Booked a recovery-focused week — light load, lots of restoration. "
+            "Trust it, your body's earning it."
+        )
+
+    structured = {
+        "headline": headline,
+        "body": body,
+        "cards": [],
+        "chips": [
+            {"label": "Show my week", "message": "Show my week"},
+            {"label": "Check readiness", "message": "What's my readiness?"},
+        ],
+    }
+
+    return {
+        "final_response": json.dumps(structured),
+        "final_cards": [],
+        "_flow_pattern": "multi_step",
+        "route_decision": "flow_handled",
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
         "pending_write_action": None,
         "write_confirmed": False,
     }

@@ -298,9 +298,31 @@ export function buildWeekPlan(input: WeekPlanBuilderInput): WeekPlanBuilderOutpu
       continue;
     }
 
+    // For flexible-placement candidates, prefer days that have fewer
+    // already-placed events — this distributes across the week instead
+    // of stacking everything on the first available day.
+    //
+    // Without this sort, three flexible study sessions all pick Monday
+    // because resolveTargetDates returns Mon-Sun in fixed order and the
+    // inner loop breaks on the first success. Stable secondary key on
+    // calendar order keeps placement deterministic.
+    let orderedDates = targetDates;
+    if (cand.placement === "flexible") {
+      orderedDates = [...targetDates].sort((a, b) => {
+        const loadA =
+          (placedByDate[a]?.length ?? 0) +
+          (existingByDate[a]?.length ?? 0);
+        const loadB =
+          (placedByDate[b]?.length ?? 0) +
+          (existingByDate[b]?.length ?? 0);
+        if (loadA !== loadB) return loadA - loadB;
+        return a < b ? -1 : a > b ? 1 : 0;
+      });
+    }
+
     // 3. Try each target day until one works.
     let placed = false;
-    for (const date of targetDates) {
+    for (const date of orderedDates) {
       const result = tryPlaceOnDate({
         date,
         cand,

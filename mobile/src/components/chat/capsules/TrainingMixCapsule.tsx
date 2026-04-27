@@ -164,10 +164,12 @@ export function TrainingMixCapsuleComponent({ card, onSubmit }: Props) {
     </View>
   );
 
+  // Title intentionally omitted here — the chat-level headline ("Training mix")
+  // is already rendered above this capsule by ResponseRenderer/TomoTitle. Keeping
+  // a duplicate inside the card surfaced the same string twice on every turn.
   if (items.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.heading}>Training mix</Text>
         <Text style={styles.subtext}>
           No training categories yet. Add one below or skip to study only.
         </Text>
@@ -189,7 +191,6 @@ export function TrainingMixCapsuleComponent({ card, onSubmit }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Training mix</Text>
       {Array.isArray(card.notes) && card.notes.length > 0 && (
         <View style={styles.notesBlock}>
           {card.notes.map((n, i) => (
@@ -220,12 +221,14 @@ export function TrainingMixCapsuleComponent({ card, onSubmit }: Props) {
                 options={SESSION_PILLS}
                 selected={String(item.sessionsPerWeek)}
                 onSelect={(id) => updateItem(i, { sessionsPerWeek: parseInt(id, 10) })}
+                compact
               />
               <PillSelector
                 label="Duration"
                 options={DURATION_PILLS}
                 selected={String(item.durationMin)}
                 onSelect={(id) => updateItem(i, { durationMin: parseInt(id, 10) })}
+                compact
               />
 
               {item.sessionsPerWeek > 0 && (
@@ -362,12 +365,12 @@ const styles = StyleSheet.create({
   daysRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 4,
     marginTop: 4,
   },
   dayPill: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     borderColor: colors.borderLight,
