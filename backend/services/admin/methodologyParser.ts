@@ -46,6 +46,10 @@ export interface ProposedDirective {
   sport_scope: string[];
   age_scope: string[];
   phv_scope: string[];
+  /** Phase 7: per-position scope (e.g. ["striker", "defender"]) */
+  position_scope: string[];
+  /** Phase 7: per-training-mode scope (e.g. ["build", "taper"]) */
+  mode_scope: string[];
   priority: number;
   payload: Record<string, unknown>;
   source_excerpt: string | null;
@@ -117,6 +121,16 @@ const TYPE_GUIDE: Array<{ type: DirectiveType; description: string; payload_keys
     payload_keys: ["extraction_prompt", "extraction_schema_version", "extraction_model", "chunking_strategy", "confidence_threshold_for_auto_propose"] },
   { type: "meta_conflict", description: "Rules for merging conflicting directives (rare — usually internal).",
     payload_keys: ["merge_rules_per_type", "priority_tiebreakers", "audience_inheritance_rules"] },
+  // Phase 7: Dashboard + Programs governance
+  { type: "dashboard_section",
+    description: "A card on the athlete's dashboard. Use when the methodology says \"X audience should see Y\". component_type must be one of: signal_hero, status_ring, kpi_row, sparkline_row, dual_load, benchmark, rec_list, event_list, growth_card, engagement_bar, protocol_banner, custom_card. Reference an existing metric_key when the card shows a single metric (e.g. sleep_hours, hrv_morning_ms, ccrs_score). Set scope arrays (sport_scope, age_scope, position_scope, mode_scope) for per-profile rules.",
+    payload_keys: ["section_key", "display_name", "component_type", "panel_key", "sort_order", "metric_key", "coaching_text_template", "config", "is_enabled"] },
+  { type: "signal_definition",
+    description: "A hero alert at the top of the dashboard. Use when the methodology describes when to surface an alert (e.g. \"show 'overloaded' when ACWR > 1.5\"). conditions follow the {match, conditions:[{field, operator, value}]} DSL.",
+    payload_keys: ["signal_key", "display_name", "subtitle", "conditions", "color", "hero_background", "coaching_text_template", "pill_config", "trigger_config", "show_urgency_badge", "urgency_label", "is_enabled"] },
+  { type: "program_rule",
+    description: "A rule governing which training programs Tomo recommends. Use when the methodology says \"give X programs to Y\" or \"never recommend Z to W\". Set mandatory_programs / blocked_programs (program ids or slugs), or prioritize_categories / block_categories (broader category names). load_multiplier scales prescribed load (0.0-2.0). safety_critical=true means AI cannot override.",
+    payload_keys: ["rule_name", "description", "category", "conditions", "mandatory_programs", "blocked_programs", "high_priority_programs", "prioritize_categories", "block_categories", "load_multiplier", "session_cap_minutes", "frequency_cap", "intensity_cap", "ai_guidance_text", "safety_critical", "evidence_source", "evidence_grade", "is_enabled"] },
 ];
 
 // ─── Prompt builders ──────────────────────────────────────────────────────
@@ -139,11 +153,13 @@ ${typeList}
 - Set "source_excerpt" to the exact sentence(s) from the document that the rule comes from. This is required.
 - Set "confidence" between 0 and 1 reflecting how sure you are. Below 0.5 means the PD should review carefully.
 - Set "audience" to "all" unless the source text targets a specific audience (athlete/coach/parent).
-- "sport_scope" / "age_scope" / "phv_scope" are arrays — leave empty unless the source explicitly scopes the rule.
+- "sport_scope" / "age_scope" / "phv_scope" / "position_scope" / "mode_scope" are arrays — leave empty unless the source explicitly scopes the rule.
   - age_scope values must be from: U13, U15, U17, U19, U21, senior.
   - phv_scope values must be from: pre_phv, mid_phv, post_phv.
+  - position_scope: free-form lowercase tokens used in the athlete profile (e.g. striker, defender, midfielder, goalkeeper).
+  - mode_scope: training mode tokens (e.g. build, taper, recovery, pre_match).
 - For payload field types: arrays use array literals, numeric fields use numbers, booleans use true/false. Never embed JSON inside strings.
-- If the document expresses a rule that doesn't fit any of the 23 types cleanly, skip it — do not force a fit.
+- If the document expresses a rule that doesn't fit any of the 26 types cleanly, skip it — do not force a fit.
 - Do not duplicate rules. If the same rule appears twice in the source, emit it once.
 
 Call the propose_directives tool exactly once with the full array of proposals. Do not return prose.`;
@@ -170,6 +186,8 @@ const DIRECTIVE_TOOL_INPUT_SCHEMA = {
           sport_scope: { type: "array", items: { type: "string" } },
           age_scope: { type: "array", items: { type: "string" } },
           phv_scope: { type: "array", items: { type: "string" } },
+          position_scope: { type: "array", items: { type: "string" } },
+          mode_scope: { type: "array", items: { type: "string" } },
           priority: { type: "integer", description: "Lower = higher priority. Default 100." },
           payload: {
             type: "object",
@@ -337,6 +355,8 @@ export async function parseMethodologyDocument(
       sport_scope: Array.isArray(raw.sport_scope) ? raw.sport_scope : [],
       age_scope: Array.isArray(raw.age_scope) ? raw.age_scope : [],
       phv_scope: Array.isArray(raw.phv_scope) ? raw.phv_scope : [],
+      position_scope: Array.isArray(raw.position_scope) ? raw.position_scope : [],
+      mode_scope: Array.isArray(raw.mode_scope) ? raw.mode_scope : [],
       priority: typeof raw.priority === "number" ? raw.priority : 100,
       payload: payloadResult.data as Record<string, unknown>,
       source_excerpt: typeof raw.source_excerpt === "string" ? raw.source_excerpt : null,

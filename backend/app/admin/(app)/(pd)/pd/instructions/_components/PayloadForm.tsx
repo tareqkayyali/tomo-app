@@ -816,6 +816,362 @@ export function PayloadForm({ type, payload, onChange }: PayloadFormProps) {
         </div>
       );
 
+    case "dashboard_section":
+      return (
+        <div className="space-y-4">
+          <Field
+            label="Card type"
+            help={{
+              text: "What kind of card is this on the athlete's dashboard?",
+              example: "e.g. KPI row (numbers), Sparkline (trend), Status ring (today's readiness).",
+            }}
+          >
+            <Select
+              value={payload.component_type ?? "kpi_row"}
+              onValueChange={(v) => set("component_type", v)}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="signal_hero">Hero alert (signal_hero)</SelectItem>
+                <SelectItem value="status_ring">Status ring</SelectItem>
+                <SelectItem value="kpi_row">KPI row (a number)</SelectItem>
+                <SelectItem value="sparkline_row">Sparkline (a trend)</SelectItem>
+                <SelectItem value="dual_load">Dual-load gauge</SelectItem>
+                <SelectItem value="benchmark">Benchmark</SelectItem>
+                <SelectItem value="rec_list">Recommendation list</SelectItem>
+                <SelectItem value="event_list">Upcoming events</SelectItem>
+                <SelectItem value="growth_card">Growth card</SelectItem>
+                <SelectItem value="engagement_bar">Engagement bar</SelectItem>
+                <SelectItem value="protocol_banner">Protocol banner</SelectItem>
+                <SelectItem value="custom_card">Custom card</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field
+            label="Where on screen"
+            help={{
+              text: "Main dashboard, or one of the sub-panels (Programs, Metrics, Progress).",
+            }}
+          >
+            <Select
+              value={payload.panel_key ?? "main"}
+              onValueChange={(v) => set("panel_key", v)}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="main">Main dashboard</SelectItem>
+                <SelectItem value="program">Programs panel</SelectItem>
+                <SelectItem value="metrics">Metrics panel</SelectItem>
+                <SelectItem value="progress">Progress panel</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field
+            label="Section name"
+            help={{
+              text: "An internal key to identify this card. Lowercase, underscores OK.",
+              example: "e.g. sleep_kpi, recent_load, striker_focus",
+            }}
+          >
+            <Input
+              value={payload.section_key ?? ""}
+              onChange={(e) => set("section_key", e.target.value)}
+              placeholder="sleep_kpi"
+            />
+          </Field>
+          <Field
+            label="Display name"
+            help={{ text: "What the athlete reads as the card title." }}
+          >
+            <Input
+              value={payload.display_name ?? ""}
+              onChange={(e) => set("display_name", e.target.value)}
+              placeholder="Sleep — last 7 days"
+            />
+          </Field>
+          <Field
+            label="Order on screen"
+            help={{ text: "Lower numbers appear higher up. Default 100." }}
+          >
+            <Input
+              type="number"
+              value={payload.sort_order ?? 100}
+              onChange={(e) => set("sort_order", Number(e.target.value))}
+            />
+          </Field>
+          <Field
+            label="Metric (optional)"
+            help={{
+              text: "If this card shows a single metric, pick its key from the metrics registry.",
+              example: "e.g. sleep_hours, hrv_morning_ms, ccrs_score",
+            }}
+          >
+            <Input
+              value={payload.metric_key ?? ""}
+              onChange={(e) =>
+                set("metric_key", e.target.value.trim() || null)
+              }
+              placeholder="(leave empty if not metric-driven)"
+            />
+          </Field>
+          <Field
+            label="Coaching text (optional)"
+            help={{
+              text: "Plain-language template shown alongside the card. Use {field} placeholders.",
+              example: "e.g. \"You've slept {sleep_hours}h on average this week.\"",
+            }}
+          >
+            <Textarea
+              rows={3}
+              value={payload.coaching_text_template ?? ""}
+              onChange={(e) =>
+                set("coaching_text_template", e.target.value || null)
+              }
+            />
+          </Field>
+        </div>
+      );
+
+    case "signal_definition":
+      return (
+        <div className="space-y-4">
+          <Field
+            label="Signal name (internal key)"
+            help={{
+              text: "Short uppercase key — used internally for analytics & rollback.",
+              example: "e.g. PRIMED, OVERLOADED, RECOVERING",
+            }}
+          >
+            <Input
+              value={payload.signal_key ?? ""}
+              onChange={(e) => set("signal_key", e.target.value)}
+              placeholder="PRIMED"
+            />
+          </Field>
+          <Field
+            label="What the athlete sees as the signal title"
+            help={{ text: "Plain-language headline shown at the top of the dashboard." }}
+          >
+            <Input
+              value={payload.display_name ?? ""}
+              onChange={(e) => set("display_name", e.target.value)}
+              placeholder="You're primed."
+            />
+          </Field>
+          <Field
+            label="Subtitle (optional)"
+            help={{ text: "One-line context under the title." }}
+          >
+            <Input
+              value={payload.subtitle ?? ""}
+              onChange={(e) => set("subtitle", e.target.value || null)}
+              placeholder="Sleep, HRV, and load are all in the green."
+            />
+          </Field>
+          <Field
+            label="Coaching text (optional)"
+            help={{
+              text: "Plain-language explanation. Supports {field} placeholders.",
+              example: "e.g. \"Your HRV is up {hrv_delta_pct}% — go for it today.\"",
+            }}
+          >
+            <Textarea
+              rows={3}
+              value={payload.coaching_text_template ?? ""}
+              onChange={(e) =>
+                set("coaching_text_template", e.target.value || null)
+              }
+            />
+          </Field>
+          <Field
+            label="Show urgency badge?"
+            help={{ text: "Tick for safety-critical signals (e.g. injury concern)." }}
+          >
+            <Select
+              value={String(payload.show_urgency_badge ?? false)}
+              onValueChange={(v) =>
+                set("show_urgency_badge", v === "true")
+              }
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="false">No</SelectItem>
+                <SelectItem value="true">Yes</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            Trigger conditions, pill config, and visual styling are populated by
+            the parser when this signal is generated from a methodology document.
+            For hand-authored signals, use the Description field for now and the
+            data team will fill in the structured fields.
+          </p>
+        </div>
+      );
+
+    case "program_rule":
+      return (
+        <div className="space-y-4">
+          <Field
+            label="Rule name"
+            help={{
+              text: "A short label so you can find this rule later.",
+              example: "e.g. U15 strikers — mandate ACL prevention",
+            }}
+          >
+            <Input
+              value={payload.rule_name ?? ""}
+              onChange={(e) => set("rule_name", e.target.value)}
+              placeholder="U15 strikers — mandate ACL prevention"
+            />
+          </Field>
+          <Field
+            label="Category"
+            help={{
+              text: "Helps you find related rules later. Doesn't change behaviour.",
+            }}
+          >
+            <Select
+              value={payload.category ?? "development"}
+              onValueChange={(v) => set("category", v)}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="safety">Safety</SelectItem>
+                <SelectItem value="development">Development</SelectItem>
+                <SelectItem value="recovery">Recovery</SelectItem>
+                <SelectItem value="performance">Performance</SelectItem>
+                <SelectItem value="injury_prevention">Injury prevention</SelectItem>
+                <SelectItem value="position_specific">Position-specific</SelectItem>
+                <SelectItem value="load_management">Load management</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field
+            label="Programs Tomo MUST recommend"
+            help={{
+              text: "Comma-separated program IDs or slugs.",
+              example: "e.g. acl_prevention, mobility_basics",
+            }}
+          >
+            <Input
+              value={listToCsv(payload.mandatory_programs)}
+              onChange={(e) =>
+                set("mandatory_programs", csvToList(e.target.value))
+              }
+            />
+          </Field>
+          <Field
+            label="Programs Tomo MUST NEVER recommend"
+            help={{
+              text: "Comma-separated.",
+              example: "e.g. olympic_lifts, max_sprint_protocol",
+            }}
+          >
+            <Input
+              value={listToCsv(payload.blocked_programs)}
+              onChange={(e) =>
+                set("blocked_programs", csvToList(e.target.value))
+              }
+            />
+          </Field>
+          <Field
+            label="Categories Tomo should prioritise"
+            help={{
+              text: "Comma-separated. Programs in these categories get bumped up.",
+            }}
+          >
+            <Input
+              value={listToCsv(payload.prioritize_categories)}
+              onChange={(e) =>
+                set("prioritize_categories", csvToList(e.target.value))
+              }
+            />
+          </Field>
+          <Field
+            label="Categories Tomo should skip"
+            help={{ text: "Comma-separated." }}
+          >
+            <Input
+              value={listToCsv(payload.block_categories)}
+              onChange={(e) =>
+                set("block_categories", csvToList(e.target.value))
+              }
+            />
+          </Field>
+          <Field
+            label="Load multiplier (0.0 – 2.0)"
+            help={{
+              text: "Scales prescribed load. 1.0 = unchanged. 0.7 = 70% of usual.",
+            }}
+          >
+            <Input
+              type="number"
+              min={0}
+              max={2}
+              step="0.05"
+              value={payload.load_multiplier ?? ""}
+              onChange={(e) =>
+                set(
+                  "load_multiplier",
+                  e.target.value ? Number(e.target.value) : null,
+                )
+              }
+            />
+          </Field>
+          <Field
+            label="Maximum intensity"
+            help={{ text: "The hardest a session can be when this rule fires." }}
+          >
+            <Select
+              value={payload.intensity_cap ?? ""}
+              onValueChange={(v) => set("intensity_cap", v || null)}
+            >
+              <SelectTrigger><SelectValue placeholder="(no cap)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">(no cap)</SelectItem>
+                <SelectItem value="rest">Rest only</SelectItem>
+                <SelectItem value="light">Light</SelectItem>
+                <SelectItem value="moderate">Moderate</SelectItem>
+                <SelectItem value="full">Full</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field
+            label="AI guidance text"
+            help={{
+              text: "Plain-language note injected into Tomo's prompt when this rule applies.",
+              example: "e.g. \"Frame everything around safe progression. No 1RM testing.\"",
+            }}
+          >
+            <Textarea
+              rows={3}
+              value={payload.ai_guidance_text ?? ""}
+              onChange={(e) =>
+                set("ai_guidance_text", e.target.value || null)
+              }
+            />
+          </Field>
+          <Field
+            label="Safety-critical?"
+            help={{
+              text: "Mark if Tomo's AI must never override this rule. Use sparingly — only true safety hard-stops.",
+            }}
+          >
+            <Select
+              value={String(payload.safety_critical ?? false)}
+              onValueChange={(v) => set("safety_critical", v === "true")}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="false">No</SelectItem>
+                <SelectItem value="true">Yes — hard safety rule</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+      );
+
     case "planning_policy":
     case "scheduling_policy":
     case "routing_classifier":
@@ -911,6 +1267,53 @@ export function defaultPayloadFor(type: DirectiveType): Record<string, any> {
       return { extraction_prompt: "Extract directives from the methodology document, mapping each to one of the 23 directive types.", extraction_schema_version: 1, extraction_model: "claude-sonnet-4-6", chunking_strategy: "section", confidence_threshold_for_auto_propose: 0.5 };
     case "meta_conflict":
       return { merge_rules_per_type: { load_multiplier: "MIN", intensity_cap: "MOST_RESTRICTIVE", arrays: "UNION" }, priority_tiebreakers: ["priority", "audience_specificity", "updated_at"], audience_inheritance_rules: {} };
+    // Phase 7
+    case "dashboard_section":
+      return {
+        section_key: "",
+        display_name: "",
+        component_type: "kpi_row",
+        panel_key: "main",
+        sort_order: 100,
+        metric_key: null,
+        coaching_text_template: null,
+        config: {},
+        is_enabled: true,
+      };
+    case "signal_definition":
+      return {
+        signal_key: "",
+        display_name: "",
+        subtitle: null,
+        conditions: { match: "all", conditions: [] },
+        coaching_text_template: null,
+        pill_config: [],
+        trigger_config: [],
+        show_urgency_badge: false,
+        urgency_label: null,
+        is_enabled: true,
+      };
+    case "program_rule":
+      return {
+        rule_name: "",
+        description: null,
+        category: "development",
+        conditions: { match: "all", conditions: [] },
+        mandatory_programs: [],
+        blocked_programs: [],
+        high_priority_programs: [],
+        prioritize_categories: [],
+        block_categories: [],
+        load_multiplier: null,
+        session_cap_minutes: null,
+        frequency_cap: null,
+        intensity_cap: null,
+        ai_guidance_text: null,
+        safety_critical: false,
+        evidence_source: null,
+        evidence_grade: null,
+        is_enabled: true,
+      };
   }
 }
 

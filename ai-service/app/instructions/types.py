@@ -52,6 +52,10 @@ class DirectiveType(str, Enum):
     # Meta
     META_PARSER = "meta_parser"
     META_CONFLICT = "meta_conflict"
+    # Phase 7: Dashboard + Programs governance
+    DASHBOARD_SECTION = "dashboard_section"
+    SIGNAL_DEFINITION = "signal_definition"
+    PROGRAM_RULE = "program_rule"
 
 
 Audience = Literal["athlete", "coach", "parent", "all"]
@@ -382,6 +386,116 @@ class MetaConflictPayload(BaseModel):
     audience_inheritance_rules: Dict[str, Any] = Field(default_factory=dict)
 
 
+# ─── Phase 7: Dashboard + Programs governance ────────────────────────────
+
+
+DashboardComponentType = Literal[
+    "signal_hero", "status_ring", "kpi_row", "sparkline_row",
+    "dual_load", "benchmark", "rec_list", "event_list",
+    "growth_card", "engagement_bar", "protocol_banner", "custom_card",
+]
+DashboardPanelKey = Literal["main", "program", "metrics", "progress"]
+
+
+class DashboardSectionPayload(BaseModel):
+    """Section that the athlete sees on the Dashboard / a sub-panel."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    section_key: str = Field(min_length=1, max_length=80)
+    display_name: str = Field(min_length=1, max_length=120)
+    component_type: DashboardComponentType
+    panel_key: DashboardPanelKey = "main"
+    sort_order: int = 100
+    metric_key: Optional[str] = Field(default=None, max_length=80)
+    coaching_text_template: Optional[str] = Field(default=None, max_length=2000)
+    config: Dict[str, Any] = Field(default_factory=dict)
+    is_enabled: bool = True
+
+
+class _SignalConditionItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    field: str = Field(min_length=1)
+    operator: Literal["eq", "neq", "in", "not_in", "gt", "gte", "lt", "lte"]
+    value: Any = None
+
+
+class _SignalConditions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    match: Literal["all", "any"] = "all"
+    conditions: List[_SignalConditionItem] = Field(default_factory=list)
+
+
+class _SignalPillConfigItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    field: str = Field(max_length=60)
+    format: Optional[str] = Field(default=None, max_length=40)
+    label: Optional[str] = Field(default=None, max_length=60)
+
+
+class _SignalTriggerConfigItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    metric: str = Field(max_length=60)
+    baseline_field: Optional[str] = Field(default=None, max_length=60)
+    format: Optional[str] = Field(default=None, max_length=40)
+
+
+class SignalDefinitionPayload(BaseModel):
+    """Hero-layer signal block on the dashboard (the colored alert)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    signal_key: str = Field(min_length=1, max_length=60)
+    display_name: str = Field(min_length=1, max_length=120)
+    subtitle: Optional[str] = Field(default=None, max_length=240)
+    conditions: _SignalConditions = Field(default_factory=_SignalConditions)
+    color: Optional[str] = Field(default=None, max_length=32)
+    hero_background: Optional[str] = Field(default=None, max_length=80)
+    arc_opacity: Optional[float] = Field(default=None, ge=0, le=1)
+    pill_background: Optional[str] = Field(default=None, max_length=80)
+    bar_rgba: Optional[str] = Field(default=None, max_length=80)
+    coaching_color: Optional[str] = Field(default=None, max_length=32)
+    coaching_text_template: Optional[str] = Field(default=None, max_length=2000)
+    pill_config: List[_SignalPillConfigItem] = Field(default_factory=list)
+    trigger_config: List[_SignalTriggerConfigItem] = Field(default_factory=list)
+    adapted_plan_name: Optional[str] = Field(default=None, max_length=120)
+    adapted_plan_meta: Optional[Dict[str, Any]] = None
+    show_urgency_badge: bool = False
+    urgency_label: Optional[str] = Field(default=None, max_length=40)
+    is_enabled: bool = True
+
+
+ProgramRuleCategory = Literal[
+    "safety", "development", "recovery", "performance",
+    "injury_prevention", "position_specific", "load_management",
+]
+
+
+class ProgramRulePayload(BaseModel):
+    """Program-recommendation rule. Replaces pd_program_rules at runtime."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_name: str = Field(min_length=1, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    category: ProgramRuleCategory = "development"
+    conditions: _SignalConditions = Field(default_factory=_SignalConditions)
+    mandatory_programs: List[str] = Field(default_factory=list)
+    blocked_programs: List[str] = Field(default_factory=list)
+    high_priority_programs: List[str] = Field(default_factory=list)
+    prioritize_categories: List[str] = Field(default_factory=list)
+    block_categories: List[str] = Field(default_factory=list)
+    load_multiplier: Optional[float] = Field(default=None, ge=0, le=2)
+    session_cap_minutes: Optional[int] = Field(default=None, gt=0)
+    frequency_cap: Optional[int] = Field(default=None, gt=0)
+    intensity_cap: Optional[IntensityLevel] = None
+    ai_guidance_text: Optional[str] = Field(default=None, max_length=2000)
+    safety_critical: bool = False
+    evidence_source: Optional[str] = Field(default=None, max_length=240)
+    evidence_grade: Optional[Literal["A", "B", "C"]] = None
+    is_enabled: bool = True
+
+
 # ─── Type registry ───────────────────────────────────────────────────────
 
 
@@ -409,6 +523,10 @@ DIRECTIVE_PAYLOAD_MODELS: Dict[DirectiveType, type[BaseModel]] = {
     DirectiveType.PARENT_REPORT_POLICY: ParentReportPolicyPayload,
     DirectiveType.META_PARSER: MetaParserPayload,
     DirectiveType.META_CONFLICT: MetaConflictPayload,
+    # Phase 7
+    DirectiveType.DASHBOARD_SECTION: DashboardSectionPayload,
+    DirectiveType.SIGNAL_DEFINITION: SignalDefinitionPayload,
+    DirectiveType.PROGRAM_RULE: ProgramRulePayload,
 }
 
 

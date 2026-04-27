@@ -1,99 +1,75 @@
 /**
  * ════════════════════════════════════════════════════════════════════════════
- * Signal Loader — Loads pd_signals with 5-minute cache
+ * Signal Loader — methodology-resolver backed (Phase 7)
  * ════════════════════════════════════════════════════════════════════════════
  *
- * Mirrors the PDIL protocolLoader pattern:
- *   - Single shared cache (signals don't change per-request)
- *   - 5-minute TTL
- *   - Sorted by priority ASC (highest priority = lowest number = checked first)
- *   - CMS admin calls clearSignalCache() after edits
+ * Hard cutover: legacy `pd_signals` table is no longer read at runtime.
+ * The `signal_definition` directives in the live methodology snapshot
+ * are the only source. The Phase 7.0a migration seeded the snapshot
+ * with the equivalent of every legacy row, so behaviour is preserved
+ * on flip day.
+ *
+ * Cache lives inside `services/instructions/resolver` (60s TTL); this
+ * module just adapts the resolver output to the existing SignalConfig
+ * shape so `evaluateSignal` doesn't change.
  * ══════════════════════════════════════════════════════════════════════════
  */
 
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { resolveInstructions } from '@/services/instructions/resolver';
 import type { SignalConfig } from './types';
 
-// ── Cache ──────────────────────────────────────────────────────────────────
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-let cachedSignals: SignalConfig[] | null = null;
-let cacheTimestamp = 0;
-
-/**
- * Load all enabled signals from pd_signals, sorted by priority ASC.
- * Uses a 5-minute in-memory cache.
- */
+/** Returns enabled signals sorted by priority ASC. */
 export async function loadActiveSignals(): Promise<SignalConfig[]> {
-  const now = Date.now();
+  const set = await resolveInstructions({ audience: 'athlete' });
+  const directives = set.byType('signal_definition');
 
-  if (cachedSignals && (now - cacheTimestamp) < CACHE_TTL_MS) {
-    return cachedSignals;
+  const out: SignalConfig[] = [];
+  for (const d of directives) {
+    const p = d.payload as Record<string, any>;
+    if (p.is_enabled === false) continue;
+    out.push({
+      signal_id:          d.id,
+      key:                String(p.signal_key ?? ''),
+      display_name:       String(p.display_name ?? ''),
+      subtitle:           String(p.subtitle ?? ''),
+      conditions:         (p.conditions as any) ?? { match: 'all', conditions: [] },
+      priority:           typeof p.priority === 'number' ? p.priority : d.priority,
+      color:              String(p.color ?? ''),
+      hero_background:    String(p.hero_background ?? ''),
+      arc_opacity:        (p.arc_opacity as any) ?? { default: 1 },
+      pill_background:    String(p.pill_background ?? ''),
+      bar_rgba:           String(p.bar_rgba ?? ''),
+      coaching_color:     String(p.coaching_color ?? ''),
+      coaching_text:      String(p.coaching_text_template ?? p.coaching_text ?? ''),
+      pill_config:        (p.pill_config as any) ?? [],
+      trigger_config:     (p.trigger_config as any) ?? [],
+      adapted_plan_name:  (p.adapted_plan_name as string | null) ?? null,
+      adapted_plan_meta:  typeof p.adapted_plan_meta === 'string'
+                            ? (p.adapted_plan_meta as string)
+                            : (p.adapted_plan_meta && typeof p.adapted_plan_meta === 'object'
+                                && typeof (p.adapted_plan_meta as any).raw === 'string'
+                                ? (p.adapted_plan_meta as any).raw as string
+                                : null),
+      show_urgency_badge: Boolean(p.show_urgency_badge),
+      urgency_label:      (p.urgency_label as string | null) ?? null,
+      is_built_in:        false,
+      is_enabled:         p.is_enabled !== false,
+      created_at:         (d.updated_at as string | null) ?? new Date().toISOString(),
+      updated_at:         (d.updated_at as string | null) ?? new Date().toISOString(),
+    });
   }
 
-  const db = supabaseAdmin();
-  const { data, error } = await (db as any)
-    .from('pd_signals')
-    .select('*')
-    .eq('is_enabled', true)
-    .order('priority', { ascending: true });
-
-  if (error) {
-    console.error('[SignalLoader] Failed to load signals:', error);
-    // If we have a stale cache, use it rather than failing
-    if (cachedSignals) {
-      console.warn('[SignalLoader] Using stale cache after DB error');
-      return cachedSignals;
-    }
-    return [];
-  }
-
-  // Map DB rows to SignalConfig shape
-  cachedSignals = (data ?? []).map((row: any) => ({
-    signal_id:          row.signal_id,
-    key:                row.key,
-    display_name:       row.display_name,
-    subtitle:           row.subtitle,
-    conditions:         row.conditions as any,
-    priority:           row.priority,
-    color:              row.color,
-    hero_background:    row.hero_background,
-    arc_opacity:        row.arc_opacity as any,
-    pill_background:    row.pill_background,
-    bar_rgba:           row.bar_rgba,
-    coaching_color:     row.coaching_color,
-    coaching_text:      row.coaching_text,
-    pill_config:        row.pill_config as any,
-    trigger_config:     row.trigger_config as any,
-    adapted_plan_name:  row.adapted_plan_name,
-    adapted_plan_meta:  row.adapted_plan_meta,
-    show_urgency_badge: row.show_urgency_badge,
-    urgency_label:      row.urgency_label,
-    is_built_in:        row.is_built_in,
-    is_enabled:         row.is_enabled,
-    created_at:         row.created_at,
-    updated_at:         row.updated_at,
-  }));
-
-  cacheTimestamp = now;
-  return cachedSignals!;
+  // Already priority-sorted by `byType`, but be defensive.
+  out.sort((a, b) => a.priority - b.priority);
+  return out;
 }
 
-/**
- * Clear the signal cache. Called by CMS admin after signal edits.
- */
+/** Phase 7: signal cache lives inside the resolver. Kept as a no-op so
+ *  callers (CMS admin pages) compile without changes. */
 export function clearSignalCache(): void {
-  cachedSignals = null;
-  cacheTimestamp = 0;
+  // No-op since Phase 7
 }
 
-/**
- * Get cache status for debugging.
- */
 export function getSignalCacheStatus(): { cached: boolean; age_ms: number; count: number } {
-  return {
-    cached: cachedSignals !== null,
-    age_ms: cachedSignals ? Date.now() - cacheTimestamp : 0,
-    count:  cachedSignals?.length ?? 0,
-  };
+  return { cached: false, age_ms: 0, count: 0 };
 }

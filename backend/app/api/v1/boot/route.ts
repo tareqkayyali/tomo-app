@@ -688,7 +688,11 @@ export async function GET(request: NextRequest) {
       sort_order: number;
       config: Record<string, unknown>;
       coaching_text: string | null;
+      /** Phase 7: directive that produced this section, if any. */
+      directive_id?: string;
     }>;
+    const collectDirectiveIds = (layout: ResolvedLayout): string[] =>
+      layout.map((s) => s.directive_id).filter((x): x is string => Boolean(x));
     let dashboardLayout: ResolvedLayout = [];
     let panelLayouts: { program: ResolvedLayout; metrics: ResolvedLayout; progress: ResolvedLayout } = {
       program: [],
@@ -964,6 +968,18 @@ export async function GET(request: NextRequest) {
       // render each component_type. Empty array per panel = fall back to
       // hardcoded order for that panel.
       panelLayouts,
+
+      // ── Phase 7: Methodology Provenance ──
+      // Map of {scope: [directive_id, ...]} recording which methodology
+      // directives drove each part of the boot response. Enables one-click
+      // trace from the athlete's view back to the rule that produced it.
+      applied_directive_ids: {
+        dashboard: collectDirectiveIds(dashboardLayout),
+        panel_program: collectDirectiveIds(panelLayouts.program),
+        panel_metrics: collectDirectiveIds(panelLayouts.metrics),
+        panel_progress: collectDirectiveIds(panelLayouts.progress),
+        signal: signalContext?.signalId ? [signalContext.signalId] : [],
+      },
 
       fetchedAt: new Date().toISOString(),
     };

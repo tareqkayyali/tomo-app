@@ -277,6 +277,32 @@ export function DirectiveForm({
             </div>
 
             <div className="space-y-1.5">
+              <Label>Positions (comma-separated, leave empty for all)</Label>
+              <Input
+                value={listToCsv(draft.position_scope)}
+                onChange={(e) => update("position_scope", csvToList(e.target.value))}
+                placeholder="e.g. striker, defender, goalkeeper"
+              />
+              <FieldGuide
+                text="Use the position labels you record in the athlete profile."
+                example="e.g. striker, defender, midfielder, goalkeeper, ALL"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Modes (comma-separated, leave empty for all)</Label>
+              <Input
+                value={listToCsv(draft.mode_scope)}
+                onChange={(e) => update("mode_scope", csvToList(e.target.value))}
+                placeholder="e.g. build, taper, recovery"
+              />
+              <FieldGuide
+                text="The training modes this rule applies in."
+                example="e.g. build, taper, recovery, pre_match"
+              />
+            </div>
+
+            <div className="space-y-1.5">
               <Label>Priority</Label>
               <Input
                 type="number"

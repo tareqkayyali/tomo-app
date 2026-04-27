@@ -1,16 +1,28 @@
 /**
- * Dashboard Section Loader — Cached CMS reader + visibility evaluator.
+ * Dashboard Section Loader — methodology-resolver backed (Phase 7).
  *
- * Loads enabled dashboard sections from DB, caches for 5 minutes.
- * Evaluates visibility conditions against athlete snapshot to produce
- * a personalized section layout per request.
+ * Hard cutover: legacy `dashboard_sections` table is no longer read at
+ * runtime. The `dashboard_section` directives in the live methodology
+ * snapshot are the only source. The Phase 7.0a migration seeded the
+ * snapshot with the equivalent of every legacy row, so behaviour is
+ * preserved on flip day.
  *
- * Cache follows the module-level variable + timestamp TTL pattern
- * (same as planningProtocolSelector.ts).
+ * Resolution flow:
+ *   1. Resolve the live snapshot (60s TTL, scope-filtered).
+ *   2. Filter directives matching `panel_key` (`null`/`undefined` =
+ *      main dashboard, otherwise a sub-panel).
+ *   3. Evaluate any *additional* visibility conditions inside
+ *      `payload.config.visibility` (preserved from legacy migration).
+ *   4. Return resolved sections in `sort_order`. The mobile client
+ *      receives the same shape as before.
+ *
+ * Provenance: every resolved section carries its source directive id
+ * so the boot route can log it for the Prompt Inspector.
  */
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { logger } from '@/lib/logger';
+import { resolveInstructions } from '@/services/instructions/resolver';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,11 +48,6 @@ export interface DashboardSection {
   coaching_text: string | null;
   sport_filter: string[] | null;
   is_enabled: boolean;
-  /**
-   * Panel scope. NULL = screen-level section (rendered on the Dashboard
-   * scroll view itself). Non-null = the section belongs inside one of the
-   * slide-up panels (program / metrics / progress).
-   */
   panel_key: DashboardPanelKey | null;
   created_at: string;
   updated_at: string;
@@ -54,51 +61,23 @@ export interface ResolvedDashboardSection {
   sort_order: number;
   config: Record<string, unknown>;
   coaching_text: string | null;
+  /** Phase 7: provenance id of the methodology directive that drove this section. */
+  directive_id?: string;
 }
-
-// ---------------------------------------------------------------------------
-// Cache
-// ---------------------------------------------------------------------------
-
-let cachedSections: DashboardSection[] | null = null;
-let cachedAt = 0;
-const CACHE_TTL_MS = 5 * 60 * 1000;
 
 export function clearDashboardSectionCache(): void {
-  cachedSections = null;
-  cachedAt = 0;
-}
-
-async function loadSections(): Promise<DashboardSection[]> {
-  const now = Date.now();
-  if (cachedSections && now - cachedAt < CACHE_TTL_MS) {
-    return cachedSections;
-  }
-
-  const db = supabaseAdmin();
-  const { data, error } = await (db as any)
-    .from('dashboard_sections')
-    .select('*')
-    .eq('is_enabled', true)
-    .order('sort_order', { ascending: true });
-
-  if (error) {
-    logger.error('Failed to load dashboard sections', { error: error.message });
-    return cachedSections ?? [];
-  }
-
-  cachedSections = (data ?? []) as DashboardSection[];
-  cachedAt = now;
-  return cachedSections;
+  // No-op since Phase 7 — cache lives inside the resolver.
 }
 
 // ---------------------------------------------------------------------------
-// Condition Evaluator (pure function — same logic as planningProtocolSelector)
+// Condition Evaluator
 // ---------------------------------------------------------------------------
+
+type Condition = NonNullable<DashboardSection['visibility']>['conditions'][0];
 
 function evaluateCondition(
   snapshot: Record<string, unknown>,
-  condition: NonNullable<DashboardSection['visibility']>['conditions'][0]
+  condition: Condition,
 ): boolean {
   const fieldValue = snapshot[condition.field];
   if (fieldValue === null || fieldValue === undefined) return false;
@@ -110,39 +89,32 @@ function evaluateCondition(
     case 'gte': return (fieldValue as number) >= (condition.value as number);
     case 'lt': return (fieldValue as number) < (condition.value as number);
     case 'lte': return (fieldValue as number) <= (condition.value as number);
-    case 'in': return Array.isArray(condition.value) && (condition.value as unknown[]).includes(fieldValue);
-    case 'not_in': return Array.isArray(condition.value) && !(condition.value as unknown[]).includes(fieldValue);
+    case 'in':
+      return Array.isArray(condition.value) && (condition.value as unknown[]).includes(fieldValue);
+    case 'not_in':
+      return Array.isArray(condition.value) && !(condition.value as unknown[]).includes(fieldValue);
     default: return false;
   }
 }
 
 function evaluateVisibility(
-  section: DashboardSection,
-  snapshot: Record<string, unknown>
+  visibility: DashboardSection['visibility'],
+  snapshot: Record<string, unknown>,
 ): boolean {
-  // NULL visibility = always visible
-  if (!section.visibility) return true;
-
-  const { match, conditions } = section.visibility;
+  if (!visibility) return true;
+  const { match, conditions } = visibility;
   if (!conditions || conditions.length === 0) return true;
-
-  if (match === 'all') {
-    return conditions.every(c => evaluateCondition(snapshot, c));
-  }
-  return conditions.some(c => evaluateCondition(snapshot, c));
+  if (match === 'all') return conditions.every((c) => evaluateCondition(snapshot, c));
+  return conditions.some((c) => evaluateCondition(snapshot, c));
 }
 
 // ---------------------------------------------------------------------------
 // Template Interpolation
 // ---------------------------------------------------------------------------
 
-/**
- * Resolve {field} placeholders in coaching_text against a flat context map.
- * Unresolved placeholders are left as-is (safe for display).
- */
 function interpolateText(
   template: string,
-  context: Record<string, unknown>
+  context: Record<string, unknown>,
 ): string {
   return template.replace(/\{(\w+)\}/g, (match, field) => {
     const val = context[field];
@@ -152,75 +124,86 @@ function interpolateText(
 }
 
 // ---------------------------------------------------------------------------
-// Public API
+// Public API — resolver-backed
 // ---------------------------------------------------------------------------
 
 /**
  * Resolve the dashboard layout for a specific athlete.
  *
- * @param snapshot - Athlete's current snapshot (flat key-value from readSnapshot)
- * @param sport - Athlete's sport (for sport_filter scoping)
- * @param panelKey - Panel scope. Omit or pass `null` for screen-level rows
- *                   (where `panel_key IS NULL`). Pass a panel name to fetch the
- *                   resolved sub-section list for that panel.
- * @returns Ordered array of resolved sections the athlete should see
+ * Phase 7: reads from the live methodology snapshot only. No legacy DB
+ * reads. The Phase 7.0a migration seeded the snapshot with all prior
+ * rows so this is behaviour-preserving on flip day.
  */
 export async function resolveDashboardLayout(
   snapshot: Record<string, unknown>,
   sport?: string,
   panelKey?: DashboardPanelKey | null,
+  athleteScope?: {
+    age_band?: string | null;
+    phv_stage?: string | null;
+    position?: string | null;
+    mode?: string | null;
+  },
 ): Promise<ResolvedDashboardSection[]> {
-  const allSections = await loadSections();
+  const set = await resolveInstructions({
+    audience: 'athlete',
+    sport: sport ?? null,
+    age_band: athleteScope?.age_band ?? null,
+    phv_stage: athleteScope?.phv_stage ?? null,
+    position: athleteScope?.position ?? null,
+    mode: athleteScope?.mode ?? null,
+  });
 
-  return allSections
-    .filter(section => {
-      // Panel scope: default (undefined/null) returns screen-level rows only.
-      // A panel name restricts to that panel's sub-sections.
-      if (panelKey == null) {
-        if (section.panel_key != null) return false;
-      } else {
-        if (section.panel_key !== panelKey) return false;
-      }
-      // Sport filter: NULL = all sports, array = only these sports
-      if (section.sport_filter && sport) {
-        if (!section.sport_filter.includes(sport)) return false;
-      }
-      // Visibility condition evaluation
-      return evaluateVisibility(section, snapshot);
+  const dashboardDirectives = set.byType('dashboard_section');
+  const wantedPanel = panelKey ?? 'main';
+
+  return dashboardDirectives
+    .filter((d) => {
+      const payload = d.payload as Record<string, unknown>;
+      if (payload.is_enabled === false) return false;
+      const directivePanel = (payload.panel_key as string | undefined) ?? 'main';
+      if (directivePanel !== wantedPanel) return false;
+
+      // Honor any embedded visibility predicate carried over from legacy data.
+      const config = (payload.config as Record<string, unknown>) ?? {};
+      const visibility = (config.visibility ?? null) as DashboardSection['visibility'];
+      return evaluateVisibility(visibility, snapshot);
     })
-    .map(section => {
-      // Interpolate template fields inside config (headline_template, body_template)
-      // so the mobile client receives resolved values.
-      const resolvedConfig = { ...section.config };
-      if (typeof resolvedConfig.headline_template === 'string') {
-        resolvedConfig.headline_template = interpolateText(
-          resolvedConfig.headline_template,
-          snapshot,
-        );
+    .sort((a, b) => {
+      const sa = (a.payload.sort_order as number | undefined) ?? a.priority;
+      const sb = (b.payload.sort_order as number | undefined) ?? b.priority;
+      return sa - sb;
+    })
+    .map((d) => {
+      const payload = d.payload as Record<string, unknown>;
+      const config = { ...((payload.config as Record<string, unknown>) ?? {}) };
+      if (typeof config.headline_template === 'string') {
+        config.headline_template = interpolateText(config.headline_template, snapshot);
       }
-      if (typeof resolvedConfig.body_template === 'string') {
-        resolvedConfig.body_template = interpolateText(
-          resolvedConfig.body_template,
-          snapshot,
-        );
+      if (typeof config.body_template === 'string') {
+        config.body_template = interpolateText(config.body_template, snapshot);
       }
+
+      const coachingTpl = (payload.coaching_text_template as string | null | undefined) ?? null;
+      const sortOrder = (payload.sort_order as number | undefined) ?? d.priority;
 
       return {
-        section_key: section.section_key,
-        display_name: section.display_name,
-        component_type: section.component_type,
-        sort_order: section.sort_order,
-        config: resolvedConfig,
-        coaching_text: section.coaching_text
-          ? interpolateText(section.coaching_text, snapshot)
-          : null,
+        section_key: String(payload.section_key ?? ''),
+        display_name: String(payload.display_name ?? ''),
+        component_type: String(payload.component_type ?? ''),
+        sort_order: sortOrder,
+        config,
+        coaching_text: coachingTpl ? interpolateText(coachingTpl, snapshot) : null,
+        directive_id: d.id,
       };
     });
 }
 
 /**
- * Get all sections (admin view, no visibility filtering).
- * Used by admin panel to show the full list including disabled sections.
+ * Get all sections from the legacy table (admin/inspection view).
+ * Phase 7: kept for the deprecation-banner-protected admin page so
+ * operators can audit the legacy state. New authoring happens in the
+ * Methodology Command Center.
  */
 export async function getAllSectionsAdmin(): Promise<DashboardSection[]> {
   const db = supabaseAdmin();

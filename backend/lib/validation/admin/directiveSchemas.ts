@@ -31,6 +31,8 @@ export const directiveTypeEnum = z.enum([
   'coach_dashboard_policy', 'parent_report_policy',
   // Meta
   'meta_parser', 'meta_conflict',
+  // Phase 7: Dashboard + Programs governance
+  'dashboard_section', 'signal_definition', 'program_rule',
 ]);
 export type DirectiveType = z.infer<typeof directiveTypeEnum>;
 
@@ -322,6 +324,141 @@ export const metaConflictPayloadSchema = z.object({
   audience_inheritance_rules: z.record(z.string(), z.unknown()).default({}),
 });
 
+
+// ─── Phase 7: Dashboard + Programs governance ─────────────────────────────
+
+/**
+ * The 12 known component_type values rendered by the mobile dashboard.
+ * PD picks from this fixed list — new types require mobile work.
+ */
+export const dashboardComponentTypeEnum = z.enum([
+  'signal_hero',
+  'status_ring',
+  'kpi_row',
+  'sparkline_row',
+  'dual_load',
+  'benchmark',
+  'rec_list',
+  'event_list',
+  'growth_card',
+  'engagement_bar',
+  'protocol_banner',
+  'custom_card',
+]);
+
+/** Where in the app this section lands. NULL = main dashboard (athlete tab). */
+export const dashboardPanelKeyEnum = z.enum([
+  'main',     // canonicalised "" / null in legacy
+  'program',
+  'metrics',
+  'progress',
+]);
+
+// 24. dashboard_section
+export const dashboardSectionPayloadSchema = z.object({
+  /** Stable key — used to dedup directives that govern the same section. */
+  section_key: z.string().min(1).max(80),
+  display_name: z.string().min(1).max(120),
+  component_type: dashboardComponentTypeEnum,
+  panel_key: dashboardPanelKeyEnum.default('main'),
+  sort_order: z.number().int().default(100),
+  /** Optional: metric_key from progress_metrics registry (for kpi_row, sparkline_row, etc.). */
+  metric_key: z.string().max(80).nullable().optional(),
+  /** Plain-language template, interpolated with {field} placeholders against the snapshot. */
+  coaching_text_template: z.string().max(2000).nullable().optional(),
+  /** Per-component config (advanced — usually empty). */
+  config: z.record(z.string(), z.unknown()).default({}),
+  is_enabled: z.boolean().default(true),
+});
+
+// 25. signal_definition
+const signalPillConfigSchema = z.array(z.object({
+  field: z.string().max(60),
+  format: z.string().max(40).optional(),
+  label: z.string().max(60).optional(),
+})).default([]);
+
+const signalTriggerConfigSchema = z.array(z.object({
+  metric: z.string().max(60),
+  baseline_field: z.string().max(60).optional(),
+  format: z.string().max(40).optional(),
+})).default([]);
+
+export const signalDefinitionPayloadSchema = z.object({
+  signal_key: z.string().min(1).max(60),
+  display_name: z.string().min(1).max(120),
+  subtitle: z.string().max(240).nullable().optional(),
+  /** Inline conditions evaluated against the athlete snapshot. Same DSL the
+   *  legacy pd_signals.conditions used so a one-shot migration is trivial. */
+  conditions: z.object({
+    match: z.enum(['all', 'any']).default('all'),
+    conditions: z.array(z.object({
+      field: z.string().min(1),
+      operator: z.enum(['eq', 'neq', 'in', 'not_in', 'gt', 'gte', 'lt', 'lte']),
+      value: z.unknown(),
+    })),
+  }).default({ match: 'all', conditions: [] }),
+  /** Visual config — preserves the existing pd_signals visual system. */
+  color: z.string().max(32).nullable().optional(),
+  hero_background: z.string().max(80).nullable().optional(),
+  arc_opacity: z.number().min(0).max(1).optional(),
+  pill_background: z.string().max(80).nullable().optional(),
+  bar_rgba: z.string().max(80).nullable().optional(),
+  coaching_color: z.string().max(32).nullable().optional(),
+  /** What the athlete sees when this signal fires. Plain-language template. */
+  coaching_text_template: z.string().max(2000).nullable().optional(),
+  pill_config: signalPillConfigSchema,
+  trigger_config: signalTriggerConfigSchema,
+  /** Optional adapted-plan override surfaced in the hero. */
+  adapted_plan_name: z.string().max(120).nullable().optional(),
+  adapted_plan_meta: z.record(z.string(), z.unknown()).nullable().optional(),
+  show_urgency_badge: z.boolean().default(false),
+  urgency_label: z.string().max(40).nullable().optional(),
+  is_enabled: z.boolean().default(true),
+});
+
+// 26. program_rule
+const programRuleConditionSchema = z.object({
+  match: z.enum(['all', 'any']).default('all'),
+  conditions: z.array(z.object({
+    field: z.string().min(1),
+    operator: z.enum(['eq', 'neq', 'in', 'not_in', 'gt', 'gte', 'lt', 'lte']),
+    value: z.unknown(),
+  })),
+}).default({ match: 'all', conditions: [] });
+
+export const programRuleCategoryEnum = z.enum([
+  'safety', 'development', 'recovery', 'performance',
+  'injury_prevention', 'position_specific', 'load_management',
+]);
+
+export const programRulePayloadSchema = z.object({
+  rule_name: z.string().min(1).max(120),
+  description: z.string().max(2000).nullable().optional(),
+  category: programRuleCategoryEnum.default('development'),
+  conditions: programRuleConditionSchema,
+  /** Programs to mandate / block / promote. Use program ids or stable slugs. */
+  mandatory_programs: z.array(z.string()).default([]),
+  blocked_programs: z.array(z.string()).default([]),
+  high_priority_programs: z.array(z.string()).default([]),
+  prioritize_categories: z.array(z.string()).default([]),
+  block_categories: z.array(z.string()).default([]),
+  /** Numeric overrides (apply across all programs the rule matches). */
+  load_multiplier: z.number().min(0).max(2).nullable().optional(),
+  session_cap_minutes: z.number().int().positive().nullable().optional(),
+  frequency_cap: z.number().int().positive().nullable().optional(),
+  intensity_cap: intensityLevelEnum.nullable().optional(),
+  /** Injected into the AI system prompt when programs are recommended. */
+  ai_guidance_text: z.string().max(2000).nullable().optional(),
+  /** Safety-critical rules cannot be overridden by AI. */
+  safety_critical: z.boolean().default(false),
+  /** Auditability — evidence grading. */
+  evidence_source: z.string().max(240).nullable().optional(),
+  evidence_grade: z.enum(['A', 'B', 'C']).nullable().optional(),
+  is_enabled: z.boolean().default(true),
+});
+
+
 // ─── Payload registry & discriminated validation ──────────────────────────
 
 export const directivePayloadSchemas = {
@@ -348,6 +485,10 @@ export const directivePayloadSchemas = {
   parent_report_policy: parentReportPolicyPayloadSchema,
   meta_parser: metaParserPayloadSchema,
   meta_conflict: metaConflictPayloadSchema,
+  // Phase 7
+  dashboard_section: dashboardSectionPayloadSchema,
+  signal_definition: signalDefinitionPayloadSchema,
+  program_rule: programRulePayloadSchema,
 } as const satisfies Record<DirectiveType, z.ZodTypeAny>;
 
 export function validateDirectivePayload<T extends DirectiveType>(

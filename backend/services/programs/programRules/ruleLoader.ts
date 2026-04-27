@@ -1,95 +1,96 @@
 /**
- * PD Program Rule Loader
+ * PD Program Rule Loader — methodology-resolver backed (Phase 7).
  *
- * Loads program rules from database with in-memory caching (5-minute TTL).
- * Same pattern as PDIL protocolLoader.ts.
+ * Hard cutover: legacy `pd_program_rules` table is no longer read at
+ * runtime. The `program_rule` directives in the live methodology
+ * snapshot are the only source. The Phase 7.0a migration seeded the
+ * snapshot with the equivalent of every legacy row, so behaviour is
+ * preserved on flip day.
+ *
+ * Cache lives inside `services/instructions/resolver` (60s TTL); this
+ * module just adapts the resolver output to the existing PDProgramRule
+ * shape so `evaluateRules` / `applyGuardrails` don't change.
  */
 
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { resolveInstructions } from '@/services/instructions/resolver';
 import type { PDProgramRule, ProgramRuleScopeFilter } from './types';
 
-// ── Cache ──
-let ruleCache: PDProgramRule[] | null = null;
-let cacheLoadedAt = 0;
-const CACHE_TTL_MS = 5 * 60 * 1000;
+function payloadToRule(d: {
+  id: string;
+  payload: Record<string, unknown>;
+  priority: number;
+  sport_scope: string[];
+  phv_scope: string[];
+  age_scope: string[];
+  position_scope: string[];
+  updated_at: string | null;
+}): PDProgramRule {
+  const p = d.payload as Record<string, any>;
+  return {
+    rule_id:                d.id,
+    name:                   String(p.rule_name ?? ''),
+    description:            (p.description as string | null) ?? null,
+    category:               (p.category as PDProgramRule['category']) ?? 'development',
+    conditions:             (p.conditions as any) ?? { match: 'all', conditions: [] },
+    priority:               typeof p.priority === 'number' ? p.priority : d.priority,
 
-async function loadAllRules(): Promise<PDProgramRule[]> {
-  const now = Date.now();
+    mandatory_programs:     (p.mandatory_programs as string[]) ?? [],
+    high_priority_programs: (p.high_priority_programs as string[]) ?? [],
+    blocked_programs:       (p.blocked_programs as string[]) ?? [],
+    prioritize_categories:  (p.prioritize_categories as string[]) ?? [],
+    block_categories:       (p.block_categories as string[]) ?? [],
 
-  if (ruleCache && (now - cacheLoadedAt) < CACHE_TTL_MS) {
-    return ruleCache;
-  }
+    load_multiplier:        p.load_multiplier != null ? Number(p.load_multiplier) : null,
+    session_cap_minutes:    p.session_cap_minutes != null ? Number(p.session_cap_minutes) : null,
+    frequency_cap:          p.frequency_cap != null ? Number(p.frequency_cap) : null,
+    intensity_cap:          (p.intensity_cap as PDProgramRule['intensity_cap']) ?? null,
 
-  const db = supabaseAdmin();
-  const { data, error } = await (db as any)
-    .from('pd_program_rules')
-    .select('*')
-    .eq('is_enabled', true)
-    .order('priority', { ascending: true });
+    ai_guidance_text:       (p.ai_guidance_text as string | null) ?? null,
+    safety_critical:        Boolean(p.safety_critical),
 
-  if (error) {
-    console.error('[ProgramRules] Failed to load rules:', error.message);
-    if (ruleCache) {
-      console.warn('[ProgramRules] Using stale cache as fallback');
-      return ruleCache;
-    }
-    return [];
-  }
+    // Scope filters: prefer explicit payload fields, fall back to directive scope arrays.
+    sport_filter:    d.sport_scope.length    ? d.sport_scope    : null,
+    phv_filter:      d.phv_scope.length      ? d.phv_scope      : null,
+    age_band_filter: d.age_scope.length      ? d.age_scope      : null,
+    position_filter: d.position_scope.length ? d.position_scope : null,
 
-  ruleCache = ((data as Record<string, unknown>[]) || []).map(normalizeRule);
-  cacheLoadedAt = now;
+    is_built_in:            Boolean(p.is_built_in),
+    is_enabled:             p.is_enabled !== false,
+    version:                typeof p.version === 'number' ? p.version : 1,
 
-  return ruleCache;
+    evidence_source:        (p.evidence_source as string | null) ?? null,
+    evidence_grade:         (p.evidence_grade as PDProgramRule['evidence_grade']) ?? null,
+    created_by:             null,
+    updated_by:             null,
+    created_at:             d.updated_at ?? new Date().toISOString(),
+    updated_at:             d.updated_at ?? new Date().toISOString(),
+  };
 }
 
-function normalizeRule(row: Record<string, unknown>): PDProgramRule {
-  return {
-    rule_id:                row.rule_id as string,
-    name:                   row.name as string,
-    description:            (row.description as string) ?? null,
-    category:               row.category as PDProgramRule['category'],
-    conditions:             typeof row.conditions === 'string'
-                              ? JSON.parse(row.conditions)
-                              : (row.conditions as PDProgramRule['conditions']),
-    priority:               (row.priority as number) ?? 100,
+async function loadAllRules(): Promise<PDProgramRule[]> {
+  const set = await resolveInstructions({ audience: 'athlete' });
+  const directives = set.byType('program_rule');
+  return directives
+    .filter((d) => (d.payload as any)?.is_enabled !== false)
+    .map(payloadToRule);
+}
 
-    mandatory_programs:     (row.mandatory_programs as string[]) ?? [],
-    high_priority_programs: (row.high_priority_programs as string[]) ?? [],
-    blocked_programs:       (row.blocked_programs as string[]) ?? [],
-    prioritize_categories:  (row.prioritize_categories as string[]) ?? [],
-    block_categories:       (row.block_categories as string[]) ?? [],
-
-    load_multiplier:        row.load_multiplier != null ? Number(row.load_multiplier) : null,
-    session_cap_minutes:    row.session_cap_minutes != null ? Number(row.session_cap_minutes) : null,
-    frequency_cap:          row.frequency_cap != null ? Number(row.frequency_cap) : null,
-    intensity_cap:          (row.intensity_cap as PDProgramRule['intensity_cap']) ?? null,
-
-    ai_guidance_text:       (row.ai_guidance_text as string) ?? null,
-    safety_critical:        (row.safety_critical as boolean) ?? false,
-
-    sport_filter:           (row.sport_filter as string[]) ?? null,
-    phv_filter:             (row.phv_filter as string[]) ?? null,
-    age_band_filter:        (row.age_band_filter as string[]) ?? null,
-    position_filter:        (row.position_filter as string[]) ?? null,
-
-    is_built_in:            (row.is_built_in as boolean) ?? false,
-    is_enabled:             (row.is_enabled as boolean) ?? true,
-    version:                (row.version as number) ?? 1,
-
-    evidence_source:        (row.evidence_source as string) ?? null,
-    evidence_grade:         (row.evidence_grade as PDProgramRule['evidence_grade']) ?? null,
-    created_by:             (row.created_by as string) ?? null,
-    updated_by:             (row.updated_by as string) ?? null,
-    created_at:             (row.created_at as string) ?? new Date().toISOString(),
-    updated_at:             (row.updated_at as string) ?? new Date().toISOString(),
-  };
+export async function loadActiveRules(
+  scope: ProgramRuleScopeFilter,
+): Promise<PDProgramRule[]> {
+  // The resolver's audience-only filter doesn't apply per-athlete scope —
+  // the legacy ruleLoader filtered by sport/phv/age/position locally, and
+  // the existing evaluateRules consumer expects that. Preserve the
+  // contract by post-filtering here.
+  const all = await loadAllRules();
+  return filterByScope(all, scope);
 }
 
 function filterByScope(
   rules: PDProgramRule[],
   scope: ProgramRuleScopeFilter,
 ): PDProgramRule[] {
-  return rules.filter(r => {
+  return rules.filter((r) => {
     if (r.sport_filter && r.sport_filter.length > 0 && scope.sport) {
       if (!r.sport_filter.includes(scope.sport)) return false;
     }
@@ -106,23 +107,17 @@ function filterByScope(
   });
 }
 
-export async function loadActiveRules(scope: ProgramRuleScopeFilter): Promise<PDProgramRule[]> {
-  const all = await loadAllRules();
-  return filterByScope(all, scope);
-}
-
+/** Phase 7: rule cache lives inside the resolver. Kept as a no-op so
+ *  callers (CMS admin pages) compile without changes. */
 export function clearProgramRuleCache(): void {
-  ruleCache = null;
-  cacheLoadedAt = 0;
+  // No-op since Phase 7
 }
 
 export function getProgramRuleCacheStatus() {
-  const now = Date.now();
-  const age = ruleCache ? now - cacheLoadedAt : 0;
   return {
-    cached: ruleCache !== null,
-    count: ruleCache?.length ?? 0,
-    age_ms: age,
-    ttl_remaining_ms: ruleCache ? Math.max(0, CACHE_TTL_MS - age) : 0,
+    cached: false,
+    count: 0,
+    age_ms: 0,
+    ttl_remaining_ms: 0,
   };
 }

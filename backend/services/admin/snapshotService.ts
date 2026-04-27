@@ -17,6 +17,7 @@
  */
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { invalidateInstructionsCache } from "@/services/instructions/resolver";
 import { listDirectives, type MethodologyDirective } from "./directiveService";
 
 const TABLE = "methodology_publish_snapshots";
@@ -173,6 +174,10 @@ export async function publishSnapshot(opts: PublishOptions): Promise<PublishSnap
     }
   }
 
+  // Phase 7: drop the resolver's in-memory snapshot cache so the next
+  // request sees the new live snapshot immediately (no 60s wait).
+  invalidateInstructionsCache();
+
   return snap as PublishSnapshotFull;
 }
 
@@ -213,5 +218,9 @@ export async function rollbackToSnapshot(
   // Best-effort: log the actor in case the audit table cares (audit trigger
   // is on directives, not snapshots; we use admin_audit_log via the route).
   void actorId;
+
+  // Phase 7: invalidate resolver cache so rollback takes effect immediately.
+  invalidateInstructionsCache();
+
   return updated as PublishSnapshotFull;
 }

@@ -25,6 +25,10 @@ export const DIRECTIVE_TYPE_LABEL: Record<DirectiveType, string> = {
   parent_report_policy: "Parent report rules",
   meta_parser: "Parser settings",
   meta_conflict: "Conflict resolution",
+  // Phase 7
+  dashboard_section: "Dashboard card",
+  signal_definition: "Dashboard alert",
+  program_rule: "Programs rule",
 };
 
 /** One-line description shown under each type label. */
@@ -52,6 +56,10 @@ export const DIRECTIVE_TYPE_DESCRIPTION: Record<DirectiveType, string> = {
   parent_report_policy: "Frequency, template, and blocked topics for parents.",
   meta_parser: "Prompt and model used to parse your methodology.",
   meta_conflict: "How to merge two rules that disagree.",
+  // Phase 7
+  dashboard_section: "A card that appears on the athlete's dashboard, scoped to who should see it.",
+  signal_definition: "A hero alert at the top of the dashboard — the colored block.",
+  program_rule: "Rule for which programs Tomo recommends, blocks, or caps.",
 };
 
 /** The five plain-English sections the command center groups directives under. */
@@ -85,6 +93,19 @@ export const SECTIONS: { label: string; description: string; types: DirectiveTyp
     description: "What athletes, coaches, and parents each see.",
     types: ["surface_policy", "coach_dashboard_policy", "parent_report_policy"],
     accent: "border-violet-200 bg-violet-50/50",
+  },
+  // Phase 7
+  {
+    label: "What Athletes See on Dashboard",
+    description: "Which cards and alerts appear on each athlete's dashboard, scoped to age, position, mode, and more.",
+    types: ["dashboard_section", "signal_definition"],
+    accent: "border-cyan-200 bg-cyan-50/50",
+  },
+  {
+    label: "Programs & Recommendations",
+    description: "Which training programs Tomo recommends, blocks, or load-caps for each athlete profile.",
+    types: ["program_rule"],
+    accent: "border-orange-200 bg-orange-50/50",
   },
 ];
 

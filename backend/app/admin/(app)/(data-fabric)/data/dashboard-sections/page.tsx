@@ -228,13 +228,30 @@ export default function DashboardSectionsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Phase 7 retirement banner */}
+      <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+        <p className="text-sm font-medium text-amber-900">
+          This page has been retired.
+        </p>
+        <p className="mt-1 text-xs text-amber-800">
+          Dashboard composition is now authored in the{" "}
+          <a
+            href="/admin/pd/instructions/directives?group=What%20Athletes%20See%20on%20Dashboard"
+            className="font-medium underline underline-offset-2"
+          >
+            Methodology Command Center → What Athletes See on Dashboard
+          </a>
+          . Every row below has been migrated as a <code>dashboard_section</code> directive
+          and is the source of truth at runtime. This page is kept read-only for audit.
+        </p>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard Sections</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard Sections (legacy)</h1>
           <p className="text-muted-foreground">
-            {enabledCount} of {totalCount} section{totalCount !== 1 ? "s" : ""} enabled
-            {" "}&mdash; controls the mobile dashboard layout.
-            Pinned sections (&#128274;) render at fixed screen positions.
+            {enabledCount} of {totalCount} section{totalCount !== 1 ? "s" : ""} enabled.
+            New authoring happens in the Methodology Command Center.
           </p>
         </div>
         <Button onClick={() => router.push("/admin/data/dashboard-sections/new")}>
