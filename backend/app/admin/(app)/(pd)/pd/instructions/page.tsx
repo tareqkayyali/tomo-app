@@ -1,164 +1,338 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { PageGuide } from "@/components/admin/PageGuide";
 import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
+import { withFrom } from "@/lib/admin/pdNav";
+import {
+  BUCKETS,
+  BUCKET_FOR_TYPE,
+  type Bucket,
+  type BucketSlug,
+} from "@/lib/admin/methodologyBuckets";
 import { instructionsHelp } from "@/lib/cms-help/instructions";
+import type { DirectiveType } from "@/lib/validation/admin/directiveSchemas";
 
-interface Stats {
-  documents: { total: number; draft: number; live: number };
-  directives: { total: number; proposed: number; approved: number; published: number };
+interface DocLite {
+  id: string;
+  bucket: BucketSlug | null;
+  status: "draft" | "under_review" | "published" | "archived";
+  updated_at: string;
 }
 
-const SECTIONS = [
-  {
-    label: "Coaching Style",
-    description: "Personality, tone, and how Tomo replies.",
-    types: ["identity", "tone", "response_shape"],
-    accent: "bg-blue-50 border-blue-200",
-  },
-  {
-    label: "Safety Rules",
-    description: "What Tomo must never recommend, and when to alert a coach.",
-    types: ["guardrail_phv", "guardrail_age", "guardrail_load", "safety_gate", "escalation"],
-    accent: "bg-red-50 border-red-200",
-  },
-  {
-    label: "Training Methodology",
-    description: "What good performance looks like, modes, periodization, scheduling, targets.",
-    types: ["performance_model", "threshold", "mode_definition", "planning_policy", "scheduling_policy"],
-    accent: "bg-emerald-50 border-emerald-200",
-  },
-  {
-    label: "What Tomo Does & Suggests",
-    description: "Routing, recommendations, knowledge, memory.",
-    types: ["routing_intent", "routing_classifier", "recommendation_policy", "rag_policy", "memory_policy"],
-    accent: "bg-amber-50 border-amber-200",
-  },
-  {
-    label: "Audiences",
-    description: "What athletes, coaches, and parents each see.",
-    types: ["surface_policy", "coach_dashboard_policy", "parent_report_policy"],
-    accent: "bg-violet-50 border-violet-200",
-  },
-];
+interface DirectiveLite {
+  id: string;
+  directive_type: DirectiveType;
+  status: "proposed" | "approved" | "published" | "retired";
+}
 
-export default function InstructionsHubPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
+interface LiveSnapshotLite {
+  id: string;
+  label: string;
+  published_at: string;
+  directives: { directive_type: DirectiveType }[];
+}
+
+interface BucketStatus {
+  bucket: Bucket;
+  /** Methodology docs in this bucket. */
+  doc_total: number;
+  doc_draft: number;
+  doc_published: number;
+  doc_latest_updated_at: string | null;
+  /** Rules currently in the draft set (approved + published) for this bucket. */
+  rules_in_draft: number;
+  rules_proposed: number;
+  /** Rules currently live in the snapshot for this bucket. */
+  rules_in_live: number;
+}
+
+function classifyBucket(slug: BucketSlug, docs: DocLite[], dirs: DirectiveLite[], liveDirs: { directive_type: DirectiveType }[]): BucketStatus {
+  const bucket = BUCKETS.find((b) => b.slug === slug)!;
+  const docsForBucket = docs.filter((d) => d.bucket === slug);
+  const dirsForBucket = dirs.filter((d) => BUCKET_FOR_TYPE[d.directive_type] === slug);
+  const liveDirsForBucket = liveDirs.filter((d) => BUCKET_FOR_TYPE[d.directive_type] === slug);
+  const latest = docsForBucket
+    .map((d) => d.updated_at)
+    .sort()
+    .reverse()[0] ?? null;
+  return {
+    bucket,
+    doc_total: docsForBucket.length,
+    doc_draft: docsForBucket.filter((d) => d.status === "draft").length,
+    doc_published: docsForBucket.filter((d) => d.status === "published").length,
+    doc_latest_updated_at: latest,
+    rules_in_draft: dirsForBucket.filter(
+      (d) => d.status === "approved" || d.status === "published",
+    ).length,
+    rules_proposed: dirsForBucket.filter((d) => d.status === "proposed").length,
+    rules_in_live: liveDirsForBucket.length,
+  };
+}
+
+function formatDate(s: string | null): string {
+  if (!s) return "—";
+  return new Date(s).toLocaleDateString();
+}
+
+export default function InstructionsOverviewPage() {
+  const [statuses, setStatuses] = useState<BucketStatus[] | null>(null);
+  const [liveSnap, setLiveSnap] = useState<LiveSnapshotLite | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/v1/admin/pd/instructions/documents", { credentials: "include" })
-        .then((r) => (r.ok ? r.json() : { documents: [] }))
-        .catch(() => ({ documents: [] })),
-      fetch("/api/v1/admin/pd/instructions/directives", { credentials: "include" })
-        .then((r) => (r.ok ? r.json() : { directives: [] }))
-        .catch(() => ({ directives: [] })),
-    ]).then(([d, r]) => {
-      const docs = d.documents ?? [];
-      const dirs = r.directives ?? [];
-      setStats({
-        documents: {
-          total: docs.length,
-          draft: docs.filter((x: any) => x.status === "draft").length,
-          live: docs.filter((x: any) => x.status === "published").length,
-        },
-        directives: {
-          total: dirs.length,
-          proposed: dirs.filter((x: any) => x.status === "proposed").length,
-          approved: dirs.filter((x: any) => x.status === "approved").length,
-          published: dirs.filter((x: any) => x.status === "published").length,
-        },
-      });
-    });
+    let cancelled = false;
+    (async () => {
+      try {
+        const [docsRes, dirsRes, liveRes] = await Promise.all([
+          fetch("/api/v1/admin/pd/instructions/documents", { credentials: "include" }),
+          fetch("/api/v1/admin/pd/instructions/directives", { credentials: "include" }),
+          fetch("/api/v1/admin/pd/instructions/snapshots/live", { credentials: "include" }),
+        ]);
+        if (!docsRes.ok || !dirsRes.ok) {
+          throw new Error("Failed to load methodology library or rules.");
+        }
+        const docs = ((await docsRes.json()).documents ?? []) as DocLite[];
+        const dirs = ((await dirsRes.json()).directives ?? []) as DirectiveLite[];
+        const live: LiveSnapshotLite | null = liveRes.ok
+          ? ((await liveRes.json()) as LiveSnapshotLite)
+          : null;
+        const liveDirs = live?.directives ?? [];
+        if (!cancelled) {
+          setLiveSnap(live);
+          setStatuses(BUCKETS.map((b) => classifyBucket(b.slug, docs, dirs, liveDirs)));
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const totals = useMemo(() => {
+    if (!statuses) return null;
+    return {
+      bucketsWithDocs: statuses.filter((s) => s.doc_total > 0).length,
+      bucketsLive: statuses.filter((s) => s.rules_in_live > 0).length,
+      bucketsEmpty: statuses.filter((s) => s.doc_total === 0 && s.rules_in_draft === 0).length,
+      ruleProposed: statuses.reduce((acc, s) => acc + s.rules_proposed, 0),
+    };
+  }, [statuses]);
 
   return (
     <div className="space-y-6">
       <Breadcrumbs items={[{ label: "Performance Director" }]} />
       <PageGuide {...instructionsHelp.hub.page} />
 
-      {/* Quick actions */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* Snapshot status strip */}
+      <div className="rounded-md border bg-background p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="space-y-0.5">
+          <div className="text-sm font-semibold">
+            {liveSnap ? (
+              <>
+                Live snapshot:{" "}
+                <Link
+                  href={`/admin/pd/instructions/snapshots/${liveSnap.id}`}
+                  className="text-blue-700 hover:underline"
+                >
+                  {liveSnap.label}
+                </Link>
+              </>
+            ) : (
+              "No snapshot live yet — author your first methodology below"
+            )}
+          </div>
+          {liveSnap && (
+            <div className="text-xs text-muted-foreground">
+              {liveSnap.directives.length} rule{liveSnap.directives.length === 1 ? "" : "s"} ·
+              published {new Date(liveSnap.published_at).toLocaleDateString()} ·{" "}
+              {totals?.bucketsLive ?? 0} of 14 buckets active
+            </div>
+          )}
+          {totals && totals.ruleProposed > 0 && (
+            <div className="text-xs text-amber-700">
+              {totals.ruleProposed} rule{totals.ruleProposed === 1 ? "" : "s"} waiting for your review
+            </div>
+          )}
+        </div>
+        <Link
+          href="/admin/pd/instructions/snapshots"
+          className="text-xs underline text-blue-700 hover:text-blue-900"
+        >
+          Manage snapshots →
+        </Link>
+      </div>
+
+      {/* Bucket dashboard */}
+      <div className="space-y-3">
+        <div className="flex items-baseline justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-base font-semibold">Methodology buckets</h2>
+            <p className="text-sm text-muted-foreground">
+              14 buckets cover the full Tomo experience. Each bucket is its own methodology document
+              that evolves over time. {totals && (
+                <>
+                  <span className="font-medium">{totals.bucketsWithDocs}</span> drafted ·{" "}
+                  <span className="font-medium">{totals.bucketsLive}</span> active in live ·{" "}
+                  <span className="font-medium">{totals.bucketsEmpty}</span> empty
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        {!statuses ? (
+          <p className="text-sm text-muted-foreground">Loading bucket status…</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {statuses.map((s) => (
+              <BucketCard key={s.bucket.slug} status={s} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quick links */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Link
           href="/admin/pd/instructions/library"
-          className="rounded-lg border bg-background p-5 transition-shadow hover:shadow-sm"
+          className="rounded-lg border bg-background p-4 transition-shadow hover:shadow-sm"
         >
-          <div className="text-base font-semibold">Methodology Library</div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Write or upload your coaching methodology in plain language.
+          <div className="text-sm font-semibold">All methodology documents</div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Open the full library, including legacy free-form docs.
           </p>
-          {stats && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              {stats.documents.total} document{stats.documents.total === 1 ? "" : "s"}
-              {stats.documents.draft > 0 && ` • ${stats.documents.draft} in draft`}
-              {stats.documents.live > 0 && ` • ${stats.documents.live} live`}
-            </p>
-          )}
         </Link>
-
         <Link
           href="/admin/pd/instructions/directives"
-          className="rounded-lg border bg-background p-5 transition-shadow hover:shadow-sm"
+          className="rounded-lg border bg-background p-4 transition-shadow hover:shadow-sm"
         >
-          <div className="text-base font-semibold">Rules</div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Review and approve the rules Tomo follows. Grouped by what they control.
+          <div className="text-sm font-semibold">All rules</div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Review and approve the typed rules Tomo follows.
           </p>
-          {stats && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              {stats.directives.total} rule{stats.directives.total === 1 ? "" : "s"}
-              {stats.directives.proposed > 0 && ` • ${stats.directives.proposed} waiting for review`}
-              {stats.directives.approved > 0 && ` • ${stats.directives.approved} approved`}
-              {stats.directives.published > 0 && ` • ${stats.directives.published} live`}
-            </p>
-          )}
+        </Link>
+        <Link
+          href="/admin/pd/instructions/conflicts"
+          className="rounded-lg border bg-background p-4 transition-shadow hover:shadow-sm"
+        >
+          <div className="text-sm font-semibold">Conflicts</div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Check shadowed and stacking rules across buckets.
+          </p>
         </Link>
       </div>
+    </div>
+  );
+}
 
-      {/* Five plain-English categories */}
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-base font-semibold">Your rules at a glance</h2>
-          <p className="text-sm text-muted-foreground">
-            Five categories cover everything Tomo does. Click into Rules to manage them.
-          </p>
-        </div>
+function BucketCard({ status }: { status: BucketStatus }) {
+  const { bucket } = status;
+  const tone =
+    status.rules_in_live > 0
+      ? "border-emerald-300 bg-emerald-50/50"
+      : status.doc_total > 0 || status.rules_in_draft > 0
+        ? "border-amber-300 bg-amber-50/50"
+        : "border-dashed border-muted bg-muted/20";
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {SECTIONS.map((s) => (
-            <Link
-              key={s.label}
-              href={`/admin/pd/instructions/directives?group=${encodeURIComponent(s.label)}`}
-              className={`rounded-lg border p-4 transition-shadow hover:shadow-sm ${s.accent}`}
-            >
-              <div className="text-sm font-semibold text-foreground">{s.label}</div>
-              <p className="mt-1 text-xs text-muted-foreground">{s.description}</p>
-            </Link>
-          ))}
+  return (
+    <div className={`rounded-lg border-2 p-4 space-y-3 transition-shadow hover:shadow-sm ${tone}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">{bucket.label}</div>
+          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{bucket.summary}</p>
         </div>
+        <StatusBadge status={status} />
       </div>
 
-      {/* Onboarding hint */}
-      <div className="rounded-md border border-dashed bg-muted/30 px-4 py-3">
-        <p className="text-sm font-medium">First time here?</p>
-        <ol className="mt-1.5 space-y-1 text-sm text-muted-foreground">
-          <li>1. Write or upload your coaching methodology in the <strong>Methodology Library</strong>.</li>
-          <li>2. (Coming soon) Click <em>Parse</em> to turn your prose into structured rules — or hand-author rules directly.</li>
-          <li>3. Review the proposed rules in <strong>Rules</strong> and approve the ones you like.</li>
-          <li>4. (Coming next phase) Publish a snapshot to make them live.</li>
-        </ol>
-        <div className="mt-3">
-          <Link
-            href="/admin/pd/instructions/library"
-            className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
-          >
-            Start with your methodology →
-          </Link>
+      <dl className="grid grid-cols-3 gap-2 text-xs">
+        <div>
+          <dt className="text-muted-foreground">Docs</dt>
+          <dd className="font-medium">
+            {status.doc_total}
+            {status.doc_draft > 0 && (
+              <span className="ml-1 text-amber-700">· {status.doc_draft} draft</span>
+            )}
+          </dd>
         </div>
+        <div>
+          <dt className="text-muted-foreground">Rules</dt>
+          <dd className="font-medium">
+            {status.rules_in_draft}
+            {status.rules_proposed > 0 && (
+              <span className="ml-1 text-amber-700">· {status.rules_proposed} review</span>
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">In live</dt>
+          <dd className={`font-medium ${status.rules_in_live > 0 ? "text-emerald-700" : "text-muted-foreground"}`}>
+            {status.rules_in_live}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="text-xs text-muted-foreground">
+        Cadence: {bucket.cadence}
+        {status.doc_latest_updated_at && (
+          <> · last edited {formatDate(status.doc_latest_updated_at)}</>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        {status.doc_total > 0 ? (
+          <Link
+            href={withFrom(
+              `/admin/pd/instructions/library?bucket=${bucket.slug}`,
+              "library",
+            )}
+            className="inline-flex h-7 items-center rounded border bg-background px-2 text-xs font-medium hover:bg-muted"
+          >
+            Open methodology
+          </Link>
+        ) : null}
+        <Link
+          href={`/admin/pd/instructions/library?bucket=${bucket.slug}&create=1`}
+          className="inline-flex h-7 items-center rounded border bg-background px-2 text-xs font-medium hover:bg-muted"
+        >
+          {status.doc_total === 0 ? "+ Add methodology" : "+ New doc"}
+        </Link>
       </div>
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: BucketStatus }) {
+  if (status.rules_in_live > 0) {
+    return (
+      <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600 shrink-0">
+        Active in live
+      </Badge>
+    );
+  }
+  if (status.rules_in_draft > 0) {
+    return (
+      <Badge variant="outline" className="border-amber-400 text-amber-900 shrink-0">
+        Approved · not live
+      </Badge>
+    );
+  }
+  if (status.doc_total > 0) {
+    return (
+      <Badge variant="secondary" className="shrink-0">
+        Drafted
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="border-dashed text-muted-foreground shrink-0">
+      Empty
+    </Badge>
   );
 }

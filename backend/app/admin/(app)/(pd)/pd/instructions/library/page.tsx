@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,9 @@ const AUDIENCE_LABEL: Record<Doc["audience"], string> = {
 
 export default function LibraryPage() {
   const router = useRouter();
+  const sp = useSearchParams();
+  const filterBucket = sp.get("bucket") as BucketSlug | null;
+  const autoCreate = sp.get("create") === "1";
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -110,6 +113,30 @@ export default function LibraryPage() {
   useEffect(() => {
     load();
   }, []);
+
+  // Deep-link: /library?bucket=<slug>&create=1 opens the create dialog with
+  // the bucket pre-selected and the starter template pre-filled. Used by the
+  // overview bucket dashboard.
+  useEffect(() => {
+    if (autoCreate && filterBucket) {
+      setBucket(filterBucket);
+      const starter = BUCKET_BY_SLUG[filterBucket]?.starter_template;
+      if (starter) setSourceText(starter);
+      setOpen(true);
+      // Clear the create flag so a refresh doesn't re-open the dialog.
+      const params = new URLSearchParams(sp.toString());
+      params.delete("create");
+      router.replace(
+        `/admin/pd/instructions/library${params.toString() ? `?${params.toString()}` : ""}`,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const visibleDocs = useMemo(() => {
+    if (!filterBucket) return docs;
+    return docs.filter((d) => d.bucket === filterBucket);
+  }, [docs, filterBucket]);
 
   async function handleCreate() {
     if (!title.trim()) {
@@ -195,6 +222,22 @@ export default function LibraryPage() {
         ]}
       />
       <PageGuide {...instructionsHelp.library.page} />
+
+      {filterBucket && BUCKET_BY_SLUG[filterBucket] && (
+        <div className="rounded-md border border-blue-200 bg-blue-50/60 p-3 flex items-center justify-between gap-3 flex-wrap text-xs">
+          <div className="text-blue-900">
+            Filtered to bucket:{" "}
+            <span className="font-semibold">{BUCKET_BY_SLUG[filterBucket].label}</span> —{" "}
+            {visibleDocs.length} document{visibleDocs.length === 1 ? "" : "s"}
+          </div>
+          <Link
+            href="/admin/pd/instructions/library"
+            className="text-blue-700 hover:underline font-medium"
+          >
+            Show all buckets →
+          </Link>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">Your methodology documents</h2>
@@ -295,7 +338,7 @@ For athletes going through a growth spurt, never recommend max-effort lifts or d
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : docs.length === 0 ? (
+      ) : visibleDocs.length === 0 ? (
         <div className="rounded-md border border-dashed p-8 text-center">
           <p className="text-sm text-muted-foreground">
             No methodology documents yet. Click <strong>+ New document</strong> to get started.
@@ -315,7 +358,7 @@ For athletes going through a growth spurt, never recommend max-effort lifts or d
               </TableRow>
             </TableHeader>
             <TableBody>
-              {docs.map((d) => (
+              {visibleDocs.map((d) => (
                 <TableRow key={d.id}>
                   <TableCell className="font-medium">
                     <Link
