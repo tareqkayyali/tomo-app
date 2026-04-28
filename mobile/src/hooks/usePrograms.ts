@@ -20,7 +20,7 @@ import {
   type ActiveProgramEntry,
   type OutputSnapshot,
 } from '../services/api';
-import { emitRefresh } from '../utils/refreshBus';
+import { emitRefresh, onRefresh } from '../utils/refreshBus';
 
 type Recommendation = OutputSnapshot['programs']['recommendations'][0];
 type Source = 'coach' | 'ai_recommended' | 'player_added';
@@ -65,6 +65,14 @@ export function usePrograms(): UseProgramsResult {
 
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  // Refetch when anyone emits a 'programs' refresh — e.g. after a chat
+  // capsule mutates athlete state (injury flag, program interaction).
+  useEffect(() => {
+    return onRefresh('programs', () => {
+      refresh();
+    });
   }, [refresh]);
 
   const toggleActive = useCallback(async (program: Recommendation) => {

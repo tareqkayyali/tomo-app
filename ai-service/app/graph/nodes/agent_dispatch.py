@@ -722,6 +722,11 @@ async def execute_confirmed_action(state: TomoChatState) -> dict:
             refresh_targets.add("recommendations")
         if "program" in name:
             refresh_targets.add("programs")
+        if "injury" in name:
+            # Injury writes change athlete_snapshots.injury_risk_flag, which
+            # the /programs/recommend gate reads — programs panel must refetch.
+            refresh_targets.add("programs")
+            refresh_targets.add("recommendations")
         if "test" in name or "journal" in name or "check_in" in name:
             refresh_targets.add("metrics")
         # Every write action should refresh notifications
