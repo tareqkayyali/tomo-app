@@ -6,7 +6,74 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+/**
+ * Walk the Select's children tree, find every <SelectItem>, and build a
+ * { value -> label } map base-ui uses to display the selected value in the
+ * trigger.
+ *
+ * Without this, <Select.Value> falls back to rendering the raw `value`
+ * string ("kpi_row" instead of "KPI row (shows a metric)"). Our app never
+ * wants that — so the wrapper auto-extracts the map. Consumers don't have
+ * to pass anything new.
+ *
+ * Handles arrays (`{xs.map(...)}`), fragments, and nested wrappers.
+ */
+function extractSelectItemsMap(
+  children: React.ReactNode,
+  out: Record<string, React.ReactNode> = {},
+): Record<string, React.ReactNode> {
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return;
+    const props = child.props as Record<string, unknown> | undefined;
+    if (!props) return;
+
+    // Direct match: our SelectItem wrapper or base-ui SelectPrimitive.Item.
+    const isItem =
+      child.type === SelectItem ||
+      child.type === SelectPrimitive.Item ||
+      props["data-slot"] === "select-item";
+
+    if (isItem && props.value !== undefined && props.value !== null) {
+      const key = String(props.value);
+      // Only overwrite if not already set — first SelectItem wins (matches
+      // base-ui's "first match wins" semantics for trigger display).
+      if (!(key in out)) {
+        out[key] = props.children as React.ReactNode;
+      }
+    }
+
+    // Recurse into nested children (Fragments, conditional renders, wrappers).
+    if (props.children !== undefined) {
+      extractSelectItemsMap(props.children as React.ReactNode, out);
+    }
+  });
+  return out;
+}
+
+// Mirror base-ui's generic signature so callers keep their inference for
+// `onValueChange={(v) => ...}` etc.
+function Select<Value, Multiple extends boolean | undefined = false>(
+  props: SelectPrimitive.Root.Props<Value, Multiple>,
+): React.ReactElement {
+  const { items: itemsProp, children, ...rest } = props as {
+    items?: unknown;
+    children?: React.ReactNode;
+  } & Record<string, unknown>;
+
+  const derivedItems = React.useMemo(() => {
+    if (itemsProp !== undefined) return itemsProp as Record<string, React.ReactNode>;
+    return extractSelectItemsMap(children);
+  }, [itemsProp, children]);
+
+  return (
+    <SelectPrimitive.Root
+      {...(rest as SelectPrimitive.Root.Props<Value, Multiple>)}
+      items={derivedItems as Record<string, React.ReactNode>}
+    >
+      {children}
+    </SelectPrimitive.Root>
+  );
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
