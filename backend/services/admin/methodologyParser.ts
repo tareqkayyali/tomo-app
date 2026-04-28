@@ -133,6 +133,174 @@ const TYPE_GUIDE: Array<{ type: DirectiveType; description: string; payload_keys
     payload_keys: ["rule_name", "description", "category", "conditions", "mandatory_programs", "blocked_programs", "high_priority_programs", "prioritize_categories", "block_categories", "load_multiplier", "session_cap_minutes", "frequency_cap", "intensity_cap", "ai_guidance_text", "safety_critical", "evidence_source", "evidence_grade", "is_enabled"] },
 ];
 
+// ─── Strict per-type payload shapes (shown to Claude) ────────────────────
+// Without these, Claude knows the field NAMES but not the TYPES, and
+// improvises shapes that fail Zod validation. The shapes below are
+// rendered into the system prompt as TypeScript-like signatures plus
+// a concrete JSON example for each common type.
+
+const PAYLOAD_SHAPES: Partial<Record<DirectiveType, { shape: string; example: string }>> = {
+  identity: {
+    shape:
+      `persona_name:           string
+persona_description:    string  (long-form description, may be multi-paragraph)
+voice_attributes:       string[]   e.g. ["warm","direct","evidence-based"]
+pronouns:               string  (optional)
+emoji_policy:           "none" | "sparing" | "moderate" | "frequent"   ← strict enum
+cultural_register:      string  (optional)`,
+    example: `{
+  "persona_name": "Tomo",
+  "persona_description": "A steady, knowledgeable coach who...",
+  "voice_attributes": ["warm","direct","evidence-based"],
+  "emoji_policy": "sparing"
+}`,
+  },
+  tone: {
+    shape:
+      `banned_phrases:               string[]   exact phrases the assistant must never say
+banned_patterns:              string[]   regex source strings; leave empty if unsure
+required_companion_clauses:   Record<string, string>   { phrase: required_followup }
+                              KEY = phrase that triggers; VALUE = follow-up text the assistant must add
+age_specific_jargon_rules:    Record<string, string[]>   { age_band: forbidden_terms }
+clinical_language_rules:      string[]   list of clinical phrases to avoid (a flat array)
+acronym_scaffolding_rules:    string[]   list of acronyms (string names ONLY, NOT translations)
+                              e.g. ["ACWR","PHV","RPE","HRV"]   ← if the doc shows "ACWR → 'workload trend'",
+                              put only "ACWR" in this list. The translation does NOT belong here.`,
+    example: `{
+  "banned_phrases": ["great effort","fantastic work","amazing job"],
+  "banned_patterns": [],
+  "required_companion_clauses": {},
+  "clinical_language_rules": [],
+  "acronym_scaffolding_rules": ["ACWR","PHV","RPE","HRV"]
+}`,
+  },
+  response_shape: {
+    shape:
+      `max_length_by_intent:   Record<string, number>   { intent_key: integer_count }
+                        VALUES MUST BE INTEGERS. If the source says "2-4 sentences", omit the field
+                        or use a single integer like 4.
+structure_template:     string  (optional)
+opening_pattern:        string  (optional)
+closing_pattern:        string  (optional)
+bullet_policy:          "avoid" | "allow" | "prefer"   ← strict enum
+emoji_density:          "none" | "low" | "medium" | "high"   ← strict enum (lowercase)
+card_vs_text_rules:     Record<string, "card" | "text" | "mixed">
+chip_suggestions:       Record<string, string[]>`,
+    example: `{
+  "max_length_by_intent": {},
+  "bullet_policy": "allow",
+  "emoji_density": "low"
+}`,
+  },
+  guardrail_phv: {
+    shape:
+      `blocked_exercises:        string[]
+blocked_patterns:         string[]   regex source strings (advanced)
+phv_stage_rules:          Record<"pre_phv"|"mid_phv"|"post_phv", { blocked_exercises: string[], intensity_cap: "rest"|"light"|"moderate"|"full"? }>
+advisory_or_blocking:     "advisory" | "blocking"
+safe_alternatives:        Record<string, string[]>   { exercise: alternatives }
+safety_warning_template:  string
+unknown_age_default:      "conservative" | "permissive"`,
+    example: `{
+  "blocked_exercises": ["barbell back squat","depth jump"],
+  "advisory_or_blocking": "advisory",
+  "unknown_age_default": "conservative"
+}`,
+  },
+  guardrail_load: {
+    shape:
+      `acwr_zones:                  { green:[number,number], yellow:[number,number], red:[number,number] }  (optional)
+dual_load_thresholds:        object  (optional)
+consecutive_hard_day_limit:  number  (integer)
+weekly_load_cap:             number
+recovery_gap_hours:          number  (integer)`,
+    example: `{
+  "consecutive_hard_day_limit": 3,
+  "recovery_gap_hours": 24
+}`,
+  },
+  threshold: {
+    shape:
+      `metric_name:        string
+zone_boundaries:    { green?:[number,number], yellow?:[number,number], red?:[number,number] }
+age_band_adjustments:  Record<string, number>  (optional)
+phv_adjustments:       Record<string, number>  (optional)
+sport_adjustments:     Record<string, number>  (optional)`,
+    example: `{
+  "metric_name": "readiness_score",
+  "zone_boundaries": { "green":[80,100], "yellow":[60,80], "red":[0,60] }
+}`,
+  },
+  program_rule: {
+    shape:
+      `rule_name:                string
+description:              string  (optional)
+category:                 "safety" | "development" | "recovery" | "performance" | "injury_prevention" | "position_specific" | "load_management"
+conditions:               { match: "all"|"any", conditions: [{field, operator, value}] }
+mandatory_programs:       string[]   program ids/slugs
+blocked_programs:         string[]
+high_priority_programs:   string[]
+prioritize_categories:    string[]
+block_categories:         string[]
+load_multiplier:          number  (0..2)
+session_cap_minutes:      number  (integer)
+frequency_cap:            number  (integer)
+intensity_cap:            "rest" | "light" | "moderate" | "full"
+ai_guidance_text:         string
+safety_critical:          boolean`,
+    example: `{
+  "rule_name": "U15 strikers Build phase",
+  "category": "position_specific",
+  "conditions": { "match": "all", "conditions": [] },
+  "mandatory_programs": ["acl_prevention","hamstring_protocol"],
+  "blocked_programs": ["heavy_deadlift"],
+  "intensity_cap": "moderate",
+  "safety_critical": false
+}`,
+  },
+  dashboard_section: {
+    shape:
+      `section_key:              string  (lowercase_underscore label, your invented name)
+display_name:             string  (what the athlete reads as the card title)
+component_type:           "signal_hero" | "status_ring" | "kpi_row" | "sparkline_row" | "dual_load" | "benchmark" | "rec_list" | "event_list" | "growth_card" | "engagement_bar" | "protocol_banner" | "custom_card"
+panel_key:                "main" | "program" | "metrics" | "progress"   default "main"
+sort_order:               number  (integer; lower = higher on screen)
+metric_key:               string | null   (only for kpi_row, sparkline_row, status_ring, benchmark)
+coaching_text_template:   string | null   (supports {field} placeholders)
+config:                   object   (usually empty {})
+is_enabled:               boolean`,
+    example: `{
+  "section_key": "u13_striker_sleep_trend",
+  "display_name": "Sleep — last 7 days",
+  "component_type": "sparkline_row",
+  "panel_key": "main",
+  "sort_order": 5,
+  "metric_key": "sleep_hours",
+  "coaching_text_template": "You've slept {sleep_hours}h on average this week.",
+  "config": {},
+  "is_enabled": true
+}`,
+  },
+  memory_policy: {
+    shape:
+      `extraction_prompt_template:  string
+atom_types:                  string[]
+truncation_tokens:           number  (integer)
+dedup_strategy:              "naive" | "embedding" | "llm_judge"
+retention_days:              number  (integer)
+sport_aware_rules:           object  (usually {})
+extraction_trigger:          { on_turn_count?: number, on_signal: string[] }`,
+    example: `{
+  "extraction_prompt_template": "Extract goals, concerns, injuries...",
+  "atom_types": ["current_goals","unresolved_concerns"],
+  "truncation_tokens": 500,
+  "dedup_strategy": "embedding",
+  "retention_days": 365,
+  "extraction_trigger": { "on_signal": [] }
+}`,
+  },
+};
+
 // ─── Prompt builders ──────────────────────────────────────────────────────
 
 function buildSystemPrompt(): string {
@@ -140,12 +308,30 @@ function buildSystemPrompt(): string {
     (t) => `- "${t.type}": ${t.description} Payload keys: ${t.payload_keys.join(", ")}.`,
   ).join("\n");
 
+  // Render the strict-shape section for the types where we provide one.
+  const shapeBlock = (Object.entries(PAYLOAD_SHAPES) as Array<
+    [DirectiveType, { shape: string; example: string }]
+  >)
+    .map(
+      ([type, { shape, example }]) =>
+        `## "${type}"\n\nFields:\n${shape}\n\nExample payload:\n${example}`,
+    )
+    .join("\n\n");
+
   return `You are the Methodology Parser for Tomo — an AI coaching platform for young athletes.
 
-Your job: read a Performance Director's prose methodology and extract every machine-applicable rule into one of 23 directive types.
+Your job: read a Performance Director's prose methodology and extract every machine-applicable rule into one of 26 directive types.
 
 # Directive types
 ${typeList}
+
+# Strict payload shapes for the most common types
+
+The "payload" object MUST match the field types below exactly. If you produce
+a string where a number is expected, an array where a record is expected, or
+an enum value not in the listed set, the rule is dropped.
+
+${shapeBlock}
 
 # Rules
 - Output ONE proposal per atomic rule. Do not bundle unrelated rules into one directive.
@@ -161,6 +347,41 @@ ${typeList}
 - For payload field types: arrays use array literals, numeric fields use numbers, booleans use true/false. Never embed JSON inside strings.
 - If the document expresses a rule that doesn't fit any of the 26 types cleanly, skip it — do not force a fit.
 - Do not duplicate rules. If the same rule appears twice in the source, emit it once.
+
+# Critical type pitfalls (read carefully)
+
+1. \`emoji_policy\` (identity) and \`emoji_density\` (response_shape) use DIFFERENT enums.
+   - emoji_policy: "none" | "sparing" | "moderate" | "frequent"
+   - emoji_density: "none" | "low" | "medium" | "high"
+   If the doc says "Emoji density: low" → response_shape.emoji_density = "low" AND
+   identity.emoji_policy = "sparing" (the closest equivalent).
+
+2. \`acronym_scaffolding_rules\` is a flat \`string[]\` of acronym NAMES, NOT a record of translations.
+   If the source has "ACWR → 'your workload trend'; PHV → 'your growth phase'":
+     CORRECT:   "acronym_scaffolding_rules": ["ACWR","PHV","RPE","HRV"]
+     WRONG:     {"ACWR": "your workload trend", "PHV": "your growth phase"}
+   The translations themselves don't belong in any payload field — they're
+   coaching-style preferences captured in identity.persona_description or
+   tone.banned_patterns.
+
+3. \`clinical_language_rules\` is \`string[]\` (a list of phrases), not a record.
+   If the doc lists "Avoid: data, metrics, optimal":
+     CORRECT:   ["data","metrics","optimal"]
+     WRONG:     {"data": "avoid", "metrics": "avoid"}
+
+4. \`required_companion_clauses\` is \`Record<string,string>\` — KEYS are trigger
+   phrases, VALUES are the follow-up text required when the trigger appears.
+   If the doc just lists banned phrases with no follow-ups, leave this as \`{}\`
+   and put the phrases in \`banned_phrases\` instead.
+
+5. \`max_length_by_intent\` values MUST be integers. If the source says
+   "2-4 short sentences", do NOT put "2-4 sentences" as a string. Either:
+     - Omit the field entirely, OR
+     - Set a single integer like {"default": 4} (interpreted as max sentence count).
+
+6. Enum values are exact lowercase strings from the listed set. "Low" ≠ "low".
+
+7. If a field's value is unclear from the document, OMIT the field. Don't guess.
 
 Call the propose_directives tool exactly once with the full array of proposals. Do not return prose.`;
 }
@@ -223,6 +444,235 @@ function buildUserMessage(doc: MethodologyDocument): string {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+// ─── Coercion (Postel's law) ──────────────────────────────────────────────
+//
+// Claude occasionally produces a close-but-not-exact payload shape — e.g.
+// returning a Record where we expect a string[], or a string where we
+// expect a number. Rather than dropping every such directive, we apply a
+// small set of deterministic coercions that fix the common misfires
+// without changing the rule's intent. Anything we can't safely coerce
+// is left for Zod to reject and surface to the operator.
+//
+// Coercion is per-directive-type and only touches fields known to be
+// confused. Unknown / unaffected fields pass through untouched.
+
+const EMOJI_POLICY_SYNONYMS: Record<string, string> = {
+  // Common synonyms Claude returns for emoji_policy. Map to the canonical enum.
+  low: "sparing",
+  light: "sparing",
+  rare: "sparing",
+  rarely: "sparing",
+  some: "moderate",
+  often: "frequent",
+  high: "frequent",
+};
+
+const BULLET_POLICY_SYNONYMS: Record<string, string> = {
+  no: "avoid",
+  none: "avoid",
+  conditional: "allow",
+  limited: "allow",
+  yes: "prefer",
+  always: "prefer",
+};
+
+const EMOJI_DENSITY_SYNONYMS: Record<string, string> = {
+  sparing: "low",
+  sparingly: "low",
+  rare: "low",
+  some: "medium",
+  often: "high",
+  frequent: "high",
+};
+
+const INTENSITY_CAP_SYNONYMS: Record<string, string> = {
+  rest_only: "rest",
+  light_only: "light",
+  moderate_only: "moderate",
+  full_intensity: "full",
+};
+
+function lowerEnum(v: unknown, allowed: readonly string[], synonyms?: Record<string, string>): unknown {
+  if (typeof v !== "string") return v;
+  const lc = v.trim().toLowerCase();
+  if (allowed.includes(lc)) return lc;
+  if (synonyms && synonyms[lc] !== undefined) return synonyms[lc];
+  // Couldn't normalise — return as-is and let Zod reject so the operator sees it.
+  return v;
+}
+
+function objectKeysToArray(v: unknown): unknown {
+  // If Claude returned `{ ACWR: "foo", PHV: "bar" }` for a field we expect
+  // to be string[] (just the names), take the keys.
+  if (Array.isArray(v)) return v;
+  if (v && typeof v === "object") return Object.keys(v as Record<string, unknown>);
+  return v;
+}
+
+function arrayToEmptyRecord(v: unknown): unknown {
+  // If Claude returned an array for a field we expect to be Record<string,...>,
+  // and the array is empty, coerce to {}. Non-empty arrays are left alone
+  // (Zod will reject and the operator can fix the source).
+  if (Array.isArray(v) && v.length === 0) return {};
+  return v;
+}
+
+function dropNonNumericValues(v: unknown): unknown {
+  // For Record<string, number> fields where Claude returned strings:
+  // try to extract the first integer from each string. If unparseable,
+  // drop the entry entirely.
+  if (!v || typeof v !== "object" || Array.isArray(v)) return v;
+  const out: Record<string, number> = {};
+  for (const [k, raw] of Object.entries(v as Record<string, unknown>)) {
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+      out[k] = raw;
+      continue;
+    }
+    if (typeof raw === "string") {
+      const m = raw.match(/-?\d+(?:\.\d+)?/);
+      if (m) {
+        const n = Number(m[0]);
+        if (Number.isFinite(n)) {
+          out[k] = n;
+          continue;
+        }
+      }
+    }
+    // unparseable — drop
+  }
+  return out;
+}
+
+export function coercePayload(
+  type: DirectiveType,
+  raw: unknown,
+): Record<string, unknown> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const p = { ...(raw as Record<string, unknown>) };
+
+  switch (type) {
+    case "identity":
+      if ("emoji_policy" in p) {
+        p.emoji_policy = lowerEnum(
+          p.emoji_policy,
+          ["none", "sparing", "moderate", "frequent"] as const,
+          EMOJI_POLICY_SYNONYMS,
+        );
+      }
+      break;
+
+    case "tone":
+      // acronym_scaffolding_rules: Record -> keys (string[])
+      if ("acronym_scaffolding_rules" in p) {
+        p.acronym_scaffolding_rules = objectKeysToArray(p.acronym_scaffolding_rules);
+      }
+      // clinical_language_rules: Record -> keys (string[])
+      if ("clinical_language_rules" in p) {
+        p.clinical_language_rules = objectKeysToArray(p.clinical_language_rules);
+      }
+      // required_companion_clauses: empty array -> {}
+      if ("required_companion_clauses" in p) {
+        p.required_companion_clauses = arrayToEmptyRecord(p.required_companion_clauses);
+      }
+      // age_specific_jargon_rules: empty array -> {}
+      if ("age_specific_jargon_rules" in p) {
+        p.age_specific_jargon_rules = arrayToEmptyRecord(p.age_specific_jargon_rules);
+      }
+      break;
+
+    case "response_shape":
+      if ("bullet_policy" in p) {
+        p.bullet_policy = lowerEnum(
+          p.bullet_policy,
+          ["avoid", "allow", "prefer"] as const,
+          BULLET_POLICY_SYNONYMS,
+        );
+      }
+      if ("emoji_density" in p) {
+        p.emoji_density = lowerEnum(
+          p.emoji_density,
+          ["none", "low", "medium", "high"] as const,
+          EMOJI_DENSITY_SYNONYMS,
+        );
+      }
+      if ("max_length_by_intent" in p) {
+        p.max_length_by_intent = dropNonNumericValues(p.max_length_by_intent);
+      }
+      if ("card_vs_text_rules" in p) {
+        // Empty-array safety net.
+        p.card_vs_text_rules = arrayToEmptyRecord(p.card_vs_text_rules);
+      }
+      if ("chip_suggestions" in p) {
+        p.chip_suggestions = arrayToEmptyRecord(p.chip_suggestions);
+      }
+      break;
+
+    case "guardrail_phv":
+      if ("advisory_or_blocking" in p) {
+        p.advisory_or_blocking = lowerEnum(
+          p.advisory_or_blocking,
+          ["advisory", "blocking"] as const,
+        );
+      }
+      if ("unknown_age_default" in p) {
+        p.unknown_age_default = lowerEnum(
+          p.unknown_age_default,
+          ["conservative", "permissive"] as const,
+        );
+      }
+      break;
+
+    case "mode_definition":
+      if ("intensity_caps" in p) {
+        p.intensity_caps = lowerEnum(
+          p.intensity_caps,
+          ["rest", "light", "moderate", "full"] as const,
+          INTENSITY_CAP_SYNONYMS,
+        );
+      }
+      break;
+
+    case "program_rule":
+      if ("intensity_cap" in p) {
+        p.intensity_cap = lowerEnum(
+          p.intensity_cap,
+          ["rest", "light", "moderate", "full"] as const,
+          INTENSITY_CAP_SYNONYMS,
+        );
+      }
+      if ("category" in p) {
+        p.category = lowerEnum(
+          p.category,
+          [
+            "safety", "development", "recovery", "performance",
+            "injury_prevention", "position_specific", "load_management",
+          ] as const,
+        );
+      }
+      break;
+
+    case "memory_policy":
+      if ("dedup_strategy" in p) {
+        p.dedup_strategy = lowerEnum(
+          p.dedup_strategy,
+          ["naive", "embedding", "llm_judge"] as const,
+        );
+      }
+      break;
+
+    case "dashboard_section":
+      if ("panel_key" in p) {
+        p.panel_key = lowerEnum(
+          p.panel_key,
+          ["main", "program", "metrics", "progress"] as const,
+        );
+      }
+      break;
+  }
+
+  return p;
 }
 
 // ─── Dedup ────────────────────────────────────────────────────────────────
@@ -330,7 +780,8 @@ export async function parseMethodologyDocument(
       continue;
     }
 
-    const payloadResult = directivePayloadSchemas[dt].safeParse(raw.payload ?? {});
+    const coerced = coercePayload(dt, raw.payload ?? {});
+    const payloadResult = directivePayloadSchemas[dt].safeParse(coerced);
     if (!payloadResult.success) {
       const flat = payloadResult.error.flatten();
       errors.push({
