@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +17,30 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageGuide } from "@/components/admin/PageGuide";
+import { DIRECTIVE_TYPE_LABEL } from "../_components/directiveLabels";
+
+interface Collision {
+  group_key: string;
+  directive_type: keyof typeof DIRECTIVE_TYPE_LABEL;
+  audience: "athlete" | "coach" | "parent" | "all";
+  scope_summary: string;
+  winner: { id: string; payload: Record<string, unknown>; source_excerpt: string | null };
+  shadowed: { id: string }[];
+}
+
+function winnerName(w: Collision["winner"]): string {
+  const p = w.payload ?? {};
+  const candidate =
+    (typeof p.name === "string" && p.name) ||
+    (typeof p.title === "string" && p.title) ||
+    (typeof p.label === "string" && p.label);
+  if (candidate) return candidate as string;
+  if (w.source_excerpt) {
+    const t = w.source_excerpt.trim();
+    return t.length > 60 ? `${t.slice(0, 60)}…` : t;
+  }
+  return "(unnamed rule)";
+}
 
 interface Snapshot {
   id: string;
@@ -45,13 +70,15 @@ export default function SnapshotsPage() {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [notes, setNotes] = useState("");
+  const [collisions, setCollisions] = useState<Collision[]>([]);
 
   async function load() {
     setLoading(true);
     try {
-      const [snapsRes, dirsRes] = await Promise.all([
+      const [snapsRes, dirsRes, conflictsRes] = await Promise.all([
         fetch("/api/v1/admin/pd/instructions/snapshots", { credentials: "include" }),
         fetch("/api/v1/admin/pd/instructions/directives", { credentials: "include" }),
+        fetch("/api/v1/admin/pd/instructions/conflicts", { credentials: "include" }),
       ]);
       if (!snapsRes.ok) throw new Error("snapshots fetch failed");
       const snapsData = await snapsRes.json();
@@ -64,6 +91,10 @@ export default function SnapshotsPage() {
           approved: ds.filter((d) => d.status === "approved").length,
           published: ds.filter((d) => d.status === "published").length,
         });
+      }
+      if (conflictsRes.ok) {
+        const cd = await conflictsRes.json();
+        setCollisions((cd.collisions ?? []) as Collision[]);
       }
     } catch {
       toast.error("Couldn't load snapshots");
@@ -173,13 +204,23 @@ export default function SnapshotsPage() {
             )}
           </div>
 
-          <Button
-            disabled={!canPublish || publishing}
-            onClick={() => setOpen(true)}
-            title={!canPublish ? "Approve some rules first" : ""}
-          >
-            Publish a new snapshot
-          </Button>
+          <div className="flex items-center gap-2">
+            {collisions.length > 0 && (
+              <Link
+                href="/admin/pd/instructions/conflicts"
+                className="text-xs underline text-amber-700 hover:text-amber-900"
+              >
+                {collisions.length} conflict{collisions.length === 1 ? "" : "s"} to review
+              </Link>
+            )}
+            <Button
+              disabled={!canPublish || publishing}
+              onClick={() => setOpen(true)}
+              title={!canPublish ? "Approve some rules first" : ""}
+            >
+              Publish a new snapshot
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -196,6 +237,36 @@ export default function SnapshotsPage() {
           </DialogHeader>
 
           <div className="space-y-3">
+            {collisions.length > 0 && (
+              <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 space-y-2">
+                <div className="text-sm font-semibold text-amber-900">
+                  {collisions.length} conflict{collisions.length === 1 ? "" : "s"} detected — some rules will be shadowed.
+                </div>
+                <ul className="space-y-1 text-xs text-amber-900/90 list-disc list-inside">
+                  {collisions.slice(0, 5).map((c) => {
+                    const shadowed = c.shadowed.length;
+                    return (
+                      <li key={c.group_key}>
+                        <span className="font-medium">
+                          {DIRECTIVE_TYPE_LABEL[c.directive_type] ?? c.directive_type}
+                        </span>{" "}
+                        ({c.scope_summary}) — &lsquo;{winnerName(c.winner)}&rsquo; will win,{" "}
+                        {shadowed} other{shadowed === 1 ? "" : "s"} shadowed.
+                      </li>
+                    );
+                  })}
+                  {collisions.length > 5 && (
+                    <li className="italic">…and {collisions.length - 5} more.</li>
+                  )}
+                </ul>
+                <Link
+                  href="/admin/pd/instructions/conflicts"
+                  className="inline-block text-xs font-medium underline text-amber-900 hover:text-amber-950"
+                >
+                  Review conflicts →
+                </Link>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="snap-label">Label this snapshot</Label>
               <Input
@@ -222,7 +293,11 @@ export default function SnapshotsPage() {
               Cancel
             </Button>
             <Button onClick={publish} disabled={publishing}>
-              {publishing ? "Publishing…" : "Publish now"}
+              {publishing
+                ? "Publishing…"
+                : collisions.length > 0
+                  ? "Publish anyway"
+                  : "Publish now"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -267,16 +342,24 @@ export default function SnapshotsPage() {
                     </p>
                   )}
                 </div>
-                {!s.is_live && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => rollback(s)}
-                    disabled={rollbackBusy === s.id}
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/admin/pd/instructions/snapshots/${s.is_live ? "live" : s.id}/preview`}
+                    className={buttonVariants({ variant: "ghost", size: "sm" })}
                   >
-                    {rollbackBusy === s.id ? "…" : "Roll back to this"}
-                  </Button>
-                )}
+                    Try in dry-run
+                  </Link>
+                  {!s.is_live && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => rollback(s)}
+                      disabled={rollbackBusy === s.id}
+                    >
+                      {rollbackBusy === s.id ? "…" : "Roll back to this"}
+                    </Button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

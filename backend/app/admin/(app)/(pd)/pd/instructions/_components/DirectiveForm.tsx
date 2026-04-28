@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -74,6 +74,80 @@ export function DirectiveForm({
   const router = useRouter();
   const [draft, setDraft] = useState<DirectiveDraft>(initial);
   const [saving, setSaving] = useState(false);
+  const [shadowedBy, setShadowedBy] = useState<{
+    winner: { id: string; payload: Record<string, unknown>; source_excerpt: string | null; priority: number };
+    directive_type: DirectiveType;
+  } | null>(null);
+  const [promoting, setPromoting] = useState(false);
+
+  useEffect(() => {
+    if (mode !== "edit" || !initial.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/v1/admin/pd/instructions/conflicts?for=${initial.id}`,
+          { credentials: "include" },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          setShadowedBy(data.collision ?? null);
+        }
+      } catch {
+        // silent — banner is best-effort
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // re-check after each save (priority/scope edits can change shadow status)
+  }, [mode, initial.id, saving]);
+
+  async function promoteAboveWinner() {
+    if (!shadowedBy || !initial.id) return;
+    if (shadowedBy.winner.priority <= 0) {
+      toast.error(
+        "The winning rule is already at the top priority. Raise its priority first, or change scope to give this rule its own lane.",
+      );
+      return;
+    }
+    setPromoting(true);
+    try {
+      const res = await fetch(`/api/v1/admin/pd/instructions/directives/${initial.id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priority: shadowedBy.winner.priority - 1,
+          change_reason: "promoted from shadow banner",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success("Promoted. This rule now wins.");
+      setDraft((d) => ({ ...d, priority: shadowedBy.winner.priority - 1 }));
+      setShadowedBy(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't promote");
+    } finally {
+      setPromoting(false);
+    }
+  }
+
+  function shadowWinnerName(): string {
+    if (!shadowedBy) return "";
+    const p = shadowedBy.winner.payload ?? {};
+    const candidate =
+      (typeof p.name === "string" && p.name) ||
+      (typeof p.title === "string" && p.title) ||
+      (typeof p.label === "string" && p.label);
+    if (candidate) return candidate as string;
+    if (shadowedBy.winner.source_excerpt) {
+      const t = shadowedBy.winner.source_excerpt.trim();
+      return t.length > 60 ? `${t.slice(0, 60)}…` : t;
+    }
+    return "another rule";
+  }
 
   function update<K extends keyof DirectiveDraft>(key: K, value: DirectiveDraft[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -163,6 +237,38 @@ export function DirectiveForm({
 
   return (
     <div className="space-y-5">
+      {shadowedBy && (
+        <div className="rounded-md border-2 border-amber-200 bg-amber-50/70 p-4 space-y-2">
+          <div className="text-sm font-semibold text-amber-900">
+            Heads up — this rule is currently shadowed.
+          </div>
+          <p className="text-sm text-amber-900/90">
+            It won&rsquo;t apply to any athlete until you change scope or raise priority.
+            Right now &lsquo;<span className="font-medium">{shadowWinnerName()}</span>&rsquo;
+            ({DIRECTIVE_TYPE_LABEL[shadowedBy.directive_type]}) wins for the same audience and scope.
+          </p>
+          <div className="flex items-center gap-2 pt-1">
+            <Link
+              href={`/admin/pd/instructions/directives/${shadowedBy.winner.id}`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              Open the winner
+            </Link>
+            <Button
+              size="sm"
+              onClick={promoteAboveWinner}
+              disabled={promoting || shadowedBy.winner.priority <= 0}
+              title={
+                shadowedBy.winner.priority <= 0
+                  ? "Winner already at top priority — raise it first, or change scope."
+                  : ""
+              }
+            >
+              {promoting ? "Promoting…" : "Promote this rule"}
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
           <Link

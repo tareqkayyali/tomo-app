@@ -121,7 +121,14 @@ async function loadSnapshot(force = false): Promise<CachedSnapshot> {
 
 // ── Scope filter ─────────────────────────────────────────────────────────
 
-function matchesScope(d: ResolvedDirective, scope: ResolveScope): boolean {
+/**
+ * Does this directive apply to the given scope?
+ * Empty scope arrays on the directive = wildcard (matches everything).
+ *
+ * Exported so the conflict-detection engine and the dry-run preview agree
+ * with the runtime by construction.
+ */
+export function matchesScope(d: ResolvedDirective, scope: ResolveScope): boolean {
   const audience = scope.audience ?? "athlete";
   if (d.audience !== "all" && d.audience !== audience) return false;
   if (d.sport_scope.length > 0 && scope.sport && !d.sport_scope.includes(scope.sport)) return false;
@@ -131,6 +138,22 @@ function matchesScope(d: ResolvedDirective, scope: ResolveScope): boolean {
     return false;
   if (d.mode_scope.length > 0 && scope.mode && !d.mode_scope.includes(scope.mode)) return false;
   return true;
+}
+
+/**
+ * Sort directives by priority (ascending; lowest = winner) with a recency
+ * tiebreak (newer updated_at wins). The single source of truth for who
+ * "wins" a byType slot — runtime resolver and conflict detection share this.
+ */
+export function sortByPriority<T extends Pick<ResolvedDirective, "priority" | "updated_at">>(
+  items: T[],
+): T[] {
+  return [...items].sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    const ta = a.updated_at ? Date.parse(a.updated_at) : 0;
+    const tb = b.updated_at ? Date.parse(b.updated_at) : 0;
+    return tb - ta;
+  });
 }
 
 // ── Public accessors ─────────────────────────────────────────────────────
@@ -160,15 +183,7 @@ export async function resolveInstructions(
     snapshotId: snap.id,
     matches,
     byType(type: string) {
-      return matches
-        .filter((d) => d.directive_type === type)
-        .sort((a, b) => {
-          if (a.priority !== b.priority) return a.priority - b.priority;
-          // Recency tiebreak: newer wins
-          const ta = a.updated_at ? Date.parse(a.updated_at) : 0;
-          const tb = b.updated_at ? Date.parse(b.updated_at) : 0;
-          return tb - ta;
-        });
+      return sortByPriority(matches.filter((d) => d.directive_type === type));
     },
   };
 }
