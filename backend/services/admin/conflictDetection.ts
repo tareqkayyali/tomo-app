@@ -14,6 +14,108 @@
 
 import { sortByPriority } from "@/services/instructions/resolver";
 import type { MethodologyDirective } from "@/services/admin/directiveService";
+import type { DirectiveType } from "@/lib/validation/admin/directiveSchemas";
+
+/**
+ * Merge semantics — how the runtime actually consumes a directive_type.
+ *
+ *   winner-only:  resolver picks one (lowest priority + most recent). Two
+ *                 rules sharing scope → real conflict; only the winner runs.
+ *   keyed-winner: resolver picks one per `payload[key_field]` value. Same
+ *                 type + scope + key_field value → conflict; different
+ *                 values → coexist.
+ *   additive:     resolver iterates and stacks all matches. Two rules
+ *                 sharing scope → both run. Never a conflict.
+ *
+ * Grounded in an audit of the TS + Python resolver consumers (see
+ * resolver.ts and ai-service/app/instructions/resolver.py). Default for
+ * UNKNOWN types is winner-only — safest UX (it surfaces ambiguity rather
+ * than silently merging).
+ */
+export type MergeClass = "winner-only" | "keyed-winner" | "additive";
+
+export interface MergeSemantics {
+  class: MergeClass;
+  /** Required when class === 'keyed-winner'. The payload field that distinguishes rules. */
+  key_field?: string;
+  /** Plain-English line shown to the PD on the conflicts page. */
+  note: string;
+}
+
+export const MERGE_SEMANTICS: Record<DirectiveType, MergeSemantics> = {
+  // ── Additive (all rules apply at runtime) ─────────────────────────────
+  escalation: {
+    class: "additive",
+    note: "Every matching escalation fires independently — all rules apply.",
+  },
+  dashboard_section: {
+    class: "additive",
+    note: "Every matching card renders — all rules apply.",
+  },
+  signal_definition: {
+    class: "additive",
+    note: "Every matching alert is evaluated — all rules apply.",
+  },
+  program_rule: {
+    class: "additive",
+    note: "Every matching program rule applies independently.",
+  },
+
+  // ── Keyed-winner (winner per sub-key) ─────────────────────────────────
+  routing_intent: {
+    class: "keyed-winner",
+    key_field: "intent_id",
+    note: "One winner per intent. Rules for different intents coexist.",
+  },
+
+  // ── Winner-only (one rule wins) ───────────────────────────────────────
+  identity: { class: "winner-only", note: "Only one persona applies." },
+  response_shape: { class: "winner-only", note: "Only one reply shape applies." },
+  rag_policy: { class: "winner-only", note: "Only one RAG policy applies." },
+  memory_policy: { class: "winner-only", note: "Only one memory policy applies." },
+  routing_classifier: { class: "winner-only", note: "Only one classifier applies." },
+  coach_dashboard_policy: {
+    class: "winner-only",
+    note: "Only one coach dashboard policy applies.",
+  },
+  parent_report_policy: {
+    class: "winner-only",
+    note: "Only one parent report policy applies.",
+  },
+  surface_policy: { class: "winner-only", note: "Only one surface policy per audience applies." },
+
+  // ── Winner-only at runtime today, but often authored as if additive ───
+  // The PD writes multiple complementary 'tone' bans / 'recommendation_policy'
+  // constraints expecting them all to apply. The Python resolver currently
+  // takes _highest_priority() — only the winner runs. Surfacing as conflicts
+  // keeps the PD honest about runtime behavior; runtime fix is a separate task.
+  tone: {
+    class: "winner-only",
+    note: "Today only the winning tone rule applies. If multiple bans should stack, this needs a runtime change.",
+  },
+  recommendation_policy: {
+    class: "winner-only",
+    note: "Today only the winning recommendation policy applies. Multiple constraints stacking needs a runtime change.",
+  },
+  guardrail_phv: {
+    class: "winner-only",
+    note: "Today only the winning PHV guardrail applies. Multiple block lists stacking needs a runtime change.",
+  },
+
+  // ── UNKNOWN runtime consumer — default winner-only (safest) ───────────
+  guardrail_age: { class: "winner-only", note: "Only one rule applies." },
+  guardrail_load: { class: "winner-only", note: "Only one rule applies." },
+  safety_gate: { class: "winner-only", note: "Only one rule applies." },
+  threshold: { class: "winner-only", note: "Only one rule applies." },
+  performance_model: { class: "winner-only", note: "Only one rule applies." },
+  mode_definition: { class: "winner-only", note: "Only one rule applies." },
+  planning_policy: { class: "winner-only", note: "Only one rule applies." },
+  scheduling_policy: { class: "winner-only", note: "Only one rule applies." },
+  meta_parser: { class: "winner-only", note: "Only one rule applies." },
+  meta_conflict: { class: "winner-only", note: "Only one rule applies." },
+};
+
+export type ResolutionMode = "shadow" | "stack";
 
 export interface Collision {
   /** Stable group identifier — useful for stable React keys / dedup. */
@@ -22,6 +124,14 @@ export interface Collision {
   audience: MethodologyDirective["audience"];
   /** Plain-English summary of the shared scope, e.g. "U15 strikers" / "Everyone". */
   scope_summary: string;
+  /**
+   * 'shadow' = real conflict (winner-only or keyed-winner same key) — only
+   *            the winner runs, the rest are silently dropped.
+   * 'stack'  = informational (additive types) — all rules apply at runtime.
+   */
+  resolution: ResolutionMode;
+  /** Per-type runtime note — explain what 'stack' means or why this shadows. */
+  note: string;
   winner: MethodologyDirective;
   shadowed: MethodologyDirective[];
 }
@@ -136,6 +246,12 @@ export function describeScope(d: Pick<
 }
 
 function groupKeyOf(d: MethodologyDirective): string {
+  const semantics = MERGE_SEMANTICS[d.directive_type];
+  // For keyed-winner types, the sub-key value is part of the group identity.
+  const subKey =
+    semantics?.class === "keyed-winner" && semantics.key_field
+      ? ((d.payload?.[semantics.key_field] as unknown) ?? null)
+      : null;
   return JSON.stringify({
     type: d.directive_type,
     audience: d.audience,
@@ -144,12 +260,37 @@ function groupKeyOf(d: MethodologyDirective): string {
     phv: [...d.phv_scope].sort(),
     position: [...d.position_scope].sort(),
     mode: [...d.mode_scope].sort(),
+    sub_key: subKey,
   });
 }
 
+function buildGroup(
+  group_key: string,
+  members: MethodologyDirective[],
+  resolution: ResolutionMode,
+): Collision {
+  const sorted = sortByPriority(members);
+  const [winner, ...shadowed] = sorted;
+  const semantics = MERGE_SEMANTICS[winner.directive_type];
+  return {
+    group_key,
+    directive_type: winner.directive_type,
+    audience: winner.audience,
+    scope_summary: describeScope(winner),
+    resolution,
+    note: semantics?.note ?? "Only one rule applies.",
+    winner,
+    shadowed,
+  };
+}
+
 /**
- * Group directives that would collide at runtime (same type + same scope)
- * and return one Collision per group with 2+ members.
+ * Group same-type-same-scope directives and classify each group by the
+ * runtime's actual merge semantics. Real conflicts (one winner, rest dropped)
+ * come back as `resolution: 'shadow'`. Informational stacks (additive types
+ * where every rule applies) come back as `resolution: 'stack'`.
+ *
+ * Single-member groups are not returned (nothing to report).
  */
 export function detectCollisions(directives: MethodologyDirective[]): Collision[] {
   const groups = new Map<string, MethodologyDirective[]>();
@@ -160,45 +301,35 @@ export function detectCollisions(directives: MethodologyDirective[]): Collision[
     else groups.set(key, [d]);
   }
 
-  const collisions: Collision[] = [];
+  const out: Collision[] = [];
   for (const [group_key, members] of groups) {
     if (members.length < 2) continue;
-    const sorted = sortByPriority(members);
-    const [winner, ...shadowed] = sorted;
-    collisions.push({
-      group_key,
-      directive_type: winner.directive_type,
-      audience: winner.audience,
-      scope_summary: describeScope(winner),
-      winner,
-      shadowed,
-    });
+    const semantics = MERGE_SEMANTICS[members[0].directive_type];
+    const resolution: ResolutionMode = semantics?.class === "additive" ? "stack" : "shadow";
+    out.push(buildGroup(group_key, members, resolution));
   }
 
-  return collisions;
+  return out;
 }
 
 /**
  * If `target` is currently shadowed by another directive in `all`, return
- * the collision it belongs to. Otherwise null. Used by the per-directive
- * banner on the edit page.
+ * the collision it belongs to. Otherwise null.
+ *
+ * Additive types never shadow — they stack at runtime, so the banner stays
+ * silent for them. (No need to scare the PD when both rules will apply.)
  */
 export function isShadowed(
   target: MethodologyDirective,
   all: MethodologyDirective[],
 ): Collision | null {
+  const semantics = MERGE_SEMANTICS[target.directive_type];
+  if (semantics?.class === "additive") return null;
+
   const key = groupKeyOf(target);
   const peers = all.filter((d) => groupKeyOf(d) === key);
   if (peers.length < 2) return null;
   const sorted = sortByPriority(peers);
   if (sorted[0].id === target.id) return null;
-  const [winner, ...shadowed] = sorted;
-  return {
-    group_key: key,
-    directive_type: winner.directive_type,
-    audience: winner.audience,
-    scope_summary: describeScope(winner),
-    winner,
-    shadowed,
-  };
+  return buildGroup(key, peers, "shadow");
 }

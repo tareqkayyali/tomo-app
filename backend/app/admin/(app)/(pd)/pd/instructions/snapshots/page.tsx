@@ -24,6 +24,8 @@ interface Collision {
   directive_type: keyof typeof DIRECTIVE_TYPE_LABEL;
   audience: "athlete" | "coach" | "parent" | "all";
   scope_summary: string;
+  resolution: "shadow" | "stack";
+  note: string;
   winner: { id: string; payload: Record<string, unknown>; source_excerpt: string | null };
   shadowed: { id: string }[];
 }
@@ -205,14 +207,17 @@ export default function SnapshotsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {collisions.length > 0 && (
-              <Link
-                href="/admin/pd/instructions/conflicts"
-                className="text-xs underline text-amber-700 hover:text-amber-900"
-              >
-                {collisions.length} conflict{collisions.length === 1 ? "" : "s"} to review
-              </Link>
-            )}
+            {(() => {
+              const realConflicts = collisions.filter((c) => c.resolution === "shadow");
+              return realConflicts.length > 0 ? (
+                <Link
+                  href="/admin/pd/instructions/conflicts"
+                  className="text-xs underline text-amber-700 hover:text-amber-900"
+                >
+                  {realConflicts.length} conflict{realConflicts.length === 1 ? "" : "s"} to review
+                </Link>
+              ) : null;
+            })()}
             <Button
               disabled={!canPublish || publishing}
               onClick={() => setOpen(true)}
@@ -237,36 +242,41 @@ export default function SnapshotsPage() {
           </DialogHeader>
 
           <div className="space-y-3">
-            {collisions.length > 0 && (
-              <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 space-y-2">
-                <div className="text-sm font-semibold text-amber-900">
-                  {collisions.length} conflict{collisions.length === 1 ? "" : "s"} detected — some rules will be shadowed.
+            {(() => {
+              const realConflicts = collisions.filter((c) => c.resolution === "shadow");
+              if (realConflicts.length === 0) return null;
+              return (
+                <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 space-y-2">
+                  <div className="text-sm font-semibold text-amber-900">
+                    {realConflicts.length} conflict
+                    {realConflicts.length === 1 ? "" : "s"} detected — some rules will be shadowed.
+                  </div>
+                  <ul className="space-y-1 text-xs text-amber-900/90 list-disc list-inside">
+                    {realConflicts.slice(0, 5).map((c) => {
+                      const shadowed = c.shadowed.length;
+                      return (
+                        <li key={c.group_key}>
+                          <span className="font-medium">
+                            {DIRECTIVE_TYPE_LABEL[c.directive_type] ?? c.directive_type}
+                          </span>{" "}
+                          ({c.scope_summary}) — &lsquo;{winnerName(c.winner)}&rsquo; will win,{" "}
+                          {shadowed} other{shadowed === 1 ? "" : "s"} shadowed.
+                        </li>
+                      );
+                    })}
+                    {realConflicts.length > 5 && (
+                      <li className="italic">…and {realConflicts.length - 5} more.</li>
+                    )}
+                  </ul>
+                  <Link
+                    href="/admin/pd/instructions/conflicts"
+                    className="inline-block text-xs font-medium underline text-amber-900 hover:text-amber-950"
+                  >
+                    Review conflicts →
+                  </Link>
                 </div>
-                <ul className="space-y-1 text-xs text-amber-900/90 list-disc list-inside">
-                  {collisions.slice(0, 5).map((c) => {
-                    const shadowed = c.shadowed.length;
-                    return (
-                      <li key={c.group_key}>
-                        <span className="font-medium">
-                          {DIRECTIVE_TYPE_LABEL[c.directive_type] ?? c.directive_type}
-                        </span>{" "}
-                        ({c.scope_summary}) — &lsquo;{winnerName(c.winner)}&rsquo; will win,{" "}
-                        {shadowed} other{shadowed === 1 ? "" : "s"} shadowed.
-                      </li>
-                    );
-                  })}
-                  {collisions.length > 5 && (
-                    <li className="italic">…and {collisions.length - 5} more.</li>
-                  )}
-                </ul>
-                <Link
-                  href="/admin/pd/instructions/conflicts"
-                  className="inline-block text-xs font-medium underline text-amber-900 hover:text-amber-950"
-                >
-                  Review conflicts →
-                </Link>
-              </div>
-            )}
+              );
+            })()}
             <div className="space-y-1.5">
               <Label htmlFor="snap-label">Label this snapshot</Label>
               <Input
@@ -295,7 +305,7 @@ export default function SnapshotsPage() {
             <Button onClick={publish} disabled={publishing}>
               {publishing
                 ? "Publishing…"
-                : collisions.length > 0
+                : collisions.some((c) => c.resolution === "shadow")
                   ? "Publish anyway"
                   : "Publish now"}
             </Button>

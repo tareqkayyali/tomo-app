@@ -34,11 +34,12 @@ function dir(overrides: Partial<MethodologyDirective>): MethodologyDirective {
 }
 
 describe("detectCollisions", () => {
-  test("two same-type same-scope rules → 1 collision", () => {
+  test("two same-type same-scope rules → 1 shadow collision", () => {
     const a = dir({ id: "a", priority: 100 });
     const b = dir({ id: "b", priority: 50 });
     const out = detectCollisions([a, b]);
     expect(out).toHaveLength(1);
+    expect(out[0].resolution).toBe("shadow");
     expect(out[0].winner.id).toBe("b");
     expect(out[0].shadowed.map((s) => s.id)).toEqual(["a"]);
   });
@@ -92,6 +93,49 @@ describe("detectCollisions", () => {
     const b = dir({ id: "b", audience: "coach" });
     expect(detectCollisions([a, b])).toEqual([]);
   });
+
+  test("additive types stack — resolution is 'stack' not 'shadow'", () => {
+    const a = dir({ id: "a", directive_type: "escalation", priority: 100 });
+    const b = dir({ id: "b", directive_type: "escalation", priority: 50 });
+    const out = detectCollisions([a, b]);
+    expect(out).toHaveLength(1);
+    expect(out[0].resolution).toBe("stack");
+  });
+
+  test("dashboard_section / signal_definition / program_rule all stack", () => {
+    for (const t of ["dashboard_section", "signal_definition", "program_rule"] as const) {
+      const a = dir({ id: "a", directive_type: t });
+      const b = dir({ id: "b", directive_type: t, priority: 50 });
+      const out = detectCollisions([a, b]);
+      expect(out).toHaveLength(1);
+      expect(out[0].resolution).toBe("stack");
+    }
+  });
+
+  test("routing_intent: same intent_id collides; different intent_id does not", () => {
+    const same1 = dir({
+      id: "same1",
+      directive_type: "routing_intent",
+      priority: 100,
+      payload: { intent_id: "log_pain" },
+    });
+    const same2 = dir({
+      id: "same2",
+      directive_type: "routing_intent",
+      priority: 50,
+      payload: { intent_id: "log_pain" },
+    });
+    const different = dir({
+      id: "diff",
+      directive_type: "routing_intent",
+      payload: { intent_id: "log_session" },
+    });
+    const out = detectCollisions([same1, same2, different]);
+    expect(out).toHaveLength(1);
+    expect(out[0].resolution).toBe("shadow");
+    expect(out[0].winner.id).toBe("same2");
+    expect(out[0].shadowed.map((s) => s.id)).toEqual(["same1"]);
+  });
 });
 
 describe("isShadowed", () => {
@@ -101,12 +145,19 @@ describe("isShadowed", () => {
     expect(isShadowed(winner, [winner, loser])).toBeNull();
   });
 
-  test("returns the collision when target is shadowed", () => {
+  test("returns the collision when target is shadowed (winner-only type)", () => {
     const winner = dir({ id: "w", priority: 50 });
     const loser = dir({ id: "l", priority: 100 });
     const c = isShadowed(loser, [winner, loser]);
     expect(c).not.toBeNull();
     expect(c?.winner.id).toBe("w");
+    expect(c?.resolution).toBe("shadow");
+  });
+
+  test("additive types never shadow — banner stays silent", () => {
+    const a = dir({ id: "a", directive_type: "escalation", priority: 50 });
+    const b = dir({ id: "b", directive_type: "escalation", priority: 100 });
+    expect(isShadowed(b, [a, b])).toBeNull();
   });
 
   test("returns null when no peers exist", () => {
