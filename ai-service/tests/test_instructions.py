@@ -305,6 +305,174 @@ def test_resolver_parent_scope_picks_up_parent_directives(monkeypatch):
     assert parent.coach_dashboard_policy() is None
 
 
+# ── Additive merge: tone / recommendation_policy / guardrail_phv ───────
+
+
+def _patch_snapshot_with(monkeypatch, extra):
+    from app.instructions import loader
+    from app.instructions.seed import build_seed_snapshot
+    from app.instructions.types import DirectiveSnapshot
+
+    snap = build_seed_snapshot()
+    patched = DirectiveSnapshot(
+        id=snap.id,
+        label="test-merge",
+        directives=list(snap.directives) + list(extra),
+        directive_count=len(snap.directives) + len(extra),
+        schema_version=snap.schema_version,
+        is_live=True,
+        published_at=snap.published_at,
+    )
+    monkeypatch.setattr(loader, "_CACHED", patched)
+    monkeypatch.setattr(loader, "_CACHED_AT", 9999999999.0)
+
+
+def test_tone_rules_merge_two_complementary_directives(monkeypatch):
+    from datetime import datetime, timezone
+    from uuid import uuid4
+    from app.instructions.types import Directive, DirectiveType
+
+    extras = [
+        Directive(
+            id=str(uuid4()),
+            directive_type=DirectiveType.TONE,
+            audience="athlete",
+            priority=50,
+            payload={
+                "banned_phrases": ["fantastic"],
+                "banned_patterns": [r"\bcrush(?:ed|ing)?\b"],
+                "acronym_scaffolding_rules": ["ACWR -> training-stress balance"],
+            },
+            updated_at=datetime.now(timezone.utc),
+        ),
+        Directive(
+            id=str(uuid4()),
+            directive_type=DirectiveType.TONE,
+            audience="athlete",
+            priority=60,
+            payload={
+                "banned_phrases": ["awesome"],
+                "banned_patterns": [r"\bsmash(?:ed|ing)?\b"],
+                "acronym_scaffolding_rules": ["RPE -> how hard it felt"],
+            },
+            updated_at=datetime.now(timezone.utc),
+        ),
+    ]
+    _patch_snapshot_with(monkeypatch, extras)
+
+    rs = resolve_sync(audience="athlete")
+    tone = rs.tone_rules()
+    assert tone is not None
+    # Seed contributes "great effort"; both new directives also stack.
+    assert "great effort" in tone.banned_phrases
+    assert "fantastic" in tone.banned_phrases
+    assert "awesome" in tone.banned_phrases
+    # Both regex bans compile and apply.
+    assert any(p.search("they crushed it") for p in tone.compiled_banned_patterns)
+    assert any(p.search("totally smashed it") for p in tone.compiled_banned_patterns)
+    # acronym scaffolding rules union (youth_jargon_terms in the wrapper).
+    assert "ACWR -> training-stress balance" in tone.youth_jargon_terms
+    assert "RPE -> how hard it felt" in tone.youth_jargon_terms
+
+
+def test_recommendation_policy_merge_two_complementary_directives(monkeypatch):
+    from datetime import datetime, timezone
+    from uuid import uuid4
+    from app.instructions.types import Directive, DirectiveType
+
+    extras = [
+        Directive(
+            id=str(uuid4()),
+            directive_type=DirectiveType.RECOMMENDATION_POLICY,
+            audience="athlete",
+            priority=50,
+            payload={
+                "blocked_categories": ["anabolic_steroids"],
+                "mandatory_categories": ["sleep_routine"],
+                "max_recs_per_turn": 5,
+                "priority_override": "P2",
+            },
+            updated_at=datetime.now(timezone.utc),
+        ),
+        Directive(
+            id=str(uuid4()),
+            directive_type=DirectiveType.RECOMMENDATION_POLICY,
+            audience="athlete",
+            priority=60,
+            payload={
+                "blocked_categories": ["high_caffeine"],
+                "mandatory_categories": ["hydration"],
+                "max_recs_per_turn": 3,
+                "priority_override": "P0",
+            },
+            updated_at=datetime.now(timezone.utc),
+        ),
+    ]
+    _patch_snapshot_with(monkeypatch, extras)
+
+    rs = resolve_sync(audience="athlete")
+    pol = rs.recommendation_policy()
+    assert pol is not None
+    assert {"anabolic_steroids", "high_caffeine"} <= set(pol.blocked_categories)
+    assert {"sleep_routine", "hydration"} <= set(pol.mandatory_categories)
+    # MIN of caps wins.
+    assert pol.max_recs_per_turn == 3
+    # Most-restrictive priority wins.
+    assert pol.priority_override == "P0"
+
+
+def test_guardrail_phv_merge_two_complementary_directives(monkeypatch):
+    from datetime import datetime, timezone
+    from uuid import uuid4
+    from app.instructions.types import Directive, DirectiveType
+
+    extras = [
+        Directive(
+            id=str(uuid4()),
+            directive_type=DirectiveType.GUARDRAIL_PHV,
+            audience="athlete",
+            priority=50,
+            payload={
+                "blocked_exercises": ["barbell_clean"],
+                "blocked_patterns": [r"\bclean\s+and\s+jerk\b"],
+                "advisory_or_blocking": "advisory",
+                "unknown_age_default": "permissive",
+                "safety_warning_template": "Heavy oly lifts: hold off until post-PHV.",
+            },
+            updated_at=datetime.now(timezone.utc),
+        ),
+        Directive(
+            id=str(uuid4()),
+            directive_type=DirectiveType.GUARDRAIL_PHV,
+            audience="athlete",
+            priority=60,
+            payload={
+                "blocked_exercises": ["depth_jump"],
+                "blocked_patterns": [r"\bdepth\s+jump\b"],
+                "advisory_or_blocking": "blocking",
+                "unknown_age_default": "conservative",
+                "safety_warning_template": "Plyos with high impact: skip mid-PHV.",
+            },
+            updated_at=datetime.now(timezone.utc),
+        ),
+    ]
+    _patch_snapshot_with(monkeypatch, extras)
+
+    rs = resolve_sync(audience="athlete", age_band="U15", phv_stage="mid_phv")
+    phv = rs.guardrail_phv()
+    assert phv is not None
+    assert {"barbell_clean", "depth_jump"} <= set(phv.blocked_exercises)
+    # Both regex bans compile and fire.
+    assert any(p.search("try a clean and jerk") for p in phv.compiled_blocked_patterns)
+    assert any(p.search("do a depth jump") for p in phv.compiled_blocked_patterns)
+    # Most-restrictive wins.
+    assert phv.advisory_or_blocking == "blocking"
+    assert phv.unknown_age_default == "conservative"
+    # Both warnings present.
+    assert "Heavy oly lifts" in phv.safety_warning
+    assert "Plyos with high impact" in phv.safety_warning
+
+
 def test_resolver_athlete_scope_does_not_leak_coach_or_parent_directives(monkeypatch):
     _patch_snapshot_with_coach_parent_directives(monkeypatch)
 

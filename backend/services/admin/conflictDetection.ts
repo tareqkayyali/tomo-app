@@ -84,22 +84,20 @@ export const MERGE_SEMANTICS: Record<DirectiveType, MergeSemantics> = {
   },
   surface_policy: { class: "winner-only", note: "Only one surface policy per audience applies." },
 
-  // ── Winner-only at runtime today, but often authored as if additive ───
-  // The PD writes multiple complementary 'tone' bans / 'recommendation_policy'
-  // constraints expecting them all to apply. The Python resolver currently
-  // takes _highest_priority() — only the winner runs. Surfacing as conflicts
-  // keeps the PD honest about runtime behavior; runtime fix is a separate task.
+  // ── Additive at runtime (resolver iterates + merges all matches) ─────
+  // Block lists union; numeric caps take MIN; restrictive flags (blocking,
+  // conservative) win over permissive. See ai-service/app/instructions/resolver.py.
   tone: {
-    class: "winner-only",
-    note: "Today only the winning tone rule applies. If multiple bans should stack, this needs a runtime change.",
+    class: "additive",
+    note: "Every matching tone rule applies — banned phrases, patterns, and acronym scaffolds all stack.",
   },
   recommendation_policy: {
-    class: "winner-only",
-    note: "Today only the winning recommendation policy applies. Multiple constraints stacking needs a runtime change.",
+    class: "additive",
+    note: "Every matching recommendation policy applies — block / mandatory categories union, the lowest cap wins.",
   },
   guardrail_phv: {
-    class: "winner-only",
-    note: "Today only the winning PHV guardrail applies. Multiple block lists stacking needs a runtime change.",
+    class: "additive",
+    note: "Every matching PHV guardrail applies — block lists union and the most restrictive flags win.",
   },
 
   // ── UNKNOWN runtime consumer — default winner-only (safest) ───────────
