@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { generateProgramRecommendations } from "@/services/programs/programRecommendationEngine";
+import { getSnapshotState, applyInjuryGate } from "@/services/programs/programGuardrails";
 import type { PlayerContext } from "@/services/agents/contextBuilder";
 
 export async function GET(req: NextRequest) {
@@ -94,7 +95,31 @@ export async function GET(req: NextRequest) {
 
   try {
     const recommendations = await generateProgramRecommendations(context);
-    return NextResponse.json(recommendations);
+
+    // ── Active-injury gate ──
+    // Filter program categories that load a flagged body region.
+    // The snapshot is read live (post-capsule writes are awaited in
+    // injuryHandler), so the very next call after a "Log this concern"
+    // capsule sees the updated injury_risk_flag.
+    const snapshot = await getSnapshotState(userId);
+    let appliedRules: string[] = [];
+    let blockedCategories: string[] = [];
+    if (snapshot) {
+      const m = applyInjuryGate(recommendations.mandatory, snapshot);
+      const h = applyInjuryGate(recommendations.highPriority, snapshot);
+      const t = applyInjuryGate(recommendations.technical, snapshot);
+      const i = applyInjuryGate(recommendations.injuryPrevention, snapshot);
+      recommendations.mandatory = m.programs;
+      recommendations.highPriority = h.programs;
+      recommendations.technical = t.programs;
+      recommendations.injuryPrevention = i.programs;
+      // appliedRules/blockedCategories are identical across calls (gate is
+      // deterministic in snapshot), so dedupe via the first non-empty bucket.
+      appliedRules = m.appliedRules;
+      blockedCategories = m.blockedCategories;
+    }
+
+    return NextResponse.json({ ...recommendations, appliedRules, blockedCategories });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message ?? "Failed to generate recommendations" },
