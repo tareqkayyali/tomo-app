@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/select";
 import { PageGuide } from "@/components/admin/PageGuide";
 import { FieldGuide } from "@/components/admin/FieldGuide";
+import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
+import { withFrom } from "@/lib/admin/pdNav";
 import { instructionsHelp } from "@/lib/cms-help/instructions";
 
 interface Doc {
@@ -44,6 +46,8 @@ const STATUS_LABEL: Record<Doc["status"], string> = {
 export default function DocumentEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const sp = useSearchParams();
+  const from = sp.get("from");
   const [doc, setDoc] = useState<Doc | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -172,18 +176,18 @@ export default function DocumentEditorPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-5">
-      {/* Breadcrumb-ish header */}
-      <div className="flex items-center justify-between">
+      <Breadcrumbs
+        items={[
+          { label: "Performance Director", href: "/admin/pd/instructions" },
+          { label: "Methodology Library", href: "/admin/pd/instructions/library" },
+          { label: doc.title },
+        ]}
+        from={from}
+      />
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 text-sm">
-          <Link
-            href="/admin/pd/instructions/library"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Methodology Library
-          </Link>
-          <span className="text-muted-foreground">/</span>
-          <span className="font-medium">{doc.title}</span>
-          <Badge variant={status === "published" ? "default" : "secondary"} className="ml-2">
+          <span className="font-semibold">{doc.title}</span>
+          <Badge variant={status === "published" ? "default" : "secondary"} className="ml-1">
             {STATUS_LABEL[status]}
           </Badge>
         </div>
@@ -378,7 +382,9 @@ function ParsePanel({ doc, dirty }: { doc: Doc; dirty: boolean }) {
               size="sm"
               className="w-full"
               onClick={() =>
-                router.push(`/admin/pd/instructions/library/${doc.id}/review`)
+                router.push(
+                  withFrom(`/admin/pd/instructions/library/${doc.id}/review`, "library"),
+                )
               }
             >
               Review the rules I just got →

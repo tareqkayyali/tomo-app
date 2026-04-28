@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/table";
 import { PageGuide } from "@/components/admin/PageGuide";
 import { FieldGuide } from "@/components/admin/FieldGuide";
+import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
+import { withFrom } from "@/lib/admin/pdNav";
 import { instructionsHelp } from "@/lib/cms-help/instructions";
 
 interface Doc {
@@ -150,8 +152,35 @@ export default function LibraryPage() {
     }
   }
 
+  async function handleDelete(d: Doc) {
+    if (
+      !confirm(
+        `Delete "${d.title}"?\n\nThe document will be removed. Rules already parsed from it stay in your rules list — only the source document is deleted.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/v1/admin/pd/instructions/documents/${d.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success("Document deleted");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't delete");
+    }
+  }
+
   return (
     <div className="space-y-5">
+      <Breadcrumbs
+        items={[
+          { label: "Performance Director", href: "/admin/pd/instructions" },
+          { label: "Methodology Library" },
+        ]}
+      />
       <PageGuide {...instructionsHelp.library.page} />
 
       <div className="flex items-center justify-between">
@@ -241,7 +270,7 @@ For athletes going through a growth spurt, never recommend max-effort lifts or d
                 <TableHead>Audience</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last edited</TableHead>
-                <TableHead className="w-24"></TableHead>
+                <TableHead className="w-40 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -249,7 +278,7 @@ For athletes going through a growth spurt, never recommend max-effort lifts or d
                 <TableRow key={d.id}>
                   <TableCell className="font-medium">
                     <Link
-                      href={`/admin/pd/instructions/library/${d.id}`}
+                      href={withFrom(`/admin/pd/instructions/library/${d.id}`, "library")}
                       className="hover:underline"
                     >
                       {d.title}
@@ -264,13 +293,23 @@ For athletes going through a growth spurt, never recommend max-effort lifts or d
                   <TableCell className="text-muted-foreground">
                     {new Date(d.updated_at).toLocaleString()}
                   </TableCell>
-                  <TableCell>
-                    <Link
-                      href={`/admin/pd/instructions/library/${d.id}`}
-                      className="inline-flex h-8 items-center rounded px-2 text-sm font-medium hover:bg-muted"
-                    >
-                      Open
-                    </Link>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Link
+                        href={withFrom(`/admin/pd/instructions/library/${d.id}`, "library")}
+                        className="inline-flex h-8 items-center rounded px-2 text-sm font-medium hover:bg-muted"
+                      >
+                        Edit
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(d)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

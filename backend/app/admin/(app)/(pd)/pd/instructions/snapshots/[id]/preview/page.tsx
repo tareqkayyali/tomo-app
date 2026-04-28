@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageGuide } from "@/components/admin/PageGuide";
+import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
+import { withFrom } from "@/lib/admin/pdNav";
 import {
   DIRECTIVE_TYPE_LABEL,
   SECTIONS,
@@ -106,6 +108,7 @@ export default function PreviewPage({
   const { id } = use(params);
   const router = useRouter();
   const sp = useSearchParams();
+  const from = sp.get("from");
 
   const audience = sp.get("audience") || "athlete";
   const sport = sp.get("sport") || "";
@@ -205,6 +208,14 @@ export default function PreviewPage({
 
   return (
     <div className="space-y-5">
+      <Breadcrumbs
+        items={[
+          { label: "Performance Director", href: "/admin/pd/instructions" },
+          { label: "Snapshots", href: "/admin/pd/instructions/snapshots" },
+          { label: data?.snapshot?.label ? `Dry-run · ${data.snapshot.label}` : "Dry-run preview" },
+        ]}
+        from={from}
+      />
       <PageGuide
         summary="Pick a real athlete or build a profile to see exactly which rules apply, who wins, and how Tomo will behave for that athlete. Use this before publishing to sanity-check the methodology end-to-end."
         details={[
@@ -370,7 +381,7 @@ export default function PreviewPage({
                             ✓ {DIRECTIVE_TYPE_LABEL[t]}
                           </div>
                           <Link
-                            href={`/admin/pd/instructions/directives/${d.id}`}
+                            href={withFrom(`/admin/pd/instructions/directives/${d.id}`, "preview")}
                             className="text-foreground hover:underline"
                           >
                             {nameOf(d)}
@@ -388,7 +399,7 @@ export default function PreviewPage({
                             ✓ {DIRECTIVE_TYPE_LABEL[t]} (winner)
                           </div>
                           <Link
-                            href={`/admin/pd/instructions/directives/${winner.id}`}
+                            href={withFrom(`/admin/pd/instructions/directives/${winner.id}`, "preview")}
                             className="text-foreground hover:underline"
                           >
                             {nameOf(winner)}
@@ -403,7 +414,7 @@ export default function PreviewPage({
                               Shadowed — {DIRECTIVE_TYPE_LABEL[t]}
                             </div>
                             <Link
-                              href={`/admin/pd/instructions/directives/${s.id}`}
+                              href={withFrom(`/admin/pd/instructions/directives/${s.id}`, "preview")}
                               className="text-foreground hover:underline"
                             >
                               {nameOf(s)}
@@ -437,7 +448,7 @@ export default function PreviewPage({
                   </div>
                   <p className="mt-1 text-sm">{s.plain_english}</p>
                   <Link
-                    href={`/admin/pd/instructions/directives/${s.winner_id}`}
+                    href={withFrom(`/admin/pd/instructions/directives/${s.winner_id}`, "preview")}
                     className="mt-1 inline-block text-xs text-blue-700 hover:underline"
                   >
                     Source: {s.source_name}

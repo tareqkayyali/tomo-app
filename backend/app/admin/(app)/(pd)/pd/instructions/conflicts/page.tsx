@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageGuide } from "@/components/admin/PageGuide";
+import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
+import { withFrom } from "@/lib/admin/pdNav";
 import {
   DIRECTIVE_TYPE_LABEL,
   AUDIENCE_LABEL,
@@ -105,6 +107,12 @@ export default function ConflictsPage() {
 
   return (
     <div className="space-y-5">
+      <Breadcrumbs
+        items={[
+          { label: "Performance Director", href: "/admin/pd/instructions" },
+          { label: "Conflicts" },
+        ]}
+      />
       <PageGuide
         summary="Some rules apply on their own; some compete; some stack. This page tells you which is which for every group of overlapping rules in your draft set, so nothing slips through unseen."
         details={[
@@ -176,7 +184,7 @@ export default function ConflictsPage() {
                             </div>
                           </div>
                           <Link
-                            href={`/admin/pd/instructions/directives/${c.winner.id}`}
+                            href={withFrom(`/admin/pd/instructions/directives/${c.winner.id}`, "conflicts")}
                             className={buttonVariants({ variant: "outline", size: "sm" })}
                           >
                             Edit
@@ -207,7 +215,7 @@ export default function ConflictsPage() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <Link
-                                  href={`/admin/pd/instructions/directives/${s.id}`}
+                                  href={withFrom(`/admin/pd/instructions/directives/${s.id}`, "conflicts")}
                                   className={buttonVariants({ variant: "ghost", size: "sm" })}
                                 >
                                   Edit
@@ -275,7 +283,7 @@ export default function ConflictsPage() {
                           >
                             <span className="truncate">{nameOf(d)}</span>
                             <Link
-                              href={`/admin/pd/instructions/directives/${d.id}`}
+                              href={withFrom(`/admin/pd/instructions/directives/${d.id}`, "conflicts")}
                               className="text-blue-700 hover:underline shrink-0"
                             >
                               Edit

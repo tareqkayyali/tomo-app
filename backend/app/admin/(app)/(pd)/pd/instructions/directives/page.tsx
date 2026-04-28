@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageGuide } from "@/components/admin/PageGuide";
+import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
+import { withFrom } from "@/lib/admin/pdNav";
 import { instructionsHelp } from "@/lib/cms-help/instructions";
 import {
   DIRECTIVE_TYPE_LABEL,
@@ -79,8 +81,35 @@ export default function DirectivesPage() {
 
   const proposedCount = directives.filter((d) => d.status === "proposed").length;
 
+  async function handleDelete(d: Directive) {
+    if (
+      !confirm(
+        `Delete this rule?\n\n${DIRECTIVE_TYPE_LABEL[d.directive_type]}\n\nIt won't be in any future snapshot. Already-published snapshots keep their copy.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/v1/admin/pd/instructions/directives/${d.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success("Rule deleted");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't delete");
+    }
+  }
+
   return (
     <div className="space-y-5">
+      <Breadcrumbs
+        items={[
+          { label: "Performance Director", href: "/admin/pd/instructions" },
+          { label: "Rules" },
+        ]}
+      />
       <PageGuide {...instructionsHelp.directive_list.page} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -139,7 +168,7 @@ export default function DirectivesPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <Link
-                            href={`/admin/pd/instructions/directives/${d.id}`}
+                            href={withFrom(`/admin/pd/instructions/directives/${d.id}`, "rules")}
                             className="text-sm font-medium hover:underline"
                           >
                             {DIRECTIVE_TYPE_LABEL[d.directive_type]}
@@ -155,12 +184,27 @@ export default function DirectivesPage() {
                         </div>
                         {d.source_excerpt && (
                           <p className="mt-1 text-xs text-muted-foreground italic line-clamp-2">
-                            "{d.source_excerpt}"
+                            &ldquo;{d.source_excerpt}&rdquo;
                           </p>
                         )}
                       </div>
-                      <div className="text-xs text-muted-foreground whitespace-nowrap">
-                        Priority {d.priority}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          Priority {d.priority}
+                        </span>
+                        <Link
+                          href={withFrom(`/admin/pd/instructions/directives/${d.id}`, "rules")}
+                          className="inline-flex h-7 items-center rounded px-2 text-xs font-medium hover:bg-muted"
+                        >
+                          Edit
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(d)}
+                          className="inline-flex h-7 items-center rounded px-2 text-xs font-medium text-destructive hover:bg-destructive/10"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </li>
                   ))}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageGuide } from "@/components/admin/PageGuide";
+import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
 import { instructionsHelp } from "@/lib/cms-help/instructions";
 
 interface Stats {
@@ -76,6 +77,7 @@ export default function InstructionsHubPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs items={[{ label: "Performance Director" }]} />
       <PageGuide {...instructionsHelp.hub.page} />
 
       {/* Quick actions */}

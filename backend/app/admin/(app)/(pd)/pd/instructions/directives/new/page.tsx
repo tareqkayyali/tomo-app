@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
 import {
   DirectiveForm,
   freshDraft,
@@ -24,6 +25,13 @@ function NewDirectiveInner() {
   if (!chosenType) {
     return (
       <div className="space-y-5">
+        <Breadcrumbs
+          items={[
+            { label: "Performance Director", href: "/admin/pd/instructions" },
+            { label: "Rules", href: "/admin/pd/instructions/directives" },
+            { label: "New" },
+          ]}
+        />
         <div>
           <h2 className="text-base font-semibold">Add a rule — pick a category</h2>
           <p className="text-sm text-muted-foreground">
@@ -63,6 +71,14 @@ function NewDirectiveInner() {
 
   return (
     <div className="space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "Performance Director", href: "/admin/pd/instructions" },
+          { label: "Rules", href: "/admin/pd/instructions/directives" },
+          { label: "New" },
+          { label: DIRECTIVE_TYPE_LABEL[chosenType] },
+        ]}
+      />
       <Button
         variant="ghost"
         size="sm"

@@ -2,10 +2,11 @@
 
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
 import {
   DIRECTIVE_TYPE_LABEL,
   AUDIENCE_LABEL,
@@ -33,6 +34,8 @@ export default function ReviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: docId } = use(params);
+  const sp = useSearchParams();
+  const from = sp.get("from");
   const router = useRouter();
   const [directives, setDirectives] = useState<Directive[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,24 +136,16 @@ export default function ReviewPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm">
-          <Link
-            href="/admin/pd/instructions/library"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Methodology Library
-          </Link>
-          <span className="text-muted-foreground">/</span>
-          <Link
-            href={`/admin/pd/instructions/library/${docId}`}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Document
-          </Link>
-          <span className="text-muted-foreground">/</span>
-          <span className="font-medium">Review proposed rules</span>
-        </div>
+      <Breadcrumbs
+        items={[
+          { label: "Performance Director", href: "/admin/pd/instructions" },
+          { label: "Methodology Library", href: "/admin/pd/instructions/library" },
+          { label: "Document", href: `/admin/pd/instructions/library/${docId}` },
+          { label: "Review parsed rules" },
+        ]}
+        from={from}
+      />
+      <div className="flex items-center justify-end">
         <Button variant="outline" onClick={() => router.push(`/admin/pd/instructions/library/${docId}`)}>
           ← Back to document
         </Button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/select";
 import { FieldGuide } from "@/components/admin/FieldGuide";
 import { PageGuide } from "@/components/admin/PageGuide";
+import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
+import { withFrom } from "@/lib/admin/pdNav";
 import { instructionsHelp } from "@/lib/cms-help/instructions";
 import {
   PayloadForm,
@@ -72,6 +74,8 @@ export function DirectiveForm({
   documentId?: string | null;
 }) {
   const router = useRouter();
+  const sp = useSearchParams();
+  const from = sp.get("from");
   const [draft, setDraft] = useState<DirectiveDraft>(initial);
   const [saving, setSaving] = useState(false);
   const [shadowedBy, setShadowedBy] = useState<{
@@ -249,7 +253,10 @@ export function DirectiveForm({
           </p>
           <div className="flex items-center gap-2 pt-1">
             <Link
-              href={`/admin/pd/instructions/directives/${shadowedBy.winner.id}`}
+              href={withFrom(
+                `/admin/pd/instructions/directives/${shadowedBy.winner.id}`,
+                "rules",
+              )}
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               Open the winner
@@ -269,18 +276,19 @@ export function DirectiveForm({
           </div>
         </div>
       )}
-      <div className="flex items-center justify-between">
+      <Breadcrumbs
+        items={[
+          { label: "Performance Director", href: "/admin/pd/instructions" },
+          { label: "Rules", href: "/admin/pd/instructions/directives" },
+          { label: mode === "create" ? "New rule" : DIRECTIVE_TYPE_LABEL[draft.directive_type] },
+        ]}
+        from={from}
+      />
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 text-sm">
-          <Link
-            href="/admin/pd/instructions/directives"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Rules
-          </Link>
-          <span className="text-muted-foreground">/</span>
-          <span className="font-medium">{DIRECTIVE_TYPE_LABEL[draft.directive_type]}</span>
+          <span className="font-semibold">{DIRECTIVE_TYPE_LABEL[draft.directive_type]}</span>
           {mode === "edit" && (
-            <Badge variant="outline" className="ml-2">
+            <Badge variant="outline" className="ml-1">
               {STATUS_LABEL[draft.status]}
             </Badge>
           )}

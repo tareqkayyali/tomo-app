@@ -17,6 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageGuide } from "@/components/admin/PageGuide";
+import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
+import { withFrom } from "@/lib/admin/pdNav";
 import { DIRECTIVE_TYPE_LABEL } from "../_components/directiveLabels";
 
 interface Collision {
@@ -169,6 +171,20 @@ export default function SnapshotsPage() {
 
   return (
     <div className="space-y-5">
+      <Breadcrumbs
+        items={[
+          { label: "Performance Director", href: "/admin/pd/instructions" },
+          { label: "Snapshots" },
+        ]}
+      />
+
+      <div className="rounded-md border border-blue-200 bg-blue-50/60 p-3 text-xs text-blue-900/90">
+        <span className="font-semibold">Snapshots are append-only.</span> To undo a publish,
+        use <span className="font-semibold">Roll back to this</span> on a previous snapshot —
+        that brings its rules back to live. Snapshots themselves stay in history so you can
+        always trace what was live when.
+      </div>
+
       <PageGuide
         summary="Snapshots are immutable, dated points in time. Publishing a snapshot makes the rules you've approved go live for every athlete, coach, and parent. Older snapshots stay around so you can roll back any time with one click."
         details={[
@@ -211,7 +227,7 @@ export default function SnapshotsPage() {
               const realConflicts = collisions.filter((c) => c.resolution === "shadow");
               return realConflicts.length > 0 ? (
                 <Link
-                  href="/admin/pd/instructions/conflicts"
+                  href={withFrom("/admin/pd/instructions/conflicts", "snapshots")}
                   className="text-xs underline text-amber-700 hover:text-amber-900"
                 >
                   {realConflicts.length} conflict{realConflicts.length === 1 ? "" : "s"} to review
@@ -269,7 +285,7 @@ export default function SnapshotsPage() {
                     )}
                   </ul>
                   <Link
-                    href="/admin/pd/instructions/conflicts"
+                    href={withFrom("/admin/pd/instructions/conflicts", "snapshots")}
                     className="inline-block text-xs font-medium underline text-amber-900 hover:text-amber-950"
                   >
                     Review conflicts →
@@ -354,7 +370,10 @@ export default function SnapshotsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Link
-                    href={`/admin/pd/instructions/snapshots/${s.is_live ? "live" : s.id}/preview`}
+                    href={withFrom(
+                      `/admin/pd/instructions/snapshots/${s.is_live ? "live" : s.id}/preview`,
+                      "snapshots",
+                    )}
                     className={buttonVariants({ variant: "ghost", size: "sm" })}
                   >
                     Try in dry-run
