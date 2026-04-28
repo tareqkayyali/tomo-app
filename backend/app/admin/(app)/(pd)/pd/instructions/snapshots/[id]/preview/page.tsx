@@ -381,7 +381,7 @@ export default function PreviewPage({
                             ✓ {DIRECTIVE_TYPE_LABEL[t]}
                           </div>
                           <Link
-                            href={withFrom(`/admin/pd/instructions/directives/${d.id}`, "preview")}
+                            href={withFrom(`/admin/pd/instructions/directives/${d.id}`, "preview", from)}
                             className="text-foreground hover:underline"
                           >
                             {nameOf(d)}
@@ -399,7 +399,7 @@ export default function PreviewPage({
                             ✓ {DIRECTIVE_TYPE_LABEL[t]} (winner)
                           </div>
                           <Link
-                            href={withFrom(`/admin/pd/instructions/directives/${winner.id}`, "preview")}
+                            href={withFrom(`/admin/pd/instructions/directives/${winner.id}`, "preview", from)}
                             className="text-foreground hover:underline"
                           >
                             {nameOf(winner)}
@@ -414,7 +414,7 @@ export default function PreviewPage({
                               Shadowed — {DIRECTIVE_TYPE_LABEL[t]}
                             </div>
                             <Link
-                              href={withFrom(`/admin/pd/instructions/directives/${s.id}`, "preview")}
+                              href={withFrom(`/admin/pd/instructions/directives/${s.id}`, "preview", from)}
                               className="text-foreground hover:underline"
                             >
                               {nameOf(s)}
@@ -448,7 +448,7 @@ export default function PreviewPage({
                   </div>
                   <p className="mt-1 text-sm">{s.plain_english}</p>
                   <Link
-                    href={withFrom(`/admin/pd/instructions/directives/${s.winner_id}`, "preview")}
+                    href={withFrom(`/admin/pd/instructions/directives/${s.winner_id}`, "preview", from)}
                     className="mt-1 inline-block text-xs text-blue-700 hover:underline"
                   >
                     Source: {s.source_name}

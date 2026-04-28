@@ -3,6 +3,7 @@ import { requireEnterprise } from "@/lib/admin/enterpriseAuth";
 import { logAudit } from "@/lib/admin/audit";
 import {
   getSnapshot,
+  getLiveSnapshot,
   rollbackToSnapshot,
 } from "@/services/admin/snapshotService";
 
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   if ("error" in auth) return auth.error;
   const { id } = await params;
   try {
-    const snap = await getSnapshot(id);
+    const snap = id === "live" ? await getLiveSnapshot() : await getSnapshot(id);
     if (!snap) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(snap);
   } catch (err) {

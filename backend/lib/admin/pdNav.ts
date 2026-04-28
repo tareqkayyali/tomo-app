@@ -26,18 +26,28 @@ export const KNOWN_FROM: Record<string, FromTarget> = {
 };
 
 /**
- * Append ?from=<slug> to an internal href. Preserves any existing query.
+ * Append ?from=<slug> to an internal href. Optionally append &trail=<prevSlug>
+ * so the back-chip on the destination page can preserve one extra hop of
+ * context (e.g. snapshots → conflicts → rule edit → back to conflicts → back
+ * to snapshots). One hop is enough for current PD flows; if we need deeper
+ * stacks later, switch trail to a comma-list.
  *
- *   withFrom("/admin/pd/instructions/directives/abc", "conflicts")
- *     → "/admin/pd/instructions/directives/abc?from=conflicts"
- *
- *   withFrom("/foo?bar=baz", "rules")
- *     → "/foo?bar=baz&from=rules"
+ *   withFrom("/foo", "conflicts")
+ *     → "/foo?from=conflicts"
+ *   withFrom("/foo", "conflicts", "snapshots")
+ *     → "/foo?from=conflicts&trail=snapshots"
+ *   withFrom("/foo?x=1", "rules")
+ *     → "/foo?x=1&from=rules"
  */
-export function withFrom(href: string, from: string): string {
+export function withFrom(
+  href: string,
+  from: string,
+  trail?: string | null,
+): string {
   if (!from) return href;
   const sep = href.includes("?") ? "&" : "?";
-  return `${href}${sep}from=${encodeURIComponent(from)}`;
+  const trailParam = trail ? `&trail=${encodeURIComponent(trail)}` : "";
+  return `${href}${sep}from=${encodeURIComponent(from)}${trailParam}`;
 }
 
 /** Resolve a from-slug to a back target. Returns null for unknown slugs. */

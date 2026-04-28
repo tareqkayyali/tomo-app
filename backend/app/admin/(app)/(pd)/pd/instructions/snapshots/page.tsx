@@ -202,12 +202,30 @@ export default function SnapshotsPage() {
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="space-y-0.5">
             <div className="text-sm font-semibold">
-              {liveSnap ? <>Live: <span className="text-blue-700">{liveSnap.label}</span></> : "No snapshot live yet"}
+              {liveSnap ? (
+                <>
+                  Live:{" "}
+                  <Link
+                    href={`/admin/pd/instructions/snapshots/${liveSnap.id}`}
+                    className="text-blue-700 hover:underline"
+                  >
+                    {liveSnap.label}
+                  </Link>
+                </>
+              ) : (
+                "No snapshot live yet"
+              )}
             </div>
             {liveSnap && (
               <div className="text-xs text-muted-foreground">
                 {liveSnap.directive_count} rule{liveSnap.directive_count === 1 ? "" : "s"} ·
-                {" "}published {new Date(liveSnap.published_at).toLocaleString()}
+                {" "}published {new Date(liveSnap.published_at).toLocaleString()} ·{" "}
+                <Link
+                  href={`/admin/pd/instructions/snapshots/${liveSnap.id}`}
+                  className="text-blue-700 hover:underline"
+                >
+                  view rules
+                </Link>
               </div>
             )}
             {summary && (
@@ -347,7 +365,12 @@ export default function SnapshotsPage() {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{s.label}</span>
+                    <Link
+                      href={`/admin/pd/instructions/snapshots/${s.id}`}
+                      className="text-sm font-medium hover:underline"
+                    >
+                      {s.label}
+                    </Link>
                     {s.is_live && <Badge variant="default">Live</Badge>}
                     {!s.is_live && s.retired_at && (
                       <Badge variant="outline" className="text-xs">Retired</Badge>
@@ -369,6 +392,12 @@ export default function SnapshotsPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
+                  <Link
+                    href={`/admin/pd/instructions/snapshots/${s.id}`}
+                    className={buttonVariants({ variant: "ghost", size: "sm" })}
+                  >
+                    View rules
+                  </Link>
                   <Link
                     href={withFrom(
                       `/admin/pd/instructions/snapshots/${s.is_live ? "live" : s.id}/preview`,

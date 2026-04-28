@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRightIcon, ChevronLeftIcon } from "lucide-react";
-import { resolveFrom } from "@/lib/admin/pdNav";
+import { resolveFrom, withFrom } from "@/lib/admin/pdNav";
 
 export interface BreadcrumbItem {
   label: string;
@@ -14,19 +14,24 @@ export interface BreadcrumbItem {
  * Hierarchical breadcrumbs + smart back chip.
  *
  * Always renders the breadcrumb trail. If `from` resolves to a known target,
- * also renders a "← Back to {label}" chip on the right. For the special
- * `preview` slug there's no canonical href — the chip uses router.back()
- * (snapshot id isn't carried through the from param).
+ * renders a "← Back to {label}" chip. If `trail` is also present, appends
+ * ?from=<trail> to the chip's href so the previous hop's back-chip also
+ * survives. For the `preview` slug there's no canonical href — chip uses
+ * router.back().
  */
 export function Breadcrumbs({
   items,
   from,
+  trail,
 }: {
   items: BreadcrumbItem[];
   from?: string | null;
+  trail?: string | null;
 }) {
   const router = useRouter();
   const target = resolveFrom(from);
+  const targetHref =
+    target && target.href && trail ? withFrom(target.href, trail) : target?.href ?? "";
 
   return (
     <div className="flex items-center justify-between gap-3 text-xs flex-wrap">
@@ -51,7 +56,7 @@ export function Breadcrumbs({
       {target && (
         target.href ? (
           <Link
-            href={target.href}
+            href={targetHref}
             className="inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs hover:bg-muted hover:text-foreground"
           >
             <ChevronLeftIcon className="size-3" />

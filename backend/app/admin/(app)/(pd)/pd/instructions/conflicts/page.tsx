@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,8 @@ function nameOf(d: CollisionDirective): string {
 }
 
 export default function ConflictsPage() {
+  const sp = useSearchParams();
+  const from = sp.get("from");
   const [collisions, setCollisions] = useState<Collision[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -110,8 +113,10 @@ export default function ConflictsPage() {
       <Breadcrumbs
         items={[
           { label: "Performance Director", href: "/admin/pd/instructions" },
+          { label: "Snapshots", href: "/admin/pd/instructions/snapshots" },
           { label: "Conflicts" },
         ]}
+        from={from}
       />
       <PageGuide
         summary="Some rules apply on their own; some compete; some stack. This page tells you which is which for every group of overlapping rules in your draft set, so nothing slips through unseen."
@@ -184,7 +189,7 @@ export default function ConflictsPage() {
                             </div>
                           </div>
                           <Link
-                            href={withFrom(`/admin/pd/instructions/directives/${c.winner.id}`, "conflicts")}
+                            href={withFrom(`/admin/pd/instructions/directives/${c.winner.id}`, "conflicts", from)}
                             className={buttonVariants({ variant: "outline", size: "sm" })}
                           >
                             Edit
@@ -215,7 +220,7 @@ export default function ConflictsPage() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <Link
-                                  href={withFrom(`/admin/pd/instructions/directives/${s.id}`, "conflicts")}
+                                  href={withFrom(`/admin/pd/instructions/directives/${s.id}`, "conflicts", from)}
                                   className={buttonVariants({ variant: "ghost", size: "sm" })}
                                 >
                                   Edit
@@ -283,7 +288,7 @@ export default function ConflictsPage() {
                           >
                             <span className="truncate">{nameOf(d)}</span>
                             <Link
-                              href={withFrom(`/admin/pd/instructions/directives/${d.id}`, "conflicts")}
+                              href={withFrom(`/admin/pd/instructions/directives/${d.id}`, "conflicts", from)}
                               className="text-blue-700 hover:underline shrink-0"
                             >
                               Edit

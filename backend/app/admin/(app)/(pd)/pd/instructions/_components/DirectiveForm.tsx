@@ -76,6 +76,7 @@ export function DirectiveForm({
   const router = useRouter();
   const sp = useSearchParams();
   const from = sp.get("from");
+  const trail = sp.get("trail");
   const [draft, setDraft] = useState<DirectiveDraft>(initial);
   const [saving, setSaving] = useState(false);
   const [shadowedBy, setShadowedBy] = useState<{
@@ -283,6 +284,7 @@ export function DirectiveForm({
           { label: mode === "create" ? "New rule" : DIRECTIVE_TYPE_LABEL[draft.directive_type] },
         ]}
         from={from}
+        trail={trail}
       />
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 text-sm">

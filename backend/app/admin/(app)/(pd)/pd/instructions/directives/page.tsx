@@ -43,20 +43,41 @@ const STATUS_VARIANT: Record<Directive["status"], "default" | "secondary" | "out
   retired: "outline",
 };
 
+interface ShadowInfo {
+  shadowedIds: Set<string>; // ids of rules that are silently dropped today
+  count: number;
+}
+
 export default function DirectivesPage() {
   const [directives, setDirectives] = useState<Directive[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | Directive["status"]>("all");
+  const [shadowInfo, setShadowInfo] = useState<ShadowInfo>({
+    shadowedIds: new Set(),
+    count: 0,
+  });
 
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/admin/pd/instructions/directives", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      const [rulesRes, conflictsRes] = await Promise.all([
+        fetch("/api/v1/admin/pd/instructions/directives", { credentials: "include" }),
+        fetch("/api/v1/admin/pd/instructions/conflicts", { credentials: "include" }),
+      ]);
+      if (!rulesRes.ok) throw new Error(await rulesRes.text());
+      const data = await rulesRes.json();
       setDirectives(data.directives ?? []);
+      if (conflictsRes.ok) {
+        const c = await conflictsRes.json();
+        const shadows = (c.collisions ?? []).filter(
+          (g: { resolution: string }) => g.resolution === "shadow",
+        );
+        const ids = new Set<string>();
+        for (const g of shadows) {
+          for (const s of g.shadowed) ids.add(s.id);
+        }
+        setShadowInfo({ shadowedIds: ids, count: shadows.length });
+      }
     } catch (err) {
       toast.error("Couldn't load rules");
     } finally {
@@ -111,6 +132,23 @@ export default function DirectivesPage() {
         ]}
       />
       <PageGuide {...instructionsHelp.directive_list.page} />
+
+      {shadowInfo.count > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="text-xs text-amber-900">
+            <span className="font-semibold">
+              {shadowInfo.count} conflict{shadowInfo.count === 1 ? "" : "s"} in your draft set
+            </span>{" "}
+            — at least one rule is silently shadowed and won&rsquo;t apply.
+          </div>
+          <Link
+            href={withFrom("/admin/pd/instructions/conflicts", "rules")}
+            className="text-xs font-medium underline text-amber-900 hover:text-amber-950"
+          >
+            Review conflicts →
+          </Link>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -176,6 +214,15 @@ export default function DirectivesPage() {
                           <Badge variant={STATUS_VARIANT[d.status]} className="text-xs">
                             {STATUS_LABEL[d.status]}
                           </Badge>
+                          {shadowInfo.shadowedIds.has(d.id) && (
+                            <Link
+                              href={withFrom("/admin/pd/instructions/conflicts", "rules")}
+                              className="inline-flex items-center rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 hover:bg-amber-100"
+                              title="This rule is currently shadowed by another. Click to view."
+                            >
+                              ⚠ Shadowed
+                            </Link>
+                          )}
                           <span className="text-xs text-muted-foreground">
                             {AUDIENCE_LABEL[d.audience]}
                             {d.age_scope.length > 0 && ` · ${d.age_scope.join(", ")}`}
