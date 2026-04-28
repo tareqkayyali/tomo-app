@@ -20,6 +20,7 @@ import { PageGuide } from "@/components/admin/PageGuide";
 import { FieldGuide } from "@/components/admin/FieldGuide";
 import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
 import { withFrom } from "@/lib/admin/pdNav";
+import { BUCKETS, BUCKET_BY_SLUG, type BucketSlug } from "@/lib/admin/methodologyBuckets";
 import { instructionsHelp } from "@/lib/cms-help/instructions";
 
 interface Doc {
@@ -28,6 +29,7 @@ interface Doc {
   audience: "athlete" | "coach" | "parent" | "all";
   sport_scope: string[];
   age_scope: string[];
+  bucket: BucketSlug | null;
   source_format: "markdown" | "pdf" | "docx" | "plain";
   source_text: string | null;
   source_file_url: string | null;
@@ -56,6 +58,7 @@ export default function DocumentEditorPage({ params }: { params: Promise<{ id: s
   // Editable fields
   const [title, setTitle] = useState("");
   const [audience, setAudience] = useState<Doc["audience"]>("all");
+  const [bucket, setBucket] = useState<BucketSlug | "">("");
   const [sourceText, setSourceText] = useState("");
   const [status, setStatus] = useState<Doc["status"]>("draft");
 
@@ -77,6 +80,7 @@ export default function DocumentEditorPage({ params }: { params: Promise<{ id: s
       setDoc(data);
       setTitle(data.title);
       setAudience(data.audience);
+      setBucket(data.bucket ?? "");
       setSourceText(data.source_text ?? "");
       setStatus(data.status);
       setDirty(false);
@@ -97,10 +101,11 @@ export default function DocumentEditorPage({ params }: { params: Promise<{ id: s
     const isDirty =
       title !== doc.title ||
       audience !== doc.audience ||
+      (bucket || null) !== (doc.bucket ?? null) ||
       sourceText !== (doc.source_text ?? "") ||
       status !== doc.status;
     setDirty(isDirty);
-  }, [doc, title, audience, sourceText, status]);
+  }, [doc, title, audience, bucket, sourceText, status]);
 
   async function save() {
     if (!doc) return;
@@ -117,6 +122,7 @@ export default function DocumentEditorPage({ params }: { params: Promise<{ id: s
         body: JSON.stringify({
           title: title.trim(),
           audience,
+          bucket: bucket || null,
           source_format: "markdown",
           source_text: sourceText,
           status,
@@ -236,6 +242,31 @@ export default function DocumentEditorPage({ params }: { params: Promise<{ id: s
         {/* Side panel */}
         <div className="space-y-4">
           <div className="rounded-md border bg-background p-4 space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="bucket">Bucket</Label>
+              <Select
+                value={bucket || "__none"}
+                onValueChange={(v) => setBucket(v === "__none" ? "" : (v as BucketSlug))}
+              >
+                <SelectTrigger id="bucket">
+                  <SelectValue placeholder="No bucket" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">No bucket (legacy)</SelectItem>
+                  {BUCKETS.map((b) => (
+                    <SelectItem key={b.slug} value={b.slug}>
+                      {b.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {bucket && BUCKET_BY_SLUG[bucket as BucketSlug] && (
+                <p className="text-xs text-muted-foreground">
+                  {BUCKET_BY_SLUG[bucket as BucketSlug].summary}
+                </p>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="audience">Who does this document affect?</Label>
               <Select value={audience} onValueChange={(v) => setAudience(v as Doc["audience"])}>

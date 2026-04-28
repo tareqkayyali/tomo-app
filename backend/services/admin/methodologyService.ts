@@ -19,6 +19,7 @@ export interface MethodologyDocument {
   audience: "athlete" | "coach" | "parent" | "all";
   sport_scope: string[];
   age_scope: string[];
+  bucket: string | null;
   source_format: "markdown" | "pdf" | "docx" | "plain";
   source_text: string | null;
   source_file_url: string | null;
@@ -60,6 +61,7 @@ export async function createMethodologyDocument(
     audience: input.audience ?? "all",
     sport_scope: input.sport_scope ?? [],
     age_scope: input.age_scope ?? [],
+    bucket: input.bucket ?? null,
     source_format: input.source_format,
     source_text: input.source_text ?? null,
     source_file_url: input.source_file_url ?? null,
@@ -80,6 +82,7 @@ export async function updateMethodologyDocument(
   if (patch.audience !== undefined) row.audience = patch.audience;
   if (patch.sport_scope !== undefined) row.sport_scope = patch.sport_scope;
   if (patch.age_scope !== undefined) row.age_scope = patch.age_scope;
+  if (patch.bucket !== undefined) row.bucket = patch.bucket;
   if (patch.source_format !== undefined) row.source_format = patch.source_format;
   if (patch.source_text !== undefined) row.source_text = patch.source_text;
   if (patch.source_file_url !== undefined) row.source_file_url = patch.source_file_url;

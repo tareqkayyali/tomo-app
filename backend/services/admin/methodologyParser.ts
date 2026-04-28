@@ -33,6 +33,7 @@ import {
   type MethodologyDirective,
 } from "@/services/admin/directiveService";
 import type { MethodologyDocument } from "@/services/admin/methodologyService";
+import { BUCKET_BY_SLUG, type BucketSlug } from "@/lib/admin/methodologyBuckets";
 
 const PARSER_MODEL = "claude-sonnet-4-20250514";
 const MAX_OUTPUT_TOKENS = 8192;
@@ -448,16 +449,57 @@ function buildUserMessage(doc: MethodologyDocument): string {
   if (doc.sport_scope.length) scope.push(`Sport scope: ${doc.sport_scope.join(", ")}.`);
   if (doc.age_scope.length) scope.push(`Age scope: ${doc.age_scope.join(", ")}.`);
 
+  // Bucket-aware: when set, restrict Claude to the bucket's allowed types.
+  // The post-parse filter (filterToBucket) is the hard guarantee; this prompt
+  // hint just makes Claude's job easier so it doesn't produce dropped rules.
+  const bucketHint =
+    doc.bucket && BUCKET_BY_SLUG[doc.bucket as BucketSlug]
+      ? [
+          "",
+          "## Bucket constraint",
+          `This document is in the "${BUCKET_BY_SLUG[doc.bucket as BucketSlug].label}" bucket.`,
+          `Emit ONLY directive_types from this set: ${BUCKET_BY_SLUG[doc.bucket as BucketSlug].owns.join(", ")}.`,
+          "Any other directive_type will be dropped.",
+        ].join("\n")
+      : "";
+
   return [
     "# Methodology document",
     `Title: ${doc.title}`,
     scope.length ? scope.join(" ") : "",
+    bucketHint,
     "",
     "## Source text",
     doc.source_text ?? "(empty)",
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/**
+ * Drop proposals whose directive_type is not in the bucket's allowed set.
+ * Defense in depth on top of the prompt hint — if Claude still emits a
+ * cross-bucket type, it gets filtered here. No-op when bucket is unset.
+ */
+function filterToBucket(
+  proposed: ProposedDirective[],
+  bucket: string | null | undefined,
+  errors: ParseError[],
+): ProposedDirective[] {
+  if (!bucket || !BUCKET_BY_SLUG[bucket as BucketSlug]) return proposed;
+  const allowed = new Set(BUCKET_BY_SLUG[bucket as BucketSlug].owns);
+  const kept: ProposedDirective[] = [];
+  for (const p of proposed) {
+    if (allowed.has(p.directive_type)) {
+      kept.push(p);
+    } else {
+      errors.push({
+        directive_type: p.directive_type,
+        message: `Dropped a "${p.directive_type}" proposal — not allowed in the "${BUCKET_BY_SLUG[bucket as BucketSlug].label}" bucket. Move it to the right bucket's document.`,
+      });
+    }
+  }
+  return kept;
 }
 
 // ─── Coercion (Postel's law) ──────────────────────────────────────────────
@@ -983,11 +1025,15 @@ export async function parseMethodologyDocument(
     });
   }
 
+  // Bucket filter — drop any proposal whose type isn't allowed in this
+  // document's bucket. No-op when the doc has no bucket (legacy free-form).
+  const bucketFiltered = filterToBucket(validated, doc.bucket, errors);
+
   // Dedup against existing for this document.
   const existing = await listDirectives({ document_id: doc.id });
   const proposed: ProposedDirective[] = [];
   const duplicates: ProposedDirective[] = [];
-  for (const v of validated) {
+  for (const v of bucketFiltered) {
     if (isDuplicate(v, existing)) duplicates.push(v);
     else proposed.push(v);
   }

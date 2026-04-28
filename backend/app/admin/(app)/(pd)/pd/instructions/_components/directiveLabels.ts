@@ -29,6 +29,12 @@ export const DIRECTIVE_TYPE_LABEL: Record<DirectiveType, string> = {
   dashboard_section: "Dashboard card",
   signal_definition: "Dashboard alert",
   program_rule: "Programs rule",
+  // Phase 8: Bucketed verticals
+  sleep_policy: "Sleep rule",
+  nutrition_policy: "Nutrition rule",
+  wellbeing_policy: "Mental health & performance rule",
+  injury_policy: "Injury / return-to-play rule",
+  career_policy: "Career & identity rule",
 };
 
 /** One-line description shown under each type label. */
@@ -60,6 +66,12 @@ export const DIRECTIVE_TYPE_DESCRIPTION: Record<DirectiveType, string> = {
   dashboard_section: "A card that appears on the athlete's dashboard, scoped to who should see it.",
   signal_definition: "A hero alert at the top of the dashboard — the colored block.",
   program_rule: "Rule for which programs Tomo recommends, blocks, or caps.",
+  // Phase 8: Bucketed verticals
+  sleep_policy: "Sleep duration, bedtime windows, hygiene, debt handling.",
+  nutrition_policy: "What Tomo recommends to eat, drink, supplement; pre/post-session timing.",
+  wellbeing_policy: "Mood, stress, motivation, focus, mindset, pre-match mental prep.",
+  injury_policy: "How Tomo handles an athlete with an active injury and progresses them back.",
+  career_policy: "CV coaching, recruitment visibility, scholarship paths, career transitions.",
 };
 
 /** The five plain-English sections the command center groups directives under. */
@@ -106,6 +118,37 @@ export const SECTIONS: { label: string; description: string; types: DirectiveTyp
     description: "Which training programs Tomo recommends, blocks, or load-caps for each athlete profile.",
     types: ["program_rule"],
     accent: "border-orange-200 bg-orange-50/50",
+  },
+  // Phase 8: Bucketed verticals
+  {
+    label: "Sleep",
+    description: "Sleep windows, hygiene, pre-match minimums, debt handling.",
+    types: ["sleep_policy"],
+    accent: "border-indigo-200 bg-indigo-50/50",
+  },
+  {
+    label: "Nutrition",
+    description: "What Tomo recommends to eat, drink, supplement; pre/post-session windows; hydration.",
+    types: ["nutrition_policy"],
+    accent: "border-lime-200 bg-lime-50/50",
+  },
+  {
+    label: "Mental Health & Performance",
+    description: "Mood, stress, motivation, focus, mindset, pre-match mental prep.",
+    types: ["wellbeing_policy"],
+    accent: "border-fuchsia-200 bg-fuchsia-50/50",
+  },
+  {
+    label: "Injury Management & Return-to-Play",
+    description: "How Tomo handles an athlete with an active injury and progresses them back.",
+    types: ["injury_policy"],
+    accent: "border-rose-200 bg-rose-50/50",
+  },
+  {
+    label: "Career & Identity",
+    description: "CV coaching, recruitment visibility, scholarship paths, career transitions.",
+    types: ["career_policy"],
+    accent: "border-slate-200 bg-slate-50/50",
   },
 ];
 

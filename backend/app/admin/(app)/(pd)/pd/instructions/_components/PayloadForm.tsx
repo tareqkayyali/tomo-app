@@ -1242,6 +1242,23 @@ export function defaultPayloadFor(type: DirectiveType): Record<string, any> {
         evidence_grade: null,
         is_enabled: true,
       };
+    // Phase 8: Bucketed verticals — share a common guidance shape.
+    case "sleep_policy":
+    case "nutrition_policy":
+    case "wellbeing_policy":
+    case "injury_policy":
+    case "career_policy":
+      return {
+        name: "",
+        description: "",
+        notes: null,
+        hard_stops: [],
+        applies_when: [],
+        ai_overridable: true,
+        evidence_source: null,
+        evidence_grade: null,
+        extras: {},
+      };
   }
 }
 

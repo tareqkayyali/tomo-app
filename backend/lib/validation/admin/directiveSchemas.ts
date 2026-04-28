@@ -33,6 +33,9 @@ export const directiveTypeEnum = z.enum([
   'meta_parser', 'meta_conflict',
   // Phase 7: Dashboard + Programs governance
   'dashboard_section', 'signal_definition', 'program_rule',
+  // Phase 8: Bucketed verticals
+  'sleep_policy', 'nutrition_policy', 'wellbeing_policy',
+  'injury_policy', 'career_policy',
 ]);
 export type DirectiveType = z.infer<typeof directiveTypeEnum>;
 
@@ -459,6 +462,96 @@ export const programRulePayloadSchema = z.object({
 });
 
 
+// ─── Phase 8: Bucketed-vertical payload schemas ───────────────────────────
+//
+// These five types each cover a distinct vertical (sleep / nutrition /
+// wellbeing / injury / career) that previously had no dedicated coverage.
+// Schemas are pragmatic: required name + description, structured arrays for
+// the most common fields, plus a permissive `extras` map so the PD can
+// iterate without schema churn.
+
+const guidanceCommonFields = {
+  /** Short label the CMS shows (truncate-safe). */
+  name: z.string().min(1).max(120),
+  /** Plain-English summary the PD wrote / parser extracted. */
+  description: z.string().min(1).max(8000),
+  /** Free-form notes / examples / source quotes. */
+  notes: z.string().max(4000).nullable().optional(),
+  /** Hard-stop conditions (kept here so guidance docs can flag without
+   * needing a separate safety_gate rule). Optional. */
+  hard_stops: z.array(z.string().max(400)).default([]),
+  /** When this guidance applies (e.g. 'pre_match', 'post_injury_d3-d7'). */
+  applies_when: z.array(z.string().max(120)).default([]),
+  /** Override-able by the AI (false = safety_critical, never overridden). */
+  ai_overridable: z.boolean().default(true),
+  /** Auditability — evidence grading. */
+  evidence_source: z.string().max(240).nullable().optional(),
+  evidence_grade: z.enum(['A', 'B', 'C']).nullable().optional(),
+  /** Free-form payload extension so the PD can iterate without schema churn. */
+  extras: z.record(z.string(), z.unknown()).default({}),
+};
+
+// 27. sleep_policy
+export const sleepPolicyPayloadSchema = z.object({
+  ...guidanceCommonFields,
+  recommended_sleep_hours: z.tuple([z.number(), z.number()]).optional(),
+  bedtime_window_local: z.tuple([z.string().max(8), z.string().max(8)]).optional(), // "21:30","23:00"
+  pre_match_sleep_min_hours: z.number().nullable().optional(),
+  blue_light_cutoff_minutes_before_bed: z.number().int().nullable().optional(),
+});
+
+// 28. nutrition_policy
+export const nutritionPolicyPayloadSchema = z.object({
+  ...guidanceCommonFields,
+  blocked_categories: z.array(z.string().max(120)).default([]),
+  recommended_categories: z.array(z.string().max(120)).default([]),
+  pre_session_window_minutes: z.number().int().nullable().optional(),
+  post_session_window_minutes: z.number().int().nullable().optional(),
+  hydration_ml_per_hour: z.number().int().nullable().optional(),
+  /** Dietary patterns this rule respects/excludes (e.g. "halal","vegetarian"). */
+  dietary_patterns: z.array(z.string().max(40)).default([]),
+});
+
+// 29. wellbeing_policy (mental health & performance)
+export const wellbeingPolicyPayloadSchema = z.object({
+  ...guidanceCommonFields,
+  /** Concrete scenarios this rule handles ("athlete reports anxiety",
+   * "athlete missed 3 check-ins", "pre-match nerves"). */
+  triggers: z.array(z.string().max(240)).default([]),
+  /** What Tomo does in response: tone shifts, suggested drills, escalations. */
+  response_actions: z.array(z.string().max(240)).default([]),
+  /** Topics Tomo must redirect away from (e.g. body-image, weight). */
+  blocked_topics: z.array(z.string().max(120)).default([]),
+  /** Reflection prompts Tomo can use. */
+  reflection_prompts: z.array(z.string().max(400)).default([]),
+});
+
+// 30. injury_policy (active-injury + return-to-play)
+export const injuryPolicyPayloadSchema = z.object({
+  ...guidanceCommonFields,
+  injury_categories: z.array(z.string().max(120)).default([]),
+  /** RTP stage definitions: "stage_1: pain-free walk", "stage_2: light jog"… */
+  rtp_stages: z.array(z.string().max(400)).default([]),
+  /** Categories Tomo will block while injury is active. */
+  blocked_categories_while_injured: z.array(z.string().max(120)).default([]),
+  /** Required clinician sign-off before progressing. */
+  requires_clinician_signoff: z.boolean().default(false),
+  /** Default minimum days at each stage. */
+  min_days_per_stage: z.number().int().nullable().optional(),
+});
+
+// 31. career_policy
+export const careerPolicyPayloadSchema = z.object({
+  ...guidanceCommonFields,
+  /** What Tomo can suggest about CV writing, scouting visibility, scholarship. */
+  guidance_topics: z.array(z.string().max(120)).default([]),
+  /** Visibility levels Tomo will recommend (e.g. "private","scout-visible"). */
+  visibility_recommendations: z.array(z.string().max(60)).default([]),
+  /** Conditions where Tomo defers to a human career advisor. */
+  defer_to_advisor_when: z.array(z.string().max(240)).default([]),
+});
+
+
 // ─── Payload registry & discriminated validation ──────────────────────────
 
 export const directivePayloadSchemas = {
@@ -489,6 +582,12 @@ export const directivePayloadSchemas = {
   dashboard_section: dashboardSectionPayloadSchema,
   signal_definition: signalDefinitionPayloadSchema,
   program_rule: programRulePayloadSchema,
+  // Phase 8: Bucketed verticals
+  sleep_policy: sleepPolicyPayloadSchema,
+  nutrition_policy: nutritionPolicyPayloadSchema,
+  wellbeing_policy: wellbeingPolicyPayloadSchema,
+  injury_policy: injuryPolicyPayloadSchema,
+  career_policy: careerPolicyPayloadSchema,
 } as const satisfies Record<DirectiveType, z.ZodTypeAny>;
 
 export function validateDirectivePayload<T extends DirectiveType>(
@@ -555,11 +654,24 @@ export function parseDirectiveWrite(input: unknown): DirectiveWriteInput {
  * a doc has no uploaded file. URL validation only runs when the value is
  * non-empty.
  */
+/**
+ * Methodology bucket slugs — matches DB CHECK on methodology_documents.bucket.
+ * Mirrored in lib/admin/methodologyBuckets.ts (single source of truth there).
+ */
+export const bucketSlugEnum = z.enum([
+  'voice', 'safety', 'training_science', 'calendar', 'programs',
+  'knowledge_memory', 'athlete_dashboard', 'coach_parent', 'nutrition',
+  'routing', 'wellbeing', 'injury', 'career', 'sleep',
+]);
+export type BucketSlugEnum = z.infer<typeof bucketSlugEnum>;
+
 const documentBaseShape = z.object({
   title: z.string().min(1).max(200),
   audience: audienceEnum.default('all'),
   sport_scope: z.array(z.string()).default([]),
   age_scope: z.array(ageBandEnum).default([]),
+  /** Optional bucket — null/undefined = legacy free-form doc (parser hits all types). */
+  bucket: bucketSlugEnum.nullable().optional(),
   source_format: sourceFormatEnum,
   source_text: z.string().optional(),
   source_file_url: z

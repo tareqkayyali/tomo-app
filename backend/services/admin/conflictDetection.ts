@@ -111,6 +111,31 @@ export const MERGE_SEMANTICS: Record<DirectiveType, MergeSemantics> = {
   scheduling_policy: { class: "winner-only", note: "Only one rule applies." },
   meta_parser: { class: "winner-only", note: "Only one rule applies." },
   meta_conflict: { class: "winner-only", note: "Only one rule applies." },
+
+  // ── Phase 8: Bucketed verticals — additive guidance ──────────────────
+  // Each vertical accumulates guidance — multiple sleep rules, nutrition
+  // rules, etc. all apply. Conflict detection treats them as informational
+  // stacks, not real conflicts.
+  sleep_policy: {
+    class: "additive",
+    note: "Every matching sleep rule applies — recommendations stack.",
+  },
+  nutrition_policy: {
+    class: "additive",
+    note: "Every matching nutrition rule applies — block lists union, recommendations stack.",
+  },
+  wellbeing_policy: {
+    class: "additive",
+    note: "Every matching mental-health rule applies — triggers and response actions stack.",
+  },
+  injury_policy: {
+    class: "additive",
+    note: "Every matching injury rule applies — RTP stages and blocks stack.",
+  },
+  career_policy: {
+    class: "additive",
+    note: "Every matching career-guidance rule applies — guidance stacks.",
+  },
 };
 
 export type ResolutionMode = "shadow" | "stack";

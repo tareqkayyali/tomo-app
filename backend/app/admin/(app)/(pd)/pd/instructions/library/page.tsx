@@ -36,12 +36,14 @@ import { PageGuide } from "@/components/admin/PageGuide";
 import { FieldGuide } from "@/components/admin/FieldGuide";
 import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
 import { withFrom } from "@/lib/admin/pdNav";
+import { BUCKETS, BUCKET_BY_SLUG, type BucketSlug } from "@/lib/admin/methodologyBuckets";
 import { instructionsHelp } from "@/lib/cms-help/instructions";
 
 interface Doc {
   id: string;
   title: string;
   audience: "athlete" | "coach" | "parent" | "all";
+  bucket: BucketSlug | null;
   source_format: "markdown" | "pdf" | "docx" | "plain";
   status: "draft" | "under_review" | "published" | "archived";
   updated_at: string;
@@ -79,6 +81,15 @@ export default function LibraryPage() {
   const [title, setTitle] = useState("");
   const [audience, setAudience] = useState<Doc["audience"]>("all");
   const [sourceText, setSourceText] = useState("");
+  const [bucket, setBucket] = useState<BucketSlug | "">("");
+
+  function handleBucketChange(slug: BucketSlug | "") {
+    setBucket(slug);
+    if (slug && !sourceText.trim()) {
+      const starter = BUCKET_BY_SLUG[slug]?.starter_template;
+      if (starter) setSourceText(starter);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -118,6 +129,7 @@ export default function LibraryPage() {
         body: JSON.stringify({
           title: title.trim(),
           audience,
+          bucket: bucket || null,
           source_format: "markdown",
           source_text: sourceText,
           status: "draft",
@@ -144,6 +156,7 @@ export default function LibraryPage() {
       setTitle("");
       setSourceText("");
       setAudience("all");
+      setBucket("");
       router.push(`/admin/pd/instructions/library/${created.id}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't create document");
@@ -209,6 +222,33 @@ export default function LibraryPage() {
               </div>
 
               <div className="space-y-1.5">
+                <Label htmlFor="bucket">Bucket</Label>
+                <Select
+                  value={bucket || "__none"}
+                  onValueChange={(v) => handleBucketChange(v === "__none" ? "" : (v as BucketSlug))}
+                >
+                  <SelectTrigger id="bucket">
+                    <SelectValue placeholder="Pick a bucket (recommended)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">
+                      No bucket (legacy free-form — parses against all rule types)
+                    </SelectItem>
+                    {BUCKETS.map((b) => (
+                      <SelectItem key={b.slug} value={b.slug}>
+                        {b.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {bucket && BUCKET_BY_SLUG[bucket as BucketSlug] && (
+                  <p className="text-xs text-muted-foreground">
+                    {BUCKET_BY_SLUG[bucket as BucketSlug].summary}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
                 <Label htmlFor="audience">Who does this document affect?</Label>
                 <Select value={audience} onValueChange={(v) => setAudience(v as Doc["audience"])}>
                   <SelectTrigger id="audience">
@@ -267,6 +307,7 @@ For athletes going through a growth spurt, never recommend max-effort lifts or d
             <TableHeader>
               <TableRow>
                 <TableHead>Title</TableHead>
+                <TableHead>Bucket</TableHead>
                 <TableHead>Audience</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last edited</TableHead>
@@ -283,6 +324,13 @@ For athletes going through a growth spurt, never recommend max-effort lifts or d
                     >
                       {d.title}
                     </Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {d.bucket && BUCKET_BY_SLUG[d.bucket] ? (
+                      BUCKET_BY_SLUG[d.bucket].label
+                    ) : (
+                      <span className="italic">No bucket</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {AUDIENCE_LABEL[d.audience]}
