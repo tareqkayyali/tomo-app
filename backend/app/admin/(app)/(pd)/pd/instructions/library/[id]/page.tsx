@@ -120,7 +120,23 @@ export default function DocumentEditorPage({ params }: { params: Promise<{ id: s
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Save failed");
+        // Surface the most-detailed message we can pull out of the response.
+        // `error` carries a friendly summary; `detail`/`details` carry the
+        // technical specifics. Show whichever has the most signal.
+        const detailString =
+          typeof err?.detail === "string"
+            ? err.detail
+            : err?.details && typeof err.details === "object"
+              ? JSON.stringify(err.details)
+              : "";
+        const message =
+          (typeof err?.error === "string" && err.error) ||
+          detailString ||
+          `Save failed (status ${res.status})`;
+        // Log full payload to the browser console so an operator can see
+        // exactly what failed without needing to reproduce.
+        console.error("[doc save] failed:", { status: res.status, body: err });
+        throw new Error(message);
       }
       const updated: Doc = await res.json();
       setDoc(updated);

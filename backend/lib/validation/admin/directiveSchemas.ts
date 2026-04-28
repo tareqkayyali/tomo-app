@@ -545,21 +545,48 @@ export function parseDirectiveWrite(input: unknown): DirectiveWriteInput {
 
 // ─── Document schemas ─────────────────────────────────────────────────────
 
-export const documentWriteSchema = z.object({
+/**
+ * Base shape — used on its own for partial updates and as the seed for the
+ * create-time `documentWriteSchema` (which adds the source_text-or-file_url
+ * refine on top).
+ *
+ * `source_file_url` accepts an empty string in addition to a valid URL
+ * because the document editor sends "" rather than dropping the field when
+ * a doc has no uploaded file. URL validation only runs when the value is
+ * non-empty.
+ */
+const documentBaseShape = z.object({
   title: z.string().min(1).max(200),
   audience: audienceEnum.default('all'),
   sport_scope: z.array(z.string()).default([]),
   age_scope: z.array(ageBandEnum).default([]),
   source_format: sourceFormatEnum,
   source_text: z.string().optional(),
-  source_file_url: z.string().url().optional(),
+  source_file_url: z
+    .string()
+    .optional()
+    .refine(
+      (v) => v === undefined || v === '' || /^https?:\/\//i.test(v),
+      'source_file_url must be a valid http(s) URL when set.',
+    ),
   status: documentStatusEnum.default('draft'),
-}).refine(
+});
+
+export const documentWriteSchema = documentBaseShape.refine(
   (d) => !!d.source_text || !!d.source_file_url,
   { message: 'Either source_text or source_file_url must be provided.' },
 );
 
+/**
+ * Update-time schema. All fields optional; the create-time
+ * source_text-or-file_url refine is *not* re-applied (the document already
+ * had content when it was created — partial updates don't have to re-prove
+ * that on every save).
+ */
+export const documentUpdateSchema = documentBaseShape.partial();
+
 export type DocumentWriteInput = z.infer<typeof documentWriteSchema>;
+export type DocumentUpdateInput = z.infer<typeof documentUpdateSchema>;
 
 // ─── Snapshot schemas ─────────────────────────────────────────────────────
 

@@ -123,7 +123,18 @@ export default function LibraryPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Save failed");
+        const detailString =
+          typeof err?.detail === "string"
+            ? err.detail
+            : err?.details && typeof err.details === "object"
+              ? JSON.stringify(err.details)
+              : "";
+        const message =
+          (typeof err?.error === "string" && err.error) ||
+          detailString ||
+          `Save failed (status ${res.status})`;
+        console.error("[doc create] failed:", { status: res.status, body: err });
+        throw new Error(message);
       }
       const created = await res.json();
       toast.success("Created. Opening the editor…");

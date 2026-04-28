@@ -36,10 +36,25 @@ export async function POST(req: NextRequest) {
   if ("error" in auth) return auth.error;
 
   const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = documentWriteSchema.safeParse(body);
   if (!parsed.success) {
+    const flat = parsed.error.flatten();
+    const fieldMessages = Object.entries(flat.fieldErrors).flatMap(
+      ([field, msgs]) => (msgs ?? []).map((m: string) => `${field}: ${m}`),
+    );
+    const allMessages = [...fieldMessages, ...flat.formErrors];
+    const friendly = allMessages.length
+      ? allMessages.join("; ")
+      : "Validation failed";
+    console.error("[pd/instructions/documents/POST] validation failed:", {
+      body_keys: Object.keys(body as Record<string, unknown>),
+      flat,
+    });
     return NextResponse.json(
-      { error: "Validation failed", details: parsed.error.flatten() },
+      { error: friendly, details: flat },
       { status: 400 },
     );
   }
@@ -56,8 +71,17 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(doc, { status: 201 });
   } catch (err) {
+    console.error("[pd/instructions/documents/POST] DB insert failed:", {
+      err: err instanceof Error ? { message: err.message, stack: err.stack } : err,
+    });
     return NextResponse.json(
-      { error: "Failed to create methodology document", detail: String(err) },
+      {
+        error:
+          err instanceof Error
+            ? `Couldn't save: ${err.message}`
+            : "Couldn't create the document",
+        detail: String(err),
+      },
       { status: 500 },
     );
   }

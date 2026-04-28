@@ -6,7 +6,9 @@ import {
   updateMethodologyDocument,
   deleteMethodologyDocument,
 } from "@/services/admin/methodologyService";
-import { documentWriteSchema } from "@/lib/validation/admin/directiveSchemas";
+import {
+  documentUpdateSchema,
+} from "@/lib/validation/admin/directiveSchemas";
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -33,11 +35,36 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
 
   const body = await req.json().catch(() => null);
-  // Allow partial updates: validate only the fields present.
-  const parsed = documentWriteSchema.partial().safeParse(body);
-  if (!parsed.success) {
+  if (!body || typeof body !== "object") {
     return NextResponse.json(
-      { error: "Validation failed", details: parsed.error.flatten() },
+      { error: "Invalid JSON body" },
+      { status: 400 },
+    );
+  }
+  // Allow partial updates: validate only the fields present. Note: this
+  // schema deliberately does NOT re-apply the create-time refine that
+  // requires `source_text || source_file_url`. A document that already
+  // has content shouldn't have to re-prove it on every save.
+  const parsed = documentUpdateSchema.safeParse(body);
+  if (!parsed.success) {
+    const flat = parsed.error.flatten();
+    const fieldMessages = Object.entries(flat.fieldErrors).flatMap(
+      ([field, msgs]) => (msgs ?? []).map((m: string) => `${field}: ${m}`),
+    );
+    const allMessages = [...fieldMessages, ...flat.formErrors];
+    const friendly = allMessages.length
+      ? allMessages.join("; ")
+      : "Validation failed";
+    console.error("[pd/instructions/documents/PUT] validation failed:", {
+      id,
+      body_keys: Object.keys(body as Record<string, unknown>),
+      flat,
+    });
+    return NextResponse.json(
+      {
+        error: friendly,
+        details: flat,
+      },
       { status: 400 },
     );
   }
@@ -56,8 +83,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
     return NextResponse.json(after);
   } catch (err) {
+    console.error("[pd/instructions/documents/PUT] DB update failed:", {
+      id,
+      err: err instanceof Error ? { message: err.message, stack: err.stack } : err,
+    });
     return NextResponse.json(
-      { error: "Failed to update methodology document", detail: String(err) },
+      {
+        error:
+          err instanceof Error
+            ? `Couldn't save: ${err.message}`
+            : "Couldn't save the document",
+        detail: String(err),
+      },
       { status: 500 },
     );
   }
