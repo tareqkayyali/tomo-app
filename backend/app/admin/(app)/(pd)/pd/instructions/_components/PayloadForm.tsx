@@ -10,6 +10,7 @@
  * methodology parser populates them automatically.
  */
 
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +28,47 @@ export interface PayloadFormProps {
   type: DirectiveType;
   payload: Record<string, any>;
   onChange: (next: Record<string, any>) => void;
+}
+
+/**
+ * Component types that consume a metric_key. For everything else the
+ * metric_key field is hidden — those component types pull from other
+ * data sources (signals, calendar, recommendations, snapshot fields).
+ */
+const METRIC_DRIVEN_COMPONENTS = new Set([
+  "kpi_row",
+  "sparkline_row",
+  "status_ring",
+  "benchmark",
+]);
+
+interface AvailableMetric {
+  metric_key: string;
+  display_name: string;
+  display_unit: string;
+  category: string;
+  sport_filter: string[] | null;
+}
+
+/**
+ * Module-level cache for the metrics list — small, doesn't change often,
+ * and the dropdown is opened many times across a PD's authoring session.
+ */
+let _metricsCache: AvailableMetric[] | null = null;
+
+async function fetchAvailableMetrics(): Promise<AvailableMetric[]> {
+  if (_metricsCache) return _metricsCache;
+  try {
+    const res = await fetch("/api/v1/admin/pd/instructions/metrics", {
+      credentials: "include",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    _metricsCache = (data.metrics ?? []) as AvailableMetric[];
+    return _metricsCache;
+  } catch {
+    return [];
+  }
 }
 
 /** Helper: comma-separated string -> string array (trimmed, empty filtered). */
@@ -817,121 +859,7 @@ export function PayloadForm({ type, payload, onChange }: PayloadFormProps) {
       );
 
     case "dashboard_section":
-      return (
-        <div className="space-y-4">
-          <Field
-            label="Card type"
-            help={{
-              text: "What kind of card is this on the athlete's dashboard?",
-              example: "e.g. KPI row (numbers), Sparkline (trend), Status ring (today's readiness).",
-            }}
-          >
-            <Select
-              value={payload.component_type ?? "kpi_row"}
-              onValueChange={(v) => set("component_type", v)}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="signal_hero">Hero alert (signal_hero)</SelectItem>
-                <SelectItem value="status_ring">Status ring</SelectItem>
-                <SelectItem value="kpi_row">KPI row (a number)</SelectItem>
-                <SelectItem value="sparkline_row">Sparkline (a trend)</SelectItem>
-                <SelectItem value="dual_load">Dual-load gauge</SelectItem>
-                <SelectItem value="benchmark">Benchmark</SelectItem>
-                <SelectItem value="rec_list">Recommendation list</SelectItem>
-                <SelectItem value="event_list">Upcoming events</SelectItem>
-                <SelectItem value="growth_card">Growth card</SelectItem>
-                <SelectItem value="engagement_bar">Engagement bar</SelectItem>
-                <SelectItem value="protocol_banner">Protocol banner</SelectItem>
-                <SelectItem value="custom_card">Custom card</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field
-            label="Where on screen"
-            help={{
-              text: "Main dashboard, or one of the sub-panels (Programs, Metrics, Progress).",
-            }}
-          >
-            <Select
-              value={payload.panel_key ?? "main"}
-              onValueChange={(v) => set("panel_key", v)}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="main">Main dashboard</SelectItem>
-                <SelectItem value="program">Programs panel</SelectItem>
-                <SelectItem value="metrics">Metrics panel</SelectItem>
-                <SelectItem value="progress">Progress panel</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field
-            label="Section name"
-            help={{
-              text: "An internal key to identify this card. Lowercase, underscores OK.",
-              example: "e.g. sleep_kpi, recent_load, striker_focus",
-            }}
-          >
-            <Input
-              value={payload.section_key ?? ""}
-              onChange={(e) => set("section_key", e.target.value)}
-              placeholder="sleep_kpi"
-            />
-          </Field>
-          <Field
-            label="Display name"
-            help={{ text: "What the athlete reads as the card title." }}
-          >
-            <Input
-              value={payload.display_name ?? ""}
-              onChange={(e) => set("display_name", e.target.value)}
-              placeholder="Sleep — last 7 days"
-            />
-          </Field>
-          <Field
-            label="Order on screen"
-            help={{ text: "Lower numbers appear higher up. Default 100." }}
-          >
-            <Input
-              type="number"
-              value={payload.sort_order ?? 100}
-              onChange={(e) => set("sort_order", Number(e.target.value))}
-            />
-          </Field>
-          <Field
-            label="Metric (optional)"
-            help={{
-              text: "If this card shows a single metric, pick its key from the metrics registry.",
-              example: "e.g. sleep_hours, hrv_morning_ms, ccrs_score",
-            }}
-          >
-            <Input
-              value={payload.metric_key ?? ""}
-              onChange={(e) =>
-                set("metric_key", e.target.value.trim() || null)
-              }
-              placeholder="(leave empty if not metric-driven)"
-            />
-          </Field>
-          <Field
-            label="Coaching text (optional)"
-            help={{
-              text: "Plain-language template shown alongside the card. Use {field} placeholders.",
-              example: "e.g. \"You've slept {sleep_hours}h on average this week.\"",
-            }}
-          >
-            <Textarea
-              rows={3}
-              value={payload.coaching_text_template ?? ""}
-              onChange={(e) =>
-                set("coaching_text_template", e.target.value || null)
-              }
-            />
-          </Field>
-        </div>
-      );
-
+      return <DashboardSectionForm payload={payload} set={set} />;
     case "signal_definition":
       return (
         <div className="space-y-4">
@@ -1375,6 +1303,206 @@ function ZoneInputs({
       <p className="text-xs text-muted-foreground">
         Green = healthy. Yellow = warning. Red = stop / unsafe.
       </p>
+    </div>
+  );
+}
+
+
+// ─── DashboardSectionForm ───────────────────────────────────────────────
+// Standalone sub-component because (a) it's the only payload type that
+// needs to fetch the metrics registry on mount, and (b) its metric_key
+// field is conditionally rendered based on component_type.
+
+function DashboardSectionForm({
+  payload,
+  set,
+}: {
+  payload: Record<string, any>;
+  set: (key: string, value: any) => void;
+}) {
+  const componentType: string = payload.component_type ?? "kpi_row";
+  const showsMetric = METRIC_DRIVEN_COMPONENTS.has(componentType);
+
+  const [metrics, setMetrics] = useState<AvailableMetric[]>([]);
+  const [metricsLoaded, setMetricsLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetchAvailableMetrics().then((m) => {
+      if (!active) return;
+      setMetrics(m);
+      setMetricsLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // If the PD switches to a non-metric component type, clear the stale value.
+  useEffect(() => {
+    if (!showsMetric && payload.metric_key) {
+      set("metric_key", null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [componentType]);
+
+  return (
+    <div className="space-y-4">
+      <Field
+        label="Card type"
+        help={{
+          text: "What kind of card is this on the athlete's dashboard?",
+          example:
+            "KPI row, Sparkline, Status ring, and Benchmark show a single metric. The others pull from elsewhere (signals, calendar, recommendations, snapshot fields).",
+        }}
+      >
+        <Select
+          value={componentType}
+          onValueChange={(v) => set("component_type", v)}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="signal_hero">Hero alert (uses a Dashboard alert rule)</SelectItem>
+            <SelectItem value="status_ring">Status ring (shows a metric)</SelectItem>
+            <SelectItem value="kpi_row">KPI row (shows a metric)</SelectItem>
+            <SelectItem value="sparkline_row">Sparkline (shows a metric trend)</SelectItem>
+            <SelectItem value="benchmark">Benchmark (shows a metric percentile)</SelectItem>
+            <SelectItem value="dual_load">Dual-load gauge (uses snapshot)</SelectItem>
+            <SelectItem value="rec_list">Recommendation list (uses recs system)</SelectItem>
+            <SelectItem value="event_list">Upcoming events (uses calendar)</SelectItem>
+            <SelectItem value="growth_card">Growth card (uses snapshot)</SelectItem>
+            <SelectItem value="engagement_bar">Engagement bar</SelectItem>
+            <SelectItem value="protocol_banner">Protocol banner (your text)</SelectItem>
+            <SelectItem value="custom_card">Custom card</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <Field
+        label="Where on screen"
+        help={{
+          text: "Main dashboard, or one of the sub-panels (Programs, Metrics, Progress).",
+        }}
+      >
+        <Select
+          value={payload.panel_key ?? "main"}
+          onValueChange={(v) => set("panel_key", v)}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="main">Main dashboard</SelectItem>
+            <SelectItem value="program">Programs panel</SelectItem>
+            <SelectItem value="metrics">Metrics panel</SelectItem>
+            <SelectItem value="progress">Progress panel</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <Field
+        label="Internal name (your label)"
+        help={{
+          text: "An internal label so you can find this rule later. The PD invents it. Lowercase, underscores. Does NOT pull data — it's just a name.",
+          example:
+            "e.g. u15_striker_sleep_trend, gk_reactive_agility, recovery_mode_banner.",
+          warning:
+            "If two rules share the same internal name, only the higher-priority one applies. Use distinct names per scope.",
+        }}
+      >
+        <Input
+          value={payload.section_key ?? ""}
+          onChange={(e) => set("section_key", e.target.value)}
+          placeholder="u15_striker_sleep_trend"
+        />
+      </Field>
+
+      <Field
+        label="Display name (what the athlete reads)"
+        help={{ text: "The card title shown to the athlete." }}
+      >
+        <Input
+          value={payload.display_name ?? ""}
+          onChange={(e) => set("display_name", e.target.value)}
+          placeholder="Sleep — last 7 days"
+        />
+      </Field>
+
+      <Field
+        label="Order on screen"
+        help={{
+          text: "Lower number = higher up. Default 100. Use 5–10 for top, 100 for middle, 200+ for bottom.",
+        }}
+      >
+        <Input
+          type="number"
+          value={payload.sort_order ?? 100}
+          onChange={(e) => set("sort_order", Number(e.target.value))}
+        />
+      </Field>
+
+      {/* metric_key only shown for component types that consume one */}
+      {showsMetric && (
+        <Field
+          label="Which metric this card shows"
+          help={{
+            text: "Pick from the registered metrics in the platform. The metric tells Tomo where to fetch the actual value (snapshot field, daily vitals, check-in, etc.).",
+            example:
+              "Sleep hours, HRV morning, CCRS score, Mood. New metrics require a developer change.",
+            warning:
+              metricsLoaded && metrics.length === 0
+                ? "No metrics found in the registry. Ask your data team to add one before authoring metric-driven cards."
+                : undefined,
+          }}
+        >
+          <Select
+            value={payload.metric_key ?? "_none"}
+            onValueChange={(v) =>
+              set("metric_key", v === "_none" ? null : v)
+            }
+          >
+            <SelectTrigger>
+              <SelectValue
+                placeholder={
+                  metricsLoaded ? "Pick a metric…" : "Loading metrics…"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">(none — leave empty)</SelectItem>
+              {metrics.map((m) => (
+                <SelectItem key={m.metric_key} value={m.metric_key}>
+                  {m.display_name}
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {m.metric_key}
+                    {m.display_unit ? ` · ${m.display_unit}` : ""}
+                    {m.category ? ` · ${m.category}` : ""}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
+
+      <Field
+        label="Coaching text (optional)"
+        help={{
+          text: "Plain-language template shown alongside the card. Use {field} placeholders that get replaced with the athlete's live values.",
+          example:
+            'e.g. "You\'ve slept {sleep_hours}h on average this week."',
+        }}
+      >
+        <Textarea
+          rows={3}
+          value={payload.coaching_text_template ?? ""}
+          onChange={(e) =>
+            set("coaching_text_template", e.target.value || null)
+          }
+        />
+      </Field>
     </div>
   );
 }
