@@ -383,6 +383,20 @@ ${shapeBlock}
 
 7. If a field's value is unclear from the document, OMIT the field. Don't guess.
 
+# Choosing the right directive_type (classification matters)
+
+Pick the type by what the rule CONTROLS, not by the words in the source.
+
+- A rule about **how Tomo phrases things** ("must always include the reason", "every recommendation paired with a one-line explanation", "never use stand-alone instructions") is a TONE rule, not \`recommendation_policy\`. \`recommendation_policy\` is for *what categories* may/must/must-not be recommended (e.g. "never recommend Olympic lifts to U13s"); the *how it's said* belongs in tone or response_shape.
+
+- A rule about **what Tomo does when the athlete signals distress** ("Tomo drops all training advice and acknowledges the athlete") is a TONE rule (or escalation/safety_gate if it triggers a coach alert), not a \`routing_intent\`. \`routing_intent\` is for "when the athlete asks X (a specific intent like build_session or readiness_check), respond using pattern Y". It maps a CLASSIFIED INTENT to a response pattern, not a context-aware behavioural shift.
+
+- If a rule reads as "in situation X, change tone/format" → use \`tone\` or \`response_shape\` with appropriate scope.
+- If a rule reads as "when athlete asks for X, route to Y" with a clearly-named intent → use \`routing_intent\`.
+- If a rule reads as "what programs Tomo can/cannot recommend" → \`recommendation_policy\` (chat side) or \`program_rule\` (programs tab).
+
+When in doubt, prefer the broader / more conservative type. A rule that fits multiple types should be emitted only once, under the type that captures its primary effect.
+
 Call the propose_directives tool exactly once with the full array of proposals. Do not return prose.`;
 }
 
@@ -492,6 +506,59 @@ const INTENSITY_CAP_SYNONYMS: Record<string, string> = {
   light_only: "light",
   moderate_only: "moderate",
   full_intensity: "full",
+};
+
+const RESPONSE_PATTERN_SYNONYMS: Record<string, string> = {
+  // Common things Claude tries when the prose is open-ended.
+  acknowledge: "open_coaching",
+  acknowledgement: "open_coaching",
+  acknowledgment: "open_coaching",
+  conversational: "open_coaching",
+  chat: "open_coaching",
+  pause_training: "open_coaching",
+  drop_training: "open_coaching",
+  capsule: "capsule_direct",
+  show_data: "data_display",
+  display_data: "data_display",
+  step_by_step: "multi_step",
+  flow: "multi_step",
+  action: "write_action",
+  write: "write_action",
+  open: "open_coaching",
+};
+
+const LLM_TIER_SYNONYMS: Record<string, string> = {
+  // Claude versions in the wild — collapse them to the canonical tier.
+  "claude-haiku": "haiku",
+  "claude-sonnet": "sonnet",
+  "claude-opus": "opus",
+  "haiku-3": "haiku",
+  "haiku-4": "haiku",
+  "sonnet-3": "sonnet",
+  "sonnet-4": "sonnet",
+  "opus-3": "opus",
+  "opus-4": "opus",
+  fast: "haiku",
+  default: "sonnet",
+  smart: "sonnet",
+  best: "opus",
+  high: "opus",
+};
+
+const PRIORITY_OVERRIDE_SYNONYMS: Record<string, string> = {
+  // Verbal priorities Claude returns instead of Pn codes.
+  must: "P0",
+  critical: "P0",
+  highest: "P0",
+  high: "P1",
+  medium: "P2",
+  normal: "P2",
+  low: "P3",
+  lowest: "P3",
+  "0": "P0",
+  "1": "P1",
+  "2": "P2",
+  "3": "P3",
 };
 
 function lowerEnum(v: unknown, allowed: readonly string[], synonyms?: Record<string, string>): unknown {
@@ -659,6 +726,107 @@ export function coercePayload(
           p.dedup_strategy,
           ["naive", "embedding", "llm_judge"] as const,
         );
+      }
+      break;
+
+    case "routing_intent":
+      if ("response_pattern" in p) {
+        p.response_pattern = lowerEnum(
+          p.response_pattern,
+          [
+            "capsule_direct",
+            "data_display",
+            "multi_step",
+            "write_action",
+            "open_coaching",
+          ] as const,
+          RESPONSE_PATTERN_SYNONYMS,
+        );
+      }
+      if ("llm_tier" in p) {
+        // Claude often emits null / model-version strings for fields it
+        // doesn't have a clear value for. Coerce to the canonical tier
+        // when possible; drop entirely when not (the field is optional).
+        const v = p.llm_tier;
+        if (v === null || v === undefined || v === "") {
+          delete p.llm_tier;
+        } else {
+          const normalised = lowerEnum(
+            v,
+            ["haiku", "sonnet", "opus"] as const,
+            LLM_TIER_SYNONYMS,
+          );
+          if (
+            normalised === "haiku" ||
+            normalised === "sonnet" ||
+            normalised === "opus"
+          ) {
+            p.llm_tier = normalised;
+          } else {
+            delete p.llm_tier;
+          }
+        }
+      }
+      if ("multi_step_definition" in p) {
+        // Schema expects a record/object. Claude sometimes returns a string
+        // describing the multi-step flow in prose, or an empty array.
+        const v = p.multi_step_definition;
+        if (typeof v === "string") {
+          p.multi_step_definition = v.trim() ? { description: v } : undefined;
+        } else if (Array.isArray(v) && v.length === 0) {
+          p.multi_step_definition = undefined;
+        }
+      }
+      break;
+
+    case "recommendation_policy":
+      if ("priority_override" in p) {
+        const v = p.priority_override;
+        if (v === null || v === undefined || v === "") {
+          delete p.priority_override;
+        } else {
+          // lowerEnum lowercases input before comparing; the Pn allowed
+          // set is uppercase so "P0" passes through unchanged via the
+          // fall-through (`return v`). Synonyms map words → uppercase Pn.
+          const normalised = lowerEnum(
+            v,
+            ["P0", "P1", "P2", "P3"] as const,
+            PRIORITY_OVERRIDE_SYNONYMS,
+          );
+          if (
+            normalised === "P0" ||
+            normalised === "P1" ||
+            normalised === "P2" ||
+            normalised === "P3"
+          ) {
+            p.priority_override = normalised;
+          } else {
+            delete p.priority_override;
+          }
+        }
+      }
+      if ("forced_inclusions" in p) {
+        // Schema expects Record<string, unknown>. Claude often returns
+        // an array of phrases ("must include the reason for the recommendation",
+        // ...). Convert empty arrays to {}; treat non-empty arrays as
+        // a list keyed by index so the data is preserved + Zod accepts it.
+        const v = p.forced_inclusions;
+        if (Array.isArray(v)) {
+          if (v.length === 0) {
+            p.forced_inclusions = {};
+          } else {
+            const asRecord: Record<string, unknown> = {};
+            v.forEach((item, idx) => {
+              asRecord[String(idx)] = item;
+            });
+            p.forced_inclusions = asRecord;
+          }
+        }
+      }
+      if ("scope_conditions" in p && Array.isArray(p.scope_conditions)) {
+        // Same shape coercion for scope_conditions when Claude returns []
+        p.scope_conditions =
+          (p.scope_conditions as unknown[]).length === 0 ? {} : p.scope_conditions;
       }
       break;
 

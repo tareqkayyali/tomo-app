@@ -165,4 +165,128 @@ describe("methodology parser coercion", () => {
     expect(coerced.bullet_policy).toBe("totally_unknown_value");
     expect(directivePayloadSchemas.response_shape.safeParse(coerced).success).toBe(false);
   });
+
+  // ── routing_intent fields (regression for "How tomo talks" parse) ─────
+
+  it("routing_intent.response_pattern: 'acknowledge' -> 'open_coaching' via synonym", () => {
+    const coerced = coercePayload("routing_intent", {
+      intent_id: "distress_response",
+      response_pattern: "acknowledge",
+    });
+    expect(coerced.response_pattern).toBe("open_coaching");
+    expect(directivePayloadSchemas.routing_intent.safeParse(coerced).success).toBe(true);
+  });
+
+  it("routing_intent.llm_tier: empty string is dropped", () => {
+    const coerced = coercePayload("routing_intent", {
+      intent_id: "x",
+      response_pattern: "open_coaching",
+      llm_tier: "",
+    });
+    expect("llm_tier" in coerced).toBe(false);
+    expect(directivePayloadSchemas.routing_intent.safeParse(coerced).success).toBe(true);
+  });
+
+  it("routing_intent.llm_tier: 'sonnet-4' -> 'sonnet' via synonym", () => {
+    const coerced = coercePayload("routing_intent", {
+      intent_id: "x",
+      response_pattern: "open_coaching",
+      llm_tier: "sonnet-4",
+    });
+    expect(coerced.llm_tier).toBe("sonnet");
+    expect(directivePayloadSchemas.routing_intent.safeParse(coerced).success).toBe(true);
+  });
+
+  it("routing_intent.multi_step_definition: prose string -> { description: ... }", () => {
+    const coerced = coercePayload("routing_intent", {
+      intent_id: "x",
+      response_pattern: "multi_step",
+      multi_step_definition: "Step 1: ack. Step 2: ask follow-up.",
+    });
+    expect(coerced.multi_step_definition).toEqual({
+      description: "Step 1: ack. Step 2: ask follow-up.",
+    });
+    expect(directivePayloadSchemas.routing_intent.safeParse(coerced).success).toBe(true);
+  });
+
+  it("routing_intent.multi_step_definition: empty array -> undefined", () => {
+    const coerced = coercePayload("routing_intent", {
+      intent_id: "x",
+      response_pattern: "open_coaching",
+      multi_step_definition: [],
+    });
+    expect(coerced.multi_step_definition).toBeUndefined();
+  });
+
+  // ── recommendation_policy fields (regression) ─────────────────────────
+
+  it("recommendation_policy.priority_override: 'high' -> 'P1' via synonym", () => {
+    const coerced = coercePayload("recommendation_policy", {
+      blocked_categories: [],
+      mandatory_categories: [],
+      priority_override: "high",
+    });
+    expect(coerced.priority_override).toBe("P1");
+    expect(directivePayloadSchemas.recommendation_policy.safeParse(coerced).success).toBe(true);
+  });
+
+  it("recommendation_policy.priority_override: 'must' -> 'P0'", () => {
+    const coerced = coercePayload("recommendation_policy", {
+      blocked_categories: [],
+      mandatory_categories: [],
+      priority_override: "must",
+    });
+    expect(coerced.priority_override).toBe("P0");
+    expect(directivePayloadSchemas.recommendation_policy.safeParse(coerced).success).toBe(true);
+  });
+
+  it("recommendation_policy.priority_override: unknown value is dropped", () => {
+    const coerced = coercePayload("recommendation_policy", {
+      blocked_categories: [],
+      mandatory_categories: [],
+      priority_override: "totally_made_up",
+    });
+    expect("priority_override" in coerced).toBe(false);
+    expect(directivePayloadSchemas.recommendation_policy.safeParse(coerced).success).toBe(true);
+  });
+
+  it("recommendation_policy.forced_inclusions: empty array -> {}", () => {
+    const coerced = coercePayload("recommendation_policy", {
+      blocked_categories: [],
+      mandatory_categories: [],
+      forced_inclusions: [],
+    });
+    expect(coerced.forced_inclusions).toEqual({});
+    expect(directivePayloadSchemas.recommendation_policy.safeParse(coerced).success).toBe(true);
+  });
+
+  it("recommendation_policy.forced_inclusions: array of phrases -> indexed record", () => {
+    const coerced = coercePayload("recommendation_policy", {
+      blocked_categories: [],
+      mandatory_categories: [],
+      forced_inclusions: [
+        "always pair with a reason",
+        "never stand-alone instruction",
+      ],
+    });
+    expect(coerced.forced_inclusions).toEqual({
+      "0": "always pair with a reason",
+      "1": "never stand-alone instruction",
+    });
+    expect(directivePayloadSchemas.recommendation_policy.safeParse(coerced).success).toBe(true);
+  });
+
+  it("recommendation_policy regression: full payload from 'every recommendation must be paired with a reason' parse", () => {
+    // Approximation of what Claude was producing for the user's prose.
+    const raw = {
+      scope_conditions: [],
+      blocked_categories: [],
+      mandatory_categories: [],
+      priority_override: "high",
+      forced_inclusions: ["pair with one-sentence reason"],
+    };
+    const coerced = coercePayload("recommendation_policy", raw);
+    const result = directivePayloadSchemas.recommendation_policy.safeParse(coerced);
+    expect(result.success).toBe(true);
+  });
 });
