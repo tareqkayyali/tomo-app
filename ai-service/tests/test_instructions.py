@@ -473,6 +473,259 @@ def test_guardrail_phv_merge_two_complementary_directives(monkeypatch):
     assert "Plyos with high impact" in phv.safety_warning
 
 
+# ── Phase 8: bucketed-vertical accessors ───────────────────────────────
+
+
+def _bucketed_directive(directive_type, audience="athlete", priority=100, payload=None, sport_scope=None):
+    from datetime import datetime, timezone
+    from uuid import uuid4
+    from app.instructions.types import Directive
+
+    return Directive(
+        id=str(uuid4()),
+        directive_type=directive_type,
+        audience=audience,
+        sport_scope=sport_scope or [],
+        priority=priority,
+        payload=payload or {},
+        updated_at=datetime.now(timezone.utc),
+    )
+
+
+def test_resolver_phase8_accessors_empty_until_pd_publishes():
+    rs = resolve_sync(audience="athlete")
+    assert rs.all_sleep_rules() == []
+    assert rs.all_nutrition_rules() == []
+    assert rs.all_wellbeing_rules() == []
+    assert rs.all_injury_rules() == []
+    assert rs.all_career_rules() == []
+
+
+def test_sleep_rules_apply_for_matching_athlete_scope(monkeypatch):
+    from app.instructions.types import DirectiveType
+
+    extras = [
+        _bucketed_directive(
+            DirectiveType.SLEEP_POLICY,
+            payload={
+                "name": "U15 sleep window",
+                "description": "Aim for 9 hours, lights out by 22:30 on school nights.",
+                "recommended_sleep_hours": [9.0, 10.0],
+                "bedtime_window_local": ["21:30", "22:30"],
+            },
+        ),
+    ]
+    _patch_snapshot_with(monkeypatch, extras)
+
+    rs = resolve_sync(audience="athlete")
+    rules = rs.all_sleep_rules()
+    assert len(rules) == 1
+    assert rules[0].recommended_sleep_hours == (9.0, 10.0)
+    assert rules[0].bedtime_window_local == ("21:30", "22:30")
+
+
+def test_nutrition_rules_filtered_by_sport_scope(monkeypatch):
+    from app.instructions.types import DirectiveType
+
+    extras = [
+        _bucketed_directive(
+            DirectiveType.NUTRITION_POLICY,
+            payload={
+                "name": "Football pre-match fuel",
+                "description": "60-90g carbs 2-3h pre-match.",
+                "pre_session_window_minutes": 150,
+            },
+            sport_scope=["football"],
+        ),
+        _bucketed_directive(
+            DirectiveType.NUTRITION_POLICY,
+            payload={
+                "name": "Tennis hydration",
+                "description": "500ml/hour during long matches.",
+                "hydration_ml_per_hour": 500,
+            },
+            sport_scope=["tennis"],
+        ),
+    ]
+    _patch_snapshot_with(monkeypatch, extras)
+
+    football = resolve_sync(audience="athlete", sport="football")
+    fb_rules = football.all_nutrition_rules()
+    assert len(fb_rules) == 1
+    assert fb_rules[0].pre_session_window_minutes == 150
+
+    tennis = resolve_sync(audience="athlete", sport="tennis")
+    tn_rules = tennis.all_nutrition_rules()
+    assert len(tn_rules) == 1
+    assert tn_rules[0].hydration_ml_per_hour == 500
+
+    # Basketball has neither — sport_scope mismatch on both.
+    basketball = resolve_sync(audience="athlete", sport="basketball")
+    assert basketball.all_nutrition_rules() == []
+
+
+def test_wellbeing_rules_accumulate_additively(monkeypatch):
+    from app.instructions.types import DirectiveType
+
+    extras = [
+        _bucketed_directive(
+            DirectiveType.WELLBEING_POLICY,
+            priority=50,
+            payload={
+                "name": "Pre-match nerves",
+                "description": "Normalize anxiety before big matches.",
+                "triggers": ["pre-match nerves"],
+                "blocked_topics": ["body-image"],
+            },
+        ),
+        _bucketed_directive(
+            DirectiveType.WELLBEING_POLICY,
+            priority=60,
+            payload={
+                "name": "Missed check-ins",
+                "description": "Gentle re-engagement after 3 missed check-ins.",
+                "triggers": ["3 missed check-ins"],
+                "blocked_topics": ["weight"],
+            },
+        ),
+    ]
+    _patch_snapshot_with(monkeypatch, extras)
+
+    rs = resolve_sync(audience="athlete")
+    rules = rs.all_wellbeing_rules()
+    assert len(rules) == 2
+    triggers = {t for r in rules for t in r.triggers}
+    blocked = {t for r in rules for t in r.blocked_topics}
+    assert triggers == {"pre-match nerves", "3 missed check-ins"}
+    assert blocked == {"body-image", "weight"}
+
+
+def test_injury_rules_accumulate_and_carry_rtp_stages(monkeypatch):
+    from app.instructions.types import DirectiveType
+
+    extras = [
+        _bucketed_directive(
+            DirectiveType.INJURY_POLICY,
+            payload={
+                "name": "Hamstring strain",
+                "description": "Block sprints + max-effort lifts until pain-free.",
+                "injury_categories": ["hamstring"],
+                "blocked_categories_while_injured": ["sprints", "max_effort_lower"],
+                "rtp_stages": ["stage_1: pain-free walk", "stage_2: light jog"],
+                "requires_clinician_signoff": True,
+                "min_days_per_stage": 3,
+            },
+        ),
+        _bucketed_directive(
+            DirectiveType.INJURY_POLICY,
+            payload={
+                "name": "Generic acute injury",
+                "description": "First 48h: ice + offload.",
+                "injury_categories": ["acute_general"],
+            },
+        ),
+    ]
+    _patch_snapshot_with(monkeypatch, extras)
+
+    rs = resolve_sync(audience="athlete")
+    rules = rs.all_injury_rules()
+    assert len(rules) == 2
+    hamstring = next(r for r in rules if "hamstring" in r.injury_categories)
+    assert hamstring.requires_clinician_signoff is True
+    assert hamstring.min_days_per_stage == 3
+    assert "stage_2: light jog" in hamstring.rtp_stages
+
+
+def test_career_rules_filtered_by_audience(monkeypatch):
+    from app.instructions.types import DirectiveType
+
+    extras = [
+        _bucketed_directive(
+            DirectiveType.CAREER_POLICY,
+            audience="athlete",
+            payload={
+                "name": "Scouting visibility",
+                "description": "Recommend public profile only after U17.",
+                "guidance_topics": ["scouting"],
+                "visibility_recommendations": ["scout-visible-after-U17"],
+                "defer_to_advisor_when": ["agent contact request"],
+            },
+        ),
+        _bucketed_directive(
+            DirectiveType.CAREER_POLICY,
+            audience="parent",
+            payload={
+                "name": "Parent-side career nudges",
+                "description": "Coach the parent on agent etiquette.",
+                "guidance_topics": ["agent_etiquette"],
+            },
+        ),
+    ]
+    _patch_snapshot_with(monkeypatch, extras)
+
+    athlete = resolve_sync(audience="athlete")
+    a_rules = athlete.all_career_rules()
+    assert len(a_rules) == 1
+    assert "scouting" in a_rules[0].guidance_topics
+    assert "agent contact request" in a_rules[0].defer_to_advisor_when
+
+    # Parent-scoped rule should not leak to athlete scope.
+    assert all("agent_etiquette" not in r.guidance_topics for r in a_rules)
+
+    parent = resolve_sync(audience="parent")
+    p_rules = parent.all_career_rules()
+    assert len(p_rules) == 1
+    assert "agent_etiquette" in p_rules[0].guidance_topics
+
+
+def test_invalid_phase8_payload_skipped_not_raised(monkeypatch):
+    """Bad payload in one directive must not poison the whole snapshot."""
+    from app.instructions.types import DirectiveType
+    from datetime import datetime, timezone
+    from uuid import uuid4
+    from app.instructions import loader
+    from app.instructions.seed import build_seed_snapshot
+    from app.instructions.types import Directive, DirectiveSnapshot
+
+    snap = build_seed_snapshot()
+
+    # Bypass envelope validation: build the bad directive by directly
+    # constructing the snapshot dict so the resolver sees a malformed
+    # payload and the accessor's try/except logs + skips it.
+    good = _bucketed_directive(
+        DirectiveType.SLEEP_POLICY,
+        payload={"name": "Good rule", "description": "Sleep 9h."},
+    )
+    # Construct a directive whose payload validates at envelope time but
+    # fails when re-validated by the accessor — easiest way is to mutate
+    # after construction.
+    bad = _bucketed_directive(
+        DirectiveType.SLEEP_POLICY,
+        payload={"name": "Will-be-broken", "description": "placeholder"},
+    )
+    bad_dict = bad.model_dump()
+    bad_dict["payload"] = {"description": "missing name field"}
+    bad_reloaded = Directive.model_construct(**bad_dict)
+
+    patched = DirectiveSnapshot(
+        id=snap.id,
+        label="test-bad-payload",
+        directives=list(snap.directives) + [good, bad_reloaded],
+        directive_count=len(snap.directives) + 2,
+        schema_version=snap.schema_version,
+        is_live=True,
+        published_at=snap.published_at,
+    )
+    monkeypatch.setattr(loader, "_CACHED", patched)
+    monkeypatch.setattr(loader, "_CACHED_AT", 9999999999.0)
+
+    rs = resolve_sync(audience="athlete")
+    rules = rs.all_sleep_rules()
+    # Good rule comes through; bad one is skipped silently.
+    assert len(rules) == 1
+    assert rules[0].name == "Good rule"
+
+
 def test_resolver_athlete_scope_does_not_leak_coach_or_parent_directives(monkeypatch):
     _patch_snapshot_with_coach_parent_directives(monkeypatch)
 

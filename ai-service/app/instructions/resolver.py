@@ -39,6 +39,7 @@ from typing import Any, Dict, Iterable, List, Optional, Pattern, Sequence
 
 from app.instructions.loader import load_live_snapshot
 from app.instructions.types import (
+    CareerPolicyPayload,
     CoachDashboardPolicyPayload,
     Directive,
     DirectiveSnapshot,
@@ -46,15 +47,19 @@ from app.instructions.types import (
     EscalationPayload,
     GuardrailPhvPayload,
     IdentityPayload,
+    InjuryPolicyPayload,
     MemoryPolicyPayload,
+    NutritionPolicyPayload,
     ParentReportPolicyPayload,
     RagPolicyPayload,
     RecommendationPolicyPayload,
     ResponseShapePayload,
     RoutingClassifierPayload,
     RoutingIntentPayload,
+    SleepPolicyPayload,
     SurfacePolicyPayload,
     TonePayload,
+    WellbeingPolicyPayload,
 )
 
 logger = logging.getLogger("tomo-ai.instructions.resolver")
@@ -490,6 +495,58 @@ class ResolvedInstructionSet:
         return _GuardrailPhv(
             payload=merged_payload, compiled_blocked_patterns=tuple(compiled)
         )
+
+    # ── Phase 8: bucketed-vertical accessors ───────────────────────
+    #
+    # Each is additive — every matching rule applies. Mirrors
+    # all_escalations(): filter scope, validate, accumulate. The
+    # callers (prompt_builder guidance block, recommendation gating)
+    # iterate the list and apply each rule.
+
+    def all_sleep_rules(self) -> List[SleepPolicyPayload]:
+        out: List[SleepPolicyPayload] = []
+        for d in self._by_type(DirectiveType.SLEEP_POLICY):
+            try:
+                out.append(SleepPolicyPayload.model_validate(d.payload))
+            except Exception as exc:
+                logger.warning("[resolver] Skipping invalid sleep_policy: %s", exc)
+        return out
+
+    def all_nutrition_rules(self) -> List[NutritionPolicyPayload]:
+        out: List[NutritionPolicyPayload] = []
+        for d in self._by_type(DirectiveType.NUTRITION_POLICY):
+            try:
+                out.append(NutritionPolicyPayload.model_validate(d.payload))
+            except Exception as exc:
+                logger.warning("[resolver] Skipping invalid nutrition_policy: %s", exc)
+        return out
+
+    def all_wellbeing_rules(self) -> List[WellbeingPolicyPayload]:
+        out: List[WellbeingPolicyPayload] = []
+        for d in self._by_type(DirectiveType.WELLBEING_POLICY):
+            try:
+                out.append(WellbeingPolicyPayload.model_validate(d.payload))
+            except Exception as exc:
+                logger.warning("[resolver] Skipping invalid wellbeing_policy: %s", exc)
+        return out
+
+    def all_injury_rules(self) -> List[InjuryPolicyPayload]:
+        out: List[InjuryPolicyPayload] = []
+        for d in self._by_type(DirectiveType.INJURY_POLICY):
+            try:
+                out.append(InjuryPolicyPayload.model_validate(d.payload))
+            except Exception as exc:
+                logger.warning("[resolver] Skipping invalid injury_policy: %s", exc)
+        return out
+
+    def all_career_rules(self) -> List[CareerPolicyPayload]:
+        out: List[CareerPolicyPayload] = []
+        for d in self._by_type(DirectiveType.CAREER_POLICY):
+            try:
+                out.append(CareerPolicyPayload.model_validate(d.payload))
+            except Exception as exc:
+                logger.warning("[resolver] Skipping invalid career_policy: %s", exc)
+        return out
 
     # ── Diagnostic ──────────────────────────────────────────────────
 

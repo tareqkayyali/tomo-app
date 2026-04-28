@@ -1656,6 +1656,117 @@ def build_safety_gate_policy_block() -> str:
         return ""
 
 
+_CAREER_INTENT_KEYWORDS = ("career", "scout", "scouting", "cv", "showcase", "trial", "scholarship")
+
+
+def _wellbeing_signal_active(context: PlayerContext) -> bool:
+    rc = context.readiness_components
+    if rc is not None:
+        if rc.pain_flag:
+            return True
+        if rc.mood is not None and rc.mood < 3:
+            return True
+    se = context.snapshot_enrichment
+    if se is not None and (se.wellness_trend or "").upper() == "DECLINING":
+        return True
+    return False
+
+
+def _injury_signal_active(context: PlayerContext) -> bool:
+    se = context.snapshot_enrichment
+    if se is None:
+        return False
+    flag = (se.injury_risk_flag or "").upper()
+    return flag in ("RED", "AMBER")
+
+
+def _career_intent(intent_id: Optional[str]) -> bool:
+    if not intent_id:
+        return False
+    needle = intent_id.lower()
+    return any(kw in needle for kw in _CAREER_INTENT_KEYWORDS)
+
+
+def _format_guidance_lines(rules: list, label: str) -> list[str]:
+    """Render a stack of guidance directives as bullet prose.
+
+    Description is the canonical source. hard_stops are surfaced as
+    explicit do-not lines. applies_when is included so the model can
+    self-gate on relevance.
+    """
+    lines: list[str] = []
+    for rule in rules:
+        bullet = f"- [{label}] {rule.name}: {rule.description}"
+        lines.append(bullet)
+        if rule.applies_when:
+            lines.append(f"  applies when: {', '.join(rule.applies_when)}")
+        for hs in rule.hard_stops:
+            lines.append(f"  hard-stop: {hs}")
+    return lines
+
+
+def build_directive_guidance_block(
+    context: PlayerContext,
+    intent_id: Optional[str] = None,
+) -> str:
+    """Bucketed-vertical guidance: sleep, nutrition, wellbeing, injury, career.
+
+    - Sleep + nutrition: always emitted when published (general daily guidance).
+    - Wellbeing: emitted when mood/pain/wellness signals trigger.
+    - Injury: emitted when injury_risk_flag is RED/AMBER (gates training recs).
+    - Career: emitted when the turn's intent looks career-related.
+
+    Silent (returns "") when no rules apply — keeps the prompt lean.
+    """
+    try:
+        rules = resolve_sync(
+            audience="athlete",
+            sport=context.sport,
+            age_band=context.age_band,
+            phv_stage=None,
+        )
+    except Exception as exc:
+        logger.warning("build_directive_guidance_block: resolver failed: %s", exc)
+        return ""
+
+    body: list[str] = []
+
+    body.extend(_format_guidance_lines(rules.all_sleep_rules(), "sleep"))
+    body.extend(_format_guidance_lines(rules.all_nutrition_rules(), "nutrition"))
+
+    if _wellbeing_signal_active(context):
+        wb = rules.all_wellbeing_rules()
+        body.extend(_format_guidance_lines(wb, "wellbeing"))
+        for r in wb:
+            for topic in r.blocked_topics:
+                body.append(f"  do-not-discuss: {topic}")
+
+    if _injury_signal_active(context):
+        injuries = rules.all_injury_rules()
+        body.extend(_format_guidance_lines(injuries, "injury"))
+        for r in injuries:
+            for cat in r.blocked_categories_while_injured:
+                body.append(f"  block-while-injured: {cat}")
+            for stage in r.rtp_stages:
+                body.append(f"  rtp-stage: {stage}")
+            if r.requires_clinician_signoff:
+                body.append("  requires clinician sign-off before progression")
+
+    if _career_intent(intent_id):
+        career = rules.all_career_rules()
+        body.extend(_format_guidance_lines(career, "career"))
+        for r in career:
+            for cond in r.defer_to_advisor_when:
+                body.append(f"  defer-to-advisor: {cond}")
+
+    if not body:
+        return ""
+
+    return "\n".join(
+        ["<directive_guidance>", "Methodology guidance from PD-published rules:", *body, "</directive_guidance>"]
+    )
+
+
 def build_system_prompt(
     agent_type: str,
     context: PlayerContext,
@@ -1752,6 +1863,7 @@ def build_system_prompt(
         build_recs_block(context),               # Active recommendations
         build_wearable_status_block(context),    # WHOOP connection status
         build_safety_gate_policy_block(),        # CMS-managed safety policy
+        build_directive_guidance_block(context, intent_id),  # Phase 8: bucketed-vertical guidance
     ]
 
     # Conversation context (if provided)

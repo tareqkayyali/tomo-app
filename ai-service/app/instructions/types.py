@@ -56,6 +56,12 @@ class DirectiveType(str, Enum):
     DASHBOARD_SECTION = "dashboard_section"
     SIGNAL_DEFINITION = "signal_definition"
     PROGRAM_RULE = "program_rule"
+    # Phase 8: Bucketed verticals
+    SLEEP_POLICY = "sleep_policy"
+    NUTRITION_POLICY = "nutrition_policy"
+    WELLBEING_POLICY = "wellbeing_policy"
+    INJURY_POLICY = "injury_policy"
+    CAREER_POLICY = "career_policy"
 
 
 Audience = Literal["athlete", "coach", "parent", "all"]
@@ -496,6 +502,67 @@ class ProgramRulePayload(BaseModel):
     is_enabled: bool = True
 
 
+# ─── Phase 8: Bucketed verticals ────────────────────────────────────────
+#
+# Five additive guidance types — sleep / nutrition / wellbeing / injury /
+# career. They share a common envelope (name, description, hard_stops,
+# applies_when, ai_overridable, evidence_*). Mirrors guidanceCommonFields
+# in backend/lib/validation/admin/directiveSchemas.ts.
+
+
+class _GuidanceCommonFields(BaseModel):
+    """Shared fields for the Phase 8 bucketed-vertical guidance types."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=120)
+    description: str = Field(min_length=1, max_length=8000)
+    notes: Optional[str] = Field(default=None, max_length=4000)
+    hard_stops: List[str] = Field(default_factory=list)
+    applies_when: List[str] = Field(default_factory=list)
+    ai_overridable: bool = True
+    evidence_source: Optional[str] = Field(default=None, max_length=240)
+    evidence_grade: Optional[Literal["A", "B", "C"]] = None
+    extras: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SleepPolicyPayload(_GuidanceCommonFields):
+    recommended_sleep_hours: Optional[Tuple[float, float]] = None
+    bedtime_window_local: Optional[Tuple[str, str]] = None
+    pre_match_sleep_min_hours: Optional[float] = None
+    blue_light_cutoff_minutes_before_bed: Optional[int] = None
+
+
+class NutritionPolicyPayload(_GuidanceCommonFields):
+    blocked_categories: List[str] = Field(default_factory=list)
+    recommended_categories: List[str] = Field(default_factory=list)
+    pre_session_window_minutes: Optional[int] = None
+    post_session_window_minutes: Optional[int] = None
+    hydration_ml_per_hour: Optional[int] = None
+    dietary_patterns: List[str] = Field(default_factory=list)
+
+
+class WellbeingPolicyPayload(_GuidanceCommonFields):
+    triggers: List[str] = Field(default_factory=list)
+    response_actions: List[str] = Field(default_factory=list)
+    blocked_topics: List[str] = Field(default_factory=list)
+    reflection_prompts: List[str] = Field(default_factory=list)
+
+
+class InjuryPolicyPayload(_GuidanceCommonFields):
+    injury_categories: List[str] = Field(default_factory=list)
+    rtp_stages: List[str] = Field(default_factory=list)
+    blocked_categories_while_injured: List[str] = Field(default_factory=list)
+    requires_clinician_signoff: bool = False
+    min_days_per_stage: Optional[int] = None
+
+
+class CareerPolicyPayload(_GuidanceCommonFields):
+    guidance_topics: List[str] = Field(default_factory=list)
+    visibility_recommendations: List[str] = Field(default_factory=list)
+    defer_to_advisor_when: List[str] = Field(default_factory=list)
+
+
 # ─── Type registry ───────────────────────────────────────────────────────
 
 
@@ -527,6 +594,12 @@ DIRECTIVE_PAYLOAD_MODELS: Dict[DirectiveType, type[BaseModel]] = {
     DirectiveType.DASHBOARD_SECTION: DashboardSectionPayload,
     DirectiveType.SIGNAL_DEFINITION: SignalDefinitionPayload,
     DirectiveType.PROGRAM_RULE: ProgramRulePayload,
+    # Phase 8
+    DirectiveType.SLEEP_POLICY: SleepPolicyPayload,
+    DirectiveType.NUTRITION_POLICY: NutritionPolicyPayload,
+    DirectiveType.WELLBEING_POLICY: WellbeingPolicyPayload,
+    DirectiveType.INJURY_POLICY: InjuryPolicyPayload,
+    DirectiveType.CAREER_POLICY: CareerPolicyPayload,
 }
 
 
