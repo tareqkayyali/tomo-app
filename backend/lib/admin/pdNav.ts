@@ -9,20 +9,38 @@
  *      pre-existing query string.
  */
 
+import { BUCKETS } from "./methodologyBuckets";
+
 export interface FromTarget {
   label: string;
   href: string;
 }
 
-export const KNOWN_FROM: Record<string, FromTarget> = {
+const STATIC_FROM: Record<string, FromTarget> = {
   conflicts: { label: "Conflicts", href: "/admin/pd/instructions/conflicts" },
   snapshots: { label: "Snapshots", href: "/admin/pd/instructions/snapshots" },
   library: { label: "Methodology Library", href: "/admin/pd/instructions/library" },
   rules: { label: "Rules", href: "/admin/pd/instructions/directives" },
+  overview: { label: "Performance Director", href: "/admin/pd/instructions" },
   // Preview is special: there's no canonical preview page — the back chip
   // falls back to history.back() because the snapshot id is part of the URL
   // and isn't carried through. The chip component handles this case.
   preview: { label: "Dry-run preview", href: "" },
+};
+
+// One from-slug per bucket: bucket_<slug> resolves to /buckets/<slug>.
+// Auto-generated so adding a new bucket in methodologyBuckets.ts gets a
+// back-chip entry for free.
+const BUCKET_FROM: Record<string, FromTarget> = Object.fromEntries(
+  BUCKETS.map((b) => [
+    `bucket_${b.slug}`,
+    { label: b.label, href: `/admin/pd/instructions/buckets/${b.slug}` },
+  ]),
+);
+
+export const KNOWN_FROM: Record<string, FromTarget> = {
+  ...STATIC_FROM,
+  ...BUCKET_FROM,
 };
 
 /**

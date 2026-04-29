@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { PageGuide } from "@/components/admin/PageGuide";
@@ -241,8 +242,16 @@ function BucketCard({ status }: { status: BucketStatus }) {
         ? "border-amber-300 bg-amber-50/50"
         : "border-dashed border-muted bg-muted/20";
 
+  // The whole card is a clickable link to the bucket detail. Inner action
+  // links use stopPropagation so they don't trigger the outer navigation.
   return (
-    <div className={`rounded-lg border-2 p-4 space-y-3 transition-shadow hover:shadow-sm ${tone}`}>
+    <Link
+      href={withFrom(
+        `/admin/pd/instructions/buckets/${bucket.slug}`,
+        "overview",
+      )}
+      className={`block rounded-lg border-2 p-4 space-y-3 transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring outline-none ${tone}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-sm font-semibold">{bucket.label}</div>
@@ -286,25 +295,36 @@ function BucketCard({ status }: { status: BucketStatus }) {
       </div>
 
       <div className="flex items-center gap-2 pt-1">
-        {status.doc_total > 0 ? (
-          <Link
-            href={withFrom(
-              `/admin/pd/instructions/library?bucket=${bucket.slug}`,
-              "library",
-            )}
-            className="inline-flex h-7 items-center rounded border bg-background px-2 text-xs font-medium hover:bg-muted"
-          >
-            Open methodology
-          </Link>
-        ) : null}
-        <Link
-          href={`/admin/pd/instructions/library?bucket=${bucket.slug}&create=1`}
-          className="inline-flex h-7 items-center rounded border bg-background px-2 text-xs font-medium hover:bg-muted"
+        <span
+          aria-hidden
+          className="inline-flex h-7 items-center rounded border bg-background px-2 text-xs font-medium"
         >
-          {status.doc_total === 0 ? "+ Add methodology" : "+ New doc"}
-        </Link>
+          Open bucket →
+        </span>
+        <CardAction
+          label={status.doc_total === 0 ? "+ Add methodology" : "+ New doc"}
+          href={`/admin/pd/instructions/library?bucket=${bucket.slug}&create=1`}
+        />
       </div>
-    </div>
+    </Link>
+  );
+}
+
+/** Inner action button inside a card-wide <Link>. Avoids nested anchors. */
+function CardAction({ label, href }: { label: string; href: string }) {
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        router.push(href);
+      }}
+      className="inline-flex h-7 items-center rounded border bg-background px-2 text-xs font-medium hover:bg-muted"
+    >
+      {label}
+    </button>
   );
 }
 
