@@ -303,7 +303,7 @@ function BucketCard({ status }: { status: BucketStatus }) {
         </span>
         <CardAction
           label={status.doc_total === 0 ? "+ Add methodology" : "+ New doc"}
-          href={`/admin/pd/instructions/library?bucket=${bucket.slug}&create=1`}
+          href={`/admin/pd/instructions/library/new?bucket=${bucket.slug}`}
         />
       </div>
     </Link>

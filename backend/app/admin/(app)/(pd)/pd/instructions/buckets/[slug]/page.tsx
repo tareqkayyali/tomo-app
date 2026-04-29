@@ -263,7 +263,7 @@ export default function BucketDetailPage({
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href={`/admin/pd/instructions/library?bucket=${bucket.slug}&create=1`}
+            href={`/admin/pd/instructions/library/new?bucket=${bucket.slug}`}
             className={buttonVariants({ variant: "default", size: "sm" })}
           >
             + Add methodology
@@ -292,7 +292,7 @@ export default function BucketDetailPage({
               No methodology document in this bucket yet.
             </p>
             <Link
-              href={`/admin/pd/instructions/library?bucket=${bucket.slug}&create=1`}
+              href={`/admin/pd/instructions/library/new?bucket=${bucket.slug}`}
               className="mt-2 inline-flex h-7 items-center rounded border bg-background px-2 text-xs font-medium hover:bg-muted"
             >
               + Add the first methodology

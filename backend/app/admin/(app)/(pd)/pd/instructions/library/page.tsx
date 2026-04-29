@@ -1,29 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -33,10 +15,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageGuide } from "@/components/admin/PageGuide";
-import { FieldGuide } from "@/components/admin/FieldGuide";
 import { Breadcrumbs } from "@/components/admin/Breadcrumbs";
 import { withFrom } from "@/lib/admin/pdNav";
-import { BUCKETS, BUCKET_BY_SLUG, type BucketSlug } from "@/lib/admin/methodologyBuckets";
+import { BUCKET_BY_SLUG, type BucketSlug } from "@/lib/admin/methodologyBuckets";
 import { instructionsHelp } from "@/lib/cms-help/instructions";
 
 interface Doc {
@@ -71,28 +52,15 @@ const AUDIENCE_LABEL: Record<Doc["audience"], string> = {
 };
 
 export default function LibraryPage() {
-  const router = useRouter();
   const sp = useSearchParams();
   const filterBucket = sp.get("bucket") as BucketSlug | null;
-  const autoCreate = sp.get("create") === "1";
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
 
-  // Create dialog state
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [audience, setAudience] = useState<Doc["audience"]>("all");
-  const [sourceText, setSourceText] = useState("");
-  const [bucket, setBucket] = useState<BucketSlug | "">("");
-
-  function handleBucketChange(slug: BucketSlug | "") {
-    setBucket(slug);
-    if (slug && !sourceText.trim()) {
-      const starter = BUCKET_BY_SLUG[slug]?.starter_template;
-      if (starter) setSourceText(starter);
-    }
-  }
+  /** Build the New-document href, forwarding the current bucket filter. */
+  const newDocHref = filterBucket
+    ? `/admin/pd/instructions/library/new?bucket=${filterBucket}`
+    : "/admin/pd/instructions/library/new";
 
   async function load() {
     setLoading(true);
@@ -114,83 +82,10 @@ export default function LibraryPage() {
     load();
   }, []);
 
-  // Deep-link: /library?bucket=<slug>&create=1 opens the create dialog with
-  // the bucket pre-selected and the starter template pre-filled. Used by the
-  // overview bucket dashboard.
-  useEffect(() => {
-    if (autoCreate && filterBucket) {
-      setBucket(filterBucket);
-      const starter = BUCKET_BY_SLUG[filterBucket]?.starter_template;
-      if (starter) setSourceText(starter);
-      setOpen(true);
-      // Clear the create flag so a refresh doesn't re-open the dialog.
-      const params = new URLSearchParams(sp.toString());
-      params.delete("create");
-      router.replace(
-        `/admin/pd/instructions/library${params.toString() ? `?${params.toString()}` : ""}`,
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const visibleDocs = useMemo(() => {
     if (!filterBucket) return docs;
     return docs.filter((d) => d.bucket === filterBucket);
   }, [docs, filterBucket]);
-
-  async function handleCreate() {
-    if (!title.trim()) {
-      toast.error("Please give your document a title");
-      return;
-    }
-    if (!sourceText.trim()) {
-      toast.error("Please add some methodology text — even a paragraph is fine to start");
-      return;
-    }
-    setCreating(true);
-    try {
-      const res = await fetch("/api/v1/admin/pd/instructions/documents", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          audience,
-          bucket: bucket || null,
-          source_format: "markdown",
-          source_text: sourceText,
-          status: "draft",
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        const detailString =
-          typeof err?.detail === "string"
-            ? err.detail
-            : err?.details && typeof err.details === "object"
-              ? JSON.stringify(err.details)
-              : "";
-        const message =
-          (typeof err?.error === "string" && err.error) ||
-          detailString ||
-          `Save failed (status ${res.status})`;
-        console.error("[doc create] failed:", { status: res.status, body: err });
-        throw new Error(message);
-      }
-      const created = await res.json();
-      toast.success("Created. Opening the editor…");
-      setOpen(false);
-      setTitle("");
-      setSourceText("");
-      setAudience("all");
-      setBucket("");
-      router.push(`/admin/pd/instructions/library/${created.id}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't create document");
-    } finally {
-      setCreating(false);
-    }
-  }
 
   async function handleDelete(d: Doc) {
     if (
@@ -241,99 +136,12 @@ export default function LibraryPage() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">Your methodology documents</h2>
-        <Button onClick={() => setOpen(true)}>+ New document</Button>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>New methodology document</DialogTitle>
-              <DialogDescription>
-                Give your document a title and start writing. You can save and come back to it
-                anytime — nothing goes live until you publish.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Tomo Coaching Methodology v1"
-                />
-                <FieldGuide {...instructionsHelp.document_editor.fields!.title!} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="bucket">Bucket</Label>
-                <Select
-                  value={bucket || "__none"}
-                  onValueChange={(v) => handleBucketChange(v === "__none" ? "" : (v as BucketSlug))}
-                >
-                  <SelectTrigger id="bucket">
-                    <SelectValue placeholder="Pick a bucket (recommended)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none">
-                      No bucket (legacy free-form — parses against all rule types)
-                    </SelectItem>
-                    {BUCKETS.map((b) => (
-                      <SelectItem key={b.slug} value={b.slug}>
-                        {b.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {bucket && BUCKET_BY_SLUG[bucket as BucketSlug] && (
-                  <p className="text-xs text-muted-foreground">
-                    {BUCKET_BY_SLUG[bucket as BucketSlug].summary}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="audience">Who does this document affect?</Label>
-                <Select value={audience} onValueChange={(v) => setAudience(v as Doc["audience"])}>
-                  <SelectTrigger id="audience">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Everyone (athletes, coaches, parents)</SelectItem>
-                    <SelectItem value="athlete">Athletes only</SelectItem>
-                    <SelectItem value="coach">Coaches only</SelectItem>
-                    <SelectItem value="parent">Parents only</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FieldGuide {...instructionsHelp.document_editor.fields!.audience!} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="source_text">Your methodology</Label>
-                <Textarea
-                  id="source_text"
-                  value={sourceText}
-                  onChange={(e) => setSourceText(e.target.value)}
-                  rows={10}
-                  placeholder={`Write or paste your methodology in plain language. For example:
-
-Tomo speaks like a steady, knowledgeable coach. Never use phrases like "great effort" or "fantastic work".
-
-For athletes going through a growth spurt, never recommend max-effort lifts or depth jumps...`}
-                />
-                <FieldGuide {...instructionsHelp.document_editor.fields!.source_text!} />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)} disabled={creating}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreate} disabled={creating}>
-                {creating ? "Saving…" : "Create document"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Link
+          href={newDocHref}
+          className={buttonVariants({ variant: "default" })}
+        >
+          + New document
+        </Link>
       </div>
 
       {loading ? (
@@ -341,7 +149,7 @@ For athletes going through a growth spurt, never recommend max-effort lifts or d
       ) : visibleDocs.length === 0 ? (
         <div className="rounded-md border border-dashed p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No methodology documents yet. Click <strong>+ New document</strong> to get started.
+            No methodology documents yet. Tap <strong>+ New document</strong> above to get started.
           </p>
         </div>
       ) : (
